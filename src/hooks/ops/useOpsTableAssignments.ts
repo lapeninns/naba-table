@@ -6,7 +6,7 @@ import { toast } from 'react-hot-toast';
 import { useBookingService } from '@/contexts/ops-services';
 import { queryKeys } from '@/lib/query/keys';
 
-import type { OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
+import type { OpsBookingStatus, OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
 
 export type TableAssignmentVariables = {
   bookingId: string;
@@ -106,6 +106,37 @@ function applyUnassignOptimistic(params: {
     tableAssignments: nextGroups,
     requiresTableAssignment:
       nextGroups.length === 0 && nextStatus !== 'cancelled' && nextStatus !== 'no_show',
+  };
+}
+
+const STATUS_TO_TOTAL_KEY: Partial<
+  Record<OpsBookingStatus, keyof OpsTodayBookingsSummary['totals']>
+> = {
+  pending: 'pending',
+  confirmed: 'confirmed',
+  completed: 'completed',
+  cancelled: 'cancelled',
+  no_show: 'noShow',
+};
+
+function adjustSummaryTotalsForStatusChange(
+  totals: OpsTodayBookingsSummary['totals'],
+  previousStatus: OpsBookingStatus,
+  nextStatus: OpsBookingStatus,
+): OpsTodayBookingsSummary['totals'] {
+  if (previousStatus === nextStatus) return totals;
+
+  const previousKey = STATUS_TO_TOTAL_KEY[previousStatus];
+  const nextKey = STATUS_TO_TOTAL_KEY[nextStatus];
+
+  if (!previousKey || !nextKey) {
+    return totals;
+  }
+
+  return {
+    ...totals,
+    [previousKey]: Math.max(0, totals[previousKey] - 1),
+    [nextKey]: totals[nextKey] + 1,
   };
 }
 
@@ -266,13 +297,29 @@ export function useOpsTableAssignmentActions(params: {
 
       queryClient.setQueryData<OpsTodayBookingsSummary>(key, (current) => {
         if (!current) return current;
+        let previousStatus: OpsBookingStatus | null = null;
+        let nextStatus: OpsBookingStatus | null = null;
         return {
           ...current,
           bookings: current.bookings.map((booking) =>
             booking.id === variables.bookingId
-              ? applyUnassignOptimistic({ booking, tableId: variables.tableId })
+              ? (() => {
+                  const updated = applyUnassignOptimistic({
+                    booking,
+                    tableId: variables.tableId,
+                  });
+                  if (updated.status !== booking.status) {
+                    previousStatus = booking.status;
+                    nextStatus = updated.status;
+                  }
+                  return updated;
+                })()
               : booking,
           ),
+          totals:
+            previousStatus && nextStatus
+              ? adjustSummaryTotalsForStatusChange(current.totals, previousStatus, nextStatus)
+              : current.totals,
         };
       });
 
@@ -286,35 +333,50 @@ export function useOpsTableAssignmentActions(params: {
       toast.error(message);
     },
     onSuccess: (data, variables, context) => {
+      let summaryUpdated = false;
       if (context?.summaryKey) {
         queryClient.setQueryData<OpsTodayBookingsSummary>(context.summaryKey, (current) => {
           if (!current) return current;
+          let previousStatus: OpsBookingStatus | null = null;
+          let nextStatus: OpsBookingStatus | null = null;
           return {
             ...current,
             bookings: current.bookings.map((booking) => {
               if (booking.id !== variables.bookingId) return booking;
+              summaryUpdated = true;
               const nextAssignments = data.tableAssignments ?? [];
-              const nextStatus =
+              const updatedStatus =
                 nextAssignments.length === 0 && booking.status === 'confirmed'
                   ? 'pending'
                   : booking.status;
+              if (updatedStatus !== booking.status) {
+                previousStatus = booking.status;
+                nextStatus = updatedStatus;
+              }
               return {
                 ...booking,
-                status: nextStatus,
+                status: updatedStatus,
                 tableAssignments: nextAssignments,
                 requiresTableAssignment:
                   nextAssignments.length === 0 &&
-                  nextStatus !== 'cancelled' &&
-                  nextStatus !== 'no_show',
+                  updatedStatus !== 'cancelled' &&
+                  updatedStatus !== 'no_show',
               };
             }),
+            totals:
+              previousStatus && nextStatus
+                ? adjustSummaryTotalsForStatusChange(current.totals, previousStatus, nextStatus)
+                : current.totals,
           };
         });
       }
 
       // Cache is already updated with server response above via setQueryData.
       // Invalidate related caches (heatmap, booking details) but NOT the summary.
-      invalidateCaches({ invalidateSummary: false, refetchSummary: false });
+      invalidateCaches({
+        invalidateSummary: !summaryUpdated,
+        refetchSummary: !summaryUpdated,
+      });
       toast.success('Table unassigned');
     },
   });

@@ -1,17 +1,19 @@
 # Continuity Ledger
 
-Last updated: 2026-01-19T09:30:55Z
+Last updated: 2026-01-19T12:50:10Z
 
 ## Goal (incl. success criteria)
 
-- Refactor the table assignment algorithm per user request
-- Success: updated algorithm is clearer, matches expected behavior, and passes diagnostics/tests
+- Fix ops dashboard summary totals going stale after table unassignment status changes
+- Success: confirmed/pending totals update immediately without realtime events
 
 ## Constraints/Assumptions
 
 - Follow AGENTS.md SDLC flow and task folder requirements
-- Use todo tracking for multi-step work
+- Use task artifacts in `tasks/fix-summary-totals-20260119-1244/`
 - No commits unless explicitly requested
+- Hooks under `src/hooks` must stay focused; add tests for non-trivial hook changes
+- Tests under `tests/` should follow QA guidelines; record commands in `verification.md` when run
 
 ## Key decisions
 
@@ -19,26 +21,35 @@ Last updated: 2026-01-19T09:30:55Z
 
 ## State
 
-- Clarifying scope and locating current table assignment logic
+- Phase 3 (Implementation) complete: summary totals adjustment + fallback invalidation added
 
 ## Done
 
 - Read `CONTINUITY.md`
+- Created task folder and SDLC stubs
+- Updated table unassign cache updates to adjust summary totals
+- Read root + `src/hooks/AGENTS.md` policies
+- Read `tests/AGENTS.md` policies
+- Added Vitest hook test for summary totals on unassign
+- Ran `pnpm run test -- --filter table-assignments-summary` (suite passed) and saved log
 
 ## Now
 
-- Ask for clarification on scope and expected behavior
-- Locate table assignment algorithm in codebase
+- Ready to share results or run manual sanity check if requested
 
 ## Next
 
-- Draft refactor plan and proceed with implementation if confirmed
+- Optional manual sanity check if app is runnable
 
 ## Open questions (UNCONFIRMED if needed)
 
-- Which module/service owns the table assignment algorithm?
-- Expected behavior changes vs pure refactor?
+- None
 
 ## Working set (files/ids/commands)
 
-- `CONTINUITY.md`
+- `src/hooks/ops/useOpsTableAssignments.ts`
+- `tasks/fix-summary-totals-20260119-1244/research.md`
+- `tasks/fix-summary-totals-20260119-1244/plan.md`
+- `tasks/fix-summary-totals-20260119-1244/todo.md`
+- `tests/ops/table-assignments-summary.test.tsx`
+- `tasks/fix-summary-totals-20260119-1244/artifacts/test_output-20260119-1249.log`
