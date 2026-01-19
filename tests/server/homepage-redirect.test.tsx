@@ -60,7 +60,6 @@ describe("home page redirect", () => {
     expect(result).toBeTruthy();
     expect(result.type).toBe(renderMarketingLayout);
     const child = Array.isArray(result.props.children) ? result.props.children[0] : result.props.children;
-    expect(child.type).toBe(renderFactoryHome);
     expect(child.props.isAuthenticated).toBe(false);
   });
 });

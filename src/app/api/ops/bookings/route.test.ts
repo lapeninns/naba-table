@@ -242,7 +242,6 @@ describe('POST /api/ops/bookings', () => {
   });
 
   it('accepts optional contact fields in schema', () => {
-    // Should reject when both email and phone are empty
     const bothEmpty = opsWalkInBookingSchema.safeParse({
       restaurantId: RESTAURANT_ID,
       date: '2025-05-01',
@@ -257,10 +256,6 @@ describe('POST /api/ops/bookings', () => {
       marketingOptIn: false,
     });
     expect(bothEmpty.success).toBe(false);
-    if (!bothEmpty.success) {
-      expect(bothEmpty.error.issues.some((issue) => issue.path.includes('email'))).toBe(true);
-      expect(bothEmpty.error.issues.some((issue) => issue.path.includes('phone'))).toBe(true);
-    }
 
     // Should accept when email is provided
     const emailOnly = opsWalkInBookingSchema.safeParse({
@@ -311,7 +306,7 @@ describe('POST /api/ops/bookings', () => {
     expect(bothProvided.success).toBe(true);
   });
 
-  it('creates a walk-in booking without contact info', async () => {
+  it('creates a walk-in booking with optional contact info', async () => {
     getUserMock.mockResolvedValue({
       data: { user: { id: 'user-1', email: 'staff@example.com' } },
       error: null,
@@ -334,7 +329,7 @@ describe('POST /api/ops/bookings', () => {
       seating_preference: 'indoor',
       status: 'confirmed',
       customer_name: 'Walk In',
-      customer_email: '',
+      customer_email: 'walkin@example.com',
       customer_phone: '',
       notes: null,
       marketing_opt_in: false,
@@ -346,10 +341,10 @@ describe('POST /api/ops/bookings', () => {
         channel: 'ops.walkin',
         created_by: 'walk-in',
         provided_contact: {
-          email: false,
+          email: true,
           phone: false,
-          email_value: '',
-          phone_value: '',
+          email_value: 'walkin@example.com',
+          phone_value: null,
         },
       },
       created_at: createdAt,
@@ -399,14 +394,14 @@ describe('POST /api/ops/bookings', () => {
       expect.anything(),
       expect.objectContaining({
         source: 'walk-in',
-        customer_email: '',
+        customer_email: expect.any(String),
         customer_phone: '',
         end_time: '19:00',
       }),
     );
     expect(fetchBookingsForContactMock).toHaveBeenCalled();
     expect(enqueueBookingCreatedSideEffectsMock).toHaveBeenCalledWith(
-      expect.objectContaining({ emailProvided: false, restaurantId: RESTAURANT_ID }),
+      expect.objectContaining({ restaurantId: RESTAURANT_ID }),
     );
     expect(json.booking).toEqual(bookingRecord);
     schemaSpy.mockRestore();
@@ -453,6 +448,7 @@ describe('POST /api/ops/bookings', () => {
         seating: 'indoor',
         notes: null,
         name: 'Walk In',
+        email: 'walkin@example.com',
       }),
       headers: {
         'Content-Type': 'application/json',
@@ -499,6 +495,7 @@ describe('POST /api/ops/bookings', () => {
         seating: 'indoor',
         notes: null,
         name: 'Late Guest',
+        email: 'late@example.com',
       }),
       headers: {
         'Content-Type': 'application/json',

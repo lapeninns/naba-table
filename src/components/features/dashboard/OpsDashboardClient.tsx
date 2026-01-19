@@ -31,11 +31,11 @@ import { formatDateKey, getTodayInTimezone } from '@/lib/utils/datetime';
 import { computeCalendarRange, sanitizeDateParam } from '@/utils/ops/dashboard';
 
 import { BookingsFilterBar } from './BookingsFilterBar';
+import { ConnectionStatusBeacon } from './ConnectionStatusBeacon';
 import { DashboardErrorState } from './DashboardErrorState';
 import { DashboardSkeleton } from './DashboardSkeleton';
 import { DashboardSummaryCard } from './DashboardSummaryCard';
 import { HeatmapCalendar } from './HeatmapCalendar';
-import { RealtimeStatus } from './RealtimeStatus';
 
 import type { BookingFilter } from './BookingsFilterBar';
 import type { BookingDTO } from '@/hooks/useBookings';
@@ -355,9 +355,12 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
         >
           {/* Title Section - Always full width */}
           <div className="flex flex-col gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl lg:text-4xl">
-              Operations
-            </h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl lg:text-4xl">
+                Operations
+              </h1>
+              <ConnectionStatusBeacon />
+            </div>
             <p
               className={cn(
                 'text-sm text-muted-foreground sm:text-base transition-opacity duration-300',
@@ -387,15 +390,9 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
                   return meta ? (
                     <>
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition-all duration-200 ease-out hover:scale-105 hover:shadow-md active:scale-95 dark:bg-blue-900/30 dark:text-blue-300 motion-reduce:transition-none motion-reduce:hover:scale-100">
-                        <span className="text-blue-600 dark:text-blue-400" aria-hidden>
-                          📋
-                        </span>
                         {meta.bookings} {meta.bookings === 1 ? 'booking' : 'bookings'}
                       </span>
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-all duration-200 ease-out hover:scale-105 hover:shadow-md active:scale-95 dark:bg-emerald-900/30 dark:text-emerald-300 motion-reduce:transition-none motion-reduce:hover:scale-100">
-                        <span className="text-emerald-600 dark:text-emerald-400" aria-hidden>
-                          👥
-                        </span>
                         {meta.covers} {meta.covers === 1 ? 'cover' : 'covers'}
                       </span>
                     </>
@@ -423,7 +420,7 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
                 <button
                   type="button"
                   onClick={() => handleShiftDate(-1)}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transitionall duration-200 hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring active:scale-95 motion-reduce:active:scale-100"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-all duration-200 hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring active:scale-95 motion-reduce:active:scale-100"
                   aria-label="Previous day"
                 >
                   <ChevronLeft className="h-4 w-4" aria-hidden />
@@ -549,7 +546,6 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
           open={isDetailsOpen}
           onOpenChange={handleDetailsOpenChange}
         />
-        <RealtimeStatus />
       </div>
     </div>
   );

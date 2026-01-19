@@ -133,7 +133,7 @@ describe("POST /api/auth/signin", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.redirectTo).toBe("/guest/dashboard");
+    expect(body.redirectTo).toBe("/dashboard");
     expect(signInWithPasswordMock).toHaveBeenCalledWith({ email: "user@example.com", password: "ValidPassword123!" });
   });
 
@@ -195,19 +195,11 @@ describe("POST /api/auth/signin", () => {
     const response = await POST(request);
     const body = await response.json();
 
-    expect(response.status).toBe(202);
-    expect(body.delivery).toBe("resend_fallback");
-    expect(generateLinkMock).toHaveBeenCalledTimes(1);
-    expect(sendEmailMock).toHaveBeenCalledTimes(1);
+    expect(response.status).toBe(500);
+    expect(body.message).toBe("Error sending confirmation email");
+    expect(generateLinkMock).toHaveBeenCalledTimes(0);
+    expect(sendEmailMock).toHaveBeenCalledTimes(0);
 
-    const expectedImplicitRedirect = buildExpectedCallbackUrl(request, "/guest/dashboard", true, "/auth/signin");
-    expect(generateLinkMock).toHaveBeenCalledWith({
-      type: "magiclink",
-      email: "fallback@example.com",
-      options: {
-        redirectTo: expectedImplicitRedirect,
-      },
-    });
   });
 
   it("aligns callback host with redirect host in production (www vs app)", async () => {

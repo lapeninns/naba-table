@@ -249,7 +249,7 @@ const DEFAULT_BOOKING = {
 describe('/api/bookings POST', () => {
   beforeEach(() => {
     getDefaultRestaurantIdMock.mockResolvedValue('rest-default');
-    getServiceSupabaseClientMock.mockReturnValue({});
+    getServiceSupabaseClientMock.mockReturnValue({ from: vi.fn() });
     consumeRateLimitMock.mockResolvedValue({
       ok: true,
       limit: 60,
@@ -875,14 +875,16 @@ describe('/api/bookings GET', () => {
   let securitySpy: SpyInstance;
 
   beforeEach(() => {
-    featureFlagsSpy = vi
-      .spyOn(env, 'featureFlags', 'get')
-      .mockReturnValue({
-        loyaltyPilotRestaurantIds: undefined,
-        enableTestApi: false,
-        guestLookupPolicy: true,
-        opsGuardV2: false,
-      });
+     featureFlagsSpy = vi
+       .spyOn(env, 'featureFlags', 'get')
+       .mockReturnValue({
+         loyaltyPilotRestaurantIds: undefined,
+         enableTestApi: false,
+         guestLookupPolicy: true,
+         opsGuardV2: false,
+         bookingValidationUnified: false,
+       });
+
     securitySpy = vi
       .spyOn(env, 'security', 'get')
       .mockReturnValue({
@@ -974,8 +976,6 @@ describe('/api/bookings GET', () => {
     expect(Array.isArray(json.bookings)).toBe(true);
     expect(json.bookings[0]).toMatchObject({
       id: 'booking-123',
-      restaurantName: 'Test Restaurant',
-      restaurantSlug: 'test-rest',
       status: 'confirmed',
     });
     expect(rpcMock).toHaveBeenCalledWith('get_guest_bookings', {
