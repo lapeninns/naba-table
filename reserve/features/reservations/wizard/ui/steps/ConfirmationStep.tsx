@@ -1,22 +1,18 @@
 'use client';
 
-import { AlertTriangle, CheckCircle2, Info, XCircle } from 'lucide-react';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { CheckCircle2, Info, AlertTriangle, XCircle } from 'lucide-react';
+import React, { useMemo } from 'react';
 
 import { useConfirmationStep } from '@features/reservations/wizard/hooks/useConfirmationStep';
 import { Alert, AlertDescription, AlertIcon } from '@shared/ui/alert';
 import { Button } from '@shared/ui/button';
 
 import { useWizardNavigation } from '../../context/WizardContext';
+import { BookingConfirmationActions } from '../BookingConfirmationActions';
 import { StepErrorBoundary } from '../ErrorBoundary';
 import { WizardStep } from '../WizardStep';
 
 import type { ConfirmationStepProps } from './confirmation-step/types';
-
-const STATUS_ICON_MAP = {
-  confirmed: { Icon: CheckCircle2, className: 'text-emerald-500' },
-  updated: { Icon: CheckCircle2, className: 'text-emerald-500' },
-} as const;
 
 const FEEDBACK_ICON_MAP = {
   success: CheckCircle2,
@@ -25,74 +21,15 @@ const FEEDBACK_ICON_MAP = {
   info: Info,
 } as const;
 
-const AUTO_REDIRECT_SECONDS = 15;
-
 export function ConfirmationStep(props: ConfirmationStepProps) {
   const controller = useConfirmationStep(props);
-  const { status, handleClose } = controller;
+  const { status, reservationWindow } = controller;
   const { goToStep } = useWizardNavigation();
-
-  const { Icon: StatusIcon, className: statusIconClass } =
-    controller.status === 'pending'
-      ? { Icon: Info, className: 'text-blue-600' }
-      : STATUS_ICON_MAP[controller.status];
 
   const FeedbackIcon = useMemo(() => {
     if (!controller.feedback) return null;
     return FEEDBACK_ICON_MAP[controller.feedback.variant];
   }, [controller.feedback]);
-
-  const [autoRedirectEnabled, setAutoRedirectEnabled] = useState(() => {
-    if (typeof window === 'undefined') {
-      return true;
-    }
-    return sessionStorage.getItem('autoRedirectEnabled') !== 'false';
-  });
-  const [redirectIn, setRedirectIn] = useState<number | null>(null);
-  const [redirectCanceled, setRedirectCanceled] = useState(() => {
-    if (typeof window === 'undefined') {
-      return false;
-    }
-    return sessionStorage.getItem('autoRedirectEnabled') === 'false';
-  });
-
-  const handleCancelRedirect = useCallback(() => {
-    setAutoRedirectEnabled(false);
-    setRedirectCanceled(true);
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem('autoRedirectEnabled', 'false');
-    }
-  }, []);
-
-  useEffect(() => {
-    if (status !== 'pending' || !autoRedirectEnabled) {
-      setRedirectIn(null);
-      return;
-    }
-
-    setRedirectCanceled(false);
-    setRedirectIn(AUTO_REDIRECT_SECONDS);
-
-    const interval = window.setInterval(() => {
-      setRedirectIn((prev) => {
-        if (prev === null || prev <= 0) {
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    const timeout = window.setTimeout(() => {
-      if (autoRedirectEnabled) {
-        handleClose();
-      }
-    }, AUTO_REDIRECT_SECONDS * 1000);
-
-    return () => {
-      clearInterval(interval);
-      clearTimeout(timeout);
-    };
-  }, [status, autoRedirectEnabled, handleClose]);
 
   return (
     <StepErrorBoundary
@@ -105,123 +42,111 @@ export function ConfirmationStep(props: ConfirmationStepProps) {
         step={4}
         title={controller.heading}
         description={controller.description}
-        icon={<StatusIcon className={`h-6 w-6 ${statusIconClass}`} aria-hidden />}
+        icon={
+          status === 'confirmed' || status === 'updated' ? (
+            <CheckCircle2 className="h-6 w-6 text-emerald-500" />
+          ) : (
+            <Info className="h-6 w-6 text-blue-500" />
+          )
+        }
         contentClassName="space-y-6"
       >
-        {controller.status === 'pending' ? (
-          <div className="space-y-3" aria-live="polite">
-            <p className="text-xs text-muted-foreground">
-              It’s okay to leave this screen. We’ll send the confirmation via email.
-            </p>
-            {autoRedirectEnabled && !redirectCanceled ? (
-              <>
-                <div className="relative h-1.5 w-full overflow-hidden rounded bg-muted/50">
-                  <div
-                    className="h-full bg-blue-600 transition-[width] duration-1000 ease-linear"
-                    style={{
-                      width: `${
-                        ((AUTO_REDIRECT_SECONDS - (redirectIn ?? AUTO_REDIRECT_SECONDS)) /
-                          AUTO_REDIRECT_SECONDS) *
-                        100
-                      }%`,
-                    }}
-                    role="progressbar"
-                    aria-label="Auto-redirect progress"
-                    aria-valuemin={0}
-                    aria-valuemax={AUTO_REDIRECT_SECONDS}
-                    aria-valuenow={AUTO_REDIRECT_SECONDS - (redirectIn ?? AUTO_REDIRECT_SECONDS)}
-                  />
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-xs text-muted-foreground">
-                    Redirecting to summary in{' '}
-                    <strong>{redirectIn ?? AUTO_REDIRECT_SECONDS}s</strong>
-                  </p>
+        <div className="space-y-6">
+          {/* Status Banner - REMOVED redundant GuestStatus, using WizardStep header instead */}
+
+          {/* Actions Bar (Add to Calendar, Directions) */}
+          {status !== 'pending' && reservationWindow && (
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-700 delay-200">
+              <BookingConfirmationActions
+                restaurantName={controller.venue.name}
+                restaurantAddress={controller.venue.address}
+                date={reservationWindow.start}
+                partySize={controller.booking?.party_size ?? controller.details.party}
+                bookingRef={controller.reference}
+                onDownloadIcs={controller.handleAddToCalendar}
+              />
+            </div>
+          )}
+
+          {/* Feedback Alert - Only show if transient/error or if unrelated to main status */}
+          {controller.feedback &&
+            (controller.feedback.variant !== 'success' || !status.match(/confirmed|updated/)) && (
+              <Alert
+                variant={
+                  controller.feedback.variant === 'error'
+                    ? 'destructive'
+                    : controller.feedback.variant === 'warning'
+                      ? 'warning'
+                      : controller.feedback.variant === 'success'
+                        ? 'success'
+                        : 'info'
+                }
+                className="animate-fade-in"
+              >
+                <AlertIcon>
+                  {FeedbackIcon ? <FeedbackIcon className="h-4 w-4" aria-hidden /> : null}
+                </AlertIcon>
+                <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <AlertDescription>{controller.feedback.message}</AlertDescription>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={handleCancelRedirect}
-                    className="h-7 text-xs"
+                    onClick={controller.dismissFeedback}
+                    className="self-end sm:self-auto"
                   >
-                    Cancel redirect
+                    Dismiss
                   </Button>
                 </div>
-                <div className="sr-only" role="status" aria-live="polite">
-                  Automatically redirecting in {redirectIn ?? AUTO_REDIRECT_SECONDS} seconds. Press
-                  cancel redirect to stay on this page.
-                </div>
-              </>
-            ) : redirectCanceled ? (
-              <Alert variant="info" className="border border-dashed">
-                <AlertIcon>
-                  <Info className="h-4 w-4" aria-hidden />
-                </AlertIcon>
-                <AlertDescription>
-                  Auto-redirect canceled. You can close this manually when ready.
-                </AlertDescription>
               </Alert>
-            ) : null}
+            )}
+
+          {/* Reservation Details Card */}
+          <div className="rounded-xl border border-border bg-card p-5 shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300">
+            <dl className="grid gap-6 sm:grid-cols-2">
+              <div>
+                <dt className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
+                  Reference
+                </dt>
+                <dd className="mt-1 text-lg font-mono font-semibold text-foreground tracking-tight">
+                  {controller.reference}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
+                  Guest
+                </dt>
+                <dd className="mt-1 text-base font-semibold text-foreground">
+                  {controller.guestName}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
+                  When
+                </dt>
+                <dd className="mt-1 text-base font-medium text-foreground">
+                  {controller.summaryDate}
+                  <span className="block text-sm text-muted-foreground">
+                    {controller.summaryTime}
+                  </span>
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
+                  Size
+                </dt>
+                <dd className="mt-1 text-base font-medium text-foreground">
+                  {controller.partyText}
+                </dd>
+              </div>
+            </dl>
           </div>
-        ) : null}
-        <p className="sr-only" aria-live="polite">
-          {controller.status === 'pending'
-            ? 'Reservation is being confirmed. Please wait.'
-            : `Reference ${controller.reference}. Reservation for ${controller.partyText} at ${controller.summaryTime} on ${controller.summaryDate}.`}
-        </p>
-        {controller.feedback ? (
-          <Alert
-            variant={
-              controller.feedback.variant === 'error'
-                ? 'destructive'
-                : controller.feedback.variant === 'warning'
-                  ? 'warning'
-                  : controller.feedback.variant === 'success'
-                    ? 'success'
-                    : 'info'
-            }
-            role={controller.feedback.variant === 'error' ? 'alert' : 'status'}
-            className="items-start gap-3"
-          >
-            <AlertIcon>
-              {FeedbackIcon ? <FeedbackIcon className="h-4 w-4" aria-hidden /> : null}
-            </AlertIcon>
-            <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <AlertDescription>{controller.feedback.message}</AlertDescription>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={controller.dismissFeedback}
-                disabled={controller.isLoading}
-                className="self-end sm:self-auto"
-              >
-                Dismiss
-              </Button>
-            </div>
-          </Alert>
-        ) : null}
-        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <dl className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <dt className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                Reference
-              </dt>
-              <dd className="text-sm font-semibold text-foreground">{controller.reference}</dd>
-            </div>
-            <div>
-              <dt className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Guest</dt>
-              <dd className="text-sm font-semibold text-foreground">{controller.guestName}</dd>
-            </div>
-            <div>
-              <dt className="text-xs uppercase tracking-[0.18em] text-muted-foreground">When</dt>
-              <dd className="text-sm font-medium text-foreground">
-                {controller.summaryDate} at {controller.summaryTime}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Guests</dt>
-              <dd className="text-sm font-medium text-foreground">{controller.partyText}</dd>
-            </div>
-          </dl>
+
+          {/* Links / Info */}
+          {status !== 'pending' && (
+            <p className="text-center text-xs text-muted-foreground pt-4">
+              Need to make changes? You can manage your booking via the link sent to your email.
+            </p>
+          )}
         </div>
       </WizardStep>
     </StepErrorBoundary>

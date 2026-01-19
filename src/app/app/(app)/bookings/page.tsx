@@ -1,10 +1,7 @@
-import { redirect } from "next/navigation";
-
 import { BookingErrorBoundary } from "@/components/features/booking-state-machine";
-import { OpsBookingsClient } from "@/components/features/bookings";
+import { OpsBookingsClient } from "@/components/features/bookings/OpsBookingsClient";
 import { BookingOfflineQueueProvider } from "@/contexts/booking-offline-queue";
-import { withRedirectedFrom } from "@/lib/url/withRedirectedFrom";
-import { getServerComponentSupabaseClient } from "@/server/supabase";
+import { DEFAULT_OPS_BOOKINGS_WINDOW_MINUTES, sanitizeTimeParam } from "@/utils/ops/bookings";
 import { sanitizeDateParam } from "@/utils/ops/dashboard";
 
 import type { OpsStatusFilter } from "@/hooks";
@@ -25,6 +22,11 @@ type OpsBookingsSearchParams = {
   query?: string;
   statuses?: string;
   date?: string;
+  tableId?: string;
+  tableLabel?: string;
+  time?: string;
+  windowMode?: string;
+  windowMinutes?: string;
 };
 
 const VALID_FILTERS: OpsStatusFilter[] = [
@@ -33,11 +35,6 @@ const VALID_FILTERS: OpsStatusFilter[] = [
   "past",
   "cancelled",
   "recent",
-  "pending",
-  "pending_allocation",
-  "confirmed",
-  "completed",
-  "no_show",
 ];
 
 const VALID_STATUSES: OpsBookingStatus[] = [
@@ -67,26 +64,32 @@ function parseStatuses(raw: string | undefined): OpsBookingStatus[] {
   return Array.from(valid);
 }
 
+function parseWindowMode(raw: string | undefined, fallback: "day" | "window"): "day" | "window" {
+  if (raw === "day" || raw === "window") return raw;
+  return fallback;
+}
+
+function parseWindowMinutes(raw: string | undefined): number | null {
+  if (!raw) return null;
+  const parsed = Number.parseInt(raw, 10);
+  if (Number.isNaN(parsed)) return null;
+  if (parsed < 15 || parsed > 240) return null;
+  return parsed;
+}
+
+function parseTableId(raw: string | undefined): string | null {
+  if (!raw) return null;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(raw)
+    ? raw
+    : null;
+}
+
 export default async function OpsBookingsPage({
   searchParams,
 }: {
   searchParams?: Promise<OpsBookingsSearchParams>;
 }) {
   const resolvedParams = (await searchParams) ?? {};
-
-  const supabase = await getServerComponentSupabaseClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-
-  if (error) {
-    console.error("[ops/bookings] failed to resolve auth", error.message);
-  }
-
-  if (!user) {
-    redirect(withRedirectedFrom("/auth/signin", "/app/bookings"));
-  }
 
   const initialFilter = parseStatusFilter(resolvedParams.filter ?? resolvedParams.status);
   const parsedPage = resolvedParams.page ? Number.parseInt(resolvedParams.page, 10) : NaN;
@@ -96,21 +99,31 @@ export default async function OpsBookingsPage({
   const initialQuery = rawQuery.length > 0 ? rawQuery : null;
   const initialStatuses = parseStatuses(resolvedParams.statuses);
   const initialDate = sanitizeDateParam(resolvedParams.date);
+  const initialTableId = parseTableId(resolvedParams.tableId);
+  const initialTableLabel = resolvedParams.tableLabel?.trim() || null;
+  const initialTime = sanitizeTimeParam(resolvedParams.time);
+  const fallbackMode = initialTableId && initialTime ? "window" : "day";
+  const initialWindowMode = parseWindowMode(resolvedParams.windowMode, fallbackMode);
+  const initialWindowMinutes =
+    parseWindowMinutes(resolvedParams.windowMinutes) ?? DEFAULT_OPS_BOOKINGS_WINDOW_MINUTES;
 
   return (
-    <div className="mx-auto flex w-full max-w-[80vw] flex-col gap-8 px-3 py-6 sm:px-4 lg:px-6">
-      <BookingErrorBoundary>
-        <BookingOfflineQueueProvider>
-          <OpsBookingsClient
-            initialFilter={initialFilter}
-            initialPage={initialPage}
-            initialRestaurantId={initialRestaurantId}
-            initialQuery={initialQuery}
-            initialStatuses={initialStatuses}
-            initialDate={initialDate}
-          />
-        </BookingOfflineQueueProvider>
-      </BookingErrorBoundary>
-    </div>
+    <BookingErrorBoundary>
+      <BookingOfflineQueueProvider>
+        <OpsBookingsClient
+          initialFilter={initialFilter}
+          initialPage={initialPage}
+          initialRestaurantId={initialRestaurantId}
+          initialQuery={initialQuery}
+          initialStatuses={initialStatuses}
+          initialDate={initialDate}
+          initialTableId={initialTableId}
+          initialTableLabel={initialTableLabel}
+          initialTime={initialTime}
+          initialWindowMode={initialWindowMode}
+          initialWindowMinutes={initialWindowMinutes}
+        />
+      </BookingOfflineQueueProvider>
+    </BookingErrorBoundary>
   );
 }

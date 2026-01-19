@@ -1,7 +1,6 @@
 'use client';
 
 import { Loader2 } from 'lucide-react';
-import dynamic from 'next/dynamic';
 import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
@@ -16,18 +15,15 @@ import { ConfirmationStep } from './steps/ConfirmationStep';
 import { WizardContainer } from './WizardContainer';
 import { WizardOfflineBanner } from './WizardOfflineBanner';
 import { DetailsStepSkeleton, PlanStepSkeleton, ReviewStepSkeleton } from './WizardSkeletons';
-
-const PlanStep = dynamic(() => import('./steps/PlanStep').then((m) => m.PlanStep), {
-  loading: () => <PlanStepSkeleton />,
-});
-
-const DetailsStep = dynamic(() => import('./steps/DetailsStep').then((m) => m.DetailsStep), {
-  loading: () => <DetailsStepSkeleton />,
-});
-
-const ReviewStep = dynamic(() => import('./steps/ReviewStep').then((m) => m.ReviewStep), {
-  loading: () => <ReviewStepSkeleton />,
-});
+const PlanStep = React.lazy(() =>
+  import('./steps/PlanStep').then((m) => ({ default: m.PlanStep })),
+);
+const DetailsStep = React.lazy(() =>
+  import('./steps/DetailsStep').then((m) => ({ default: m.DetailsStep })),
+);
+const ReviewStep = React.lazy(() =>
+  import('./steps/ReviewStep').then((m) => ({ default: m.ReviewStep })),
+);
 
 import type { BookingDetails, BookingWizardMode } from '../model/reducer';
 import type { CalendarMask } from '@reserve/features/reservations/wizard/services/schedule';
@@ -84,8 +80,7 @@ function BookingWizardContent({
   } = useReservationWizard(initialDetails, mode, { returnPath });
   const { analytics } = useWizardDependencies();
   const { user, status: sessionStatus } = useSupabaseSession();
-  const isSessionReady = sessionStatus === 'ready';
-  const isAuthenticated = isSessionReady && Boolean(user);
+  const isAuthenticated = sessionStatus === 'authenticated' && Boolean(user);
   const shouldLockContacts = isAuthenticated && mode !== 'ops';
   const { data: profile } = useProfile({ enabled: shouldLockContacts });
 
@@ -96,6 +91,11 @@ function BookingWizardContent({
   const lockedName = shouldLockContacts ? (profile?.name ?? fallbackName ?? '').trim() : '';
   const lockedEmail = shouldLockContacts ? (profile?.email ?? user?.email ?? '').trim() : '';
   const lockedPhone = shouldLockContacts ? (profile?.phone ?? '').trim() : '';
+
+  useEffect(() => {
+    void import('./steps/DetailsStep');
+    void import('./steps/ReviewStep');
+  }, []);
 
   useEffect(() => {
     if (!shouldLockContacts) {
@@ -228,25 +228,33 @@ function BookingWizardContent({
     switch (state.step) {
       case 1:
         return (
-          <PlanStep
-            onActionsChange={handleActionsChange}
-            onTrack={analytics.track}
-            planAlert={
-              planAlert ?? (isOffline ? 'Reconnect to confirm; edits are saved locally.' : null)
-            }
-            initialCalendarMask={initialCalendarMask}
-          />
+          <Suspense fallback={<PlanStepSkeleton />}>
+            <PlanStep
+              onActionsChange={handleActionsChange}
+              onTrack={analytics.track}
+              planAlert={
+                planAlert ?? (isOffline ? 'Reconnect to confirm; edits are saved locally.' : null)
+              }
+              initialCalendarMask={initialCalendarMask}
+            />
+          </Suspense>
         );
       case 2:
         return (
-          <DetailsStep
-            onActionsChange={handleActionsChange}
-            contactLocks={contactLocks}
-            mode={mode}
-          />
+          <Suspense fallback={<DetailsStepSkeleton />}>
+            <DetailsStep
+              onActionsChange={handleActionsChange}
+              contactLocks={contactLocks}
+              mode={mode}
+            />
+          </Suspense>
         );
       case 3:
-        return <ReviewStep onConfirm={handleConfirm} onActionsChange={handleActionsChange} />;
+        return (
+          <Suspense fallback={<ReviewStepSkeleton />}>
+            <ReviewStep onConfirm={handleConfirm} onActionsChange={handleActionsChange} />
+          </Suspense>
+        );
       case 4:
         return (
           <ConfirmationStep
@@ -271,6 +279,7 @@ function BookingWizardContent({
         stickyHeight={stickyHeight}
         stickyVisible={stickyVisible}
         onStickyHeightChange={handleStickyHeightChange}
+        restaurantName={state.details.restaurantName || undefined}
         banner={banner}
         layoutElement={layoutElement}
         navigationClassName={navigationClassName}

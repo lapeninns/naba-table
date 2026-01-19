@@ -6,7 +6,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { ensureAllowedCapacity, fetchTableById, updateTable as updateTableRecord, deleteTable as deleteTableRecord } from "@/server/ops/tables";
+import { fetchTableById, updateTable as updateTableRecord, deleteTable as deleteTableRecord } from "@/server/ops/tables";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 
 import type { TablesUpdate } from "@/types/supabase";
@@ -192,15 +192,6 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
 
     if (Object.keys(updatePayload).length === 0 && !maintenanceRange) {
       return NextResponse.json({ message: "No changes supplied" });
-    }
-
-    try {
-      if (updates.capacity !== undefined && updates.capacity !== existingTable.capacity) {
-        await ensureAllowedCapacity(supabase, existingTable.restaurant_id, updates.capacity);
-      }
-    } catch (capacityError) {
-      console.error("[ops/tables/[id]][PATCH] Capacity ensure failed", { error: capacityError, tableId });
-      return NextResponse.json({ error: "Failed to prepare capacity configuration" }, { status: 500 });
     }
 
     let updatedTable;

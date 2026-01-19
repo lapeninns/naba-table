@@ -2,11 +2,12 @@
 
 import { QueryClient, QueryClientProvider, type DefaultOptions } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
-import { configureQueryPersistence } from '@/lib/query/persist';
+import { SupabaseSessionProvider, useSupabaseSession } from '@/hooks/useSupabaseSession';
+import { useClientErrorReporter } from '@/lib/monitoring/clientReporter';
+import { buildQueryStorageKey, clearPersistedQueryCache, configureQueryPersistence } from '@/lib/query/persist';
 import { getQueryGcTime, getQueryStaleTime } from '@/lib/query/staleTimes';
-import { getSupabaseBrowserClient } from '@/lib/supabase/browser';
 
 import type { Session } from '@supabase/supabase-js';
 
@@ -39,25 +40,42 @@ type AppProvidersProps = {
   initialSession?: Session | null;
 };
 
-export function AppProviders({ children, initialSession }: AppProvidersProps) {
+function QueryLayer({ children }: { children: ReactNode }) {
+  const { user } = useSupabaseSession();
+  useClientErrorReporter();
   const [queryClient] = useState(() => new QueryClient({ defaultOptions }));
-  useEffect(() => configureQueryPersistence(queryClient), [queryClient]);
+  const persistenceCleanupRef = useRef<(() => void) | null>(null);
+  const storageKeyRef = useRef<string>(buildQueryStorageKey(user?.id ?? null));
 
+  // Configure per-user query persistence and clear cache on auth changes
   useEffect(() => {
-    if (!initialSession) return;
+    const nextKey = buildQueryStorageKey(user?.id ?? null);
+    const prevKey = storageKeyRef.current;
+    const keyChanged = nextKey !== prevKey;
 
-    const supabase = getSupabaseBrowserClient();
+    if (keyChanged || !persistenceCleanupRef.current) {
+      persistenceCleanupRef.current?.();
 
-    // Hydrate the browser client with the server-issued session so client hooks render as authenticated
-    supabase.auth
-      .setSession({
-        access_token: initialSession.access_token,
-        refresh_token: initialSession.refresh_token,
-      })
-      .catch((error) => {
-        console.error('[AppProviders] failed to hydrate Supabase session', error);
-      });
-  }, [initialSession]);
+      if (keyChanged) {
+        queryClient.clear();
+        clearPersistedQueryCache(prevKey);
+      }
+
+      persistenceCleanupRef.current = configureQueryPersistence(queryClient, { storageKey: nextKey });
+      storageKeyRef.current = nextKey;
+    }
+
+    return () => {
+      // cleanup happens on unmount via outer effect below
+    };
+  }, [queryClient, user?.id]);
+
+  useEffect(
+    () => () => {
+      persistenceCleanupRef.current?.();
+    },
+    [],
+  );
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -66,5 +84,13 @@ export function AppProviders({ children, initialSession }: AppProvidersProps) {
         <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />
       ) : null}
     </QueryClientProvider>
+  );
+}
+
+export function AppProviders({ children, initialSession }: AppProvidersProps) {
+  return (
+    <SupabaseSessionProvider initialSession={initialSession}>
+      <QueryLayer>{children}</QueryLayer>
+    </SupabaseSessionProvider>
   );
 }

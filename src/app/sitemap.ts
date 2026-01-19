@@ -5,7 +5,7 @@ const baseUrl =
   process.env.SITE_URL ||
   "https://shipfa.st";
 
-const guestRoutes = ["/", "/browse", "/restaurant", "/signin", "/reserve", "/guest/thank-you"];
+const guestRoutes = ["/", "/restaurants", "/auth/signin", "/guest/bookings", "/guest/thank-you"];
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const normalizedBase = baseUrl.replace(/\/+$/, "");

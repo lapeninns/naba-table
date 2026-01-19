@@ -107,6 +107,7 @@ export type OpsBookingHeatmap = Record<
 
 export type OpsBookingsFilters = {
   restaurantId: string;
+  tableId?: string | null;
   page?: number;
   pageSize?: number;
   status?: OpsBookingStatus | 'all';

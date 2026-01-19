@@ -29,6 +29,7 @@ export type UpdateRestaurantInput = {
   reservationIntervalMinutes?: number;
   reservationDefaultDurationMinutes?: number;
   reservationLastSeatingBufferMinutes?: number;
+  reservationLifecycleGraceMinutes?: number;
 };
 
 export type UpdatedRestaurant = {
@@ -50,6 +51,7 @@ export type UpdatedRestaurant = {
   reservationIntervalMinutes: number;
   reservationDefaultDurationMinutes: number;
   reservationLastSeatingBufferMinutes: number;
+  reservationLifecycleGraceMinutes: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -151,6 +153,14 @@ export async function updateRestaurant(
     updateData.reservation_last_seating_buffer_minutes = value;
   }
 
+  if (input.reservationLifecycleGraceMinutes !== undefined) {
+    const value = input.reservationLifecycleGraceMinutes;
+    if (!Number.isInteger(value) || value < 0 || value > 120) {
+      throw new Error('Lifecycle grace period must be an integer between 0 and 120 minutes.');
+    }
+    updateData.reservation_lifecycle_grace_minutes = value;
+  }
+
   if (input.emailSendReminder24h !== undefined) {
     updateData.email_send_reminder_24h = input.emailSendReminder24h;
   }
@@ -209,6 +219,7 @@ export async function updateRestaurant(
     reservationIntervalMinutes: data.reservation_interval_minutes,
     reservationDefaultDurationMinutes: data.reservation_default_duration_minutes,
     reservationLastSeatingBufferMinutes: data.reservation_last_seating_buffer_minutes,
+    reservationLifecycleGraceMinutes: data.reservation_lifecycle_grace_minutes,
     createdAt: data.created_at,
     updatedAt: data.updated_at,
   };

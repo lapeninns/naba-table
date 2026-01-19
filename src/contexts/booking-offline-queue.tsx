@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import useOnlineStatus from "@/hooks/useOnlineStatus";
 
@@ -42,7 +42,7 @@ export function BookingOfflineQueueProvider({ children }: { children: ReactNode 
     queueRef.current = pending;
   }, [pending]);
 
-  const enqueue: BookingOfflineQueueContextValue["enqueue"] = (action) => {
+  const enqueue: BookingOfflineQueueContextValue["enqueue"] = useCallback((action) => {
     const entry: QueuedAction = {
       ...action,
       id: generateId(),
@@ -54,27 +54,27 @@ export function BookingOfflineQueueProvider({ children }: { children: ReactNode 
       return next;
     });
     return entry.id;
-  };
+  }, []);
 
-  const dequeue: BookingOfflineQueueContextValue["dequeue"] = (id) => {
+  const dequeue: BookingOfflineQueueContextValue["dequeue"] = useCallback((id) => {
     setPending((previous) => {
       const next = previous.filter((entry) => entry.id !== id);
       queueRef.current = next;
       return next;
     });
-  };
+  }, []);
 
-  const isQueued: BookingOfflineQueueContextValue["isQueued"] = (bookingId) => {
+  const isQueued: BookingOfflineQueueContextValue["isQueued"] = useCallback((bookingId) => {
     if (!bookingId) return false;
     return pending.some((entry) => entry.bookingId === bookingId);
-  };
+  }, [pending]);
 
-  const getPendingAction: BookingOfflineQueueContextValue["getPendingAction"] = (bookingId) => {
+  const getPendingAction: BookingOfflineQueueContextValue["getPendingAction"] = useCallback((bookingId) => {
     if (!bookingId) return null;
     return pending.find((entry) => entry.bookingId === bookingId) ?? null;
-  };
+  }, [pending]);
 
-  const flushQueue = async () => {
+  const flushQueue = useCallback(async () => {
     if (isOnline && queueRef.current.length === 0) {
       return;
     }
@@ -104,14 +104,13 @@ export function BookingOfflineQueueProvider({ children }: { children: ReactNode 
     } finally {
       flushingRef.current = false;
     }
-  };
+  }, [isOnline]);
 
   useEffect(() => {
     if (isOnline) {
       void flushQueue();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOnline]);
+  }, [flushQueue, isOnline]);
 
   const value = useMemo<BookingOfflineQueueContextValue>(
     () => ({
@@ -123,7 +122,7 @@ export function BookingOfflineQueueProvider({ children }: { children: ReactNode 
       flush: flushQueue,
       getPendingAction,
     }),
-    [enqueue, flushQueue, getPendingAction, isOnline, isQueued, pending],
+    [dequeue, enqueue, flushQueue, getPendingAction, isOnline, isQueued, pending],
   );
 
   return <BookingOfflineQueueContext.Provider value={value}>{children}</BookingOfflineQueueContext.Provider>;

@@ -34,12 +34,8 @@ const resolveOrigin = (requestHeaders: Headers): string => {
   return process.env.NEXT_PUBLIC_SITE_URL ?? getCanonicalSiteUrl();
 };
 
-async function prefetchReservation(
-  queryClient: QueryClient,
-  reservationId: string,
-) {
-  const requestHeaders = await headers();
-  const cookieStore = await cookies();
+async function prefetchReservation(queryClient: QueryClient, reservationId: string) {
+  const [requestHeaders, cookieStore] = await Promise.all([headers(), cookies()]);
   const cookieHeader = cookieHeaderFromStore(cookieStore);
   const origin = resolveOrigin(requestHeaders);
 
@@ -106,11 +102,8 @@ export default async function BookingDetailPage({
   }
 
   const supabase = await getServerComponentSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const cookieStore = await cookies();
+  const [userResponse, cookieStore] = await Promise.all([supabase.auth.getUser(), cookies()]);
+  const user = userResponse.data.user;
   const hasRecoveryCookie = Boolean(cookieStore.get('sr_access')?.value);
 
   if (!user && !hasRecoveryCookie) {

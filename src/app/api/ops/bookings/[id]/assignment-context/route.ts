@@ -4,9 +4,9 @@ import { NextResponse } from "next/server";
 import { getVenuePolicy } from "@/server/capacity/policy";
 import { buildBusyMaps, extractConflictsForTables } from "@/server/capacity/table-assignment/availability";
 import { computeBookingWindowWithFallback } from "@/server/capacity/table-assignment/booking-window";
+import { cleanupOrphanedAssignments } from "@/server/capacity/table-assignment/direct-assignment";
 import { toIsoUtc } from "@/server/capacity/table-assignment/utils";
 import { getServiceSupabaseClient, getTenantServiceSupabaseClient } from "@/server/supabase";
-
 
 import type { NextRequest } from "next/server";
 
@@ -58,10 +58,13 @@ export async function GET(
   });
 
   // 3. Load all necessary data in parallel
+  // IMPORTANT: Explicitly filter by restaurant_id to match what loadTablesByIds does,
+  // ensuring consistent table visibility between context and assignment operations
   const [tablesResult, contextBookingsResult, bookingAssignmentsResult] = await Promise.all([
     restaurantClient
       .from("table_inventory")
       .select("*, zone:zones(active)")
+      .eq("restaurant_id", restaurantId)
       .order("table_number", { ascending: true }),
     restaurantClient
       .from("bookings")
@@ -100,8 +103,40 @@ export async function GET(
       position: raw.position as Record<string, unknown> | null,
     };
   });
+
+  // Build a set of valid table IDs for quick lookup
+  const validTableIds = new Set(tables.map((t) => t.id));
+
   const contextBookings = contextBookingsResult.data;
-  const bookingAssignments = bookingAssignmentsResult.data.map(a => a.table_id);
+
+  // Filter out orphaned assignments where the table no longer exists
+  // This prevents TABLES_NOT_FOUND errors when the user tries to assign tables
+  const rawBookingAssignments = bookingAssignmentsResult.data.map(a => a.table_id);
+  const bookingAssignments = rawBookingAssignments.filter((tableId) => validTableIds.has(tableId));
+
+  // Clean up orphaned assignments from the database if any were detected
+  if (rawBookingAssignments.length !== bookingAssignments.length) {
+    const orphanedIds = rawBookingAssignments.filter((id) => !validTableIds.has(id));
+    console.warn("[assignment-context] detected orphaned table assignments", {
+      bookingId,
+      orphanedCount: orphanedIds.length,
+      orphanedTableIds: orphanedIds,
+    });
+
+    // Clean up orphaned assignments in the background (don't block the response)
+    // This ensures the database is consistent for future requests
+    cleanupOrphanedAssignments({
+      bookingId,
+      orphanedTableIds: orphanedIds,
+      client: restaurantClient,
+    }).catch((err) => {
+      console.error("[assignment-context] failed to cleanup orphaned assignments", {
+        bookingId,
+        orphanedIds,
+        error: err,
+      });
+    });
+  }
 
   // 4. Calculate conflicts
   // Note: The old context included holds, but the new direct-assignment model deprecates them.

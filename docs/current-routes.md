@@ -159,15 +159,17 @@ All ops APIs require restaurant staff authentication.
 
 ---
 
-## Middleware & Proxy
+## Proxy (formerly middleware)
 
-The application uses Next.js middleware for:
+The application uses Next.js proxy for:
 
 1. **Subdomain routing**: Redirects `/app/*` on main domain to `app.nabatable.com`
 2. **API rewrites**: Rewrites `/api/<service>` to `/api/ops/<service>` on app subdomain
 3. **CSRF protection**: Issues CSRF tokens
 
-See `src/middleware.ts` for implementation.
+Preview/local note: when `VERCEL_ENV=preview` or host is listed in `NEXT_PUBLIC_LOCAL_APP_HOSTS`, `/app/*` stays on the same host.
+
+See `src/proxy.ts` for implementation.
 
 ---
 

@@ -2,12 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useSupabaseSession } from "@/hooks/useSupabaseSession";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import config from "@/config";
-import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 // A simple button to sign in with our providers (Google & Magic Links).
 // It automatically redirects user to callbackUrl (config.auth.callbackUrl) after login, which is normally a private page for users to manage their accounts.
@@ -19,20 +18,10 @@ const ButtonSignin = ({
   text?: string;
   extraStyle?: string;
 }) => {
-  const supabase = getSupabaseBrowserClient();
-  const [user, setUser] = useState<any>(null);
+  const { user, status } = useSupabaseSession();
+  const isAuthenticated = status === "authenticated" && Boolean(user);
 
-  useEffect(() => {
-    const getUser = async () => {
-      const { data } = await supabase.auth.getUser();
-
-      setUser(data.user);
-    };
-
-    getUser();
-  }, [supabase]);
-
-  if (user) {
+  if (isAuthenticated && user) {
     return (
       <Button asChild className={cn(extraStyle)}>
         <Link href={config.auth.callbackUrl} className="flex items-center gap-2">

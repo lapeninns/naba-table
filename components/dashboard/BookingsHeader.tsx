@@ -1,6 +1,6 @@
 'use client';
 
-import { Search, X } from 'lucide-react';
+import { Loader2, Search, X } from 'lucide-react';
 
 import { Input } from '@/components/ui/input';
 
@@ -36,7 +36,7 @@ export function BookingsHeader({
   const countLabel = typeof total === 'number' ? `${total} result${total === 1 ? '' : 's'}` : null;
 
   return (
-    <div className="flex flex-col gap-2 rounded-xl bg-card/40 p-3 md:flex-row md:items-center md:justify-between md:p-4">
+    <div className="flex flex-col gap-3 rounded-xl bg-card/40 p-3 md:flex-row md:items-center md:justify-between md:gap-4 md:p-4">
       {showTitle ? (
         <div className="space-y-1">
           <div className="flex items-center gap-2">
@@ -53,7 +53,8 @@ export function BookingsHeader({
         <span className="sr-only">Booking filters</span>
       )}
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3">
+        {/* Search Input */}
         <div className="relative w-full sm:w-72">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
           <Input
@@ -64,7 +65,12 @@ export function BookingsHeader({
             aria-label="Search bookings"
             aria-busy={isSearching}
           />
-          {searchTerm ? (
+          {/* Loading indicator OR clear button */}
+          {isSearching ? (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              <Loader2 className="size-4 animate-spin text-muted-foreground" aria-label="Searching..." />
+            </div>
+          ) : searchTerm ? (
             <button
               type="button"
               onClick={() => onSearchChange('')}
@@ -75,6 +81,8 @@ export function BookingsHeader({
             </button>
           ) : null}
         </div>
+
+        {/* Filter Tabs */}
         <StatusFilterGroup value={statusFilter} options={statusOptions} onChange={onStatusFilterChange} />
       </div>
     </div>

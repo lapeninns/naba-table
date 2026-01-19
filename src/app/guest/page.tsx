@@ -1,5 +1,4 @@
-import { redirect } from 'next/navigation';
-
-export default function GuestHome() {
-  redirect('/guest/dashboard');
-}
+import { metadata as dashboardMetadata } from './dashboard/page';
+export const dynamic = "force-dynamic";
+export const metadata = dashboardMetadata;
+export { default } from './dashboard/page';

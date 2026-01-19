@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { RESTAURANT_ROLE_OWNER } from '@/lib/owner/auth/roles';
+import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { deleteRestaurant, updateRestaurant } from '@/server/restaurants';
 import { ensureLogoColumnOnRow, isLogoUrlColumnMissing, logLogoColumnFallback } from '@/server/restaurants/logo-url-compat';
 import { restaurantSelectColumns } from '@/server/restaurants/select-fields';
@@ -47,7 +48,8 @@ export async function GET(req: NextRequest, context: RouteContext) {
 
   if (authError) {
     console.error('[ops/restaurants/[id]][GET] failed to resolve auth', authError.message);
-    return NextResponse.json({ error: 'Unable to verify session' }, { status: 500 });
+    const mapped = mapSupabaseAuthError(authError);
+    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
   }
 
   if (!user) {
@@ -118,6 +120,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
       reservationIntervalMinutes: restaurantRow.reservation_interval_minutes,
       reservationDefaultDurationMinutes: restaurantRow.reservation_default_duration_minutes,
       reservationLastSeatingBufferMinutes: restaurantRow.reservation_last_seating_buffer_minutes,
+      reservationLifecycleGraceMinutes: restaurantRow.reservation_lifecycle_grace_minutes,
       createdAt: restaurantRow.created_at,
       updatedAt: restaurantRow.updated_at,
       role: membershipRole,
@@ -143,7 +146,8 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
 
   if (authError) {
     console.error('[ops/restaurants/[id]][PATCH] failed to resolve auth', authError.message);
-    return NextResponse.json({ error: 'Unable to verify session' }, { status: 500 });
+    const mapped = mapSupabaseAuthError(authError);
+    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
   }
 
   if (!user) {
@@ -201,6 +205,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
         reservationIntervalMinutes: input.reservationIntervalMinutes,
         reservationDefaultDurationMinutes: input.reservationDefaultDurationMinutes,
         reservationLastSeatingBufferMinutes: input.reservationLastSeatingBufferMinutes,
+        reservationLifecycleGraceMinutes: input.reservationLifecycleGraceMinutes,
         emailSendReminder24h: input.emailSendReminder24h,
         emailSendReminderShort: input.emailSendReminderShort,
         emailSendReviewRequest: input.emailSendReviewRequest,
@@ -228,6 +233,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
         reservationIntervalMinutes: restaurant.reservationIntervalMinutes,
         reservationDefaultDurationMinutes: restaurant.reservationDefaultDurationMinutes,
         reservationLastSeatingBufferMinutes: restaurant.reservationLastSeatingBufferMinutes,
+        reservationLifecycleGraceMinutes: restaurant.reservationLifecycleGraceMinutes,
         createdAt: restaurant.createdAt,
         updatedAt: restaurant.updatedAt,
         role: membershipRole,
@@ -251,7 +257,8 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
 
   if (authError) {
     console.error('[ops/restaurants/[id]][DELETE] failed to resolve auth', authError.message);
-    return NextResponse.json({ error: 'Unable to verify session' }, { status: 500 });
+    const mapped = mapSupabaseAuthError(authError);
+    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
   }
 
   if (!user) {

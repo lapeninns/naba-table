@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { env } from "@/lib/env";
+import { buildSupabaseCookieOptions, resolveCookieDomain } from "@/lib/supabase/cookies";
 
 import type { Database } from "@/types/supabase";
 import type { NextRequest } from "next/server";
@@ -11,22 +12,17 @@ export const dynamic = "force-dynamic";
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost";
 const secureCookies = env.node.appEnv !== "development";
+const COOKIE_DOMAIN = resolveCookieDomain(ROOT_DOMAIN);
 
-function buildCookieConfig(options: Record<string, unknown> = {}) {
-  const cookieConfig: Record<string, unknown> = {
-    ...options,
-    httpOnly: true,
+const buildCookieConfig = (options: Record<string, unknown> = {}) => ({
+  ...buildSupabaseCookieOptions({
+    domain: COOKIE_DOMAIN,
     secure: secureCookies,
-    sameSite: "lax" as const,
-    path: "/",
-  };
-
-  if (ROOT_DOMAIN !== "localhost") {
-    cookieConfig.domain = `.${ROOT_DOMAIN}`;
-  }
-
-  return cookieConfig;
-}
+    sameSite: "lax",
+    httpOnly: true,
+  }),
+  ...options,
+});
 
 export async function POST(_req: NextRequest) {
   const cookieStore = await cookies();

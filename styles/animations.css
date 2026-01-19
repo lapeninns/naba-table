@@ -1,0 +1,284 @@
+/* =============================================================================
+   ANIMATIONS CSS - Keyframes & Animation Utilities
+   
+   All animations use transform/opacity only for performance (compositor-friendly).
+   Motion safety is handled via prefers-reduced-motion in base.css.
+   
+   NOTE: These keyframes are also defined in tailwind.config.js for IntelliSense.
+   The CSS definitions serve as fallback and for non-Tailwind usage.
+   ============================================================================= */
+
+@layer base {
+  /* ---------------------------------------------------------------------------
+     KEYFRAMES - Core Animations
+     All use only transform/opacity for GPU acceleration
+     --------------------------------------------------------------------------- */
+
+  @keyframes shimmer {
+    0%,
+    100% {
+      background-position: 0% 50%;
+    }
+
+    50% {
+      background-position: 100% 50%;
+    }
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fade-down {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes scale-in {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes pulse-glow {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 hsl(var(--primary) / 0.4);
+    }
+
+    50% {
+      box-shadow: 0 0 0 8px hsl(var(--primary) / 0);
+    }
+  }
+
+  @keyframes slide-in-right {
+    from {
+      transform: translateX(10px);
+      opacity: 0;
+    }
+
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes slide-up {
+    from {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes slide-down {
+    from {
+      transform: translateY(-100%);
+      opacity: 0;
+    }
+
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes opacity {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes appear-from-right {
+    from {
+      opacity: 0.3;
+      transform: translate(12%, 0);
+    }
+
+    to {
+      opacity: 1;
+      transform: translate(0, 0);
+    }
+  }
+
+  @keyframes wiggle {
+    0%,
+    20%,
+    80%,
+    100% {
+      transform: rotate(0deg);
+    }
+
+    30%,
+    60% {
+      transform: rotate(-2deg);
+    }
+
+    40%,
+    70% {
+      transform: rotate(2deg);
+    }
+
+    45% {
+      transform: rotate(-4deg);
+    }
+
+    55% {
+      transform: rotate(4deg);
+    }
+  }
+
+  @keyframes popup {
+    0% {
+      transform: scale(0.8);
+      opacity: 0.8;
+    }
+
+    50% {
+      transform: scale(1.1);
+      opacity: 1;
+    }
+
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  @keyframes shake {
+    0%,
+    100% {
+      transform: translateX(0);
+    }
+
+    10%,
+    30%,
+    50%,
+    70%,
+    90% {
+      transform: translateX(-4px);
+    }
+
+    20%,
+    40%,
+    60%,
+    80% {
+      transform: translateX(4px);
+    }
+  }
+
+  @keyframes celebrate {
+    0% {
+      transform: scale(0.8) rotate(-5deg);
+      opacity: 0;
+    }
+
+    50% {
+      transform: scale(1.1) rotate(3deg);
+    }
+
+    100% {
+      transform: scale(1) rotate(0deg);
+      opacity: 1;
+    }
+  }
+
+  /* ---------------------------------------------------------------------------
+     ANIMATION UTILITY CLASSES
+     Use these or Tailwind equivalents (animate-fade-up, etc.)
+     --------------------------------------------------------------------------- */
+  .animate-shimmer {
+    animation: shimmer 2s ease-in-out infinite;
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.2s ease-out;
+  }
+
+  .animate-fade-up {
+    animation: fade-up 0.3s ease-out;
+  }
+
+  .animate-fade-down {
+    animation: fade-down 0.3s ease-out;
+  }
+
+  .animate-scale-in {
+    animation: scale-in 0.2s ease-out;
+  }
+
+  .animate-slide-up {
+    animation: slide-up 0.3s ease-out;
+  }
+
+  .animate-slide-down {
+    animation: slide-down 0.3s ease-out;
+  }
+
+  .animate-opacity {
+    animation: opacity 0.25s ease-in-out;
+  }
+
+  .animate-appear-from-right {
+    animation: appear-from-right 0.3s ease-in-out;
+  }
+
+  .animate-wiggle {
+    animation: wiggle 1.5s ease-in-out infinite;
+  }
+
+  .animate-popup {
+    animation: popup 0.25s ease-in-out;
+  }
+
+  .animate-shake {
+    animation: shake 0.5s ease-in-out;
+  }
+
+  .animate-celebrate {
+    animation: celebrate 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .animate-pulse-glow {
+    animation: pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+}

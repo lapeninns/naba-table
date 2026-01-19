@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { assignTablesDirectly, unassignTablesDirect, DirectAssignmentError } from "@/server/capacity/table-assignment/direct-assignment";
-import { getRouteHandlerSupabaseClient, getTenantServiceSupabaseClient } from "@/server/supabase";
 import { enqueueBookingUpdatedSideEffects, safeBookingPayload } from "@/server/jobs/booking-side-effects";
+import { getRouteHandlerSupabaseClient, getTenantServiceSupabaseClient } from "@/server/supabase";
 
-import type { NextRequest } from "next/server";
 import type { BookingRecord } from "@/server/bookings";
+import type { NextRequest } from "next/server";
 
 const assignSchema = z.object({
   tableIds: z.array(z.string().uuid()).min(1, "At least one table must be selected"),

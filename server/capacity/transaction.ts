@@ -1,7 +1,3 @@
-import { randomUUID } from "node:crypto";
-
-
-import { generateUniqueBookingReference, insertBookingRecord } from "@/server/bookings";
 import { isAllocatorServiceFailHard } from "@/server/feature-flags";
 import { recordObservabilityEvent } from "@/server/observability";
 import { getServiceSupabaseClient } from "@/server/supabase";
@@ -18,7 +14,7 @@ import {
   type RetryConfig,
 } from "./types";
 
-import type { Database, Json } from "@/types/supabase";
+import type { Database } from "@/types/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 type DbClient = SupabaseClient<Database, "public">;
@@ -178,137 +174,6 @@ function isMissingCapacityRpcError(error: PostgrestErrorLike | null | undefined)
   return hasMissingPattern(message) || hasMissingPattern(details);
 }
 
-function mergeFallbackDetails(details: CreateBookingParams["details"]): Json {
-  const base: Record<string, Json> =
-    details && typeof details === "object" && !Array.isArray(details)
-      ? { ...(details as Record<string, Json>) }
-      : {};
-
-  if (details && (typeof details !== "object" || Array.isArray(details))) {
-    base.originalDetails = details;
-  }
-
-  if (!("channel" in base)) {
-    base.channel = "api.capacity_removed";
-  }
-
-  base.fallback = "missing_capacity_rpc";
-
-  return base;
-}
-
-async function createBookingWithoutCapacity(
-  params: CreateBookingParams,
-  supabase: DbClient,
-): Promise<BookingResult> {
-  if (params.idempotencyKey) {
-    const { data: existing, error: fetchError } = await supabase
-      .from("bookings")
-      .select("*")
-      .eq("restaurant_id", params.restaurantId)
-      .eq("idempotency_key", params.idempotencyKey)
-      .maybeSingle();
-
-    if (fetchError) {
-      throw new CapacityError(
-        fetchError.message ?? "Failed to check existing booking for idempotency",
-        "INTERNAL_ERROR",
-        {
-          sqlstate: fetchError.code ?? undefined,
-          sqlerrm: fetchError.details ?? undefined,
-        },
-      );
-    }
-
-    if (existing) {
-      const booking = existing as BookingRecord;
-
-      recordObservabilityEvent({
-        source: "capacity.transaction",
-        eventType: "booking.creation.fallback_duplicate",
-        severity: "info",
-        context: {
-          restaurantId: params.restaurantId,
-          bookingId: booking.id,
-          idempotencyKey: params.idempotencyKey,
-        },
-      });
-
-      return {
-        success: true,
-        duplicate: true,
-        booking,
-        message: "Booking already exists (idempotency)",
-      };
-    }
-  }
-
-  try {
-    const reference = await generateUniqueBookingReference(supabase);
-    const clientRequestId = params.clientRequestId ?? randomUUID();
-    const booking = await insertBookingRecord(supabase, {
-      restaurant_id: params.restaurantId,
-      customer_id: params.customerId,
-      booking_date: params.bookingDate,
-      start_time: params.startTime,
-      end_time: params.endTime,
-      party_size: params.partySize,
-      booking_type: params.bookingType,
-      seating_preference: params.seatingPreference,
-      status: "pending",
-      reference,
-      customer_name: params.customerName,
-      customer_email: params.customerEmail,
-      customer_phone: params.customerPhone,
-      notes: params.notes ?? null,
-      marketing_opt_in: params.marketingOptIn ?? false,
-      loyalty_points_awarded: params.loyaltyPointsAwarded ?? 0,
-      source: params.source ?? "api",
-      auth_user_id: params.authUserId ?? null,
-      client_request_id: clientRequestId,
-      idempotency_key: params.idempotencyKey ?? null,
-      details: mergeFallbackDetails(params.details),
-    });
-
-    recordObservabilityEvent({
-      source: "capacity.transaction",
-      eventType: "booking.creation.fallback_success",
-      severity: "info",
-      context: {
-        restaurantId: params.restaurantId,
-        bookingId: booking.id,
-        idempotencyKey: params.idempotencyKey ?? undefined,
-      },
-    });
-
-    return {
-      success: true,
-      duplicate: false,
-      booking,
-      message: "Booking created without capacity enforcement",
-    };
-  } catch (error) {
-    recordObservabilityEvent({
-      source: "capacity.transaction",
-      eventType: "booking.creation.fallback_failure",
-      severity: "error",
-      context: {
-        restaurantId: params.restaurantId,
-        error: error instanceof Error ? error.message : String(error),
-      },
-    });
-
-    if (error instanceof CapacityError) {
-      throw error;
-    }
-
-    throw new CapacityError(
-      error instanceof Error ? error.message : "Failed to create booking (fallback)",
-      "INTERNAL_ERROR",
-    );
-  }
-}
-
 export async function createBookingWithCapacityCheck(
   params: CreateBookingParams,
   client?: DbClient,
@@ -329,6 +194,7 @@ export async function createBookingWithCapacityCheck(
       },
     });
 
+    console.log("[DEBUG] Calling create_booking_with_capacity_check RPC...");
     const { data, error } = await supabase.rpc("create_booking_with_capacity_check", {
       p_restaurant_id: params.restaurantId,
       p_customer_id: params.customerId,
@@ -351,6 +217,9 @@ export async function createBookingWithCapacityCheck(
       p_loyalty_points_awarded: params.loyaltyPointsAwarded ?? 0,
     });
 
+    console.log("[DEBUG] RPC result - data:", JSON.stringify(data, null, 2));
+    console.log("[DEBUG] RPC result - error:", JSON.stringify(error, null, 2));
+
     if (error) {
       if (isMissingCapacityRpcError(error)) {
         const failHardModeEnabled = isAllocatorServiceFailHard();
@@ -366,29 +235,18 @@ export async function createBookingWithCapacityCheck(
         recordObservabilityEvent({
           source: "capacity.transaction",
           eventType: "booking.creation.rpc_missing",
-          severity: failHardModeEnabled ? "error" : "warning",
+          severity: "error",
           context: baseContext,
         });
 
-        if (failHardModeEnabled) {
-          recordObservabilityEvent({
-            source: "capacity.transaction",
-            eventType: "booking.creation.fallback_skipped",
-            severity: "error",
-            context: baseContext,
-          });
-
-          throw new CapacityError(
-            "Capacity enforcement unavailable",
-            "INTERNAL_ERROR",
-            {
-              sqlstate: error.code ?? undefined,
-              sqlerrm: error.details ?? undefined,
-            },
-          );
-        }
-
-        return createBookingWithoutCapacity(params, supabase);
+        throw new CapacityError(
+          "Capacity enforcement unavailable",
+          "CAPACITY_UNAVAILABLE",
+          {
+            sqlstate: error.code ?? undefined,
+            sqlerrm: error.details ?? undefined,
+          },
+        );
       }
 
       recordObservabilityEvent({
@@ -418,13 +276,19 @@ export async function createBookingWithCapacityCheck(
     const result = normalizeRpcResult(data as CapacityRpcPayload);
 
     if (result.success) {
+      if (!result.booking) {
+        throw new CapacityError(
+          "Capacity RPC returned no booking record",
+          "CAPACITY_UNAVAILABLE",
+        );
+      }
       recordObservabilityEvent({
         source: "capacity.transaction",
         eventType: "booking.creation.success",
         severity: "info",
         context: {
           restaurantId: params.restaurantId,
-        bookingId: result.booking?.id,
+          bookingId: result.booking?.id,
           duplicate: result.duplicate ?? false,
           capacity: result.capacity ?? undefined,
         },

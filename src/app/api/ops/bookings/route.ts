@@ -1,17 +1,18 @@
-import { randomUUID } from "crypto";
-import { DateTime } from "luxon";
-import { NextResponse } from "next/server";
-import { z } from "zod";
+import { randomUUID } from 'crypto';
+import { DateTime } from 'luxon';
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
 
-import { env } from "@/lib/env";
-import { isRestaurantAdminRole, type RestaurantRole } from "@/lib/owner/auth/roles";
+import { env } from '@/lib/env';
+import { isRestaurantAdminRole, type RestaurantRole } from '@/lib/owner/auth/roles';
+import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import {
   createBookingValidationService,
   BookingValidationError,
   type BookingInput,
   type ValidationContext,
-} from "@/server/booking";
-import { mapValidationFailure, withValidationHeaders } from "@/server/booking/http";
+} from '@/server/booking';
+import { mapValidationFailure, withValidationHeaders } from '@/server/booking/http';
 import {
   calculateDurationMinutes,
   deriveEndTime,
@@ -20,28 +21,35 @@ import {
   inferMealTypeFromTime,
   logAuditEvent,
   insertBookingRecord,
-} from "@/server/bookings";
-import { PastBookingError, assertBookingNotInPast, canOverridePastBooking } from "@/server/bookings/pastTimeValidation";
-import { validateBookingWindow } from "@/server/capacity";
-import { normalizeEmail, upsertCustomer } from "@/server/customers";
-import { isAutoAssignOnBookingEnabled } from "@/server/feature-flags";
-import { enqueueBookingCreatedSideEffects, safeBookingPayload } from "@/server/jobs/booking-side-effects";
-import { recordObservabilityEvent } from "@/server/observability";
-import { getRestaurantSchedule } from "@/server/restaurants/schedule";
-import { consumeRateLimit } from "@/server/security/rate-limit";
-import { anonymizeIp, extractClientIp } from "@/server/security/request";
-import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
-import { fetchUserMemberships, requireMembershipForRestaurant } from "@/server/team/access";
+} from '@/server/bookings';
+import {
+  PastBookingError,
+  assertBookingNotInPast,
+  canOverridePastBooking,
+} from '@/server/bookings/pastTimeValidation';
+import { validateBookingWindow } from '@/server/capacity';
+import { normalizeEmail, upsertCustomer } from '@/server/customers';
+import { isAutoAssignOnBookingEnabled } from '@/server/feature-flags';
+import {
+  enqueueBookingCreatedSideEffects,
+  safeBookingPayload,
+} from '@/server/jobs/booking-side-effects';
+import { recordObservabilityEvent } from '@/server/observability';
+import { getRestaurantSchedule } from '@/server/restaurants/schedule';
+import { consumeRateLimit } from '@/server/security/rate-limit';
+import { anonymizeIp, extractClientIp } from '@/server/security/request';
+import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
+import { fetchUserMemberships, requireMembershipForRestaurant } from '@/server/team/access';
 
-import { opsWalkInBookingSchema, type OpsWalkInBookingPayload } from "./schema";
+import { opsWalkInBookingSchema, type OpsWalkInBookingPayload } from './schema';
 
-import type { BookingType } from "@/lib/enums";
-import type { BookingRecord } from "@/server/bookings";
-import type { Json, Tables } from "@/types/supabase";
-import type { NextRequest } from "next/server";
+import type { BookingType } from '@/lib/enums';
+import type { BookingRecord } from '@/server/bookings';
+import type { Json, Tables } from '@/types/supabase';
+import type { NextRequest } from 'next/server';
 
-const OPS_CHANNEL = "ops.walkin";
-const OPS_WALK_IN_SOURCE = "walk-in";
+const OPS_CHANNEL = 'ops.walkin';
+const OPS_WALK_IN_SOURCE = 'walk-in';
 
 type BookingPayload = OpsWalkInBookingPayload;
 
@@ -68,11 +76,11 @@ type PostgrestErrorLike = {
 };
 
 function extractPostgrestError(error: unknown): PostgrestErrorLike {
-  if (typeof error === "object" && error !== null) {
+  if (typeof error === 'object' && error !== null) {
     const record = error as Record<string, unknown>;
     return {
-      code: typeof record.code === "string" ? record.code : undefined,
-      message: typeof record.message === "string" ? record.message : undefined,
+      code: typeof record.code === 'string' ? record.code : undefined,
+      message: typeof record.message === 'string' ? record.message : undefined,
     };
   }
   return {};
@@ -110,14 +118,18 @@ function buildRequestDetails(params: {
   } as const;
 }
 
-function ensureFallbackContact(value: string | null | undefined, clientRequestId: string, kind: "email" | "phone"): string {
-  const trimmed = (value ?? "").trim();
+function ensureFallbackContact(
+  value: string | null | undefined,
+  clientRequestId: string,
+  kind: 'email' | 'phone',
+): string {
+  const trimmed = (value ?? '').trim();
   if (trimmed) {
     return trimmed;
   }
 
-  const slug = clientRequestId.replace(/[^a-z0-9]/gi, "").slice(0, 24) || randomUUID();
-  if (kind === "email") {
+  const slug = clientRequestId.replace(/[^a-z0-9]/gi, '').slice(0, 24) || randomUUID();
+  if (kind === 'email') {
     return `walkin+${slug}@system.local`;
   }
   return `000-${slug}`;
@@ -134,13 +146,13 @@ async function fetchRestaurantContactDetails(
 ): Promise<RestaurantContactDetails> {
   try {
     const { data, error } = await client
-      .from("restaurants")
-      .select("contact_email, contact_phone")
-      .eq("id", restaurantId)
-      .maybeSingle<Pick<Tables<"restaurants">, "contact_email" | "contact_phone">>();
+      .from('restaurants')
+      .select('contact_email, contact_phone')
+      .eq('id', restaurantId)
+      .maybeSingle<Pick<Tables<'restaurants'>, 'contact_email' | 'contact_phone'>>();
 
     if (error) {
-      console.error("[ops/bookings] restaurant contact lookup failed", error.message);
+      console.error('[ops/bookings] restaurant contact lookup failed', error.message);
       return { email: null, phone: null };
     }
 
@@ -148,30 +160,33 @@ async function fetchRestaurantContactDetails(
       return { email: null, phone: null };
     }
 
-    const email = typeof data.contact_email === "string" && data.contact_email.trim().length > 0
-      ? data.contact_email.trim()
-      : null;
-    const phone = typeof data.contact_phone === "string" && data.contact_phone.trim().length > 0
-      ? data.contact_phone.trim()
-      : null;
+    const email =
+      typeof data.contact_email === 'string' && data.contact_email.trim().length > 0
+        ? data.contact_email.trim()
+        : null;
+    const phone =
+      typeof data.contact_phone === 'string' && data.contact_phone.trim().length > 0
+        ? data.contact_phone.trim()
+        : null;
 
     return { email, phone };
   } catch (error) {
-    console.error("[ops/bookings] restaurant contact lookup threw", error);
+    console.error('[ops/bookings] restaurant contact lookup threw', error);
     return { email: null, phone: null };
   }
 }
 
 const OPS_BOOKING_STATUSES = [
-  "pending",
-  "pending_allocation",
-  "confirmed",
-  "cancelled",
-  "completed",
-  "no_show",
+  'pending',
+  'pending_allocation',
+  'confirmed',
+  'checked_in',
+  'cancelled',
+  'completed',
+  'no_show',
 ] as const;
 
-const BOOKING_OVERRIDE_CAPABILITY = "booking.override";
+const BOOKING_OVERRIDE_CAPABILITY = 'booking.override';
 
 function resolveActorCapabilities(role: RestaurantRole | null | undefined): string[] {
   if (isRestaurantAdminRole(role)) {
@@ -186,23 +201,24 @@ function sanitizeSearchTerm(input: string): string {
 
 const opsBookingsQuerySchema = z.object({
   restaurantId: z.string().uuid().optional(),
+  tableId: z.string().uuid().optional(),
   status: z.enum(OPS_BOOKING_STATUSES).optional(),
   statuses: z
     .string()
     .optional()
     .transform((value) => {
-      if (!value) return [] as typeof OPS_BOOKING_STATUSES[number][];
+      if (!value) return [] as (typeof OPS_BOOKING_STATUSES)[number][];
       return value
         .split(',')
         .map((entry) => entry.trim())
-        .filter((entry): entry is typeof OPS_BOOKING_STATUSES[number] =>
+        .filter((entry): entry is (typeof OPS_BOOKING_STATUSES)[number] =>
           OPS_BOOKING_STATUSES.includes(entry as (typeof OPS_BOOKING_STATUSES)[number]),
         );
     }),
   from: z.string().datetime({ offset: true }).optional(),
   to: z.string().datetime({ offset: true }).optional(),
-  sort: z.enum(["asc", "desc"]).default("asc"),
-  sortBy: z.enum(["start_at", "created_at"]).default("start_at"),
+  sort: z.enum(['asc', 'desc']).default('asc'),
+  sortBy: z.enum(['start_at', 'created_at']).default('start_at'),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(50).default(10),
   query: z
@@ -214,13 +230,37 @@ const opsBookingsQuerySchema = z.object({
 });
 
 type OpsBookingRow = Pick<
-  Tables<"bookings">,
-  "id" | "start_at" | "end_at" | "booking_date" | "start_time" | "end_time" | "party_size" | "status" | "notes" | "restaurant_id" | "customer_name" | "customer_email" | "customer_phone" | "created_at"
+  Tables<'bookings'>,
+  | 'id'
+  | 'start_at'
+  | 'end_at'
+  | 'booking_date'
+  | 'start_time'
+  | 'end_time'
+  | 'party_size'
+  | 'status'
+  | 'notes'
+  | 'restaurant_id'
+  | 'customer_name'
+  | 'customer_email'
+  | 'customer_phone'
+  | 'created_at'
 > & {
   restaurants?:
-  | { name: string | null; slug?: string | null; timezone?: string | null; reservation_interval_minutes?: number | null }
-  | { name: string | null; slug?: string | null; timezone?: string | null; reservation_interval_minutes?: number | null }[]
-  | null;
+    | {
+        name: string | null;
+        slug?: string | null;
+        timezone?: string | null;
+        reservation_interval_minutes?: number | null;
+      }
+    | {
+        name: string | null;
+        slug?: string | null;
+        timezone?: string | null;
+        reservation_interval_minutes?: number | null;
+      }[]
+    | null;
+  booking_table_assignments?: Array<{ table_id: string | null }> | null;
 };
 
 type BookingDTO = {
@@ -232,7 +272,7 @@ type BookingDTO = {
   partySize: number;
   startIso: string;
   endIso: string;
-  status: OpsBookingRow["status"];
+  status: OpsBookingRow['status'];
   notes?: string | null;
   customerName: string | null;
   customerEmail: string | null;
@@ -253,25 +293,36 @@ type PageResponse = {
 };
 
 function toIsoString(value: unknown): string {
-  if (typeof value !== "string" && !(value instanceof Date)) {
-    return "";
+  if (typeof value !== 'string' && !(value instanceof Date)) {
+    return '';
   }
 
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) {
-    return "";
+    return '';
   }
 
   return date.toISOString();
 }
 
-function deriveFallbackIso(date: string | null | undefined, time: string | null | undefined): string {
-  if (!date || !time) return "";
-  const candidate = new Date(`${date}T${time}`);
-  if (Number.isNaN(candidate.getTime())) {
-    return "";
+function deriveFallbackIso(
+  date: string | null | undefined,
+  time: string | null | undefined,
+  timezone: string | null | undefined,
+): string {
+  if (!date || !time) return '';
+
+  const zone = typeof timezone === 'string' && timezone.trim().length > 0 ? timezone : 'UTC';
+  const trimmedTime = time.trim();
+  if (trimmedTime.length === 0) return '';
+
+  const normalizedTime = trimmedTime.length === 5 ? `${trimmedTime}:00` : trimmedTime;
+  const dt = DateTime.fromISO(`${date}T${normalizedTime}`, { zone });
+  if (!dt.isValid) {
+    return '';
   }
-  return candidate.toISOString();
+
+  return dt.toUTC().toISO() ?? '';
 }
 
 export async function GET(req: NextRequest) {
@@ -282,12 +333,16 @@ export async function GET(req: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (authError) {
-    console.error("[ops/bookings][GET] failed to resolve auth", authError.message);
-    return NextResponse.json({ error: "Unable to verify session" }, { status: 500 });
+    console.error('[ops/bookings][GET] failed to resolve auth', authError.message);
+    const mapped = mapSupabaseAuthError(authError);
+    return NextResponse.json(
+      { error: mapped.message, code: mapped.code },
+      { status: mapped.status },
+    );
   }
 
   if (!user) {
-    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
   }
 
   const clientIp = extractClientIp(req);
@@ -300,11 +355,11 @@ export async function GET(req: NextRequest) {
   if (!listRateResult.ok) {
     const retryAfterSeconds = Math.max(1, Math.ceil((listRateResult.resetAt - Date.now()) / 1000));
     void recordObservabilityEvent({
-      source: "api.ops",
-      eventType: "ops_bookings.rate_limited",
-      severity: "warning",
+      source: 'api.ops',
+      eventType: 'ops_bookings.rate_limited',
+      severity: 'warning',
       context: {
-        action: "list",
+        action: 'list',
         staff_id: user.id,
         ip_scope: anonymizeIp(clientIp),
         limit: listRateResult.limit,
@@ -314,33 +369,34 @@ export async function GET(req: NextRequest) {
     });
 
     return NextResponse.json(
-      { error: "Too many requests", code: "RATE_LIMITED", retryAfter: retryAfterSeconds },
+      { error: 'Too many requests', code: 'RATE_LIMITED', retryAfter: retryAfterSeconds },
       {
         status: 429,
         headers: {
-          "Retry-After": retryAfterSeconds.toString(),
+          'Retry-After': retryAfterSeconds.toString(),
         },
       },
     );
   }
 
   const rawParams = {
-    restaurantId: req.nextUrl.searchParams.get("restaurantId") ?? undefined,
-    status: req.nextUrl.searchParams.get("status") ?? undefined,
-    statuses: req.nextUrl.searchParams.get("statuses") ?? undefined,
-    from: req.nextUrl.searchParams.get("from") ?? undefined,
-    to: req.nextUrl.searchParams.get("to") ?? undefined,
-    sort: req.nextUrl.searchParams.get("sort") ?? undefined,
-    sortBy: req.nextUrl.searchParams.get("sortBy") ?? undefined,
-    page: req.nextUrl.searchParams.get("page") ?? undefined,
-    pageSize: req.nextUrl.searchParams.get("pageSize") ?? undefined,
-    query: req.nextUrl.searchParams.get("query") ?? undefined,
+    restaurantId: req.nextUrl.searchParams.get('restaurantId') ?? undefined,
+    tableId: req.nextUrl.searchParams.get('tableId') ?? undefined,
+    status: req.nextUrl.searchParams.get('status') ?? undefined,
+    statuses: req.nextUrl.searchParams.get('statuses') ?? undefined,
+    from: req.nextUrl.searchParams.get('from') ?? undefined,
+    to: req.nextUrl.searchParams.get('to') ?? undefined,
+    sort: req.nextUrl.searchParams.get('sort') ?? undefined,
+    sortBy: req.nextUrl.searchParams.get('sortBy') ?? undefined,
+    page: req.nextUrl.searchParams.get('page') ?? undefined,
+    pageSize: req.nextUrl.searchParams.get('pageSize') ?? undefined,
+    query: req.nextUrl.searchParams.get('query') ?? undefined,
   };
 
   const parsed = opsBookingsQuerySchema.safeParse(rawParams);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Invalid query", details: parsed.error.flatten() },
+      { error: 'Invalid query', details: parsed.error.flatten() },
       { status: 400 },
     );
   }
@@ -351,8 +407,8 @@ export async function GET(req: NextRequest) {
   try {
     memberships = await fetchUserMemberships(user.id, supabase);
   } catch (error) {
-    console.error("[ops/bookings][GET] membership lookup failed", error);
-    return NextResponse.json({ error: "Unable to verify memberships" }, { status: 500 });
+    console.error('[ops/bookings][GET] membership lookup failed', error);
+    return NextResponse.json({ error: 'Unable to verify memberships' }, { status: 500 });
   }
 
   if (memberships.length === 0) {
@@ -370,14 +426,14 @@ export async function GET(req: NextRequest) {
 
   const membershipIds = memberships
     .map((membership) => membership.restaurant_id)
-    .filter((id): id is string => typeof id === "string" && id.length > 0);
+    .filter((id): id is string => typeof id === 'string' && id.length > 0);
 
   let targetRestaurantId = params.restaurantId;
 
   if (targetRestaurantId) {
     const allowed = membershipIds.includes(targetRestaurantId);
     if (!allowed) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
   } else {
     targetRestaurantId = membershipIds[0] ?? null;
@@ -400,30 +456,34 @@ export async function GET(req: NextRequest) {
   const serviceSupabase = getServiceSupabaseClient();
 
   let query = serviceSupabase
-    .from("bookings")
+    .from('bookings')
     .select(
-      "id, start_at, end_at, booking_date, start_time, end_time, party_size, status, notes, restaurant_id, customer_name, customer_email, customer_phone, created_at, restaurants(name, slug, timezone, reservation_interval_minutes)",
-      { count: "exact" },
+      'id, start_at, end_at, booking_date, start_time, end_time, party_size, status, notes, restaurant_id, customer_name, customer_email, customer_phone, created_at, restaurants(name, slug, timezone, reservation_interval_minutes), booking_table_assignments(table_id)',
+      { count: 'exact' },
     )
-    .eq("restaurant_id", targetRestaurantId);
+    .eq('restaurant_id', targetRestaurantId);
+
+  if (params.tableId) {
+    query = query.eq('booking_table_assignments.table_id', params.tableId);
+  }
 
   if (params.statuses.length > 0) {
-    query = query.in("status", params.statuses);
+    query = query.in('status', params.statuses);
   } else if (params.status) {
-    query = query.eq("status", params.status);
+    query = query.eq('status', params.status);
   }
 
   if (params.from) {
-    query = query.gte("start_at", params.from);
+    query = query.gte('start_at', params.from);
   }
 
   if (params.to) {
-    query = query.lt("start_at", params.to);
+    query = query.lt('start_at', params.to);
   }
 
-  const orderColumn = params.sortBy === "created_at" ? "created_at" : "start_at";
-  const isCreatedAtSort = orderColumn === "created_at";
-  const sortAscending = isCreatedAtSort ? false : params.sort === "asc";
+  const orderColumn = params.sortBy === 'created_at' ? 'created_at' : 'start_at';
+  const isCreatedAtSort = orderColumn === 'created_at';
+  const sortAscending = isCreatedAtSort ? false : params.sort === 'asc';
 
   query = query.order(orderColumn, {
     ascending: sortAscending,
@@ -433,7 +493,7 @@ export async function GET(req: NextRequest) {
 
   if (isCreatedAtSort) {
     // Ensure deterministic ordering when creation timestamps tie
-    query = query.order("id", { ascending: false });
+    query = query.order('id', { ascending: false });
   }
 
   if (params.query) {
@@ -445,29 +505,38 @@ export async function GET(req: NextRequest) {
   const { data, error, count } = await query.range(offset, offset + params.pageSize - 1);
 
   if (error) {
-    console.error("[ops/bookings][GET] query failed", error);
-    return NextResponse.json({ error: "Unable to fetch bookings" }, { status: 500 });
+    console.error('[ops/bookings][GET] query failed', error);
+    return NextResponse.json({ error: 'Unable to fetch bookings' }, { status: 500 });
   }
 
   const rows: OpsBookingRow[] = (data ?? []) as OpsBookingRow[];
 
   const items: BookingDTO[] = rows.map((row) => {
     const restaurantRelation = Array.isArray(row.restaurants)
-      ? row.restaurants[0] ?? null
-      : row.restaurants ?? null;
-    const startIso = toIsoString(row.start_at) || deriveFallbackIso(row.booking_date, row.start_time);
-    const endIso = toIsoString(row.end_at) || deriveFallbackIso(row.booking_date, row.end_time);
-    const rawPhone = typeof row.customer_phone === "string" ? row.customer_phone.trim() : "";
+      ? (row.restaurants[0] ?? null)
+      : (row.restaurants ?? null);
+    const restaurantTimezone =
+      restaurantRelation && typeof restaurantRelation.timezone === 'string'
+        ? restaurantRelation.timezone
+        : null;
+    const startIso =
+      toIsoString(row.start_at) ||
+      deriveFallbackIso(row.booking_date, row.start_time, restaurantTimezone);
+    const endIso =
+      toIsoString(row.end_at) ||
+      deriveFallbackIso(row.booking_date, row.end_time, restaurantTimezone);
+
+    const rawPhone = typeof row.customer_phone === 'string' ? row.customer_phone.trim() : '';
     const customerPhone = rawPhone.length > 0 ? rawPhone : null;
     const interval =
-      restaurantRelation && typeof restaurantRelation.reservation_interval_minutes === "number"
+      restaurantRelation && typeof restaurantRelation.reservation_interval_minutes === 'number'
         ? restaurantRelation.reservation_interval_minutes
         : null;
 
     return {
       id: row.id,
       restaurantId: row.restaurant_id,
-      restaurantName: restaurantRelation?.name ?? "",
+      restaurantName: restaurantRelation?.name ?? '',
       restaurantSlug: restaurantRelation?.slug ?? null,
       restaurantTimezone: restaurantRelation?.timezone ?? null,
       partySize: row.party_size,
@@ -496,8 +565,8 @@ export async function GET(req: NextRequest) {
   };
 
   void recordObservabilityEvent({
-    source: "api.ops",
-    eventType: "ops_bookings.list",
+    source: 'api.ops',
+    eventType: 'ops_bookings.list',
     context: {
       staff_id: user.id,
       restaurant_id: params.restaurantId ?? null,
@@ -517,12 +586,16 @@ export async function POST(req: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (authError) {
-    console.error("[ops/bookings] failed to resolve auth", authError.message);
-    return NextResponse.json({ error: "Unable to verify session" }, { status: 500 });
+    console.error('[ops/bookings] failed to resolve auth', authError.message);
+    const mapped = mapSupabaseAuthError(authError);
+    return NextResponse.json(
+      { error: mapped.message, code: mapped.code },
+      { status: mapped.status },
+    );
   }
 
   if (!user) {
-    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
   }
 
   let payload: BookingPayload;
@@ -531,9 +604,12 @@ export async function POST(req: NextRequest) {
     payload = parsed;
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: "Invalid payload", details: error.flatten() }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid payload', details: error.flatten() },
+        { status: 400 },
+      );
     }
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
   }
 
   const clientIp = extractClientIp(req);
@@ -544,13 +620,16 @@ export async function POST(req: NextRequest) {
   });
 
   if (!createRateResult.ok) {
-    const retryAfterSeconds = Math.max(1, Math.ceil((createRateResult.resetAt - Date.now()) / 1000));
+    const retryAfterSeconds = Math.max(
+      1,
+      Math.ceil((createRateResult.resetAt - Date.now()) / 1000),
+    );
     void recordObservabilityEvent({
-      source: "api.ops",
-      eventType: "ops_bookings.rate_limited",
-      severity: "warning",
+      source: 'api.ops',
+      eventType: 'ops_bookings.rate_limited',
+      severity: 'warning',
       context: {
-        action: "create",
+        action: 'create',
         staff_id: user.id,
         restaurant_id: payload.restaurantId,
         ip_scope: anonymizeIp(clientIp),
@@ -561,11 +640,11 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json(
-      { error: "Too many requests", code: "RATE_LIMITED", retryAfter: retryAfterSeconds },
+      { error: 'Too many requests', code: 'RATE_LIMITED', retryAfter: retryAfterSeconds },
       {
         status: 429,
         headers: {
-          "Retry-After": retryAfterSeconds.toString(),
+          'Retry-After': retryAfterSeconds.toString(),
         },
       },
     );
@@ -574,21 +653,23 @@ export async function POST(req: NextRequest) {
   try {
     await requireMembershipForRestaurant({ userId: user.id, restaurantId: payload.restaurantId });
   } catch (error) {
-    console.error("[ops/bookings] membership validation failed", error);
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    console.error('[ops/bookings] membership validation failed', error);
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const service = getServiceSupabaseClient();
   const restaurantContacts = await fetchRestaurantContactDetails(service, payload.restaurantId);
   const useUnifiedValidation = env.featureFlags.bookingValidationUnified;
-  const idempotencyKey = req.headers.get("Idempotency-Key");
+  const idempotencyKey = req.headers.get('Idempotency-Key');
   const normalizedIdempotencyKey =
-    typeof idempotencyKey === "string" && idempotencyKey.trim().length > 0 ? idempotencyKey.trim() : null;
+    typeof idempotencyKey === 'string' && idempotencyKey.trim().length > 0
+      ? idempotencyKey.trim()
+      : null;
   const clientRequestId =
     normalizedIdempotencyKey && /^[0-9a-f-]{36}$/i.test(normalizedIdempotencyKey)
       ? normalizedIdempotencyKey
       : randomUUID();
-  const userAgent = req.headers.get("user-agent");
+  const userAgent = req.headers.get('user-agent');
 
   if (useUnifiedValidation) {
     return handleUnifiedWalkInCreate({
@@ -616,10 +697,11 @@ export async function POST(req: NextRequest) {
   });
 
   if (!startDateTime.isValid) {
-    return NextResponse.json({ error: "Invalid booking time" }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid booking time' }, { status: 400 });
   }
 
-  const bookingType = payload.bookingType === "drinks" ? "drinks" : inferMealTypeFromTime(startTime);
+  const bookingType =
+    payload.bookingType === 'drinks' ? 'drinks' : inferMealTypeFromTime(startTime);
   const validation = validateBookingWindow({
     startISO: startDateTime.toISO(),
     bookingDate: payload.date,
@@ -631,45 +713,44 @@ export async function POST(req: NextRequest) {
 
   if (!validation.ok) {
     return NextResponse.json(
-      { error: "Booking outside service policy", reasons: validation.reasons },
+      { error: 'Booking outside service policy', reasons: validation.reasons },
       { status: 422 },
     );
   }
 
-  const diningEnd = validation.dining ? DateTime.fromISO(validation.dining.end).setZone(timezone ?? undefined) : null;
-  const endTime = diningEnd?.isValid ? diningEnd.toFormat("HH:mm") : deriveEndTime(startTime, bookingType);
+  const diningEnd = validation.dining
+    ? DateTime.fromISO(validation.dining.end).setZone(timezone ?? undefined)
+    : null;
+  const endTime = diningEnd?.isValid
+    ? diningEnd.toFormat('HH:mm')
+    : deriveEndTime(startTime, bookingType);
 
   // Validate booking is not in the past (if feature flag enabled)
   if (env.featureFlags.bookingPastTimeBlocking) {
-    const allowPastParam = req.nextUrl.searchParams.get("allow_past");
-    const allowOverride = allowPastParam === "true";
+    const allowPastParam = req.nextUrl.searchParams.get('allow_past');
+    const allowOverride = allowPastParam === 'true';
 
     // Get user's role for the restaurant
     const memberships = await fetchUserMemberships(user.id, service);
-    const membership = memberships.find(m => m.restaurant_id === payload.restaurantId);
+    const membership = memberships.find((m) => m.restaurant_id === payload.restaurantId);
     const userRole = membership?.role as RestaurantRole | null;
 
     try {
-      assertBookingNotInPast(
-        schedule.timezone,
-        payload.date,
-        startTime,
-        {
-          graceMinutes: env.featureFlags.bookingPastTimeGraceMinutes,
-          allowOverride,
-          actorRole: userRole,
-        }
-      );
+      assertBookingNotInPast(schedule.timezone, payload.date, startTime, {
+        graceMinutes: env.featureFlags.bookingPastTimeGraceMinutes,
+        allowOverride,
+        actorRole: userRole,
+      });
 
       // Log successful override if admin used it
       if (allowOverride && canOverridePastBooking(userRole)) {
         void recordObservabilityEvent({
-          source: "api.ops.bookings",
-          eventType: "booking.past_time.override",
-          severity: "info",
+          source: 'api.ops.bookings',
+          eventType: 'booking.past_time.override',
+          severity: 'info',
           context: {
             restaurantId: payload.restaurantId,
-            endpoint: "ops.bookings.create",
+            endpoint: 'ops.bookings.create',
             actorId: user.id,
             actorEmail: user.email,
             actorRole: userRole,
@@ -683,12 +764,12 @@ export async function POST(req: NextRequest) {
       if (pastTimeError instanceof PastBookingError) {
         // Log blocked attempt
         void recordObservabilityEvent({
-          source: "api.ops.bookings",
-          eventType: "booking.past_time.blocked",
-          severity: "warning",
+          source: 'api.ops.bookings',
+          eventType: 'booking.past_time.blocked',
+          severity: 'warning',
           context: {
             restaurantId: payload.restaurantId,
-            endpoint: "ops.bookings.create",
+            endpoint: 'ops.bookings.create',
             actorId: user.id,
             actorEmail: user.email,
             actorRole: userRole,
@@ -704,23 +785,25 @@ export async function POST(req: NextRequest) {
             code: pastTimeError.code,
             details: pastTimeError.details,
           },
-          { status: 422 }
+          { status: 422 },
         );
       }
       throw pastTimeError;
     }
   }
 
-  const rawCustomerEmail = (payload.email ?? "").trim();
-  const rawCustomerPhone = (payload.phone ?? "").trim();
+  const rawCustomerEmail = (payload.email ?? '').trim();
+  const rawCustomerPhone = (payload.phone ?? '').trim();
   const emailProvided = rawCustomerEmail.length > 0;
   const phoneProvided = rawCustomerPhone.length > 0;
 
-  const fallbackEmail = ensureFallbackContact(payload.email, clientRequestId, "email");
-  const fallbackPhone = ensureFallbackContact(payload.phone, clientRequestId, "phone");
-  const normalizedRestaurantEmail = restaurantContacts.email ? normalizeEmail(restaurantContacts.email) : null;
-  const resolvedCustomerEmail = emailProvided ? normalizeEmail(rawCustomerEmail) : "";
-  const resolvedCustomerPhone = phoneProvided ? rawCustomerPhone : "";
+  const fallbackEmail = ensureFallbackContact(payload.email, clientRequestId, 'email');
+  const fallbackPhone = ensureFallbackContact(payload.phone, clientRequestId, 'phone');
+  const normalizedRestaurantEmail = restaurantContacts.email
+    ? normalizeEmail(restaurantContacts.email)
+    : null;
+  const resolvedCustomerEmail = emailProvided ? normalizeEmail(rawCustomerEmail) : '';
+  const resolvedCustomerPhone = phoneProvided ? rawCustomerPhone : '';
 
   const customer = await upsertCustomer(service, {
     restaurantId: payload.restaurantId,
@@ -732,19 +815,24 @@ export async function POST(req: NextRequest) {
 
   if (normalizedIdempotencyKey) {
     const { data: existing, error: existingError } = await service
-      .from("bookings")
-      .select("*")
-      .eq("restaurant_id", payload.restaurantId)
-      .eq("idempotency_key", normalizedIdempotencyKey)
+      .from('bookings')
+      .select('*')
+      .eq('restaurant_id', payload.restaurantId)
+      .eq('idempotency_key', normalizedIdempotencyKey)
       .maybeSingle();
 
-    if (existingError && existingError.code !== "PGRST116") {
-      console.error("[ops/bookings] idempotency lookup failed", existingError.message);
-      return NextResponse.json({ error: "Unable to verify idempotency" }, { status: 500 });
+    if (existingError && existingError.code !== 'PGRST116') {
+      console.error('[ops/bookings] idempotency lookup failed', existingError.message);
+      return NextResponse.json({ error: 'Unable to verify idempotency' }, { status: 500 });
     }
 
     if (existing) {
-      const bookings = await fetchBookingsForContact(service, payload.restaurantId, fallbackEmail, fallbackPhone);
+      const bookings = await fetchBookingsForContact(
+        service,
+        payload.restaurantId,
+        fallbackEmail,
+        fallbackPhone,
+      );
       return NextResponse.json({
         booking: existing,
         bookings,
@@ -756,7 +844,7 @@ export async function POST(req: NextRequest) {
   }
 
   let booking: BookingRecord | null = null;
-  let reference = "";
+  let reference = '';
 
   for (let attempt = 0; attempt < 5 && !booking; attempt += 1) {
     reference = await generateUniqueBookingReference(service);
@@ -770,8 +858,8 @@ export async function POST(req: NextRequest) {
         staffEmail: user.email ?? null,
         emailProvided,
         phoneProvided,
-        emailValue: emailProvided ? rawCustomerEmail : normalizedRestaurantEmail ?? "",
-        phoneValue: phoneProvided ? rawCustomerPhone : "",
+        emailValue: emailProvided ? rawCustomerEmail : (normalizedRestaurantEmail ?? ''),
+        phoneValue: phoneProvided ? rawCustomerPhone : '',
       });
 
       booking = await insertBookingRecord(service, {
@@ -783,8 +871,8 @@ export async function POST(req: NextRequest) {
         reference,
         party_size: payload.party,
         booking_type: bookingType,
-        seating_preference: payload.seating as BookingRecord["seating_preference"],
-        status: "pending",
+        seating_preference: payload.seating as BookingRecord['seating_preference'],
+        status: 'pending',
         customer_name: payload.name,
         customer_email: resolvedCustomerEmail,
         customer_phone: resolvedCustomerPhone,
@@ -797,14 +885,15 @@ export async function POST(req: NextRequest) {
       });
     } catch (error: unknown) {
       const { code, message } = extractPostgrestError(error);
-      const isUniqueViolation = code === "23505" || (message ? /duplicate key value/i.test(message) : false);
+      const isUniqueViolation =
+        code === '23505' || (message ? /duplicate key value/i.test(message) : false);
 
       if (!isUniqueViolation) {
-        console.error("[ops/bookings] insert failed", error);
-        return NextResponse.json({ error: "Unable to create booking" }, { status: 500 });
+        console.error('[ops/bookings] insert failed', error);
+        return NextResponse.json({ error: 'Unable to create booking' }, { status: 500 });
       }
 
-      const constraintMessage = message ?? "";
+      const constraintMessage = message ?? '';
       const duplicateReference = /bookings_reference/i.test(constraintMessage);
       const idempotencyConflict =
         /bookings_idem_unique_per_restaurant/i.test(constraintMessage) ||
@@ -812,10 +901,10 @@ export async function POST(req: NextRequest) {
 
       if (idempotencyConflict) {
         const { data: existing } = await service
-          .from("bookings")
-          .select("*")
-          .eq("restaurant_id", payload.restaurantId)
-          .eq("client_request_id", clientRequestId)
+          .from('bookings')
+          .select('*')
+          .eq('restaurant_id', payload.restaurantId)
+          .eq('client_request_id', clientRequestId)
           .maybeSingle();
 
         if (existing) {
@@ -823,21 +912,26 @@ export async function POST(req: NextRequest) {
           break;
         }
 
-        return NextResponse.json({ error: "Duplicate request" }, { status: 409 });
+        return NextResponse.json({ error: 'Duplicate request' }, { status: 409 });
       }
 
       if (!duplicateReference) {
-        console.error("[ops/bookings] insert conflict", error);
-        return NextResponse.json({ error: "Unable to create booking" }, { status: 500 });
+        console.error('[ops/bookings] insert conflict', error);
+        return NextResponse.json({ error: 'Unable to create booking' }, { status: 500 });
       }
     }
   }
 
   if (!booking) {
-    return NextResponse.json({ error: "Unable to allocate booking reference" }, { status: 500 });
+    return NextResponse.json({ error: 'Unable to allocate booking reference' }, { status: 500 });
   }
 
-  const bookings = await fetchBookingsForContact(service, payload.restaurantId, fallbackEmail, fallbackPhone);
+  const bookings = await fetchBookingsForContact(
+    service,
+    payload.restaurantId,
+    fallbackEmail,
+    fallbackPhone,
+  );
 
   const responseBody = {
     booking,
@@ -891,8 +985,8 @@ export async function POST(req: NextRequest) {
   }
 
   void recordObservabilityEvent({
-    source: "api.ops",
-    eventType: "ops_bookings.create",
+    source: 'api.ops',
+    eventType: 'ops_bookings.create',
     context: {
       staff_id: user.id,
       restaurant_id: payload.restaurantId,
@@ -905,15 +999,8 @@ export async function POST(req: NextRequest) {
 }
 
 async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
-  const {
-    payload,
-    user,
-    service,
-    normalizedIdempotencyKey,
-    clientRequestId,
-    userAgent,
-    clientIp,
-  } = params;
+  const { payload, user, service, normalizedIdempotencyKey, clientRequestId, userAgent, clientIp } =
+    params;
 
   const schedule = await getRestaurantSchedule(payload.restaurantId, {
     date: payload.date,
@@ -925,21 +1012,23 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
   });
 
   if (!startDateTime.isValid) {
-    return NextResponse.json({ error: "Invalid booking time" }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid booking time' }, { status: 400 });
   }
 
-  const bookingType = (payload.bookingType === "drinks" ? "drinks" : inferMealTypeFromTime(payload.time)) as BookingType;
+  const bookingType = (
+    payload.bookingType === 'drinks' ? 'drinks' : inferMealTypeFromTime(payload.time)
+  ) as BookingType;
   const durationMinutes = calculateDurationMinutes(bookingType);
 
-  const rawCustomerEmail = (payload.email ?? "").trim();
-  const rawCustomerPhone = (payload.phone ?? "").trim();
+  const rawCustomerEmail = (payload.email ?? '').trim();
+  const rawCustomerPhone = (payload.phone ?? '').trim();
   const emailProvided = rawCustomerEmail.length > 0;
   const phoneProvided = rawCustomerPhone.length > 0;
 
-  const fallbackEmail = ensureFallbackContact(payload.email, clientRequestId, "email");
-  const fallbackPhone = ensureFallbackContact(payload.phone, clientRequestId, "phone");
-  const customerEmailForStorage = emailProvided ? normalizeEmail(rawCustomerEmail) : "";
-  const customerPhoneForStorage = phoneProvided ? rawCustomerPhone : "";
+  const fallbackEmail = ensureFallbackContact(payload.email, clientRequestId, 'email');
+  const fallbackPhone = ensureFallbackContact(payload.phone, clientRequestId, 'phone');
+  const customerEmailForStorage = emailProvided ? normalizeEmail(rawCustomerEmail) : '';
+  const customerPhoneForStorage = phoneProvided ? rawCustomerPhone : '';
 
   const customer = await upsertCustomer(service, {
     restaurantId: payload.restaurantId,
@@ -950,10 +1039,11 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
   });
 
   const memberships = await fetchUserMemberships(user.id, service);
-  const membership = memberships.find((entry) => entry.restaurant_id === payload.restaurantId) ?? null;
+  const membership =
+    memberships.find((entry) => entry.restaurant_id === payload.restaurantId) ?? null;
   const userRole = (membership?.role as RestaurantRole | undefined) ?? null;
   const actorCapabilities = resolveActorCapabilities(userRole);
-  const actorRoles = userRole ? [userRole] : ["staff"];
+  const actorRoles = userRole ? [userRole] : ['staff'];
 
   const overrideReason = payload.override?.reason?.trim() ?? null;
   const overrideRequest = payload.override?.apply
@@ -964,7 +1054,7 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
 
   const startIso = startDateTime.toISO();
   if (!startIso) {
-    return NextResponse.json({ error: "Unable to normalise booking start time" }, { status: 400 });
+    return NextResponse.json({ error: 'Unable to normalise booking start time' }, { status: 400 });
   }
 
   const bookingInput: BookingInput = {
@@ -1008,7 +1098,12 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
     const reusedExisting = commit.duplicate === true;
     const validationResponse = commit.response;
 
-    const bookings = await fetchBookingsForContact(service, payload.restaurantId, fallbackEmail, fallbackPhone);
+    const bookings = await fetchBookingsForContact(
+      service,
+      payload.restaurantId,
+      fallbackEmail,
+      fallbackPhone,
+    );
 
     // Run auto-assign BEFORE sending emails (if enabled and not a duplicate)
     if (!reusedExisting && isAutoAssignOnBookingEnabled()) {
@@ -1066,17 +1161,17 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
       };
 
       await logAuditEvent(service, {
-        action: "booking.override.applied",
-        entity: "booking",
+        action: 'booking.override.applied',
+        entity: 'booking',
         entityId: booking.id,
         metadata: overrideAuditMetadata,
         actor: user.email ?? user.id,
       });
 
       void recordObservabilityEvent({
-        source: "api.ops.bookings",
-        eventType: "booking.override.applied",
-        severity: "info",
+        source: 'api.ops.bookings',
+        eventType: 'booking.override.applied',
+        severity: 'info',
         context: {
           bookingId: booking.id,
           restaurantId: payload.restaurantId,
@@ -1090,8 +1185,8 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
     }
 
     void recordObservabilityEvent({
-      source: "api.ops",
-      eventType: "ops_bookings.create",
+      source: 'api.ops',
+      eventType: 'ops_bookings.create',
       context: {
         staff_id: user.id,
         restaurant_id: payload.restaurantId,
@@ -1114,9 +1209,9 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
   } catch (error) {
     if (error instanceof BookingValidationError) {
       void recordObservabilityEvent({
-        source: "api.ops.bookings",
-        eventType: "booking.validation_failed",
-        severity: "warning",
+        source: 'api.ops.bookings',
+        eventType: 'booking.validation_failed',
+        severity: 'warning',
         context: {
           restaurantId: payload.restaurantId,
           actorId: user.id,
@@ -1131,7 +1226,7 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
       return NextResponse.json(mapped.body, withValidationHeaders({ status: mapped.status }));
     }
 
-    console.error("[ops/bookings][POST][unified] unexpected", error);
-    return NextResponse.json({ error: "Unable to create booking" }, { status: 500 });
+    console.error('[ops/bookings][POST][unified] unexpected', error);
+    return NextResponse.json({ error: 'Unable to create booking' }, { status: 500 });
   }
 }

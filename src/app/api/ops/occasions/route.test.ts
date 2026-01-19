@@ -3,12 +3,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { GET } from './route';
 
-const getOccasionCatalogMock = vi.fn();
 const getUserMock = vi.fn();
-
-vi.mock('@/server/occasions/catalog', () => ({
-  getOccasionCatalog: (...args: unknown[]) => getOccasionCatalogMock(...args),
-}));
+const fetchAllOccasionsMock = vi.fn();
 
 vi.mock('@/server/supabase', () => ({
   getRouteHandlerSupabaseClient: () => ({
@@ -18,6 +14,10 @@ vi.mock('@/server/supabase', () => ({
   }),
 }));
 
+vi.mock('@/server/occasions/admin', () => ({
+  fetchAllOccasions: (...args: unknown[]) => fetchAllOccasionsMock(...args),
+}));
+
 describe('/api/ops/occasions', () => {
   afterEach(() => {
     vi.clearAllMocks();
@@ -25,6 +25,7 @@ describe('/api/ops/occasions', () => {
 
   it('returns 401 when session is missing', async () => {
     getUserMock.mockResolvedValue({ data: { user: null }, error: null });
+    fetchAllOccasionsMock.mockResolvedValue([]);
 
     const response = await GET(new NextRequest('http://localhost/api/ops/occasions'));
 
@@ -33,36 +34,20 @@ describe('/api/ops/occasions', () => {
 
   it('responds with occasion definitions when authenticated', async () => {
     getUserMock.mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null });
-    getOccasionCatalogMock.mockResolvedValue({
-      definitions: [
-        {
-          key: 'dinner',
-          label: 'Dinner',
-          shortLabel: 'Dinner',
-          description: null,
-          availability: [],
-          defaultDurationMinutes: 120,
-          displayOrder: 20,
-          isActive: true,
-        },
-      ],
-      orderedKeys: ['dinner'],
-      byKey: new Map([
-        [
-          'dinner',
-          {
-            key: 'dinner',
-            label: 'Dinner',
-            shortLabel: 'Dinner',
-            description: null,
-            availability: [],
-            defaultDurationMinutes: 120,
-            displayOrder: 20,
-            isActive: true,
-          },
-        ],
-      ]),
-    });
+    fetchAllOccasionsMock.mockResolvedValue([
+      {
+        key: 'dinner',
+        label: 'Dinner',
+        shortLabel: 'Dinner',
+        description: null,
+        availability: [],
+        defaultDurationMinutes: 120,
+        displayOrder: 20,
+        isActive: true,
+        isBuiltin: false,
+        deletedAt: null,
+      },
+    ]);
 
     const response = await GET(new NextRequest('http://localhost/api/ops/occasions'));
 

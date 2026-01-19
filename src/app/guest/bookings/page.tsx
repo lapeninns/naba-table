@@ -1,9 +1,7 @@
-import { HydrationBoundary, QueryClient, dehydrate } from "@tanstack/react-query";
-import { redirect } from "next/navigation";
 
-
-import { BookingListClient } from "@/components/features/booking/list/BookingListClient";
-import { getServerComponentSupabaseClient } from "@/server/supabase";
+import { GuestBookingsPageView } from "@/guest/routes/bookings/page-view";
+import { buildGuestBookingsViewModel } from "@/guest/routes/bookings/view-model";
+import { createGuestServerServices } from "@/guest/services/server";
 
 import type { Metadata } from "next";
 
@@ -14,26 +12,11 @@ export const metadata: Metadata = {
   description: "View upcoming and past bookings.",
 };
 
-export default async function MyBookingsPage() {
-  const supabase = await getServerComponentSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+type SearchParams = Promise<{ tab?: string }>;
 
-  if (!user) {
-    redirect("/auth/signin?redirectedFrom=/guest/bookings");
-  }
-
-  const queryClient = new QueryClient();
-
-  // Prefetch logic would go here using a server-side API or direct DB call if implemented
-  // For now, we rely on client-side fetching in BookingListClient
-
-  const dehydratedState = dehydrate(queryClient);
-
-  return (
-    <HydrationBoundary state={dehydratedState}>
-      <BookingListClient />
-    </HydrationBoundary>
-  );
+export default async function MyBookingsPage({ searchParams }: { searchParams: SearchParams }) {
+  const resolvedParams = await searchParams;
+  const services = await createGuestServerServices();
+  const viewModel = await buildGuestBookingsViewModel(services, { tab: resolvedParams?.tab ?? null });
+  return <GuestBookingsPageView viewModel={viewModel} />;
 }

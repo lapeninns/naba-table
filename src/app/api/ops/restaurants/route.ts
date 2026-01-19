@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { createRestaurant, listRestaurantsForOps } from '@/server/restaurants';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 
@@ -22,7 +23,8 @@ export async function GET(req: NextRequest) {
 
   if (authError) {
     console.error('[ops/restaurants][GET] failed to resolve auth', authError.message);
-    return NextResponse.json({ error: 'Unable to verify session' }, { status: 500 });
+    const mapped = mapSupabaseAuthError(authError);
+    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
   }
 
   if (!user) {
@@ -75,6 +77,7 @@ export async function GET(req: NextRequest) {
       reservationIntervalMinutes: restaurant.reservationIntervalMinutes,
       reservationDefaultDurationMinutes: restaurant.reservationDefaultDurationMinutes,
       reservationLastSeatingBufferMinutes: restaurant.reservationLastSeatingBufferMinutes,
+      reservationLifecycleGraceMinutes: restaurant.reservationLifecycleGraceMinutes,
       createdAt: restaurant.createdAt,
       updatedAt: restaurant.updatedAt,
       role: restaurant.role,
@@ -106,7 +109,8 @@ export async function POST(req: NextRequest) {
 
   if (authError) {
     console.error('[ops/restaurants][POST] failed to resolve auth', authError.message);
-    return NextResponse.json({ error: 'Unable to verify session' }, { status: 500 });
+    const mapped = mapSupabaseAuthError(authError);
+    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
   }
 
   if (!user) {
@@ -148,6 +152,7 @@ export async function POST(req: NextRequest) {
         reservationIntervalMinutes: input.reservationIntervalMinutes,
         reservationDefaultDurationMinutes: input.reservationDefaultDurationMinutes,
         reservationLastSeatingBufferMinutes: input.reservationLastSeatingBufferMinutes,
+        reservationLifecycleGraceMinutes: input.reservationLifecycleGraceMinutes,
       },
       user.id,
       serviceSupabase,
@@ -173,6 +178,7 @@ export async function POST(req: NextRequest) {
         reservationIntervalMinutes: restaurant.reservationIntervalMinutes,
         reservationDefaultDurationMinutes: restaurant.reservationDefaultDurationMinutes,
         reservationLastSeatingBufferMinutes: restaurant.reservationLastSeatingBufferMinutes,
+        reservationLifecycleGraceMinutes: restaurant.reservationLifecycleGraceMinutes,
         createdAt: restaurant.createdAt,
         updatedAt: restaurant.updatedAt,
         role: 'owner',

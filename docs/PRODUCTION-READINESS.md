@@ -10,8 +10,8 @@ Your `.env.local` file contains **PRODUCTION SUPABASE CREDENTIALS**:
 
 ```
 # 🌐 PRODUCTION SUPABASE (Currently Active)
-NEXT_PUBLIC_SUPABASE_URL=https://mqtchcaavsucsdjskptc.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGci...
+NEXT_PUBLIC_SUPABASE_URL=https://your-prod-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_prod_anon_key_here
 ```
 
 **CRITICAL ACTIONS REQUIRED:**
@@ -59,7 +59,7 @@ Could not verify that test endpoints are properly guarded in production.
 ### Security
 
 - ✅ Authentication properly configured (Supabase)
-- ✅ CSRF protection implemented (middleware)
+- ✅ CSRF protection implemented (proxy)
 - ✅ Rate limiting implemented (Redis/Upstash with memory fallback)
 - ✅ Route protection (layout-level auth for restaurant routes)
 - ✅ Environment-based safety checks (DB_TARGET_ENV, ALLOW_PROD_DB_WIPE)

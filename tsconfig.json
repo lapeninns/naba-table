@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "lib": ["dom", "dom.iterable", "esnext"],
+    "baseUrl": ".",
     "allowJs": true,
     "skipLibCheck": true,
     "strict": false,
@@ -23,6 +24,7 @@
       "@/hooks/ops/*": ["./hooks/ops/*", "./src/hooks/ops/*"],
       "@/hooks": ["./hooks/index.ts"],
       "@/hooks/*": ["./hooks/*", "./src/hooks/*"],
+      "@/guest/*": ["./src/guest/*"],
       "@/lib/*": ["./lib/*"],
       "@/utils/*": ["./src/utils/*"],
       "@/services": ["./src/services/index.ts"],

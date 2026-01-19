@@ -75,7 +75,8 @@ export function BookingActionButton({
 
   const availability = lifecycleAvailability ?? { isToday: true };
   const isLifecycleRestricted = !availability.isToday;
-  const availabilityTooltip = availability.reason ?? "Check-in and no-show actions are only available on the reservation date.";
+  const availabilityTooltip =
+    availability.reason ?? "Lifecycle actions are only available on the reservation date.";
 
   const primaryConfig: ButtonConfig = useMemo(() => {
     switch (effectiveStatus) {
@@ -135,7 +136,9 @@ export function BookingActionButton({
   })();
 
   const checkInRestricted = isLifecycleRestricted && primaryConfig.action === "check-in";
+  const checkOutRestricted = isLifecycleRestricted && primaryConfig.action === "check-out";
   const noShowRestricted = isLifecycleRestricted && secondaryConfig?.action === "no-show";
+  const undoNoShowRestricted = isLifecycleRestricted && secondaryConfig?.action === "undo-no-show";
 
   const primaryDisabled = basePrimaryDisabled;
   const secondaryDisabled = baseSecondaryDisabled;
@@ -203,8 +206,14 @@ export function BookingActionButton({
   const primaryTooltip = primaryConfig.tooltip;
 
   const primaryElement = (() => {
-    if (checkInRestricted && primaryConfig.action === "check-in") {
-      return null;
+    if ((checkInRestricted && primaryConfig.action === "check-in") || (checkOutRestricted && primaryConfig.action === "check-out")) {
+      return renderButton(
+        { ...primaryConfig, tooltip: availabilityTooltip },
+        true,
+        () => {},
+        isPrimaryPending,
+        primaryConfig.action,
+      );
     }
 
     if (primaryConfig.action !== "unavailable") {
@@ -222,8 +231,17 @@ export function BookingActionButton({
 
   let secondaryElement: ReactNode = null;
   if (secondaryConfig) {
-    if (noShowRestricted && secondaryConfig.action === "no-show") {
-      secondaryElement = null;
+    if (
+      (noShowRestricted && secondaryConfig.action === "no-show")
+      || (undoNoShowRestricted && secondaryConfig.action === "undo-no-show")
+    ) {
+      secondaryElement = renderButton(
+        { ...secondaryConfig, tooltip: availabilityTooltip },
+        true,
+        () => {},
+        isSecondaryPending,
+        secondaryConfig.action,
+      );
     } else if (!showConfirmation) {
       const handler = secondaryConfig.action === "no-show"
         ? () => { void onMarkNoShow(); }

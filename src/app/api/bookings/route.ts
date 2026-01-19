@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto';
+import { randomUUID, createHash } from 'crypto';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -116,6 +116,39 @@ function normalizeIdempotencyKey(value: string | null): string | null {
 function coerceUuid(value: string | null): string | null {
   if (!value) return null;
   return UUID_REGEX.test(value) ? value : null;
+}
+
+function buildDeterministicIdempotencyKey(params: {
+  restaurantId: string;
+  customerId: string;
+  bookingDate: string;
+  startTime: string;
+  endTime: string;
+}): string {
+  const payload = `${params.restaurantId}|${params.customerId}|${params.bookingDate}|${params.startTime}|${params.endTime}`;
+  return createHash("sha256").update(payload).digest("hex").slice(0, 32);
+}
+
+async function tryWithBackoff<T>(
+  fn: () => Promise<T>,
+  options: { attempts?: number; initialDelayMs?: number; multiplier?: number } = {},
+): Promise<T> {
+  const attempts = Math.max(1, options.attempts ?? 3);
+  const initialDelayMs = options.initialDelayMs ?? 200;
+  const multiplier = options.multiplier ?? 2;
+
+  let lastError: unknown;
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      if (i === attempts - 1) break;
+      const delay = initialDelayMs * Math.pow(multiplier, i);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
 
 type RestaurantResolutionResult =
@@ -653,8 +686,8 @@ export async function POST(req: NextRequest) {
 
   const restaurantId = restaurantResolution.restaurantId;
   const clientIp = extractClientIp(req);
-  const idempotencyKey = normalizeIdempotencyKey(req.headers.get('Idempotency-Key'));
-  const clientRequestId = coerceUuid(idempotencyKey) ?? randomUUID();
+  const headerIdempotencyKey = normalizeIdempotencyKey(req.headers.get('Idempotency-Key'));
+  const clientRequestId = coerceUuid(headerIdempotencyKey) ?? randomUUID();
   const opsEmailProvidedHeader = req.headers.get('x-ops-email-provided') === 'true';
   const isOpsWalkIn = req.headers.get('x-ops-walk-in') === 'true';
   const requestSource = isOpsWalkIn ? 'ops.walkin' : 'api.bookings';
@@ -714,6 +747,7 @@ export async function POST(req: NextRequest) {
     const supabase = getServiceSupabaseClient();
     const normalizedBookingType =
       data.bookingType === 'drinks' ? 'drinks' : inferMealTypeFromTime(data.time);
+    const pastTimeBlocking = env.featureFlags.bookingPastTimeBlocking ?? true;
 
     let startTime = data.time;
     let scheduleTimezone: string | null = null;
@@ -737,7 +771,7 @@ export async function POST(req: NextRequest) {
       startTime = time;
 
       // Validate booking is not in the past (if feature flag enabled)
-      if (env.featureFlags.bookingPastTimeBlocking) {
+      if (pastTimeBlocking) {
         try {
           assertBookingNotInPast(schedule.timezone, data.date, startTime, {
             graceMinutes: env.featureFlags.bookingPastTimeGraceMinutes,
@@ -801,20 +835,31 @@ export async function POST(req: NextRequest) {
 
     const endTime = deriveEndTime(startTime, normalizedBookingType);
 
-    const customer = await upsertCustomer(supabase, {
-      restaurantId,
-      email: data.email,
-      phone: data.phone,
-      name: data.name,
-      marketingOptIn: data.marketingOptIn ?? false,
-    });
+    // Parallelize independent data fetches
+    const [customer, loyaltyProgram] = await Promise.all([
+      upsertCustomer(supabase, {
+        restaurantId,
+        email: data.email,
+        phone: data.phone,
+        name: data.name,
+        marketingOptIn: data.marketingOptIn ?? false,
+      }),
+      getActiveLoyaltyProgram(supabase, restaurantId)
+    ]);
 
-    const loyaltyProgram = await getActiveLoyaltyProgram(supabase, restaurantId);
     const estimatedLoyaltyAward = loyaltyProgram
       ? calculateLoyaltyAward(loyaltyProgram, { partySize: data.party })
       : 0;
 
     const useUnifiedValidation = env.featureFlags.bookingValidationUnified;
+    const deterministicKey = buildDeterministicIdempotencyKey({
+      restaurantId,
+      customerId: customer.id,
+      bookingDate: data.date,
+      startTime,
+      endTime,
+    });
+    const idempotencyKey = headerIdempotencyKey ?? deterministicKey;
 
     let booking: BookingRecord | undefined;
     let reusedExisting = false;
@@ -846,7 +891,7 @@ export async function POST(req: NextRequest) {
         actorCapabilities: [],
         tz: scheduleTimezone ?? 'Europe/London',
         flags: {
-          bookingPastTimeBlocking: env.featureFlags.bookingPastTimeBlocking ?? false,
+          bookingPastTimeBlocking: pastTimeBlocking,
           bookingPastTimeGraceMinutes: env.featureFlags.bookingPastTimeGraceMinutes ?? 5,
           unified: true,
         },
@@ -867,28 +912,64 @@ export async function POST(req: NextRequest) {
         throw error;
       }
     } else {
-      const bookingResult = await createBookingWithCapacityCheck({
-        restaurantId,
-        customerId: customer.id,
-        bookingDate: data.date,
-        startTime,
-        endTime,
-        partySize: data.party,
-        bookingType: normalizedBookingType,
-        customerName: data.name,
-        customerEmail: normalizeEmail(data.email),
-        customerPhone: data.phone.trim(),
-        seatingPreference: data.seating,
-        notes: data.notes ?? null,
-        marketingOptIn: data.marketingOptIn ?? false,
-        idempotencyKey,
-        source: bookingSource,
-        authUserId: null,
-        clientRequestId,
-        details: bookingDetails,
-      });
+       const bookingResult = await createBookingWithCapacityCheck({
+         restaurantId,
+         customerId: customer.id,
+         bookingDate: data.date,
+         startTime,
+         endTime,
+         partySize: data.party,
+         bookingType: normalizedBookingType,
+         customerName: data.name,
+         customerEmail: normalizeEmail(data.email),
+         customerPhone: data.phone.trim(),
+         seatingPreference: data.seating,
+         notes: data.notes ?? null,
+         marketingOptIn: data.marketingOptIn ?? false,
+         idempotencyKey,
+         source: bookingSource,
+         authUserId: null,
+         clientRequestId,
+         details: bookingDetails,
+       });
+ 
+       if (!bookingResult.success) {
+         const code = bookingResult.error;
+ 
+         if (code === 'CAPACITY_UNAVAILABLE') {
+           return NextResponse.json(
+             {
+               error: bookingResult.message ?? 'Capacity enforcement unavailable',
+               code,
+               details: bookingResult.details ?? null,
+             },
+             { status: 503 },
+           );
+         }
+ 
+         if (code === 'CAPACITY_EXCEEDED') {
+           return NextResponse.json(
+             {
+               error: bookingResult.message ?? 'No capacity available',
+               code,
+               details: bookingResult.details ?? null,
+             },
+             { status: 409 },
+           );
+         }
+ 
+         return NextResponse.json(
+           {
+             error: bookingResult.message ?? 'Unable to create booking',
+             code: code ?? 'INTERNAL_ERROR',
+             details: bookingResult.details ?? null,
+           },
+           { status: 500 },
+         );
+       }
+ 
+       booking = bookingResult.booking as BookingRecord | undefined;
 
-      booking = bookingResult.booking as BookingRecord | undefined;
 
       if (!booking) {
         // Attempt to recover the booking record if the RPC didn't return it
@@ -960,6 +1041,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      booking = bookingResult.booking as BookingRecord;
       reusedExisting = bookingResult.duplicate === true;
 
       // Enforce default initial status to 'pending' for newly created bookings (RPC may return 'confirmed').
@@ -1065,15 +1147,17 @@ export async function POST(req: NextRequest) {
     }
 
     if (!reusedExisting) {
+      const sideEffectPayload = {
+        booking: safeBookingPayload(finalBooking),
+        idempotencyKey,
+        restaurantId,
+        emailProvided: isOpsWalkIn ? opsEmailProvidedHeader : true,
+      } as const;
+
       try {
-        await enqueueBookingCreatedSideEffects(
-          {
-            booking: safeBookingPayload(finalBooking),
-            idempotencyKey,
-            restaurantId,
-            emailProvided: isOpsWalkIn ? opsEmailProvidedHeader : true,
-          },
-          { supabase },
+        await tryWithBackoff(
+          () => enqueueBookingCreatedSideEffects(sideEffectPayload, { supabase }),
+          { attempts: 3, initialDelayMs: 200, multiplier: 2 },
         );
       } catch (jobError: unknown) {
         console.error('[bookings][POST][side-effects]', stringifyError(jobError));
@@ -1092,13 +1176,22 @@ export async function POST(req: NextRequest) {
     }
 
     // Generate confirmation token for guest access to confirmation page
-    let confirmationToken: string | null = null;
+    // Preserve the longer-lived token created during persistence (30 days) to avoid shortening to 1 hour.
+    let confirmationToken: string | null = finalBooking.confirmation_token ?? null;
+    const confirmationTokenExpiresAt: string | null =
+      ("confirmation_token_expires_at" in finalBooking && typeof (finalBooking as Record<string, unknown>).confirmation_token_expires_at === "string")
+        ? ((finalBooking as Record<string, unknown>).confirmation_token_expires_at as string)
+        : null;
+
     if (!reusedExisting) {
       try {
-        confirmationToken = generateConfirmationToken();
-        const tokenExpiry = computeTokenExpiry(1); // 1 hour expiry
-
-        await attachTokenToBooking(finalBooking.id, confirmationToken, tokenExpiry);
+        // Only generate/store when the record lacks a token or expiry.
+        if (!confirmationToken || !confirmationTokenExpiresAt) {
+          const tokenToUse = confirmationToken ?? generateConfirmationToken();
+          const tokenExpiry = confirmationTokenExpiresAt ?? computeTokenExpiry(24 * 30); // align with insertBookingRecord default
+          await attachTokenToBooking(finalBooking.id, tokenToUse, tokenExpiry);
+          confirmationToken = tokenToUse;
+        }
       } catch (tokenError: unknown) {
         console.error('[bookings][POST][confirmation-token]', stringifyError(tokenError));
         // Non-fatal: booking still succeeded, just no token for guest confirmation

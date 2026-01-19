@@ -3,11 +3,11 @@ import {
   CalendarDays,
   CircleHelp,
   DoorOpen,
-  GanttChart,
   LayoutGrid,
   Map,
   Sparkles,
   Clock3,
+  TrendingDown,
   UtensilsCrossed,
   SlidersHorizontal,
   Users,
@@ -31,7 +31,7 @@ export type OpsNavigationSection = {
   items: OpsNavigationItem[];
 };
 
-const OPS_BASE_PATH = '';
+const OPS_BASE_PATH = '/app';
 
 function path(segment: string): string {
   return `${OPS_BASE_PATH}${segment}`;
@@ -56,11 +56,19 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         match: (pathname) => pathname === path('/bookings') || pathname.startsWith(path('/bookings/')),
       },
       {
-        title: 'Walk-ins',
+        title: 'Rejections',
+        description: 'Analyze booking rejections',
+        href: path('/rejections'),
+        icon: TrendingDown,
+        match: (pathname) => pathname === path('/rejections'),
+        requiresFeatureFlag: 'rejectionAnalytics',
+      },
+      {
+        title: 'New Bookings',
         description: 'Log arrivals on the floor',
-        href: path('/walk-in'),
+        href: path('/new-bookings'),
         icon: DoorOpen,
-        match: (pathname) => pathname === path('/walk-in'),
+        match: (pathname) => pathname === path('/new-bookings'),
       },
       {
         title: 'Customers',
@@ -69,25 +77,19 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         icon: Users,
         match: (pathname) => pathname.startsWith(path('/customers')),
       },
+      {
+        title: 'Floor Plan',
+        description: 'Visual table management',
+        href: path('/floor-plan'),
+        icon: Map,
+        match: (pathname) => pathname.startsWith(path('/floor-plan')),
+      },
     ],
   },
   {
     label: 'Seating',
     items: [
-      {
-        title: 'Floor Plan',
-        description: 'Visual table management',
-        href: path('/seating/floor-plan'),
-        icon: Map,
-        match: (pathname) => pathname.startsWith(path('/seating/floor-plan')),
-      },
-      {
-        title: 'Capacity',
-        description: 'Timeline view of table availability',
-        href: path('/seating/capacity'),
-        icon: GanttChart,
-        match: (pathname) => pathname.startsWith(path('/seating/capacity')),
-      },
+      
     ],
   },
   {

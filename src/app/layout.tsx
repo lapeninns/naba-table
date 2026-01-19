@@ -4,7 +4,6 @@ import { type CSSProperties, type ReactNode } from "react";
 import ClientLayout from "@/components/LayoutClient";
 import config from "@/config";
 import { getSEOTags } from "@/libs/seo";
-import { getServerComponentSupabaseClient } from "@/server/supabase";
 
 import "./globals.css";
 import { AppProviders } from "./providers";
@@ -28,14 +27,6 @@ const htmlStyle: CSSProperties = {
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
-  const supabase = await getServerComponentSupabaseClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  
-  // Log session for debugging (remove in production)
-  if (process.env.NODE_ENV === "development") {
-    console.log("[RootLayout] Session:", session ? { userId: session.user?.id, email: session.user?.email } : null);
-  }
-
   return (
     <html
       lang={config.locale ?? "en"}
@@ -52,7 +43,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           Skip to content
         </a>
         {/* ClientLayout contains all the client wrappers (Crisp chat support, toast messages, tooltips, etc.) */}
-        <AppProviders initialSession={session}>
+        <AppProviders initialSession={null}>
           <ClientLayout>{children}</ClientLayout>
         </AppProviders>
       </body>

@@ -43,17 +43,17 @@
 - `app.nabatable.com/app/walk-in` works but shouldn't require `/app` prefix
 - Documented in `/docs/production-readiness-checklist.md` (line 205)
 
-**Status**: Partially fixed with new routing in `src/middleware.ts`
+**Status**: Partially fixed with new routing in `src/proxy.ts`
 
 **Required Action**:
 
-1. Verify middleware redirects are correctly removing duplicate `/app` prefix
+1. Verify proxy redirects are correctly removing duplicate `/app` prefix
 2. Test on staging: `app.nabatable.com/walk-in` (should NOT 404)
 3. Verify backward compatibility for old links with `/app/app/*`
 
 **Files to Check**:
 
-- `src/middleware.ts` (cookie domain, redirect logic)
+- `src/proxy.ts` (cookie domain, redirect logic)
 - `src/app/api/auth/callback/route.ts` (post-auth redirect handling)
 
 ---
@@ -128,10 +128,10 @@ const href = isAdmin ? '/app' : '/guest/dashboard';
 
 ```tsx
 href = '/auth/signup'; // ✅ Check if route exists
-href = '/auth/forgot-password'; // ✅ Check if route exists
+// removed: forgot-password (magic link only)
 ```
 
-**Status**: Need to verify both routes exist.
+**Status**: `/auth/signup` still unverified; `/auth/forgot-password` removed (no longer referenced).
 
 ---
 
@@ -176,19 +176,18 @@ href="/guest/dashboard"
 
 ### Routes Referenced But Not Confirmed Implemented
 
-| Route                   | Used In            | Status       | Type     |
-| ----------------------- | ------------------ | ------------ | -------- |
-| `/auth/signup`          | SignInForm.tsx     | ⚠️ Unknown   | CTA      |
-| `/auth/forgot-password` | SignInForm.tsx     | ⚠️ Unknown   | CTA      |
-| `/auth/signin`          | Multiple           | ✅ Confirmed | Link     |
-| `/guest/dashboard`      | Multiple           | ✅ Confirmed | Link     |
-| `/guest/bookings`       | Multiple           | ✅ Confirmed | Link     |
-| `/app`                  | Fallback           | ✅ Confirmed | Link     |
-| `/app/analytics`        | Navigation         | ✅ Confirmed | Link     |
-| `/app/walk-in`          | WalkInWizard       | ✅ Confirmed | Link     |
-| `/app/bookings`         | Multiple           | ✅ Confirmed | Link     |
-| `/dashboard`            | Settings error     | ❌ MISSING   | CTA      |
-| `/app/dashboard`        | Auth callback test | ❌ MISSING   | Redirect |
+| Route              | Used In            | Status       | Type     |
+| ------------------ | ------------------ | ------------ | -------- |
+| `/auth/signup`     | SignInForm.tsx     | ⚠️ Unknown   | CTA      |
+| `/auth/signin`     | Multiple           | ✅ Confirmed | Link     |
+| `/guest/dashboard` | Multiple           | ✅ Confirmed | Link     |
+| `/guest/bookings`  | Multiple           | ✅ Confirmed | Link     |
+| `/app`             | Fallback           | ✅ Confirmed | Link     |
+| `/app/analytics`   | Navigation         | ✅ Confirmed | Link     |
+| `/app/walk-in`     | WalkInWizard       | ✅ Confirmed | Link     |
+| `/app/bookings`    | Multiple           | ✅ Confirmed | Link     |
+| `/dashboard`       | Settings error     | ❌ MISSING   | CTA      |
+| `/app/dashboard`   | Auth callback test | ❌ MISSING   | Redirect |
 
 ---
 
@@ -253,7 +252,7 @@ redirect('/settings/restaurant/team');
 
 ### 5.1 Duplicate Path Handling in Middleware
 
-**Location**: `src/middleware.ts`
+**Location**: `src/proxy.ts`
 
 **Current Logic**:
 
@@ -368,10 +367,10 @@ if (process.env.ENABLE_TEST_ENDPOINTS !== 'true') {
 | -------------------------------------- | -------- | ------------------------------- | ----------- | --------------------------- | -------------- |
 | `/dashboard` link in settings error    | CTA      | `/app/(app)/settings/error.tsx` | 🔴 CRITICAL | settings/error.tsx:27       | ❌ Needs Fix   |
 | `/app/dashboard` in auth callback test | Redirect | `/api/auth/callback/route.ts`   | 🟠 HIGH     | auth/callback/route.test.ts | ❌ Needs Fix   |
-| `app.nabatable.com/walk-in` 404        | Routing  | `/app/walk-in`                  | 🔴 CRITICAL | middleware.ts               | ⚠️ Partial     |
+| `app.nabatable.com/walk-in` 404        | Routing  | `/app/walk-in`                  | 🔴 CRITICAL | proxy.ts                    | ⚠️ Partial     |
 | `/auth/signup` unconfirmed             | CTA      | `/auth/signup`                  | 🟡 MEDIUM   | SignInForm.tsx              | ❓ Unknown     |
 | `/auth/forgot-password` unconfirmed    | CTA      | `/auth/forgot-password`         | 🟡 MEDIUM   | SignInForm.tsx              | ❓ Unknown     |
-| Duplicate `/app` prefix                | Routing  | `/app/app/*`                    | 🟠 HIGH     | middleware.ts               | ⚠️ Partial     |
+| Duplicate `/app` prefix                | Routing  | `/app/app/*`                    | 🟠 HIGH     | proxy.ts                    | ⚠️ Partial     |
 | Window.location.reload()               | UX       | Multiple                        | 🟡 MEDIUM   | BookingListClient.tsx       | ❌ Needs Fix   |
 | Auth callback fallback                 | Logic    | `/api/auth/callback`            | 🟠 HIGH     | auth/callback/route.ts      | ❓ Unknown     |
 | Test endpoints unguarded               | Security | `/api/test/*`                   | 🟠 HIGH     | Multiple                    | ❓ Needs Audit |
@@ -411,7 +410,7 @@ if (process.env.ENABLE_TEST_ENDPOINTS !== 'true') {
 1. `/src/app/app/(app)/settings/error.tsx` — Has broken `/dashboard` link
 2. `/src/app/api/auth/callback/route.ts` — Post-auth redirect logic
 3. `/src/app/api/auth/signin/route.ts` — Auth redirect sanitization
-4. `/src/app/middleware.ts` — Subdomain routing and 404s
+4. `/src/app/proxy.ts` — Subdomain routing and 404s
 5. `/src/app/auth/signin/page.tsx` — Sign-in form routes
 6. `/components/auth/SignInForm.tsx` — Sign-up and forgot password links
 

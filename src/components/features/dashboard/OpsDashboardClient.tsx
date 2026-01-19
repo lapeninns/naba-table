@@ -1,33 +1,48 @@
 'use client';
 
-import { Calendar as CalendarIcon, Clock, ChevronLeft, ChevronRight, TrendingUp, UserRound, Users, type LucideIcon } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Filter,
+  Search,
+} from 'lucide-react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 
 import { BookingOfflineBanner } from '@/components/features/booking-state-machine';
+import { BookingDetailsDialogWrapper } from '@/components/features/bookings/BookingDetailsDialogWrapper';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { useOpsActiveMembership, useOpsAccountSnapshot } from '@/contexts/ops-session';
-import { useOpsTodaySummary, useOpsBookingLifecycleActions, useOpsTodayVIPs, useOpsBookingChanges, useOpsBookingHeatmap } from '@/hooks';
-import { useOpsTableAssignmentActions } from '@/hooks';
+import { BookingStateMachineProvider } from '@/contexts/booking-state-machine';
+import { useOpsActiveMembership } from '@/contexts/ops-session';
+import { useOpsBookingHeatmap } from '@/hooks/ops/useOpsBookingHeatmap';
+import { useOpsBookingLifecycleActions } from '@/hooks/ops/useOpsBookingStatusActions';
+import { useOpsTableAssignmentActions } from '@/hooks/ops/useOpsTableAssignments';
+import { useOpsTodaySummary } from '@/hooks/ops/useOpsTodaySummary';
+import { useDateSwipe } from '@/hooks/useDateSwipe';
+import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils';
 import { formatDateKey, getTodayInTimezone } from '@/lib/utils/datetime';
-import { sanitizeDateParam, computeCalendarRange } from '@/utils/ops/dashboard';
+import { computeCalendarRange, sanitizeDateParam } from '@/utils/ops/dashboard';
 
-import { BookingChangeFeed } from './BookingChangeFeed';
 import { BookingsFilterBar } from './BookingsFilterBar';
-import { BookingsList } from './BookingsList';
+import { ConnectionStatusBeacon } from './ConnectionStatusBeacon';
 import { DashboardErrorState } from './DashboardErrorState';
 import { DashboardSkeleton } from './DashboardSkeleton';
-import { ExportBookingsButton } from './ExportBookingsButton';
+import { DashboardSummaryCard } from './DashboardSummaryCard';
 import { HeatmapCalendar } from './HeatmapCalendar';
-import { VIPGuestsModule } from './VIPGuestsModule';
-
 
 import type { BookingFilter } from './BookingsFilterBar';
+import type { BookingDTO } from '@/hooks/useBookings';
 
-
+/* 
+  Using 'all' as default to show complete overview first.
+*/
 const DEFAULT_FILTER: BookingFilter = 'all';
 
 type OpsDashboardClientProps = {
@@ -35,30 +50,60 @@ type OpsDashboardClientProps = {
 };
 
 export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
+  return (
+    <BookingStateMachineProvider>
+      <OpsDashboardClientContent initialDate={initialDate} />
+    </BookingStateMachineProvider>
+  );
+}
+
+function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
   const membership = useOpsActiveMembership();
-  const account = useOpsAccountSnapshot();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const queryClient = useQueryClient();
+
+  // State
   const [filter, setFilter] = useState<BookingFilter>(DEFAULT_FILTER);
-  const [selectedDate, setSelectedDate] = useState<string | null>(sanitizeDateParam(initialDate ?? undefined));
-  const [pendingBookingAction, setPendingBookingAction] = useState<{ bookingId: string; action: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show' } | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedDate, setSelectedDate] = useState<string | null>(
+    sanitizeDateParam(initialDate ?? undefined),
+  );
+  const [pendingBookingAction, setPendingBookingAction] = useState<{
+    bookingId: string;
+    action: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show';
+  } | null>(null);
+  const [detailsBooking, setDetailsBooking] = useState<BookingDTO | null>(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+
   const [, startTransition] = useTransition();
 
   const restaurantId = membership?.restaurantId ?? null;
-  const restaurantName = membership?.restaurantName ?? account.restaurantName ?? 'Restaurant';
 
   const summaryQuery = useOpsTodaySummary({ restaurantId, targetDate: selectedDate });
   const summary = summaryQuery.data ?? null;
 
   useEffect(() => {
     if (!summary) return;
+    if (selectedDate) return;
     if (summary.date !== selectedDate) {
+      // Normalize "today" to a concrete date key without forcing a second network fetch:
+      // when we update selectedDate, the summary query key changes. Prime the new key with the
+      // already-fetched summary so React Query doesn't immediately refetch and risk stale overwrites.
+      if (restaurantId) {
+        const nextKey = queryKeys.opsDashboard.summary(restaurantId, summary.date);
+        queryClient.setQueryData(nextKey, summary);
+      }
       setSelectedDate(summary.date);
     }
-  }, [summary, selectedDate]);
+  }, [queryClient, restaurantId, selectedDate, summary]);
 
   // Heatmap data for modified calendar popover
-  const heatmapRange = useMemo(() => (summary ? computeCalendarRange(summary.date) : null), [summary]);
+  const heatmapRange = useMemo(
+    () => (summary ? computeCalendarRange(summary.date) : null),
+    [summary],
+  );
   const heatmapQuery = useOpsBookingHeatmap({
     restaurantId,
     startDate: heatmapRange?.start ?? null,
@@ -66,28 +111,25 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
     enabled: Boolean(restaurantId && heatmapRange),
   });
 
-  const vipsQuery = useOpsTodayVIPs({
-    restaurantId,
-    targetDate: selectedDate,
-    enabled: Boolean(restaurantId && selectedDate),
-  });
-
-  const changesQuery = useOpsBookingChanges({
-    restaurantId,
-    targetDate: selectedDate,
-    enabled: Boolean(restaurantId && selectedDate),
-  });
-
   const bookingLifecycleMutations = useOpsBookingLifecycleActions();
-  const assignmentDate = summary?.date ?? selectedDate ?? null;
-  const tableAssignmentActions = useOpsTableAssignmentActions({ restaurantId, date: assignmentDate });
+  const assignmentDate = selectedDate;
+  const tableAssignmentActions = useOpsTableAssignmentActions({
+    restaurantId,
+    date: assignmentDate,
+  });
   const allowTableAssignments = useMemo(() => {
-    if (!summary) {
-      return true;
-    }
-    const today = getTodayInTimezone(summary.timezone);
-    return summary.date >= today;
-  }, [summary]);
+    const targetDate = selectedDate ?? summary?.date ?? null;
+    if (!targetDate) return true;
+
+    const timezone = summary?.timezone ?? 'UTC';
+    const today = getTodayInTimezone(timezone);
+    return targetDate >= today;
+  }, [selectedDate, summary?.date, summary?.timezone]);
+
+  // Handle Tab switching
+  const handleSelectFilter = (nextFilter: BookingFilter) => {
+    setFilter(nextFilter);
+  };
 
   const handleSelectDate = (date: string) => {
     setSelectedDate(date);
@@ -99,7 +141,8 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
     }
 
     startTransition(() => {
-      router.replace(`/${params.size > 0 ? `?${params.toString()}` : ''}`);
+      const query = params.size > 0 ? `?${params.toString()}` : '';
+      router.replace(`${pathname}${query}`);
     });
   };
 
@@ -112,55 +155,54 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
     handleSelectDate(formatDateKey(nextDate));
   };
 
-  const statCards = useMemo(() => {
-    const totals = summary?.totals;
-    if (!totals) {
-      return [];
-    }
+  const handleDetails = (booking: BookingDTO) => {
+    setDetailsBooking(booking);
+    setIsDetailsOpen(true);
+  };
 
-    return [
-      {
-        id: 'total',
-        title: 'Bookings',
-        value: totals.total ?? 0,
-        icon: CalendarIcon,
-        accentBg: 'bg-blue-50',
-        iconColor: 'text-blue-600',
-      },
-      {
-        id: 'covers',
-        title: 'Guests',
-        value: totals.covers ?? 0,
-        icon: UserRound,
-        accentBg: 'bg-indigo-50',
-        iconColor: 'text-indigo-600',
-      },
-      {
-        id: 'upcoming',
-        title: 'Upcoming',
-        value: totals.upcoming ?? 0,
-        icon: Clock,
-        accentBg: 'bg-amber-50',
-        iconColor: 'text-amber-600',
-      },
-      {
-        id: 'completed',
-        title: 'Shows',
-        value: totals.completed ?? 0,
-        icon: Users,
-        accentBg: 'bg-emerald-50',
-        iconColor: 'text-emerald-600',
-      },
-      {
-        id: 'noShow',
-        title: 'No Shows',
-        value: totals.noShow ?? 0,
-        icon: TrendingUp,
-        accentBg: 'bg-rose-50',
-        iconColor: 'text-rose-600',
-      },
-    ] as StatCardConfig[];
-  }, [summary?.totals]);
+  const handleDetailsOpenChange = (open: boolean) => {
+    setIsDetailsOpen(open);
+    if (!open) {
+      setDetailsBooking(null);
+    }
+  };
+
+  // Real-time Guest Stats
+  const guestStats = useMemo(() => {
+    if (!summary) return { upcoming: 0, seated: 0 };
+
+    // Calculate guests (sum of partySize)
+    const upcoming = summary.bookings
+      .filter((b) => b.status === 'confirmed' || b.status === 'PRIORITY_WAITLIST')
+      .reduce((sum, b) => sum + b.partySize, 0);
+
+    const seated = summary.bookings
+      .filter((b) => b.status === 'checked_in')
+      .reduce((sum, b) => sum + b.partySize, 0);
+
+    return { upcoming, seated };
+  }, [summary]);
+
+  // Tab counts for badges
+  const tabCounts = useMemo(() => {
+    if (!summary) return { all: 0, upcoming: 0, seated: 0, finished: 0, no_show: 0 };
+
+    const bookings = summary.bookings;
+    return {
+      all: bookings.length,
+      upcoming: bookings.filter(
+        (b) =>
+          b.status === 'confirmed' ||
+          b.status === 'PRIORITY_WAITLIST' ||
+          b.status === 'pending' ||
+          b.status === 'pending_allocation',
+      ).length,
+      seated: bookings.filter((b) => b.status === 'checked_in').length,
+      finished: bookings.filter((b) => ['completed', 'cancelled', 'no_show'].includes(b.status))
+        .length,
+      no_show: bookings.filter((b) => b.status === 'no_show').length,
+    };
+  }, [summary]);
 
   // All hooks must be called before any early returns
   const tableActionState = useMemo(() => {
@@ -170,6 +212,7 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
         type: 'assign' as const,
         bookingId: variables?.bookingId ?? null,
         tableId: variables?.tableId ?? null,
+        tableName: variables?.tableName,
       };
     }
     if (tableAssignmentActions.unassignTable.isPending) {
@@ -188,8 +231,11 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
     tableAssignmentActions.unassignTable.variables,
   ]);
 
-  // Handler functions (not hooks, but keeping them before early returns for consistency)
-  const handleMarkNoShow = async (bookingId: string, options?: { performedAt?: string | null; reason?: string | null }) => {
+  // Handler functions
+  const handleMarkNoShow = async (
+    bookingId: string,
+    options?: { performedAt?: string | null; reason?: string | null },
+  ) => {
     if (!restaurantId) return;
     setPendingBookingAction({ bookingId, action: 'no-show' });
     try {
@@ -198,7 +244,7 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
         bookingId,
         performedAt: options?.performedAt ?? null,
         reason: options?.reason ?? null,
-        targetDate: summary?.date,
+        targetDate: selectedDate,
       });
     } finally {
       setPendingBookingAction(null);
@@ -213,7 +259,7 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
         restaurantId,
         bookingId,
         reason: reason ?? null,
-        targetDate: summary?.date,
+        targetDate: selectedDate,
       });
     } finally {
       setPendingBookingAction(null);
@@ -227,7 +273,7 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
       await bookingLifecycleMutations.checkIn.mutateAsync({
         restaurantId,
         bookingId,
-        targetDate: summary?.date,
+        targetDate: selectedDate,
       });
     } finally {
       setPendingBookingAction(null);
@@ -241,15 +287,19 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
       await bookingLifecycleMutations.checkOut.mutateAsync({
         restaurantId,
         bookingId,
-        targetDate: summary?.date,
+        targetDate: selectedDate,
       });
     } finally {
       setPendingBookingAction(null);
     }
   };
 
-  const handleAssignTable = async (bookingId: string, tableId: string) => {
-    const result = await tableAssignmentActions.assignTable.mutateAsync({ bookingId, tableId });
+  const handleAssignTable = async (bookingId: string, tableId: string, tableName?: string) => {
+    const result = await tableAssignmentActions.assignTable.mutateAsync({
+      bookingId,
+      tableId,
+      tableName,
+    });
     return result.tableAssignments;
   };
 
@@ -258,222 +308,246 @@ export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
     return result.tableAssignments;
   };
 
+  // ALL HOOKS MUST BE CALLED BEFORE EARLY RETURNS
+  // Swipe gesture for touch devices
+  const headerSwipeRef = useDateSwipe<HTMLElement>({
+    onSwipeLeft: () => handleShiftDate(1), // Swipe left = next day
+    onSwipeRight: () => handleShiftDate(-1), // Swipe right = previous day
+    threshold: 50,
+  });
+
   // Early returns must come after all hooks
   if (!restaurantId) {
     return <NoAccessState />;
   }
 
-  if (summaryQuery.isLoading) {
+  // Only show full page skeleton on INITIAL load (no cached data yet)
+  // For date changes/refetches, we keep the page visible with list-only skeletons
+  const isInitialLoading = summaryQuery.isLoading && !summary;
+  const isRefetching = summaryQuery.isFetching && !!summary;
+
+  if (isInitialLoading) {
     return <DashboardSkeleton />;
   }
 
-  if (summaryQuery.isError || !summary) {
+  // ONLY return error state if there is a REAL error AND no cached summary data.
+  // This prevents transient error UI during reloads or navigation when stale data is available.
+  const hasError = summaryQuery.isError && !summary;
+  if (hasError) {
     return <DashboardErrorState onRetry={() => summaryQuery.refetch()} />;
   }
 
-  // Derived values after early returns
-  const changeFeedData = changesQuery.data?.changes ?? [];
-  const changeFeedTotal = changesQuery.data?.totalChanges ?? 0;
-  const showChangeFeed = changeFeedData.length > 0;
-  const vipData = vipsQuery.data;
-  const showVipModule = Boolean(vipData && vipData.vips.length > 0);
+  // Safety fallback: if for any reason summary is missing but we're not loading or showing error,
+  // we might still be initializing session/memberships. Show skeleton.
+  if (!summary) {
+    return <DashboardSkeleton />;
+  }
 
   return (
-    <div className="min-h-screen bg-slate-50/50">
-    <main className="mx-auto w-full max-w-[80vw] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-        {/* Header Section */}
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1">
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Operations Dashboard</h1>
-            <p className="text-sm text-slate-500">{restaurantName}</p>
-          </div>
-          <div className="flex items-center gap-3 rounded-lg border bg-white p-1 shadow-sm">
-            <DateNavigationButton direction="prev" onClick={() => handleShiftDate(-1)} />
-            <div className="flex items-center gap-2 px-2">
-              <CalendarIcon className="h-4 w-4 text-slate-500" />
-              <HeatmapCalendar
-                summary={summary}
-                heatmap={heatmapQuery.data}
-                selectedDate={summary.date}
-                onSelectDate={handleSelectDate}
-                isLoading={heatmapQuery.isLoading}
-              />
+    <div className="w-full min-w-0 bg-background font-sans text-foreground">
+      <div className="mx-auto w-full min-w-0 max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+        {/* HEADER SECTION - Mobile-First Responsive with Swipe Support */}
+        {/* HEADER SECTION - Fully Responsive (Mobile Center -> Tablet Left -> Desktop Row) */}
+        {/* Changed split to xl (1280px) to prevent cramping on tablet/small laptop */}
+        <header
+          ref={headerSwipeRef}
+          className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between"
+        >
+          {/* Title Section - Always full width */}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl lg:text-4xl">
+                Operations
+              </h1>
+              <ConnectionStatusBeacon />
             </div>
-            <DateNavigationButton direction="next" onClick={() => handleShiftDate(1)} />
+            <p
+              className={cn(
+                'text-sm text-muted-foreground sm:text-base transition-opacity duration-300',
+                isRefetching && 'opacity-50',
+              )}
+            >
+              <span className="font-semibold text-foreground">{guestStats.upcoming} guests</span>{' '}
+              expecting arrival
+              <span className="mx-1.5 text-muted-foreground/50">·</span>
+              <span className="font-semibold text-foreground">{guestStats.seated} seated</span> now
+              {isRefetching && (
+                <span className="ml-2 text-xs text-amber-600 animate-pulse">(Updating...)</span>
+              )}
+            </p>
+          </div>
+
+          {/* Right Side: Date Controls Wrapper */}
+          <div className="flex flex-col gap-4 xl:items-end">
+            {/* Service Date Info (Badges) */}
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start xl:justify-end">
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-muted/70 px-3 py-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground transition-all duration-200 ease-out hover:bg-muted motion-reduce:transition-none">
+                Service Date
+              </div>
+              {summary &&
+                (() => {
+                  const meta = heatmapQuery.data?.[summary.date];
+                  return meta ? (
+                    <>
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition-all duration-200 ease-out hover:scale-105 hover:shadow-md active:scale-95 dark:bg-blue-900/30 dark:text-blue-300 motion-reduce:transition-none motion-reduce:hover:scale-100">
+                        {meta.bookings} {meta.bookings === 1 ? 'booking' : 'bookings'}
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-all duration-200 ease-out hover:scale-105 hover:shadow-md active:scale-95 dark:bg-emerald-900/30 dark:text-emerald-300 motion-reduce:transition-none motion-reduce:hover:scale-100">
+                        {meta.covers} {meta.covers === 1 ? 'cover' : 'covers'}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-500 dark:bg-gray-800/50 dark:text-gray-400">
+                      No bookings
+                    </span>
+                  );
+                })()}
+            </div>
+
+            {/* Unified Date Navigation Control */}
+            <div className="relative flex items-center justify-center gap-2 sm:justify-start xl:justify-end">
+              {/* Swipe hint - left */}
+              <div
+                className="pointer-events-none absolute left-0 flex items-center opacity-30 animate-pulse xl:hidden"
+                aria-hidden="true"
+              >
+                <ChevronsLeft className="h-4 w-4 text-muted-foreground" />
+              </div>
+
+              {/* Single Unified Navigation Control */}
+              <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-card/80 p-1.5 shadow-sm backdrop-blur-sm transition-shadow hover:shadow-md">
+                {/* Previous button */}
+                <button
+                  type="button"
+                  onClick={() => handleShiftDate(-1)}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-all duration-200 hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring active:scale-95 motion-reduce:active:scale-100"
+                  aria-label="Previous day"
+                >
+                  <ChevronLeft className="h-4 w-4" aria-hidden />
+                </button>
+
+                {/* Clickable date that opens calendar */}
+                <HeatmapCalendar
+                  summary={summary}
+                  heatmap={heatmapQuery.data}
+                  selectedDate={summary.date}
+                  onSelectDate={handleSelectDate}
+                  onShiftDate={handleShiftDate}
+                  isLoading={heatmapQuery.isLoading}
+                />
+
+                {/* Next button */}
+                <button
+                  type="button"
+                  onClick={() => handleShiftDate(1)}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-all duration-200 hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring active:scale-95 motion-reduce:active:scale-100"
+                  aria-label="Next day"
+                >
+                  <ChevronRight className="h-4 w-4" aria-hidden />
+                </button>
+              </div>
+
+              {/* Swipe hint - right */}
+              <div
+                className="pointer-events-none absolute right-0 flex items-center opacity-30 animate-pulse xl:hidden"
+                aria-hidden="true"
+              >
+                <ChevronsRight className="h-4 w-4 text-muted-foreground" />
+              </div>
+            </div>
           </div>
         </header>
 
+        {/* Connection Banner */}
         <section aria-label="Connection status">
           <BookingOfflineBanner />
         </section>
 
-        {/* Stats Grid */}
-        {statCards.length > 0 ? (
-          <section aria-label="Key performance indicators">
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
-              {statCards.map((card) => (
-                <StatCard key={card.id} config={card} />
-              ))}
-            </div>
-          </section>
-        ) : null}
-
-        {/* Main Content Grid */}
-        <div className="grid gap-6 lg:grid-cols-12">
-          {/* Main Reservations Column */}
-          <div className="lg:col-span-8 xl:col-span-9">
-            <section
-              aria-label="Reservations"
-              className="flex h-full flex-col overflow-hidden rounded-xl border bg-white shadow-sm"
-            >
-              <div className="border-b bg-slate-50/50 px-6 py-4">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <h2 className="font-semibold text-slate-900">Reservations</h2>
-                    <p className="text-sm text-slate-500">Manage today&apos;s bookings</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {!allowTableAssignments ? (
-                      <p className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
-                        Past date - Assignments locked
-                      </p>
-                    ) : null}
-                    <ExportBookingsButton
-                      restaurantId={restaurantId}
-                      restaurantName={restaurantName}
-                      date={summary.date}
-                    />
-                  </div>
-                </div>
-                <div className="mt-4">
-                  <BookingsFilterBar value={filter} onChange={setFilter} />
-                </div>
-              </div>
-
-              <div className="flex-1 p-6">
-                <BookingsList
-                  bookings={summary.bookings}
-                  filter={filter}
-                  summary={summary}
-                  allowTableAssignments={allowTableAssignments}
-                  onMarkNoShow={handleMarkNoShow}
-                  onUndoNoShow={handleUndoNoShow}
-                  onCheckIn={handleCheckIn}
-                  onCheckOut={handleCheckOut}
-                  pendingLifecycleAction={pendingBookingAction}
-                  onAssignTable={handleAssignTable}
-                  onUnassignTable={handleUnassignTable}
-                  tableActionState={tableActionState}
+        {/* TOOLBAR */}
+        <div className="sticky top-0 z-[5] bg-background/80 px-4 py-4 backdrop-blur-md transition-all sm:px-6 md:rounded-xl md:border md:border-border/60 md:bg-card/80 md:px-6 md:shadow-sm">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="overflow-x-auto scrollbar-hide -mx-2 px-2 md:mx-0 md:px-0">
+              <div className="min-w-max">
+                <BookingsFilterBar
+                  value={filter}
+                  onChange={handleSelectFilter}
+                  counts={tabCounts}
                 />
               </div>
-            </section>
+            </div>
+
+            {/* SEARCH & FILTER */}
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1 md:w-64 md:flex-none">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Search guests..."
+                  id="ops-dashboard-search"
+                  name="search"
+                  aria-label="Search guests"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  autoComplete="off"
+                  className="h-10 w-full rounded-lg border border-border bg-background pl-10 pr-4 text-sm outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 touch-manipulation"
+                />
+              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                className="shrink-0 h-10 w-10 bg-card touch-manipulation"
+              >
+                <Filter className="h-4 w-4 text-muted-foreground" />
+              </Button>
+            </div>
           </div>
-
-          {/* Sidebar Column */}
-          <aside className="space-y-6 lg:col-span-4 xl:col-span-3">
-            {/* VIP Guests */}
-            <section
-              aria-label="VIP guests"
-              className="overflow-hidden rounded-xl border bg-white shadow-sm"
-            >
-              <div className="border-b bg-slate-50/50 px-4 py-3">
-                <h3 className="font-semibold text-slate-900">VIP Guests</h3>
-              </div>
-              <div className="p-4">
-                {showVipModule ? (
-                  <VIPGuestsModule
-                    vips={vipData!.vips}
-                    totalVipCovers={vipData!.totalVipCovers}
-                    loading={vipsQuery.isLoading}
-                  />
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-8 text-center">
-                    <div className="mb-2 rounded-full bg-slate-100 p-3">
-                      <UserRound className="h-5 w-5 text-slate-400" />
-                    </div>
-                    <p className="text-sm text-slate-500">No VIP arrivals today</p>
-                  </div>
-                )}
-              </div>
-            </section>
-
-            {/* Change Feed */}
-            <section
-              aria-label="Booking changes"
-              className="overflow-hidden rounded-xl border bg-white shadow-sm"
-            >
-              <div className="border-b bg-slate-50/50 px-4 py-3">
-                <h3 className="font-semibold text-slate-900">Recent Changes</h3>
-              </div>
-              <div className="p-4">
-                {showChangeFeed ? (
-                  <BookingChangeFeed
-                    changes={changeFeedData}
-                    totalChanges={changeFeedTotal}
-                    loading={changesQuery.isLoading}
-                  />
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-8 text-center">
-                    <div className="mb-2 rounded-full bg-slate-100 p-3">
-                      <Clock className="h-5 w-5 text-slate-400" />
-                    </div>
-                    <p className="text-sm text-slate-500">No changes today</p>
-                  </div>
-                )}
-              </div>
-            </section>
-          </aside>
         </div>
-      </main>
-    </div>
-  );
-}
 
-type StatCardConfig = {
-  id: string;
-  title: string;
-  value: number;
-  icon: LucideIcon;
-  accentBg: string;
-  iconColor: string;
-};
+        {/* RESPONSIVE LAYOUT (Booking List - Full Width) */}
+        <div className="space-y-6">
+          {/* If assignments locked warning */}
+          {!allowTableAssignments ? (
+            <div className="flex justify-end">
+              <Badge variant="secondary" className="bg-amber-50 text-amber-700">
+                Past date · Assignments locked
+              </Badge>
+            </div>
+          ) : null}
 
-function StatCard({ config }: { config: StatCardConfig }) {
-  const Icon = config.icon;
-
-  return (
-    <div className="group relative overflow-hidden rounded-xl border bg-white p-4 shadow-sm transition-all hover:shadow-md">
-      <div className="flex items-center justify-between">
-        <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg transition-colors', config.accentBg)}>
-          <Icon className={cn('h-5 w-5', config.iconColor)} aria-hidden />
+          <DashboardSummaryCard
+            summary={summary}
+            restaurantName={membership?.restaurantName ?? 'Restaurant'}
+            selectedDate={summary.date}
+            onSelectDate={handleSelectDate}
+            heatmap={heatmapQuery.data}
+            heatmapLoading={heatmapQuery.isLoading}
+            heatmapError={heatmapQuery.error ?? null}
+            filter={filter}
+            onFilterChange={handleSelectFilter}
+            searchQuery={searchQuery}
+            isRefetching={isRefetching}
+            showFilterBar={false}
+            showHeatmap={false}
+            allowTableAssignments={allowTableAssignments}
+            onDetails={handleDetails}
+            onAssignTable={handleAssignTable}
+            onUnassignTable={handleUnassignTable}
+            tableActionState={tableActionState}
+            onMarkNoShow={handleMarkNoShow}
+            onUndoNoShow={handleUndoNoShow}
+            onCheckIn={handleCheckIn}
+            onCheckOut={handleCheckOut}
+            pendingLifecycleAction={pendingBookingAction}
+          />
         </div>
-      </div>
-      <div className="mt-4">
-        <p className="text-2xl font-bold text-slate-900">{config.value}</p>
-        <p className="text-sm font-medium text-slate-500">{config.title}</p>
+        <BookingDetailsDialogWrapper
+          bookingId={detailsBooking?.id ?? null}
+          initialData={detailsBooking}
+          open={isDetailsOpen}
+          onOpenChange={handleDetailsOpenChange}
+        />
       </div>
     </div>
-  );
-}
-
-type DateNavigationButtonProps = {
-  direction: 'prev' | 'next';
-  onClick: () => void;
-};
-
-function DateNavigationButton({ direction, onClick }: DateNavigationButtonProps) {
-  const Icon = direction === 'prev' ? ChevronLeft : ChevronRight;
-  const label = direction === 'prev' ? 'Previous day' : 'Next day';
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="inline-flex h-8 w-8 touch-manipulation items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 active:bg-slate-200"
-      aria-label={label}
-    >
-      <Icon className="h-4 w-4" aria-hidden />
-    </button>
   );
 }
 

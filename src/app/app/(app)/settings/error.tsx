@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import Link from "next/link";
+import Link from 'next/link';
 
-import { Button } from "@/components/ui/button";
+import { Button } from '@/components/ui/button';
 
 export default function SettingsError({
   error,
@@ -11,7 +11,7 @@ export default function SettingsError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  console.error("[settings] render error", error);
+  console.error('[settings] render error', error);
 
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 bg-background px-4 py-16 text-center">
@@ -24,9 +24,11 @@ export default function SettingsError({
       </div>
       <div className="flex flex-wrap items-center justify-center gap-3">
         <Button onClick={reset}>Retry</Button>
-        <Link href="/app"><Button variant="outline">Go to dashboard</Button></Link>
+        <Button asChild variant="outline">
+          <Link href="/app">Go to dashboard</Link>
+        </Button>
       </div>
-      {process.env.NODE_ENV !== "production" && error?.digest ? (
+      {process.env.NODE_ENV !== 'production' && error?.digest ? (
         <p className="text-xs text-muted-foreground">Error ID: {error.digest}</p>
       ) : null}
     </div>

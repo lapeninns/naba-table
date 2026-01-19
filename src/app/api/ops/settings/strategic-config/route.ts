@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { mapSupabaseAuthError } from "@/server/auth/supabase-auth-errors";
 import { getStrategicConfigSnapshot } from "@/server/capacity/strategic-config";
 import { clearStrategicCaches } from "@/server/capacity/strategic-maintenance";
 import { getRouteHandlerSupabaseClient } from "@/server/supabase";
@@ -57,7 +58,8 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     console.error("[ops/settings][strategic-config][GET] auth lookup failed", error.message);
-    return NextResponse.json({ error: "Unable to verify session" }, { status: 500 });
+    const mapped = mapSupabaseAuthError(error);
+    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
   }
 
   if (!user) {
@@ -105,7 +107,8 @@ export async function POST(request: NextRequest) {
 
   if (error) {
     console.error("[ops/settings][strategic-config][POST] auth lookup failed", error.message);
-    return NextResponse.json({ error: "Unable to verify session" }, { status: 500 });
+    const mapped = mapSupabaseAuthError(error);
+    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
   }
 
   if (!user) {

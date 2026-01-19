@@ -9,7 +9,7 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { useOpsCreateTeamInvite } from '@/hooks';
+import { useOpsCreateTeamInvite } from '@/hooks/ops/useOpsTeamInvitations';
 import { RESTAURANT_ROLE_OPTIONS } from '@/lib/owner/auth/roles';
 
 import type { RestaurantRole } from '@/lib/owner/auth/roles';
@@ -52,7 +52,7 @@ export function TeamInviteForm({ restaurantId }: TeamInviteFormProps) {
       });
       setLastInvite(result);
       form.reset({ email: '', role: values.role });
-    } catch (error) {
+    } catch {
       // errors surfaced via toast in mutation hook
     }
   };

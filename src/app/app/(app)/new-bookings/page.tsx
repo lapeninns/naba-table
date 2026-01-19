@@ -1,0 +1,41 @@
+import { redirect } from "next/navigation";
+import { Suspense } from "react";
+
+import { BookingErrorBoundary } from "@/components/features/booking-state-machine";
+import { withRedirectedFrom } from "@/lib/url/withRedirectedFrom";
+import { getServerComponentSupabaseClient } from "@/server/supabase";
+
+import { WalkInWizardClient } from "./_components/WalkInWizardClient";
+
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "New Booking · Nab a Table Ops",
+  description: "Create a new reservation using the standard booking flow with ops controls.",
+};
+
+export default async function WalkInPage() {
+  const supabase = await getServerComponentSupabaseClient();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error) {
+    console.error("[ops/walk-in] failed to resolve auth", error.message);
+  }
+
+  if (!user) {
+    redirect(withRedirectedFrom("/auth/signin", "/app/new-bookings"));
+  }
+
+  return (
+    <div className="mx-auto flex w-full max-w-[80vw] flex-col gap-6 px-3 py-6 sm:px-4 lg:px-6">
+      <BookingErrorBoundary>
+        <Suspense fallback={<div className="p-8 text-center text-muted-foreground">Loading booking wizard...</div>}>
+          <WalkInWizardClient />
+        </Suspense>
+      </BookingErrorBoundary>
+    </div>
+  );
+}

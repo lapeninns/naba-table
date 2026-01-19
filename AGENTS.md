@@ -2,7 +2,7 @@
 agents_version: 5.4
 scope: root
 extends: null
-last_updated: 2025-12-22
+last_updated: 2026-01-02
 owner: github:@maintainers
 ---
 
@@ -32,7 +32,7 @@ For checklists, see **§11 Quick Reference**.
 2. **Everything is a Task** with its own UTC‑timestamped directory and artifacts.
 3. **Manual UI QA via Chrome DevTools (MCP) is mandatory** for any UI change.
 4. **Supabase: remote only.** Never run migrations or seeds against a local instance.
-5. **Prefer existing patterns** (DRY/KISS/YAGNI). **Use SHADCN UI** (via **Shadcn MCP**) before custom components.
+5. **Prefer existing patterns** (DRY/KISS/YAGNI). **Use SHADCN UI primitives** (via **Shadcn MCP**) for all UI; do not create custom primitives or base components.
 6. **Accessibility is required** (WCAG/WAI‑ARIA APG). No exceptions.
 7. **Document assumptions & deviations** in the task folder.
 8. **Secrets never in source.** Use env vars/secret stores; never commit tokens.
@@ -48,6 +48,7 @@ Nested `AGENTS.md` files **cannot relax or override** these:
 - Supabase is **remote‑only**; migrations require backup/rollback plan and evidence.
 - Accessibility baseline (keyboard navigation; WCAG/WAI‑ARIA compliance).
 - Manual UI QA via Chrome DevTools MCP for UI changes (with artifacts).
+- Shadcn UI primitives are mandatory for all UI; custom primitives are not allowed without maintainer approval and plan.md justification.
 - Conventional Commits; PR must include task artifacts and verification evidence.
 
 > Anything listed here wins even against "closest‑wins" precedence.
@@ -588,8 +589,8 @@ Tool: Chrome DevTools MCP
 
 ### Components
 
-- **Use SHADCN UI via Shadcn MCP**; extend rather than rebuild.
-- **Exceptions**: Only if no Shadcn equivalent supports required a11y/UX; document justification in `plan.md` and get design sign‑off.
+- **Use SHADCN UI primitives via Shadcn MCP** for all UI; extend and compose rather than rebuild.
+- **Exceptions**: Only with maintainer approval when no Shadcn equivalent supports required a11y/UX; document justification in `plan.md` and get design sign‑off.
 
 ### Mobile‑First & Progressive Enhancement
 
@@ -839,7 +840,10 @@ Escalate or stop immediately if:
 [ ] Staging first, then production (window + approval)
 [ ] Backup/rollback plan noted
 [ ] Dry-run(diff) artifact attached
+[ ] Migration logged in docs/DATABASE_MIGRATIONS.md
 ```
+
+> **Migration Log**: See `docs/DATABASE_MIGRATIONS.md` for tracking staging → production database changes.
 
 **Security & Privacy**
 

@@ -1,37 +1,44 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { format, parseISO } from 'date-fns';
+import {
+  AlertCircle,
+  Calendar as CalendarIcon,
+  CheckCircle2,
+  Clock,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  Info,
+  LayoutDashboard,
+  MapPin,
+  RotateCw,
+  Search,
+  Timer,
+  Users,
+} from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { useOpsSession } from '@/contexts/ops-session';
 import { useOpsTableTimeline } from '@/hooks/ops/useOpsTableTimeline';
 import { cn } from '@/lib/utils';
 
 import type { TableTimelineResponse, TableTimelineSegment, TableTimelineSegmentState } from '@/types/ops';
-
-import { AlertCircle, Calendar as CalendarIcon, ChevronRight, Clock, MapPin, RotateCw, Search, Users } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-
 type SelectedSegment = {
   table: TableTimelineResponse['tables'][number]['table'];
   segment: TableTimelineSegment;
-};
-
-type HourMarker = {
-  time: number;
-  label: string;
-  offset: number;
 };
 
 const SERVICE_OPTIONS: Array<{ value: 'all' | 'lunch' | 'dinner'; label: string }> = [
@@ -99,6 +106,40 @@ const STATUS_META: Record<
   },
 };
 
+const TIME_SLOTS = Array.from({ length: 12 }, (_, idx) => {
+  const hour = 17 + Math.floor(idx / 2);
+  const minutes = idx % 2 === 0 ? '00' : '30';
+  return `${hour}:${minutes}`;
+});
+
+const SLOT_WIDTH_PX = 120;
+const START_HOUR = 17;
+
+function parseHHMM(time: string) {
+  const [hours, minutes] = time.split(':').map((part) => Number(part));
+  return { hours, minutes };
+}
+
+function minutesSinceStart(time: string) {
+  const { hours, minutes } = parseHHMM(time);
+  return (hours - START_HOUR) * 60 + minutes;
+}
+
+function timeToPositionPx(time: string) {
+  return (minutesSinceStart(time) / 30) * SLOT_WIDTH_PX;
+}
+
+function toHHMM(timestamp: string) {
+  const date = new Date(timestamp);
+  const hours = date.getHours().toString().padStart(2, '0');
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
+
+function clampToServiceWindow(value: number, start: string, end: string) {
+  return Math.min(Math.max(value, timeToPositionPx(start)), timeToPositionPx(end));
+}
+
 export function TableTimelineClient() {
   const { activeRestaurantId, activeMembership } = useOpsSession();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -112,6 +153,7 @@ export function TableTimelineClient() {
     error: null,
   });
   const [now, setNow] = useState<Date>(() => new Date());
+  const timelineScrollRef = useRef<HTMLDivElement | null>(null);
 
   const timelineQuery = useOpsTableTimeline({
     restaurantId: activeRestaurantId,
@@ -133,7 +175,22 @@ export function TableTimelineClient() {
     return () => window.clearInterval(timer);
   }, []);
 
-  const zones = timeline?.summary?.zones ?? [];
+  useEffect(() => {
+    if (!timeline?.window?.start || !timeline?.window?.end) return;
+    const viewport = timelineScrollRef.current;
+    if (!viewport) return;
+
+    const start = toHHMM(timeline.window.start);
+    const end = toHHMM(timeline.window.end);
+    const nowHHMM = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    const nowPx = clampToServiceWindow(timeToPositionPx(nowHHMM), start, end);
+    const desired = Math.max(0, nowPx - viewport.clientWidth / 2);
+    viewport.scrollLeft = desired;
+    // only on initial timeline load
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeline?.window?.start, timeline?.window?.end]);
+
+  const zones = useMemo(() => timeline?.summary?.zones ?? [], [timeline?.summary?.zones]);
   const statusFilterSet = useMemo(() => new Set<TableTimelineSegmentState>(statusFilters), [statusFilters]);
   const filteredTables = useMemo(() => {
     if (!timeline) return [];
@@ -147,6 +204,12 @@ export function TableTimelineClient() {
       return matchesSearch && hasVisibleSegments;
     });
   }, [timeline, search, statusFilterSet]);
+
+  const selectedZoneName = useMemo(() => {
+    if (!selectedZone) return null;
+    const match = zones.find((zone) => zone.id === selectedZone);
+    return match?.name ?? null;
+  }, [selectedZone, zones]);
 
   const toggleStatusFilter = (status: TableTimelineSegmentState) => {
     setStatusFilters((prev) => {
@@ -191,169 +254,305 @@ export function TableTimelineClient() {
     );
   }
 
+  const displayDate = selectedDate ? parseISO(selectedDate) : null;
+
   return (
     <TooltipProvider>
-      <div className="space-y-6">
-        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div className="space-y-1">
-            <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Capacity</p>
-            <h1 className="text-3xl font-semibold text-foreground">Table timeline</h1>
-            <p className="text-sm text-muted-foreground">
-              Monitor table availability across services with live holds and bookings.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-            <span>
-              Last updated {timelineQuery.dataUpdatedAt ? new Date(timelineQuery.dataUpdatedAt).toLocaleTimeString() : '—'}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => timelineQuery.refetch()}
-              disabled={timelineQuery.isFetching}
-            >
-              <RotateCw className={cn('mr-2 h-4 w-4', timelineQuery.isFetching && 'animate-spin')} />
-              Refresh
-            </Button>
-          </div>
-        </div>
+      <div className="min-h-[calc(100dvh-3rem)] bg-background pb-12">
+        <nav className="sticky top-0 z-30 border-b border-border/60 bg-background/90 backdrop-blur">
+          <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-4 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="rounded-lg bg-primary p-2 text-primary-foreground shadow-sm">
+                <LayoutDashboard className="h-5 w-5" />
+              </div>
+              <div className="space-y-0.5">
+                <h1 className="text-lg font-semibold text-foreground">Capacity Timeline</h1>
+                <p className="text-xs text-muted-foreground">
+                  {service === 'all' ? 'All services' : service === 'lunch' ? 'Lunch' : 'Dinner'}
+                  {selectedZoneName ? ` • ${selectedZoneName}` : ''}
+                  {timeline?.window?.start && timeline?.window?.end
+                    ? ` • ${formatTime(timeline.window.start)}–${formatTime(timeline.window.end)}`
+                    : ''}
+                </p>
+              </div>
+            </div>
 
-        <Card>
-          <CardContent className="space-y-4">
-            <div className="grid gap-3 md:grid-cols-4">
-              <div className="space-y-1">
-                <Label htmlFor="timeline-date">Service date</Label>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  aria-label="Find table"
+                  placeholder="Find table…"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  className="h-10 w-full pl-9 sm:w-72"
+                />
+              </div>
+
+              <Button variant="outline" size="icon" aria-label="Filters" className="h-10 w-10" disabled>
+                <Filter className="h-4 w-4" />
+              </Button>
+
+              <Separator orientation="vertical" className="hidden h-8 sm:block" />
+
+              <div className="flex items-center rounded-lg bg-muted p-1">
+                <Button variant="ghost" size="icon" aria-label="Previous day" className="h-8 w-8" disabled>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
-                      id="timeline-date"
-                      variant="outline"
-                      className={cn('w-full justify-start text-left font-normal', !selectedDate && 'text-muted-foreground')}
+                      variant="ghost"
+                      className={cn('h-8 px-2 text-xs font-semibold', !displayDate && 'text-muted-foreground')}
+                      aria-label="Select date"
                     >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {selectedDate ? format(parseISO(selectedDate), 'PPP') : 'Pick a date'}
+                      <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
+                      {displayDate ? format(displayDate, 'PPP') : 'Pick a date'}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="p-0" align="start">
+                  <PopoverContent className="p-0" align="end">
                     <Calendar
                       mode="single"
-                      selected={selectedDate ? parseISO(selectedDate) : undefined}
+                      selected={displayDate ?? undefined}
                       onSelect={(date) => setSelectedDate(date ? format(date, 'yyyy-MM-dd') : null)}
                       initialFocus
                     />
                   </PopoverContent>
                 </Popover>
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="timeline-zone">Zone</Label>
-                <Select value={selectedZone ?? 'all'} onValueChange={(value) => setSelectedZone(value === 'all' ? null : value)}>
-                  <SelectTrigger id="timeline-zone">
-                    <SelectValue placeholder="All zones" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All zones</SelectItem>
-                    {zones.map((zone) => (
-                      <SelectItem key={zone.id} value={zone.id}>
-                        {zone.name || 'Unnamed zone'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="timeline-service">Service</Label>
-                <Select value={service} onValueChange={(value) => setService(value as 'all' | 'lunch' | 'dinner')}>
-                  <SelectTrigger id="timeline-service">
-                    <SelectValue placeholder="All services" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SERVICE_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="timeline-search">Search</Label>
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="timeline-search"
-                    placeholder="Search by table number or zone"
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    className="pl-8"
-                  />
-                </div>
+                <Button variant="ghost" size="icon" aria-label="Next day" className="h-8 w-8" disabled>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
               </div>
             </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Status</span>
-              <div className="flex flex-wrap gap-2">
-                {STATUS_OPTIONS.map((option) => {
-                  const active = statusFilters.includes(option.value);
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => toggleStatusFilter(option.value)}
-                      aria-pressed={active}
-                      className={cn(
-                        'flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
-                        active ? option.pill : 'bg-muted text-foreground border border-border hover:border-primary/40'
-                      )}
-                    >
-                      <span className={cn('h-2.5 w-2.5 rounded-full', option.dot, !active && 'opacity-60')} />
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {timelineQuery.isLoading ? (
-          <TimelineSkeleton />
-        ) : timeline ? (
-          <div className="space-y-4">
-            <ServiceSummary summary={timeline.summary} />
-            <Card className="overflow-hidden">
-              <CardContent className="p-0">
-                <RevampedTimelineGrid
-                  timeline={timeline}
-                  tables={filteredTables}
-                  statusFilterSet={statusFilterSet}
-                  onSelectSegment={(table, segment) => setSelectedSegment({ table, segment })}
-                  now={now}
-                />
-              </CardContent>
-            </Card>
           </div>
-        ) : (
-          <Card>
-            <CardContent className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
-              <AlertCircle className="h-4 w-4" />
-              Unable to load table timeline. Please try again.
-            </CardContent>
-          </Card>
-        )}
+        </nav>
 
-        <SegmentDialog
-          selected={selectedSegment}
-          onClose={() => {
-            setActionState({ releasing: false, error: null });
-            setSelectedSegment(null);
-          }}
-          onReleaseHold={handleReleaseHold}
-          actionState={actionState}
-        />
+        <main className="mx-auto w-full max-w-[1600px] space-y-6 px-4 py-6 sm:px-6">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard icon={Users} label="Current Occupancy" value="—" color="bg-blue-500" />
+            <StatCard icon={Timer} label="Avg. Turn Time" value="—" color="bg-amber-500" />
+            <StatCard icon={CheckCircle2} label="Upcoming Arrivals" value="—" color="bg-emerald-500" />
+            <StatCard icon={AlertCircle} label="Table Conflicts" value="—" color="bg-rose-500" />
+          </div>
+
+          <div className="flex flex-col gap-6 lg:flex-row">
+            <div className="min-w-0 flex-1">
+              <Card className="overflow-hidden">
+                <CardContent className="p-0">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-muted/20 p-4">
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedZone(null)}
+                        aria-pressed={!selectedZone}
+                        className={cn(
+                          'rounded-full px-4 py-1.5 text-xs font-semibold transition-colors',
+                          !selectedZone
+                            ? 'bg-foreground text-background'
+                            : 'bg-muted text-muted-foreground hover:bg-muted/70',
+                        )}
+                      >
+                        All Zones
+                      </button>
+                      {zones.map((zone) => (
+                        <button
+                          key={zone.id}
+                          type="button"
+                          onClick={() => setSelectedZone(zone.id)}
+                          aria-pressed={selectedZone === zone.id}
+                          className={cn(
+                            'rounded-full px-4 py-1.5 text-xs font-semibold transition-colors',
+                            selectedZone === zone.id
+                              ? 'bg-foreground text-background'
+                              : 'bg-muted text-muted-foreground hover:bg-muted/70',
+                          )}
+                        >
+                          {zone.name || 'Unnamed zone'}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="hidden flex-wrap items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground md:flex">
+                      {STATUS_OPTIONS.filter((option) => option.value !== 'available').map((option) => (
+                        <div key={option.value} className="flex items-center gap-1.5">
+                          <span className={cn('h-2.5 w-2.5 rounded-full', option.dot)} />
+                          {option.label}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3 border-b border-border/60 px-4 py-3 text-xs text-muted-foreground">
+                    <div className="min-w-[220px]">
+                      <Label htmlFor="timeline-service" className="sr-only">
+                        Service
+                      </Label>
+                      <Select value={service} onValueChange={(value) => setService(value as 'all' | 'lunch' | 'dinner')}>
+                        <SelectTrigger id="timeline-service" className="h-9">
+                          <SelectValue placeholder="All services" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SERVICE_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Status</span>
+                      {STATUS_OPTIONS.map((option) => {
+                        const active = statusFilters.includes(option.value);
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => toggleStatusFilter(option.value)}
+                            aria-pressed={active}
+                            className={cn(
+                              'flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
+                              active ? option.pill : 'bg-muted text-foreground border border-border hover:border-primary/40',
+                            )}
+                          >
+                            <span className={cn('h-2.5 w-2.5 rounded-full', option.dot, !active && 'opacity-60')} />
+                            {option.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="ml-auto flex items-center gap-2">
+                      <span>
+                        Last updated{' '}
+                        {timelineQuery.dataUpdatedAt ? new Date(timelineQuery.dataUpdatedAt).toLocaleTimeString() : '—'}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => timelineQuery.refetch()}
+                        disabled={timelineQuery.isFetching}
+                      >
+                        <RotateCw className={cn('mr-2 h-4 w-4', timelineQuery.isFetching && 'animate-spin')} />
+                        Refresh
+                      </Button>
+                    </div>
+                  </div>
+
+                  {timelineQuery.isLoading ? (
+                    <TimelineSkeleton />
+                  ) : timeline ? (
+                    <PrototypeTimelineGrid
+                      timeline={timeline}
+                      tables={filteredTables}
+                      onSelectSegment={(table, segment) => setSelectedSegment({ table, segment })}
+                      now={now}
+                      scrollRef={timelineScrollRef}
+                    />
+                  ) : (
+                    <div className="p-6">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <AlertCircle className="h-4 w-4" />
+                        Unable to load table timeline. Please try again.
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between gap-3 border-t border-border/60 bg-muted/20 px-4 py-3 text-[11px] text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <Info className="h-4 w-4" />
+                      Drag blocks to reassign tables. Right-click for quick actions.
+                    </div>
+                    <div className="hidden sm:block">Live updates {isRealtimeEnabled() ? 'on' : 'polling'}</div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="w-full shrink-0 space-y-4 lg:w-96">
+              <Card>
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold">Action Required</h3>
+                    <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-semibold text-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
+                      — Alerts
+                    </span>
+                  </div>
+                  <p className="mt-3 text-xs text-muted-foreground">Alerts will appear here once live data is loaded.</p>
+                  <Button className="mt-4 w-full" variant="secondary" disabled>
+                    View All Notifications
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-5">
+                  <h3 className="text-sm font-semibold">Capacity Breakdown</h3>
+                  <p className="mt-2 text-xs text-muted-foreground">Breakdown will be computed from table inventory and bookings.</p>
+                  <div className="mt-4 space-y-4">
+                    {[
+                      { label: '2-Tops', current: 0, total: 0 },
+                      { label: '4-Tops', current: 0, total: 0 },
+                      { label: '6+ Tops', current: 0, total: 0 },
+                    ].map((item) => (
+                      <div key={item.label} className="space-y-1.5">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">{item.label}</span>
+                          <span className="font-semibold text-foreground">{item.total ? `${item.current}/${item.total}` : '—'}</span>
+                        </div>
+                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                          <div className="h-full bg-primary" style={{ width: item.total ? `${(item.current / item.total) * 100}%` : '0%' }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          <SegmentDialog
+            selected={selectedSegment}
+            onClose={() => {
+              setActionState({ releasing: false, error: null });
+              setSelectedSegment(null);
+            }}
+            onReleaseHold={handleReleaseHold}
+            actionState={actionState}
+          />
+        </main>
       </div>
     </TooltipProvider>
   );
+}
+
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  color,
+}: {
+  icon: typeof Users;
+  label: string;
+  value: string;
+  color: string;
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div className={cn('rounded-lg p-2', color, 'bg-opacity-10')}>
+          <Icon className={cn('h-5 w-5', color.replace('bg-', 'text-'))} />
+        </div>
+      </div>
+      <div className="mt-3 text-2xl font-semibold text-foreground">{value}</div>
+      <div className="text-xs font-medium text-muted-foreground">{label}</div>
+    </div>
+  );
+}
+
+function isRealtimeEnabled() {
+  return typeof window !== 'undefined' && process.env.NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN === 'true';
 }
 
 function TimelineSkeleton() {
@@ -365,268 +564,192 @@ function TimelineSkeleton() {
   );
 }
 
-function ServiceSummary({ summary }: { summary: TableTimelineResponse['summary'] }) {
-  if (!summary) return null;
-  return (
-    <div className="grid gap-4 md:grid-cols-3">
-      <Card>
-        <CardContent className="space-y-1 py-4">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Tables</p>
-          <p className="text-2xl font-semibold text-foreground">{summary.totalTables}</p>
-          <p className="text-xs text-muted-foreground">{summary.totalCapacity} seats · {summary.availableTables} available</p>
-        </CardContent>
-      </Card>
-      {summary.serviceCapacities.map((service) => (
-        <Card key={service.key}>
-          <CardContent className="space-y-1 py-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">{service.label}</p>
-            <p className="text-2xl font-semibold text-foreground">{service.capacity} seats</p>
-            <p className="text-xs text-muted-foreground">
-              {service.tablesConsidered} tables · {service.turnsPerTable} turns · {service.seatsPerTurn} seats/turn
-            </p>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  );
-}
-
-function RevampedTimelineGrid({
+function PrototypeTimelineGrid({
   timeline,
   tables,
   onSelectSegment,
-  statusFilterSet,
   now,
+  scrollRef,
 }: {
   timeline: TableTimelineResponse;
   tables: TableTimelineResponse['tables'];
   onSelectSegment: (table: TableTimelineResponse['tables'][number]['table'], segment: TableTimelineSegment) => void;
-  statusFilterSet: Set<TableTimelineSegmentState>;
   now: Date;
+  scrollRef: React.MutableRefObject<HTMLDivElement | null>;
 }) {
-  const windowStart = timeline.window.start ? new Date(timeline.window.start).getTime() : null;
-  const windowEnd = timeline.window.end ? new Date(timeline.window.end).getTime() : null;
-  const duration = windowStart !== null && windowEnd !== null ? Math.max(windowEnd - windowStart, 1) : 1;
-  const hourMarkers = useMemo(() => buildHourMarkers(windowStart, windowEnd, duration), [windowStart, windowEnd, duration]);
-  const nowOffset = useMemo(() => getNowOffset(windowStart, windowEnd, now), [windowStart, windowEnd, now]);
-  const visibleCount = tables.length;
-  const totalCount = timeline.tables.length;
-
-  if (windowStart === null || windowEnd === null) {
-    return (
-      <div className="p-6 text-sm text-muted-foreground">
-        Timeline window is unavailable for the selected date.
-      </div>
-    );
+  if (!timeline.window.start || !timeline.window.end) {
+    return <div className="p-6 text-sm text-muted-foreground">Timeline window is unavailable for the selected date.</div>;
   }
 
+  const windowStartHHMM = toHHMM(timeline.window.start);
+  const windowEndHHMM = toHHMM(timeline.window.end);
+  const widthPx = Math.max(1, timeToPositionPx(windowEndHHMM) - timeToPositionPx(windowStartHHMM));
+  const nowHHMM = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+  const nowPx = clampToServiceWindow(timeToPositionPx(nowHHMM), windowStartHHMM, windowEndHHMM) - timeToPositionPx(windowStartHHMM);
+
   return (
-    <div className="relative">
-      <div className="sticky top-0 z-10 bg-card/95 backdrop-blur-sm">
-        <div className="flex h-14 items-center border-b border-border/60">
-          <div className="w-60 shrink-0 border-r border-border/60 px-4">
-            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tables</span>
-          </div>
-          <div className="relative flex-1">
-            {hourMarkers.map((marker, index) => (
+    <div className="flex flex-col">
+      <div className="sticky top-0 z-20 flex border-b border-border bg-muted/20">
+        <div className="w-48 shrink-0 border-r border-border px-4 py-3">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Table / Cap</div>
+        </div>
+        <div className="min-w-0 flex-1 overflow-hidden">
+          <div className="flex" style={{ width: `${TIME_SLOTS.length * SLOT_WIDTH_PX}px` }}>
+            {TIME_SLOTS.map((slot) => (
               <div
-                key={`${marker.label}-${index}`}
-                className="absolute inset-y-0 flex flex-col items-center"
-                style={{ left: `${marker.offset}%` }}
+                key={slot}
+                className="shrink-0 border-r border-border/40 px-3 py-3 text-center text-xs font-medium text-muted-foreground"
+                style={{ width: SLOT_WIDTH_PX }}
               >
-                <div className="h-full w-px bg-border/70" aria-hidden />
-                <div className="absolute top-2 -translate-x-1/2 rounded bg-card px-1 text-[11px] font-medium text-muted-foreground">
-                  {marker.label}
-                </div>
+                {slot}
               </div>
             ))}
-            {nowOffset !== null ? (
-              <div className="absolute inset-y-0" style={{ left: `${nowOffset}%` }} aria-label="Current time">
-                <div className="h-full w-px bg-primary" />
-                <div className="absolute -top-1.5 left-1/2 -translate-x-1/2">
-                  <div className="h-3 w-3 rounded-full border-2 border-background bg-primary shadow-md" />
-                </div>
-              </div>
-            ) : null}
           </div>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 border-b border-border/60 bg-muted/30 px-4 py-2 text-xs text-muted-foreground">
-        <span className="font-medium text-foreground">Showing {visibleCount} of {totalCount} tables</span>
-        <span className="text-border">•</span>
-        <span>Window {formatTime(timeline.window.start)} – {formatTime(timeline.window.end)}</span>
-        {timeline.services?.length ? <ServiceChips services={timeline.services} /> : null}
+      <div ref={scrollRef} className="relative overflow-x-auto">
+        <div className="min-w-fit">
+          {tables.map((row) => (
+            <PrototypeTableRow
+              key={row.table.id}
+              table={row.table}
+              segments={row.segments}
+              windowStart={windowStartHHMM}
+              windowEnd={windowEndHHMM}
+              timelineWidthPx={widthPx}
+              nowPx={nowPx}
+              onSelect={(segment) => onSelectSegment(row.table, segment)}
+            />
+          ))}
+        </div>
       </div>
+    </div>
+  );
+}
 
-      <ScrollArea className="h-[520px] md:h-[calc(100vh-320px)]" type="always">
-        {tables.length > 0 ? (
-          <div className="min-w-[1200px]">
-            {tables.map((row) => (
-              <div
-                key={row.table.id}
-                className="flex border-b border-border/40 transition-colors hover:bg-muted/40"
-              >
-                <TableInfoCell table={row.table} />
-                <div className="relative flex-1 p-3">
-                  <div className="absolute inset-3 -z-10">
-                    {hourMarkers.map((marker, index) => (
-                      <div
-                        key={`${marker.label}-${index}`}
-                        className="absolute inset-y-0 w-px bg-border/40"
-                        style={{ left: `${marker.offset}%` }}
-                        aria-hidden
-                      />
-                    ))}
-                    {nowOffset !== null ? (
-                      <div className="absolute inset-y-0 w-px bg-primary/70" style={{ left: `${nowOffset}%` }} aria-hidden />
-                    ) : null}
-                  </div>
-
-                  <div className="relative h-16">
-                    {row.segments.map((segment, index) => {
-                      const { offset, width } = getSegmentPosition(segment, windowStart, windowEnd);
-                      if (width <= 0) return null;
-                      const isVisible = statusFilterSet.has(segment.state);
-                      return (
-                        <TimelineSegment
-                          key={`${segment.start}-${segment.end}-${index}`}
-                          segment={segment}
-                          table={row.table}
-                          offset={offset}
-                          width={width}
-                          isVisible={isVisible}
-                          onClick={() => onSelectSegment(row.table, segment)}
-                        />
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="flex h-64 items-center justify-center text-muted-foreground">
-            <div className="text-center">
-              <Search className="mx-auto h-12 w-12 text-border" />
-              <p className="mt-4 font-medium text-foreground">No tables found</p>
-              <p className="text-sm">Try adjusting your filters</p>
+function PrototypeTableRow({
+  table,
+  segments,
+  windowStart,
+  windowEnd,
+  timelineWidthPx,
+  nowPx,
+  onSelect,
+}: {
+  table: TableTimelineResponse['tables'][number]['table'];
+  segments: TableTimelineSegment[];
+  windowStart: string;
+  windowEnd: string;
+  timelineWidthPx: number;
+  nowPx: number;
+  onSelect: (segment: TableTimelineSegment) => void;
+}) {
+  return (
+    <div className="group flex border-b border-border/40 transition-colors hover:bg-muted/20">
+      <div className="w-48 shrink-0 border-r border-border px-4 py-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-foreground">Table {table.tableNumber}</div>
+            <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <MapPin className="h-3 w-3" />
+              <span className="truncate">{table.zoneName ?? 'No zone'}</span>
             </div>
           </div>
-        )}
-      </ScrollArea>
-    </div>
-  );
-}
+          <span className="rounded-md bg-muted px-2 py-1 text-[10px] font-semibold text-muted-foreground">
+            Cap {table.capacity}
+          </span>
+        </div>
+      </div>
 
-function TableInfoCell({ table }: { table: TableTimelineResponse['tables'][number]['table'] }) {
-  return (
-    <div className="w-60 shrink-0 border-r border-border/60 p-4">
-      <div className="flex items-center gap-3">
-        <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-muted text-lg font-semibold text-foreground">
-          T{table.tableNumber}
+      <div className="relative h-14 flex-1" style={{ minWidth: `${TIME_SLOTS.length * SLOT_WIDTH_PX}px` }}>
+        <div className="absolute inset-0 flex">
+          {TIME_SLOTS.map((slot) => (
+            <div
+              key={slot}
+              className="h-full shrink-0 border-r border-border/30"
+              style={{ width: SLOT_WIDTH_PX }}
+              aria-hidden
+            />
+          ))}
         </div>
-        <div className="min-w-0 space-y-1">
-          <div className="flex items-center gap-1.5 text-sm text-foreground">
-            <Users className="h-3.5 w-3.5" />
-            <span className="font-medium">{table.capacity} seats</span>
-          </div>
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground truncate">
-            <MapPin className="h-3 w-3" />
-            <span className="truncate">{table.zoneName ?? 'No zone'}</span>
-          </div>
+
+        <div className="absolute inset-y-0 z-20 w-px bg-rose-500" style={{ left: `${nowPx}px` }} aria-hidden>
+          <div className="absolute -top-1 -left-1 h-2 w-2 rounded-full bg-rose-500 shadow" />
         </div>
+
+        {segments
+          .filter((segment) => segment.state !== 'available')
+          .map((segment, idx) => (
+            <PrototypeReservationBlock
+              key={`${segment.start}-${segment.end}-${idx}`}
+              segment={segment}
+              windowStart={windowStart}
+              windowEnd={windowEnd}
+              timelineWidthPx={timelineWidthPx}
+              onClick={() => onSelect(segment)}
+            />
+          ))}
       </div>
     </div>
   );
 }
 
-function TimelineSegment({
+function PrototypeReservationBlock({
   segment,
-  table,
-  offset,
-  width,
-  isVisible,
+  windowStart,
+  windowEnd,
+  timelineWidthPx,
   onClick,
 }: {
   segment: TableTimelineSegment;
-  table: TableTimelineResponse['tables'][number]['table'];
-  offset: number;
-  width: number;
-  isVisible: boolean;
+  windowStart: string;
+  windowEnd: string;
+  timelineWidthPx: number;
   onClick: () => void;
 }) {
-  const meta = STATUS_META[segment.state];
-  const label = buildSegmentLabel(segment, table.tableNumber);
-  const clickable = segment.state !== 'available';
-  const durationMinutes = Math.max(
-    Math.round((new Date(segment.end).getTime() - new Date(segment.start).getTime()) / 60000),
-    0,
-  );
+  const state = segment.state;
+  const statusStyle: Record<TableTimelineSegmentState, string> = {
+    reserved: 'bg-blue-600 text-white border-blue-700',
+    hold: 'bg-amber-500 text-slate-950 border-amber-600',
+    available: 'bg-muted text-muted-foreground border-border',
+    out_of_service: 'bg-slate-500 text-white border-slate-600',
+  };
+
+  const start = toHHMM(segment.start);
+  const end = toHHMM(segment.end);
+
+  const left = clampToServiceWindow(timeToPositionPx(start), windowStart, windowEnd) - timeToPositionPx(windowStart);
+  const right = clampToServiceWindow(timeToPositionPx(end), windowStart, windowEnd) - timeToPositionPx(windowStart);
+  const width = Math.max(0, right - left);
+  if (width <= 0) return null;
+
+  const customerLabel = segment.booking?.customerName ?? STATUS_META[state].label;
+  const partySize = segment.booking?.partySize ?? null;
 
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          onClick={clickable ? onClick : undefined}
-          disabled={!clickable}
-          aria-label={label}
-          className={cn(
-            'absolute top-1/2 flex h-12 -translate-y-1/2 items-center overflow-hidden rounded-lg border px-3 text-left text-xs font-medium shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
-            meta.bg,
-            meta.border,
-            meta.text,
-            clickable ? 'cursor-pointer' : 'cursor-default',
-            !isVisible && 'opacity-30',
-          )}
-          style={{ left: `${offset}%`, width: `${width}%` }}
-        >
-          <div className="flex w-full items-center gap-2 truncate">
-            {segment.booking ? (
-              <Badge className={cn('flex-shrink-0', meta.chip)}>{segment.booking.partySize}</Badge>
-            ) : null}
-            <div className="min-w-0 flex-1 truncate">
-              <p className="truncate text-xs font-semibold leading-tight">
-                {segment.booking?.customerName ?? meta.label}
-              </p>
-              {width > 8 ? (
-                <p className={cn('truncate text-[11px] leading-tight', meta.muted)}>
-                  {formatTime(segment.start)} – {formatTime(segment.end)}
-                  {durationMinutes ? ` · ${durationMinutes}m` : ''}
-                </p>
-              ) : null}
-            </div>
-            {segment.state === 'available' ? <PlusIndicator /> : null}
-          </div>
-        </button>
-      </TooltipTrigger>
-      <TooltipContent className="w-64">
-        <div className="space-y-1 text-left">
-          <p className="font-semibold text-foreground">{meta.label}</p>
-          <p className="text-xs text-muted-foreground">{formatTime(segment.start)} – {formatTime(segment.end)}</p>
-          {segment.booking ? (
-            <p className="text-xs text-muted-foreground">
-              {segment.booking.customerName ?? 'Guest'} · Party {segment.booking.partySize} · {segment.booking.status}
-            </p>
-          ) : null}
-          {segment.state === 'hold' && segment.hold ? (
-            <p className="text-xs text-muted-foreground">Hold linked to booking {segment.hold.bookingId ?? 'unknown'}</p>
-          ) : null}
-          {segment.state === 'available' ? (
-            <p className="text-xs text-muted-foreground">Available slot</p>
-          ) : null}
-        </div>
-      </TooltipContent>
-    </Tooltip>
-  );
-}
-
-function PlusIndicator() {
-  return (
-    <span className="ml-auto inline-flex h-6 w-6 items-center justify-center rounded-md border border-dashed border-border/60 text-xs text-muted-foreground">
-      +
-    </span>
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'absolute top-2 h-10 rounded-lg border-l-4 px-3 text-left shadow-sm transition hover:brightness-110',
+        statusStyle[state],
+      )}
+      style={{ left, width: Math.min(width, timelineWidthPx - left) }}
+      aria-label={`${customerLabel} ${start}–${end}`}
+    >
+      <div className="flex items-center justify-between gap-2 overflow-hidden">
+        <span className="truncate text-[11px] font-semibold">{customerLabel}</span>
+        {partySize ? (
+          <span className="flex items-center gap-1 text-[10px] opacity-80">
+            <Users className="h-3 w-3" /> {partySize}
+          </span>
+        ) : null}
+      </div>
+      <div className="truncate text-[10px] opacity-80">
+        {start} – {end}
+      </div>
+    </button>
   );
 }
 
@@ -738,88 +861,6 @@ function SegmentDialog({
       </DialogContent>
     </Dialog>
   );
-}
-
-function ServiceChips({ services }: { services: TableTimelineResponse['services'] }) {
-  if (!services?.length) return null;
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      {services.map((service) => (
-        <span
-          key={service.key}
-          className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-1 text-[11px] font-medium text-foreground"
-        >
-          <span className="uppercase text-[10px] tracking-wide text-muted-foreground">{service.label}</span>
-          <span className="text-muted-foreground">{formatTime(service.start)} – {formatTime(service.end)}</span>
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function buildHourMarkers(windowStart: number | null, windowEnd: number | null, duration: number): HourMarker[] {
-  if (windowStart === null || windowEnd === null) return [];
-  const markers: HourMarker[] = [
-    {
-      time: windowStart,
-      label: new Date(windowStart).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
-      offset: 0,
-    },
-  ];
-  let current = new Date(windowStart);
-  current.setMinutes(0, 0, 0);
-
-  while (current.getTime() <= windowEnd) {
-    if (current.getTime() >= windowStart) {
-      markers.push({
-        time: current.getTime(),
-        label: current.toLocaleTimeString([], { hour: 'numeric' }),
-        offset: ((current.getTime() - windowStart) / duration) * 100,
-      });
-    }
-    current = new Date(current.getTime() + 60 * 60 * 1000);
-  }
-
-  markers.push({
-    time: windowEnd,
-    label: new Date(windowEnd).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
-    offset: 100,
-  });
-
-  return markers;
-}
-
-function getNowOffset(windowStart: number | null, windowEnd: number | null, now: Date) {
-  if (windowStart === null || windowEnd === null) return null;
-  const nowTime = now.getTime();
-  if (nowTime < windowStart || nowTime > windowEnd) return null;
-  return ((nowTime - windowStart) / (windowEnd - windowStart)) * 100;
-}
-
-function getSegmentPosition(segment: TableTimelineSegment, windowStart: number, windowEnd: number) {
-  const startMs = new Date(segment.start).getTime();
-  const endMs = new Date(segment.end).getTime();
-  const clampedStart = Math.max(startMs, windowStart);
-  const clampedEnd = Math.min(endMs, windowEnd);
-  const duration = Math.max(windowEnd - windowStart, 1);
-  const offset = ((clampedStart - windowStart) / duration) * 100;
-  const width = Math.max(((clampedEnd - clampedStart) / duration) * 100, 0);
-  return { offset, width };
-}
-
-function buildSegmentLabel(segment: TableTimelineSegment, tableNumber: string) {
-  const start = formatTime(segment.start);
-  const end = formatTime(segment.end);
-  if (segment.booking) {
-    return `Table ${tableNumber} reserved for ${segment.booking.customerName ?? 'guest'} (${segment.booking.partySize}) from ${start} to ${end}`;
-  }
-  if (segment.state === 'hold') {
-    return `Table ${tableNumber} held from ${start} to ${end}`;
-  }
-  if (segment.state === 'out_of_service') {
-    return `Table ${tableNumber} unavailable`;
-  }
-  return `Table ${tableNumber} available from ${start} to ${end}`;
 }
 
 function formatTime(date: string) {

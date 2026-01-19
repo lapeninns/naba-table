@@ -1,4 +1,4 @@
-import { OpsRestaurantSettingsClient } from '@/components/features';
+import { OpsRestaurantSettingsClient } from '@/components/features/restaurant-settings/OpsRestaurantSettingsClient';
 
 import type { Metadata } from 'next';
 
