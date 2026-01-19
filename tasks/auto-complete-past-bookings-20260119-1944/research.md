@@ -35,7 +35,7 @@ related_tickets: []
 ## Constraints & Risks
 
 - Must supply valid `changed_by` user ID for booking_state_history FK.
-- Per-restaurant timezones require a cron window check (local midnight).
+- Per-restaurant timezones require a cron window check (local midnight, 15-minute window).
 - Risk of duplicate review emails if already sent while status was not completed.
 
 ## Open Questions (owner, due)

@@ -12,7 +12,7 @@ related_tickets: []
 
 ## Setup
 
-- [x] Define midnight window size (60 minutes) and batch limits (default 200).
+- [x] Define midnight window size (15 minutes) and batch limits (default 200).
 - [x] Choose actor ID strategy (membership + auth user fallback; optional env override).
 
 ## Core

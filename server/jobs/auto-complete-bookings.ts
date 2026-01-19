@@ -11,7 +11,7 @@ import type { TransitionResult } from "@/server/ops/booking-lifecycle/actions";
 import type { Database, Tables } from "@/types/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-const DEFAULT_WINDOW_MINUTES = 60;
+const DEFAULT_WINDOW_MINUTES = 15;
 const DEFAULT_LIMIT = 200;
 const ACTOR_ID_OVERRIDE = process.env.AUTO_COMPLETE_ACTOR_ID?.trim() || null;
 
@@ -95,8 +95,14 @@ function computeStartAtUtc(booking: BookingRow, timezone: string): string | null
 
 function computeEndAtUtc(booking: BookingRow, timezone: string): string | null {
   if (booking.end_at) return booking.end_at;
-  const dt = resolveLocalDateTime(booking.booking_date, booking.end_time, timezone);
-  return dt ? toUtcIso(dt) : computeStartAtUtc(booking, timezone);
+  const localEnd = resolveLocalDateTime(booking.booking_date, booking.end_time, timezone);
+  if (!localEnd) {
+    return computeStartAtUtc(booking, timezone);
+  }
+
+  const localStart = resolveLocalDateTime(booking.booking_date, booking.start_time, timezone);
+  const adjustedEnd = localStart && localEnd < localStart ? localEnd.plus({ days: 1 }) : localEnd;
+  return toUtcIso(adjustedEnd) ?? computeStartAtUtc(booking, timezone);
 }
 
 async function resolveActorId(
@@ -328,13 +334,7 @@ export async function autoCompletePastBookings(options: AutoCompleteOptions = {}
         continue;
       }
 
-      let startAtUtc = computeStartAtUtc(booking, timezone);
-      if (startAtUtc) {
-        const startAt = DateTime.fromISO(startAtUtc);
-        if (startAt.isValid && endAt.isValid && endAt < startAt) {
-          startAtUtc = endAtUtc;
-        }
-      }
+      const startAtUtc = computeStartAtUtc(booking, timezone);
 
       candidates += 1;
       if (dryRun) {
@@ -345,7 +345,7 @@ export async function autoCompletePastBookings(options: AutoCompleteOptions = {}
         let currentBooking: BookingRow = booking;
 
         if (currentBooking.status === "confirmed" || !currentBooking.checked_in_at) {
-          const performedCheckInAt = currentBooking.checked_in_at ?? startAtUtc;
+          const performedCheckInAt = currentBooking.checked_in_at ?? startAtUtc ?? endAtUtc;
           if (!performedCheckInAt) {
             throw new Error("Missing start_at for check-in");
           }

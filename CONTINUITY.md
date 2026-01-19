@@ -1,6 +1,6 @@
 # Continuity Ledger
 
-Last updated: 2026-01-19T20:24:00Z
+Last updated: 2026-01-19T20:34:00Z
 
 ## Goal (incl. success criteria)
 
@@ -23,22 +23,22 @@ Last updated: 2026-01-19T20:24:00Z
 
 ## State
 
-- Phase 3 (Implementation) complete; Phase 4 (Verification) pending.
+- Fixes in progress for cron timing and cross-midnight end time handling; verification pending.
 
 ## Done
 
 - Created task folder and SDLC stubs for auto-complete automation.
 - Confirmed: local midnight schedule; statuses confirmed + checked_in; permanent automation.
 - Updated research/plan/todo with confirmed requirements.
-- Added auto-complete job + cron endpoint and hourly Vercel cron with local-midnight window.
+- Added auto-complete job + cron endpoint and Vercel cron with local-midnight window.
 
 ## Now
 
-- Awaiting verification runs (staging dry-run/apply) and verification.md updates.
+- Apply fixes: 15-minute cron cadence/window, cross-midnight end-time adjustment.
 
 ## Next
 
-- Run staging dry-run/apply and log outputs in artifacts + verification.md.
+- Run staging dry-run/apply and log outputs in artifacts + verification.md; re-review for merge.
 
 ## Open questions (UNCONFIRMED if needed)
 

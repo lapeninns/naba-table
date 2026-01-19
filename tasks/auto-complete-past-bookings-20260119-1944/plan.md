@@ -24,7 +24,7 @@ Automatically complete past bookings and trigger review emails on a schedule so 
 
 - New cron endpoint: `/api/cron/auto-complete-bookings`.
 - Shared helper in `server/jobs/` to find eligible bookings and apply transitions.
-- Vercel cron schedule in `vercel.json` (hourly; local-midnight window = 60 minutes).
+- Vercel cron schedule in `vercel.json` (every 15 minutes; local-midnight window = 15 minutes).
 
 ## Data Flow & API Contracts
 
@@ -53,7 +53,7 @@ Automatically complete past bookings and trigger review emails on a schedule so 
 
 ## Rollout
 
-- Schedule to run hourly with a midnight-local window (daily behavior per restaurant).
+- Schedule to run every 15 minutes with a midnight-local window (daily behavior per restaurant).
 - Monitor email queue and logs.
 - Feature flag (optional) to disable automation.
 
