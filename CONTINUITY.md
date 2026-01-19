@@ -1,55 +1,55 @@
 # Continuity Ledger
 
-Last updated: 2026-01-19T12:50:10Z
+Last updated: 2026-01-19T20:24:00Z
 
 ## Goal (incl. success criteria)
 
-- Fix ops dashboard summary totals going stale after table unassignment status changes
-- Success: confirmed/pending totals update immediately without realtime events
+- Automate completing past bookings (confirmed/checked_in) nightly and trigger review-request emails.
+- Success: eligible bookings auto-transition to completed and reviews are scheduled.
+- Success: safe batching, logging, and cron scheduling in place.
 
 ## Constraints/Assumptions
 
-- Follow AGENTS.md SDLC flow and task folder requirements
-- Use task artifacts in `tasks/fix-summary-totals-20260119-1244/`
-- No commits unless explicitly requested
-- Hooks under `src/hooks` must stay focused; add tests for non-trivial hook changes
-- Tests under `tests/` should follow QA guidelines; record commands in `verification.md` when run
+- Follow AGENTS SDLC phases; no coding before requirements and plan are reviewed.
+- Supabase remote-only; no local DB operations.
+- Secrets never in source.
+- Run daily at restaurant local midnight; apply to all restaurants.
+- Eligible statuses: confirmed and checked_in with end time in the past.
 
 ## Key decisions
 
-- None yet
+- Schedule via Vercel cron hourly and gate by restaurant local time window (60 minutes).
+- Actor ID: use restaurant membership user; fallback to first auth user; optional env override.
 
 ## State
 
-- Phase 3 (Implementation) complete: summary totals adjustment + fallback invalidation added
+- Phase 3 (Implementation) complete; Phase 4 (Verification) pending.
 
 ## Done
 
-- Read `CONTINUITY.md`
-- Created task folder and SDLC stubs
-- Updated table unassign cache updates to adjust summary totals
-- Read root + `src/hooks/AGENTS.md` policies
-- Read `tests/AGENTS.md` policies
-- Added Vitest hook test for summary totals on unassign
-- Ran `pnpm run test -- --filter table-assignments-summary` (suite passed) and saved log
+- Created task folder and SDLC stubs for auto-complete automation.
+- Confirmed: local midnight schedule; statuses confirmed + checked_in; permanent automation.
+- Updated research/plan/todo with confirmed requirements.
+- Added auto-complete job + cron endpoint and hourly Vercel cron with local-midnight window.
 
 ## Now
 
-- Ready to share results or run manual sanity check if requested
+- Awaiting verification runs (staging dry-run/apply) and verification.md updates.
 
 ## Next
 
-- Optional manual sanity check if app is runnable
+- Run staging dry-run/apply and log outputs in artifacts + verification.md.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- None
+- None.
 
 ## Working set (files/ids/commands)
 
-- `src/hooks/ops/useOpsTableAssignments.ts`
-- `tasks/fix-summary-totals-20260119-1244/research.md`
-- `tasks/fix-summary-totals-20260119-1244/plan.md`
-- `tasks/fix-summary-totals-20260119-1244/todo.md`
-- `tests/ops/table-assignments-summary.test.tsx`
-- `tasks/fix-summary-totals-20260119-1244/artifacts/test_output-20260119-1249.log`
+- tasks/auto-complete-past-bookings-20260119-1944/research.md
+- tasks/auto-complete-past-bookings-20260119-1944/plan.md
+- tasks/auto-complete-past-bookings-20260119-1944/todo.md
+- tasks/auto-complete-past-bookings-20260119-1944/verification.md
+- server/jobs/auto-complete-bookings.ts
+- src/app/api/cron/auto-complete-bookings/route.ts
+- vercel.json
