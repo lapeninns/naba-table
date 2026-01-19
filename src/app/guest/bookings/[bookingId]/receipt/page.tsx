@@ -1,18 +1,18 @@
-import { HydrationBoundary, QueryClient, dehydrate } from "@tanstack/react-query";
-import { cookies, headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query';
+import { cookies, headers } from 'next/headers';
+import { redirect } from 'next/navigation';
 
-import { getCanonicalSiteUrl } from "@/lib/site-url";
-import { withRedirectedFrom } from "@/lib/url/withRedirectedFrom";
-import { getServerComponentSupabaseClient } from "@/server/supabase";
-import { reservationAdapter } from "@entities/reservation/adapter";
-import { reservationKeys } from "@shared/api/queryKeys";
+import { getCanonicalSiteUrl } from '@/lib/site-url';
+import { withRedirectedFrom } from '@/lib/url/withRedirectedFrom';
+import { getServerComponentSupabaseClient } from '@/server/supabase';
+import { reservationAdapter } from '@entities/reservation/adapter';
+import { reservationKeys } from '@shared/api/queryKeys';
 
-import { ReceiptClient } from "./ReceiptClient";
+import { ReceiptClient } from './ReceiptClient';
 
-import type { Metadata } from "next";
+import type { Metadata } from 'next';
 
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
 type RouteParams = Promise<{ bookingId: string }>;
 type SearchParams = Promise<{ token?: string }>;
@@ -23,36 +23,39 @@ const cookieHeaderFromStore = (cookieStore: Awaited<ReturnType<typeof cookies>>)
   return cookieStore
     .getAll()
     .map(({ name, value }) => `${name}=${value}`)
-    .join("; ");
+    .join('; ');
 };
 
 const resolveOrigin = (requestHeaders: Headers): string => {
-  const forwardedHost = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
-  const forwardedProto = requestHeaders.get("x-forwarded-proto");
+  const forwardedHost = requestHeaders.get('x-forwarded-host') ?? requestHeaders.get('host');
+  const forwardedProto = requestHeaders.get('x-forwarded-proto');
   if (forwardedHost) {
-    return `${forwardedProto ?? "https"}://${forwardedHost}`;
+    return `${forwardedProto ?? 'https'}://${forwardedHost}`;
   }
   return process.env.NEXT_PUBLIC_SITE_URL ?? getCanonicalSiteUrl();
 };
 
-async function prefetchReservation(queryClient: QueryClient, reservationId: string, token?: string | null) {
-  const requestHeaders = await headers();
-  const cookieStore = await cookies();
+async function prefetchReservation(
+  queryClient: QueryClient,
+  reservationId: string,
+  token?: string | null,
+) {
+  const [requestHeaders, cookieStore] = await Promise.all([headers(), cookies()]);
   const cookieHeader = cookieHeaderFromStore(cookieStore);
   const origin = resolveOrigin(requestHeaders);
 
   const url = new URL(`${origin}/api/bookings/${reservationId}`);
   if (token) {
-    url.searchParams.set("token", token);
+    url.searchParams.set('token', token);
   }
 
   try {
     const response = await fetch(url.toString(), {
       headers: {
-        accept: "application/json",
+        accept: 'application/json',
         ...(cookieHeader ? { cookie: cookieHeader } : {}),
       },
-      cache: "no-store",
+      cache: 'no-store',
     });
 
     if (!response.ok) {
@@ -68,17 +71,17 @@ async function prefetchReservation(queryClient: QueryClient, reservationId: stri
     queryClient.setQueryData(reservationKeys.detail(reservationId), normalizedReservation);
     return normalizedReservation;
   } catch (error) {
-    console.error("[receipt][prefetch]", error);
+    console.error('[receipt][prefetch]', error);
     return null;
   }
 }
 
 export async function generateMetadata({ params }: { params: RouteParams }): Promise<Metadata> {
   const { bookingId } = await params;
-  const safeId = bookingId?.trim() || "reservation";
+  const safeId = bookingId?.trim() || 'reservation';
   return {
     title: `Receipt ${shortenId(safeId)} · Nab a Table`,
-    description: "Your booking confirmation receipt with all the details.",
+    description: 'Your booking confirmation receipt with all the details.',
   };
 }
 
@@ -95,17 +98,16 @@ export default async function GuestBookingReceiptPage({
   const token = resolvedSearchParams.token ?? null;
 
   if (!normalized) {
-    redirect("/guest/bookings");
+    redirect('/guest/bookings');
   }
 
   const supabase = await getServerComponentSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const userResponse = await supabase.auth.getUser();
+  const user = userResponse.data.user;
 
   // Require either auth or token for receipt access
   if (!user && !token) {
-    redirect(withRedirectedFrom("/auth/signin", `/guest/bookings/${normalized}/receipt`));
+    redirect(withRedirectedFrom('/auth/signin', `/guest/bookings/${normalized}/receipt`));
   }
 
   const queryClient = new QueryClient();

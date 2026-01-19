@@ -54,21 +54,24 @@ export default async function OpsAppLayout({ children }: OpsAppLayoutProps) {
         id: user.id,
         email: user.email ?? null,
       };
-
-      try {
-        memberships = await fetchUserMemberships(user.id, supabase);
-      } catch (membershipError) {
-        console.error('[app/layout] failed to load memberships', membershipError);
-        memberships = [];
-      }
     }
   } catch (authError) {
     console.error('[app/layout] unexpected error while resolving account', authError);
   }
 
   if (supabaseUser) {
+    const membershipsPromise = fetchUserMemberships(supabaseUser.id, supabase);
+    const sessionPromise = supabase.auth.getSession();
+
     try {
-      const { data, error } = await supabase.auth.getSession();
+      memberships = await membershipsPromise;
+    } catch (membershipError) {
+      console.error('[app/layout] failed to load memberships', membershipError);
+      memberships = [];
+    }
+
+    try {
+      const { data, error } = await sessionPromise;
       if (error) {
         console.error('[app/layout] failed to load session', error.message);
       } else {

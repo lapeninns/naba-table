@@ -1600,6 +1600,16 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       client: serviceSupabase,
     });
 
+    const cancellationLock = evaluateGuestModificationLock({
+      booking: existingBooking,
+      timezone: schedule.timezone ?? 'Europe/London',
+    });
+
+    const cancellationLockedResponse = respondWithGuestModificationLock(cancellationLock);
+    if (cancellationLockedResponse) {
+      return cancellationLockedResponse;
+    }
+
     const startParts = resolveBookingStart(existingBooking, schedule.timezone ?? 'Europe/London');
     if (startParts) {
       try {

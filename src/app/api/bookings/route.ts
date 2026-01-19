@@ -747,7 +747,7 @@ export async function POST(req: NextRequest) {
     const supabase = getServiceSupabaseClient();
     const normalizedBookingType =
       data.bookingType === 'drinks' ? 'drinks' : inferMealTypeFromTime(data.time);
-    const pastTimeBlocking = env.featureFlags.bookingPastTimeBlocking;
+    const pastTimeBlocking = env.featureFlags.bookingPastTimeBlocking ?? true;
 
     let startTime = data.time;
     let scheduleTimezone: string | null = null;
@@ -912,28 +912,64 @@ export async function POST(req: NextRequest) {
         throw error;
       }
     } else {
-      const bookingResult = await createBookingWithCapacityCheck({
-        restaurantId,
-        customerId: customer.id,
-        bookingDate: data.date,
-        startTime,
-        endTime,
-        partySize: data.party,
-        bookingType: normalizedBookingType,
-        customerName: data.name,
-        customerEmail: normalizeEmail(data.email),
-        customerPhone: data.phone.trim(),
-        seatingPreference: data.seating,
-        notes: data.notes ?? null,
-        marketingOptIn: data.marketingOptIn ?? false,
-        idempotencyKey,
-        source: bookingSource,
-        authUserId: null,
-        clientRequestId,
-        details: bookingDetails,
-      });
+       const bookingResult = await createBookingWithCapacityCheck({
+         restaurantId,
+         customerId: customer.id,
+         bookingDate: data.date,
+         startTime,
+         endTime,
+         partySize: data.party,
+         bookingType: normalizedBookingType,
+         customerName: data.name,
+         customerEmail: normalizeEmail(data.email),
+         customerPhone: data.phone.trim(),
+         seatingPreference: data.seating,
+         notes: data.notes ?? null,
+         marketingOptIn: data.marketingOptIn ?? false,
+         idempotencyKey,
+         source: bookingSource,
+         authUserId: null,
+         clientRequestId,
+         details: bookingDetails,
+       });
+ 
+       if (!bookingResult.success) {
+         const code = bookingResult.error;
+ 
+         if (code === 'CAPACITY_UNAVAILABLE') {
+           return NextResponse.json(
+             {
+               error: bookingResult.message ?? 'Capacity enforcement unavailable',
+               code,
+               details: bookingResult.details ?? null,
+             },
+             { status: 503 },
+           );
+         }
+ 
+         if (code === 'CAPACITY_EXCEEDED') {
+           return NextResponse.json(
+             {
+               error: bookingResult.message ?? 'No capacity available',
+               code,
+               details: bookingResult.details ?? null,
+             },
+             { status: 409 },
+           );
+         }
+ 
+         return NextResponse.json(
+           {
+             error: bookingResult.message ?? 'Unable to create booking',
+             code: code ?? 'INTERNAL_ERROR',
+             details: bookingResult.details ?? null,
+           },
+           { status: 500 },
+         );
+       }
+ 
+       booking = bookingResult.booking as BookingRecord | undefined;
 
-      booking = bookingResult.booking as BookingRecord | undefined;
 
       if (!booking) {
         // Attempt to recover the booking record if the RPC didn't return it
