@@ -1,12 +1,20 @@
 # Continuity Ledger
 
+<<<<<<< Updated upstream
 Last updated: 2026-01-19T20:34:00Z
+=======
+Last updated: 2026-01-19T20:40:00Z
+
+> > > > > > > Stashed changes
 
 ## Goal (incl. success criteria)
 
 - Automate completing past bookings (confirmed/checked_in) nightly and trigger review-request emails.
 - Success: eligible bookings auto-transition to completed and reviews are scheduled.
-- Success: safe batching, logging, and cron scheduling in place.
+  <<<<<<< Updated upstream
+- # Success: safe batching, logging, and cron scheduling in place.
+- Success: local-midnight scheduling is accurate for all timezones.
+  > > > > > > > Stashed changes
 
 ## Constraints/Assumptions
 
@@ -14,6 +22,7 @@ Last updated: 2026-01-19T20:34:00Z
 - Supabase remote-only; no local DB operations.
 - Secrets never in source.
 - Run daily at restaurant local midnight; apply to all restaurants.
+  <<<<<<< Updated upstream
 - Eligible statuses: confirmed and checked_in with end time in the past.
 
 ## Key decisions
@@ -38,7 +47,30 @@ Last updated: 2026-01-19T20:34:00Z
 
 ## Next
 
-- Run staging dry-run/apply and log outputs in artifacts + verification.md; re-review for merge.
+- # Run staging dry-run/apply and log outputs in artifacts + verification.md; re-review for merge.
+
+## Key decisions
+
+- Schedule cron every 15 minutes and gate by 15-minute local-midnight window.
+- Cross-midnight end times are adjusted by +1 day when end < start.
+
+## State
+
+- Fixes committed; merge attempts blocked by Git lock permissions in sandbox.
+
+## Done
+
+- Added auto-complete job + cron endpoint.
+- Committed fixes for cron cadence/window and cross-midnight end handling.
+
+## Now
+
+- Need user to merge branch into main and frontend-dec19 (sandbox cannot lock refs).
+
+## Next
+
+- Run staging dry-run/apply and log outputs in artifacts + verification.md.
+  > > > > > > > Stashed changes
 
 ## Open questions (UNCONFIRMED if needed)
 
@@ -46,10 +78,17 @@ Last updated: 2026-01-19T20:34:00Z
 
 ## Working set (files/ids/commands)
 
+<<<<<<< Updated upstream
+
 - tasks/auto-complete-past-bookings-20260119-1944/research.md
 - tasks/auto-complete-past-bookings-20260119-1944/plan.md
 - tasks/auto-complete-past-bookings-20260119-1944/todo.md
 - tasks/auto-complete-past-bookings-20260119-1944/verification.md
 - server/jobs/auto-complete-bookings.ts
 - src/app/api/cron/auto-complete-bookings/route.ts
+- # vercel.json
+- server/jobs/auto-complete-bookings.ts
+- src/app/api/cron/auto-complete-bookings/route.ts
 - vercel.json
+- tasks/auto-complete-past-bookings-20260119-1944/verification.md
+  > > > > > > > Stashed changes
