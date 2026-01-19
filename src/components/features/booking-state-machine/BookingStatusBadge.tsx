@@ -16,7 +16,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { cn } from "@/lib/utils";
 
 import type { OpsBookingStatus } from "@/types/ops";
-import type { CSSProperties, ReactElement } from "react";
+import type { ReactElement } from "react";
 
 type BadgeSize = "sm" | "md" | "lg";
 

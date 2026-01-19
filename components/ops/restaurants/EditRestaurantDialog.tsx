@@ -58,6 +58,7 @@ export function EditRestaurantDialog({ open, onOpenChange, restaurant }: EditRes
             reservationIntervalMinutes: restaurant.reservationIntervalMinutes,
             reservationDefaultDurationMinutes: restaurant.reservationDefaultDurationMinutes,
             reservationLastSeatingBufferMinutes: restaurant.reservationLastSeatingBufferMinutes,
+            reservationLifecycleGraceMinutes: restaurant.reservationLifecycleGraceMinutes,
           }}
           onSubmit={handleSubmit}
           onCancel={() => onOpenChange(false)}

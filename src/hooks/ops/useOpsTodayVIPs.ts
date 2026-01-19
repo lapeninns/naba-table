@@ -2,7 +2,16 @@ import { useQuery } from '@tanstack/react-query';
 
 import { fetchJson } from '@/lib/http/fetchJson';
 
-import type { VIPGuest } from '@/components/features/dashboard/VIPGuestsModule';
+export type VIPGuest = {
+  bookingId: string;
+  customerId: string;
+  customerName: string;
+  loyaltyTier: 'bronze' | 'silver' | 'gold' | 'platinum';
+  totalPoints: number;
+  startTime: string;
+  partySize: number;
+  marketingOptIn: boolean;
+};
 
 export type VIPGuestsResponse = {
   date: string;
@@ -25,7 +34,7 @@ export function useOpsTodayVIPs({ restaurantId, targetDate, enabled = true }: Us
       }
 
       const params = new URLSearchParams({ restaurantId, date: targetDate });
-      return fetchJson<VIPGuestsResponse>(`/api/dashboard/vips?${params.toString()}`);
+      return fetchJson<VIPGuestsResponse>(`/api/ops/dashboard/vips?${params.toString()}`);
     },
     enabled: enabled && Boolean(restaurantId) && Boolean(targetDate),
     staleTime: 1000 * 60,

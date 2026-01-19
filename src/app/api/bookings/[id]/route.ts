@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -96,6 +97,7 @@ function mapOperatingHoursReason(reason: OperatingHoursErrorReason): string {
 const pendingSelfServeGraceMinutes = env.featureFlags.pendingSelfServeGraceMinutes ?? 10;
 const pendingSelfServeGraceWindowMs = Math.max(0, pendingSelfServeGraceMinutes) * 60_000;
 const pastTimeGraceMinutes = env.featureFlags.bookingPastTimeGraceMinutes ?? 5;
+const guestSelfServeCutoffMinutes = 15;
 
 function respondWithPastBooking(error: PastBookingError) {
   return NextResponse.json(
@@ -169,6 +171,74 @@ function respondWithPendingLock() {
     {
       error: "This reservation is still pending review and can't be changed yet.",
       code: 'PENDING_LOCKED',
+    },
+    { status: 403 },
+  );
+}
+
+
+function evaluateGuestModificationLock(params: {
+  booking: Pick<
+    Tables<'bookings'>,
+    'booking_date' | 'start_time' | 'start_at' | 'status' | 'checked_in_at'
+  >;
+  timezone: string;
+  cutoffMinutes?: number;
+}) {
+  const { booking, timezone, cutoffMinutes = guestSelfServeCutoffMinutes } = params;
+
+  if (booking.status === 'checked_in' || booking.checked_in_at) {
+    return {
+      locked: true,
+      code: 'CHECKED_IN_LOCKED' as const,
+      message: "This reservation has already been checked in and can't be changed online.",
+    } as const;
+  }
+
+  const startParts = resolveBookingStart(booking, timezone);
+  if (!startParts) {
+    return { locked: false } as const;
+  }
+
+  const startDateTime = DateTime.fromISO(startParts.bookingDate + 'T' + startParts.startTime, {
+    zone: timezone,
+  });
+
+  if (!startDateTime.isValid) {
+    return { locked: false } as const;
+  }
+
+  const now = DateTime.now().setZone(timezone);
+  const minutesUntilStart = startDateTime.diff(now, 'minutes').minutes;
+
+  if (minutesUntilStart <= 0) {
+    return {
+      locked: true,
+      code: 'SERVICE_STARTED' as const,
+      message: 'Service has already started for this reservation. Please contact the venue to make changes.',
+    } as const;
+  }
+
+  if (minutesUntilStart <= cutoffMinutes) {
+    return {
+      locked: true,
+      code: 'STARTING_SOON' as const,
+      message: 'This reservation starts in under 15 minutes and can\'t be changed online.',
+    } as const;
+  }
+
+  return { locked: false } as const;
+}
+
+function respondWithGuestModificationLock(lock: ReturnType<typeof evaluateGuestModificationLock>) {
+  if (!lock.locked) {
+    return null;
+  }
+
+  return NextResponse.json(
+    {
+      error: lock.message,
+      code: lock.code,
     },
     { status: 403 },
   );
@@ -303,9 +373,9 @@ async function handleDashboardUpdate(params: {
       startVenue.date === initialSchedule.date
         ? initialSchedule
         : await getRestaurantSchedule(restaurantId, {
-            date: startVenue.date,
-            client: serviceSupabase,
-          });
+          date: startVenue.date,
+          client: serviceSupabase,
+        });
     const scheduleTimezone = schedule.timezone ?? initialScheduleTimezone;
 
     const explicitEndVenue = convertOptionalIsoToVenueDateTime(data.endIso, scheduleTimezone);
@@ -321,11 +391,11 @@ async function handleDashboardUpdate(params: {
     const existingDurationMinutes =
       existingStartVenue && existingEndVenue
         ? Math.max(
-            1,
-            Math.round(
-              existingEndVenue.dateTime.diff(existingStartVenue.dateTime, 'minutes').minutes ?? 0,
-            ),
-          )
+          1,
+          Math.round(
+            existingEndVenue.dateTime.diff(existingStartVenue.dateTime, 'minutes').minutes ?? 0,
+          ),
+        )
         : null;
 
     let bookingDate = startVenue.date;
@@ -1150,6 +1220,16 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
         client: serviceSupabase,
       });
 
+      const modificationLock = evaluateGuestModificationLock({
+        booking: existingBooking,
+        timezone: schedule.timezone ?? "Europe/London",
+      });
+
+      const lockedResponse = respondWithGuestModificationLock(modificationLock);
+      if (lockedResponse) {
+        return lockedResponse;
+      }
+
       const { time } = assertBookingWithinOperatingWindow({
         schedule,
         requestedTime: data.time,
@@ -1202,26 +1282,11 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 
     const updated: Tables<'bookings'> = requiresTableRealignment
       ? await beginBookingModificationFlow({
-          client: serviceSupabase,
-          bookingId,
-          existingBooking,
-          source: 'guest',
-          payload: {
-            restaurant_id: restaurantId,
-            booking_date: data.date,
-            start_time: startTime,
-            end_time: endTime,
-            party_size: data.party,
-            booking_type: normalizedBookingType,
-            seating_preference: data.seating,
-            customer_name: data.name,
-            customer_email: normalizedEmail,
-            customer_phone: normalizedPhone,
-            notes: data.notes ?? null,
-            marketing_opt_in: data.marketingOptIn ?? existingBooking.marketing_opt_in,
-          },
-        })
-      : await updateBookingRecord(serviceSupabase, bookingId, {
+        client: serviceSupabase,
+        bookingId,
+        existingBooking,
+        source: 'guest',
+        payload: {
           restaurant_id: restaurantId,
           booking_date: data.date,
           start_time: startTime,
@@ -1234,7 +1299,23 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
           customer_phone: normalizedPhone,
           notes: data.notes ?? null,
           marketing_opt_in: data.marketingOptIn ?? existingBooking.marketing_opt_in,
-        });
+        },
+      })
+      : await updateBookingRecord(serviceSupabase, bookingId, {
+        restaurant_id: restaurantId,
+        booking_date: data.date,
+        start_time: startTime,
+        end_time: endTime,
+        party_size: data.party,
+        booking_type: normalizedBookingType,
+        seating_preference: data.seating,
+        customer_name: data.name,
+        customer_email: normalizedEmail,
+        customer_phone: normalizedPhone,
+        notes: data.notes ?? null,
+        marketing_opt_in: data.marketingOptIn ?? existingBooking.marketing_opt_in,
+      });
+
 
     const auditMetadata = {
       restaurant_id: restaurantId,
@@ -1518,6 +1599,16 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       date: existingBooking.booking_date ?? undefined,
       client: serviceSupabase,
     });
+
+    const cancellationLock = evaluateGuestModificationLock({
+      booking: existingBooking,
+      timezone: schedule.timezone ?? 'Europe/London',
+    });
+
+    const cancellationLockedResponse = respondWithGuestModificationLock(cancellationLock);
+    if (cancellationLockedResponse) {
+      return cancellationLockedResponse;
+    }
 
     const startParts = resolveBookingStart(existingBooking, schedule.timezone ?? 'Europe/London');
     if (startParts) {

@@ -1,7 +1,10 @@
 // src/app/api/webhook/resend/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import { getServiceSupabaseClient } from "@/server/supabase";
+import { NextResponse } from "next/server";
+
 import { recordObservabilityEvent } from "@/server/observability";
+import { getServiceSupabaseClient } from "@/server/supabase";
+
+import type { NextRequest } from "next/server";
 
 // This is a simplified representation. In a real app, you'd use the Resend SDK or a more robust verification method.
 // For this example, we'll assume a simple shared secret check.
@@ -26,6 +29,11 @@ type ResendWebhookEvent = {
       message: string;
     };
   };
+};
+
+type UserProfileRow = {
+  id: string;
+  is_email_suppressed: boolean | null;
 };
 
 export async function POST(req: NextRequest) {
@@ -59,7 +67,7 @@ export async function POST(req: NextRequest) {
           .eq("email", recipientEmail)
           .maybeSingle();
 
-        const profile = profileData as any;
+        const profile = profileData as UserProfileRow | null;
 
         if (error) {
           throw new Error(`Failed to query user_profiles: ${error.message}`);
@@ -69,7 +77,7 @@ export async function POST(req: NextRequest) {
           // 3. --- Update Suppression Flag ---
           const { error: updateError } = await supabase
             .from("user_profiles")
-            .update({ is_email_suppressed: true, updated_at: new Date().toISOString() } as any)
+            .update({ is_email_suppressed: true, updated_at: new Date().toISOString() })
             .eq("id", profile.id);
 
           if (updateError) {

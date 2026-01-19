@@ -1,16 +1,23 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React, { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';
 import { HttpError } from '@/lib/http/errors';
@@ -77,6 +84,7 @@ export function OpsSignInForm({ redirectedFrom }: OpsSignInFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [magicCooldown, setMagicCooldown] = useState(0);
   const [status, setStatus] = useState<StatusState | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const statusRef = useRef<HTMLParagraphElement | null>(null);
   const [mode, setMode] = useState<AuthMode>(AUTH_MODES.PASSWORD);
 
@@ -207,9 +215,10 @@ export function OpsSignInForm({ redirectedFrom }: OpsSignInFormProps) {
       emit('auth_ops_signin_error', { method: 'password', code });
 
       if (error instanceof HttpError && error.status === 400) {
-        const field = typeof error.details === 'object' && error.details && 'field' in error.details
-          ? (error.details as { field?: string }).field
-          : undefined;
+        const field =
+          typeof error.details === 'object' && error.details && 'field' in error.details
+            ? (error.details as { field?: string }).field
+            : undefined;
         if (field === 'password') {
           form.setError('password', { type: 'manual', message: error.message });
         }
@@ -271,55 +280,43 @@ export function OpsSignInForm({ redirectedFrom }: OpsSignInFormProps) {
       : 'Sign in with password';
 
   return (
-    <Card
-      id="ops-signin-form"
-      className="w-full max-w-full border-border/70 bg-white/95 shadow-lg shadow-primary/5 sm:max-w-md"
-    >
-      <CardHeader className="space-y-1.5 sm:space-y-2">
-        <CardTitle className="text-2xl font-semibold tracking-tight text-foreground">Restaurant operations</CardTitle>
-        <CardDescription className="text-sm text-muted-foreground">
-          Sign in with a magic link or password to access the operations console.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-5 sm:space-y-6">
-        <div
-          role="tablist"
-          aria-label="Choose sign-in method"
-          className="grid grid-cols-2 gap-2 rounded-xl bg-muted/50 p-1"
-        >
-          {[
-            { id: AUTH_MODES.MAGIC_LINK, label: 'Magic link', helper: 'Send a one-time link' },
-            { id: AUTH_MODES.PASSWORD, label: 'Password', helper: 'Use your credentials' },
-          ].map((option) => {
-            const active = mode === option.id;
-            return (
-              <button
-                key={option.id}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                className={cn(
-                  'rounded-lg border border-transparent px-3 py-2 text-left text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2',
-                  active ? 'bg-white shadow-sm' : 'bg-transparent text-muted-foreground hover:text-foreground',
-                )}
-                onClick={() => setMode(option.id)}
-                tabIndex={active ? 0 : -1}
-              >
-                <span className="block font-medium">{option.label}</span>
-                <span className="block text-xs text-muted-foreground">{option.helper}</span>
-              </button>
-            );
-          })}
-        </div>
+    <div id="ops-signin-form" className="space-y-6">
+      {/* Header */}
+      <div className="space-y-2 text-center">
+        <h2 className="text-2xl font-bold tracking-tight text-slate-900">Restaurant operations</h2>
+        <p className="text-sm text-slate-600">
+          Sign in with a magic link or password to access your console
+        </p>
+      </div>
+
+      <Tabs value={mode} onValueChange={(value) => setMode(value as AuthMode)} className="w-full">
+        <TabsList className="grid w-full grid-cols-2 h-auto p-1.5 bg-slate-100">
+          <TabsTrigger
+            value={AUTH_MODES.MAGIC_LINK}
+            className="flex flex-col items-start gap-0.5 px-4 py-2.5 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+          >
+            <span className="text-sm font-semibold">Magic link</span>
+            <span className="text-xs font-normal text-slate-500">One-time secure link</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value={AUTH_MODES.PASSWORD}
+            className="flex flex-col items-start gap-0.5 px-4 py-2.5 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+          >
+            <span className="text-sm font-semibold">Password</span>
+            <span className="text-xs font-normal text-slate-500">Your credentials</span>
+          </TabsTrigger>
+        </TabsList>
 
         <Form {...form}>
-          <form className="space-y-4 sm:space-y-5" onSubmit={onSubmit} noValidate>
+          <form className="mt-6 space-y-5" onSubmit={onSubmit} noValidate>
             <FormField
               control={form.control}
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email address</FormLabel>
+                  <FormLabel className="text-sm font-medium text-slate-700">
+                    Email address
+                  </FormLabel>
                   <FormControl>
                     <Input
                       {...field}
@@ -327,54 +324,84 @@ export function OpsSignInForm({ redirectedFrom }: OpsSignInFormProps) {
                       inputMode="email"
                       autoComplete="email"
                       placeholder="you@example.com"
-                      className="touch-manipulation"
+                      className="h-12 rounded-xl border-slate-300 bg-white text-base transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 touch-manipulation"
+                      style={{ fontSize: '16px' }}
                     />
                   </FormControl>
-                  <FormMessage />
+                  <FormMessage className="text-sm" />
                 </FormItem>
               )}
             />
 
-            {mode === AUTH_MODES.PASSWORD && (
+            <TabsContent value={AUTH_MODES.PASSWORD} className="mt-5 space-y-5">
               <FormField
                 control={form.control}
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Password</FormLabel>
+                    <FormLabel className="text-sm font-medium text-slate-700">Password</FormLabel>
                     <FormControl>
-                      <Input
-                        {...field}
-                        type="password"
-                        autoComplete="current-password"
-                        placeholder="Enter your password"
-                        className="touch-manipulation"
-                      />
+                      <div className="relative">
+                        <Input
+                          {...field}
+                          type={showPassword ? 'text' : 'password'}
+                          autoComplete="current-password"
+                          placeholder="Enter your password"
+                          className="h-12 rounded-xl border-slate-300 bg-white pr-12 text-base transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 touch-manipulation"
+                          style={{ fontSize: '16px' }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-slate-400 transition-colors hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                          aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        >
+                          {showPassword ? (
+                            <EyeOff className="h-5 w-5" aria-hidden="true" />
+                          ) : (
+                            <Eye className="h-5 w-5" aria-hidden="true" />
+                          )}
+                        </button>
+                      </div>
                     </FormControl>
-                    <FormMessage />
+                    <FormMessage className="text-sm" />
                   </FormItem>
                 )}
               />
+            </TabsContent>
+
+            <TabsContent value={AUTH_MODES.MAGIC_LINK} className="mt-0">
+              {/* Magic link doesn't need extra fields, just email above */}
+            </TabsContent>
+
+            {status && (
+              <p
+                ref={statusRef}
+                tabIndex={-1}
+                role="status"
+                aria-live={status.live}
+                aria-atomic="true"
+                className={cn(
+                  'rounded-lg px-4 py-3 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2',
+                  status.tone === 'success' &&
+                    'border border-emerald-200 bg-emerald-50 text-emerald-700',
+                  status.tone === 'error' && 'border border-red-200 bg-red-50 text-red-700',
+                  status.tone === 'info' && 'border border-blue-200 bg-blue-50 text-blue-700',
+                )}
+              >
+                {status.message}
+              </p>
             )}
 
-            <p
-              ref={statusRef}
-              tabIndex={status ? -1 : undefined}
-              role="status"
-              aria-live={status?.live ?? 'polite'}
-              aria-atomic="true"
-              className={cn(
-                'min-h-[1.25rem] text-sm text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2',
-                status ? STATUS_TONE_CLASSES[status.tone] : undefined,
-              )}
+            <Button
+              type="submit"
+              size="lg"
+              className="h-12 w-full rounded-xl bg-blue-600 text-base font-semibold shadow-lg shadow-blue-600/25 transition-all hover:bg-blue-700 hover:shadow-xl hover:shadow-blue-600/30 active:scale-[0.98] disabled:active:scale-100 touch-manipulation"
+              disabled={submitDisabled}
             >
-              {status?.message ?? ''}
-            </p>
-
-            <Button type="submit" className="w-full touch-manipulation" disabled={submitDisabled}>
               {isSubmitting ? (
                 <span className="flex items-center justify-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
                   {mode === AUTH_MODES.PASSWORD ? 'Signing in...' : 'Sending...'}
                 </span>
               ) : (
@@ -383,14 +410,7 @@ export function OpsSignInForm({ redirectedFrom }: OpsSignInFormProps) {
             </Button>
           </form>
         </Form>
-
-        <div className="border-t border-border pt-4 text-center text-sm text-muted-foreground">
-          <p>Guest or diner?</p>
-          <a href="/auth/signin" className="font-medium text-primary hover:underline">
-            Sign in as a guest →
-          </a>
-        </div>
-      </CardContent>
-    </Card>
+      </Tabs>
+    </div>
   );
 }

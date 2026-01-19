@@ -69,6 +69,7 @@ export async function getRestaurantBySlug(slug: string): Promise<RestaurantDetai
       reservationIntervalMinutes: restaurant.reservation_interval_minutes ?? null,
       reservationDefaultDurationMinutes: restaurant.reservation_default_duration_minutes ?? null,
       reservationLastSeatingBufferMinutes: restaurant.reservation_last_seating_buffer_minutes ?? null,
+      reservationLifecycleGraceMinutes: restaurant.reservation_lifecycle_grace_minutes ?? null,
       createdAt: restaurant.created_at ?? undefined,
       updatedAt: restaurant.updated_at ?? undefined,
     } satisfies RestaurantDetail;

@@ -468,46 +468,6 @@ export async function listTablesWithSummary(
   };
 }
 
-export async function loadAllowedCapacities(client: PublicClient, restaurantId: string): Promise<number[]> {
-  const { data, error } = await client
-    .from("allowed_capacities")
-    .select("capacity")
-    .eq("restaurant_id", restaurantId)
-    .order("capacity", { ascending: true });
-
-  if (error) {
-    throw error;
-  }
-
-  return (data ?? [])
-    .map((row) => Number(row.capacity))
-    .filter((value) => Number.isFinite(value));
-}
-
-export async function ensureAllowedCapacity(
-  client: PublicClient,
-  restaurantId: string,
-  capacity: number,
-): Promise<void> {
-  if (!Number.isFinite(capacity) || capacity <= 0) {
-    return;
-  }
-
-  const { error } = await client
-    .from("allowed_capacities")
-    .upsert(
-      {
-        restaurant_id: restaurantId,
-        capacity,
-      },
-      { onConflict: "restaurant_id,capacity", ignoreDuplicates: true },
-    );
-
-  if (error) {
-    throw error;
-  }
-}
-
 export async function findTableByNumber(
   client: PublicClient,
   restaurantId: string,

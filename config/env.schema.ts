@@ -61,6 +61,7 @@ const baseEnvSchema = z
     // Adjacency requirement is now fixed (connected); mode/min-party flags removed
     FEATURE_MANUAL_ASSIGNMENT_MAX_SLACK: z.coerce.number().int().min(0).max(12).optional(),
     FEATURE_MANUAL_ASSIGNMENT_SESSION_ENABLED: booleanStringOptional,
+    FEATURE_MANUAL_ASSIGNMENT_SNAPSHOT_VALIDATION: booleanStringOptional,
     FEATURE_HOLDS_ENABLED: booleanStringOptional,
     FEATURE_HOLDS_STRICT_CONFLICTS_ENABLED: booleanStringOptional,
     FEATURE_DB_STRICT_CONSTRAINTS: booleanStringOptional,

@@ -26,6 +26,7 @@ export type RestaurantDetailsFormValues = {
   reservationIntervalMinutes: number;
   reservationDefaultDurationMinutes: number;
   reservationLastSeatingBufferMinutes: number;
+  reservationLifecycleGraceMinutes: number;
 };
 
 export type RestaurantDetailsFormProps = PropsWithChildren<{
@@ -50,6 +51,7 @@ type FormState = {
   reservationIntervalMinutes: string;
   reservationDefaultDurationMinutes: string;
   reservationLastSeatingBufferMinutes: string;
+  reservationLifecycleGraceMinutes: string;
 };
 
 type FormErrors = Partial<Record<keyof FormState, string>>;
@@ -65,6 +67,8 @@ const FIELD_TOOLTIPS = {
     'Default dining time that pre-fills new reservations. Staff can override per booking if needed.',
   lastSeatingBuffer:
     'Minutes before closing when you stop seating guests so everyone can finish before the kitchen closes.',
+  lifecycleGrace:
+    'Minutes after the reservation end time when staff can still check out or mark no-shows.',
   bookingPolicy:
     'Optional message shown to guests during booking and in confirmations (e.g., deposits, grace periods).',
   googleReviewUrl: 'Link for customers to leave a Google review. This is sent in post-visit emails.',
@@ -105,6 +109,10 @@ function mapInitialValues(values: RestaurantDetailsFormValues): FormState {
       values.reservationLastSeatingBufferMinutes !== undefined && values.reservationLastSeatingBufferMinutes !== null
         ? String(values.reservationLastSeatingBufferMinutes)
         : '',
+    reservationLifecycleGraceMinutes:
+      values.reservationLifecycleGraceMinutes !== undefined && values.reservationLifecycleGraceMinutes !== null
+        ? String(values.reservationLifecycleGraceMinutes)
+        : '',
     googleMapUrl: values.googleMapUrl ?? '',
     googleReviewUrl: values.googleReviewUrl ?? '',
   };
@@ -124,6 +132,7 @@ function sanitizePayload(state: FormState): UpdateRestaurantInput {
   const intervalMinutes = Number.parseInt(state.reservationIntervalMinutes, 10);
   const defaultDurationMinutes = Number.parseInt(state.reservationDefaultDurationMinutes, 10);
   const lastSeatingBufferMinutes = Number.parseInt(state.reservationLastSeatingBufferMinutes, 10);
+  const lifecycleGraceMinutes = Number.parseInt(state.reservationLifecycleGraceMinutes, 10);
 
   return {
     name: trimmedName,
@@ -197,6 +206,18 @@ function validate(state: FormState): FormErrors {
       errors.reservationLastSeatingBufferMinutes = 'Must be a whole number';
     } else if (bufferValue < 15 || bufferValue > 300) {
       errors.reservationLastSeatingBufferMinutes = 'Must be between 15 and 300 minutes';
+    }
+  }
+
+  const graceRaw = state.reservationLifecycleGraceMinutes.trim();
+  if (!graceRaw) {
+    errors.reservationLifecycleGraceMinutes = 'Lifecycle grace period is required';
+  } else {
+    const graceValue = Number(graceRaw);
+    if (!Number.isInteger(graceValue)) {
+      errors.reservationLifecycleGraceMinutes = 'Must be a whole number';
+    } else if (graceValue < 0 || graceValue > 120) {
+      errors.reservationLifecycleGraceMinutes = 'Must be between 0 and 120 minutes';
     }
   }
 
@@ -469,6 +490,46 @@ export function RestaurantDetailsForm({
             {errors.reservationLastSeatingBufferMinutes && (
               <p id="restaurant-last-seating-error" className="text-xs text-destructive" role="alert">
                 {errors.reservationLastSeatingBufferMinutes}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-1">
+              <Label htmlFor="restaurant-lifecycle-grace" className="inline-flex items-center gap-1">
+                Lifecycle Grace Period (minutes) <span className="text-destructive">*</span>
+              </Label>
+              <HelpTooltip
+                description={FIELD_TOOLTIPS.lifecycleGrace}
+                ariaLabel="Lifecycle grace period details"
+              />
+            </div>
+            <Input
+              id="restaurant-lifecycle-grace"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={120}
+              step={1}
+              value={state.reservationLifecycleGraceMinutes}
+              onChange={(event) => handleChange('reservationLifecycleGraceMinutes', event.target.value)}
+              aria-invalid={Boolean(errors.reservationLifecycleGraceMinutes)}
+              aria-describedby={
+                errors.reservationLifecycleGraceMinutes
+                  ? 'restaurant-lifecycle-grace-error'
+                  : 'restaurant-lifecycle-grace-help'
+              }
+              className={cn(
+                errors.reservationLifecycleGraceMinutes &&
+                'border-destructive focus-visible:ring-destructive/60',
+              )}
+            />
+            <p id="restaurant-lifecycle-grace-help" className="text-xs text-muted-foreground">
+              Extra time after a booking ends before it's hidden; usually 0-120 mins.
+            </p>
+            {errors.reservationLifecycleGraceMinutes && (
+              <p id="restaurant-lifecycle-grace-error" className="text-xs text-destructive" role="alert">
+                {errors.reservationLifecycleGraceMinutes}
               </p>
             )}
           </div>

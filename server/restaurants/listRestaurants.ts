@@ -34,6 +34,7 @@ export async function listRestaurants(filters: RestaurantFilters = {}): Promise<
       'is_active',
       'reservation_interval_minutes',
       'reservation_default_duration_minutes',
+      'reservation_lifecycle_grace_minutes',
       'reservation_last_seating_buffer_minutes',
       'created_at',
       'updated_at',
@@ -97,6 +98,7 @@ export async function listRestaurants(filters: RestaurantFilters = {}): Promise<
       reservationIntervalMinutes: row.reservation_interval_minutes,
       reservationDefaultDurationMinutes: row.reservation_default_duration_minutes,
       reservationLastSeatingBufferMinutes: row.reservation_last_seating_buffer_minutes,
+      reservationLifecycleGraceMinutes: row.reservation_lifecycle_grace_minutes,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     }));

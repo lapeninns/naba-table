@@ -1,52 +1,94 @@
 # Continuity Ledger
 
-Last updated: 2026-01-01T11:50:13Z
+<<<<<<< Updated upstream
+Last updated: 2026-01-19T20:34:00Z
+=======
+Last updated: 2026-01-19T20:40:00Z
+
+> > > > > > > Stashed changes
 
 ## Goal (incl. success criteria)
 
-- Allow ops admins to create bookings with email-only, phone-only, or both; at least one contact field required.
-- Success: ops booking flow accepts email-only or phone-only without validation errors.
-- Success: validation errors are accurate when both are missing or invalid.
+- Automate completing past bookings (confirmed/checked_in) nightly and trigger review-request emails.
+- Success: eligible bookings auto-transition to completed and reviews are scheduled.
+  <<<<<<< Updated upstream
+- # Success: safe batching, logging, and cron scheduling in place.
+- Success: local-midnight scheduling is accurate for all timezones.
+  > > > > > > > Stashed changes
 
 ## Constraints/Assumptions
 
 - Follow AGENTS SDLC phases; no coding before requirements and plan are reviewed.
-- Manual UI QA via Chrome DevTools MCP required for UI changes.
-- Supabase remote-only if DB changes are needed.
+- Supabase remote-only; no local DB operations.
 - Secrets never in source.
+- Run daily at restaurant local midnight; apply to all restaurants.
+  <<<<<<< Updated upstream
+- Eligible statuses: confirmed and checked_in with end time in the past.
 
 ## Key decisions
 
-- Allow empty string emails in reservation schema to tolerate ops bookings with missing email.
+- Schedule via Vercel cron hourly and gate by restaurant local time window (60 minutes).
+- Actor ID: use restaurant membership user; fallback to first auth user; optional env override.
 
 ## State
 
-- Phase 3 (Implementation) in progress.
+- Fixes in progress for cron timing and cross-midnight end time handling; verification pending.
 
 ## Done
 
-- Updated reservation schema to accept empty-string emails.
-- Removed unused vars causing eslint warnings in ops reservation mutation.
-- Replaced `any` cast in inline auto-assign payload with Json type.
+- Created task folder and SDLC stubs for auto-complete automation.
+- Confirmed: local midnight schedule; statuses confirmed + checked_in; permanent automation.
+- Updated research/plan/todo with confirmed requirements.
+- Added auto-complete job + cron endpoint and Vercel cron with local-midnight window.
 
 ## Now
 
-- Re-run lint/commit checks; prepare verification.
+- Apply fixes: 15-minute cron cadence/window, cross-midnight end-time adjustment.
 
 ## Next
 
-- Manual QA via Chrome DevTools MCP for ops booking flow.
-- Update `verification.md` with artifacts.
+- # Run staging dry-run/apply and log outputs in artifacts + verification.md; re-review for merge.
+
+## Key decisions
+
+- Schedule cron every 15 minutes and gate by 15-minute local-midnight window.
+- Cross-midnight end times are adjusted by +1 day when end < start.
+
+## State
+
+- Fixes committed; merge attempts blocked by Git lock permissions in sandbox.
+
+## Done
+
+- Added auto-complete job + cron endpoint.
+- Committed fixes for cron cadence/window and cross-midnight end handling.
+
+## Now
+
+- Need user to merge branch into main and frontend-dec19 (sandbox cannot lock refs).
+
+## Next
+
+- Run staging dry-run/apply and log outputs in artifacts + verification.md.
+  > > > > > > > Stashed changes
 
 ## Open questions (UNCONFIRMED if needed)
 
-- Which ops booking entry points are in scope (wizard only vs other ops forms)? (UNCONFIRMED)
-- Should phone validation remain UK-only for ops, or should ops accept international formats? (UNCONFIRMED)
-- Should missing email be stored as null instead of empty string, and is that acceptable for downstream exports? (UNCONFIRMED)
+- None.
 
 ## Working set (files/ids/commands)
 
-- reserve/entities/reservation/reservation.schema.ts
-- reserve/features/reservations/wizard/api/useCreateOpsReservation.ts
-- src/services/inline-auto-assign.ts
-- tasks/ops-booking-optional-contact-20260101-1143/verification.md
+<<<<<<< Updated upstream
+
+- tasks/auto-complete-past-bookings-20260119-1944/research.md
+- tasks/auto-complete-past-bookings-20260119-1944/plan.md
+- tasks/auto-complete-past-bookings-20260119-1944/todo.md
+- tasks/auto-complete-past-bookings-20260119-1944/verification.md
+- server/jobs/auto-complete-bookings.ts
+- src/app/api/cron/auto-complete-bookings/route.ts
+- # vercel.json
+- server/jobs/auto-complete-bookings.ts
+- src/app/api/cron/auto-complete-bookings/route.ts
+- vercel.json
+- tasks/auto-complete-past-bookings-20260119-1944/verification.md
+  > > > > > > > Stashed changes

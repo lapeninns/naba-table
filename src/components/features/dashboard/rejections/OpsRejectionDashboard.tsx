@@ -14,11 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useOpsSession } from '@/contexts/ops-session';
-import {
-  useOpsRejectionAnalytics,
-  useOpsStrategicSettings,
-  useUpdateOpsStrategicSettings,
-} from '@/hooks';
+import { useOpsRejectionAnalytics } from '@/hooks/ops/useOpsRejectionAnalytics';
+import { useOpsStrategicSettings, useUpdateOpsStrategicSettings } from '@/hooks/ops/useOpsStrategicSettings';
 import { useToast } from '@/hooks/use-toast';
 import { CSRF_HEADER_NAME, getBrowserCsrfToken } from '@/lib/security/csrf';
 import { cn } from '@/lib/utils';
@@ -51,7 +48,7 @@ const PENALTY_BADGE_VARIANTS: Record<OpsStrategicPenaltyKey, string> = {
   scarcity: 'bg-amber-100 text-amber-900',
   future_conflict: 'bg-rose-100 text-rose-900',
   structural: 'bg-purple-100 text-purple-900',
-  unknown: 'bg-slate-100 text-slate-900',
+  unknown: 'bg-muted text-muted-foreground',
 };
 
 function computeRangeState(key: RangePresetKey): RangeState {
@@ -325,7 +322,7 @@ export function OpsRejectionDashboard() {
         headers[CSRF_HEADER_NAME] = csrfToken;
       }
 
-      const response = await fetch('/api/strategies/simulate', {
+      const response = await fetch('/api/ops/strategies/simulate', {
         method: 'POST',
         headers,
         body: JSON.stringify({

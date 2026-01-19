@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { defaultRedirectForHost, parseHostname, sanitizeRedirect, toAbsoluteRedirectTarget } from "@/lib/auth/redirects";
-import { validatePasswordStrength } from "@/lib/security/passwordPolicy";
 import { validateCsrfToken } from "@/server/security/csrf";
 import { consumeRateLimit } from "@/server/security/rate-limit";
 import { getRouteHandlerSupabaseClient } from "@/server/supabase";
@@ -17,17 +16,15 @@ const requestSchema = z
     email: z.string().trim().min(1, "Email is required").email("Enter a valid email address").transform((value) => value.toLowerCase()),
     password: z.string().trim().optional(),
     redirectedFrom: z.string().optional(),
+    rememberMe: z.boolean().optional().default(true),
   })
   .superRefine((data, ctx) => {
-    if (data.mode === "password") {
-      const result = validatePasswordStrength(data.password);
-      if (!result.success) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["password"],
-          message: result.error,
-        });
-      }
+    if (data.mode === "password" && !data.password) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["password"],
+        message: "Enter your password",
+      });
     }
   });
 
@@ -36,7 +33,12 @@ const RATE_LIMITS = {
   magic_link: { limit: 5, windowMs: 10 * 60 * 1000 },
 } as const;
 
-function buildCallbackUrl(hostname: string, redirectedFrom: string | undefined) {
+function buildCallbackUrl(
+  hostname: string,
+  redirectedFrom: string | undefined,
+  rememberMe: boolean,
+  pathname: string = "/api/auth/callback",
+) {
   let validHostname = hostname;
 
   // Ensure hostname is one of our allowed public domains
@@ -64,11 +66,12 @@ function buildCallbackUrl(hostname: string, redirectedFrom: string | undefined) 
   }
 
   const protocol = validHostname.includes("localhost") ? "http" : "https";
-  const url = new URL("/api/auth/callback", `${protocol}://${validHostname}`);
+  const url = new URL(pathname, `${protocol}://${validHostname}`);
 
   if (redirectedFrom) {
     url.searchParams.set("redirectedFrom", redirectedFrom);
   }
+  url.searchParams.set("rememberMe", rememberMe ? "1" : "0");
   return url.toString();
 }
 
@@ -85,6 +88,8 @@ function setRateHeaders(response: NextResponse, limitResult: Awaited<ReturnType<
   response.headers.set("X-RateLimit-Reset", limitResult.resetAt.toString());
   return response;
 }
+
+
 
 export async function POST(req: NextRequest) {
   try {
@@ -111,7 +116,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { email, password, mode, redirectedFrom } = validated.data;
+    const { email, password, mode, redirectedFrom, rememberMe } = validated.data;
     const redirectTarget = sanitizeRedirect(redirectedFrom, rootDomain) ?? defaultRedirectForHost(hostname, rootDomain);
     const absoluteRedirect = toAbsoluteRedirectTarget(redirectTarget, rootDomain);
 
@@ -147,7 +152,7 @@ export async function POST(req: NextRequest) {
       return setRateHeaders(response, rateResult);
     }
 
-    const emailRedirectTo = buildCallbackUrl(hostname, absoluteRedirect);
+    const emailRedirectTo = buildCallbackUrl(hostname, absoluteRedirect, rememberMe);
     console.log("[Auth/signin] Magic link details:", {
       hostname,
       rootDomain,

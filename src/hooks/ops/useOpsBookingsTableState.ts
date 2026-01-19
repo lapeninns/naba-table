@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useDeferredValue, useMemo, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { create } from 'zustand';
 
 import type { OpsBookingStatus } from '@/types/ops';
 
@@ -14,6 +15,41 @@ export type UseOpsBookingsTableStateOptions = {
   initialSelectedStatuses?: OpsBookingStatus[];
 };
 
+type OpsBookingsTableStoreState = {
+  statusFilter: OpsStatusFilter;
+  page: number;
+  search: string;
+  selectedStatuses: OpsBookingStatus[];
+  setStatusFilter: (next: OpsStatusFilter) => void;
+  setPage: (next: number) => void;
+  setSearch: (next: string) => void;
+  toggleSelectedStatus: (status: OpsBookingStatus) => void;
+  setSelectedStatuses: (next: OpsBookingStatus[]) => void;
+  clearSelectedStatuses: () => void;
+};
+
+function createOpsBookingsTableStore(initial: {
+  statusFilter: OpsStatusFilter;
+  page: number;
+  search: string;
+  selectedStatuses: OpsBookingStatus[];
+}) {
+  return create<OpsBookingsTableStoreState>()((set, get) => ({
+    ...initial,
+    setStatusFilter: (next) => set({ statusFilter: next, page: 1 }),
+    setPage: (next) => set({ page: next }),
+    setSearch: (next) => set({ search: next, page: 1 }),
+    toggleSelectedStatus: (status) => {
+      const current = get().selectedStatuses;
+      const exists = current.includes(status);
+      const next = exists ? current.filter((value) => value !== status) : [...current, status];
+      set({ selectedStatuses: next, page: 1 });
+    },
+    setSelectedStatuses: (next) => set({ selectedStatuses: next, page: 1 }),
+    clearSelectedStatuses: () => set({ selectedStatuses: [], page: 1 }),
+  }));
+}
+
 export function useOpsBookingsTableState({
   initialStatus = 'upcoming',
   initialPage = 1,
@@ -21,49 +57,51 @@ export function useOpsBookingsTableState({
   initialQuery = '',
   initialSelectedStatuses = [],
 }: UseOpsBookingsTableStateOptions = {}) {
-  const [statusFilter, setStatusFilter] = useState<OpsStatusFilter>(initialStatus);
-  const [page, setPage] = useState(initialPage);
-  const [search, setSearch] = useState(initialQuery);
-  const [selectedStatuses, setSelectedStatuses] = useState<OpsBookingStatus[]>(initialSelectedStatuses);
-
-  const handleStatusFilterChange = useCallback((nextStatus: OpsStatusFilter) => {
-    setStatusFilter(nextStatus);
-    setPage(1);
-  }, []);
-
-  const handlePageChange = useCallback(
-    (nextPage: number, totalItems: number) => {
-      if (Number.isNaN(nextPage)) return;
-      const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-      const clamped = Math.min(Math.max(nextPage, 1), totalPages);
-      setPage(clamped);
-    },
-    [pageSize],
+  const [store] = useState(() =>
+    createOpsBookingsTableStore({
+      statusFilter: initialStatus,
+      page: initialPage,
+      search: initialQuery,
+      selectedStatuses: initialSelectedStatuses,
+    }),
   );
 
-  const handleSearchChange = useCallback((nextSearch: string) => {
-    setSearch(nextSearch);
-    setPage(1);
-  }, []);
-
-  const toggleSelectedStatus = useCallback((status: OpsBookingStatus) => {
-    setSelectedStatuses((current) => {
-      const exists = current.includes(status);
-      const next = exists ? current.filter((value) => value !== status) : [...current, status];
-      return next;
+  useEffect(() => {
+    store.setState({
+      statusFilter: initialStatus,
+      page: initialPage,
+      search: initialQuery,
+      selectedStatuses: initialSelectedStatuses,
     });
-    setPage(1);
-  }, []);
+  }, [initialPage, initialQuery, initialSelectedStatuses, initialStatus, store]);
 
-  const replaceSelectedStatuses = useCallback((statuses: OpsBookingStatus[]) => {
-    setSelectedStatuses(statuses);
-    setPage(1);
-  }, []);
+  const {
+    statusFilter,
+    page,
+    search,
+    selectedStatuses,
+    setStatusFilter,
+    setPage,
+    setSearch,
+    toggleSelectedStatus,
+    setSelectedStatuses,
+    clearSelectedStatuses,
+  } = store();
 
-  const clearSelectedStatuses = useCallback(() => {
-    setSelectedStatuses([]);
-    setPage(1);
-  }, []);
+  const handleStatusFilterChange = (nextStatus: OpsStatusFilter) => {
+    setStatusFilter(nextStatus);
+  };
+
+  const handlePageChange = (nextPage: number, totalItems: number) => {
+    if (Number.isNaN(nextPage)) return;
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+    const clamped = Math.min(Math.max(nextPage, 1), totalPages);
+    setPage(clamped);
+  };
+
+  const handleSearchChange = (nextSearch: string) => {
+    setSearch(nextSearch);
+  };
 
   const deferredSearch = useDeferredValue(search.trim());
 
@@ -140,7 +178,7 @@ export function useOpsBookingsTableState({
     setSearch,
     selectedStatuses,
     toggleSelectedStatus,
-    setSelectedStatuses: replaceSelectedStatuses,
+    setSelectedStatuses,
     clearSelectedStatuses,
   } as const;
 }

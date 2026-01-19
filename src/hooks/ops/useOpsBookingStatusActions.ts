@@ -11,13 +11,6 @@ import { queryKeys } from '@/lib/query/keys';
 
 import type { OpsBookingStatus, OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
 
-export type UpdateBookingStatusVariables = {
-  restaurantId: string;
-  bookingId: string;
-  status: 'completed' | 'no_show';
-  targetDate?: string | null;
-};
-
 export type BookingLifecycleVariables = {
   restaurantId: string;
   bookingId: string;
@@ -41,13 +34,34 @@ type MutationContext = {
   previousSummary?: OpsTodayBookingsSummary;
 };
 
-type OfflineActionType = 'check-in' | 'check-out' | 'no-show' | 'undo-no-show' | 'status-update';
+type OfflineActionType = 'check-in' | 'check-out' | 'no-show' | 'undo-no-show';
 
 function useInvalidateLifecycle(queryClient: ReturnType<typeof useQueryClient>) {
-  return (restaurantId: string, targetDate?: string | null) => {
+  return (
+    restaurantId: string,
+    targetDate?: string | null,
+    options: {
+      invalidateSummary?: boolean;
+      refetchSummary?: boolean;
+    } = { invalidateSummary: true, refetchSummary: true },
+  ) => {
+    const { invalidateSummary = true, refetchSummary = true } = options;
     const summaryKey = queryKeys.opsDashboard.summary(restaurantId, targetDate ?? null);
-    queryClient.invalidateQueries({ queryKey: summaryKey });
-    queryClient.invalidateQueries({ queryKey: ['ops', 'dashboard', restaurantId, 'heatmap'], exact: false });
+    if (invalidateSummary) {
+      console.log('[booking-lifecycle] Invalidating summary cache:', {
+        summaryKey,
+        refetchSummary,
+      });
+      queryClient.invalidateQueries({
+        queryKey: summaryKey,
+        // Ensure active queries are refetched to update the UI immediately
+        refetchType: refetchSummary ? 'active' : 'none',
+      });
+    }
+    queryClient.invalidateQueries({
+      queryKey: ['ops', 'dashboard', restaurantId, 'heatmap'],
+      exact: false,
+    });
     queryClient.invalidateQueries({ queryKey: ['ops', 'bookings'], exact: false });
   };
 }
@@ -109,7 +123,11 @@ export function useOpsBookingLifecycleActions() {
       updatedAt: detailsUpdatedAt ?? entry?.updatedAt ?? null,
       onReload:
         variables.restaurantId && typeof variables.restaurantId === 'string'
-          ? () => invalidate(variables.restaurantId as string, variables.targetDate ?? null)
+          ? () =>
+            invalidate(variables.restaurantId as string, variables.targetDate ?? null, {
+              invalidateSummary: true,
+              refetchSummary: true,
+            })
           : null,
     });
     return true;
@@ -146,18 +164,22 @@ export function useOpsBookingLifecycleActions() {
     };
   };
 
-  const applyOptimisticTransition = (
+  const applyOptimisticTransition = async (
     bookingId: string,
     expectedStatus: OpsBookingStatus,
     variables: { restaurantId?: string | null; targetDate?: string | null },
     patch: (booking: OpsTodayBooking) => OpsTodayBooking,
     meta: Record<string, unknown>,
-  ): MutationContext => {
+  ): Promise<MutationContext> => {
     let summaryKey: ReturnType<(typeof queryKeys)['opsDashboard']['summary']> | undefined;
     let previousSummary: OpsTodayBookingsSummary | undefined;
 
     if (variables.restaurantId) {
       summaryKey = queryKeys.opsDashboard.summary(variables.restaurantId, variables.targetDate ?? null);
+
+      // Cancel any in-flight refetches to prevent them from overwriting our optimistic update
+      await queryClient.cancelQueries({ queryKey: summaryKey });
+
       const currentSummary = queryClient.getQueryData<OpsTodayBookingsSummary>(summaryKey);
       if (currentSummary) {
         previousSummary = currentSummary;
@@ -220,43 +242,12 @@ export function useOpsBookingLifecycleActions() {
     });
   };
 
-  const markStatusMutation = useMutation<{ status: OpsBookingStatus }, Error, UpdateBookingStatusVariables, MutationContext>({
-    mutationFn: ({ bookingId, status }) => bookingService.updateBookingStatus({ id: bookingId, status }),
-    onMutate: (variables) => {
-      return applyOptimisticTransition(
-        variables.bookingId,
-        variables.status,
-        { restaurantId: variables.restaurantId, targetDate: variables.targetDate ?? null },
-        (booking) => ({
-          ...booking,
-          status: variables.status,
-        }),
-        { action: 'mark-status', targetStatus: variables.status },
-      );
-    },
-    onSuccess: (updated, variables, context) => {
-      commitOptimisticTransition(variables.bookingId, context, { status: updated.status });
-      invalidate(variables.restaurantId, variables.targetDate ?? null);
-      transitionToast.showSuccess({ action: 'status-update' });
-    },
-    onError: (error, variables, context) => {
-      rollbackOptimisticTransition(variables.bookingId, context);
-      if (handleConflict(error, variables, variables.status)) {
-        return;
-      }
-      transitionToast.showError({
-        action: 'status-update',
-        errorMessage: error.message || 'Failed to update booking',
-      });
-    },
-  });
-
   const checkInMutation = useMutation<LifecycleMutationResult, Error, BookingLifecycleVariables, MutationContext>({
     mutationFn: ({ bookingId, performedAt }) =>
       bookingService.checkInBooking({ id: bookingId, performedAt: toPayloadTimestamp(performedAt) }),
-    onMutate: (variables) => {
+    onMutate: async (variables) => {
       const performedAt = variables.performedAt ?? new Date().toISOString();
-      return applyOptimisticTransition(
+      return await applyOptimisticTransition(
         variables.bookingId,
         'checked_in',
         { restaurantId: variables.restaurantId, targetDate: variables.targetDate ?? null },
@@ -293,9 +284,9 @@ export function useOpsBookingLifecycleActions() {
   const checkOutMutation = useMutation<LifecycleMutationResult, Error, BookingLifecycleVariables, MutationContext>({
     mutationFn: ({ bookingId, performedAt }) =>
       bookingService.checkOutBooking({ id: bookingId, performedAt: toPayloadTimestamp(performedAt) }),
-    onMutate: (variables) => {
+    onMutate: async (variables) => {
       const performedAt = variables.performedAt ?? new Date().toISOString();
-      return applyOptimisticTransition(
+      return await applyOptimisticTransition(
         variables.bookingId,
         'completed',
         { restaurantId: variables.restaurantId, targetDate: variables.targetDate ?? null },
@@ -335,9 +326,9 @@ export function useOpsBookingLifecycleActions() {
         performedAt: toPayloadTimestamp(performedAt),
         reason: reason ?? undefined,
       }),
-    onMutate: (variables) => {
+    onMutate: async (variables) => {
       const performedAt = variables.performedAt ?? null;
-      return applyOptimisticTransition(
+      return await applyOptimisticTransition(
         variables.bookingId,
         'no_show',
         { restaurantId: variables.restaurantId, targetDate: variables.targetDate ?? null },
@@ -377,8 +368,8 @@ export function useOpsBookingLifecycleActions() {
         id: bookingId,
         reason: reason ?? undefined,
       }),
-    onMutate: (variables) => {
-      return applyOptimisticTransition(
+    onMutate: async (variables) => {
+      return await applyOptimisticTransition(
         variables.bookingId,
         'confirmed',
         { restaurantId: variables.restaurantId, targetDate: variables.targetDate ?? null },
@@ -410,10 +401,6 @@ export function useOpsBookingLifecycleActions() {
     },
   });
 
-  const markStatus = wrapMutation(markStatusMutation, {
-    action: 'status-update',
-    label: () => 'Update status',
-  });
   const checkIn = wrapMutation(checkInMutation, {
     action: 'check-in',
     label: () => 'Check in',
@@ -432,7 +419,6 @@ export function useOpsBookingLifecycleActions() {
   });
 
   return {
-    markStatus,
     checkIn,
     checkOut,
     markNoShow,

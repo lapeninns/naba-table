@@ -3,6 +3,8 @@ import path from "node:path";
 import url from "node:url";
 import { FlatCompat } from "@eslint/eslintrc";
 import nextConfig from "eslint-config-next";
+import importPlugin from "eslint-plugin-import";
+import reactHooks from "eslint-plugin-react-hooks";
 
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 
@@ -34,6 +36,7 @@ export default [
       "next.config.js",
       "next-sitemap.config.js",
       "tests/load/**/*.js",
+      "scripts/**/*.cjs",
       "scripts/**/*.mjs",
     ],
   },
@@ -68,10 +71,25 @@ export default [
       "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
       "@typescript-eslint/no-explicit-any": "warn",
       "react/display-name": "off",
+      "jsx-a11y/no-autofocus": "off",
+    },
+  }),
+  {
+    plugins: {
+      "react-hooks": reactHooks,
+    },
+    rules: {
       "react-hooks/refs": "off",
       "react-hooks/set-state-in-effect": "off",
       "react-hooks/purity": "off",
       "react-hooks/preserve-manual-memoization": "warn",
+    },
+  },
+  {
+    plugins: {
+      import: importPlugin,
+    },
+    rules: {
       "import/order": [
         "error",
         {
@@ -80,9 +98,8 @@ export default [
           "newlines-between": "always",
         },
       ],
-      "jsx-a11y/no-autofocus": "off",
     },
-  }),
+  },
   {
     files: ["server/**/*.{js,ts,jsx,tsx}", "tests/server/**/*.{js,ts,jsx,tsx}"],
     rules: {

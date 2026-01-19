@@ -1,17 +1,17 @@
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 
-import { AppProviders } from "@/app/providers";
-import { OpsShell } from "@/components/features/ops-shell";
-import { OpsServicesProvider } from "@/contexts/ops-services";
-import { OpsSessionProvider } from "@/contexts/ops-session";
-import { env } from "@/lib/env";
-import { getServerComponentSupabaseClient } from "@/server/supabase";
-import { fetchUserMemberships, type RestaurantMembershipWithDetails } from "@/server/team/access";
+import { AppProviders } from '@/app/providers';
+import { OpsShell } from '@/components/features/ops-shell/OpsShell';
+import { OpsServicesProvider } from '@/contexts/ops-services';
+import { OpsSessionProvider } from '@/contexts/ops-session';
+import { env } from '@/lib/env';
+import { getServerComponentSupabaseClient } from '@/server/supabase';
+import { fetchUserMemberships, type RestaurantMembershipWithDetails } from '@/server/team/access';
 
-import type { RestaurantRole } from "@/lib/owner/auth/roles";
-import type { OpsMembership, OpsUser } from "@/types/ops";
-import type { ReactNode } from "react";
+import type { RestaurantRole } from '@/lib/owner/auth/roles';
+import type { OpsMembership, OpsUser } from '@/types/ops';
+import type { ReactNode } from 'react';
 
 type OpsAppLayoutProps = {
   children: ReactNode;
@@ -20,7 +20,7 @@ type OpsAppLayoutProps = {
 function mapMembershipToOps(membership: RestaurantMembershipWithDetails): OpsMembership {
   return {
     restaurantId: membership.restaurant_id,
-    restaurantName: membership.restaurants?.name ?? "Restaurant",
+    restaurantName: membership.restaurants?.name ?? 'Restaurant',
     restaurantSlug: membership.restaurants?.slug ?? null,
     role: membership.role as RestaurantRole,
     createdAt: membership.created_at ?? null,
@@ -29,12 +29,15 @@ function mapMembershipToOps(membership: RestaurantMembershipWithDetails): OpsMem
 
 export default async function OpsAppLayout({ children }: OpsAppLayoutProps) {
   const cookieStore = await cookies();
-  const defaultOpen = cookieStore.get("sidebar_state")?.value === "true";
+  const defaultOpen = cookieStore.get('sidebar_state')?.value === 'true';
 
   const supabase = await getServerComponentSupabaseClient();
 
   let supabaseUser: OpsUser | null = null;
   let memberships: RestaurantMembershipWithDetails[] = [];
+  let initialSession:
+    | Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session']
+    | null = null;
 
   try {
     const {
@@ -43,7 +46,7 @@ export default async function OpsAppLayout({ children }: OpsAppLayoutProps) {
     } = await supabase.auth.getUser();
 
     if (error) {
-      console.error("[app/layout] failed to load user", error.message);
+      console.error('[app/layout] failed to load user', error.message);
     }
 
     if (user) {
@@ -51,22 +54,38 @@ export default async function OpsAppLayout({ children }: OpsAppLayoutProps) {
         id: user.id,
         email: user.email ?? null,
       };
-
-      try {
-        memberships = await fetchUserMemberships(user.id, supabase);
-      } catch (membershipError) {
-        console.error("[app/layout] failed to load memberships", membershipError);
-        memberships = [];
-      }
     }
   } catch (authError) {
-    console.error("[app/layout] unexpected error while resolving account", authError);
+    console.error('[app/layout] unexpected error while resolving account', authError);
+  }
+
+  if (supabaseUser) {
+    const membershipsPromise = fetchUserMemberships(supabaseUser.id, supabase);
+    const sessionPromise = supabase.auth.getSession();
+
+    try {
+      memberships = await membershipsPromise;
+    } catch (membershipError) {
+      console.error('[app/layout] failed to load memberships', membershipError);
+      memberships = [];
+    }
+
+    try {
+      const { data, error } = await sessionPromise;
+      if (error) {
+        console.error('[app/layout] failed to load session', error.message);
+      } else {
+        initialSession = data.session ?? null;
+      }
+    } catch (sessionError) {
+      console.error('[app/layout] unexpected error while resolving session', sessionError);
+    }
   }
 
   // Redirect to login if not authenticated
   // All pages under this layout require authentication
   if (!supabaseUser) {
-    redirect("/auth/signin");
+    redirect('/auth/signin');
   }
 
   const opsMemberships: OpsMembership[] = memberships
@@ -88,7 +107,7 @@ export default async function OpsAppLayout({ children }: OpsAppLayoutProps) {
       featureFlags={featureFlags}
     >
       <OpsServicesProvider>
-        <AppProviders>
+        <AppProviders initialSession={initialSession}>
           <OpsShell defaultSidebarOpen={defaultOpen}>{children}</OpsShell>
         </AppProviders>
       </OpsServicesProvider>

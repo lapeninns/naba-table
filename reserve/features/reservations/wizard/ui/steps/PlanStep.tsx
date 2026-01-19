@@ -14,6 +14,10 @@ import type { StepAction } from '../../model/reducer';
 import type { CalendarMask } from '@reserve/features/reservations/wizard/services/schedule';
 import type { AnalyticsEvent } from '@shared/lib/analytics';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Utilities
+// ─────────────────────────────────────────────────────────────────────────────
+
 function getMinSelectableDate(timezone: string | null | undefined) {
   const now = new Date();
 
@@ -50,9 +54,16 @@ function getMinSelectableDate(timezone: string | null | undefined) {
   return now;
 }
 
-const TITLE = 'Plan your visit';
-const DESCRIPTION =
-  'Choose a date, time, party size, and any preferences. We’ll show the best options available.';
+// ─────────────────────────────────────────────────────────────────────────────
+// Constants
+// ─────────────────────────────────────────────────────────────────────────────
+
+const TITLE = 'When would you like to join us?';
+const DESCRIPTION = 'Select your preferred date, time, and party size below.';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
 
 export interface PlanStepProps {
   onActionsChange: (actions: StepAction[]) => void;
@@ -60,6 +71,10 @@ export interface PlanStepProps {
   planAlert?: string | null;
   initialCalendarMask?: CalendarMask | null;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Component
+// ─────────────────────────────────────────────────────────────────────────────
 
 export function PlanStep({
   onActionsChange,
@@ -83,14 +98,21 @@ export function PlanStep({
       }}
     >
       <WizardStep step={1} title={TITLE} description={DESCRIPTION}>
-        {alertMessage ? (
-          <Alert variant="destructive" role="alert" className="items-start">
+        {/* ─────────────────────────────────────────────────────────────
+            Alert Message (if any)
+        ───────────────────────────────────────────────────────────── */}
+        {alertMessage && (
+          <Alert variant="destructive" role="alert" className="items-start animate-fade-in">
             <AlertIcon>
               <AlertTriangle className="h-4 w-4" aria-hidden />
             </AlertIcon>
-            <AlertDescription>{alertMessage}</AlertDescription>
+            <AlertDescription aria-live="polite">{alertMessage}</AlertDescription>
           </Alert>
-        ) : null}
+        )}
+
+        {/* ─────────────────────────────────────────────────────────────
+            Plan Step Form - Bento Grid Layout
+        ───────────────────────────────────────────────────────────── */}
         <PlanStepForm
           onActionsChange={onActionsChange}
           onTrack={onTrack}

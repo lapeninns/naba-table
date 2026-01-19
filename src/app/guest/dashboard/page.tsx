@@ -1,8 +1,7 @@
-import { HydrationBoundary, QueryClient, dehydrate } from "@tanstack/react-query";
-import { redirect } from "next/navigation";
 
-import { GuestDashboardClient } from "@/components/features/guest/dashboard/GuestDashboardClient";
-import { getServerComponentSupabaseClient } from "@/server/supabase";
+import { GuestDashboardPageView } from "@/guest/routes/dashboard/page-view";
+import { buildGuestDashboardViewModel } from "@/guest/routes/dashboard/view-model";
+import { createGuestServerServices } from "@/guest/services/server";
 
 import type { Metadata } from "next";
 
@@ -14,21 +13,7 @@ export const metadata: Metadata = {
 };
 
 export default async function GuestDashboardPage() {
-  const supabase = await getServerComponentSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/auth/signin?redirectedFrom=/guest/dashboard");
-  }
-
-  const queryClient = new QueryClient();
-  const dehydratedState = dehydrate(queryClient);
-
-  return (
-    <HydrationBoundary state={dehydratedState}>
-      <GuestDashboardClient />
-    </HydrationBoundary>
-  );
+  const services = await createGuestServerServices();
+  const viewModel = await buildGuestDashboardViewModel(services);
+  return <GuestDashboardPageView viewModel={viewModel} />;
 }

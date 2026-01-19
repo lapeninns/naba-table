@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { cn } from '@/lib/utils';
 
 export type BookingChange = {
   versionId: string;
@@ -110,6 +109,9 @@ function ChangeItem({ change }: { change: BookingChange }) {
                 {label}
               </Badge>
               <span className="text-xs text-muted-foreground">{formatTimestamp(change.changedAt)}</span>
+              <span className="text-xs text-muted-foreground">
+                · {change.changedBy ? `by ${change.changedBy}` : 'by System'}
+              </span>
             </div>
             {(change.oldData || change.newData) ? (
               <Button

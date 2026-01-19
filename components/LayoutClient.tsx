@@ -1,85 +1,20 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
-import NextTopLoader from "nextjs-toploader";
-import { useEffect, useMemo, useState } from "react";
-import { Toaster as HotToaster } from "react-hot-toast";
-import { Tooltip } from "react-tooltip";
+import { useEffect, useMemo } from "react";
 
 import { Toaster as UiToaster } from "@/components/ui/toaster";
 import config from "@/config";
 import { ImplicitAuthHandler } from "@/components/auth/ImplicitAuthHandler";
-import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
-
-import type { User } from "@supabase/supabase-js";
+import { toast } from "@/hooks/use-toast";
+import { SESSION_EXPIRED_EVENT } from "@/lib/http/sessionRedirect";
 import type { ReactNode } from "react";
 
-type CrispApi = typeof import("crisp-sdk-web").Crisp | null;
-
-// Crisp customer chat support:
-// This component is separated from ClientLayout because it needs to be wrapped with <SessionProvider> to use useSession() hook
-const CrispChat = (): null => {
-  const pathname = usePathname();
-
-  const supabase = getSupabaseBrowserClient();
-  const [data, setData] = useState<User | null>(null);
-  const [crisp, setCrisp] = useState<CrispApi>(null);
-
-  // This is used to get the user data from Supabase Auth (if logged in) => user ID is used to identify users in Crisp
-  useEffect(() => {
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (user) {
-        setData(user);
-      }
-    };
-    getUser();
-  }, [supabase]);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadCrisp = async () => {
-      if (!config?.crisp?.id) return;
-      const module = await import("crisp-sdk-web");
-      if (!isMounted) return;
-      setCrisp(module.Crisp);
-    };
-
-    loadCrisp();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!crisp || !config?.crisp?.id) return;
-
-    crisp.configure(config.crisp.id);
-
-    // (Optional) If onlyShowOnRoutes array is not empty in config.js file, Crisp will be hidden on the routes in the array.
-    // Use <AppButtonSupport> instead to show it (user clicks on the button to show Crisp—it cleans the UI)
-    if (config.crisp.onlyShowOnRoutes && pathname && !config.crisp.onlyShowOnRoutes?.includes(pathname)) {
-      crisp.chat.hide();
-      crisp.chat.onChatClosed(() => {
-        crisp.chat.hide();
-      });
-    }
-  }, [crisp, pathname]);
-
-  // Add User Unique ID to Crisp to easily identify users when reaching support (optional)
-  useEffect(() => {
-    if (data && config?.crisp?.id && crisp) {
-      crisp.session.setData({ userId: data.id });
-    }
-  }, [data, crisp]);
-
-  return null;
-};
+const NextTopLoader = dynamic(() => import("nextjs-toploader"), { ssr: false });
+const HotToaster = dynamic(() => import("react-hot-toast").then((mod) => mod.Toaster), { ssr: false });
+const Tooltip = dynamic(() => import("react-tooltip").then((mod) => mod.Tooltip), { ssr: false });
+const CrispChat = dynamic(() => import("./CrispChat").then((mod) => mod.CrispChat), { ssr: false });
 
 const LEGACY_TOASTER_BLOCKLIST = [/^\/checkout(?:$|\/)/];
 
@@ -99,6 +34,20 @@ const ClientLayout = ({ children }: { children: ReactNode }) => {
   const suppressLegacyToaster = pathname
     ? LEGACY_TOASTER_BLOCKLIST.some((pattern) => pattern.test(pathname))
     : false;
+
+  useEffect(() => {
+    const handleSessionExpired = (event: Event) => {
+      const detail = (event as CustomEvent<{ message?: string }>).detail;
+      toast({
+        title: "Session expired",
+        description: detail?.message ?? "Please sign in again to continue.",
+        variant: "destructive",
+      });
+    };
+
+    window.addEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+  }, []);
 
   if (isAuthRoute) {
     return (

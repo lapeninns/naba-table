@@ -288,7 +288,7 @@ export function RestaurantBrowser({
 
                     <div className="mt-4 flex flex-wrap items-center gap-3">
                       <a
-                        href={`/reserve/r/${restaurant.slug}`}
+                        href={`/restaurants/${restaurant.slug}/book`}
                         className={cn(buttonVariants({ variant: "default", size: "sm" }), "touch-manipulation")}
                         onClick={() => handleRestaurantClick(restaurant, index)}
                         aria-label={`Start booking at ${restaurant.name}`}

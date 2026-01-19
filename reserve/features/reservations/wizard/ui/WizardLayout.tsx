@@ -12,6 +12,8 @@ interface WizardLayoutProps {
   heroRef?: WizardHeroRef;
   stickyHeight?: number;
   stickyVisible?: boolean;
+  /** Restaurant name to display at the top */
+  restaurantName?: string;
   banner?: React.ReactNode;
   children: React.ReactNode;
   footer?: React.ReactNode;
@@ -22,8 +24,9 @@ interface WizardLayoutProps {
 
 export function WizardLayout({
   heroRef,
-  stickyHeight = 0,
-  stickyVisible = false,
+  stickyHeight: _stickyHeight = 0,
+  stickyVisible: _stickyVisible = false,
+  restaurantName,
   banner,
   children,
   footer,
@@ -31,30 +34,39 @@ export function WizardLayout({
   className,
   contentClassName,
 }: WizardLayoutProps) {
-  const mainStyle = stickyVisible
-    ? {
-        paddingBottom: `calc(${stickyHeight}px + env(safe-area-inset-bottom, 0px) + 1.5rem)`,
-      }
-    : undefined;
-
   const Container = elementType === 'div' ? 'div' : 'main';
 
   return (
     <>
       <Container
-        style={mainStyle}
         className={cn(
-          'min-h-screen w-full bg-muted/[0.15] px-4 pb-24 pt-6 font-sans text-foreground transition-[padding-bottom] duration-200 sm:pt-12 md:px-6 lg:px-10',
+          'w-full',
+          'bg-gradient-to-b from-blue-50/50 via-white to-white',
+          'px-4 pb-6 pt-4',
+          'sm:pt-5 sm:pb-8 md:px-6 lg:px-8',
+          'font-sans text-foreground',
           className,
         )}
       >
         <div
           className={cn(
-            'mx-auto flex w-full max-w-[80vw] flex-col gap-10 sm:gap-12',
+            // Tighter max-width and reduced gaps
+            'mx-auto flex w-full max-w-4xl flex-col gap-4 sm:gap-6',
             contentClassName,
           )}
         >
           <span ref={heroRef} aria-hidden className="block h-px w-full" />
+
+          {/* Restaurant header */}
+          {restaurantName && (
+            <header className="text-center">
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground sm:text-sm">
+                Book at
+              </p>
+              <h1 className="text-xl font-bold text-foreground sm:text-2xl">{restaurantName}</h1>
+            </header>
+          )}
+
           {banner ? <div>{banner}</div> : null}
           {children}
         </div>

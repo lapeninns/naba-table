@@ -11,7 +11,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useOpsRestaurantDetails, useOpsUpdateRestaurantDetails } from '@/hooks';
+import { useOpsRestaurantDetails, useOpsUpdateRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
 
 import { RestaurantLogoUploader } from './RestaurantLogoUploader';
 import { SettingsCard } from './shared/SettingsCard';
@@ -31,6 +31,7 @@ const EMPTY_VALUES: RestaurantDetailsFormValues = {
   reservationIntervalMinutes: 15,
   reservationDefaultDurationMinutes: 90,
   reservationLastSeatingBufferMinutes: 15,
+  reservationLifecycleGraceMinutes: 15,
 };
 
 type RestaurantProfileSectionProps = {
@@ -59,6 +60,7 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
       reservationIntervalMinutes: data.reservationIntervalMinutes,
       reservationDefaultDurationMinutes: data.reservationDefaultDurationMinutes,
       reservationLastSeatingBufferMinutes: data.reservationLastSeatingBufferMinutes,
+      reservationLifecycleGraceMinutes: data.reservationLifecycleGraceMinutes,
     };
   }, [data]);
 
@@ -79,6 +81,7 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
         reservationIntervalMinutes: values.reservationIntervalMinutes,
         reservationDefaultDurationMinutes: values.reservationDefaultDurationMinutes,
         reservationLastSeatingBufferMinutes: values.reservationLastSeatingBufferMinutes,
+        reservationLifecycleGraceMinutes: values.reservationLifecycleGraceMinutes,
       });
       toast.success('Restaurant details updated');
     } catch (submitError) {

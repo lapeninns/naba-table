@@ -65,16 +65,7 @@ const nextConfig = {
   async redirects() {
     const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'nabatable.com';
 
-    return [
-      // --- WWW Canonicalization ---
-      // Redirect naked domain to www (aligns with DNS/hosting provider settings)
-      {
-        source: "/:path*",
-        has: [{ type: "host", value: rootDomain }],
-        destination: `https://www.${rootDomain}/:path*`,
-        permanent: true,
-      },
-
+    const redirects = [
       // --- Auth ---
       { source: "/signin", destination: "/auth/signin", permanent: true },
 
@@ -118,11 +109,24 @@ const nextConfig = {
 
       // --- Ops ---
       // --- Legal ---
-      { source: "/privacy-policy", destination: "/privacy-policy", permanent: true }, // Self-redirect? Likely to ensure trailing slash or specific normalization, keeping as is.
-      { source: "/terms", destination: "/terms", permanent: true },
-      { source: "/tos", destination: "/terms", permanent: true },
-      { source: "/terms/:path*", destination: "/terms", permanent: true },
+      { source: "/privacy-policy", destination: "/", permanent: true },
+      { source: "/terms", destination: "/", permanent: true },
+      { source: "/tos", destination: "/", permanent: true },
+      { source: "/terms/:path*", destination: "/", permanent: true },
     ];
+
+    // --- WWW Canonicalization ---
+    // Redirect naked domain to www (aligns with DNS/hosting provider settings)
+    if (rootDomain !== 'localhost' && process.env.NODE_ENV === 'production') {
+      redirects.unshift({
+        source: "/:path*",
+        has: [{ type: "host", value: rootDomain }],
+        destination: `https://www.${rootDomain}/:path*`,
+        permanent: true,
+      });
+    }
+
+    return redirects;
   },
   turbopack: {
     resolveAlias: aliasEntries,

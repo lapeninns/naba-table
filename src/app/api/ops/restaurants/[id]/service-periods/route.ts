@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { getOccasionCatalog } from '@/server/occasions/catalog';
 import {
   getServicePeriods,
@@ -43,7 +44,8 @@ async function ensureAuthorized(restaurantId: string): Promise<NextResponse | nu
   } = await supabase.auth.getUser();
 
   if (authError) {
-    return NextResponse.json({ error: 'Unable to verify session' }, { status: 500 });
+    const mapped = mapSupabaseAuthError(authError);
+    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
   }
 
   if (!user) {

@@ -1,39 +1,17 @@
-import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
+
 import config from "@/config";
 import { defaultRedirectForHost, parseHostname, sanitizeRedirect, toAbsoluteRedirectTarget } from "@/lib/auth/redirects";
-import { env } from "@/lib/env";
 import { normalizeEmail } from "@/server/customers";
-import { getServiceSupabaseClient } from "@/server/supabase";
+import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 
-import type { Database } from "@/types/supabase";
 import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost";
-const secureCookies = env.node.appEnv !== "development";
 
-const FALLBACK_REDIRECT_CONFIG = config.auth.callbackUrl ?? "/app";
-
-function applyCookieDefaults(options: Record<string, unknown> = {}) {
-  const cookieConfig: Record<string, unknown> = {
-    ...options,
-    httpOnly: true,
-    secure: secureCookies,
-    sameSite: "lax" as const,
-    path: "/",
-  };
-
-  // Set domain for cross-subdomain cookie sharing in production
-  if (ROOT_DOMAIN !== "localhost") {
-    cookieConfig.domain = `.${ROOT_DOMAIN}`;
-  }
-
-  return cookieConfig;
-}
 
 async function linkAuthUserToCustomers(authUserId: string, email: string): Promise<void> {
   try {
@@ -104,8 +82,9 @@ export async function GET(req: NextRequest) {
       if (redirectedFrom) {
         console.warn("[auth/callback] rejected redirect param", redirectedFrom);
       }
-      const fallback = FALLBACK_REDIRECT_CONFIG ?? defaultRedirectForHost(hostname, rootDomain);
-      console.log("[auth/callback] Using fallback destination:", fallback);
+      // Use host-aware default redirect: app subdomain -> /dashboard, root domain -> /guest/dashboard
+      const fallback = defaultRedirectForHost(hostname, rootDomain);
+      console.log("[auth/callback] Using fallback destination:", fallback, "for hostname:", hostname);
       return fallback;
     }
     console.log("[auth/callback] Using sanitized destination:", sanitized);
@@ -129,27 +108,7 @@ export async function GET(req: NextRequest) {
     });
 
     // Create Supabase client that writes cookies to the cookie store
-    const supabase = createServerClient<Database>(
-      env.supabase.url,
-      env.supabase.anonKey,
-      {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll().map(({ name, value }) => ({ name, value }));
-          },
-          setAll(cookiesToSet) {
-            try {
-              cookiesToSet.forEach(({ name, value, options }) => {
-                cookieStore.set({ name, value, ...applyCookieDefaults(options) });
-              });
-            } catch (error) {
-              // Cookie writes can fail in certain server contexts; log but continue
-              console.warn("[auth/callback] Cookie write warning:", error instanceof Error ? error.message : String(error));
-            }
-          },
-        },
-      }
-    );
+    const supabase = await getRouteHandlerSupabaseClient(cookieStore);
 
     if (code) {
       console.log("[auth/callback] Attempting to exchange code for session...");
@@ -195,10 +154,10 @@ export async function GET(req: NextRequest) {
           await linkAuthUserToCustomers(data.user.id, data.user.email);
         }
 
-        const { data: sessionData } = await supabase.auth.getSession();
-        console.log("[auth/callback] Session verification:", {
-          hasSession: !!sessionData.session,
-          sessionUserId: sessionData.session?.user?.id,
+        const { data: userData } = await supabase.auth.getUser();
+        console.log("[auth/callback] Session verification (getUser):", {
+          hasUser: !!userData.user,
+          sessionUserId: userData.user?.id,
         });
       }
     } else if (tokenHash) {

@@ -12,7 +12,9 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { useOpsOccasions, useOpsOperatingHours, useOpsServicePeriods, useOpsUpdateServicePeriods } from '@/hooks';
+import { useOpsOccasions } from '@/hooks/ops/useOccasions';
+import { useOpsOperatingHours } from '@/hooks/ops/useOpsOperatingHours';
+import { useOpsServicePeriods, useOpsUpdateServicePeriods } from '@/hooks/ops/useOpsServicePeriods';
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
 import { cn } from '@/lib/utils';
 

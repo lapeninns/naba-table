@@ -6,7 +6,7 @@ import { useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useOpsRevokeTeamInvite, useOpsTeamInvitations } from '@/hooks';
+import { useOpsRevokeTeamInvite, useOpsTeamInvitations } from '@/hooks/ops/useOpsTeamInvitations';
 
 import type { TeamInvite, TeamInviteStatus } from '@/services/ops/team';
 

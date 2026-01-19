@@ -1,16 +1,14 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 
-
-import { BookingRow } from './BookingRow';
 import { BookingsHeader } from './BookingsHeader';
-import { BookingsListMobile } from './BookingsListMobile';
 import { EmptyState, type EmptyStateProps } from './EmptyState';
+import { OpsBookingCard } from './OpsBookingCard';
+import { OpsBookingCardSkeleton } from './OpsBookingCardSkeleton';
 import { Pagination } from './Pagination';
 
 import type { BookingAction } from '@/components/features/booking-state-machine';
@@ -32,11 +30,12 @@ export type BookingsTableProps = {
   onStatusFilterChange: (status: StatusFilter) => void;
   onPageChange: (page: number) => void;
   onRetry: () => void;
-  onEdit: (booking: BookingDTO) => void;
-  onCancel: (booking: BookingDTO) => void;
+  onEdit?: (booking: BookingDTO) => void;
+  onCancel?: (booking: BookingDTO) => void;
   onDetails?: (booking: BookingDTO) => void;
   variant?: 'guest' | 'ops';
   statusOptions?: { value: StatusFilter; label: string }[];
+  opsActionMode?: 'full' | 'details-only';
   opsLifecycle?: {
     pendingBookingId: string | null;
     pendingAction: BookingAction | null;
@@ -46,6 +45,8 @@ export type BookingsTableProps = {
     onUndoNoShow: (booking: BookingDTO, reason?: string | null) => Promise<void>;
   };
   showHeaderTitle?: boolean;
+  hideHeader?: boolean;
+  timezone?: string;
 };
 
 const DEFAULT_STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
@@ -55,8 +56,6 @@ const DEFAULT_STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: 'past', label: 'Past' },
   { value: 'cancelled', label: 'Cancelled' },
 ];
-
-const skeletonRows = Array.from({ length: 5 }, (_, index) => index);
 
 export function BookingsTable({
   bookings,
@@ -77,20 +76,26 @@ export function BookingsTable({
   onDetails,
   variant = 'guest',
   statusOptions,
+  opsActionMode: _opsActionMode = 'full',
   opsLifecycle,
   showHeaderTitle = true,
+  hideHeader = false,
+  timezone,
 }: BookingsTableProps) {
-  const showSkeleton = isLoading;
-  const showEmpty = !isLoading && !error && bookings.length === 0;
-  const isPastView = statusFilter === 'past';
+  const showSkeleton = isLoading || isFetching;
+  const showEmpty = !showSkeleton && !error && bookings.length === 0;
   const trimmedSearch = searchTerm.trim();
   const isOpsVariant = variant === 'ops';
 
   const emptyState = useMemo(() => {
     if (trimmedSearch) {
       return {
-        title: 'No bookings match your search',
-        description: 'Try searching for a different guest name or email.',
+        title: isOpsVariant ? 'No bookings match your search' : 'No bookings match your search',
+        description: isOpsVariant
+          ? 'Try a different guest name or email, or broaden the date/status filters.'
+          : 'Try searching for a different guest name or email.',
+        ctaHref: isOpsVariant ? '/new-bookings' : '/',
+        ctaLabel: isOpsVariant ? 'New booking' : 'Start a new booking',
         analyticsEvent: 'dashboard_empty_search',
       } as const;
     }
@@ -98,81 +103,79 @@ export function BookingsTable({
     switch (statusFilter) {
       case 'upcoming':
         return {
-          title: 'No upcoming bookings',
-          description: 'Ready for your next night out? Secure a table in just a few taps.',
+          title: isOpsVariant ? 'No upcoming bookings' : 'No upcoming bookings',
+          description: isOpsVariant
+            ? 'New reservations will appear here as they’re created. You can also log walk-ins for today’s service.'
+            : 'Ready for your next night out? Secure a table in just a few taps.',
+          ctaHref: isOpsVariant ? '/new-bookings' : '/',
+          ctaLabel: isOpsVariant ? 'New booking' : 'Start a new booking',
           analyticsEvent: 'dashboard_empty_upcoming',
         } as const;
       case 'past':
         return {
-          title: 'No past visits recorded',
-          description: 'Completed or no-show reservations will appear here for your records.',
+          title: isOpsVariant ? 'No past service records' : 'No past visits recorded',
+          description: isOpsVariant
+            ? 'Completed and no-show reservations will appear here once they’re processed.'
+            : 'Completed or no-show reservations will appear here for your records.',
+          ctaHref: isOpsVariant ? '/bookings' : '/',
+          ctaLabel: isOpsVariant ? 'View today' : 'Start a new booking',
           analyticsEvent: 'dashboard_empty_past',
         } as const;
       case 'cancelled':
         return {
-          title: 'No cancelled bookings',
-          description: 'Great news—you haven’t had to cancel any reservations.',
+          title: isOpsVariant ? 'No cancelled bookings' : 'No cancelled bookings',
+          description: isOpsVariant
+            ? 'Cancelled reservations will show up here so your team can track changes.'
+            : 'Great news—you haven’t had to cancel any reservations.',
+          ctaHref: isOpsVariant ? '/bookings' : '/',
+          ctaLabel: isOpsVariant ? 'View all bookings' : 'Start a new booking',
           analyticsEvent: 'dashboard_empty_cancelled',
         } as const;
       default:
+        // This default case should ideally not be reached if 'all' is handled explicitly
+        // and other filters are exhaustive. Keeping it as a fallback.
         return {
-          title: 'No bookings yet',
-          description: 'Once you make a reservation, it will appear here. Ready to secure your next table?',
+          title: isOpsVariant ? 'No bookings yet' : 'No bookings yet',
+          description: isOpsVariant
+            ? 'Reservations and walk-ins for this restaurant will appear here as they’re created.'
+            : 'Once you make a reservation, it will appear here. Ready to secure your next table?',
+          ctaHref: isOpsVariant ? '/new-bookings' : '/',
+          ctaLabel: isOpsVariant ? 'New booking' : 'Start a new booking',
           analyticsEvent: 'dashboard_empty_all',
         } as const;
     }
-  }, [statusFilter, trimmedSearch]);
-
-  const dateFormatter = useMemo(() => new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }), []);
-  const formatDate = useCallback(
-    (iso: string) => {
-      if (!iso) return '—';
-      const date = new Date(iso);
-      if (Number.isNaN(date.getTime())) return '—';
-      return dateFormatter.format(date);
-    },
-    [dateFormatter],
-  );
-
-  const timeFormatter = useMemo(() => new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }), []);
-  const formatTime = useCallback(
-    (iso: string) => {
-      if (!iso) return '—';
-      const date = new Date(iso);
-      if (Number.isNaN(date.getTime())) return '—';
-      return timeFormatter.format(date);
-    },
-    [timeFormatter],
-  );
+  }, [isOpsVariant, statusFilter, trimmedSearch]);
 
   const mobileEmptyState: EmptyStateProps | undefined = emptyState
     ? {
-        ...emptyState,
-        analyticsEvent: `${emptyState.analyticsEvent ?? 'dashboard_empty_state_viewed'}_mobile`,
-      }
+      ...emptyState,
+      analyticsEvent: `${emptyState.analyticsEvent ?? 'dashboard_empty_state_viewed'}_mobile`,
+    }
     : undefined;
 
   const desktopEmptyState: EmptyStateProps | undefined = emptyState
     ? {
-        ...emptyState,
-        analyticsEvent: `${emptyState.analyticsEvent ?? 'dashboard_empty_state_viewed'}_desktop`,
-      }
+      ...emptyState,
+      analyticsEvent: `${emptyState.analyticsEvent ?? 'dashboard_empty_state_viewed'}_desktop`,
+    }
     : undefined;
 
   return (
     <div className="space-y-3">
-      <BookingsHeader
-        title={isOpsVariant ? 'Booking queue' : 'Bookings'}
-        subtitle={isOpsVariant ? 'Search, filter, and paginate without losing your place.' : undefined}
-        total={total}
-        showTitle={showHeaderTitle}
-        statusFilter={statusFilter}
-        onStatusFilterChange={onStatusFilterChange}
-        statusOptions={statusOptions ?? DEFAULT_STATUS_OPTIONS}
-        searchTerm={searchTerm}
-        onSearchChange={onSearchChange}
-        isSearching={isFetching}
-      />
+      {!hideHeader && (
+        <BookingsHeader
+          title={isOpsVariant ? 'Booking queue' : 'Bookings'}
+          subtitle={isOpsVariant ? 'Search, filter, and paginate without losing your place.' : undefined}
+          total={total}
+          showTitle={showHeaderTitle}
+          statusFilter={statusFilter}
+          onStatusFilterChange={onStatusFilterChange}
+          statusOptions={statusOptions ?? DEFAULT_STATUS_OPTIONS}
+          searchTerm={searchTerm}
+          onSearchChange={onSearchChange}
+          isSearching={isFetching}
+        />
+      )}
 
       {error ? (
         <Alert variant="destructive" role="alert">
@@ -186,155 +189,79 @@ export function BookingsTable({
         </Alert>
       ) : null}
 
-      <div className="space-y-4">
+      <div className="space-y-3">
+        {/* Mobile View */}
         <div className="md:hidden">
-          <BookingsListMobile
-            bookings={bookings}
-            isLoading={isLoading}
-            formatDate={formatDate}
-            formatTime={formatTime}
-            onEdit={onEdit}
-            onCancel={onCancel}
-            emptyState={mobileEmptyState}
-            isPastView={isPastView}
-            variant={variant}
-          />
+          {showSkeleton ? (
+            <div className="grid grid-cols-1 gap-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <OpsBookingCardSkeleton key={i} />
+              ))}
+            </div>
+          ) : showEmpty ? (
+            <EmptyState {...mobileEmptyState} />
+          ) : (
+            <div className="grid grid-cols-1 gap-3">
+              {bookings.map((booking) => (
+                <div key={booking.id} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                  <OpsBookingCard
+                    booking={booking}
+                    timezone={timezone || 'UTC'}
+                    onEdit={onEdit}
+                    onCancel={onCancel}
+                    onDetails={onDetails}
+                    onCheckIn={opsLifecycle ? (_id: string) => opsLifecycle.onCheckIn(booking) : undefined}
+                    onCheckOut={opsLifecycle ? (_id: string) => opsLifecycle.onCheckOut(booking) : undefined}
+                    onMarkNoShow={opsLifecycle ? (_id: string) => opsLifecycle.onMarkNoShow(booking) : undefined}
+                    onUndoNoShow={opsLifecycle ? (_id: string) => opsLifecycle.onUndoNoShow(booking) : undefined}
+                    pendingAction={
+                      opsLifecycle?.pendingBookingId === booking.id
+                        ? (opsLifecycle.pendingAction as any)
+                        : null
+                    }
+                    allowTableAssignments={true}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
+        {/* Desktop View */}
         <div className="hidden md:block">
-          <div className="overflow-x-auto rounded-xl border border-border bg-card/80 shadow-sm">
-            <table className="min-w-full divide-y divide-border text-sm" role="grid">
-              <thead className="bg-muted">
-                <tr>
-                  {isOpsVariant ? (
-                    <>
-                      <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Booking
-                      </th>
-                      <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Guest & contact
-                      </th>
-                      <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Seating
-                      </th>
-                      <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Notes & flags
-                      </th>
-                      <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Status
-                      </th>
-                      <th scope="col" className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Actions
-                      </th>
-                    </>
-                  ) : (
-                    <>
-                      <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Date
-                      </th>
-                      <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Time
-                      </th>
-                      <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Party
-                      </th>
-                      <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Restaurant
-                      </th>
-                      <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Status
-                      </th>
-                      <th scope="col" className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Actions
-                      </th>
-                    </>
-                  )}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/70">
-                {showSkeleton
-                  ? skeletonRows.map((row) => (
-                      <tr key={`skeleton-${row}`}>
-                        {isOpsVariant ? (
-                          <>
-                            <td className="px-4 py-4">
-                              <Skeleton className="h-4 w-28" />
-                              <div className="mt-2 flex gap-2">
-                                <Skeleton className="h-4 w-16" />
-                                <Skeleton className="h-4 w-12" />
-                              </div>
-                            </td>
-                            <td className="px-4 py-4">
-                              <Skeleton className="h-4 w-40" />
-                              <div className="mt-2 space-y-1">
-                                <Skeleton className="h-3 w-36" />
-                                <Skeleton className="h-3 w-28" />
-                              </div>
-                            </td>
-                            <td className="px-4 py-4">
-                              <Skeleton className="h-4 w-16" />
-                              <div className="mt-2 space-y-1">
-                                <Skeleton className="h-3 w-20" />
-                                <Skeleton className="h-3 w-14" />
-                              </div>
-                            </td>
-                            <td className="px-4 py-4">
-                              <Skeleton className="h-4 w-48" />
-                              <div className="mt-2 flex gap-2">
-                                <Skeleton className="h-4 w-16" />
-                                <Skeleton className="h-4 w-12" />
-                              </div>
-                            </td>
-                            <td className="px-4 py-4">
-                              <Skeleton className="h-5 w-24" />
-                            </td>
-                            <td className="px-4 py-4 text-right">
-                              <Skeleton className="ml-auto h-8 w-32" />
-                            </td>
-                          </>
-                        ) : (
-                          <>
-                            <td className="px-4 py-4">
-                              <Skeleton className="h-4 w-24" />
-                            </td>
-                            <td className="px-4 py-4">
-                              <Skeleton className="h-4 w-16" />
-                            </td>
-                            <td className="px-4 py-4">
-                              <Skeleton className="h-4 w-12" />
-                            </td>
-                            <td className="px-4 py-4">
-                              <Skeleton className="h-4 w-40" />
-                            </td>
-                            <td className="px-4 py-4">
-                              <Skeleton className="h-5 w-28" />
-                            </td>
-                            <td className="px-4 py-4 text-right">
-                              <Skeleton className="ml-auto h-9 w-24" />
-                            </td>
-                          </>
-                        )}
-                      </tr>
-                    ))
-                  : bookings.map((booking) => (
-                      <BookingRow
-                        key={booking.id}
-                        booking={booking}
-                        formatDate={formatDate}
-                        formatTime={formatTime}
-                        onEdit={onEdit}
-                        onCancel={onCancel}
-                        onDetails={onDetails}
-                        isPastView={isPastView}
-                        variant={variant}
-                        opsLifecycle={isOpsVariant ? opsLifecycle : undefined}
-                      />
-                    ))}
-              </tbody>
-            </table>
-          </div>
-
-          {showEmpty ? <EmptyState {...desktopEmptyState} /> : null}
+          {showSkeleton ? (
+            <div className="grid grid-cols-1 gap-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <OpsBookingCardSkeleton key={i} />
+              ))}
+            </div>
+          ) : showEmpty ? (
+            <EmptyState {...desktopEmptyState} />
+          ) : (
+            <div className="grid grid-cols-1 gap-3">
+              {bookings.map((booking) => (
+                <div key={booking.id} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                  <OpsBookingCard
+                    booking={booking}
+                    timezone={timezone || 'UTC'}
+                    onEdit={onEdit}
+                    onCancel={onCancel}
+                    onDetails={onDetails}
+                    onCheckIn={opsLifecycle ? (_id: string) => opsLifecycle.onCheckIn(booking) : undefined}
+                    onCheckOut={opsLifecycle ? (_id: string) => opsLifecycle.onCheckOut(booking) : undefined}
+                    onMarkNoShow={opsLifecycle ? (_id: string) => opsLifecycle.onMarkNoShow(booking) : undefined}
+                    onUndoNoShow={opsLifecycle ? (_id: string) => opsLifecycle.onUndoNoShow(booking) : undefined}
+                    pendingAction={
+                      opsLifecycle?.pendingBookingId === booking.id
+                        ? (opsLifecycle.pendingAction as any)
+                        : null
+                    }
+                    allowTableAssignments={true}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

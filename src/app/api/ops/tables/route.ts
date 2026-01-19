@@ -10,7 +10,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { ensureAllowedCapacity, findTableByNumber, insertTable, listTablesWithSummary } from "@/server/ops/tables";
+import { findTableByNumber, insertTable, listTablesWithSummary } from "@/server/ops/tables";
 import { getRouteHandlerSupabaseClient } from "@/server/supabase";
 
 import type { TablesInsert } from "@/types/supabase";
@@ -174,13 +174,6 @@ export async function POST(req: NextRequest) {
     } catch (lookupError) {
       console.error("[ops/tables][POST] Duplicate check failed", { error: lookupError });
       return NextResponse.json({ error: "Failed to verify table uniqueness" }, { status: 500 });
-    }
-
-    try {
-      await ensureAllowedCapacity(supabase, data.restaurantId, data.capacity);
-    } catch (capacityError) {
-      console.error("[ops/tables][POST] Capacity ensure failed", { error: capacityError });
-      return NextResponse.json({ error: "Failed to prepare capacity configuration" }, { status: 500 });
     }
 
     const insertPayload = {

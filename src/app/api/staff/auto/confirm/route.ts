@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { mapAssignTablesErrorToHttp } from "@/app/api/staff/_utils/assign-tables-error";
 import { confirmHold } from "@/server/capacity/engine";
 import { AssignTablesRpcError, HoldNotFoundError } from "@/server/capacity/holds";
-import { mapAssignTablesErrorToHttp } from "@/app/api/staff/_utils/assign-tables-error";
 import { getRouteHandlerSupabaseClient, getTenantServiceSupabaseClient } from "@/server/supabase";
 
 import type { NextRequest } from "next/server";

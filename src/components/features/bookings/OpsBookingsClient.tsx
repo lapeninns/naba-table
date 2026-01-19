@@ -1,40 +1,49 @@
 'use client';
 
+import debounce from 'lodash/debounce';
+import { Search } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { BookingsTable } from '@/components/dashboard/BookingsTable';
-import { CancelBookingDialog } from '@/components/dashboard/CancelBookingDialog';
 import { DASHBOARD_DEFAULT_PAGE_SIZE } from '@/components/dashboard/constants';
-import { EditBookingDialog } from '@/components/dashboard/EditBookingDialog';
 import { BookingOfflineBanner } from '@/components/features/booking-state-machine';
 import { BookingDetailsDialogWrapper } from '@/components/features/bookings/BookingDetailsDialogWrapper';
+import { OpsStatusFilter as OpsStatusFilterPopover } from '@/components/features/bookings/OpsStatusFilter';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { BookingStateMachineProvider, useBookingStateMachine } from '@/contexts/booking-state-machine';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
-import {
-  useOpsBookingsTableState,
-  type OpsStatusFilter,
-  useOpsBookingsList,
-  useOpsRestaurantDetails,
-} from '@/hooks';
 import { useOpsBooking } from '@/hooks/ops/useOpsBooking';
+import { useOpsBookingsList } from '@/hooks/ops/useOpsBookingsList';
+import { useOpsBookingsTableState, type OpsStatusFilter } from '@/hooks/ops/useOpsBookingsTableState';
 import { useOpsBookingLifecycleActions } from '@/hooks/ops/useOpsBookingStatusActions';
-import { useOpsCancelBooking } from '@/hooks/useOpsCancelBooking';
-import { useOpsUpdateBooking } from '@/hooks/useOpsUpdateBooking';
-import { buildOpsDateRange } from '@/utils/ops/bookings';
+import { useOpsBookingStatusSummary } from '@/hooks/ops/useOpsBookingStatusSummary';
+import { useOpsRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
+import { useToast } from '@/hooks/use-toast';
+import useOnlineStatus from '@/hooks/useOnlineStatus';
+import {
+  DEFAULT_OPS_BOOKINGS_WINDOW_MINUTES,
+  buildOpsDateRange,
+  buildOpsTimeWindowRange,
+  sanitizeTimeParam,
+} from '@/utils/ops/bookings';
 
 import type { StatusOption } from '@/components/dashboard/StatusFilterGroup';
-import type { BookingAction } from '@/components/features/booking-state-machine';
 import type { BookingDTO } from '@/hooks/useBookings';
 import type { StatusFilter } from '@/hooks/useBookingsTableState';
-import type { OpsBookingListItem, OpsBookingStatus } from '@/types/ops';
+import type { OpsBookingListItem, OpsBookingStatus, OpsBookingsFilters } from '@/types/ops';
 
 const DEFAULT_FILTER: OpsStatusFilter = 'recent';
 const DEFAULT_PAGE = 1;
 const DEFAULT_PAGE_SIZE = DASHBOARD_DEFAULT_PAGE_SIZE;
+const MIN_WINDOW_MINUTES = 15;
+const MAX_WINDOW_MINUTES = 240;
+
+export type OpsBookingsWindowMode = 'day' | 'window';
 
 const OPS_STATUS_TABS: StatusOption[] = [
   { value: 'recent', label: 'Recent' },
@@ -44,6 +53,16 @@ const OPS_STATUS_TABS: StatusOption[] = [
   { value: 'cancelled', label: 'Cancelled' },
 ];
 
+const OPS_LISTABLE_STATUSES: OpsBookingStatus[] = [
+  'pending',
+  'pending_allocation',
+  'confirmed',
+  'checked_in',
+  'completed',
+  'no_show',
+  'cancelled',
+];
+
 export type OpsBookingsClientProps = {
   initialFilter?: OpsStatusFilter | null;
   initialPage?: number | null;
@@ -51,6 +70,11 @@ export type OpsBookingsClientProps = {
   initialQuery?: string | null;
   initialStatuses?: OpsBookingStatus[] | null;
   initialDate?: string | null;
+  initialTableId?: string | null;
+  initialTableLabel?: string | null;
+  initialTime?: string | null;
+  initialWindowMode?: OpsBookingsWindowMode | null;
+  initialWindowMinutes?: number | null;
 };
 
 function BookingStateRegistrar({ bookings }: { bookings: BookingDTO[] }) {
@@ -67,29 +91,74 @@ function BookingStateRegistrar({ bookings }: { bookings: BookingDTO[] }) {
   return null;
 }
 
-export function OpsBookingsClient({ initialFilter, initialPage, initialRestaurantId, initialQuery, initialStatuses, initialDate }: OpsBookingsClientProps) {
+export function OpsBookingsClient({
+  initialFilter,
+  initialPage,
+  initialRestaurantId,
+  initialQuery,
+  initialStatuses,
+  initialDate,
+  initialTableId,
+  initialTableLabel,
+  initialTime,
+  initialWindowMode,
+  initialWindowMinutes,
+}: OpsBookingsClientProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const { memberships, activeRestaurantId, setActiveRestaurantId, accountSnapshot } = useOpsSession();
   const activeMembership = useOpsActiveMembership();
   const restaurantDetails = useOpsRestaurantDetails(activeRestaurantId ?? null);
+  const isOnline = useOnlineStatus();
+  const { toast } = useToast();
   const focusBookingId = searchParams?.get('focus') ?? null;
+  const resolvedTableId = searchParams?.get('tableId') ?? initialTableId ?? null;
+  const resolvedTableLabel = searchParams?.get('tableLabel') ?? initialTableLabel ?? null;
+  const resolvedTime = sanitizeTimeParam(searchParams?.get('time') ?? initialTime) ?? null;
+
+  const resolvedWindowMode = useMemo<OpsBookingsWindowMode>(() => {
+    const raw = searchParams?.get('windowMode');
+    if (raw === 'day' || raw === 'window') return raw;
+    if (initialWindowMode === 'day' || initialWindowMode === 'window') return initialWindowMode;
+    return resolvedTableId && resolvedTime ? 'window' : 'day';
+  }, [initialWindowMode, resolvedTableId, resolvedTime, searchParams]);
+
+  const resolvedWindowMinutes = useMemo(() => {
+    const fallback = typeof initialWindowMinutes === 'number'
+      ? initialWindowMinutes
+      : DEFAULT_OPS_BOOKINGS_WINDOW_MINUTES;
+    const raw = searchParams?.get('windowMinutes');
+    if (!raw) return fallback;
+    const parsed = Number.parseInt(raw, 10);
+    if (Number.isNaN(parsed)) return fallback;
+    if (parsed < MIN_WINDOW_MINUTES || parsed > MAX_WINDOW_MINUTES) return fallback;
+    return parsed;
+  }, [initialWindowMinutes, searchParams]);
 
   const restaurantTimezone = restaurantDetails.data?.timezone ?? null;
-  const appliedDateRange = useMemo(() => buildOpsDateRange(initialDate, restaurantTimezone), [initialDate, restaurantTimezone]);
+  const appliedDateRange = useMemo(() => {
+    if (resolvedWindowMode === 'window' && resolvedTime) {
+      const windowRange = buildOpsTimeWindowRange(initialDate, resolvedTime, resolvedWindowMinutes, restaurantTimezone);
+      if (windowRange) return windowRange;
+    }
+    return buildOpsDateRange(initialDate, restaurantTimezone);
+  }, [initialDate, restaurantTimezone, resolvedTime, resolvedWindowMinutes, resolvedWindowMode]);
 
   const effectiveFilter = initialFilter ?? (initialDate ? 'all' : DEFAULT_FILTER);
   const effectivePage = initialPage ?? DEFAULT_PAGE;
+  const sanitizedInitialStatuses = useMemo(
+    () => (initialStatuses ?? []).filter((status) => OPS_LISTABLE_STATUSES.includes(status)),
+    [initialStatuses],
+  );
 
   const tableState = useOpsBookingsTableState({
     initialStatus: effectiveFilter,
     initialPage: effectivePage,
     pageSize: DEFAULT_PAGE_SIZE,
     initialQuery: initialQuery ?? '',
-    initialSelectedStatuses: initialStatuses ?? [],
+    initialSelectedStatuses: sanitizedInitialStatuses,
   });
-
-  const { checkIn, checkOut, markNoShow, undoNoShow } = useOpsBookingLifecycleActions();
 
   const {
     statusFilter,
@@ -101,6 +170,9 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
     handleSearchChange,
     setPage,
     search,
+    selectedStatuses,
+    toggleSelectedStatus,
+    clearSelectedStatuses,
   } = tableState;
 
   useEffect(() => {
@@ -112,7 +184,7 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
   }, [initialRestaurantId]);
 
   useEffect(() => {
-    if (!router || !searchParams) {
+    if (!router || !searchParams || !isOnline) {
       return;
     }
 
@@ -133,9 +205,9 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
     }
 
     const query = params.toString();
-    router.replace(`/bookings${query ? `?${query}` : ''}`, { scroll: false });
+    router.replace(`${pathname}${query ? `?${query}` : ''}`, { scroll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeRestaurantId]);
+  }, [activeRestaurantId, isOnline]);
 
   useEffect(() => {
     if (!activeRestaurantId) {
@@ -146,10 +218,13 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
 
   const filters = useMemo(() => {
     if (!activeRestaurantId) return null;
-    const base = {
+    const base: OpsBookingsFilters = {
       restaurantId: activeRestaurantId,
       ...queryFilters,
     };
+    if (resolvedTableId) {
+      base.tableId = resolvedTableId;
+    }
     if (appliedDateRange) {
       return {
         ...base,
@@ -160,7 +235,7 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
       };
     }
     return base;
-  }, [activeRestaurantId, appliedDateRange, queryFilters]);
+  }, [activeRestaurantId, appliedDateRange, queryFilters, resolvedTableId]);
 
   const bookingsQuery = useOpsBookingsList(filters);
   const bookingsPage = bookingsQuery.data ?? {
@@ -168,15 +243,34 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
     pageInfo: { page, pageSize, total: 0, hasNext: false },
   };
 
-  const [editBooking, setEditBooking] = useState<BookingDTO | null>(null);
-  const [isEditOpen, setIsEditOpen] = useState(false);
-  const [cancelBooking, setCancelBooking] = useState<BookingDTO | null>(null);
-  const [isCancelOpen, setIsCancelOpen] = useState(false);
+  const visibleSelectedStatuses = useMemo(
+    () => selectedStatuses.filter((status) => OPS_LISTABLE_STATUSES.includes(status)),
+    [selectedStatuses],
+  );
+
+  const statusSummaryQuery = useOpsBookingStatusSummary({
+    restaurantId: activeRestaurantId,
+    from: appliedDateRange?.from ?? null,
+    to: appliedDateRange?.to ?? null,
+    enabled: Boolean(activeRestaurantId),
+  });
+
+  const statusFilterOptions = useMemo(() => {
+    const totals = statusSummaryQuery.data?.totals;
+    return OPS_LISTABLE_STATUSES.map((status: OpsBookingStatus) => ({
+      status,
+      count: totals ? (totals[status] ?? 0) : 0,
+    }));
+  }, [statusSummaryQuery.data?.totals]);
+
   const [detailsBooking, setDetailsBooking] = useState<BookingDTO | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
   const updateSearchParams = useCallback(
     (updates: Record<string, string | null>) => {
+      if (!isOnline) {
+        return;
+      }
       const params = new URLSearchParams(searchParams?.toString() || '');
       Object.entries(updates).forEach(([key, value]) => {
         if (value === null || value === '') {
@@ -186,9 +280,9 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
         }
       });
       const query = params.toString();
-      router.replace(`/bookings${query ? `?${query}` : ''}`, { scroll: false });
+      router.replace(`${pathname}${query ? `?${query}` : ''}`, { scroll: false });
     },
-    [router, searchParams],
+    [isOnline, pathname, router, searchParams],
   );
 
   const handleStatusChange = useCallback(
@@ -199,24 +293,149 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
     [handleStatusFilterChange, updateSearchParams],
   );
 
+  const handleWindowModeChange = useCallback(
+    (value: string) => {
+      if (!value) return;
+      if (value !== 'day' && value !== 'window') return;
+      updateSearchParams({
+        windowMode: value,
+        windowMinutes: value === 'window' ? String(resolvedWindowMinutes) : null,
+        page: null,
+      });
+    },
+    [resolvedWindowMinutes, updateSearchParams],
+  );
+
+  const handleClearTableFilter = useCallback(() => {
+    updateSearchParams({
+      tableId: null,
+      tableLabel: null,
+      time: null,
+      windowMode: null,
+      windowMinutes: null,
+      page: null,
+    });
+  }, [updateSearchParams]);
+
   const handlePageRequest = useCallback(
     (nextPage: number) => {
+      if (!isOnline) {
+        toast({
+          title: "You're offline",
+          description: 'Reconnect to load more bookings.',
+        });
+        return;
+      }
       const total = bookingsPage.pageInfo.total ?? 0;
       handlePageChange(nextPage, total);
       const targetPage = Number.isNaN(nextPage) ? null : String(nextPage);
       updateSearchParams({ page: targetPage === String(DEFAULT_PAGE) ? null : targetPage });
+      // Scroll to top of list for better UX on mobile/desktop
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     },
-    [bookingsPage.pageInfo.total, handlePageChange, updateSearchParams],
+    [bookingsPage.pageInfo.total, handlePageChange, isOnline, toast, updateSearchParams],
+  );
+
+  const [pendingBookingAction, setPendingBookingAction] = useState<{ bookingId: string; action: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show' } | null>(null);
+
+  const bookingLifecycleMutations = useOpsBookingLifecycleActions();
+
+  const handleMarkNoShow = async (booking: BookingDTO, options?: { performedAt?: string | null; reason?: string | null }) => {
+    if (!activeRestaurantId) return;
+    setPendingBookingAction({ bookingId: booking.id, action: 'no-show' });
+    try {
+      await bookingLifecycleMutations.markNoShow.mutateAsync({
+        restaurantId: activeRestaurantId,
+        bookingId: booking.id,
+        performedAt: options?.performedAt ?? null,
+        reason: options?.reason ?? null,
+        targetDate: appliedDateRange?.date,
+      });
+    } finally {
+      setPendingBookingAction(null);
+    }
+  };
+
+  const handleUndoNoShow = async (booking: BookingDTO, reason?: string | null) => {
+    if (!activeRestaurantId) return;
+    setPendingBookingAction({ bookingId: booking.id, action: 'undo-no-show' });
+    try {
+      await bookingLifecycleMutations.undoNoShow.mutateAsync({
+        restaurantId: activeRestaurantId,
+        bookingId: booking.id,
+        reason: reason ?? null,
+        targetDate: appliedDateRange?.date,
+      });
+    } finally {
+      setPendingBookingAction(null);
+    }
+  };
+
+  const handleCheckIn = async (booking: BookingDTO) => {
+    if (!activeRestaurantId) return;
+    setPendingBookingAction({ bookingId: booking.id, action: 'check-in' });
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await bookingLifecycleMutations.checkIn.mutateAsync({
+        restaurantId: activeRestaurantId,
+        bookingId: booking.id,
+        targetDate: appliedDateRange?.date,
+      });
+    } finally {
+      setPendingBookingAction(null);
+    }
+  };
+
+  const handleCheckOut = async (booking: BookingDTO) => {
+    if (!activeRestaurantId) return;
+    setPendingBookingAction({ bookingId: booking.id, action: 'check-out' });
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await bookingLifecycleMutations.checkOut.mutateAsync({
+        restaurantId: activeRestaurantId,
+        bookingId: booking.id,
+        targetDate: appliedDateRange?.date,
+      });
+    } finally {
+      setPendingBookingAction(null);
+    }
+  };
+
+  const debouncedSearchUpdate = useMemo(
+    () =>
+      debounce((value: string) => {
+        const trimmed = value.trim();
+        updateSearchParams({ query: trimmed.length > 0 ? trimmed : null, page: null });
+      }, 500),
+    [updateSearchParams]
   );
 
   const handleSearchInput = useCallback(
     (value: string) => {
       handleSearchChange(value);
-      const trimmed = value.trim();
-      updateSearchParams({ query: trimmed.length > 0 ? trimmed : null, page: null });
+      debouncedSearchUpdate(value);
     },
-    [handleSearchChange, updateSearchParams],
+    [handleSearchChange, debouncedSearchUpdate],
   );
+
+  const handleToggleStatus = useCallback(
+    (status: OpsBookingStatus) => {
+      toggleSelectedStatus(status);
+      const exists = visibleSelectedStatuses.includes(status);
+      const next = exists
+        ? visibleSelectedStatuses.filter((value: OpsBookingStatus) => value !== status)
+        : [...visibleSelectedStatuses, status];
+
+      const normalized = Array.from(new Set(next));
+      updateSearchParams({ statuses: normalized.length > 0 ? normalized.join(',') : null, page: null });
+    },
+    [toggleSelectedStatus, updateSearchParams, visibleSelectedStatuses],
+  );
+
+  const handleClearStatuses = useCallback(() => {
+    clearSelectedStatuses();
+    updateSearchParams({ statuses: null, page: null });
+  }, [clearSelectedStatuses, updateSearchParams]);
 
   const mapToBookingDTO = useCallback(
     (booking: OpsBookingListItem): BookingDTO => ({
@@ -263,9 +482,10 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
 
   // Fetch focused booking if it exists (in case it's not in the current list)
   const { data: focusedBookingData } = useOpsBooking(focusBookingId);
-  const focusedBooking = useMemo(() =>
-    focusedBookingData ? mapToBookingDTO(focusedBookingData) : null
-    , [focusedBookingData, mapToBookingDTO]);
+  const focusedBooking = useMemo(
+    () => (focusedBookingData ? mapToBookingDTO(focusedBookingData) : null),
+    [focusedBookingData, mapToBookingDTO],
+  );
 
   useEffect(() => {
     if (!focusBookingId) return;
@@ -275,9 +495,8 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
     const target = foundInList || focusedBooking;
 
     if (target) {
-      // Open the dialog immediately
-      setEditBooking(target);
-      setIsEditOpen(true);
+      setDetailsBooking(target);
+      setIsDetailsOpen(true);
 
       // Also scroll to row as backup/context if it exists in the DOM
       // Use setTimeout to allow render cycle to complete if needed
@@ -290,102 +509,6 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
     }
   }, [bookings, focusBookingId, focusedBooking]);
 
-  const resolveRestaurantId = useCallback(
-    (booking: BookingDTO): string | null => booking.restaurantId ?? activeRestaurantId ?? null,
-    [activeRestaurantId],
-  );
-
-  const handleLifecycleCheckIn = useCallback(
-    async (booking: BookingDTO) => {
-      const restaurantId = resolveRestaurantId(booking);
-      if (!restaurantId) return;
-      await checkIn.mutateAsync({ restaurantId, bookingId: booking.id, targetDate: null });
-    },
-    [checkIn, resolveRestaurantId],
-  );
-
-  const handleLifecycleCheckOut = useCallback(
-    async (booking: BookingDTO) => {
-      const restaurantId = resolveRestaurantId(booking);
-      if (!restaurantId) return;
-      await checkOut.mutateAsync({ restaurantId, bookingId: booking.id, targetDate: null });
-    },
-    [checkOut, resolveRestaurantId],
-  );
-
-  const handleLifecycleMarkNoShow = useCallback(
-    async (booking: BookingDTO, options?: { performedAt?: string | null; reason?: string | null }) => {
-      const restaurantId = resolveRestaurantId(booking);
-      if (!restaurantId) return;
-      await markNoShow.mutateAsync({
-        restaurantId,
-        bookingId: booking.id,
-        targetDate: null,
-        performedAt: options?.performedAt ?? null,
-        reason: options?.reason ?? null,
-      });
-    },
-    [markNoShow, resolveRestaurantId],
-  );
-
-  const handleLifecycleUndoNoShow = useCallback(
-    async (booking: BookingDTO, reason?: string | null) => {
-      const restaurantId = resolveRestaurantId(booking);
-      if (!restaurantId) return;
-      await undoNoShow.mutateAsync({
-        restaurantId,
-        bookingId: booking.id,
-        targetDate: null,
-        reason: reason ?? null,
-      });
-    },
-    [resolveRestaurantId, undoNoShow],
-  );
-
-  const pendingLifecycle = useMemo(() => {
-    if (checkIn.isPending && checkIn.variables) {
-      return { bookingId: checkIn.variables.bookingId, action: 'check-in' as BookingAction };
-    }
-    if (checkOut.isPending && checkOut.variables) {
-      return { bookingId: checkOut.variables.bookingId, action: 'check-out' as BookingAction };
-    }
-    if (markNoShow.isPending && markNoShow.variables) {
-      return { bookingId: markNoShow.variables.bookingId, action: 'no-show' as BookingAction };
-    }
-    if (undoNoShow.isPending && undoNoShow.variables) {
-      return { bookingId: undoNoShow.variables.bookingId, action: 'undo-no-show' as BookingAction };
-    }
-    return { bookingId: null, action: null as BookingAction | null };
-  }, [checkIn.isPending, checkIn.variables, checkOut.isPending, checkOut.variables, markNoShow.isPending, markNoShow.variables, undoNoShow.isPending, undoNoShow.variables]);
-
-  const handleEdit = useCallback((booking: BookingDTO) => {
-    setEditBooking(booking);
-    setIsEditOpen(true);
-  }, []);
-
-  const handleEditOpenChange = useCallback((open: boolean) => {
-    setIsEditOpen(open);
-    if (!open) {
-      setEditBooking(null);
-      // Clear focus param if it exists
-      if (focusBookingId) {
-        updateSearchParams({ focus: null });
-      }
-    }
-  }, [focusBookingId, updateSearchParams]);
-
-  const handleCancel = useCallback((booking: BookingDTO) => {
-    setCancelBooking(booking);
-    setIsCancelOpen(true);
-  }, []);
-
-  const handleCancelOpenChange = useCallback((open: boolean) => {
-    setIsCancelOpen(open);
-    if (!open) {
-      setCancelBooking(null);
-    }
-  }, []);
-
   const handleDetails = useCallback((booking: BookingDTO) => {
     setDetailsBooking(booking);
     setIsDetailsOpen(true);
@@ -395,8 +518,11 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
     setIsDetailsOpen(open);
     if (!open) {
       setDetailsBooking(null);
+      if (focusBookingId) {
+        updateSearchParams({ focus: null });
+      }
     }
-  }, []);
+  }, [focusBookingId, updateSearchParams]);
 
   if (memberships.length === 0) {
     return <NoRestaurantAccess />;
@@ -412,45 +538,107 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
   return (
     <BookingStateMachineProvider initialBookings={initialSnapshots}>
       <BookingStateRegistrar bookings={bookings} />
-      <section className="space-y-6 lg:space-y-8">
-        <div className="overflow-hidden rounded-2xl border bg-card/60 p-5 shadow-sm sm:p-6 lg:p-7">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="space-y-1.5">
-              <h2 className="text-xl font-semibold leading-tight text-foreground sm:text-2xl">Manage bookings</h2>
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="secondary" className="rounded-full">
+      <div className="min-h-screen bg-background font-sans text-foreground">
+        <main className="mx-auto w-full max-w-6xl space-y-4 px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
+          {/* HEADER SECTION - Matches Dashboard Style */}
+          <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div className="space-y-1">
+              <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Manage bookings</h1>
+              <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground sm:text-base">
+                <Badge variant="secondary" className="rounded-md font-medium">
                   {currentRestaurantName}
                 </Badge>
                 {appliedDateRange ? (
-                  <Badge
-                    variant="outline"
-                    className="rounded-full"
-                    title={restaurantTimezone ? `Service timezone: ${restaurantTimezone}` : undefined}
-                  >
-                    {appliedDateRange.date}
-                    {restaurantTimezone ? ` · ${restaurantTimezone}` : ''}
-                  </Badge>
-                ) : null}
-                {pendingLifecycle.bookingId ? (
-                  <Badge variant="default" className="rounded-full">
-                    Updating {pendingLifecycle.action?.replace('-', ' ')}
-                  </Badge>
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-muted-foreground/40">•</span>
+                    <span>
+                      {appliedDateRange.date}
+                      {restaurantTimezone ? ` (${restaurantTimezone})` : ''}
+                    </span>
+                  </span>
                 ) : null}
               </div>
             </div>
-            <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
-              <Button asChild size="sm" className="h-9 px-4">
-                <Link href="/walk-in">Log walk-in</Link>
+
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <Button asChild size="sm" variant="outline" className="h-11 sm:h-9">
+                <Link href="/dashboard">Back to dashboard</Link>
               </Button>
-              <Button asChild size="sm" variant="outline" className="h-9 px-4">
-                <Link href="/app">Back to dashboard</Link>
+              <Button asChild size="sm" className="h-11 sm:h-9">
+                <Link href="/new-bookings">New booking</Link>
               </Button>
             </div>
-          </div>
-        </div>
+          </header>
 
-        <div className="rounded-2xl border bg-card shadow-sm">
-          <div className="space-y-4 px-2 py-4 sm:px-4 sm:py-5 lg:px-6">
+          {/* STICKY TOOLBAR - Matches Dashboard Style */}
+          <div className="sticky top-0 z-10 -mx-4 bg-background/80 px-4 py-2.5 backdrop-blur-md transition-all sm:-mx-6 sm:px-6 md:mx-0 md:rounded-xl md:border md:border-border/60 md:bg-card/80 md:px-3 md:shadow-sm">
+            <div className="flex flex-col gap-2.5 md:flex-row md:items-center md:justify-between">
+
+              {/* FILTERS */}
+              <div className="flex-1 overflow-x-auto scrollbar-hide">
+                <OpsStatusFilterPopover
+                  options={statusFilterOptions}
+                  selected={visibleSelectedStatuses}
+                  onToggle={handleToggleStatus}
+                  onClear={handleClearStatuses}
+                  isLoading={statusSummaryQuery.isLoading}
+                  order={OPS_LISTABLE_STATUSES}
+                />
+              </div>
+
+              <div className="flex flex-col gap-2 md:flex-row md:items-center">
+                {resolvedTime ? (
+                  <ToggleGroup
+                    type="single"
+                    value={resolvedWindowMode}
+                    onValueChange={handleWindowModeChange}
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-start md:w-auto"
+                    aria-label="Booking window"
+                  >
+                    <ToggleGroupItem value="window">Nearby</ToggleGroupItem>
+                    <ToggleGroupItem value="day">All day</ToggleGroupItem>
+                  </ToggleGroup>
+                ) : null}
+
+                {/* SEARCH */}
+                <div className="relative w-full md:w-60 md:flex-none">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder="Search guests..."
+                    value={search}
+                    onChange={(e) => handleSearchInput(e.target.value)}
+                    className="h-9 w-full rounded-lg border border-border bg-background pl-10 pr-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 touch-manipulation"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* TABLE SECTION */}
+          <section className="space-y-3">
+            {resolvedTableId ? (
+              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                <Badge variant="outline" className="rounded-md text-xs font-medium text-foreground">
+                  {resolvedTableLabel ? resolvedTableLabel : 'Table filter'}
+                </Badge>
+                {resolvedTime ? (
+                  <Badge variant="secondary" className="rounded-md text-xs font-medium">
+                    {resolvedTime}
+                  </Badge>
+                ) : null}
+                <Badge variant="secondary" className="rounded-md text-xs font-medium">
+                  {resolvedWindowMode === 'window'
+                    ? `Nearby ±${resolvedWindowMinutes}m`
+                    : 'All day'}
+                </Badge>
+                <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={handleClearTableFilter}>
+                  Clear filter
+                </Button>
+              </div>
+            ) : null}
             <BookingOfflineBanner />
             <BookingsTable
               bookings={bookings}
@@ -466,46 +654,34 @@ export function OpsBookingsClient({ initialFilter, initialPage, initialRestauran
               onStatusFilterChange={(next) => handleStatusChange(next as OpsStatusFilter)}
               onPageChange={handlePageRequest}
               onRetry={() => bookingsQuery.refetch()}
-              onEdit={handleEdit}
-              onCancel={handleCancel}
               onDetails={handleDetails}
+              onEdit={handleDetails}
+              onCancel={handleDetails}
               variant="ops"
               statusOptions={OPS_STATUS_TABS}
-              showHeaderTitle={false}
+              opsActionMode="full"
               opsLifecycle={{
-                pendingBookingId: pendingLifecycle.bookingId,
-                pendingAction: pendingLifecycle.action,
-            onCheckIn: handleLifecycleCheckIn,
-            onCheckOut: handleLifecycleCheckOut,
-                onMarkNoShow: handleLifecycleMarkNoShow,
-                onUndoNoShow: handleLifecycleUndoNoShow,
+                pendingBookingId: pendingBookingAction?.bookingId ?? null,
+                pendingAction: pendingBookingAction?.action ?? null,
+                onCheckIn: handleCheckIn,
+                onCheckOut: handleCheckOut,
+                onMarkNoShow: handleMarkNoShow,
+                onUndoNoShow: handleUndoNoShow,
               }}
+              showHeaderTitle={false}
+              hideHeader={true}
+              timezone={restaurantTimezone || 'UTC'}
             />
-          </div>
-        </div>
+          </section>
 
-        <EditBookingDialog
-          booking={editBooking}
-          open={isEditOpen}
-          onOpenChange={handleEditOpenChange}
-          mutationHook={useOpsUpdateBooking}
-          restaurantSlug={activeMembership?.restaurantSlug ?? null}
-        />
-
-        <CancelBookingDialog
-          booking={cancelBooking}
-          open={isCancelOpen}
-          onOpenChange={handleCancelOpenChange}
-          mutationHook={useOpsCancelBooking}
-        />
-
-        <BookingDetailsDialogWrapper
-          bookingId={detailsBooking?.id ?? null}
-          initialData={detailsBooking}
-          open={isDetailsOpen}
-          onOpenChange={handleDetailsOpenChange}
-        />
-      </section>
+          <BookingDetailsDialogWrapper
+            bookingId={detailsBooking?.id ?? null}
+            initialData={detailsBooking}
+            open={isDetailsOpen}
+            onOpenChange={handleDetailsOpenChange}
+          />
+        </main>
+      </div>
     </BookingStateMachineProvider>
   );
 }

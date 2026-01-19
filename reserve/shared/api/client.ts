@@ -89,6 +89,13 @@ async function request<TResponse>(
       ...init,
     });
 
+    const shouldTriggerAuthRedirect = response.status === 401 || response.status === 419;
+    if (shouldTriggerAuthRedirect && typeof window !== 'undefined') {
+      void import('@/lib/http/sessionRedirect')
+        .then((mod) => mod.triggerSessionRedirect())
+        .catch(() => {});
+    }
+
     const text = await response.text();
     const parsed = text ? JSON.parse(text) : undefined;
 

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
+import { mapSupabaseAuthError } from "@/server/auth/supabase-auth-errors";
 import { getBookingStatusSummary } from "@/server/ops/booking-lifecycle/summary";
 import { getRouteHandlerSupabaseClient } from "@/server/supabase";
 import { fetchUserMemberships } from "@/server/team/access";
@@ -76,7 +77,8 @@ export async function GET(request: NextRequest) {
 
   if (authError) {
     console.error("[ops][booking-status-summary] auth lookup failed", authError.message);
-    return NextResponse.json({ error: "Unable to verify session" }, { status: 401 });
+    const mapped = mapSupabaseAuthError(authError);
+    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
   }
 
   if (!user) {

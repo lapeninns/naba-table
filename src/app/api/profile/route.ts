@@ -8,8 +8,7 @@ import { normalizeProfileRow, ensureProfileRow, PROFILE_COLUMNS } from "@/lib/pr
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 
 import type { Database } from "@/types/supabase";
-import type { User } from "@supabase/supabase-js";
-import type { NextRequest} from "next/server";
+import type { NextRequest } from "next/server";
 
 function jsonError(status: number, code: string, message: string, details?: unknown) {
   return NextResponse.json({ code, message, details }, { status });

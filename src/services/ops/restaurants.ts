@@ -51,6 +51,7 @@ type RestaurantResponse = {
     reservationIntervalMinutes: number | null;
     reservationDefaultDurationMinutes: number | null;
     reservationLastSeatingBufferMinutes: number | null;
+    reservationLifecycleGraceMinutes: number | null;
     createdAt: string;
     updatedAt: string;
     role: RestaurantRole;
@@ -81,6 +82,7 @@ export type RestaurantProfile = {
   reservationIntervalMinutes: number;
   reservationDefaultDurationMinutes: number;
   reservationLastSeatingBufferMinutes: number;
+  reservationLifecycleGraceMinutes: number;
 };
 
 export type OperatingHoursRow = {
@@ -193,6 +195,7 @@ function mapRestaurant(dto: RestaurantResponse['restaurant']): RestaurantProfile
     reservationIntervalMinutes: dto.reservationIntervalMinutes ?? 15,
     reservationDefaultDurationMinutes: dto.reservationDefaultDurationMinutes ?? 90,
     reservationLastSeatingBufferMinutes: dto.reservationLastSeatingBufferMinutes ?? 15,
+    reservationLifecycleGraceMinutes: dto.reservationLifecycleGraceMinutes ?? 30,
   };
 }
 

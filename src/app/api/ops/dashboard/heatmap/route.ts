@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { mapSupabaseAuthError } from "@/server/auth/supabase-auth-errors";
 import { getBookingsHeatmap } from "@/server/ops/bookings";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 import { requireMembershipForRestaurant } from "@/server/team/access";
@@ -38,7 +39,8 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     console.error("[ops/dashboard][heatmap] failed to resolve auth", error.message);
-    return NextResponse.json({ error: "Unable to verify session" }, { status: 500 });
+    const mapped = mapSupabaseAuthError(error);
+    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
   }
 
   if (!user) {

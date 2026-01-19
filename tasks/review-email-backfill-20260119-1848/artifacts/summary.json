@@ -1,0 +1,11 @@
+{
+  "mode": "apply",
+  "emailFilter": "all",
+  "cutoffDate": "2026-01-19",
+  "cutoffTime": "18:00",
+  "nowUtc": "2026-01-19T19:40:54.078Z",
+  "restaurantsProcessed": 3,
+  "candidates": 71,
+  "applied": 71,
+  "errors": 0
+}

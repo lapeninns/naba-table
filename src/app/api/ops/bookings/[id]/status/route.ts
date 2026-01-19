@@ -2,12 +2,13 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { prepareCheckInTransition, prepareNoShowTransition } from "@/server/ops/booking-lifecycle/actions";
+import { isBookingLifecycleAllowedToday } from "@/server/ops/booking-lifecycle/availability";
 import { BookingLifecycleError } from "@/server/ops/booking-lifecycle/stateMachine";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 import { fetchUserMemberships } from "@/server/team/access";
 
 import type { Tables } from "@/types/supabase";
-import type { NextRequest} from "next/server";
+import type { NextRequest } from "next/server";
 
 const bodySchema = z.object({
   status: z.enum(["completed", "no_show"]),
@@ -78,7 +79,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
   const { data: booking, error: bookingError } = await serviceSupabase
     .from("bookings")
-    .select("id, restaurant_id, status, checked_in_at, checked_out_at, booking_date, start_time")
+    .select("id, restaurant_id, status, checked_in_at, checked_out_at, booking_date, start_time, end_time")
     .eq("id", id)
     .maybeSingle();
 
@@ -91,6 +92,32 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
   if (!bookingRow) {
     return withStatusDeprecation(NextResponse.json({ error: "Booking not found" }, { status: 404 }));
+  }
+
+  const { data: restaurant, error: restaurantError } = await serviceSupabase
+    .from("restaurants")
+    .select("timezone, reservation_lifecycle_grace_minutes")
+    .eq("id", bookingRow.restaurant_id)
+    .maybeSingle();
+
+  if (restaurantError) {
+    console.error("[ops][booking-status] failed to load restaurant", restaurantError.message);
+    return withStatusDeprecation(NextResponse.json({ error: "Unable to verify booking" }, { status: 500 }));
+  }
+
+  const timezone = typeof restaurant?.timezone === "string" && restaurant.timezone.trim().length > 0 ? restaurant.timezone : "UTC";
+  if (
+    !isBookingLifecycleAllowedToday({
+      bookingDate: bookingRow.booking_date,
+      timezone,
+      startTime: bookingRow.start_time,
+      endTime: bookingRow.end_time,
+      graceMinutes: restaurant?.reservation_lifecycle_grace_minutes ?? undefined,
+    })
+  ) {
+    return withStatusDeprecation(
+      NextResponse.json({ error: "Lifecycle actions are only available on the reservation date" }, { status: 409 }),
+    );
   }
 
   try {
