@@ -14,7 +14,10 @@ const ButtonPopover = () => {
           <ChevronDown className="h-4 w-4 transition-transform data-[state=open]:rotate-180" aria-hidden />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-screen max-w-full p-0 sm:max-w-sm lg:max-w-2xl">
+      <PopoverContent
+        align="start"
+        className="w-full max-w-[calc(100vw-2rem)] p-0 sm:w-auto sm:max-w-sm lg:max-w-2xl"
+      >
         <div className="relative grid gap-4 bg-base-100 p-4 lg:grid-cols-2">
           <div className="text-sm flex items-center gap-3 p-2 cursor-pointer rounded-lg duration-200 hover:bg-base-200">
             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-orange-500/20">

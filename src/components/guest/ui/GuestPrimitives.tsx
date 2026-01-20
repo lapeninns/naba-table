@@ -12,19 +12,19 @@ import { cn } from "@/lib/utils";
    ============================================================================ */
 
 export function HeadingXL({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <h1 className={cn("text-4xl md:text-5xl font-extrabold tracking-tight text-slate-900 leading-[1.1]", className)}>{children}</h1>;
+  return <h1 className={cn("heading-hero", className)}>{children}</h1>;
 }
 
 export function HeadingLG({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <h2 className={cn("text-3xl font-bold tracking-tight text-slate-900 leading-[1.2]", className)}>{children}</h2>;
+  return <h2 className={cn("heading-page", className)}>{children}</h2>;
 }
 
 export function HeadingMD({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <h3 className={cn("text-xl md:text-2xl font-semibold tracking-tight text-slate-900 leading-[1.3]", className)}>{children}</h3>;
+  return <h3 className={cn("heading-section", className)}>{children}</h3>;
 }
 
 export function TextBody({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <p className={cn("text-base md:text-lg font-normal text-slate-600 leading-[1.6]", className)}>{children}</p>;
+  return <p className={cn("text-body-warm", className)}>{children}</p>;
 }
 
 

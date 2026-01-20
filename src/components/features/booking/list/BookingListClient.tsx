@@ -133,18 +133,22 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
     <div className="min-h-screen bg-surface-warm pb-20">
       {/* Hero Section */}
       <section className="border-b border-slate-100 bg-gradient-hero">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 py-12 sm:py-16 px-6">
-          <div className="space-y-3 animate-fade-in-up">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 py-12 px-5 sm:gap-6 sm:px-8 sm:py-16 lg:px-10 lg:py-20">
+          <div className="space-y-2 sm:space-y-3 animate-fade-in-up">
             <p className="text-xs uppercase tracking-[0.2em] text-subtle">My Reservations</p>
-            <h1 className="heading-hero text-heading">Your Trips</h1>
-            <p className="text-body-warm max-w-2xl">Manage your upcoming and past reservations</p>
+            <h1 className="heading-hero">
+              Your Trips
+            </h1>
+            <p className="text-body-warm max-w-2xl">
+              Manage your upcoming and past reservations
+            </p>
           </div>
 
           <div className="flex flex-wrap gap-3">
             <Button
               asChild
               size="lg"
-              className="rounded-full bg-primary text-white hover:bg-primary/90 min-h-[48px]"
+              className="rounded-full bg-primary text-white hover:bg-primary/90 min-h-[48px] w-full sm:w-auto btn-tactile focus-ring touch-feedback"
             >
               <Link href="/restaurants">
                 <Plus className="mr-2 h-5 w-5" />
@@ -156,7 +160,7 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
       </section>
 
       {/* Main Content */}
-      <div className="mx-auto w-full max-w-6xl px-6 py-8 sm:py-10">
+      <div className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 sm:py-12 lg:px-10">
         <Tabs
           value={activeTab}
           onValueChange={(v) => {
@@ -169,11 +173,11 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
           }}
           className="w-full"
         >
-          <TabsList className="w-full justify-start gap-1 border-b border-slate-200 bg-transparent p-0 mb-8 h-auto rounded-none">
+          <TabsList className="w-full justify-start gap-1 border-b border-slate-200 bg-transparent p-0 mb-8 sm:mb-10 lg:mb-12 h-auto rounded-none overflow-x-auto flex-nowrap scrollbar-hide">
             <TabsTrigger
               value="upcoming"
               className={cn(
-                'relative rounded-none border-b-2 border-transparent bg-transparent px-6 py-3 text-base font-semibold transition-colors min-h-[44px]',
+                'relative rounded-none border-b-2 border-transparent bg-transparent px-4 py-3 sm:px-6 text-sm sm:text-base font-semibold transition-colors min-h-[44px] whitespace-nowrap',
                 'data-[state=active]:border-blue-600 data-[state=active]:text-slate-900 data-[state=active]:shadow-none',
                 'text-slate-500 hover:text-slate-700',
               )}
@@ -186,7 +190,7 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
             <TabsTrigger
               value="past"
               className={cn(
-                'relative rounded-none border-b-2 border-transparent bg-transparent px-6 py-3 text-base font-semibold transition-colors min-h-[44px]',
+                'relative rounded-none border-b-2 border-transparent bg-transparent px-4 py-3 sm:px-6 text-sm sm:text-base font-semibold transition-colors min-h-[44px] whitespace-nowrap',
                 'data-[state=active]:border-blue-600 data-[state=active]:text-slate-900 data-[state=active]:shadow-none',
                 'text-slate-500 hover:text-slate-700',
               )}
@@ -205,14 +209,17 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
             {upcoming.length === 0 ? (
               <Card className="p-12 bg-surface-elevated text-center">
                 <Calendar className="h-12 w-12 mx-auto mb-4 text-slate-400" />
-                <h3 className="text-lg font-semibold text-slate-900 mb-2">No upcoming trips</h3>
+                <h3 className="heading-subsection mb-2">No upcoming trips</h3>
                 <p className="text-sm text-subtle mb-6">Time to plan your next dining adventure.</p>
-                <Button asChild className="rounded-full min-h-[44px]">
+                <Button
+                  asChild
+                  className="rounded-full min-h-[44px] btn-tactile focus-ring touch-feedback"
+                >
                   <Link href="/restaurants">Find a restaurant</Link>
                 </Button>
               </Card>
             ) : (
-              <div className="grid gap-6 md:grid-cols-2 stagger-container">
+              <div className="grid gap-4 sm:gap-6 md:grid-cols-2 stagger-container">
                 {upcoming.map((booking, index) => (
                   <BookingCard
                     key={booking.id}
@@ -228,11 +235,11 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
             {past.length === 0 ? (
               <Card className="p-12 bg-surface-elevated text-center">
                 <Calendar className="h-12 w-12 mx-auto mb-4 text-slate-400" />
-                <h3 className="text-lg font-semibold text-slate-900 mb-2">No past trips</h3>
+                <h3 className="heading-subsection mb-2">No past trips</h3>
                 <p className="text-sm text-subtle">Your completed reservations will appear here.</p>
               </Card>
             ) : (
-              <div className="grid gap-6 md:grid-cols-2 stagger-container">
+              <div className="grid gap-4 sm:gap-6 md:grid-cols-2 stagger-container">
                 {past.map((booking, index) => (
                   <BookingCard
                     key={booking.id}
@@ -268,15 +275,18 @@ function BookingCard({ booking, isPast = false, style }: BookingCardProps) {
   return (
     <Card
       variant="interactive"
-      className={cn('overflow-hidden transition-all', isPast && 'opacity-75 hover:opacity-100')}
+      className={cn(
+        'overflow-hidden transition-all touch-feedback',
+        isPast && 'opacity-75 hover:opacity-100',
+      )}
       style={style}
     >
-      <div className="p-6">
+      <div className="p-5 sm:p-6 lg:p-8">
         {/* Card Header with Restaurant Name */}
-        <div className="flex items-start justify-between gap-4 mb-6">
+        <div className="flex items-start justify-between gap-4 sm:gap-5 mb-5 sm:mb-6 lg:mb-8">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-3 mb-1">
-              <h3 className="text-xl font-bold text-slate-900 truncate">
+              <h3 className="heading-subsection truncate">
                 {booking.restaurantName}
               </h3>
               <StatusBadge status={booking.status} isPast={isPast} />
@@ -292,7 +302,7 @@ function BookingCard({ booking, isPast = false, style }: BookingCardProps) {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 -mr-2 text-slate-400 hover:text-slate-900"
+                className="h-8 w-8 -mr-2 text-slate-400 hover:text-slate-900 focus-ring"
               >
                 <MoreHorizontal className="h-5 w-5" />
                 <span className="sr-only">Open menu</span>
@@ -330,7 +340,7 @@ function BookingCard({ booking, isPast = false, style }: BookingCardProps) {
         </div>
 
         {/* Booking Details */}
-        <div className="flex items-center gap-5 mb-6">
+        <div className="flex items-center gap-4 sm:gap-5 mb-4 sm:mb-6">
           {/* Date Box */}
           <div
             className={cn(
@@ -364,7 +374,7 @@ function BookingCard({ booking, isPast = false, style }: BookingCardProps) {
         {/* Footer Link */}
         <Link
           href={`/guest/bookings/${booking.id}`}
-          className="flex items-center justify-between -mx-6 -mb-6 px-6 py-4 text-sm font-medium text-slate-500 hover:text-blue-600 hover:bg-slate-50 transition-colors border-t border-slate-100 group"
+          className="flex items-center justify-between -mx-5 -mb-5 px-5 py-4 sm:-mx-6 sm:-mb-6 sm:px-6 sm:py-5 lg:-mx-8 lg:-mb-8 lg:px-8 lg:py-6 text-sm font-medium text-slate-500 hover:text-blue-600 hover:bg-slate-50 transition-colors border-t border-slate-100 group focus-ring touch-feedback"
         >
           <span>View reservation details</span>
           <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
