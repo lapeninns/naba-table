@@ -1,56 +1,60 @@
 # Continuity Ledger
 
-Last updated: 2026-01-20T09:05:20Z
+Last updated: 2026-01-20T10:10:56Z
 
 ## Goal (incl. success criteria)
 
-- Make guest app typography consistent using shared guest theme utilities.
-- Success: guest dashboard/profile/bookings + booking receipt components aligned to the same typography scale.
+- Restore public.restaurant_capacity_rules so booking RPC capacity checks no longer fail.
+- Success: table exists in staging and production with expected schema/indexes.
+- Success: capacity query succeeds and falls back safely when table is empty.
 
 ## Constraints/Assumptions
 
 - Follow AGENTS SDLC phases; task folder required.
-- UI changes require Chrome DevTools MCP QA + artifacts.
-- Keep scope limited to guest app typography (no unrelated UX changes).
+- Supabase is remote-only; staging first, then production.
+- Supabase MCP still unauthorized; CLI is available.
 
 ## Key decisions
 
-- Standardize on guest theme utilities (`heading-hero`, `heading-page`, `heading-section`, `heading-subsection`, `text-body-warm`) backed by guest tokens.
+- Create a new migration to add restaurant_capacity_rules with FK constraints, nullable scope columns, indexes, and comments.
+- Use gen_random_uuid(), created_at/updated_at defaults, and updated_at trigger consistent with existing tables.
 
 ## State
 
-- Production and staging migration lists retrieved; currently identical.
+- Dry-run push reaches DB but fails due to local migration history missing remote versions.
 
 ## Done
 
-- Updated guest typography utilities with token-based sizes and balanced wrapping.
-- Aligned guest primitives and guest-facing components (dashboard/profile/bookings/receipt) to shared heading/body utilities.
-- Ran DevTools MCP QA on guest routes; captured screenshots.
-- Queried production migration list with Supabase CLI.
-- Attempted staging migration list; failed with network route error.
+- Located booking capacity query usage in `server/booking/serviceFactory.ts`.
+- Identified backup references to restaurant_capacity_rules and prior capacity schema removal.
+- Created task folder `tasks/fix-capacity-rules-table-20260120-0929/` with research/plan/todo/verification stubs.
+- Retrieved project IDs: staging=rrpeokmfbtbrirqjprpe, production=vrdiqfudmwydclqpydee.
+- Checked env: SUPABASE_ACCESS_TOKEN missing in process env; found in `.env.local`.
+- User provided a Supabase access token in chat; not stored or used. Needs to be set in env.
+- Staging check: public.restaurant_capacity_rules missing (42P01 relation does not exist).
+- Added migration `supabase/migrations/20260120_add_restaurant_capacity_rules.sql`.
+- Logged pending migration in `docs/DATABASE_MIGRATIONS.md`.
+- Attempted Supabase CLI db push; blocked by DNS resolution to db.rrpeokmfbtbrirqjprpe.supabase.co.
+- Dry-run db push now reaches DB but fails because remote migration versions are not present locally (migration list shows remote history ahead).
 
 ## Now
 
-- Identify missing restaurant_capacity_rules table/migration causing booking RPC error.
-- Determine which local migrations are unapplied on production.
-- Resolve staging migration list using session pooler or other IPv4 endpoint.
+- Decide how to reconcile remote migration history vs. local migrations so db push can proceed.
 
 ## Next
 
-- Ask for staging session pooler connection string (port 5432) to retry migration list.
-- Run Lighthouse + HAR if required.
+- Generate dry-run diff, apply to staging, verify, then apply to production and verify.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- None.
+- Should we restore missing migration files, generate stubs, or repair migration history to proceed? (UNCONFIRMED)
 
 ## Working set (files/ids/commands)
 
-- `styles/themes/guest-enhanced.css`
-- `src/components/guest/ui/GuestPrimitives.tsx`
-- `src/components/features/guest/dashboard/GuestDashboardClient.tsx`
-- `src/components/features/guest/profile/GuestProfileClient.tsx`
-- `src/components/features/booking/list/BookingListClient.tsx`
-- `src/components/features/booking/ui/BookingComponents.tsx`
-- `src/app/guest/error.tsx`
-- `tasks/guest-typography-consistency-20260119-2350/verification.md`
+- server/booking/serviceFactory.ts
+- backups/public_schema_only.sql
+- supabase/migrations/
+- tasks/fix-capacity-rules-table-20260120-0929/research.md
+- tasks/fix-capacity-rules-table-20260120-0929/plan.md
+- tasks/fix-capacity-rules-table-20260120-0929/todo.md
+- tasks/fix-capacity-rules-table-20260120-0929/verification.md

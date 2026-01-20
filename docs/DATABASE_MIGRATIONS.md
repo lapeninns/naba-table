@@ -21,6 +21,7 @@
 
 | Date (UTC) | Description                                                | Staging | Production | Priority |
 | ---------- | ---------------------------------------------------------- | ------- | ---------- | -------- |
+| 2026-01-20 | Restore restaurant_capacity_rules for booking capacity     | ⏳      | ⏳         | High     |
 | 2026-01-18 | Lock down table_soft_holds access (RLS/GRANTS)             | ✅      | ⏳         | High     |
 | 2026-01-18 | CASCADE delete on booking_table_assignments FKs            | ✅      | ⏳         | High     |
 | 2026-01-17 | Add table_soft_holds for race condition prevention         | ✅      | ⏳         | Medium   |
@@ -29,6 +30,48 @@
 ---
 
 ## Migration Details
+
+### 2026-01-20: Restore restaurant_capacity_rules for booking capacity
+
+**Status**: ⏳ Staging | ⏳ Production  
+**Priority**: High  
+**Related Issue**: Booking capacity RPC fails due to missing restaurant_capacity_rules  
+**Migration File**: `supabase/migrations/20260120_add_restaurant_capacity_rules.sql`
+
+#### Problem
+
+Booking capacity checks query `public.restaurant_capacity_rules`, but the table is missing in staging and production, causing `42P01 relation does not exist`.
+
+#### Root Cause
+
+The capacity schema was previously removed via migration, but the booking capacity flow still references the table. No migration reintroduced the table.
+
+#### SQL to Apply
+
+Apply the full migration file: `supabase/migrations/20260120_add_restaurant_capacity_rules.sql`
+
+#### Verification
+
+After applying:
+
+```sql
+SELECT to_regclass('public.restaurant_capacity_rules') AS table_name;
+
+SELECT column_name, data_type, is_nullable
+FROM information_schema.columns
+WHERE table_schema = 'public'
+  AND table_name = 'restaurant_capacity_rules'
+ORDER BY ordinal_position;
+```
+
+#### Rollback
+
+```sql
+DROP TABLE IF EXISTS public.restaurant_capacity_rules CASCADE;
+NOTIFY pgrst, 'reload schema';
+```
+
+---
 
 ### 2026-01-18: Lock down table_soft_holds access (RLS/GRANTS)
 
