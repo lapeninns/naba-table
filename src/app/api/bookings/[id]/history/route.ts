@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { env } from '@/lib/env';
 import { getBookingHistory } from '@/server/bookingHistory';
-import { normalizeEmail } from '@/server/customers';
+import { normalizeEmail, normalizePhone } from '@/server/customers';
 import { recordObservabilityEvent } from '@/server/observability';
+import { validateSessionRecoveryAccessToken } from '@/server/security/session-recovery-access-token';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server';
 
 const querySchema = z.object({
   limit: z.coerce.number().int().positive().max(100).optional(),
@@ -38,6 +40,16 @@ async function resolveBookingId(paramsPromise?: Promise<{ id: string | string[] 
   return null;
 }
 
+function extractSessionRecoveryAccessToken(req: NextRequest): string | null {
+  return (
+    req.headers.get('x-session-recovery-token') ??
+    req.nextUrl.searchParams.get('access_token') ??
+    req.nextUrl.searchParams.get('accessToken') ??
+    req.cookies.get('sr_access')?.value ??
+    null
+  );
+}
+
 export async function GET(req: NextRequest, { params }: RouteParams) {
   const bookingId = await resolveBookingId(params);
 
@@ -52,8 +64,93 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Invalid query parameters', details: parsedQuery.error.flatten() }, { status: 400 });
   }
 
-  const tenantSupabase = await getRouteHandlerSupabaseClient();
   const serviceSupabase = getServiceSupabaseClient();
+
+  // First, try session recovery token (for guest access via email links)
+  const recoveryToken = extractSessionRecoveryAccessToken(req);
+  if (recoveryToken) {
+    const secret = env.security.sessionRecoveryAccessTokenSecret;
+    if (!secret) {
+      return NextResponse.json(
+        { error: 'Session recovery token not configured', code: 'ACCESS_TOKEN_NOT_CONFIGURED' },
+        { status: 503 },
+      );
+    }
+
+    const result = validateSessionRecoveryAccessToken(recoveryToken, { secret });
+    if (!result.ok) {
+      const code = result.reason === 'expired' ? 'ACCESS_TOKEN_EXPIRED' : 'INVALID_ACCESS_TOKEN';
+      const status = result.reason === 'expired' ? 410 : 401;
+      return NextResponse.json({ error: 'Invalid session recovery token', code }, { status });
+    }
+
+    // Fetch the booking to verify ownership
+    const { data: bookingRow, error: bookingError } = await serviceSupabase
+      .from('bookings')
+      .select('id, customer_email, customer_phone, restaurant_id')
+      .eq('id', bookingId)
+      .maybeSingle();
+
+    if (bookingError) {
+      console.error('[bookings][history] failed to load booking', bookingError.message);
+      return NextResponse.json({ error: 'Unable to load booking history' }, { status: 500 });
+    }
+
+    if (!bookingRow) {
+      return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+    }
+
+    // Verify token matches booking
+    const bookingEmail = bookingRow.customer_email ? normalizeEmail(bookingRow.customer_email) : null;
+    const bookingPhone = bookingRow.customer_phone ? normalizePhone(bookingRow.customer_phone) : null;
+    const tokenEmail = normalizeEmail(result.payload.email);
+    const tokenPhone = normalizePhone(result.payload.phone);
+
+    if (
+      bookingRow.restaurant_id !== result.payload.restaurantId ||
+      !bookingEmail ||
+      !bookingPhone ||
+      bookingEmail !== tokenEmail ||
+      bookingPhone !== tokenPhone
+    ) {
+      void recordObservabilityEvent({
+        source: 'api.bookings',
+        eventType: 'booking_history.access_denied',
+        severity: 'warning',
+        context: {
+          booking_id: bookingId,
+          token_email: tokenEmail,
+          booking_email: bookingEmail,
+          reason: 'token_mismatch',
+        },
+      });
+
+      return NextResponse.json(
+        { error: 'You can only view history for your own reservation', code: 'FORBIDDEN' },
+        { status: 403 }
+      );
+    }
+
+    // Token is valid and matches - return history
+    try {
+      const events = await getBookingHistory(serviceSupabase, bookingId, parsedQuery.data);
+
+      return NextResponse.json({
+        events,
+        pagination: {
+          limit: parsedQuery.data.limit ?? 50,
+          offset: parsedQuery.data.offset ?? 0,
+          count: events.length,
+        },
+      });
+    } catch (error) {
+      console.error('[bookings][history] unexpected', error);
+      return NextResponse.json({ error: 'Unable to fetch booking history' }, { status: 500 });
+    }
+  }
+
+  // Fallback to Supabase auth
+  const tenantSupabase = await getRouteHandlerSupabaseClient();
 
   const {
     data: { user },
@@ -118,3 +215,4 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 }
 
 export const dynamic = 'force-dynamic';
+
