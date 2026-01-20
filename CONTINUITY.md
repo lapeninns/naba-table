@@ -1,5 +1,6 @@
 # Continuity Ledger
 
+<<<<<<< Updated upstream
 Last updated: 2026-01-20T10:10:56Z
 
 ## Goal (incl. success criteria)
@@ -57,4 +58,45 @@ Last updated: 2026-01-20T10:10:56Z
 - tasks/fix-capacity-rules-table-20260120-0929/research.md
 - tasks/fix-capacity-rules-table-20260120-0929/plan.md
 - tasks/fix-capacity-rules-table-20260120-0929/todo.md
-- tasks/fix-capacity-rules-table-20260120-0929/verification.md
+- # tasks/fix-capacity-rules-table-20260120-0929/verification.md
+  Last updated: 2026-01-20T10:42:00Z
+
+## Goal (incl. success criteria)
+
+- Fix build failure caused by invalid `NODE_ENV` value during env validation.
+- Success: `pnpm run build` passes env validation.
+
+## Constraints/Assumptions
+
+- Follow AGENTS SDLC phases and file policies.
+- Avoid committing secrets.
+
+## Key decisions
+
+- Investigate `.env.local` and env validation rules to resolve `NODE_ENV` mismatch.
+
+## State
+
+- Updated `.env.local` to use `NODE_ENV=development`.
+
+## Done
+
+- Captured build error output from user.
+- Updated `.env.local` to use valid `NODE_ENV`.
+
+## Now
+
+- Rerun build to confirm env validation passes.
+
+## Next
+
+- If build still fails, inspect next validation errors.
+
+## Open questions (UNCONFIRMED if needed)
+
+- Should `NODE_ENV` be `production` for build, or should validation allow `staging`? (UNCONFIRMED)
+
+## Working set (files/ids/commands)
+
+- .env.local
+  > > > > > > > Stashed changes
