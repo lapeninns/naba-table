@@ -27,7 +27,10 @@ const ALLOWED_REDIRECT_PREFIXES = ['/guest', '/bookings', '/restaurants', '/app'
 const OPS_REDIRECT_PREFIXES = [
   '/app',
   '/dashboard',
-  '/bookings',
+  // NOTE: /bookings is intentionally NOT included here because it's used by
+  // both guest booking management (www.nabatable.com/bookings/[id]) and
+  // the ops dashboard (app.nabatable.com/bookings). Guest recovery links
+  // should stay on the public domain.
   '/customers',
   '/seating',
   '/settings',
