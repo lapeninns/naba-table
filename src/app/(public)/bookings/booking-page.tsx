@@ -3,8 +3,10 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import ReservationDetailClient from "@/components/features/booking/detail/ReservationDetailClient";
+import { env } from "@/lib/env";
 import { getCanonicalSiteUrl } from "@/lib/site-url";
 import { withRedirectedFrom } from "@/lib/url/withRedirectedFrom";
+import { validateSessionRecoveryAccessToken } from "@/server/security/session-recovery-access-token";
 import { getServerComponentSupabaseClient } from "@/server/supabase";
 import { reservationAdapter } from "@entities/reservation/adapter";
 import { reservationKeys } from "@shared/api/queryKeys";
@@ -96,31 +98,48 @@ export async function BookingDetailPage({
     redirect(`${pathPrefix}`);
   }
 
+  // Check for session recovery token from cookie
+  const cookieStore = await cookies();
+  const sessionRecoveryToken = cookieStore.get("sr_access")?.value ?? null;
+  let hasValidSessionRecovery = false;
+
+  if (sessionRecoveryToken) {
+    const secret = env.security.sessionRecoveryAccessTokenSecret;
+    if (secret) {
+      const result = validateSessionRecoveryAccessToken(sessionRecoveryToken, { secret });
+      hasValidSessionRecovery = result.ok;
+    }
+  }
+
   const supabase = await getServerComponentSupabaseClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user && !token) {
+  // Allow access if user is authenticated, has legacy token, or has valid session recovery token
+  if (!user && !token && !hasValidSessionRecovery) {
     redirect(withRedirectedFrom("/auth/signin", `${pathPrefix}/${normalized}`));
   }
 
   const queryClient = new QueryClient();
-  if (user || token) {
+  if (user || token || hasValidSessionRecovery) {
     await prefetchReservation(queryClient, normalized, token);
   }
   const dehydratedState = dehydrate(queryClient);
+
+  // canManage is true if user is authenticated OR has valid session recovery token
+  const canManage = Boolean(user) || hasValidSessionRecovery;
 
   return (
     <HydrationBoundary state={dehydratedState}>
       <ReservationDetailClient
         reservationId={normalized}
         restaurantName={null}
-
-        canManage={Boolean(user)}
+        canManage={canManage}
       />
     </HydrationBoundary>
   );
 }
 
 export default BookingDetailPage;
+
