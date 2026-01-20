@@ -74,8 +74,8 @@ export function BookingSummaryCard({
           </div>
 
           <div>
-            <h1 className="heading-hero text-heading">{title}</h1>
-            {description ? <p className="mt-2 text-lg text-subtle">{description}</p> : null}
+            <h1 className="heading-hero">{title}</h1>
+            {description ? <p className="mt-2 text-body-warm">{description}</p> : null}
           </div>
 
           <div className="flex items-center gap-2 text-sm text-slate-400 font-mono">
@@ -110,7 +110,7 @@ export function DetailStatCard({
       </div>
       <div>
         <div className="text-subtle text-xs font-bold uppercase tracking-wider mb-1">{label}</div>
-        <div className="text-slate-900 text-xl font-bold tracking-tight">{value}</div>
+        <div className="heading-subsection">{value}</div>
         {subtext ? <div className="text-sm text-subtle mt-0.5 font-medium">{subtext}</div> : null}
       </div>
     </Card>
@@ -127,7 +127,7 @@ export function InfoPanel({
   return (
     <Card className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-100 bg-slate-50/50 px-6 py-4">
-        <h3 className="font-bold text-slate-900">{title}</h3>
+        <h3 className="heading-subsection">{title}</h3>
       </div>
       <div className="divide-y divide-slate-100">
         {rows.map((row, index) => (
@@ -139,7 +139,7 @@ export function InfoPanel({
               <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">
                 {row.label}
               </p>
-              <p className="truncate font-semibold text-slate-900 text-lg">{row.value}</p>
+              <p className="heading-subsection truncate">{row.value}</p>
             </div>
           </div>
         ))}
@@ -172,7 +172,7 @@ export function ManageBookingPanel({
   return (
     <BookingSidebarCard>
       <div className="space-y-6 p-6">
-        <h3 className="font-bold text-slate-900 text-lg">{title}</h3>
+        <h3 className="heading-subsection">{title}</h3>
         {actions}
         {footer ? <Separator className="my-2" /> : null}
         {footer}
@@ -229,7 +229,7 @@ export function SecondaryButton({
   return (
     <Button
       variant="outline"
-      className="rounded-full border-slate-200 hover:bg-slate-50 font-medium px-5 min-h-[44px]"
+      className="rounded-full border-slate-200 hover:bg-slate-50 font-medium px-5 min-h-[44px] btn-tactile focus-ring touch-feedback"
       onClick={onClick}
       disabled={disabled}
     >

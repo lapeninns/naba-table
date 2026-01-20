@@ -101,10 +101,12 @@ export function GuestProfileClient({ viewModel }: { viewModel: GuestProfileViewM
     <div className="min-h-screen bg-surface-warm pb-20">
       {/* Hero Section */}
       <section className="border-b border-slate-100 bg-gradient-hero">
-        <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 py-12 sm:py-16 px-6">
-          <div className="space-y-3 animate-fade-in-up">
+        <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 sm:gap-4 py-8 sm:py-12 lg:py-16 px-4 sm:px-6">
+          <div className="space-y-2 sm:space-y-3 animate-fade-in-up">
             <p className="text-xs uppercase tracking-[0.2em] text-subtle">Settings</p>
-            <h1 className="heading-hero text-heading">Your Profile</h1>
+            <h1 className="heading-hero">
+              Your Profile
+            </h1>
             <p className="text-body-warm max-w-2xl">
               Manage your personal information, preferences, and security settings.
             </p>
@@ -112,35 +114,37 @@ export function GuestProfileClient({ viewModel }: { viewModel: GuestProfileViewM
         </div>
       </section>
 
-      <div className="mx-auto w-full max-w-4xl px-6 py-8 sm:py-10 space-y-8">
+      <div className="mx-auto w-full max-w-4xl px-4 sm:px-6 py-6 sm:py-8 lg:py-10 space-y-6 sm:space-y-8">
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-fade-in-up stagger-container">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 animate-fade-in-up stagger-container">
           <MetricTile label="Account Status" value="Active" icon={Settings} detail="Standard" />
           <MetricTile label="Email Verified" value="Yes" icon={Shield} variant="highlight" />
         </div>
 
-        <Separator className="my-8" />
+        <Separator className="my-6 sm:my-8" />
 
         {/* Profile Form */}
-        <Card className="p-6 sm:p-8 bg-surface-elevated">
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <h2 className="heading-section text-slate-900">Personal Information</h2>
-              <p className="text-sm text-subtle">
+        <Card className="p-4 sm:p-6 lg:p-8 bg-surface-elevated animate-fade-in-up">
+          <div className="space-y-4 sm:space-y-6">
+            <div className="space-y-1 sm:space-y-2">
+              <h2 className="heading-section">Personal Information</h2>
+              <p className="text-xs sm:text-sm text-subtle">
                 Update your contact details and how we address you.
               </p>
             </div>
 
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <div className="grid gap-6 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="full_name">Full Name</Label>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
+              <div className="grid gap-4 sm:gap-6 md:grid-cols-2">
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="full_name" className="text-sm">
+                    Full Name
+                  </Label>
                   <Input
                     id="full_name"
                     type="text"
                     autoComplete="name"
                     {...form.register('full_name')}
-                    className="rounded-xl h-12 text-base"
+                    className="rounded-lg sm:rounded-xl h-11 sm:h-12 text-base focus-ring"
                     disabled={isSubmitting}
                   />
                   {form.formState.errors.full_name ? (
@@ -150,27 +154,31 @@ export function GuestProfileClient({ viewModel }: { viewModel: GuestProfileViewM
                   ) : null}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email Address</Label>
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="email" className="text-sm">
+                    Email Address
+                  </Label>
                   <Input
                     id="email"
                     type="email"
                     autoComplete="email"
                     value={profile.email}
                     disabled
-                    className="bg-slate-50 rounded-xl h-12 text-base"
+                    className="bg-slate-50 rounded-lg sm:rounded-xl h-11 sm:h-12 text-base opacity-70"
                   />
                   <p className="text-xs text-slate-500">Email cannot be changed manually.</p>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone Number</Label>
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="phone" className="text-sm">
+                    Phone Number
+                  </Label>
                   <Input
                     id="phone"
                     type="tel"
                     autoComplete="tel"
                     {...form.register('phone_number')}
-                    className="rounded-xl h-12 text-base"
+                    className="rounded-lg sm:rounded-xl h-11 sm:h-12 text-base focus-ring"
                     disabled={isSubmitting}
                   />
                   {form.formState.errors.phone_number ? (
@@ -181,11 +189,11 @@ export function GuestProfileClient({ viewModel }: { viewModel: GuestProfileViewM
                 </div>
               </div>
 
-              <div className="flex justify-end pt-4">
+              <div className="flex justify-end pt-2 sm:pt-4">
                 <Button
                   type="submit"
                   size="lg"
-                  className="rounded-full px-8 bg-primary text-white hover:bg-primary/90 min-h-[48px]"
+                  className="w-full sm:w-auto rounded-full px-6 sm:px-8 bg-primary text-white hover:bg-primary/90 min-h-[44px] sm:min-h-[48px] btn-tactile focus-ring touch-feedback text-sm sm:text-base"
                   disabled={isSubmitting || isPristine}
                 >
                   <Save className="w-4 h-4 mr-2" />

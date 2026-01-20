@@ -442,6 +442,16 @@
     text-wrap: pretty;
   }
 
+  :where(p, li, a, span, h1, h2, h3, h4, h5, h6) {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  :where(img, svg, video, canvas, audio, iframe, embed, object) {
+    max-width: 100%;
+    height: auto;
+  }
+
   /* ---------------------------------------------------------------------------
      FOCUS & INTERACTION STATES
      Per AGENTS.md: visible focus rings, generous hit targets
