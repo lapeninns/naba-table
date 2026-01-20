@@ -26,7 +26,6 @@ export function useUpdateBooking() {
   type MutationContext = {
     lists: Array<[readonly unknown[], BookingsPage | undefined]>;
     detail?: BookingDTO;
-    reservationDetail?: BookingDTO;
   };
 
   return useMutation<BookingDTO, HttpError, UpdateBookingInput, unknown>({
@@ -51,7 +50,6 @@ export function useUpdateBooking() {
 
       const lists = queryClient.getQueriesData<BookingsPage>({ queryKey: queryKeys.bookings.all });
       const detail = queryClient.getQueryData<BookingDTO>(queryKeys.bookings.detail(id));
-      const reservationDetail = queryClient.getQueryData<BookingDTO>(reservationKeys.detail(id));
 
       const patch = (booking: BookingDTO): BookingDTO => ({
         ...booking,
@@ -73,17 +71,12 @@ export function useUpdateBooking() {
         queryClient.setQueryData(queryKeys.bookings.detail(id), patch(detail));
       }
 
-      if (reservationDetail) {
-        queryClient.setQueryData(reservationKeys.detail(id), patch(reservationDetail));
-      }
-
-      return { lists, detail, reservationDetail };
+      return { lists, detail };
     },
     onSuccess: (updated) => {
       toast.success('Booking updated');
       if (updated?.id) {
         queryClient.setQueryData(queryKeys.bookings.detail(updated.id), updated);
-        queryClient.setQueryData(reservationKeys.detail(updated.id), updated);
       }
     },
     onError: (error, variables, context) => {
@@ -94,9 +87,6 @@ export function useUpdateBooking() {
       });
       if (ctx?.detail) {
         queryClient.setQueryData(queryKeys.bookings.detail(variables.id), ctx.detail);
-      }
-      if (ctx?.reservationDetail) {
-        queryClient.setQueryData(reservationKeys.detail(variables.id), ctx.reservationDetail);
       }
       const message =
         error.code === 'BOOKING_IN_PAST'

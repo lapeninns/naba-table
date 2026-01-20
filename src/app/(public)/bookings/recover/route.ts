@@ -9,7 +9,9 @@ const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'localhost';
 
 const normalizeRootDomain = (value: string): string => {
   const trimmed = value.trim().toLowerCase();
-  const withoutPort = trimmed.replace(/:\d+$/, '');
+  const withoutScheme = trimmed.replace(/^https?:\/\//, '');
+  const withoutPath = withoutScheme.split('/')[0] ?? '';
+  const withoutPort = withoutPath.replace(/:\d+$/, '');
   return withoutPort.replace(/^\.+/, '').replace(/^www\./, '');
 };
 

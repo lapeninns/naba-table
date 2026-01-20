@@ -1,6 +1,6 @@
 # Continuity Ledger
 
-Last updated: 2026-01-20T16:07:07Z
+Last updated: 2026-01-20T16:10:47Z
 
 ## Goal (incl. success criteria)
 
@@ -17,6 +17,7 @@ Last updated: 2026-01-20T16:07:07Z
 ## Key decisions
 
 - Adjust recovery cookie domain logic to only set `domain` when host matches root domain (normalize `www.`) to avoid dropped cookies on previews/custom domains.
+- Stop overwriting reservation query cache with booking DTO after updates; rely on refetch to keep shape consistent.
 
 ## State
 
@@ -28,14 +29,16 @@ Last updated: 2026-01-20T16:07:07Z
 - Loaded root and src/app AGENTS policies.
 - Created task folder `tasks/guest-recover-save-error-20260120-1605/` with SDLC stubs.
 - Reviewed booking recovery/update flows and identified cookie domain risk.
+- Updated `useUpdateBooking` to avoid clobbering reservation cache with DTO response.
 
 ## Now
 
-- Update recovery route to scope cookie domain safely.
+- Refine recovery cookie domain normalization to handle scheme/path/port in env.
+- Validate save flow after update cache change.
 
 ## Next
 
-- Verify modified route compiles and lint passes.
+- Ask for failing request status/response details to confirm root cause.
 - Plan manual QA via Chrome DevTools MCP once UI verification is scheduled.
 
 ## Open questions (UNCONFIRMED if needed)
