@@ -18,6 +18,7 @@ related_tickets: []
 
 - [ ] Ensure session recovery token is available to booking update API.
 - [x] Fix recovery cookie domain handling to avoid dropped tokens on non-root hosts.
+- [x] Avoid overwriting reservation cache with incompatible booking DTO after updates.
 
 ## UI/UX
 
