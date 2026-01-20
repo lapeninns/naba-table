@@ -47,7 +47,7 @@ export function BrandLogo({
         {showBeta && (
           <span
             className={cn(
-              'absolute -top-3 -right-10 -rotate-12 text-[10px] font-bold uppercase tracking-[0.2em] px-1.5 py-0.5 rounded-full whitespace-nowrap border shadow-sm',
+              'absolute -top-3 right-0 sm:-right-10 -rotate-12 text-[10px] font-bold uppercase tracking-[0.2em] px-1.5 py-0.5 rounded-full whitespace-nowrap border shadow-sm',
               betaBg,
             )}
           >

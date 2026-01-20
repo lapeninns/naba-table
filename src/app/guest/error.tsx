@@ -17,8 +17,8 @@ export default function GuestError({
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 bg-background px-4 py-16 text-center">
       <div className="space-y-2">
         <p className="text-xs uppercase tracking-wide text-muted-foreground">Guest area</p>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Something went wrong</h1>
-        <p className="text-sm text-muted-foreground">
+        <h1 className="heading-page">Something went wrong</h1>
+        <p className="text-body-warm">
           We couldn’t load this page. Please retry or head back to your bookings.
         </p>
       </div>
