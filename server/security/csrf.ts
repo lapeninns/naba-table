@@ -3,7 +3,7 @@ import { cookies, headers } from "next/headers";
 
 
 import { env } from "@/lib/env";
-import { CSRF_COOKIE_MAX_AGE_SECONDS, CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from "@/lib/security/csrf";
+import { buildCsrfCookieOptions, CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from "@/lib/security/csrf";
 
 import type { NextRequest } from "next/server";
 
@@ -23,16 +23,14 @@ export async function ensureCsrfCookie(): Promise<string> {
   const existingToken = cookieStore.get(CSRF_COOKIE_NAME)?.value;
   const token = existingToken ?? randomBytes(TOKEN_LENGTH_BYTES).toString("hex");
   const secure = await shouldUseSecureCookie();
+  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost";
+  const cookieOptions = buildCsrfCookieOptions({ rootDomain, secure });
 
   if (!existingToken && typeof (cookieStore as { set?: unknown }).set === "function") {
     cookieStore.set({
       name: CSRF_COOKIE_NAME,
       value: token,
-      httpOnly: false, // must be readable by the browser to echo in headers
-      secure,
-      sameSite: "lax",
-      path: "/",
-      maxAge: CSRF_COOKIE_MAX_AGE_SECONDS,
+      ...cookieOptions,
       priority: "high",
     });
   }

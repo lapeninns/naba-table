@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { CSRF_COOKIE_MAX_AGE_SECONDS, CSRF_COOKIE_NAME } from '@/lib/security/csrf';
+import { buildCsrfCookieOptions, CSRF_COOKIE_NAME } from '@/lib/security/csrf';
 import { withRedirectedFrom } from '@/lib/url/withRedirectedFrom';
 import { requireOpsAuth } from '@/server/auth/ops-guard';
 import { getMiddlewareSupabaseClient } from '@/server/supabase';
@@ -291,21 +291,15 @@ export default async function proxy(req: NextRequest) {
   const csrfToken = req.cookies.get(CSRF_COOKIE_NAME)?.value;
   if (!csrfToken) {
     const newCsrfToken = crypto.randomUUID().replace(/-/g, '');
-    const cookieOptions = {
+    const cookieOptions = buildCsrfCookieOptions({
+      rootDomain,
+      secure: process.env.NODE_ENV !== 'development',
+    });
+    response.cookies.set({
       name: CSRF_COOKIE_NAME,
       value: newCsrfToken,
-      httpOnly: false,
-      sameSite: 'lax' as const,
-      secure: process.env.NODE_ENV !== 'development',
-      path: '/',
-      maxAge: CSRF_COOKIE_MAX_AGE_SECONDS,
-    };
-
-    if (rootDomain !== 'localhost') {
-      response.cookies.set({ ...cookieOptions, domain: `.${rootDomain}` });
-    } else {
-      response.cookies.set(cookieOptions);
-    }
+      ...cookieOptions,
+    });
   }
 
   applySecurityHeaders(response);

@@ -78,26 +78,63 @@ type BookingsListProps = {
 
 
 
-// Helper function for sorting
+const UPCOMING_STATUSES = new Set([
+  'confirmed',
+  'PRIORITY_WAITLIST',
+  'pending',
+  'pending_allocation',
+] as const);
+
+const COMPLETED_STATUSES = new Set(['completed', 'cancelled', 'no_show'] as const);
+
+function compareBookings(
+  a: OpsTodayBooking,
+  b: OpsTodayBooking,
+  sortKey: 'time' | 'party' | 'name',
+  sortDir: 'asc' | 'desc',
+) {
+  let comparison = 0;
+
+  if (sortKey === 'time') {
+    const tA = a.startTime ? new Date(`1970-01-01T${a.startTime}`).getTime() : Number.MAX_SAFE_INTEGER;
+    const tB = b.startTime ? new Date(`1970-01-01T${b.startTime}`).getTime() : Number.MAX_SAFE_INTEGER;
+    comparison = tA - tB;
+  } else if (sortKey === 'party') {
+    comparison = a.partySize - b.partySize;
+  } else if (sortKey === 'name') {
+    comparison = a.customerName.localeCompare(b.customerName);
+  }
+
+  return sortDir === 'asc' ? comparison : -comparison;
+}
+
 function sortBookings(
   bookings: OpsTodayBooking[],
   sortKey: 'time' | 'party' | 'name',
-  sortDir: 'asc' | 'desc'
+  sortDir: 'asc' | 'desc',
+) {
+  return [...bookings].sort((a, b) => compareBookings(a, b, sortKey, sortDir));
+}
+
+function getStatusGroup(status: OpsTodayBooking['status']) {
+  if (status === 'checked_in') return 0;
+  if (UPCOMING_STATUSES.has(status)) return 1;
+  if (COMPLETED_STATUSES.has(status)) return 2;
+  return 1;
+}
+
+function sortBookingsGrouped(
+  bookings: OpsTodayBooking[],
+  sortKey: 'time' | 'party' | 'name',
+  sortDir: 'asc' | 'desc',
 ) {
   return [...bookings].sort((a, b) => {
-    let comparison = 0;
-
-    if (sortKey === 'time') {
-      const tA = a.startTime ? new Date(`1970-01-01T${a.startTime}`).getTime() : Number.MAX_SAFE_INTEGER;
-      const tB = b.startTime ? new Date(`1970-01-01T${b.startTime}`).getTime() : Number.MAX_SAFE_INTEGER;
-      comparison = tA - tB;
-    } else if (sortKey === 'party') {
-      comparison = a.partySize - b.partySize;
-    } else if (sortKey === 'name') {
-      comparison = a.customerName.localeCompare(b.customerName);
+    const groupA = getStatusGroup(a.status);
+    const groupB = getStatusGroup(b.status);
+    if (groupA !== groupB) {
+      return groupA - groupB;
     }
-
-    return sortDir === 'asc' ? comparison : -comparison;
+    return compareBookings(a, b, sortKey, sortDir);
   });
 }
 
@@ -219,7 +256,12 @@ function BookingsListContent({
     });
   }, [bookings, filter, summary, now, allowTableAssignments, hasAssignmentHandlers, searchQuery]);
 
-  const sorted = useMemo(() => sortBookings(filtered, sortKey, sortDir), [filtered, sortKey, sortDir]);
+  const sorted = useMemo(() => {
+    if (filter === 'all') {
+      return sortBookingsGrouped(filtered, sortKey, sortDir);
+    }
+    return sortBookings(filtered, sortKey, sortDir);
+  }, [filter, filtered, sortKey, sortDir]);
 
   const paginated = useMemo(() => {
     const start = (page - 1) * pageSize;
