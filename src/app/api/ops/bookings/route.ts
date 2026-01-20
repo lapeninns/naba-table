@@ -260,7 +260,17 @@ type OpsBookingRow = Pick<
         reservation_interval_minutes?: number | null;
       }[]
     | null;
-  booking_table_assignments?: Array<{ table_id: string | null }> | null;
+  booking_table_assignments?:
+    | Array<{
+        table_id: string | null;
+        merge_group_id: string | null;
+        table_inventory: {
+          table_number: string;
+          capacity: number | null;
+          section: string | null;
+        } | null;
+      }>
+    | null;
 };
 
 type BookingDTO = {
@@ -278,6 +288,17 @@ type BookingDTO = {
   customerEmail: string | null;
   customerPhone: string | null;
   reservationIntervalMinutes: number | null;
+  tableAssignments?: {
+    groupId: string | null;
+    capacitySum: number | null;
+    members: {
+      tableId: string;
+      tableNumber: string;
+      capacity: number | null;
+      section: string | null;
+    }[];
+  }[];
+  requiresTableAssignment?: boolean;
 };
 
 type PageInfo = {
@@ -323,6 +344,47 @@ function deriveFallbackIso(
   }
 
   return dt.toUTC().toISO() ?? '';
+}
+
+function mapTableAssignments(row: OpsBookingRow) {
+  const rawAssignments = row.booking_table_assignments ?? [];
+  const groupedAssignments = new Map<
+    string,
+    {
+      groupId: string | null;
+      members: Array<{
+        tableId: string;
+        tableNumber: string;
+        capacity: number | null;
+        section: string | null;
+      }>;
+    }
+  >();
+
+  for (const assignment of rawAssignments) {
+    const tableId = assignment.table_id ?? '';
+    const groupKey = assignment.merge_group_id ?? `single-${tableId}`;
+    if (!groupedAssignments.has(groupKey)) {
+      groupedAssignments.set(groupKey, {
+        groupId: assignment.merge_group_id,
+        members: [],
+      });
+    }
+    const group = groupedAssignments.get(groupKey)!;
+    const inventory = assignment.table_inventory;
+    group.members.push({
+      tableId,
+      tableNumber: inventory?.table_number ?? '?',
+      capacity: inventory?.capacity ?? null,
+      section: inventory?.section ?? null,
+    });
+  }
+
+  return Array.from(groupedAssignments.values()).map((group) => ({
+    groupId: group.groupId,
+    capacitySum: group.members.reduce((sum, member) => sum + (member.capacity ?? 0), 0),
+    members: group.members,
+  }));
 }
 
 export async function GET(req: NextRequest) {
@@ -458,7 +520,17 @@ export async function GET(req: NextRequest) {
   let query = serviceSupabase
     .from('bookings')
     .select(
-      'id, start_at, end_at, booking_date, start_time, end_time, party_size, status, notes, restaurant_id, customer_name, customer_email, customer_phone, created_at, restaurants(name, slug, timezone, reservation_interval_minutes), booking_table_assignments(table_id)',
+      `id, start_at, end_at, booking_date, start_time, end_time, party_size, status, notes, restaurant_id, customer_name, customer_email, customer_phone, created_at,
+      restaurants(name, slug, timezone, reservation_interval_minutes),
+      booking_table_assignments(
+        table_id,
+        merge_group_id,
+        table_inventory(
+          table_number,
+          capacity,
+          section
+        )
+      )`,
       { count: 'exact' },
     )
     .eq('restaurant_id', targetRestaurantId);
@@ -532,6 +604,7 @@ export async function GET(req: NextRequest) {
       restaurantRelation && typeof restaurantRelation.reservation_interval_minutes === 'number'
         ? restaurantRelation.reservation_interval_minutes
         : null;
+    const tableAssignments = mapTableAssignments(row);
 
     return {
       id: row.id,
@@ -548,6 +621,11 @@ export async function GET(req: NextRequest) {
       customerEmail: row.customer_email ?? null,
       customerPhone,
       reservationIntervalMinutes: interval,
+      tableAssignments,
+      requiresTableAssignment:
+        tableAssignments.length === 0 &&
+        row.status !== 'cancelled' &&
+        row.status !== 'no_show',
     };
   });
 
