@@ -7,6 +7,18 @@ import type { NextRequest } from 'next/server';
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'localhost';
 
+const normalizeRootDomain = (value: string): string => {
+  const trimmed = value.trim().toLowerCase();
+  const withoutPort = trimmed.replace(/:\d+$/, '');
+  return withoutPort.replace(/^\.+/, '').replace(/^www\./, '');
+};
+
+const shouldSetCookieDomain = (hostname: string, rootDomain: string): boolean => {
+  if (rootDomain === 'localhost') return false;
+  const normalizedHost = hostname.toLowerCase();
+  return normalizedHost === rootDomain || normalizedHost.endsWith(`.${rootDomain}`);
+};
+
 function sanitizeNextPath(value: string | null): string {
   if (!value) return '/';
   if (!value.startsWith('/')) return '/';
@@ -66,13 +78,18 @@ export async function GET(req: NextRequest) {
   const res = NextResponse.redirect(redirectTarget, { status: 302 });
   res.headers.set('Cache-Control', 'no-store');
   res.headers.set('Referrer-Policy', 'no-referrer');
+  const normalizedRootDomain = normalizeRootDomain(ROOT_DOMAIN);
+  const cookieDomain = shouldSetCookieDomain(req.nextUrl.hostname, normalizedRootDomain)
+    ? `.${normalizedRootDomain}`
+    : undefined;
+
   res.cookies.set('sr_access', accessToken, {
     httpOnly: true,
     sameSite: 'lax',
     secure: isHttps,
     path: '/',
     maxAge,
-    ...(ROOT_DOMAIN !== 'localhost' ? { domain: `.${ROOT_DOMAIN}` } : {}),
+    ...(cookieDomain ? { domain: cookieDomain } : {}),
   });
   return res;
 }
