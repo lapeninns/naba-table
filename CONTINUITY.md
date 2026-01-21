@@ -1,6 +1,6 @@
 # Continuity Ledger
 
-Last updated: 2026-01-20T17:50:25Z
+Last updated: 2026-01-21T00:39:12Z
 
 ## Goal (incl. success criteria)
 
@@ -21,14 +21,14 @@ Last updated: 2026-01-20T17:50:25Z
 
 ## State
 
-- Phase 3 implementation complete for dashboard sort; verification pending.
+- Phase 3 implementation complete for dashboard sort; build passes. Verification pending.
 - CSRF cookie fix implemented in prior task; verification pending.
 
 ## Done
 
-- Created task folder `tasks/ops-dashboard-bookings-sort-20260120-1748/` with SDLC artifacts.
 - Implemented grouped sort in `src/components/features/dashboard/BookingsList.tsx`.
-- Updated task `todo.md` progress.
+- Fixed TypeScript type error for status sets.
+- Ran `pnpm run build` successfully.
 
 ## Now
 
