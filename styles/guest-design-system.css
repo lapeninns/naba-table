@@ -69,10 +69,6 @@
 }
 .guest-theme .input-base:focus {
   outline: none;
-  border-color: hsl(var(--ring));
-  box-shadow:
-    0 0 0 2px hsl(var(--background)),
-    0 0 0 4px hsl(var(--accent));
 }
 .guest-theme .input-base[data-invalid='true'] {
   border-color: hsl(var(--destructive));

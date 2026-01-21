@@ -19,7 +19,7 @@ import {
   Trash2,
   Users,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
@@ -45,7 +45,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
 
 import { useTableAssignment } from '../hooks/useTableAssignment';
@@ -103,6 +102,41 @@ export function TableAssignmentPanel({
     onAssignmentComplete,
   });
 
+  const parsedTimes = useMemo(() => {
+    const parse = (value?: string | null) => {
+      if (!value) return null;
+      const timePart = value.includes('T') ? value.split('T')[1] : value;
+      const match = timePart.match(/(\d{2}):(\d{2})/);
+      if (!match) return null;
+      const hours = Number(match[1]);
+      const minutes = Number(match[2]);
+      if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
+      return hours * 60 + minutes;
+    };
+
+    const timelineBookingStart = bookingStartTime ?? context?.booking.start_time ?? null;
+    const timelineBookingEnd = bookingEndTime ?? null;
+    const timelineWindowStart = context?.window?.startAt ?? null;
+    const timelineWindowEnd = context?.window?.endAt ?? null;
+
+    return {
+      bookingStart: timelineBookingStart,
+      bookingEnd: timelineBookingEnd,
+      windowStart: timelineWindowStart,
+      windowEnd: timelineWindowEnd,
+      parsedBookingStart: parse(timelineBookingStart),
+      parsedBookingEnd: parse(timelineBookingEnd),
+      parsedWindowStart: parse(timelineWindowStart),
+      parsedWindowEnd: parse(timelineWindowEnd),
+    };
+  }, [
+    bookingStartTime,
+    bookingEndTime,
+    context?.booking.start_time,
+    context?.window?.startAt,
+    context?.window?.endAt,
+  ]);
+
   const [zoneFilter, setZoneFilter] = useState('all');
   const [fitFilter, setFitFilter] = useState<FitFilter>('all');
   const [availabilityOnly, setAvailabilityOnly] = useState(false);
@@ -111,6 +145,7 @@ export function TableAssignmentPanel({
   const [confirmUnassign, setConfirmUnassign] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
   const [smartAssignError, setSmartAssignError] = useState<string | null>(null);
+  const selectedTableIds = useMemo(() => new Set(selectedTables), [selectedTables]);
 
   useEffect(() => {
     if (applyError) setApplyError(null);
@@ -130,20 +165,17 @@ export function TableAssignmentPanel({
   }, [tables]);
 
   const filteredTables = useMemo(() => {
-    const isAvailable = (tableId: string) => {
-      const table = tables.find((t) => t.id === tableId);
-      if (!table) return false;
-      return table.active && table.status === 'available' && !conflictedTableIds.has(tableId);
-    };
-
-    let list = [...tables];
+    let list = tables;
 
     if (zoneFilter !== 'all') {
       list = list.filter((table) => (table.section || 'Main') === zoneFilter);
     }
 
     if (availabilityOnly) {
-      list = list.filter((table) => isAvailable(table.id));
+      list = list.filter(
+        (table) =>
+          table.active && table.status === 'available' && !conflictedTableIds.has(table.id),
+      );
     }
 
     if (fitFilter === 'perfect') {
@@ -154,19 +186,21 @@ export function TableAssignmentPanel({
       list = list.filter((table) => fitById.get(table.id) === fitFilter);
     }
 
+    const result = [...list];
+
     if (sortBy === 'capacity') {
-      list.sort((a, b) => a.capacity - b.capacity);
+      result.sort((a, b) => a.capacity - b.capacity);
     } else if (sortBy === 'table') {
-      list.sort((a, b) => a.tableNumber.localeCompare(b.tableNumber));
+      result.sort((a, b) => a.tableNumber.localeCompare(b.tableNumber));
     } else {
-      list.sort((a, b) => {
+      result.sort((a, b) => {
         const diffA = Math.abs(a.capacity - partySize);
         const diffB = Math.abs(b.capacity - partySize);
         return diffA - diffB;
       });
     }
 
-    return list;
+    return result;
   }, [
     availabilityOnly,
     conflictedTableIds,
@@ -185,15 +219,19 @@ export function TableAssignmentPanel({
     [assignedTableIds, tables],
   );
 
-  const timelineBookingStart = bookingStartTime ?? context?.booking.start_time ?? null;
-  const timelineBookingEnd = bookingEndTime ?? null;
-  const timelineWindowStart = context?.window?.startAt ?? null;
-  const timelineWindowEnd = context?.window?.endAt ?? null;
-
   const handleApply = () => {
     if (validation.errors.length > 0 || selectedTables.length === 0) return;
     setConfirmApply(true);
   };
+
+  const handleToggleTable = useCallback(
+    (tableId: string) => {
+      setSelectedTables((prev) =>
+        prev.includes(tableId) ? prev.filter((id) => id !== tableId) : [...prev, tableId],
+      );
+    },
+    [setSelectedTables],
+  );
 
   const handleSmartAssign = async () => {
     if (assignedTableIds.size > 0) {
@@ -310,43 +348,47 @@ export function TableAssignmentPanel({
         </Alert>
       )}
 
-      <Card className="bg-gradient-to-r from-slate-50 to-slate-100/50">
-        <CardContent className="space-y-3 p-3">
+      <Card className="bg-slate-50/50 border-slate-200 shadow-sm">
+        <CardContent className="space-y-4 p-3 sm:p-4">
           {/* Capacity Summary Header */}
-          <div className="space-y-2">
+          <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <div
                   className={cn(
-                    'h-9 w-9 rounded-full flex items-center justify-center',
+                    'h-10 w-10 rounded-lg flex items-center justify-center shadow-sm',
                     selectedCapacity + assignedCapacity >= partySize
                       ? 'bg-emerald-100 text-emerald-600'
                       : 'bg-amber-100 text-amber-600',
                   )}
                 >
-                  <Users className="h-4 w-4" />
+                  <Users className="h-5 w-5" />
                 </div>
                 <div>
-                  <div className="text-base font-semibold text-slate-900">{partySize} covers</div>
-                  <div className="text-xs text-slate-500">
+                  <div className="text-base font-bold text-slate-900 leading-none mb-1">
+                    {partySize} Covers
+                  </div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                     {selectedCapacity + assignedCapacity >= partySize
-                      ? '✓ Capacity met'
-                      : `Need ${partySize - selectedCapacity - assignedCapacity} more seats`}
+                      ? 'Capacity Met'
+                      : `Need ${partySize - selectedCapacity - assignedCapacity} more`}
                   </div>
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-xl font-bold text-slate-900">
+                <div className="text-2xl font-bold text-slate-900 leading-none">
                   {selectedCapacity + assignedCapacity}
-                  <span className="text-base text-slate-400">/{partySize}</span>
+                  <span className="text-sm font-medium text-slate-400">/{partySize}</span>
                 </div>
-                <div className="text-xs text-slate-500">seats assigned</div>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1">
+                  Seated
+                </div>
               </div>
             </div>
             <Progress
               value={Math.min(((selectedCapacity + assignedCapacity) / partySize) * 100, 100)}
               className={cn(
-                'h-2',
+                'h-2.5 bg-slate-200',
                 selectedCapacity + assignedCapacity >= partySize
                   ? '[&>div]:bg-emerald-500'
                   : '[&>div]:bg-amber-500',
@@ -355,17 +397,17 @@ export function TableAssignmentPanel({
           </div>
 
           {/* Action Buttons */}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
+            <div className="flex flex-wrap items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleSmartAssign}
                 disabled={isPending || tables.length === 0}
-                className="gap-1.5"
+                className="gap-1.5 h-8 bg-white border-slate-200 text-xs font-semibold"
               >
-                <Sparkles className="h-3.5 w-3.5" />
-                Smart assign
+                <Sparkles className="h-3.5 w-3.5 text-indigo-500" />
+                Smart Assign
               </Button>
               {selectedTables.length > 0 && (
                 <Button
@@ -373,20 +415,21 @@ export function TableAssignmentPanel({
                   size="sm"
                   onClick={() => setSelectedTables([])}
                   disabled={isPending}
+                  className="h-8 text-xs hover:bg-slate-100"
                 >
-                  Clear selection
+                  Clear
                 </Button>
               )}
               {assignedTableIds.size > 0 && (
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
                   onClick={handleUnassign}
                   disabled={isPending}
-                  className="text-rose-600 hover:text-rose-700"
+                  className="h-8 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50"
                 >
                   <Trash2 className="h-3.5 w-3.5 mr-1" />
-                  Unassign all
+                  Reset
                 </Button>
               )}
             </div>
@@ -394,14 +437,14 @@ export function TableAssignmentPanel({
               size="sm"
               onClick={handleApply}
               disabled={isPending || selectedTables.length === 0 || validation.errors.length > 0}
-              className="bg-emerald-600 hover:bg-emerald-700"
+              className="bg-emerald-600 hover:bg-emerald-700 h-9 font-bold shadow-sm"
             >
               {isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : (
                 <CheckCircle2 className="h-4 w-4 mr-2" />
               )}
-              Apply tables
+              Confirm Assignment
             </Button>
           </div>
 
@@ -425,62 +468,105 @@ export function TableAssignmentPanel({
             </div>
           )}
 
-          <div className="grid gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
-                <Filter className="h-3.5 w-3.5" />
+          <div className="space-y-3 pt-2 border-t border-slate-200/50">
+            <div className="flex flex-wrap gap-2 items-center">
+              <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-2">
+                <Filter className="h-3 w-3" />
                 Filters
               </div>
               <Select value={zoneFilter} onValueChange={setZoneFilter}>
-                <SelectTrigger className="h-8 w-[140px]">
+                <SelectTrigger className="h-7 w-[130px] text-xs bg-white">
                   <SelectValue placeholder="Zone" />
                 </SelectTrigger>
                 <SelectContent>
                   {zoneOptions.map((zone) => (
-                    <SelectItem key={zone} value={zone}>
+                    <SelectItem key={zone} value={zone} className="text-xs">
                       {zone === 'all' ? 'All zones' : zone}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
-                <SelectTrigger className="h-8 w-[150px]">
+                <SelectTrigger className="h-7 w-[120px] text-xs bg-white">
                   <SelectValue placeholder="Sort" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="best">Best fit</SelectItem>
-                  <SelectItem value="capacity">Capacity</SelectItem>
-                  <SelectItem value="table">Table number</SelectItem>
+                  <SelectItem value="best" className="text-xs">
+                    Best fit
+                  </SelectItem>
+                  <SelectItem value="capacity" className="text-xs">
+                    Capacity
+                  </SelectItem>
+                  <SelectItem value="table" className="text-xs">
+                    Table number
+                  </SelectItem>
                 </SelectContent>
               </Select>
-              <ToggleGroup
-                type="single"
-                value={fitFilter}
-                onValueChange={(value) => setFitFilter((value as FitFilter) || 'all')}
-                className="flex flex-wrap"
-              >
-                <ToggleGroupItem value="all" aria-label="All fits">
-                  All
-                </ToggleGroupItem>
-                <ToggleGroupItem value="perfect" aria-label="Perfect fit">
-                  Perfect
-                </ToggleGroupItem>
-                <ToggleGroupItem value="exact" aria-label="Exact fit">
-                  Exact
-                </ToggleGroupItem>
-                <ToggleGroupItem value="within" aria-label="Comfort fit">
-                  Comfort
-                </ToggleGroupItem>
-                <ToggleGroupItem value="oversized" aria-label="Large tables">
-                  Large
-                </ToggleGroupItem>
-                <ToggleGroupItem value="too_small" aria-label="Too small">
-                  Small
-                </ToggleGroupItem>
-              </ToggleGroup>
-              <div className="flex items-center gap-2 text-xs">
-                <Switch checked={availabilityOnly} onCheckedChange={setAvailabilityOnly} />
-                <span className="text-muted-foreground">Available only</span>
+              <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-2 h-7">
+                <Switch
+                  id="avail-only"
+                  checked={availabilityOnly}
+                  onCheckedChange={setAvailabilityOnly}
+                  className="scale-75 origin-left"
+                />
+                <label
+                  htmlFor="avail-only"
+                  className="text-xs font-medium text-slate-600 cursor-pointer select-none"
+                >
+                  Available
+                </label>
+              </div>
+            </div>
+
+            <div className="flex overflow-x-auto pb-2 -mx-1 px-1 scrollbar-hide">
+              <div className="flex gap-1">
+                {[
+                  {
+                    value: 'all',
+                    label: 'All Fits',
+                    activeClass: 'bg-slate-800 hover:bg-slate-900',
+                  },
+                  {
+                    value: 'perfect',
+                    label: 'Perfect',
+                    activeClass: 'bg-emerald-600 hover:bg-emerald-700',
+                  },
+                  {
+                    value: 'exact',
+                    label: 'Exact',
+                    activeClass: 'bg-emerald-600 hover:bg-emerald-700',
+                  },
+                  {
+                    value: 'within',
+                    label: 'Comfort',
+                    activeClass: 'bg-blue-600 hover:bg-blue-700',
+                  },
+                  {
+                    value: 'oversized',
+                    label: 'Large',
+                    activeClass: 'bg-amber-600 hover:bg-amber-700',
+                  },
+                  {
+                    value: 'too_small',
+                    label: 'Small',
+                    activeClass: 'bg-rose-600 hover:bg-rose-700',
+                  },
+                ].map((opt) => (
+                  <Button
+                    key={opt.value}
+                    variant={fitFilter === opt.value ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setFitFilter(opt.value as FitFilter)}
+                    className={cn(
+                      'h-6 text-[10px] px-2 rounded-md border-slate-200',
+                      fitFilter === opt.value
+                        ? cn('text-white border-transparent', opt.activeClass)
+                        : 'text-slate-600 bg-white hover:bg-slate-50',
+                    )}
+                  >
+                    {opt.label}
+                  </Button>
+                ))}
               </div>
             </div>
           </div>
@@ -489,23 +575,24 @@ export function TableAssignmentPanel({
 
       {suggestedTables.length > 0 && (
         <div>
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-3 px-1">
             <div className="flex items-center gap-2">
-              <div className="h-6 w-6 rounded-full bg-amber-100 flex items-center justify-center">
-                <Sparkles className="h-3.5 w-3.5 text-amber-600" />
+              <div className="h-6 w-6 rounded-md bg-indigo-50 flex items-center justify-center">
+                <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
               </div>
-              <span className="text-sm font-semibold text-slate-900">Smart Suggestions</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                Suggested Tables
+              </span>
             </div>
             <Badge
               variant="secondary"
-              className="text-xs bg-amber-50 text-amber-700 border-amber-200"
+              className="text-[10px] bg-indigo-50 text-indigo-700 border-indigo-200 px-1.5 py-0"
             >
               AI Optimized
             </Badge>
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {suggestedTables.slice(0, 6).map((table, index) => {
-              // Determine recommendation badge
               const fit = getCapacityFit(partySize, table);
               const recommendationLabel =
                 index === 0
@@ -535,23 +622,22 @@ export function TableAssignmentPanel({
                     </div>
                   )}
                   <SelectableTableCard
+                    tableId={table.id}
                     table={table}
                     partySize={partySize}
-                    isSelected={selectedTables.includes(table.id)}
+                    isSelected={selectedTableIds.has(table.id)}
                     isAssigned={assignedTableIds.has(table.id)}
                     isConflicted={isTableConflicted}
-                    onToggle={() =>
-                      setSelectedTables((prev) =>
-                        prev.includes(table.id)
-                          ? prev.filter((id) => id !== table.id)
-                          : [...prev, table.id],
-                      )
-                    }
+                    onToggle={handleToggleTable}
                     disabled={isPending}
-                    bookingStartTime={timelineBookingStart}
-                    bookingEndTime={timelineBookingEnd}
-                    serviceWindowStart={timelineWindowStart}
-                    serviceWindowEnd={timelineWindowEnd}
+                    bookingStartTime={parsedTimes.bookingStart}
+                    bookingEndTime={parsedTimes.bookingEnd}
+                    serviceWindowStart={parsedTimes.windowStart}
+                    serviceWindowEnd={parsedTimes.windowEnd}
+                    parsedBookingStart={parsedTimes.parsedBookingStart}
+                    parsedBookingEnd={parsedTimes.parsedBookingEnd}
+                    parsedServiceStart={parsedTimes.parsedWindowStart}
+                    parsedServiceEnd={parsedTimes.parsedWindowEnd}
                   />
                 </div>
               );
@@ -578,7 +664,6 @@ export function TableAssignmentPanel({
           <ScrollArea className="h-[320px] pr-2">
             <div className="space-y-4">
               {Array.from(groupedTables.entries()).map(([section, sectionTables], zoneIndex) => {
-                // Generate zone color based on index
                 const zoneColors = [
                   'bg-blue-500',
                   'bg-purple-500',
@@ -589,7 +674,6 @@ export function TableAssignmentPanel({
                 ];
                 const zoneColor = zoneColors[zoneIndex % zoneColors.length];
 
-                // Check for conflicted tables in this zone
                 const conflictedInZone = sectionTables.filter((t) => conflictedTableIds.has(t.id));
 
                 return (
@@ -621,23 +705,22 @@ export function TableAssignmentPanel({
                         return (
                           <SelectableTableCard
                             key={table.id}
+                            tableId={table.id}
                             table={table}
                             partySize={partySize}
-                            isSelected={selectedTables.includes(table.id)}
+                            isSelected={selectedTableIds.has(table.id)}
                             isAssigned={assignedTableIds.has(table.id)}
                             isConflicted={isTableConflicted}
-                            onToggle={() =>
-                              setSelectedTables((prev) =>
-                                prev.includes(table.id)
-                                  ? prev.filter((id) => id !== table.id)
-                                  : [...prev, table.id],
-                              )
-                            }
+                            onToggle={handleToggleTable}
                             disabled={isPending}
-                            bookingStartTime={timelineBookingStart}
-                            bookingEndTime={timelineBookingEnd}
-                            serviceWindowStart={timelineWindowStart}
-                            serviceWindowEnd={timelineWindowEnd}
+                            bookingStartTime={parsedTimes.bookingStart}
+                            bookingEndTime={parsedTimes.bookingEnd}
+                            serviceWindowStart={parsedTimes.windowStart}
+                            serviceWindowEnd={parsedTimes.windowEnd}
+                            parsedBookingStart={parsedTimes.parsedBookingStart}
+                            parsedBookingEnd={parsedTimes.parsedBookingEnd}
+                            parsedServiceStart={parsedTimes.parsedWindowStart}
+                            parsedServiceEnd={parsedTimes.parsedWindowEnd}
                           />
                         );
                       })}

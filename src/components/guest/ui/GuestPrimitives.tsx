@@ -1,43 +1,71 @@
 'use client';
 
-import { AlertCircle, CheckCircle2, Info, Sparkles, Search, ChevronRight } from "lucide-react";
-import Link from "next/link";
-import React, { forwardRef, type CSSProperties, type ComponentPropsWithoutRef, type ReactNode } from "react";
+import { AlertCircle, CheckCircle2, Info, Sparkles, Search, ChevronRight } from 'lucide-react';
+import Link from 'next/link';
+import React, {
+  forwardRef,
+  type CSSProperties,
+  type ComponentPropsWithoutRef,
+  type ReactNode,
+} from 'react';
 
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 /* ============================================================================
    TYPOGRAPHY
    ============================================================================ */
 
-export function HeadingXL({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <h1 className={cn("heading-hero", className)}>{children}</h1>;
+export function HeadingXL({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return <h1 className={cn('heading-hero', className)}>{children}</h1>;
 }
 
-export function HeadingLG({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <h2 className={cn("heading-page", className)}>{children}</h2>;
+export function HeadingLG({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return <h2 className={cn('heading-page', className)}>{children}</h2>;
 }
 
-export function HeadingMD({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <h3 className={cn("heading-section", className)}>{children}</h3>;
+export function HeadingMD({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return <h3 className={cn('heading-section', className)}>{children}</h3>;
 }
 
-export function TextBody({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <p className={cn("text-body-warm", className)}>{children}</p>;
+export function TextBody({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return <p className={cn('text-body-warm', className)}>{children}</p>;
 }
-
 
 /* ============================================================================
    LAYOUT PRIMITIVES
    ============================================================================ */
 
-type PaddingSize = "sm" | "md" | "lg";
+type PaddingSize = 'sm' | 'md' | 'lg';
 
 const paddingMap: Record<PaddingSize, string> = {
-  sm: "p-4",
-  md: "p-6",
-  lg: "p-8",
+  sm: 'p-4',
+  md: 'p-6',
+  lg: 'p-8',
 };
 
 type SectionProps = {
@@ -57,14 +85,14 @@ export function GuestSection({
   actions,
   children,
   className,
-  padding = "lg",
+  padding = 'lg',
 }: SectionProps) {
   return (
     <section
       className={cn(
-        "relative flex flex-col gap-6 rounded-3xl",
-        "border border-slate-200 bg-white",
-        "shadow-[0_1px_2px_rgba(0,0,0,0.05)]", // shadow-sm
+        'relative flex flex-col gap-6 rounded-3xl',
+        'border border-slate-200 bg-white',
+        'shadow-[0_1px_2px_rgba(0,0,0,0.05)]', // shadow-sm
         paddingMap[padding],
         className,
       )}
@@ -78,13 +106,9 @@ export function GuestSection({
               </span>
             ) : null}
             {title ? (
-              <h2 className="text-2xl font-bold leading-tight text-slate-900">
-                {title}
-              </h2>
+              <h2 className="text-2xl font-bold leading-tight text-slate-900">{title}</h2>
             ) : null}
-            {description ? (
-              <p className="text-base text-slate-500">{description}</p>
-            ) : null}
+            {description ? <p className="text-base text-slate-500">{description}</p> : null}
           </div>
           {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
         </div>
@@ -106,8 +130,8 @@ export function GuestCard({ header, footer, className, style, children }: GuestC
   return (
     <div
       className={cn(
-        "rounded-3xl border border-slate-200 bg-white",
-        "shadow-[0_1px_2px_rgba(0,0,0,0.05)] transition-shadow duration-200 hover:shadow-[0_10px_15px_-3px_rgba(0,0,0,0.08)]",
+        'rounded-3xl border border-slate-200 bg-white',
+        'shadow-[0_1px_2px_rgba(0,0,0,0.05)] transition-shadow duration-200 hover:shadow-[0_10px_15px_-3px_rgba(0,0,0,0.08)]',
         className,
       )}
       style={style}
@@ -119,7 +143,6 @@ export function GuestCard({ header, footer, className, style, children }: GuestC
   );
 }
 
-
 /* ============================================================================
    WIDGETS (MetricTile, ActionCard, SearchBar)
    ============================================================================ */
@@ -129,25 +152,29 @@ export function MetricTile({
   value,
   detail,
   icon: IconComp,
-  variant = 'default'
+  variant = 'default',
 }: {
   label: string;
   value: string | number;
   detail?: string;
   icon?: React.ElementType;
-  variant?: 'default' | 'highlight'
+  variant?: 'default' | 'highlight';
 }) {
   return (
-    <div className={cn(
-      "relative flex flex-col gap-4 rounded-xl border p-6 transition-all duration-200",
-      "bg-white border-slate-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)]",
-      "hover:shadow-[0_10px_15px_-3px_rgba(0,0,0,0.08)] hover:-translate-y-0.5"
-    )}>
+    <div
+      className={cn(
+        'relative flex flex-col gap-4 rounded-xl border p-6 transition-all duration-200',
+        'bg-white border-slate-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)]',
+        'hover:shadow-[0_10px_15px_-3px_rgba(0,0,0,0.08)] hover:-translate-y-0.5',
+      )}
+    >
       <div className="flex justify-between items-start">
-        <div className={cn(
-          "p-2.5 rounded-full flex items-center justify-center",
-          variant === 'highlight' ? "bg-blue-50 text-blue-600" : "bg-slate-50 text-slate-700"
-        )}>
+        <div
+          className={cn(
+            'p-2.5 rounded-full flex items-center justify-center',
+            variant === 'highlight' ? 'bg-blue-50 text-blue-600' : 'bg-slate-50 text-slate-700',
+          )}
+        >
           {IconComp ? <IconComp className="w-5 h-5" /> : null}
         </div>
         {detail && (
@@ -157,7 +184,9 @@ export function MetricTile({
         )}
       </div>
       <div>
-        <div className="text-slate-500 text-sm font-medium mb-1 uppercase tracking-wider">{label}</div>
+        <div className="text-slate-500 text-sm font-medium mb-1 uppercase tracking-wider">
+          {label}
+        </div>
         <div className="text-slate-900 text-3xl font-bold tracking-tight">{value}</div>
       </div>
     </div>
@@ -169,7 +198,7 @@ export function ActionCard({
   label,
   description,
   href,
-  onClick
+  onClick,
 }: {
   icon: React.ElementType;
   label: string;
@@ -181,17 +210,14 @@ export function ActionCard({
   const props = href ? { href } : { onClick };
 
   return (
-
     // @ts-expect-error - Intentionally using specific styles for this variation
     <Wrapper
       {...props}
-      className={
-        cn(
-          "group relative flex flex-col gap-3 rounded-2xl border p-5 text-left transition-all duration-200",
-          "bg-white border-slate-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)]",
-          "hover:shadow-[0_10px_15px_-3px_rgba(0,0,0,0.08)] hover:-translate-y-1 ring-offset-2 focus-visible:ring-2 focus-visible:ring-blue-600"
-        )
-      }
+      className={cn(
+        'group relative flex flex-col gap-3 rounded-2xl border p-5 text-left transition-all duration-200',
+        'bg-white border-slate-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)]',
+        'hover:shadow-[0_10px_15px_-3px_rgba(0,0,0,0.08)] hover:-translate-y-1',
+      )}
     >
       <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-50 text-slate-900 transition-colors group-hover:bg-blue-600 group-hover:text-white">
         <IconComp className="h-6 w-6" />
@@ -201,17 +227,18 @@ export function ActionCard({
         <div className="text-sm text-slate-500">{description}</div>
       </div>
       <ChevronRight className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-300 opacity-0 transition-all group-hover:opacity-100 group-hover:translate-x-1" />
-    </Wrapper >
+    </Wrapper>
   );
 }
 
 export function SearchBar({ onSearch }: { onSearch?: () => void }) {
   return (
     <div className="flex flex-col md:flex-row items-center bg-white rounded-3xl md:rounded-full border border-slate-200 shadow-[0_6px_16px_rgba(0,0,0,0.08)] p-2 max-w-4xl w-full mx-auto relative z-20">
-
       {/* Location */}
       <div className="w-full md:flex-1 px-6 py-3 cursor-pointer relative group border-b md:border-b-0 border-slate-100 transition-colors hover:bg-slate-50/50 md:rounded-l-full">
-        <label className="block text-xs font-bold text-slate-900 mb-0.5 uppercase tracking-wide">Where</label>
+        <label className="block text-xs font-bold text-slate-900 mb-0.5 uppercase tracking-wide">
+          Where
+        </label>
         <input
           type="text"
           placeholder="Search destinations"
@@ -222,21 +249,27 @@ export function SearchBar({ onSearch }: { onSearch?: () => void }) {
 
       {/* Date */}
       <div className="w-full md:flex-1 px-6 py-3 cursor-pointer relative group border-b md:border-b-0 border-slate-100 transition-colors hover:bg-slate-50/50">
-        <label className="block text-xs font-bold text-slate-900 mb-0.5 uppercase tracking-wide">Date</label>
+        <label className="block text-xs font-bold text-slate-900 mb-0.5 uppercase tracking-wide">
+          Date
+        </label>
         <div className="text-sm text-slate-600">Add dates</div>
         <div className="hidden md:block absolute right-0 top-1/2 -translate-y-1/2 h-8 w-[1px] bg-slate-200 group-hover:hidden"></div>
       </div>
 
       {/* Time */}
       <div className="w-full md:flex-1 px-6 py-3 cursor-pointer relative group border-b md:border-b-0 border-slate-100 transition-colors hover:bg-slate-50/50">
-        <label className="block text-xs font-bold text-slate-900 mb-0.5 uppercase tracking-wide">Time</label>
+        <label className="block text-xs font-bold text-slate-900 mb-0.5 uppercase tracking-wide">
+          Time
+        </label>
         <div className="text-sm text-slate-600">Add time</div>
         <div className="hidden md:block absolute right-0 top-1/2 -translate-y-1/2 h-8 w-[1px] bg-slate-200 group-hover:hidden"></div>
       </div>
 
       {/* Guests */}
       <div className="w-full md:flex-1 px-6 py-3 cursor-pointer relative group transition-colors hover:bg-slate-50/50 md:rounded-r-full md:mr-2">
-        <label className="block text-xs font-bold text-slate-900 mb-0.5 uppercase tracking-wide">Who</label>
+        <label className="block text-xs font-bold text-slate-900 mb-0.5 uppercase tracking-wide">
+          Who
+        </label>
         <div className="text-sm text-slate-600">Add guests</div>
       </div>
 
@@ -254,7 +287,6 @@ export function SearchBar({ onSearch }: { onSearch?: () => void }) {
   );
 }
 
-
 /* ============================================================================
    STATUS / ERROR / EMPTY
    ============================================================================ */
@@ -262,22 +294,25 @@ export function SearchBar({ onSearch }: { onSearch?: () => void }) {
 type GuestStatusProps = {
   title: string;
   description?: string;
-  tone?: "info" | "success" | "warning" | "danger";
+  tone?: 'info' | 'success' | 'warning' | 'danger';
   icon?: React.ElementType;
   actions?: ReactNode;
   className?: string;
-  "aria-live"?: "polite" | "assertive";
-} & ComponentPropsWithoutRef<"div">;
+  'aria-live'?: 'polite' | 'assertive';
+} & ComponentPropsWithoutRef<'div'>;
 
-const toneMap: Record<NonNullable<GuestStatusProps["tone"]>, { bg: string; text: string; icon: React.ElementType }> = {
-  info: { bg: "bg-blue-50", text: "text-blue-700", icon: Info },
-  success: { bg: "bg-green-50", text: "text-green-700", icon: CheckCircle2 },
-  warning: { bg: "bg-amber-50", text: "text-amber-700", icon: AlertCircle },
-  danger: { bg: "bg-red-50", text: "text-red-700", icon: AlertCircle },
+const toneMap: Record<
+  NonNullable<GuestStatusProps['tone']>,
+  { bg: string; text: string; icon: React.ElementType }
+> = {
+  info: { bg: 'bg-blue-50', text: 'text-blue-700', icon: Info },
+  success: { bg: 'bg-green-50', text: 'text-green-700', icon: CheckCircle2 },
+  warning: { bg: 'bg-amber-50', text: 'text-amber-700', icon: AlertCircle },
+  danger: { bg: 'bg-red-50', text: 'text-red-700', icon: AlertCircle },
 };
 
 export const GuestStatus = forwardRef<HTMLDivElement, GuestStatusProps>(function GuestStatus(
-  { title, description, tone = "info", icon, actions, className, ...rest },
+  { title, description, tone = 'info', icon, actions, className, ...rest },
   ref,
 ) {
   const palette = toneMap[tone];
@@ -288,7 +323,7 @@ export const GuestStatus = forwardRef<HTMLDivElement, GuestStatusProps>(function
       role="status"
       tabIndex={-1}
       className={cn(
-        "flex items-start gap-4 rounded-2xl border border-slate-200 px-4 py-3",
+        'flex items-start gap-4 rounded-2xl border border-slate-200 px-4 py-3',
         palette.bg,
         palette.text,
         className,
@@ -316,12 +351,21 @@ type GuestEmptyProps = {
   className?: string;
 };
 
-export function GuestEmpty({ icon: Icon = Sparkles, title, description, actionLabel, actionHref, actionProps, secondaryAction, className }: GuestEmptyProps) {
+export function GuestEmpty({
+  icon: Icon = Sparkles,
+  title,
+  description,
+  actionLabel,
+  actionHref,
+  actionProps,
+  secondaryAction,
+  className,
+}: GuestEmptyProps) {
   return (
     <div
       className={cn(
-        "flex flex-col items-center rounded-3xl border border-slate-200",
-        "bg-slate-50/50 px-8 py-12 text-center",
+        'flex flex-col items-center rounded-3xl border border-slate-200',
+        'bg-slate-50/50 px-8 py-12 text-center',
         className,
       )}
     >
@@ -352,7 +396,13 @@ type GuestErrorProps = {
   redirectLabel?: string;
 };
 
-export function GuestError({ title = "Something went wrong", description = "Please try again in a moment.", onRetry, redirectHref, redirectLabel = "Go back" }: GuestErrorProps) {
+export function GuestError({
+  title = 'Something went wrong',
+  description = 'Please try again in a moment.',
+  onRetry,
+  redirectHref,
+  redirectLabel = 'Go back',
+}: GuestErrorProps) {
   return (
     <GuestCard
       header={

@@ -372,21 +372,6 @@
 }
 
 /* =============================================================================
-   FOCUS STATES - Enhanced visibility for accessibility
-   ============================================================================= */
-
-[data-theme='guest'] .focus-ring {
-  outline: none;
-  transition: box-shadow var(--duration-fast) var(--ease-out);
-}
-
-[data-theme='guest'] .focus-ring:focus-visible {
-  box-shadow:
-    0 0 0 2px var(--color-surface-elevated),
-    0 0 0 4px hsl(217 91% 60%);
-}
-
-/* =============================================================================
    MOBILE TOUCH ENHANCEMENTS - Better touch feedback
    ============================================================================= */
 

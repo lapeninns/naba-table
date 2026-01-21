@@ -467,13 +467,6 @@ export function GuestNavbar({ tone = 'light', isSticky = true }: GuestNavbarProp
 
   return (
     <div className={shellClasses}>
-      <a
-        href="#main-content"
-        className="skip-to-content absolute left-4 top-4 -translate-y-full rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow transition focus-visible:translate-y-0 focus-visible:outline-none"
-      >
-        Skip to content
-      </a>
-
       <div className="guest-boundary w-full py-3 md:py-4">
         <div className="flex items-center justify-between gap-3">
           <BrandMark tone={tone} />

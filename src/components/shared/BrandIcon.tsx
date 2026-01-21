@@ -30,6 +30,8 @@ export function BrandIcon({ size = 'md', className }: BrandIconProps) {
   return (
     <svg
       viewBox="0 0 512 512"
+      width="512"
+      height="512"
       fill="none"
       role="img"
       aria-hidden="true"

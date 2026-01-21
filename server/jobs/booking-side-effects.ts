@@ -241,9 +241,8 @@ function adjustToOptimalSendTime(
     // POST-EVENT (review requests): Push to next morning
     if (localHour >= OPTIMAL_SEND_HOURS.eveningEnd) {
       // After 8 PM - push to 10 AM next day
-      adjustedDate.setDate(adjustedDate.getDate() + 1);
-      const hoursToAdd = OPTIMAL_SEND_HOURS.nextDayStart - localHour;
-      adjustedDate.setHours(adjustedDate.getHours() + (24 + hoursToAdd));
+      const hoursToAdd = 24 - localHour + OPTIMAL_SEND_HOURS.nextDayStart;
+      adjustedDate.setHours(adjustedDate.getHours() + hoursToAdd);
     } else if (localHour < OPTIMAL_SEND_HOURS.morningStart) {
       // Before 9 AM - push to 10 AM same day
       const hoursToAdd = OPTIMAL_SEND_HOURS.nextDayStart - localHour;

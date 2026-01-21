@@ -395,7 +395,7 @@ function BookingsListContent({
                 <OpsBookingCard
                   booking={bookingDTO}
                   timezone={summary.timezone}
-                  now={now}
+                  now={now.toJSDate()}
                   onCheckIn={onCheckIn}
                   onCheckOut={onCheckOut}
                   onMarkNoShow={onMarkNoShow}

@@ -1,11 +1,24 @@
 'use client';
 
+import { Inter, JetBrains_Mono } from 'next/font/google';
 import Link from 'next/link';
 import React, { useEffect, useRef, useState, type CSSProperties } from 'react';
 
 import { BrandLogo } from '@/components/shared/BrandLogo';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-inter',
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-mono',
+});
 
 const LOCAL_VENUES = [
   'The Barley Mow Pub — Hartford',
@@ -317,9 +330,6 @@ function GlobalStyles() {
     <style
       dangerouslySetInnerHTML={{
         __html: `
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-      @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
-
       :root {
         --background: #F8FAFC;
         --foreground: #0F172A;
@@ -336,13 +346,13 @@ function GlobalStyles() {
       body {
         background-color: var(--background);
         color: var(--foreground);
-        font-family: 'Inter', sans-serif;
+        font-family: var(--font-inter), sans-serif;
         line-height: 1.5;
         overflow-x: hidden;
       }
 
       h1, h2, h3, h4 { font-weight: 700; letter-spacing: -0.025em; color: var(--slate-900); }
-      .font-mono { font-family: 'JetBrains Mono', monospace; }
+      .font-mono { font-family: var(--font-mono), monospace; }
 
       .reveal-up {
         opacity: 0;
@@ -1027,6 +1037,8 @@ function FactoryHomeClient({ isAuthenticated }: { isAuthenticated: boolean }) {
       className={cx(
         'min-h-screen relative selection:bg-blue-100 selection:text-blue-900 font-sans',
         prefersReducedMotion ? 'reduce-motion' : '',
+        inter.variable,
+        jetbrainsMono.variable,
       )}
     >
       <GlobalStyles />

@@ -613,6 +613,8 @@ function ReservationIllustration() {
       role="img"
       aria-label="Illustration of reservation flow"
       className="h-full w-full"
+      width="280"
+      height="140"
       viewBox="0 0 280 140"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
