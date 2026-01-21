@@ -15,7 +15,12 @@ import {
 } from 'lucide-react';
 import { DateTime } from 'luxon';
 
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -70,9 +75,10 @@ export function GuestProfilePanel({
       : null;
 
   const sourceLabel = booking.source ? booking.source : 'Direct';
-  const occasionLabel = booking.details && typeof booking.details['occasion'] === 'string'
-    ? String(booking.details['occasion'])
-    : 'Standard';
+  const occasionLabel =
+    booking.details && typeof booking.details['occasion'] === 'string'
+      ? String(booking.details['occasion'])
+      : 'Standard';
   const depositValue =
     booking.details?.['deposit'] ??
     booking.details?.['depositAmount'] ??
@@ -101,14 +107,18 @@ export function GuestProfilePanel({
       status: 'checked_in',
       label: 'Checked In',
       done: ['checked_in', 'completed'].includes(status),
-      time: booking.checkedInAt ? DateTime.fromISO(booking.checkedInAt, { zone: timezone }).toFormat('HH:mm') : null,
+      time: booking.checkedInAt
+        ? DateTime.fromISO(booking.checkedInAt, { zone: timezone }).toFormat('HH:mm')
+        : null,
       icon: LogIn,
     },
     {
       status: 'completed',
       label: 'Completed',
       done: status === 'completed',
-      time: booking.checkedOutAt ? DateTime.fromISO(booking.checkedOutAt, { zone: timezone }).toFormat('HH:mm') : null,
+      time: booking.checkedOutAt
+        ? DateTime.fromISO(booking.checkedOutAt, { zone: timezone }).toFormat('HH:mm')
+        : null,
       icon: LogOut,
     },
   ];
@@ -136,10 +146,16 @@ export function GuestProfilePanel({
     tags.push({ label: 'VIP', className: 'bg-amber-50 text-amber-700 border-amber-200' });
   }
   (booking.allergies ?? []).forEach((allergy) => {
-    tags.push({ label: `Allergy: ${allergy}`, className: 'bg-rose-50 text-rose-700 border-rose-200' });
+    tags.push({
+      label: `Allergy: ${allergy}`,
+      className: 'bg-rose-50 text-rose-700 border-rose-200',
+    });
   });
   (booking.dietaryRestrictions ?? []).forEach((restriction) => {
-    tags.push({ label: `Diet: ${restriction}`, className: 'bg-indigo-50 text-indigo-700 border-indigo-200' });
+    tags.push({
+      label: `Diet: ${restriction}`,
+      className: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    });
   });
 
   const whatsappDigits = booking.customerPhone ? booking.customerPhone.replace(/[^0-9]/g, '') : '';
@@ -163,19 +179,21 @@ export function GuestProfilePanel({
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-base font-semibold text-slate-900 tracking-tight">{booking.customerName}</h3>
+                <h3 className="text-base font-semibold text-slate-900 tracking-tight">
+                  {booking.customerName}
+                </h3>
                 {booking.loyaltyTier && (
                   <Badge
                     className={cn(
                       'text-[10px] font-semibold tracking-wide uppercase shadow-sm',
                       booking.loyaltyTier === 'platinum' &&
-                      'bg-gradient-to-r from-purple-500 to-violet-600 border-purple-400',
+                        'bg-gradient-to-r from-purple-500 to-violet-600 border-purple-400',
                       booking.loyaltyTier === 'gold' &&
-                      'bg-gradient-to-r from-amber-500 to-orange-500 border-amber-400',
+                        'bg-gradient-to-r from-amber-500 to-orange-500 border-amber-400',
                       booking.loyaltyTier === 'silver' &&
-                      'bg-gradient-to-r from-slate-400 to-slate-500 border-slate-300',
+                        'bg-gradient-to-r from-slate-400 to-slate-500 border-slate-300',
                       booking.loyaltyTier === 'bronze' &&
-                      'bg-gradient-to-r from-orange-400 to-amber-600 border-orange-400',
+                        'bg-gradient-to-r from-orange-400 to-amber-600 border-orange-400',
                     )}
                   >
                     {booking.loyaltyTier}
@@ -195,7 +213,11 @@ export function GuestProfilePanel({
               {tags.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">
                   {tags.map((tag) => (
-                    <Badge key={tag.label} variant="outline" className={cn('text-[10px]', tag.className)}>
+                    <Badge
+                      key={tag.label}
+                      variant="outline"
+                      className={cn('text-[10px]', tag.className)}
+                    >
                       {tag.label}
                     </Badge>
                   ))}
@@ -208,7 +230,9 @@ export function GuestProfilePanel({
 
       <Card className="border-slate-200/60 bg-white">
         <CardContent className="p-3 space-y-2">
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Contact</div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Contact
+          </div>
           {booking.customerPhone ? (
             <ContactInfoRow
               icon={Phone}
@@ -218,12 +242,12 @@ export function GuestProfilePanel({
               actions={
                 whatsappHref
                   ? [
-                    {
-                      label: 'WhatsApp',
-                      href: whatsappHref,
-                      icon: MessageCircle,
-                    },
-                  ]
+                      {
+                        label: 'WhatsApp',
+                        href: whatsappHref,
+                        icon: MessageCircle,
+                      },
+                    ]
                   : undefined
               }
             />
@@ -245,60 +269,74 @@ export function GuestProfilePanel({
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-2 gap-2.5">
+      <div className="grid grid-cols-2 gap-3">
         <Card className="group hover:shadow-md transition-all duration-200 border-slate-200/60 bg-gradient-to-br from-white to-indigo-50/30">
           <CardContent className="p-3">
             <div className="flex flex-col gap-2">
-              <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-md shadow-indigo-200/50 group-hover:scale-110 transition-transform">
-                <Users className="h-4.5 w-4.5 text-white" />
+              <div className="h-8 w-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
+                <Users className="h-4 w-4" />
               </div>
               <div>
-                <div className="text-2xl font-bold text-slate-900 tracking-tight">{booking.partySize}</div>
-                <div className="text-[10px] uppercase tracking-wider font-semibold text-slate-500">Covers</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="group hover:shadow-md transition-all duration-200 border-amber-200/60 bg-gradient-to-br from-white to-amber-50/30">
-          <CardContent className="p-3">
-            <div className="flex flex-col gap-2">
-              <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-md shadow-amber-200/50 group-hover:scale-110 transition-transform">
-                <Clock className="h-4.5 w-4.5 text-white" />
-              </div>
-              <div>
-                <div className="text-sm font-bold text-slate-900 leading-tight">{formattedStartTime}</div>
-                <div className="text-[10px] uppercase tracking-wider font-semibold text-slate-500">
-                  {durationMinutes ? `${durationMinutes} min` : 'Duration TBC'}
+                <div className="text-xl font-bold text-slate-900 tracking-tight">
+                  {booking.partySize}
+                </div>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Covers
                 </div>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="group hover:shadow-md transition-all duration-200 border-slate-200/60 bg-gradient-to-br from-white to-slate-50/50">
-          <CardContent className="p-2.5">
-            <div className="flex items-center gap-2">
-              <div className="h-7 w-7 rounded-md bg-gradient-to-br from-slate-400 to-slate-500 flex items-center justify-center shadow-sm">
-                <Star className="h-3.5 w-3.5 text-white" />
+        <Card className="group hover:shadow-md transition-all duration-200 border-slate-200/60 bg-gradient-to-br from-white to-amber-50/30">
+          <CardContent className="p-3">
+            <div className="flex flex-col gap-2">
+              <div className="h-8 w-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
+                <Clock className="h-4 w-4" />
               </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-xs font-bold text-slate-900 truncate">{sourceLabel}</div>
-                <div className="text-[9px] uppercase tracking-wider font-semibold text-slate-400">Source</div>
+              <div>
+                <div className="text-sm font-bold text-slate-900 leading-tight">
+                  {formattedStartTime}
+                </div>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  {durationMinutes ? `${durationMinutes}m` : 'TBC'}
+                </div>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="group hover:shadow-md transition-all duration-200 border-slate-200/60 bg-gradient-to-br from-white to-slate-50/50">
-          <CardContent className="p-2.5">
-            <div className="flex items-center gap-2">
-              <div className="h-7 w-7 rounded-md bg-gradient-to-br from-rose-400 to-pink-500 flex items-center justify-center shadow-sm">
-                <Calendar className="h-3.5 w-3.5 text-white" />
+        <Card className="group hover:shadow-md transition-all duration-200 border-slate-200/60 bg-white">
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2.5">
+              <div className="h-7 w-7 rounded-md bg-slate-100 text-slate-500 flex items-center justify-center shrink-0">
+                <Star className="h-3.5 w-3.5" />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="text-xs font-bold text-slate-900 truncate">{occasionLabel}</div>
-                <div className="text-[9px] uppercase tracking-wider font-semibold text-slate-400">Occasion</div>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 leading-none mb-0.5">
+                  Source
+                </div>
+                <div className="text-xs font-semibold text-slate-900 break-words" title={sourceLabel}>
+                  {sourceLabel}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="group hover:shadow-md transition-all duration-200 border-slate-200/60 bg-white">
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2.5">
+              <div className="h-7 w-7 rounded-md bg-slate-100 text-slate-500 flex items-center justify-center shrink-0">
+                <Calendar className="h-3.5 w-3.5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 leading-none mb-0.5">
+                  Occasion
+                </div>
+                <div className="text-xs font-semibold text-slate-900 break-words" title={occasionLabel}>
+                  {occasionLabel}
+                </div>
               </div>
             </div>
           </CardContent>
@@ -317,7 +355,12 @@ export function GuestProfilePanel({
           )}
         >
           <CardContent className="p-3">
-            <ArrivalCountdown status={status} startTime={booking.startTime} date={bookingDate} timezone={timezone} />
+            <ArrivalCountdown
+              status={status}
+              startTime={booking.startTime}
+              date={bookingDate}
+              timezone={timezone}
+            />
           </CardContent>
         </Card>
       )}
@@ -326,7 +369,9 @@ export function GuestProfilePanel({
         <Card className="border-slate-200/60 shadow-sm">
           <CardContent className="p-3 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Assigned Tables</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Assigned Tables
+              </span>
               <div className="flex gap-1">
                 {assignedTableRows.map((member) => (
                   <Badge key={member.id} variant="secondary" className="text-xs font-semibold">
@@ -352,7 +397,10 @@ export function GuestProfilePanel({
               </span>
             </div>
             {hasSeatingPreference && (
-              <Badge variant="outline" className="mt-1 text-xs border-indigo-200 bg-indigo-50 text-indigo-700">
+              <Badge
+                variant="outline"
+                className="mt-1 text-xs border-indigo-200 bg-indigo-50 text-indigo-700"
+              >
                 {booking.seatingPreference}
               </Badge>
             )}
@@ -361,13 +409,17 @@ export function GuestProfilePanel({
       ) : (
         <Alert className="border-amber-200 bg-amber-50">
           <AlertTitle className="text-amber-900">No table assigned</AlertTitle>
-          <AlertDescription className="text-amber-700">Assign a table to complete the seating plan.</AlertDescription>
+          <AlertDescription className="text-amber-700">
+            Assign a table to complete the seating plan.
+          </AlertDescription>
         </Alert>
       )}
 
       <Card className="border-slate-200/60 shadow-sm">
         <CardContent className="p-3">
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Journey Timeline</div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">
+            Journey Timeline
+          </div>
           <div className="space-y-3">
             {statusTimeline.map((step, index) => {
               const StepIcon = step.icon;
@@ -388,7 +440,9 @@ export function GuestProfilePanel({
                       <div
                         className={cn(
                           'w-0.5 h-6 transition-all duration-300',
-                          step.done ? 'bg-gradient-to-b from-emerald-400 to-emerald-200' : 'bg-slate-200',
+                          step.done
+                            ? 'bg-gradient-to-b from-emerald-400 to-emerald-200'
+                            : 'bg-slate-200',
                         )}
                       />
                     )}
@@ -402,7 +456,9 @@ export function GuestProfilePanel({
                     >
                       {step.label}
                     </div>
-                    {step.time && <div className="text-xs text-emerald-600 font-medium">{step.time}</div>}
+                    {step.time && (
+                      <div className="text-xs text-emerald-600 font-medium">{step.time}</div>
+                    )}
                   </div>
                 </div>
               );
@@ -458,7 +514,9 @@ export function GuestProfilePanel({
                   <CreditCard className="h-4 w-4 text-white" />
                 </div>
                 <div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-emerald-600">Deposit</div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-emerald-600">
+                    Deposit
+                  </div>
                   <div className="text-lg font-bold text-emerald-900">{depositLabel}</div>
                 </div>
               </div>

@@ -18,7 +18,7 @@ const MOBILE_MENU_ID = 'auth-navbar-menu';
 
 function ctaClasses(variant: 'primary' | 'ghost' = 'primary') {
   const base =
-    'inline-flex items-center justify-center rounded-full px-5 py-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2';
+    'inline-flex items-center justify-center rounded-full px-5 py-2 text-sm font-semibold transition';
   if (variant === 'ghost') {
     return cn(base, 'border border-border/70 bg-transparent text-foreground hover:bg-foreground/5');
   }
@@ -60,7 +60,7 @@ export function AuthNavbar() {
 
   const desktopNavLinkClass = (href: string) =>
     cn(
-      'rounded-full px-3 py-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+      'rounded-full px-3 py-2 text-sm font-semibold transition',
       isActive(href)
         ? 'bg-foreground text-background shadow-sm'
         : 'text-foreground/70 hover:text-foreground',
@@ -68,13 +68,6 @@ export function AuthNavbar() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <a
-        href="#main-content"
-        className="skip-to-content absolute left-4 top-4 -translate-y-full rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow transition focus-visible:translate-y-0 focus-visible:outline-none"
-      >
-        Skip to content
-      </a>
-
       <div className="guest-boundary flex w-full max-w-4xl items-center justify-between gap-4 py-4 sm:py-5">
         <BrandLogo href="/auth" size="sm" />
 
@@ -108,7 +101,7 @@ export function AuthNavbar() {
         <div className="flex items-center gap-2 sm:hidden">
           <button
             type="button"
-            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-sm transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-sm transition hover:text-primary"
             aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={mobileOpen}
             aria-controls={MOBILE_MENU_ID}

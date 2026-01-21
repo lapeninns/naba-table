@@ -1,33 +1,45 @@
+'use client';
+
 import {
   AlertTriangle,
   Armchair,
+  Calendar,
   Check,
+  ChevronDown,
   Clock,
   FileText,
   LogIn,
   LogOut,
+  Mail,
+  MoreHorizontal,
+  Phone,
   Sparkles,
   Users,
-  Utensils,
-  X,
 } from 'lucide-react';
-import { DateTime } from 'luxon';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { StatusBadge } from '@/components/features/dashboard/StatusBadge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-
-import { deriveBookingDisplayState } from './BookingRow';
 
 import type { BookingDTO } from '@/hooks/useBookings';
 
 export type OpsBookingCardProps = {
   booking: BookingDTO;
   timezone: string;
-  now?: DateTime; // Defaults to DateTime.now().setZone(timezone)
+  now?: Date;
   onEdit?: (booking: BookingDTO) => void;
   onCancel?: (booking: BookingDTO) => void;
   onDetails?: (booking: BookingDTO) => void;
@@ -56,47 +68,30 @@ function getTableLabel(assignments: BookingDTO['tableAssignments']) {
   return labels.join(', ');
 }
 
-function StatusPill({ status }: { status: string }) {
-  const dotClasses: Record<string, string> = {
-    pending: 'bg-amber-500',
-    pending_allocation: 'bg-amber-500',
-    confirmed: 'bg-blue-500',
-    PRIORITY_WAITLIST: 'bg-blue-500',
-    checked_in: 'bg-emerald-500',
-    completed: 'bg-muted-foreground/40',
-    no_show: 'bg-rose-500',
-    cancelled: 'bg-muted-foreground/40',
-  };
-
-  const labels: Record<string, string> = {
-    confirmed: 'Expected',
-    PRIORITY_WAITLIST: 'Expected',
-    pending: 'Pending',
-    pending_allocation: 'Pending',
-    checked_in: 'Seated',
-    completed: 'Left',
-    no_show: 'No show',
-    cancelled: 'Cancelled',
-  };
-
-  const label = labels[status] || status.replaceAll('_', ' ');
-  const dotClass = dotClasses[status] || dotClasses.confirmed;
-  const muted = status === 'completed' || status === 'cancelled';
-
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium',
-        muted
-          ? 'border-border/50 bg-muted/30 text-muted-foreground'
-          : 'border-border/60 bg-background/60 text-foreground',
-      )}
-    >
-      <span className={cn('h-1.5 w-1.5 rounded-full', dotClass)} aria-hidden />
+const InfoTile = ({
+  label,
+  children,
+  icon: Icon,
+  className,
+}: {
+  label: string;
+  children: React.ReactNode;
+  icon?: React.ElementType;
+  className?: string;
+}) => (
+  <div
+    className={cn(
+      'flex flex-col gap-1 rounded-lg border border-slate-100 bg-slate-50/50 p-2.5',
+      className,
+    )}
+  >
+    <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+      {Icon && <Icon className="h-3 w-3" />}
       {label}
-    </span>
-  );
-}
+    </div>
+    <div className="text-[13px] leading-snug">{children}</div>
+  </div>
+);
 
 export function OpsBookingCard({
   booking,
@@ -111,381 +106,382 @@ export function OpsBookingCard({
   pendingAction,
   highlightUrgency = true,
 }: OpsBookingCardProps) {
-  const now = useMemo(() => propNow ?? DateTime.now().setZone(timezone), [propNow, timezone]);
-  const startIso = DateTime.fromISO(booking.startIso).setZone(timezone);
-  const endIso = booking.endIso ? DateTime.fromISO(booking.endIso).setZone(timezone) : null;
-  const startTimeStr = startIso.isValid ? startIso.toFormat('h:mm a') : '--:--';
-  const endTimeStr = endIso?.isValid ? endIso.toFormat('h:mm a') : null;
-  const startDateStr = startIso.isValid ? startIso.toFormat('EEE, MMM d') : '';
-  const timeRangeLabel = endTimeStr ? `${startTimeStr}–${endTimeStr}` : startTimeStr;
+  const [isOpen, setIsOpen] = useState(false);
+  const hasAutoExpanded = useRef(false);
+  const hasUserToggled = useRef(false);
+  const now = useMemo(() => (propNow ? new Date(propNow) : new Date()), [propNow]);
 
-  const { displayStatus } = deriveBookingDisplayState(booking, { isPastView: false, timezone });
-  const isToday = useMemo(() => {
-    if (!startIso.isValid) return false;
-    return startIso.toISODate() === now.toISODate();
-  }, [startIso, now]);
+  const meta = useMemo(() => {
+    const startDate = new Date(booking.startIso);
+    const endDate = booking.endIso ? new Date(booking.endIso) : null;
 
-  const isActuallyPastDay = useMemo(() => {
-    if (!startIso.isValid) return false;
-    return startIso.startOf('day') < now.startOf('day');
-  }, [startIso, now]);
+    const timeFormatter = new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: timezone,
+    });
+    const dateFormatter = new Intl.DateTimeFormat('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      timeZone: timezone,
+    });
 
-  const isActuallyFutureDay = useMemo(() => {
-    if (!startIso.isValid) return false;
-    return startIso.startOf('day') > now.startOf('day');
-  }, [startIso, now]);
+    const startTimeStr = timeFormatter.format(startDate);
+    const endTimeStr = endDate ? timeFormatter.format(endDate) : null;
 
-  const isDone =
-    booking.status === 'completed' ||
-    booking.status === 'cancelled' ||
-    booking.status === 'no_show';
-  const isSeated = booking.status === 'checked_in';
-  const isUpcoming =
-    !isDone &&
-    (displayStatus === 'confirmed' ||
-      displayStatus === 'PRIORITY_WAITLIST' ||
-      booking.status === 'pending' ||
-      booking.status === 'pending_allocation');
+    const getZonedDay = (d: Date) =>
+      new Intl.DateTimeFormat('en-US', {
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+        timeZone: timezone,
+      }).format(d);
 
-  const isLoading = Boolean(pendingAction);
-  const customerLabel = booking.customerName?.trim() || 'Guest name unavailable';
-  const emailLabel = booking.customerEmail?.trim() || null;
-  const phoneLabel = booking.customerPhone?.trim() || null;
-  const referenceLabel = booking.reference?.trim() || booking.id.slice(0, 8);
-  const tableLabel = getTableLabel(booking.tableAssignments);
+    const isToday = getZonedDay(startDate) === getZonedDay(now);
 
-  const timeUrgency = useMemo(() => {
-    if (!highlightUrgency || !isUpcoming || !startIso.isValid) return null;
-    const bookingDate = startIso.toISODate();
-    const todayDate = now.toISODate();
-    if (bookingDate !== todayDate) return null;
+    const zonedStartOfDay = (d: Date) => {
+      const parts = new Intl.DateTimeFormat('en-US', {
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+        timeZone: timezone,
+      }).formatToParts(d);
+      const year = parseInt(parts.find((p) => p.type === 'year')?.value || '0');
+      const month = parseInt(parts.find((p) => p.type === 'month')?.value || '0') - 1;
+      const day = parseInt(parts.find((p) => p.type === 'day')?.value || '0');
+      return new Date(year, month, day).getTime();
+    };
 
-    const diffMinutes = startIso.diff(now, 'minutes').minutes;
+    const isPastDay = zonedStartOfDay(startDate) < zonedStartOfDay(now);
 
-    if (diffMinutes <= -15) {
-      return { type: 'late' as const, label: `${Math.abs(Math.round(diffMinutes))} min late` };
-    }
-    if (diffMinutes <= 0 && diffMinutes > -15) {
-      return { type: 'overdue' as const, label: 'Past time' };
-    }
-    if (diffMinutes <= 10 && diffMinutes > 0) {
-      return { type: 'soon' as const, label: `${Math.round(diffMinutes)} min` };
-    }
-    if (diffMinutes <= 30 && diffMinutes > 0) {
-      return { type: 'approaching' as const, label: `${Math.round(diffMinutes)} min` };
-    }
+    const isDone = ['completed', 'cancelled', 'no_show'].includes(booking.status);
+    const isSeated = booking.status === 'checked_in';
+
+    return {
+      startDate,
+      isToday,
+      isPastDay,
+      isDone,
+      isSeated,
+      dateLabel: dateFormatter.format(startDate),
+      timeRangeLabel: endTimeStr ? `${startTimeStr} – ${endTimeStr}` : startTimeStr,
+      customerLabel: booking.customerName?.trim() || 'Walk-in Guest',
+      initials: (booking.customerName || 'Guest')
+        .split(' ')
+        .filter(Boolean)
+        .map((n) => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2),
+    };
+  }, [booking, now, timezone]);
+
+  const urgency = useMemo(() => {
+    if (!highlightUrgency || meta.isDone || !meta.isToday) return null;
+    const diffMinutes = Math.floor((meta.startDate.getTime() - now.getTime()) / 60000);
+
+    if (diffMinutes <= -15)
+      return { variant: 'destructive', label: `${Math.abs(diffMinutes)}m late` };
+    if (diffMinutes <= 0) return { variant: 'warning', label: 'Overdue' };
+    if (diffMinutes <= 20) return { variant: 'warning', label: `In ${diffMinutes}m` };
     return null;
-  }, [highlightUrgency, isUpcoming, startIso, now]);
+  }, [highlightUrgency, meta, now]);
 
-  const guestInitials = (booking.customerName || 'Guest')
-    .split(' ')
-    .filter(Boolean)
-    .map((part) => part[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
+  const shouldAutoExpand = urgency?.variant === 'destructive' || urgency?.label === 'Overdue';
 
-  const handleMainAction = async () => {
-    if (!isSeated && onCheckIn) {
-      await onCheckIn(booking.id);
-    } else if (isSeated && onCheckOut) {
-      await onCheckOut(booking.id);
+  useEffect(() => {
+    hasAutoExpanded.current = false;
+    hasUserToggled.current = false;
+  }, [booking.id]);
+
+  useEffect(() => {
+    if (
+      !shouldAutoExpand ||
+      isOpen ||
+      hasAutoExpanded.current ||
+      hasUserToggled.current ||
+      typeof window === 'undefined'
+    ) {
+      return;
     }
+    if (window.matchMedia('(max-width: 639px)').matches) {
+      setIsOpen(true);
+      hasAutoExpanded.current = true;
+    }
+  }, [shouldAutoExpand, isOpen]);
+
+  const handleOpenChange = (open: boolean) => {
+    hasUserToggled.current = true;
+    setIsOpen(open);
   };
 
-  const cardBgClass = useMemo(() => {
-    if (isDone) return 'border-border/60 bg-muted/40';
-    if (timeUrgency?.type === 'late') return 'border-destructive/40 bg-destructive/5';
-    if (timeUrgency?.type === 'overdue') return 'border-amber-500/40 bg-amber-500/5';
-    if (timeUrgency?.type === 'soon') return 'border-amber-500/20 bg-amber-500/5';
-    return 'border-border/60 bg-card/60 hover:bg-card hover:shadow-md';
-  }, [isDone, timeUrgency]);
+  const isLoading = Boolean(pendingAction);
+  const tableLabel = getTableLabel(booking.tableAssignments);
+
+  const railClass = useMemo(() => {
+    if (meta.isDone) return 'border-l-slate-300';
+    if (meta.isSeated) return 'border-l-emerald-500';
+    if (urgency?.variant === 'destructive') return 'border-l-rose-500';
+    if (urgency?.variant === 'warning') return 'border-l-amber-500';
+    return 'border-l-blue-600';
+  }, [meta, urgency]);
 
   return (
     <Card
       className={cn(
-        'group relative grid gap-3 rounded-xl p-3 transition-all',
-        'md:grid-cols-[1fr_220px] md:items-start',
-        cardBgClass,
+        'group relative overflow-hidden transition-all duration-200 border-l-4',
+        railClass,
+        meta.isDone ? 'opacity-75' : 'hover:shadow-md',
         isLoading && 'pointer-events-none opacity-60',
       )}
-      data-booking-id={booking.id}
-      aria-busy={isLoading}
+      role="article"
+      aria-labelledby={`guest-name-${booking.id}`}
     >
-      {isLoading ? (
-        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-background/50 backdrop-blur-[1px]">
-          <div className="flex items-center gap-2 rounded-full border bg-background px-3 py-1.5 shadow-lg">
-            <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            <span className="text-xs font-medium text-foreground">Processing…</span>
+      <Collapsible open={isOpen} onOpenChange={handleOpenChange} className="w-full">
+        {isLoading && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/40 backdrop-blur-[1px]">
+            <div className="flex items-center gap-2 rounded-full border bg-white px-4 py-2 shadow-lg">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+              <span className="text-xs font-bold uppercase tracking-tighter text-slate-600">
+                Updating
+              </span>
+            </div>
           </div>
-        </div>
-      ) : null}
+        )}
 
-      <div className="min-w-0">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <Avatar className={cn(isDone ? 'bg-muted' : 'bg-primary/10')}>
+        <div className="p-3 pb-2 sm:p-4 sm:pb-4">
+          <div className="mb-2 sm:mb-4 flex items-start justify-between gap-4">
+            <div className="flex min-w-0 gap-3">
+              <Avatar>
                 <AvatarFallback
                   className={cn(
-                    'text-xs font-bold',
-                    isDone ? 'text-muted-foreground' : 'text-primary',
+                    'font-bold text-sm',
+                    meta.isDone ? 'bg-slate-100' : 'bg-blue-50 text-blue-600',
                   )}
                 >
-                  {guestInitials || '—'}
+                  {meta.initials}
                 </AvatarFallback>
               </Avatar>
-
               <div className="min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <p
                     className={cn(
-                      'truncate text-[15px] font-semibold leading-tight',
-                      isDone
+                      'text-[15px] font-semibold leading-tight break-words',
+                      meta.isDone
                         ? 'text-muted-foreground line-through decoration-border/60'
                         : 'text-foreground',
                     )}
-                    title={customerLabel}
+                    title={meta.customerLabel}
                   >
-                    {customerLabel}
+                    {meta.customerLabel}
                   </p>
                   {booking.loyaltyTier ? (
-                    <Sparkles className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                    <Sparkles className="h-3.5 w-3.5 text-muted-foreground shrink-0" aria-hidden />
                   ) : null}
                 </div>
-
-                <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                  <span className="font-medium text-foreground/80">{startDateStr}</span>
-                  <span className="text-muted-foreground/40">•</span>
-                  <span className="font-mono">{timeRangeLabel}</span>
-                  <span className="text-muted-foreground/40">•</span>
-                  <span className="inline-flex items-center gap-1">
-                    <Users className="h-3.5 w-3.5" aria-hidden />
-                    {booking.partySize}
-                  </span>
-                  <span className="text-muted-foreground/40">•</span>
-                  <span className="font-mono">Ref {referenceLabel}</span>
+                <div className="mt-1 flex flex-col gap-1 text-xs font-medium text-slate-500 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-1.5 sm:text-sm">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 sm:contents">
+                    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                      <Users className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                      <span>{booking.partySize} Guests</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                      <Calendar className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                      <span>{meta.dateLabel}</span>
+                    </span>
+                  </div>
+                  <div className="flex items-center sm:contents">
+                    <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] text-slate-600">
+                      <Clock className="h-3 w-3" aria-hidden />
+                      {meta.timeRangeLabel}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <div className="flex flex-col items-end gap-1">
-            <StatusPill status={booking.status} />
-            {timeUrgency ? (
-              <Badge
-                variant={timeUrgency.type === 'late' ? 'destructive' : 'secondary'}
-                className={cn(
-                  'h-5 gap-1 rounded-full px-1.5 py-0 text-[10px]',
-                  timeUrgency.type === 'overdue' &&
-                    'border-amber-200 bg-amber-100 text-amber-700 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
-                  timeUrgency.type === 'soon' &&
-                    'border-amber-100 bg-amber-50 text-amber-600 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300',
-                  timeUrgency.type === 'approaching' &&
-                    'border-blue-100 bg-blue-50 text-blue-600 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-300',
-                )}
-              >
-                <Clock className="h-3 w-3" aria-hidden />
-                {timeUrgency.label}
-              </Badge>
-            ) : null}
+            <div className="flex flex-col items-end gap-1.5 shrink-0">
+              <div className="flex items-center gap-2">
+                <StatusBadge status={booking.status} />
+                <CollapsibleTrigger asChild className="sm:hidden">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 hover:bg-slate-100 rounded-full"
+                  >
+                    <ChevronDown
+                      className={cn(
+                        'h-4 w-4 text-slate-400 transition-transform duration-200',
+                        isOpen && 'rotate-180',
+                      )}
+                    />
+                    <span className="sr-only">Toggle details</span>
+                  </Button>
+                </CollapsibleTrigger>
+              </div>
+              {urgency && (
+                <Badge
+                  variant={urgency.variant === 'destructive' ? 'destructive' : 'outline'}
+                  className={cn(
+                    'py-0.5 text-[9px] uppercase tracking-wider',
+                    urgency.variant === 'warning' && 'border-amber-200 bg-amber-50 text-amber-700',
+                  )}
+                >
+                  <Clock className="mr-1 h-3 w-3" aria-hidden /> {urgency.label}
+                </Badge>
+              )}
+            </div>
           </div>
         </div>
 
-        <div className="mt-2 grid gap-2 md:grid-cols-2">
-          <div className="rounded-lg border border-border/60 bg-background/60 px-2.5 py-2">
-            {tableLabel ? (
-              <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
-                <Armchair className="h-4 w-4" aria-hidden />
-                <span className="truncate">
-                  Table <span className="font-semibold text-foreground/80">{tableLabel}</span>
+        <CollapsibleContent
+          forceMount
+          className="px-4 data-[state=closed]:hidden sm:data-[state=closed]:block sm:block"
+        >
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 pb-4">
+            <InfoTile label="Table" icon={Armchair}>
+              {tableLabel ? (
+                <span className="font-bold text-slate-900">Table {tableLabel}</span>
+              ) : meta.isDone ? (
+                <span className="text-slate-400 italic">N/A</span>
+              ) : (
+                <span className="flex items-center gap-1 font-bold text-amber-600">
+                  <AlertTriangle className="h-3.5 w-3.5" aria-hidden /> Unassigned
+                </span>
+              )}
+            </InfoTile>
+
+            <InfoTile label="Contact" icon={Mail}>
+              <div className="flex flex-col gap-1 leading-tight overflow-hidden">
+                {booking.customerPhone && (
+                  <span className="flex items-center gap-1 text-[11px] font-bold text-slate-700 break-words">
+                    <Phone className="h-2.5 w-2.5 shrink-0" aria-hidden /> {booking.customerPhone}
+                  </span>
+                )}
+                {booking.customerEmail && (
+                  <span
+                    className="text-[11px] italic text-slate-500 opacity-70 break-all leading-[1.1]"
+                    title={booking.customerEmail}
+                  >
+                    {booking.customerEmail}
+                  </span>
+                )}
+                {!booking.customerPhone && !booking.customerEmail && (
+                  <span className="text-xs italic text-slate-400">No contact</span>
+                )}
+              </div>
+            </InfoTile>
+
+            <InfoTile label="Booking" icon={Users}>
+              <div className="flex flex-col">
+                <span className="font-mono text-[11px] text-slate-500">
+                  Ref {booking.reference || booking.id.slice(0, 8)}
                 </span>
               </div>
-            ) : booking.status === 'confirmed' || booking.status === 'PRIORITY_WAITLIST' ? (
-              <div className="flex items-center gap-2 text-[13px] text-amber-700 dark:text-amber-400">
-                <AlertTriangle className="h-4 w-4" aria-hidden />
-                <span className="font-medium">No table assigned</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
-                <Armchair className="h-4 w-4" aria-hidden />
-                <span>No table</span>
-              </div>
-            )}
+            </InfoTile>
+
+            <InfoTile
+              label="Notes"
+              icon={FileText}
+              className={cn(booking.notes && 'border-amber-100 bg-amber-50/50')}
+            >
+              <p className="text-xs italic text-slate-500 break-words">
+                {booking.notes || 'No special requests.'}
+              </p>
+            </InfoTile>
           </div>
+        </CollapsibleContent>
 
-          <div className="rounded-lg border border-border/60 bg-background/60 px-2.5 py-2">
-            <div className="flex flex-col gap-1 text-[13px] text-muted-foreground">
-              {emailLabel ? (
-                <a
-                  className="truncate hover:text-foreground"
-                  href={`mailto:${emailLabel}`}
-                  title={emailLabel}
-                >
-                  {emailLabel}
-                </a>
-              ) : (
-                <span className="italic text-muted-foreground/70">No email</span>
-              )}
-              {phoneLabel ? (
-                <a
-                  className="truncate hover:text-foreground"
-                  href={`tel:${phoneLabel.replace(/[^+\d]/g, '')}`}
-                  title={phoneLabel}
-                >
-                  {phoneLabel}
-                </a>
-              ) : (
-                <span className="italic text-muted-foreground/70">No phone</span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          {booking.requiresTableAssignment ? (
-            <Badge variant="outline" className="h-5 rounded-full px-2 py-0 text-[10px]">
-              Needs table
-            </Badge>
-          ) : null}
-
-          {booking.seatingPreference ? (
-            <Badge
-              variant="secondary"
-              className="h-5 max-w-[220px] gap-1 rounded-full px-2 py-0 text-[10px]"
-              title={booking.seatingPreference}
-            >
-              <Armchair className="h-3 w-3" aria-hidden />
-              <span className="truncate">{booking.seatingPreference}</span>
-            </Badge>
-          ) : null}
-
-          {booking.dietaryRestrictions && booking.dietaryRestrictions.length > 0 ? (
-            <Badge
-              variant="outline"
-              className="h-5 max-w-[220px] gap-1 rounded-full px-2 py-0 text-[10px]"
-              title={booking.dietaryRestrictions.join(', ')}
-            >
-              <Utensils className="h-3 w-3" aria-hidden />
-              <span className="truncate">{booking.dietaryRestrictions.join(', ')}</span>
-            </Badge>
-          ) : null}
-
-          {booking.allergies && booking.allergies.length > 0 ? (
-            <Badge
-              variant="destructive"
-              className="h-5 max-w-[220px] gap-1 rounded-full px-2 py-0 text-[10px]"
-              title={booking.allergies.join(', ')}
-            >
-              <AlertTriangle className="h-3 w-3" aria-hidden />
-              <span className="truncate">{booking.allergies.join(', ')}</span>
-            </Badge>
-          ) : null}
-
-          {booking.notes ? (
-            <Badge
-              variant="secondary"
-              className="h-5 max-w-[320px] gap-1 rounded-full px-2 py-0 text-[10px]"
-              title={booking.notes}
-            >
-              <FileText className="h-3 w-3" aria-hidden />
-              <span className="truncate">{booking.notes}</span>
-            </Badge>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-2 md:items-end">
-        {!isDone ? (
-          <>
-            {(onCheckIn && !isSeated) || (onCheckOut && isSeated) ? (
+        <div className="px-4 pb-4">
+          <div className="flex flex-wrap items-center justify-between gap-y-3 border-t border-slate-100 pt-3">
+            <div className="flex items-center gap-1">
               <Button
+                variant="outline"
                 size="sm"
-                className="h-9 w-full justify-center md:w-auto"
-                variant={isSeated ? 'outline' : 'default'}
-                onClick={handleMainAction}
-                disabled={isLoading || !isToday}
+                className="h-8 px-4 text-xs font-semibold"
+                onClick={() => onDetails?.(booking)}
               >
-                {isSeated ? (
-                  <LogOut className="mr-2 h-3.5 w-3.5" />
-                ) : (
-                  <LogIn className="mr-2 h-3.5 w-3.5" />
-                )}
-                {isSeated ? 'Finish' : 'Seat'}
+                Details
               </Button>
-            ) : null}
 
-            <div className="flex w-full items-center justify-between gap-2 md:w-auto md:justify-end">
-              <div className="flex items-center gap-1">
-                {!isSeated && onMarkNoShow ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
                   <Button
-                    size="icon"
                     variant="ghost"
-                    className="h-9 w-9 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                    onClick={() => onMarkNoShow(booking.id)}
-                    aria-label="Mark as no-show"
-                    title="Mark as no-show"
-                    disabled={isLoading || !isToday}
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    aria-label="More actions"
                   >
-                    <X className="h-4 w-4" aria-hidden />
+                    <MoreHorizontal className="h-4 w-4" />
                   </Button>
-                ) : null}
-              </div>
-
-              <div className="flex items-center gap-1">
-                {onDetails ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-9 px-3"
-                    onClick={() => onDetails(booking)}
-                    disabled={isLoading}
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuLabel className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">
+                    Manage
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => onEdit?.(booking)} disabled={meta.isPastDay}>
+                    Edit Booking
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => onMarkNoShow?.(booking.id)}
+                    disabled={!meta.isToday || meta.isSeated}
+                    variant="destructive"
                   >
-                    Details
-                  </Button>
-                ) : null}
-              </div>
+                    Mark No Show
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => onCancel?.(booking)}
+                    disabled={meta.isPastDay}
+                    variant="destructive"
+                  >
+                    Cancel Booking
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
-            {onEdit || onCancel ? (
-              <div className="flex w-full items-center justify-end gap-1 md:w-auto">
-                {onEdit ? (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onEdit(booking)}
-                    disabled={isLoading || isActuallyPastDay}
-                    className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
-                  >
-                    Edit
-                  </Button>
-                ) : null}
-                {onCancel ? (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onCancel(booking)}
-                    disabled={isLoading || isActuallyPastDay}
-                    className="h-8 px-2 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                  >
-                    Cancel
-                  </Button>
-                ) : null}
-              </div>
-            ) : null}
-          </>
-        ) : (
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-9 w-full cursor-default justify-center text-muted-foreground hover:bg-transparent md:w-auto"
-            disabled
-          >
-            <Check className="mr-2 h-3.5 w-3.5" aria-hidden />
-            {booking.status === 'completed' ? 'Completed' : 'Closed'}
-          </Button>
-        )}
-      </div>
+            <div>
+              {!meta.isDone ? (
+                <Button
+                  size="sm"
+                  disabled={!meta.isToday || isLoading}
+                  className={cn(
+                    'h-9 min-w-[120px] px-6 font-bold text-white shadow-sm transition-all',
+                    meta.isSeated
+                      ? 'bg-slate-800 hover:bg-slate-900'
+                      : 'bg-emerald-600 hover:bg-emerald-700',
+                  )}
+                  onClick={() =>
+                    meta.isSeated ? onCheckOut?.(booking.id) : onCheckIn?.(booking.id)
+                  }
+                >
+                  {meta.isSeated ? (
+                    <>
+                      <LogOut className="mr-2 h-4 w-4" aria-hidden /> Finish
+                    </>
+                  ) : (
+                    <>
+                      <LogIn className="mr-2 h-4 w-4" aria-hidden /> Seat Guest
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <div
+                  className="flex items-center gap-1.5 px-3 text-xs font-bold text-slate-400"
+                  role="status"
+                >
+                  <Check className="h-4 w-4 text-emerald-500" aria-hidden />
+                  {booking.status === 'completed' ? 'Completed' : 'Closed'}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </Collapsible>
     </Card>
   );
 }

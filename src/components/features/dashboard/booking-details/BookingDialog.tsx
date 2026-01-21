@@ -18,7 +18,17 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { Ban, Copy, LayoutGrid, LogIn, LogOut, Phone, RotateCcw, UserX } from 'lucide-react';
+import {
+  Ban,
+  ChevronDown,
+  Copy,
+  LayoutGrid,
+  LogIn,
+  LogOut,
+  Phone,
+  RotateCcw,
+  UserX,
+} from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -33,6 +43,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
@@ -73,7 +84,8 @@ const HEADER_TONES: Record<string, string> = {
   late: 'border-l-4 border-rose-500 bg-rose-50/60',
 };
 
-const getHeaderTone = (status: string) => HEADER_TONES[status] ?? 'border-l-4 border-slate-200 bg-background';
+const getHeaderTone = (status: string) =>
+  HEADER_TONES[status] ?? 'border-l-4 border-slate-200 bg-background';
 
 export function BookingDialog({
   booking,
@@ -98,6 +110,7 @@ export function BookingDialog({
   const isMobile = useIsMobile();
 
   const [isOpen, setIsOpen] = useState(Boolean(open));
+  const [isTableAssignmentOpen, setIsTableAssignmentOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<BookingActionType | null>(null);
   const [confirmNoShow, setConfirmNoShow] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
@@ -106,6 +119,10 @@ export function BookingDialog({
   useEffect(() => {
     if (open !== undefined) setIsOpen(open);
   }, [open]);
+
+  useEffect(() => {
+    if (!isOpen) setIsTableAssignmentOpen(false);
+  }, [isOpen]);
 
   const handleOpenChange = useCallback(
     (value: boolean) => {
@@ -120,10 +137,16 @@ export function BookingDialog({
   const status: OpsBookingStatus = booking?.status ?? 'pending';
 
   const formattedDate = bookingDate ? formatBookingDate(bookingDate, timezone) : '--';
-  const formattedStartTime = booking ? formatBookingTime(booking.startTime, bookingDate, timezone) : '--:--';
-  const formattedEndTime = booking ? formatBookingTime(booking.endTime, bookingDate, timezone) : '--:--';
+  const formattedStartTime = booking
+    ? formatBookingTime(booking.startTime, bookingDate, timezone)
+    : '--:--';
+  const formattedEndTime = booking
+    ? formatBookingTime(booking.endTime, bookingDate, timezone)
+    : '--:--';
 
-  const titleText = booking?.customerName ? `Booking for ${booking.customerName}` : 'Booking details';
+  const titleText = booking?.customerName
+    ? `Booking for ${booking.customerName}`
+    : 'Booking details';
   const descriptionText = booking
     ? `${formattedDate} · ${formattedStartTime} · ${booking.partySize} covers`
     : 'Booking overview and table assignment';
@@ -150,10 +173,13 @@ export function BookingDialog({
   const canCheckOut = booking?.status === 'checked_in';
 
   const needsAssignment =
-    Boolean(booking?.requiresTableAssignment) && allowTableAssignments && assignedTableRows.length === 0;
+    Boolean(booking?.requiresTableAssignment) &&
+    allowTableAssignments &&
+    assignedTableRows.length === 0;
 
   const isActionPending = Boolean(pendingLifecycleAction || pendingAction || cancelPending);
-  const canCancel = Boolean(booking) && !['cancelled', 'completed', 'no_show', 'checked_in'].includes(status);
+  const canCancel =
+    Boolean(booking) && !['cancelled', 'completed', 'no_show', 'checked_in'].includes(status);
 
   const handleAction = useCallback(
     async (action: BookingActionType) => {
@@ -234,9 +260,16 @@ export function BookingDialog({
         label: 'Assign table',
         icon: LayoutGrid,
         tone: 'bg-indigo-600 hover:bg-indigo-700',
-        onClick: () => {
-          tablePanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        },
+          onClick: () => {
+            if (isMobile) {
+              setIsTableAssignmentOpen(true);
+              setTimeout(() => {
+                tablePanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }, 100);
+            } else {
+              tablePanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          },
       };
     }
 
@@ -271,7 +304,18 @@ export function BookingDialog({
     }
 
     return null;
-  }, [booking, canCheckOut, canUndoNoShow, handleAction, isToday, needsAssignment, onCheckIn, onCheckOut, onUndoNoShow]);
+  }, [
+    booking,
+    canCheckOut,
+    canUndoNoShow,
+    handleAction,
+    isMobile,
+    isToday,
+    needsAssignment,
+    onCheckIn,
+    onCheckOut,
+    onUndoNoShow,
+  ]);
 
   useGlobalShortcuts([
     {
@@ -333,6 +377,84 @@ export function BookingDialog({
       );
     }
 
+    if (isMobile) {
+      return (
+        <ScrollArea className="h-full bg-slate-50/30">
+          <div className="flex flex-col gap-6 p-4 pb-20">
+            <GuestProfilePanel
+              booking={booking}
+              bookingDate={bookingDate}
+              timezone={timezone}
+              status={status}
+              minutesRemaining={minutesRemaining}
+              assignedTableRows={assignedTableRows}
+              totalCapacity={totalCapacity}
+              capacityPercent={capacityPercent}
+            />
+
+            <div ref={tablePanelRef} className="pt-4 border-t border-dashed border-slate-200">
+              <Collapsible
+                open={isTableAssignmentOpen}
+                onOpenChange={setIsTableAssignmentOpen}
+                className="space-y-3"
+              >
+                <CollapsibleTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="flex w-full items-center justify-between p-0 hover:bg-transparent mb-4 h-auto hover:no-underline"
+                  >
+                    <div className="text-left">
+                      <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-1">
+                        Table Assignment
+                      </h3>
+                      <p className="text-xs text-slate-500 font-normal">
+                        Manage seating and capacity.
+                      </p>
+                    </div>
+                    <ChevronDown
+                      className={cn(
+                        'h-4 w-4 text-slate-500 transition-transform duration-200',
+                        isTableAssignmentOpen && 'rotate-180',
+                      )}
+                    />
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  {isTableAssignmentOpen && (
+                    <>
+                      {allowTableAssignments ? (
+                        <TableAssignmentPanel
+                          bookingId={booking.id}
+                          restaurantId={summary.restaurantId}
+                          partySize={booking.partySize}
+                          date={summary.date}
+                          currentAssignments={assignedTableRows.map((row) => row.id)}
+                          onAssignmentComplete={() => {
+                            queryClient.invalidateQueries({
+                              queryKey: queryKeys.opsBookings.detail(booking.id),
+                            });
+                          }}
+                          bookingStartTime={booking.startTime}
+                          bookingEndTime={booking.endTime}
+                        />
+                      ) : (
+                        <Alert>
+                          <AlertTitle>Table assignment disabled</AlertTitle>
+                          <AlertDescription>
+                            Assignments are locked for past bookings.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                    </>
+                  )}
+                </CollapsibleContent>
+              </Collapsible>
+            </div>
+          </div>
+        </ScrollArea>
+      );
+    }
+
     return (
       <div className="grid h-full overflow-hidden grid-cols-1 lg:grid-cols-2">
         <ScrollArea className="h-full border-b border-stone-200/70 lg:border-b-0 lg:border-r bg-gradient-to-b from-stone-50/80 via-white to-stone-50/60 overflow-x-hidden">
@@ -349,8 +471,13 @@ export function BookingDialog({
             />
           </div>
         </ScrollArea>
-        <ScrollArea className="h-full overflow-x-hidden">
-          <div ref={tablePanelRef} className="p-4 overflow-x-hidden">
+        <ScrollArea className="h-full overflow-x-hidden bg-white">
+          <div ref={tablePanelRef} className="p-4 lg:p-6 overflow-x-hidden h-full">
+            <div className="mb-4 lg:hidden">
+              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                Table Assignment
+              </h3>
+            </div>
             {allowTableAssignments ? (
               <TableAssignmentPanel
                 bookingId={booking.id}
@@ -359,7 +486,9 @@ export function BookingDialog({
                 date={summary.date}
                 currentAssignments={assignedTableRows.map((row) => row.id)}
                 onAssignmentComplete={() => {
-                  queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.detail(booking.id) });
+                  queryClient.invalidateQueries({
+                    queryKey: queryKeys.opsBookings.detail(booking.id),
+                  });
                 }}
                 bookingStartTime={booking.startTime}
                 bookingEndTime={booking.endTime}
@@ -400,7 +529,12 @@ export function BookingDialog({
             {booking ? `${formattedDate} · ${formattedStartTime}` : 'Booking details'}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" size="sm" onClick={handleCopySummary} disabled={!booking || !summary}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCopySummary}
+              disabled={!booking || !summary}
+            >
               <Copy className="h-3.5 w-3.5 mr-1" />
               Copy summary
             </Button>
@@ -436,20 +570,22 @@ export function BookingDialog({
                 Cancel booking
               </Button>
             ) : null}
-            {primaryAction ? (() => {
-              const PrimaryIcon = primaryAction.icon;
-              return (
-                <Button
-                  size="sm"
-                  onClick={primaryAction.onClick}
-                  disabled={isActionPending}
-                  className={cn('text-white', primaryAction.tone)}
-                >
-                  <PrimaryIcon className="h-4 w-4 mr-1.5" />
-                  {primaryAction.label}
-                </Button>
-              );
-            })() : null}
+            {primaryAction
+              ? (() => {
+                  const PrimaryIcon = primaryAction.icon;
+                  return (
+                    <Button
+                      size="sm"
+                      onClick={primaryAction.onClick}
+                      disabled={isActionPending}
+                      className={cn('text-white', primaryAction.tone)}
+                    >
+                      <PrimaryIcon className="h-4 w-4 mr-1.5" />
+                      {primaryAction.label}
+                    </Button>
+                  );
+                })()
+              : null}
           </div>
         </div>
       </div>

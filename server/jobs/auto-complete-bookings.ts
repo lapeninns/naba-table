@@ -5,6 +5,7 @@ import { clearBookingTableAssignments } from "@/server/bookings";
 import { enqueueCheckOutSideEffects } from "@/server/jobs/booking-side-effects";
 import { prepareCheckInTransition, prepareCheckOutTransition } from "@/server/ops/booking-lifecycle/actions";
 import { BookingLifecycleError } from "@/server/ops/booking-lifecycle/stateMachine";
+import { getRestaurantSchedule } from "@/server/restaurants/schedule";
 import { getServiceSupabaseClient } from "@/server/supabase";
 
 import type { TransitionResult } from "@/server/ops/booking-lifecycle/actions";
@@ -13,6 +14,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 const DEFAULT_WINDOW_MINUTES = 15;
 const DEFAULT_LIMIT = 200;
+const CLOSE_BUFFER_MINUTES = 5;
 const ACTOR_ID_OVERRIDE = process.env.AUTO_COMPLETE_ACTOR_ID?.trim() || null;
 
 type RestaurantRow = Pick<Tables<"restaurants">, "id" | "name" | "timezone">;
@@ -79,6 +81,16 @@ function resolveLocalDateTime(
   const iso = `${date}T${time}`;
   const dt = DateTime.fromISO(iso, { zone: timezone });
   return dt.isValid ? dt : null;
+}
+
+function resolveClosingWindowStart(
+  localDate: string,
+  closingTime: string | null,
+  timezone: string,
+): DateTime | null {
+  const closeAt = resolveLocalDateTime(localDate, closingTime, timezone);
+  if (!closeAt) return null;
+  return closeAt.plus({ minutes: CLOSE_BUFFER_MINUTES });
 }
 
 function toUtcIso(dt: DateTime | null): string | null {
@@ -294,14 +306,37 @@ export async function autoCompletePastBookings(options: AutoCompleteOptions = {}
       localNow = nowUtc;
     }
 
-    const minutesSinceMidnight = localNow.hour * 60 + localNow.minute;
-    if (minutesSinceMidnight >= windowMinutes) {
+    const localDate = localNow.toISODate();
+    if (!localDate) {
       restaurantsSkippedWindow += 1;
       continue;
     }
 
-    const localDate = localNow.toISODate();
-    if (!localDate) {
+    let schedule;
+    try {
+      schedule = await getRestaurantSchedule(restaurant.id, { date: localDate, client: supabase });
+    } catch (error) {
+      console.warn("[cron][auto-complete] failed to load schedule", {
+        restaurantId: restaurant.id,
+        error: formatError(error),
+      });
+      restaurantsSkippedWindow += 1;
+      continue;
+    }
+
+    if (schedule.isClosed) {
+      restaurantsSkippedWindow += 1;
+      continue;
+    }
+
+    const windowStart = resolveClosingWindowStart(localDate, schedule.window.closesAt, timezone);
+    if (!windowStart) {
+      restaurantsSkippedWindow += 1;
+      continue;
+    }
+
+    const windowEnd = windowStart.plus({ minutes: windowMinutes });
+    if (localNow < windowStart || localNow >= windowEnd) {
       restaurantsSkippedWindow += 1;
       continue;
     }

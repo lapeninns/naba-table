@@ -33,9 +33,9 @@ function RoleSelectionNavbar() {
 export function RoleSelectionLayout({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider theme="guest">
-      <div className="guest-theme relative min-h-screen bg-muted text-foreground">
+      <div className="guest-theme relative min-h-screen min-h-[100svh] bg-muted text-foreground">
         <GuestBackground />
-        <div className="relative z-10 flex min-h-screen flex-col bg-surface">
+        <div className="relative z-10 flex min-h-screen min-h-[100svh] flex-col bg-surface">
           <RoleSelectionNavbar />
           <main
             id="main-content"

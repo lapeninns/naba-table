@@ -33,60 +33,62 @@ export function DialogHeader({
   onClose,
 }: DialogHeaderProps) {
   return (
-    <div className="grid grid-cols-[1fr_auto] gap-3">
-      <div className="flex items-center gap-3 min-w-0">
-        <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-sm font-semibold shrink-0">
+    <div className="flex flex-col sm:flex-row gap-3 sm:items-start justify-between">
+      <div className="flex items-start gap-3 min-w-0 flex-1">
+        <div className="h-10 w-10 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-sm font-bold shrink-0 ring-1 ring-slate-200">
           {booking ? getGuestInitials(booking.customerName) : '--'}
         </div>
 
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-base font-semibold text-foreground truncate">
+        <div className="min-w-0 flex-1 pt-0.5">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="text-[15px] font-semibold leading-tight text-foreground break-words">
               {booking?.customerName ?? 'Booking details'}
             </span>
             <BookingStatusBadge status={status} />
           </div>
-          <div className="flex sm:hidden items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
-            <span>{formattedDate}</span>
-            <span>·</span>
-            <span>{formattedStartTime}</span>
-            <span>·</span>
-            <span>{booking?.partySize ?? '--'} covers</span>
+
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium text-slate-500">
+            <span className="inline-flex items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5 text-slate-400" />
+              {formattedDate}
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5 text-slate-400" />
+              {formattedStartTime}
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <Users className="h-3.5 w-3.5 text-slate-400" />
+              {booking?.partySize ?? '--'} covers
+            </span>
+            {minutesRemaining !== null && (
+              <div className="ml-1">
+                <ArrivalCountdown
+                  status={status}
+                  startTime={booking?.startTime ?? null}
+                  date={bookingDate}
+                  timezone={timezone}
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
-        <div className="hidden sm:flex items-center gap-1.5">
-          <div className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-purple-50 text-purple-700 text-xs font-medium">
-            <Calendar className="h-3 w-3" />
-            {formattedDate}
-          </div>
-          <div className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-slate-100 text-slate-700 text-xs font-medium">
-            <Clock className="h-3 w-3" />
-            {formattedStartTime}
-          </div>
-          <div className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-blue-50 text-blue-700 text-xs font-medium">
-            <Users className="h-3 w-3" />
-            {booking?.partySize ?? '--'}
-          </div>
-          {minutesRemaining !== null ? (
-            <ArrivalCountdown status={status} startTime={booking?.startTime ?? null} date={bookingDate} timezone={timezone} />
-          ) : null}
-        </div>
-
+      <div className="flex items-center justify-end gap-2 shrink-0 absolute top-3 right-3 sm:static sm:top-auto sm:right-auto">
         {booking?.reference || booking?.id ? (
-          <ClickToCopy text={booking.reference ?? booking.id} label="Ref" compact />
+          <div className="hidden sm:block">
+            <ClickToCopy text={booking.reference ?? booking.id} label="Ref" compact />
+          </div>
         ) : null}
 
         <Button
           variant="ghost"
           size="icon"
           onClick={onClose}
-          className="h-8 w-8 rounded-full"
+          className="h-8 w-8 rounded-full hover:bg-slate-100 -mr-2 sm:mr-0"
           aria-label="Close booking details"
         >
-          <X className="h-4 w-4" />
+          <X className="h-4 w-4 text-slate-500" />
         </Button>
       </div>
     </div>

@@ -7,6 +7,7 @@
 'use client';
 
 import { AlertTriangle, Check, Users } from 'lucide-react';
+import { memo } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -16,20 +17,26 @@ import { getCapacityFit, getCapacityFitLabel } from '../utils';
 import type { ManualAssignmentTable } from '@/services/ops/bookings';
 
 export interface SelectableTableCardProps {
+  tableId: string;
   table: ManualAssignmentTable;
   partySize: number;
   isSelected: boolean;
   isAssigned: boolean;
   isConflicted: boolean;
-  onToggle: () => void;
+  onToggle: (tableId: string) => void;
   disabled: boolean;
   bookingStartTime?: string | null;
   bookingEndTime?: string | null;
   serviceWindowStart?: string | null;
   serviceWindowEnd?: string | null;
+  parsedBookingStart?: number | null;
+  parsedBookingEnd?: number | null;
+  parsedServiceStart?: number | null;
+  parsedServiceEnd?: number | null;
 }
 
-export function SelectableTableCard({
+export const SelectableTableCard = memo(function SelectableTableCard({
+  tableId,
   table,
   partySize,
   isSelected,
@@ -41,11 +48,16 @@ export function SelectableTableCard({
   bookingEndTime,
   serviceWindowStart,
   serviceWindowEnd,
+  parsedBookingStart,
+  parsedBookingEnd,
+  parsedServiceStart,
+  parsedServiceEnd,
 }: SelectableTableCardProps) {
   const isUnavailable = isConflicted || !table.active || table.status !== 'available';
   const fit = getCapacityFit(partySize, table);
   const showTimeline = table.status === 'conflicted' || isConflicted;
   const conflictTone = table.status === 'conflicted' || isConflicted;
+  const handleToggle = () => onToggle(tableId);
 
   const parseTimeMinutes = (value?: string | null) => {
     if (!value) return null;
@@ -58,24 +70,31 @@ export function SelectableTableCard({
     return hours * 60 + minutes;
   };
 
-  const defaultServiceStart = 18 * 60;
-  const defaultServiceEnd = 22 * 60;
-  const serviceStart = parseTimeMinutes(serviceWindowStart) ?? defaultServiceStart;
-  const serviceEnd = parseTimeMinutes(serviceWindowEnd) ?? defaultServiceEnd;
-  const bookingStart = parseTimeMinutes(bookingStartTime);
-  const bookingEnd = parseTimeMinutes(bookingEndTime);
-  const serviceDuration = Math.max(1, serviceEnd - serviceStart);
-  const rawStart = bookingStart ?? serviceStart;
-  const rawEnd = bookingEnd && bookingEnd > rawStart ? bookingEnd : rawStart + 60;
-  const clampedStart = Math.min(Math.max(rawStart, serviceStart), serviceEnd);
-  const clampedEnd = Math.min(Math.max(rawEnd, serviceStart), serviceEnd);
-  const blockLeft = ((clampedStart - serviceStart) / serviceDuration) * 100;
-  const blockWidth = Math.max(8, ((clampedEnd - clampedStart) / serviceDuration) * 100);
+  let bookingStart: number | null = null;
+  let blockLeft = 0;
+  let blockWidth = 0;
+
+  if (showTimeline) {
+    const defaultServiceStart = 18 * 60;
+    const defaultServiceEnd = 22 * 60;
+    const serviceStart =
+      parsedServiceStart ?? parseTimeMinutes(serviceWindowStart) ?? defaultServiceStart;
+    const serviceEnd = parsedServiceEnd ?? parseTimeMinutes(serviceWindowEnd) ?? defaultServiceEnd;
+    bookingStart = parsedBookingStart ?? parseTimeMinutes(bookingStartTime);
+    const bookingEnd = parsedBookingEnd ?? parseTimeMinutes(bookingEndTime);
+    const serviceDuration = Math.max(1, serviceEnd - serviceStart);
+    const rawStart = bookingStart ?? serviceStart;
+    const rawEnd = bookingEnd && bookingEnd > rawStart ? bookingEnd : rawStart + 60;
+    const clampedStart = Math.min(Math.max(rawStart, serviceStart), serviceEnd);
+    const clampedEnd = Math.min(Math.max(rawEnd, serviceStart), serviceEnd);
+    blockLeft = ((clampedStart - serviceStart) / serviceDuration) * 100;
+    blockWidth = Math.max(8, ((clampedEnd - clampedStart) / serviceDuration) * 100);
+  }
 
   return (
     <button
       type="button"
-      onClick={onToggle}
+      onClick={handleToggle}
       disabled={disabled || isUnavailable || isAssigned}
       aria-pressed={isSelected}
       className={cn(
@@ -104,7 +123,12 @@ export function SelectableTableCard({
 
       <div className="flex w-full items-start justify-between">
         <div>
-          <span className={cn('text-base font-semibold text-slate-800', isAssigned && 'text-emerald-700')}>
+          <span
+            className={cn(
+              'text-base font-semibold text-slate-800',
+              isAssigned && 'text-emerald-700',
+            )}
+          >
             Table {table.tableNumber}
           </span>
           {table.name ? <div className="text-xs text-slate-500">{table.name}</div> : null}
@@ -175,4 +199,4 @@ export function SelectableTableCard({
       ) : null}
     </button>
   );
-}
+});

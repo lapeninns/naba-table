@@ -270,11 +270,6 @@
      FOCUS & INTERACTION STATES
      Per AGENTS.md: visible focus rings, generous hit targets
      --------------------------------------------------------------------------- */
-  :focus-visible {
-    outline: 2px solid hsl(var(--ring));
-    outline-offset: 2px;
-  }
-
   /* Tap highlight for mobile */
   a[href],
   button,
@@ -299,43 +294,6 @@
   /* ---------------------------------------------------------------------------
      ACCESSIBILITY
      --------------------------------------------------------------------------- */
-  /* Skip to content link */
-  .skip-link {
-    position: fixed;
-    left: 1rem;
-    top: 1rem;
-    z-index: 9999;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    max-width: min(20rem, calc(100vw - 2rem));
-    transform: translateY(-160%);
-    padding: 0.5rem 0.875rem;
-    border-radius: var(--radius-md);
-    background: hsl(var(--background));
-    color: hsl(var(--foreground));
-    font-weight: 600;
-    text-decoration: none;
-    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
-    outline: 2px solid transparent;
-    outline-offset: 2px;
-    transition:
-      transform 0.2s ease,
-      box-shadow 0.2s ease,
-      outline-color 0.2s ease;
-  }
-
-  .skip-link:focus-visible {
-    transform: translateY(0);
-    outline-color: hsl(var(--ring));
-    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.22);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .skip-link {
-      transition: none;
-    }
-  }
 
   /* Screen reader only */
   .sr-only {

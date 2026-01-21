@@ -1,42 +1,37 @@
 # Continuity Ledger
 
-Last updated: 2026-01-21T00:39:12Z
+Last updated: 2026-01-21T13:58:00Z
 
 ## Goal (incl. success criteria)
 
-- Adjust Ops dashboard “All” bookings sort so checked-in and upcoming appear first, completed last.
-- Success: Checked-in bookings sorted first, then upcoming, then completed/cancelled/no-show.
-- Success: Existing filters and sort controls remain intact.
+- Remove dev-only route `/dev/factory-landing` completely.
+- Success: `http://localhost:3000/dev/factory-landing` returns 404 (route removed) and no build/typecheck failures.
 
 ## Constraints/Assumptions
 
-- Follow AGENTS SDLC phases; task folder required before implementation.
-- Manual UI QA via Chrome DevTools MCP required for UI changes.
-- Supabase remote only; no local migrations/seeds.
-- Keep changes focused to list ordering (no extra refactors).
+- Do not commit unless asked.
+- Keep changes minimal; remove route + update any task docs referencing it.
 
 ## Key decisions
 
-- Apply grouped ordering only when filter is “all”; keep sort controls within each group.
+- Delete `src/app/dev/factory-landing/page.tsx` (remove route) rather than redirect.
 
 ## State
 
-- Phase 3 implementation complete for dashboard sort; build passes. Verification pending.
-- CSRF cookie fix implemented in prior task; verification pending.
+- Route file deleted; need verification via dev server + typecheck/build.
 
 ## Done
 
-- Implemented grouped sort in `src/components/features/dashboard/BookingsList.tsx`.
-- Fixed TypeScript type error for status sets.
-- Ran `pnpm run build` successfully.
+- Deleted `src/app/dev/factory-landing/page.tsx`.
+- Updated CLS task docs to note page removal: `tasks/fix-cls-20260121-1355/research.md`, `tasks/fix-cls-20260121-1355/verification.md`, `tasks/fix-cls-20260121-1355/todo.md`.
 
 ## Now
 
-- Prepare Chrome DevTools MCP QA and update verification report.
+- Verify `/dev/factory-landing` is gone (404) and run `pnpm typecheck` (and/or `pnpm build` if available).
 
 ## Next
 
-- Run manual QA on dashboard list ordering and update `verification.md`.
+- If something still links to `/dev/factory-landing`, remove the link/reference.
 
 ## Open questions (UNCONFIRMED if needed)
 
@@ -44,7 +39,7 @@ Last updated: 2026-01-21T00:39:12Z
 
 ## Working set (files/ids/commands)
 
-- CONTINUITY.md
-- src/components/features/dashboard/BookingsList.tsx
-- tasks/ops-dashboard-bookings-sort-20260120-1748/verification.md
-- tasks/fix-csrf-cookie-source-20260120-1728/verification.md
+- `src/app/dev/factory-landing/page.tsx` (deleted)
+- `tasks/fix-cls-20260121-1355/research.md`
+- `tasks/fix-cls-20260121-1355/verification.md`
+- `tasks/fix-cls-20260121-1355/todo.md`

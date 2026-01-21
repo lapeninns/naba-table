@@ -18,7 +18,6 @@ import {
   CTASection,
 } from './sections';
 import { SchemaOrg } from './seo';
-import { SkipLinks } from './seo/SkipLinks';
 import { Navbar, Footer } from './shared';
 
 interface LandingPageProps {
@@ -65,7 +64,6 @@ export function LandingPage({ isAuthenticated }: LandingPageProps) {
         prefersReducedMotion ? '' : '',
       )}
     >
-      <SkipLinks />
       <SchemaOrg />
       <ClarityProvider />
       {prefersReducedMotion ? null : <AnimationObserver />}
