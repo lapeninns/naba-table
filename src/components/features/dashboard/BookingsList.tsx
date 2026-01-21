@@ -78,14 +78,18 @@ type BookingsListProps = {
 
 
 
-const UPCOMING_STATUSES = new Set([
+const UPCOMING_STATUSES = new Set<OpsTodayBooking['status']>([
   'confirmed',
   'PRIORITY_WAITLIST',
   'pending',
   'pending_allocation',
-] as const);
+]);
 
-const COMPLETED_STATUSES = new Set(['completed', 'cancelled', 'no_show'] as const);
+const COMPLETED_STATUSES = new Set<OpsTodayBooking['status']>([
+  'completed',
+  'cancelled',
+  'no_show',
+]);
 
 function compareBookings(
   a: OpsTodayBooking,
