@@ -1,37 +1,41 @@
 # Continuity Ledger
 
-Last updated: 2026-01-21T13:58:00Z
+Last updated: 2026-01-22T00:44:53Z
 
 ## Goal (incl. success criteria)
 
-- Remove dev-only route `/dev/factory-landing` completely.
-- Success: `http://localhost:3000/dev/factory-landing` returns 404 (route removed) and no build/typecheck failures.
+- Fix Codex skill loader errors by aligning SKILL.md frontmatter with OpenAI Codex skills requirements.
+- Success: affected SKILL.md files include required `name` and `description` fields and load without YAML errors.
 
 ## Constraints/Assumptions
 
-- Do not commit unless asked.
-- Keep changes minimal; remove route + update any task docs referencing it.
+- Follow SDLC phases; no implementation before requirements and plan are reviewed.
+- Task artifacts required under `tasks/<slug>-YYYYMMDD-HHMM>/` for repo changes.
+- Global skills path `~/.codex/skills/` requires careful edits only to YAML headers.
 
 ## Key decisions
 
-- Delete `src/app/dev/factory-landing/page.tsx` (remove route) rather than redirect.
+- Re-check OpenAI Codex skills docs and update frontmatter accordingly (likely add `description`).
 
 ## State
 
-- Route file deleted; need verification via dev server + typecheck/build.
+- Phase 4 (Verification) complete for skill frontmatter fix.
 
 ## Done
 
-- Deleted `src/app/dev/factory-landing/page.tsx`.
-- Updated CLS task docs to note page removal: `tasks/fix-cls-20260121-1355/research.md`, `tasks/fix-cls-20260121-1355/verification.md`, `tasks/fix-cls-20260121-1355/todo.md`.
+- Read root `AGENTS.md` and current `CONTINUITY.md`.
+- Reviewed OpenAI Codex skills docs for required frontmatter fields.
+- Created task folder `tasks/fix-skill-frontmatter-20260122-0041/` with artifacts.
+- Added `description` fields to six global SKILL.md files under `~/.codex/skills/`.
+- Verified updated frontmatter is single-line and within documented limits.
 
 ## Now
 
-- Verify `/dev/factory-landing` is gone (404) and run `pnpm typecheck` (and/or `pnpm build` if available).
+- Prepare summary and next steps for the user.
 
 ## Next
 
-- If something still links to `/dev/factory-landing`, remove the link/reference.
+- Re-run Codex skill loader if user wants validation.
 
 ## Open questions (UNCONFIRMED if needed)
 
@@ -39,7 +43,14 @@ Last updated: 2026-01-21T13:58:00Z
 
 ## Working set (files/ids/commands)
 
-- `src/app/dev/factory-landing/page.tsx` (deleted)
-- `tasks/fix-cls-20260121-1355/research.md`
-- `tasks/fix-cls-20260121-1355/verification.md`
-- `tasks/fix-cls-20260121-1355/todo.md`
+- `CONTINUITY.md`
+- `tasks/fix-skill-frontmatter-20260122-0041/research.md`
+- `tasks/fix-skill-frontmatter-20260122-0041/plan.md`
+- `tasks/fix-skill-frontmatter-20260122-0041/todo.md`
+- `tasks/fix-skill-frontmatter-20260122-0041/verification.md`
+- `/Users/amankumarshrestha/.codex/skills/frontend-aesthetics/SKILL.md`
+- `/Users/amankumarshrestha/.codex/skills/agent-skills-ecosystem/SKILL.md`
+- `/Users/amankumarshrestha/.codex/skills/multi-agent-collaboration/SKILL.md`
+- `/Users/amankumarshrestha/.codex/skills/style-principles/SKILL.md`
+- `/Users/amankumarshrestha/.codex/skills/continuity-ledger/SKILL.md`
+- `/Users/amankumarshrestha/.codex/skills/mcp-integration/SKILL.md`

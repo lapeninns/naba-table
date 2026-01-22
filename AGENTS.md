@@ -2,7 +2,7 @@
 agents_version: 5.4
 scope: root
 extends: null
-last_updated: 2026-01-02
+last_updated: 2026-01-22
 owner: github:@maintainers
 ---
 
@@ -22,7 +22,7 @@ owner: github:@maintainers
 
 For checklists, see **§11 Quick Reference**.
 
-**Skills Directory**: See `skills/` for detailed capability specifications referenced throughout this document.
+**Skills Directory**: See `~/.codex/skills/` for detailed capability specifications referenced throughout this document.
 
 ---
 
@@ -55,7 +55,7 @@ Nested `AGENTS.md` files **cannot relax or override** these:
 
 ### 1B) Simplicity & Scope Rules
 
-> **Ref**: See **Style Principles** (skills/style-principles.md) for detailed guidance.
+> **Ref**: See **Style Principles** (~/.codex/skills/style-principles/SKILL.md) for detailed guidance.
 
 - **Avoid over‑engineering.** Only make changes directly requested or clearly necessary.
 - **Don't add features or configurability** beyond the ask. A bug fix doesn't require refactoring the whole module.
@@ -213,18 +213,18 @@ related_tickets: [<TICKET-123>]
 
 ## 3) SDLC at a Glance (Map → Artifacts → MCP → Skills)
 
-| SDLC Phase                       | What happens                                       | Primary Artifacts             | Required MCP(s)                             | Skills Applied                                                     |
-| -------------------------------- | -------------------------------------------------- | ----------------------------- | ------------------------------------------- | ------------------------------------------------------------------ |
-| **0. Initiation**                | Create task, define scope stub                     | Task folder, stubs            | —                                           | **Continuity Ledger**                                              |
-| **1. Requirements & Analysis**   | Inventory code, clarify requirements, risks        | `research.md`                 | **Context7**, **DeepWiki**                  | **Continuity Ledger**, **MCP Integration**                         |
-| **2. Design & Planning**         | Architecture, contracts, UX states, tests, rollout | `plan.md`                     | **Shadcn**, **Supabase**, **Next DevTools** | **Frontend Aesthetics**, **Style Principles**, **MCP Integration** |
-| **3. Implementation**            | Code, migrations, components, unit tests           | `todo.md` (live)              | **Shadcn**, **Supabase**, **Next DevTools** | **Style Principles**, **MCP Integration**, **Continuity Ledger**   |
-| **4. Verification & Validation** | Manual QA, a11y, perf, E2E, cross‑browser          | `verification.md` + artifacts | **Chrome DevTools**                         | **MCP Integration**, **Frontend Aesthetics**                       |
-| **5. Review & Merge**            | PR, review, evidence, CI green                     | PR links to task              | **GitHub tool** (if configured)             | —                                                                  |
-| **6. Release & Deployment**      | Gradual rollout; metrics & logs                    | Release notes, runbook notes  | **Supabase** (if DB)                        | **MCP Integration**                                                |
-| **7. Operate & Improve**         | Monitor, hotfix, retrospective                     | Post‑release notes            | —                                           | **Continuity Ledger**                                              |
+| SDLC Phase                       | What happens                                       | Primary Artifacts             | Required MCP(s)                             | Skills Applied                                                                                    |
+| -------------------------------- | -------------------------------------------------- | ----------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| **0. Initiation**                | Create task, define scope stub                     | Task folder, stubs            | —                                           | **Continuity Ledger**                                                                             |
+| **1. Requirements & Analysis**   | Inventory code, clarify requirements, risks        | `research.md`                 | **Context7**, **DeepWiki**                  | **Continuity Ledger**, **MCP Integration**, **Multi-Agent Collaboration**                         |
+| **2. Design & Planning**         | Architecture, contracts, UX states, tests, rollout | `plan.md`                     | **Shadcn**, **Supabase**, **Next DevTools** | **Frontend Aesthetics**, **Style Principles**, **MCP Integration**, **Multi-Agent Collaboration** |
+| **3. Implementation**            | Code, migrations, components, unit tests           | `todo.md` (live)              | **Shadcn**, **Supabase**, **Next DevTools** | **Style Principles**, **MCP Integration**, **Continuity Ledger**, **Multi-Agent Collaboration**   |
+| **4. Verification & Validation** | Manual QA, a11y, perf, E2E, cross‑browser          | `verification.md` + artifacts | **Chrome DevTools**                         | **MCP Integration**, **Frontend Aesthetics**, **Multi-Agent Collaboration**                       |
+| **5. Review & Merge**            | PR, review, evidence, CI green                     | PR links to task              | **GitHub tool** (if configured)             | —                                                                                                 |
+| **6. Release & Deployment**      | Gradual rollout; metrics & logs                    | Release notes, runbook notes  | **Supabase** (if DB)                        | **MCP Integration**                                                                               |
+| **7. Operate & Improve**         | Monitor, hotfix, retrospective                     | Post‑release notes            | —                                           | **Continuity Ledger**                                                                             |
 
-> **Skills**: See `skills/*.md` for detailed capability specifications. **MCP**: See §8 and **MCP Integration** (skills/mcp-integration.md).
+> **Skills**: See `~/.codex/skills/*/SKILL.md` for detailed capability specifications. **MCP**: See §8 and **MCP Integration** (~/.codex/skills/mcp-integration/SKILL.md).
 
 ---
 
@@ -234,7 +234,7 @@ related_tickets: [<TICKET-123>]
 
 **Apply Skills**:
 
-- **Continuity Ledger** (skills/continuity-ledger.md) — Initialize or update `CONTINUITY.md` for the session.
+- **Continuity Ledger** (~/.codex/skills/continuity-ledger/SKILL.md) — Initialize or update `CONTINUITY.md` for the session.
 
 **Inputs**: Ticket or problem statement.
 
@@ -251,8 +251,9 @@ related_tickets: [<TICKET-123>]
 
 **Apply Skills**:
 
-- **Continuity Ledger** (skills/continuity-ledger.md) — Track requirements and constraints.
-- **MCP Integration** (skills/mcp-integration.md) — Use **Context7** for internal prior art; **DeepWiki** for external references.
+- **Continuity Ledger** (~/.codex/skills/continuity-ledger/SKILL.md) — Track requirements and constraints.
+- **MCP Integration** (~/.codex/skills/mcp-integration/SKILL.md) — Use **Context7** for internal prior art; **DeepWiki** for external references.
+- **Multi-Agent Collaboration** (~/.codex/skills/multi-agent-collaboration/SKILL.md) — Parallelize research and reconcile findings.
 
 **Goal**: Understand before building.
 
@@ -312,9 +313,10 @@ related_tickets: [<TICKET-123>]
 
 **Apply Skills**:
 
-- **Frontend Aesthetics** (skills/frontend-aesthetics.md) — Define visual direction (typography, color, motion). Avoid "AI slop".
-- **Style Principles** (skills/style-principles.md) — Apply DRY/KISS/YAGNI to architecture decisions.
-- **MCP Integration** (skills/mcp-integration.md) — Use **Shadcn** for components; **Supabase** for remote migrations (dry‑run → plan → apply); **Next DevTools** for routing/bundle inspection.
+- **Frontend Aesthetics** (~/.codex/skills/frontend-aesthetics/SKILL.md) — Define visual direction (typography, color, motion). Avoid "AI slop".
+- **Style Principles** (~/.codex/skills/style-principles/SKILL.md) — Apply DRY/KISS/YAGNI to architecture decisions.
+- **MCP Integration** (~/.codex/skills/mcp-integration/SKILL.md) — Use **Shadcn** for components; **Supabase** for remote migrations (dry‑run → plan → apply); **Next DevTools** for routing/bundle inspection.
+- **Multi-Agent Collaboration** (~/.codex/skills/multi-agent-collaboration/SKILL.md) — Coordinate parallel design reviews and edge case discovery.
 
 **Goal**: Turn analysis into an implementable blueprint.
 
@@ -390,9 +392,10 @@ Errors: { code, message }
 
 **Apply Skills**:
 
-- **Style Principles** (skills/style-principles.md) — Write simple, focused code. Avoid over-engineering.
-- **MCP Integration** (skills/mcp-integration.md) — Use **Shadcn** to scaffold, **Next DevTools** to optimize, **Supabase** for migrations.
-- **Continuity Ledger** (skills/continuity-ledger.md) — Update progress state (Done/Now/Next).
+- **Style Principles** (~/.codex/skills/style-principles/SKILL.md) — Write simple, focused code. Avoid over-engineering.
+- **MCP Integration** (~/.codex/skills/mcp-integration/SKILL.md) — Use **Shadcn** to scaffold, **Next DevTools** to optimize, **Supabase** for migrations.
+- **Continuity Ledger** (~/.codex/skills/continuity-ledger/SKILL.md) — Update progress state (Done/Now/Next).
+- **Multi-Agent Collaboration** (~/.codex/skills/multi-agent-collaboration/SKILL.md) — Partition work and avoid overlapping edits.
 
 **Goal**: Execute with momentum and traceability.
 
@@ -447,8 +450,9 @@ Errors: { code, message }
 
 **Apply Skills**:
 
-- **MCP Integration** (skills/mcp-integration.md) — **MANDATORY**: Use **Chrome DevTools MCP** for UI QA.
-- **Frontend Aesthetics** (skills/frontend-aesthetics.md) — Verify "stop scrolling" quality and brand alignment.
+- **MCP Integration** (~/.codex/skills/mcp-integration/SKILL.md) — **MANDATORY**: Use **Chrome DevTools MCP** for UI QA.
+- **Frontend Aesthetics** (~/.codex/skills/frontend-aesthetics/SKILL.md) — Verify "stop scrolling" quality and brand alignment.
+- **Multi-Agent Collaboration** (~/.codex/skills/multi-agent-collaboration/SKILL.md) — Parallelize QA while keeping a single source of truth for artifacts.
 
 **Goal**: Prove it works, is accessible, and performs.
 
@@ -556,7 +560,7 @@ Tool: Chrome DevTools MCP
 
 **Apply Skills**:
 
-- **MCP Integration** (skills/mcp-integration.md) — Use **Supabase MCP** for remote migrations (staging → prod).
+- **MCP Integration** (~/.codex/skills/mcp-integration/SKILL.md) — Use **Supabase MCP** for remote migrations (staging → prod).
 
 **Activities**:
 
@@ -572,7 +576,7 @@ Tool: Chrome DevTools MCP
 
 **Apply Skills**:
 
-- **Continuity Ledger** (skills/continuity-ledger.md) — Capture learnings in ledger and task folder.
+- **Continuity Ledger** (~/.codex/skills/continuity-ledger/SKILL.md) — Capture learnings in ledger and task folder.
 
 **Activities**:
 
@@ -585,7 +589,7 @@ Tool: Chrome DevTools MCP
 
 ## 5) Frontend: Component & UX Standards
 
-> **Ref**: See **Frontend Aesthetics** (skills/frontend-aesthetics.md) for detailed design guidelines including typography, color, motion, and anti-patterns.
+> **Ref**: See **Frontend Aesthetics** (~/.codex/skills/frontend-aesthetics/SKILL.md) for detailed design guidelines including typography, color, motion, and anti-patterns.
 
 ### Components
 
@@ -643,7 +647,7 @@ Tool: Chrome DevTools MCP
 
 ## 6) Back End & Data
 
-> **Ref**: See **MCP Integration** (skills/mcp-integration.md) for Supabase workflows and safety checklists.
+> **Ref**: See **MCP Integration** (~/.codex/skills/mcp-integration/SKILL.md) for Supabase workflows and safety checklists.
 
 ### Supabase — **Remote Only**
 
@@ -720,15 +724,11 @@ profile: web-next|mobile|service-python|package-ui
 
 ### Example Monorepo Layout
 
+Global skills live outside the repo at `~/.codex/skills/` (not shown in the tree below).
+
 ```text
 /
 ├── AGENTS.md
-├── skills/
-│   ├── continuity-ledger.md
-│   ├── frontend-aesthetics.md
-│   ├── mcp-integration.md
-│   ├── style-principles.md
-│   └── agent-skills-ecosystem.md
 ├── apps/
 │   ├── web/AGENTS.md
 │   ├── mobile/AGENTS.md
@@ -744,7 +744,7 @@ profile: web-next|mobile|service-python|package-ui
 
 ## 8) MCP Tooling & Integrations (Catalog + Rules)
 
-> **Ref**: See **MCP Integration** (skills/mcp-integration.md) for detailed workflows, pre-flight checklists, and examples.
+> **Ref**: See **MCP Integration** (~/.codex/skills/mcp-integration/SKILL.md) for detailed workflows, pre-flight checklists, and examples.
 
 Use MCP when it provides **repeatability, safety, or scale**. Configure via env/secrets; do not commit tokens.
 
@@ -762,6 +762,22 @@ Use MCP when it provides **repeatability, safety, or scale**. Configure via env/
   **Phase**: 1.
 
 **If MCP unavailable temporarily**: run equivalent CLI/manual steps and attach artifacts. MCP usage is still **required** long‑term.
+
+---
+
+## 8.5) Multi-Agent Collaboration (Codex Agents)
+
+> **Ref**: See **Multi-Agent Collaboration** (~/.codex/skills/multi-agent-collaboration/SKILL.md) for workflows, roles, and checklists.
+
+Use multiple agents to **parallelize research, analysis, and verification**, not to create conflicting edits.
+
+**Rules**
+
+- **Single lead**: One agent owns repo edits, task artifacts, and final decisions.
+- **Clear scopes**: Assign non-overlapping file or domain ownership before work starts.
+- **Shared constraints**: Every agent must receive the non-negotiables (security, Supabase remote-only, a11y, Shadcn, DevTools MCP).
+- **Artifact discipline**: Capture each agent's findings in the task folder (research/plan/verification notes or artifacts) with concise summaries.
+- **MCP precedence**: When MCP outputs exist, treat them as the source of truth and reconcile multi-agent findings accordingly.
 
 ---
 
@@ -881,7 +897,7 @@ Escalate or stop immediately if:
 
 ### B) Style Principles (Summary)
 
-> **Ref**: See **Style Principles** (skills/style-principles.md) for full details with examples.
+> **Ref**: See **Style Principles** (~/.codex/skills/style-principles/SKILL.md) for full details with examples.
 
 - **DRY**: Reuse patterns/components.
 - **KISS**: Prefer simple, obvious solutions.
@@ -948,7 +964,6 @@ Escalate or stop immediately if:
 ```text
 # Cross-cutting
 /AGENTS.md                 @maintainers
-/skills/                   @maintainers
 /tasks/                    @release-managers @maintainers
 /supabase/migrations/      @db-owners
 
@@ -1061,7 +1076,7 @@ pnpm ts-node scripts/agents-policy-trace.ts apps/web/src/pages/index.tsx
 
 ## 14) Continuity Ledger (Compaction-Safe)
 
-> **Ref**: See **Continuity Ledger** (skills/continuity-ledger.md) for full details, examples, and anti-patterns.
+> **Ref**: See **Continuity Ledger** (~/.codex/skills/continuity-ledger/SKILL.md) for full details, examples, and anti-patterns.
 
 Maintain a single Continuity Ledger for this workspace in `CONTINUITY.md`. The ledger is the canonical session briefing designed to survive context compaction; do not rely on earlier chat text unless it's reflected in the ledger.
 
@@ -1121,10 +1136,11 @@ Last updated: <ISO-8601 timestamp>
 **Last Updated**: 2025‑12-22  
 **Version**: 5.4
 
-**Skills Directory**: See `skills/` for detailed capability specifications:
+**Skills Directory**: See `~/.codex/skills/` for detailed capability specifications:
 
-- **Continuity Ledger** (skills/continuity-ledger.md) — Session continuity pattern
-- **Frontend Aesthetics** (skills/frontend-aesthetics.md) — UI design principles
-- **MCP Integration** (skills/mcp-integration.md) — MCP server catalog and workflows
-- **Style Principles** (skills/style-principles.md) — DRY/KISS/YAGNI guidelines
-- **Agent Skills Ecosystem** (skills/agent-skills-ecosystem.md) — Meta-information about the skills format
+- **Continuity Ledger** (~/.codex/skills/continuity-ledger/SKILL.md) — Session continuity pattern
+- **Multi-Agent Collaboration** (~/.codex/skills/multi-agent-collaboration/SKILL.md) — Multi-agent coordination and conflict avoidance
+- **Frontend Aesthetics** (~/.codex/skills/frontend-aesthetics/SKILL.md) — UI design principles
+- **MCP Integration** (~/.codex/skills/mcp-integration/SKILL.md) — MCP server catalog and workflows
+- **Style Principles** (~/.codex/skills/style-principles/SKILL.md) — DRY/KISS/YAGNI guidelines
+- **Agent Skills Ecosystem** (~/.codex/skills/agent-skills-ecosystem/SKILL.md) — Meta-information about the skills format
