@@ -5,7 +5,6 @@ import { toast } from 'react-hot-toast';
 
 import { HelpTooltip } from '@/components/features/restaurant-settings/HelpTooltip';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -83,10 +82,10 @@ const buildWeeklyHoursMap = (
 };
 
 const extractRequiredOccasionKeys = (options: OccasionDefinition[]) => {
-  const map: { lunch?: string; dinner?: string; drinks?: string } = {};
+  const map: { lunch?: string; dinner?: string } = {};
   options.forEach((definition) => {
     const lower = definition.key.toLowerCase();
-    if (lower === 'lunch' || lower === 'dinner' || lower === 'drinks') {
+    if (lower === 'lunch' || lower === 'dinner') {
       map[lower] = definition.key;
     }
   });
@@ -213,7 +212,7 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
     initializeState();
   }, [initializeState]);
 
-  const hasRequiredOccasions = Boolean(occasionKeys.drinks && occasionKeys.lunch && occasionKeys.dinner);
+  const hasRequiredOccasions = Boolean(occasionKeys.lunch && occasionKeys.dinner);
 
   const handleMealToggle = (dayIndex: number, mealKey: MealKey, value: boolean) => {
     const targetDay = dayConfigs[dayIndex];
@@ -355,7 +354,6 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
       occasionKeys: {
         lunch: occasionKeys.lunch!,
         dinner: occasionKeys.dinner!,
-        drinks: occasionKeys.drinks!,
       },
     });
 
@@ -438,16 +436,16 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
     <TooltipProvider delayDuration={100}>
       <SettingsCard
         title="Service Periods"
-        description="Drinks automatically follow general opening hours. Configure kitchen windows for lunch and dinner per day."
+        description="Configure kitchen windows for lunch and dinner per day."
         headerAction={
           <HelpTooltip
-            description="Lunch and dinner windows must stay inside each day's kitchen hours. Drinks inherit general operating hours."
+            description="Lunch and dinner windows must stay inside each day's kitchen hours."
             ariaLabel="Service periods help"
           />
         }
         footer={
           <div className="flex w-full flex-wrap items-center justify-between gap-3">
-            <p className="text-xs text-muted-foreground">Lunch & dinner availability follows kitchen windows; drinks follow opening hours.</p>
+            <p className="text-xs text-muted-foreground">Lunch & dinner availability follows kitchen windows.</p>
             <div className="flex items-center gap-2 ml-auto">
               <Button type="button" variant="outline" onClick={handleReset} disabled={isDisabled || !isDirty}>
                 Reset
@@ -463,7 +461,7 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
           {!hasRequiredOccasions && (
             <Alert variant="destructive">
               <AlertTitle>Missing booking occasions</AlertTitle>
-              <AlertDescription>Ensure lunch, dinner, and drinks occasions exist before editing service periods.</AlertDescription>
+              <AlertDescription>Ensure lunch and dinner occasions exist before editing service periods.</AlertDescription>
             </Alert>
           )}
 
@@ -471,7 +469,7 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
             <Alert>
               <AlertTitle>Additional service periods preserved</AlertTitle>
               <AlertDescription>
-                {customRows.length} custom period{customRows.length === 1 ? '' : 's'} exist outside the lunch/dinner/drinks
+                {customRows.length} custom period{customRows.length === 1 ? '' : 's'} exist outside the lunch/dinner
                 layout. They will be saved unchanged.
               </AlertDescription>
             </Alert>
@@ -490,15 +488,6 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
                     <p className="text-xs text-muted-foreground">
                       {day.isClosed ? 'Closed' : `Kitchen can operate between ${formatRange(day.opensAt, day.closesAt)}`}
                     </p>
-                  </div>
-                  <div>
-                    {day.isClosed || !day.drinks ? (
-                      <Badge variant="secondary" className="bg-muted text-muted-foreground">
-                        Drinks unavailable (closed)
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary">Drinks {day.opensAt} – {day.closesAt}</Badge>
-                    )}
                   </div>
                 </div>
                 <div className="mt-4 grid gap-4 md:grid-cols-2">

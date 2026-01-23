@@ -14,6 +14,7 @@ import {
   calendarMaskQueryKey,
   type CalendarMask,
 } from '@reserve/features/reservations/wizard/services/schedule';
+import { isBookingOption } from '@reserve/shared/booking';
 import { formatDateForInput } from '@reserve/shared/formatting/booking';
 import { toMinutes } from '@reserve/shared/time';
 
@@ -583,10 +584,9 @@ export function usePlanStepForm({
   const submitForm = useCallback(
     (values: PlanFormValues) => {
       const normalizedTime = normalizeToInterval(values.time);
-      const bookingTypeValue =
-        values.bookingType && values.bookingType.length > 0
-          ? values.bookingType
-          : (inferBookingOption(normalizedTime) ?? state.details.bookingType);
+      const bookingTypeValue = isBookingOption(values.bookingType)
+        ? values.bookingType
+        : (inferBookingOption(normalizedTime) ?? state.details.bookingType);
 
       updateField('date', values.date);
       updateField('time', normalizedTime);

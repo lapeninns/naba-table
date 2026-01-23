@@ -5,6 +5,7 @@ import {
   BOOKING_BLOCKING_STATUSES,
   BOOKING_TYPES_UI,
   SEATING_PREFERENCES_UI,
+  ensureBookingType,
   ensureBookingStatus,
   ensureSeatingPreference,
   type BookingStatus,
@@ -205,10 +206,6 @@ export function calculateDurationMinutes(bookingType: BookingType): number {
   }
 
   switch (normalized) {
-    case "drinks":
-      return 75;
-    case "breakfast":
-      return 75;
     case "lunch":
       return 90;
     default:
@@ -435,7 +432,8 @@ export async function updateBookingRecord(
   const nextPayload: UpdateBookingPayload = { ...payload };
 
   if (nextPayload.booking_type) {
-    nextPayload.booking_type = await assertActiveOccasionKey(nextPayload.booking_type);
+    const activeKey = await assertActiveOccasionKey(nextPayload.booking_type);
+    nextPayload.booking_type = ensureBookingType(activeKey);
   }
   if (nextPayload.seating_preference) {
     nextPayload.seating_preference = ensureSeatingPreference(nextPayload.seating_preference);

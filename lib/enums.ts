@@ -1,9 +1,7 @@
-import type { OccasionKey } from '@reserve/shared/occasions';
+export const BOOKING_TYPES = ["lunch", "dinner"] as const;
+export type BookingType = (typeof BOOKING_TYPES)[number];
 
-export const BOOKING_TYPES = ["breakfast", "lunch", "dinner", "drinks"] as const;
-export type BookingType = OccasionKey;
-
-export const BOOKING_TYPES_UI = ["lunch", "dinner", "drinks"] as const satisfies readonly OccasionKey[];
+export const BOOKING_TYPES_UI = ["lunch", "dinner"] as const satisfies readonly BookingType[];
 
 export const BOOKING_STATUSES = ["pending", "pending_allocation", "confirmed", "cancelled", "completed", "no_show", "checked_in", "PRIORITY_WAITLIST"] as const;
 export type BookingStatus = (typeof BOOKING_STATUSES)[number];
@@ -20,8 +18,8 @@ function createEnumPredicate<T extends readonly string[]>(values: T) {
   return (value: string): value is T[number] => set.has(value);
 }
 
-export const isBookingType = (value: string): value is BookingType =>
-  typeof value === "string" && value.trim().length > 0;
+const isBookingTypeValue = createEnumPredicate(BOOKING_TYPES);
+export const isBookingType = (value: string): value is BookingType => isBookingTypeValue(value);
 export const isBookingStatus = createEnumPredicate(BOOKING_STATUSES);
 export const isSeatingPreference = createEnumPredicate(SEATING_PREFERENCES);
 

@@ -745,8 +745,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const supabase = getServiceSupabaseClient();
-    const normalizedBookingType =
-      data.bookingType === 'drinks' ? 'drinks' : inferMealTypeFromTime(data.time);
+    const normalizedBookingType = data.bookingType ?? inferMealTypeFromTime(data.time);
     const pastTimeBlocking = env.featureFlags.bookingPastTimeBlocking ?? true;
 
     let startTime = data.time;

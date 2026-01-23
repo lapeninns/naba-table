@@ -454,10 +454,8 @@ describe('/api/bookings POST', () => {
           bookingOption: 'dinner',
           defaultBookingOption: 'dinner',
           availability: {
-            services: { lunch: 'disabled', dinner: 'enabled', drinks: 'disabled' },
+            services: { lunch: 'disabled', dinner: 'enabled' },
             labels: {
-              happyHour: false,
-              drinksOnly: false,
               kitchenClosed: false,
               lunchWindow: false,
               dinnerWindow: true,
@@ -676,10 +674,8 @@ describe('/api/bookings POST', () => {
           bookingOption: 'dinner',
           defaultBookingOption: 'dinner',
           availability: {
-            services: { lunch: 'disabled', dinner: 'enabled', drinks: 'disabled' },
+            services: { lunch: 'disabled', dinner: 'enabled' },
             labels: {
-              happyHour: false,
-              drinksOnly: false,
               kitchenClosed: false,
               lunchWindow: false,
               dinnerWindow: true,

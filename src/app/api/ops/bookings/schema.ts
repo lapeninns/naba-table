@@ -59,7 +59,7 @@ export const opsWalkInBookingSchema = z
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     time: z.string().regex(/^\d{2}:\d{2}$/),
     party: z.number().int().min(1),
-    bookingType: z.enum(["breakfast", "lunch", "dinner", "drinks"]),
+    bookingType: z.enum(["lunch", "dinner"]),
     seating: z.string().min(1),
     notes: z.string().max(500).optional().nullable(),
     name: z.string().min(2).max(120),

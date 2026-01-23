@@ -3,7 +3,6 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 
 import { cn } from '@shared/lib/cn';
-import { Badge } from '@shared/ui/badge';
 
 import type { TimeSlotDescriptor } from '@reserve/features/reservations/wizard/services';
 
@@ -104,31 +103,12 @@ export function TimeSlotGrid({
       </div>
       <div className="space-y-4 overflow-x-auto pb-1">
         {[...groupedSlots.entries()].map(([label, entries]) => {
-          const allHappyHour = entries.every((slot) => slot.availability.labels.happyHour);
-          const allDrinksOnly = entries.every((slot) => slot.availability.labels.drinksOnly);
-
           return (
             <div key={label} className="space-y-2.5 min-w-[280px] animate-fade-in">
               <div className="flex items-center gap-2 flex-wrap">
                 <h4 className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground sm:text-[0.7rem]">
                   {label}
                 </h4>
-                {allHappyHour ? (
-                  <Badge
-                    variant="secondary"
-                    className="text-[10px] font-medium px-2 py-0.5 sm:text-[11px]"
-                  >
-                    🍹 Happy hour
-                  </Badge>
-                ) : null}
-                {allDrinksOnly ? (
-                  <Badge
-                    variant="outline"
-                    className="text-[10px] font-medium px-2 py-0.5 sm:text-[11px]"
-                  >
-                    🍷 Drinks only
-                  </Badge>
-                ) : null}
               </div>
               <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
                 {entries.map((slot) => {
@@ -157,7 +137,7 @@ export function TimeSlotGrid({
                         !slot.disabled && 'active:transition-transform active:duration-100',
                       )}
                       aria-pressed={isActive}
-                      aria-label={`${slot.display}, ${label}${allHappyHour ? ', Happy hour' : ''}${allDrinksOnly ? ', Drinks only' : ''}`}
+                      aria-label={`${slot.display}, ${label}`}
                       disabled={slot.disabled}
                       onClick={() => onSelect(slot.value)}
                       data-slot-value={slot.value}

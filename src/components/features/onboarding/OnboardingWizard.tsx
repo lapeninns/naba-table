@@ -54,7 +54,7 @@ const profileSchema = z.object({
   bookingPolicy: z.string().optional(),
 });
 
-const DEFAULT_BOOKING_OPTIONS = ['lunch', 'dinner', 'drinks', 'tasting'];
+const DEFAULT_BOOKING_OPTIONS = ['lunch', 'dinner'];
 
 const servicePeriodSchema = z.object({
   name: z.string().min(1, 'Name is required'),

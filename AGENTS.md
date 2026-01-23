@@ -779,6 +779,14 @@ Use multiple agents to **parallelize research, analysis, and verification**, not
 - **Artifact discipline**: Capture each agent's findings in the task folder (research/plan/verification notes or artifacts) with concise summaries.
 - **MCP precedence**: When MCP outputs exist, treat them as the source of truth and reconcile multi-agent findings accordingly.
 
+**tAF Subagents**
+
+- ALWAYS wait for all subagents to complete before yielding.
+- Spawn subagents automatically when:
+  - Parallelizable work (e.g., install + verify, npm test + typecheck, multiple tasks from plan)
+  - Long-running or blocking tasks where a worker can run independently.
+  - Isolation for risky changes or checks.
+
 ---
 
 ## 9) Git & Branching

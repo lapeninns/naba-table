@@ -10,11 +10,8 @@ const availability: ServiceAvailability = {
   services: {
     lunch: 'disabled',
     dinner: 'disabled',
-    drinks: 'enabled',
   },
   labels: {
-    happyHour: true,
-    drinksOnly: true,
     kitchenClosed: true,
     lunchWindow: false,
     dinnerWindow: false,
@@ -23,7 +20,6 @@ const availability: ServiceAvailability = {
 const OPTIONS: OccasionPickerOption[] = [
   { key: 'lunch', label: 'Lunch' },
   { key: 'dinner', label: 'Dinner' },
-  { key: 'drinks', label: 'Drinks' },
 ];
 
 const meta = {
@@ -46,8 +42,8 @@ type Story = StoryObj<typeof OccasionPicker>;
 export const Default: Story = {
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
-    const drinksToggle = await canvas.findByRole('button', { name: /Drinks/i });
-    await userEvent.click(drinksToggle);
+    const dinnerToggle = await canvas.findByRole('button', { name: /Dinner/i });
+    await userEvent.click(dinnerToggle);
     expect(args.onChange).toHaveBeenCalled();
   },
 };

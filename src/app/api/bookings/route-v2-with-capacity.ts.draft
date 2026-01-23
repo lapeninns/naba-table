@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     
     // ... existing time/schedule validation ...
     
-    const normalizedBookingType = data.bookingType === "drinks" ? "drinks" : inferMealTypeFromTime(data.time);
+    const normalizedBookingType = data.bookingType ?? inferMealTypeFromTime(data.time);
     const endTime = deriveEndTime(startTime, normalizedBookingType);
 
     // =====================================================

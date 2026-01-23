@@ -16,20 +16,12 @@ export type MealConfig = {
   enabled: boolean;
 };
 
-export type DrinksConfig = {
-  id?: string;
-  name: string;
-  startTime: string;
-  endTime: string;
-};
-
 export type DayServiceConfig = {
   dayOfWeek: number;
   label: string;
   opensAt: string | null;
   closesAt: string | null;
   isClosed: boolean;
-  drinks: DrinksConfig | null;
   lunch: MealConfig;
   dinner: MealConfig;
 };
@@ -46,13 +38,11 @@ export type BuildPayloadOptions = {
   occasionKeys: {
     lunch: string;
     dinner: string;
-    drinks: string;
   };
 };
 
 const DEFAULT_LUNCH_NAME = 'Lunch';
 const DEFAULT_DINNER_NAME = 'Dinner';
-const DEFAULT_DRINKS_NAME = 'Drinks';
 
 const ensureTimeInput = (value: string | null | undefined): string => {
   if (!value) {
@@ -79,7 +69,6 @@ const partitionServicePeriods = (periods: ServicePeriodRow[]) => {
   const byDay = new Map<
     number,
     {
-      drinks?: ServicePeriodRow;
       lunch?: ServicePeriodRow;
       dinner?: ServicePeriodRow;
       extras: ServicePeriodRow[];
@@ -95,9 +84,6 @@ const partitionServicePeriods = (periods: ServicePeriodRow[]) => {
     }
     const bucket = byDay.get(period.dayOfWeek) ?? { extras: [] };
     switch (bookingKey) {
-      case 'drinks':
-        bucket.drinks = period;
-        break;
       case 'lunch':
         bucket.lunch = period;
         break;
@@ -130,7 +116,6 @@ export function buildServicePeriodState(params: BuildStateParams): {
 
     const lunchPeriod = bucket.lunch;
     const dinnerPeriod = bucket.dinner;
-    const drinksPeriod = bucket.drinks;
 
     const lunch: MealConfig = {
       id: lunchPeriod?.id,
@@ -148,23 +133,12 @@ export function buildServicePeriodState(params: BuildStateParams): {
       enabled: Boolean(dinnerPeriod),
     };
 
-    const drinks: DrinksConfig | null =
-      hours.isClosed || !hours.opensAt || !hours.closesAt
-        ? null
-        : {
-            id: drinksPeriod?.id,
-            name: drinksPeriod?.name ?? DEFAULT_DRINKS_NAME,
-            startTime: ensureTimeInput(hours.opensAt),
-            endTime: ensureTimeInput(hours.closesAt),
-          };
-
     days.push({
       dayOfWeek: day,
       label: dayLabels[day] ?? `Day ${day}`,
       opensAt: ensureTimeInput(hours.opensAt),
       closesAt: ensureTimeInput(hours.closesAt),
       isClosed: hours.isClosed || !hours.opensAt || !hours.closesAt,
-      drinks,
       lunch,
       dinner,
     });
@@ -179,17 +153,6 @@ export function buildServicePeriodPayload(
 ): ServicePeriodRow[] {
   const payload: ServicePeriodRow[] = [...options.customRows];
   dayConfigs.forEach((day) => {
-    if (!day.isClosed && day.drinks && day.opensAt && day.closesAt) {
-      payload.push({
-        id: day.drinks.id,
-        name: day.drinks.name || DEFAULT_DRINKS_NAME,
-        dayOfWeek: day.dayOfWeek,
-        startTime: options.canonicalizeTime(day.opensAt),
-        endTime: options.canonicalizeTime(day.closesAt),
-        bookingOption: options.occasionKeys.drinks,
-      });
-    }
-
     if (day.lunch.enabled) {
       payload.push({
         id: day.lunch.id,
