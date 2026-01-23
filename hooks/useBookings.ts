@@ -39,7 +39,7 @@ export type BookingDTO = {
   customerEmail?: string | null;
   customerPhone?: string | null;
   reservationIntervalMinutes?: number | null;
-  /** Service type: 'drinks', 'lunch', 'dinner' etc - used to filter available slots */
+  /** Service type: 'lunch' or 'dinner' - used to filter available slots */
   booking_type?: string | null;
   // Ops-enriched fields (optional for guest flows)
   reference?: string | null;

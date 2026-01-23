@@ -25,10 +25,8 @@ const slots: TimeSlotDescriptor[] = [
     bookingOption: 'lunch',
     defaultBookingOption: 'lunch',
     availability: {
-      services: { lunch: 'enabled', dinner: 'disabled', drinks: 'enabled' },
+      services: { lunch: 'enabled', dinner: 'disabled' },
       labels: {
-        happyHour: false,
-        drinksOnly: false,
         kitchenClosed: false,
         lunchWindow: true,
         dinnerWindow: false,
@@ -44,10 +42,8 @@ const slots: TimeSlotDescriptor[] = [
     bookingOption: 'dinner',
     defaultBookingOption: 'dinner',
     availability: {
-      services: { lunch: 'disabled', dinner: 'enabled', drinks: 'enabled' },
+      services: { lunch: 'disabled', dinner: 'enabled' },
       labels: {
-        happyHour: false,
-        drinksOnly: false,
         kitchenClosed: false,
         lunchWindow: false,
         dinnerWindow: true,
@@ -55,25 +51,6 @@ const slots: TimeSlotDescriptor[] = [
     },
     disabled: false,
     periodId: 'slot-dinner',
-  },
-  {
-    value: '21:00',
-    display: '21:00',
-    label: 'Drinks & cocktails',
-    bookingOption: 'drinks',
-    defaultBookingOption: 'drinks',
-    availability: {
-      services: { lunch: 'disabled', dinner: 'disabled', drinks: 'enabled' },
-      labels: {
-        happyHour: true,
-        drinksOnly: true,
-        kitchenClosed: true,
-        lunchWindow: false,
-        dinnerWindow: false,
-      },
-    },
-    disabled: false,
-    periodId: 'slot-drinks',
   },
 ];
 

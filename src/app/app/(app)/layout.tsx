@@ -17,6 +17,26 @@ type OpsAppLayoutProps = {
   children: ReactNode;
 };
 
+function describeSupabaseError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return { message: String(error) };
+  }
+
+  const maybe = error as {
+    code?: string;
+    message?: string;
+    details?: string | null;
+    hint?: string | null;
+  };
+
+  return {
+    code: maybe.code ?? null,
+    message: maybe.message ?? String(error),
+    details: maybe.details ?? null,
+    hint: maybe.hint ?? null,
+  };
+}
+
 function mapMembershipToOps(membership: RestaurantMembershipWithDetails): OpsMembership {
   return {
     restaurantId: membership.restaurant_id,
@@ -35,9 +55,6 @@ export default async function OpsAppLayout({ children }: OpsAppLayoutProps) {
 
   let supabaseUser: OpsUser | null = null;
   let memberships: RestaurantMembershipWithDetails[] = [];
-  let initialSession:
-    | Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session']
-    | null = null;
 
   try {
     const {
@@ -60,25 +77,13 @@ export default async function OpsAppLayout({ children }: OpsAppLayoutProps) {
   }
 
   if (supabaseUser) {
-    const membershipsPromise = fetchUserMemberships(supabaseUser.id, supabase);
-    const sessionPromise = supabase.auth.getSession();
+    const membershipsPromise = fetchUserMemberships(supabaseUser.id);
 
     try {
       memberships = await membershipsPromise;
     } catch (membershipError) {
-      console.error('[app/layout] failed to load memberships', membershipError);
+      console.error('[app/layout] failed to load memberships', describeSupabaseError(membershipError));
       memberships = [];
-    }
-
-    try {
-      const { data, error } = await sessionPromise;
-      if (error) {
-        console.error('[app/layout] failed to load session', error.message);
-      } else {
-        initialSession = data.session ?? null;
-      }
-    } catch (sessionError) {
-      console.error('[app/layout] unexpected error while resolving session', sessionError);
     }
   }
 
@@ -107,7 +112,7 @@ export default async function OpsAppLayout({ children }: OpsAppLayoutProps) {
       featureFlags={featureFlags}
     >
       <OpsServicesProvider>
-        <AppProviders initialSession={initialSession}>
+        <AppProviders>
           <OpsShell defaultSidebarOpen={defaultOpen}>{children}</OpsShell>
         </AppProviders>
       </OpsServicesProvider>

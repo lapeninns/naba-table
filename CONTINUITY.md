@@ -1,41 +1,39 @@
 # Continuity Ledger
 
-Last updated: 2026-01-22T00:44:53Z
+Last updated: 2026-01-23T00:40:47Z
 
 ## Goal (incl. success criteria)
 
-- Fix Codex skill loader errors by aligning SKILL.md frontmatter with OpenAI Codex skills requirements.
-- Success: affected SKILL.md files include required `name` and `description` fields and load without YAML errors.
+- Remove unused `BookingType` import in booking route handler.
+- Success: ESLint no-unused-vars warning cleared for `src/app/api/bookings/[id]/route.ts`.
 
 ## Constraints/Assumptions
 
-- Follow SDLC phases; no implementation before requirements and plan are reviewed.
-- Task artifacts required under `tasks/<slug>-YYYYMMDD-HHMM>/` for repo changes.
-- Global skills path `~/.codex/skills/` requires careful edits only to YAML headers.
+- Follow AGENTS SDLC phases; requirements and plan before implementation.
+- Task artifacts required under `tasks/<slug>-YYYYMMDD-HHMM>/`.
+- No UI changes (Chrome DevTools MCP not required).
 
 ## Key decisions
 
-- Re-check OpenAI Codex skills docs and update frontmatter accordingly (likely add `description`).
+- Remove only the unused import; no behavior changes.
 
 ## State
 
-- Phase 4 (Verification) complete for skill frontmatter fix.
+- Implementation complete; pending verification (lint).
 
 ## Done
 
-- Read root `AGENTS.md` and current `CONTINUITY.md`.
-- Reviewed OpenAI Codex skills docs for required frontmatter fields.
-- Created task folder `tasks/fix-skill-frontmatter-20260122-0041/` with artifacts.
-- Added `description` fields to six global SKILL.md files under `~/.codex/skills/`.
-- Verified updated frontmatter is single-line and within documented limits.
+- Created task folder `tasks/fix-unused-bookingtype-20260123-0039/` with required stubs.
+- Removed unused `BookingType` import from `src/app/api/bookings/[id]/route.ts`.
+- Updated `todo.md` checklist.
 
 ## Now
 
-- Prepare summary and next steps for the user.
+- Awaiting decision to re-run lint/pre-commit.
 
 ## Next
 
-- Re-run Codex skill loader if user wants validation.
+- Run lint/pre-commit if requested and update `verification.md`.
 
 ## Open questions (UNCONFIRMED if needed)
 
@@ -43,14 +41,6 @@ Last updated: 2026-01-22T00:44:53Z
 
 ## Working set (files/ids/commands)
 
-- `CONTINUITY.md`
-- `tasks/fix-skill-frontmatter-20260122-0041/research.md`
-- `tasks/fix-skill-frontmatter-20260122-0041/plan.md`
-- `tasks/fix-skill-frontmatter-20260122-0041/todo.md`
-- `tasks/fix-skill-frontmatter-20260122-0041/verification.md`
-- `/Users/amankumarshrestha/.codex/skills/frontend-aesthetics/SKILL.md`
-- `/Users/amankumarshrestha/.codex/skills/agent-skills-ecosystem/SKILL.md`
-- `/Users/amankumarshrestha/.codex/skills/multi-agent-collaboration/SKILL.md`
-- `/Users/amankumarshrestha/.codex/skills/style-principles/SKILL.md`
-- `/Users/amankumarshrestha/.codex/skills/continuity-ledger/SKILL.md`
-- `/Users/amankumarshrestha/.codex/skills/mcp-integration/SKILL.md`
+- `src/app/api/bookings/[id]/route.ts`
+- `tasks/fix-unused-bookingtype-20260123-0039/todo.md`
+- `tasks/fix-unused-bookingtype-20260123-0039/verification.md`

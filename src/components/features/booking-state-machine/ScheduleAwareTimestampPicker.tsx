@@ -49,7 +49,7 @@ export type ScheduleAwareTimestampPickerProps = {
   disabled?: boolean;
   minDate?: Date;
   className?: string;
-  /** When editing a booking of a specific type (e.g. 'drinks'), filter slots where this service is enabled */
+  /** When editing a booking of a specific type (e.g. 'lunch'), filter slots where this service is enabled */
   targetService?: string | null;
 
   children?: React.ReactNode;
@@ -96,7 +96,7 @@ const mergeWithSyntheticSlots = (schedule: ReservationSchedule | null): Reservat
   }
 
   const existingByValue = new Map(schedule.slots.map((slot) => [slot.value, slot]));
-  const defaultBookingOption = schedule.availableBookingOptions[0] ?? schedule.slots[0]?.bookingOption ?? 'drinks';
+  const defaultBookingOption = schedule.availableBookingOptions[0] ?? schedule.slots[0]?.bookingOption ?? 'lunch';
 
   const synthetic: RawScheduleSlot[] = [];
   for (let m = openingMinutes; m <= latestStartMinutes; m += interval) {
@@ -113,16 +113,14 @@ const mergeWithSyntheticSlots = (schedule: ReservationSchedule | null): Reservat
       periodName: null,
       bookingOption: defaultBookingOption,
       defaultBookingOption,
-      availability: {
-        services: {},
-        labels: {
-          happyHour: false,
-          drinksOnly: false,
-          kitchenClosed: false,
-          lunchWindow: false,
-          dinnerWindow: false,
+        availability: {
+          services: {},
+          labels: {
+            kitchenClosed: false,
+            lunchWindow: false,
+            dinnerWindow: false,
+          },
         },
-      },
       disabled: false,
     });
   }
@@ -663,7 +661,7 @@ export function ScheduleAwareTimestampPicker({
         if (slot.disabled) {
           return false;
         }
-        // If targetService is specified (e.g., editing a 'drinks' booking),
+        // If targetService is specified (e.g., editing a 'lunch' booking),
         // check if that specific service is enabled on this slot
         if (targetService) {
           const services = slot.availability?.services ?? {};

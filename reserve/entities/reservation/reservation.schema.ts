@@ -38,7 +38,7 @@ export const reservationSchema = z.object({
   startAt: z.string().datetime({ offset: true }), // Allow both Z and offset formats
   endAt: z.string().datetime({ offset: true }).nullable().optional(),
   partySize: z.number().int().positive(),
-  bookingType: z.enum(['lunch', 'dinner', 'drinks']),
+  bookingType: z.enum(['lunch', 'dinner']),
   seatingPreference: z.string(),
   status: z.string(),
   customerName: z.string(),

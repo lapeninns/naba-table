@@ -30,7 +30,7 @@ export type UpdateServicePeriod = {
   bookingOption: BookingOption;
 };
 
-const OVERLAP_EXEMPT_BOOKING_OPTIONS = new Set(['drinks']);
+const OVERLAP_EXEMPT_BOOKING_OPTIONS = new Set<string>();
 
 function normalizeDayOfWeek(value: number | null | undefined): number | null {
   if (value === null || value === undefined) {
@@ -146,7 +146,11 @@ export async function updateServicePeriods(
   client: DbClient = getServiceSupabaseClient(),
 ): Promise<ServicePeriod[]> {
   const catalog = await getOccasionCatalog({ client });
-  const validOptions = new Set(catalog.definitions.map((definition) => definition.key.toLowerCase()));
+  const validOptions = new Set(
+    catalog.definitions
+      .map((definition) => definition.key.toLowerCase())
+      .filter((key) => key !== 'drinks'),
+  );
 
   const validated = periods.map((entry) => validateServicePeriod(entry, validOptions));
 

@@ -10,7 +10,6 @@ const formatterCache = new Map<string, Intl.DateTimeFormat>();
 const BASE_LABELS: Record<BookingOption, string> = {
   lunch: 'Lunch',
   dinner: 'Dinner',
-  drinks: 'Drinks & cocktails',
 };
 
 type FormattingOptions = {
