@@ -106,6 +106,7 @@ const mergeWithSyntheticSlots = (schedule: ReservationSchedule | null): Reservat
     if (existingByValue.has(value)) {
       continue;
     }
+    // Synthetic slots are always disabled so out-of-period gaps never become selectable.
     synthetic.push({
       value,
       display: value,
@@ -113,15 +114,15 @@ const mergeWithSyntheticSlots = (schedule: ReservationSchedule | null): Reservat
       periodName: null,
       bookingOption: defaultBookingOption,
       defaultBookingOption,
-        availability: {
-          services: {},
-          labels: {
-            kitchenClosed: false,
-            lunchWindow: false,
-            dinnerWindow: false,
-          },
+      availability: {
+        services: {},
+        labels: {
+          kitchenClosed: false,
+          lunchWindow: false,
+          dinnerWindow: false,
         },
-      disabled: false,
+      },
+      disabled: true,
     });
   }
 
