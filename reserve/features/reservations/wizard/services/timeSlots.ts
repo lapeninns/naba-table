@@ -6,8 +6,6 @@ export type ServiceState = 'enabled' | 'disabled';
 export type ServiceAvailability = {
   services: Record<OccasionKey, ServiceState>;
   labels: {
-    happyHour: boolean;
-    drinksOnly: boolean;
     kitchenClosed: boolean;
     lunchWindow: boolean;
     dinnerWindow: boolean;
@@ -17,8 +15,6 @@ export type ServiceAvailability = {
 export const EMPTY_AVAILABILITY: ServiceAvailability = {
   services: {},
   labels: {
-    happyHour: false,
-    drinksOnly: false,
     kitchenClosed: false,
     lunchWindow: false,
     dinnerWindow: false,

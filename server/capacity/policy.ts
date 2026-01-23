@@ -4,7 +4,7 @@ import { DEFAULT_SCARCITY_WEIGHT, type StrategicConfigSnapshotOptions } from "./
 
 const DEFAULT_TIMEZONE = "Europe/London";
 
-export const SERVICE_KEYS = ["lunch", "dinner", "drinks"] as const;
+export const SERVICE_KEYS = ["lunch", "dinner"] as const;
 export type ServiceKey = (typeof SERVICE_KEYS)[number];
 
 export type TimeOfDay = {

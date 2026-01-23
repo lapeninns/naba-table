@@ -1,0 +1,2 @@
+pg_restore: error: could not execute query: ERROR:  relation "public.restaurants" does not exist
+Command was: DROP POLICY IF EXISTS service_role_read_all ON public.restaurants;

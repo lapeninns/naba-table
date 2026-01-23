@@ -229,7 +229,7 @@ export type OpsRejectionBucket = 'day' | 'hour';
 
 export type OpsStrategicPenaltyKey = 'slack' | 'scarcity' | 'future_conflict' | 'structural' | 'unknown';
 
-export type TableTimelineServiceKey = 'lunch' | 'dinner' | 'drinks' | 'other';
+export type TableTimelineServiceKey = 'lunch' | 'dinner' | 'other';
 
 export type TableTimelineSlot = {
   start: string;

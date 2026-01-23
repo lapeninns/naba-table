@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { MAX_ONLINE_PARTY_SIZE, MIN_ONLINE_PARTY_SIZE } from '@/lib/bookings/partySize';
+import { isBookingType } from '@/lib/enums';
 import { env } from '@/lib/env';
 import { HttpError } from '@/lib/http/errors';
 import { GuardError, listUserRestaurantMemberships, requireSession } from '@/server/auth/guards';
@@ -53,7 +54,6 @@ import {
 } from '@/server/supabase';
 import { formatDateForInput } from '@reserve/shared/formatting/booking';
 
-import type { BookingType } from '@/lib/enums';
 import type { BookingRecord } from '@/server/bookings';
 import type { Json, Tables } from '@/types/supabase';
 import type { NextRequest } from 'next/server';
@@ -408,9 +408,12 @@ async function handleDashboardUpdate(params: {
     const needsScheduleForDuration = isTimeChanged || !explicitEndVenue;
 
     let normalizedStartDateTime = startVenue.dateTime.set({ second: 0, millisecond: 0 });
+    const existingBookingTypeRaw = existingBooking.booking_type ?? '';
 
     try {
-      const bookingType = (existingBooking.booking_type ?? 'dinner') as BookingType;
+      const bookingType = isBookingType(existingBookingTypeRaw)
+        ? existingBookingTypeRaw
+        : inferMealTypeFromTime(startTime);
       const { time } = assertBookingWithinOperatingWindow({
         schedule,
         requestedTime: startTime,
@@ -514,6 +517,8 @@ async function handleDashboardUpdate(params: {
       endTime !== (existingBooking.end_time ?? '') ||
       data.partySize !== (existingBooking.party_size ?? 0);
     const normalizedNotes = data.notes ?? null;
+    const normalizedBookingType =
+      isBookingType(existingBookingTypeRaw) ? existingBookingTypeRaw : undefined;
 
     const useUnifiedValidation = env.featureFlags.bookingValidationUnified;
     let updated: Tables<'bookings'>;
@@ -528,7 +533,7 @@ async function handleDashboardUpdate(params: {
       const bookingInput: BookingInput = {
         restaurantId,
         serviceId: existingBooking.booking_type ?? 'dinner',
-        bookingType: existingBooking.booking_type ?? undefined,
+        bookingType: normalizedBookingType,
         bookingId,
         partySize: data.partySize,
         start: `${bookingDate}T${startTime}:00`,
@@ -596,7 +601,7 @@ async function handleDashboardUpdate(params: {
         end_time: endTime,
         party_size: data.partySize,
         notes: normalizedNotes,
-        booking_type: existingBooking.booking_type,
+        booking_type: normalizedBookingType,
         seating_preference: existingBooking.seating_preference,
         customer_name: existingBooking.customer_name,
         customer_email: existingBooking.customer_email,
@@ -1207,8 +1212,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     const restaurantId = await requireRestaurantContext(
       data.restaurantId ?? existingBooking.restaurant_id,
     );
-    const normalizedBookingType =
-      data.bookingType === 'drinks' ? 'drinks' : inferMealTypeFromTime(data.time);
+    const normalizedBookingType = data.bookingType ?? inferMealTypeFromTime(data.time);
 
     let startTime = data.time;
 

@@ -60,7 +60,7 @@ describe('/api/restaurants/[slug]/schedule', () => {
       lastSeatingBufferMinutes: 120,
       window: { opensAt: '12:00', closesAt: '22:00' },
       isClosed: false,
-      availableBookingOptions: ['lunch', 'dinner', 'drinks'],
+      availableBookingOptions: ['lunch', 'dinner'],
       occasionCatalog: [],
       slots: [],
     });
@@ -73,7 +73,7 @@ describe('/api/restaurants/[slug]/schedule', () => {
     expect(response.status).toBe(200);
     const json = await response.json();
     expect(json.restaurantId).toBe('rest-1');
-    expect(json.availableBookingOptions).toEqual(['lunch', 'dinner', 'drinks']);
+    expect(json.availableBookingOptions).toEqual(['lunch', 'dinner']);
     expect(getRestaurantScheduleMock).toHaveBeenCalledWith('rest-1', { date: '2025-05-08' });
   });
 });

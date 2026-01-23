@@ -18,8 +18,6 @@ type OptionCoverage = Map<OccasionKey, CoverageRange[]>;
 export type ServiceAvailability = {
   services: Record<OccasionKey, ServiceState>;
   labels: {
-    happyHour: boolean;
-    drinksOnly: boolean;
     kitchenClosed: boolean;
     lunchWindow: boolean;
     dinnerWindow: boolean;
@@ -85,6 +83,9 @@ type RawOperatingHours = {
   is_closed: boolean | null;
 };
 
+const ALLOWED_BOOKING_OPTIONS = new Set<OccasionKey>(['lunch', 'dinner']);
+const DEFAULT_BOOKING_OPTION: OccasionKey = 'lunch';
+
 function sanitizeDate(input: string | undefined, timezone: string): string {
   if (input && DATE_REGEX.test(input)) {
     return input;
@@ -146,6 +147,9 @@ function buildCoverage(periods: RawServicePeriod[]): OptionCoverage {
       return;
     }
     const option = pickBookingOption(period);
+    if (!ALLOWED_BOOKING_OPTIONS.has(option)) {
+      return;
+    }
     const ranges = coverage.get(option) ?? [];
     ranges.push({
       start: toMinutes(start),
@@ -167,7 +171,6 @@ function hasCoverage(coverage: OptionCoverage, option: OccasionKey, slot: Reserv
 
 type AvailabilityParams = {
   primaryOption: OccasionKey;
-  periodName: string | null;
   coverage: OptionCoverage;
   slot: ReservationTime;
   orderedKeys: OccasionKey[];
@@ -179,7 +182,6 @@ type AvailabilityParams = {
 
 function buildAvailability({
   primaryOption,
-  periodName,
   coverage,
   slot,
   orderedKeys,
@@ -188,7 +190,9 @@ function buildAvailability({
   timezone,
   month,
 }: AvailabilityParams): ServiceAvailability {
-  const keys = Array.from(new Set<OccasionKey>([...orderedKeys, ...coverage.keys(), primaryOption]));
+  const keys = Array.from(
+    new Set<OccasionKey>([...orderedKeys, ...coverage.keys(), primaryOption]),
+  ).filter((key) => ALLOWED_BOOKING_OPTIONS.has(key));
   const services: Record<OccasionKey, ServiceState> = {};
 
   keys.forEach((key) => {
@@ -206,18 +210,14 @@ function buildAvailability({
     services[primaryOption] = 'enabled';
   }
 
-  const normalizedName = periodName?.toLowerCase() ?? '';
   const lunchState = services['lunch'] ?? 'disabled';
   const dinnerState = services['dinner'] ?? 'disabled';
-  const drinksState = services['drinks'] ?? 'disabled';
-  const drinksOnly = drinksState === 'enabled' && lunchState === 'disabled' && dinnerState === 'disabled';
+  const kitchenClosed = lunchState === 'disabled' && dinnerState === 'disabled';
 
   return {
     services,
     labels: {
-      happyHour: /happy\s*hour/.test(normalizedName),
-      drinksOnly,
-      kitchenClosed: drinksOnly,
+      kitchenClosed,
       lunchWindow: lunchState === 'enabled',
       dinnerWindow: dinnerState === 'enabled',
     },
@@ -227,10 +227,10 @@ function buildAvailability({
 function pickBookingOption(period?: RawServicePeriod | null): OccasionKey {
   const raw = period?.booking_option;
   if (!raw) {
-    return 'drinks';
+    return DEFAULT_BOOKING_OPTION;
   }
   const trimmed = raw.toString().trim().toLowerCase();
-  return trimmed.length > 0 ? trimmed : 'drinks';
+  return (trimmed.length > 0 ? trimmed : DEFAULT_BOOKING_OPTION) as OccasionKey;
 }
 
 function computeSlots(
@@ -254,8 +254,6 @@ function computeSlots(
 
   const optionPriority = new Map<OccasionKey, number>();
   orderedKeys.forEach((key, index) => optionPriority.set(key, index));
-  // Drinks spans broad windows, so treat it as a fallback if a meal-specific period overlaps.
-  const fallbackOptions = new Set<OccasionKey>(['drinks']);
 
   type PeriodDetail = {
     period: RawServicePeriod;
@@ -280,6 +278,9 @@ function computeSlots(
       return acc;
     }
     const option = pickBookingOption(period);
+    if (!ALLOWED_BOOKING_OPTIONS.has(option)) {
+      return acc;
+    }
     acc.push({
       period,
       option,
@@ -287,7 +288,7 @@ function computeSlots(
       startMinutes,
       endMinutes,
       durationMinutes: endMinutes - startMinutes,
-      fallbackBias: fallbackOptions.has(option) ? 1 : 0,
+      fallbackBias: 0,
       optionOrder: optionPriority.get(option) ?? optionPriority.size,
     });
     return acc;
@@ -329,10 +330,12 @@ function computeSlots(
 
   return baseSlots.reduce<RestaurantScheduleSlot[]>((acc, slot) => {
     const period = findPeriodForTime(slot);
-    const bookingOption = pickBookingOption(period);
+    const resolvedOption = pickBookingOption(period);
+    const bookingOption = ALLOWED_BOOKING_OPTIONS.has(resolvedOption)
+      ? resolvedOption
+      : DEFAULT_BOOKING_OPTION;
     const availability = buildAvailability({
       primaryOption: bookingOption,
-      periodName: period?.name ?? null,
       coverage,
       slot,
       orderedKeys,
@@ -450,7 +453,9 @@ export async function getRestaurantSchedule(
   // Prefer provided client for catalog lookups; fall back to service client if none was passed.
   const catalogClient = options.client ?? getServiceSupabaseClient();
   const catalog = await getOccasionCatalog({ client: catalogClient, disableServiceRetry: true });
-  const orderedKeys = Array.from(new Set<OccasionKey>([...catalog.orderedKeys, ...coverage.keys()]));
+  const orderedKeys = ['lunch', 'dinner'].filter((key) =>
+    ALLOWED_BOOKING_OPTIONS.has(key as OccasionKey),
+  ) as OccasionKey[];
 
   const slots = isClosed
     ? []
@@ -498,7 +503,9 @@ export async function getRestaurantSchedule(
     isClosed,
     availableBookingOptions,
     slots,
-    occasionCatalog: catalog.definitions,
+    occasionCatalog: catalog.definitions.filter((definition) =>
+      ALLOWED_BOOKING_OPTIONS.has(definition.key),
+    ),
     lastSeatingBufferMinutes,
   };
 }
