@@ -294,6 +294,10 @@ function computeSlots(
     return acc;
   }, []);
 
+  if (periodDetails.length === 0) {
+    return [];
+  }
+
   const findPeriodForTime = (value: ReservationTime) => {
     const slotMinutes = toMinutes(value);
     const matches = periodDetails.filter(
@@ -330,6 +334,9 @@ function computeSlots(
 
   return baseSlots.reduce<RestaurantScheduleSlot[]>((acc, slot) => {
     const period = findPeriodForTime(slot);
+    if (!period) {
+      return acc;
+    }
     const resolvedOption = pickBookingOption(period);
     const bookingOption = ALLOWED_BOOKING_OPTIONS.has(resolvedOption)
       ? resolvedOption
