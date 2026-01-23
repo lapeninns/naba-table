@@ -146,14 +146,19 @@ function buildCoverage(periods: RawServicePeriod[]): OptionCoverage {
     if (!start || !end) {
       return;
     }
+    const startMinutes = toMinutes(start);
+    const endMinutes = toMinutes(end);
+    if (endMinutes <= startMinutes) {
+      return;
+    }
     const option = pickBookingOption(period);
     if (!ALLOWED_BOOKING_OPTIONS.has(option)) {
       return;
     }
     const ranges = coverage.get(option) ?? [];
     ranges.push({
-      start: toMinutes(start),
-      end: toMinutes(end),
+      start: startMinutes,
+      end: endMinutes,
     });
     coverage.set(option, ranges);
   });
@@ -205,10 +210,6 @@ function buildAvailability({
     }
     services[key] = enabled ? 'enabled' : 'disabled';
   });
-
-  if (Object.values(services).every((state) => state === 'disabled')) {
-    services[primaryOption] = 'enabled';
-  }
 
   const lunchState = services['lunch'] ?? 'disabled';
   const dinnerState = services['dinner'] ?? 'disabled';

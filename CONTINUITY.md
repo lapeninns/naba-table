@@ -1,50 +1,49 @@
 # Continuity Ledger
 
-Last updated: 2026-01-23T07:55:42Z
+Last updated: 2026-01-23T08:44:31Z
 
 ## Goal (incl. success criteria)
 
-- Remove “Drinks & Cocktails” as a booking occasion and restrict bookings to lunch/dinner only within service periods.
-- Success: Schedule returns slots only within lunch/dinner service periods; weekday 15:00–17:00 slots are absent; no fallback when lunch/dinner periods missing.
+- Prevent dashboard edit flow from reintroducing out-of-period time slots as selectable.
+- Success: Edit time picker only shows in-period lunch/dinner slots; no synthetic availability for gaps.
 
 ## Constraints/Assumptions
 
 - Follow AGENTS SDLC phases; no coding before requirements and plan are reviewed.
 - Task artifacts required under `tasks/<slug>-YYYYMMDD-HHMM>/`.
 - Manual UI QA via Chrome DevTools MCP required for UI output changes.
-- Supabase remote-only for data changes (staging → prod).
 
 ## Key decisions
 
-- Delete “Drinks & Cocktails” from `booking_occasions`.
-- Return zero slots when no lunch/dinner service periods exist.
-- Enforce service-period coverage in schedule generation (no fallback outside periods).
+- Disable synthetic slot availability in edit flow; remove buildAvailability fallback.
 
 ## State
 
-- Implementation complete; pending manual UI QA and verification.
-- User requested production SQL; generated script for deletion.
+- Tests run; pending manual UI QA via Chrome DevTools MCP and verification artifacts.
 
 ## Done
 
-- Implemented schedule filtering to only include slots within service periods.
-- Deleted drinks bookings (3), drinks service periods (21), and drinks occasion in prior run.
-- Generated production SQL script in task artifacts.
+- Created task folder `tasks/fix-edit-period-slots-20260123-0818` with research/plan/todo/verification stubs.
+- Disabled synthetic slot availability in edit flow.
+- Added `endMinutes > startMinutes` validation to `buildCoverage`.
+- Removed `buildAvailability` fallback.
+- Ran `pnpm test`.
 
 ## Now
 
-- Await user running SQL on production or switching MCP to production.
+- Run manual UI QA via Chrome DevTools MCP and complete `verification.md`.
 
 ## Next
 
-- Run Chrome DevTools MCP manual QA and update `verification.md`.
+- Capture DevTools artifacts (Lighthouse, HAR, screenshots) and finish verification.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- Which command/URL should be used for DevTools QA?
+- None.
 
 ## Working set (files/ids/commands)
 
+- src/components/features/booking-state-machine/ScheduleAwareTimestampPicker.tsx
 - server/restaurants/schedule.ts
-- tasks/disable-weekday-gap-20260123-0054/artifacts/remove-drinks-production.sql
-- tasks/disable-weekday-gap-20260123-0054/verification.md
+- tasks/fix-edit-period-slots-20260123-0818/research.md
+- tasks/fix-edit-period-slots-20260123-0818/plan.md
