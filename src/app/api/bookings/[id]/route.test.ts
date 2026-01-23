@@ -808,8 +808,6 @@ describe('/api/bookings/[id] PUT', () => {
           availability: {
             services: { dinner: 'enabled' },
             labels: {
-              happyHour: false,
-              drinksOnly: false,
               kitchenClosed: false,
               lunchWindow: false,
               dinnerWindow: true,
@@ -907,8 +905,6 @@ describe('/api/bookings/[id] PUT', () => {
           availability: {
             services: { dinner: 'enabled' },
             labels: {
-              happyHour: false,
-              drinksOnly: false,
               kitchenClosed: false,
               lunchWindow: false,
               dinnerWindow: true,
@@ -1110,10 +1106,8 @@ describe('/api/bookings/[id] PUT', () => {
           bookingOption: 'dinner',
           defaultBookingOption: 'dinner',
           availability: {
-            services: { lunch: 'disabled', dinner: 'enabled', drinks: 'disabled' },
+            services: { lunch: 'disabled', dinner: 'enabled' },
             labels: {
-              happyHour: false,
-              drinksOnly: false,
               kitchenClosed: false,
               lunchWindow: false,
               dinnerWindow: true,
@@ -1197,8 +1191,6 @@ describe('/api/bookings/[id] PUT', () => {
           availability: {
             services: { dinner: 'enabled' },
             labels: {
-              happyHour: false,
-              drinksOnly: false,
               kitchenClosed: false,
               lunchWindow: false,
               dinnerWindow: true,

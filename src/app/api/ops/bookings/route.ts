@@ -778,8 +778,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid booking time' }, { status: 400 });
   }
 
-  const bookingType =
-    payload.bookingType === 'drinks' ? 'drinks' : inferMealTypeFromTime(startTime);
+  const bookingType = payload.bookingType ?? inferMealTypeFromTime(startTime);
   const validation = validateBookingWindow({
     startISO: startDateTime.toISO(),
     bookingDate: payload.date,
@@ -1093,9 +1092,7 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
     return NextResponse.json({ error: 'Invalid booking time' }, { status: 400 });
   }
 
-  const bookingType = (
-    payload.bookingType === 'drinks' ? 'drinks' : inferMealTypeFromTime(payload.time)
-  ) as BookingType;
+  const bookingType = (payload.bookingType ?? inferMealTypeFromTime(payload.time)) as BookingType;
   const durationMinutes = calculateDurationMinutes(bookingType);
 
   const rawCustomerEmail = (payload.email ?? '').trim();

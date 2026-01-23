@@ -1,0 +1,3 @@
+pg_restore: error: could not execute query: ERROR:  permission denied: "RI_ConstraintTrigger_a_19881" is a system trigger
+Command was: ALTER TABLE public.allocations DISABLE TRIGGER ALL;
+

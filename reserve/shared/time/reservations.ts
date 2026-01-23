@@ -15,8 +15,6 @@ export type ServiceWindow = {
 export type ServiceWindows = {
   lunch: ServiceWindow;
   dinner: ServiceWindow;
-  drinks: ServiceWindow;
-  happyHour: ServiceWindow | null;
 };
 
 function resolveConfig(config?: ReservationConfig): ReservationConfig {
@@ -46,13 +44,10 @@ export function getServiceWindows(
   const lunchEnd = isWeekend
     ? resolvedConfig.windows.weekendLunchEnd
     : resolvedConfig.windows.weekdayLunchEnd;
-  const happyHour = !isWeekend ? (resolvedConfig.windows.happyHour ?? null) : null;
 
   return {
     lunch: { start: resolvedConfig.opening.open, end: lunchEnd },
     dinner: { start: resolvedConfig.windows.dinnerStart, end: resolvedConfig.opening.close },
-    drinks: { start: resolvedConfig.opening.open, end: resolvedConfig.opening.close },
-    happyHour,
   } satisfies ServiceWindows;
 }
 
@@ -86,11 +81,6 @@ export function getSlotsByService(
       windows.dinner.end,
       resolvedConfig.opening.intervalMinutes,
     ),
-    drinks: slotsForRange(
-      windows.drinks.start,
-      windows.drinks.end,
-      resolvedConfig.opening.intervalMinutes,
-    ),
   } satisfies Record<BookingOption, ReservationTime[]>;
 }
 
@@ -109,9 +99,6 @@ export function inferBookingOption(
   const windows = getServiceWindows(date, resolvedConfig);
   const minutes = toMinuteValue(time);
 
-  if (windows.happyHour && isWithin(minutes, windows.happyHour)) {
-    return 'drinks';
-  }
   if (isWithin(minutes, windows.lunch)) {
     return 'lunch';
   }

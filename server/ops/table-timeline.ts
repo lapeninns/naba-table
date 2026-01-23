@@ -24,7 +24,6 @@ const TIMELINE_STATUS_FILTER: Tables<'bookings'>['status'][] = ['pending', 'pend
 const SERVICE_LABELS: Record<TableTimelineServiceKey, string> = {
   lunch: 'Lunch',
   dinner: 'Dinner',
-  drinks: 'Drinks',
   other: 'Service',
 };
 
@@ -561,7 +560,7 @@ function rangesOverlap(aStart: DateTime, aEnd: DateTime, bStart: DateTime, bEnd:
 }
 
 function normalizeServiceKey(option: string | null): TableTimelineServiceKey {
-  if (option === 'lunch' || option === 'dinner' || option === 'drinks') {
+  if (option === 'lunch' || option === 'dinner') {
     return option;
   }
   return 'other';

@@ -33,7 +33,7 @@ export type UseTimeSlotsResult = {
   isError: boolean;
 };
 
-const DEFAULT_BOOKING_OPTION: BookingOption = 'drinks';
+const DEFAULT_BOOKING_OPTION: BookingOption = 'lunch';
 
 export function useTimeSlots({
   restaurantSlug,

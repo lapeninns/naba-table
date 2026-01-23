@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
         : 90,
     display_order: resolvedDisplayOrder,
     is_active: Boolean(isActive),
-    is_builtin: normalizedKey === 'lunch' || normalizedKey === 'dinner' || normalizedKey === 'drinks',
+    is_builtin: normalizedKey === 'lunch' || normalizedKey === 'dinner',
     created_by: user.id,
     updated_by: user.id,
   };

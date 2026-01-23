@@ -135,7 +135,10 @@ const SEATING_OPTIONS_SET = new Set<SeatingOption>(SEATING_PREFERENCES_UI);
 
 export function toBookingOption(value: BookingType): BookingOption {
   const normalized = (value ?? '').toString().trim();
-  return (normalized.length > 0 ? normalized : BOOKING_TYPES_UI[0]) as BookingOption;
+  if (BOOKING_TYPES_UI.includes(normalized as BookingOption)) {
+    return normalized as BookingOption;
+  }
+  return BOOKING_TYPES_UI[0];
 }
 
 export function toSeatingOption(value: SeatingPreference): SeatingOption {

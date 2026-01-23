@@ -1,0 +1,2 @@
+pg_restore: error: could not execute query: ERROR:  must be owner of event trigger pgrst_drop_watch
+Command was: DROP EVENT TRIGGER IF EXISTS pgrst_drop_watch;
