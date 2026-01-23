@@ -1,46 +1,50 @@
 # Continuity Ledger
 
-Last updated: 2026-01-23T00:40:47Z
+Last updated: 2026-01-23T07:55:42Z
 
 ## Goal (incl. success criteria)
 
-- Remove unused `BookingType` import in booking route handler.
-- Success: ESLint no-unused-vars warning cleared for `src/app/api/bookings/[id]/route.ts`.
+- Remove “Drinks & Cocktails” as a booking occasion and restrict bookings to lunch/dinner only within service periods.
+- Success: Schedule returns slots only within lunch/dinner service periods; weekday 15:00–17:00 slots are absent; no fallback when lunch/dinner periods missing.
 
 ## Constraints/Assumptions
 
-- Follow AGENTS SDLC phases; requirements and plan before implementation.
+- Follow AGENTS SDLC phases; no coding before requirements and plan are reviewed.
 - Task artifacts required under `tasks/<slug>-YYYYMMDD-HHMM>/`.
-- No UI changes (Chrome DevTools MCP not required).
+- Manual UI QA via Chrome DevTools MCP required for UI output changes.
+- Supabase remote-only for data changes (staging → prod).
 
 ## Key decisions
 
-- Remove only the unused import; no behavior changes.
+- Delete “Drinks & Cocktails” from `booking_occasions`.
+- Return zero slots when no lunch/dinner service periods exist.
+- Enforce service-period coverage in schedule generation (no fallback outside periods).
 
 ## State
 
-- Implementation complete; pending verification (lint).
+- Implementation complete; pending manual UI QA and verification.
+- User requested production SQL; generated script for deletion.
 
 ## Done
 
-- Created task folder `tasks/fix-unused-bookingtype-20260123-0039/` with required stubs.
-- Removed unused `BookingType` import from `src/app/api/bookings/[id]/route.ts`.
-- Updated `todo.md` checklist.
+- Implemented schedule filtering to only include slots within service periods.
+- Deleted drinks bookings (3), drinks service periods (21), and drinks occasion in prior run.
+- Generated production SQL script in task artifacts.
 
 ## Now
 
-- Awaiting decision to re-run lint/pre-commit.
+- Await user running SQL on production or switching MCP to production.
 
 ## Next
 
-- Run lint/pre-commit if requested and update `verification.md`.
+- Run Chrome DevTools MCP manual QA and update `verification.md`.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- None.
+- Which command/URL should be used for DevTools QA?
 
 ## Working set (files/ids/commands)
 
-- `src/app/api/bookings/[id]/route.ts`
-- `tasks/fix-unused-bookingtype-20260123-0039/todo.md`
-- `tasks/fix-unused-bookingtype-20260123-0039/verification.md`
+- server/restaurants/schedule.ts
+- tasks/disable-weekday-gap-20260123-0054/artifacts/remove-drinks-production.sql
+- tasks/disable-weekday-gap-20260123-0054/verification.md
