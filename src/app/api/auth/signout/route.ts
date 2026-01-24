@@ -11,8 +11,8 @@ import type { NextRequest } from "next/server";
 export const dynamic = "force-dynamic";
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost";
-const secureCookies = env.node.appEnv !== "development";
 const COOKIE_DOMAIN = resolveCookieDomain(ROOT_DOMAIN);
+const secureCookies = env.node.appEnv !== "development" && COOKIE_DOMAIN !== undefined;
 
 const buildCookieConfig = (options: Record<string, unknown> = {}) => ({
   ...buildSupabaseCookieOptions({

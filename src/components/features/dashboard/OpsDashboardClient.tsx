@@ -7,6 +7,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Filter,
+  Printer,
   Search,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -70,6 +71,8 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
   const [selectedDate, setSelectedDate] = useState<string | null>(
     sanitizeDateParam(initialDate ?? undefined),
   );
+  const [sortKey, setSortKey] = useState<'time' | 'party' | 'name'>('time');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [pendingBookingAction, setPendingBookingAction] = useState<{
     bookingId: string;
     action: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show';
@@ -165,6 +168,25 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
     if (!open) {
       setDetailsBooking(null);
     }
+  };
+
+  const handlePrint = () => {
+    if (typeof window === 'undefined') return;
+    if (!summary) return;
+    const params = new URLSearchParams();
+    const date = selectedDate ?? summary.date;
+    params.set('date', date);
+    params.set('filter', filter);
+    params.set('sortKey', sortKey);
+    params.set('sortDir', sortDir);
+    const trimmedSearch = searchQuery.trim();
+    if (trimmedSearch) {
+      params.set('search', trimmedSearch);
+    }
+    const printPath =
+      pathname && pathname.endsWith('/dashboard') ? `${pathname}/print` : '/app/dashboard/print';
+    const url = params.size > 0 ? `${printPath}?${params.toString()}` : printPath;
+    window.open(url, '_blank', 'noopener');
   };
 
   // Real-time Guest Stats
@@ -499,6 +521,16 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
               >
                 <Filter className="h-4 w-4 text-muted-foreground" />
               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-10 gap-2 bg-card px-3 text-sm"
+                onClick={handlePrint}
+                aria-label="Print bookings"
+              >
+                <Printer className="h-4 w-4" aria-hidden />
+                <span className="hidden sm:inline">Print</span>
+              </Button>
             </div>
           </div>
         </div>
@@ -525,6 +557,10 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
             filter={filter}
             onFilterChange={handleSelectFilter}
             searchQuery={searchQuery}
+            sortKey={sortKey}
+            sortDir={sortDir}
+            onSortKeyChange={setSortKey}
+            onSortDirChange={setSortDir}
             isRefetching={isRefetching}
             showFilterBar={false}
             showHeatmap={false}
