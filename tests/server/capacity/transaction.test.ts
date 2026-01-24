@@ -74,4 +74,22 @@ describe("createBookingWithCapacityCheck", () => {
     expect(result.duplicate).toBe(true);
     expect(result.booking).toEqual(booking);
   });
+
+  it("returns operating-hours error details from the RPC", async () => {
+    mockRpc = vi.fn().mockResolvedValue({
+      data: {
+        success: false,
+        error: "BOOKING_OUTSIDE_OPERATING_HOURS",
+        message: "The requested time is outside configured operating hours.",
+        details: { timezone: "Europe/London" },
+        retryable: false,
+      },
+      error: null,
+    });
+
+    const result = await createBookingWithCapacityCheck(baseParams);
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("BOOKING_OUTSIDE_OPERATING_HOURS");
+    expect(result.details).toEqual({ timezone: "Europe/London" });
+  });
 });

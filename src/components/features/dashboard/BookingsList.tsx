@@ -56,6 +56,10 @@ type BookingsListProps = {
   searchQuery?: string;
   summary: OpsTodayBookingsSummary;
   allowTableAssignments: boolean;
+  sortKey: BookingSortKey;
+  sortDir: BookingSortDir;
+  onSortKeyChange: (value: BookingSortKey) => void;
+  onSortDirChange: (value: BookingSortDir) => void;
   isRefetching?: boolean; // Show list skeletons while data is being refetched
   onDetails?: (booking: BookingDTO) => void;
   onMarkNoShow: (bookingId: string, options?: { performedAt?: string | null; reason?: string | null }) => Promise<void>;
@@ -74,6 +78,9 @@ type BookingsListProps = {
     tableId?: string | null;
   } | null;
 };
+
+type BookingSortKey = 'time' | 'party' | 'name';
+type BookingSortDir = 'asc' | 'desc';
 
 
 
@@ -94,8 +101,8 @@ const COMPLETED_STATUSES = new Set<OpsTodayBooking['status']>([
 function compareBookings(
   a: OpsTodayBooking,
   b: OpsTodayBooking,
-  sortKey: 'time' | 'party' | 'name',
-  sortDir: 'asc' | 'desc',
+  sortKey: BookingSortKey,
+  sortDir: BookingSortDir,
 ) {
   let comparison = 0;
 
@@ -114,8 +121,8 @@ function compareBookings(
 
 function sortBookings(
   bookings: OpsTodayBooking[],
-  sortKey: 'time' | 'party' | 'name',
-  sortDir: 'asc' | 'desc',
+  sortKey: BookingSortKey,
+  sortDir: BookingSortDir,
 ) {
   return [...bookings].sort((a, b) => compareBookings(a, b, sortKey, sortDir));
 }
@@ -129,8 +136,8 @@ function getStatusGroup(status: OpsTodayBooking['status']) {
 
 function sortBookingsGrouped(
   bookings: OpsTodayBooking[],
-  sortKey: 'time' | 'party' | 'name',
-  sortDir: 'asc' | 'desc',
+  sortKey: BookingSortKey,
+  sortDir: BookingSortDir,
 ) {
   return [...bookings].sort((a, b) => {
     const groupA = getStatusGroup(a.status);
@@ -171,6 +178,10 @@ function BookingsListContent({
   searchQuery,
   summary,
   allowTableAssignments,
+  sortKey,
+  sortDir,
+  onSortKeyChange,
+  onSortDirChange,
   isRefetching = false,
   onDetails,
   onMarkNoShow,
@@ -188,8 +199,6 @@ function BookingsListContent({
   // Pagination and Sorting State
   const [page, setPage] = useState(1);
   const [pageSize] = useState(10);
-  const [sortKey, setSortKey] = useState<'time' | 'party' | 'name'>('time');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   useEffect(() => {
     registerBookings(
@@ -307,7 +316,7 @@ function BookingsListContent({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
         <span className="text-sm font-medium text-muted-foreground">Sort</span>
         <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
-          <Select value={sortKey} onValueChange={(val) => setSortKey(val as 'time' | 'party' | 'name')}>
+          <Select value={sortKey} onValueChange={(val) => onSortKeyChange(val as BookingSortKey)}>
             <SelectTrigger className="h-9 w-full rounded-lg bg-card sm:w-[150px]">
               <SelectValue />
             </SelectTrigger>
@@ -317,7 +326,7 @@ function BookingsListContent({
               <SelectItem value="name">Guest Name</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={sortDir} onValueChange={(val) => setSortDir(val as 'asc' | 'desc')}>
+          <Select value={sortDir} onValueChange={(val) => onSortDirChange(val as BookingSortDir)}>
             <SelectTrigger className="h-9 w-full rounded-lg bg-card sm:w-[130px]">
               <SelectValue />
             </SelectTrigger>

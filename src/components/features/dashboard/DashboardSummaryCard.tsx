@@ -24,6 +24,10 @@ type DashboardSummaryCardProps = {
   filter: BookingFilter;
   onFilterChange: (filter: BookingFilter) => void;
   searchQuery?: string;
+  sortKey: 'time' | 'party' | 'name';
+  sortDir: 'asc' | 'desc';
+  onSortKeyChange: (value: 'time' | 'party' | 'name') => void;
+  onSortDirChange: (value: 'asc' | 'desc') => void;
   isRefetching?: boolean;
   showFilterBar?: boolean;
   showHeatmap?: boolean;
@@ -57,6 +61,10 @@ export function DashboardSummaryCard({
   filter,
   onFilterChange,
   searchQuery,
+  sortKey,
+  sortDir,
+  onSortKeyChange,
+  onSortDirChange,
   isRefetching,
   showFilterBar = true,
   showHeatmap = true,
@@ -108,6 +116,10 @@ export function DashboardSummaryCard({
           searchQuery={searchQuery}
           summary={summary}
           allowTableAssignments={canAssignTables}
+          sortKey={sortKey}
+          sortDir={sortDir}
+          onSortKeyChange={onSortKeyChange}
+          onSortDirChange={onSortDirChange}
           isRefetching={isRefetching}
           onDetails={onDetails}
           onMarkNoShow={onMarkNoShow}

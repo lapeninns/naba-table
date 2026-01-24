@@ -10,6 +10,10 @@ import type { NextRequest } from "next/server";
 const TOKEN_LENGTH_BYTES = 32;
 
 async function shouldUseSecureCookie() {
+  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost";
+  if (rootDomain === "localhost") {
+    return false;
+  }
   const headerList = await headers();
   const proto = headerList.get("x-forwarded-proto");
   if (proto) {

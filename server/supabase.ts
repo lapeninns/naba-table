@@ -18,7 +18,6 @@ let strictHoldInitStarted = false;
 let strictHoldEnforcementActive: boolean | null = null;
 let cookieWriteSuppressedLogged = false;
 const supabaseLogger = logger.child({ module: "supabase" });
-const secureCookies = env.node.appEnv !== "development";
 
 export class MissingRestaurantContextError extends Error {
   constructor(message = "Restaurant context is required") {
@@ -37,6 +36,7 @@ const ROOT_DOMAIN =
     ? runtimeEnv.NEXT_PUBLIC_ROOT_DOMAIN
     : "localhost";
 const COOKIE_DOMAIN = resolveCookieDomain(ROOT_DOMAIN);
+const secureCookies = env.node.appEnv !== "development" && COOKIE_DOMAIN !== undefined;
 
 let cachedDefaultRestaurantId: string | null =
   runtimeEnv.NEXT_PUBLIC_DEFAULT_RESTAURANT_ID ?? env.misc.bookingDefaultRestaurantId ?? null;
