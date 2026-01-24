@@ -1,11 +1,10 @@
 # Continuity Ledger
 
-Last updated: 2026-01-23T17:38:30Z
+Last updated: 2026-01-24T07:55:40Z
 
 ## Goal (incl. success criteria)
 
-- Add support for all MCP entries in the OpenCode config, sourced from the Codex config.
-- Success: OpenCode config mirrors all MCP providers defined in Codex config without missing entries.
+- Patch BullMQ to avoid ioredis/built/utils import and remove Turbopack externals warnings.
 
 ## Constraints/Assumptions
 
@@ -16,33 +15,30 @@ Last updated: 2026-01-23T17:38:30Z
 
 ## Key decisions
 
-- None yet for this task.
+- None yet.
 
 ## State
 
-- Added OpenCode project config with MCP servers mirroring Codex.
+- BullMQ patched; build completes without externals warnings.
 
 ## Done
 
 - Read root `AGENTS.md` and `CONTINUITY.md`.
-- Created task folder `tasks/sync-mcp-configs-20260123-1730` with SDLC artifacts.
-- Added `.opencode/config.json` with MCP servers based on Codex config.
 
 ## Now
 
-- Report changes and diagnostics status.
+- Report changes and remaining verification notes.
 
 ## Next
 
-- Optional: install Biome LSP for JSON diagnostics if desired.
+- Optional: run dev server to confirm warnings gone in dev.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- Should the OpenCode config mirror Codex exactly, or apply filtering/transformations? (UNCONFIRMED)
+- None.
 
 ## Working set (files/ids/commands)
 
-- .opencode/config.json
-- tasks/sync-mcp-configs-20260123-1730/research.md
-- tasks/sync-mcp-configs-20260123-1730/plan.md
-- tasks/sync-mcp-configs-20260123-1730/verification.md
+- next.config.js
+- package.json
+- tasks/fix-turbopack-externals-20260124-0746/\*

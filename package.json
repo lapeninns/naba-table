@@ -121,6 +121,7 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@radix-ui/themes": "^3.2.1",
     "@react-email/render": "^2.0.0",
+    "@sentry/nextjs": "^10.36.0",
     "@supabase/mcp-server-supabase": "^0.5.9",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.86.0",
@@ -138,6 +139,7 @@
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
     "form-data": "^4.0.5",
+    "import-in-the-middle": "^2.0.5",
     "ioredis": "^5.8.2",
     "lodash": "^4.17.21",
     "lucide-react": "^0.555.0",
@@ -156,6 +158,7 @@
     "react-router-dom": "^7.10.0",
     "react-syntax-highlighter": "^16.1.0",
     "react-tooltip": "^5.30.0",
+    "require-in-the-middle": "^8.0.1",
     "resend": "^6.5.2",
     "tailwind-merge": "^3.4.0",
     "tailwindcss-animate": "^1.0.7",
@@ -234,6 +237,9 @@
       "esbuild",
       "msw",
       "sharp"
-    ]
+    ],
+    "patchedDependencies": {
+      "bullmq": "patches/bullmq.patch"
+    }
   }
 }

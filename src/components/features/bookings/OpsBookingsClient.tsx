@@ -15,11 +15,17 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { BookingStateMachineProvider, useBookingStateMachine } from '@/contexts/booking-state-machine';
+import {
+  BookingStateMachineProvider,
+  useBookingStateMachine,
+} from '@/contexts/booking-state-machine';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 import { useOpsBooking } from '@/hooks/ops/useOpsBooking';
 import { useOpsBookingsList } from '@/hooks/ops/useOpsBookingsList';
-import { useOpsBookingsTableState, type OpsStatusFilter } from '@/hooks/ops/useOpsBookingsTableState';
+import {
+  useOpsBookingsTableState,
+  type OpsStatusFilter,
+} from '@/hooks/ops/useOpsBookingsTableState';
 import { useOpsBookingLifecycleActions } from '@/hooks/ops/useOpsBookingStatusActions';
 import { useOpsBookingStatusSummary } from '@/hooks/ops/useOpsBookingStatusSummary';
 import { useOpsRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
@@ -107,7 +113,10 @@ export function OpsBookingsClient({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { memberships, activeRestaurantId, setActiveRestaurantId, accountSnapshot } = useOpsSession();
+  const opsBasePath = pathname?.startsWith('/app') ? '/app' : '';
+  const opsPath = (path: string) => `${opsBasePath}${path}`;
+  const { memberships, activeRestaurantId, setActiveRestaurantId, accountSnapshot } =
+    useOpsSession();
   const activeMembership = useOpsActiveMembership();
   const restaurantDetails = useOpsRestaurantDetails(activeRestaurantId ?? null);
   const isOnline = useOnlineStatus();
@@ -125,9 +134,10 @@ export function OpsBookingsClient({
   }, [initialWindowMode, resolvedTableId, resolvedTime, searchParams]);
 
   const resolvedWindowMinutes = useMemo(() => {
-    const fallback = typeof initialWindowMinutes === 'number'
-      ? initialWindowMinutes
-      : DEFAULT_OPS_BOOKINGS_WINDOW_MINUTES;
+    const fallback =
+      typeof initialWindowMinutes === 'number'
+        ? initialWindowMinutes
+        : DEFAULT_OPS_BOOKINGS_WINDOW_MINUTES;
     const raw = searchParams?.get('windowMinutes');
     if (!raw) return fallback;
     const parsed = Number.parseInt(raw, 10);
@@ -139,7 +149,12 @@ export function OpsBookingsClient({
   const restaurantTimezone = restaurantDetails.data?.timezone ?? null;
   const appliedDateRange = useMemo(() => {
     if (resolvedWindowMode === 'window' && resolvedTime) {
-      const windowRange = buildOpsTimeWindowRange(initialDate, resolvedTime, resolvedWindowMinutes, restaurantTimezone);
+      const windowRange = buildOpsTimeWindowRange(
+        initialDate,
+        resolvedTime,
+        resolvedWindowMinutes,
+        restaurantTimezone,
+      );
       if (windowRange) return windowRange;
     }
     return buildOpsDateRange(initialDate, restaurantTimezone);
@@ -336,11 +351,17 @@ export function OpsBookingsClient({
     [bookingsPage.pageInfo.total, handlePageChange, isOnline, toast, updateSearchParams],
   );
 
-  const [pendingBookingAction, setPendingBookingAction] = useState<{ bookingId: string; action: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show' } | null>(null);
+  const [pendingBookingAction, setPendingBookingAction] = useState<{
+    bookingId: string;
+    action: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show';
+  } | null>(null);
 
   const bookingLifecycleMutations = useOpsBookingLifecycleActions();
 
-  const handleMarkNoShow = async (booking: BookingDTO, options?: { performedAt?: string | null; reason?: string | null }) => {
+  const handleMarkNoShow = async (
+    booking: BookingDTO,
+    options?: { performedAt?: string | null; reason?: string | null },
+  ) => {
     if (!activeRestaurantId) return;
     setPendingBookingAction({ bookingId: booking.id, action: 'no-show' });
     try {
@@ -407,7 +428,7 @@ export function OpsBookingsClient({
         const trimmed = value.trim();
         updateSearchParams({ query: trimmed.length > 0 ? trimmed : null, page: null });
       }, 500),
-    [updateSearchParams]
+    [updateSearchParams],
   );
 
   const handleSearchInput = useCallback(
@@ -427,7 +448,10 @@ export function OpsBookingsClient({
         : [...visibleSelectedStatuses, status];
 
       const normalized = Array.from(new Set(next));
-      updateSearchParams({ statuses: normalized.length > 0 ? normalized.join(',') : null, page: null });
+      updateSearchParams({
+        statuses: normalized.length > 0 ? normalized.join(',') : null,
+        page: null,
+      });
     },
     [toggleSelectedStatus, updateSearchParams, visibleSelectedStatuses],
   );
@@ -468,7 +492,10 @@ export function OpsBookingsClient({
     [activeMembership?.restaurantSlug],
   );
 
-  const bookings = useMemo(() => bookingsPage.items.map(mapToBookingDTO), [bookingsPage.items, mapToBookingDTO]);
+  const bookings = useMemo(
+    () => bookingsPage.items.map(mapToBookingDTO),
+    [bookingsPage.items, mapToBookingDTO],
+  );
 
   const initialSnapshots = useMemo(
     () =>
@@ -514,15 +541,18 @@ export function OpsBookingsClient({
     setIsDetailsOpen(true);
   }, []);
 
-  const handleDetailsOpenChange = useCallback((open: boolean) => {
-    setIsDetailsOpen(open);
-    if (!open) {
-      setDetailsBooking(null);
-      if (focusBookingId) {
-        updateSearchParams({ focus: null });
+  const handleDetailsOpenChange = useCallback(
+    (open: boolean) => {
+      setIsDetailsOpen(open);
+      if (!open) {
+        setDetailsBooking(null);
+        if (focusBookingId) {
+          updateSearchParams({ focus: null });
+        }
       }
-    }
-  }, [focusBookingId, updateSearchParams]);
+    },
+    [focusBookingId, updateSearchParams],
+  );
 
   if (memberships.length === 0) {
     return <NoRestaurantAccess />;
@@ -543,7 +573,9 @@ export function OpsBookingsClient({
           {/* HEADER SECTION - Matches Dashboard Style */}
           <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div className="space-y-1">
-              <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Manage bookings</h1>
+              <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+                Manage bookings
+              </h1>
               <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground sm:text-base">
                 <Badge variant="secondary" className="rounded-md font-medium">
                   {currentRestaurantName}
@@ -562,10 +594,10 @@ export function OpsBookingsClient({
 
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <Button asChild size="sm" variant="outline" className="h-11 sm:h-9">
-                <Link href="/dashboard">Back to dashboard</Link>
+                <Link href={opsPath('/dashboard')}>Back to dashboard</Link>
               </Button>
               <Button asChild size="sm" className="h-11 sm:h-9">
-                <Link href="/new-bookings">New booking</Link>
+                <Link href={opsPath('/new-bookings')}>New booking</Link>
               </Button>
             </div>
           </header>
@@ -573,7 +605,6 @@ export function OpsBookingsClient({
           {/* STICKY TOOLBAR - Matches Dashboard Style */}
           <div className="sticky top-0 z-10 -mx-4 bg-background/80 px-4 py-2.5 backdrop-blur-md transition-all sm:-mx-6 sm:px-6 md:mx-0 md:rounded-xl md:border md:border-border/60 md:bg-card/80 md:px-3 md:shadow-sm">
             <div className="flex flex-col gap-2.5 md:flex-row md:items-center md:justify-between">
-
               {/* FILTERS */}
               <div className="flex-1 overflow-x-auto scrollbar-hide">
                 <OpsStatusFilterPopover
@@ -634,7 +665,12 @@ export function OpsBookingsClient({
                     ? `Nearby ±${resolvedWindowMinutes}m`
                     : 'All day'}
                 </Badge>
-                <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={handleClearTableFilter}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={handleClearTableFilter}
+                >
                   Clear filter
                 </Button>
               </div>
@@ -704,7 +740,9 @@ function SelectingRestaurantFallback() {
   return (
     <section className="mx-auto flex min-h-[40vh] max-w-2xl flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-border/60 bg-muted/30 p-8 text-center shadow-sm">
       <h2 className="text-lg font-semibold text-foreground">Loading restaurant access…</h2>
-      <p className="text-sm text-muted-foreground">We’re preparing your bookings. This will only take a moment.</p>
+      <p className="text-sm text-muted-foreground">
+        We’re preparing your bookings. This will only take a moment.
+      </p>
     </section>
   );
 }

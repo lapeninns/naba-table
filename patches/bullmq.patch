@@ -1,0 +1,28 @@
+diff --git a/dist/esm/classes/redis-connection.js b/dist/esm/classes/redis-connection.js
+index 60e008277ee826acf26e1fa3065c9937997b4cfc..6316e52e0bc0e6316ce0b367fbfca856c1181861 100644
+--- a/dist/esm/classes/redis-connection.js
++++ b/dist/esm/classes/redis-connection.js	
+@@ -1,9 +1,7 @@
+ import { __rest } from "tslib";
+ import { EventEmitter } from 'events';
+ import { default as IORedis } from 'ioredis';
+-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+-// @ts-ignore
+-import { CONNECTION_CLOSED_ERROR_MSG } from 'ioredis/built/utils';
++const CONNECTION_CLOSED_ERROR_MSG = 'Connection is closed.';
+ import { decreaseMaxListeners, increaseMaxListeners, isNotConnectionError, isRedisCluster, isRedisInstance, isRedisVersionLowerThan, } from '../utils';
+ import { version as packageVersion } from '../version';
+ import * as scripts from '../scripts';
+diff --git a/dist/esm/utils/index.js b/dist/esm/utils/index.js
+index 3b10749c72f1f0e458786850357b5e367393126a..8b0f2d89791fb8dbbd183e4ff4432375c0cbd84f 100644
+--- a/dist/esm/utils/index.js
++++ b/dist/esm/utils/index.js	
+@@ -1,7 +1,5 @@
+ import { Cluster } from 'ioredis';
+-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+-// @ts-ignore
+-import { CONNECTION_CLOSED_ERROR_MSG } from 'ioredis/built/utils';
++const CONNECTION_CLOSED_ERROR_MSG = 'Connection is closed.';
+ import * as semver from 'semver';
+ import { SpanKind, TelemetryAttributes } from '../enums';
+ export const errorObject = { value: null };

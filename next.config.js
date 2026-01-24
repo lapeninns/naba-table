@@ -3,22 +3,27 @@ const path = require('path');
 
 const SUPABASE_HOSTNAME = (() => {
   try {
-    return process.env.NEXT_PUBLIC_SUPABASE_URL ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname : null;
+    return process.env.NEXT_PUBLIC_SUPABASE_URL
+      ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname
+      : null;
   } catch {
     return null;
   }
 })();
 
-if (process.env.PLAYWRIGHT_TEST_AUTH_FLOW === 'true' && !process.env.NEXT_PUBLIC_FORCE_PASSWORD_SIGNIN) {
+if (
+  process.env.PLAYWRIGHT_TEST_AUTH_FLOW === 'true' &&
+  !process.env.NEXT_PUBLIC_FORCE_PASSWORD_SIGNIN
+) {
   process.env.NEXT_PUBLIC_FORCE_PASSWORD_SIGNIN = 'true';
 }
 
 const imageDomains = [
   // NextJS <Image> component needs to whitelist domains for src={}
-  "lh3.googleusercontent.com",
-  "pbs.twimg.com",
-  "images.unsplash.com",
-  "logos-world.net",
+  'lh3.googleusercontent.com',
+  'pbs.twimg.com',
+  'images.unsplash.com',
+  'logos-world.net',
 ];
 
 if (SUPABASE_HOSTNAME && !imageDomains.includes(SUPABASE_HOSTNAME)) {
@@ -26,9 +31,9 @@ if (SUPABASE_HOSTNAME && !imageDomains.includes(SUPABASE_HOSTNAME)) {
 }
 
 const imageRemotePatterns = imageDomains.map((hostname) => ({
-  protocol: "https",
+  protocol: 'https',
   hostname,
-  pathname: "/**",
+  pathname: '/**',
 }));
 
 const aliasEntries = {
@@ -54,11 +59,15 @@ const aliasEntries = {
 };
 
 const webpackAliasMap = Object.fromEntries(
-  Object.entries(aliasEntries).map(([key, relativePath]) => [key, path.resolve(__dirname, relativePath)]),
+  Object.entries(aliasEntries).map(([key, relativePath]) => [
+    key,
+    path.resolve(__dirname, relativePath),
+  ]),
 );
 
 const nextConfig = {
   reactStrictMode: true,
+  serverExternalPackages: [],
   images: {
     remotePatterns: imageRemotePatterns,
   },
@@ -67,60 +76,69 @@ const nextConfig = {
 
     const redirects = [
       // --- Auth ---
-      { source: "/signin", destination: "/auth/signin", permanent: true },
+      { source: '/signin', destination: '/auth/signin', permanent: true },
 
       // --- Discovery & Restaurants ---
-      { source: "/guest/restaurants", destination: "/restaurants", permanent: true },
-      { source: "/guest/browse", destination: "/restaurants", permanent: true },
-      { source: "/browse", destination: "/restaurants", permanent: true },
-      { source: "/restaurant", destination: "/restaurants", permanent: true },
-      { source: "/guest/restaurant", destination: "/restaurants", permanent: true },
+      { source: '/guest/restaurants', destination: '/restaurants', permanent: true },
+      { source: '/guest/browse', destination: '/restaurants', permanent: true },
+      { source: '/browse', destination: '/restaurants', permanent: true },
+      { source: '/restaurant', destination: '/restaurants', permanent: true },
+      { source: '/guest/restaurant', destination: '/restaurants', permanent: true },
 
       // --- Items ---
-      { source: "/guest/item/:slug", destination: "/item/:slug", permanent: true },
+      { source: '/guest/item/:slug', destination: '/item/:slug', permanent: true },
       // Removed legacy /item/:slug -> /restaurants/:slug to enable the actual item page
 
       // --- Booking Flow ---
       // Specific /reserve/r/ must come before generic /reserve/:id
-      { source: "/reserve/r/:slug", destination: "/restaurants/:slug/book", permanent: true },
-      { source: "/book/:slug", destination: "/restaurants/:slug/book", permanent: true },
+      { source: '/reserve/r/:slug', destination: '/restaurants/:slug/book', permanent: true },
+      { source: '/book/:slug', destination: '/restaurants/:slug/book', permanent: true },
 
-      { source: "/reserve", destination: "/bookings", permanent: true },
-      { source: "/booking", destination: "/bookings", permanent: true },
+      { source: '/reserve', destination: '/bookings', permanent: true },
+      { source: '/booking', destination: '/bookings', permanent: true },
 
       // Reservation detail -> /bookings/:id
-      { source: "/reserve/:bookingId", destination: "/bookings/:bookingId", permanent: true },
-      { source: "/guest/bookings/:bookingId", destination: "/bookings/:bookingId", permanent: true },
+      { source: '/reserve/:bookingId', destination: '/bookings/:bookingId', permanent: true },
+      {
+        source: '/guest/bookings/:bookingId',
+        destination: '/bookings/:bookingId',
+        permanent: true,
+      },
 
       // Legacy query param redirect for thank-you
-      { source: "/thank-you", has: [{ type: "query", key: "bookingId", value: "(?<bookingId>.*)" }], destination: "/bookings/:bookingId/thank-you", permanent: true },
+      {
+        source: '/thank-you',
+        has: [{ type: 'query', key: 'bookingId', value: '(?<bookingId>.*)' }],
+        destination: '/bookings/:bookingId/thank-you',
+        permanent: true,
+      },
 
       // --- Guest Dashboard / Account ---
-      { source: "/account", destination: "/guest", permanent: true },
-      { source: "/account/bookings", destination: "/guest/bookings", permanent: true },
-      { source: "/my-bookings", destination: "/guest/bookings", permanent: true },
-      { source: "/guest/my-bookings", destination: "/guest/bookings", permanent: true },
+      { source: '/account', destination: '/guest', permanent: true },
+      { source: '/account/bookings', destination: '/guest/bookings', permanent: true },
+      { source: '/my-bookings', destination: '/guest/bookings', permanent: true },
+      { source: '/guest/my-bookings', destination: '/guest/bookings', permanent: true },
 
-      { source: "/account/profile", destination: "/guest/profile", permanent: true },
-      { source: "/profile/manage", destination: "/guest/profile", permanent: true },
+      { source: '/account/profile', destination: '/guest/profile', permanent: true },
+      { source: '/profile/manage', destination: '/guest/profile', permanent: true },
 
       // Invite (Preserve invite token flow, move to account/invite for now if that's where the page lives)
-      { source: "/invite/:token", destination: "/account/invite/:token", permanent: true },
+      { source: '/invite/:token', destination: '/account/invite/:token', permanent: true },
 
       // --- Ops ---
       // --- Legal ---
-      { source: "/privacy-policy", destination: "/", permanent: true },
-      { source: "/terms", destination: "/", permanent: true },
-      { source: "/tos", destination: "/", permanent: true },
-      { source: "/terms/:path*", destination: "/", permanent: true },
+      { source: '/privacy-policy', destination: '/', permanent: true },
+      { source: '/terms', destination: '/', permanent: true },
+      { source: '/tos', destination: '/', permanent: true },
+      { source: '/terms/:path*', destination: '/', permanent: true },
     ];
 
     // --- WWW Canonicalization ---
     // Redirect naked domain to www (aligns with DNS/hosting provider settings)
     if (rootDomain !== 'localhost' && process.env.NODE_ENV === 'production') {
       redirects.unshift({
-        source: "/:path*",
-        has: [{ type: "host", value: rootDomain }],
+        source: '/:path*',
+        has: [{ type: 'host', value: rootDomain }],
         destination: `https://www.${rootDomain}/:path*`,
         permanent: true,
       });
@@ -142,3 +160,44 @@ const nextConfig = {
 };
 
 module.exports = nextConfig;
+
+// Injected content via Sentry wizard below
+
+const { withSentryConfig } = require('@sentry/nextjs');
+
+module.exports = withSentryConfig(module.exports, {
+  // For all available options, see:
+  // https://www.npmjs.com/package/@sentry/webpack-plugin#options
+
+  org: 'birmingham-city-university-dz',
+  project: 'javascript-nextjs',
+
+  // Only print logs for uploading source maps in CI
+  silent: !process.env.CI,
+
+  // For all available options, see:
+  // https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/
+
+  // Upload a larger set of source maps for prettier stack traces (increases build time)
+  widenClientFileUpload: true,
+
+  // Route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers.
+  // This can increase your server load as well as your hosting bill.
+  // Note: Check that the configured route will not match with your Next.js middleware, otherwise reporting of client-
+  // side errors will fail.
+  tunnelRoute: '/monitoring',
+
+  webpack: {
+    // Enables automatic instrumentation of Vercel Cron Monitors. (Does not yet work with App Router route handlers.)
+    // See the following for more information:
+    // https://docs.sentry.io/product/crons/
+    // https://vercel.com/docs/cron-jobs
+    automaticVercelMonitors: true,
+
+    // Tree-shaking options for reducing bundle size
+    treeshake: {
+      // Automatically tree-shake Sentry logger statements to reduce bundle size
+      removeDebugLogging: true,
+    },
+  },
+});

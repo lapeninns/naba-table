@@ -92,8 +92,8 @@ function ErrorFallback({ error, onReset }: { error: Error | null; onReset: () =>
                 <RefreshCw className="mr-2 h-4 w-4" aria-hidden />
                 Try again
               </Button>
-              <Button onClick={() => window.location.reload()} variant="outline" size="sm">
-                Reload page
+              <Button onClick={() => window.history.back()} variant="outline" size="sm">
+                Go back
               </Button>
             </div>
           </AlertDescription>
