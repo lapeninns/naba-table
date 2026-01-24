@@ -1,49 +1,48 @@
 # Continuity Ledger
 
-Last updated: 2026-01-23T08:44:31Z
+Last updated: 2026-01-23T17:38:30Z
 
 ## Goal (incl. success criteria)
 
-- Prevent dashboard edit flow from reintroducing out-of-period time slots as selectable.
-- Success: Edit time picker only shows in-period lunch/dinner slots; no synthetic availability for gaps.
+- Add support for all MCP entries in the OpenCode config, sourced from the Codex config.
+- Success: OpenCode config mirrors all MCP providers defined in Codex config without missing entries.
 
 ## Constraints/Assumptions
 
 - Follow AGENTS SDLC phases; no coding before requirements and plan are reviewed.
 - Task artifacts required under `tasks/<slug>-YYYYMMDD-HHMM>/`.
 - Manual UI QA via Chrome DevTools MCP required for UI output changes.
+- Must identify applicable nested AGENTS.md for files touched.
 
 ## Key decisions
 
-- Disable synthetic slot availability in edit flow; remove buildAvailability fallback.
+- None yet for this task.
 
 ## State
 
-- Tests run; pending manual UI QA via Chrome DevTools MCP and verification artifacts.
+- Added OpenCode project config with MCP servers mirroring Codex.
 
 ## Done
 
-- Created task folder `tasks/fix-edit-period-slots-20260123-0818` with research/plan/todo/verification stubs.
-- Disabled synthetic slot availability in edit flow.
-- Added `endMinutes > startMinutes` validation to `buildCoverage`.
-- Removed `buildAvailability` fallback.
-- Ran `pnpm test`.
+- Read root `AGENTS.md` and `CONTINUITY.md`.
+- Created task folder `tasks/sync-mcp-configs-20260123-1730` with SDLC artifacts.
+- Added `.opencode/config.json` with MCP servers based on Codex config.
 
 ## Now
 
-- Run manual UI QA via Chrome DevTools MCP and complete `verification.md`.
+- Report changes and diagnostics status.
 
 ## Next
 
-- Capture DevTools artifacts (Lighthouse, HAR, screenshots) and finish verification.
+- Optional: install Biome LSP for JSON diagnostics if desired.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- None.
+- Should the OpenCode config mirror Codex exactly, or apply filtering/transformations? (UNCONFIRMED)
 
 ## Working set (files/ids/commands)
 
-- src/components/features/booking-state-machine/ScheduleAwareTimestampPicker.tsx
-- server/restaurants/schedule.ts
-- tasks/fix-edit-period-slots-20260123-0818/research.md
-- tasks/fix-edit-period-slots-20260123-0818/plan.md
+- .opencode/config.json
+- tasks/sync-mcp-configs-20260123-1730/research.md
+- tasks/sync-mcp-configs-20260123-1730/plan.md
+- tasks/sync-mcp-configs-20260123-1730/verification.md
