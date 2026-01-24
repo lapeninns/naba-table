@@ -1,9 +1,14 @@
-import { NextRequest } from "next/server";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { NextRequest } from 'next/server';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { defaultRedirectForHost, parseHostname, sanitizeRedirect, toAbsoluteRedirectTarget } from "@/lib/auth/redirects";
+import {
+  defaultRedirectForHost,
+  parseHostname,
+  sanitizeRedirect,
+  toAbsoluteRedirectTarget,
+} from '@/lib/auth/redirects';
 
-import { POST } from "./route";
+import { POST } from './route';
 
 const consumeRateLimitMock = vi.fn();
 const signInWithPasswordMock = vi.fn();
@@ -14,29 +19,36 @@ const sendEmailMock = vi.fn();
 const originalEnv = process.env;
 
 function getRootDomain() {
-  return process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost";
+  return process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'localhost';
 }
 
-function buildExpectedCallbackUrl(request: NextRequest, redirectedFrom: string | undefined, rememberMe = true, pathname = "/api/auth/callback") {
+function buildExpectedCallbackUrl(
+  request: NextRequest,
+  redirectedFrom: string | undefined,
+  rememberMe = true,
+  pathname = '/api/auth/callback',
+) {
   const hostname = parseHostname(request);
   const rootDomain = getRootDomain();
-  const redirectTarget = sanitizeRedirect(redirectedFrom, rootDomain) ?? defaultRedirectForHost(hostname, rootDomain);
+  const redirectTarget =
+    sanitizeRedirect(redirectedFrom, rootDomain, hostname) ??
+    defaultRedirectForHost(hostname, rootDomain);
   const absoluteRedirect = toAbsoluteRedirectTarget(redirectTarget, rootDomain);
 
   const callbackUrl = new URL(pathname, request.url);
   if (absoluteRedirect) {
-    callbackUrl.searchParams.set("redirectedFrom", absoluteRedirect);
+    callbackUrl.searchParams.set('redirectedFrom', absoluteRedirect);
   }
-  callbackUrl.searchParams.set("rememberMe", rememberMe ? "1" : "0");
+  callbackUrl.searchParams.set('rememberMe', rememberMe ? '1' : '0');
 
   return callbackUrl.toString();
 }
 
-vi.mock("@/server/security/rate-limit", () => ({
+vi.mock('@/server/security/rate-limit', () => ({
   consumeRateLimit: (...args: unknown[]) => consumeRateLimitMock(...args),
 }));
 
-vi.mock("@/server/supabase", () => ({
+vi.mock('@/server/supabase', () => ({
   getRouteHandlerSupabaseClient: vi.fn(async () => ({
     auth: {
       signInWithPassword: (...args: unknown[]) => signInWithPasswordMock(...args),
@@ -52,17 +64,26 @@ vi.mock("@/server/supabase", () => ({
   })),
 }));
 
-vi.mock("@/libs/resend", () => ({
+vi.mock('@/libs/resend', () => ({
   sendEmail: (...args: unknown[]) => sendEmailMock(...args),
 }));
 
-describe("POST /api/auth/signin", () => {
+describe('POST /api/auth/signin', () => {
   beforeEach(() => {
     const resetAt = Date.now() + 60_000;
-    consumeRateLimitMock.mockResolvedValue({ ok: true, limit: 5, remaining: 5, resetAt, source: "memory" });
+    consumeRateLimitMock.mockResolvedValue({
+      ok: true,
+      limit: 5,
+      remaining: 5,
+      resetAt,
+      source: 'memory',
+    });
     signInWithPasswordMock.mockResolvedValue({ error: null });
     signInWithOtpMock.mockResolvedValue({ error: null });
-    generateLinkMock.mockResolvedValue({ data: { properties: { action_link: "https://example.com/link" } }, error: null });
+    generateLinkMock.mockResolvedValue({
+      data: { properties: { action_link: 'https://example.com/link' } },
+      error: null,
+    });
     sendEmailMock.mockResolvedValue(undefined);
   });
 
@@ -76,12 +97,16 @@ describe("POST /api/auth/signin", () => {
     process.env = { ...originalEnv };
   });
 
-  it("rejects missing CSRF token", async () => {
-    const request = new NextRequest("http://localhost/api/auth/signin", {
-      method: "POST",
-      body: JSON.stringify({ mode: "password", email: "user@example.com", password: "ValidPassword123!" }),
+  it('rejects missing CSRF token', async () => {
+    const request = new NextRequest('http://localhost/api/auth/signin', {
+      method: 'POST',
+      body: JSON.stringify({
+        mode: 'password',
+        email: 'user@example.com',
+        password: 'ValidPassword123!',
+      }),
       headers: {
-        "content-type": "application/json",
+        'content-type': 'application/json',
       },
     });
 
@@ -90,42 +115,53 @@ describe("POST /api/auth/signin", () => {
     expect(response.status).toBe(403);
   });
 
-  it("returns 429 when rate limit exceeded", async () => {
-    const token = "csrf-token";
-    consumeRateLimitMock.mockResolvedValueOnce({ ok: false, limit: 5, remaining: 0, resetAt: Date.now() + 30_000, source: "memory" });
+  it('returns 429 when rate limit exceeded', async () => {
+    const token = 'csrf-token';
+    consumeRateLimitMock.mockResolvedValueOnce({
+      ok: false,
+      limit: 5,
+      remaining: 0,
+      resetAt: Date.now() + 30_000,
+      source: 'memory',
+    });
 
-    const request = new NextRequest("http://localhost/api/auth/signin", {
-      method: "POST",
-      body: JSON.stringify({ mode: "password", email: "user@example.com", password: "ValidPassword123!" }),
+    const request = new NextRequest('http://localhost/api/auth/signin', {
+      method: 'POST',
+      body: JSON.stringify({
+        mode: 'password',
+        email: 'user@example.com',
+        password: 'ValidPassword123!',
+      }),
       headers: {
-        "content-type": "application/json",
-        "x-csrf-token": token,
+        'content-type': 'application/json',
+        'x-csrf-token': token,
         cookie: `sr-csrf-token=${token}`,
-        host: "localhost:3000",
+        host: 'localhost:3000',
       },
     });
 
     const response = await POST(request);
 
     expect(response.status).toBe(429);
-    expect(response.headers.get("X-RateLimit-Limit")).toBe("5");
+    expect(response.headers.get('X-RateLimit-Limit')).toBe('5');
     expect(consumeRateLimitMock).toHaveBeenCalled();
   });
 
-  it("signs in with password when valid", async () => {
-    const token = "csrf-token";
-    const request = new NextRequest("http://localhost/api/auth/signin", {
-      method: "POST",
+  it('signs in with password when valid', async () => {
+    const token = 'csrf-token';
+    const request = new NextRequest('http://app.localhost/api/auth/signin', {
+      method: 'POST',
       body: JSON.stringify({
-        mode: "password",
-        email: "USER@example.com",
-        password: "ValidPassword123!",
-        redirectedFrom: "/dashboard",
+        mode: 'password',
+        email: 'USER@example.com',
+        password: 'ValidPassword123!',
+        redirectedFrom: '/dashboard',
       }),
       headers: {
-        "content-type": "application/json",
-        "x-csrf-token": token,
+        'content-type': 'application/json',
+        'x-csrf-token': token,
         cookie: `sr-csrf-token=${token}`,
+        host: 'app.localhost:3000',
       },
     });
 
@@ -133,23 +169,26 @@ describe("POST /api/auth/signin", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.redirectTo).toBe("/dashboard");
-    expect(signInWithPasswordMock).toHaveBeenCalledWith({ email: "user@example.com", password: "ValidPassword123!" });
+    expect(body.redirectTo).toBe('/dashboard');
+    expect(signInWithPasswordMock).toHaveBeenCalledWith({
+      email: 'user@example.com',
+      password: 'ValidPassword123!',
+    });
   });
 
-  it("sends a magic link and allows creating a new user", async () => {
-    const token = "csrf-token";
+  it('sends a magic link and allows creating a new user', async () => {
+    const token = 'csrf-token';
 
-    const request = new NextRequest("http://localhost:3000/api/auth/signin", {
-      method: "POST",
+    const request = new NextRequest('http://localhost:3000/api/auth/signin', {
+      method: 'POST',
       body: JSON.stringify({
-        mode: "magic_link",
-        email: "NewUser@example.com",
-        redirectedFrom: "/guest/bookings",
+        mode: 'magic_link',
+        email: 'NewUser@example.com',
+        redirectedFrom: '/guest/bookings',
       }),
       headers: {
-        "content-type": "application/json",
-        "x-csrf-token": token,
+        'content-type': 'application/json',
+        'x-csrf-token': token,
         cookie: `sr-csrf-token=${token}`,
       },
     });
@@ -158,13 +197,13 @@ describe("POST /api/auth/signin", () => {
     const body = await response.json();
 
     expect(response.status).toBe(202);
-    expect(body.status).toBe("magic_link_sent");
+    expect(body.status).toBe('magic_link_sent');
     expect(signInWithOtpMock).toHaveBeenCalledTimes(1);
 
-    const expectedCallbackUrl = buildExpectedCallbackUrl(request, "/guest/bookings");
+    const expectedCallbackUrl = buildExpectedCallbackUrl(request, '/guest/bookings');
 
     expect(signInWithOtpMock).toHaveBeenCalledWith({
-      email: "newuser@example.com",
+      email: 'newuser@example.com',
       options: {
         shouldCreateUser: true,
         emailRedirectTo: expectedCallbackUrl,
@@ -172,22 +211,26 @@ describe("POST /api/auth/signin", () => {
     });
   });
 
-  it("falls back to admin.generateLink + Resend when Supabase email send fails", async () => {
-    const token = "csrf-token";
+  it('falls back to admin.generateLink + Resend when Supabase email send fails', async () => {
+    const token = 'csrf-token';
     signInWithOtpMock.mockResolvedValueOnce({
-      error: { message: "Error sending confirmation email", status: 500, code: "unexpected_failure" },
+      error: {
+        message: 'Error sending confirmation email',
+        status: 500,
+        code: 'unexpected_failure',
+      },
     });
 
-    const request = new NextRequest("http://localhost:3000/api/auth/signin", {
-      method: "POST",
+    const request = new NextRequest('http://localhost:3000/api/auth/signin', {
+      method: 'POST',
       body: JSON.stringify({
-        mode: "magic_link",
-        email: "fallback@example.com",
-        redirectedFrom: "/guest/dashboard",
+        mode: 'magic_link',
+        email: 'fallback@example.com',
+        redirectedFrom: '/guest/dashboard',
       }),
       headers: {
-        "content-type": "application/json",
-        "x-csrf-token": token,
+        'content-type': 'application/json',
+        'x-csrf-token': token,
         cookie: `sr-csrf-token=${token}`,
       },
     });
@@ -196,28 +239,27 @@ describe("POST /api/auth/signin", () => {
     const body = await response.json();
 
     expect(response.status).toBe(500);
-    expect(body.message).toBe("Error sending confirmation email");
+    expect(body.message).toBe('Error sending confirmation email');
     expect(generateLinkMock).toHaveBeenCalledTimes(0);
     expect(sendEmailMock).toHaveBeenCalledTimes(0);
-
   });
 
-  it("aligns callback host with redirect host in production (www vs app)", async () => {
-    const token = "csrf-token";
-    process.env = { ...originalEnv, NEXT_PUBLIC_ROOT_DOMAIN: "nabatable.com" };
+  it('aligns callback host with redirect host in production (www vs app)', async () => {
+    const token = 'csrf-token';
+    process.env = { ...originalEnv, NEXT_PUBLIC_ROOT_DOMAIN: 'nabatable.com' };
 
-    const request = new NextRequest("https://app.nabatable.com/api/auth/signin", {
-      method: "POST",
+    const request = new NextRequest('https://app.nabatable.com/api/auth/signin', {
+      method: 'POST',
       body: JSON.stringify({
-        mode: "magic_link",
-        email: "user@example.com",
+        mode: 'magic_link',
+        email: 'user@example.com',
         redirectedFrom: undefined,
       }),
       headers: {
-        "content-type": "application/json",
-        "x-csrf-token": token,
+        'content-type': 'application/json',
+        'x-csrf-token': token,
         cookie: `sr-csrf-token=${token}`,
-        host: "app.nabatable.com",
+        host: 'app.nabatable.com',
       },
     });
 
@@ -225,10 +267,10 @@ describe("POST /api/auth/signin", () => {
     expect(response.status).toBe(202);
 
     expect(signInWithOtpMock).toHaveBeenCalledWith({
-      email: "user@example.com",
+      email: 'user@example.com',
       options: {
         emailRedirectTo:
-          "https://app.nabatable.com/api/auth/callback?redirectedFrom=https%3A%2F%2Fapp.nabatable.com%2Fdashboard&rememberMe=1",
+          'https://app.nabatable.com/api/auth/callback?redirectedFrom=https%3A%2F%2Fapp.nabatable.com%2Fdashboard&rememberMe=1',
         shouldCreateUser: true,
       },
     });

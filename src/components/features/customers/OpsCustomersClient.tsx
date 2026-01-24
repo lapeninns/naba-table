@@ -2,7 +2,7 @@
 
 import { Loader2, RefreshCcw, Search, X } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { DASHBOARD_DEFAULT_PAGE_SIZE } from '@/components/dashboard/constants';
@@ -11,7 +11,13 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useToast } from '@/hooks/use-toast';
@@ -55,7 +61,9 @@ function isMarketingFilter(value: string | null): value is MarketingFilter {
 }
 
 function isLastVisitFilter(value: string | null): value is LastVisitFilter {
-  return value === 'any' || value === '30d' || value === '90d' || value === '365d' || value === 'never';
+  return (
+    value === 'any' || value === '30d' || value === '90d' || value === '365d' || value === 'never'
+  );
 }
 
 function isSort(value: string | null): value is SortDirection {
@@ -93,11 +101,18 @@ export type OpsCustomersClientProps = {
   focusCustomer?: string | null;
 };
 
-export function OpsCustomersClient({ defaultRestaurantId, focusCustomer }: OpsCustomersClientProps) {
+export function OpsCustomersClient({
+  defaultRestaurantId,
+  focusCustomer,
+}: OpsCustomersClientProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
+  const opsBasePath = pathname?.startsWith('/app') ? '/app' : '';
+  const opsPath = (path: string) => `${opsBasePath}${path}`;
   const searchParamsKey = useMemo(() => searchParams?.toString() ?? '', [searchParams]);
-  const { memberships, activeRestaurantId, setActiveRestaurantId, accountSnapshot } = useOpsSession();
+  const { memberships, activeRestaurantId, setActiveRestaurantId, accountSnapshot } =
+    useOpsSession();
   const activeMembership = useOpsActiveMembership();
   const isOnline = useOnlineStatus();
   const { toast } = useToast();
@@ -112,7 +127,7 @@ export function OpsCustomersClient({ defaultRestaurantId, focusCustomer }: OpsCu
     const searchQuery = sp.get('search') ?? '';
     const minBookingsParam = Number.parseInt(sp.get('minBookings') ?? '0', 10);
     const pageParam = Number.parseInt(sp.get('page') ?? '1', 10);
-  
+
     return {
       search: searchQuery,
       marketingOptIn: isMarketingFilter(marketingParam) ? marketingParam : 'all',
@@ -125,7 +140,9 @@ export function OpsCustomersClient({ defaultRestaurantId, focusCustomer }: OpsCu
   }, [searchParamsKey]);
 
   const [searchTerm, setSearchTerm] = useState(parsedFromQuery.search);
-  const [marketingOptIn, setMarketingOptIn] = useState<MarketingFilter>(parsedFromQuery.marketingOptIn);
+  const [marketingOptIn, setMarketingOptIn] = useState<MarketingFilter>(
+    parsedFromQuery.marketingOptIn,
+  );
   const [lastVisit, setLastVisit] = useState<LastVisitFilter>(parsedFromQuery.lastVisit);
   const [minBookings, setMinBookings] = useState<number>(parsedFromQuery.minBookings);
   const [sort, setSort] = useState<SortDirection>(parsedFromQuery.sort);
@@ -177,8 +194,17 @@ export function OpsCustomersClient({ defaultRestaurantId, focusCustomer }: OpsCu
 
       const params = new URLSearchParams(searchParams?.toString() ?? '');
 
-      const applyParam = (key: string, value: string | number | null | undefined, defaultValue?: string | number) => {
-        if (value === undefined || value === null || value === '' || (defaultValue !== undefined && value === defaultValue)) {
+      const applyParam = (
+        key: string,
+        value: string | number | null | undefined,
+        defaultValue?: string | number,
+      ) => {
+        if (
+          value === undefined ||
+          value === null ||
+          value === '' ||
+          (defaultValue !== undefined && value === defaultValue)
+        ) {
           params.delete(key);
           return;
         }
@@ -200,9 +226,12 @@ export function OpsCustomersClient({ defaultRestaurantId, focusCustomer }: OpsCu
         return;
       }
 
-      router.replace(`/customers${nextString ? `?${nextString}` : ''}`, { scroll: false });
+      const targetPath = `${opsBasePath}/customers`;
+      router.replace(`${targetPath}${nextString ? `?${nextString}` : ''}`, {
+        scroll: false,
+      });
     },
-    [isOnline, router, searchParams],
+    [isOnline, opsBasePath, router, searchParams],
   );
 
   useEffect(() => {
@@ -215,7 +244,16 @@ export function OpsCustomersClient({ defaultRestaurantId, focusCustomer }: OpsCu
       sortBy,
       page,
     });
-  }, [normalizedSearch, marketingOptIn, lastVisit, minBookings, sort, sortBy, page, syncQueryParams]);
+  }, [
+    normalizedSearch,
+    marketingOptIn,
+    lastVisit,
+    minBookings,
+    sort,
+    sortBy,
+    page,
+    syncQueryParams,
+  ]);
 
   const filters = useMemo(() => {
     if (!activeRestaurantId) {
@@ -232,7 +270,16 @@ export function OpsCustomersClient({ defaultRestaurantId, focusCustomer }: OpsCu
       lastVisit,
       minBookings,
     };
-  }, [activeRestaurantId, lastVisit, marketingOptIn, minBookings, normalizedSearch, page, sort, sortBy]);
+  }, [
+    activeRestaurantId,
+    lastVisit,
+    marketingOptIn,
+    minBookings,
+    normalizedSearch,
+    page,
+    sort,
+    sortBy,
+  ]);
 
   const { data, error, isLoading, isFetching, refetch } = useOpsCustomers(filters);
 
@@ -290,7 +337,9 @@ export function OpsCustomersClient({ defaultRestaurantId, focusCustomer }: OpsCu
     const selector = `[data-customer-id="${focusCustomer}"]`;
     const emailSelector = `[data-customer-email="${focusCustomer.toLowerCase()}"]`;
     const target =
-      (typeof document !== 'undefined' && (document.querySelector<HTMLElement>(selector) ?? document.querySelector<HTMLElement>(emailSelector))) ||
+      (typeof document !== 'undefined' &&
+        (document.querySelector<HTMLElement>(selector) ??
+          document.querySelector<HTMLElement>(emailSelector))) ||
       null;
     if (target) {
       target.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -308,38 +357,36 @@ export function OpsCustomersClient({ defaultRestaurantId, focusCustomer }: OpsCu
   const currentRestaurantName =
     activeMembership?.restaurantName ?? accountSnapshot.restaurantName ?? 'Restaurant';
 
-  const activeFilterBadges = (
-    [
-      displaySearch
-        ? {
-            key: 'search',
-            label: `Search: "${displaySearch}"`,
-            onClear: () => setSearchTerm(''),
-          }
-        : null,
-      marketingOptIn !== 'all'
-        ? {
-            key: 'marketing',
-            label: describeMarketing(marketingOptIn),
-            onClear: () => setMarketingOptIn('all'),
-          }
-        : null,
-      lastVisit !== 'any'
-        ? {
-            key: 'lastVisit',
-            label: describeLastVisit(lastVisit),
-            onClear: () => setLastVisit('any'),
-          }
-        : null,
-      minBookings > 0
-        ? {
-            key: 'minBookings',
-            label: `Min bookings ${minBookings}`,
-            onClear: () => setMinBookings(0),
-          }
-        : null,
-    ].filter(Boolean) as { key: string; label: string; onClear: () => void }[]
-  );
+  const activeFilterBadges = [
+    displaySearch
+      ? {
+          key: 'search',
+          label: `Search: "${displaySearch}"`,
+          onClear: () => setSearchTerm(''),
+        }
+      : null,
+    marketingOptIn !== 'all'
+      ? {
+          key: 'marketing',
+          label: describeMarketing(marketingOptIn),
+          onClear: () => setMarketingOptIn('all'),
+        }
+      : null,
+    lastVisit !== 'any'
+      ? {
+          key: 'lastVisit',
+          label: describeLastVisit(lastVisit),
+          onClear: () => setLastVisit('any'),
+        }
+      : null,
+    minBookings > 0
+      ? {
+          key: 'minBookings',
+          label: `Min bookings ${minBookings}`,
+          onClear: () => setMinBookings(0),
+        }
+      : null,
+  ].filter(Boolean) as { key: string; label: string; onClear: () => void }[];
 
   const exportFilters = useMemo(
     () => ({
@@ -353,13 +400,16 @@ export function OpsCustomersClient({ defaultRestaurantId, focusCustomer }: OpsCu
     [lastVisit, marketingOptIn, minBookings, normalizedSearch, sort, sortBy],
   );
 
-  const hasActiveFilters = activeFilterBadges.length > 0 || sortBy !== 'last_visit' || sort !== 'desc';
+  const hasActiveFilters =
+    activeFilterBadges.length > 0 || sortBy !== 'last_visit' || sort !== 'desc';
 
   if (memberships.length === 0) {
     return (
       <section className="mx-auto flex min-h-[60vh] max-w-2xl flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-border/60 bg-muted/20 p-8 text-center">
         <h2 className="text-xl font-semibold text-foreground">No restaurant access yet</h2>
-        <p className="text-sm text-muted-foreground">Ask an owner or manager to send you an invitation so you can view customer data.</p>
+        <p className="text-sm text-muted-foreground">
+          Ask an owner or manager to send you an invitation so you can view customer data.
+        </p>
         <Button asChild variant="secondary">
           <Link href="/guest/dashboard">Back to dashboard</Link>
         </Button>
@@ -371,7 +421,9 @@ export function OpsCustomersClient({ defaultRestaurantId, focusCustomer }: OpsCu
     return (
       <section className="mx-auto flex min-h-[40vh] max-w-2xl flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-border/60 bg-muted/30 p-8 text-center shadow-sm">
         <h2 className="text-lg font-semibold text-foreground">Loading restaurant access…</h2>
-        <p className="text-sm text-muted-foreground">We’re preparing your customers. This will only take a moment.</p>
+        <p className="text-sm text-muted-foreground">
+          We’re preparing your customers. This will only take a moment.
+        </p>
       </section>
     );
   }
@@ -381,7 +433,9 @@ export function OpsCustomersClient({ defaultRestaurantId, focusCustomer }: OpsCu
       <main className="mx-auto w-full max-w-6xl space-y-4 px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
         <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="space-y-1">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Customers</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+              Customers
+            </h1>
             <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground sm:text-base">
               <Badge variant="secondary" className="rounded-md font-medium">
                 {currentRestaurantName}
@@ -393,7 +447,7 @@ export function OpsCustomersClient({ defaultRestaurantId, focusCustomer }: OpsCu
 
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <Button asChild size="sm" variant="outline" className="h-11 sm:h-9">
-              <Link href="/dashboard">Back to dashboard</Link>
+              <Link href={opsPath('/dashboard')}>Back to dashboard</Link>
             </Button>
             <Button
               type="button"
@@ -403,7 +457,11 @@ export function OpsCustomersClient({ defaultRestaurantId, focusCustomer }: OpsCu
               onClick={() => refetch()}
               disabled={isFetching || isLoading}
             >
-              {isFetching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
+              {isFetching ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCcw className="mr-2 h-4 w-4" />
+              )}
               Refresh
             </Button>
             <ExportCustomersButton
@@ -459,7 +517,10 @@ export function OpsCustomersClient({ defaultRestaurantId, focusCustomer }: OpsCu
                   </SelectContent>
                 </Select>
 
-                <Select value={sortOption} onValueChange={(value) => handleSortChange(value as SortOption)}>
+                <Select
+                  value={sortOption}
+                  onValueChange={(value) => handleSortChange(value as SortOption)}
+                >
                   <SelectTrigger className="h-9 w-[165px]">
                     <SelectValue placeholder="Sort" />
                   </SelectTrigger>
@@ -472,7 +533,13 @@ export function OpsCustomersClient({ defaultRestaurantId, focusCustomer }: OpsCu
                   </SelectContent>
                 </Select>
 
-                <Button type="button" variant="ghost" size="sm" disabled={!hasActiveFilters} onClick={handleClearFilters}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={!hasActiveFilters}
+                  onClick={handleClearFilters}
+                >
                   <X className="mr-1 h-4 w-4" aria-hidden />
                   Clear
                 </Button>
@@ -480,7 +547,10 @@ export function OpsCustomersClient({ defaultRestaurantId, focusCustomer }: OpsCu
             </div>
 
             <div className="relative w-full md:w-72 md:flex-none">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden
+              />
               <Input
                 value={searchTerm}
                 onChange={(event) => {
@@ -514,7 +584,9 @@ export function OpsCustomersClient({ defaultRestaurantId, focusCustomer }: OpsCu
                 </Badge>
               ))
             ) : (
-              <span className="text-xs text-muted-foreground">Tip: search + min bookings to surface VIP guests fast.</span>
+              <span className="text-xs text-muted-foreground">
+                Tip: search + min bookings to surface VIP guests fast.
+              </span>
             )}
 
             {isFetching ? (
@@ -538,7 +610,11 @@ export function OpsCustomersClient({ defaultRestaurantId, focusCustomer }: OpsCu
         ) : null}
 
         <section className="space-y-3">
-          <CustomersTable customers={data?.items ?? []} isLoading={isLoading} hasActiveFilters={hasActiveFilters} />
+          <CustomersTable
+            customers={data?.items ?? []}
+            isLoading={isLoading}
+            hasActiveFilters={hasActiveFilters}
+          />
 
           {pageInfo.total > 0 && (
             <Pagination

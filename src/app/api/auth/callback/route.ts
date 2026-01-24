@@ -1,17 +1,19 @@
-import { cookies } from "next/headers";
-import { NextResponse } from "next/server";
+import { cookies } from 'next/headers';
+import { NextResponse } from 'next/server';
 
+import config from '@/config';
+import {
+  defaultRedirectForHost,
+  parseHostname,
+  sanitizeRedirect,
+  toAbsoluteRedirectTarget,
+} from '@/lib/auth/redirects';
+import { normalizeEmail } from '@/server/customers';
+import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 
-import config from "@/config";
-import { defaultRedirectForHost, parseHostname, sanitizeRedirect, toAbsoluteRedirectTarget } from "@/lib/auth/redirects";
-import { normalizeEmail } from "@/server/customers";
-import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
+import type { NextRequest } from 'next/server';
 
-import type { NextRequest } from "next/server";
-
-export const dynamic = "force-dynamic";
-
-
+export const dynamic = 'force-dynamic';
 
 async function linkAuthUserToCustomers(authUserId: string, email: string): Promise<void> {
   try {
@@ -19,13 +21,13 @@ async function linkAuthUserToCustomers(authUserId: string, email: string): Promi
     const normalizedEmail = normalizeEmail(email);
 
     const { data: customers, error: findError } = await serviceClient
-      .from("customers")
-      .select("id")
-      .eq("email_normalized", normalizedEmail)
-      .is("auth_user_id", null);
+      .from('customers')
+      .select('id')
+      .eq('email_normalized', normalizedEmail)
+      .is('auth_user_id', null);
 
     if (findError) {
-      console.error("[auth/callback] Failed to find customers for linking:", findError.message);
+      console.error('[auth/callback] Failed to find customers for linking:', findError.message);
       return;
     }
 
@@ -35,59 +37,64 @@ async function linkAuthUserToCustomers(authUserId: string, email: string): Promi
 
     const customerIds = customers.map((c) => c.id);
     const { error: updateError } = await serviceClient
-      .from("customers")
+      .from('customers')
       .update({ auth_user_id: authUserId })
-      .in("id", customerIds);
+      .in('id', customerIds);
 
     if (updateError) {
-      console.error("[auth/callback] Failed to link customers to auth user:", updateError.message);
+      console.error('[auth/callback] Failed to link customers to auth user:', updateError.message);
       return;
     }
 
-    console.log("[auth/callback] Linked auth user to customers", {
+    console.log('[auth/callback] Linked auth user to customers', {
       authUserId,
       email: normalizedEmail,
       customerCount: customerIds.length,
     });
   } catch (error) {
-    console.error("[auth/callback] Error linking auth user to customers:", error);
+    console.error('[auth/callback] Error linking auth user to customers:', error);
   }
 }
 
 // This route is called after a successful login. It exchanges the code for a session and redirects to the callback URL (see config.js).
 export async function GET(req: NextRequest) {
   const requestUrl = new URL(req.url);
-  const code = requestUrl.searchParams.get("code");
-  const tokenHash = requestUrl.searchParams.get("token_hash");
-  const redirectedFrom = requestUrl.searchParams.get("redirectedFrom");
+  const code = requestUrl.searchParams.get('code');
+  const tokenHash = requestUrl.searchParams.get('token_hash');
+  const redirectedFrom = requestUrl.searchParams.get('redirectedFrom');
   const hostname = parseHostname(req);
-  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost";
+  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'localhost';
 
-  console.log("[auth/callback] Request received:", {
+  console.log('[auth/callback] Request received:', {
     hostname,
     rootDomain,
     hasCode: !!code,
     redirectedFrom,
     fullUrl: req.url,
     headers: {
-      host: req.headers.get("host"),
-      referer: req.headers.get("referer"),
-      userAgent: req.headers.get("user-agent"),
+      host: req.headers.get('host'),
+      referer: req.headers.get('referer'),
+      userAgent: req.headers.get('user-agent'),
     },
   });
 
   const resolveDestination = () => {
-    const sanitized = sanitizeRedirect(redirectedFrom, rootDomain);
+    const sanitized = sanitizeRedirect(redirectedFrom, rootDomain, hostname);
     if (!sanitized) {
       if (redirectedFrom) {
-        console.warn("[auth/callback] rejected redirect param", redirectedFrom);
+        console.warn('[auth/callback] rejected redirect param', redirectedFrom);
       }
       // Use host-aware default redirect: app subdomain -> /dashboard, root domain -> /guest/dashboard
       const fallback = defaultRedirectForHost(hostname, rootDomain);
-      console.log("[auth/callback] Using fallback destination:", fallback, "for hostname:", hostname);
+      console.log(
+        '[auth/callback] Using fallback destination:',
+        fallback,
+        'for hostname:',
+        hostname,
+      );
       return fallback;
     }
-    console.log("[auth/callback] Using sanitized destination:", sanitized);
+    console.log('[auth/callback] Using sanitized destination:', sanitized);
     return sanitized;
   };
 
@@ -100,22 +107,28 @@ export async function GET(req: NextRequest) {
 
     // Debug: Log all cookies to identify if PKCE code verifier is present
     const allCookies = cookieStore.getAll();
-    const supabaseCookies = allCookies.filter(c => c.name.includes('sb-') || c.name.includes('supabase'));
-    console.log("[auth/callback] Cookies received:", {
+    const supabaseCookies = allCookies.filter(
+      (c) => c.name.includes('sb-') || c.name.includes('supabase'),
+    );
+    console.log('[auth/callback] Cookies received:', {
       total: allCookies.length,
-      supabaseRelated: supabaseCookies.map(c => ({ name: c.name, hasValue: !!c.value, length: c.value?.length })),
-      hasCodeVerifier: allCookies.some(c => c.name.includes('code-verifier')),
+      supabaseRelated: supabaseCookies.map((c) => ({
+        name: c.name,
+        hasValue: !!c.value,
+        length: c.value?.length,
+      })),
+      hasCodeVerifier: allCookies.some((c) => c.name.includes('code-verifier')),
     });
 
     // Create Supabase client that writes cookies to the cookie store
     const supabase = await getRouteHandlerSupabaseClient(cookieStore);
 
     if (code) {
-      console.log("[auth/callback] Attempting to exchange code for session...");
+      console.log('[auth/callback] Attempting to exchange code for session...');
       const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
       if (error) {
-        console.error("[auth/callback] Session exchange failed:", {
+        console.error('[auth/callback] Session exchange failed:', {
           message: error.message,
           status: error.status,
           code: error.code,
@@ -123,28 +136,31 @@ export async function GET(req: NextRequest) {
         });
 
         // Provide more specific error messages based on error type
-        let userMessage = "Authentication link has expired or is invalid. Please try again.";
-        let errorType = "auth_failed";
+        let userMessage = 'Authentication link has expired or is invalid. Please try again.';
+        let errorType = 'auth_failed';
 
-        if (error.message?.includes("expired") || error.code === "otp_expired") {
-          userMessage = "Your magic link has expired. Please request a new one.";
-          errorType = "link_expired";
-        } else if (error.message?.includes("already been used") || error.code === "otp_disabled") {
-          userMessage = "This magic link has already been used. Please request a new one.";
-          errorType = "link_used";
-        } else if (error.message?.includes("code verifier") || error.code === "bad_code_verifier") {
-          userMessage = "Authentication failed. Please use the same browser where you requested the magic link.";
-          errorType = "pkce_mismatch";
-          console.error("[auth/callback] PKCE code verifier mismatch - user may have opened link in different browser");
+        if (error.message?.includes('expired') || error.code === 'otp_expired') {
+          userMessage = 'Your magic link has expired. Please request a new one.';
+          errorType = 'link_expired';
+        } else if (error.message?.includes('already been used') || error.code === 'otp_disabled') {
+          userMessage = 'This magic link has already been used. Please request a new one.';
+          errorType = 'link_used';
+        } else if (error.message?.includes('code verifier') || error.code === 'bad_code_verifier') {
+          userMessage =
+            'Authentication failed. Please use the same browser where you requested the magic link.';
+          errorType = 'pkce_mismatch';
+          console.error(
+            '[auth/callback] PKCE code verifier mismatch - user may have opened link in different browser',
+          );
         }
 
         const loginUrl = new URL(config.auth.loginUrl, requestUrl.origin);
-        loginUrl.searchParams.set("error", errorType);
-        loginUrl.searchParams.set("message", userMessage);
-        console.log("[auth/callback] Redirecting to login due to error:", loginUrl.toString());
+        loginUrl.searchParams.set('error', errorType);
+        loginUrl.searchParams.set('message', userMessage);
+        console.log('[auth/callback] Redirecting to login due to error:', loginUrl.toString());
         return NextResponse.redirect(loginUrl.toString());
       } else {
-        console.log("[auth/callback] Session exchanged successfully:", {
+        console.log('[auth/callback] Session exchanged successfully:', {
           userId: data.user?.id,
           email: data.user?.email,
           redirectedFrom,
@@ -155,17 +171,20 @@ export async function GET(req: NextRequest) {
         }
 
         const { data: userData } = await supabase.auth.getUser();
-        console.log("[auth/callback] Session verification (getUser):", {
+        console.log('[auth/callback] Session verification (getUser):', {
           hasUser: !!userData.user,
           sessionUserId: userData.user?.id,
         });
       }
     } else if (tokenHash) {
-      console.log("[auth/callback] Verifying token_hash for magic link...");
-      const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: "magiclink" });
+      console.log('[auth/callback] Verifying token_hash for magic link...');
+      const { data, error } = await supabase.auth.verifyOtp({
+        token_hash: tokenHash,
+        type: 'magiclink',
+      });
 
       if (error) {
-        console.error("[auth/callback] token_hash verification failed:", {
+        console.error('[auth/callback] token_hash verification failed:', {
           message: error.message,
           status: error.status,
           code: error.code,
@@ -173,24 +192,24 @@ export async function GET(req: NextRequest) {
         });
 
         // Provide more specific error messages based on error type
-        let userMessage = "Authentication link has expired or is invalid. Please try again.";
-        let errorType = "auth_failed";
+        let userMessage = 'Authentication link has expired or is invalid. Please try again.';
+        let errorType = 'auth_failed';
 
-        if (error.message?.includes("expired") || error.code === "otp_expired") {
-          userMessage = "Your magic link has expired. Please request a new one.";
-          errorType = "link_expired";
-        } else if (error.message?.includes("already been used") || error.code === "otp_disabled") {
-          userMessage = "This magic link has already been used. Please request a new one.";
-          errorType = "link_used";
+        if (error.message?.includes('expired') || error.code === 'otp_expired') {
+          userMessage = 'Your magic link has expired. Please request a new one.';
+          errorType = 'link_expired';
+        } else if (error.message?.includes('already been used') || error.code === 'otp_disabled') {
+          userMessage = 'This magic link has already been used. Please request a new one.';
+          errorType = 'link_used';
         }
 
         const loginUrl = new URL(config.auth.loginUrl, requestUrl.origin);
-        loginUrl.searchParams.set("error", errorType);
-        loginUrl.searchParams.set("message", userMessage);
+        loginUrl.searchParams.set('error', errorType);
+        loginUrl.searchParams.set('message', userMessage);
         return NextResponse.redirect(loginUrl.toString());
       }
 
-      console.log("[auth/callback] token_hash verified", {
+      console.log('[auth/callback] token_hash verified', {
         userId: data.session?.user?.id,
         email: data.session?.user?.email,
       });
@@ -200,10 +219,12 @@ export async function GET(req: NextRequest) {
       }
     }
   } else {
-    console.warn("[auth/callback] No code or token_hash parameter in request - possible direct access or malformed link");
+    console.warn(
+      '[auth/callback] No code or token_hash parameter in request - possible direct access or malformed link',
+    );
   }
 
-  console.log("[auth/callback] Final redirect:", {
+  console.log('[auth/callback] Final redirect:', {
     destination,
     redirectUrl: redirectUrl.toString(),
     origin: requestUrl.origin,
