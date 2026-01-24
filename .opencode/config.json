@@ -1,0 +1,43 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "chrome-devtools": {
+      "type": "local",
+      "command": ["npx", "chrome-devtools-mcp@latest", "--isolated=true"],
+      "timeout": 30000,
+      "enabled": true
+    },
+    "context7": {
+      "type": "local",
+      "command": ["npx", "-y", "@upstash/context7-mcp"],
+      "enabled": true
+    },
+    "shadcn": {
+      "type": "local",
+      "command": ["npx", "shadcn@latest", "mcp"],
+      "timeout": 30000,
+      "enabled": true
+    },
+    "supabase": {
+      "type": "remote",
+      "url": "https://mcp.supabase.com/mcp?project_ref=loxrwkeuxesctnrdpksy",
+      "headers": {
+        "Authorization": "Bearer {env:SUPABASE_ACCESS_TOKEN}"
+      },
+      "enabled": true
+    },
+    "augment-context-engine": {
+      "type": "local",
+      "command": [
+        "/Users/amankumarshrestha/Library/pnpm/auggie",
+        "--mcp",
+        "-m",
+        "default",
+        "-w",
+        "/Users/amankumarshrestha/LapenInns Project/SajiloReserveX"
+      ],
+      "timeout": 30000,
+      "enabled": true
+    }
+  }
+}
