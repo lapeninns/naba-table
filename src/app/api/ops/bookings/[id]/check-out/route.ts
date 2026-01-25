@@ -7,6 +7,7 @@ import { enqueueCheckOutSideEffects } from "@/server/jobs/booking-side-effects";
 import { prepareCheckOutTransition } from "@/server/ops/booking-lifecycle/actions";
 import { isBookingLifecycleAllowedToday } from "@/server/ops/booking-lifecycle/availability";
 import { BookingLifecycleError } from "@/server/ops/booking-lifecycle/stateMachine";
+import { invalidateOpsBookingChangesCache, invalidateOpsBookingsSummaryCache } from "@/server/ops/bookings";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 import { requireMembershipForRestaurant } from "@/server/team/access";
 
@@ -200,6 +201,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       error: clearError instanceof Error ? clearError.message : clearError,
     });
   }
+
+  invalidateOpsBookingsSummaryCache(bookingRow.restaurant_id, bookingRow.booking_date);
+  invalidateOpsBookingChangesCache(bookingRow.restaurant_id, bookingRow.booking_date);
 
   // Schedule review request email after successful check-out
   // Note: This ONLY schedules the review email - no "update" notification is sent

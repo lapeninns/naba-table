@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prepareCheckInTransition, prepareNoShowTransition } from "@/server/ops/booking-lifecycle/actions";
 import { isBookingLifecycleAllowedToday } from "@/server/ops/booking-lifecycle/availability";
 import { BookingLifecycleError } from "@/server/ops/booking-lifecycle/stateMachine";
+import { invalidateOpsBookingChangesCache, invalidateOpsBookingsSummaryCache } from "@/server/ops/bookings";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 import { fetchUserMemberships } from "@/server/team/access";
 
@@ -196,6 +197,9 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       console.error("[ops][booking-status] failed to persist transition", transitionError.message);
       return NextResponse.json({ error: "Unable to update booking" }, { status: 500 });
     }
+
+    invalidateOpsBookingsSummaryCache(bookingRow.restaurant_id, bookingRow.booking_date);
+    invalidateOpsBookingChangesCache(bookingRow.restaurant_id, bookingRow.booking_date);
 
     const resultRow = transitionResult?.[0];
 

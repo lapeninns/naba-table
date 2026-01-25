@@ -1,53 +1,55 @@
 # Continuity Ledger
 
-Last updated: 2026-01-24T20:55:07Z
+Last updated: 2026-01-25T20:30:02Z
 
 ## Goal (incl. success criteria)
 
-- Add a dashboard print button that opens a well-formatted printable booking list with only: name, table number, notes, party size, time.
-- Improve print layout to fill portrait paper with good margins, padding, and alignment.
+- Fix high and low risk findings from parallel review
+- Success: no email queue starvation, rollback does not clobber unrelated list updates, empty state preserved during refetch, and null-time handling avoids crash without changing ordering/urgency unexpectedly
 
 ## Constraints/Assumptions
 
-- Follow AGENTS SDLC phases; task artifacts required under `tasks/<slug>-YYYYMMDD-HHMM>/`.
-- Manual UI QA via Chrome DevTools MCP required for UI change.
-- Use Shadcn UI primitives for any UI.
+- Follow AGENTS.md policies (root + nearest per file)
+- Supabase remote-only; no local migrations
+- Chrome DevTools MCP manual QA required for UI changes (if shipping)
 
 ## Key decisions
 
-- Print view is a dedicated route that renders a print-only layout.
-- Sorting state is lifted to ops dashboard to keep print ordering consistent.
+- Address only high and low risks; defer medium unless asked
 
 ## State
 
-- Print view updated to resolve searchParams correctly and wait for matching date before rendering.
+- Implementing fixes for high/low risks
 
 ## Done
 
-- Added print action and lifted sort state to ops dashboard.
-- Implemented print route/view with filter/sort logic.
-- Refined print layout CSS for margins, padding, and alignment.
-- Fixed print route to await searchParams and to avoid stale summary data for mismatched dates.
-- Ran Chrome DevTools MCP QA; captured screenshots and noted console 404 to /monitoring.
+- Collected AGENTS.md policies for root, components, src/components, src/app, src/hooks, server
+- Captured git status for modified files
+- Completed parallel reviews and identified high/low risks
 
 ## Now
 
-- Summarize changes and report verification status.
+- Plan and implement fixes for high/low risks
 
 ## Next
 
-- Consider running Lighthouse/a11y audits if required.
+- Re-review diffs and summarize changes
 
 ## Open questions (UNCONFIRMED if needed)
 
-- None.
+- None yet
 
 ## Working set (files/ids/commands)
 
-- `src/components/features/dashboard/OpsDashboardClient.tsx`
+- `components/dashboard/BookingsTable.tsx`
+- `components/dashboard/OpsBookingCard.tsx`
+- `server/ops/bookings.ts`
+- `src/app/api/cron/process-emails/route.ts`
+- `src/app/api/ops/bookings/[id]/*/route.ts`
+- `src/components/features/bookings/OpsBookingsClient.tsx`
 - `src/components/features/dashboard/BookingsList.tsx`
-- `src/components/features/dashboard/DashboardSummaryCard.tsx`
-- `src/components/features/dashboard/OpsBookingsPrintView.tsx`
-- `src/components/features/dashboard/OpsBookingsPrintView.module.css`
-- `src/app/app/(app)/dashboard/print/page.tsx`
-- `tasks/ops-dashboard-print-20260124-1916/verification.md`
+- `src/components/features/dashboard/OpsDashboardClient.tsx`
+- `src/hooks/ops/useOpsBookingStatusActions.ts`
+- `src/hooks/ops/useOpsBookingsList.ts`
+- `src/hooks/ops/useOpsBookingsTableState.ts`
+- `src/hooks/ops/useOpsTodaySummary.ts`

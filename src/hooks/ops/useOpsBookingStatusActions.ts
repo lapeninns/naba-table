@@ -9,7 +9,13 @@ import { useBookingService } from '@/contexts/ops-services';
 import { HttpError } from '@/lib/http/errors';
 import { queryKeys } from '@/lib/query/keys';
 
-import type { OpsBookingStatus, OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
+import type {
+  OpsBookingListItem,
+  OpsBookingsPage,
+  OpsBookingStatus,
+  OpsTodayBooking,
+  OpsTodayBookingsSummary,
+} from '@/types/ops';
 
 export type BookingLifecycleVariables = {
   restaurantId: string;
@@ -32,6 +38,7 @@ type MutationContext = {
   bookingId: string;
   summaryKey?: ReturnType<(typeof queryKeys)['opsDashboard']['summary']>;
   previousSummary?: OpsTodayBookingsSummary;
+  previousOpsBookingDetail?: OpsBookingListItem | undefined;
 };
 
 type OfflineActionType = 'check-in' | 'check-out' | 'no-show' | 'undo-no-show';
@@ -79,6 +86,59 @@ export function useOpsBookingLifecycleActions() {
   const transitionToast = useTransitionToast();
   const bookingErrorBoundary = useBookingErrorBoundary();
   const offlineQueue = useBookingOfflineQueue();
+  const opsBookingsListKey = ['ops', 'bookings', 'list'] as const;
+
+  const applyOpsBookingsPatch = (
+    bookingId: string,
+    patch: (booking: OpsBookingListItem) => OpsBookingListItem,
+  ) => {
+    queryClient.setQueriesData<OpsBookingsPage>(
+      { queryKey: opsBookingsListKey, exact: false },
+      (current) => {
+        if (!current) return current;
+        let didChange = false;
+        const items = current.items.map((item) => {
+          if (item.id !== bookingId) return item;
+          didChange = true;
+          return patch(item);
+        });
+        return didChange ? { ...current, items } : current;
+      },
+    );
+
+    const detailKey = queryKeys.opsBookings.detail(bookingId);
+    queryClient.setQueryData<OpsBookingListItem>(detailKey, (current) =>
+      current ? patch(current) : current,
+    );
+  };
+
+  const findOpsBookingInLists = (bookingId: string) => {
+    const queries = queryClient.getQueriesData<OpsBookingsPage>({
+      queryKey: opsBookingsListKey,
+      exact: false,
+    });
+    for (const [, data] of queries) {
+      const match = data?.items.find((item) => item.id === bookingId);
+      if (match) return match;
+    }
+    return undefined;
+  };
+
+  const applyOpsBookingsSnapshot = (
+    bookingId: string,
+    snapshot: { status: OpsBookingStatus; checkedInAt?: string | null; checkedOutAt?: string | null },
+  ) => {
+    applyOpsBookingsPatch(bookingId, (booking) => {
+      const next: OpsBookingListItem = { ...booking, status: snapshot.status };
+      if (snapshot.checkedInAt !== undefined) {
+        next.checkedInAt = snapshot.checkedInAt;
+      }
+      if (snapshot.checkedOutAt !== undefined) {
+        next.checkedOutAt = snapshot.checkedOutAt;
+      }
+      return next;
+    });
+  };
 
   const maybeQueueOffline = <TVariables extends { bookingId: string }>(
     action: OfflineActionType,
@@ -170,9 +230,11 @@ export function useOpsBookingLifecycleActions() {
     variables: { restaurantId?: string | null; targetDate?: string | null },
     patch: (booking: OpsTodayBooking) => OpsTodayBooking,
     meta: Record<string, unknown>,
+    listPatch?: (booking: OpsBookingListItem) => OpsBookingListItem,
   ): Promise<MutationContext> => {
     let summaryKey: ReturnType<(typeof queryKeys)['opsDashboard']['summary']> | undefined;
     let previousSummary: OpsTodayBookingsSummary | undefined;
+    let previousOpsBookingDetail: OpsBookingListItem | undefined;
 
     if (variables.restaurantId) {
       summaryKey = queryKeys.opsDashboard.summary(variables.restaurantId, variables.targetDate ?? null);
@@ -193,14 +255,32 @@ export function useOpsBookingLifecycleActions() {
       }
     }
 
+    if (listPatch) {
+      const detailKey = queryKeys.opsBookings.detail(bookingId);
+      previousOpsBookingDetail =
+        queryClient.getQueryData<OpsBookingListItem>(detailKey) ?? findOpsBookingInLists(bookingId);
+      applyOpsBookingsPatch(bookingId, listPatch);
+    }
+
     bookingStateMachine?.beginTransition(bookingId, expectedStatus, meta);
 
-    return { bookingId, summaryKey, previousSummary };
+    return { bookingId, summaryKey, previousSummary, previousOpsBookingDetail };
   };
 
   const rollbackOptimisticTransition = (bookingId: string, context?: MutationContext) => {
     if (context?.summaryKey && context.previousSummary) {
       queryClient.setQueryData(context.summaryKey, context.previousSummary);
+    }
+    if (context && 'previousOpsBookingDetail' in context) {
+      if (context.previousOpsBookingDetail) {
+        applyOpsBookingsPatch(bookingId, () => context.previousOpsBookingDetail as OpsBookingListItem);
+      } else {
+        queryClient.invalidateQueries({ queryKey: opsBookingsListKey, exact: false });
+      }
+      queryClient.setQueryData(
+        queryKeys.opsBookings.detail(bookingId),
+        context.previousOpsBookingDetail,
+      );
     }
     bookingStateMachine?.rollbackTransition(bookingId);
   };
@@ -258,10 +338,21 @@ export function useOpsBookingLifecycleActions() {
           checkedOutAt: null,
         }),
         { action: 'check-in', performedAt },
+        (booking) => ({
+          ...booking,
+          status: 'checked_in',
+          checkedInAt: performedAt,
+          checkedOutAt: null,
+        }),
       );
     },
     onSuccess: (updated, variables, context) => {
       commitOptimisticTransition(variables.bookingId, context, {
+        status: updated.status,
+        checkedInAt: updated.checkedInAt,
+        checkedOutAt: updated.checkedOutAt,
+      });
+      applyOpsBookingsSnapshot(variables.bookingId, {
         status: updated.status,
         checkedInAt: updated.checkedInAt,
         checkedOutAt: updated.checkedOutAt,
@@ -296,10 +387,20 @@ export function useOpsBookingLifecycleActions() {
           checkedOutAt: performedAt,
         }),
         { action: 'check-out', performedAt },
+        (booking) => ({
+          ...booking,
+          status: 'completed',
+          checkedOutAt: performedAt,
+        }),
       );
     },
     onSuccess: (updated, variables, context) => {
       commitOptimisticTransition(variables.bookingId, context, {
+        status: updated.status,
+        checkedInAt: updated.checkedInAt,
+        checkedOutAt: updated.checkedOutAt,
+      });
+      applyOpsBookingsSnapshot(variables.bookingId, {
         status: updated.status,
         checkedInAt: updated.checkedInAt,
         checkedOutAt: updated.checkedOutAt,
@@ -339,10 +440,21 @@ export function useOpsBookingLifecycleActions() {
           checkedInAt: booking.checkedInAt,
         }),
         { action: 'mark-no-show', performedAt },
+        (booking) => ({
+          ...booking,
+          status: 'no_show',
+          checkedOutAt: booking.checkedOutAt ?? null,
+          checkedInAt: booking.checkedInAt ?? null,
+        }),
       );
     },
     onSuccess: (updated, variables, context) => {
       commitOptimisticTransition(variables.bookingId, context, {
+        status: updated.status,
+        checkedInAt: updated.checkedInAt,
+        checkedOutAt: updated.checkedOutAt,
+      });
+      applyOpsBookingsSnapshot(variables.bookingId, {
         status: updated.status,
         checkedInAt: updated.checkedInAt,
         checkedOutAt: updated.checkedOutAt,
@@ -378,10 +490,19 @@ export function useOpsBookingLifecycleActions() {
           status: 'confirmed',
         }),
         { action: 'undo-no-show' },
+        (booking) => ({
+          ...booking,
+          status: 'confirmed',
+        }),
       );
     },
     onSuccess: (updated, variables, context) => {
       commitOptimisticTransition(variables.bookingId, context, {
+        status: updated.status,
+        checkedInAt: updated.checkedInAt,
+        checkedOutAt: updated.checkedOutAt,
+      });
+      applyOpsBookingsSnapshot(variables.bookingId, {
         status: updated.status,
         checkedInAt: updated.checkedInAt,
         checkedOutAt: updated.checkedOutAt,

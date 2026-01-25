@@ -1,5 +1,6 @@
 'use client';
 
+import { Loader2 } from 'lucide-react';
 import { useMemo } from 'react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -82,10 +83,14 @@ export function BookingsTable({
   hideHeader = false,
   timezone,
 }: BookingsTableProps) {
-  const showSkeleton = isLoading || isFetching;
+  const hasBookings = bookings.length > 0;
+  const showSkeleton = isLoading && !hasBookings;
+  const showUpdating = isFetching && !showSkeleton && !error;
   const showEmpty = !showSkeleton && !error && bookings.length === 0;
   const trimmedSearch = searchTerm.trim();
   const isOpsVariant = variant === 'ops';
+  const isLifecycleLockActive =
+    opsLifecycle?.pendingAction === 'check-in' || opsLifecycle?.pendingAction === 'check-out';
 
   const emptyState = useMemo(() => {
     if (trimmedSearch) {
@@ -189,6 +194,17 @@ export function BookingsTable({
         </Alert>
       ) : null}
 
+      {showUpdating ? (
+        <div
+          className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-card/70 px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200"
+          role="status"
+          aria-live="polite"
+        >
+          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+          Updating bookings...
+        </div>
+      ) : null}
+
       <div className="space-y-3">
         {/* Mobile View */}
         <div className="md:hidden">
@@ -202,27 +218,38 @@ export function BookingsTable({
             <EmptyState {...mobileEmptyState} />
           ) : (
             <div className="grid grid-cols-1 gap-3">
-              {bookings.map((booking) => (
-                <div key={booking.id} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                  <OpsBookingCard
-                    booking={booking}
-                    timezone={timezone || 'UTC'}
-                    onEdit={onEdit}
-                    onCancel={onCancel}
-                    onDetails={onDetails}
-                    onCheckIn={opsLifecycle ? (_id: string) => opsLifecycle.onCheckIn(booking) : undefined}
-                    onCheckOut={opsLifecycle ? (_id: string) => opsLifecycle.onCheckOut(booking) : undefined}
-                    onMarkNoShow={opsLifecycle ? (_id: string) => opsLifecycle.onMarkNoShow(booking) : undefined}
-                    onUndoNoShow={opsLifecycle ? (_id: string) => opsLifecycle.onUndoNoShow(booking) : undefined}
-                    pendingAction={
-                      opsLifecycle?.pendingBookingId === booking.id
-                        ? (opsLifecycle.pendingAction as any)
-                        : null
-                    }
-                    allowTableAssignments={true}
-                  />
-                </div>
-              ))}
+              {bookings.map((booking) => {
+                const actionsDisabled =
+                  isLifecycleLockActive &&
+                  Boolean(opsLifecycle?.pendingBookingId) &&
+                  opsLifecycle?.pendingBookingId !== booking.id;
+
+                return (
+                  <div
+                    key={booking.id}
+                    className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 motion-safe:ease-out motion-reduce:animate-none"
+                  >
+                    <OpsBookingCard
+                      booking={booking}
+                      timezone={timezone || 'UTC'}
+                      onEdit={onEdit}
+                      onCancel={onCancel}
+                      onDetails={onDetails}
+                      onCheckIn={opsLifecycle ? (_id: string) => opsLifecycle.onCheckIn(booking) : undefined}
+                      onCheckOut={opsLifecycle ? (_id: string) => opsLifecycle.onCheckOut(booking) : undefined}
+                      onMarkNoShow={opsLifecycle ? (_id: string) => opsLifecycle.onMarkNoShow(booking) : undefined}
+                      onUndoNoShow={opsLifecycle ? (_id: string) => opsLifecycle.onUndoNoShow(booking) : undefined}
+                      pendingAction={
+                        opsLifecycle?.pendingBookingId === booking.id
+                          ? (opsLifecycle.pendingAction as any)
+                          : null
+                      }
+                      actionsDisabled={actionsDisabled}
+                      allowTableAssignments={true}
+                    />
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -239,27 +266,38 @@ export function BookingsTable({
             <EmptyState {...desktopEmptyState} />
           ) : (
             <div className="grid grid-cols-1 gap-3">
-              {bookings.map((booking) => (
-                <div key={booking.id} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                  <OpsBookingCard
-                    booking={booking}
-                    timezone={timezone || 'UTC'}
-                    onEdit={onEdit}
-                    onCancel={onCancel}
-                    onDetails={onDetails}
-                    onCheckIn={opsLifecycle ? (_id: string) => opsLifecycle.onCheckIn(booking) : undefined}
-                    onCheckOut={opsLifecycle ? (_id: string) => opsLifecycle.onCheckOut(booking) : undefined}
-                    onMarkNoShow={opsLifecycle ? (_id: string) => opsLifecycle.onMarkNoShow(booking) : undefined}
-                    onUndoNoShow={opsLifecycle ? (_id: string) => opsLifecycle.onUndoNoShow(booking) : undefined}
-                    pendingAction={
-                      opsLifecycle?.pendingBookingId === booking.id
-                        ? (opsLifecycle.pendingAction as any)
-                        : null
-                    }
-                    allowTableAssignments={true}
-                  />
-                </div>
-              ))}
+              {bookings.map((booking) => {
+                const actionsDisabled =
+                  isLifecycleLockActive &&
+                  Boolean(opsLifecycle?.pendingBookingId) &&
+                  opsLifecycle?.pendingBookingId !== booking.id;
+
+                return (
+                  <div
+                    key={booking.id}
+                    className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 motion-safe:ease-out motion-reduce:animate-none"
+                  >
+                    <OpsBookingCard
+                      booking={booking}
+                      timezone={timezone || 'UTC'}
+                      onEdit={onEdit}
+                      onCancel={onCancel}
+                      onDetails={onDetails}
+                      onCheckIn={opsLifecycle ? (_id: string) => opsLifecycle.onCheckIn(booking) : undefined}
+                      onCheckOut={opsLifecycle ? (_id: string) => opsLifecycle.onCheckOut(booking) : undefined}
+                      onMarkNoShow={opsLifecycle ? (_id: string) => opsLifecycle.onMarkNoShow(booking) : undefined}
+                      onUndoNoShow={opsLifecycle ? (_id: string) => opsLifecycle.onUndoNoShow(booking) : undefined}
+                      pendingAction={
+                        opsLifecycle?.pendingBookingId === booking.id
+                          ? (opsLifecycle.pendingAction as any)
+                          : null
+                      }
+                      actionsDisabled={actionsDisabled}
+                      allowTableAssignments={true}
+                    />
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

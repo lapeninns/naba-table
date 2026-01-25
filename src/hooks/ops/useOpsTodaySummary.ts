@@ -28,6 +28,8 @@ export function useOpsTodaySummary(options: UseOpsTodaySummaryOptions) {
   const queryClient = useQueryClient();
   const restaurantId = options.restaurantId ?? null;
   const targetDate = options.targetDate ?? null;
+  const shouldPoll = !realtimeEnabled();
+  const pollIntervalMs = 15_000;
   const queryKey = useMemo(
     () =>
       restaurantId
@@ -53,6 +55,10 @@ export function useOpsTodaySummary(options: UseOpsTodaySummaryOptions) {
     },
     enabled: isEnabled,
     staleTime: 60_000,
+    refetchInterval: shouldPoll ? pollIntervalMs : false,
+    refetchIntervalInBackground: shouldPoll,
+    refetchOnReconnect: isEnabled,
+    refetchOnWindowFocus: isEnabled,
     // Keep previous data visible while fetching new date - enables smooth stale-while-revalidate UX
     placeholderData: keepPreviousData,
   });

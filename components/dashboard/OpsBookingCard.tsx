@@ -50,7 +50,9 @@ export type OpsBookingCardProps = {
   onAssignTable?: (bookingId: string, tableId: string) => Promise<any>;
   onUnassignTable?: (bookingId: string, tableId: string) => Promise<any>;
   pendingAction?: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show' | null;
+  actionsDisabled?: boolean;
   allowTableAssignments?: boolean;
+  timeLabelOverride?: string | null;
   highlightUrgency?: boolean;
 };
 
@@ -104,6 +106,8 @@ export function OpsBookingCard({
   onCheckOut,
   onMarkNoShow,
   pendingAction,
+  actionsDisabled,
+  timeLabelOverride,
   highlightUrgency = true,
 }: OpsBookingCardProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -166,7 +170,7 @@ export function OpsBookingCard({
       isDone,
       isSeated,
       dateLabel: dateFormatter.format(startDate),
-      timeRangeLabel: endTimeStr ? `${startTimeStr} – ${endTimeStr}` : startTimeStr,
+      timeRangeLabel: timeLabelOverride ?? (endTimeStr ? `${startTimeStr} – ${endTimeStr}` : startTimeStr),
       customerLabel: booking.customerName?.trim() || 'Walk-in Guest',
       initials: (booking.customerName || 'Guest')
         .split(' ')
@@ -176,7 +180,7 @@ export function OpsBookingCard({
         .toUpperCase()
         .slice(0, 2),
     };
-  }, [booking, now, timezone]);
+  }, [booking, now, timeLabelOverride, timezone]);
 
   const urgency = useMemo(() => {
     if (!highlightUrgency || meta.isDone || !meta.isToday) return null;
@@ -218,6 +222,8 @@ export function OpsBookingCard({
   };
 
   const isLoading = Boolean(pendingAction);
+  const isLocked = Boolean(actionsDisabled);
+  const disableActions = isLoading || isLocked;
   const tableLabel = getTableLabel(booking.tableAssignments);
 
   const railClass = useMemo(() => {
@@ -231,18 +237,19 @@ export function OpsBookingCard({
   return (
     <Card
       className={cn(
-        'group relative overflow-hidden transition-all duration-200 border-l-4',
+        'group relative overflow-hidden border-l-4 transition-[transform,box-shadow,opacity] duration-200 ease-out motion-reduce:transition-none',
         railClass,
-        meta.isDone ? 'opacity-75' : 'hover:shadow-md',
-        isLoading && 'pointer-events-none opacity-60',
+        meta.isDone ? 'opacity-75' : 'hover:shadow-md motion-safe:hover:-translate-y-0.5',
+        (isLoading || isLocked) && 'pointer-events-none opacity-60',
       )}
       role="article"
+      aria-disabled={isLoading || isLocked}
       aria-labelledby={`guest-name-${booking.id}`}
     >
       <Collapsible open={isOpen} onOpenChange={handleOpenChange} className="w-full">
         {isLoading && (
-          <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/40 backdrop-blur-[1px]">
-            <div className="flex items-center gap-2 rounded-full border bg-white px-4 py-2 shadow-lg">
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/45 backdrop-blur-[2px] motion-safe:animate-in motion-safe:fade-in motion-safe:duration-150">
+            <div className="flex items-center gap-2 rounded-full border bg-white px-4 py-2 shadow-md">
               <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
               <span className="text-xs font-bold uppercase tracking-tighter text-slate-600">
                 Updating
@@ -306,14 +313,15 @@ export function OpsBookingCard({
               <div className="flex items-center gap-2">
                 <StatusBadge status={booking.status} />
                 <CollapsibleTrigger asChild className="sm:hidden">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 hover:bg-slate-100 rounded-full"
-                  >
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 rounded-full transition-colors duration-150 hover:bg-slate-100 motion-reduce:transition-none"
+                  disabled={disableActions}
+                >
                     <ChevronDown
                       className={cn(
-                        'h-4 w-4 text-slate-400 transition-transform duration-200',
+                        'h-4 w-4 text-slate-400 transition-transform duration-150 ease-out motion-reduce:transition-none',
                         isOpen && 'rotate-180',
                       )}
                     />
@@ -402,6 +410,7 @@ export function OpsBookingCard({
                 size="sm"
                 className="h-8 px-4 text-xs font-semibold"
                 onClick={() => onDetails?.(booking)}
+                disabled={disableActions}
               >
                 Details
               </Button>
@@ -413,6 +422,7 @@ export function OpsBookingCard({
                     size="sm"
                     className="h-8 w-8 p-0"
                     aria-label="More actions"
+                    disabled={disableActions}
                   >
                     <MoreHorizontal className="h-4 w-4" />
                   </Button>
@@ -422,12 +432,15 @@ export function OpsBookingCard({
                     Manage
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => onEdit?.(booking)} disabled={meta.isPastDay}>
+                  <DropdownMenuItem
+                    onClick={() => onEdit?.(booking)}
+                    disabled={disableActions || meta.isPastDay}
+                  >
                     Edit Booking
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => onMarkNoShow?.(booking.id)}
-                    disabled={!meta.isToday || meta.isSeated}
+                    disabled={disableActions || !meta.isToday || meta.isSeated}
                     variant="destructive"
                   >
                     Mark No Show
@@ -435,7 +448,7 @@ export function OpsBookingCard({
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={() => onCancel?.(booking)}
-                    disabled={meta.isPastDay}
+                    disabled={disableActions || meta.isPastDay}
                     variant="destructive"
                   >
                     Cancel Booking
@@ -448,9 +461,9 @@ export function OpsBookingCard({
               {!meta.isDone ? (
                 <Button
                   size="sm"
-                  disabled={!meta.isToday || isLoading}
+                  disabled={!meta.isToday || disableActions}
                   className={cn(
-                    'h-9 min-w-[120px] px-6 font-bold text-white shadow-sm transition-all',
+                    'h-9 min-w-[120px] px-6 font-bold text-white shadow-sm transition-[transform,box-shadow,background-color] duration-150 ease-out motion-safe:hover:-translate-y-0.5 motion-safe:active:translate-y-0 hover:shadow-md motion-reduce:transition-none',
                     meta.isSeated
                       ? 'bg-slate-800 hover:bg-slate-900'
                       : 'bg-emerald-600 hover:bg-emerald-700',

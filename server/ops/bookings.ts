@@ -138,6 +138,37 @@ function buildChangesCacheKey(restaurantId: string, date: string, limit: number)
   return `${restaurantId}:${date}:limit=${limit}`;
 }
 
+export function invalidateOpsBookingsSummaryCache(restaurantId: string, date?: string | null): void {
+  if (!summaryCacheEnabled || !restaurantId) return;
+
+  if (date && isValidDateString(date)) {
+    const key = buildSummaryCacheKey(restaurantId, date);
+    summaryCache.delete(key);
+    summaryInFlight.delete(key);
+    return;
+  }
+
+  const prefix = `${restaurantId}:`;
+  for (const key of summaryCache.keys()) {
+    if (key.startsWith(prefix)) {
+      summaryCache.delete(key);
+      summaryInFlight.delete(key);
+    }
+  }
+}
+
+export function invalidateOpsBookingChangesCache(restaurantId: string, date?: string | null): void {
+  if (!changesCacheEnabled || !restaurantId) return;
+
+  const prefix = date && isValidDateString(date) ? `${restaurantId}:${date}:` : `${restaurantId}:`;
+  for (const key of changesCache.keys()) {
+    if (key.startsWith(prefix)) {
+      changesCache.delete(key);
+      changesInFlight.delete(key);
+    }
+  }
+}
+
 async function getRestaurantMeta(restaurantId: string, client: DbClient): Promise<RestaurantMeta> {
   if (restaurantMetaCacheEnabled) {
     const cached = restaurantMetaCache.get(restaurantId);
