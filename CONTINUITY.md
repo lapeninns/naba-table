@@ -1,44 +1,47 @@
 # Continuity Ledger
 
-Last updated: 2026-01-25T21:35:02Z
+Last updated: 2026-01-25T21:38:20Z
 
 ## Goal (incl. success criteria)
 
-- Perform a clean start to speed up `pnpm run dev` and confirm it builds.
-- Success: dev server starts and compiles without hanging.
+- Unblock Vercel production build failing on env validation for `NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN`.
+- Success: Build passes with required env var set or validation adjusted per plan.
 
 ## Constraints/Assumptions
 
-- Follow AGENTS.md policies (root + nearest per file)
-- Avoid large/long-running steps unless requested
+- Follow AGENTS.md SDLC phases; no coding before requirements & plan reviewed.
+- Everything is a task with `tasks/<slug>-YYYYMMDD-HHMM>/` artifacts.
+- Production deployment context; secrets not committed.
 
 ## Key decisions
 
-- Remove `.next` and `node_modules/.cache` for a clean dev start
+- Proceed with task setup and SDLC artifacts before code changes.
 
 ## State
 
-- Build artifacts cleaned; ready to restart dev
+- Task folder and SDLC stubs created; ready to inspect env validation code.
 
 ## Done
 
-- Removed `.next`
-- Removed `node_modules/.cache`
+- Identified build failure: env validation requires `NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN` boolean.
+- Created task folder and SDLC artifacts for fix.
 
 ## Now
 
-- Wait for confirmation to run `pnpm run dev`
+- Inspect env validation implementation to confirm allowed values and defaults.
 
 ## Next
 
-- Start dev server and observe first compile timing
+- Decide on env-only fix vs code default and implement if needed.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- Should I start `pnpm run dev` now?
+- Should we set the env var in Vercel only, or adjust validation to allow a default? (UNCONFIRMED)
 
 ## Working set (files/ids/commands)
 
-- .next/
-- node_modules/.cache
-- pnpm run dev
+- scripts/validate-env.ts
+- tasks/fix-realtime-floorplan-env-20260125-1306/research.md
+- tasks/fix-realtime-floorplan-env-20260125-1306/plan.md
+- tasks/fix-realtime-floorplan-env-20260125-1306/todo.md
+- tasks/fix-realtime-floorplan-env-20260125-1306/verification.md
