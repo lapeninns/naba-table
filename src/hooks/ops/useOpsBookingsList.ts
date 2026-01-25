@@ -1,10 +1,13 @@
 'use client';
 
-import { keepPreviousData, useQuery, type UseQueryResult } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { keepPreviousData, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useBookingService } from '@/contexts/ops-services';
+import { isRealtimeFloorplanEnabled } from '@/lib/feature-flags/realtime';
 import { queryKeys } from '@/lib/query/keys';
+import { getRealtimeSupabaseClient } from '@/lib/supabase/realtime-client';
+import { debounce } from '@/utils/debounceThrottle';
 
 import type { HttpError } from '@/lib/http/errors';
 import type { OpsBookingsFilters, OpsBookingsPage } from '@/types/ops';
@@ -48,9 +51,10 @@ export function useOpsBookingsList(
   filters: OpsBookingsFilters | null,
 ): UseQueryResult<OpsBookingsPage, HttpError> {
   const bookingService = useBookingService();
-  const shouldPoll =
-    typeof window !== 'undefined' &&
-    process.env.NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN !== 'true';
+  const queryClient = useQueryClient();
+  const [realtimeHealthy, setRealtimeHealthy] = useState(true);
+  const [isVisible, setIsVisible] = useState(true);
+  const realtimeEnabled = isRealtimeFloorplanEnabled();
   const pollIntervalMs = 15_000;
 
   const normalizedFilters = useMemo(() => {
@@ -59,6 +63,59 @@ export function useOpsBookingsList(
   }, [filters]);
 
   const queryKey = normalizedFilters ? queryKeys.opsBookings.list(normalizedFilters) : queryKeys.opsBookings.list();
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const handleVisibility = () => setIsVisible(document.visibilityState === 'visible');
+    handleVisibility();
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, []);
+
+  useEffect(() => {
+    if (!realtimeEnabled || !filters?.restaurantId) {
+      setRealtimeHealthy(true);
+      return;
+    }
+
+    const client = getRealtimeSupabaseClient();
+    const channel = client.channel(`ops-bookings-list:${filters.restaurantId}`, {
+      config: { broadcast: { self: false } },
+    });
+
+    const invalidate = debounce(() => {
+      queryClient.invalidateQueries({ queryKey, exact: true, refetchType: 'active' });
+    }, 150);
+
+    channel.on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'bookings',
+        filter: `restaurant_id=eq.${filters.restaurantId}`,
+      },
+      invalidate,
+    );
+
+    channel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        setRealtimeHealthy(true);
+        return;
+      }
+      if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR' || status === 'CLOSED') {
+        setRealtimeHealthy(false);
+      }
+    });
+
+    return () => {
+      channel.unsubscribe();
+      client.removeChannel(channel);
+    };
+  }, [filters?.restaurantId, queryClient, queryKey, realtimeEnabled]);
+
+  const shouldPoll =
+    Boolean(filters?.restaurantId) && isVisible && (!realtimeEnabled || !realtimeHealthy);
 
   return useQuery<OpsBookingsPage, HttpError>({
     queryKey,
@@ -72,7 +129,7 @@ export function useOpsBookingsList(
     placeholderData: keepPreviousData,
     staleTime: 30_000,
     refetchInterval: shouldPoll ? pollIntervalMs : false,
-    refetchIntervalInBackground: shouldPoll,
+    refetchIntervalInBackground: false,
     refetchOnReconnect: Boolean(filters?.restaurantId),
     refetchOnWindowFocus: Boolean(filters?.restaurantId),
   });

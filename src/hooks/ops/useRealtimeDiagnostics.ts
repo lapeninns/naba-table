@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
+import { isRealtimeFloorplanEnabled } from '@/lib/feature-flags/realtime';
 import { getRealtimeSupabaseClient } from '@/lib/supabase/realtime-client';
 
 export type RealtimeStatus = {
@@ -22,9 +23,7 @@ export function useRealtimeDiagnostics() {
   });
 
   useEffect(() => {
-    const enabled =
-      typeof window !== 'undefined' &&
-      process.env.NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN === 'true';
+    const enabled = isRealtimeFloorplanEnabled();
 
     if (!enabled) {
       setStatus({
@@ -32,7 +31,7 @@ export function useRealtimeDiagnostics() {
         connected: false,
         channels: 0,
         lastEvent: null,
-        error: 'Realtime feature flag is disabled',
+        error: 'Realtime is disabled (set NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN=false)',
       });
       return;
     }

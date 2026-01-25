@@ -1,10 +1,11 @@
 'use client';
 
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useBookingService } from '@/contexts/ops-services';
 import { useSupabaseSession } from '@/hooks/useSupabaseSession';
+import { isRealtimeFloorplanEnabled } from '@/lib/feature-flags/realtime';
 import { queryKeys } from '@/lib/query/keys';
 import { getRealtimeSupabaseClient } from '@/lib/supabase/realtime-client';
 
@@ -16,19 +17,16 @@ export type UseOpsTodaySummaryOptions = {
   enabled?: boolean;
 };
 
-function realtimeEnabled(): boolean {
-  return (
-    typeof window !== 'undefined' && process.env.NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN === 'true'
-  );
-}
-
 export function useOpsTodaySummary(options: UseOpsTodaySummaryOptions) {
   const bookingService = useBookingService();
   const { status } = useSupabaseSession();
   const queryClient = useQueryClient();
   const restaurantId = options.restaurantId ?? null;
   const targetDate = options.targetDate ?? null;
-  const shouldPoll = !realtimeEnabled();
+  const [realtimeHealthy, setRealtimeHealthy] = useState(true);
+  const [isVisible, setIsVisible] = useState(true);
+  const subscribedRef = useRef(false);
+  const realtimeFlag = isRealtimeFloorplanEnabled();
   const pollIntervalMs = 15_000;
   const queryKey = useMemo(
     () =>
@@ -45,6 +43,16 @@ export function useOpsTodaySummary(options: UseOpsTodaySummaryOptions) {
     (options.enabled ?? true) &&
     status !== 'loading';
 
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const handleVisibility = () => setIsVisible(document.visibilityState === 'visible');
+    handleVisibility();
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, []);
+
+  const shouldPoll = isEnabled && isVisible && (!realtimeFlag || !realtimeHealthy);
+
   const query = useQuery<OpsTodayBookingsSummary>({
     queryKey,
     queryFn: () => {
@@ -56,7 +64,7 @@ export function useOpsTodaySummary(options: UseOpsTodaySummaryOptions) {
     enabled: isEnabled,
     staleTime: 60_000,
     refetchInterval: shouldPoll ? pollIntervalMs : false,
-    refetchIntervalInBackground: shouldPoll,
+    refetchIntervalInBackground: false,
     refetchOnReconnect: isEnabled,
     refetchOnWindowFocus: isEnabled,
     // Keep previous data visible while fetching new date - enables smooth stale-while-revalidate UX
@@ -65,7 +73,9 @@ export function useOpsTodaySummary(options: UseOpsTodaySummaryOptions) {
 
   // Realtime subscription for dashboard summary
   useEffect(() => {
-    if (!isEnabled || !restaurantId || !realtimeEnabled()) {
+    if (!isEnabled || !restaurantId || !realtimeFlag) {
+      subscribedRef.current = false;
+      setRealtimeHealthy(true);
       return;
     }
 
@@ -131,15 +141,29 @@ export function useOpsTodaySummary(options: UseOpsTodaySummaryOptions) {
 
     channel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
+        subscribedRef.current = true;
+        setRealtimeHealthy(true);
         console.log(`[realtime] Dashboard summary subscribed for restaurant ${restaurantId}`);
+        return;
+      }
+      if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR' || status === 'CLOSED') {
+        subscribedRef.current = false;
+        setRealtimeHealthy(false);
       }
     });
 
+    const connectGuard = setTimeout(() => {
+      if (!subscribedRef.current) {
+        setRealtimeHealthy(false);
+      }
+    }, 4000);
+
     return () => {
+      clearTimeout(connectGuard);
       channel.unsubscribe();
       client.removeChannel(channel);
     };
-  }, [isEnabled, restaurantId, targetDate, queryClient, queryKey]);
+  }, [isEnabled, queryClient, queryKey, realtimeFlag, restaurantId, targetDate]);
 
   return query;
 }

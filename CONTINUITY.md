@@ -1,55 +1,44 @@
 # Continuity Ledger
 
-Last updated: 2026-01-25T20:30:02Z
+Last updated: 2026-01-25T21:35:02Z
 
 ## Goal (incl. success criteria)
 
-- Fix high and low risk findings from parallel review
-- Success: no email queue starvation, rollback does not clobber unrelated list updates, empty state preserved during refetch, and null-time handling avoids crash without changing ordering/urgency unexpectedly
+- Perform a clean start to speed up `pnpm run dev` and confirm it builds.
+- Success: dev server starts and compiles without hanging.
 
 ## Constraints/Assumptions
 
 - Follow AGENTS.md policies (root + nearest per file)
-- Supabase remote-only; no local migrations
-- Chrome DevTools MCP manual QA required for UI changes (if shipping)
+- Avoid large/long-running steps unless requested
 
 ## Key decisions
 
-- Address only high and low risks; defer medium unless asked
+- Remove `.next` and `node_modules/.cache` for a clean dev start
 
 ## State
 
-- Implementing fixes for high/low risks
+- Build artifacts cleaned; ready to restart dev
 
 ## Done
 
-- Collected AGENTS.md policies for root, components, src/components, src/app, src/hooks, server
-- Captured git status for modified files
-- Completed parallel reviews and identified high/low risks
+- Removed `.next`
+- Removed `node_modules/.cache`
 
 ## Now
 
-- Plan and implement fixes for high/low risks
+- Wait for confirmation to run `pnpm run dev`
 
 ## Next
 
-- Re-review diffs and summarize changes
+- Start dev server and observe first compile timing
 
 ## Open questions (UNCONFIRMED if needed)
 
-- None yet
+- Should I start `pnpm run dev` now?
 
 ## Working set (files/ids/commands)
 
-- `components/dashboard/BookingsTable.tsx`
-- `components/dashboard/OpsBookingCard.tsx`
-- `server/ops/bookings.ts`
-- `src/app/api/cron/process-emails/route.ts`
-- `src/app/api/ops/bookings/[id]/*/route.ts`
-- `src/components/features/bookings/OpsBookingsClient.tsx`
-- `src/components/features/dashboard/BookingsList.tsx`
-- `src/components/features/dashboard/OpsDashboardClient.tsx`
-- `src/hooks/ops/useOpsBookingStatusActions.ts`
-- `src/hooks/ops/useOpsBookingsList.ts`
-- `src/hooks/ops/useOpsBookingsTableState.ts`
-- `src/hooks/ops/useOpsTodaySummary.ts`
+- .next/
+- node_modules/.cache
+- pnpm run dev

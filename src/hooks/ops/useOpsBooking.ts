@@ -4,17 +4,12 @@ import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-q
 import { useEffect, useMemo } from 'react';
 
 import { useBookingService } from '@/contexts/ops-services';
+import { isRealtimeFloorplanEnabled } from '@/lib/feature-flags/realtime';
 import { queryKeys } from '@/lib/query/keys';
 import { getRealtimeSupabaseClient } from '@/lib/supabase/realtime-client';
 
 import type { HttpError } from '@/lib/http/errors';
 import type { OpsBookingListItem } from '@/types/ops';
-
-function realtimeEnabled(): boolean {
-  return (
-    typeof window !== 'undefined' && process.env.NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN === 'true'
-  );
-}
 
 export function useOpsBooking(
   bookingId: string | null,
@@ -43,7 +38,7 @@ export function useOpsBooking(
 
   // Realtime subscription for individual booking
   useEffect(() => {
-    if (!isEnabled || !bookingId || !realtimeEnabled()) {
+    if (!isEnabled || !bookingId || !isRealtimeFloorplanEnabled()) {
       return;
     }
 
