@@ -33,6 +33,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useOpsSession } from '@/contexts/ops-session';
 import { useOpsTableTimeline } from '@/hooks/ops/useOpsTableTimeline';
+import { isRealtimeFloorplanEnabled } from '@/lib/feature-flags/realtime';
 import { cn } from '@/lib/utils';
 
 import type { TableTimelineResponse, TableTimelineSegment, TableTimelineSegmentState } from '@/types/ops';
@@ -552,7 +553,7 @@ function StatCard({
 }
 
 function isRealtimeEnabled() {
-  return typeof window !== 'undefined' && process.env.NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN === 'true';
+  return isRealtimeFloorplanEnabled();
 }
 
 function TimelineSkeleton() {

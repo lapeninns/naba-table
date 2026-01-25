@@ -14,7 +14,7 @@ export function RealtimeStatus() {
             Polling Mode
           </div>
           <div className="text-xs mt-1 opacity-75">
-            Enable NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN
+            Set NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN=false to disable realtime
           </div>
         </div>
       </div>

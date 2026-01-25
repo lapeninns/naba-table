@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTransitionToast } from '@/components/features/booking-state-machine';
 import { useOptionalBookingStateMachine } from '@/contexts/booking-state-machine';
 import { useBookingService } from '@/contexts/ops-services';
+import { isRealtimeFloorplanEnabled } from '@/lib/feature-flags/realtime';
 import { queryKeys } from '@/lib/query/keys';
 import { getRealtimeSupabaseClient } from '@/lib/supabase/realtime-client';
 import { debounce } from '@/utils/debounceThrottle';
@@ -96,8 +97,7 @@ export function useBookingRealtime({
     }
   }, [bookingStateMachine, bookingStateMachine?.state]);
 
-  const realtimeEnabled =
-    typeof window !== 'undefined' && process.env.NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN === 'true';
+  const realtimeEnabled = isRealtimeFloorplanEnabled();
   const shouldPoll = shouldEnable && (!realtimeEnabled || !realtimeHealthy);
 
   const query = useQuery({
@@ -110,9 +110,9 @@ export function useBookingRealtime({
     },
     enabled: shouldEnable,
     refetchInterval: shouldPoll ? intervalMs : false,
-    refetchIntervalInBackground: shouldPoll,
+    refetchIntervalInBackground: false,
     refetchOnReconnect: shouldEnable,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: shouldEnable,
   });
 
   useEffect(() => {

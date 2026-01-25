@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 
 import { useTableInventoryService } from '@/contexts/ops-services';
+import { isRealtimeFloorplanEnabled } from '@/lib/feature-flags/realtime';
 import { queryKeys } from '@/lib/query/keys';
 import { getRealtimeSupabaseClient } from '@/lib/supabase/realtime-client';
 
@@ -56,7 +57,7 @@ export function useOpsTableTimeline({
   });
 
   useEffect(() => {
-    if (!shouldEnable || !restaurantId || !realtimeEnabled()) {
+    if (!shouldEnable || !restaurantId || !isRealtimeFloorplanEnabled()) {
       return;
     }
 
@@ -92,5 +93,5 @@ export function useOpsTableTimeline({
 }
 
 function realtimeEnabled() {
-  return typeof window !== 'undefined' && process.env.NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN === 'true';
+  return isRealtimeFloorplanEnabled();
 }

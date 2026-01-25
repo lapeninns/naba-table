@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 
 import { useBookingService } from '@/contexts/ops-services';
+import { isRealtimeFloorplanEnabled } from '@/lib/feature-flags/realtime';
 import { queryKeys } from '@/lib/query/keys';
 import { getRealtimeSupabaseClient } from '@/lib/supabase/realtime-client';
 
@@ -37,11 +38,11 @@ export function useManualAssignmentContext({
     enabled: shouldEnable,
     staleTime: 5_000,
     refetchOnWindowFocus: false,
-    refetchInterval: shouldEnable && (!process.env.NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN || process.env.NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN !== 'true') ? 10_000 : false,
+    refetchInterval: shouldEnable && !isRealtimeFloorplanEnabled() ? 10_000 : false,
   });
 
   useEffect(() => {
-    const realtimeEnabled = typeof window !== 'undefined' && process.env.NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN === 'true';
+    const realtimeEnabled = isRealtimeFloorplanEnabled();
     if (!shouldEnable || !bookingId || !restaurantId || !realtimeEnabled) {
       return;
     }

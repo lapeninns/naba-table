@@ -10,6 +10,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useBookingService } from '@/contexts/ops-services';
+import { isRealtimeFloorplanEnabled } from '@/lib/feature-flags/realtime';
 import { HttpError } from '@/lib/http/errors';
 import { queryKeys } from '@/lib/query/keys';
 import { getRealtimeSupabaseClient } from '@/lib/supabase/realtime-client';
@@ -48,9 +49,7 @@ export function useTableAssignment({
 
   // Realtime subscription for assignment context updates
   useEffect(() => {
-    const realtimeEnabled =
-      typeof window !== 'undefined' &&
-      process.env.NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN === 'true';
+    const realtimeEnabled = isRealtimeFloorplanEnabled();
     if (!bookingId || !restaurantId || !realtimeEnabled) {
       return;
     }

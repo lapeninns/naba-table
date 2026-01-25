@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 
+import { isRealtimeFloorplanEnabled } from '@/lib/feature-flags/realtime';
 import { fetchJson } from '@/lib/http/fetchJson';
 import { getRealtimeSupabaseClient } from '@/lib/supabase/realtime-client';
 
@@ -18,12 +19,6 @@ type UseOpsBookingChangesParams = {
   limit?: number;
   enabled?: boolean;
 };
-
-function realtimeEnabled(): boolean {
-  return (
-    typeof window !== 'undefined' && process.env.NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN === 'true'
-  );
-}
 
 export function useOpsBookingChanges({
   restaurantId,
@@ -59,12 +54,12 @@ export function useOpsBookingChanges({
     },
     enabled: isEnabled,
     staleTime: 1000 * 30,
-    refetchInterval: realtimeEnabled() ? false : 1000 * 60,
+    refetchInterval: isRealtimeFloorplanEnabled() ? false : 1000 * 60,
   });
 
   // Realtime subscription for booking changes
   useEffect(() => {
-    if (!isEnabled || !restaurantId || !realtimeEnabled()) {
+    if (!isEnabled || !restaurantId || !isRealtimeFloorplanEnabled()) {
       return;
     }
 
