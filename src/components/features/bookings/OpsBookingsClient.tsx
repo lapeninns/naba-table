@@ -48,7 +48,6 @@ const DEFAULT_PAGE = 1;
 const DEFAULT_PAGE_SIZE = DASHBOARD_DEFAULT_PAGE_SIZE;
 const MIN_WINDOW_MINUTES = 15;
 const MAX_WINDOW_MINUTES = 240;
-
 export type OpsBookingsWindowMode = 'day' | 'window';
 
 const OPS_STATUS_TABS: StatusOption[] = [
@@ -396,12 +395,12 @@ export function OpsBookingsClient({
     if (!activeRestaurantId) return;
     setPendingBookingAction({ bookingId: booking.id, action: 'check-in' });
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
       await bookingLifecycleMutations.checkIn.mutateAsync({
         restaurantId: activeRestaurantId,
         bookingId: booking.id,
         targetDate: appliedDateRange?.date,
       });
+      void bookingsQuery.refetch();
     } finally {
       setPendingBookingAction(null);
     }
@@ -411,12 +410,12 @@ export function OpsBookingsClient({
     if (!activeRestaurantId) return;
     setPendingBookingAction({ bookingId: booking.id, action: 'check-out' });
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
       await bookingLifecycleMutations.checkOut.mutateAsync({
         restaurantId: activeRestaurantId,
         bookingId: booking.id,
         targetDate: appliedDateRange?.date,
       });
+      void bookingsQuery.refetch();
     } finally {
       setPendingBookingAction(null);
     }

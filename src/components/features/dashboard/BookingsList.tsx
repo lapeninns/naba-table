@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  Loader2,
   Search,
 } from 'lucide-react';
 import { DateTime } from 'luxon';
@@ -8,7 +9,6 @@ import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useState } from 'react';
 
 import { OpsBookingCard } from '@/components/dashboard/OpsBookingCard';
-import { OpsBookingCardSkeleton } from '@/components/dashboard/OpsBookingCardSkeleton';
 import { Pagination } from '@/components/dashboard/Pagination';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -224,6 +224,8 @@ function BookingsListContent({
   }, [filter, sortKey, sortDir, searchQuery]);
 
   const hasAssignmentHandlers = Boolean(onAssignTable && onUnassignTable);
+  const isLifecycleLockActive =
+    pendingLifecycleAction?.action === 'check-in' || pendingLifecycleAction?.action === 'check-out';
 
   const filtered = useMemo(() => {
     let result = bookings;
@@ -338,88 +340,94 @@ function BookingsListContent({
         </div>
       </div>
 
-      {/* Booking Cards or Skeletons */}
+      {isRefetching ? (
+        <div
+          className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-card/70 px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200"
+          role="status"
+          aria-live="polite"
+        >
+          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+          Updating bookings...
+        </div>
+      ) : null}
+
+      {/* Booking Cards */}
       <div className="grid grid-cols-1 gap-3">
-        {isRefetching ? (
-          // Show skeletons while refetching new data
-          Array.from({ length: Math.min(paginated.length || 4, 6) }).map((_, index) => (
+        {paginated.map((booking, index) => {
+          const temporalInfo = getOpsBookingTemporalInfo(booking, summary, now);
+          const allowAssignmentsForBooking = allowTableAssignments && hasAssignmentHandlers && temporalInfo.state !== 'past';
+
+          const pendingAction = pendingLifecycleAction?.bookingId === booking.id ? pendingLifecycleAction.action : null;
+          const actionsDisabled =
+            isLifecycleLockActive &&
+            Boolean(pendingLifecycleAction?.bookingId) &&
+            pendingLifecycleAction?.bookingId !== booking.id;
+
+          const toIsoTime = (date: string, time: string | null) => {
+            if (!time) return `${date}T00:00:00`;
+            const match = time.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+            if (!match) {
+              return `${date}T${time}`;
+            }
+            const hours = match[1]?.padStart(2, '0') ?? '00';
+            const minutes = match[2] ?? '00';
+            const seconds = match[3] ?? '00';
+            return `${date}T${hours}:${minutes}:${seconds}`;
+          };
+
+          const hasStartTime = Boolean(booking.startTime);
+          const startIso = toIsoTime(summary.date, booking.startTime ?? null);
+          const endIso = toIsoTime(summary.date, booking.endTime ?? null);
+
+          const bookingDTO: BookingDTO = {
+            id: booking.id,
+            restaurantId: summary.restaurantId,
+            reference: booking.reference ?? null,
+            status: booking.status,
+            startIso,
+            endIso: endIso || startIso,
+            partySize: booking.partySize,
+            customerName: booking.customerName,
+            customerEmail: booking.customerEmail ?? null,
+            customerPhone: booking.customerPhone ?? null,
+            restaurantName: 'Restaurant',
+            restaurantSlug: null,
+            restaurantTimezone: summary.timezone,
+            notes: booking.notes ?? null,
+            allergies: booking.allergies ?? null,
+            dietaryRestrictions: booking.dietaryRestrictions ?? null,
+            seatingPreference: booking.seatingPreference ?? null,
+            loyaltyTier: booking.loyaltyTier ?? null,
+            tableAssignments: booking.tableAssignments,
+            requiresTableAssignment: booking.requiresTableAssignment,
+          };
+
+          return (
             <div
-              key={`skeleton-${index}`}
-              className="animate-pulse"
+              key={booking.id}
+              className="fill-mode-backwards motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-300 motion-safe:ease-out motion-reduce:animate-none"
+              style={{ animationDelay: `${index * 0.03}s` }}
             >
-              <OpsBookingCardSkeleton />
+              <OpsBookingCard
+                booking={bookingDTO}
+                timezone={summary.timezone}
+                now={now.toJSDate()}
+                onCheckIn={onCheckIn}
+                onCheckOut={onCheckOut}
+                onMarkNoShow={onMarkNoShow}
+                onUndoNoShow={onUndoNoShow}
+                onDetails={onDetails}
+                onAssignTable={onAssignTable}
+                onUnassignTable={onUnassignTable}
+                pendingAction={pendingAction}
+                actionsDisabled={actionsDisabled}
+                allowTableAssignments={allowAssignmentsForBooking}
+                timeLabelOverride={hasStartTime ? null : 'Time TBD'}
+                highlightUrgency={hasStartTime}
+              />
             </div>
-          ))
-        ) : (
-          paginated.map((booking, index) => {
-            const temporalInfo = getOpsBookingTemporalInfo(booking, summary, now);
-            const allowAssignmentsForBooking = allowTableAssignments && hasAssignmentHandlers && temporalInfo.state !== 'past';
-
-            const pendingAction = pendingLifecycleAction?.bookingId === booking.id ? pendingLifecycleAction.action : null;
-
-            const toIsoTime = (date: string, time: string | null) => {
-              if (!time) return '';
-              const match = time.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
-              if (!match) {
-                return `${date}T${time}`;
-              }
-              const hours = match[1]?.padStart(2, '0') ?? '00';
-              const minutes = match[2] ?? '00';
-              const seconds = match[3] ?? '00';
-              return `${date}T${hours}:${minutes}:${seconds}`;
-            };
-
-            const startIso = toIsoTime(summary.date, booking.startTime ?? null);
-            const endIso = toIsoTime(summary.date, booking.endTime ?? null);
-
-            const bookingDTO: BookingDTO = {
-              id: booking.id,
-              restaurantId: summary.restaurantId,
-              reference: booking.reference ?? null,
-              status: booking.status,
-              startIso,
-              endIso: endIso || startIso,
-              partySize: booking.partySize,
-              customerName: booking.customerName,
-              customerEmail: booking.customerEmail ?? null,
-              customerPhone: booking.customerPhone ?? null,
-              restaurantName: 'Restaurant',
-              restaurantSlug: null,
-              restaurantTimezone: summary.timezone,
-              notes: booking.notes ?? null,
-              allergies: booking.allergies ?? null,
-              dietaryRestrictions: booking.dietaryRestrictions ?? null,
-              seatingPreference: booking.seatingPreference ?? null,
-              loyaltyTier: booking.loyaltyTier ?? null,
-              tableAssignments: booking.tableAssignments,
-              requiresTableAssignment: booking.requiresTableAssignment,
-            };
-
-            return (
-              <div
-                key={booking.id}
-                className="animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-backwards"
-                style={{ animationDelay: `${index * 0.05}s` }}
-              >
-                <OpsBookingCard
-                  booking={bookingDTO}
-                  timezone={summary.timezone}
-                  now={now.toJSDate()}
-                  onCheckIn={onCheckIn}
-                  onCheckOut={onCheckOut}
-                  onMarkNoShow={onMarkNoShow}
-                  onUndoNoShow={onUndoNoShow}
-                  onDetails={onDetails}
-                  onAssignTable={onAssignTable}
-                  onUnassignTable={onUnassignTable}
-                  pendingAction={pendingAction}
-                  allowTableAssignments={allowAssignmentsForBooking}
-                  highlightUrgency
-                />
-              </div>
-            );
-          })
-        )}
+          );
+        })}
       </div>
 
       {/* Pagination */}

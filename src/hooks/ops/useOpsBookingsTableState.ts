@@ -7,6 +7,14 @@ import type { OpsBookingStatus } from '@/types/ops';
 
 export type OpsStatusFilter = 'all' | 'upcoming' | 'past' | 'cancelled' | 'recent' | OpsBookingStatus;
 
+const UPCOMING_STATUSES: OpsBookingStatus[] = [
+  'pending',
+  'pending_allocation',
+  'confirmed',
+  'checked_in',
+  'PRIORITY_WAITLIST',
+];
+
 export type UseOpsBookingsTableStateOptions = {
   initialStatus?: OpsStatusFilter;
   initialPage?: number;
@@ -127,6 +135,7 @@ export function useOpsBookingsTableState({
         filters.from = now;
         filters.sort = 'asc';
         filters.sortBy = 'start_at';
+        filters.statuses = UPCOMING_STATUSES;
         break;
       case 'past':
         filters.to = now;

@@ -48,6 +48,10 @@ export function useOpsBookingsList(
   filters: OpsBookingsFilters | null,
 ): UseQueryResult<OpsBookingsPage, HttpError> {
   const bookingService = useBookingService();
+  const shouldPoll =
+    typeof window !== 'undefined' &&
+    process.env.NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN !== 'true';
+  const pollIntervalMs = 15_000;
 
   const normalizedFilters = useMemo(() => {
     if (!filters) return null;
@@ -67,5 +71,9 @@ export function useOpsBookingsList(
     enabled: Boolean(filters?.restaurantId),
     placeholderData: keepPreviousData,
     staleTime: 30_000,
+    refetchInterval: shouldPoll ? pollIntervalMs : false,
+    refetchIntervalInBackground: shouldPoll,
+    refetchOnReconnect: Boolean(filters?.restaurantId),
+    refetchOnWindowFocus: Boolean(filters?.restaurantId),
   });
 }

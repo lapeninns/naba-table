@@ -41,10 +41,10 @@ import { HeatmapCalendar } from './HeatmapCalendar';
 import type { BookingFilter } from './BookingsFilterBar';
 import type { BookingDTO } from '@/hooks/useBookings';
 
-/* 
-  Using 'all' as default to show complete overview first.
+/*
+  Default to upcoming to avoid showing completed bookings by default.
 */
-const DEFAULT_FILTER: BookingFilter = 'all';
+const DEFAULT_FILTER: BookingFilter = 'upcoming';
 
 type OpsDashboardClientProps = {
   initialDate: string | null;
@@ -297,6 +297,7 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
         bookingId,
         targetDate: selectedDate,
       });
+      void summaryQuery.refetch();
     } finally {
       setPendingBookingAction(null);
     }
@@ -311,6 +312,7 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
         bookingId,
         targetDate: selectedDate,
       });
+      void summaryQuery.refetch();
     } finally {
       setPendingBookingAction(null);
     }

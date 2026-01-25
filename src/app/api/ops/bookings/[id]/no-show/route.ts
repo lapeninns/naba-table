@@ -7,6 +7,7 @@ import { clearBookingTableAssignments } from "@/server/bookings";
 import { prepareNoShowTransition } from "@/server/ops/booking-lifecycle/actions";
 import { isBookingLifecycleAllowedToday } from "@/server/ops/booking-lifecycle/availability";
 import { BookingLifecycleError } from "@/server/ops/booking-lifecycle/stateMachine";
+import { invalidateOpsBookingChangesCache, invalidateOpsBookingsSummaryCache } from "@/server/ops/bookings";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 import { requireMembershipForRestaurant } from "@/server/team/access";
 
@@ -198,6 +199,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       error: clearError instanceof Error ? clearError.message : clearError,
     });
   }
+
+  invalidateOpsBookingsSummaryCache(bookingRow.restaurant_id, bookingRow.booking_date);
+  invalidateOpsBookingChangesCache(bookingRow.restaurant_id, bookingRow.booking_date);
 
   const resultRow = transitionResult?.[0];
   return NextResponse.json({

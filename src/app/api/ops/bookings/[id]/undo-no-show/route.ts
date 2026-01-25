@@ -6,6 +6,7 @@ import { mapSupabaseAuthError } from "@/server/auth/supabase-auth-errors";
 import { prepareUndoNoShowTransition } from "@/server/ops/booking-lifecycle/actions";
 import { isBookingLifecycleAllowedToday } from "@/server/ops/booking-lifecycle/availability";
 import { BookingLifecycleError } from "@/server/ops/booking-lifecycle/stateMachine";
+import { invalidateOpsBookingChangesCache, invalidateOpsBookingsSummaryCache } from "@/server/ops/bookings";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 import { requireMembershipForRestaurant } from "@/server/team/access";
 
@@ -198,6 +199,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     console.error("[ops][booking-undo-no-show] failed to persist transition", transitionError.message);
     return NextResponse.json({ error: "Unable to undo no-show" }, { status: 500 });
   }
+
+  invalidateOpsBookingsSummaryCache(bookingRow.restaurant_id, bookingRow.booking_date);
+  invalidateOpsBookingChangesCache(bookingRow.restaurant_id, bookingRow.booking_date);
 
   const resultRow = transitionResult?.[0];
   return NextResponse.json({
