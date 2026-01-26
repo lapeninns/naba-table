@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+
 import {
   sendBookingCancellationEmail,
   sendBookingConfirmationEmail,
@@ -13,10 +14,12 @@ import { type EmailJobPayload, type EmailJobType } from '@/server/queue/email';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { BookingRecord } from '@/server/bookings';
+import type { Job, Queue } from 'bullmq';
 
 // Vercel cron jobs have a 10s timeout on hobby, 60s on pro
 // Process jobs in batches to stay within limits
 const MAX_JOBS_PER_RUN = 10;
+const MAX_DELAYED_SCAN = MAX_JOBS_PER_RUN * 3;
 const CRON_SECRET = process.env.CRON_SECRET;
 
 function isValidEmail(value?: string | null): boolean {
@@ -121,6 +124,43 @@ async function processJob(
   }
 }
 
+async function selectReadyJobs(
+  queue: Queue<EmailJobPayload>,
+  now: number,
+): Promise<{ jobs: Array<Job<EmailJobPayload>>; debug: Record<string, number> }> {
+  const waitingJobs = await queue.getWaiting(0, Math.max(0, MAX_JOBS_PER_RUN - 1));
+
+  if (waitingJobs.length >= MAX_JOBS_PER_RUN) {
+    return {
+      jobs: waitingJobs.slice(0, MAX_JOBS_PER_RUN),
+      debug: {
+        waitingFetched: waitingJobs.length,
+        delayedScanned: 0,
+        delayedReady: 0,
+      },
+    };
+  }
+
+  const remaining = MAX_JOBS_PER_RUN - waitingJobs.length;
+  const delayedScanLimit = Math.max(remaining, MAX_DELAYED_SCAN) - 1;
+  const delayedJobs = await queue.getDelayed(0, delayedScanLimit);
+  const readyDelayed = delayedJobs
+    .filter((job) => {
+      const processAt = job.timestamp + (job.opts.delay ?? 0);
+      return processAt <= now;
+    })
+    .slice(0, remaining);
+
+  return {
+    jobs: [...waitingJobs, ...readyDelayed],
+    debug: {
+      waitingFetched: waitingJobs.length,
+      delayedScanned: delayedJobs.length,
+      delayedReady: readyDelayed.length,
+    },
+  };
+}
+
 export async function GET(request: Request) {
   // Verify cron secret to prevent unauthorized access
   // Vercel cron jobs automatically send CRON_SECRET in the Authorization header as Bearer token
@@ -165,17 +205,7 @@ export async function GET(request: Request) {
       });
     }
 
-    const jobs = await queue.getJobs(['delayed', 'wait'], 0, MAX_JOBS_PER_RUN * 2, true);
-    let readyJobs = jobs
-      .filter((job) => {
-        const processAt = job.timestamp + (job.opts.delay ?? 0);
-        return processAt <= now;
-      })
-      .slice(0, MAX_JOBS_PER_RUN);
-
-    if (readyJobs.length === 0 && waitingCount > 0) {
-      readyJobs = await queue.getWaiting(0, MAX_JOBS_PER_RUN);
-    }
+    const { jobs: readyJobs, debug: selectionDebug } = await selectReadyJobs(queue, now);
 
     if (readyJobs.length === 0) {
       return NextResponse.json({
@@ -185,6 +215,7 @@ export async function GET(request: Request) {
         debug: {
           delayedCount,
           waitingCount,
+          ...selectionDebug,
         },
       });
     }
