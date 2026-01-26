@@ -101,7 +101,7 @@ async function resolveEmailEntry(params: {
     return {
       type,
       state,
-      jobId: typeof job.id === 'string' ? job.id : job.id?.toString() ?? null,
+      jobId: job.id == null ? null : String(job.id),
       processAt: state === 'delayed' ? processAt : null,
       failedReason: state === 'failed' ? job.failedReason ?? null : null,
     };
@@ -110,7 +110,7 @@ async function resolveEmailEntry(params: {
     return {
       type,
       state: 'unknown',
-      jobId: typeof job.id === 'string' ? job.id : job.id?.toString() ?? null,
+      jobId: job.id == null ? null : String(job.id),
       processAt: null,
       failedReason: null,
     };
