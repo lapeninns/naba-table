@@ -1,47 +1,51 @@
 # Continuity Ledger
 
-Last updated: 2026-01-25T21:38:20Z
+Last updated: 2026-01-26T01:17:20Z
 
 ## Goal (incl. success criteria)
 
-- Unblock Vercel production build failing on env validation for `NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN`.
-- Success: Build passes with required env var set or validation adjusted per plan.
+- Remove remaining unused files from knip list with evidence and keep only referenced sources.
 
 ## Constraints/Assumptions
 
-- Follow AGENTS.md SDLC phases; no coding before requirements & plan reviewed.
+- Follow AGENTS.md SDLC phases; no deletions before research/plan.
 - Everything is a task with `tasks/<slug>-YYYYMMDD-HHMM>/` artifacts.
-- Production deployment context; secrets not committed.
+- No UI changes expected; Chrome DevTools QA not required.
+- Use codebase-retrieval for code search, then rg for exact references.
 
 ## Key decisions
 
-- Proceed with task setup and SDLC artifacts before code changes.
+- None yet.
 
 ## State
 
-- Task folder and SDLC stubs created; ready to inspect env validation code.
+- Phase 3/implementation cleanup after evidence collection.
 
 ## Done
 
-- Identified build failure: env validation requires `NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN` boolean.
-- Created task folder and SDLC artifacts for fix.
+- Collected subagent evidence for reserve, server/scripts, and src components/hooks.
+- Used codebase-retrieval to confirm reference data for deletion candidates.
+- Trashed unused reserve UI wrappers, root scripts, scripts/_, server/_, and src components/hooks/barrels.
+- Updated task `todo.md` and `verification.md` with new cleanup evidence.
+- Ran knip again and captured `knip-report-20260126-0109.json`.
+- Removed remaining unused wizard UI types/summary and compliance script.
+- Restored `components/ui/card.tsx` and `reserve/shared/schedule/availability.ts` after typecheck revealed usage.
+- Ran typecheck successfully and captured updated knip report.
 
 ## Now
 
-- Inspect env validation implementation to confirm allowed values and defaults.
+- Confirm no further unused files beyond knip’s false positives.
 
 ## Next
 
-- Decide on env-only fix vs code default and implement if needed.
+- Provide summary and wait for further cleanup direction.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- Should we set the env var in Vercel only, or adjust validation to allow a default? (UNCONFIRMED)
+- None.
 
 ## Working set (files/ids/commands)
 
-- scripts/validate-env.ts
-- tasks/fix-realtime-floorplan-env-20260125-1306/research.md
-- tasks/fix-realtime-floorplan-env-20260125-1306/plan.md
-- tasks/fix-realtime-floorplan-env-20260125-1306/todo.md
-- tasks/fix-realtime-floorplan-env-20260125-1306/verification.md
+- tasks/repo-cleanup-20260125-1438/todo.md
+- tasks/repo-cleanup-20260125-1438/verification.md
+- tasks/repo-cleanup-20260125-1438/artifacts/knip-report.json

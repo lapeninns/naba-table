@@ -73,5 +73,32 @@ public/sitemap-0.xml
 # build outputs
 reserve/storybook-static
 
+# local artifacts / dumps
+/backups/
+/context/
+/db_cluster-*.backup.gz
+/supabase/.temp/
+/route-map.json
+/booking_details_codebase.json
+/booking_details_dialog_code.json
+/booking_response.json
+/dashboard_codebase.json
+/floor_plan_code.json
+/landing_page_code.json
+/session_summary.json
+/b2b-landing-content.json
+/restaurant.json
+/progress.txt
+/referenceofbookingdetails.js
+/email-templates-showcase.html
+
+# ui scratch/backup files
+components/ui/.backup-*/
+components/ui/*.removed-*
+components/ui/*-temp.txt
+*.new
+*.minimal-backup
+*.backup
+
 # Sentry Config File
 .env.sentry-build-plugin
