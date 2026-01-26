@@ -35,6 +35,9 @@ export const queryKeys = {
   opsCustomers: {
     list: (params: Record<string, unknown> = {}) => ['ops', 'customers', 'list', params] as const,
   },
+  opsEmailStatus: {
+    list: (params: Record<string, unknown> = {}) => ['ops', 'email-status', 'list', params] as const,
+  },
   opsRestaurants: {
     all: ['ops', 'restaurants'] as const,
     list: (params: Record<string, unknown> = {}) => ['ops', 'restaurants', 'list', params] as const,
@@ -91,6 +94,7 @@ export type QueryKey =
   | ReturnType<(typeof queryKeys)['opsDashboard']['rejections']>
   | ReturnType<(typeof queryKeys)['opsSettings']['strategicConfig']>
   | ReturnType<(typeof queryKeys)['opsCustomers']['list']>
+  | ReturnType<(typeof queryKeys)['opsEmailStatus']['list']>
   | ReturnType<(typeof queryKeys)['opsRestaurants']['list']>
   | ReturnType<(typeof queryKeys)['opsRestaurants']['detail']>
   | ReturnType<(typeof queryKeys)['opsRestaurants']['hours']>

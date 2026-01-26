@@ -13,6 +13,11 @@ import {
   type CustomerServiceFactory,
 } from '@/services/ops/customers';
 import {
+  createEmailStatusService,
+  type EmailStatusService,
+  type EmailStatusServiceFactory,
+} from '@/services/ops/email-status';
+import {
   createOccasionService,
   type OccasionService,
   type OccasionServiceFactory,
@@ -35,6 +40,7 @@ export type OpsServices = {
   restaurantService: RestaurantService;
   teamService: TeamService;
   customerService: CustomerService;
+  emailStatusService: EmailStatusService;
   tableInventoryService: TableInventoryService;
   occasionService: OccasionService;
   zoneService: ZoneService;
@@ -45,6 +51,7 @@ type OpsServiceFactories = {
   restaurantService?: RestaurantServiceFactory;
   teamService?: TeamServiceFactory;
   customerService?: CustomerServiceFactory;
+  emailStatusService?: EmailStatusServiceFactory;
   tableInventoryService?: TableInventoryServiceFactory;
   occasionService?: OccasionServiceFactory;
   zoneService?: () => ZoneService;
@@ -64,6 +71,7 @@ export function OpsServicesProvider({ factories, children }: OpsServicesProvider
       restaurantService: createRestaurantService(factories?.restaurantService),
       teamService: createTeamService(factories?.teamService),
       customerService: createCustomerService(factories?.customerService),
+      emailStatusService: createEmailStatusService(factories?.emailStatusService),
       tableInventoryService: createTableInventoryService(factories?.tableInventoryService),
       occasionService: createOccasionService(factories?.occasionService),
       zoneService: factories?.zoneService ? factories.zoneService() : new ZoneService(),
@@ -96,6 +104,10 @@ export function useTeamService(): TeamService {
 
 export function useCustomerService(): CustomerService {
   return useOpsServices().customerService;
+}
+
+export function useEmailStatusService(): EmailStatusService {
+  return useOpsServices().emailStatusService;
 }
 
 export function useTableInventoryService(): TableInventoryService {

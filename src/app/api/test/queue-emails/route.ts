@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { enqueueEmailJob, getEmailQueue, type EmailJobType } from '@/server/queue/email';
+import { EMAIL_JOB_TYPES, enqueueEmailJob, getEmailQueue, type EmailJobType } from '@/server/queue/email';
 import { guardTestEndpoint } from '@/server/security/test-endpoints';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
@@ -9,17 +9,7 @@ import type { NextRequest } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-const ALL_EMAIL_TYPES: EmailJobType[] = [
-    'request_received',
-    'confirmation',
-    'updated',
-    'cancelled',
-    'reminder_24h',
-    'reminder_short',
-    'review_request',
-    'booking_rejected',
-    'restaurant_cancellation',
-];
+const ALL_EMAIL_TYPES: EmailJobType[] = [...EMAIL_JOB_TYPES];
 
 // Map email types to required booking statuses
 const EMAIL_TYPE_STATUS_MAP: Record<EmailJobType, string> = {

@@ -5,6 +5,7 @@ import {
   DoorOpen,
   LayoutGrid,
   Map,
+  MailCheck,
   Sparkles,
   Clock3,
   TrendingDown,
@@ -76,6 +77,13 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         href: path('/customers'),
         icon: Users,
         match: (pathname) => pathname.startsWith(path('/customers')),
+      },
+      {
+        title: 'Email Status',
+        description: 'Track booking email delivery status',
+        href: path('/email-status'),
+        icon: MailCheck,
+        match: (pathname) => pathname.startsWith(path('/email-status')),
       },
       {
         title: 'Floor Plan',
