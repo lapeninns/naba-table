@@ -10,11 +10,11 @@ import {
     sendBookingUpdateEmail,
     sendRestaurantCancellationEmail,
 } from '@/server/emails/bookings';
+import { EMAIL_JOB_TYPES, type EmailJobType } from '@/server/queue/email';
 import { guardTestEndpoint } from '@/server/security/test-endpoints';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { BookingRecord } from '@/server/bookings';
-import type { EmailJobType } from '@/server/queue/email';
 import type { NextRequest } from 'next/server';
 
 export const dynamic = 'force-dynamic';
@@ -22,17 +22,7 @@ export const dynamic = 'force-dynamic';
 // Default test email - ALL test emails go here to avoid emailing real customers
 const DEFAULT_TEST_EMAIL = 'amanshresthaaaaa@gmail.com';
 
-const ALL_EMAIL_TYPES: EmailJobType[] = [
-    'request_received',
-    'confirmation',
-    'updated',
-    'cancelled',
-    'reminder_24h',
-    'reminder_short',
-    'review_request',
-    'booking_rejected',
-    'restaurant_cancellation',
-];
+const ALL_EMAIL_TYPES: EmailJobType[] = [...EMAIL_JOB_TYPES];
 
 // Map email types to required booking statuses
 const EMAIL_TYPE_STATUS_MAP: Record<EmailJobType, string> = {

@@ -1,5 +1,6 @@
 import type { HttpError } from '@/lib/http/errors';
 import type { RestaurantRole } from '@/lib/owner/auth/roles';
+import type { EmailJobType } from '@/lib/queue/email-types';
 import type { OccasionKey } from '@reserve/shared/occasions';
 
 export type OpsUser = {
@@ -196,6 +197,44 @@ export type OpsRestaurantOption = {
   slug?: string | null;
   timezone?: string | null;
   address?: string | null;
+};
+
+export type OpsEmailJobType = EmailJobType;
+
+export type OpsEmailJobState = 'waiting' | 'active' | 'delayed' | 'failed' | 'none' | 'unknown';
+
+export type OpsEmailStatusEntry = {
+  type: OpsEmailJobType;
+  state: OpsEmailJobState;
+  jobId: string | null;
+  processAt: string | null;
+  failedReason: string | null;
+};
+
+export type OpsEmailStatusItem = {
+  bookingId: string;
+  restaurantId: string | null;
+  restaurantName: string | null;
+  startAt: string | null;
+  endAt: string | null;
+  status: OpsBookingStatus;
+  customerName: string | null;
+  customerEmail: string | null;
+  customerPhone: string | null;
+  entries: OpsEmailStatusEntry[];
+};
+
+export type OpsEmailStatusPage = {
+  items: OpsEmailStatusItem[];
+  pageInfo: {
+    page: number;
+    pageSize: number;
+    total: number;
+    hasNext: boolean;
+  };
+  generatedAt: string;
+  windowMinutes: number;
+  emailTypes: OpsEmailJobType[];
 };
 
 export type OpsServiceError = HttpError | Error;

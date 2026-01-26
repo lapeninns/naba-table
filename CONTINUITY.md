@@ -1,6 +1,6 @@
 # Continuity Ledger
 
-Last updated: 2026-01-26T11:07:35Z
+Last updated: 2026-01-26T11:09:44Z
 
 ## Goal (incl. success criteria)
 
@@ -20,16 +20,16 @@ Last updated: 2026-01-26T11:07:35Z
 
 ## State
 
-- Merge in progress; resolved CONTINUITY.md conflict
+- Merge in progress; resolving CONTINUITY.md conflicts
 
 ## Done
 
 - Committed repo-cleanup worktree changes: `chore: sync repo cleanup worktree`
-- Started merge of `task/cron-email-fixes-20260126-0950`
+- Merged `task/cron-email-fixes-20260126-0950` into `task/repo-cleanup-20260125-1438`
 
 ## Now
 
-- Finish merge of cron email fixes, then merge email status branch
+- Finish merge of `task/email-status-20260126-1044`
 
 ## Next
 
@@ -42,6 +42,6 @@ Last updated: 2026-01-26T11:07:35Z
 ## Working set (files/ids/commands)
 
 - `CONTINUITY.md`
-- `src/app/api/cron/process-emails/route.ts`
-- `src/app/api/cron/process-emails/route.test.ts`
-- `tasks/cron-email-fixes-20260126-0950/verification.md`
+- `src/app/api/ops/email-status/route.ts`
+- `src/components/features/email-status/OpsEmailStatusClient.tsx`
+- `tasks/email-status-ui-20260126-1045/verification.md`

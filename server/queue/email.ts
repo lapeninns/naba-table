@@ -1,18 +1,11 @@
 import { Queue, QueueEvents, type JobsOptions } from "bullmq";
 
+import { EMAIL_JOB_TYPES, type EmailJobType } from "@/lib/queue/email-types";
 import { getRedisConnection } from "@/lib/queue/redis";
 import { recordObservabilityEvent } from "@/server/observability";
 
-export type EmailJobType =
-  | "request_received"
-  | "confirmation"
-  | "updated"
-  | "cancelled"
-  | "reminder_24h"
-  | "reminder_short"
-  | "review_request"
-  | "booking_rejected"
-  | "restaurant_cancellation";
+export { EMAIL_JOB_TYPES };
+export type { EmailJobType };
 
 export type EmailJobPayload = {
   bookingId: string;
@@ -39,6 +32,16 @@ function buildEmailJobId(type: EmailJobType, bookingId: string): string {
 
 function sanitizeEmailJobId(jobId: string): string {
   return jobId.replace(/:/g, EMAIL_JOB_ID_SEPARATOR);
+}
+
+export function getEmailJobId(type: EmailJobType, bookingId: string): string {
+  return sanitizeEmailJobId(buildEmailJobId(type, bookingId));
+}
+
+export function getEmailJobIdCandidates(type: EmailJobType, bookingId: string): string[] {
+  const raw = buildEmailJobId(type, bookingId);
+  const sanitized = sanitizeEmailJobId(raw);
+  return sanitized === raw ? [raw] : [sanitized, raw];
 }
 
 function ensureQueueSetup(): void {
