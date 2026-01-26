@@ -3,6 +3,8 @@ process.env.BASE_URL ??= 'http://localhost:3000';
 import { NextRequest } from 'next/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { CUSTOMER_PHONE_LENGTH_MAX } from '@reserve/shared/validation';
+
 vi.mock('@/lib/env', () => {
   return {
     env: {
@@ -390,6 +392,9 @@ describe('POST /api/ops/bookings', () => {
       restaurantId: RESTAURANT_ID,
     });
     expect(upsertCustomerMock).toHaveBeenCalled();
+    const upsertParams = upsertCustomerMock.mock.calls[0]?.[1] as { phone?: string } | undefined;
+    expect(upsertParams?.phone).toMatch(/^000\d+$/);
+    expect(upsertParams?.phone).toHaveLength(CUSTOMER_PHONE_LENGTH_MAX);
     expect(insertBookingRecordMock).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({

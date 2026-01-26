@@ -1,54 +1,63 @@
 # Continuity Ledger
 
-Last updated: 2026-01-26T10:07:48Z
+Last updated: 2026-01-26T23:34:04Z
 
 ## Goal (incl. success criteria)
 
-- Fix cron email behavior and ensure scheduled emails send correctly and exactly once
-- Success: Cron email processing reduces Redis N+1 calls and preserves correctness
+- Stop booking 500s caused by `customers_phone_check` violations in `/api/ops/bookings`
+- Success: Missing-phone walk-ins no longer violate the phone-length constraint
+- Success: Phone-length constraints are centralized and enforced at the API boundary
 
 ## Constraints/Assumptions
 
-- Follow AGENTS.md SDLC phases; no coding before requirements & plan reviewed
-- Everything is a task with `tasks/<slug>-YYYYMMDD-HHMM>/` artifacts
-- Secrets not committed; use env/secret stores
+- Follow AGENTS.md SDLC phases with task artifacts
+- Supabase is remote-only; no local migrations
+- Keep a single canonical path; avoid shims/adapters
 
 ## Key decisions
 
-- Use a new worktree from `main` for the cron email fixes task
-- Refactor cron job selection to fetch waiting jobs first, then minimal delayed scan
+- Root cause: fallback phone generation (`000-${slug}` with 24-char slug) exceeded DB max length (20)
+- Centralize the constraint as `CUSTOMER_PHONE_LENGTH_MIN/MAX` in `reserve/shared/validation/contact.ts`
+- Generate a constraint-safe fallback phone in `src/app/api/ops/bookings/route.ts` using hashed digits and a fixed prefix
+- Align public booking schemas to the same constraint to fail fast (400) instead of 500
 
 ## State
 
-- Tests executed; verification updated
+- Fix implemented, tests passing, verification artifacts updated
 
 ## Done
 
-- Created worktree at `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX-cron-email-fixes-20260126-0950`
-- Created branch `task/cron-email-fixes-20260126-0950` from `main`
-- Created task artifacts in `tasks/cron-email-fixes-20260126-0950/`
-- Updated cron selection logic to reduce Redis job fetches
-- Added unit tests for cron job selection
-- Ran `pnpm test -- src/app/api/cron/process-emails/route.test.ts` (passed)
-- Updated verification report with test results
+- Created task folder: `tasks/weekend-booking-phone-constraint-20260126-2324/`
+- Patched fallback phone generation in `src/app/api/ops/bookings/route.ts`
+- Added shared phone-length constants in `reserve/shared/validation/contact.ts`
+- Aligned phone-length validation in:
+- `src/app/api/bookings/route.ts`
+- `src/app/api/bookings/[id]/route.ts`
+- `lib/profile/schema.ts`
+- Strengthened ops route test assertion in `src/app/api/ops/bookings/route.test.ts`
+- Ran: `npx vitest run src/app/api/ops/bookings/route.test.ts src/app/api/bookings/route.test.ts src/app/api/bookings/[id]/route.test.ts` (55 passed)
+- Ran: `npm run lint` (0 errors, existing warnings)
 
 ## Now
 
-- Summarize changes and prepare for review
+- Summarize root cause and the applied fix for the user
 
 ## Next
 
-- Optionally run targeted performance validation in staging
-- Prep PR summary if requested
+- Monitor production logs for disappearance of Postgres `23514` on `customers_phone_check`
+- If requested, prepare a PR summary and rollout notes
 
 ## Open questions (UNCONFIRMED if needed)
 
-- Is there a production QueueScheduler/worker running, or is cron the only processor? (UNCONFIRMED)
-- What specific success metrics should we validate against in monitoring? (UNCONFIRMED)
+- Why is the issue observed mostly on Fri/Sat/Sun? Likely correlation with missing-phone ops walk-ins, but UNCONFIRMED
 
 ## Working set (files/ids/commands)
 
-- `src/app/api/cron/process-emails/route.ts`
-- `src/app/api/cron/process-emails/route.test.ts`
-- `tasks/cron-email-fixes-20260126-0950/verification.md`
-- `CONTINUITY.md`
+- `src/app/api/ops/bookings/route.ts`
+- `src/app/api/ops/bookings/route.test.ts`
+- `reserve/shared/validation/contact.ts`
+- `src/app/api/bookings/route.ts`
+- `src/app/api/bookings/[id]/route.ts`
+- `lib/profile/schema.ts`
+- `tasks/weekend-booking-phone-constraint-20260126-2324/verification.md`
+- `npx vitest run src/app/api/ops/bookings/route.test.ts src/app/api/bookings/route.test.ts src/app/api/bookings/[id]/route.test.ts`

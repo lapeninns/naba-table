@@ -58,6 +58,10 @@ import {
   getTenantServiceSupabaseClient,
   MissingRestaurantContextError,
 } from '@/server/supabase';
+import {
+  CUSTOMER_PHONE_LENGTH_MAX,
+  CUSTOMER_PHONE_LENGTH_MIN,
+} from '@reserve/shared/validation';
 
 import type { BookingRecord } from '@/server/bookings';
 import type { Json } from '@/types/supabase';
@@ -69,7 +73,7 @@ const baseQuerySchema = z.object({
 
 const contactQuerySchema = baseQuerySchema.extend({
   email: z.string().email(),
-  phone: z.string().min(7).max(50),
+  phone: z.string().min(CUSTOMER_PHONE_LENGTH_MIN).max(CUSTOMER_PHONE_LENGTH_MAX),
 });
 
 const statusFilterSchema = z.union([
@@ -101,7 +105,7 @@ const bookingSchema = z.object({
   notes: z.string().max(500).optional().nullable(),
   name: z.string().min(2).max(120),
   email: z.string().email(),
-  phone: z.string().min(7).max(50),
+  phone: z.string().min(CUSTOMER_PHONE_LENGTH_MIN).max(CUSTOMER_PHONE_LENGTH_MAX),
   marketingOptIn: z.coerce.boolean().optional().default(false),
 });
 
