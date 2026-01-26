@@ -86,7 +86,7 @@ buildScoredTablePlans({
   kMax: combinationLimit,  // ← Default from getAllocatorCombinationLimit()
   maxPlansPerSlack: selectorLimits.maxPlansPerSlack,
   maxCombinationEvaluations: selectorLimits.maxCombinationEvaluations,
-  requireAdjacency: adjacencyRequired,  // ← Could this be the issue?
+  requireAdjacency: adjacencyRequired,  // Always enforced for merged tables
   ...
 });
 ```
@@ -116,7 +116,7 @@ buildScoredTablePlans({
 **Check:**
 
 ```typescript
-const requireAdjacency = resolveRequireAdjacency(booking.party_size, requireAdjacencyOverride);
+const requireAdjacency = resolveRequireAdjacency(booking.party_size);
 ```
 
 For party size 12, this likely returns `true`, meaning:
@@ -206,16 +206,7 @@ WHERE table_a IN (
 
 **If 0 or very low:** This is the root cause!
 
-**Fix:** Populate adjacency relationships in the `table_adjacencies` table, or temporarily disable adjacency requirement:
-
-```typescript
-// In EditBookingDialog or modification flow
-const quote = await quoteTablesForBooking({
-  bookingId,
-  requireAdjacency: false,  // ← Override for testing
-  ...
-});
-```
+**Fix:** Populate adjacency relationships in the `table_adjacencies` table. Adjacency overrides are no longer supported.
 
 ### Solution 2: Increase kMax Limit
 

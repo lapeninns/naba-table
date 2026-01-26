@@ -56,7 +56,6 @@ const baseEnvSchema = z
     FEATURE_OPS_BOOKING_LIFECYCLE_V2: booleanStringOptional,
     FEATURE_ALLOCATIONS_DUAL_WRITE: booleanStringOptional,
     FEATURE_ALLOCATOR_MERGES_ENABLED: booleanStringOptional,
-    FEATURE_ALLOCATOR_REQUIRE_ADJACENCY: booleanStringOptional,
     FEATURE_ALLOCATOR_K_MAX: z.coerce.number().int().min(1).max(5).optional(),
     // Adjacency requirement is now fixed (connected); mode/min-party flags removed
     FEATURE_MANUAL_ASSIGNMENT_MAX_SLACK: z.coerce.number().int().min(0).max(12).optional(),

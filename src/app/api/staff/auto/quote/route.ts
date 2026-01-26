@@ -12,7 +12,6 @@ const quotePayloadSchema = z.object({
   bookingId: z.string().uuid(),
   zoneId: z.string().uuid().optional(),
   maxTables: z.number().int().min(1).max(5).optional(),
-  requireAdjacency: z.boolean().optional(),
   avoidTables: z.array(z.string().uuid()).optional(),
   holdTtlSeconds: z.number().int().min(30).max(600).optional(),
 });
@@ -36,7 +35,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid request payload", details: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { bookingId, zoneId, maxTables, requireAdjacency, avoidTables, holdTtlSeconds } = parsed.data;
+  const { bookingId, zoneId, maxTables, avoidTables, holdTtlSeconds } = parsed.data;
 
   const bookingLookup = await supabase
     .from("bookings")
@@ -75,7 +74,6 @@ export async function POST(req: NextRequest) {
       bookingId,
       zoneId,
       maxTables,
-      requireAdjacency,
       avoidTables,
       holdTtlSeconds,
       createdBy: user.id,
@@ -122,7 +120,6 @@ export async function POST(req: NextRequest) {
       alternates: result.alternates,
       nextTimes: result.nextTimes,
       zoneId: result.hold.zoneId,
-      requireAdjacency: requireAdjacency ?? null,
       skipped: result.skipped ?? [],
       serviceFallback: {
         usedFallback: result.metadata?.usedFallback ?? false,

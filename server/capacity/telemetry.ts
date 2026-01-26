@@ -119,6 +119,18 @@ export type SelectorDecisionEvent = {
   candidates: CandidateSummary[];
   selected?: CandidateSummary | null;
   skipReason?: string | null;
+  adjacencyFailure?: {
+    reason: "adjacency" | "adjacency_pairwise" | "adjacency_neighbors" | "adjacency_frontier";
+    mode: "connected" | "pairwise" | "neighbors";
+    tableIds: string[];
+    tableCount: number;
+    skipped: {
+      adjacency: number;
+      adjacency_pairwise: number;
+      adjacency_neighbors: number;
+      adjacency_frontier: number;
+    };
+  } | null;
   rejectionClassification?: "hard" | "strategic" | null;
   strategicPenalties?: StrategicPenaltyTelemetry | null;
   durationMs: number;
@@ -193,6 +205,7 @@ export type SelectorDecisionCapture = {
   topCandidates: CandidateSummary[];
   candidates: CandidateSummary[];
   skipReason: string | null;
+  adjacencyFailure: SelectorDecisionEvent["adjacencyFailure"] | null;
   rejectionClassification: "hard" | "strategic" | null;
   strategicPenalties: StrategicPenaltyTelemetry | null;
   durationMs: number;
@@ -215,6 +228,7 @@ export function buildSelectorDecisionPayload(event: SelectorDecisionEvent): Sele
     topCandidates: event.candidates,
     candidates: event.candidates,
     skipReason: event.skipReason ?? null,
+    adjacencyFailure: event.adjacencyFailure ?? null,
     rejectionClassification: event.rejectionClassification ?? null,
     strategicPenalties: event.strategicPenalties ?? null,
     durationMs: event.durationMs,

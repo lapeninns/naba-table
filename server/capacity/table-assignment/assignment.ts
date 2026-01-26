@@ -259,7 +259,6 @@ export async function confirmHoldAssignment(options: ConfirmHoldAssignmentOption
     holdId,
     bookingId,
     idempotencyKey: providedIdempotencyKey,
-    requireAdjacency: requireAdjacencyOverride,
     assignedBy = null,
     client,
     signal,
@@ -322,7 +321,6 @@ export async function confirmHoldAssignment(options: ConfirmHoldAssignmentOption
   const holdMetadata = (typedHoldRow.metadata ?? null) as
     | {
         policyVersion?: string | null;
-        requireAdjacency?: boolean;
         selection?: {
           snapshot?: {
             zoneIds?: string[];
@@ -422,11 +420,7 @@ export async function confirmHoldAssignment(options: ConfirmHoldAssignmentOption
     partySize: booking.party_size,
     policy,
   });
-  const holdRequireAdjacency =
-    typeof holdMetadata?.requireAdjacency === "boolean" ? holdMetadata.requireAdjacency : undefined;
-  const effectiveRequireAdjacencyOverride =
-    typeof requireAdjacencyOverride === "boolean" ? requireAdjacencyOverride : holdRequireAdjacency;
-  const requireAdjacency = resolveRequireAdjacency(booking.party_size, effectiveRequireAdjacencyOverride);
+  const requireAdjacency = resolveRequireAdjacency(booking.party_size);
 
   const startIso = toIsoUtc(window.block.start);
   const endIso = toIsoUtc(window.block.end);
@@ -438,19 +432,14 @@ export async function confirmHoldAssignment(options: ConfirmHoldAssignmentOption
   // hold creation and confirmation. This prevents assignment of tables that are
   // no longer adjacent or have moved zones.
   //
-  // Validation only runs when ALL of the following are true:
+  // Validation runs when BOTH of the following are true:
   // 1. A snapshot was captured during hold creation (selectionSnapshot exists)
-  // 2. Adjacency was required when the hold was created (wasAdjacencyRequired = true)
-  // 3. Snapshot validation is enabled via feature flag (snapshotValidationEnabled = true)
-  //
-  // If adjacency was NOT required during hold creation (manual assignment with requireAdjacency=false),
-  // the snapshot will be null and this validation is skipped entirely.
+  // 2. Snapshot validation is enabled via feature flag (snapshotValidationEnabled = true)
   // =============================================
   let adjacencySnapshotHash: string | null = null;
   const selectionSnapshot = holdMetadata?.selection?.snapshot ?? null;
-  const wasAdjacencyRequired = Boolean(holdMetadata?.requireAdjacency);
   const snapshotValidationEnabled = isManualAssignmentSnapshotValidationEnabled();
-  const shouldValidateSnapshot = selectionSnapshot && wasAdjacencyRequired && snapshotValidationEnabled;
+  const shouldValidateSnapshot = selectionSnapshot && snapshotValidationEnabled;
 
   if (shouldValidateSnapshot) {
     const currentTables = await loadTablesByIds(booking.restaurant_id, normalizedTableIds, supabase, signal);
@@ -502,8 +491,6 @@ export async function confirmHoldAssignment(options: ConfirmHoldAssignmentOption
               expectedEdges: selectionSnapshot.adjacency?.edges ?? [],
               actualEdges: nowEdges,
             },
-            wasAdjacencyRequired,
-            requireAdjacency,
             snapshotValidationEnabled,
           },
         },
@@ -824,7 +811,7 @@ export async function assignTableToBooking(
   tableIdOrIds: string | string[],
   assignedBy: string | null,
   client?: DbClient,
-  options?: { idempotencyKey?: string | null; requireAdjacency?: boolean; booking?: BookingRow },
+  options?: { idempotencyKey?: string | null; booking?: BookingRow },
 ): Promise<string> {
   if (!isAllocatorV2Enabled()) {
     throw new AssignTablesRpcError({
@@ -874,7 +861,7 @@ export async function assignTableToBooking(
     policyVersion,
   });
   const idempotencyKey = options?.idempotencyKey ?? deterministicKey;
-  const requireAdjacency = options?.requireAdjacency ?? false;
+  const requireAdjacency = resolveRequireAdjacency(booking.party_size);
 
   const orchestrator = new AssignmentOrchestrator(new SupabaseAssignmentRepository(supabase));
   let response;
@@ -910,33 +897,10 @@ export async function assignTableToBooking(
       },
     );
   } catch (error) {
-    if (error instanceof AssignmentConflictError) {
-      throw new AssignTablesRpcError({
-        message: error.message,
-        code: "ASSIGNMENT_CONFLICT",
-        details: serializeDetails(error.details),
-        hint: error.details?.hint ?? null,
-      });
+    const mapped = mapAssignmentCommitError(error);
+    if (mapped) {
+      throw mapped;
     }
-
-    if (error instanceof AssignmentValidationError) {
-      throw new AssignTablesRpcError({
-        message: error.message,
-        code: "ASSIGNMENT_VALIDATION",
-        details: serializeDetails(error.details),
-        hint: null,
-      });
-    }
-
-    if (error instanceof AssignmentRepositoryError) {
-      throw new AssignTablesRpcError({
-        message: error.message,
-        code: "ASSIGNMENT_REPOSITORY_ERROR",
-        details: serializeDetails(error.cause ?? null),
-        hint: null,
-      });
-    }
-
     throw error;
   }
 
@@ -968,6 +932,37 @@ export async function assignTableToBooking(
   }
 
   return firstAssignment.assignmentId;
+}
+
+function mapAssignmentCommitError(error: unknown): AssignTablesRpcError | null {
+  if (error instanceof AssignmentConflictError) {
+    return new AssignTablesRpcError({
+      message: error.message,
+      code: "ASSIGNMENT_CONFLICT",
+      details: serializeDetails(error.details),
+      hint: error.details?.hint ?? null,
+    });
+  }
+
+  if (error instanceof AssignmentValidationError) {
+    return new AssignTablesRpcError({
+      message: error.message,
+      code: "ASSIGNMENT_VALIDATION",
+      details: serializeDetails(error.details),
+      hint: null,
+    });
+  }
+
+  if (error instanceof AssignmentRepositoryError) {
+    return new AssignTablesRpcError({
+      message: error.message,
+      code: "ASSIGNMENT_REPOSITORY_ERROR",
+      details: serializeDetails(error.cause ?? null),
+      hint: null,
+    });
+  }
+
+  return null;
 }
 
 export async function unassignTableFromBooking(

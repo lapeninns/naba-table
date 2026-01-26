@@ -44,7 +44,6 @@ export type Table = {
 
 export type TableMatchParams = {
   partySize: number;
-  requireAdjacency?: boolean;
   avoidTableIds?: string[];
   zoneId?: string | null;
 };
@@ -69,7 +68,6 @@ export type ConfirmHoldAssignmentOptions = {
   holdId: string;
   bookingId: string;
   idempotencyKey?: string;
-  requireAdjacency?: boolean;
   assignedBy?: string | null;
   client?: DbClient;
   signal?: AbortSignal;
@@ -154,7 +152,6 @@ export type ManualValidationResult = {
 export type ManualSelectionOptions = {
   bookingId: string;
   tableIds: string[];
-  requireAdjacency?: boolean;
   excludeHoldId?: string | null;
   client?: DbClient;
   /** Skip soft-hold acquisition (for internal re-evaluation) */
@@ -178,7 +175,6 @@ export type QuoteTablesOptions = {
   bookingId: string;
   zoneId?: string | null;
   maxTables?: number;
-  requireAdjacency?: boolean;
   avoidTables?: string[];
   holdTtlSeconds?: number;
   createdBy: string;

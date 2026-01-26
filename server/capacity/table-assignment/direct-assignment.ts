@@ -39,7 +39,6 @@ export type DirectAssignmentInput = {
   bookingId: string;
   tableIds: string[];
   idempotencyKey: string;
-  requireAdjacency?: boolean;
   assignedBy?: string | null;
   client?: DbClient;
 };
@@ -76,6 +75,63 @@ export class DirectAssignmentError extends Error {
     super(message);
     this.name = "DirectAssignmentError";
   }
+}
+
+function assertValidDirectAssignmentInput(input: DirectAssignmentInput): void {
+  if (!input.bookingId || typeof input.bookingId !== "string") {
+    throw new DirectAssignmentError("Invalid booking ID", "INVALID_INPUT", 400);
+  }
+
+  if (!Array.isArray(input.tableIds) || input.tableIds.length === 0) {
+    throw new DirectAssignmentError("At least one table must be selected", "INVALID_INPUT", 400);
+  }
+
+  if (!input.idempotencyKey || typeof input.idempotencyKey !== "string") {
+    throw new DirectAssignmentError("Idempotency key is required", "INVALID_INPUT", 400);
+  }
+}
+
+function buildDirectAssignmentResult(params: {
+  assignments: Array<{
+    id: string;
+    booking_id: string;
+    table_id: string;
+    assigned_at: string;
+    assigned_by: string | null;
+  }>;
+  booking: {
+    id: string;
+    status: string;
+    party_size: number;
+  };
+  tables: Table[];
+  bookingStatusOverride?: string;
+}): DirectAssignmentResult {
+  const { assignments, booking, tables, bookingStatusOverride } = params;
+  const summary = summarizeSelection(tables, booking.party_size);
+  const status = bookingStatusOverride ?? booking.status;
+
+  return {
+    success: true,
+    assignments: assignments.map((assignment) => ({
+      id: assignment.id,
+      booking_id: assignment.booking_id,
+      table_id: assignment.table_id,
+      assigned_at: assignment.assigned_at,
+      assigned_by: assignment.assigned_by ?? null,
+    })),
+    booking: {
+      id: booking.id,
+      status,
+      party_size: booking.party_size,
+    },
+    summary: {
+      tableCount: summary.tableCount,
+      totalCapacity: summary.totalCapacity,
+      partySize: summary.partySize,
+      slack: summary.slack,
+    },
+  };
 }
 
 // ============================================================================
@@ -117,23 +173,12 @@ export async function assignTablesDirectly(input: DirectAssignmentInput): Promis
     bookingId,
     tableIds,
     idempotencyKey,
-    requireAdjacency: requireAdjacencyOverride,
     assignedBy = null,
     client,
   } = input;
 
   // === STEP 1: Input Validation ===
-  if (!bookingId || typeof bookingId !== "string") {
-    throw new DirectAssignmentError("Invalid booking ID", "INVALID_INPUT", 400);
-  }
-
-  if (!Array.isArray(tableIds) || tableIds.length === 0) {
-    throw new DirectAssignmentError("At least one table must be selected", "INVALID_INPUT", 400);
-  }
-
-  if (!idempotencyKey || typeof idempotencyKey !== "string") {
-    throw new DirectAssignmentError("Idempotency key is required", "INVALID_INPUT", 400);
-  }
+  assertValidDirectAssignmentInput(input);
 
   const supabase = ensureClient(client);
 
@@ -153,10 +198,7 @@ export async function assignTablesDirectly(input: DirectAssignmentInput): Promis
     // Already processed - return existing result (idempotency)
     const booking = await loadBooking(bookingId, supabase);
     const tables = await loadTablesByIds(booking.restaurant_id, tableIds, supabase);
-    const summary = summarizeSelection(tables, booking.party_size);
-
-    return {
-      success: true,
+    return buildDirectAssignmentResult({
       assignments: existingData.map((a) => ({
         id: a.id!,
         booking_id: a.booking_id!,
@@ -169,13 +211,8 @@ export async function assignTablesDirectly(input: DirectAssignmentInput): Promis
         status: booking.status,
         party_size: booking.party_size,
       },
-      summary: {
-        tableCount: summary.tableCount,
-        totalCapacity: summary.totalCapacity,
-        partySize: summary.partySize,
-        slack: summary.slack,
-      },
-    };
+      tables,
+    });
   }
 
   // === STEP 3: Load Booking ===
@@ -225,7 +262,7 @@ export async function assignTablesDirectly(input: DirectAssignmentInput): Promis
   }
 
   // === STEP 6: Run Validation ===
-  const requireAdjacency = resolveRequireAdjacency(booking.party_size, requireAdjacencyOverride);
+  const requireAdjacency = resolveRequireAdjacency(booking.party_size);
   const validation = await validateSelection({
     bookingId,
     booking,
@@ -303,10 +340,7 @@ export async function assignTablesDirectly(input: DirectAssignmentInput): Promis
   }
 
   // === STEP 9: Return Success ===
-  const summary = summarizeSelection(tables, booking.party_size);
-
-  return {
-    success: true,
+  return buildDirectAssignmentResult({
     assignments: insertedAssignments.map((a) => ({
       id: a.id!,
       booking_id: a.booking_id!,
@@ -316,16 +350,12 @@ export async function assignTablesDirectly(input: DirectAssignmentInput): Promis
     })),
     booking: {
       id: booking.id,
-      status: booking.status === "pending" ? "confirmed" : booking.status,
+      status: booking.status,
       party_size: booking.party_size,
     },
-    summary: {
-      tableCount: summary.tableCount,
-      totalCapacity: summary.totalCapacity,
-      partySize: summary.partySize,
-      slack: summary.slack,
-    },
-  };
+    tables,
+    bookingStatusOverride: booking.status === "pending" ? "confirmed" : booking.status,
+  });
 }
 
 // ============================================================================

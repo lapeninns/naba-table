@@ -1,1 +1,0 @@
-# Research: Remove Skip Links

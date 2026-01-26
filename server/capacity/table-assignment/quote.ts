@@ -5,12 +5,18 @@ import { resolveDemandMultiplier, type DemandMultiplierResult } from "@/server/c
 import { createTableHold, releaseTableHold, findHoldConflicts, HoldConflictError, type HoldConflictInfo, type TableHold } from "@/server/capacity/holds";
 import { getVenuePolicy, getSelectorScoringConfig, getYieldManagementScarcityWeight, type SelectorScoringConfig, type ServiceKey } from "@/server/capacity/policy";
 import { loadTableScarcityScores } from "@/server/capacity/scarcity";
-import { buildScoredTablePlans, type RankedTablePlan, type CandidateDiagnostics } from "@/server/capacity/selector";
+import {
+  buildScoredTablePlans,
+  type BuildCandidatesOptions,
+  type RankedTablePlan,
+  type CandidateDiagnostics,
+} from "@/server/capacity/selector";
 import { loadStrategicConfig } from "@/server/capacity/strategic-config";
 import { emitHoldStrictConflict, emitSelectorQuote, emitRpcConflict, summarizeCandidate, type CandidateSummary, type SelectorDecisionEvent } from "@/server/capacity/telemetry";
 import { computePayloadChecksum, hashPolicyVersion } from "@/server/capacity/v2";
 import {
   getAllocatorKMax as getAllocatorCombinationLimit,
+  getAllocatorAdjacencyMode,
   getAllocatorAdjacencyMinPartySize,
   getSelectorPlannerLimits,
   isAllocatorAdjacencyRequired,
@@ -34,7 +40,6 @@ import {
   filterAvailableTables,
   evaluateLookahead,
   resolveRequireAdjacency,
-  partiesRequireAdjacency,
   type AvailabilityMap,
   type TimeFilterStats,
   type LookaheadConfig,
@@ -51,7 +56,6 @@ import {
   loadActiveHoldsForDate,
   loadRestaurantTimezone,
   extractErrorCode,
-  type DbClient,
   type ContextBookingRow,
 } from "./supabase";
 import { type Table, type QuoteTablesOptions, type QuoteTablesResult, type QuotePlannerStats } from "./types";
@@ -75,6 +79,127 @@ function buildSelectorFeatureFlagsTelemetry(): {
     holdsStrictConflicts: isHoldStrictConflictsEnabled(),
     allocatorFailHard: isAllocatorServiceFailHard(),
     selectorLookahead: isSelectorLookaheadEnabled(),
+  };
+}
+
+function buildAdjacencyFailure(params: {
+  requireAdjacency: boolean;
+  diagnostics: CandidateDiagnostics;
+  tables: Table[];
+  adjacencyMode: "connected" | "pairwise" | "neighbors";
+}): SelectorDecisionEvent["adjacencyFailure"] | null {
+  const { requireAdjacency, diagnostics, tables, adjacencyMode } = params;
+  if (!requireAdjacency) {
+    return null;
+  }
+  const skipped = diagnostics.skipped ?? {};
+  const counts = {
+    adjacency: skipped.adjacency ?? 0,
+    adjacency_pairwise: skipped.adjacency_pairwise ?? 0,
+    adjacency_neighbors: skipped.adjacency_neighbors ?? 0,
+    adjacency_frontier: skipped.adjacency_frontier ?? 0,
+  };
+  if (
+    counts.adjacency === 0 &&
+    counts.adjacency_pairwise === 0 &&
+    counts.adjacency_neighbors === 0 &&
+    counts.adjacency_frontier === 0
+  ) {
+    return null;
+  }
+  const reason =
+    counts.adjacency_frontier > 0
+      ? "adjacency_frontier"
+      : counts.adjacency_pairwise > 0
+        ? "adjacency_pairwise"
+        : counts.adjacency_neighbors > 0
+          ? "adjacency_neighbors"
+          : "adjacency";
+  return {
+    reason,
+    mode: adjacencyMode,
+    tableIds: tables.map((table) => table.id),
+    tableCount: tables.length,
+    skipped: counts,
+  };
+}
+
+export function resolveQuoteZoneLock(params: {
+  bookingZoneId: string | null;
+  requestedZoneId: string | null;
+}): { ok: boolean; zoneId: string | null; reason?: string } {
+  const { bookingZoneId, requestedZoneId } = params;
+  if (bookingZoneId && requestedZoneId && bookingZoneId !== requestedZoneId) {
+    return {
+      ok: false,
+      zoneId: bookingZoneId,
+      reason: `Booking is locked to zone ${bookingZoneId}; requested zone ${requestedZoneId} is not allowed`,
+    };
+  }
+
+  return {
+    ok: true,
+    zoneId: bookingZoneId ?? requestedZoneId ?? null,
+  };
+}
+
+function buildScoringConfig(
+  baseScoringConfig: SelectorScoringConfig,
+  strategicOptions: { restaurantId: string | null },
+): SelectorScoringConfig {
+  return {
+    ...baseScoringConfig,
+    weights: {
+      ...baseScoringConfig.weights,
+      scarcity: getYieldManagementScarcityWeight(strategicOptions),
+    },
+  };
+}
+
+function buildPlannerOptions(params: {
+  tables: Table[];
+  partySize: number;
+  adjacency: Map<string, Set<string>>;
+  scoringConfig: SelectorScoringConfig;
+  combinationEnabled: boolean;
+  combinationLimit: number;
+  selectorLimits: ReturnType<typeof getSelectorPlannerLimits>;
+  requireAdjacency: boolean;
+  demandMultiplier: number;
+  tableScarcityScores: Map<string, number>;
+  allowCapacityOverflow?: boolean;
+  allowMinPartySizeViolation?: boolean;
+}): BuildCandidatesOptions {
+  const {
+    tables,
+    partySize,
+    adjacency,
+    scoringConfig,
+    combinationEnabled,
+    combinationLimit,
+    selectorLimits,
+    requireAdjacency,
+    demandMultiplier,
+    tableScarcityScores,
+    allowCapacityOverflow,
+    allowMinPartySizeViolation,
+  } = params;
+
+  return {
+    tables,
+    partySize,
+    adjacency,
+    config: scoringConfig,
+    enableCombinations: combinationEnabled,
+    kMax: combinationLimit,
+    maxPlansPerSlack: selectorLimits.maxPlansPerSlack,
+    maxCombinationEvaluations: selectorLimits.maxCombinationEvaluations,
+    enumerationTimeoutMs: selectorLimits.enumerationTimeoutMs,
+    requireAdjacency,
+    demandMultiplier,
+    tableScarcityScores,
+    allowCapacityOverflow: allowCapacityOverflow ?? false,
+    allowMinPartySizeViolation: allowMinPartySizeViolation ?? false,
   };
 }
 
@@ -243,7 +368,6 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     bookingId,
     zoneId,
     maxTables,
-    requireAdjacency: requireAdjacencyOverride,
     avoidTables = [],
     holdTtlSeconds = DEFAULT_HOLD_TTL_SECONDS,
     createdBy,
@@ -323,15 +447,23 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     timezone: policy.timezone,
     client: supabase,
   });
+  const zoneLock = resolveQuoteZoneLock({
+    bookingZoneId: booking.assigned_zone_id ?? null,
+    requestedZoneId: zoneId ?? null,
+  });
 
   const tables = await tablesPromise;
+  if (!zoneLock.ok) {
+    await demandMultiplierPromise.catch(() => null);
+    return buildFailureResult(zoneLock.reason ?? "Zone lock mismatch");
+  }
   const adjacency = await loadAdjacency(
     booking.restaurant_id,
     tables.map((table) => table.id),
     supabase,
     signal,
   );
-  const requireAdjacency = resolveRequireAdjacency(booking.party_size, requireAdjacencyOverride);
+  const requireAdjacency = resolveRequireAdjacency(booking.party_size);
   const timePruningEnabled = isPlannerTimePruningEnabled();
   const lookaheadEnabled = isSelectorLookaheadEnabled();
   let timePruningStats: TimeFilterStats | null = null;
@@ -423,7 +555,7 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
       window,
       adjacency,
       new Set(avoidTables),
-      zoneId ?? null,
+      zoneLock.zoneId,
       buildFilterOptions({ allowMinPartySizeViolation }),
     );
 
@@ -481,13 +613,7 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     tables: filtered,
     client: supabase,
   });
-  const scoringConfig: SelectorScoringConfig = {
-    ...baseScoringConfig,
-    weights: {
-      ...baseScoringConfig.weights,
-      scarcity: getYieldManagementScarcityWeight(strategicOptions),
-    },
-  };
+  const scoringConfig = buildScoringConfig(baseScoringConfig, strategicOptions);
   const plannerStart = highResNow();
   let plannerTables = filtered;
   const runPlanner = (
@@ -495,33 +621,25 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     adjacencyRequired: boolean,
     options?: { allowCapacityOverflow?: boolean; allowMinPartySizeViolation?: boolean },
   ) =>
-    buildScoredTablePlans({
-      tables: candidateTables,
-      partySize: booking.party_size,
-      adjacency,
-      config: scoringConfig,
-      enableCombinations: combinationEnabled,
-      kMax: combinationLimit,
-      maxPlansPerSlack: selectorLimits.maxPlansPerSlack,
-      maxCombinationEvaluations: selectorLimits.maxCombinationEvaluations,
-      enumerationTimeoutMs: selectorLimits.enumerationTimeoutMs,
-      requireAdjacency: adjacencyRequired,
-      demandMultiplier,
-      tableScarcityScores,
-      allowCapacityOverflow: options?.allowCapacityOverflow ?? false,
-      allowMinPartySizeViolation: options?.allowMinPartySizeViolation ?? false,
-    });
+    buildScoredTablePlans(
+      buildPlannerOptions({
+        tables: candidateTables,
+        partySize: booking.party_size,
+        adjacency,
+        scoringConfig,
+        combinationEnabled,
+        combinationLimit,
+        selectorLimits,
+        requireAdjacency: adjacencyRequired,
+        demandMultiplier,
+        tableScarcityScores,
+        allowCapacityOverflow: options?.allowCapacityOverflow,
+        allowMinPartySizeViolation: options?.allowMinPartySizeViolation,
+      }),
+    );
 
   let plans = runPlanner(plannerTables, requireAdjacency);
-  // Fallback: if no plans found and adjacency was required, retry without adjacency constraint
-  let requireAdjacencyUsed = requireAdjacency;
-  if (plans.plans.length === 0 && requireAdjacency) {
-    const relaxed = runPlanner(plannerTables, false);
-    if (relaxed.plans.length > 0) {
-      plans = relaxed;
-      requireAdjacencyUsed = false;
-    }
-  }
+  const requireAdjacencyUsed = requireAdjacency;
 
   if (plans.plans.length === 0 && !relaxedMinPartySize && booking.party_size > 0) {
     const relaxed = computeFilteredTables(true);
@@ -537,28 +655,10 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
         client: supabase,
       });
       plans = runPlanner(plannerTables, requireAdjacency, { allowMinPartySizeViolation: true });
-      requireAdjacencyUsed = requireAdjacency;
-      if (plans.plans.length === 0 && requireAdjacencyUsed) {
-        const relaxedAdjacency = runPlanner(plannerTables, false, { allowMinPartySizeViolation: true });
-        if (relaxedAdjacency.plans.length > 0) {
-          plans = relaxedAdjacency;
-          requireAdjacencyUsed = false;
-        }
-      }
     }
   }
 
-  let capacityOverflowFallbackUsed = false;
-  if (plans.plans.length === 0) {
-    const overflowResult = runPlanner(plannerTables, requireAdjacencyUsed, {
-      allowCapacityOverflow: true,
-      allowMinPartySizeViolation: relaxedMinPartySize,
-    });
-    if (overflowResult.plans.length > 0) {
-      plans = overflowResult;
-      capacityOverflowFallbackUsed = true;
-    }
-  }
+  const capacityOverflowFallbackUsed = false;
   // const topRankedPlan = plans.plans[0] ?? null;
   const lookaheadConfig: LookaheadConfig = {
     enabled: lookaheadEnabled,
@@ -586,7 +686,8 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
   const plannerDurationMs = highResNow() - plannerStart;
   const adjacencyRequiredGlobally = adjacency.size > 0 && isAllocatorAdjacencyRequired();
   const adjacencyMinPartySize = getAllocatorAdjacencyMinPartySize();
-  const featureFlags = buildSelectorFeatureFlagsTelemetry();
+  const adjacencyMode = getAllocatorAdjacencyMode();
+  const featureFlags = { ...buildSelectorFeatureFlagsTelemetry(), holdsStrictConflicts: true };
   const plannerConfigTelemetry = composePlannerConfig({
     diagnostics: plans.diagnostics,
     scoringConfig,
@@ -602,6 +703,12 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     demandMultiplier,
     demandRule,
     lookahead: lookaheadConfig,
+  });
+  const adjacencyFailure = buildAdjacencyFailure({
+    requireAdjacency: requireAdjacencyUsed,
+    diagnostics: plans.diagnostics,
+    tables: filtered,
+    adjacencyMode,
   });
   if (!timePruningStats) {
     timePruningStats = {
@@ -661,6 +768,25 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     plannerDurationMs: roundMilliseconds(plannerDurationMs),
   });
 
+  const failFastOnHoldConflicts = () => {
+    applyQuoteSkipDiagnostics();
+    const failureResult: QuoteTablesResult = {
+      hold: null,
+      candidate: null,
+      alternates,
+      nextTimes: [],
+      reason: "Hold conflicts prevented assignment",
+      skipped: skippedCandidates,
+      metadata: {
+        usedFallback: bookingWindowUsedFallback,
+        fallbackService: bookingWindowFallbackService,
+        relaxedMinPartySize,
+        capacityOverflowFallback: capacityOverflowFallbackUsed,
+      },
+    };
+    return attachPlannerStats(failureResult, collectPlannerStats());
+  };
+
   for (let index = 0; index < plans.plans.length; index += 1) {
     const plan = plans.plans[index]!;
     const requestedTableIds = plan.tables.map((table) => table.id);
@@ -680,19 +806,17 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     const parsedWindowEnd = DateTime.fromISO(requestedWindowEnd ?? "");
     const requestedWindowEndDate = parsedWindowEnd.isValid ? parsedWindowEnd : null;
 
-    if (!isHoldStrictConflictsEnabled()) {
-      const conflicts = await findHoldConflicts({
-        restaurantId: booking.restaurant_id,
-        tableIds: requestedTableIds,
-        startAt: requestedWindowStart,
-        endAt: requestedWindowEnd,
-        client: supabase,
-      });
+    const conflicts = await findHoldConflicts({
+      restaurantId: booking.restaurant_id,
+      tableIds: requestedTableIds,
+      startAt: requestedWindowStart,
+      endAt: requestedWindowEnd,
+      client: supabase,
+    });
 
-      if (conflicts.length > 0) {
-        recordHoldConflictSkip(conflicts, candidateSummary, plan);
-        continue;
-      }
+    if (conflicts.length > 0) {
+      recordHoldConflictSkip(conflicts, candidateSummary, plan);
+      return failFastOnHoldConflicts();
     }
 
     if (index > 0) {
@@ -726,7 +850,6 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
         expiresAt: toIsoUtc(holdExpiresAt),
         createdBy,
         metadata: {
-          requireAdjacency: requireAdjacencyUsed,
           selection: {
             tableIds: requestedTableIds,
             summary,
@@ -737,99 +860,95 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
         client: supabase,
       });
 
-      if (isHoldStrictConflictsEnabled()) {
-        try {
-          const conflictsAfterInsert = await findHoldConflicts({
-            restaurantId: booking.restaurant_id,
-            tableIds: requestedTableIds,
-            startAt: requestedWindowStart,
-            endAt: requestedWindowEnd,
-            excludeHoldId: hold.id,
-            client: supabase,
-          });
+      try {
+        const conflictsAfterInsert = await findHoldConflicts({
+          restaurantId: booking.restaurant_id,
+          tableIds: requestedTableIds,
+          startAt: requestedWindowStart,
+          endAt: requestedWindowEnd,
+          excludeHoldId: hold.id,
+          client: supabase,
+        });
 
-          if (conflictsAfterInsert.length > 0) {
-            try {
-              await emitHoldStrictConflict({
-                restaurantId: booking.restaurant_id,
-                bookingId,
-                tableIds: requestedTableIds,
-                startAt: requestedWindowStart,
-                endAt: requestedWindowEnd,
-                conflicts: conflictsAfterInsert.map((conflict) => ({
-                  holdId: conflict.holdId,
-                  bookingId: conflict.bookingId,
-                  tableIds: conflict.tableIds,
-                  startAt: conflict.startAt,
-                  endAt: conflict.endAt,
-                  expiresAt: conflict.expiresAt,
-                })),
-              });
-            } catch (telemetryError) {
-              console.error("[capacity.quote] failed to emit strict conflict telemetry (post-insert)", {
-                bookingId,
-                restaurantId: booking.restaurant_id,
-                tableIds: requestedTableIds,
-                error: telemetryError instanceof Error ? telemetryError.message : String(telemetryError),
-              });
-            }
-
-            recordHoldConflictSkip(conflictsAfterInsert, candidateSummary, plan);
-
-            try {
-              await releaseTableHold({ holdId: hold.id, client: supabase });
-            } catch (releaseError) {
-              console.error("[capacity.quote] failed to release conflicting hold after validation", {
-                holdId: hold.id,
-                bookingId,
-                restaurantId: booking.restaurant_id,
-                error: releaseError instanceof Error ? releaseError.message : String(releaseError),
-              });
-            }
-
-            applyQuoteSkipDiagnostics();
-            continue;
-          }
-        } catch (validationError) {
-          console.error("[capacity.quote] strict conflict validation errored", {
-            bookingId,
-            restaurantId: booking.restaurant_id,
-            holdId: hold?.id ?? null,
-            error: validationError instanceof Error ? validationError.message : String(validationError),
-          });
-          if (hold?.id) {
-            try {
-              await releaseTableHold({ holdId: hold.id, client: supabase });
-            } catch (releaseError) {
-              console.error("[capacity.quote] failed to release hold after validation error", {
-                holdId: hold.id,
-                bookingId,
-                restaurantId: booking.restaurant_id,
-                error: releaseError instanceof Error ? releaseError.message : String(releaseError),
-              });
-            }
+        if (conflictsAfterInsert.length > 0) {
+          try {
+            await emitHoldStrictConflict({
+              restaurantId: booking.restaurant_id,
+              bookingId,
+              tableIds: requestedTableIds,
+              startAt: requestedWindowStart,
+              endAt: requestedWindowEnd,
+              conflicts: conflictsAfterInsert.map((conflict) => ({
+                holdId: conflict.holdId,
+                bookingId: conflict.bookingId,
+                tableIds: conflict.tableIds,
+                startAt: conflict.startAt,
+                endAt: conflict.endAt,
+                expiresAt: conflict.expiresAt,
+              })),
+            });
+          } catch (telemetryError) {
+            console.error("[capacity.quote] failed to emit strict conflict telemetry (post-insert)", {
+              bookingId,
+              restaurantId: booking.restaurant_id,
+              tableIds: requestedTableIds,
+              error: telemetryError instanceof Error ? telemetryError.message : String(telemetryError),
+            });
           }
 
-          recordHoldConflictSkip(
-            hold
-              ? [
-                  {
-                    holdId: hold.id,
-                    bookingId,
-                    tableIds: requestedTableIds,
-                    startAt: requestedWindowStart,
-                    endAt: requestedWindowEnd,
-                    expiresAt: hold.expiresAt,
-                  },
-                ]
-              : [],
-            candidateSummary,
-            plan,
-          );
+          recordHoldConflictSkip(conflictsAfterInsert, candidateSummary, plan);
 
-          applyQuoteSkipDiagnostics();
-          continue;
+          try {
+            await releaseTableHold({ holdId: hold.id, client: supabase });
+          } catch (releaseError) {
+            console.error("[capacity.quote] failed to release conflicting hold after validation", {
+              holdId: hold.id,
+              bookingId,
+              restaurantId: booking.restaurant_id,
+              error: releaseError instanceof Error ? releaseError.message : String(releaseError),
+            });
+          }
+
+          return failFastOnHoldConflicts();
         }
+      } catch (validationError) {
+        console.error("[capacity.quote] strict conflict validation errored", {
+          bookingId,
+          restaurantId: booking.restaurant_id,
+          holdId: hold?.id ?? null,
+          error: validationError instanceof Error ? validationError.message : String(validationError),
+        });
+        if (hold?.id) {
+          try {
+            await releaseTableHold({ holdId: hold.id, client: supabase });
+          } catch (releaseError) {
+            console.error("[capacity.quote] failed to release hold after validation error", {
+              holdId: hold.id,
+              bookingId,
+              restaurantId: booking.restaurant_id,
+              error: releaseError instanceof Error ? releaseError.message : String(releaseError),
+            });
+          }
+        }
+
+        recordHoldConflictSkip(
+          hold
+            ? [
+                {
+                  holdId: hold.id,
+                  bookingId,
+                  tableIds: requestedTableIds,
+                  startAt: requestedWindowStart,
+                  endAt: requestedWindowEnd,
+                  expiresAt: hold.expiresAt,
+                },
+              ]
+            : [],
+          candidateSummary,
+          plan,
+        );
+
+        return failFastOnHoldConflicts();
       }
 
       const holdDurationMs = highResNow() - holdStart;
@@ -846,6 +965,7 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
         },
         candidates: [candidateSummary, ...alternates],
         selected: candidateSummary,
+        adjacencyFailure,
         durationMs: roundMilliseconds(totalDurationMs),
         featureFlags,
         timing: buildTiming({
@@ -898,8 +1018,7 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
           },
         });
 
-        applyQuoteSkipDiagnostics();
-        continue;
+        return failFastOnHoldConflicts();
       }
       throw error;
     }
@@ -924,129 +1043,27 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
       capacityOverflowFallback: capacityOverflowFallbackUsed,
     },
   };
-  return attachPlannerStats(failureResult, collectPlannerStats());
-}
-
-export async function findSuitableTables(options: {
-  bookingId: string;
-  client?: DbClient;
-}): Promise<RankedTablePlan[]> {
-  const { bookingId, client } = options;
-  const supabase = ensureClient(client);
-  const booking = await loadBooking(bookingId, supabase);
-  const tables = await loadTablesForRestaurant(booking.restaurant_id, supabase);
-  const adjacency = await loadAdjacency(
-    booking.restaurant_id,
-    tables.map((table) => table.id),
-    supabase,
-  );
-  const defaultPolicy = getVenuePolicy();
-  const restaurantTimezone =
-    (booking.restaurants && !Array.isArray(booking.restaurants) ? booking.restaurants.timezone : null) ??
-    (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
-    defaultPolicy.timezone;
-  const policy =
-    restaurantTimezone === defaultPolicy.timezone
-      ? defaultPolicy
-      : getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
-  const { window } = computeBookingWindowWithFallback({
-    startISO: booking.start_at,
-    bookingDate: booking.booking_date,
-    startTime: booking.start_time,
+  const failureDurationMs = highResNow() - operationStart;
+  await emitSelectorQuote({
+    restaurantId: booking.restaurant_id,
+    bookingId,
     partySize: booking.party_size,
-    policy,
-  });
-
-  const computeCapacity = (list: Table[]) => list.reduce((sum, table) => sum + (table.capacity ?? 0), 0);
-  const filterOptions = (allowMinPartySizeViolation: boolean) => ({
-    allowInsufficientCapacity: true,
-    allowMinPartySizeViolation,
-  });
-
-  let filtered = filterAvailableTables(
-    tables,
-    booking.party_size,
-    window,
-    adjacency,
-    undefined,
-    undefined,
-    filterOptions(false),
-  );
-  let relaxedMinPartyForFind = false;
-  if ((filtered.length === 0 || computeCapacity(filtered) < booking.party_size) && booking.party_size > 0) {
-    const relaxed = filterAvailableTables(
-      tables,
-      booking.party_size,
-      window,
-      adjacency,
-      undefined,
-      undefined,
-      filterOptions(true),
-    );
-    if (relaxed.length > 0 && computeCapacity(relaxed) >= booking.party_size) {
-      filtered = relaxed;
-      relaxedMinPartyForFind = true;
-    }
-  }
-  const strategicOptions = { restaurantId: booking.restaurant_id ?? null } as const;
-  await loadStrategicConfig({ ...strategicOptions, client: supabase });
-  const baseScoringConfig = getSelectorScoringConfig(strategicOptions);
-  const requireAdjacency = partiesRequireAdjacency(booking.party_size);
-  const selectorLimits = getSelectorPlannerLimits();
-  const demandMultiplierResult = await resolveDemandMultiplier({
-    restaurantId: booking.restaurant_id,
-    serviceStart: window.block.start,
-    serviceKey: window.service,
-    timezone: policy.timezone,
-    client: supabase,
-  });
-  const demandMultiplier = demandMultiplierResult?.multiplier ?? 1;
-  const tableScarcityScores = await loadTableScarcityScores({
-    restaurantId: booking.restaurant_id,
-    tables: filtered,
-    client: supabase,
-  });
-  const scoringConfig: SelectorScoringConfig = {
-    ...baseScoringConfig,
-    weights: {
-      ...baseScoringConfig.weights,
-      scarcity: getYieldManagementScarcityWeight(strategicOptions),
+    window: {
+      start: toIsoUtc(window.block.start),
+      end: toIsoUtc(window.block.end),
     },
-  };
-  let plans = buildScoredTablePlans({
-    tables: filtered,
-    partySize: booking.party_size,
-    adjacency,
-    config: scoringConfig,
-    enableCombinations: isCombinationPlannerEnabled(),
-    kMax: getAllocatorCombinationLimit(),
-    maxPlansPerSlack: selectorLimits.maxPlansPerSlack,
-    maxCombinationEvaluations: selectorLimits.maxCombinationEvaluations,
-    enumerationTimeoutMs: selectorLimits.enumerationTimeoutMs,
-    requireAdjacency,
-    demandMultiplier,
-    tableScarcityScores,
-    allowMinPartySizeViolation: relaxedMinPartyForFind,
+    candidates: alternates,
+    selected: null,
+    skipReason: failureReason,
+    adjacencyFailure,
+    durationMs: roundMilliseconds(failureDurationMs),
+    featureFlags,
+    timing: buildTiming({
+      totalMs: failureDurationMs,
+      plannerMs: plannerDurationMs,
+    }),
+    plannerConfig: plannerConfigTelemetry,
+    diagnostics: plans.diagnostics,
   });
-
-  if (plans.plans.length === 0) {
-    plans = buildScoredTablePlans({
-      tables: filtered,
-      partySize: booking.party_size,
-      adjacency,
-      config: scoringConfig,
-      enableCombinations: isCombinationPlannerEnabled(),
-      kMax: getAllocatorCombinationLimit(),
-      maxPlansPerSlack: selectorLimits.maxPlansPerSlack,
-      maxCombinationEvaluations: selectorLimits.maxCombinationEvaluations,
-      enumerationTimeoutMs: selectorLimits.enumerationTimeoutMs,
-      requireAdjacency,
-      demandMultiplier,
-      tableScarcityScores,
-      allowCapacityOverflow: true,
-      allowMinPartySizeViolation: relaxedMinPartyForFind,
-    });
-  }
-
-  return plans.plans;
+  return attachPlannerStats(failureResult, collectPlannerStats());
 }

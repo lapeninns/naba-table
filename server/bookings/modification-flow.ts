@@ -45,7 +45,6 @@ async function attemptInlineModificationAssign(params: {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       createdBy: (undefined as any) as string,
       holdTtlSeconds: 180,
-      requireAdjacency: undefined,
       maxTables: undefined,
     });
     const durationMs = Date.now() - start;

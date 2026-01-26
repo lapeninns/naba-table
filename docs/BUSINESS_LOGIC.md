@@ -240,21 +240,13 @@ cancelled  cancelled  cancelled
 
 ### Adjacency Requirements
 
-**Rule**: Combined tables must be physically adjacent
+**Rule**: Combined tables must be physically adjacent (connected graph)
 
-**Adjacency modes**:
+**Adjacency mode**: fixed to `connected`
 
-1. **`connected`** (default): All tables form a connected graph
-2. **`pairwise`**: Each pair of tables must be adjacent
-3. **`neighbors`**: Tables must be direct neighbors
+**Requirement**: always enforced for merged tables (not configurable)
 
-**Minimum party size for adjacency requirement**:
-
-- **Configurable**: `FEATURE_ALLOCATOR_ADJACENCY_MIN_PARTY_SIZE`
-- **Default**: `null` (always required for merged tables)
-- **Range**: 1-20
-
-**Source**: `lib/env.ts:152-157`
+**Source**: `server/feature-flags.ts`
 
 ---
 

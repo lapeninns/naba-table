@@ -53,7 +53,6 @@ export {
 export type { SweepExpiredHoldsResult, ExtendTableHoldInput } from "./holds";
 
 export {
-  findSuitableTables,
   assignTableToBooking,
   unassignTableFromBooking,
   getBookingTableAssignments,

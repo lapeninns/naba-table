@@ -102,7 +102,6 @@ const quote = await quoteTablesForBooking({
   bookingId,
   created By: undefined,
   holdTtlSeconds: 180,
-  requireAdjacency: plannerOptions.requireAdjacency,  // ❓ Is this being set correctly?
   maxTables: plannerOptions.maxTables,                 // ❓ Is this limiting combinations?
 });
 ```
@@ -220,7 +219,6 @@ const result = await quoteTablesForBooking({
   holdTtlSeconds: 180,
   enableCombinations: true, // FORCE TRUE
   maxTables: 5, // Allow up to 5 tables
-  requireAdjacency: false, // Relax for testing
 });
 ```
 

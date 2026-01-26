@@ -40,7 +40,6 @@ export {
   unassignTableFromBooking,
   getBookingTableAssignments,
   quoteTablesForBooking,
-  findSuitableTables,
   isTableAvailableV2,
   isTableAvailable,
 } from "./table-assignment";

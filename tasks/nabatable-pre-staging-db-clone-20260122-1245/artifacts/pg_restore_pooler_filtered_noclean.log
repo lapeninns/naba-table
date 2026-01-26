@@ -1,6 +1,0 @@
-pg_restore: error: could not execute query: ERROR:  insert or update on table "allocations" violates foreign key constraint "allocations_booking_id_fkey"
-DETAIL:  Key (booking_id)=(7050ee86-cdfe-4f38-9b66-5b64786828cd) is not present in table "bookings".
-Command was: ALTER TABLE ONLY public.allocations
-    ADD CONSTRAINT allocations_booking_id_fkey FOREIGN KEY (booking_id) REFERENCES public.bookings(id) ON DELETE CASCADE;
-
-

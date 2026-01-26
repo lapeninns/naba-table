@@ -117,7 +117,7 @@ export function isAllocatorV2ShadowMode(): boolean {
 }
 
 export function isAllocatorAdjacencyRequired(): boolean {
-  return env.featureFlags.allocator.requireAdjacency ?? true;
+  return true;
 }
 
 export function isAllocatorServiceFailHard(): boolean {
@@ -230,20 +230,12 @@ export function getAutoAssignRetryDelaysMs(): number[] {
 }
 
 function validateFeatureFlagSafety(): void {
-  const { holds, allocator, selectorLookahead } = env.featureFlags;
+  const { holds, selectorLookahead } = env.featureFlags;
 
   if ((holds?.enabled ?? true) && !(holds?.strictConflicts ?? false)) {
     warnUnsafeFeatureFlag('holds.strictConflicts disabled while holds.enabled=true', {
       environment: env.node.env,
       strictConflicts: holds?.strictConflicts ?? null,
-    });
-  }
-
-  if ((allocator?.mergesEnabled ?? false) && allocator?.requireAdjacency === false) {
-    warnUnsafeFeatureFlag('allocator merges enabled while adjacency requirement disabled', {
-      environment: env.node.env,
-      mergesEnabled: allocator?.mergesEnabled ?? null,
-      requireAdjacency: allocator?.requireAdjacency ?? null,
     });
   }
 

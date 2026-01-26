@@ -1,4 +1,4 @@
-import { buildScoredTablePlans, type BuildCandidatesResult } from "../selector";
+import { buildScoredTablePlans, type BuildCandidatesResult, type BuildCandidatesOptions } from "../selector";
 
 import type { SelectorScoringConfig } from "../policy";
 import type { Table } from "../tables";
@@ -20,7 +20,11 @@ export type PlannerInput = {
 export type PlannerResult = BuildCandidatesResult;
 
 export function generateCandidatePlans(input: PlannerInput): PlannerResult {
-  return buildScoredTablePlans({
+  return buildScoredTablePlans(toBuildCandidatesOptions(input));
+}
+
+function toBuildCandidatesOptions(input: PlannerInput): BuildCandidatesOptions {
+  return {
     tables: input.tables,
     partySize: input.partySize,
     adjacency: input.adjacency,
@@ -32,5 +36,5 @@ export function generateCandidatePlans(input: PlannerInput): PlannerResult {
     maxCombinationEvaluations: input.maxCombinationEvaluations,
     demandMultiplier: input.demandMultiplier,
     tableScarcityScores: input.tableScarcityScores,
-  });
+  };
 }

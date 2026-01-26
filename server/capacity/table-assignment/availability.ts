@@ -219,10 +219,7 @@ export function partiesRequireAdjacency(partySize: number): boolean {
   return true;
 }
 
-export function resolveRequireAdjacency(partySize: number, override?: boolean): boolean {
-  if (typeof override === "boolean") {
-   return override;
-  }
+export function resolveRequireAdjacency(partySize: number): boolean {
   return partiesRequireAdjacency(partySize);
 }
 

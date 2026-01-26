@@ -329,8 +329,6 @@ export async function autoAssignAndConfirmIfPossible(
       const attemptStart = Date.now();
       let shouldRetry = true;
       const plannerOptions = {
-        requireAdjacency:
-          typeof plannerStrategy.requireAdjacency === "boolean" ? plannerStrategy.requireAdjacency : undefined,
         maxTables: typeof plannerStrategy.maxTables === "number" ? plannerStrategy.maxTables : undefined,
       };
       const plannerCacheKey =
@@ -410,7 +408,6 @@ export async function autoAssignAndConfirmIfPossible(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             createdBy: (undefined as any) as string,
             holdTtlSeconds: 180,
-            requireAdjacency: plannerOptions.requireAdjacency,
             maxTables: plannerOptions.maxTables,
           });
           const plannerDurationMs = Date.now() - plannerStart;

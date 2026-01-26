@@ -11,7 +11,6 @@ import type { NextRequest } from "next/server";
 const assignSchema = z.object({
   tableIds: z.array(z.string().uuid()).min(1, "At least one table must be selected"),
   idempotencyKey: z.string().min(1, "Idempotency key is required"),
-  requireAdjacency: z.boolean().optional(),
 });
 
 const unassignSchema = z.object({
@@ -62,7 +61,7 @@ export async function POST(
     );
   }
 
-  const { tableIds, idempotencyKey, requireAdjacency } = parsed.data;
+  const { tableIds, idempotencyKey } = parsed.data;
 
   // === Authorization - Check restaurant access ===
   const bookingLookup = await supabase
@@ -122,7 +121,6 @@ export async function POST(
       bookingId,
       tableIds,
       idempotencyKey,
-      requireAdjacency,
       assignedBy: user.id,
       client: serviceClient,
     });

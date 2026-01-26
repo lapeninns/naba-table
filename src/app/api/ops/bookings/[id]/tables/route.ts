@@ -78,7 +78,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const validation = await evaluateManualSelection({
       bookingId,
       tableIds: [parsedBody.data.tableId],
-      requireAdjacency: false,
       client: serviceClient,
     });
 

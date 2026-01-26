@@ -279,7 +279,6 @@ export function useTableAssignment({
         bookingId,
         tableIds,
         idempotencyKey: generateIdempotencyKey(),
-        requireAdjacency: false,
       });
     },
     onSuccess: () => {
@@ -314,7 +313,6 @@ export function useTableAssignment({
       // Step 1: Get auto-quote for optimal table selection
       const quoteResult = await bookingService.autoQuoteTables({
         bookingId,
-        requireAdjacency: false,
       });
 
       if (
@@ -330,7 +328,6 @@ export function useTableAssignment({
         bookingId,
         tableIds: quoteResult.candidate.tableIds,
         idempotencyKey: generateIdempotencyKey(),
-        requireAdjacency: false,
       });
     },
     onSuccess: () => {

@@ -26,7 +26,7 @@ export {
   getBookingTableAssignments,
 } from "./assignment";
 
-export { quoteTablesForBooking, findSuitableTables } from "./quote";
+export { quoteTablesForBooking } from "./quote";
 
 export type { AvailabilityMap, TimeFilterStats, LookaheadConfig } from "./availability";
 

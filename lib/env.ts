@@ -170,7 +170,6 @@ export const env = {
     const plannerTimePruningDefault = parsed.FEATURE_PLANNER_TIME_PRUNING_ENABLED ?? true;
     const plannerCacheTtlMs = 60_000;
     const adjacencyMinPartySize = null;
-    const adjacencyMode = 'connected' as const;
     const manualAssignmentMaxSlack =
       typeof parsed.FEATURE_MANUAL_ASSIGNMENT_MAX_SLACK === 'number'
         ? Math.max(0, Math.min(parsed.FEATURE_MANUAL_ASSIGNMENT_MAX_SLACK, 12))
@@ -241,10 +240,8 @@ export const env = {
       },
       allocator: {
         mergesEnabled: allocatorMergesDefault,
-        requireAdjacency: parsed.FEATURE_ALLOCATOR_REQUIRE_ADJACENCY ?? true,
         kMax: allocatorKMax,
         adjacencyMinPartySize,
-        adjacencyMode,
         service: {
           failHard: parsed.FEATURE_ALLOCATOR_SERVICE_FAIL_HARD ?? false,
         },

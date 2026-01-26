@@ -12,7 +12,6 @@ const confirmPayloadSchema = z.object({
   holdId: z.string().uuid(),
   bookingId: z.string().uuid(),
   idempotencyKey: z.string().min(1),
-  requireAdjacency: z.boolean().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -34,7 +33,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid request payload", details: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { holdId, bookingId, idempotencyKey, requireAdjacency } = parsed.data;
+  const { holdId, bookingId, idempotencyKey } = parsed.data;
 
   const holdLookup = await supabase
     .from("table_holds")
@@ -73,7 +72,6 @@ export async function POST(req: NextRequest) {
       holdId,
       bookingId,
       idempotencyKey,
-      requireAdjacency,
       assignedBy: user.id,
       client: serviceClient,
     });

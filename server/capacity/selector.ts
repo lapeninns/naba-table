@@ -33,6 +33,11 @@ type DiagnosticSkipKey = (typeof DIAGNOSTIC_SKIP_KEYS)[number];
 
 type DiagnosticSkipCounts = Record<DiagnosticSkipKey, number> & Record<string, number>;
 
+type CandidatePools = {
+  validTables: Table[];
+  singleTableCandidates: Table[];
+};
+
 export type CandidateMetrics = {
   overage: number;
   tableCount: number;
@@ -166,6 +171,124 @@ function incrementCounter(target: Record<string, number>, key: string, amount = 
   target[key] = current + amount;
 }
 
+function createDiagnostics(params: {
+  combinationCap: number;
+  perSlackLimit: number;
+  combinationEvaluationLimit: number;
+  enumerationTimeoutMs?: number;
+}): CandidateDiagnostics {
+  return {
+    singlesConsidered: 0,
+    combinationsEnumerated: 0,
+    combinationsAccepted: 0,
+    skipped: createSkipCounts(),
+    limits: {
+      kMax: params.combinationCap,
+      maxPlansPerSlack: params.perSlackLimit,
+      maxCombinationEvaluations: params.combinationEvaluationLimit,
+      enumerationTimeoutMs: Math.max(50, params.enumerationTimeoutMs ?? DEFAULT_ENUMERATION_TIMEOUT_MS),
+    },
+    totals: {
+      enumerated: 0,
+      accepted: 0,
+    },
+  };
+}
+
+function collectCandidateTables(params: {
+  tables: Table[];
+  partySize: number;
+  allowMinPartySizeViolation: boolean;
+  enableCombinations: boolean;
+  effectiveCapacityCap: number;
+  diagnostics: CandidateDiagnostics;
+}): CandidatePools {
+  const { tables, partySize, allowMinPartySizeViolation, enableCombinations, effectiveCapacityCap, diagnostics } = params;
+  const validTables: Table[] = [];
+  const singleTableCandidates: Table[] = [];
+
+  for (const table of tables) {
+    const capacity = table.capacity ?? 0;
+    if (!Number.isFinite(capacity) || capacity <= 0) {
+      incrementCounter(diagnostics.skipped, "capacity");
+      continue;
+    }
+
+    if (
+      !allowMinPartySizeViolation &&
+      typeof table.minPartySize === "number" &&
+      table.minPartySize > 0 &&
+      partySize < table.minPartySize
+    ) {
+      incrementCounter(diagnostics.skipped, "capacity");
+      continue;
+    }
+
+    // FIX: maxPartySize should only apply to single-table assignments, not combinations
+    // For combinations, we need to allow tables with maxPartySize < partySize
+    // because they can be combined with other tables to meet the party size
+    const canUseSingle = !(
+      typeof table.maxPartySize === "number" &&
+      table.maxPartySize > 0 &&
+      partySize > table.maxPartySize
+    );
+
+    // Skip this table entirely only if it also can't contribute to combinations
+    // (e.g., if combinations are disabled AND it violates maxPartySize for singles)
+    if (!canUseSingle && !enableCombinations) {
+      incrementCounter(diagnostics.skipped, "capacity");
+      continue;
+    }
+
+    if (capacity > effectiveCapacityCap) {
+      incrementCounter(diagnostics.skipped, "overage");
+      continue;
+    }
+
+    validTables.push(table);
+
+    // Only add to single-table candidates if it can be used as a single table
+    // AND has sufficient capacity for the party
+    if (canUseSingle && capacity >= partySize) {
+      singleTableCandidates.push(table);
+    }
+  }
+
+  return { validTables, singleTableCandidates };
+}
+
+function buildSingleTablePlans(params: {
+  singleTableCandidates: Table[];
+  partySize: number;
+  tableScarcityScores: Map<string, number>;
+  weights: SelectorScoringWeights;
+  demandMultiplier: number;
+}): RankedTablePlan[] {
+  const { singleTableCandidates, partySize, tableScarcityScores, weights, demandMultiplier } = params;
+  const plans: RankedTablePlan[] = [];
+
+  for (const table of singleTableCandidates) {
+    const adjacencyDepths = new Map<string, number>([[table.id, 0]]);
+    const metrics = computeMetrics([table], partySize, adjacencyDepths, tableScarcityScores);
+    const { score, breakdown } = computeScore(metrics, weights, demandMultiplier);
+    const totalCapacity = metrics.overage + partySize;
+    const tableKey = buildTableKey([table]);
+
+    plans.push({
+      tables: [table],
+      totalCapacity,
+      slack: metrics.overage,
+      metrics,
+      score,
+      tableKey,
+      adjacencyStatus: "single",
+      scoreBreakdown: breakdown,
+    });
+  }
+
+  return plans;
+}
+
 export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCandidatesResult {
   const durationStartMs = performance.now();
   const DEBUG = process.env.CAPACITY_DEBUG === '1' || process.env.CAPACITY_DEBUG === 'true';
@@ -196,68 +319,21 @@ export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCan
   const combinationCap = Math.max(1, Math.min(kMax ?? config.maxTables ?? 1, tables.length || 1));
   const perSlackLimit = Math.max(1, maxPlansPerSlack ?? DEFAULT_MAX_PLANS_PER_SLACK);
   const combinationEvaluationLimit = Math.max(1, maxCombinationEvaluations ?? DEFAULT_MAX_COMBINATION_EVALUATIONS);
-  const diagnostics: CandidateDiagnostics = {
-    singlesConsidered: 0,
-    combinationsEnumerated: 0,
-    combinationsAccepted: 0,
-    skipped: createSkipCounts(),
-    limits: {
-      kMax: combinationCap,
-      maxPlansPerSlack: perSlackLimit,
-      maxCombinationEvaluations: combinationEvaluationLimit,
-      enumerationTimeoutMs: Math.max(50, enumerationTimeoutMs ?? DEFAULT_ENUMERATION_TIMEOUT_MS),
-    },
-    totals: {
-      enumerated: 0,
-      accepted: 0,
-    },
-  };
+  const diagnostics = createDiagnostics({
+    combinationCap,
+    perSlackLimit,
+    combinationEvaluationLimit,
+    enumerationTimeoutMs,
+  });
 
-  const validTables: Table[] = [];
-  const singleTableCandidates: Table[] = [];
-
-  for (const table of tables) {
-    const capacity = table.capacity ?? 0;
-    if (!Number.isFinite(capacity) || capacity <= 0) {
-      incrementCounter(diagnostics.skipped, "capacity");
-      continue;
-    }
-
-    if (
-      !allowMinPartySizeViolation &&
-      typeof table.minPartySize === "number" &&
-      table.minPartySize > 0 &&
-      partySize < table.minPartySize
-    ) {
-      incrementCounter(diagnostics.skipped, "capacity");
-      continue;
-    }
-
-    // FIX: maxPartySize should only apply to single-table assignments, not combinations
-    // For combinations, we need to allow tables with maxPartySize < partySize
-    // because they can be combined with other tables to meet the party size
-    const canUseSingle = !(typeof table.maxPartySize === "number" && table.maxPartySize > 0 && partySize > table.maxPartySize);
-    
-    // Skip this table entirely only if it also can't contribute to combinations
-    // (e.g., if combinations are disabled AND it violates maxPartySize for singles)
-    if (!canUseSingle && !enableCombinations) {
-      incrementCounter(diagnostics.skipped, "capacity");
-      continue;
-    }
-
-    if (capacity > effectiveCapacityCap) {
-      incrementCounter(diagnostics.skipped, "overage");
-      continue;
-    }
-
-    validTables.push(table);
-
-    // Only add to single-table candidates if it can be used as a single table
-    // AND has sufficient capacity for the party
-    if (canUseSingle && capacity >= partySize) {
-      singleTableCandidates.push(table);
-    }
-  }
+  const { validTables, singleTableCandidates } = collectCandidateTables({
+    tables,
+    partySize,
+    allowMinPartySizeViolation,
+    enableCombinations,
+    effectiveCapacityCap,
+    diagnostics,
+  });
 
   diagnostics.singlesConsidered = singleTableCandidates.length;
 
@@ -271,26 +347,13 @@ export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCan
     });
   }
 
-  const plans: RankedTablePlan[] = [];
-
-  for (const table of singleTableCandidates) {
-    const adjacencyDepths = new Map<string, number>([[table.id, 0]]);
-    const metrics = computeMetrics([table], partySize, adjacencyDepths, tableScarcityScores);
-    const { score, breakdown } = computeScore(metrics, weights, demandMultiplier);
-    const totalCapacity = metrics.overage + partySize;
-    const tableKey = buildTableKey([table]);
-
-    plans.push({
-      tables: [table],
-      totalCapacity,
-      slack: metrics.overage,
-      metrics,
-      score,
-      tableKey,
-      adjacencyStatus: "single",
-      scoreBreakdown: breakdown,
-    });
-  }
+  const plans = buildSingleTablePlans({
+    singleTableCandidates,
+    partySize,
+    tableScarcityScores,
+    weights,
+    demandMultiplier,
+  });
 
   let enumerateCombinationsMs: number | undefined;
   let dfsIterations: number | undefined;
@@ -319,11 +382,15 @@ export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCan
     // Check if early exit occurred
     if (diagnostics.combinationsEnumerated > 0) {
       dfsIterations = diagnostics.combinationsEnumerated;
-      const limitSkipped = diagnostics.skipped.limit ?? 0;
-      if (limitSkipped > 0) {
-        earlyExit = true;
-        earlyExitReason = `evaluation_limit_reached (${combinationEvaluationLimit})`;
-      }
+    }
+    const timeoutSkipped = diagnostics.skipped.timeout ?? 0;
+    const limitSkipped = diagnostics.skipped.limit ?? 0;
+    if (timeoutSkipped > 0) {
+      earlyExit = true;
+      earlyExitReason = `timeout (${diagnostics.limits.enumerationTimeoutMs ?? DEFAULT_ENUMERATION_TIMEOUT_MS}ms)`;
+    } else if (limitSkipped > 0) {
+      earlyExit = true;
+      earlyExitReason = `evaluation_limit_reached (${combinationEvaluationLimit})`;
     }
 
     plans.push(...combinationPlans);

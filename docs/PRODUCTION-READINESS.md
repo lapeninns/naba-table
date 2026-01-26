@@ -281,6 +281,9 @@ Could not verify that test endpoints are properly guarded in production.
    - Web Vitals tracking
    - API response time tracking
    - Database query performance
+   - Capacity selector telemetry (eventType: `capacity.selector.quote` / `capacity.selector.skipped`)
+     - Alert when `adjacencyFailure.reason` spikes or `adjacencyFailure.skipped.adjacency_frontier` > 0 for >10% of quotes over 15 min
+     - Dashboard filters: `source=capacity.selector` and `context.adjacencyFailure.reason`
 
 2. **A/B Testing Framework**
 3. **Feature Flags System**

@@ -171,7 +171,6 @@ type AutoQuoteResponse = {
   nextTimes: string[];
   reason?: string | null;
   zoneId?: string | null;
-  requireAdjacency?: boolean | null;
   serviceFallback?: {
     usedFallback: boolean;
     fallbackService: string | null;
@@ -182,7 +181,6 @@ type AutoQuoteInput = {
   bookingId: string;
   zoneId?: string;
   maxTables?: number;
-  requireAdjacency?: boolean;
   avoidTables?: string[];
   holdTtlSeconds?: number;
 };
@@ -191,7 +189,6 @@ type ConfirmHoldInput = {
   holdId: string;
   bookingId: string;
   idempotencyKey: string;
-  requireAdjacency?: boolean;
   contextVersion?: string;
   selectionVersion?: number | null;
 };
@@ -254,7 +251,6 @@ export type ManualHoldResponse = {
 export type ManualSelectionPayload = {
   bookingId: string;
   tableIds: string[];
-  requireAdjacency?: boolean;
   excludeHoldId?: string;
   contextVersion?: string;
   selectionVersion?: number | null;
@@ -352,7 +348,6 @@ export type ManualAssignmentSession = {
   state: 'none' | 'proposed' | 'held' | 'confirmed' | 'expired' | 'conflicted' | 'cancelled';
   selection?: {
     tableIds: string[];
-    requireAdjacency?: boolean | null;
     summary?: ManualValidationResult['summary'] | null;
   } | null;
   selectionVersion: number;
@@ -448,7 +443,6 @@ export interface BookingService {
     bookingId: string;
     tableIds: string[];
     idempotencyKey: string;
-    requireAdjacency?: boolean;
   }): Promise<{
     success: true;
     assignments: Array<{
@@ -657,11 +651,10 @@ export function createBrowserBookingService(): BookingService {
         method: 'DELETE',
       });
     },
-    async autoQuoteTables({ bookingId, zoneId, maxTables, requireAdjacency, avoidTables, holdTtlSeconds }) {
+    async autoQuoteTables({ bookingId, zoneId, maxTables, avoidTables, holdTtlSeconds }) {
       const payload: Record<string, unknown> = { bookingId };
       if (zoneId) payload.zoneId = zoneId;
       if (typeof maxTables === 'number') payload.maxTables = maxTables;
-      if (typeof requireAdjacency === 'boolean') payload.requireAdjacency = requireAdjacency;
       if (Array.isArray(avoidTables) && avoidTables.length > 0) payload.avoidTables = avoidTables;
       if (typeof holdTtlSeconds === 'number') payload.holdTtlSeconds = holdTtlSeconds;
 
@@ -671,7 +664,7 @@ export function createBrowserBookingService(): BookingService {
         body: JSON.stringify(payload),
       });
     },
-    async confirmHoldAssignment({ holdId, bookingId, idempotencyKey, requireAdjacency, contextVersion }) {
+    async confirmHoldAssignment({ holdId, bookingId, idempotencyKey, contextVersion }) {
       if (!contextVersion) {
         contextVersion = await fetchContextVersion(bookingId) ?? '';
       }
@@ -681,7 +674,6 @@ export function createBrowserBookingService(): BookingService {
         idempotencyKey,
         contextVersion,
       };
-      if (typeof requireAdjacency === 'boolean') payload.requireAdjacency = requireAdjacency;
 
       return fetchJson<ConfirmHoldResponse>(`${STAFF_AUTO_BASE}/confirm`, {
         method: 'POST',
@@ -702,7 +694,7 @@ export function createBrowserBookingService(): BookingService {
     async getAssignmentContext(bookingId) {
       return fetchJson<AssignmentContext>(`/api/ops/bookings/${bookingId}/assignment-context`);
     },
-    async assignTablesDirect({ bookingId, tableIds, idempotencyKey, requireAdjacency }) {
+    async assignTablesDirect({ bookingId, tableIds, idempotencyKey }) {
       return fetchJson<{
         success: true;
         assignments: Array<{
@@ -726,7 +718,7 @@ export function createBrowserBookingService(): BookingService {
       }>(`/api/ops/bookings/${bookingId}/assign-tables`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tableIds, idempotencyKey, requireAdjacency }),
+        body: JSON.stringify({ tableIds, idempotencyKey }),
       });
     },
     async unassignTablesDirect({ bookingId, tableIds }) {

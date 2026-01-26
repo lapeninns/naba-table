@@ -35,7 +35,6 @@ export async function confirmHold(params: {
   holdId: string;
   bookingId: string;
   idempotencyKey: string;
-  requireAdjacency?: boolean;
   assignedBy?: string | null;
   client?: DbClient;
 }): Promise<TableAssignmentMember[]> {
