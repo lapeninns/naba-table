@@ -85,7 +85,6 @@ async function main() {
 
   const [
     { getSelectorScoringConfig, getYieldManagementScarcityWeight },
-    { loadStrategicConfig },
     { loadTableScarcityScores },
     { buildScoredTablePlans },
     { getAllocatorKMax, isCombinationPlannerEnabled },
@@ -94,7 +93,6 @@ async function main() {
     { resolveRequireAdjacency },
   ] = await Promise.all([
     import("@/server/capacity/policy"),
-    import("@/server/capacity/strategic-config"),
     import("@/server/capacity/scarcity"),
     import("@/server/capacity/selector"),
     import("@/server/feature-flags"),
@@ -115,8 +113,7 @@ async function main() {
     supabase,
   );
 
-  const strategicConfig = await loadStrategicConfig({ restaurantId: args.restaurantId, client: supabase });
-  const baseScoring = getSelectorScoringConfig(strategicConfig);
+  const baseScoring = getSelectorScoringConfig({ restaurantId: args.restaurantId });
   const scoringConfig = {
     ...baseScoring,
     weights: {
