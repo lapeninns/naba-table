@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+import {
+  CUSTOMER_PHONE_LENGTH_MAX,
+  CUSTOMER_PHONE_LENGTH_MIN,
+} from "@reserve/shared/validation";
+
 function isHttpsUrl(value: string): boolean {
   try {
     const url = new URL(value);
@@ -35,9 +40,9 @@ export const profilePhoneSchema = z
   .refine((value) => {
     if (value.length === 0) return true;
     const digits = value.replace(/\D/g, "");
-    return digits.length >= 7 && digits.length <= 20;
+    return digits.length >= CUSTOMER_PHONE_LENGTH_MIN && digits.length <= CUSTOMER_PHONE_LENGTH_MAX;
   }, {
-    message: "Phone must include between 7 and 20 digits",
+    message: `Phone must include between ${CUSTOMER_PHONE_LENGTH_MIN} and ${CUSTOMER_PHONE_LENGTH_MAX} digits`,
   });
 
 export const profileUpdateSchema = z
@@ -83,7 +88,7 @@ export const profileUpdateSchema = z
 export type ProfileUpdatePayload = z.infer<typeof profileUpdateSchema>;
 
 const profilePhoneValueSchema = profilePhoneSchema.refine((value) => value.length > 0, {
-  message: "Phone must include between 7 and 20 digits",
+  message: `Phone must include between ${CUSTOMER_PHONE_LENGTH_MIN} and ${CUSTOMER_PHONE_LENGTH_MAX} digits`,
 });
 
 export const profileResponseSchema = z.object({

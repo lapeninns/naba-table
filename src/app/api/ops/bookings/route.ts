@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { DateTime } from 'luxon';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -40,6 +40,10 @@ import { consumeRateLimit } from '@/server/security/rate-limit';
 import { anonymizeIp, extractClientIp } from '@/server/security/request';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 import { fetchUserMemberships, requireMembershipForRestaurant } from '@/server/team/access';
+import {
+  CUSTOMER_PHONE_LENGTH_MAX,
+  CUSTOMER_PHONE_LENGTH_MIN,
+} from '@reserve/shared/validation';
 
 import { opsWalkInBookingSchema, type OpsWalkInBookingPayload } from './schema';
 
@@ -50,6 +54,8 @@ import type { NextRequest } from 'next/server';
 
 const OPS_CHANNEL = 'ops.walkin';
 const OPS_WALK_IN_SOURCE = 'walk-in';
+const FALLBACK_PHONE_PREFIX = '000';
+const FALLBACK_PHONE_DIGIT_COUNT = CUSTOMER_PHONE_LENGTH_MAX - FALLBACK_PHONE_PREFIX.length;
 
 type BookingPayload = OpsWalkInBookingPayload;
 
@@ -118,6 +124,33 @@ function buildRequestDetails(params: {
   } as const;
 }
 
+function digitizeHash(seed: string): string {
+  const digest = createHash('sha256').update(seed).digest('hex');
+  return digest.replace(/[a-f]/g, (char) => String((char.charCodeAt(0) - 87) % 10));
+}
+
+function assertCustomerPhoneLength(phone: string): void {
+  const length = phone.length;
+  if (length < CUSTOMER_PHONE_LENGTH_MIN || length > CUSTOMER_PHONE_LENGTH_MAX) {
+    throw new Error(
+      `[ops/bookings] Phone must be between ${CUSTOMER_PHONE_LENGTH_MIN} and ${CUSTOMER_PHONE_LENGTH_MAX} characters.`,
+    );
+  }
+}
+
+function buildConstraintSafeFallbackPhone(clientRequestId: string): string {
+  const seed = clientRequestId.trim() || randomUUID();
+  const requestDigits = seed.replace(/\D/g, '');
+  const hashDigits = digitizeHash(seed);
+  const combinedDigits = `${requestDigits}${hashDigits}`;
+  const fallbackDigits = combinedDigits
+    .slice(0, FALLBACK_PHONE_DIGIT_COUNT)
+    .padEnd(FALLBACK_PHONE_DIGIT_COUNT, '0');
+  const fallbackPhone = `${FALLBACK_PHONE_PREFIX}${fallbackDigits}`;
+  assertCustomerPhoneLength(fallbackPhone);
+  return fallbackPhone;
+}
+
 function ensureFallbackContact(
   value: string | null | undefined,
   clientRequestId: string,
@@ -132,7 +165,7 @@ function ensureFallbackContact(
   if (kind === 'email') {
     return `walkin+${slug}@system.local`;
   }
-  return `000-${slug}`;
+  return buildConstraintSafeFallbackPhone(clientRequestId);
 }
 
 type RestaurantContactDetails = {
