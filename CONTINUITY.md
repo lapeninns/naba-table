@@ -1,47 +1,54 @@
 # Continuity Ledger
 
-Last updated: 2026-01-25T21:38:20Z
+Last updated: 2026-01-26T10:07:48Z
 
 ## Goal (incl. success criteria)
 
-- Unblock Vercel production build failing on env validation for `NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN`.
-- Success: Build passes with required env var set or validation adjusted per plan.
+- Fix cron email behavior and ensure scheduled emails send correctly and exactly once
+- Success: Cron email processing reduces Redis N+1 calls and preserves correctness
 
 ## Constraints/Assumptions
 
-- Follow AGENTS.md SDLC phases; no coding before requirements & plan reviewed.
-- Everything is a task with `tasks/<slug>-YYYYMMDD-HHMM>/` artifacts.
-- Production deployment context; secrets not committed.
+- Follow AGENTS.md SDLC phases; no coding before requirements & plan reviewed
+- Everything is a task with `tasks/<slug>-YYYYMMDD-HHMM>/` artifacts
+- Secrets not committed; use env/secret stores
 
 ## Key decisions
 
-- Proceed with task setup and SDLC artifacts before code changes.
+- Use a new worktree from `main` for the cron email fixes task
+- Refactor cron job selection to fetch waiting jobs first, then minimal delayed scan
 
 ## State
 
-- Task folder and SDLC stubs created; ready to inspect env validation code.
+- Tests executed; verification updated
 
 ## Done
 
-- Identified build failure: env validation requires `NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN` boolean.
-- Created task folder and SDLC artifacts for fix.
+- Created worktree at `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX-cron-email-fixes-20260126-0950`
+- Created branch `task/cron-email-fixes-20260126-0950` from `main`
+- Created task artifacts in `tasks/cron-email-fixes-20260126-0950/`
+- Updated cron selection logic to reduce Redis job fetches
+- Added unit tests for cron job selection
+- Ran `pnpm test -- src/app/api/cron/process-emails/route.test.ts` (passed)
+- Updated verification report with test results
 
 ## Now
 
-- Inspect env validation implementation to confirm allowed values and defaults.
+- Summarize changes and prepare for review
 
 ## Next
 
-- Decide on env-only fix vs code default and implement if needed.
+- Optionally run targeted performance validation in staging
+- Prep PR summary if requested
 
 ## Open questions (UNCONFIRMED if needed)
 
-- Should we set the env var in Vercel only, or adjust validation to allow a default? (UNCONFIRMED)
+- Is there a production QueueScheduler/worker running, or is cron the only processor? (UNCONFIRMED)
+- What specific success metrics should we validate against in monitoring? (UNCONFIRMED)
 
 ## Working set (files/ids/commands)
 
-- scripts/validate-env.ts
-- tasks/fix-realtime-floorplan-env-20260125-1306/research.md
-- tasks/fix-realtime-floorplan-env-20260125-1306/plan.md
-- tasks/fix-realtime-floorplan-env-20260125-1306/todo.md
-- tasks/fix-realtime-floorplan-env-20260125-1306/verification.md
+- `src/app/api/cron/process-emails/route.ts`
+- `src/app/api/cron/process-emails/route.test.ts`
+- `tasks/cron-email-fixes-20260126-0950/verification.md`
+- `CONTINUITY.md`
