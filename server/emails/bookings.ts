@@ -1,11 +1,12 @@
 import config from '@/config';
 import { env } from '@/lib/env';
+import { type EmailJobType } from '@/lib/queue/email-types';
 import {
   buildCalendarEvent,
   type ReservationCalendarPayload,
 } from '@/lib/reservations/calendar-event';
 import { type VenueDetails } from '@/lib/venue';
-import { sendEmail, type EmailAttachment } from '@/libs/resend';
+import { sendEmail, type EmailAttachment, type EmailTag } from '@/libs/resend';
 import {
   COLORS,
   renderButton,
@@ -16,6 +17,7 @@ import {
   EMAIL_FONT_STACK,
   type EmailAnnotation,
 } from '@/server/emails/base';
+import { recordEmailDeliveryEvent } from '@/server/emails/delivery-log';
 import {
   ensureLogoColumnOnRow,
   isLogoUrlColumnMissing,
@@ -494,13 +496,59 @@ type BookingEmailType =
   | 'reminder'
   | 'pending_attention';
 
+type EmailDispatchOptions = {
+  reminderVariant?: 'short' | 'standard';
+  reason?: string;
+  emailJobType?: EmailJobType;
+};
+
+function resolveTemplateType(type: BookingEmailType, options?: EmailDispatchOptions): string {
+  if (type === 'reminder') {
+    return options?.reminderVariant === 'short' ? 'reminder_short' : 'reminder';
+  }
+  return type;
+}
+
+function resolveEmailJobType(type: BookingEmailType, options?: EmailDispatchOptions): EmailJobType | null {
+  if (options?.emailJobType) return options.emailJobType;
+  switch (type) {
+    case 'created':
+      return 'confirmation';
+    case 'updated':
+      return 'updated';
+    case 'cancelled':
+      return 'cancelled';
+    case 'booking_rejected':
+      return 'booking_rejected';
+    case 'restaurant_cancellation':
+      return 'restaurant_cancellation';
+    case 'review_request':
+      return 'review_request';
+    case 'reminder':
+      return options?.reminderVariant === 'short' ? 'reminder_short' : 'reminder_24h';
+    default:
+      return null;
+  }
+}
+
+function buildEmailTags(params: {
+  bookingId: string;
+  restaurantId: string | null;
+  emailJobType: EmailJobType | null;
+  templateType: string;
+}): EmailTag[] {
+  const tags: EmailTag[] = [];
+  tags.push({ name: 'booking_id', value: params.bookingId });
+  if (params.restaurantId) tags.push({ name: 'restaurant_id', value: params.restaurantId });
+  if (params.emailJobType) tags.push({ name: 'email_type', value: params.emailJobType });
+  if (params.templateType) tags.push({ name: 'template_type', value: params.templateType });
+  return tags;
+}
+
 async function dispatchEmail(
   type: BookingEmailType,
   booking: BookingRecord,
-  options?: {
-    reminderVariant?: 'short' | 'standard';
-    reason?: string;
-  },
+  options?: EmailDispatchOptions,
 ) {
   const venue = await resolveVenueDetails(booking.restaurant_id);
   const manageUrl = buildManageUrl(booking);
@@ -681,36 +729,81 @@ async function dispatchEmail(
     return;
   }
 
-  await sendEmail({
+  const templateType = resolveTemplateType(type, options);
+  const emailJobType = resolveEmailJobType(type, options);
+  const tags = buildEmailTags({
+    bookingId: booking.id,
+    restaurantId: booking.restaurant_id ?? null,
+    emailJobType,
+    templateType,
+  });
+
+  const messageId = await sendEmail({
     to: toEmail,
     subject: `${headline} - ${venue.name}`,
     html,
     text,
     attachments,
     fromName: venue.name,
+    tags,
   });
+
+  try {
+    const recipients = Array.isArray(toEmail) ? toEmail : [toEmail];
+    await Promise.all(
+      recipients.map((recipient) =>
+        recordEmailDeliveryEvent({
+          bookingId: booking.id,
+          restaurantId: booking.restaurant_id ?? null,
+          emailType: emailJobType,
+          templateType,
+          recipientEmail: recipient,
+          messageId,
+          status: 'sent',
+        }),
+      ),
+    );
+  } catch (error) {
+    console.warn('[emails][bookings] Failed to record delivery log', {
+      bookingId: booking.id,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 }
 
-export const sendBookingConfirmationEmail = (booking: BookingRecord) =>
-  dispatchEmail('created', booking);
-export const sendBookingUpdateEmail = (booking: BookingRecord) =>
-  dispatchEmail('modification_confirmed', booking);
-export const sendBookingCancellationEmail = (booking: BookingRecord) =>
-  dispatchEmail('cancelled', booking);
-export const sendBookingModificationPendingEmail = (booking: BookingRecord) =>
-  dispatchEmail('modification_pending', booking);
-export const sendBookingModificationConfirmedEmail = (booking: BookingRecord) =>
-  dispatchEmail('modification_confirmed', booking);
-export const sendBookingRejectedEmail = (booking: BookingRecord) =>
-  dispatchEmail('booking_rejected', booking);
-export const sendRestaurantCancellationEmail = (booking: BookingRecord) =>
-  dispatchEmail('restaurant_cancellation', booking);
-export const sendBookingReviewRequestEmail = (booking: BookingRecord) =>
-  dispatchEmail('review_request', booking);
+export const sendBookingConfirmationEmail = (
+  booking: BookingRecord,
+  options?: { emailJobType?: EmailJobType },
+) => dispatchEmail('created', booking, options);
+export const sendBookingUpdateEmail = (booking: BookingRecord, options?: { emailJobType?: EmailJobType }) =>
+  dispatchEmail('modification_confirmed', booking, { emailJobType: 'updated', ...options });
+export const sendBookingCancellationEmail = (
+  booking: BookingRecord,
+  options?: { emailJobType?: EmailJobType },
+) => dispatchEmail('cancelled', booking, options);
+export const sendBookingModificationPendingEmail = (
+  booking: BookingRecord,
+  options?: { emailJobType?: EmailJobType },
+) => dispatchEmail('modification_pending', booking, { emailJobType: 'updated', ...options });
+export const sendBookingModificationConfirmedEmail = (
+  booking: BookingRecord,
+  options?: { emailJobType?: EmailJobType },
+) => dispatchEmail('modification_confirmed', booking, { emailJobType: 'updated', ...options });
+export const sendBookingRejectedEmail = (booking: BookingRecord, options?: { emailJobType?: EmailJobType }) =>
+  dispatchEmail('booking_rejected', booking, options);
+export const sendRestaurantCancellationEmail = (
+  booking: BookingRecord,
+  options?: { emailJobType?: EmailJobType },
+) => dispatchEmail('restaurant_cancellation', booking, options);
+export const sendBookingReviewRequestEmail = (
+  booking: BookingRecord,
+  options?: { emailJobType?: EmailJobType },
+) => dispatchEmail('review_request', booking, options);
 export const sendBookingReminderEmail = (
   booking: BookingRecord,
   options: { variant: 'short' | 'standard' },
-) => dispatchEmail('reminder', booking, { reminderVariant: options.variant });
+  extras?: { emailJobType?: EmailJobType },
+) => dispatchEmail('reminder', booking, { reminderVariant: options.variant, ...extras });
 export const sendBookingPendingAttentionEmail = (
   booking: BookingRecord,
   options: { reason: string },

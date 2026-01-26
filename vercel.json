@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/auto-complete-bookings",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/cleanup-email-delivery-logs",
+      "schedule": "0 3 * * *"
     }
   ]
 }

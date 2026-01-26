@@ -222,7 +222,9 @@ export async function autoAssignAndConfirmIfPossible(
             if (emailVariant === "modified") {
               await sendBookingModificationConfirmedEmail(booking as unknown as Tables<"bookings">);
             } else {
-              await sendBookingConfirmationEmail(booking as unknown as Tables<"bookings">);
+              await sendBookingConfirmationEmail(booking as unknown as Tables<"bookings">, {
+                emailJobType: "confirmation",
+              });
             }
           } catch (e) {
             console.error("[auto-assign] failed sending confirmation for already-confirmed", { bookingId, error: e });
@@ -498,7 +500,9 @@ export async function autoAssignAndConfirmIfPossible(
               } else if (emailVariant === "modified") {
                 await sendBookingModificationConfirmedEmail(updated as unknown as Tables<"bookings">);
               } else {
-                await sendBookingConfirmationEmail(updated as unknown as Tables<"bookings">);
+                await sendBookingConfirmationEmail(updated as unknown as Tables<"bookings">, {
+                  emailJobType: "confirmation",
+                });
               }
             }
 

@@ -1,0 +1,185 @@
+audience,category,feature,surface,entry_point,source
+ops,Auth/Profile,Ops staff sign-in,UI,/app/auth/signin,src/app/app/auth/signin/page.tsx
+ops,Analytics,Dashboard overview,UI,/app/dashboard,src/app/app/(app)/dashboard/page.tsx
+ops,Bookings,Dashboard print view,UI,/app/dashboard/print,src/app/app/(app)/dashboard/print/page.tsx
+ops,Bookings,Bookings management,UI,/app/bookings,src/app/app/(app)/bookings/page.tsx
+ops,Bookings,New bookings / walk-in logging,UI,/app/new-bookings,src/app/app/(app)/new-bookings/page.tsx
+ops,Analytics,Rejections analytics,UI,/app/rejections,src/app/app/(app)/rejections/page.tsx
+ops,Customers,Customer database,UI,/app/customers,src/app/app/(app)/customers/page.tsx
+ops,Messaging/Notifications,Email status,UI,/app/email-status,src/app/app/(app)/email-status/page.tsx
+ops,Tables/Floor Plan,Floor plan,UI,/app/floor-plan,src/app/app/(app)/floor-plan/page.tsx
+ops,Tables/Floor Plan,Seating overview,UI,/app/seating,src/app/app/(app)/seating/page.tsx
+ops,Tables/Floor Plan,Seating floor plan,UI,/app/seating/floor-plan,src/app/app/(app)/seating/floor-plan/page.tsx
+ops,Settings/Restaurant,Restaurant settings overview,UI,/app/settings/restaurant,src/app/app/(app)/settings/restaurant/page.tsx
+ops,Settings/Restaurant,Restaurant profile,UI,/app/settings/restaurant/profile,src/app/app/(app)/settings/restaurant/profile/page.tsx
+ops,Settings/Restaurant,Operating hours,UI,/app/settings/restaurant/operating-hours,src/app/app/(app)/settings/restaurant/operating-hours/page.tsx
+ops,Settings/Restaurant,Service periods,UI,/app/settings/restaurant/service-periods,src/app/app/(app)/settings/restaurant/service-periods/page.tsx
+ops,Settings/Restaurant,Booking occasions,UI,/app/settings/restaurant/occasions,src/app/app/(app)/settings/restaurant/occasions/page.tsx
+ops,Settings/Team,Restaurant team settings,UI,/app/settings/restaurant/team,src/app/app/(app)/settings/restaurant/team/page.tsx
+ops,Settings/Tables,Tables configuration,UI,/app/settings/tables,src/app/app/(app)/settings/tables/page.tsx
+ops,Settings/Team,Team management,UI,/app/management/team,src/app/app/(app)/management/team/page.tsx
+ops,Onboarding,Onboarding start,UI,/onboarding,src/app/onboarding/page.tsx
+ops,Onboarding,Onboarding profile,UI,/onboarding/profile,src/app/onboarding/profile/page.tsx
+ops,Onboarding,Onboarding hours,UI,/onboarding/hours,src/app/onboarding/hours/page.tsx
+ops,Onboarding,Onboarding services,UI,/onboarding/services,src/app/onboarding/services/page.tsx
+ops,Onboarding,Onboarding tables,UI,/onboarding/tables,src/app/onboarding/tables/page.tsx
+ops,Onboarding,Onboarding review,UI,/onboarding/review,src/app/onboarding/review/page.tsx
+guest,Marketing,Landing page,UI,/,src/app/(public)/page.tsx
+guest,Auth/Profile,Role selection,UI,/auth,src/app/(public)/auth/(role-selection)/page.tsx
+guest,Auth/Profile,Guest sign-in,UI,/auth/signin,src/app/(public)/auth/signin/page.tsx
+guest,Auth/Profile,Guest sign-up,UI,/auth/signup,src/app/auth/signup/page.tsx
+guest,Restaurants/Search,Restaurants list,UI,/restaurants,src/app/(public)/(marketing)/restaurants/page.tsx
+guest,Restaurants/Search,Restaurant detail,UI,/restaurants/[slug],src/app/(public)/(marketing)/restaurants/[slug]/page.tsx
+guest,Bookings,Restaurant booking wizard,UI,/restaurants/[slug]/book,src/app/(public)/(marketing)/restaurants/[slug]/book/page.tsx
+guest,Bookings,Restaurant booking thank-you,UI,/restaurants/[slug]/book/thank-you,src/app/(public)/(marketing)/restaurants/[slug]/book/thank-you/page.tsx
+guest,Bookings,Restaurant thank-you consolidation,UI,/restaurants/[slug]/thank-you,src/app/(public)/(marketing)/restaurants/[slug]/thank-you/page.tsx
+guest,Bookings,Bookings landing,UI,/bookings,src/app/(public)/bookings/page.tsx
+guest,Bookings,Booking detail (public/token),UI,/bookings/[bookingId],src/app/(public)/bookings/[bookingId]/page.tsx
+guest,Bookings,Manage booking redirect,UI,/bookings/[bookingId]/manage,src/app/(public)/bookings/[bookingId]/manage/page.tsx
+guest,Bookings,Booking thank-you,UI,/bookings/[bookingId]/thank-you,src/app/(public)/bookings/[bookingId]/thank-you/page.tsx
+guest,Bookings,Booking recovery error,UI,/bookings/recover/error,src/app/(public)/bookings/recover/error/page.tsx
+guest,Bookings,Guest booking receipt,UI,/guest/bookings/[bookingId]/receipt,src/app/guest/bookings/[bookingId]/receipt/page.tsx
+guest,Auth/Profile,Guest dashboard,UI,/guest/dashboard,src/app/guest/dashboard/page.tsx
+guest,Bookings,Guest bookings list,UI,/guest/bookings,src/app/guest/bookings/page.tsx
+guest,Bookings,Guest booking detail,UI,/guest/bookings/[bookingId],src/app/guest/bookings/[bookingId]/page.tsx
+guest,Auth/Profile,Guest profile,UI,/guest/profile,src/app/guest/profile/page.tsx
+guest,Bookings,Guest thank-you redirect,UI,/guest/thank-you,src/app/guest/thank-you/page.tsx
+guest,Auth/Profile,Guest portal root redirect,UI,/guest,src/app/guest/page.tsx
+guest,Infra/Safety,Sentry example page,UI,/sentry-example-page,src/app/sentry-example-page/page.tsx
+ops,Bookings,Ops bookings list/create,API,/api/ops/bookings,src/app/api/ops/bookings/route.ts
+ops,Bookings,Ops booking detail/update,API,/api/ops/bookings/[id],src/app/api/ops/bookings/[id]/route.ts
+ops,Bookings,Ops booking history,API,/api/ops/bookings/[id]/history,src/app/api/ops/bookings/[id]/history/route.ts
+ops,Bookings,Assign tables,API,/api/ops/bookings/[id]/assign-tables,src/app/api/ops/bookings/[id]/assign-tables/route.ts
+ops,Bookings,Assignment context,API,/api/ops/bookings/[id]/assignment-context,src/app/api/ops/bookings/[id]/assignment-context/route.ts
+ops,Bookings,Manual assignment context,API,/api/ops/bookings/[id]/manual-context,src/app/api/ops/bookings/[id]/manual-context/route.ts
+ops,Bookings,Booking tables list/replace,API,/api/ops/bookings/[id]/tables,src/app/api/ops/bookings/[id]/tables/route.ts
+ops,Bookings,Booking table assignment,API,/api/ops/bookings/[id]/tables/[tableId],src/app/api/ops/bookings/[id]/tables/[tableId]/route.ts
+ops,Bookings,Check-in booking,API,/api/ops/bookings/[id]/check-in,src/app/api/ops/bookings/[id]/check-in/route.ts
+ops,Bookings,Check-out booking,API,/api/ops/bookings/[id]/check-out,src/app/api/ops/bookings/[id]/check-out/route.ts
+ops,Bookings,Update booking status,API,/api/ops/bookings/[id]/status,src/app/api/ops/bookings/[id]/status/route.ts
+ops,Bookings,Mark no-show,API,/api/ops/bookings/[id]/no-show,src/app/api/ops/bookings/[id]/no-show/route.ts
+ops,Bookings,Undo no-show,API,/api/ops/bookings/[id]/undo-no-show,src/app/api/ops/bookings/[id]/undo-no-show/route.ts
+ops,Bookings,Bookings disabled config,API,/api/ops/bookings/disabled,src/app/api/ops/bookings/disabled/route.ts
+ops,Bookings,Bookings export,API,/api/ops/bookings/export,src/app/api/ops/bookings/export/route.ts
+ops,Bookings,Bookings status summary,API,/api/ops/bookings/status-summary,src/app/api/ops/bookings/status-summary/route.ts
+ops,Customers,Customers list,API,/api/ops/customers,src/app/api/ops/customers/route.ts
+ops,Customers,Customers export,API,/api/ops/customers/export,src/app/api/ops/customers/export/route.ts
+ops,Analytics,Dashboard summary,API,/api/ops/dashboard/summary,src/app/api/ops/dashboard/summary/route.ts
+ops,Analytics,Dashboard heatmap,API,/api/ops/dashboard/heatmap,src/app/api/ops/dashboard/heatmap/route.ts
+ops,Analytics,Dashboard rejections,API,/api/ops/dashboard/rejections,src/app/api/ops/dashboard/rejections/route.ts
+ops,Analytics,Dashboard changes,API,/api/ops/dashboard/changes,src/app/api/ops/dashboard/changes/route.ts
+ops,Analytics,Dashboard VIPs,API,/api/ops/dashboard/vips,src/app/api/ops/dashboard/vips/route.ts
+ops,Settings/Restaurant,Restaurants list for member,API,/api/ops/restaurants,src/app/api/ops/restaurants/route.ts
+ops,Settings/Restaurant,Restaurant detail,API,/api/ops/restaurants/[id],src/app/api/ops/restaurants/[id]/route.ts
+ops,Settings/Restaurant,Update restaurant details,API,/api/ops/restaurants/[id]/details,src/app/api/ops/restaurants/[id]/details/route.ts
+ops,Settings/Restaurant,Restaurant operating hours,API,/api/ops/restaurants/[id]/hours,src/app/api/ops/restaurants/[id]/hours/route.ts
+ops,Settings/Restaurant,Restaurant logo upload,API,/api/ops/restaurants/[id]/logo,src/app/api/ops/restaurants/[id]/logo/route.ts
+ops,Settings/Restaurant,Restaurant service periods,API,/api/ops/restaurants/[id]/service-periods,src/app/api/ops/restaurants/[id]/service-periods/route.ts
+ops,Settings/Tables,Tables list/create,API,/api/ops/tables,src/app/api/ops/tables/route.ts
+ops,Settings/Tables,Table update/delete,API,/api/ops/tables/[id],src/app/api/ops/tables/[id]/route.ts
+ops,Tables/Floor Plan,Tables timeline,API,/api/ops/tables/timeline,src/app/api/ops/tables/timeline/route.ts
+ops,Tables/Floor Plan,Zones list/create,API,/api/ops/zones,src/app/api/ops/zones/route.ts
+ops,Tables/Floor Plan,Zone update/delete,API,/api/ops/zones/[id],src/app/api/ops/zones/[id]/route.ts
+ops,Settings/Restaurant,Occasions list/create,API,/api/ops/occasions,src/app/api/ops/occasions/route.ts
+ops,Settings/Restaurant,Occasion update/delete,API,/api/ops/occasions/[key],src/app/api/ops/occasions/[key]/route.ts
+ops,Settings/Team,Team invitations,API,/api/ops/team/invitations,src/app/api/ops/team/invitations/route.ts
+ops,Settings/Team,Team invitation update,API,/api/ops/team/invitations/[id],src/app/api/ops/team/invitations/[id]/route.ts
+ops,Settings/Team,Team memberships,API,/api/ops/team/memberships,src/app/api/ops/team/memberships/route.ts
+ops,Settings/Restaurant,Strategic config,API,/api/ops/settings/strategic-config,src/app/api/ops/settings/strategic-config/route.ts
+ops,Analytics,Strategies simulate,API,/api/ops/strategies/simulate,src/app/api/ops/strategies/simulate/route.ts
+ops,Analytics,Operations hub,API,/api/ops/operations-hub,src/app/api/ops/operations-hub/route.ts
+ops,Messaging/Notifications,Email status,API,/api/ops/email-status,src/app/api/ops/email-status/route.ts
+ops,Onboarding,Create restaurant onboarding,API,/api/onboarding/restaurant,src/app/api/onboarding/restaurant/route.ts
+ops,Onboarding,Onboarding hours,API,/api/onboarding/restaurant/[id]/hours,src/app/api/onboarding/restaurant/[id]/hours/route.ts
+ops,Onboarding,Onboarding service periods,API,/api/onboarding/restaurant/[id]/service-periods,src/app/api/onboarding/restaurant/[id]/service-periods/route.ts
+ops,Onboarding,Onboarding tables,API,/api/onboarding/restaurant/[id]/tables,src/app/api/onboarding/restaurant/[id]/tables/route.ts
+ops,Onboarding,Onboarding zones,API,/api/onboarding/restaurant/[id]/zones,src/app/api/onboarding/restaurant/[id]/zones/route.ts
+ops,Onboarding,Onboarding complete,API,/api/onboarding/restaurant/[id]/complete,src/app/api/onboarding/restaurant/[id]/complete/route.ts
+ops,Operations/Automation,Staffing auto quote,API,/api/staff/auto/quote,src/app/api/staff/auto/quote/route.ts
+ops,Operations/Automation,Staffing auto confirm,API,/api/staff/auto/confirm,src/app/api/staff/auto/confirm/route.ts
+ops,Settings/Team,Team invitation view (token),API,/api/team/invitations/[token],src/app/api/team/invitations/[token]/route.ts
+ops,Settings/Team,Team invitation accept (token),API,/api/team/invitations/[token]/accept,src/app/api/team/invitations/[token]/accept/route.ts
+guest,Auth/Profile,Sign in,API,/api/auth/signin,src/app/api/auth/signin/route.ts
+guest,Auth/Profile,Sign up,API,/api/auth/signup,src/app/api/auth/signup/route.ts
+guest,Auth/Profile,Auth callback,API,/api/auth/callback,src/app/api/auth/callback/route.ts
+guest,Auth/Profile,Sign out,API,/api/auth/signout,src/app/api/auth/signout/route.ts
+guest,Auth/Profile,Profile read/update,API,/api/profile,src/app/api/profile/route.ts
+guest,Auth/Profile,Profile image upload,API,/api/profile/image,src/app/api/profile/image/route.ts
+guest,Restaurants/Search,Restaurants list,API,/api/restaurants,src/app/api/restaurants/route.ts
+guest,Restaurants/Search,Restaurant detail,API,/api/restaurants/[slug],src/app/api/restaurants/[slug]/route.ts
+guest,Restaurants/Search,Restaurant schedule,API,/api/restaurants/[slug]/schedule,src/app/api/restaurants/[slug]/schedule/route.ts
+guest,Restaurants/Search,Restaurant calendar mask,API,/api/restaurants/[slug]/calendar-mask,src/app/api/restaurants/[slug]/calendar-mask/route.ts
+guest,Bookings,Check availability,API,/api/availability,src/app/api/availability/route.ts
+guest,Bookings,Bookings list/create,API,/api/bookings,src/app/api/bookings/route.ts
+guest,Bookings,Booking detail/update,API,/api/bookings/[id],src/app/api/bookings/[id]/route.ts
+guest,Bookings,Booking history,API,/api/bookings/[id]/history,src/app/api/bookings/[id]/history/route.ts
+guest,Bookings,Booking confirm token lookup,API,/api/bookings/confirm,src/app/api/bookings/confirm/route.ts
+guest,Bookings,Reservation confirmation PDF,API,/api/reservations/[id]/confirmation,src/app/api/reservations/[id]/confirmation/route.ts
+guest,Marketing,Lead capture,API,/api/lead,src/app/api/lead/route.ts
+guest,Analytics,Analytics events,API,/api/events,src/app/api/events/route.ts
+guest,Analytics,Versioned events,API,/api/v1/events,src/app/api/v1/events/route.ts
+guest,Infra/Safety,Client error reporting,API,/api/client-error,src/app/api/client-error/route.ts
+guest,Settings/Restaurant,Service policy,API,/api/config/service-policy,src/app/api/config/service-policy/route.ts
+guest,Settings/Restaurant,Merge rules,API,/api/config/merge-rules,src/app/api/config/merge-rules/route.ts
+guest,Infra/Safety,Health check,API,/api/health,src/app/api/health/route.ts
+guest,Bookings,Booking recover redirect,API,/bookings/recover,src/app/(public)/bookings/recover/route.ts
+shared,Infra/Safety,Email webhook (Resend),API,/api/webhooks/resend,src/app/api/webhooks/resend/route.ts
+shared,Infra/Safety,Cron: auto-complete bookings,API,/api/cron/auto-complete-bookings,src/app/api/cron/auto-complete-bookings/route.ts
+shared,Infra/Safety,Cron: process emails,API,/api/cron/process-emails,src/app/api/cron/process-emails/route.ts
+shared,Infra/Safety,Cron: cleanup email delivery logs,API,/api/cron/cleanup-email-delivery-logs,src/app/api/cron/cleanup-email-delivery-logs/route.ts
+shared,Infra/Safety,Queue status (admin),API,/api/admin/queue-status,src/app/api/admin/queue-status/route.ts
+shared,Infra/Safety,Test email endpoint,API,/api/test-email,src/app/api/test-email/route.ts
+shared,Infra/Safety,Test queue emails,API,/api/test/queue-emails,src/app/api/test/queue-emails/route.ts
+shared,Infra/Safety,Test send emails,API,/api/test/send-emails,src/app/api/test/send-emails/route.ts
+shared,Infra/Safety,Sentry example API,API,/api/sentry-example-api,src/app/api/sentry-example-api/route.ts
+shared,Infra/Safety,Auth e2e login,API,/api/auth/e2e-login,src/app/api/auth/e2e-login/route.ts
+shared,Bookings,Booking side-effects (emails/notifications),Job,booking-side-effects,server/jobs/booking-side-effects.ts
+ops,Bookings,Auto-complete past bookings,Job,auto-complete-bookings,server/jobs/auto-complete-bookings.ts
+ops,Tables/Floor Plan,Auto-assign tables,Job,auto-assign,server/jobs/auto-assign.ts
+guest,Bookings,Guest lookup policy,Flag,FEATURE_GUEST_LOOKUP_POLICY,server/feature-flags.ts; lib/env.ts
+guest,Bookings,Booking past-time blocking,Flag,FEATURE_BOOKING_PAST_TIME_BLOCKING,lib/env.ts
+guest,Bookings,Booking past-time grace minutes,Flag,BOOKING_PAST_TIME_GRACE_MINUTES,lib/env.ts
+guest,Bookings,Pending self-serve grace minutes,Flag,NEXT_PUBLIC_BOOKING_PENDING_GRACE_MINUTES,lib/env.ts
+guest,Bookings,Reserve v2 UI,Flag,NEXT_PUBLIC_RESERVE_V2,lib/env.ts
+guest,Bookings,Reserve test UI,Flag,NEXT_PUBLIC_ENABLE_TEST_UI,lib/env.ts
+shared,Bookings,Booking validation unified,Flag,FEATURE_BOOKING_VALIDATION_UNIFIED,lib/env.ts
+shared,Bookings,Policy re-quote,Flag,FEATURE_POLICY_REQUOTE_ENABLED,server/feature-flags.ts; lib/env.ts
+shared,Messaging/Notifications,Email queue enabled,Flag,FEATURE_EMAIL_QUEUE_ENABLED,server/feature-flags.ts; lib/env.ts
+ops,Bookings,Ops booking lifecycle v2,Flag,FEATURE_OPS_BOOKING_LIFECYCLE_V2,lib/env.ts
+ops,Analytics,Ops metrics,Flag,FEATURE_OPS_METRICS,server/feature-flags.ts; lib/env.ts
+ops,Analytics,Ops rejection analytics,Flag,FEATURE_OPS_REJECTION_ANALYTICS,server/feature-flags.ts; lib/env.ts
+ops,Tables/Floor Plan,Realtime floorplan,Flag,NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN,lib/env.ts
+ops,Infra/Safety,Ops guard v2,Flag,FEATURE_OPS_GUARD_V2,lib/env.ts
+ops,Infra/Safety,Status triggers,Flag,FEATURE_STATUS_TRIGGERS,lib/env.ts
+ops,Infra/Safety,Edit schedule parity,Flag,FEATURE_EDIT_SCHEDULE_PARITY,lib/env.ts
+ops,Infra/Safety,DB strict constraints,Flag,FEATURE_DB_STRICT_CONSTRAINTS,lib/env.ts
+ops,Infra/Safety,Enable test API,Flag,ENABLE_TEST_API,lib/env.ts
+ops,Infra/Safety,Enable test endpoints,Flag,ENABLE_TEST_ENDPOINTS,lib/env.ts
+ops,Tables/Floor Plan,Allocations dual-write,Flag,FEATURE_ALLOCATIONS_DUAL_WRITE,server/feature-flags.ts; lib/env.ts
+ops,Tables/Floor Plan,Selector scoring,Flag,FEATURE_SELECTOR_SCORING,server/feature-flags.ts; lib/env.ts
+ops,Tables/Floor Plan,Selector lookahead,Flag,FEATURE_SELECTOR_LOOKAHEAD,server/feature-flags.ts; lib/env.ts
+ops,Tables/Floor Plan,Selector lookahead window minutes,Flag,FEATURE_SELECTOR_LOOKAHEAD_WINDOW_MINUTES,server/feature-flags.ts; lib/env.ts
+ops,Tables/Floor Plan,Selector lookahead penalty weight,Flag,FEATURE_SELECTOR_LOOKAHEAD_PENALTY_WEIGHT,server/feature-flags.ts; lib/env.ts
+ops,Tables/Floor Plan,Selector lookahead block threshold,Flag,FEATURE_SELECTOR_LOOKAHEAD_BLOCK_THRESHOLD,server/feature-flags.ts; lib/env.ts
+ops,Tables/Floor Plan,Combination planner,Flag,FEATURE_COMBINATION_PLANNER,server/feature-flags.ts; lib/env.ts
+ops,Tables/Floor Plan,Planner time pruning,Flag,FEATURE_PLANNER_TIME_PRUNING_ENABLED,server/feature-flags.ts; lib/env.ts
+ops,Tables/Floor Plan,Allocator merges,Flag,FEATURE_ALLOCATOR_MERGES_ENABLED,server/feature-flags.ts; lib/env.ts
+ops,Tables/Floor Plan,Allocator K max,Flag,FEATURE_ALLOCATOR_K_MAX,server/feature-flags.ts; lib/env.ts
+ops,Tables/Floor Plan,Allocator service fail hard,Flag,FEATURE_ALLOCATOR_SERVICE_FAIL_HARD,server/feature-flags.ts; lib/env.ts
+ops,Tables/Floor Plan,Manual assignment max slack,Flag,FEATURE_MANUAL_ASSIGNMENT_MAX_SLACK,server/feature-flags.ts; lib/env.ts
+ops,Tables/Floor Plan,Manual assignment session,Flag,FEATURE_MANUAL_ASSIGNMENT_SESSION_ENABLED,server/feature-flags.ts; lib/env.ts
+ops,Tables/Floor Plan,Manual assignment snapshot validation,Flag,FEATURE_MANUAL_ASSIGNMENT_SNAPSHOT_VALIDATION,server/feature-flags.ts; lib/env.ts
+ops,Tables/Floor Plan,Selector planner limits,Flag,FEATURE_SELECTOR_MAX_PLANS_PER_SLACK,server/feature-flags.ts; lib/env.ts
+ops,Tables/Floor Plan,Selector max combination evaluations,Flag,FEATURE_SELECTOR_MAX_COMBINATION_EVALUATIONS,server/feature-flags.ts; lib/env.ts
+ops,Tables/Floor Plan,Selector enumeration timeout,Flag,FEATURE_SELECTOR_ENUMERATION_TIMEOUT_MS,server/feature-flags.ts; lib/env.ts
+ops,Tables/Floor Plan,Context query padding minutes,Flag,FEATURE_CONTEXT_QUERY_PADDING_MINUTES,server/feature-flags.ts; lib/env.ts
+ops,Tables/Floor Plan,Adjacency validation,Flag,FEATURE_ADJACENCY_VALIDATION,server/feature-flags.ts; lib/env.ts
+ops,Tables/Floor Plan,Adjacency query undirected,Flag,adjacency.query.undirected,server/feature-flags.ts
+ops,Tables/Floor Plan,Holds enabled,Flag,FEATURE_HOLDS_ENABLED,server/feature-flags.ts; lib/env.ts
+ops,Tables/Floor Plan,Holds strict conflicts,Flag,FEATURE_HOLDS_STRICT_CONFLICTS_ENABLED,server/feature-flags.ts; lib/env.ts
+ops,Bookings,Auto-assign on booking,Flag,FEATURE_AUTO_ASSIGN_ON_BOOKING,server/feature-flags.ts; lib/env.ts
+ops,Bookings,Auto-assign max retries,Flag,FEATURE_AUTO_ASSIGN_MAX_RETRIES,server/feature-flags.ts; lib/env.ts
+ops,Bookings,Auto-assign retry delays,Flag,FEATURE_AUTO_ASSIGN_RETRY_DELAYS_MS,server/feature-flags.ts; lib/env.ts
+ops,Bookings,Auto-assign start cutoff minutes,Flag,FEATURE_AUTO_ASSIGN_START_CUTOFF_MINUTES,server/feature-flags.ts; lib/env.ts
+ops,Bookings,Auto-assign created email defer minutes,Flag,FEATURE_AUTO_ASSIGN_CREATED_EMAIL_DEFER_MINUTES,server/feature-flags.ts; lib/env.ts
+ops,Bookings,Inline auto-assign timeout,Flag,FEATURE_INLINE_AUTO_ASSIGN_TIMEOUT_MS,server/feature-flags.ts; lib/env.ts

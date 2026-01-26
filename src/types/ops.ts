@@ -1,3 +1,4 @@
+import type { EmailDeliveryStatus } from '@/lib/emails/delivery-status';
 import type { HttpError } from '@/lib/http/errors';
 import type { RestaurantRole } from '@/lib/owner/auth/roles';
 import type { EmailJobType } from '@/lib/queue/email-types';
@@ -202,6 +203,8 @@ export type OpsRestaurantOption = {
 export type OpsEmailJobType = EmailJobType;
 
 export type OpsEmailJobState = 'waiting' | 'active' | 'delayed' | 'failed' | 'none' | 'unknown';
+export type OpsEmailDeliveryStatus = EmailDeliveryStatus;
+export type OpsEmailStatusView = 'queue' | 'delivery';
 
 export type OpsEmailStatusEntry = {
   type: OpsEmailJobType;
@@ -224,7 +227,26 @@ export type OpsEmailStatusItem = {
   entries: OpsEmailStatusEntry[];
 };
 
-export type OpsEmailStatusPage = {
+export type OpsEmailDeliveryItem = {
+  id: string;
+  bookingId: string | null;
+  restaurantId: string | null;
+  restaurantName: string | null;
+  bookingStatus: OpsBookingStatus | null;
+  startAt: string | null;
+  customerName: string | null;
+  recipientEmail: string;
+  emailType: OpsEmailJobType | null;
+  templateType: string | null;
+  status: OpsEmailDeliveryStatus;
+  occurredAt: string | null;
+  provider: string | null;
+  messageId: string;
+  error: string | null;
+};
+
+export type OpsEmailStatusQueuePage = {
+  view: 'queue';
   items: OpsEmailStatusItem[];
   pageInfo: {
     page: number;
@@ -236,6 +258,24 @@ export type OpsEmailStatusPage = {
   windowMinutes: number;
   emailTypes: OpsEmailJobType[];
 };
+
+export type OpsEmailStatusDeliveryPage = {
+  view: 'delivery';
+  items: OpsEmailDeliveryItem[];
+  pageInfo: {
+    page: number;
+    pageSize: number;
+    total: number;
+    hasNext: boolean;
+  };
+  generatedAt: string;
+  from: string | null;
+  to: string | null;
+  emailTypes: OpsEmailJobType[];
+  deliveryStatuses: OpsEmailDeliveryStatus[];
+};
+
+export type OpsEmailStatusPage = OpsEmailStatusQueuePage | OpsEmailStatusDeliveryPage;
 
 export type OpsServiceError = HttpError | Error;
 

@@ -7,14 +7,23 @@ import { useEmailStatusService } from '@/contexts/ops-services';
 import { queryKeys } from '@/lib/query/keys';
 
 import type { HttpError } from '@/lib/http/errors';
-import type { OpsEmailJobType, OpsEmailStatusPage } from '@/types/ops';
+import type {
+  OpsEmailDeliveryStatus,
+  OpsEmailJobType,
+  OpsEmailStatusPage,
+  OpsEmailStatusView,
+} from '@/types/ops';
 
 export type OpsEmailStatusFilters = {
   restaurantId: string;
+  view?: OpsEmailStatusView;
   page?: number;
   pageSize?: number;
   windowMinutes?: number;
   type?: OpsEmailJobType;
+  status?: OpsEmailDeliveryStatus;
+  from?: string;
+  to?: string;
 };
 
 function normalizeFilters(filters: OpsEmailStatusFilters) {
@@ -26,6 +35,10 @@ function normalizeFilters(filters: OpsEmailStatusFilters) {
   if (filters.pageSize) normalized.pageSize = filters.pageSize;
   if (filters.windowMinutes) normalized.windowMinutes = filters.windowMinutes;
   if (filters.type) normalized.type = filters.type;
+  if (filters.view) normalized.view = filters.view;
+  if (filters.status) normalized.status = filters.status;
+  if (filters.from) normalized.from = filters.from;
+  if (filters.to) normalized.to = filters.to;
 
   return normalized;
 }

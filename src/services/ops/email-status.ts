@@ -1,16 +1,26 @@
 import { fetchJson } from '@/lib/http/fetchJson';
 
 import type { HttpError } from '@/lib/http/errors';
-import type { OpsEmailJobType, OpsEmailStatusPage, OpsServiceError } from '@/types/ops';
+import type {
+  OpsEmailDeliveryStatus,
+  OpsEmailJobType,
+  OpsEmailStatusPage,
+  OpsEmailStatusView,
+  OpsServiceError,
+} from '@/types/ops';
 
 const OPS_EMAIL_STATUS_BASE = '/api/ops/email-status';
 
 export type EmailStatusParams = {
   restaurantId: string;
+  view?: OpsEmailStatusView;
   page?: number;
   pageSize?: number;
   windowMinutes?: number;
   type?: OpsEmailJobType;
+  status?: OpsEmailDeliveryStatus;
+  from?: string;
+  to?: string;
 };
 
 export interface EmailStatusService {
@@ -36,6 +46,10 @@ function buildSearch(params: EmailStatusParams): string {
   if (params.pageSize) searchParams.set('pageSize', String(params.pageSize));
   if (params.windowMinutes) searchParams.set('windowMinutes', String(params.windowMinutes));
   if (params.type) searchParams.set('type', params.type);
+  if (params.view) searchParams.set('view', params.view);
+  if (params.status) searchParams.set('status', params.status);
+  if (params.from) searchParams.set('from', params.from);
+  if (params.to) searchParams.set('to', params.to);
   return searchParams.toString();
 }
 

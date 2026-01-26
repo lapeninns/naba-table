@@ -1,6 +1,7 @@
 import { DateTime } from 'luxon';
 import { NextResponse } from 'next/server';
 
+import { EMAIL_DELIVERY_STATUSES } from '@/lib/emails/delivery-status';
 import { EMAIL_JOB_TYPES } from '@/lib/queue/email-types';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { getEmailJobIdCandidates, getEmailQueue, type EmailJobType } from '@/server/queue/email';
@@ -28,6 +29,22 @@ type BookingRow = Pick<
   'id' | 'restaurant_id' | 'start_at' | 'end_at' | 'status' | 'customer_name' | 'customer_email' | 'customer_phone'
 > & { restaurants?: { name: string | null } | null };
 
+type DeliveryRow = {
+  id: string;
+  booking_id: string | null;
+  restaurant_id: string | null;
+  email_type: string | null;
+  template_type: string | null;
+  recipient_email: string;
+  message_id: string;
+  status: string;
+  occurred_at: string | null;
+  provider: string | null;
+  error: string | null;
+  bookings?: { start_at: string | null; status: string | null; customer_name: string | null } | null;
+  restaurants?: { name: string | null } | null;
+};
+
 type EmailStatusEntry = {
   type: EmailJobType;
   state: 'waiting' | 'active' | 'delayed' | 'failed' | 'none' | 'unknown';
@@ -44,6 +61,15 @@ function buildPageInfo(params: { page: number; pageSize: number; total: number }
     total,
     hasNext: page * pageSize < total,
   };
+}
+
+function resolveDeliveryRange(params: { from?: string; to?: string }) {
+  const now = DateTime.utc();
+  const defaultFrom = now.minus({ days: 30 });
+  const defaultTo = now.plus({ days: 30 });
+  const from = params.from ? DateTime.fromISO(params.from, { zone: 'utc' }) : defaultFrom;
+  const to = params.to ? DateTime.fromISO(params.to, { zone: 'utc' }) : defaultTo;
+  return { from, to, now };
 }
 
 function normalizeState(state: string): EmailStatusEntry['state'] {
@@ -135,11 +161,15 @@ export async function GET(req: NextRequest) {
   }
 
   const rawParams = {
+    view: req.nextUrl.searchParams.get('view') ?? undefined,
     restaurantId: req.nextUrl.searchParams.get('restaurantId') ?? undefined,
     page: req.nextUrl.searchParams.get('page') ?? undefined,
     pageSize: req.nextUrl.searchParams.get('pageSize') ?? undefined,
     windowMinutes: req.nextUrl.searchParams.get('windowMinutes') ?? undefined,
     type: req.nextUrl.searchParams.get('type') ?? undefined,
+    status: req.nextUrl.searchParams.get('status') ?? undefined,
+    from: req.nextUrl.searchParams.get('from') ?? undefined,
+    to: req.nextUrl.searchParams.get('to') ?? undefined,
   };
 
   const parsed = parseOpsEmailStatusQuery(rawParams);
@@ -161,7 +191,21 @@ export async function GET(req: NextRequest) {
   }
 
   if (memberships.length === 0) {
+    if (params.view === 'delivery') {
+      const { from, to, now } = resolveDeliveryRange({ from: params.from, to: params.to });
+      return NextResponse.json({
+        view: 'delivery',
+        items: [],
+        pageInfo: buildPageInfo({ page: params.page, pageSize: params.pageSize, total: 0 }),
+        generatedAt: now.toISO(),
+        from: from.toISO(),
+        to: to.toISO(),
+        emailTypes: EMAIL_JOB_TYPES,
+        deliveryStatuses: EMAIL_DELIVERY_STATUSES,
+      });
+    }
     return NextResponse.json({
+      view: 'queue',
       items: [],
       pageInfo: buildPageInfo({ page: params.page, pageSize: params.pageSize, total: 0 }),
       generatedAt: new Date().toISOString(),
@@ -186,13 +230,101 @@ export async function GET(req: NextRequest) {
   }
 
   if (!targetRestaurantId) {
+    if (params.view === 'delivery') {
+      const { from, to, now } = resolveDeliveryRange({ from: params.from, to: params.to });
+      return NextResponse.json({
+        view: 'delivery',
+        items: [],
+        pageInfo: buildPageInfo({ page: params.page, pageSize: params.pageSize, total: 0 }),
+        generatedAt: now.toISO(),
+        from: from.toISO(),
+        to: to.toISO(),
+        emailTypes: EMAIL_JOB_TYPES,
+        deliveryStatuses: EMAIL_DELIVERY_STATUSES,
+      });
+    }
     return NextResponse.json({
+      view: 'queue',
       items: [],
       pageInfo: buildPageInfo({ page: params.page, pageSize: params.pageSize, total: 0 }),
       generatedAt: new Date().toISOString(),
       windowMinutes: params.windowMinutes,
       emailTypes: EMAIL_JOB_TYPES,
     });
+  }
+
+  const service = getServiceSupabaseClient();
+  const offset = (params.page - 1) * params.pageSize;
+  const rangeEnd = offset + params.pageSize - 1;
+
+  if (params.view === 'delivery') {
+    const { from, to, now } = resolveDeliveryRange({ from: params.from, to: params.to });
+
+    if (!from.isValid || !to.isValid) {
+      return NextResponse.json({ error: 'Invalid date range' }, { status: 400 });
+    }
+
+    try {
+      let query = service
+        .from('email_delivery_log')
+        .select(
+          'id, booking_id, restaurant_id, email_type, template_type, recipient_email, message_id, status, occurred_at, provider, error, bookings(start_at,status,customer_name), restaurants(name)',
+          { count: 'exact' },
+        )
+        .eq('restaurant_id', targetRestaurantId)
+        .gte('occurred_at', from.toISO() ?? '')
+        .lte('occurred_at', to.toISO() ?? '')
+        .order('occurred_at', { ascending: false })
+        .range(offset, rangeEnd);
+
+      if (params.type) {
+        query = query.eq('email_type', params.type);
+      }
+
+      if (params.status) {
+        query = query.eq('status', params.status);
+      }
+
+      const { data, error, count } = await query;
+
+      if (error) {
+        console.error('[ops/email-status][GET] delivery query failed', error.message);
+        return NextResponse.json({ error: 'Unable to fetch delivery log' }, { status: 500 });
+      }
+
+      const rows = (data ?? []) as DeliveryRow[];
+      const items = rows.map((row) => ({
+        id: row.id,
+        bookingId: row.booking_id,
+        restaurantId: row.restaurant_id,
+        restaurantName: row.restaurants?.name ?? null,
+        bookingStatus: row.bookings?.status ?? null,
+        startAt: row.bookings?.start_at ?? null,
+        customerName: row.bookings?.customer_name ?? null,
+        recipientEmail: row.recipient_email,
+        emailType: row.email_type ?? null,
+        templateType: row.template_type ?? null,
+        status: row.status,
+        occurredAt: row.occurred_at,
+        provider: row.provider ?? null,
+        messageId: row.message_id,
+        error: row.error ?? null,
+      }));
+
+      return NextResponse.json({
+        view: 'delivery',
+        items,
+        pageInfo: buildPageInfo({ page: params.page, pageSize: params.pageSize, total: count ?? 0 }),
+        generatedAt: now.toISO(),
+        from: from.toISO(),
+        to: to.toISO(),
+        emailTypes: EMAIL_JOB_TYPES,
+        deliveryStatuses: EMAIL_DELIVERY_STATUSES,
+      });
+    } catch (error) {
+      console.error('[ops/email-status][GET] delivery failure', error);
+      return NextResponse.json({ error: 'Unable to fetch delivery log' }, { status: 500 });
+    }
   }
 
   const now = DateTime.utc();
@@ -202,10 +334,6 @@ export async function GET(req: NextRequest) {
   if (!fromIso || !toIso) {
     return NextResponse.json({ error: 'Unable to build time window' }, { status: 500 });
   }
-
-  const service = getServiceSupabaseClient();
-  const offset = (params.page - 1) * params.pageSize;
-  const rangeEnd = offset + params.pageSize - 1;
 
   try {
     const { data, error, count } = await service
@@ -250,6 +378,7 @@ export async function GET(req: NextRequest) {
     );
 
     return NextResponse.json({
+      view: 'queue',
       items,
       pageInfo: buildPageInfo({ page: params.page, pageSize: params.pageSize, total: count ?? 0 }),
       generatedAt: now.toISO(),

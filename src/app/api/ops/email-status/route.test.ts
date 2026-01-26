@@ -49,6 +49,22 @@ type BookingRow = {
   restaurants?: { name: string | null } | null;
 };
 
+type DeliveryRow = {
+  id: string;
+  booking_id: string | null;
+  restaurant_id: string | null;
+  email_type: string | null;
+  template_type: string | null;
+  recipient_email: string;
+  message_id: string;
+  status: string;
+  occurred_at: string | null;
+  provider: string | null;
+  error: string | null;
+  bookings?: { start_at: string | null; status: string | null; customer_name: string | null } | null;
+  restaurants?: { name: string | null } | null;
+};
+
 function createRequest(url: string) {
   return new NextRequest(new URL(url, 'http://localhost:3000'));
 }
@@ -61,25 +77,52 @@ function createRouteSupabaseStub(userId: string | null) {
   };
 }
 
-function createServiceSupabaseStub(bookings: BookingRow[], total: number) {
+function createServiceSupabaseStub(params: {
+  bookings?: BookingRow[];
+  bookingsTotal?: number;
+  deliveries?: DeliveryRow[];
+  deliveriesTotal?: number;
+}) {
+  const bookings = params.bookings ?? [];
+  const bookingsTotal = params.bookingsTotal ?? bookings.length;
+  const deliveries = params.deliveries ?? [];
+  const deliveriesTotal = params.deliveriesTotal ?? deliveries.length;
+
+  const deliveryQuery = {
+    eq: () => deliveryQuery,
+    gte: () => deliveryQuery,
+    lte: () => deliveryQuery,
+    order: () => deliveryQuery,
+    range: () => Promise.resolve({ data: deliveries, error: null, count: deliveriesTotal }),
+  };
+
   return {
     from: (table: string) => {
-      if (table !== 'bookings') throw new Error(`Unexpected table ${table}`);
-      return {
-        select: () => ({
-          eq: () => ({
-            in: () => ({
-              gte: () => ({
-                lte: () => ({
-                  order: () => ({
-                    range: () => Promise.resolve({ data: bookings, error: null, count: total }),
+      if (table === 'bookings') {
+        return {
+          select: () => ({
+            eq: () => ({
+              in: () => ({
+                gte: () => ({
+                  lte: () => ({
+                    order: () => ({
+                      range: () => Promise.resolve({ data: bookings, error: null, count: bookingsTotal }),
+                    }),
                   }),
                 }),
               }),
             }),
           }),
-        }),
-      };
+        };
+      }
+
+      if (table === 'email_delivery_log') {
+        return {
+          select: () => deliveryQuery,
+        };
+      }
+
+      throw new Error(`Unexpected table ${table}`);
     },
   };
 }
@@ -134,7 +177,7 @@ describe('/api/ops/email-status', () => {
       },
     ];
 
-    getServiceSupabaseClientMock.mockReturnValue(createServiceSupabaseStub(bookings, 1));
+    getServiceSupabaseClientMock.mockReturnValue(createServiceSupabaseStub({ bookings, bookingsTotal: 1 }));
 
     const job = {
       id: 'job-1',
@@ -160,6 +203,49 @@ describe('/api/ops/email-status', () => {
       type: 'confirmation',
       state: 'waiting',
       jobId: 'job-1',
+    });
+  });
+
+  it('returns delivery events', async () => {
+    getRouteHandlerSupabaseClientMock.mockResolvedValue(createRouteSupabaseStub('user-1'));
+    fetchUserMembershipsMock.mockResolvedValue([{ restaurant_id: RESTAURANT_ID }]);
+
+    const deliveries: DeliveryRow[] = [
+      {
+        id: 'log-1',
+        booking_id: 'booking-1',
+        restaurant_id: RESTAURANT_ID,
+        email_type: 'confirmation',
+        template_type: 'created',
+        recipient_email: 'jamie@example.com',
+        message_id: 'msg-1',
+        status: 'delivered',
+        occurred_at: new Date().toISOString(),
+        provider: 'resend',
+        error: null,
+        bookings: { start_at: new Date().toISOString(), status: 'confirmed', customer_name: 'Jamie' },
+        restaurants: { name: 'Test Restaurant' },
+      },
+    ];
+
+    getServiceSupabaseClientMock.mockReturnValue(
+      createServiceSupabaseStub({ deliveries, deliveriesTotal: 1 }),
+    );
+
+    const response = await GET(
+      createRequest(`/api/ops/email-status?restaurantId=${RESTAURANT_ID}&view=delivery`),
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.view).toBe('delivery');
+    expect(body.items).toHaveLength(1);
+    expect(body.items[0]).toMatchObject({
+      bookingId: 'booking-1',
+      restaurantId: RESTAURANT_ID,
+      emailType: 'confirmation',
+      status: 'delivered',
+      messageId: 'msg-1',
     });
   });
 });

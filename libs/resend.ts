@@ -87,6 +87,11 @@ export type EmailAttachment = {
   type?: string;
 };
 
+export type EmailTag = {
+  name: string;
+  value: string;
+};
+
 type EmailBody =
   | { html: string; text?: string }
   | { html?: string; text: string };
@@ -99,6 +104,7 @@ export type SendEmailParams = EmailBody & {
   bcc?: string | string[];
   fromName?: string; // Optional custom name for the sender
   attachments?: EmailAttachment[];
+  tags?: EmailTag[];
 };
 
 function normalize(value?: string | string[]) {
@@ -118,7 +124,8 @@ export async function sendEmail({
   bcc,
   fromName,
   attachments,
-}: SendEmailParams): Promise<void> {
+  tags,
+}: SendEmailParams): Promise<string> {
   if (!html && !text) {
     throw new Error("Resend email payloads must include HTML or text content.");
   }
@@ -164,7 +171,7 @@ export async function sendEmail({
       hasText: Boolean(text),
       attachmentCount: attachments?.length ?? 0,
     });
-    return;
+    return `mock-${Date.now()}`;
   }
 
   if (!resendClient) {
@@ -201,6 +208,7 @@ export async function sendEmail({
       subject,
       replyTo: replyToResolution.address,
       ...bodyFields,
+      ...(tags?.length ? { tags } : {}),
       ...(normalizedCc ? { cc: normalizedCc } : {}),
       ...(normalizedBcc ? { bcc: normalizedBcc } : {}),
       ...(normalizedAttachments?.length ? { attachments: normalizedAttachments } : {}),
@@ -219,6 +227,7 @@ export async function sendEmail({
     }
 
     console.log(`[resend] Email sent successfully. ID: ${emailId}`);
+    return emailId;
   } catch (error) {
     console.error("[resend] Failed to send email:", {
       to: Array.isArray(to) ? to : [to],

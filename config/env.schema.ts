@@ -45,6 +45,7 @@ const baseEnvSchema = z
     RESEND_API_KEY: z.string().optional(),
     RESEND_FROM: z.string().email().optional(),
     RESEND_USE_MOCK: booleanStringOptional,
+    RESEND_WEBHOOK_SECRET: z.string().optional(),
     ENABLE_TEST_ENDPOINTS: booleanStringOptional,
     TEST_ENDPOINT_TOKEN: z.string().optional(),
     LOYALTY_PILOT_RESTAURANT_IDS: z.string().optional(),
@@ -177,6 +178,7 @@ const productionEnvSchema = baseEnvSchema.extend({
   NEXT_PUBLIC_SITE_URL: z.string().url(),
   RESEND_API_KEY: z.string().min(1),
   RESEND_FROM: z.string().email(),
+  RESEND_WEBHOOK_SECRET: z.string().min(1),
 });
 
 const developmentEnvSchema = baseEnvSchema;

@@ -158,6 +158,7 @@ export const env = {
       apiKey: parsed.RESEND_API_KEY,
       from: parsed.RESEND_FROM,
       useMock: defaultUseMock,
+      webhookSecret: parsed.RESEND_WEBHOOK_SECRET ?? null,
     } as const;
   },
 

@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
         updated_at: new Date().toISOString(),
       };
 
-      await sendBookingConfirmationEmail(mockBooking);
+      await sendBookingConfirmationEmail(mockBooking, { emailJobType: "confirmation" });
 
       return NextResponse.json({
         success: true,

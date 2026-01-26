@@ -148,28 +148,28 @@ async function dispatchEmail(type: EmailJobType, booking: BookingRecord): Promis
     switch (type) {
         case 'request_received':
         case 'confirmation':
-            await sendBookingConfirmationEmail(booking);
+            await sendBookingConfirmationEmail(booking, { emailJobType: type });
             return;
         case 'reminder_24h':
-            await sendBookingReminderEmail(booking, { variant: 'standard' });
+            await sendBookingReminderEmail(booking, { variant: 'standard' }, { emailJobType: type });
             return;
         case 'reminder_short':
-            await sendBookingReminderEmail(booking, { variant: 'short' });
+            await sendBookingReminderEmail(booking, { variant: 'short' }, { emailJobType: type });
             return;
         case 'review_request':
-            await sendBookingReviewRequestEmail(booking);
+            await sendBookingReviewRequestEmail(booking, { emailJobType: type });
             return;
         case 'updated':
-            await sendBookingUpdateEmail(booking);
+            await sendBookingUpdateEmail(booking, { emailJobType: type });
             return;
         case 'cancelled':
-            await sendBookingCancellationEmail(booking);
+            await sendBookingCancellationEmail(booking, { emailJobType: type });
             return;
         case 'restaurant_cancellation':
-            await sendRestaurantCancellationEmail(booking);
+            await sendRestaurantCancellationEmail(booking, { emailJobType: type });
             return;
         case 'booking_rejected':
-            await sendBookingRejectedEmail(booking);
+            await sendBookingRejectedEmail(booking, { emailJobType: type });
             return;
         default:
             console.warn(`[test/send-emails] Unknown email type: ${type}`);

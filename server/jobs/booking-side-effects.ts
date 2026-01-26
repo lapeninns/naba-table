@@ -424,9 +424,11 @@ async function scheduleReminderJob(
     await sendEmailInlineWithDelay(
       optimizedDelayMs,
       () =>
-        sendBookingReminderEmail(booking, {
-          variant: variant === 'reminder_short' ? 'short' : 'standard',
-        }),
+        sendBookingReminderEmail(
+          booking,
+          { variant: variant === 'reminder_short' ? 'short' : 'standard' },
+          { emailJobType: variant === 'reminder_short' ? 'reminder_short' : 'reminder_24h' },
+        ),
       `booking.${variant}`,
     );
   }
@@ -476,7 +478,7 @@ async function scheduleReviewJob(
   } else if (optimizedDelayMs >= 0) {
     await sendEmailInlineWithDelay(
       optimizedDelayMs,
-      () => sendBookingReviewRequestEmail(booking),
+      () => sendBookingReviewRequestEmail(booking, { emailJobType: 'review_request' }),
       'booking.review_request',
     );
   }
@@ -561,14 +563,14 @@ async function processBookingCreatedSideEffects(
         } catch (error) {
           console.error('[jobs][booking.created][queue]', error);
           try {
-            await sendBookingConfirmationEmail(booking as BookingRecord);
+            await sendBookingConfirmationEmail(booking as BookingRecord, { emailJobType: 'request_received' });
           } catch (fallbackError) {
             console.error('[jobs][booking.created][email-fallback]', fallbackError);
           }
         }
       } else {
         try {
-          await sendBookingConfirmationEmail(booking as BookingRecord);
+          await sendBookingConfirmationEmail(booking as BookingRecord, { emailJobType: 'request_received' });
         } catch (error) {
           console.error('[jobs][booking.created][email]', error);
         }
@@ -593,14 +595,14 @@ async function processBookingCreatedSideEffects(
         } catch (error) {
           console.error('[jobs][booking.created][queue-confirmation]', error);
           try {
-            await sendBookingConfirmationEmail(booking as BookingRecord);
+            await sendBookingConfirmationEmail(booking as BookingRecord, { emailJobType: 'confirmation' });
           } catch (fallbackError) {
             console.error('[jobs][booking.created][email-fallback]', fallbackError);
           }
         }
       } else {
         try {
-          await sendBookingConfirmationEmail(booking as BookingRecord);
+          await sendBookingConfirmationEmail(booking as BookingRecord, { emailJobType: 'confirmation' });
         } catch (error) {
           console.error('[jobs][booking.created][email]', error);
         }
@@ -713,14 +715,14 @@ async function processBookingUpdatedSideEffects(
       } catch (error) {
         console.error('[jobs][booking.updated][queue-confirmation]', error);
         try {
-          await sendBookingConfirmationEmail(current as BookingRecord);
+          await sendBookingConfirmationEmail(current as BookingRecord, { emailJobType: 'confirmation' });
         } catch (fallbackError) {
           console.error('[jobs][booking.updated][email-fallback]', fallbackError);
         }
       }
     } else {
       try {
-        await sendBookingConfirmationEmail(current as BookingRecord);
+        await sendBookingConfirmationEmail(current as BookingRecord, { emailJobType: 'confirmation' });
         if (isEmailQueueEnabled()) {
           await removeEmailJob(`request_received:${current.id}`);
         }
@@ -771,14 +773,14 @@ async function processBookingUpdatedSideEffects(
       } catch (error) {
         console.error('[jobs][booking.updated][queue-update]', error);
         try {
-          await sendBookingUpdateEmail(current as BookingRecord);
+          await sendBookingUpdateEmail(current as BookingRecord, { emailJobType: 'updated' });
         } catch (fallbackError) {
           console.error('[jobs][booking.updated][email-fallback]', fallbackError);
         }
       }
     } else {
       try {
-        await sendBookingUpdateEmail(current as BookingRecord);
+        await sendBookingUpdateEmail(current as BookingRecord, { emailJobType: 'updated' });
       } catch (error) {
         console.error('[jobs][booking.updated][email]', error);
       }
@@ -835,14 +837,14 @@ async function processBookingCancelledSideEffects(
       } catch (error) {
         console.error('[jobs][booking.cancelled][queue]', error);
         try {
-          await sendFn(cancelled as BookingRecord);
+          await sendFn(cancelled as BookingRecord, { emailJobType: jobType });
         } catch (fallbackError) {
           console.error('[jobs][booking.cancelled][email-fallback]', fallbackError);
         }
       }
     } else {
       try {
-        await sendFn(cancelled as BookingRecord);
+        await sendFn(cancelled as BookingRecord, { emailJobType: jobType });
       } catch (error) {
         console.error('[jobs][booking.cancelled][email]', error);
       }
