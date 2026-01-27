@@ -1,7 +1,5 @@
 'use client';
 
-import { useMemo } from 'react';
-
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -14,7 +12,12 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { useBookingHistory } from '@/hooks/useBookingHistory';
 import { cn } from '@/lib/utils';
-import { formatBookingLabel, formatReservationDate, formatReservationTime } from '@reserve/shared/formatting/booking';
+import {
+  formatBookingLabel,
+  formatReservationDate,
+  formatReservationDateTimeFromDate,
+  formatReservationTime,
+} from '@reserve/shared/formatting/booking';
 import { normalizeTime } from '@reserve/shared/time';
 
 import type { BookingHistoryChange } from '@/types/bookingHistory';
@@ -119,17 +122,14 @@ function formatBeforeValue(change: BookingHistoryChange): string {
   return String(before);
 }
 
-export function ReservationHistory({ reservationId }: { reservationId: string }) {
+export function ReservationHistory({
+  reservationId,
+  timezone,
+}: {
+  reservationId: string;
+  timezone: string;
+}) {
   const historyQuery = useBookingHistory(reservationId);
-
-  const formatter = useMemo(
-    () =>
-      new Intl.DateTimeFormat(undefined, {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-      }),
-    [],
-  );
 
   if (historyQuery.isLoading) {
     return (
@@ -180,15 +180,15 @@ export function ReservationHistory({ reservationId }: { reservationId: string })
             {events.map((event) => {
               const actorLabel = event.actor && event.actor.trim().length > 0 ? event.actor.trim() : 'system';
               const actorDisplay = actorLabel.toLowerCase() === 'system' ? 'System' : actorLabel;
+              const changedAtLabel =
+                formatReservationDateTimeFromDate(new Date(event.changedAt), { timezone }) || '—';
 
               return (
                 <li key={event.versionId} className="space-y-3 rounded-lg border border-border/60 p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold text-foreground">{event.summary}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatter.format(new Date(event.changedAt))}
-                      </p>
+                      <p className="text-xs text-muted-foreground">{changedAtLabel}</p>
                     </div>
                     <Badge variant="outline" className="text-xs font-medium">
                       {actorDisplay}

@@ -126,6 +126,7 @@ export async function BookingDetailPage({
     await prefetchReservation(queryClient, normalized, token);
   }
   const dehydratedState = dehydrate(queryClient);
+  const initialNow = Date.now();
 
   // canManage is true if user is authenticated OR has valid session recovery token
   const canManage = Boolean(user) || hasValidSessionRecovery;
@@ -135,6 +136,7 @@ export async function BookingDetailPage({
       <ReservationDetailClient
         reservationId={normalized}
         restaurantName={null}
+        initialNow={initialNow}
         canManage={canManage}
       />
     </HydrationBoundary>
@@ -142,4 +144,3 @@ export async function BookingDetailPage({
 }
 
 export default BookingDetailPage;
-

@@ -114,6 +114,54 @@ export function formatReservationDateShort(
   }
 }
 
+export function formatReservationDateShortFromDate(
+  date: Date,
+  options?: FormattingOptions,
+): string {
+  try {
+    const formatter = getFormatter(
+      'reservation-date-short-from-date',
+      {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+      },
+      options?.timezone,
+    );
+    return formatter.format(date);
+  } catch (error) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[formatReservationDateShortFromDate] failed to format date instance', {
+        date,
+        error,
+      });
+    }
+    return '';
+  }
+}
+
+export function formatReservationDateTimeFromDate(date: Date, options?: FormattingOptions): string {
+  try {
+    const formatter = getFormatter(
+      'reservation-datetime-from-date',
+      {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      },
+      options?.timezone,
+    );
+    return formatter.format(date);
+  } catch (error) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[formatReservationDateTimeFromDate] failed to format date instance', {
+        date,
+        error,
+      });
+    }
+    return '';
+  }
+}
+
 export function formatReservationTime(
   value: string | ReservationTime | null | undefined,
   _options?: FormattingOptions,

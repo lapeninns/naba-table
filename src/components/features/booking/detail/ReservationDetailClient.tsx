@@ -45,6 +45,11 @@ import {
 } from '@/lib/bookings/pendingLock';
 import { shareReservationDetails, type ShareResult } from '@/lib/reservations/share';
 import { useReservation } from '@features/reservations/wizard/api/useReservation';
+import {
+  formatReservationDateFromDate,
+  formatReservationDateShortFromDate,
+  formatReservationTimeFromDate,
+} from '@reserve/shared/formatting/booking';
 import { DEFAULT_VENUE } from '@shared/config/venue';
 
 import { ReservationHistory } from './ReservationHistory';
@@ -73,38 +78,38 @@ export type ReservationVenue = {
   slug?: string | null;
 };
 
-const formatDate = (iso: string | null | undefined) => {
-  if (!iso) return '—';
-  const parsed = new Date(iso);
-  if (Number.isNaN(parsed.getTime())) return '—';
-  return new Intl.DateTimeFormat(undefined, {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  }).format(parsed);
+type ReservationDisplay = {
+  shortDate: string;
+  fullDate: string;
+  time: string;
 };
 
-const formatDateShort = (iso: string | null | undefined) => {
-  if (!iso) return '—';
-  const parsed = new Date(iso);
-  if (Number.isNaN(parsed.getTime())) return '—';
-  return new Intl.DateTimeFormat(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  }).format(parsed);
+const FALLBACK_DISPLAY: ReservationDisplay = {
+  shortDate: '—',
+  fullDate: '—',
+  time: '—',
 };
 
-const formatTimeRange = (startIso: string | null | undefined) => {
-  if (!startIso) return '—';
-  const start = new Date(startIso);
-  if (Number.isNaN(start.getTime())) return '—';
-  return new Intl.DateTimeFormat(undefined, {
-    hour: 'numeric',
-    minute: 'numeric',
-  }).format(start);
-};
+function buildReservationDisplay(
+  startIso: string | null | undefined,
+  timezone: string | null | undefined,
+): ReservationDisplay {
+  if (!startIso) {
+    return FALLBACK_DISPLAY;
+  }
+
+  const parsed = new Date(startIso);
+  if (Number.isNaN(parsed.getTime())) {
+    return FALLBACK_DISPLAY;
+  }
+
+  const formattingOptions = timezone ? { timezone } : undefined;
+  const shortDate = formatReservationDateShortFromDate(parsed, formattingOptions) || '—';
+  const fullDate = formatReservationDateFromDate(parsed, formattingOptions) || '—';
+  const time = formatReservationTimeFromDate(parsed, formattingOptions) || '—';
+
+  return { shortDate, fullDate, time };
+}
 
 const buildBookingDto = (
   reservation: Reservation | undefined,
@@ -129,6 +134,7 @@ const buildBookingDto = (
 export type ReservationDetailClientProps = {
   reservationId: string;
   restaurantName: string | null;
+  initialNow: number;
   _structuredData?: string | null;
   venue?: ReservationVenue | null;
   canManage?: boolean;
@@ -137,6 +143,7 @@ export type ReservationDetailClientProps = {
 export function ReservationDetailClient({
   reservationId,
   restaurantName,
+  initialNow,
   _structuredData,
   venue: providedVenue,
   canManage = false,
@@ -148,7 +155,7 @@ export function ReservationDetailClient({
   const isOnline = useOnlineStatus();
   const [shareFeedback, setShareFeedback] = useState<ShareResult | null>(null);
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [clockNow, setClockNow] = useState(() => Date.now());
+  const [clockNow, setClockNow] = useState(initialNow);
   const pendingGraceMinutes = useMemo(() => getPendingSelfServeGraceMinutes(), []);
   const pastGraceMs = useMemo(() => {
     const raw = process.env.NEXT_PUBLIC_BOOKING_PAST_TIME_GRACE_MINUTES;
@@ -213,8 +220,8 @@ export function ReservationDetailClient({
     if (!reservation?.startAt) return false;
     const startMs = Date.parse(reservation.startAt);
     if (!Number.isFinite(startMs)) return false;
-    return startMs < Date.now() - pastGraceMs;
-  }, [pastGraceMs, reservation?.startAt]);
+    return startMs < clockNow - pastGraceMs;
+  }, [clockNow, pastGraceMs, reservation]);
 
   const pendingLock = useMemo(() => {
     if (!reservation || reservation.status !== 'pending') {
@@ -227,6 +234,11 @@ export function ReservationDetailClient({
       : null;
     return { locked, lockTimestamp };
   }, [reservation, pendingGraceMinutes, clockNow]);
+
+  const reservationDisplay = useMemo(
+    () => buildReservationDisplay(reservation?.startAt, venue.timezone),
+    [reservation?.startAt, venue.timezone],
+  );
 
   useEffect(() => {
     if (!shareFeedback) {
@@ -252,6 +264,10 @@ export function ReservationDetailClient({
     const interval = window.setInterval(() => setClockNow(Date.now()), 15_000);
     return () => window.clearInterval(interval);
   }, [reservation, pendingLock.locked]);
+
+  useEffect(() => {
+    setClockNow(Date.now());
+  }, []);
 
   const handleEdit = useCallback(() => {
     if (!reservation || pendingLock.locked || !canManage || isPastReservation) return;
@@ -334,10 +350,6 @@ export function ReservationDetailClient({
 
   if (!reservation) return null;
 
-  const reservationDate = formatDateShort(reservation.startAt);
-  const reservationDateFull = formatDate(reservation.startAt);
-  const reservationTime = formatTimeRange(reservation.startAt);
-
   const getStatusConfig = (status: string) => {
     const configs: Record<
       string,
@@ -390,13 +402,13 @@ export function ReservationDetailClient({
             <DetailStatCard
               icon={Calendar}
               label="Date"
-              value={reservationDate}
-              subtext={reservationDateFull}
+              value={reservationDisplay.shortDate}
+              subtext={reservationDisplay.fullDate}
             />
             <DetailStatCard
               icon={Clock}
               label="Time"
-              value={reservationTime}
+              value={reservationDisplay.time}
               subtext="Local time"
             />
             <DetailStatCard
@@ -487,7 +499,7 @@ export function ReservationDetailClient({
 
       {canManage && (
         <Card className="bg-surface-elevated p-4">
-          <ReservationHistory reservationId={reservationId} />
+          <ReservationHistory reservationId={reservationId} timezone={venue.timezone} />
         </Card>
       )}
 
