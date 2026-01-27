@@ -1,5 +1,6 @@
 "use client";
 
+import { isMissingSessionAuthError } from "@/lib/supabase/auth-errors";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 export async function signOutFromSupabase(): Promise<void> {
@@ -11,7 +12,7 @@ export async function signOutFromSupabase(): Promise<void> {
     });
 
     if (!response.ok) {
-      console.error("[signOut] Server signout failed");
+      console.error("[signOut] Server signout failed", { status: response.status });
     }
   } catch (error) {
     console.error("[signOut] Server signout error", error);
@@ -19,6 +20,10 @@ export async function signOutFromSupabase(): Promise<void> {
   const { error } = await supabase.auth.signOut();
 
   if (error) {
+    if (isMissingSessionAuthError(error)) {
+      console.info("[signOut] Session already missing in browser client");
+      return;
+    }
     throw error;
   }
 }
