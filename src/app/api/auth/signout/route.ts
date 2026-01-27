@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { env } from "@/lib/env";
+import { isMissingSessionAuthError } from "@/lib/supabase/auth-errors";
 import { buildSupabaseCookieOptions, resolveCookieDomain } from "@/lib/supabase/cookies";
 
 import type { Database } from "@/types/supabase";
@@ -23,6 +24,31 @@ const buildCookieConfig = (options: Record<string, unknown> = {}) => ({
   }),
   ...options,
 });
+
+function expireAuthCookie(
+  cookieStore: Awaited<ReturnType<typeof cookies>>,
+  name: string,
+): void {
+  const expires = new Date(0);
+  // Use set() with explicit domain/path to reliably expire cross-subdomain cookies.
+  cookieStore.set({
+    name,
+    value: "",
+    ...buildCookieConfig({
+      maxAge: 0,
+      expires,
+    }),
+  });
+  // Best-effort delete for hosts that don't require explicit domain matching.
+  try {
+    cookieStore.delete(name);
+  } catch (error) {
+    console.warn(
+      "[auth/signout] Cookie delete warning:",
+      error instanceof Error ? error.message : String(error),
+    );
+  }
+}
 
 export async function POST(_req: NextRequest) {
   const cookieStore = await cookies();
@@ -54,22 +80,29 @@ export async function POST(_req: NextRequest) {
   const { error } = await supabase.auth.signOut();
 
   if (error) {
-    console.error("[auth/signout] Error signing out:", error.message);
-    return NextResponse.json({ error: "Failed to sign out" }, { status: 500 });
+    if (isMissingSessionAuthError(error)) {
+      console.info("[auth/signout] Session already missing; proceeding with cookie expiry.");
+    } else {
+      console.error("[auth/signout] Sign-out warning:", error.message);
+    }
   }
 
   // Explicitly delete auth cookies to be sure
-  const authCookieNames = cookieStore.getAll()
-    .filter(c => c.name.startsWith("sb-"))
-    .map(c => c.name);
-  
+  const authCookieNames = cookieStore
+    .getAll()
+    .filter((c) => c.name.startsWith("sb-"))
+    .map((c) => c.name);
+
   console.log("[auth/signout] Deleting auth cookies:", authCookieNames);
-  
+
   for (const name of authCookieNames) {
-    cookieStore.delete(name);
+    expireAuthCookie(cookieStore, name);
   }
 
   console.log("[auth/signout] User signed out successfully");
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({
+    success: true,
+    alreadySignedOut: Boolean(error && isMissingSessionAuthError(error)),
+  });
 }

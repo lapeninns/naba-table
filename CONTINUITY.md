@@ -1,12 +1,12 @@
 # Continuity Ledger
 
-Last updated: 2026-01-27T00:02:55Z
+Last updated: 2026-01-27T00:22:58Z
 
 ## Goal (incl. success criteria)
 
-- Expand UK phone validation to support more valid UK number types (not just 07 mobiles)
-- Success: UK landlines and non-geographic numbers are accepted
-- Success: Validation remains DB-safe and canonical across flows
+- Fix sign-out requiring a reload to take effect (idempotent sign-out)
+- Success: sign-out completes even when session is already missing/expired
+- Success: UI transitions to signed-out state immediately without manual reload
 
 ## Constraints/Assumptions
 
@@ -23,7 +23,7 @@ Last updated: 2026-01-27T00:02:55Z
 
 ## State
 
-- UK phone validation upgraded, tests and lint passing; DevTools QA attempted but blocked by reserve dev error boundary
+- Sign-out flow patched to be idempotent; targeted tests and lint passing
 
 ## Done
 
@@ -37,25 +37,36 @@ Last updated: 2026-01-27T00:02:55Z
 - Ran: `npx vitest run reserve/shared/validation/contact.test.ts src/app/api/ops/bookings/route.test.ts src/app/api/bookings/route.test.ts src/app/api/bookings/[id]/route.test.ts` (60 passed)
 - Ran: `npm run lint` (0 errors, existing warnings)
 - Attempted Chrome DevTools MCP QA via `pnpm reserve:dev`, but dev rendered an error boundary before the phone step
+- Created task folder: `tasks/signout-stale-session-20260127-0016/`
+- Added canonical missing-session helper: `lib/supabase/auth-errors.ts`
+- Patched server sign-out route: `src/app/api/auth/signout/route.ts`
+- Patched client sign-out helper: `lib/supabase/signOut.ts`
+- Added tests:
+- `src/app/api/auth/signout/route.test.ts`
+- `tests/server/supabase-auth-errors.test.ts`
+- Ran: `npx vitest run tests/server/supabase-auth-errors.test.ts src/app/api/auth/signout/route.test.ts` (5 passed)
+- Ran: `npm run lint` (0 errors, existing warnings)
+- DevTools MCP: `fetch('/api/auth/signout', { method: 'POST' })` returned 200 locally
 
 ## Now
 
-- Summarize the UK phone validation upgrade and impacts
+- Summarize sign-out root cause and the applied fix for the user
 
 ## Next
 
-- Monitor validation errors and customer phone inserts post-deploy
-- If requested, run broader tests or prepare a PR summary
+- Validate in staging/production with a real authenticated session
+- Monitor `/api/auth/signout` error rates and sign-out UX
 
 ## Open questions (UNCONFIRMED if needed)
 
-- Should we also normalize phone storage for other tables like `waiting_list` for consistency? (UNCONFIRMED)
+- Are there other sign-out triggers besides guest navbar and ops sidebar that need idempotent behavior? (UNCONFIRMED)
 
 ## Working set (files/ids/commands)
 
-- `reserve/shared/validation/contact.ts`
-- `reserve/shared/validation/contact.test.ts`
-- `server/customers.ts`
-- `reserve/features/reservations/wizard/model/schemas.ts`
-- `tasks/uk-phone-validation-20260126-2349/verification.md`
-- `npx vitest run reserve/shared/validation/contact.test.ts src/app/api/ops/bookings/route.test.ts src/app/api/bookings/route.test.ts src/app/api/bookings/[id]/route.test.ts`
+- `lib/supabase/auth-errors.ts`
+- `lib/supabase/signOut.ts`
+- `src/app/api/auth/signout/route.ts`
+- `src/app/api/auth/signout/route.test.ts`
+- `tests/server/supabase-auth-errors.test.ts`
+- `tasks/signout-stale-session-20260127-0016/verification.md`
+- `npx vitest run tests/server/supabase-auth-errors.test.ts src/app/api/auth/signout/route.test.ts`
