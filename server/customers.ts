@@ -1,3 +1,9 @@
+import {
+  CUSTOMER_PHONE_LENGTH_MAX,
+  CUSTOMER_PHONE_LENGTH_MIN,
+  formatUKPhoneToE164,
+} from "@reserve/shared/validation";
+
 import type { Database, Tables, TablesInsert, TablesUpdate } from "@/types/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -20,7 +26,17 @@ export function normalizePhone(phone: string | null | undefined): string {
 
 function sanitizePhoneValue(phone: string | null | undefined): string {
   if (!phone) return '';
-  return phone.trim();
+  const trimmed = phone.trim();
+  if (!trimmed) return '';
+
+  // Canonicalize valid GB numbers to E.164 for consistency and DB safety.
+  const canonical = formatUKPhoneToE164(trimmed) ?? trimmed;
+  if (canonical.length < CUSTOMER_PHONE_LENGTH_MIN || canonical.length > CUSTOMER_PHONE_LENGTH_MAX) {
+    throw new Error(
+      `Phone must be between ${CUSTOMER_PHONE_LENGTH_MIN} and ${CUSTOMER_PHONE_LENGTH_MAX} characters`,
+    );
+  }
+  return canonical;
 }
 
 export async function findCustomerByContact(

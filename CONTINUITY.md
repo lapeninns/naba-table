@@ -1,12 +1,12 @@
 # Continuity Ledger
 
-Last updated: 2026-01-26T23:34:04Z
+Last updated: 2026-01-27T00:02:55Z
 
 ## Goal (incl. success criteria)
 
-- Stop booking 500s caused by `customers_phone_check` violations in `/api/ops/bookings`
-- Success: Missing-phone walk-ins no longer violate the phone-length constraint
-- Success: Phone-length constraints are centralized and enforced at the API boundary
+- Expand UK phone validation to support more valid UK number types (not just 07 mobiles)
+- Success: UK landlines and non-geographic numbers are accepted
+- Success: Validation remains DB-safe and canonical across flows
 
 ## Constraints/Assumptions
 
@@ -16,48 +16,46 @@ Last updated: 2026-01-26T23:34:04Z
 
 ## Key decisions
 
-- Root cause: fallback phone generation (`000-${slug}` with 24-char slug) exceeded DB max length (20)
-- Centralize the constraint as `CUSTOMER_PHONE_LENGTH_MIN/MAX` in `reserve/shared/validation/contact.ts`
-- Generate a constraint-safe fallback phone in `src/app/api/ops/bookings/route.ts` using hashed digits and a fixed prefix
-- Align public booking schemas to the same constraint to fail fast (400) instead of 500
+- Replace regex-only UK mobile validation with `libphonenumber-js` GB parsing/validation
+- Keep a single canonical validator: `reserve/shared/validation/contact.ts::isUKPhone`
+- Canonicalize valid GB numbers to E.164 at storage time in `server/customers.ts`
+- Enforce DB-safe phone length in `server/customers.ts::sanitizePhoneValue`
 
 ## State
 
-- Fix implemented, tests passing, verification artifacts updated
+- UK phone validation upgraded, tests and lint passing; DevTools QA attempted but blocked by reserve dev error boundary
 
 ## Done
 
-- Created task folder: `tasks/weekend-booking-phone-constraint-20260126-2324/`
-- Patched fallback phone generation in `src/app/api/ops/bookings/route.ts`
-- Added shared phone-length constants in `reserve/shared/validation/contact.ts`
-- Aligned phone-length validation in:
-- `src/app/api/bookings/route.ts`
-- `src/app/api/bookings/[id]/route.ts`
-- `lib/profile/schema.ts`
-- Strengthened ops route test assertion in `src/app/api/ops/bookings/route.test.ts`
-- Ran: `npx vitest run src/app/api/ops/bookings/route.test.ts src/app/api/bookings/route.test.ts src/app/api/bookings/[id]/route.test.ts` (55 passed)
+- Created task folder: `tasks/uk-phone-validation-20260126-2349/`
+- Added dependency: `libphonenumber-js@1.12.35` via `pnpm add`
+- Upgraded UK phone validation in `reserve/shared/validation/contact.ts`
+- Added canonicalization helper: `formatUKPhoneToE164`
+- Enforced DB-safe phone length at storage in `server/customers.ts`
+- Updated mobile-only copy in `reserve/features/reservations/wizard/model/schemas.ts`
+- Added tests: `reserve/shared/validation/contact.test.ts`
+- Ran: `npx vitest run reserve/shared/validation/contact.test.ts src/app/api/ops/bookings/route.test.ts src/app/api/bookings/route.test.ts src/app/api/bookings/[id]/route.test.ts` (60 passed)
 - Ran: `npm run lint` (0 errors, existing warnings)
+- Attempted Chrome DevTools MCP QA via `pnpm reserve:dev`, but dev rendered an error boundary before the phone step
 
 ## Now
 
-- Summarize root cause and the applied fix for the user
+- Summarize the UK phone validation upgrade and impacts
 
 ## Next
 
-- Monitor production logs for disappearance of Postgres `23514` on `customers_phone_check`
-- If requested, prepare a PR summary and rollout notes
+- Monitor validation errors and customer phone inserts post-deploy
+- If requested, run broader tests or prepare a PR summary
 
 ## Open questions (UNCONFIRMED if needed)
 
-- Why is the issue observed mostly on Fri/Sat/Sun? Likely correlation with missing-phone ops walk-ins, but UNCONFIRMED
+- Should we also normalize phone storage for other tables like `waiting_list` for consistency? (UNCONFIRMED)
 
 ## Working set (files/ids/commands)
 
-- `src/app/api/ops/bookings/route.ts`
-- `src/app/api/ops/bookings/route.test.ts`
 - `reserve/shared/validation/contact.ts`
-- `src/app/api/bookings/route.ts`
-- `src/app/api/bookings/[id]/route.ts`
-- `lib/profile/schema.ts`
-- `tasks/weekend-booking-phone-constraint-20260126-2324/verification.md`
-- `npx vitest run src/app/api/ops/bookings/route.test.ts src/app/api/bookings/route.test.ts src/app/api/bookings/[id]/route.test.ts`
+- `reserve/shared/validation/contact.test.ts`
+- `server/customers.ts`
+- `reserve/features/reservations/wizard/model/schemas.ts`
+- `tasks/uk-phone-validation-20260126-2349/verification.md`
+- `npx vitest run reserve/shared/validation/contact.test.ts src/app/api/ops/bookings/route.test.ts src/app/api/bookings/route.test.ts src/app/api/bookings/[id]/route.test.ts`
