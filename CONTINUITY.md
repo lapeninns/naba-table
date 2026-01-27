@@ -1,12 +1,13 @@
 # Continuity Ledger
 
-Last updated: 2026-01-27T00:22:58Z
+Last updated: 2026-01-27T10:00:30Z
 
 ## Goal (incl. success criteria)
 
-- Fix sign-out requiring a reload to take effect (idempotent sign-out)
-- Success: sign-out completes even when session is already missing/expired
-- Success: UI transitions to signed-out state immediately without manual reload
+- Diagnose and fix a production hydration error on the booking details page
+- Success: server and client render deterministically for `/bookings/[id]`
+- Success: no hydration mismatch caused by time, randomness, or browser-only state
+- Success: targeted tests pass and task artifacts are complete
 
 ## Constraints/Assumptions
 
@@ -23,7 +24,7 @@ Last updated: 2026-01-27T00:22:58Z
 
 ## State
 
-- Sign-out flow patched to be idempotent; targeted tests and lint passing
+- Phase 4: addressed lint-staged React Compiler memoization warning; targeted eslint now passes
 
 ## Done
 
@@ -47,26 +48,50 @@ Last updated: 2026-01-27T00:22:58Z
 - Ran: `npx vitest run tests/server/supabase-auth-errors.test.ts src/app/api/auth/signout/route.test.ts` (5 passed)
 - Ran: `npm run lint` (0 errors, existing warnings)
 - DevTools MCP: `fetch('/api/auth/signout', { method: 'POST' })` returned 200 locally
+- Identified new production issue: Hydration Error (Issue 90787006) at `/bookings/[id]`
+- Created task folder: `tasks/fix-booking-hydration-20260127-0939/`
+- Updated research/plan/todo artifacts for hydration fix
+- Added deterministic date/time helpers in `reserve/shared/formatting/booking.ts`
+- Added tests: `reserve/shared/formatting/booking.test.ts` (2 passing)
+- Hardened booking detail render in `src/components/features/booking/detail/ReservationDetailClient.tsx`
+- Removed default-locale `Intl` usage in `src/components/features/booking/detail/ReservationHistory.tsx`
+- Passed explicit timezone into `ReservationHistory` from booking detail
+- Passed `initialNow` from server routes:
+- `src/app/(public)/bookings/[bookingId]/page.tsx`
+- `src/app/(public)/bookings/booking-page.tsx`
+- Ran: `npx vitest run reserve/shared/formatting/booking.test.ts` (passed)
+- Ran: `npx vitest run tests/ops/booking-details-utils.test.tsx tests/ops/booking-details-hook.test.tsx` (5 passed)
+- Ran: `npm run lint` (0 errors, existing warnings)
+- Ran: `pnpm typecheck` (failed due to stale `.next/types/validator.ts` references)
+- Chrome DevTools MCP: attempted booking detail, redirected to `/auth/signin` due to missing session
+- Captured DevTools notes: `tasks/fix-booking-hydration-20260127-0939/artifacts/devtools-notes.txt`
+- Fixed lint-staged blocker by aligning `useMemo` deps with React Compiler inference in `ReservationDetailClient`
+- Ran: `npx eslint --max-warnings=0 src/components/features/booking/detail/ReservationDetailClient.tsx` (passed)
 
 ## Now
 
-- Summarize sign-out root cause and the applied fix for the user
+- Report the lint-staged fix and recommend re-running the commit/hooks
 
 ## Next
 
-- Validate in staging/production with a real authenticated session
-- Monitor `/api/auth/signout` error rates and sign-out UX
+- Validate the booking detail route in staging/production with a real session or recovery cookie
+- Monitor Sentry hydration error volume after deploy
 
 ## Open questions (UNCONFIRMED if needed)
 
-- Are there other sign-out triggers besides guest navbar and ops sidebar that need idempotent behavior? (UNCONFIRMED)
+- Can we run DevTools MCP against a staging session to directly confirm no hydration mismatch on `/bookings/[id]`? (UNCONFIRMED)
 
 ## Working set (files/ids/commands)
 
-- `lib/supabase/auth-errors.ts`
-- `lib/supabase/signOut.ts`
-- `src/app/api/auth/signout/route.ts`
-- `src/app/api/auth/signout/route.test.ts`
-- `tests/server/supabase-auth-errors.test.ts`
-- `tasks/signout-stale-session-20260127-0016/verification.md`
-- `npx vitest run tests/server/supabase-auth-errors.test.ts src/app/api/auth/signout/route.test.ts`
+- `src/app/(public)/bookings/[bookingId]/page.tsx`
+- `src/app/(public)/bookings/booking-page.tsx`
+- `src/components/features/booking/detail/ReservationDetailClient.tsx`
+- `src/components/features/booking/detail/ReservationHistory.tsx`
+- `reserve/shared/formatting/booking.ts`
+- `reserve/shared/formatting/booking.test.ts`
+- `tasks/fix-booking-hydration-20260127-0939/`
+- `tasks/fix-booking-hydration-20260127-0939/artifacts/devtools-notes.txt`
+- `src/components/features/booking/detail/ReservationDetailClient.tsx`
+- `npx vitest run reserve/shared/formatting/booking.test.ts`
+- `npx vitest run tests/ops/booking-details-utils.test.tsx tests/ops/booking-details-hook.test.tsx`
+- `npm run lint`

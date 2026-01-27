@@ -116,12 +116,14 @@ export default async function BookingDetailPage({
     await prefetchReservation(queryClient, normalized);
   }
   const dehydratedState = dehydrate(queryClient);
+  const initialNow = Date.now();
 
   return (
     <HydrationBoundary state={dehydratedState}>
       <ReservationDetailClient
         reservationId={normalized}
         restaurantName={null}
+        initialNow={initialNow}
         canManage={Boolean(user) || hasRecoveryCookie}
       />
     </HydrationBoundary>
