@@ -75,7 +75,7 @@ const buildPhoneSchema = (mode: BookingWizardMode) =>
       if (!isUKPhone(value)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: 'Please enter a valid UK mobile number (e.g. 07123 456789).',
+          message: 'Please enter a valid UK phone number (e.g. 020 7123 4567 or 07123 456789).',
         });
       }
     });
