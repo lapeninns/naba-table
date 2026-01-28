@@ -35,7 +35,7 @@ function EnhancedAuthLayoutContent({
         {/* Header/Navbar */}
         <header className="relative z-20 border-b border-slate-200/60 bg-white/80 backdrop-blur-md">
           <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-            <BrandLogo href={`/auth${searchSuffix}`} />
+            <BrandLogo href={`/auth${searchSuffix}`} animated />
 
             <div className="flex items-center gap-4 text-sm">
               {isGuest ? (
