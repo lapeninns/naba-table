@@ -2,6 +2,7 @@
 
 import debounce from 'lodash/debounce';
 import { Search } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -42,6 +43,13 @@ import type { StatusOption } from '@/components/dashboard/StatusFilterGroup';
 import type { BookingDTO } from '@/hooks/useBookings';
 import type { StatusFilter } from '@/hooks/useBookingsTableState';
 import type { OpsBookingListItem, OpsBookingStatus, OpsBookingsFilters } from '@/types/ops';
+
+const EditBookingDialog = dynamic(
+  () => import('@/components/dashboard/EditBookingDialog').then((m) => m.EditBookingDialog),
+  {
+    loading: () => <div className="h-10" />,
+  },
+);
 
 const DEFAULT_FILTER: OpsStatusFilter = 'recent';
 const DEFAULT_PAGE = 1;
@@ -279,6 +287,8 @@ export function OpsBookingsClient({
 
   const [detailsBooking, setDetailsBooking] = useState<BookingDTO | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [editBooking, setEditBooking] = useState<BookingDTO | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
 
   const updateSearchParams = useCallback(
     (updates: Record<string, string | null>) => {
@@ -536,8 +546,17 @@ export function OpsBookingsClient({
   }, [bookings, focusBookingId, focusedBooking]);
 
   const handleDetails = useCallback((booking: BookingDTO) => {
+    setIsEditOpen(false);
+    setEditBooking(null);
     setDetailsBooking(booking);
     setIsDetailsOpen(true);
+  }, []);
+
+  const handleEdit = useCallback((booking: BookingDTO) => {
+    setIsDetailsOpen(false);
+    setDetailsBooking(null);
+    setEditBooking(booking);
+    setIsEditOpen(true);
   }, []);
 
   const handleDetailsOpenChange = useCallback(
@@ -552,6 +571,13 @@ export function OpsBookingsClient({
     },
     [focusBookingId, updateSearchParams],
   );
+
+  const handleEditOpenChange = useCallback((open: boolean) => {
+    setIsEditOpen(open);
+    if (!open) {
+      setEditBooking(null);
+    }
+  }, []);
 
   if (memberships.length === 0) {
     return <NoRestaurantAccess />;
@@ -690,7 +716,7 @@ export function OpsBookingsClient({
               onPageChange={handlePageRequest}
               onRetry={() => bookingsQuery.refetch()}
               onDetails={handleDetails}
-              onEdit={handleDetails}
+              onEdit={handleEdit}
               onCancel={handleDetails}
               variant="ops"
               statusOptions={OPS_STATUS_TABS}
@@ -714,6 +740,14 @@ export function OpsBookingsClient({
             initialData={detailsBooking}
             open={isDetailsOpen}
             onOpenChange={handleDetailsOpenChange}
+          />
+          <EditBookingDialog
+            booking={editBooking}
+            open={isEditOpen}
+            onOpenChange={handleEditOpenChange}
+            restaurantSlug={activeMembership?.restaurantSlug ?? editBooking?.restaurantSlug ?? null}
+            restaurantTimezone={restaurantTimezone ?? editBooking?.restaurantTimezone ?? null}
+            mode="ops"
           />
         </main>
       </div>

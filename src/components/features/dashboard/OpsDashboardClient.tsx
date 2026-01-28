@@ -10,6 +10,7 @@ import {
   Printer,
   Search,
 } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState, useTransition } from 'react';
@@ -40,6 +41,13 @@ import { HeatmapCalendar } from './HeatmapCalendar';
 
 import type { BookingFilter } from './BookingsFilterBar';
 import type { BookingDTO } from '@/hooks/useBookings';
+
+const EditBookingDialog = dynamic(
+  () => import('@/components/dashboard/EditBookingDialog').then((m) => m.EditBookingDialog),
+  {
+    loading: () => <div className="h-10" />,
+  },
+);
 
 /*
   Default to upcoming to avoid showing completed bookings by default.
@@ -79,6 +87,8 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
   } | null>(null);
   const [detailsBooking, setDetailsBooking] = useState<BookingDTO | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [editBooking, setEditBooking] = useState<BookingDTO | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
 
   const [, startTransition] = useTransition();
 
@@ -159,14 +169,30 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
   };
 
   const handleDetails = (booking: BookingDTO) => {
+    setIsEditOpen(false);
+    setEditBooking(null);
     setDetailsBooking(booking);
     setIsDetailsOpen(true);
+  };
+
+  const handleEdit = (booking: BookingDTO) => {
+    setIsDetailsOpen(false);
+    setDetailsBooking(null);
+    setEditBooking(booking);
+    setIsEditOpen(true);
   };
 
   const handleDetailsOpenChange = (open: boolean) => {
     setIsDetailsOpen(open);
     if (!open) {
       setDetailsBooking(null);
+    }
+  };
+
+  const handleEditOpenChange = (open: boolean) => {
+    setIsEditOpen(open);
+    if (!open) {
+      setEditBooking(null);
     }
   };
 
@@ -568,6 +594,7 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
             showHeatmap={false}
             allowTableAssignments={allowTableAssignments}
             onDetails={handleDetails}
+            onEdit={handleEdit}
             onAssignTable={handleAssignTable}
             onUnassignTable={handleUnassignTable}
             tableActionState={tableActionState}
@@ -583,6 +610,14 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
           initialData={detailsBooking}
           open={isDetailsOpen}
           onOpenChange={handleDetailsOpenChange}
+        />
+        <EditBookingDialog
+          booking={editBooking}
+          open={isEditOpen}
+          onOpenChange={handleEditOpenChange}
+          restaurantSlug={membership?.restaurantSlug ?? null}
+          restaurantTimezone={summary?.timezone ?? null}
+          mode="ops"
         />
       </div>
     </div>
