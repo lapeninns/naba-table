@@ -22,6 +22,7 @@ import {
 import { Form, FormField } from '@/components/ui/form';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { useOpsUpdateBooking } from '@/hooks/ops/useOpsUpdateBooking';
 import { useUpdateBooking } from '@/hooks/useUpdateBooking';
 import { emit } from '@/lib/analytics/emit';
 import { BOOKING_IN_PAST_DASHBOARD_MESSAGE } from '@/lib/bookings/messages';
@@ -79,6 +80,7 @@ export type EditBookingDialogProps = {
   onOpenChange: (open: boolean) => void;
   restaurantSlug?: string | null;
   restaurantTimezone?: string | null;
+  mode?: 'guest' | 'ops';
 };
 
 const formResolver = zodResolver(schema) as Resolver<FormValues>;
@@ -133,11 +135,26 @@ const deriveEndState = (startValue: string | null | undefined, fallbackDurationM
   return { endDate, endIso, durationLabel, endDisplay };
 };
 
+type EditBookingMutationInput = {
+  id: string;
+  startIso: string;
+  endIso: string;
+  partySize: number;
+  notes?: string | null;
+  restaurantId?: string | null;
+};
+
+type EditBookingMutation = {
+  mutateAsync: (input: EditBookingMutationInput) => Promise<unknown>;
+  isPending: boolean;
+  error: HttpError | null;
+};
+
 type UseEditBookingDialogState = {
   form: ReturnType<typeof useForm<FormValues>>;
   control: ReturnType<typeof useForm<FormValues>>['control'];
   errors: ReturnType<typeof useForm<FormValues>>['formState']['errors'];
-  mutation: ReturnType<typeof useUpdateBooking>;
+  mutation: EditBookingMutation;
   derivedEndIso: string | null;
   derivedEndDisplay: string;
   derivedDurationLabel: string;
@@ -165,6 +182,7 @@ function useEditBookingDialogState({
   onOpenChange,
   restaurantSlug: restaurantSlugOverride,
   restaurantTimezone: restaurantTimezoneOverride,
+  mode = 'guest',
 }: UseEditBookingDialogParams): UseEditBookingDialogState {
   const defaultValues = useMemo(() => toDefaultValues(booking), [booking]);
   const resolver = formResolver;
@@ -184,7 +202,9 @@ function useEditBookingDialogState({
     formState: { errors, isDirty },
   } = form;
 
-  const mutation = useUpdateBooking();
+  const guestMutation = useUpdateBooking();
+  const opsMutation = useOpsUpdateBooking();
+  const mutation = (mode === 'ops' ? opsMutation : guestMutation) as EditBookingMutation;
   const [formError, setFormError] = useState<{ message: string; code?: string } | null>(null);
   const startValue = watch('start');
   const hasCommittedStart = typeof startValue === 'string' ? startValue.trim().length > 0 : Boolean(startValue);
@@ -290,6 +310,7 @@ function useEditBookingDialogState({
           endIso,
           partySize: values.partySize,
           notes: values.notes ?? null,
+          restaurantId: mode === 'ops' ? booking.restaurantId ?? null : undefined,
         });
         onOpenChange(false);
       } catch (error) {
@@ -351,6 +372,7 @@ export function EditBookingDialog({
   onOpenChange,
   restaurantSlug: restaurantSlugOverride,
   restaurantTimezone: restaurantTimezoneOverride,
+  mode = 'guest',
 }: EditBookingDialogProps) {
   const {
     form,
@@ -379,6 +401,7 @@ export function EditBookingDialog({
     onOpenChange,
     restaurantSlug: restaurantSlugOverride,
     restaurantTimezone: restaurantTimezoneOverride,
+    mode,
   });
 
   const showReassignmentNotice = isDirty;

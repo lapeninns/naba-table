@@ -33,6 +33,7 @@ type DashboardSummaryCardProps = {
   showHeatmap?: boolean;
   allowTableAssignments?: boolean;
   onDetails?: (booking: BookingDTO) => void;
+  onEdit?: (booking: BookingDTO) => void;
   onAssignTable?: (bookingId: string, tableId: string) => Promise<OpsTodayBooking['tableAssignments']>;
   onUnassignTable?: (bookingId: string, tableId: string) => Promise<OpsTodayBooking['tableAssignments']>;
   tableActionState?: {
@@ -70,6 +71,7 @@ export function DashboardSummaryCard({
   showHeatmap = true,
   allowTableAssignments,
   onDetails,
+  onEdit,
   onAssignTable,
   onUnassignTable,
   tableActionState,
@@ -122,6 +124,7 @@ export function DashboardSummaryCard({
           onSortDirChange={onSortDirChange}
           isRefetching={isRefetching}
           onDetails={onDetails}
+          onEdit={onEdit}
           onMarkNoShow={onMarkNoShow}
           onUndoNoShow={onUndoNoShow}
           onCheckIn={onCheckIn}
