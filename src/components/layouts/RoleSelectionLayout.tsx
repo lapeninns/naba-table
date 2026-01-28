@@ -18,7 +18,7 @@ function RoleSelectionNavbar() {
     >
       <div className="max-w-7xl mx-auto flex justify-between items-center">
         <div className="flex items-center gap-2">
-          <BrandLogo href="/auth" />
+          <BrandLogo href="/auth" animated />
         </div>
         <div className="flex items-center gap-3">
           <Link href="/" className="text-sm font-semibold text-slate-600 hover:text-slate-900">

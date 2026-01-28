@@ -1,33 +1,59 @@
 # Continuity Ledger
 
-Last updated: 2026-01-27T10:00:30Z
+Last updated: 2026-01-27T12:57:22Z
 
 ## Goal (incl. success criteria)
 
-- Diagnose and fix a production hydration error on the booking details page
-- Success: server and client render deterministically for `/bookings/[id]`
-- Success: no hydration mismatch caused by time, randomness, or browser-only state
-- Success: targeted tests pass and task artifacts are complete
+- Configure Resend + Vercel DNS + DMARC + BIMI for `notifications.nabatable.com`
+- Success: Resend domain verifies with SPF/DKIM published in Vercel DNS
+- Success: DMARC enforcement exists at both `_dmarc.nabatable.com` and `_dmarc.notifications.nabatable.com`
+- Success: BIMI TXT published at `default._bimi.notifications.nabatable.com`
+- Success: produce BIMI-ready static SVG Tiny-PS logo
 
 ## Constraints/Assumptions
 
 - Follow AGENTS.md SDLC phases with task artifacts
-- Supabase is remote-only; no local migrations
-- Keep a single canonical path; avoid shims/adapters
+- DNS is managed by Vercel DNS
+- Sending provider is Resend; DNS records must come from Resend API
+- No secrets in source; use placeholders
+- DMARC must be enforced for BIMI compliance
 
 ## Key decisions
 
-- Replace regex-only UK mobile validation with `libphonenumber-js` GB parsing/validation
-- Keep a single canonical validator: `reserve/shared/validation/contact.ts::isUKPhone`
-- Canonicalize valid GB numbers to E.164 at storage time in `server/customers.ts`
-- Enforce DB-safe phone length in `server/customers.ts::sanitizePhoneValue`
+- Create dedicated task folder: `tasks/resend-bimi-notifications-20260127-1220/`
+- Use DMARC `p=quarantine; pct=100` as safe default before optional `p=reject`
+- Generate a simplified, static, filter-free Tiny-PS SVG for BIMI compatibility
+- Add a non-interactive CLI script gated by `APPLY_DNS=1` and `VERCEL_TOKEN`
+- Fix Resend record name handling to avoid duplicate `.notifications` labels
+- Use `pnpm dlx vercel@latest` because the global `vercel` binary is broken
 
 ## State
 
-- Phase 4: addressed lint-staged React Compiler memoization warning; targeted eslint now passes
+- DMARC + BIMI DNS are applied and the BIMI SVG is publicly hosted at the target URL
 
 ## Done
 
+- Created task folder: `tasks/resend-bimi-notifications-20260127-1220/`
+- Stubbed SDLC artifacts: `research.md`, `plan.md`, `todo.md`, `verification.md`
+- Inspected brand SVG: `public/brand/nabatable-logo.svg`
+- Created BIMI-ready static SVG: `public/brand/nabatable-bimi.svg`
+- Added CLI automation: `scripts/email/setup-notifications-domain.ts`
+- Added npm script: `email:setup:notifications-domain`
+- Ran CLI dry-run with invalid key; failed fast as expected
+- Ran CLI without key; failed fast with missing `RESEND_API_KEY`
+- Ran CLI with `.env.local` key; Resend rejected domain list due to restricted key
+- Fixed lint warning in `scripts/email/setup-notifications-domain.ts`
+- Ran: `pnpm -s lint` (0 errors, pre-existing warnings remain)
+- Patched `recordNameToFqdn` for subdomain-aware Resend records
+- Ran dry run successfully; Resend domain lookup succeeded and DNS commands generated
+- Removed root DMARC `p=none` and replaced with enforced DMARC via Vercel CLI
+- Added `_dmarc.notifications` and `default._bimi.notifications` via Vercel CLI
+- Ran `dig` checks for DMARC/BIMI/SPF/DKIM; records resolve as expected
+- Requested Resend domain verification; API returned success
+- Copied BIMI SVG to public path: `public/bimi/nabatable-bimi.svg`
+- Added DNS for `assets.nabatable.com` and attached it to the Vercel project
+- Deployed to production via `pnpm dlx vercel@latest deploy --prod --yes`
+- Verified public hosting: `curl -I https://assets.nabatable.com/bimi/nabatable-bimi.svg` returned HTTP 200
 - Created task folder: `tasks/uk-phone-validation-20260126-2349/`
 - Added dependency: `libphonenumber-js@1.12.35` via `pnpm add`
 - Upgraded UK phone validation in `reserve/shared/validation/contact.ts`
@@ -70,28 +96,27 @@ Last updated: 2026-01-27T10:00:30Z
 
 ## Now
 
-- Report the lint-staged fix and recommend re-running the commit/hooks
+- Report that BIMI asset hosting is live and verified
 
 ## Next
 
-- Validate the booking detail route in staging/production with a real session or recovery cookie
-- Monitor Sentry hydration error volume after deploy
+- Send a real test email from `notifications.nabatable.com` and inspect Authentication-Results
+- Confirm Resend domain status transitions to `verified`
+- Validate BIMI with external inspectors after caching/propagation
 
 ## Open questions (UNCONFIRMED if needed)
 
-- Can we run DevTools MCP against a staging session to directly confirm no hydration mismatch on `/bookings/[id]`? (UNCONFIRMED)
+- PEM/VMC availability pending user input (UNCONFIRMED)
 
 ## Working set (files/ids/commands)
 
-- `src/app/(public)/bookings/[bookingId]/page.tsx`
-- `src/app/(public)/bookings/booking-page.tsx`
-- `src/components/features/booking/detail/ReservationDetailClient.tsx`
-- `src/components/features/booking/detail/ReservationHistory.tsx`
-- `reserve/shared/formatting/booking.ts`
-- `reserve/shared/formatting/booking.test.ts`
-- `tasks/fix-booking-hydration-20260127-0939/`
-- `tasks/fix-booking-hydration-20260127-0939/artifacts/devtools-notes.txt`
-- `src/components/features/booking/detail/ReservationDetailClient.tsx`
-- `npx vitest run reserve/shared/formatting/booking.test.ts`
-- `npx vitest run tests/ops/booking-details-utils.test.tsx tests/ops/booking-details-hook.test.tsx`
-- `npm run lint`
+- `tasks/resend-bimi-notifications-20260127-1220/research.md`
+- `tasks/resend-bimi-notifications-20260127-1220/plan.md`
+- `tasks/resend-bimi-notifications-20260127-1220/todo.md`
+- `tasks/resend-bimi-notifications-20260127-1220/verification.md`
+- `public/brand/nabatable-logo.svg`
+- `public/brand/nabatable-bimi.svg`
+- `scripts/email/setup-notifications-domain.ts`
+- `package.json`
+- `pnpm -s lint`
+- `date -u +\"%Y%m%d-%H%M %Y-%m-%dT%H:%M:%SZ\"`

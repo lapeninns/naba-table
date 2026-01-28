@@ -539,7 +539,7 @@ function Navbar({ isAuthenticated }: { isAuthenticated: boolean }) {
       )}
     >
       <div className="max-w-7xl mx-auto flex justify-between items-center">
-        <BrandLogo href="/" />
+        <BrandLogo href="/" animated />
         <div className="hidden md:flex items-center gap-1 bg-slate-100/50 p-1 rounded-full border border-slate-200/50 backdrop-blur-sm">
           {NAV_LINKS.map((link) => (
             <a

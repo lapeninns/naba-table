@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" version="1.2" baseProfile="tiny-ps" aria-labelledby="title">
+  <title>Nabatable</title>
+  <defs>
+    <linearGradient id="pinGradient" x1="64" y1="64" x2="448" y2="448" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#60A5FA" />
+      <stop offset="1" stop-color="#1D4ED8" />
+    </linearGradient>
+    <radialGradient id="plateGradient" cx="256" cy="224" r="72" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" />
+      <stop offset="0.72" stop-color="#F8FAFC" />
+      <stop offset="1" stop-color="#E5E7EB" />
+    </radialGradient>
+    <linearGradient id="metalGradient" x1="192" y1="176" x2="320" y2="272" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#94A3B8" />
+      <stop offset="0.55" stop-color="#E2E8F0" />
+      <stop offset="1" stop-color="#64748B" />
+    </linearGradient>
+  </defs>
+
+  <path d="M256 32C150 32 64 118 64 224c0 85 60 180 176 252a32 32 0 0 0 32 0c116-72 176-167 176-252C448 118 362 32 256 32z" fill="url(#pinGradient)" />
+
+  <circle cx="256" cy="224" r="110" fill="#FFFFFF" />
+  <circle cx="256" cy="224" r="66" fill="url(#plateGradient)" stroke="#E5E7EB" stroke-width="2" />
+  <circle cx="256" cy="224" r="52" fill="#FFFFFF" stroke="#F1F5F9" stroke-width="1.5" />
+
+  <g transform="translate(198 224)">
+    <rect x="-2.2" y="-32" width="4.4" height="64" rx="2.2" fill="url(#metalGradient)" />
+    <rect x="-7" y="-32" width="2.6" height="18" rx="1.1" fill="url(#metalGradient)" />
+    <rect x="-2.2" y="-32" width="2.6" height="20" rx="1.1" fill="url(#metalGradient)" />
+    <rect x="2.6" y="-32" width="2.6" height="18" rx="1.1" fill="url(#metalGradient)" />
+  </g>
+
+  <g transform="translate(314 224)">
+    <rect x="-2.2" y="6" width="4.4" height="26" rx="2.2" fill="url(#metalGradient)" />
+    <path d="M-2.2 6V-26c0-4.5 1.5-7 2.2-7.8.7.8 2.2 3.3 2.2 7.8V6Z" fill="url(#metalGradient)" />
+  </g>
+
+  <g transform="translate(256 170)">
+    <ellipse cx="0" cy="-6" rx="6.6" ry="8.6" fill="url(#metalGradient)" />
+    <rect x="-1.6" y="2" width="3.2" height="21" rx="1.6" fill="url(#metalGradient)" />
+  </g>
+
+  <g transform="translate(256 224)">
+    <circle r="26" fill="#1E40AF" />
+    <circle r="22" fill="#1D4ED8" />
+    <path d="M-9-1L-4 5 11-10" fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" />
+  </g>
+</svg>

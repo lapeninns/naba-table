@@ -10,6 +10,7 @@ interface BrandLogoProps {
   showBeta?: boolean;
   size?: 'sm' | 'md' | 'lg';
   variant?: 'light' | 'dark';
+  animated?: boolean;
 }
 
 export function BrandLogo({
@@ -18,6 +19,7 @@ export function BrandLogo({
   showBeta = true,
   size = 'md',
   variant = 'light',
+  animated = false,
 }: BrandLogoProps) {
   const textColor = variant === 'dark' ? 'text-white' : 'text-slate-900';
   const betaBg =
@@ -33,6 +35,7 @@ export function BrandLogo({
       <BrandIcon
         size={size === 'lg' ? 'md' : 'sm'}
         className="shrink-0 transition-transform duration-200 ease-out hover:rotate-3"
+        animated={animated}
       />
       <div className="relative flex items-center">
         <span

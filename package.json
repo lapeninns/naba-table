@@ -68,6 +68,7 @@
     "flags:audit": "tsx scripts/feature-flags/audit.ts",
     "email:check": "tsx scripts/email/check-resend-status.ts",
     "email:preview": "tsx -r tsconfig-paths/register scripts/preview-booking-email.ts",
+    "email:setup:notifications-domain": "tsx scripts/email/setup-notifications-domain.ts",
     "jobs:hold-sweeper": "tsx -r tsconfig-paths/register scripts/jobs/run-hold-sweeper.ts",
     "jobs:allocations-pruner": "tsx -r tsconfig-paths/register scripts/jobs/run-allocations-pruner.ts",
     "queue:email-worker": "tsx -r tsconfig-paths/register scripts/queues/email-worker.ts",
