@@ -3,7 +3,8 @@ import { useCallback, useEffect, useRef } from 'react';
 /**
  * Simple debounce helper for non-hook usage.
  */
-export function debounce<T extends (...args: unknown[]) => unknown>(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function debounce<T extends (...args: any[]) => any>(
   func: T,
   wait: number,
 ): (...args: Parameters<T>) => void {
@@ -26,7 +27,8 @@ export function debounce<T extends (...args: unknown[]) => unknown>(
 /**
  * React hook variant that keeps the latest callback reference.
  */
-export function useDebounce<T extends (...args: unknown[]) => unknown>(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function useDebounce<T extends (...args: any[]) => any>(
   callback: T,
   delay: number,
 ): (...args: Parameters<T>) => void {
@@ -62,7 +64,8 @@ export function useDebounce<T extends (...args: unknown[]) => unknown>(
 /**
  * Lightweight throttle helper to avoid hammering handlers.
  */
-export function useThrottle<T extends (...args: unknown[]) => unknown>(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function useThrottle<T extends (...args: any[]) => any>(
   callback: T,
   delay: number,
 ): (...args: Parameters<T>) => void {

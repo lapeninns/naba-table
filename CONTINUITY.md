@@ -1,6 +1,6 @@
 # Continuity Ledger
 
-Last updated: 2026-01-29T19:50:00Z
+Last updated: 2026-01-29T20:30:00Z
 
 ## Goal (incl. success criteria)
 
@@ -29,10 +29,10 @@ Last updated: 2026-01-29T19:50:00Z
 
 ## State
 
-- All fixable in-repo gaps remediated (66/81 = 81%)
-- Task `additional-gaps-20260129-1915` completed with artifacts
-- Validators passed (typecheck clean; lint warnings only)
-- 15 remaining gaps require external/org setup (GitHub settings, infrastructure)
+- Agent readiness gaps addressed (~75/81 = 92%)
+- Task `level5-gaps-20260129-2030` completed with artifacts
+- Validators passed (typecheck clean; tests pass)
+- Remaining gaps require external service setup (Sentry-GitHub integration, alerting)
 
 ## Done
 
@@ -105,12 +105,12 @@ Last updated: 2026-01-29T19:50:00Z
 
 ## Now
 
-- Retry storing readiness report when tool connectivity is available
-- Share readiness report summary with remaining gaps
+- Commit and push Level 5 gap fixes
 
 ## Next
 
-- Clarify AMP config scope and finish the fix once confirmed
+- Configure external integrations (Sentry-GitHub, PagerDuty) per docs
+- Wait for CI checks or create PR for production deployment
 
 ## Open questions (UNCONFIRMED if needed)
 
