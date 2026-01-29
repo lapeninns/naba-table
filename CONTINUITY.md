@@ -1,55 +1,50 @@
 # Continuity Ledger
 
-Last updated: 2026-01-28T17:29:30Z
+Last updated: 2026-01-29T09:20:00Z
 
 ## Goal (incl. success criteria)
 
-- Add ops-side booking CRUD email templates that clearly indicate actions performed on behalf of guests
-- Success: Ops-created, ops-updated, and ops-cancelled emails use distinct subjects/templates
-- Success: Email payloads include actor/source to select templates deterministically
-- Success: Tests cover template selection/mapping
+- Fix ops sign-in redirect loop on `app.localhost` so ops can access `/dashboard` and `/bookings`
+- Success: Ops sign-in lands on dashboard without redirect loop
+- Success: Manual UI QA for edit booking flow can complete per AGENTS.md
 
 ## Constraints/Assumptions
 
-- Follow AGENTS.md SDLC phases; no coding before requirements and plan are reviewed
-- Task artifacts required under `tasks/ops-booking-crud-email-20260128-1728/`
-- No UI changes (Chrome DevTools MCP not required unless UI touched)
+- Follow AGENTS.md SDLC phases; task folder already created
+- Manual UI QA via Chrome DevTools MCP is required (UI change)
 - No DB changes expected
 
 ## Key decisions
 
-- TBD: how to represent ops vs guest action in email payloads (actor/source)
+- Derive and thread restaurantSlug from ops restaurant details to avoid edit dialog schedule gating
+- Harden auth hostname parsing to honor forwarded/origin headers for app-host redirects
 
 ## State
 
-- Phase 0 complete; starting Phase 1 requirements and code inventory
+- Phase 4 QA in progress; ops sign-in loop resolved
 
 ## Done
 
-- Created task folder `tasks/ops-booking-crud-email-20260128-1728/` with stubs
-- Read root, `server/AGENTS.md`, and `src/app/AGENTS.md`
+- Implemented ops edit booking slug propagation fix
+- Ran validators: `pnpm lint` (warnings only), `pnpm typecheck`, `pnpm test`
+- Updated auth hostname parsing and added test for origin-host precedence
+- Chrome DevTools QA: ops sign-in succeeds; bookings page reachable; edit booking dialog opens via “More actions” on future booking
+- Verified time selection populates options and enables “Save changes” without saving
 
 ## Now
 
-- Inventory current booking email templates, queue payloads, and ops booking side-effects
+- Confirm if we should apply a booking edit (save) or leave as cancel-only
 
 ## Next
 
-- Clarify with user which CRUD events and copy differences are desired
-- Fill `research.md` and `plan.md`
-- Implement ops-specific template selection + tests
+- Record verification results in task artifacts (screens, notes) once approved
 
 ## Open questions (UNCONFIRMED if needed)
 
-- Which CRUD events require distinct ops templates (create/update/cancel only, or all emails)? (UNCONFIRMED)
-- Desired copy/subject wording for ops actions? (UNCONFIRMED)
-- Should emails go only to guest or also to internal staff for ops actions? (UNCONFIRMED)
+- None
 
 ## Working set (files/ids/commands)
 
-- `server/emails/bookings.ts`
-- `server/jobs/booking-side-effects.ts`
-- `server/queue/email.ts`
-- `src/app/api/ops/bookings/route.ts`
-- `src/app/api/ops/bookings/[id]/route.ts`
-- `tasks/ops-booking-crud-email-20260128-1728/`
+- `lib/auth/redirects.ts`
+- `src/app/api/auth/signin/route.test.ts`
+- Chrome DevTools MCP (ops bookings → More actions → Edit Booking)

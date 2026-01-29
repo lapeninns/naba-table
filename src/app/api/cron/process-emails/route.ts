@@ -128,7 +128,7 @@ async function selectReadyJobs(
   queue: Queue<EmailJobPayload>,
   now: number,
 ): Promise<{ jobs: Array<Job<EmailJobPayload>>; debug: Record<string, number> }> {
-  const waitingJobs = await queue.getWaiting(0, Math.max(0, MAX_JOBS_PER_RUN - 1));
+  const waitingJobs = await queue.getJobs(['wait'], 0, Math.max(0, MAX_JOBS_PER_RUN - 1));
 
   if (waitingJobs.length >= MAX_JOBS_PER_RUN) {
     return {
@@ -143,7 +143,7 @@ async function selectReadyJobs(
 
   const remaining = MAX_JOBS_PER_RUN - waitingJobs.length;
   const delayedScanLimit = Math.max(remaining, MAX_DELAYED_SCAN) - 1;
-  const delayedJobs = await queue.getDelayed(0, delayedScanLimit);
+  const delayedJobs = await queue.getJobs(['delayed'], 0, delayedScanLimit);
   const readyDelayed = delayedJobs
     .filter((job) => {
       const processAt = job.timestamp + (job.opts.delay ?? 0);

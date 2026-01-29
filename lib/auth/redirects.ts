@@ -86,11 +86,40 @@ function toAbsoluteRedirect(target: string, rootDomain: string): string {
   return `https://${normalizedRoot}${normalizedPath}`;
 }
 
+function extractHostname(value: string | null): string | null {
+  if (!value) return null;
+
+  const [first] = value.split(',');
+  const trimmed = first?.trim();
+  if (!trimmed) return null;
+
+  try {
+    if (/^https?:\/\//i.test(trimmed)) {
+      return new URL(trimmed).hostname.toLowerCase();
+    }
+  } catch {
+    return null;
+  }
+
+  return trimmed.toLowerCase().replace(/:\d+$/, '');
+}
+
 export function parseHostname(req: NextRequest): string {
-  const headerHost = (req.headers.get('host') || '').toLowerCase();
+  const candidates = [
+    req.headers.get('x-forwarded-host'),
+    req.headers.get('x-original-host'),
+    req.headers.get('origin'),
+    req.headers.get('referer'),
+    req.headers.get('host'),
+  ];
+
+  for (const candidate of candidates) {
+    const hostname = extractHostname(candidate);
+    if (hostname) return hostname;
+  }
+
   const urlHost = req.nextUrl?.hostname?.toLowerCase?.() ?? '';
-  const host = urlHost || headerHost;
-  return host.replace(/:\d+$/, '');
+  return urlHost.replace(/:\d+$/, '');
 }
 
 export function defaultRedirectForHost(hostname: string, rootDomain: string): string {
