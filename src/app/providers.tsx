@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { SupabaseSessionProvider, useSupabaseSession } from '@/hooks/useSupabaseSession';
 import { useClientErrorReporter } from '@/lib/monitoring/clientReporter';
+import { PostHogProvider, PostHogUserIdentifier } from '@/lib/posthog/provider';
 import { buildQueryStorageKey, clearPersistedQueryCache, configureQueryPersistence } from '@/lib/query/persist';
 import { getQueryGcTime, getQueryStaleTime } from '@/lib/query/staleTimes';
 
@@ -89,8 +90,11 @@ function QueryLayer({ children }: { children: ReactNode }) {
 
 export function AppProviders({ children, initialSession }: AppProvidersProps) {
   return (
-    <SupabaseSessionProvider initialSession={initialSession}>
-      <QueryLayer>{children}</QueryLayer>
-    </SupabaseSessionProvider>
+    <PostHogProvider>
+      <SupabaseSessionProvider initialSession={initialSession}>
+        <PostHogUserIdentifier />
+        <QueryLayer>{children}</QueryLayer>
+      </SupabaseSessionProvider>
+    </PostHogProvider>
   );
 }

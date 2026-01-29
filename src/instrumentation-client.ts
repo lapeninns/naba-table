@@ -1,9 +1,11 @@
-// This file configures the initialization of Sentry on the client.
+// This file configures the initialization of Sentry and PostHog on the client.
 // The added config here will be used whenever a users loads a page in their browser.
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from '@sentry/nextjs';
+import posthog from 'posthog-js';
 
+// Initialize Sentry
 Sentry.init({
   dsn: 'https://1488f284160e83bd738cf606f0ccf826@o4510764192497664.ingest.de.sentry.io/4510764200034384',
 
@@ -28,4 +30,29 @@ Sentry.init({
   sendDefaultPii: true,
 });
 
-export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
+// Initialize PostHog
+const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
+const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;
+
+if (posthogKey && posthogHost) {
+  posthog.init(posthogKey, {
+    api_host: posthogHost,
+    person_profiles: 'identified_only',
+    capture_pageview: false, // We capture pageviews manually below
+    capture_pageleave: true,
+    autocapture: true,
+    persistence: 'localStorage+cookie',
+  });
+}
+
+// Capture pageview on route transition
+export const onRouterTransitionStart: typeof Sentry.captureRouterTransitionStart = (...args) => {
+  Sentry.captureRouterTransitionStart(...args);
+
+  // Capture pageview in PostHog
+  if (posthogKey && posthogHost) {
+    posthog.capture('$pageview', {
+      $current_url: window.location.href,
+    });
+  }
+};
