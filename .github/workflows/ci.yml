@@ -21,8 +21,7 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 9
+
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -49,6 +48,12 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           RESERVE_API_BASE_URL: "https://app.nabatable.com"
+          NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
+          NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM: ${{ secrets.RESEND_FROM }}
+          NEXT_PUBLIC_SUPPORT_EMAIL: ${{ secrets.NEXT_PUBLIC_SUPPORT_EMAIL }}
+          SESSION_RECOVERY_ACCESS_TOKEN_SECRET: ${{ secrets.SESSION_RECOVERY_ACCESS_TOKEN_SECRET }}
 
   # ============================================
   # JOB 2: E2E Tests (Playwright)
@@ -67,8 +72,7 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 9
+
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -150,8 +154,7 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 9
+
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -208,8 +211,7 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 9
+
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -293,8 +295,7 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 9
+
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -365,8 +366,7 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 9
+
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -392,8 +392,7 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 9
+
 
       - name: Setup Node
         uses: actions/setup-node@v4
