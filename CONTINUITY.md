@@ -1,50 +1,54 @@
 # Continuity Ledger
 
-Last updated: 2026-01-29T09:20:00Z
+Last updated: 2026-01-29T21:47:46Z
 
 ## Goal (incl. success criteria)
 
-- Fix ops sign-in redirect loop on `app.localhost` so ops can access `/dashboard` and `/bookings`
-- Success: Ops sign-in lands on dashboard without redirect loop
-- Success: Manual UI QA for edit booking flow can complete per AGENTS.md
+- Sync local Supabase env vars so `pnpm run build` passes env validation
+- Success: `pnpm run validate:env` passes with required Supabase variables
+- Success: Build proceeds past prebuild env guard
 
 ## Constraints/Assumptions
 
-- Follow AGENTS.md SDLC phases; task folder already created
-- Manual UI QA via Chrome DevTools MCP is required (UI change)
-- No DB changes expected
+- Follow AGENTS.md SDLC phases; create task folder + artifacts
+- Use Vercel + Supabase CLI to source env values
+- Do not print or commit secrets; keep values in `.env.local`
+- Prefer non-production Supabase creds for local builds
 
 ## Key decisions
 
-- Derive and thread restaurantSlug from ops restaurant details to avoid edit dialog schedule gating
-- Harden auth hostname parsing to honor forwarded/origin headers for app-host redirects
+- Pull Vercel development env to `.env.vercel.pull` and use it as primary source
+- Use Supabase CLI API keys for anon/service role; derive URL if missing
 
 ## State
 
-- Phase 4 QA in progress; ops sign-in loop resolved
+- Env sync complete; `validate:env` passes
 
 ## Done
 
-- Implemented ops edit booking slug propagation fix
-- Ran validators: `pnpm lint` (warnings only), `pnpm typecheck`, `pnpm test`
-- Updated auth hostname parsing and added test for origin-host precedence
-- Chrome DevTools QA: ops sign-in succeeds; bookings page reachable; edit booking dialog opens via “More actions” on future booking
-- Verified time selection populates options and enables “Save changes” without saving
+- Pulled Vercel dev env to `.env.vercel.pull`
+- Fetched Supabase API keys via CLI to `/tmp/supabase-api-keys.env`
+- Updated `.env.local` with anon + service role keys
+- Added `NEXT_PUBLIC_SUPABASE_URL` from Supabase project ref
+- Ran `pnpm run validate:env` (passed)
 
 ## Now
 
-- Confirm if we should apply a booking edit (save) or leave as cancel-only
+- Await confirmation to run `pnpm run build`
 
 ## Next
 
-- Record verification results in task artifacts (screens, notes) once approved
+- Rerun `pnpm run build` if requested
 
 ## Open questions (UNCONFIRMED if needed)
 
-- None
+- Confirm the intended Supabase project for local dev (current ref: loxrwkeuxesctnrdpksy)
 
 ## Working set (files/ids/commands)
 
-- `lib/auth/redirects.ts`
-- `src/app/api/auth/signin/route.test.ts`
-- Chrome DevTools MCP (ops bookings → More actions → Edit Booking)
+- `.env.local`
+- `.env.vercel.pull`
+- `supabase/.temp/project-ref`
+- `/tmp/supabase-api-keys.env`
+- `scripts/validate-env.ts`
+- `tasks/sync-supabase-env-20260129-2147/*`
