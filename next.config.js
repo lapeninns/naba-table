@@ -127,7 +127,7 @@ const nextConfig = {
 
       // --- Ops ---
       // --- Legal ---
-      { source: '/privacy-policy', destination: '/', permanent: true },
+      { source: '/privacy-policy', destination: '/privacy', permanent: true },
       { source: '/terms', destination: '/', permanent: true },
       { source: '/tos', destination: '/', permanent: true },
       { source: '/terms/:path*', destination: '/', permanent: true },
