@@ -24,6 +24,7 @@ import { BookingStateMachineProvider } from '@/contexts/booking-state-machine';
 import { useOpsActiveMembership } from '@/contexts/ops-session';
 import { useOpsBookingHeatmap } from '@/hooks/ops/useOpsBookingHeatmap';
 import { useOpsBookingLifecycleActions } from '@/hooks/ops/useOpsBookingStatusActions';
+import { useOpsRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
 import { useOpsTableAssignmentActions } from '@/hooks/ops/useOpsTableAssignments';
 import { useOpsTodaySummary } from '@/hooks/ops/useOpsTodaySummary';
 import { useDateSwipe } from '@/hooks/useDateSwipe';
@@ -93,9 +94,12 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
   const [, startTransition] = useTransition();
 
   const restaurantId = membership?.restaurantId ?? null;
+  const restaurantDetails = useOpsRestaurantDetails(restaurantId ?? null);
 
   const summaryQuery = useOpsTodaySummary({ restaurantId, targetDate: selectedDate });
   const summary = summaryQuery.data ?? null;
+  const restaurantSlug = restaurantDetails.data?.slug ?? membership?.restaurantSlug ?? null;
+  const restaurantTimezone = summary?.timezone ?? restaurantDetails.data?.timezone ?? null;
 
   useEffect(() => {
     if (!summary) return;
@@ -593,6 +597,7 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
             showFilterBar={false}
             showHeatmap={false}
             allowTableAssignments={allowTableAssignments}
+            restaurantSlug={restaurantSlug}
             onDetails={handleDetails}
             onEdit={handleEdit}
             onAssignTable={handleAssignTable}
@@ -615,8 +620,8 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
           booking={editBooking}
           open={isEditOpen}
           onOpenChange={handleEditOpenChange}
-          restaurantSlug={membership?.restaurantSlug ?? null}
-          restaurantTimezone={summary?.timezone ?? null}
+          restaurantSlug={restaurantSlug}
+          restaurantTimezone={restaurantTimezone}
           mode="ops"
         />
       </div>

@@ -56,6 +56,7 @@ type BookingsListProps = {
   searchQuery?: string;
   summary: OpsTodayBookingsSummary;
   allowTableAssignments: boolean;
+  restaurantSlug?: string | null;
   sortKey: BookingSortKey;
   sortDir: BookingSortDir;
   onSortKeyChange: (value: BookingSortKey) => void;
@@ -179,6 +180,7 @@ function BookingsListContent({
   searchQuery,
   summary,
   allowTableAssignments,
+  restaurantSlug,
   sortKey,
   sortDir,
   onSortKeyChange,
@@ -393,7 +395,7 @@ function BookingsListContent({
             customerEmail: booking.customerEmail ?? null,
             customerPhone: booking.customerPhone ?? null,
             restaurantName: 'Restaurant',
-            restaurantSlug: null,
+            restaurantSlug: restaurantSlug ?? null,
             restaurantTimezone: summary.timezone,
             notes: booking.notes ?? null,
             allergies: booking.allergies ?? null,

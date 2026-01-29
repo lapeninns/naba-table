@@ -101,8 +101,7 @@ describe("/api/cron/process-emails", () => {
   it("returns early when no jobs are pending", async () => {
     const queue = {
       getJobCounts: vi.fn().mockResolvedValue({ wait: 0, delayed: 0 }),
-      getWaiting: vi.fn(),
-      getDelayed: vi.fn(),
+      getJobs: vi.fn(),
     };
 
     getEmailQueueMock.mockReturnValue(queue);
@@ -112,8 +111,7 @@ describe("/api/cron/process-emails", () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.processed).toBe(0);
-    expect(queue.getWaiting).not.toHaveBeenCalled();
-    expect(queue.getDelayed).not.toHaveBeenCalled();
+    expect(queue.getJobs).not.toHaveBeenCalled();
   });
 
   it("prioritizes waiting jobs and skips delayed fetch when full", async () => {
@@ -126,13 +124,12 @@ describe("/api/cron/process-emails", () => {
         status: "confirmed",
         customer_email: "guest@example.com",
       });
-      return makeJob({ id: `job-${index}`, bookingId, timestamp: now });
+      return makeJob({ id: `job-${idx}`, bookingId, timestamp: now });
     });
 
     const queue = {
       getJobCounts: vi.fn().mockResolvedValue({ wait: 10, delayed: 0 }),
-      getWaiting: vi.fn().mockResolvedValue(jobs),
-      getDelayed: vi.fn(),
+      getJobs: vi.fn().mockResolvedValue(jobs),
     };
 
     getEmailQueueMock.mockReturnValue(queue);
@@ -142,7 +139,7 @@ describe("/api/cron/process-emails", () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.stats.sent).toBe(10);
-    expect(queue.getDelayed).not.toHaveBeenCalled();
+    expect(queue.getJobs).toHaveBeenCalledOnce();
     jobs.forEach((job) => {
       expect(job.remove).toHaveBeenCalledOnce();
     });
@@ -188,8 +185,10 @@ describe("/api/cron/process-emails", () => {
 
     const queue = {
       getJobCounts: vi.fn().mockResolvedValue({ wait: 2, delayed: 2 }),
-      getWaiting: vi.fn().mockResolvedValue(waitingJobs),
-      getDelayed: vi.fn().mockResolvedValue([delayedReady, delayedNotReady]),
+      getJobs: vi
+        .fn()
+        .mockResolvedValueOnce(waitingJobs)
+        .mockResolvedValueOnce([delayedReady, delayedNotReady]),
     };
 
     getEmailQueueMock.mockReturnValue(queue);
@@ -199,7 +198,7 @@ describe("/api/cron/process-emails", () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.stats.sent).toBe(3);
-    expect(queue.getDelayed).toHaveBeenCalledOnce();
+    expect(queue.getJobs).toHaveBeenCalledTimes(2);
     expect(sendBookingConfirmationEmailMock).toHaveBeenCalledTimes(3);
     expect(delayedReady.remove).toHaveBeenCalledOnce();
     expect(delayedNotReady.remove).not.toHaveBeenCalled();

@@ -176,6 +176,32 @@ describe('POST /api/auth/signin', () => {
     });
   });
 
+  it('prefers origin host when host header points to root', async () => {
+    const token = 'csrf-token';
+    const request = new NextRequest('http://localhost/api/auth/signin', {
+      method: 'POST',
+      body: JSON.stringify({
+        mode: 'password',
+        email: 'USER@example.com',
+        password: 'ValidPassword123!',
+        redirectedFrom: '/dashboard',
+      }),
+      headers: {
+        'content-type': 'application/json',
+        'x-csrf-token': token,
+        cookie: `sr-csrf-token=${token}`,
+        host: 'localhost:3000',
+        origin: 'http://app.localhost:3000',
+      },
+    });
+
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.redirectTo).toBe('/dashboard');
+  });
+
   it('sends a magic link and allows creating a new user', async () => {
     const token = 'csrf-token';
 

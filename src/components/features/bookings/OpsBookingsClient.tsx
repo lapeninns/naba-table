@@ -154,6 +154,7 @@ export function OpsBookingsClient({
   }, [initialWindowMinutes, searchParams]);
 
   const restaurantTimezone = restaurantDetails.data?.timezone ?? null;
+  const restaurantSlug = restaurantDetails.data?.slug ?? activeMembership?.restaurantSlug ?? null;
   const appliedDateRange = useMemo(() => {
     if (resolvedWindowMode === 'window' && resolvedTime) {
       const windowRange = buildOpsTimeWindowRange(
@@ -475,7 +476,7 @@ export function OpsBookingsClient({
       id: booking.id,
       restaurantId: booking.restaurantId ?? null,
       restaurantName: booking.restaurantName,
-      restaurantSlug: booking.restaurantSlug ?? activeMembership?.restaurantSlug ?? null,
+      restaurantSlug: booking.restaurantSlug ?? restaurantSlug ?? null,
       restaurantTimezone: booking.restaurantTimezone ?? null,
       partySize: booking.partySize,
       startIso: booking.startIso,
@@ -498,7 +499,7 @@ export function OpsBookingsClient({
       checkedInAt: booking.checkedInAt ?? null,
       checkedOutAt: booking.checkedOutAt ?? null,
     }),
-    [activeMembership?.restaurantSlug],
+    [restaurantSlug],
   );
 
   const bookings = useMemo(
@@ -745,7 +746,7 @@ export function OpsBookingsClient({
             booking={editBooking}
             open={isEditOpen}
             onOpenChange={handleEditOpenChange}
-            restaurantSlug={activeMembership?.restaurantSlug ?? editBooking?.restaurantSlug ?? null}
+            restaurantSlug={restaurantSlug ?? editBooking?.restaurantSlug ?? null}
             restaurantTimezone={restaurantTimezone ?? editBooking?.restaurantTimezone ?? null}
             mode="ops"
           />

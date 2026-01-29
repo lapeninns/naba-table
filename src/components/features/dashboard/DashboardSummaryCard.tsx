@@ -32,6 +32,7 @@ type DashboardSummaryCardProps = {
   showFilterBar?: boolean;
   showHeatmap?: boolean;
   allowTableAssignments?: boolean;
+  restaurantSlug?: string | null;
   onDetails?: (booking: BookingDTO) => void;
   onEdit?: (booking: BookingDTO) => void;
   onAssignTable?: (bookingId: string, tableId: string) => Promise<OpsTodayBooking['tableAssignments']>;
@@ -70,6 +71,7 @@ export function DashboardSummaryCard({
   showFilterBar = true,
   showHeatmap = true,
   allowTableAssignments,
+  restaurantSlug,
   onDetails,
   onEdit,
   onAssignTable,
@@ -118,6 +120,7 @@ export function DashboardSummaryCard({
           searchQuery={searchQuery}
           summary={summary}
           allowTableAssignments={canAssignTables}
+          restaurantSlug={restaurantSlug}
           sortKey={sortKey}
           sortDir={sortDir}
           onSortKeyChange={onSortKeyChange}
