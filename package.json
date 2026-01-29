@@ -143,7 +143,7 @@
     "@upstash/redis": "^1.35.7",
     "axios": "^1.13.2",
     "bullmq": "^5.65.1",
-    "cally": "^0.8.0",
+    "cally": "^0.9.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "crisp-sdk-web": "^1.0.26",
