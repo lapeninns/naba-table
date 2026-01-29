@@ -27,8 +27,6 @@ export const clientEnv = {
     siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? getCanonicalSiteUrl(),
   },
   flags: {
-    reserveV2: process.env.NEXT_PUBLIC_RESERVE_V2 === "true",
-    enableTestUi: process.env.NEXT_PUBLIC_ENABLE_TEST_UI === "true",
     forcePasswordSignIn: process.env.NEXT_PUBLIC_FORCE_PASSWORD_SIGNIN === "true",
   },
 } as const;

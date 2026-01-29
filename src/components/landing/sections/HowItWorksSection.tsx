@@ -37,7 +37,7 @@ export function HowItWorksSection() {
                 {index + 1}
               </div>
               <h3 className="font-bold text-slate-900 mb-2 text-xl">{step.title}</h3>
-              <p className="text-sm text-slate-500">{step.description}</p>
+              <p className="text-sm text-slate-700">{step.description}</p>
             </div>
           ))}
         </div>

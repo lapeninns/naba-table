@@ -30,9 +30,14 @@ const cloneState = (state: State): State => ({
 
 type StoryArgs = {
   initialState?: State;
-} & Pick<PlanStepFormProps, 'minDate' | 'onTrack'>;
+} & Pick<PlanStepFormProps, 'minDate' | 'onTrack' | 'onActionsChange'>;
 
-const PlanStepFormPreview: React.FC<StoryArgs> = ({ initialState, minDate, onTrack }) => {
+const PlanStepFormPreview: React.FC<StoryArgs> = ({
+  initialState,
+  minDate,
+  onTrack,
+  onActionsChange,
+}) => {
   const [state, setState] = useState<State>(() => cloneState(initialState ?? createSampleState()));
 
   useEffect(() => {
@@ -76,7 +81,10 @@ const PlanStepFormPreview: React.FC<StoryArgs> = ({ initialState, minDate, onTra
     } satisfies WizardActions;
   }, []);
 
-  const actionsChange = useMemo(() => fn<(actions: StepAction[]) => void>(), []);
+  const actionsChange = useMemo(
+    () => onActionsChange ?? fn<(actions: StepAction[]) => void>(),
+    [onActionsChange],
+  );
 
   return (
     <WizardProvider state={state} actions={actions}>
@@ -107,6 +115,7 @@ export const Default: Story = {
     initialState: createSampleState(),
     minDate: DEFAULT_MIN_DATE,
     onTrack: fn(),
+    onActionsChange: fn(),
   },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);

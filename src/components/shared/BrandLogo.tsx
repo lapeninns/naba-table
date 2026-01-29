@@ -24,8 +24,8 @@ export function BrandLogo({
   const textColor = variant === 'dark' ? 'text-white' : 'text-slate-900';
   const betaBg =
     variant === 'dark'
-      ? 'bg-blue-600/20 border-blue-500/30 text-blue-100'
-      : 'bg-blue-50 border-blue-100 text-blue-700';
+      ? 'bg-blue-500/30 border-blue-400/50 text-blue-50'
+      : 'bg-blue-100 border-blue-200 text-blue-900';
 
   return (
     <Link

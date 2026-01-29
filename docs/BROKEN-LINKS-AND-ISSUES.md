@@ -68,7 +68,7 @@ console.log('Default redirect to /app/dashboard');
 // This log indicates the actual redirect might not be working
 ```
 
-**Problem**: After OAuth callback, users might be redirected to non-existent `/app/dashboard`.
+**Problem**: After auth callback, users might be redirected to non-existent `/app/dashboard`.
 
 **Files Affected**:
 

@@ -224,8 +224,8 @@
     --color-primary-700: #1d4ed8;
     --color-primary-900: #1e3a8a;
 
-    --primary: 217 91% 60%;
-    /* primary-500 */
+    --primary: 217 91% 40%;
+    /* primary-800 */
     --primary-foreground: 210 40% 98%;
 
     /* -------------------------------------------------------------------------
@@ -246,12 +246,12 @@
     --muted: 213 100% 96%;
     --muted-foreground: 215 18% 45%;
 
-    --info: 217 91% 60%;
+    --info: 217 91% 40%;
     --info-foreground: 210 40% 98%;
 
     --border: 216 33% 90%;
     --input: 216 33% 90%;
-    --ring: 217 91% 60%;
+    --ring: 217 91% 40%;
 
     /* Interactive States */
     --color-interactive: var(--color-primary-500);

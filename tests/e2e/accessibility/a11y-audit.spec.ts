@@ -111,7 +111,7 @@ test.describe('Accessibility Audits', () => {
         });
     }
 
-    test('Guest booking dialog should be accessible', async ({ page }) => {
+    test('Guest booking flow should be accessible', async ({ page }) => {
         // Navigate to restaurant page
         await page.goto(`${BASE_URL}/restaurants/white-horse-pub-waterbeach`);
         await page.waitForLoadState('networkidle');
@@ -123,9 +123,22 @@ test.describe('Accessibility Audits', () => {
             await page.waitForTimeout(1_000);
         }
 
+        const dialogLocator = page.locator('[role="dialog"]');
+        const hasDialog = (await dialogLocator.count()) > 0;
+
+        if (!hasDialog) {
+            const bookLink = page.getByRole('link', { name: /book|reserve/i }).first();
+            if (await bookLink.isVisible({ timeout: 3_000 })) {
+                await bookLink.click();
+            } else {
+                await page.goto(`${BASE_URL}/restaurants/white-horse-pub-waterbeach/book`);
+            }
+            await page.waitForLoadState('networkidle');
+        }
+
         // Scan the dialog
         const dialogResults = await new AxeBuilder({ page })
-            .include('[role="dialog"]')
+            .include(hasDialog ? '[role="dialog"]' : '#main-content')
             .options(AXE_OPTIONS)
             .analyze();
 
@@ -135,7 +148,7 @@ test.describe('Accessibility Audits', () => {
 
         expect(
             dialogViolations,
-            'Booking dialog has accessibility violations'
+            'Booking flow has accessibility violations'
         ).toHaveLength(0);
     });
 

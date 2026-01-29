@@ -31,6 +31,30 @@ export default defineConfig({
     ],
     exclude: ["tests/e2e/**", "tests/component/**", "tests/visual/**"],
     setupFiles: ["./tests/vitest.setup.ts"],
+    coverage: {
+      provider: "v8",
+      enabled: true,
+      reporter: ["text", "json-summary", "html"],
+      exclude: [
+        "**/*.d.ts",
+        "**/*.test.*",
+        "**/*.spec.*",
+        "**/__tests__/**",
+        "tests/**",
+        "reserve/tests/**",
+        "playwright/**",
+        ".next/**",
+        "dist/**",
+        "build/**",
+        "coverage/**"
+      ],
+      thresholds: {
+        lines: 20,
+        statements: 20,
+        functions: 15,
+        branches: 10
+      }
+    },
     benchmark: {
       include: ["tests/benchmarks/**/*.bench.ts"],
     },

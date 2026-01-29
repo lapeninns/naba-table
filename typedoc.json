@@ -1,0 +1,32 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": [
+    "lib/**/*.ts",
+    "server/**/*.ts",
+    "!**/*.test.ts",
+    "!**/*.spec.ts",
+    "!**/*.stories.tsx"
+  ],
+  "entryPointStrategy": "expand",
+  "out": "docs/api",
+  "name": "SajiloReserveX API Documentation",
+  "includeVersion": true,
+  "excludePrivate": true,
+  "excludeProtected": false,
+  "excludeExternals": true,
+  "readme": "README.md",
+  "navigation": {
+    "includeCategories": true,
+    "includeGroups": true
+  },
+  "categorizeByGroup": true,
+  "sort": ["source-order"],
+  "visibilityFilters": {
+    "protected": false,
+    "private": false,
+    "inherited": true,
+    "external": false
+  },
+  "searchInComments": true,
+  "cleanOutputDir": true
+}

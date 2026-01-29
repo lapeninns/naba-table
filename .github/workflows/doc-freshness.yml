@@ -1,0 +1,61 @@
+name: Documentation Freshness Check
+
+on:
+  schedule:
+    # Run weekly on Mondays at 09:00 UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+jobs:
+  check-freshness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check documentation freshness
+        run: |
+          echo "📚 Checking documentation freshness..."
+          STALE_DOCS=()
+          STALE_THRESHOLD_DAYS=90
+          TODAY=$(date +%s)
+
+          # Find markdown files with last_updated frontmatter
+          FILES=$(find docs -name "*.md" -type f)
+
+          for file in $FILES; do
+            # Extract last_updated date from frontmatter
+            LAST_UPDATED=$(grep -E "^last_updated:|Last updated:" "$file" | head -n1 | sed -E 's/^(last_updated:|Last updated:)\s*//' | tr -d '"' | tr -d "'")
+
+            if [ -n "$LAST_UPDATED" ]; then
+              # Parse date (supports YYYY-MM-DD format)
+              LAST_UPDATED_EPOCH=$(date -d "$LAST_UPDATED" +%s 2>/dev/null || date -j -f "%Y-%m-%d" "$LAST_UPDATED" +%s 2>/dev/null || echo 0)
+
+              if [ "$LAST_UPDATED_EPOCH" -gt 0 ]; then
+                DAYS_OLD=$(( ($TODAY - $LAST_UPDATED_EPOCH) / 86400 ))
+
+                if [ "$DAYS_OLD" -gt "$STALE_THRESHOLD_DAYS" ]; then
+                  STALE_DOCS+=("$file (last updated $DAYS_OLD days ago)")
+                fi
+              fi
+            fi
+          done
+
+          # Report findings
+          if [ ${#STALE_DOCS[@]} -gt 0 ]; then
+            echo "⚠️  Found ${#STALE_DOCS[@]} stale documentation file(s):"
+            printf '%s\n' "${STALE_DOCS[@]}"
+            echo ""
+            echo "Consider updating these files or adding 'last_updated: YYYY-MM-DD' frontmatter."
+            # Warn but don't fail the build
+            exit 0
+          else
+            echo "✅ All documentation is fresh (updated within $STALE_THRESHOLD_DAYS days)"
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Documentation Freshness Check" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Threshold: 90 days" >> $GITHUB_STEP_SUMMARY
+          echo "Status: Check logs for details" >> $GITHUB_STEP_SUMMARY

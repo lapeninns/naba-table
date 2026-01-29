@@ -14,24 +14,24 @@ const OPS_HOST_REGEX = new RegExp(OPS_HOST.replace(/\./g, '\\.'), 'i');
 
 test.setTimeout(45_000);
 
-test.describe('@ops @smoke Ops Redirects', () => {
-  test.skip(!HAS_OPS_CREDS, 'Ops credentials not configured (E2E_OPS_EMAIL/E2E_OPS_PASSWORD).');
+if (HAS_OPS_CREDS) {
+  test.describe('@ops @smoke Ops Redirects', () => {
+    test('main domain /app redirects to app subdomain', async ({ opsPage }) => {
+      await opsPage.goto(`${WEB_BASE_URL}/app/bookings`);
+      await expect(opsPage).toHaveURL(new RegExp(`${OPS_HOST_REGEX.source}\/bookings`));
+    });
 
-  test('main domain /app redirects to app subdomain', async ({ opsPage }) => {
-    await opsPage.goto(`${WEB_BASE_URL}/app/bookings`);
-    await expect(opsPage).toHaveURL(new RegExp(`${OPS_HOST_REGEX.source}\\/bookings`));
+    test('app host canonicalizes /app prefix', async ({ opsPage }) => {
+      await opsPage.goto(`${OPS_BASE_URL}/app/bookings`);
+      await expect(opsPage).toHaveURL(new RegExp(`${OPS_HOST_REGEX.source}\/bookings`));
+    });
+
+    test('settings and management redirect to canonical pages', async ({ opsPage }) => {
+      await opsPage.goto(`${OPS_BASE_URL}/settings`);
+      await expect(opsPage).toHaveURL(/\/settings\/restaurant\/profile/);
+
+      await opsPage.goto(`${OPS_BASE_URL}/management`);
+      await expect(opsPage).toHaveURL(/\/settings\/restaurant\/team/);
+    });
   });
-
-  test('app host canonicalizes /app prefix', async ({ opsPage }) => {
-    await opsPage.goto(`${OPS_BASE_URL}/app/bookings`);
-    await expect(opsPage).toHaveURL(new RegExp(`${OPS_HOST_REGEX.source}\\/bookings`));
-  });
-
-  test('settings and management redirect to canonical pages', async ({ opsPage }) => {
-    await opsPage.goto(`${OPS_BASE_URL}/settings`);
-    await expect(opsPage).toHaveURL(/\/settings\/restaurant\/profile/);
-
-    await opsPage.goto(`${OPS_BASE_URL}/management`);
-    await expect(opsPage).toHaveURL(/\/settings\/restaurant\/team/);
-  });
-});
+}

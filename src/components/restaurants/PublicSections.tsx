@@ -90,17 +90,17 @@ export function RestaurantsHeroSection({ totalRestaurants }: { totalRestaurants:
         </div>
         <Card className="flex flex-1 flex-col gap-4 rounded-[var(--guest-radius-xl)] border-blue-100 bg-gradient-to-br from-blue-600/90 via-blue-500/90 to-blue-700/90 p-6 text-white shadow-[var(--guest-shadow-lg)]">
           <div className="space-y-1">
-            <p className="text-sm uppercase tracking-[0.28em] text-blue-100">Live venues</p>
+            <p className="text-sm uppercase tracking-[0.28em] text-white/90">Live venues</p>
             <p className="text-4xl font-semibold">{totalRestaurants}</p>
-            <p className="text-sm text-blue-100">Ready to book right now.</p>
+            <p className="text-sm text-white/90">Ready to book right now.</p>
           </div>
           <div className="rounded-[var(--guest-radius-lg)] bg-white/10 p-4">
             <p className="text-sm font-medium">Built for clarity</p>
-            <p className="text-sm text-blue-100">
+            <p className="text-sm text-white/80">
               Same cards and spacing you’ll see in the booking flow.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-3 text-sm text-blue-100">
+          <div className="flex flex-wrap items-center gap-3 text-sm text-white/90">
             <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1">
               <Compass className="h-4 w-4" aria-hidden />
               Guided discovery
@@ -123,7 +123,7 @@ export function RestaurantsGridSection({ restaurants }: { restaurants: Restauran
       <div className="mx-auto max-w-6xl space-y-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm text-blue-700">Carefully selected venues</p>
+            <p className="text-sm text-blue-900">Carefully selected venues</p>
             <h2
               id="restaurants-grid-heading"
               className="guest-heading-page text-[length:var(--guest-text-page)] font-semibold text-slate-900"
@@ -131,7 +131,7 @@ export function RestaurantsGridSection({ restaurants }: { restaurants: Restauran
               Pick a spot
             </h2>
           </div>
-          <p className="text-sm text-slate-500">Tap a card for details and booking.</p>
+          <p className="text-sm text-slate-600">Tap a card for details and booking.</p>
         </div>
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {restaurants.map((restaurant) => (
@@ -194,7 +194,7 @@ export function RestaurantsGridSection({ restaurants }: { restaurants: Restauran
           ))}
         </div>
         {restaurants.length === 0 ? (
-          <div className="rounded-[var(--guest-radius-xl)] border border-dashed border-slate-200 bg-white p-10 text-center text-slate-500">
+          <div className="rounded-[var(--guest-radius-xl)] border border-dashed border-slate-200 bg-white p-10 text-center text-slate-600">
             <p className="text-lg font-semibold">No restaurants found</p>
             <p className="text-sm">
               Check back soon—we publish new venues as they pass our onboarding review.
@@ -288,13 +288,13 @@ export function RestaurantDetailsSection({
                 className="space-y-2 rounded-[var(--guest-radius-lg)] border-slate-100 bg-white p-4 shadow-[var(--guest-shadow-sm)]"
               >
                 <div className="flex items-center gap-3">
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-700">
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-900">
                     <insight.icon className="h-5 w-5" aria-hidden />
                   </span>
-                  <p className="text-sm text-slate-500">{insight.title}</p>
+                  <p className="text-sm text-slate-600">{insight.title}</p>
                 </div>
                 <p className="text-base font-semibold text-slate-900">{insight.value}</p>
-                <p className="text-sm text-slate-500">{insight.sub}</p>
+                <p className="text-sm text-slate-600">{insight.sub}</p>
               </Card>
             ))}
           </div>
@@ -302,7 +302,7 @@ export function RestaurantDetailsSection({
         <div className="space-y-4">
           <Card className="space-y-4 rounded-[var(--guest-radius-xl)] border-slate-100 bg-white p-6 shadow-[var(--guest-shadow-md)]">
             <div className="space-y-1">
-              <p className="text-sm text-blue-700">Powered by Nab a Table</p>
+              <p className="text-sm text-blue-900">Powered by Nab a Table</p>
               <p className="text-2xl font-semibold text-slate-900">Make a reservation</p>
               <p className="text-sm text-slate-600">
                 Secure a table with the same wizard guests use after sign-in.
@@ -342,14 +342,17 @@ export function ReservationThankYouCard({
   body?: string;
 }) {
   return (
-    <main className="guest-theme flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-900 via-slate-950 to-slate-900 px-4 py-12 text-white">
+    <section
+      aria-label="Reservation confirmed"
+      className="guest-theme flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-900 via-slate-950 to-slate-900 px-4 py-12 text-white"
+    >
       <div className="w-full max-w-lg space-y-5 rounded-[var(--guest-radius-2xl)] border border-white/20 bg-white/5 p-8 text-center shadow-[var(--guest-shadow-xl)] backdrop-blur">
         <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-200/20 text-emerald-300">
           <Sparkles className="h-10 w-10" aria-hidden />
         </div>
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold">{headline}</h1>
-          <p className="text-sm text-blue-100">{body}</p>
+          <p className="text-sm text-white/80">{body}</p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
           <Button size="lg" className="w-full rounded-full sm:w-auto" asChild>
@@ -365,7 +368,7 @@ export function ReservationThankYouCard({
           </Button>
         </div>
       </div>
-    </main>
+    </section>
   );
 }
 

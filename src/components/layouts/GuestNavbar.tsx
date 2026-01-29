@@ -466,7 +466,7 @@ export function GuestNavbar({ tone = 'light', isSticky = true }: GuestNavbarProp
   );
 
   return (
-    <div className={shellClasses}>
+    <header className={shellClasses}>
       <div className="guest-boundary w-full py-3 md:py-4">
         <div className="flex items-center justify-between gap-3">
           <BrandMark tone={tone} />
@@ -497,6 +497,6 @@ export function GuestNavbar({ tone = 'light', isSticky = true }: GuestNavbarProp
           </div>
         </div>
       </div>
-    </div>
+    </header>
   );
 }

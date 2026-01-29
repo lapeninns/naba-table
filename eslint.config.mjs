@@ -68,8 +68,55 @@ export default [
     rules: {
       "@typescript-eslint/consistent-type-imports": "error",
       "@typescript-eslint/explicit-module-boundary-types": "off",
+      "@typescript-eslint/naming-convention": [
+        "warn",
+        {
+          selector: "property",
+          modifiers: ["requiresQuotes"],
+          format: null,
+        },
+        {
+          selector: "property",
+          format: ["camelCase", "snake_case", "PascalCase", "UPPER_CASE"],
+          leadingUnderscore: "allow",
+          trailingUnderscore: "allow",
+        },
+        {
+          selector: "enumMember",
+          format: ["PascalCase", "UPPER_CASE"],
+        },
+        {
+          selector: "typeLike",
+          format: ["PascalCase"],
+        },
+        {
+          selector: "import",
+          format: ["camelCase", "PascalCase"],
+          leadingUnderscore: "allow",
+        },
+        {
+          selector: "function",
+          format: ["camelCase", "PascalCase"],
+          leadingUnderscore: "allow",
+          trailingUnderscore: "allow",
+        },
+        {
+          selector: "variable",
+          modifiers: ["const"],
+          format: ["camelCase", "PascalCase", "UPPER_CASE"],
+          leadingUnderscore: "allow",
+          trailingUnderscore: "allow",
+        },
+        {
+          selector: "default",
+          format: ["camelCase"],
+          leadingUnderscore: "allow",
+          trailingUnderscore: "allow",
+        },
+      ],
       "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
       "@typescript-eslint/no-explicit-any": "warn",
+      complexity: ["warn", { max: 40 }],
       "react/display-name": "off",
       "jsx-a11y/no-autofocus": "off",
     },

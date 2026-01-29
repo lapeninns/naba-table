@@ -224,9 +224,9 @@ const TESTIMONIALS = [
 ];
 
 const BADGE_STYLES = {
-  neutral: 'bg-slate-100 text-slate-600',
-  success: 'bg-blue-50 text-blue-700 ring-1 ring-blue-700/10',
-  warning: 'bg-amber-50 text-amber-700 ring-1 ring-amber-700/10',
+  neutral: 'bg-slate-100 text-slate-700',
+  success: 'bg-blue-100 text-blue-900 ring-1 ring-blue-900/15',
+  warning: 'bg-amber-100 text-amber-900 ring-1 ring-amber-900/15',
 };
 
 const BUTTON_STYLES = {
@@ -238,7 +238,7 @@ const BUTTON_STYLES = {
 };
 
 const FOOTER_LINK_STYLES =
-  "relative inline-flex items-center text-slate-400 hover:text-white transition-colors duration-200 ease-out after:content-[''] after:absolute after:left-0 after:-bottom-0.5 after:h-px after:w-0 after:bg-current after:transition-all after:duration-200 after:ease-out after:origin-left hover:after:w-full";
+  "relative inline-flex items-center text-slate-300 hover:text-white transition-colors duration-200 ease-out after:content-[''] after:absolute after:left-0 after:-bottom-0.5 after:h-px after:w-0 after:bg-current after:transition-all after:duration-200 after:ease-out after:origin-left hover:after:w-full";
 
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(' ');
@@ -329,6 +329,7 @@ function GlobalStyles() {
   return (
     <style
       dangerouslySetInnerHTML={{
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         __html: `
       :root {
         --background: #F8FAFC;
@@ -497,7 +498,7 @@ function LiveFeedCard({ reduceMotion }: { reduceMotion: boolean }) {
           >
             <div>
               <div className="font-semibold text-slate-900">{item.venue}</div>
-              <div className="text-slate-500 mt-0.5">
+              <div className="text-slate-600 mt-0.5">
                 {item.time} • {item.party}
               </div>
             </div>
@@ -505,8 +506,8 @@ function LiveFeedCard({ reduceMotion }: { reduceMotion: boolean }) {
               className={cx(
                 'font-medium',
                 LIVE_FEED_SUCCESS_STATUSES.includes(item.status)
-                  ? 'text-green-600'
-                  : 'text-amber-600',
+                  ? 'text-emerald-800'
+                  : 'text-amber-900',
               )}
             >
               {item.status}
@@ -667,7 +668,7 @@ function ProblemSection() {
     <section id="problem" className="py-24 bg-white border-b border-slate-200">
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center max-w-3xl mx-auto mb-16 reveal-up">
-          <p className="text-xs font-bold uppercase tracking-widest text-red-500 mb-2">
+          <p className="text-xs font-bold uppercase tracking-widest text-red-800 mb-2">
             The Pain is The Pitch
           </p>
           <h2 className="text-3xl font-bold text-slate-900 mb-4">
@@ -685,7 +686,7 @@ function ProblemSection() {
               className="group p-8 rounded-2xl bg-red-50/30 border border-red-100 transition-all duration-200 ease-out hover:bg-red-50 group-hover:-translate-y-2 group-hover:shadow-xl reveal-up"
               style={{ transitionDelay: `${index * 100}ms` }}
             >
-              <div className="w-12 h-12 bg-red-100 text-red-600 rounded-xl flex items-center justify-center mb-6 transition-all duration-200 ease-out group-hover:bg-red-200 group-hover:text-red-700 group-hover:rotate-6 group-hover:scale-110">
+              <div className="w-12 h-12 bg-red-100 text-red-600 rounded-xl flex items-center justify-center mb-6 transition-all duration-200 ease-out group-hover:bg-red-200 group-hover:text-red-800 group-hover:rotate-6 group-hover:scale-110">
                 <Icon name={problem.icon} className="w-6 h-6" />
               </div>
               <h3 className="text-xl font-bold text-slate-900 mb-3">{problem.title}</h3>
@@ -930,7 +931,7 @@ function CTA() {
             <Link href="/contact">Contact Sales</Link>
           </Button>
         </div>
-        <p className="mt-6 text-sm text-slate-500 font-medium">
+        <p className="mt-6 text-sm text-slate-700 font-medium">
           Setup takes &lt; 24h. We handle the heavy lifting.
         </p>
       </div>
@@ -944,14 +945,14 @@ function Footer() {
       <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-4 gap-12">
         <div className="col-span-1 md:col-span-2">
           <BrandLogo href="/" showBeta={false} variant="dark" size="lg" className="mb-4" />
-          <p className="text-sm text-slate-400 max-w-xs leading-relaxed">
+          <p className="text-sm text-slate-300 max-w-xs leading-relaxed">
             The operating system for modern hospitality. Empowering venues to deliver exceptional
             guest experiences through data and automation.
           </p>
         </div>
         <div>
-          <h4 className="text-white font-bold mb-4">Product</h4>
-          <ul className="space-y-2 text-sm text-slate-400">
+          <h3 className="text-white font-bold mb-4">Product</h3>
+          <ul className="space-y-2 text-sm text-slate-300">
             <li>
               <a href="#" className={FOOTER_LINK_STYLES}>
                 Features
@@ -975,8 +976,8 @@ function Footer() {
           </ul>
         </div>
         <div>
-          <h4 className="text-white font-bold mb-4">Company</h4>
-          <ul className="space-y-2 text-sm text-slate-400">
+          <h3 className="text-white font-bold mb-4">Company</h3>
+          <ul className="space-y-2 text-sm text-slate-300">
             <li>
               <a href="#" className={FOOTER_LINK_STYLES}>
                 About Us
@@ -1001,7 +1002,7 @@ function Footer() {
         </div>
       </div>
       <div className="max-w-7xl mx-auto px-6 mt-12 pt-8 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4">
-        <div className="text-xs text-slate-500">© 2024 Nab a Table Inc. All rights reserved.</div>
+        <div className="text-xs text-slate-300">© 2024 Nab a Table Inc. All rights reserved.</div>
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-green-500 motion-safe:animate-pulse" />
           <span className="text-xs text-green-500 font-mono uppercase">System Operational</span>

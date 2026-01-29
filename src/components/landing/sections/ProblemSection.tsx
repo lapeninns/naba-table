@@ -25,7 +25,7 @@ export function ProblemSection() {
     <section id="problem" className="py-24 bg-white border-b border-slate-200">
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center max-w-3xl mx-auto mb-16 motion-safe:reveal-up">
-          <p className="text-xs font-bold uppercase tracking-widest text-red-500 mb-2">
+          <p className="text-xs font-bold uppercase tracking-widest text-red-800 mb-2">
             The Pain is The Pitch
           </p>
           <h2 className="text-3xl font-bold text-slate-900 mb-4">

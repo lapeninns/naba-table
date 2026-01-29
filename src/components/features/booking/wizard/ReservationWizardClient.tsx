@@ -26,12 +26,14 @@ type ReservationWizardClientProps = {
   restaurant?: Pick<RestaurantSummary, "id" | "slug" | "name" | "timezone" | "address"> | null;
   restaurantSlug?: string | null;
   returnPath?: string;
+  layoutElement?: 'main' | 'div';
 };
 
 export function ReservationWizardClient({
   restaurant,
   restaurantSlug,
   returnPath = '/guest/thank-you',
+  layoutElement,
 }: ReservationWizardClientProps) {
   const router = useRouter();
 
@@ -66,6 +68,7 @@ export function ReservationWizardClient({
       initialDetails={initialDetails}
       returnPath={returnPath}
       dependencies={{ navigator }}
+      layoutElement={layoutElement}
     />
   );
 }

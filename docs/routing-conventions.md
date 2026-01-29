@@ -272,7 +272,7 @@ type RouteContext = {
 ```
 POST   /api/team/invitations/[token]/accept   - Accept invitation
 GET    /auth/signin                            - Sign in page
-POST   /api/auth/callback                      - OAuth callback
+POST   /api/auth/callback                      - Auth callback
 ```
 
 ### Resource Operations

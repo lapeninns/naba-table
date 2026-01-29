@@ -87,7 +87,7 @@ export function MetricCard({ metric, reduceMotion }: MetricCardProps) {
 
   return (
     <div className="factory-card p-6 rounded-xl bg-white border border-slate-200 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all">
-      <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4">
+      <div className="w-12 h-12 bg-blue-100 text-blue-900 rounded-full flex items-center justify-center mb-4">
         <Icon name={metric.icon} className="w-6 h-6" />
       </div>
       <div
@@ -96,10 +96,10 @@ export function MetricCard({ metric, reduceMotion }: MetricCardProps) {
       >
         {formatMetricValue(value)}
       </div>
-      <div className="text-sm font-semibold text-slate-500 uppercase tracking-wide">
+      <div className="text-sm font-semibold text-slate-700 uppercase tracking-wide">
         {metric.label}
       </div>
-      <div className="mt-4 pt-4 border-t border-slate-100 text-xs text-slate-400 font-mono">
+      <div className="mt-4 pt-4 border-t border-slate-100 text-xs text-slate-600 font-mono">
         {metric.detail}
       </div>
     </div>

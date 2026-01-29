@@ -55,7 +55,7 @@ export function BenefitsSection() {
     <section id="features" className="py-24 bg-white border-b border-slate-200">
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center max-w-3xl mx-auto mb-16 space-y-4 motion-safe:reveal-up">
-          <Badge variant="secondary" className="bg-blue-50 text-blue-700 ring-1 ring-blue-700/10">
+          <Badge variant="secondary" className="bg-blue-100 text-blue-900 ring-1 ring-blue-900/15">
             The UK Pub Profit Stack
           </Badge>
           <h2 className="text-4xl font-bold text-slate-900">The Total Lockdown Bundle</h2>
@@ -86,8 +86,8 @@ export function BenefitsSection() {
                     variant="secondary"
                     className={
                       isFeatured
-                        ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-700/10'
-                        : 'bg-slate-100 text-slate-600'
+                        ? 'bg-blue-100 text-blue-900 ring-1 ring-blue-900/15'
+                        : 'bg-slate-100 text-slate-700'
                     }
                   >
                     {benefit.value}

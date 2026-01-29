@@ -13,7 +13,6 @@ vi.mock('@/lib/env', () => {
           loyaltyPilotRestaurantIds: undefined,
           enableTestApi: true,
           guestLookupPolicy: false,
-          opsGuardV2: false,
           bookingPastTimeBlocking: false,
           bookingPastTimeGraceMinutes: 5,
           autoAssignOnBooking: false,

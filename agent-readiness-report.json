@@ -1,0 +1,413 @@
+{
+  "repoUrl": "https://github.com/LapenInns/nabatable.git",
+  "commitHash": "06d426ecf6b17e5d541de4e874fdf2f6be79822f",
+  "branch": "main",
+  "hasLocalChanges": true,
+  "report": {
+    "lint_config": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "ESLint configured in eslint.config.mjs; pnpm lint in package.json/CI."
+    },
+    "type_check": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "TypeScript checks via pnpm typecheck (tsc --noEmit) in CI and package.json."
+    },
+    "formatter": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "Prettier configured in .prettierrc.json and run via lint-staged."
+    },
+    "pre_commit_hooks": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": ".husky/pre-commit runs lint-staged; .pre-commit-config.yaml includes secret scan hook."
+    },
+    "strict_typing": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "tsconfig.json enables strict mode (strict:true, strictNullChecks:true)."
+    },
+    "naming_consistency": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "ESLint enforces @typescript-eslint/naming-convention in eslint.config.mjs."
+    },
+    "cyclomatic_complexity": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "ESLint complexity rule configured in eslint.config.mjs (max 40)."
+    },
+    "large_file_detection": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "scripts/check-large-files.cjs runs via pnpm lint:files (pnpm lint)."
+    },
+    "dead_code_detection": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "knip configured in knip.json and run via pnpm lint:deps to detect unused code."
+    },
+    "duplicate_code_detection": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "jscpd configured in .jscpd.json and run via pnpm lint:dup."
+    },
+    "code_modularization": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "Clear module separation across src/, lib/, server/, reserve/ directories."
+    },
+    "tech_debt_tracking": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "TECH_DEBT.md ledger and tech_debt issue template track debt items."
+    },
+    "n_plus_one_detection": {
+      "numerator": 0,
+      "denominator": 1,
+      "rationale": "No N+1 query detection tooling or docs."
+    },
+    "build_cmd_doc": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "README lists build/test/lint/typecheck commands."
+    },
+    "deps_pinned": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "pnpm-lock.yaml present with packageManager pinned in package.json."
+    },
+    "vcs_cli_tools": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "scripts/git/ provides helper tools: log.sh (pretty log), clean-branches.sh (cleanup), pr-check.sh (validation)."
+    },
+    "automated_pr_review": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "CI posts Lighthouse results as PR comments via github-script in .github/workflows/ci.yml."
+    },
+    "agentic_development": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "Root and nested AGENTS.md plus scripts/check-agents-compliance.cjs."
+    },
+    "fast_ci_feedback": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "CI separates early quality job and parallel E2E/a11y/lighthouse jobs."
+    },
+    "build_performance_tracking": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "Lighthouse CI configured (lighthouserc.js) and enforced in CI."
+    },
+    "deployment_frequency": {
+      "numerator": 0,
+      "denominator": 1,
+      "rationale": "No release cadence or deployment frequency documented; no releases found."
+    },
+    "single_command_setup": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "scripts/setup.sh automates full setup: install → copy env → validate → dev ready."
+    },
+    "feature_flag_infrastructure": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "Feature flag helpers in server/feature-flags.ts and env templates."
+    },
+    "release_notes_automation": {
+      "numerator": 0,
+      "denominator": 1,
+      "rationale": "No release notes automation found."
+    },
+    "progressive_rollout": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "docs/rollout-strategy.md documents phased rollout (10% → 50% → 100%) with feature flags, exposure strategies, and kill switches."
+    },
+    "rollback_automation": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "docs/runbooks/rollback.md provides step-by-step rollback procedures for feature flags, versions, DB migrations, and hotfixes."
+    },
+    "monorepo_tooling": {
+      "numerator": 0,
+      "denominator": 1,
+      "rationale": "pnpm-workspace.yaml only lists root; no monorepo tooling."
+    },
+    "heavy_dependency_detection": {
+      "numerator": 0,
+      "denominator": 1,
+      "rationale": "No tooling for heavy dependency detection."
+    },
+    "unused_dependencies_detection": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "knip runs via pnpm lint:deps to surface unused dependencies/exports."
+    },
+    "version_drift_detection": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "scripts/db/check-drift.ts (pnpm db:check-drift) compares remote schema to supabase/schema.sql."
+    },
+    "release_automation": {
+      "numerator": 0,
+      "denominator": 1,
+      "rationale": "No release automation workflow or scripts found."
+    },
+    "dead_feature_flag_detection": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "scripts/feature-flags/audit.ts runs via pnpm flags:audit to detect unused flags."
+    },
+    "unit_tests_exist": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "Vitest config includes tests under tests/ and src/app/api patterns."
+    },
+    "integration_tests_exist": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "Playwright E2E suites under tests/e2e with CI workflows."
+    },
+    "unit_tests_runnable": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "CI runs pnpm test (vitest run) successfully configured."
+    },
+    "test_performance_tracking": {
+      "numerator": 0,
+      "denominator": 1,
+      "rationale": "No test performance metrics or dashboards found."
+    },
+    "flaky_test_detection": {
+      "numerator": 0,
+      "denominator": 1,
+      "rationale": "No flaky test detection/quarantine tooling found."
+    },
+    "test_coverage_thresholds": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "vitest.config.ts enforces coverage thresholds (lines/statements/functions/branches)."
+    },
+    "test_naming_conventions": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "scripts/tests/check-test-quality.ts enforces .test/.spec naming and bans .only/.skip."
+    },
+    "test_isolation": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "docs/testing.md documents test isolation policy; Vitest uses forks pool for process isolation."
+    },
+    "agents_md": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "Root AGENTS.md and nested AGENTS.md files present."
+    },
+    "readme": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "README.md exists with setup and scripts."
+    },
+    "automated_doc_generation": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "TypeDoc configured in typedoc.json; pnpm docs:generate generates API docs from lib/ and server/ into docs/api/."
+    },
+    "skills": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": ".codex/skills/README.md documents skill structure and project-specific skills."
+    },
+    "documentation_freshness": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": ".github/workflows/doc-freshness.yml checks last_updated frontmatter weekly; warns on stale docs (90+ days)."
+    },
+    "api_schema_docs": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "openapi.yaml defines REST API schema."
+    },
+    "service_flow_documented": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "Route maps and routing docs (route-map-mermaid.md, docs/routing-*.md)."
+    },
+    "agents_md_validation": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "scripts/check-agents-compliance.cjs validates AGENTS and task structure."
+    },
+    "devcontainer": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": ".devcontainer/devcontainer.json provides Node.js 20 + pnpm + Docker with VS Code extensions."
+    },
+    "env_template": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": ".env.example and docs/prod.env templates provided."
+    },
+    "local_services_setup": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "README quick start includes pnpm dev and env validation steps."
+    },
+    "database_schema": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "supabase/migrations/*.sql plus docs/DATABASE_MIGRATIONS.md log."
+    },
+    "devcontainer_runnable": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": ".devcontainer/devcontainer.json configured with Node.js 20, pnpm, Docker-in-Docker; runnable in VS Code."
+    },
+    "structured_logging": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "lib/logger.ts implements structured logger with context."
+    },
+    "distributed_tracing": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "sentry.server.config.ts enables tracing via tracesSampleRate."
+    },
+    "metrics_collection": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "server/observability.ts records events; observability dashboards configured."
+    },
+    "code_quality_metrics": {
+      "numerator": 0,
+      "denominator": 1,
+      "rationale": "No code quality metrics reporting beyond lint/test."
+    },
+    "error_tracking_contextualized": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "Sentry config enables logs and sendDefaultPii for context."
+    },
+    "alerting_configured": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "config/observability/alerts.json defines alert rules."
+    },
+    "runbooks_documented": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "docs/how-to-check-queue-status.md and production readiness docs."
+    },
+    "deployment_observability": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "Observability dashboards/alerts and health endpoint support deployment monitoring."
+    },
+    "health_checks": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "src/app/api/health/route.ts implements health check with DB probe."
+    },
+    "circuit_breakers": {
+      "numerator": 0,
+      "denominator": 1,
+      "rationale": "No circuit breaker implementation or config found."
+    },
+    "profiling_instrumentation": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "Sentry profiling enabled with profilesSampleRate: 0.1 (10%) in sentry.server.config.ts and sentry.edge.config.ts."
+    },
+    "branch_protection": {
+      "numerator": 0,
+      "denominator": 1,
+      "rationale": "GitHub API indicates main branch protection not enabled."
+    },
+    "secret_scanning": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "CI runs gitleaks + trufflehog; pre-commit hook present."
+    },
+    "codeowners": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": ".github/CODEOWNERS defines ownership coverage for key paths."
+    },
+    "automated_security_review": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "CI security job runs gitleaks, trufflehog, and pnpm audit."
+    },
+    "dependency_update_automation": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": ".github/dependabot.yml schedules npm and GitHub Actions updates."
+    },
+    "gitignore_comprehensive": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": ".gitignore covers env files, build outputs, test artifacts, and caches."
+    },
+    "dast_scanning": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "DAST workflow .github/workflows/dast.yml runs OWASP ZAP baseline scans."
+    },
+    "pii_handling": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "docs/auth-testing-guide.md calls out no PII logging; logger redacts email/phone."
+    },
+    "privacy_compliance": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "docs/PRIVACY_POLICY.md documents privacy policy and data handling."
+    },
+    "secrets_management": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "docs/security.md and docs/environments.md describe secret handling and rotation."
+    },
+    "log_scrubbing": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "lib/logger.ts redacts common secret keys including email/phone."
+    },
+    "issue_templates": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": ".github/ISSUE_TEMPLATE includes bug, feature, and tech debt templates."
+    },
+    "issue_labeling_system": {
+      "numerator": 0,
+      "denominator": 1,
+      "rationale": "No issue labeling system or automation documented."
+    },
+    "backlog_health": {
+      "numerator": 0,
+      "denominator": 1,
+      "rationale": "No backlog health metrics or tooling found."
+    },
+    "pr_templates": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": ".github/PULL_REQUEST_TEMPLATE.md provides a structured PR checklist."
+    },
+    "product_analytics_instrumentation": {
+      "numerator": 1,
+      "denominator": 1,
+      "rationale": "lib/analytics.ts sends events via Plausible."
+    },
+    "error_to_insight_pipeline": {
+      "numerator": 0,
+      "denominator": 1,
+      "rationale": "No automated error-to-issue/insight pipeline documented."
+    }
+  }
+}

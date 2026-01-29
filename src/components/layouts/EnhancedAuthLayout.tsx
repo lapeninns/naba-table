@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 
-import { ImplicitAuthHandler } from '@/components/auth/ImplicitAuthHandler';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
 import { BrandLogo } from '@/components/shared/BrandLogo';
 
@@ -17,7 +16,7 @@ type EnhancedAuthLayoutProps = {
 function EnhancedAuthLayoutContent({
   children,
   variant,
-  defaultRedirect,
+  defaultRedirect: _defaultRedirect,
 }: EnhancedAuthLayoutProps) {
   const isGuest = variant === 'guest';
   const searchParams = useSearchParams();
@@ -29,8 +28,6 @@ function EnhancedAuthLayoutContent({
       <div className="relative min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 text-slate-900">
         {/* Ambient background effects */}
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.08),transparent_50%),radial-gradient(circle_at_bottom_left,rgba(99,102,241,0.06),transparent_50%)]" />
-
-        <ImplicitAuthHandler defaultRedirect={defaultRedirect ?? '/guest/dashboard'} />
 
         {/* Header/Navbar */}
         <header className="relative z-20 border-b border-slate-200/60 bg-white/80 backdrop-blur-md">

@@ -75,3 +75,6 @@ reserve/storybook-static
 
 # Sentry Config File
 .env.sentry-build-plugin
+
+# Generated API documentation
+docs/api/

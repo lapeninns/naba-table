@@ -178,6 +178,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
             </div>
 
             {/* Benefits Grid */}
+            <h2 className="sr-only">Guest benefits</h2>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-3.5">
                 <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-blue-100">

@@ -88,13 +88,13 @@ export function LiveFeedCard({ reduceMotion }: LiveFeedCardProps) {
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
             <span className="animate-pulse relative inline-flex rounded-full h-2 w-2 bg-green-500" />
           </div>
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
             Automated Bookings
           </span>
         </div>
         <Badge
           variant="secondary"
-          className="bg-blue-50 text-blue-700 ring-1 ring-blue-700/10 hover:bg-blue-100 transition-colors"
+          className="bg-blue-100 text-blue-900 ring-1 ring-blue-900/15 hover:bg-blue-200 transition-colors"
         >
           Active
         </Badge>
@@ -107,7 +107,7 @@ export function LiveFeedCard({ reduceMotion }: LiveFeedCardProps) {
           >
             <div>
               <div className="font-semibold text-slate-900">{item.venue}</div>
-              <div className="text-slate-500 mt-0.5">
+              <div className="text-slate-600 mt-0.5">
                 {item.time} • {item.party}
               </div>
             </div>
@@ -115,8 +115,8 @@ export function LiveFeedCard({ reduceMotion }: LiveFeedCardProps) {
               className={cn(
                 'font-medium',
                 LIVE_FEED_SUCCESS_STATUSES.includes(item.status)
-                  ? 'text-green-600'
-                  : 'text-amber-600',
+                  ? 'text-emerald-800'
+                  : 'text-amber-900',
               )}
             >
               {item.status}

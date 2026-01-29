@@ -39,7 +39,7 @@ export function TestimonialsSection() {
         <div className="grid lg:grid-cols-2 gap-12 items-center mb-16">
           <div>
             <h2 className="text-3xl font-bold mb-4">Proof it Works.</h2>
-            <p className="text-slate-400 text-lg">
+            <p className="text-slate-200 text-lg">
               Food-led pubs using Nab a Table to print money.
             </p>
           </div>
@@ -47,7 +47,7 @@ export function TestimonialsSection() {
             {OBJECTION_POINTS.map((point) => (
               <div
                 key={point}
-                className="px-4 py-2 rounded-full border border-slate-700 bg-slate-800/50 text-sm font-medium text-slate-300 flex items-center gap-2"
+                className="px-4 py-2 rounded-full border border-slate-700 bg-slate-800/50 text-sm font-medium text-slate-100 flex items-center gap-2"
               >
                 <Icon name="check" className="text-green-400" /> {point}
               </div>
@@ -80,7 +80,7 @@ export function TestimonialsSection() {
                 </p>
                 <div>
                   <div className="font-bold text-white">{testimonial.name}</div>
-                  <div className="text-sm text-slate-400">{testimonial.city}</div>
+                  <div className="text-sm text-slate-200">{testimonial.city}</div>
                 </div>
               </div>
             );

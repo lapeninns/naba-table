@@ -1,0 +1,32 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "src/app/**/{page,layout,template,loading,error,not-found,default}.tsx",
+    "src/app/**/route.ts",
+    "reserve/app/**/{page,layout,template,loading,error,not-found,default}.tsx",
+    "reserve/app/**/route.ts",
+    "server/**/*.ts",
+    "scripts/**/*.ts",
+    "next.config.js",
+    "next.config.mjs",
+    "next.config.ts",
+    "lighthouserc.js",
+    "playwright.config.ts",
+    "playwright.component.config.ts"
+  ],
+  "project": ["tsconfig.json", "reserve/tsconfig.reserve.json", "reserve/.storybook/tsconfig.json"],
+  "ignore": [
+    "**/*.test.*",
+    "**/*.spec.*",
+    "**/__tests__/**",
+    "tests/**",
+    "reserve/tests/**",
+    "playwright/**",
+    "node_modules/**",
+    ".next/**",
+    "dist/**",
+    "build/**",
+    "coverage/**",
+    "public/**"
+  ]
+}

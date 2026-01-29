@@ -12,7 +12,6 @@ vi.mock('@/lib/env', () => {
           loyaltyPilotRestaurantIds: undefined,
           enableTestApi: true,
           guestLookupPolicy: true,
-          opsGuardV2: false,
           bookingPastTimeBlocking: false,
           bookingPastTimeGraceMinutes: 5,
           autoAssignOnBooking: false,
@@ -877,7 +876,6 @@ describe('/api/bookings GET', () => {
          loyaltyPilotRestaurantIds: undefined,
          enableTestApi: false,
          guestLookupPolicy: true,
-         opsGuardV2: false,
          bookingValidationUnified: false,
        });
 

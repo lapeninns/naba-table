@@ -28,11 +28,11 @@ export function HeroSection({ reduceMotion }: HeroSectionProps) {
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3">
             <Badge
               variant="secondary"
-              className="bg-blue-50 text-blue-700 ring-1 ring-blue-700/10 hover:bg-blue-100 transition-colors"
+              className="bg-blue-100 text-blue-900 ring-1 ring-blue-900/15 hover:bg-blue-200 transition-colors"
             >
               {HERO_BADGE}
             </Badge>
-            <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">
+            <span className="text-xs font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-200">
               Only 1 Spot Left for January
             </span>
           </div>
@@ -63,14 +63,14 @@ export function HeroSection({ reduceMotion }: HeroSectionProps) {
           </div>
 
           <div className="pt-8">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-700 mb-4">
               Integrated with your stack
             </p>
             <div className="flex flex-wrap justify-center lg:justify-start gap-4">
               {INTEGRATIONS.map((tech) => (
                 <span
                   key={tech}
-                  className="text-xs font-mono bg-slate-100 px-2 py-1 rounded text-slate-600 border border-slate-200"
+                  className="text-xs font-mono bg-slate-200/70 px-2 py-1 rounded text-slate-800 border border-slate-300"
                 >
                   {tech}
                 </span>

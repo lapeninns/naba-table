@@ -21,7 +21,6 @@ vi.mock('@/lib/env', () => {
           loyaltyPilotRestaurantIds: undefined,
           enableTestApi: true,
           guestLookupPolicy: false,
-          opsGuardV2: false,
           bookingPastTimeBlocking: true,
           bookingPastTimeGraceMinutes: 5,
           pendingSelfServeGraceMinutes: 10,
@@ -218,7 +217,7 @@ function createTenantSupabase(booking: typeof existingBooking | null = existingB
         error: null,
       }),
     },
-    __mocks: {
+    mocks: {
       maybeSingleMock,
       selectMock,
       eqMock,
@@ -251,7 +250,7 @@ function createServiceSupabase(
 
   return {
     from: fromMock,
-    __mocks: {
+    mocks: {
       bookingMaybeSingleMock,
       restaurantMaybeSingleMock,
     },

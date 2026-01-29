@@ -1,0 +1,23 @@
+{
+  "$schema": "https://raw.githubusercontent.com/kucherenko/jscpd/master/schemas/jscpd-config-schema.json",
+  "path": ["components", "src", "reserve", "server", "hooks", "lib", "scripts"],
+  "format": ["typescript", "tsx", "javascript", "jsx"],
+  "reporters": ["console"],
+  "minLines": 10,
+  "minTokens": 50,
+  "threshold": 15,
+  "ignore": [
+    "**/*.test.*",
+    "**/*.spec.*",
+    "**/__tests__/**",
+    "tests/**",
+    "reserve/tests/**",
+    "playwright/**",
+    "node_modules/**",
+    ".next/**",
+    "dist/**",
+    "build/**",
+    "coverage/**",
+    "public/**"
+  ]
+}

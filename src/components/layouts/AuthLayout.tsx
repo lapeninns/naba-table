@@ -1,4 +1,3 @@
-import { ImplicitAuthHandler } from '@/components/auth/ImplicitAuthHandler';
 import { AuthNavbar } from '@/components/layouts/AuthNavbar';
 import { Footer } from '@/components/layouts/Footer';
 import { GuestBackground } from '@/components/layouts/GuestBackground';
@@ -11,7 +10,6 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
         <GuestBackground />
         <div className="relative z-10 flex min-h-screen min-h-[100svh] flex-col bg-surface">
           <AuthNavbar />
-          <ImplicitAuthHandler defaultRedirect="/guest/dashboard" />
           <main
             id="main-content"
             className="flex flex-1 items-center justify-center py-10 sm:py-12"

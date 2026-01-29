@@ -1,0 +1,14 @@
+* @maintainers
+
+# Cross-cutting
+/AGENTS.md @maintainers
+/tasks/ @release-managers @maintainers
+/supabase/ @db-owners
+/.github/ @maintainers
+
+# App areas
+/src/app/ @web-core
+/src/components/ @design-systems
+/components/ @web-core
+/reserve/ @web-core
+/styles/ @design-systems

@@ -129,9 +129,7 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
             date={{
               value: dateField.value ?? '',
               minDate: state.minDate,
-              onSelect: (next: Date | null) => {
-                state.handlers.selectDate(next);
-              },
+              onSelect: state.handlers.selectDate,
               onBlur: dateField.onBlur,
               error: dateFieldError?.message ?? formState.errors.date?.message,
             }}

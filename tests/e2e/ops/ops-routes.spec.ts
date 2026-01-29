@@ -19,50 +19,50 @@ async function visitOpsRoute(page: Page, path: string, heading: RegExp) {
 
 test.setTimeout(60_000);
 
-test.describe.serial('@ops @smoke Ops Route Coverage', () => {
-  test.skip(!HAS_OPS_CREDS, 'Ops credentials not configured (E2E_OPS_EMAIL/E2E_OPS_PASSWORD).');
+if (HAS_OPS_CREDS) {
+  test.describe.serial('@ops @smoke Ops Route Coverage', () => {
+    test('core ops routes render', async ({ opsPage }) => {
+      await test.step('Dashboard', async () => {
+        await visitOpsRoute(opsPage, '/dashboard', /operations/i);
+      });
 
-  test('core ops routes render', async ({ opsPage }) => {
-    await test.step('Dashboard', async () => {
-      await visitOpsRoute(opsPage, '/dashboard', /operations/i);
+      await test.step('Bookings', async () => {
+        await visitOpsRoute(opsPage, '/bookings', /manage bookings/i);
+      });
+
+      await test.step('New booking wizard', async () => {
+        await visitOpsRoute(opsPage, '/new-bookings', /create a new booking/i);
+      });
+
+      await test.step('Customers', async () => {
+        await visitOpsRoute(opsPage, '/customers', /customers/i);
+      });
     });
 
-    await test.step('Bookings', async () => {
-      await visitOpsRoute(opsPage, '/bookings', /manage bookings/i);
-    });
+    test('settings routes render', async ({ opsPage }) => {
+      await test.step('Restaurant profile', async () => {
+        await visitOpsRoute(opsPage, '/settings/restaurant/profile', /restaurant profile/i);
+      });
 
-    await test.step('New booking wizard', async () => {
-      await visitOpsRoute(opsPage, '/new-bookings', /create a new booking/i);
-    });
+      await test.step('Operating hours', async () => {
+        await visitOpsRoute(opsPage, '/settings/restaurant/operating-hours', /operating hours/i);
+      });
 
-    await test.step('Customers', async () => {
-      await visitOpsRoute(opsPage, '/customers', /customers/i);
+      await test.step('Service periods', async () => {
+        await visitOpsRoute(opsPage, '/settings/restaurant/service-periods', /service periods/i);
+      });
+
+      await test.step('Occasions', async () => {
+        await visitOpsRoute(opsPage, '/settings/restaurant/occasions', /booking occasions/i);
+      });
+
+      await test.step('Team settings', async () => {
+        await visitOpsRoute(opsPage, '/settings/restaurant/team', /^team$/i);
+      });
+
+      await test.step('Tables', async () => {
+        await visitOpsRoute(opsPage, '/settings/tables', /^tables$/i);
+      });
     });
   });
-
-  test('settings routes render', async ({ opsPage }) => {
-    await test.step('Restaurant profile', async () => {
-      await visitOpsRoute(opsPage, '/settings/restaurant/profile', /restaurant profile/i);
-    });
-
-    await test.step('Operating hours', async () => {
-      await visitOpsRoute(opsPage, '/settings/restaurant/operating-hours', /operating hours/i);
-    });
-
-    await test.step('Service periods', async () => {
-      await visitOpsRoute(opsPage, '/settings/restaurant/service-periods', /service periods/i);
-    });
-
-    await test.step('Occasions', async () => {
-      await visitOpsRoute(opsPage, '/settings/restaurant/occasions', /booking occasions/i);
-    });
-
-    await test.step('Team settings', async () => {
-      await visitOpsRoute(opsPage, '/settings/restaurant/team', /^team$/i);
-    });
-
-    await test.step('Tables', async () => {
-      await visitOpsRoute(opsPage, '/settings/tables', /^tables$/i);
-    });
-  });
-});
+}

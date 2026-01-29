@@ -1,0 +1,71 @@
+name: DAST (ZAP Baseline)
+
+on:
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+env:
+  HUSKY: 0
+  CI: true
+
+jobs:
+  dast:
+    name: DAST Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build application
+        run: pnpm build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          RESERVE_API_BASE_URL: "https://app.nabatable.com"
+
+      - name: Start application
+        run: |
+          pnpm start &
+          sleep 15
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          RESERVE_API_BASE_URL: "https://app.nabatable.com"
+
+      - name: Wait for application
+        run: |
+          for i in {1..30}; do
+            if curl -s http://localhost:3000 > /dev/null; then
+              echo "Application is ready"
+              exit 0
+            fi
+            echo "Waiting for app... (attempt $i/30)"
+            sleep 2
+          done
+          echo "Application failed to start"
+          exit 1
+
+      - name: Run ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.15.0
+        with:
+          target: "http://localhost:3000"
+          allow_issue_writing: false
+          fail_action: false
+          artifact_name: dast-zap-scan

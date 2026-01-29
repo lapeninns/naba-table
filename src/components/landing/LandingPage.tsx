@@ -70,7 +70,7 @@ export function LandingPage({ isAuthenticated }: LandingPageProps) {
 
       <Navbar isAuthenticated={isAuthenticated} />
 
-      <main id="main-content">
+      <div>
         <HeroSection reduceMotion={prefersReducedMotion} />
         <ProblemSection />
         <MetricsSection reduceMotion={prefersReducedMotion} />
@@ -87,7 +87,7 @@ export function LandingPage({ isAuthenticated }: LandingPageProps) {
           <FAQSection />
         </LazySection>
         <CTASection />
-      </main>
+      </div>
 
       {/* <StickyCTA /> */}
       {/* <ExitIntentPopup /> */}

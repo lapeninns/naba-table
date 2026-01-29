@@ -16,6 +16,7 @@ type ReservationWizardProps = {
    * defaults are used, which rely on window navigation.
    */
   dependencies?: Partial<WizardDependencies>;
+  layoutElement?: 'main' | 'div';
   navigationClassName?: string;
   className?: string;
   contentClassName?: string;
@@ -26,6 +27,7 @@ export function ReservationWizard({
   mode = 'customer',
   returnPath,
   dependencies,
+  layoutElement,
   navigationClassName,
   className,
   contentClassName,
@@ -38,6 +40,7 @@ export function ReservationWizard({
         initialDetails={initialDetails}
         mode={mode}
         returnPath={normalizedReturnPath}
+        layoutElement={layoutElement}
         navigationClassName={navigationClassName}
         className={className}
         contentClassName={contentClassName}

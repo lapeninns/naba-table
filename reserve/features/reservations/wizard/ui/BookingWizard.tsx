@@ -30,14 +30,17 @@ import type { CalendarMask } from '@reserve/features/reservations/wizard/service
 
 function LoadingFallback() {
   return (
-    <main className="flex min-h-screen w-full items-center justify-center bg-slate-50 px-4 py-12">
+    <div
+      className="flex min-h-screen w-full items-center justify-center bg-slate-50 px-4 py-12"
+      role="status"
+      aria-live="polite"
+      aria-busy
+    >
       <div className="space-y-3 text-center text-slate-600">
         <Loader2 className="mx-auto h-8 w-8 animate-spin" aria-hidden />
-        <p className="text-base" role="status">
-          Loading reservation flow…
-        </p>
+        <p className="text-base">Loading reservation flow…</p>
       </div>
-    </main>
+    </div>
   );
 }
 

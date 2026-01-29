@@ -152,10 +152,10 @@ All ops APIs require restaurant staff authentication.
 
 ### Authentication APIs
 
-| Route                | Description    |
-| -------------------- | -------------- |
-| `/api/auth/signin`   | Sign in        |
-| `/api/auth/callback` | OAuth callback |
+| Route                | Description   |
+| -------------------- | ------------- |
+| `/api/auth/signin`   | Sign in       |
+| `/api/auth/callback` | Auth callback |
 
 ---
 

@@ -141,10 +141,6 @@ export const env = {
       isOpenLabel: parsed.RESERVE_RESERVATION_OPEN,
       timezone: parsed.RESERVE_RESERVATION_TIMEZONE,
       unavailableTooltip: parsed.RESERVE_RESERVATION_UNAVAILABLE_TOOLTIP,
-      flags: {
-        reserveV2: parsed.NEXT_PUBLIC_RESERVE_V2 ?? false,
-        enableTestUi: parsed.NEXT_PUBLIC_ENABLE_TEST_UI ?? false,
-      },
     } as const;
   },
 
@@ -200,7 +196,6 @@ export const env = {
       loyaltyPilotRestaurantIds: parsed.LOYALTY_PILOT_RESTAURANT_IDS,
       enableTestApi: parsed.ENABLE_TEST_API ?? false,
       guestLookupPolicy: parsed.FEATURE_GUEST_LOOKUP_POLICY ?? false,
-      opsGuardV2: parsed.FEATURE_OPS_GUARD_V2 ?? false,
       bookingPastTimeBlocking: parsed.FEATURE_BOOKING_PAST_TIME_BLOCKING ?? false,
       bookingPastTimeGraceMinutes: parsed.BOOKING_PAST_TIME_GRACE_MINUTES ?? 5,
       pendingSelfServeGraceMinutes: Math.max(
@@ -210,8 +205,6 @@ export const env = {
       bookingValidationUnified: parsed.FEATURE_BOOKING_VALIDATION_UNIFIED ?? false,
       bookingLifecycleV2: parsed.FEATURE_OPS_BOOKING_LIFECYCLE_V2 ?? false,
       allocationsDualWrite: parsed.FEATURE_ALLOCATIONS_DUAL_WRITE ?? false,
-      statusTriggers: parsed.FEATURE_STATUS_TRIGGERS ?? false,
-      editScheduleParity: parsed.FEATURE_EDIT_SCHEDULE_PARITY ?? true,
       selectorScoring: parsed.FEATURE_SELECTOR_SCORING ?? true,
       selectorLookahead: {
         enabled: parsed.FEATURE_SELECTOR_LOOKAHEAD ?? true,
@@ -232,7 +225,6 @@ export const env = {
       adjacencyValidation: parsed.FEATURE_ADJACENCY_VALIDATION ?? false,
       opsMetrics: parsed.FEATURE_OPS_METRICS ?? false,
       opsRejectionAnalytics: parsed.FEATURE_OPS_REJECTION_ANALYTICS ?? false,
-      realtimeFloorplan: parsed.NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN ?? true,
       planner: {
         timePruningEnabled: plannerTimePruningDefault,
         cacheEnabled: false,

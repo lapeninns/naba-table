@@ -58,12 +58,16 @@ export function WizardLayout({
           <span ref={heroRef} aria-hidden className="block h-px w-full" />
 
           {/* Restaurant header */}
-          {restaurantName && (
+          {restaurantName ? (
             <header className="text-center">
               <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground sm:text-sm">
                 Book at
               </p>
               <h1 className="text-xl font-bold text-foreground sm:text-2xl">{restaurantName}</h1>
+            </header>
+          ) : (
+            <header className="text-center">
+              <h1 className="text-xl font-bold text-foreground sm:text-2xl">Reserve a table</h1>
             </header>
           )}
 

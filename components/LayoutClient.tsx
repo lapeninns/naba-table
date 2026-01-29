@@ -1,20 +1,21 @@
-"use client";
+'use client';
 
-import dynamic from "next/dynamic";
-import { usePathname } from "next/navigation";
-import { useEffect, useMemo } from "react";
+import dynamic from 'next/dynamic';
+import { usePathname } from 'next/navigation';
+import { useEffect, useMemo } from 'react';
 
-import { Toaster as UiToaster } from "@/components/ui/toaster";
-import config from "@/config";
-import { ImplicitAuthHandler } from "@/components/auth/ImplicitAuthHandler";
-import { toast } from "@/hooks/use-toast";
-import { SESSION_EXPIRED_EVENT } from "@/lib/http/sessionRedirect";
-import type { ReactNode } from "react";
+import { Toaster as UiToaster } from '@/components/ui/toaster';
+import config from '@/config';
+import { toast } from '@/hooks/use-toast';
+import { SESSION_EXPIRED_EVENT } from '@/lib/http/sessionRedirect';
+import type { ReactNode } from 'react';
 
-const NextTopLoader = dynamic(() => import("nextjs-toploader"), { ssr: false });
-const HotToaster = dynamic(() => import("react-hot-toast").then((mod) => mod.Toaster), { ssr: false });
-const Tooltip = dynamic(() => import("react-tooltip").then((mod) => mod.Tooltip), { ssr: false });
-const CrispChat = dynamic(() => import("./CrispChat").then((mod) => mod.CrispChat), { ssr: false });
+const NextTopLoader = dynamic(() => import('nextjs-toploader'), { ssr: false });
+const HotToaster = dynamic(() => import('react-hot-toast').then((mod) => mod.Toaster), {
+  ssr: false,
+});
+const Tooltip = dynamic(() => import('react-tooltip').then((mod) => mod.Tooltip), { ssr: false });
+const CrispChat = dynamic(() => import('./CrispChat').then((mod) => mod.CrispChat), { ssr: false });
 
 const LEGACY_TOASTER_BLOCKLIST = [/^\/checkout(?:$|\/)/];
 
@@ -39,9 +40,9 @@ const ClientLayout = ({ children }: { children: ReactNode }) => {
     const handleSessionExpired = (event: Event) => {
       const detail = (event as CustomEvent<{ message?: string }>).detail;
       toast({
-        title: "Session expired",
-        description: detail?.message ?? "Please sign in again to continue.",
-        variant: "destructive",
+        title: 'Session expired',
+        description: detail?.message ?? 'Please sign in again to continue.',
+        variant: 'destructive',
       });
     };
 
@@ -52,7 +53,6 @@ const ClientLayout = ({ children }: { children: ReactNode }) => {
   if (isAuthRoute) {
     return (
       <>
-        <ImplicitAuthHandler defaultRedirect="/guest/dashboard" />
         {children}
         {/* Keep UI toasts available for auth flows without loading the full ops shell stack */}
         <UiToaster />
@@ -62,8 +62,6 @@ const ClientLayout = ({ children }: { children: ReactNode }) => {
 
   return (
     <>
-      {/* Handle implicit Supabase hash tokens globally (magic link / OAuth) */}
-      <ImplicitAuthHandler defaultRedirect="/guest/dashboard" />
       {/* Show a progress bar at the top when navigating between pages */}
       <NextTopLoader color={config.colors.main} showSpinner={false} />
 
@@ -75,6 +73,10 @@ const ClientLayout = ({ children }: { children: ReactNode }) => {
         <HotToaster
           toastOptions={{
             duration: 3000,
+            ariaProps: {
+              role: 'status',
+              'aria-live': 'polite',
+            },
           }}
         />
       ) : null}
@@ -83,10 +85,7 @@ const ClientLayout = ({ children }: { children: ReactNode }) => {
       <UiToaster />
 
       {/* Show tooltips if any JSX elements has these 2 attributes: data-tooltip-id="tooltip" data-tooltip-content="" */}
-      <Tooltip
-        id="tooltip"
-        className="z-[60] !opacity-100 max-w-sm shadow-lg"
-      />
+      <Tooltip id="tooltip" className="z-[60] !opacity-100 max-w-sm shadow-lg" />
 
       {/* Set Crisp customer chat support */}
       <CrispChat />

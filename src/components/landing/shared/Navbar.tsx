@@ -64,7 +64,7 @@ export function Navbar({ isAuthenticated }: NavbarProps) {
           </Link>
           <Button
             size="sm"
-            className="py-2 px-4 text-xs font-bold uppercase tracking-wide bg-blue-600 text-white hover:bg-blue-700 transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg active:scale-95 shadow-sm"
+            className="py-2 px-4 text-xs font-bold uppercase tracking-wide bg-blue-800 text-white hover:bg-blue-900 transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg active:scale-95 shadow-sm"
             asChild
           >
             <Link href="/contact">Contact Sales</Link>

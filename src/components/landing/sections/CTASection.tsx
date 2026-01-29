@@ -25,7 +25,7 @@ export function CTASection() {
             <Link href="/contact">Contact Sales</Link>
           </Button>
         </div>
-        <p className="mt-6 text-sm text-slate-500 font-medium">
+        <p className="mt-6 text-sm text-slate-700 font-medium">
           Setup takes &lt; 24h. We handle heavy lifting.
         </p>
       </div>
