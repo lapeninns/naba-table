@@ -1,51 +1,41 @@
 # Continuity Ledger
 
-Last updated: 2026-01-29T22:07:20Z
+Last updated: 2026-01-30T16:23:20Z
 
 ## Goal (incl. success criteria)
 
-- Fix Next.js build failure caused by missing `/privacy` route
-- Success: `pnpm run build` completes without missing module errors
-- Success: `/privacy` renders accessible privacy policy content
+- Set remote `main` to commit `6e3eb7b2` per user request.
+- Success: remote `main` points to `6e3eb7b2` and local main matches.
 
 ## Constraints/Assumptions
 
-- Follow AGENTS.md SDLC phases; task folders required
-- UI changes require Chrome DevTools MCP QA artifacts
-- Do not print or commit secrets
+- User requested to remove protection and publish main.
 
 ## Key decisions
 
-- Implement `/privacy` page under marketing layout using guest typography utilities
-- Redirect `/privacy-policy` to `/privacy` for canonical path
+- Remove branch protection, then force-push `HEAD` to `origin/main`.
 
 ## State
 
-- Privacy page implemented; build passes with env updates
+- Completed.
 
 ## Done
 
-- Added `src/app/(public)/(marketing)/privacy/page.tsx`
-- Updated `next.config.js` redirect for `/privacy-policy`
-- Added `NEXT_PUBLIC_APP_URL` and `NEXT_PUBLIC_SITE_URL` to `.env.local`
-- Ran `pnpm run build` (success; next-sitemap warning noted)
-- Chrome DevTools MCP QA complete with screenshots
+- Forced `origin/main` to `6e3eb7b2`.
+- Local `main` now at `6e3eb7b2`.
 
 ## Now
 
-- Await approved privacy policy content and effective date
+- Await further instructions; no additional pull/push planned.
 
 ## Next
 
-- Replace template policy copy when approved
+- None.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- Provide approved privacy policy text and effective date
+- None.
 
 ## Working set (files/ids/commands)
 
-- `src/app/(public)/(marketing)/privacy/page.tsx`
-- `next.config.js`
-- `.env.local`
-- `tasks/add-privacy-page-20260129-2157/*`
+- `CONTINUITY.md`
