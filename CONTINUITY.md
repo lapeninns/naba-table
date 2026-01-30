@@ -1,6 +1,6 @@
 # Continuity Ledger
 
-Last updated: 2026-01-30T14:58:00Z
+Last updated: 2026-01-30T15:00:20Z
 
 ## Goal (incl. success criteria)
 
@@ -10,6 +10,7 @@ Last updated: 2026-01-30T14:58:00Z
 ## Constraints/Assumptions
 
 - Follow AGENTS.md SDLC phases; task folders required for code changes.
+- Ask before any git push.
 - No delete/move/overwrite without explicit user request; prefer non-destructive edits.
 - Supabase is remote-only (no local migrations).
 - Do not print or commit secrets.
@@ -22,7 +23,7 @@ Last updated: 2026-01-30T14:58:00Z
 
 ## State
 
-- Phase 3 (Implementation) resumed for Vercel build fix.
+- Phase 3 (Implementation) complete; awaiting push and CI verification.
 
 ## Done
 
@@ -30,14 +31,16 @@ Last updated: 2026-01-30T14:58:00Z
 - Identified Vercel build error: missing `.next/server/middleware.js.nft.json`.
 - Updated `package.json` build script to `next build --webpack`.
 - Updated task docs to include Vercel build fix.
+- Committed change as `fix(build): force webpack for vercel`.
 
 ## Now
 
-- Commit and push build script change.
+- Request approval to push latest commit.
 
 ## Next
 
-- Monitor CI/Vercel checks and update `verification.md` with outcomes.
+- Push updates and monitor CI/Vercel checks.
+- Update `verification.md` with outcomes.
 - Merge PR when required checks pass.
 
 ## Open questions (UNCONFIRMED if needed)
