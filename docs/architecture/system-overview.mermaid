@@ -1,0 +1,59 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#4F46E5', 'primaryTextColor': '#fff', 'primaryBorderColor': '#4338CA', 'lineColor': '#6366F1', 'secondaryColor': '#F3F4F6', 'tertiaryColor': '#E5E7EB'}}}%%
+flowchart TB
+    subgraph Clients["Client Applications"]
+        GuestWeb["Guest Web App<br/>(Next.js SSR)"]
+        OpsWeb["Ops Dashboard<br/>(Next.js SSR)"]
+        Reserve["Reserve Widget<br/>(Vite SPA)"]
+    end
+
+    subgraph NextJS["Next.js 16 Application"]
+        AppRouter["App Router"]
+        APIRoutes["API Routes<br/>/api/*"]
+        ServerActions["Server Components"]
+        Middleware["Auth Middleware"]
+    end
+
+    subgraph Services["Backend Services"]
+        BookingSvc["Booking Service<br/>/server/bookings"]
+        CapacitySvc["Capacity Planner<br/>/server/capacity"]
+        AssignSvc["Table Assignment<br/>/server/capacity/table-assignment"]
+        AuthSvc["Auth Service<br/>/server/auth"]
+        EmailSvc["Email Service<br/>/server/email"]
+    end
+
+    subgraph External["External Services"]
+        Supabase["Supabase<br/>(Postgres + Auth + Realtime)"]
+        Redis["Upstash Redis<br/>(Queue + Cache)"]
+        Resend["Resend<br/>(Transactional Email)"]
+        Sentry["Sentry<br/>(Error Tracking)"]
+        PostHog["PostHog<br/>(Product Analytics)"]
+        Vercel["Vercel<br/>(Hosting + Edge)"]
+    end
+
+    %% Client connections
+    GuestWeb --> AppRouter
+    OpsWeb --> AppRouter
+    Reserve --> APIRoutes
+
+    %% Next.js internal
+    AppRouter --> Middleware
+    Middleware --> ServerActions
+    Middleware --> APIRoutes
+    APIRoutes --> Services
+
+    %% Service connections
+    BookingSvc --> Supabase
+    BookingSvc --> CapacitySvc
+    BookingSvc --> EmailSvc
+    CapacitySvc --> AssignSvc
+    CapacitySvc --> Supabase
+    AssignSvc --> Supabase
+    AuthSvc --> Supabase
+    EmailSvc --> Redis
+    EmailSvc --> Resend
+
+    %% External service connections
+    NextJS --> Sentry
+    NextJS --> PostHog
+    NextJS --> Vercel
+    Supabase -.->|Realtime| Clients

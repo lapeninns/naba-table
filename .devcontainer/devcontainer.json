@@ -1,0 +1,62 @@
+{
+  "name": "Nab a Table Development",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:22",
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers-contrib/features/pnpm:2": {
+      "version": "10"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss",
+        "prisma.prisma",
+        "mikestead.dotenv",
+        "GitHub.copilot",
+        "eamodio.gitlens",
+        "ms-azuretools.vscode-docker",
+        "usernamehw.errorlens",
+        "streetsidesoftware.code-spell-checker",
+        "formulahendry.auto-rename-tag",
+        "christian-kohler.path-intellisense"
+      ],
+      "settings": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": "explicit"
+        },
+        "typescript.tsdk": "node_modules/typescript/lib",
+        "typescript.enablePromptUseWorkspaceTsdk": true,
+        "files.associations": {
+          "*.css": "tailwindcss"
+        },
+        "tailwindCSS.experimental.classRegex": [
+          ["cva\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"],
+          ["cn\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"]
+        ]
+      }
+    }
+  },
+  "forwardPorts": [3000, 6006],
+  "portsAttributes": {
+    "3000": {
+      "label": "Next.js App",
+      "onAutoForward": "notify"
+    },
+    "6006": {
+      "label": "Storybook",
+      "onAutoForward": "silent"
+    }
+  },
+  "postCreateCommand": "pnpm install",
+  "postStartCommand": "pnpm validate:env || echo 'Environment validation failed - check .env.local'",
+  "remoteUser": "node",
+  "containerEnv": {
+    "NODE_ENV": "development",
+    "APP_ENV": "development"
+  }
+}
