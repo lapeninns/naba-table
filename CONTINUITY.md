@@ -1,6 +1,6 @@
 # Continuity Ledger
 
-Last updated: 2026-01-30T14:40:50Z
+Last updated: 2026-01-30T14:43:40Z
 
 ## Goal (incl. success criteria)
 
@@ -22,22 +22,22 @@ Last updated: 2026-01-30T14:40:50Z
 
 ## State
 
-- Phase 3 (Implementation) complete; awaiting push and CI verification.
+- Phase 4 (Verification) starting: push and re-run CI.
 
 ## Done
 
 - Created task folder `tasks/fix-ci-checks-20260130-1436` with SDLC artifacts.
 - Updated workflows (ZAP permissions, trufflehog tag, drift guard, LHCI CLI, a11y skip, Vercel preview guard).
-- Committed changes as `fix(ci): stabilize workflow checks`.
+- Committed changes as `fix(ci): stabilize workflow checks` and `docs: update continuity ledger`.
+- User approved pushing updates.
 
 ## Now
 
-- Request approval to push commit and rerun PR checks.
+- Push branch updates and monitor CI checks.
 
 ## Next
 
-- Push branch updates.
-- Monitor CI results; update `verification.md` with outcomes.
+- Update `tasks/fix-ci-checks-20260130-1436/verification.md` with CI outcomes.
 - Merge PR when required checks pass.
 
 ## Open questions (UNCONFIRMED if needed)
