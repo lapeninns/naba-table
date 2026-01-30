@@ -1,6 +1,6 @@
 # Continuity Ledger
 
-Last updated: 2026-01-30T14:38:40Z
+Last updated: 2026-01-30T14:40:50Z
 
 ## Goal (incl. success criteria)
 
@@ -22,27 +22,23 @@ Last updated: 2026-01-30T14:38:40Z
 
 ## State
 
-- Phase 3 (Implementation) complete for workflow updates; pending verification/push.
+- Phase 3 (Implementation) complete; awaiting push and CI verification.
 
 ## Done
 
 - Created task folder `tasks/fix-ci-checks-20260130-1436` with SDLC artifacts.
-- Added ZAP job permissions to allow issue creation.
-- Updated trufflehog action tag to `v3.92.5`.
-- Added DB drift check guard for missing `DRIFT_CHECK_DB_URL`.
-- Switched Lighthouse to `pnpm dlx @lhci/cli@0.15.1`.
-- Skipped a11y tests when no test files exist.
-- Added Vercel preview deploy guard and permissions.
+- Updated workflows (ZAP permissions, trufflehog tag, drift guard, LHCI CLI, a11y skip, Vercel preview guard).
+- Committed changes as `fix(ci): stabilize workflow checks`.
 
 ## Now
 
-- Review diffs and update verification note; prepare commit.
+- Request approval to push commit and rerun PR checks.
 
 ## Next
 
-- Commit changes.
-- Ask to push, then push and re-run PR checks.
-- Update `verification.md` once CI results return.
+- Push branch updates.
+- Monitor CI results; update `verification.md` with outcomes.
+- Merge PR when required checks pass.
 
 ## Open questions (UNCONFIRMED if needed)
 
@@ -52,5 +48,5 @@ Last updated: 2026-01-30T14:38:40Z
 
 - `.github/workflows/ci.yml`
 - `.github/workflows/dast.yml`
-- `tasks/fix-ci-checks-20260130-1436/`
+- `tasks/fix-ci-checks-20260130-1436/verification.md`
 - `CONTINUITY.md`
