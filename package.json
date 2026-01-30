@@ -192,7 +192,7 @@
     "@vitest/coverage-v8": "^4.0.18",
     "autoprefixer": "^10.4.22",
     "baseline-browser-mapping": "^2.9.0",
-    "chrome-devtools-mcp": "^0.11.0",
+    "chrome-devtools-mcp": "^0.15.1",
     "dotenv-cli": "^11.0.0",
     "eslint": "^9.39.1",
     "eslint-config-next": "^16.0.7",
