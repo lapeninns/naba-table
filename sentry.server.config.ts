@@ -16,18 +16,4 @@ Sentry.init({
   // Enable sending user PII (Personally Identifiable Information)
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
   sendDefaultPii: true,
-
-  // Release tracking for error-to-commit correlation
-  release: process.env.VERCEL_GIT_COMMIT_SHA || process.env.NEXT_PUBLIC_APP_VERSION,
-
-  // Environment tagging
-  environment: process.env.APP_ENV || process.env.NODE_ENV || 'development',
-
-  // Enable GitHub integration features
-  integrations: [
-    Sentry.extraErrorDataIntegration({ depth: 5 }),
-  ],
-
-  // Attach stack traces to messages
-  attachStacktrace: true,
 });

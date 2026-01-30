@@ -72,12 +72,6 @@ export default [
       "@typescript-eslint/no-explicit-any": "warn",
       "react/display-name": "off",
       "jsx-a11y/no-autofocus": "off",
-      // Cyclomatic complexity - warn at 15, error at 25
-      "complexity": ["warn", { max: 15 }],
-      // Max lines per function
-      "max-lines-per-function": ["warn", { max: 100, skipBlankLines: true, skipComments: true }],
-      // Max depth of nested blocks
-      "max-depth": ["warn", { max: 4 }],
     },
   }),
   {
@@ -140,59 +134,6 @@ export default [
     files: ["scripts/**/*.{js,ts}"],
     rules: {
       "import/order": "off",
-    },
-  },
-  // Module boundary enforcement - prevent cross-layer imports
-  {
-    files: ["src/**/*.{js,ts,jsx,tsx}"],
-    rules: {
-      "no-restricted-imports": [
-        "error",
-        {
-          patterns: [
-            {
-              group: ["../../../server/*", "../../../../server/*"],
-              message: "Use @/server/* alias for server imports from src/",
-            },
-          ],
-        },
-      ],
-    },
-  },
-  {
-    files: ["reserve/**/*.{js,ts,jsx,tsx}"],
-    rules: {
-      "no-restricted-imports": [
-        "error",
-        {
-          patterns: [
-            {
-              group: ["**/server/**"],
-              message: "Reserve package should not import from server/ directly. Use API calls.",
-            },
-            {
-              group: ["**/src/app/**"],
-              message: "Reserve package should not import from src/app/. Use shared modules.",
-            },
-          ],
-        },
-      ],
-    },
-  },
-  {
-    files: ["server/**/*.{js,ts,jsx,tsx}"],
-    rules: {
-      "no-restricted-imports": [
-        "error",
-        {
-          patterns: [
-            {
-              group: ["react", "react-dom", "@/components/*", "@/hooks/*"],
-              message: "Server modules should not import React components or hooks.",
-            },
-          ],
-        },
-      ],
     },
   },
 ];

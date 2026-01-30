@@ -1,3 +1,4 @@
+import PlausibleProvider from 'next-plausible';
 import { type CSSProperties, type ReactNode } from 'react';
 
 import ClientLayout from '@/components/LayoutClient';
@@ -25,9 +26,14 @@ const htmlStyle: CSSProperties = {
   marginRight: '0px',
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang={config.locale ?? 'en'} className="antialiased font-sans" style={htmlStyle}>
+      {config.domainName && (
+        <head>
+          <PlausibleProvider domain={config.domainName} />
+        </head>
+      )}
       <body className="relative font-sans" suppressHydrationWarning>
         {/* ClientLayout contains all the client wrappers (Crisp chat support, toast messages, tooltips, etc.) */}
         <AppProviders initialSession={null}>

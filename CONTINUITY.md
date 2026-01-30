@@ -1,52 +1,46 @@
 # Continuity Ledger
 
-Last updated: 2026-01-30T14:43:40Z
+Last updated: 2026-01-30T16:02:10Z
 
 ## Goal (incl. success criteria)
 
-- Fix failing CI checks in PR #31 and ensure required checks pass.
-- Success: ZAP Baseline, Security Scans, DB Drift Check, Lighthouse, Accessibility, Preview Deploy checks either pass or skip safely when required secrets/tests are absent.
+- Revert GitHub main branch to commit `6e3eb7b` via PR.
+- Success: PR matches tree at `6e3eb7b` (plus task artifacts) and passes checks.
 
 ## Constraints/Assumptions
 
 - Follow AGENTS.md SDLC phases; task folders required for code changes.
 - Ask before any git push.
-- No delete/move/overwrite without explicit user request; prefer non-destructive edits.
-- Supabase is remote-only (no local migrations).
-- Do not print or commit secrets.
+- Main is protected; changes must go through PR.
 
 ## Key decisions
 
-- Use workflow guards to skip checks when required secrets or test directories are missing.
-- Update action/CLI versions instead of disabling checks.
+- Create revert branch from `origin/main` and check out tree from `6e3eb7b2` into working tree, then commit.
 
 ## State
 
-- Phase 4 (Verification) starting: push and re-run CI.
+- Phase 3 (Implementation): working tree reset to `6e3eb7b2`, revert commit pending.
 
 ## Done
 
-- Created task folder `tasks/fix-ci-checks-20260130-1436` with SDLC artifacts.
-- Updated workflows (ZAP permissions, trufflehog tag, drift guard, LHCI CLI, a11y skip, Vercel preview guard).
-- Committed changes as `fix(ci): stabilize workflow checks` and `docs: update continuity ledger`.
-- User approved pushing updates.
+- Created `task/revert-main-20260130-1559` branch from `origin/main`.
+- Checked out repository tree from `6e3eb7b2`.
+- Task artifacts created under `tasks/revert-main-20260130-1559/`.
 
 ## Now
 
-- Push branch updates and monitor CI checks.
+- Commit revert snapshot and task artifacts.
 
 ## Next
 
-- Update `tasks/fix-ci-checks-20260130-1436/verification.md` with CI outcomes.
-- Merge PR when required checks pass.
+- Ask to push branch and open PR.
+- Monitor CI results.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- Whether Vercel check failure is due to missing secrets or other configuration. (UNCONFIRMED)
+- Confirm full revert scope (entire main). (UNCONFIRMED)
 
 ## Working set (files/ids/commands)
 
-- `.github/workflows/ci.yml`
-- `.github/workflows/dast.yml`
-- `tasks/fix-ci-checks-20260130-1436/verification.md`
+- `tasks/revert-main-20260130-1559/`
 - `CONTINUITY.md`

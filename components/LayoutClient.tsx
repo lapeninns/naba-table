@@ -1,24 +1,20 @@
-'use client';
+"use client";
 
-import dynamic from 'next/dynamic';
-import { usePathname } from 'next/navigation';
-import { useEffect, useMemo } from 'react';
+import dynamic from "next/dynamic";
+import { usePathname } from "next/navigation";
+import { useEffect, useMemo } from "react";
 
-import { ImplicitAuthHandler } from '@/components/auth/ImplicitAuthHandler';
-import { CookieConsentBanner } from '@/components/CookieConsentBanner';
-import { Toaster as UiToaster } from '@/components/ui/toaster';
-import config from '@/config';
-import { toast } from '@/hooks/use-toast';
-import { SESSION_EXPIRED_EVENT } from '@/lib/http/sessionRedirect';
+import { Toaster as UiToaster } from "@/components/ui/toaster";
+import config from "@/config";
+import { ImplicitAuthHandler } from "@/components/auth/ImplicitAuthHandler";
+import { toast } from "@/hooks/use-toast";
+import { SESSION_EXPIRED_EVENT } from "@/lib/http/sessionRedirect";
+import type { ReactNode } from "react";
 
-import type { ReactNode } from 'react';
-
-const NextTopLoader = dynamic(() => import('nextjs-toploader'), { ssr: false });
-const HotToaster = dynamic(() => import('react-hot-toast').then((mod) => mod.Toaster), {
-  ssr: false,
-});
-const Tooltip = dynamic(() => import('react-tooltip').then((mod) => mod.Tooltip), { ssr: false });
-const CrispChat = dynamic(() => import('./CrispChat').then((mod) => mod.CrispChat), { ssr: false });
+const NextTopLoader = dynamic(() => import("nextjs-toploader"), { ssr: false });
+const HotToaster = dynamic(() => import("react-hot-toast").then((mod) => mod.Toaster), { ssr: false });
+const Tooltip = dynamic(() => import("react-tooltip").then((mod) => mod.Tooltip), { ssr: false });
+const CrispChat = dynamic(() => import("./CrispChat").then((mod) => mod.CrispChat), { ssr: false });
 
 const LEGACY_TOASTER_BLOCKLIST = [/^\/checkout(?:$|\/)/];
 
@@ -43,9 +39,9 @@ const ClientLayout = ({ children }: { children: ReactNode }) => {
     const handleSessionExpired = (event: Event) => {
       const detail = (event as CustomEvent<{ message?: string }>).detail;
       toast({
-        title: 'Session expired',
-        description: detail?.message ?? 'Please sign in again to continue.',
-        variant: 'destructive',
+        title: "Session expired",
+        description: detail?.message ?? "Please sign in again to continue.",
+        variant: "destructive",
       });
     };
 
@@ -74,8 +70,6 @@ const ClientLayout = ({ children }: { children: ReactNode }) => {
       {/* Content inside app/page.js files  */}
       {children}
 
-      <CookieConsentBanner />
-
       {/* Legacy toast notifications (react-hot-toast) */}
       {!suppressLegacyToaster ? (
         <HotToaster
@@ -89,7 +83,10 @@ const ClientLayout = ({ children }: { children: ReactNode }) => {
       <UiToaster />
 
       {/* Show tooltips if any JSX elements has these 2 attributes: data-tooltip-id="tooltip" data-tooltip-content="" */}
-      <Tooltip id="tooltip" className="z-[60] !opacity-100 max-w-sm shadow-lg" />
+      <Tooltip
+        id="tooltip"
+        className="z-[60] !opacity-100 max-w-sm shadow-lg"
+      />
 
       {/* Set Crisp customer chat support */}
       <CrispChat />
