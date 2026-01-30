@@ -1,6 +1,6 @@
 # Continuity Ledger
 
-Last updated: 2026-01-30T14:14:02Z
+Last updated: 2026-01-30T14:20:51Z
 
 ## Goal (incl. success criteria)
 
@@ -36,15 +36,16 @@ Last updated: 2026-01-30T14:14:02Z
 - Ran `pnpm typecheck`.
 - Ran `pnpm lint` (warnings only; pre-existing).
 - Ran `pnpm test:ci`.
+- Removed pinned pnpm versions from CI workflows to resolve action-setup conflicts.
 - Pushed branch `task/fix-layout-analytics-consent-tracker-20260130-1404` and updated PR #31.
 
 ## Now
 
-- Commit verification updates and, once approved, push + merge PR.
+- Commit workflow fixes, push, re-run checks.
 
 ## Next
 
-- Trigger PR checks and merge once green.
+- Merge PR once required checks pass.
 
 ## Open questions (UNCONFIRMED if needed)
 

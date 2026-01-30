@@ -19,6 +19,7 @@ related_tickets: []
 - [x] Remove `cookies()` usage from `src/app/layout.tsx`.
 - [x] Gate Plausible in `src/app/providers.tsx` with `useAnalyticsConsent`.
 - [x] Add pruning/size cap for Supabase N+1 signature map.
+- [x] Align CI pnpm setup with packageManager version (remove pinned action version).
 
 ## UI/UX
 
