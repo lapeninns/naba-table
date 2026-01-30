@@ -26,7 +26,7 @@ related_tickets: []
 
 ## Tests
 
-- [x] Decide on test coverage and run targeted checks (`pnpm typecheck`).
+- [x] Decide on test coverage and run targeted checks (`pnpm typecheck`, `pnpm lint`, `pnpm test:ci`).
 
 ## Notes
 

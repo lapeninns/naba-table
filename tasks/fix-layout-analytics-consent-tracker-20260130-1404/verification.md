@@ -17,6 +17,8 @@ related_tickets: []
 ## Test Outcomes
 
 - `pnpm typecheck`
+- `pnpm lint` (warnings only; pre-existing).
+- `pnpm test:ci`
 
 ## Artifacts
 
