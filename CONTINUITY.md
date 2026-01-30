@@ -1,6 +1,6 @@
 # Continuity Ledger
 
-Last updated: 2026-01-30T14:07:18Z
+Last updated: 2026-01-30T14:10:43Z
 
 ## Goal (incl. success criteria)
 
@@ -34,14 +34,15 @@ Last updated: 2026-01-30T14:07:18Z
 - Removed `cookies()` usage from `src/app/layout.tsx` and moved Plausible gating to client providers.
 - Added pruning/size cap for Supabase N+1 signature tracking.
 - Ran `pnpm typecheck`.
+- Pushed branch `task/fix-layout-analytics-consent-tracker-20260130-1404` and updated PR #31.
 
 ## Now
 
-- Summarize changes and verification results for user.
+- Report PR link and next steps.
 
 ## Next
 
-- Follow up on any additional testing or QA requests.
+- Wait for CI "quality" check or run additional tests if requested.
 
 ## Open questions (UNCONFIRMED if needed)
 
