@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json.schemastore.org/jscpd.json",
+  "threshold": 5,
+  "minLines": 10,
+  "minTokens": 50,
+  "reporters": ["console", "json"],
+  "output": ".jscpd-report",
+  "ignore": [
+    "**/node_modules/**",
+    "**/.next/**",
+    "**/dist/**",
+    "**/.reserve-dist/**",
+    "**/coverage/**",
+    "**/tasks/**",
+    "**/backups/**",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/types/supabase.ts",
+    "**/*.min.js",
+    "**/*.min.css",
+    "**/pnpm-lock.yaml",
+    "**/*.json"
+  ],
+  "format": ["typescript", "tsx", "javascript", "jsx"],
+  "absolute": false,
+  "gitignore": true
+}

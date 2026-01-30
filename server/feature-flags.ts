@@ -20,10 +20,6 @@ function warnUnsafeFeatureFlag(message: string, context: Record<string, unknown>
   console.warn('[feature-flags][safety]', { message, ...context });
 }
 
-function isProductionEnv(): boolean {
-  return env.node.env === 'production';
-}
-
 function resolveFeatureFlag(flag: FeatureFlagKey, fallback: boolean): boolean {
   const override = getFeatureFlagOverride(flag);
   if (typeof override === 'boolean') {
@@ -35,10 +31,6 @@ function resolveFeatureFlag(flag: FeatureFlagKey, fallback: boolean): boolean {
 export function isLoyaltyPilotRestaurant(restaurantId: string): boolean {
   if (!restaurantId) return false;
   return loyaltyPilotIds.has(restaurantId);
-}
-
-export function isAllocationsDualWriteEnabled(): boolean {
-  return env.featureFlags.allocationsDualWrite ?? false;
 }
 
 export function isSelectorScoringEnabled(): boolean {
@@ -72,10 +64,6 @@ export function isCombinationPlannerEnabled(): boolean {
   return env.featureFlags.combinationPlanner ?? false;
 }
 
-export function isAdjacencyValidationEnabled(): boolean {
-  return env.featureFlags.adjacencyValidation ?? false;
-}
-
 export function isOpsMetricsEnabled(): boolean {
   return env.featureFlags.opsMetrics ?? false;
 }
@@ -86,10 +74,6 @@ export function isOpsRejectionAnalyticsEnabled(): boolean {
 
 export function isHoldsEnabled(): boolean {
   return env.featureFlags.holds.enabled ?? true;
-}
-
-export function isAllocatorMergesEnabled(): boolean {
-  return env.featureFlags.allocator.mergesEnabled ?? !isProductionEnv();
 }
 
 export function isPlannerTimePruningEnabled(): boolean {
@@ -141,10 +125,6 @@ export function getAllocatorAdjacencyMode(): AdjacencyMode {
 export function getManualAssignmentMaxSlack(): number | null {
   const value = env.featureFlags.manualAssignments?.maxSlack;
   return typeof value === 'number' ? value : null;
-}
-
-export function isManualAssignmentSessionEnabled(): boolean {
-  return env.featureFlags.manualAssignments?.sessionEnabled ?? false;
 }
 
 export function isManualAssignmentSnapshotValidationEnabled(): boolean {
@@ -229,29 +209,65 @@ export function getAutoAssignRetryDelaysMs(): number[] {
   return parts.map((n) => Math.max(0, Math.min(n, 5 * 60 * 1000)));
 }
 
-function validateFeatureFlagSafety(): void {
+type SafetyCheckResult = {
+  message: string;
+  context: Record<string, unknown>;
+};
+
+type SafetyCheck = () => SafetyCheckResult | null;
+
+function buildSafetyChecks(): SafetyCheck[] {
   const { holds, allocator, selectorLookahead } = env.featureFlags;
 
-  if ((holds?.enabled ?? true) && !(holds?.strictConflicts ?? false)) {
-    warnUnsafeFeatureFlag('holds.strictConflicts disabled while holds.enabled=true', {
-      environment: env.node.env,
-      strictConflicts: holds?.strictConflicts ?? null,
-    });
-  }
+  const holdsCheck: SafetyCheck = () => {
+    if (!(holds?.enabled ?? true) || (holds?.strictConflicts ?? false)) {
+      return null;
+    }
+    return {
+      message: 'holds.strictConflicts disabled while holds.enabled=true',
+      context: {
+        environment: env.node.env,
+        strictConflicts: holds?.strictConflicts ?? null,
+      },
+    };
+  };
 
-  if ((allocator?.mergesEnabled ?? false) && allocator?.requireAdjacency === false) {
-    warnUnsafeFeatureFlag('allocator merges enabled while adjacency requirement disabled', {
-      environment: env.node.env,
-      mergesEnabled: allocator?.mergesEnabled ?? null,
-      requireAdjacency: allocator?.requireAdjacency ?? null,
-    });
-  }
+  const allocatorAdjacencyCheck: SafetyCheck = () => {
+    if (!(allocator?.mergesEnabled ?? false) || allocator?.requireAdjacency !== false) {
+      return null;
+    }
+    return {
+      message: 'allocator merges enabled while adjacency requirement disabled',
+      context: {
+        environment: env.node.env,
+        mergesEnabled: allocator?.mergesEnabled ?? null,
+        requireAdjacency: allocator?.requireAdjacency ?? null,
+      },
+    };
+  };
 
-  if (selectorLookahead?.enabled && (selectorLookahead?.penaltyWeight ?? 0) === 0) {
-    warnUnsafeFeatureFlag('selectorLookahead enabled but penaltyWeight equals 0', {
-      environment: env.node.env,
-      penaltyWeight: selectorLookahead?.penaltyWeight ?? null,
-    });
+  const lookaheadPenaltyCheck: SafetyCheck = () => {
+    if (!selectorLookahead?.enabled || (selectorLookahead?.penaltyWeight ?? 0) !== 0) {
+      return null;
+    }
+    return {
+      message: 'selectorLookahead enabled but penaltyWeight equals 0',
+      context: {
+        environment: env.node.env,
+        penaltyWeight: selectorLookahead?.penaltyWeight ?? null,
+      },
+    };
+  };
+
+  return [holdsCheck, allocatorAdjacencyCheck, lookaheadPenaltyCheck];
+}
+
+function validateFeatureFlagSafety(): void {
+  for (const check of buildSafetyChecks()) {
+    const result = check();
+    if (result) {
+      warnUnsafeFeatureFlag(result.message, result.context);
+    }
   }
 }
 
@@ -263,8 +279,4 @@ export function getAutoAssignStartCutoffMinutes(): number {
 
 export function getAutoAssignCreatedEmailDeferMinutes(): number {
   return env.featureFlags.autoAssign?.createdEmailDeferMinutes ?? 0;
-}
-
-export function isAutoAssignRetryPolicyV2Enabled(): boolean {
-  return false;
 }

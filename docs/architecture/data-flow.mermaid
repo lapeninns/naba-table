@@ -1,0 +1,61 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#4F46E5'}}}%%
+flowchart LR
+    subgraph Input["User Input"]
+        GuestInput["Guest Details<br/>(name, email, phone)"]
+        BookingParams["Booking Parameters<br/>(date, time, party size)"]
+        OpsActions["Ops Actions<br/>(assign, seat, cancel)"]
+    end
+
+    subgraph Validation["Validation Layer"]
+        ContactVal["Contact Validation<br/>(libphonenumber, zod)"]
+        BookingVal["Booking Validation<br/>(capacity, timing)"]
+        AuthVal["Auth Validation<br/>(session, permissions)"]
+    end
+
+    subgraph Processing["Business Logic"]
+        CapacityCheck["Capacity Check<br/>- Service period rules<br/>- Table availability<br/>- Party size limits"]
+        Assignment["Table Assignment<br/>- Scoring algorithm<br/>- Adjacency rules<br/>- Zone matching"]
+        Lifecycle["Booking Lifecycle<br/>- Status transitions<br/>- Side effects<br/>- Notifications"]
+    end
+
+    subgraph Storage["Data Storage"]
+        Bookings[(bookings)]
+        Allocations[(allocations)]
+        SoftHolds[(soft_holds)]
+        Tables[(tables)]
+        Restaurants[(restaurants)]
+    end
+
+    subgraph Output["Output"]
+        APIResponse["API Response<br/>(JSON)"]
+        RealtimeEvent["Realtime Event<br/>(Supabase)"]
+        EmailJob["Email Job<br/>(BullMQ)"]
+        Analytics["Analytics Event<br/>(PostHog)"]
+    end
+
+    %% Input to Validation
+    GuestInput --> ContactVal
+    BookingParams --> BookingVal
+    OpsActions --> AuthVal
+
+    %% Validation to Processing
+    ContactVal --> CapacityCheck
+    BookingVal --> CapacityCheck
+    AuthVal --> Lifecycle
+
+    %% Processing flow
+    CapacityCheck --> Assignment
+    Assignment --> Lifecycle
+
+    %% Processing to Storage
+    CapacityCheck -.-> Tables
+    CapacityCheck -.-> Restaurants
+    Assignment --> Allocations
+    Assignment --> SoftHolds
+    Lifecycle --> Bookings
+
+    %% Storage to Output
+    Bookings --> APIResponse
+    Bookings --> RealtimeEvent
+    Lifecycle --> EmailJob
+    Lifecycle --> Analytics

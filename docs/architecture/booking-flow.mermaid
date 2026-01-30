@@ -1,0 +1,69 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#4F46E5'}}}%%
+sequenceDiagram
+    autonumber
+    participant Guest
+    participant Widget as Reserve Widget
+    participant API as Next.js API
+    participant Capacity as Capacity Planner
+    participant DB as Supabase
+    participant Email as Email Service
+    participant Queue as Redis Queue
+
+    Note over Guest,Queue: Guest Booking Flow
+
+    %% Step 1: Restaurant Selection
+    Guest->>Widget: Select restaurant
+    Widget->>API: GET /api/restaurants/[slug]
+    API->>DB: Fetch restaurant config
+    DB-->>API: Restaurant data + operating hours
+    API-->>Widget: Restaurant details
+
+    %% Step 2: Date & Party Size
+    Guest->>Widget: Select date & party size
+    Widget->>API: GET /api/restaurants/[slug]/availability
+    API->>Capacity: Check availability
+    Capacity->>DB: Query bookings + table allocations
+    DB-->>Capacity: Current capacity state
+    Capacity-->>API: Available time slots
+    API-->>Widget: Time slot options
+
+    %% Step 3: Time Selection
+    Guest->>Widget: Select time slot
+    Widget->>API: POST /api/bookings (soft hold)
+    API->>Capacity: Create soft hold
+    Capacity->>DB: Insert soft_holds record
+    DB-->>Capacity: Hold confirmed
+    Capacity-->>API: Hold ID + expiry
+    API-->>Widget: Hold confirmation (5 min TTL)
+
+    %% Step 4: Guest Details
+    Guest->>Widget: Enter contact details
+    Widget->>Widget: Validate (phone, email)
+
+    %% Step 5: Confirmation
+    Guest->>Widget: Confirm booking
+    Widget->>API: POST /api/bookings (confirm)
+    API->>Capacity: Convert hold to booking
+    Capacity->>DB: Begin transaction
+    Capacity->>DB: Insert booking record
+    Capacity->>DB: Run table assignment
+    DB-->>Capacity: Tables assigned
+    Capacity->>DB: Insert allocations
+    Capacity->>DB: Delete soft hold
+    Capacity->>DB: Commit transaction
+    Capacity-->>API: Booking confirmed
+    
+    %% Step 6: Post-booking
+    API->>Queue: Enqueue confirmation email
+    API-->>Widget: Booking details + confirmation code
+    Widget-->>Guest: Success screen
+    
+    Queue->>Email: Process email job
+    Email->>DB: Fetch booking + restaurant details
+    Email->>Email: Render email template
+    Email-->>Guest: Confirmation email sent
+
+    Note over Guest,Queue: Realtime Updates (Ops Dashboard)
+    
+    DB--)API: Realtime: new booking event
+    API--)Widget: Broadcast to ops dashboard

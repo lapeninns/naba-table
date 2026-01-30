@@ -1,0 +1,48 @@
+- name: priority:p0
+  color: d73a4a
+  description: Immediate attention required
+- name: priority:p1
+  color: fbca04
+  description: High priority
+- name: priority:p2
+  color: 0e8a16
+  description: Medium priority
+- name: priority:p3
+  color: cfd3d7
+  description: Low priority
+
+- name: area:ops
+  color: 1d76db
+  description: Ops dashboard / operations
+- name: area:guest
+  color: 1d76db
+  description: Guest experience
+- name: area:booking
+  color: 1d76db
+  description: Booking flow and reservations
+- name: area:capacity
+  color: 1d76db
+  description: Capacity engine and assignment
+- name: area:infra
+  color: 1d76db
+  description: CI/CD, deployment, tooling
+- name: area:security
+  color: 1d76db
+  description: Security and privacy
+
+- name: type:bug
+  color: ee0701
+  description: Something is broken
+- name: type:feature
+  color: 0e8a16
+  description: New feature
+- name: type:chore
+  color: cfd3d7
+  description: Maintenance
+- name: type:docs
+  color: 0075ca
+  description: Documentation
+
+- name: from:sentry
+  color: 6f42c1
+  description: Created from Sentry issue sync

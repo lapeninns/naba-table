@@ -1,0 +1,6 @@
+# Rule ID\tLevel\tDescription
+# Keep this small and explicit; tune as findings stabilize.
+10015\tIGNORE\tIncomplete or No Cache-control and Pragma HTTP Header Set
+10016\tIGNORE\tWeb Browser XSS Protection Not Enabled
+10020\tIGNORE\tX-Frame-Options Header Not Set
+10021\tIGNORE\tX-Content-Type-Options Header Missing

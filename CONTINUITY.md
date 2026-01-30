@@ -1,51 +1,52 @@
 # Continuity Ledger
 
-Last updated: 2026-01-29T22:07:20Z
+Last updated: 2026-01-30T14:43:40Z
 
 ## Goal (incl. success criteria)
 
-- Fix Next.js build failure caused by missing `/privacy` route
-- Success: `pnpm run build` completes without missing module errors
-- Success: `/privacy` renders accessible privacy policy content
+- Fix failing CI checks in PR #31 and ensure required checks pass.
+- Success: ZAP Baseline, Security Scans, DB Drift Check, Lighthouse, Accessibility, Preview Deploy checks either pass or skip safely when required secrets/tests are absent.
 
 ## Constraints/Assumptions
 
-- Follow AGENTS.md SDLC phases; task folders required
-- UI changes require Chrome DevTools MCP QA artifacts
-- Do not print or commit secrets
+- Follow AGENTS.md SDLC phases; task folders required for code changes.
+- Ask before any git push.
+- No delete/move/overwrite without explicit user request; prefer non-destructive edits.
+- Supabase is remote-only (no local migrations).
+- Do not print or commit secrets.
 
 ## Key decisions
 
-- Implement `/privacy` page under marketing layout using guest typography utilities
-- Redirect `/privacy-policy` to `/privacy` for canonical path
+- Use workflow guards to skip checks when required secrets or test directories are missing.
+- Update action/CLI versions instead of disabling checks.
 
 ## State
 
-- Privacy page implemented; build passes with env updates
+- Phase 4 (Verification) starting: push and re-run CI.
 
 ## Done
 
-- Added `src/app/(public)/(marketing)/privacy/page.tsx`
-- Updated `next.config.js` redirect for `/privacy-policy`
-- Added `NEXT_PUBLIC_APP_URL` and `NEXT_PUBLIC_SITE_URL` to `.env.local`
-- Ran `pnpm run build` (success; next-sitemap warning noted)
-- Chrome DevTools MCP QA complete with screenshots
+- Created task folder `tasks/fix-ci-checks-20260130-1436` with SDLC artifacts.
+- Updated workflows (ZAP permissions, trufflehog tag, drift guard, LHCI CLI, a11y skip, Vercel preview guard).
+- Committed changes as `fix(ci): stabilize workflow checks` and `docs: update continuity ledger`.
+- User approved pushing updates.
 
 ## Now
 
-- Await approved privacy policy content and effective date
+- Push branch updates and monitor CI checks.
 
 ## Next
 
-- Replace template policy copy when approved
+- Update `tasks/fix-ci-checks-20260130-1436/verification.md` with CI outcomes.
+- Merge PR when required checks pass.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- Provide approved privacy policy text and effective date
+- Whether Vercel check failure is due to missing secrets or other configuration. (UNCONFIRMED)
 
 ## Working set (files/ids/commands)
 
-- `src/app/(public)/(marketing)/privacy/page.tsx`
-- `next.config.js`
-- `.env.local`
-- `tasks/add-privacy-page-20260129-2157/*`
+- `.github/workflows/ci.yml`
+- `.github/workflows/dast.yml`
+- `tasks/fix-ci-checks-20260130-1436/verification.md`
+- `CONTINUITY.md`

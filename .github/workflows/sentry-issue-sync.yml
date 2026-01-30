@@ -1,0 +1,79 @@
+name: Sentry Issue Sync
+
+on:
+  schedule:
+    - cron: '0 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+env:
+  SENTRY_ORG: lapeninns
+  SENTRY_PROJECT: nabatable
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create GitHub issues for new Sentry issues
+        uses: actions/github-script@v7
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        with:
+          script: |
+            const token = process.env.SENTRY_AUTH_TOKEN;
+            if (!token) {
+              core.setFailed('Missing SENTRY_AUTH_TOKEN secret');
+              return;
+            }
+
+            const org = process.env.SENTRY_ORG;
+            const project = process.env.SENTRY_PROJECT;
+            const sentryBase = `https://sentry.io/api/0/projects/${org}/${project}/issues/`;
+            const res = await fetch(`${sentryBase}?query=is:unresolved&limit=10&sort=freq`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!res.ok) {
+              core.setFailed(`Sentry API error: ${res.status}`);
+              return;
+            }
+            const issues = await res.json();
+
+            // Build a set of existing markers from open GitHub issues.
+            const { data: ghIssues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100,
+              labels: 'from:sentry',
+            });
+            const existing = new Set();
+            for (const gi of ghIssues) {
+              const body = gi.body || '';
+              const match = body.match(/Sentry Issue ID:\s*(\S+)/);
+              if (match) existing.add(match[1]);
+            }
+
+            for (const issue of issues) {
+              if (!issue?.id || existing.has(issue.id)) continue;
+              const title = `[Sentry] ${issue.title || issue.shortId || issue.id}`;
+              const body = [
+                `Sentry Issue ID: ${issue.id}`,
+                issue.permalink ? `Sentry: ${issue.permalink}` : '',
+                '',
+                '### Latest event',
+                issue.lastSeen ? `- lastSeen: ${issue.lastSeen}` : '',
+                issue.firstSeen ? `- firstSeen: ${issue.firstSeen}` : '',
+              ].filter(Boolean).join('\n');
+
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['from:sentry', 'area:ops', 'type:bug'],
+              });
+            }

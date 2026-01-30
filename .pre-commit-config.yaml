@@ -7,3 +7,10 @@ repos:
         language: script
         pass_filenames: false
         stages: [commit, push]
+
+      - id: check-file-size
+        name: Check file sizes
+        entry: scripts/pre-commit/check-file-size.sh
+        language: script
+        pass_filenames: false
+        stages: [commit]

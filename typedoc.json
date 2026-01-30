@@ -1,0 +1,28 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": [
+    "lib/logger.ts",
+    "lib/metrics.ts",
+    "lib/tracing.ts",
+    "lib/env.ts",
+    "lib/enums.ts",
+    "server/bookings.ts",
+    "server/feature-flags.ts",
+    "server/supabase.ts"
+  ],
+  "out": "docs/api",
+  "plugin": ["typedoc-plugin-markdown"],
+  "readme": "none",
+  "name": "Nab a Table API Documentation",
+  "excludePrivate": true,
+  "excludeProtected": true,
+  "excludeInternal": true,
+  "skipErrorChecking": true,
+  "exclude": ["**/node_modules/**", "**/*.test.ts", "**/*.spec.ts", "**/tests/**"],
+  "categorizeByGroup": true,
+  "categoryOrder": ["Server", "Library", "Utilities", "*"],
+  "navigation": {
+    "includeCategories": true,
+    "includeGroups": true
+  }
+}

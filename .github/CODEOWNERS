@@ -1,0 +1,24 @@
+# CODEOWNERS - Defines code ownership for automated review assignments
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owners for everything in the repo
+* @lapeninns
+
+# Core application
+/src/ @lapeninns
+/server/ @lapeninns
+/lib/ @lapeninns
+
+# Reserve package (booking widget)
+/reserve/ @lapeninns
+
+# Database and migrations
+/supabase/ @lapeninns
+
+# Configuration and CI
+/.github/ @lapeninns
+/AGENTS.md @lapeninns
+
+# Documentation
+/docs/ @lapeninns
+/README.md @lapeninns

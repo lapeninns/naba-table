@@ -22,13 +22,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+    env:
+      BASE_URL: ${{ inputs.base_url || secrets.E2E_BASE_URL || 'http://localhost:3000' }}
+      NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL || 'https://example.com' }}
+      NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL || 'https://example.com' }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY || 're_test' }}
+      RESEND_FROM: ${{ secrets.RESEND_FROM || 'no-reply@example.com' }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -42,9 +46,42 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps
 
+      - name: Build application (local fallback)
+        if: ${{ env.BASE_URL == 'http://localhost:3000' }}
+        run: pnpm build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          RESERVE_API_BASE_URL: 'https://app.nabatable.com'
+
+      - name: Start application (local fallback)
+        if: ${{ env.BASE_URL == 'http://localhost:3000' }}
+        run: |
+          pnpm start &
+          echo $! > .next_pid
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          RESERVE_API_BASE_URL: 'https://app.nabatable.com'
+
+      - name: Wait for application (local fallback)
+        if: ${{ env.BASE_URL == 'http://localhost:3000' }}
+        run: |
+          for i in {1..60}; do
+            if curl -fsS http://localhost:3000 > /dev/null; then
+              echo "✅ Application is ready"
+              exit 0
+            fi
+            echo "Waiting for app... (attempt $i/60)"
+            sleep 2
+          done
+          echo "❌ Application failed to start"
+          exit 1
+
       - name: Run Playwright E2E (all projects)
         env:
-          BASE_URL: ${{ inputs.base_url || secrets.E2E_BASE_URL }}
           E2E_GUEST_SESSION_TOKEN: ${{ secrets.E2E_TEST_TOKEN }}
           E2E_TEST_GUEST_EMAIL: ${{ secrets.E2E_TEST_GUEST_EMAIL }}
           E2E_TEST_GUEST_NAME: ${{ secrets.E2E_TEST_GUEST_NAME }}
@@ -63,3 +100,10 @@ jobs:
             playwright-report
             test-results
           if-no-files-found: ignore
+
+      - name: Stop application (local fallback)
+        if: always() && env.BASE_URL == 'http://localhost:3000'
+        run: |
+          if [ -f .next_pid ]; then
+            kill $(cat .next_pid) || true
+          fi
