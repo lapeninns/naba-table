@@ -148,16 +148,16 @@
 }
 
 @media print {
-  :global(body *) {
+  :global(body).printBody {
     visibility: hidden;
   }
 
-  :global(#ops-print-root),
-  :global(#ops-print-root *) {
+  :global(body).printBody :global(#ops-print-root),
+  :global(body).printBody :global(#ops-print-root *) {
     visibility: visible;
   }
 
-  :global(#ops-print-root) {
+  :global(body).printBody :global(#ops-print-root) {
     position: absolute;
     inset: 0;
     padding: 0;
@@ -172,16 +172,16 @@
     display: none;
   }
 
-  :global(#ops-print-root thead) {
+  :global(body).printBody :global(#ops-print-root thead) {
     display: table-header-group;
   }
 
-  :global(#ops-print-root tr) {
+  :global(body).printBody :global(#ops-print-root tr) {
     break-inside: avoid;
   }
 
-  :global(#ops-print-root th),
-  :global(#ops-print-root td) {
+  :global(body).printBody :global(#ops-print-root th),
+  :global(body).printBody :global(#ops-print-root td) {
     color: #111111;
   }
 

@@ -1,6 +1,6 @@
 # Continuity Ledger
 
-Last updated: 2026-01-30T15:05:30Z
+Last updated: 2026-01-30T15:12:20Z
 
 ## Goal (incl. success criteria)
 
@@ -21,35 +21,36 @@ Last updated: 2026-01-30T15:05:30Z
 - Use workflow guards to skip checks when required secrets or test directories are missing.
 - Update action/CLI versions instead of disabling checks.
 - Force Webpack for production builds (`next build --webpack`) to restore middleware NFT artifacts for Vercel.
+- Fix CSS Modules print selectors by adding a body class and scoping global rules.
 
 ## State
 
-- Phase 4 (Verification) in progress; Vercel check still failing on PR.
+- Phase 4 (Verification) underway; manual QA done on error fallback due to auth issue.
 
 ## Done
 
-- Pushed latest commits to `task/fix-layout-analytics-consent-tracker-20260130-1404`.
-- PR checks re-run; Vercel check still failing.
-- Dependabot config reviewed; awaiting failure details.
+- Updated print view CSS and body class handling.
+- Ran Chrome DevTools MCP QA on `/app/dashboard/print` (redirected to error state due to auth cookies issue).
+- Captured screenshot `tasks/fix-ci-checks-20260130-1436/artifacts/print-view-error.png`.
+- Updated verification doc with QA results.
 
 ## Now
 
-- Await latest Vercel build log and Dependabot error details from user.
+- Commit changes and ask to push.
 
 ## Next
 
-- Fix Vercel build failure once log indicates root cause.
-- Update `tasks/fix-ci-checks-20260130-1436/verification.md` with outcomes.
+- Push updates and monitor CI/Vercel checks.
+- Update `verification.md` with CI outcomes.
 - Merge PR when required checks pass.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- Exact Vercel build error after Webpack change. (UNCONFIRMED)
-- Whether Dependabot failures are due to config, permissions, or CI on its PRs. (UNCONFIRMED)
+- Dependabot failure cause (permissions, config, or failing CI). (UNCONFIRMED)
 
 ## Working set (files/ids/commands)
 
-- `package.json`
-- `.github/dependabot.yml`
+- `src/components/features/dashboard/OpsBookingsPrintView.tsx`
+- `src/components/features/dashboard/OpsBookingsPrintView.module.css`
 - `tasks/fix-ci-checks-20260130-1436/verification.md`
 - `CONTINUITY.md`

@@ -23,12 +23,15 @@ We will update CI workflows so required checks pass reliably in PRs without secr
 - [ ] Accessibility job skips when no tests exist.
 - [ ] Preview deploy job skips when Vercel secrets are missing.
 - [ ] Vercel preview build succeeds without missing middleware NFT artifacts.
+- [ ] Ops print view CSS builds under Webpack and preserves print-only visibility.
 
 ## Architecture & Components
 
 - `.github/workflows/ci.yml`: update security, db drift, lighthouse, accessibility, and preview deploy jobs.
 - `.github/workflows/dast.yml`: adjust ZAP permissions or disable issue creation.
 - `package.json`: force Webpack for production build.
+- `src/components/features/dashboard/OpsBookingsPrintView.module.css`: fix print selector purity.
+- `src/components/features/dashboard/OpsBookingsPrintView.tsx`: add/remove body class for print view.
 
 ## Data Flow & API Contracts
 
@@ -43,10 +46,11 @@ We will update CI workflows so required checks pass reliably in PRs without secr
 - Forked PRs without secrets should not fail.
 - Missing test directories should not be treated as failures.
 - Turbopack build output may not include middleware NFT artifacts required by Vercel.
+- CSS Modules pure selectors require local class or id per selector.
 
 ## Testing Strategy
 
-- Run existing CI locally as applicable (lint/typecheck/test:ci) if changes affect build assumptions.
+- Manual UI QA via Chrome DevTools MCP (print view) due to UI/CSS changes.
 
 ## Rollout
 

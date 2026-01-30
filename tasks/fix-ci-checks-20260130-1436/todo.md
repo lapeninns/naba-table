@@ -22,10 +22,11 @@ related_tickets: []
 - [x] Skip Accessibility job when no tests exist.
 - [x] Skip Preview Deploy job when Vercel secrets are missing.
 - [x] Force Webpack for production build to restore middleware NFT artifacts.
+- [x] Fix print view CSS module selector by scoping with local class and body class toggle.
 
 ## Tests
 
-- [ ] Validate workflows (syntax) and run local tests if needed.
+- [x] Manual UI QA via Chrome DevTools MCP for print view (required).
 
 ## Notes
 

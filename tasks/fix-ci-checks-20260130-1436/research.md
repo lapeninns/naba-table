@@ -16,6 +16,7 @@ related_tickets: []
   - Resolve failing GitHub Actions checks in PR #31.
   - Preserve existing CI intent (security, perf, a11y, drift checks) without disabling safeguards.
   - Address Vercel preview build failure caused by missing `.next/server/middleware.js.nft.json`.
+  - Fix Webpack-only CSS module print selector failure in `OpsBookingsPrintView.module.css`.
 - Non-functional (a11y, perf, security, privacy, i18n):
   - Do not weaken security scanning; update versions or add safe guards.
   - Ensure checks are deterministic in PRs without secrets.
@@ -36,6 +37,7 @@ related_tickets: []
 - Missing secrets in PRs should not fail jobs that depend on them; add guards.
 - Avoid removing required checks; skip only when prerequisites are missing.
 - Vercel build uses `npm run build`; ensure the build uses Webpack to produce middleware NFT artifacts.
+- Webpack enforces CSS Modules pure selectors; print stylesheet must include a local class in selectors.
 
 ## Open Questions (owner, due)
 
