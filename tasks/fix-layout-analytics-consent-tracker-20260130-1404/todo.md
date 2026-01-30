@@ -20,6 +20,7 @@ related_tickets: []
 - [x] Gate Plausible in `src/app/providers.tsx` with `useAnalyticsConsent`.
 - [x] Add pruning/size cap for Supabase N+1 signature map.
 - [x] Align CI pnpm setup with packageManager version (remove pinned action version).
+- [x] Ensure E2E/DAST workflows have valid BASE_URL and required env fallbacks.
 
 ## UI/UX
 

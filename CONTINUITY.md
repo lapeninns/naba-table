@@ -1,6 +1,6 @@
 # Continuity Ledger
 
-Last updated: 2026-01-30T14:20:51Z
+Last updated: 2026-01-30T14:27:09Z
 
 ## Goal (incl. success criteria)
 
@@ -37,11 +37,12 @@ Last updated: 2026-01-30T14:20:51Z
 - Ran `pnpm lint` (warnings only; pre-existing).
 - Ran `pnpm test:ci`.
 - Removed pinned pnpm versions from CI workflows to resolve action-setup conflicts.
+- Added workflow fallbacks for required env vars and E2E BASE_URL.
 - Pushed branch `task/fix-layout-analytics-consent-tracker-20260130-1404` and updated PR #31.
 
 ## Now
 
-- Commit workflow fixes, push, re-run checks.
+- Commit workflow fixes, push, re-run PR checks.
 
 ## Next
 

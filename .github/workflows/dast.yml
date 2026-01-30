@@ -9,6 +9,10 @@ on:
 env:
   HUSKY: 0
   CI: true
+  NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL || 'https://example.com' }}
+  NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL || 'https://example.com' }}
+  RESEND_API_KEY: ${{ secrets.RESEND_API_KEY || 're_test' }}
+  RESEND_FROM: ${{ secrets.RESEND_FROM || 'no-reply@example.com' }}
 
 jobs:
   zap-baseline:
