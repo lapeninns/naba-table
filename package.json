@@ -150,7 +150,7 @@
     "next-plausible": "^3.12.5",
     "next-sitemap": "^4.2.3",
     "nextjs-toploader": "^3.9.17",
-    "nodemailer": "^7.0.11",
+    "nodemailer": "^7.0.13",
     "posthog-js": "^1.336.4",
     "react": "^19.2.1",
     "react-day-picker": "^9.11.3",
