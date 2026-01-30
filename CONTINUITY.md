@@ -1,6 +1,6 @@
 # Continuity Ledger
 
-Last updated: 2026-01-30T15:03:30Z
+Last updated: 2026-01-30T15:05:30Z
 
 ## Goal (incl. success criteria)
 
@@ -24,26 +24,28 @@ Last updated: 2026-01-30T15:03:30Z
 
 ## State
 
-- Phase 4 (Verification) resumed: pushing build fix and rechecking CI; investigate Dependabot failures.
+- Phase 4 (Verification) in progress; Vercel check still failing on PR.
 
 ## Done
 
-- Updated build script to Webpack and committed.
-- User approved push of latest commits.
+- Pushed latest commits to `task/fix-layout-analytics-consent-tracker-20260130-1404`.
+- PR checks re-run; Vercel check still failing.
+- Dependabot config reviewed; awaiting failure details.
 
 ## Now
 
-- Push latest commits and check PR status.
-- Inspect Dependabot configuration and recent failure cause.
+- Await latest Vercel build log and Dependabot error details from user.
 
 ## Next
 
+- Fix Vercel build failure once log indicates root cause.
 - Update `tasks/fix-ci-checks-20260130-1436/verification.md` with outcomes.
 - Merge PR when required checks pass.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- Whether Dependabot failures are due to config, permissions, or failing CI on its PRs. (UNCONFIRMED)
+- Exact Vercel build error after Webpack change. (UNCONFIRMED)
+- Whether Dependabot failures are due to config, permissions, or CI on its PRs. (UNCONFIRMED)
 
 ## Working set (files/ids/commands)
 
