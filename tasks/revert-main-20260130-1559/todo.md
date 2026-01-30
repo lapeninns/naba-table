@@ -17,7 +17,7 @@ related_tickets: []
 ## Core
 
 - [x] Check out tree from commit `6e3eb7b` into working tree.
-- [ ] Commit revert with clear message.
+- [x] Commit revert with clear message.
 
 ## Tests
 

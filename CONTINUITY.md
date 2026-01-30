@@ -1,6 +1,6 @@
 # Continuity Ledger
 
-Last updated: 2026-01-30T16:02:10Z
+Last updated: 2026-01-30T16:05:10Z
 
 ## Goal (incl. success criteria)
 
@@ -19,21 +19,20 @@ Last updated: 2026-01-30T16:02:10Z
 
 ## State
 
-- Phase 3 (Implementation): working tree reset to `6e3eb7b2`, revert commit pending.
+- Phase 3 complete; revert commit created, pending push/PR.
 
 ## Done
 
-- Created `task/revert-main-20260130-1559` branch from `origin/main`.
-- Checked out repository tree from `6e3eb7b2`.
+- Committed `revert: reset to 6e3eb7b` on branch `task/revert-main-20260130-1559`.
 - Task artifacts created under `tasks/revert-main-20260130-1559/`.
 
 ## Now
 
-- Commit revert snapshot and task artifacts.
+- Update task docs/ledger, then request push approval.
 
 ## Next
 
-- Ask to push branch and open PR.
+- Push branch and open PR.
 - Monitor CI results.
 
 ## Open questions (UNCONFIRMED if needed)
