@@ -1,6 +1,6 @@
 # Continuity Ledger
 
-Last updated: 2026-01-30T15:26:40Z
+Last updated: 2026-01-30T15:33:30Z
 
 ## Goal (incl. success criteria)
 
@@ -11,6 +11,7 @@ Last updated: 2026-01-30T15:26:40Z
 ## Constraints/Assumptions
 
 - Follow AGENTS.md SDLC phases; task folders required for code changes.
+- Ask before any git push.
 - No delete/move/overwrite without explicit user request; prefer non-destructive edits.
 - Supabase is remote-only (no local migrations).
 - Do not print or commit secrets.
@@ -24,28 +25,29 @@ Last updated: 2026-01-30T15:26:40Z
 
 ## State
 
-- Phase 4 (Verification) in progress; latest fixes pushed, Vercel check still failing.
+- Phase 4 (Verification) blocked by Next.js build type error; fix applied, pending push.
 
 ## Done
 
-- Pushed commits through `aa3f5377` on branch `task/fix-layout-analytics-consent-tracker-20260130-1404`.
-- PR checks re-run; Vercel deployment still failing.
+- Fixed `src/app/guest/bookings/[bookingId]/page.tsx` wrapper to use valid `{ params, searchParams }` props only.
+- Updated task docs to reflect new Vercel failure and fix.
 
 ## Now
 
-- Await latest Vercel deployment log and Dependabot failure details.
+- Commit latest fix and request push approval.
 
 ## Next
 
-- Patch Vercel build failure once log is available.
-- Update `verification.md` with CI outcomes and merge PR when required checks pass.
+- Push updates and monitor Vercel/CI checks.
+- Update `verification.md` with outcomes.
+- Merge PR when required checks pass.
 
 ## Open questions (UNCONFIRMED if needed)
 
 - Dependabot failure cause (permissions, config, or failing CI). (UNCONFIRMED)
-- Current Vercel failure error after latest push. (UNCONFIRMED)
 
 ## Working set (files/ids/commands)
 
+- `src/app/guest/bookings/[bookingId]/page.tsx`
 - `tasks/fix-ci-checks-20260130-1436/verification.md`
 - `CONTINUITY.md`

@@ -23,6 +23,7 @@ related_tickets: []
 - [x] Skip Preview Deploy job when Vercel secrets are missing.
 - [x] Force Webpack for production build to restore middleware NFT artifacts.
 - [x] Fix print view CSS module selector by scoping with local class and body class toggle.
+- [x] Fix guest booking detail page wrapper props for Next.js build.
 
 ## Tests
 

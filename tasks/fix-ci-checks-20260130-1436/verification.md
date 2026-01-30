@@ -43,6 +43,7 @@ Tool: Chrome DevTools MCP
 - Pending: will update after workflow runs.
 - Vercel preview build was failing with missing `.next/server/middleware.js.nft.json`; build now uses Webpack.
 - Webpack build failed on CSS Modules pure selector in print view; fix applied.
+- Vercel build failed on guest booking detail page default export props; fix applied.
 
 ## Artifacts
 

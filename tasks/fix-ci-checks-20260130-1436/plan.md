@@ -24,6 +24,7 @@ We will update CI workflows so required checks pass reliably in PRs without secr
 - [ ] Preview deploy job skips when Vercel secrets are missing.
 - [ ] Vercel preview build succeeds without missing middleware NFT artifacts.
 - [ ] Ops print view CSS builds under Webpack and preserves print-only visibility.
+- [ ] Guest booking page wrapper passes valid page props to satisfy Next.js build.
 
 ## Architecture & Components
 
@@ -32,6 +33,7 @@ We will update CI workflows so required checks pass reliably in PRs without secr
 - `package.json`: force Webpack for production build.
 - `src/components/features/dashboard/OpsBookingsPrintView.module.css`: fix print selector purity.
 - `src/components/features/dashboard/OpsBookingsPrintView.tsx`: add/remove body class for print view.
+- `src/app/guest/bookings/[bookingId]/page.tsx`: fix wrapper props typing.
 
 ## Data Flow & API Contracts
 
