@@ -167,7 +167,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
       - name: Upload Playwright Report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: playwright-report-shard-${{ matrix.shard }}
@@ -175,7 +175,7 @@ jobs:
           retention-days: 14
 
       - name: Upload Test Screenshots
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: failure()
         with:
           name: test-screenshots-shard-${{ matrix.shard }}
@@ -236,7 +236,7 @@ jobs:
         run: echo "No accessibility tests found under tests/e2e/accessibility; skipping."
 
       - name: Upload A11y Report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: accessibility-report
@@ -283,7 +283,7 @@ jobs:
           RESERVE_API_BASE_URL: 'https://app.nabatable.com'
 
       - name: Upload Lighthouse Report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: lighthouse-report
@@ -375,7 +375,7 @@ jobs:
         continue-on-error: true # Visual diffs are available as artifacts without blocking CI; update baselines via a manual run with --update-snapshots.
 
       - name: Upload Visual Diff Report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: visual-regression-report
