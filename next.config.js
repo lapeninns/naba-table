@@ -1,6 +1,11 @@
 /** @type {import('next').NextConfig} */
 const path = require('path');
 
+// Bundle analyzer for dependency size tracking
+const withBundleAnalyzer = require('@next/bundle-analyzer')({
+  enabled: process.env.ANALYZE === 'true',
+});
+
 const SUPABASE_HOSTNAME = (() => {
   try {
     return process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -201,3 +206,6 @@ module.exports = withSentryConfig(module.exports, {
     },
   },
 });
+
+// Export with bundle analyzer wrapper
+module.exports = withBundleAnalyzer(module.exports);

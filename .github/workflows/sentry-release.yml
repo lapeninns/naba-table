@@ -1,0 +1,35 @@
+name: Sentry Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  SENTRY_ORG: lapeninns
+  SENTRY_PROJECT: nabatable
+
+jobs:
+  sentry-release:
+    name: Create Sentry Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create Sentry release
+        uses: getsentry/action-release@v3
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        with:
+          environment: production
+          version: ${{ github.sha }}
+          set_commits: auto
+          ignore_missing: true
+          ignore_empty: true
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::warning::Sentry release creation failed. Check SENTRY_AUTH_TOKEN secret."
