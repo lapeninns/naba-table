@@ -2,8 +2,10 @@
 
 import { QueryClient, QueryClientProvider, type DefaultOptions } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import PlausibleProvider from 'next-plausible';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 
+import config from '@/config';
 import { SupabaseSessionProvider, useSupabaseSession } from '@/hooks/useSupabaseSession';
 import { useClientErrorReporter } from '@/lib/monitoring/clientReporter';
 import { PostHogProvider, PostHogUserIdentifier } from '@/lib/posthog/provider';
@@ -128,5 +130,15 @@ export function AppProviders({ children, initialSession }: AppProvidersProps) {
     </SupabaseSessionProvider>
   );
 
-  return analyticsAllowed ? <PostHogProvider>{content}</PostHogProvider> : content;
+  let wrapped = content;
+
+  if (analyticsAllowed) {
+    wrapped = <PostHogProvider>{wrapped}</PostHogProvider>;
+
+    if (config.domainName) {
+      wrapped = <PlausibleProvider domain={config.domainName}>{wrapped}</PlausibleProvider>;
+    }
+  }
+
+  return wrapped;
 }

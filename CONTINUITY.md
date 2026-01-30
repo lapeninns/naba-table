@@ -1,43 +1,47 @@
 # Continuity Ledger
 
-Last updated: 2026-01-30T13:01:00Z
+Last updated: 2026-01-30T14:07:18Z
 
 ## Goal (incl. success criteria)
 
-- Fix issues identified in `AGENT_READINESS_REPORT.md` by adding missing tooling/tests/CI gates and updating the report to reflect current state.
-- Success: `pnpm lint`, `pnpm typecheck`, `pnpm test:ci` pass; CI contains new validation steps/workflows.
+- Preserve static rendering by removing `cookies()` from RootLayout and keep analytics consent gating.
+- Prevent unbounded memory growth in Supabase N+1 signature tracking.
+- Success: RootLayout remains static; consent gating still works client-side.
+- Success: signature map prunes and caps entries without breaking N+1 detection.
 
 ## Constraints/Assumptions
 
 - Follow AGENTS.md SDLC phases; task folders required for code changes.
-- UI changes require Chrome DevTools MCP QA artifacts (not applicable here).
+- Supabase is remote-only (no local migrations).
+- No visible UI changes expected; DevTools MCP QA not required.
+- Root layout should not read request-bound data.
 - Do not print or commit secrets.
-- Docs updates only when explicitly requested (this update was requested).
 
 ## Key decisions
 
-- Report updated to Level 4 (72.5% pass rate) with two apps (root + `reserve/`).
-- `store_agent_readiness_report` failed due to Fetch failed; report not stored.
+- Move Plausible consent gating into client providers using existing `useAnalyticsConsent`.
+- Add TTL pruning + size cap to Supabase request signature map.
 
 ## State
 
-- Added CI/tiering improvements (agents validation, version drift, flags audit, bundle budget) + DAST and flake-detection workflows.
-- Added Playwright smoke tests + config; added local services docker-compose; added N+1 instrumentation + circuit breaker utility.
-- Local verification run: `pnpm lint` (warnings only), `pnpm typecheck` (pass), `pnpm test:ci` (pass; coverage thresholds > 0).
+- Phase 3 (Implementation) complete; validation recorded.
 
 ## Done
 
-- Created task folder `tasks/fix-agent-readiness-report-20260130-1243`.
-- Implemented missing scripts/tests/workflows and updated `AGENT_READINESS_REPORT.md` accordingly.
-- Ran `pnpm lint`, `pnpm typecheck`, `pnpm test:ci`, `pnpm version:drift`, `pnpm flags:audit`.
+- Read AGENTS.md, server/AGENTS.md, and src/app/AGENTS.md.
+- Reviewed RootLayout and analytics consent wiring; reviewed Supabase instrumentation map.
+- Created task folder `tasks/fix-layout-analytics-consent-tracker-20260130-1404` with SDLC artifacts.
+- Removed `cookies()` usage from `src/app/layout.tsx` and moved Plausible gating to client providers.
+- Added pruning/size cap for Supabase N+1 signature tracking.
+- Ran `pnpm typecheck`.
 
 ## Now
 
-- Remaining readiness gaps are mainly release notes automation, progressive rollout/rollback automation, profiling, privacy/DSAR automation.
+- Summarize changes and verification results for user.
 
 ## Next
 
-- If requested: implement release notes automation (release-please) and/or rollout/rollback workflows.
+- Follow up on any additional testing or QA requests.
 
 ## Open questions (UNCONFIRMED if needed)
 
@@ -45,16 +49,7 @@ Last updated: 2026-01-30T13:01:00Z
 
 ## Working set (files/ids/commands)
 
-- `AGENT_READINESS_REPORT.md`
-- `.github/workflows/ci.yml`
-- `.github/workflows/dast.yml`
-- `.github/workflows/flaky-detection.yml`
-- `scripts/check-version-drift.ts`
-- `scripts/check-next-bundle-budget.ts`
-- `scripts/feature-flags/audit.ts`
-- `scripts/db/check-drift.ts`
+- `src/app/layout.tsx`
+- `src/app/providers.tsx`
 - `server/supabase-instrumentation.ts`
-- `server/lib/circuit-breaker.ts`
-- `playwright.config.ts`
-- `tests/e2e/smoke/*`
-- `docker-compose.yml`
+- `tasks/fix-layout-analytics-consent-tracker-20260130-1404/`

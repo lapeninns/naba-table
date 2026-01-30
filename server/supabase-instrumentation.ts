@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto';
-
 import { logger } from '@/lib/logger';
 
 type SeenEntry = {
@@ -14,6 +12,12 @@ const supabaseInstrumentationLogger = logger.child({ module: 'supabase', feature
 const WINDOW_MS = 5000;
 const REPEAT_THRESHOLD = 25;
 const seen = new Map<string, SeenEntry>();
+const HASH_SAMPLE_LIMIT = 2048;
+const FNV_OFFSET_BASIS = 2166136261;
+const FNV_PRIME = 16777619;
+const PRUNE_INTERVAL_MS = 1000;
+const MAX_TRACKED_SIGNATURES = 2000;
+let lastPruneMs = 0;
 
 function nowMs(): number {
   return Date.now();
@@ -33,6 +37,15 @@ function normalizeUrl(raw: string): string {
   }
 }
 
+function fnv1aHash(value: string): string {
+  let hash = FNV_OFFSET_BASIS;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, FNV_PRIME);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
 function buildBodyHash(body: unknown): string {
   if (typeof body !== 'string') {
     return '';
@@ -41,8 +54,37 @@ function buildBodyHash(body: unknown): string {
     return '';
   }
   // Cap hashing cost.
-  const sample = body.length > 2048 ? body.slice(0, 2048) : body;
-  return createHash('sha1').update(sample).digest('hex');
+  const sample = body.length > HASH_SAMPLE_LIMIT ? body.slice(0, HASH_SAMPLE_LIMIT) : body;
+  return fnv1aHash(sample);
+}
+
+function pruneSeenEntries(now: number): void {
+  if (seen.size === 0) {
+    return;
+  }
+
+  if (now - lastPruneMs < PRUNE_INTERVAL_MS && seen.size <= MAX_TRACKED_SIGNATURES) {
+    return;
+  }
+
+  lastPruneMs = now;
+
+  for (const [signature, entry] of seen) {
+    if (now - entry.firstSeenMs > WINDOW_MS) {
+      seen.delete(signature);
+    }
+  }
+
+  if (seen.size <= MAX_TRACKED_SIGNATURES) {
+    return;
+  }
+
+  for (const signature of seen.keys()) {
+    if (seen.size <= MAX_TRACKED_SIGNATURES) {
+      break;
+    }
+    seen.delete(signature);
+  }
 }
 
 function requestSignature(input: RequestInfo | URL, init?: RequestInit): string {
@@ -57,6 +99,7 @@ function requestSignature(input: RequestInfo | URL, init?: RequestInit): string 
 
 function recordSignature(signature: string): void {
   const ts = nowMs();
+  pruneSeenEntries(ts);
   const current = seen.get(signature);
 
   if (!current || ts - current.firstSeenMs > WINDOW_MS) {
