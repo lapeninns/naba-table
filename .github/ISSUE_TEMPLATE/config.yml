@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/LapenInns/nabatable/blob/main/docs/README.md
+    about: Check the documentation before opening an issue
+  - name: AGENTS.md
+    url: https://github.com/LapenInns/nabatable/blob/main/AGENTS.md
+    about: Review the AGENTS.md for development guidelines
