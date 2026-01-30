@@ -1,6 +1,6 @@
 # Continuity Ledger
 
-Last updated: 2026-01-30T15:12:20Z
+Last updated: 2026-01-30T15:23:40Z
 
 ## Goal (incl. success criteria)
 
@@ -25,22 +25,21 @@ Last updated: 2026-01-30T15:12:20Z
 
 ## State
 
-- Phase 4 (Verification) underway; manual QA done on error fallback due to auth issue.
+- Phase 4 (Verification) underway; latest print CSS fix committed, pending push.
 
 ## Done
 
-- Updated print view CSS and body class handling.
-- Ran Chrome DevTools MCP QA on `/app/dashboard/print` (redirected to error state due to auth cookies issue).
-- Captured screenshot `tasks/fix-ci-checks-20260130-1436/artifacts/print-view-error.png`.
-- Updated verification doc with QA results.
+- Refactored print view to reduce complexity warnings and keep CSS Modules pure selectors.
+- Added body class toggling for print view.
+- Ran Chrome DevTools MCP QA (redirected to error state due to auth cookie issue); screenshot captured.
+- Committed changes as `fix(print): scope ops print styles`.
 
 ## Now
 
-- Commit changes and ask to push.
+- Push latest commit and monitor CI/Vercel checks.
 
 ## Next
 
-- Push updates and monitor CI/Vercel checks.
 - Update `verification.md` with CI outcomes.
 - Merge PR when required checks pass.
 
