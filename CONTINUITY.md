@@ -1,11 +1,12 @@
 # Continuity Ledger
 
-Last updated: 2026-01-30T15:00:20Z
+Last updated: 2026-01-30T15:03:30Z
 
 ## Goal (incl. success criteria)
 
 - Fix failing CI checks in PR #31 and ensure required checks pass.
 - Success: ZAP Baseline, Security Scans, DB Drift Check, Lighthouse, Accessibility, Preview Deploy, and Vercel checks pass or skip safely when prerequisites are missing.
+- Address GitHub Actions/Dependabot failure notifications by stabilizing workflows and reviewing dependabot config.
 
 ## Constraints/Assumptions
 
@@ -23,32 +24,30 @@ Last updated: 2026-01-30T15:00:20Z
 
 ## State
 
-- Phase 3 (Implementation) complete; awaiting push and CI verification.
+- Phase 4 (Verification) resumed: pushing build fix and rechecking CI; investigate Dependabot failures.
 
 ## Done
 
-- Pushed workflow fixes to branch.
-- Identified Vercel build error: missing `.next/server/middleware.js.nft.json`.
-- Updated `package.json` build script to `next build --webpack`.
-- Updated task docs to include Vercel build fix.
-- Committed change as `fix(build): force webpack for vercel`.
+- Updated build script to Webpack and committed.
+- User approved push of latest commits.
 
 ## Now
 
-- Request approval to push latest commit.
+- Push latest commits and check PR status.
+- Inspect Dependabot configuration and recent failure cause.
 
 ## Next
 
-- Push updates and monitor CI/Vercel checks.
-- Update `verification.md` with outcomes.
+- Update `tasks/fix-ci-checks-20260130-1436/verification.md` with outcomes.
 - Merge PR when required checks pass.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- Whether Vercel check failure is due to missing secrets or other configuration. (UNCONFIRMED)
+- Whether Dependabot failures are due to config, permissions, or failing CI on its PRs. (UNCONFIRMED)
 
 ## Working set (files/ids/commands)
 
 - `package.json`
+- `.github/dependabot.yml`
 - `tasks/fix-ci-checks-20260130-1436/verification.md`
 - `CONTINUITY.md`
