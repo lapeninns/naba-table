@@ -33,22 +33,66 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Lint
-        run: pnpm lint
+      - name: AGENTS.md validation (timed)
+        run: |
+          start=$(date +%s)
+          pnpm agents:validate
+          end=$(date +%s)
+          echo "- AGENTS.md validation: $((end-start))s" >> $GITHUB_STEP_SUMMARY
 
-      - name: Typecheck
-        run: pnpm typecheck
+      - name: Version drift check (timed)
+        run: |
+          start=$(date +%s)
+          pnpm version:drift
+          end=$(date +%s)
+          echo "- Version drift check: $((end-start))s" >> $GITHUB_STEP_SUMMARY
 
-      - name: Unit Tests
-        run: pnpm test:ci
+      - name: Feature flag audit (timed)
+        run: |
+          start=$(date +%s)
+          pnpm flags:audit
+          end=$(date +%s)
+          echo "- Feature flag audit: $((end-start))s" >> $GITHUB_STEP_SUMMARY
 
-      - name: Build
-        run: pnpm build
+      - name: Lint (timed)
+        run: |
+          start=$(date +%s)
+          pnpm lint
+          end=$(date +%s)
+          echo "- Lint: $((end-start))s" >> $GITHUB_STEP_SUMMARY
+
+      - name: Typecheck (timed)
+        run: |
+          start=$(date +%s)
+          pnpm typecheck
+          end=$(date +%s)
+          echo "- Typecheck: $((end-start))s" >> $GITHUB_STEP_SUMMARY
+
+      - name: Unit Tests (timed)
+        run: |
+          start=$(date +%s)
+          pnpm test:ci
+          end=$(date +%s)
+          echo "- Unit tests: $((end-start))s" >> $GITHUB_STEP_SUMMARY
+
+      - name: Build (timed)
+        run: |
+          start=$(date +%s)
+          pnpm build
+          end=$(date +%s)
+          echo "- Build: $((end-start))s" >> $GITHUB_STEP_SUMMARY
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          RESERVE_API_BASE_URL: "https://app.nabatable.com"
+          RESERVE_API_BASE_URL: 'https://app.nabatable.com'
+
+      - name: Bundle budget (timed)
+        run: |
+          start=$(date +%s)
+          pnpm bundle:budget
+          end=$(date +%s)
+          echo "- Bundle budget: $((end-start))s" >> $GITHUB_STEP_SUMMARY
 
   # ============================================
   # JOB 2: E2E Tests (Playwright)
@@ -88,7 +132,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          RESERVE_API_BASE_URL: "https://app.nabatable.com"
+          RESERVE_API_BASE_URL: 'https://app.nabatable.com'
 
       - name: Start application
         run: |
@@ -98,7 +142,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          RESERVE_API_BASE_URL: "https://app.nabatable.com"
+          RESERVE_API_BASE_URL: 'https://app.nabatable.com'
 
       - name: Wait for application
         run: |
@@ -118,7 +162,7 @@ jobs:
         env:
           BASE_URL: http://localhost:3000
           E2E_TEST_GUEST_EMAIL: ${{ secrets.E2E_TEST_GUEST_EMAIL }}
-          E2E_TEST_RESTAURANT_SLUG: "white-horse-pub-waterbeach"
+          E2E_TEST_RESTAURANT_SLUG: 'white-horse-pub-waterbeach'
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
@@ -171,7 +215,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          RESERVE_API_BASE_URL: "https://app.nabatable.com"
+          RESERVE_API_BASE_URL: 'https://app.nabatable.com'
 
       - name: Start application
         run: |
@@ -181,7 +225,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          RESERVE_API_BASE_URL: "https://app.nabatable.com"
+          RESERVE_API_BASE_URL: 'https://app.nabatable.com'
 
       - name: Run Accessibility Tests
         run: pnpm exec playwright test tests/e2e/accessibility --project=chromium
@@ -226,7 +270,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          RESERVE_API_BASE_URL: "https://app.nabatable.com"
+          RESERVE_API_BASE_URL: 'https://app.nabatable.com'
 
       - name: Run Lighthouse CI
         run: |
@@ -236,7 +280,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          RESERVE_API_BASE_URL: "https://app.nabatable.com"
+          RESERVE_API_BASE_URL: 'https://app.nabatable.com'
 
       - name: Upload Lighthouse Report
         uses: actions/upload-artifact@v4
@@ -253,27 +297,27 @@ jobs:
           script: |
             const fs = require('fs');
             const path = '.lighthouseci/manifest.json';
-            
+
             if (!fs.existsSync(path)) {
               console.log('No Lighthouse manifest found');
               return;
             }
-            
+
             const manifest = JSON.parse(fs.readFileSync(path, 'utf8'));
             const results = manifest.map(run => {
               const summary = run.summary;
               return `| ${run.url} | ${Math.round(summary.performance * 100)} | ${Math.round(summary.accessibility * 100)} | ${Math.round(summary['best-practices'] * 100)} | ${Math.round(summary.seo * 100)} |`;
             }).join('\n');
-            
+
             const body = `## ⚡ Lighthouse Performance Report
-            
+
             | URL | Performance | Accessibility | Best Practices | SEO |
             |-----|-------------|---------------|----------------|-----|
             ${results}
-            
+
             📊 Full report available in workflow artifacts.
             `;
-            
+
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
@@ -314,7 +358,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          RESERVE_API_BASE_URL: "https://app.nabatable.com"
+          RESERVE_API_BASE_URL: 'https://app.nabatable.com'
 
       - name: Start application
         run: |
@@ -324,7 +368,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          RESERVE_API_BASE_URL: "https://app.nabatable.com"
+          RESERVE_API_BASE_URL: 'https://app.nabatable.com'
 
       - name: Run Visual Regression Tests
         run: pnpm exec playwright test tests/e2e/visual --project=chromium
@@ -477,38 +521,38 @@ jobs:
         run: |
           echo "## 🧪 Test Results Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           echo "| Test Suite | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|------------|--------|" >> $GITHUB_STEP_SUMMARY
-          
+
           # Check E2E status
           if [ "${{ needs.e2e-tests.result }}" == "success" ]; then
             echo "| 🎭 E2E Tests | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
           else
             echo "| 🎭 E2E Tests | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           # Check Accessibility status
           if [ "${{ needs.accessibility.result }}" == "success" ]; then
             echo "| ♿ Accessibility | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
           else
             echo "| ♿ Accessibility | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           # Check Lighthouse status
           if [ "${{ needs.lighthouse.result }}" == "success" ]; then
             echo "| ⚡ Performance | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
           else
             echo "| ⚡ Performance | ⚠️ Check Report |" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           # Check Visual Regression status
           if [ "${{ needs.visual-regression.result }}" == "success" ]; then
             echo "| 📸 Visual Regression | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
           else
             echo "| 📸 Visual Regression | ⚠️ Review Changes |" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "📁 **Artifacts:** Available for download from the Actions tab" >> $GITHUB_STEP_SUMMARY
 

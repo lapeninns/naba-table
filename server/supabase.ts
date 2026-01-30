@@ -1,42 +1,47 @@
-import { createServerClient } from "@supabase/ssr";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
-import { type NextRequest } from "next/server";
+import { createServerClient } from '@supabase/ssr';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { cookies } from 'next/headers';
+import { type NextRequest } from 'next/server';
 
-import { env, getEnv } from "@/lib/env";
-import { logger } from "@/lib/logger";
-import { buildSupabaseCookieOptions, resolveCookieDomain } from "@/lib/supabase/cookies";
+import { env, getEnv } from '@/lib/env';
+import { logger } from '@/lib/logger';
+import { buildSupabaseCookieOptions, resolveCookieDomain } from '@/lib/supabase/cookies';
+import { instrumentedSupabaseFetch } from '@/server/supabase-instrumentation';
 
-import type { Database } from "@/types/supabase";
-import type { NextResponse} from "next/server";
+import type { Database } from '@/types/supabase';
+import type { NextResponse } from 'next/server';
 
-export { BOOKING_BLOCKING_STATUSES } from "@/lib/enums";
+export { BOOKING_BLOCKING_STATUSES } from '@/lib/enums';
 
 let serviceClient: SupabaseClient<Database> | null = null;
 const tenantClientCache = new Map<string, SupabaseClient<Database>>();
 let strictHoldInitStarted = false;
 let strictHoldEnforcementActive: boolean | null = null;
 let cookieWriteSuppressedLogged = false;
-const supabaseLogger = logger.child({ module: "supabase" });
+const supabaseLogger = logger.child({ module: 'supabase' });
 
 export class MissingRestaurantContextError extends Error {
-  constructor(message = "Restaurant context is required") {
+  constructor(message = 'Restaurant context is required') {
     super(message);
-    this.name = "MissingRestaurantContextError";
+    this.name = 'MissingRestaurantContextError';
   }
 }
 
 const runtimeEnv = getEnv();
-const { url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY, serviceKey: SUPABASE_SERVICE_ROLE_KEY } = env.supabase;
-const shouldRunStrictHoldCheck = ["production", "staging"].includes(env.node.appEnv);
-const RESTAURANT_CONTEXT_HEADER = "X-Restaurant-Id";
+const {
+  url: SUPABASE_URL,
+  anonKey: SUPABASE_ANON_KEY,
+  serviceKey: SUPABASE_SERVICE_ROLE_KEY,
+} = env.supabase;
+const shouldRunStrictHoldCheck = ['production', 'staging'].includes(env.node.appEnv);
+const RESTAURANT_CONTEXT_HEADER = 'X-Restaurant-Id';
 const DEFAULT_RESTAURANT_SLUG = runtimeEnv.NEXT_PUBLIC_DEFAULT_RESTAURANT_SLUG ?? null;
 const ROOT_DOMAIN =
-  typeof runtimeEnv.NEXT_PUBLIC_ROOT_DOMAIN === "string"
+  typeof runtimeEnv.NEXT_PUBLIC_ROOT_DOMAIN === 'string'
     ? runtimeEnv.NEXT_PUBLIC_ROOT_DOMAIN
-    : "localhost";
+    : 'localhost';
 const COOKIE_DOMAIN = resolveCookieDomain(ROOT_DOMAIN);
-const secureCookies = env.node.appEnv !== "development" && COOKIE_DOMAIN !== undefined;
+const secureCookies = env.node.appEnv !== 'development' && COOKIE_DOMAIN !== undefined;
 
 let cachedDefaultRestaurantId: string | null =
   runtimeEnv.NEXT_PUBLIC_DEFAULT_RESTAURANT_ID ?? env.misc.bookingDefaultRestaurantId ?? null;
@@ -57,7 +62,7 @@ function applyCookieDefaults(options: Record<string, unknown> = {}, rememberMe =
     ...buildSupabaseCookieOptions({
       domain: COOKIE_DOMAIN,
       secure: secureCookies,
-      sameSite: "lax",
+      sameSite: 'lax',
       httpOnly: true,
       rememberMe,
     }),
@@ -66,7 +71,7 @@ function applyCookieDefaults(options: Record<string, unknown> = {}, rememberMe =
 }
 
 function isCookieWriter(candidate: unknown): candidate is CookieWriter {
-  return Boolean(candidate && typeof (candidate as CookieWriter).set === "function");
+  return Boolean(candidate && typeof (candidate as CookieWriter).set === 'function');
 }
 
 function createCookieAdapter(store: CookieReader, writer?: CookieWriter, rememberMe = true) {
@@ -76,7 +81,9 @@ function createCookieAdapter(store: CookieReader, writer?: CookieWriter, remembe
     getAll: () => store.getAll().map(({ name, value }) => ({ name, value })),
     ...(cookieWriter
       ? {
-          setAll: (cookiesToSet: { name: string; value: string; options: Record<string, unknown> }[]) => {
+          setAll: (
+            cookiesToSet: { name: string; value: string; options: Record<string, unknown> }[],
+          ) => {
             try {
               cookiesToSet.forEach(({ name, value, options }) => {
                 cookieWriter.set({ name, value, ...applyCookieDefaults(options, rememberMe) });
@@ -84,7 +91,7 @@ function createCookieAdapter(store: CookieReader, writer?: CookieWriter, remembe
             } catch (error) {
               if (!cookieWriteSuppressedLogged) {
                 cookieWriteSuppressedLogged = true;
-                supabaseLogger.debug("cookie write suppressed (likely server component render)", {
+                supabaseLogger.debug('cookie write suppressed (likely server component render)', {
                   error: error instanceof Error ? error.message : String(error),
                 });
               }
@@ -101,6 +108,9 @@ export function getServiceSupabaseClient(): SupabaseClient<Database> {
       auth: {
         persistSession: false,
       },
+      global: {
+        fetch: instrumentedSupabaseFetch,
+      },
     });
 
     // Best-effort startup initialization for strict hold conflict enforcement.
@@ -111,26 +121,26 @@ export function getServiceSupabaseClient(): SupabaseClient<Database> {
       void (async () => {
         try {
           // Attempt to enable strict enforcement for this service session
-          await serviceClient!.rpc("set_hold_conflict_enforcement", { enabled: true });
+          await serviceClient!.rpc('set_hold_conflict_enforcement', { enabled: true });
           // Verify it stuck (function returns the server-side view of the GUC)
-          const { data, error } = await serviceClient!.rpc("is_holds_strict_conflicts_enabled");
+          const { data, error } = await serviceClient!.rpc('is_holds_strict_conflicts_enabled');
           if (error) {
             strictHoldEnforcementActive = false;
-            supabaseLogger.warn("strict hold enforcement self-check failed", {
+            supabaseLogger.warn('strict hold enforcement self-check failed', {
               code: error.code ?? null,
               message: error.message ?? String(error),
             });
           } else {
             strictHoldEnforcementActive = Boolean(data);
             if (!strictHoldEnforcementActive) {
-              supabaseLogger.error("strict hold enforcement not honored by server (GUC off)");
+              supabaseLogger.error('strict hold enforcement not honored by server (GUC off)');
             } else {
-              supabaseLogger.info("strict hold enforcement active");
+              supabaseLogger.info('strict hold enforcement active');
             }
           }
         } catch (err) {
           strictHoldEnforcementActive = false;
-          supabaseLogger.warn("strict hold enforcement init error", {
+          supabaseLogger.warn('strict hold enforcement init error', {
             error: err instanceof Error ? err.message : String(err),
           });
         }
@@ -147,7 +157,7 @@ export function getServiceSupabaseClient(): SupabaseClient<Database> {
  */
 export function getTenantServiceSupabaseClient(restaurantId: string): SupabaseClient<Database> {
   if (!restaurantId) {
-    throw new Error("restaurantId is required for tenant-scoped Supabase client");
+    throw new Error('restaurantId is required for tenant-scoped Supabase client');
   }
 
   const cacheKey = restaurantId.toLowerCase();
@@ -164,6 +174,7 @@ export function getTenantServiceSupabaseClient(restaurantId: string): SupabaseCl
       headers: {
         [RESTAURANT_CONTEXT_HEADER]: restaurantId,
       },
+      fetch: instrumentedSupabaseFetch,
     },
   });
 
@@ -175,6 +186,9 @@ export async function getServerComponentSupabaseClient(): Promise<SupabaseClient
   const cookieStore = await cookies();
   return createServerClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
     cookies: createCookieAdapter(cookieStore),
+    global: {
+      fetch: instrumentedSupabaseFetch,
+    },
   });
 }
 
@@ -185,12 +199,21 @@ export async function getRouteHandlerSupabaseClient(
   const store = cookieStore ?? (await cookies());
   return createServerClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
     cookies: createCookieAdapter(store, store as CookieWriter, rememberMe),
+    global: {
+      fetch: instrumentedSupabaseFetch,
+    },
   });
 }
 
-export function getMiddlewareSupabaseClient(req: NextRequest, res: NextResponse): SupabaseClient<Database> {
+export function getMiddlewareSupabaseClient(
+  req: NextRequest,
+  res: NextResponse,
+): SupabaseClient<Database> {
   return createServerClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
     cookies: createCookieAdapter(req.cookies, res.cookies),
+    global: {
+      fetch: instrumentedSupabaseFetch,
+    },
   });
 }
 
@@ -221,16 +244,16 @@ export async function getDefaultRestaurantId(): Promise<string> {
     const resolve = async (): Promise<string | null> => {
       try {
         const { data, error } = await service
-          .from("restaurants")
-          .select("id")
-          .eq("slug", DEFAULT_RESTAURANT_SLUG)
+          .from('restaurants')
+          .select('id')
+          .eq('slug', DEFAULT_RESTAURANT_SLUG)
           .maybeSingle();
 
         if (!error && data?.id) {
           return data.id;
         }
       } catch (cause) {
-        console.error("[supabase][default-restaurant] failed to resolve id", cause);
+        console.error('[supabase][default-restaurant] failed to resolve id', cause);
       }
 
       return null;

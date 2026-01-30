@@ -1,3 +1,4 @@
+import { cookies } from 'next/headers';
 import PlausibleProvider from 'next-plausible';
 import { type CSSProperties, type ReactNode } from 'react';
 
@@ -27,13 +28,17 @@ const htmlStyle: CSSProperties = {
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
+  const cookieStore = await cookies();
+  const consent = cookieStore.get('nat_consent')?.value ?? null;
+  const analyticsAllowed = consent === 'granted';
+
   return (
     <html lang={config.locale ?? 'en'} className="antialiased font-sans" style={htmlStyle}>
-      {config.domainName && (
+      {config.domainName && analyticsAllowed ? (
         <head>
           <PlausibleProvider domain={config.domainName} />
         </head>
-      )}
+      ) : null}
       <body className="relative font-sans" suppressHydrationWarning>
         {/* ClientLayout contains all the client wrappers (Crisp chat support, toast messages, tooltips, etc.) */}
         <AppProviders initialSession={null}>

@@ -253,6 +253,9 @@ importers:
       '@next/bundle-analyzer':
         specifier: ^16.1.6
         version: 16.1.6
+      '@playwright/test':
+        specifier: ^1.57.0
+        version: 1.57.0
       '@storybook/react':
         specifier: 10.1.4
         version: 10.1.4(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(storybook@10.1.4(@testing-library/dom@10.4.0)(prettier@3.7.4)(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(typescript@5.9.3)
@@ -8773,7 +8776,6 @@ snapshots:
   '@playwright/test@1.57.0':
     dependencies:
       playwright: 1.57.0
-    optional: true
 
   '@polka/url@1.0.0-next.29': {}
 
@@ -13710,15 +13712,13 @@ snapshots:
 
   pkce-challenge@5.0.1: {}
 
-  playwright-core@1.57.0:
-    optional: true
+  playwright-core@1.57.0: {}
 
   playwright@1.57.0:
     dependencies:
       playwright-core: 1.57.0
     optionalDependencies:
       fsevents: 2.3.2
-    optional: true
 
   possible-typed-array-names@1.1.0: {}
 

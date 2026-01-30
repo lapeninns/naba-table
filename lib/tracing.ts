@@ -5,8 +5,6 @@
  * across the application. Integrates with Sentry for correlation.
  */
 
-import { randomUUID } from 'crypto';
-
 import type { NextRequest } from 'next/server';
 
 export const REQUEST_ID_HEADER = 'x-request-id';
@@ -16,7 +14,13 @@ export const TRACE_ID_HEADER = 'x-trace-id';
  * Generate a unique request ID
  */
 export function generateRequestId(): string {
-  return randomUUID();
+  // Edge runtime does not support importing Node.js 'crypto'.
+  // Use Web Crypto when available.
+  if (typeof globalThis.crypto?.randomUUID === 'function') {
+    return globalThis.crypto.randomUUID();
+  }
+  // Fallback: non-cryptographic unique id.
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
 }
 
 /**
@@ -40,7 +44,10 @@ export function getTraceContext(request: NextRequest | Request): {
 } {
   return {
     requestId: getRequestId(request),
-    traceId: request.headers.get(TRACE_ID_HEADER) || request.headers.get('sentry-trace')?.split('-')[0] || null,
+    traceId:
+      request.headers.get(TRACE_ID_HEADER) ||
+      request.headers.get('sentry-trace')?.split('-')[0] ||
+      null,
     parentSpanId: request.headers.get('sentry-trace')?.split('-')[1] || null,
   };
 }
@@ -51,7 +58,7 @@ export function getTraceContext(request: NextRequest | Request): {
 export function addTracingHeaders(
   headers: Headers,
   requestId: string,
-  traceId?: string | null
+  traceId?: string | null,
 ): Headers {
   headers.set(REQUEST_ID_HEADER, requestId);
   if (traceId) {

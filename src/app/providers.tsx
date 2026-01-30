@@ -7,13 +7,21 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { SupabaseSessionProvider, useSupabaseSession } from '@/hooks/useSupabaseSession';
 import { useClientErrorReporter } from '@/lib/monitoring/clientReporter';
 import { PostHogProvider, PostHogUserIdentifier } from '@/lib/posthog/provider';
-import { buildQueryStorageKey, clearPersistedQueryCache, configureQueryPersistence } from '@/lib/query/persist';
+import {
+  buildQueryStorageKey,
+  clearPersistedQueryCache,
+  configureQueryPersistence,
+} from '@/lib/query/persist';
 import { getQueryGcTime, getQueryStaleTime } from '@/lib/query/staleTimes';
 
 import type { Session } from '@supabase/supabase-js';
 
 type ExperimentalQueryDefaults = DefaultOptions['queries'] & {
-  _experimental_beforeQuery?: (options: { queryKey?: readonly unknown[]; staleTime?: number; gcTime?: number }) => void;
+  _experimental_beforeQuery?: (options: {
+    queryKey?: readonly unknown[];
+    staleTime?: number;
+    gcTime?: number;
+  }) => void;
 };
 
 const queryDefaults: ExperimentalQueryDefaults = {
@@ -35,6 +43,26 @@ const defaultOptions: DefaultOptions = {
 };
 
 const enableDevtools = process.env.NODE_ENV !== 'production';
+
+function readCookie(name: string): string | null {
+  if (typeof document === 'undefined') return null;
+  const parts = document.cookie.split(';').map((p) => p.trim());
+  for (const part of parts) {
+    if (!part.startsWith(`${name}=`)) continue;
+    return decodeURIComponent(part.slice(name.length + 1));
+  }
+  return null;
+}
+
+function useAnalyticsConsent(): boolean {
+  const [allowed, setAllowed] = useState(false);
+
+  useEffect(() => {
+    setAllowed(readCookie('nat_consent') === 'granted');
+  }, []);
+
+  return allowed;
+}
 
 type AppProvidersProps = {
   children: ReactNode;
@@ -62,7 +90,9 @@ function QueryLayer({ children }: { children: ReactNode }) {
         clearPersistedQueryCache(prevKey);
       }
 
-      persistenceCleanupRef.current = configureQueryPersistence(queryClient, { storageKey: nextKey });
+      persistenceCleanupRef.current = configureQueryPersistence(queryClient, {
+        storageKey: nextKey,
+      });
       storageKeyRef.current = nextKey;
     }
 
@@ -89,12 +119,14 @@ function QueryLayer({ children }: { children: ReactNode }) {
 }
 
 export function AppProviders({ children, initialSession }: AppProvidersProps) {
-  return (
-    <PostHogProvider>
-      <SupabaseSessionProvider initialSession={initialSession}>
-        <PostHogUserIdentifier />
-        <QueryLayer>{children}</QueryLayer>
-      </SupabaseSessionProvider>
-    </PostHogProvider>
+  const analyticsAllowed = useAnalyticsConsent();
+
+  const content = (
+    <SupabaseSessionProvider initialSession={initialSession}>
+      {analyticsAllowed ? <PostHogUserIdentifier /> : null}
+      <QueryLayer>{children}</QueryLayer>
+    </SupabaseSessionProvider>
   );
+
+  return analyticsAllowed ? <PostHogProvider>{content}</PostHogProvider> : content;
 }

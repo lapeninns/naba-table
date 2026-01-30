@@ -19,12 +19,7 @@ export default defineConfig({
     ],
 
     // Exclude patterns
-    exclude: [
-      'node_modules',
-      '.next',
-      'dist',
-      'tasks',
-    ],
+    exclude: ['node_modules', '.next', 'dist', 'tasks'],
 
     // Coverage configuration
     coverage: {
@@ -35,26 +30,17 @@ export default defineConfig({
 
       // Coverage thresholds - enforced in CI
       thresholds: {
-        lines: 0,
-        functions: 0,
-        branches: 0,
-        statements: 0,
+        lines: 0.5,
+        functions: 0.5,
+        branches: 0.5,
+        statements: 0.5,
       },
 
       // Files to include in coverage
-      include: [
-        'lib/**/*.ts',
-        'server/**/*.ts',
-      ],
+      include: ['lib/**/*.ts', 'server/**/*.ts'],
 
       // Files to exclude from coverage
-      exclude: [
-        '**/*.test.ts',
-        '**/*.test.tsx',
-        '**/types/**',
-        '**/index.ts',
-        '**/*.d.ts',
-      ],
+      exclude: ['**/*.test.ts', '**/*.test.tsx', '**/types/**', '**/index.ts', '**/*.d.ts'],
     },
 
     // Test isolation
