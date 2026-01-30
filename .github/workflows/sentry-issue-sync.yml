@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Create GitHub issues for new Sentry issues
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         with:

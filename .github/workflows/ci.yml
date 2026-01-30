@@ -291,7 +291,7 @@ jobs:
           retention-days: 14
 
       - name: Comment Lighthouse Results
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         if: github.event_name == 'pull_request'
         with:
           script: |
@@ -484,7 +484,7 @@ jobs:
           working-directory: ./
 
       - name: Comment Preview URL
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const previewUrl = '${{ steps.vercel-deploy.outputs.preview-url }}';
