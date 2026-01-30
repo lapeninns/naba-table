@@ -13,6 +13,7 @@ related_tickets: []
 ## CI Outcomes
 
 - Pending: will update after workflow runs.
+- Vercel preview build was failing with missing `.next/server/middleware.js.nft.json`; build now uses Webpack.
 
 ## Tests Run
 

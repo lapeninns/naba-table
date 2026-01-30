@@ -22,11 +22,13 @@ We will update CI workflows so required checks pass reliably in PRs without secr
 - [ ] Lighthouse uses an available CLI (or installs it) and completes.
 - [ ] Accessibility job skips when no tests exist.
 - [ ] Preview deploy job skips when Vercel secrets are missing.
+- [ ] Vercel preview build succeeds without missing middleware NFT artifacts.
 
 ## Architecture & Components
 
 - `.github/workflows/ci.yml`: update security, db drift, lighthouse, accessibility, and preview deploy jobs.
 - `.github/workflows/dast.yml`: adjust ZAP permissions or disable issue creation.
+- `package.json`: force Webpack for production build.
 
 ## Data Flow & API Contracts
 
@@ -40,6 +42,7 @@ We will update CI workflows so required checks pass reliably in PRs without secr
 
 - Forked PRs without secrets should not fail.
 - Missing test directories should not be treated as failures.
+- Turbopack build output may not include middleware NFT artifacts required by Vercel.
 
 ## Testing Strategy
 

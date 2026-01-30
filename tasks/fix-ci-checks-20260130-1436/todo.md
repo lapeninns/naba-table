@@ -21,6 +21,7 @@ related_tickets: []
 - [x] Update Lighthouse step to use available CLI.
 - [x] Skip Accessibility job when no tests exist.
 - [x] Skip Preview Deploy job when Vercel secrets are missing.
+- [x] Force Webpack for production build to restore middleware NFT artifacts.
 
 ## Tests
 
