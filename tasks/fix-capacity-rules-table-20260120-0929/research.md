@@ -24,7 +24,7 @@ related_tickets: []
 
 - Booking capacity logic reads `restaurant_capacity_rules` in `server/booking/serviceFactory.ts`.
 - Supabase migrations live in `supabase/migrations/` and use `CREATE ... IF NOT EXISTS`, comments, and explicit rollback notes.
-- Updated-at triggers exist in the database (see `backups/public_schema_only.sql`), but there are no recent migrations for them.
+- Updated-at triggers exist in the database (see external backup archive; file removed from repo), but there are no recent migrations for them.
 - Staging check: `public.restaurant_capacity_rules` does not exist (42P01 relation does not exist).
 
 ## External Resources

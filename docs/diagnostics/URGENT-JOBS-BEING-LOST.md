@@ -167,7 +167,7 @@ curl -X POST https://your-production-url.vercel.app/api/test/bookings \
 
 ```bash
 curl "https://settled-frog-13193.upstash.io/zcard/pending-booking-emails:delayed" \
-  -H "Authorization: Bearer ATOJAAIncDJmNmZjNGFlN2FkMDc0OTZlOGVmYjMzMDExODQxODVjZXAyMTMxOTM"
+  -H "Authorization: Bearer YOUR_UPSTASH_REDIS_REST_TOKEN"
 ```
 
 **Expected**: `{"result":3}`  

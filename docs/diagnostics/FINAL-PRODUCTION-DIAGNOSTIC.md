@@ -144,7 +144,7 @@ curl -X POST https://your-production-url.vercel.app/api/ops/bookings \
 
 ```bash
 curl "https://settled-frog-13193.upstash.io/zcard/pending-booking-emails:delayed" \
-  -H "Authorization: Bearer ATOJAAIncDJmNmZjNGFlN2FkMDc0OTZlOGVmYjMzMDExODQxODVjZXAyMTMxOTM"
+  -H "Authorization: Bearer YOUR_UPSTASH_REDIS_REST_TOKEN"
 ```
 
 **Expected Result:**
@@ -163,10 +163,10 @@ curl "https://settled-frog-13193.upstash.io/zcard/pending-booking-emails:delayed
 
 ```bash
 #!/bin/bash
-# Save as: monitor-production-queue.sh
+# Save as a local helper script (optional)
 
 UPSTASH_URL="https://settled-frog-13193.upstash.io"
-TOKEN="ATOJAAIncDJmNmZjNGFlN2FkMDc0OTZlOGVmYjMzMDExODQxODVjZXAyMTMxOTM"
+TOKEN="YOUR_UPSTASH_REDIS_REST_TOKEN"
 
 while true; do
   clear
@@ -236,6 +236,6 @@ Empty queue is correct. System will create jobs when bookings happen.
 
 1. `docs/diagnostics/production-diagnostic-report.md` - Full analysis
 2. `docs/diagnostics/production-booking-check.sql` - Database queries
-3. `scripts/diagnose-production.js` - Automated diagnostic script
+3. Automated diagnostic script (removed during cleanup)
 
 **Run the SQL query to definitively answer: "Are there bookings that should have jobs?"**

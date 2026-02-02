@@ -98,7 +98,7 @@ Both thank-you pages were re-exports of the deleted generic marketing page. They
 
 ### 2. Screenshot Script
 
-**`/scripts/capture-route-screenshots.ts`**
+Route screenshot helper removed during cleanup.
 
 - Updated to remove references to deleted routes
 - Updated to use new route structure:

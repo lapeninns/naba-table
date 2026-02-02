@@ -235,7 +235,7 @@ if (isEmailQueueEnabled()) {  // ← Returns FALSE!
 
    ```bash
    curl "https://settled-frog-13193.upstash.io/zcard/pending-booking-emails:delayed" \
-     -H "Authorization: Bearer ATOJAAIncDJmNmZjNGFlN2FkMDc0OTZlOGVmYjMzMDExODQxODVjZXAyMTMxOTM"
+     -H "Authorization: Bearer YOUR_UPSTASH_REDIS_REST_TOKEN"
 
    # Should show: {"result":3}  ← 3 delayed jobs (24h, 2h, review)
    ```
@@ -271,7 +271,7 @@ QUEUE_REDIS_TLS=true
 
 ```bash
 # In .env.local and .env.staging:
-QUEUE_REDIS_URL=redis://default:ATOJAAIncDJmNmZjNGFlN2FkMDc0OTZlOGVmYjMzMDExODQxODVjZXAyMTMxOTM@settled-frog-13193.upstash.io:6379
+QUEUE_REDIS_URL=redis://default:<TOKEN>@settled-frog-13193.upstash.io:6379
 ```
 
 ---
@@ -314,7 +314,7 @@ echo "FEATURE_EMAIL_QUEUE_ENABLED=true" >> .env.staging
 
 # 4. Verify queue
 curl "https://settled-frog-13193.upstash.io/zcard/pending-booking-emails:delayed" \
-  -H "Authorization: Bearer ATOJAAIncDJmNmZjNGFlN2FkMDc0OTZlOGVmYjMzMDExODQxODVjZXAyMTMxOTM"
+  -H "Authorization: Bearer YOUR_UPSTASH_REDIS_REST_TOKEN"
 
 # Expected: {"result":3}
 ```

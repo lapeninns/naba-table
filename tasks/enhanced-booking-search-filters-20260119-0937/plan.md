@@ -234,7 +234,7 @@ All enhancements use existing database fields:
 
 ### Backup Reference
 
-- Current database backup: `backups/production_backup.sql`
+- Current database backup: external backup archive (file removed from repo)
 - Point-in-time recovery available through Supabase
 
 ### Performance Monitoring

@@ -281,7 +281,7 @@ vercel logs --since 1h --output raw | grep -E "(queue|booking.created|process-em
 while true; do
   echo "$(date) - Delayed jobs:"
   curl -s "https://settled-frog-13193.upstash.io/zcard/pending-booking-emails:delayed" \
-    -H "Authorization: Bearer TOKEN" | jq .result
+    -H "Authorization: Bearer YOUR_UPSTASH_REDIS_REST_TOKEN" | jq .result
   sleep 60
 done
 ```

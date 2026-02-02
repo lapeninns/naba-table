@@ -23,11 +23,11 @@ related_tickets: []
 
 - `server/booking/serviceFactory.ts` reads `restaurant_capacity_rules` (casted due to missing generated types).
 - Capacity RPCs (`create_booking_with_capacity_check`, `update_booking_with_capacity_check`) query `restaurant_capacity_rules`.
-- Consolidated schema in `backups/production_backup.sql` includes full DDL for the table, constraints, indexes, triggers, policies, and grants.
+- Consolidated schema in external backup archive includes full DDL for the table, constraints, indexes, triggers, policies, and grants (file removed from repo).
 
 ## External Resources
 
-- Internal schema source: `backups/production_backup.sql` (consolidated_schema array literal).
+- Internal schema source: external backup archive (file removed from repo).
 
 ## Constraints & Risks
 

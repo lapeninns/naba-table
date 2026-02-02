@@ -45,7 +45,7 @@ Verify that auto-assignment works correctly when modifying bookings with differe
 **Actual Result:**
 
 - [ ] Pass / [ ] Fail
-- Tables assigned: ************\_\_\_************
+- Tables assigned: \***\*\*\*\*\*\*\***\_\_\_\***\*\*\*\*\*\*\***
 - Total capacity: \_\_\_
 
 ---
@@ -69,7 +69,7 @@ Verify that auto-assignment works correctly when modifying bookings with differe
 **Actual Result:**
 
 - [ ] Pass / [ ] Fail
-- Tables assigned: ************\_\_\_************
+- Tables assigned: \***\*\*\*\*\*\*\***\_\_\_\***\*\*\*\*\*\*\***
 - Total capacity: \_\_\_
 
 ---
@@ -91,7 +91,7 @@ Verify that auto-assignment works correctly when modifying bookings with differe
 **Actual Result:**
 
 - [ ] Pass / [ ] Fail
-- Tables assigned: ************\_\_\_************
+- Tables assigned: \***\*\*\*\*\*\*\***\_\_\_\***\*\*\*\*\*\*\***
 - Total capacity: \_\_\_
 
 ---
@@ -117,9 +117,9 @@ Verify that auto-assignment works correctly when modifying bookings with differe
 **Actual Result:**
 
 - [ ] Pass / [ ] Fail
-- Tables assigned: ************\_\_\_************
+- Tables assigned: \***\*\*\*\*\*\*\***\_\_\_\***\*\*\*\*\*\*\***
 - Total capacity: \_\_\_
-- **If FAILED**: Status remains `pending`, reason: ************\_\_\_************
+- **If FAILED**: Status remains `pending`, reason: \***\*\*\*\*\*\*\***\_\_\_\***\*\*\*\*\*\*\***
 
 ---
 
@@ -271,10 +271,7 @@ GROUP BY b.id, b.party_size;
 
 3. **Check adjacency data**:
 
-   ```bash
-   pnpm tsx scripts/check-adjacency.ts
-   # Should show: ALLOCATOR_K_MAX: 5
-   ```
+   Confirm adjacency behavior by reproducing a booking and reviewing server logs (CAPACITY_DEBUG=1).
 
 4. **Enable debug logging**:
 

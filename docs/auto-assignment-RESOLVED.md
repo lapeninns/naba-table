@@ -173,10 +173,7 @@ Both honor adjacency requirements (if tables are adjacent) and stay within kMax=
 
 ### Before Fix
 
-```bash
-pnpm tsx scripts/check-adjacency.ts
-# Should show: ALLOCATOR_K_MAX: 3
-```
+Confirm adjacency via env/config and server logs (CAPACITY_DEBUG=1) before running.
 
 ### After Fix
 

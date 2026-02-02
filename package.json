@@ -98,7 +98,6 @@
     "@hookform/resolvers": "^5.2.2",
     "@mdx-js/loader": "^3.1.1",
     "@mdx-js/react": "^3.1.1",
-    "@microsoft/clarity": "^1.0.2",
     "@next/mdx": "^16.0.7",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",
@@ -120,7 +119,6 @@
     "@radix-ui/react-toggle": "^1.1.10",
     "@radix-ui/react-toggle-group": "^1.1.11",
     "@radix-ui/react-tooltip": "^1.2.8",
-    "@radix-ui/themes": "^3.2.1",
     "@react-email/render": "^2.0.0",
     "@sentry/nextjs": "^10.36.0",
     "@supabase/mcp-server-supabase": "^0.5.9",
@@ -133,13 +131,11 @@
     "@upstash/redis": "^1.35.7",
     "axios": "^1.13.2",
     "bullmq": "^5.65.1",
-    "cally": "^0.8.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "crisp-sdk-web": "^1.0.26",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
-    "form-data": "^4.0.5",
     "import-in-the-middle": "^2.0.5",
     "ioredis": "^5.8.2",
     "libphonenumber-js": "1.12.35",
@@ -150,7 +146,6 @@
     "next-plausible": "^3.12.5",
     "next-sitemap": "^4.2.3",
     "nextjs-toploader": "^3.9.17",
-    "nodemailer": "^7.0.11",
     "posthog-js": "^1.336.4",
     "react": "^19.2.1",
     "react-day-picker": "^9.11.3",
@@ -159,7 +154,6 @@
     "react-hot-toast": "^2.6.0",
     "react-intersection-observer": "^10.0.0",
     "react-router-dom": "^7.10.0",
-    "react-syntax-highlighter": "^16.1.0",
     "react-tooltip": "^5.30.0",
     "require-in-the-middle": "^8.0.1",
     "resend": "^6.5.2",
@@ -192,7 +186,6 @@
     "@types/pg": "^8.15.6",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
-    "@types/react-syntax-highlighter": "^15.5.13",
     "@typescript-eslint/eslint-plugin": "^8.48.1",
     "@typescript-eslint/parser": "^8.48.1",
     "@vitejs/plugin-react": "^5.1.1",
@@ -233,8 +226,7 @@
   "pnpm": {
     "overrides": {
       "tar": "^7.5.2",
-      "prismjs": "^1.30.0",
-      "nodemailer": "^7.0.7"
+      "prismjs": "^1.30.0"
     },
     "onlyBuiltDependencies": [
       "esbuild",

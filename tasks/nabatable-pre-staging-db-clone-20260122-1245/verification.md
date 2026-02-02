@@ -29,7 +29,7 @@ related_tickets: []
 
 ## Artifacts
 
-- Dump file: `backups/production_backup_20260122_141911.dump`
+- Dump file: archived outside repo during cleanup (see ops backup storage).
 - Restore logs:
   - `artifacts/pg_restore_pooler.log` (pooler restore attempt; DNS issue on direct host)
   - `artifacts/pg_restore_pooler_filtered.log` (event trigger filtering attempt)
