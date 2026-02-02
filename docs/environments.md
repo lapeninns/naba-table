@@ -39,14 +39,6 @@
 - `PRODUCTION_SUPABASE_SERVICE_ROLE_KEY`
 - `PRODUCTION_BOOKING_API_BASE_URL`
 
-## Test endpoints (`/api/test/*` and `/api/test-email`)
-
-- Defaults: `ENABLE_TEST_ENDPOINTS=false` in all environments.
-- To enable locally/staging:
-  - Set `ENABLE_TEST_ENDPOINTS=true`.
-  - Set `TEST_ENDPOINT_TOKEN=<random>` and include it as header `x-test-token` or query `test_token`.
-- Missing/invalid token or disabled flag returns `403` with a generic response. Production should keep the flag false and omit the token.
-
 ## Database scripts
 
 - Use `pnpm db:reset|migrate|seed-only|wipe|full-reset`.
@@ -59,7 +51,6 @@
 - Copy `.env.example` → `.env.local`.
 - Fill **non-production** Supabase URL/keys and booking API URLs (staging by default).
 - Set `APP_ENV=development|staging` for local/staging; `NODE_ENV` should remain `development` for local runs (deploy previews may use `NODE_ENV=production`).
-- Keep `ENABLE_TEST_ENDPOINTS=false` unless explicitly testing with a token.
 
 ## Secret rotation & history cleanup
 
@@ -85,7 +76,6 @@
    - Force-push and notify collaborators to `git fetch --all --prune` + `git reset --hard origin/<branch>`.
 6. **Re-run validation**
    - `pnpm validate:env`
-   - `pnpm test`
    - `pnpm db:status`
 
 If any provider restricts immediate rotation, capture the exception in `tasks/.../todo.md` and schedule a follow-up.

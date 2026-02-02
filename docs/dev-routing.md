@@ -52,4 +52,3 @@ Supabase session cookies are scoped to `.${ROOT_DOMAIN}` (defaults to `localhost
 
 - If the app host shows the root site, ensure your browser used `http://app.localhost:3000` (not https) and that `/etc/hosts` is in place.
 - If auth seems lost between hosts, clear cookies and re-sign in; cookies are shared via `.${ROOT_DOMAIN}`.
-- To inspect proxy behavior, use `pnpm test src/proxy.test.ts` (or `vitest run src/proxy.test.ts`) with `NEXT_PUBLIC_ROOT_DOMAIN=example.com` in the test environment.

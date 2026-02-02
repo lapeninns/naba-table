@@ -1,15 +1,16 @@
 # Continuity Ledger
 
-Last updated: 2026-02-02T03:34:20Z
+Last updated: 2026-02-02T12:36:30Z
 
 ## Goal (incl. success criteria)
 
-- Perform further cleanup (docs/scripts/configs/deps) and verify.
+- Remove tests/CI and related configs/scripts/docs; verify typecheck/build and clean LSP diagnostics.
 
 ## Constraints/Assumptions
 
-- Follow AGENTS.md policies; no destructive changes without request.
+- Follow AGENTS.md policies (task folder, SDLC artifacts); no destructive changes beyond request.
 - Use codebase evidence; no speculation about unread code.
+- Do not use TodoWrite tool per developer instructions.
 
 ## Key decisions
 
@@ -17,21 +18,21 @@ Last updated: 2026-02-02T03:34:20Z
 
 ## State
 
-- Final cleanup completed; verification run with pre-existing warnings noted.
+- Implementation complete; verification updated; pending final response.
 
 ## Done
 
-- Added `scripts/pre-commit/secret-scan.sh` for pre-commit hook.
-- Redacted Upstash tokens and credentials from diagnostics docs; removed references to missing scripts.
-- Ran lint/typecheck/test/build; build succeeded with baseline-browser-mapping warning.
+- Removed CI workflows, test configs, test suites, and test endpoints.
+- Updated docs/scripts/package scripts/devDeps/AGENTS to remove test/CI references.
+- Cleared stale `.next`, ran `pnpm run typecheck` and `pnpm run build` (warnings noted).
 
 ## Now
 
-- Awaiting user review.
+- Summarize changes and verification results for user.
 
 ## Next
 
-- None unless follow-up requested.
+- None.
 
 ## Open questions (UNCONFIRMED if needed)
 
@@ -39,5 +40,9 @@ Last updated: 2026-02-02T03:34:20Z
 
 ## Working set (files/ids/commands)
 
-- `CONTINUITY.md`
-- `tasks/final-repo-cleanup-20260202-0325/*`
+- `tasks/remove-tests-ci-20260202-1233/*`
+- `package.json`
+- `pnpm-lock.yaml`
+- `docs/*`
+- `src/app/api/bookings/[id]/route.ts`
+- `src/app/api/reservations/[id]/confirmation/route.ts`

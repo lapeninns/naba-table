@@ -40,7 +40,6 @@ All API routes follow a hierarchical structure under `/src/app/api/`. Routes are
 │   ├── allowed-capacities/  # Capacity configuration
 │   ├── settings/         # Configuration
 │   └── strategies/       # Seating strategies
-├── test/                 # Testing endpoints (e2e, playwright)
 ├── staff/                # Internal staff operations
 └── config/               # Public configuration
 ```
@@ -336,28 +335,9 @@ If you encounter old route patterns, migrate as follows:
 | ----------------------- | ------------------------------------- | ------------------------------ |
 | `/api/v1/*`             | `/api/*`                              | Consolidated in latest version |
 | `/api/owner/*`          | `/api/ops/*`                          | Owner routes now use ops       |
-| `/api/internal/test/*`  | `/api/test/*`                         | Test routes consolidated       |
 | `/(guest-experience)/*` | `/guest/(guest)/(guest-experience)/*` | Moved to guest portal          |
 | `[reservationId]`       | `[id]`                                | Standardized parameter naming  |
 | `[inviteId]`            | `[id]`                                | Standardized parameter naming  |
-
----
-
-## Testing Routes
-
-All testing endpoints are consolidated under `/api/test/`:
-
-```
-POST   /api/test/bookings                              - Create test booking
-POST   /api/test/invitations                           - Create test invitation
-DELETE /api/test/invitations                           - Delete test invitation
-POST   /api/test/playwright-session                    - Create playwright session
-POST   /api/test/leads                                 - Create test lead
-DELETE /api/test/leads                                 - Delete test leads
-GET    /api/test/reservations/[id]/confirmation       - Get test confirmation
-```
-
-Guard: Protected by `guardTestEndpoint()` - only available in development/test environments.
 
 ---
 

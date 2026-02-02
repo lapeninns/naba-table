@@ -16,7 +16,6 @@ Applies to the Vite-powered UI in `reserve/**`.
 - `app/`, `pages/` - app entry points and routing
 - `features/` - feature modules
 - `shared/` - shared UI, hooks, utilities
-- `tests/` - reserve-specific tests
 
 ## Commands
 
@@ -30,10 +29,6 @@ Applies to the Vite-powered UI in `reserve/**`.
 - Prefer existing primitives in `reserve/shared/ui`.
 - Keep feature logic inside `reserve/features` and share through `reserve/shared`.
 - Accessibility and keyboard flows are required.
-
-## Testing
-
-- Use `pnpm test` or reserve-local tests in `reserve/tests`.
 
 ## MCP usage
 

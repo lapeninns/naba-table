@@ -124,62 +124,6 @@ npx @sentry/wizard@latest -i nextjs
 
 ---
 
-## Issue #3: Test Endpoints Verification
-
-**Severity:** 🟡 **MEDIUM PRIORITY**
-
-### Problem
-
-Cannot verify that test endpoints are properly disabled in production.
-
-### Test Endpoints Found
-
-Based on npm scripts, these test endpoints exist:
-
-- `/api/test-email`
-- `/api/test/bookings`
-- `/api/test/invitations`
-- `/api/test/leads`
-- `/api/test/playwright-session`
-- `/api/test/reservations/[id]/confirmation`
-
-### Actions Required
-
-#### 1. Verify All Test Routes Are Guarded
-
-Each test route should have:
-
-```typescript
-// At the top of the route handler
-if (process.env.ENABLE_TEST_ENDPOINTS !== 'true') {
-  return NextResponse.json({ error: 'Not found' }, { status: 404 });
-}
-```
-
-#### 2. Ensure Production Environment Variable
-
-In production deployment:
-
-```bash
-ENABLE_TEST_ENDPOINTS=false  # or don't set it at all
-```
-
-#### 3. Consider Build-Time Removal
-
-Better approach: Remove test endpoints from production build entirely:
-
-```typescript
-// next.config.js
-const withoutTestRoutes = (config) => {
-  if (process.env.NODE_ENV === 'production') {
-    // Exclude test routes from build
-  }
-  return config;
-};
-```
-
----
-
 ## Quick Action Plan
 
 ### TODAY (Next 2 hours)
@@ -192,8 +136,7 @@ const withoutTestRoutes = (config) => {
 ### TOMORROW
 
 1. ✅ Set up Sentry error monitoring
-2. ✅ Verify test endpoints are guarded
-3. ✅ Configure production environment variables in hosting platform
+2. ✅ Configure production environment variables in hosting platform
 
 ### THIS WEEK
 

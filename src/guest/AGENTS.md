@@ -21,12 +21,10 @@ profile: guest-app
 
 These modules back the **public booking + guest portal** under `src/app/(public)` and `src/app/guest/**`. Treat all outputs as user-visible and mobile-first.
 
-## Build & Test Commands
+## Build Commands
 
 - `pnpm run dev` — smoke-test guest scenarios locally.
-- `pnpm run test --filter guest` (or `pnpm vitest run`) — run unit/integration tests touching guest helpers/hooks.
 - `pnpm run lint` / `pnpm run typecheck` — required before submitting changes.
-- `pnpm run test:e2e -- --grep guest` — execute targeted Playwright suites for critical flows when impacted.
 
 ## Guidelines
 
@@ -45,12 +43,6 @@ These modules back the **public booking + guest portal** under `src/app/(public)
 5. **State Machines & Error Paths**
    - All flows must implement loading/empty/error/success states with actionable messaging.
    - Provide retry hooks and offline-friendly cues when possible (tie into `booking-offline-queue` as needed).
-
-## Testing & QA
-
-- Run Chrome DevTools MCP for any UI-impacting change (booking wizard, dashboard, receipts) and attach Lighthouse + HAR artifacts.
-- Exercise Playwright guest specs for touched journeys (booking creation, cancel/edit, dashboard refresh, payments) — record results in `verification.md`.
-- For new helpers/services, add Vitest coverage for API interactions, edge cases (timezone, DST, partial bookings), and security constraints.
 
 ## Links
 

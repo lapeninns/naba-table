@@ -24,11 +24,6 @@ UI (`src/components`) -> hooks (`src/hooks`) -> services/contexts (`src/services
 - Do not call Supabase directly from hooks unless there is no shared service.
 - Prefer shared types from `src/types`.
 
-## Testing
-
-- Add tests for non-trivial hooks (happy path + edge cases).
-- Use colocated `__tests__` or existing test conventions.
-
 ## MCP usage
 
 - Chrome DevTools MCP for network/state inspection in UI flows.

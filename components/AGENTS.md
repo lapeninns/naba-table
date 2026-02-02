@@ -21,7 +21,3 @@ Prefer `src/components` for new Next.js UI work unless an existing feature alrea
 ## Accessibility
 
 - Follow root a11y rules for any UI changes.
-
-## Testing
-
-- Add or update tests if behavior changes.

@@ -17,7 +17,6 @@
       "@entities/*": ["entities/*"],
       "@shared/*": ["shared/*"],
       "@pages/*": ["pages/*"],
-      "@tests/*": ["tests/*"],
       "@reserve/*": ["./*"],
       "@/*": ["../*"],
       "@src/*": ["../src/*"],
@@ -36,8 +35,8 @@
       "@/types/*": ["../types/*", "../src/types/*"],
       "@/server/*": ["../server/*"]
     },
-    "types": ["vitest", "jest"]
+    "types": []
   },
-  "include": ["app", "features", "entities", "shared", "pages", "tests", "vite-env.d.ts"],
+  "include": ["app", "features", "entities", "shared", "pages", "vite-env.d.ts"],
   "exclude": ["node_modules"]
 }

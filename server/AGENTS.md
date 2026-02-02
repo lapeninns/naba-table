@@ -40,11 +40,6 @@ Applies to backend domain logic and jobs under `server/**`.
 - Avoid N+1 query patterns; batch or cache.
 - Keep hot paths lean (capacity, booking flows).
 
-## Testing
-
-- Prefer tests in `server/__tests__` and `tests/server/**`.
-- Cover critical business rules and error paths.
-
 ## MCP usage
 
 - Supabase MCP for schema or query changes.

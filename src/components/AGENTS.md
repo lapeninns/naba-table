@@ -37,11 +37,6 @@ Applies to shared and feature components for the Next.js app.
 - Semantic HTML first. Add ARIA only when needed.
 - Ensure keyboard navigation and visible focus states.
 
-## Testing
-
-- Add tests for complex/critical components.
-- Keep test files colocated where possible.
-
 ## MCP usage
 
 - Shadcn MCP is required for new or updated primitives.

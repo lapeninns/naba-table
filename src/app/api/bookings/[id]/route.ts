@@ -36,6 +36,7 @@ import {
 import {
   convertIsoToVenueDateTime,
   convertOptionalIsoToVenueDateTime,
+  type VenueDateTime,
 } from '@/server/bookings/timezoneConversion';
 import { normalizeEmail, normalizePhone } from '@/server/customers';
 import {
@@ -53,10 +54,7 @@ import {
   MissingRestaurantContextError,
 } from '@/server/supabase';
 import { formatDateForInput } from '@reserve/shared/formatting/booking';
-import {
-  CUSTOMER_PHONE_LENGTH_MAX,
-  CUSTOMER_PHONE_LENGTH_MIN,
-} from '@reserve/shared/validation';
+import { CUSTOMER_PHONE_LENGTH_MAX, CUSTOMER_PHONE_LENGTH_MIN } from '@reserve/shared/validation';
 
 import type { BookingRecord } from '@/server/bookings';
 import type { Json, Tables } from '@/types/supabase';
@@ -180,7 +178,6 @@ function respondWithPendingLock() {
   );
 }
 
-
 function evaluateGuestModificationLock(params: {
   booking: Pick<
     Tables<'bookings'>,
@@ -219,7 +216,8 @@ function evaluateGuestModificationLock(params: {
     return {
       locked: true,
       code: 'SERVICE_STARTED' as const,
-      message: 'Service has already started for this reservation. Please contact the venue to make changes.',
+      message:
+        'Service has already started for this reservation. Please contact the venue to make changes.',
     } as const;
   }
 
@@ -227,7 +225,7 @@ function evaluateGuestModificationLock(params: {
     return {
       locked: true,
       code: 'STARTING_SOON' as const,
-      message: 'This reservation starts in under 15 minutes and can\'t be changed online.',
+      message: "This reservation starts in under 15 minutes and can't be changed online.",
     } as const;
   }
 
@@ -364,7 +362,7 @@ async function handleDashboardUpdate(params: {
     });
     const initialScheduleTimezone = initialSchedule.timezone ?? 'Europe/London';
 
-    let startVenue;
+    let startVenue: VenueDateTime;
     try {
       startVenue = convertIsoToVenueDateTime(data.startIso, initialScheduleTimezone);
     } catch (conversionError) {
@@ -377,9 +375,9 @@ async function handleDashboardUpdate(params: {
       startVenue.date === initialSchedule.date
         ? initialSchedule
         : await getRestaurantSchedule(restaurantId, {
-          date: startVenue.date,
-          client: serviceSupabase,
-        });
+            date: startVenue.date,
+            client: serviceSupabase,
+          });
     const scheduleTimezone = schedule.timezone ?? initialScheduleTimezone;
 
     const explicitEndVenue = convertOptionalIsoToVenueDateTime(data.endIso, scheduleTimezone);
@@ -395,11 +393,11 @@ async function handleDashboardUpdate(params: {
     const existingDurationMinutes =
       existingStartVenue && existingEndVenue
         ? Math.max(
-          1,
-          Math.round(
-            existingEndVenue.dateTime.diff(existingStartVenue.dateTime, 'minutes').minutes ?? 0,
-          ),
-        )
+            1,
+            Math.round(
+              existingEndVenue.dateTime.diff(existingStartVenue.dateTime, 'minutes').minutes ?? 0,
+            ),
+          )
         : null;
 
     let bookingDate = startVenue.date;
@@ -521,8 +519,9 @@ async function handleDashboardUpdate(params: {
       endTime !== (existingBooking.end_time ?? '') ||
       data.partySize !== (existingBooking.party_size ?? 0);
     const normalizedNotes = data.notes ?? null;
-    const normalizedBookingType =
-      isBookingType(existingBookingTypeRaw) ? existingBookingTypeRaw : undefined;
+    const normalizedBookingType = isBookingType(existingBookingTypeRaw)
+      ? existingBookingTypeRaw
+      : undefined;
 
     const useUnifiedValidation = env.featureFlags.bookingValidationUnified;
     let updated: Tables<'bookings'>;
@@ -945,14 +944,8 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const seededVia =
-      data.details && typeof data.details === 'object' && 'seeded_via' in data.details
-        ? (data.details as Record<string, unknown>).seeded_via
-        : null;
-    const isPlaywrightSeed = seededVia === 'playwright.test';
-
     // Verify ownership: user email must match booking email (except for seeded test bookings)
-    if (data.customer_email !== normalizedUserEmail && !isPlaywrightSeed) {
+    if (data.customer_email !== normalizedUserEmail) {
       // Log unauthorized access attempt
       void recordObservabilityEvent({
         source: 'api.bookings',
@@ -1230,7 +1223,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 
       const modificationLock = evaluateGuestModificationLock({
         booking: existingBooking,
-        timezone: schedule.timezone ?? "Europe/London",
+        timezone: schedule.timezone ?? 'Europe/London',
       });
 
       const lockedResponse = respondWithGuestModificationLock(modificationLock);
@@ -1290,11 +1283,26 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 
     const updated: Tables<'bookings'> = requiresTableRealignment
       ? await beginBookingModificationFlow({
-        client: serviceSupabase,
-        bookingId,
-        existingBooking,
-        source: 'guest',
-        payload: {
+          client: serviceSupabase,
+          bookingId,
+          existingBooking,
+          source: 'guest',
+          payload: {
+            restaurant_id: restaurantId,
+            booking_date: data.date,
+            start_time: startTime,
+            end_time: endTime,
+            party_size: data.party,
+            booking_type: normalizedBookingType,
+            seating_preference: data.seating,
+            customer_name: data.name,
+            customer_email: normalizedEmail,
+            customer_phone: normalizedPhone,
+            notes: data.notes ?? null,
+            marketing_opt_in: data.marketingOptIn ?? existingBooking.marketing_opt_in,
+          },
+        })
+      : await updateBookingRecord(serviceSupabase, bookingId, {
           restaurant_id: restaurantId,
           booking_date: data.date,
           start_time: startTime,
@@ -1307,23 +1315,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
           customer_phone: normalizedPhone,
           notes: data.notes ?? null,
           marketing_opt_in: data.marketingOptIn ?? existingBooking.marketing_opt_in,
-        },
-      })
-      : await updateBookingRecord(serviceSupabase, bookingId, {
-        restaurant_id: restaurantId,
-        booking_date: data.date,
-        start_time: startTime,
-        end_time: endTime,
-        party_size: data.party,
-        booking_type: normalizedBookingType,
-        seating_preference: data.seating,
-        customer_name: data.name,
-        customer_email: normalizedEmail,
-        customer_phone: normalizedPhone,
-        notes: data.notes ?? null,
-        marketing_opt_in: data.marketingOptIn ?? existingBooking.marketing_opt_in,
-      });
-
+        });
 
     const auditMetadata = {
       restaurant_id: restaurantId,
