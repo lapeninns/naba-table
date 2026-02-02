@@ -145,21 +145,21 @@ Add to `.env.local`:
 FEATURE_EMAIL_QUEUE_ENABLED=true
 
 # Configure queue Redis (reuse Upstash)
-QUEUE_REDIS_URL=redis://default:ATOJAAIncDJmNmZjNGFlN2FkMDc0OTZlOGVmYjMzMDExODQxODVjZXAyMTMxOTM@settled-frog-13193.upstash.io:6379
+QUEUE_REDIS_URL=redis://default:<TOKEN>@settled-frog-13193.upstash.io:6379
 ```
 
 Add to `.env.staging`:
 
 ```bash
 FEATURE_EMAIL_QUEUE_ENABLED=true
-QUEUE_REDIS_URL=redis://default:ATOJAAIncDJmNmZjNGFlN2FkMDc0OTZlOGVmYjMzMDExODQxODVjZXAyMTMxOTM@settled-frog-13193.upstash.io:6379
+QUEUE_REDIS_URL=redis://default:<TOKEN>@settled-frog-13193.upstash.io:6379
 ```
 
 Add to Vercel (Production):
 
 ```
 FEATURE_EMAIL_QUEUE_ENABLED=true
-QUEUE_REDIS_URL=redis://default:ATOJAAIncD...@settled-frog-13193.upstash.io:6379
+QUEUE_REDIS_URL=redis://default:<TOKEN>@settled-frog-13193.upstash.io:6379
 ```
 
 ---
@@ -253,7 +253,7 @@ cat >> .env.local << 'EOF'
 
 # Queue Configuration
 FEATURE_EMAIL_QUEUE_ENABLED=true
-QUEUE_REDIS_URL=redis://default:ATOJAAIncDJmNmZjNGFlN2FkMDc0OTZlOGVmYjMzMDExODQxODVjZXAyMTMxOTM@settled-frog-13193.upstash.io:6379
+QUEUE_REDIS_URL=redis://default:<TOKEN>@settled-frog-13193.upstash.io:6379
 EOF
 ```
 
@@ -284,7 +284,7 @@ pnpm run dev
 ```bash
 # Check Redis
 curl "https://settled-frog-13193.upstash.io/zcard/pending-booking-emails:delayed" \
-  -H "Authorization: Bearer ATOJAAIncDJmNmZjNGFlN2FkMDc0OTZlOGVmYjMzMDExODQxODVjZXAyMTMxOTM"
+  -H "Authorization: Bearer YOUR_UPSTASH_REDIS_REST_TOKEN"
 
 # Expected: {"result":3}  (3 reminder jobs)
 ```
@@ -326,7 +326,7 @@ console.log('[DEBUG] FEATURE_EMAIL_QUEUE_ENABLED:', process.env.FEATURE_EMAIL_QU
 
 ```bash
 # Test Redis connection
-redis-cli -u redis://default:ATOJAAIncD...@settled-frog-13193.upstash.io:6379 ping
+redis-cli -u redis://default:<TOKEN>@settled-frog-13193.upstash.io:6379 ping
 # Should return: PONG
 ```
 
@@ -347,7 +347,7 @@ redis-cli -u redis://default:ATOJAAIncD...@settled-frog-13193.upstash.io:6379 pi
 **Fix:**
 
 ```bash
-QUEUE_REDIS_URL=redis://default:ATOJAAIncD...@settled-frog-13193.upstash.io:6379
+QUEUE_REDIS_URL=redis://default:<TOKEN>@settled-frog-13193.upstash.io:6379
 ```
 
 **This is why your queue is empty - jobs fail to be created due to missing Redis connection for BullMQ!**

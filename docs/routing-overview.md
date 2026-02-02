@@ -42,4 +42,4 @@
 
 ## Diagrams
 
-- See `route-map-mermaid.md` and `route-map-ascii.txt` for a full, auto-generated route list.
+- Run `pnpm build` and use the route list emitted by Next.js for a current map.

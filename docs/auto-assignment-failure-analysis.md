@@ -209,7 +209,7 @@ To reproduce and test the fix:
 
 ```bash
 # Run the planner with debug output
-CAPACITY_DEBUG=1 pnpm tsx scripts/test-booking-assignment.ts 97fad88e-5c58-46a8-a2db-2882b9a567be
+CAPACITY_DEBUG=1 (enable in .env.local), then reproduce the booking in the app and review server logs for assignment output.
 ```
 
 Or query directly:

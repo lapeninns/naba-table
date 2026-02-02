@@ -1,36 +1,37 @@
 # Continuity Ledger
 
-Last updated: 2026-01-30T16:23:20Z
+Last updated: 2026-02-02T03:34:20Z
 
 ## Goal (incl. success criteria)
 
-- Set remote `main` to commit `6e3eb7b2` per user request.
-- Success: remote `main` points to `6e3eb7b2` and local main matches.
+- Perform further cleanup (docs/scripts/configs/deps) and verify.
 
 ## Constraints/Assumptions
 
-- User requested to remove protection and publish main.
+- Follow AGENTS.md policies; no destructive changes without request.
+- Use codebase evidence; no speculation about unread code.
 
 ## Key decisions
 
-- Remove branch protection, then force-push `HEAD` to `origin/main`.
+- Prefer search tools and codebase retrieval over shell grep.
 
 ## State
 
-- Completed.
+- Final cleanup completed; verification run with pre-existing warnings noted.
 
 ## Done
 
-- Forced `origin/main` to `6e3eb7b2`.
-- Local `main` now at `6e3eb7b2`.
+- Added `scripts/pre-commit/secret-scan.sh` for pre-commit hook.
+- Redacted Upstash tokens and credentials from diagnostics docs; removed references to missing scripts.
+- Ran lint/typecheck/test/build; build succeeded with baseline-browser-mapping warning.
 
 ## Now
 
-- Await further instructions; no additional pull/push planned.
+- Awaiting user review.
 
 ## Next
 
-- None.
+- None unless follow-up requested.
 
 ## Open questions (UNCONFIRMED if needed)
 
@@ -39,3 +40,4 @@ Last updated: 2026-01-30T16:23:20Z
 ## Working set (files/ids/commands)
 
 - `CONTINUITY.md`
+- `tasks/final-repo-cleanup-20260202-0325/*`

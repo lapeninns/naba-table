@@ -181,13 +181,11 @@ Examples:
 
 ## 🎯 **Corrected Monitoring Script**
 
-### **File**: `scripts/monitor-production-queue.sh`
-
 ```bash
 #!/bin/bash
 
 UPSTASH_URL="https://settled-frog-13193.upstash.io"
-TOKEN="ATOJAAIncDJmNmZjNGFlN2FkMDc0OTZlOGVmYjMzMDExODQxODVjZXAyMTMxOTM"
+TOKEN="YOUR_UPSTASH_REDIS_REST_TOKEN"
 
 echo "📊 Production Queue Status"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -225,7 +223,7 @@ curl -s "$UPSTASH_URL" \
 ```bash
 # Check delayed jobs (should show 13+)
 curl -s "https://settled-frog-13193.upstash.io/zcard/bull:pending-booking-emails:delayed" \
-  -H "Authorization: Bearer ATOJAAIncDJmNmZjNGFlN2FkMDc0OTZlOGVmYjMzMDExODQxODVjZXAyMTMxOTM"
+  -H "Authorization: Bearer YOUR_UPSTASH_REDIS_REST_TOKEN"
 
 # Expected: {"result":13}  or higher
 ```
@@ -271,9 +269,6 @@ The system has been working correctly all along. We were simply checking the wro
 
 ## 📖 **Updated Documentation**
 
-Correct monitoring commands are now in:
-
-- `scripts/monitor-production-queue.sh` (updated with correct keys)
-- `docs/diagnostics/CORRECT-QUEUE-KEYS.md` (this file)
+Monitoring commands are documented here (use your own tokens).
 
 **System Status**: ✅ **FULLY OPERATIONAL**

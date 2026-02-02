@@ -280,5 +280,4 @@ After deployment, monitor:
 
 - Authentication routes: `docs/authentication-routes.md`
 - Auth email templates: `docs/auth-email-templates.md`
-- Guest design system: `GuestDesignSystem.md`
-- Restaurant design system: `RestaurantDesignSystem.md`
+- Guest and restaurant design system notes removed during cleanup.

@@ -32,6 +32,8 @@ playwright-*/
 *.pem
 *.tar.gz
 *.tgz
+*.dump
+*.backup.gz
 .turbo
 cli-proxy-api
 cli-proxy-api.*
@@ -49,6 +51,14 @@ test_single_output.log
 
 # temporary directories
 tmp/
+
+# backups
+/backups/
+
+# generated route maps
+/route-map-ascii.txt
+/route-map-mermaid.md
+/route-map.json
 
 # local env files
 .env
