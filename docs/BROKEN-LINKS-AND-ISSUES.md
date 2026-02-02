@@ -336,44 +336,18 @@ const url = `${window.location.origin}/bookings/${primaryBooking.id}`;
 
 ---
 
-## 8. TEST ENDPOINT GUARDS
-
-**Severity**: 🟠 HIGH
-
-### Confirmed Test Endpoints:
-
-- ✅ `/api/test-email`
-- ✅ `/api/test/bookings`
-- ✅ `/api/test/invitations`
-- ✅ `/api/test/leads`
-- ✅ `/api/test/playwright-session`
-- ✅ `/api/test/reservations/[id]/confirmation`
-
-**Status**: Each should have guard:
-
-```ts
-if (process.env.ENABLE_TEST_ENDPOINTS !== 'true') {
-  return NextResponse.json({ error: 'Not found' }, { status: 404 });
-}
-```
-
-**Action**: Audit all test routes and confirm guards are in place.
-
----
-
 ## 9. SUMMARY TABLE: ALL BROKEN ITEMS
 
-| Issue                                  | Type     | Route                           | Severity    | File                        | Fix Status     |
-| -------------------------------------- | -------- | ------------------------------- | ----------- | --------------------------- | -------------- |
-| `/dashboard` link in settings error    | CTA      | `/app/(app)/settings/error.tsx` | 🔴 CRITICAL | settings/error.tsx:27       | ❌ Needs Fix   |
-| `/app/dashboard` in auth callback test | Redirect | `/api/auth/callback/route.ts`   | 🟠 HIGH     | auth/callback/route.test.ts | ❌ Needs Fix   |
-| `app.nabatable.com/walk-in` 404        | Routing  | `/app/walk-in`                  | 🔴 CRITICAL | proxy.ts                    | ⚠️ Partial     |
-| `/auth/signup` unconfirmed             | CTA      | `/auth/signup`                  | 🟡 MEDIUM   | SignInForm.tsx              | ❓ Unknown     |
-| `/auth/forgot-password` unconfirmed    | CTA      | `/auth/forgot-password`         | 🟡 MEDIUM   | SignInForm.tsx              | ❓ Unknown     |
-| Duplicate `/app` prefix                | Routing  | `/app/app/*`                    | 🟠 HIGH     | proxy.ts                    | ⚠️ Partial     |
-| Window.location.reload()               | UX       | Multiple                        | 🟡 MEDIUM   | BookingListClient.tsx       | ❌ Needs Fix   |
-| Auth callback fallback                 | Logic    | `/api/auth/callback`            | 🟠 HIGH     | auth/callback/route.ts      | ❓ Unknown     |
-| Test endpoints unguarded               | Security | `/api/test/*`                   | 🟠 HIGH     | Multiple                    | ❓ Needs Audit |
+| Issue                                  | Type     | Route                           | Severity    | File                        | Fix Status   |
+| -------------------------------------- | -------- | ------------------------------- | ----------- | --------------------------- | ------------ |
+| `/dashboard` link in settings error    | CTA      | `/app/(app)/settings/error.tsx` | 🔴 CRITICAL | settings/error.tsx:27       | ❌ Needs Fix |
+| `/app/dashboard` in auth callback test | Redirect | `/api/auth/callback/route.ts`   | 🟠 HIGH     | auth/callback/route.test.ts | ❌ Needs Fix |
+| `app.nabatable.com/walk-in` 404        | Routing  | `/app/walk-in`                  | 🔴 CRITICAL | proxy.ts                    | ⚠️ Partial   |
+| `/auth/signup` unconfirmed             | CTA      | `/auth/signup`                  | 🟡 MEDIUM   | SignInForm.tsx              | ❓ Unknown   |
+| `/auth/forgot-password` unconfirmed    | CTA      | `/auth/forgot-password`         | 🟡 MEDIUM   | SignInForm.tsx              | ❓ Unknown   |
+| Duplicate `/app` prefix                | Routing  | `/app/app/*`                    | 🟠 HIGH     | proxy.ts                    | ⚠️ Partial   |
+| Window.location.reload()               | UX       | Multiple                        | 🟡 MEDIUM   | BookingListClient.tsx       | ❌ Needs Fix |
+| Auth callback fallback                 | Logic    | `/api/auth/callback`            | 🟠 HIGH     | auth/callback/route.ts      | ❓ Unknown   |
 
 ---
 
@@ -390,7 +364,6 @@ if (process.env.ENABLE_TEST_ENDPOINTS !== 'true') {
 
 - [ ] Replace `window.location.reload()` with `router.refresh()`
 - [ ] Add route validation to sanitizeRedirect function
-- [ ] Audit all test endpoints for proper guards
 - [ ] Test all CTAs on home page
 - [ ] Verify 404 page gracefully handles both admin and guest users
 
@@ -398,7 +371,6 @@ if (process.env.ENABLE_TEST_ENDPOINTS !== 'true') {
 
 - [ ] Set up automated link checking in CI/CD
 - [ ] Document all valid redirect targets
-- [ ] Add E2E tests for auth flow redirects
 - [ ] Monitor production for 404 errors
 
 ---

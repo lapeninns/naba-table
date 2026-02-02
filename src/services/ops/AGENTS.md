@@ -28,11 +28,6 @@ Ops services encapsulate domain logic for bookings, customers, teams, tables, an
 - Avoid long-running transactions; prefer idempotent operations.
 - Keep reads batched to avoid N+1 behavior.
 
-## Testing
-
-- Add tests for core business rules and error paths.
-- Keep tests deterministic; mock remote dependencies.
-
 ## MCP usage
 
 - Supabase MCP for schema impact checks.

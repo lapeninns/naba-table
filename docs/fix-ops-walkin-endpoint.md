@@ -247,7 +247,6 @@ POST /api/ops/bookings
 
 ### **Prevention:**
 
-- ✅ Add E2E test for ops walk-in with optional contacts
 - ✅ Add API contract tests for endpoint differences
 - ✅ Document endpoint purposes clearly
 

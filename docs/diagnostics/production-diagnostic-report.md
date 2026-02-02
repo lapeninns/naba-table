@@ -174,7 +174,7 @@ vercel logs --since 1h | grep -i queue
 
 ### **Step 3: Force a Test Booking** 🧪
 
-**Option A: Via UI**
+**Via UI**
 
 ```
 1. Go to production URL
@@ -182,19 +182,6 @@ vercel logs --since 1h | grep -i queue
 3. Immediately check queue:
    curl .../delayed
 4. Should show 3 jobs (if confirmed booking with email)
-```
-
-**Option B: Via API Test Endpoint**
-
-```bash
-# If you have test endpoint:
-curl -X POST https://your-production-url.vercel.app/api/test/bookings \
-  -H "Content-Type: application/json" \
-  -d '{
-    "restaurantId": "...",
-    "status": "confirmed",
-    "email": "test@example.com"
-  }'
 ```
 
 ---

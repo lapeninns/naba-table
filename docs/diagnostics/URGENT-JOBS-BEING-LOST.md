@@ -143,20 +143,6 @@ vercel ls
 
 ### **Create a Test Booking in Production:**
 
-**Via Vercel Function (if you have test endpoint):**
-
-```bash
-# If you have /api/test/bookings endpoint
-curl -X POST https://your-production-url.vercel.app/api/test/bookings \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_TEST_TOKEN" \
-  -d '{
-    "status": "confirmed",
-    "email": "test@example.com",
-    "startAtOffset": "2 days"
-  }'
-```
-
 **Via UI:**
 
 1. Go to production URL

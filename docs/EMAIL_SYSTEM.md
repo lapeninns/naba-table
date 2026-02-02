@@ -28,20 +28,6 @@ CRON_SECRET=your-cron-secret-here
 # for cron jobs defined in vercel.json
 ```
 
-## Test Endpoints (Optional - for development/staging)
-
-```bash
-# Enable test endpoints (/api/test/*)
-# WARNING: Set to false in production unless needed for debugging
-ENABLE_TEST_ENDPOINTS=false
-
-# Token required to access test endpoints
-TEST_ENDPOINT_TOKEN=your-secure-test-token
-
-# Default test email for test endpoints (prevents emailing real customers)
-# Used by /api/test/send-emails endpoint
-```
-
 ## Email Feature Flags
 
 ```bash
@@ -110,13 +96,3 @@ The system supports these email types:
 1. Generate a secret: `openssl rand -hex 32`
 2. Add to Vercel: Settings > Environment Variables > Add `CRON_SECRET`
 3. Redeploy the application
-
-### Emails going to wrong recipients during testing
-
-**Symptom**: Test emails sent to real customers
-
-**Solution**: Use the `/api/test/send-emails` endpoint which:
-
-- Defaults all emails to `amanshresthaaaaa@gmail.com`
-- Accepts `testEmail` parameter to override recipient
-- Prevents accidental emails to real customers

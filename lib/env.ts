@@ -112,14 +112,6 @@ export const env = {
     } as const;
   },
 
-  get testEndpoints() {
-    const parsed = parseEnv();
-    return {
-      enabled: parsed.ENABLE_TEST_ENDPOINTS ?? false,
-      token: parsed.TEST_ENDPOINT_TOKEN ?? null,
-    };
-  },
-
   get app() {
     const parsed = parseEnv();
     return {
@@ -143,7 +135,6 @@ export const env = {
       unavailableTooltip: parsed.RESERVE_RESERVATION_UNAVAILABLE_TOOLTIP,
       flags: {
         reserveV2: parsed.NEXT_PUBLIC_RESERVE_V2 ?? false,
-        enableTestUi: parsed.NEXT_PUBLIC_ENABLE_TEST_UI ?? false,
       },
     } as const;
   },
@@ -198,7 +189,6 @@ export const env = {
         : parsed.APP_ENV === 'staging';
     return {
       loyaltyPilotRestaurantIds: parsed.LOYALTY_PILOT_RESTAURANT_IDS,
-      enableTestApi: parsed.ENABLE_TEST_API ?? false,
       guestLookupPolicy: parsed.FEATURE_GUEST_LOOKUP_POLICY ?? false,
       opsGuardV2: parsed.FEATURE_OPS_GUARD_V2 ?? false,
       bookingPastTimeBlocking: parsed.FEATURE_BOOKING_PAST_TIME_BLOCKING ?? false,
@@ -344,28 +334,6 @@ export const env = {
         if (typeof value !== 'number' || Number.isNaN(value)) return 900;
         return Math.max(60, Math.min(value, 2_592_000));
       })(),
-    } as const;
-  },
-
-  get testing() {
-    const parsed = parseEnv();
-    return {
-      playwright: {
-        apiKey: parsed.PLAYWRIGHT_TEST_API_KEY,
-        email: parsed.PLAYWRIGHT_TEST_EMAIL,
-        password: parsed.PLAYWRIGHT_TEST_PASSWORD,
-        iframe: parsed.PLAYWRIGHT_TEST_IFRAME ?? false,
-        offline: parsed.PLAYWRIGHT_TEST_OFFLINE ?? false,
-        authFlow: parsed.PLAYWRIGHT_TEST_AUTH_FLOW,
-      },
-      auth: {
-        email: parsed.PLAYWRIGHT_AUTH_EMAIL,
-        name: parsed.PLAYWRIGHT_AUTH_NAME,
-        password: parsed.PLAYWRIGHT_AUTH_PASSWORD,
-        phone: parsed.PLAYWRIGHT_AUTH_PHONE,
-        refreshToken: parsed.PLAYWRIGHT_AUTH_REFRESH,
-      },
-      routeCompatWindowDays: parsed.ROUTE_COMPAT_WINDOW_DAYS ?? 7,
     } as const;
   },
 

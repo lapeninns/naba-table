@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { getCanonicalSiteUrl } from "@/lib/site-url";
+import { getCanonicalSiteUrl } from '@/lib/site-url';
 
 type Optional<T> = T | undefined | null;
 
@@ -12,23 +12,22 @@ function assertEnv(name: string, value: Optional<string>): string {
 }
 
 export const clientEnv = {
-  nodeEnv: process.env.NODE_ENV ?? "development",
+  nodeEnv: process.env.NODE_ENV ?? 'development',
   // Default to localhost so cookies are not scoped to an unintended production domain when unset
-  rootDomain: process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost",
+  rootDomain: process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'localhost',
   supabase: {
-    url: assertEnv("NEXT_PUBLIC_SUPABASE_URL", process.env.NEXT_PUBLIC_SUPABASE_URL),
-    anonKey: assertEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
+    url: assertEnv('NEXT_PUBLIC_SUPABASE_URL', process.env.NEXT_PUBLIC_SUPABASE_URL),
+    anonKey: assertEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
   },
   app: {
     version:
       process.env.NEXT_PUBLIC_APP_VERSION ??
       process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ??
-      "web-dev",
+      'web-dev',
     siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? getCanonicalSiteUrl(),
   },
   flags: {
-    reserveV2: process.env.NEXT_PUBLIC_RESERVE_V2 === "true",
-    enableTestUi: process.env.NEXT_PUBLIC_ENABLE_TEST_UI === "true",
-    forcePasswordSignIn: process.env.NEXT_PUBLIC_FORCE_PASSWORD_SIGNIN === "true",
+    reserveV2: process.env.NEXT_PUBLIC_RESERVE_V2 === 'true',
+    forcePasswordSignIn: process.env.NEXT_PUBLIC_FORCE_PASSWORD_SIGNIN === 'true',
   },
 } as const;

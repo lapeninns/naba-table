@@ -34,16 +34,10 @@ profile: shared-lib
 4. **No UI coupling**
    - UI/components must depend on `lib`, never the other way around. If you find a React import creeping in, refactor it to `src/hooks` or `src/components`.
 
-## Build & Test Commands
+## Build Commands
 
 - `pnpm lint lib/**`
 - `pnpm typecheck --filter lib`
-- `pnpm test --filter "lib-*"` (or targeted Vitest files) — cover domain logic like booking transformers, Supabase query builders, queue serialization.
-
-## Testing Expectations
-
-- Each new helper should include unit tests exercising success/error paths; mock remote dependencies (Supabase client, Resend, etc.).
-- For env/config helpers (`env.ts`, `env-client.ts`), add regression tests ensuring required vars throw meaningful errors when missing.
 
 ## Deployment Notes
 

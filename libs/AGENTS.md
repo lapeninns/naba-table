@@ -33,11 +33,10 @@ These modules wrap external vendors so the rest of the repo can remain agnostic.
 4. **Documentation in Tasks**
    - For GPT or email template additions, document rate limits, prompt tokens, or compliance constraints inside the task’s `research.md`/`plan.md`.
 
-## Build & Test Commands
+## Build Commands
 
 - `pnpm lint libs/**`
 - `pnpm typecheck --filter libs`
-- `pnpm test --filter libs` — add mocked tests covering API retry logic, email payload generation, and SEO meta outputs.
 
 ## Links
 

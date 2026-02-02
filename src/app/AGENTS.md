@@ -36,11 +36,6 @@ Applies to all App Router routes, layouts, and route handlers under `src/app/**`
 - Avoid request waterfalls; co-locate data fetching when possible.
 - Protect guest flows and deep links from breaking changes.
 
-## Testing
-
-- Use `pnpm test` for relevant logic.
-- Add focused tests for non-trivial route handlers.
-
 ## MCP usage
 
 - Chrome DevTools MCP is required for UI changes.

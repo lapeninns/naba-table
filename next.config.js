@@ -11,13 +11,6 @@ const SUPABASE_HOSTNAME = (() => {
   }
 })();
 
-if (
-  process.env.PLAYWRIGHT_TEST_AUTH_FLOW === 'true' &&
-  !process.env.NEXT_PUBLIC_FORCE_PASSWORD_SIGNIN
-) {
-  process.env.NEXT_PUBLIC_FORCE_PASSWORD_SIGNIN = 'true';
-}
-
 const imageDomains = [
   // NextJS <Image> component needs to whitelist domains for src={}
   'lh3.googleusercontent.com',
@@ -55,7 +48,6 @@ const aliasEntries = {
   '@entities': './reserve/entities',
   '@shared': './reserve/shared',
   '@pages': './reserve/pages',
-  '@tests': './reserve/tests',
 };
 
 const webpackAliasMap = Object.fromEntries(

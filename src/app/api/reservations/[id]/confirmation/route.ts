@@ -12,7 +12,7 @@ const forbidden = NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: Promise<{ id: string | string[] }> }
+  { params }: { params: Promise<{ id: string | string[] }> },
 ) {
   const { id } = await params;
   const normalized = Array.isArray(id) ? id[0] : id;
@@ -47,22 +47,22 @@ export async function GET(
   }
 
   const customerEmail = booking.customer_email?.toLowerCase();
-  const seededVia =
-    booking.details && typeof booking.details === 'object' && 'seeded_via' in booking.details
-      ? (booking.details as Record<string, unknown>).seeded_via
-      : null;
-  const isPlaywrightSeed = seededVia === 'playwright.test';
   const matchesAuthUser =
     (booking.auth_user_id && booking.auth_user_id === user.id) ||
-    (customerEmail && customerEmail.length > 0 && customerEmail === (user.email ?? '').toLowerCase());
+    (customerEmail &&
+      customerEmail.length > 0 &&
+      customerEmail === (user.email ?? '').toLowerCase());
 
-  if (!matchesAuthUser && !isPlaywrightSeed) {
+  if (!matchesAuthUser) {
     return forbidden;
   }
 
   const reference = booking.reference ?? normalized;
   const file = buildReservationConfirmationPdfBuffer();
-  const pdfArrayBuffer = file.buffer.slice(file.byteOffset, file.byteOffset + file.byteLength) as ArrayBuffer;
+  const pdfArrayBuffer = file.buffer.slice(
+    file.byteOffset,
+    file.byteOffset + file.byteLength,
+  ) as ArrayBuffer;
 
   return new NextResponse(pdfArrayBuffer, {
     status: 200,

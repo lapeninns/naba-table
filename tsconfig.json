@@ -38,8 +38,7 @@
       "@features/*": ["./reserve/features/*"],
       "@entities/*": ["./reserve/entities/*"],
       "@shared/*": ["./reserve/shared/*"],
-      "@pages/*": ["./reserve/pages/*"],
-      "@tests/*": ["./reserve/tests/*"]
+      "@pages/*": ["./reserve/pages/*"]
     },
     "plugins": [
       {
@@ -61,7 +60,6 @@
     "playwright.component.config.ts",
     "playwright.config.ts",
     "tests/**/*",
-    "reserve/tests/**/*",
     "**/*.test.ts",
     "**/*.test.tsx",
     "**/__tests__/**/*",

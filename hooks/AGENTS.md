@@ -16,7 +16,3 @@ Prefer `src/hooks` for new Next.js app work unless an existing feature already u
 
 - Keep hooks focused and composable.
 - Do not call Supabase directly from hooks unless there is no shared service.
-
-## Testing
-
-- Add tests for non-trivial hooks.

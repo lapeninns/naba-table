@@ -17,10 +17,9 @@ profile: react-contexts
 - Owns **application state orchestration** (wizard steps, optimistic queues, auth/session bridging) while staying UI-agnostic.
 - Export surface is consumed by `src/app/**`, `src/components/features/**`, and `hooks/**` — changes ripple broadly, so treat as critical infrastructure.
 
-## Build & Test Commands
+## Build Commands
 
 - `pnpm lint --filter "src/contexts..."` (or full `pnpm lint`) — ensure type safety.
-- `pnpm test` / `pnpm vitest run` — add targeted unit tests for reducers/state machines.
 - `pnpm run dev` — smoke-test flows that rely on updated providers.
 
 ## Guidelines
@@ -40,12 +39,6 @@ profile: react-contexts
    - Split providers when unrelated state updates cause churn.
 5. **A11y & UX Hooks**
    - Maintain explicit actions for focus management or announcements, but emit events so components manage DOM specifics.
-
-## Testing & QA
-
-- Unit test reducers/state machines (happy path, error transitions, race conditions).
-- When context changes affect UI flows, run Chrome DevTools MCP per root policy on representative routes and capture artifacts in the task folder.
-- Record state diagrams / transition tables in `plan.md` for complex updates; attach diagrams to task artifacts when meaningful.
 
 ## Links
 
