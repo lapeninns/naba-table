@@ -154,7 +154,6 @@ type UseEditBookingDialogState = {
   form: ReturnType<typeof useForm<FormValues>>;
   control: ReturnType<typeof useForm<FormValues>>['control'];
   errors: ReturnType<typeof useForm<FormValues>>['formState']['errors'];
-  mutation: EditBookingMutation;
   derivedEndIso: string | null;
   derivedEndDisplay: string;
   derivedDurationLabel: string;
@@ -174,7 +173,10 @@ type UseEditBookingDialogState = {
   handleSubmit: () => void;
 };
 
-type UseEditBookingDialogParams = EditBookingDialogProps;
+type UseEditBookingDialogParams = EditBookingDialogProps & {
+  mutation: EditBookingMutation;
+  includeRestaurantId?: boolean;
+};
 
 function useEditBookingDialogState({
   booking,
@@ -182,7 +184,8 @@ function useEditBookingDialogState({
   onOpenChange,
   restaurantSlug: restaurantSlugOverride,
   restaurantTimezone: restaurantTimezoneOverride,
-  mode = 'guest',
+  mutation,
+  includeRestaurantId = false,
 }: UseEditBookingDialogParams): UseEditBookingDialogState {
   const defaultValues = useMemo(() => toDefaultValues(booking), [booking]);
   const resolver = formResolver;
@@ -202,9 +205,6 @@ function useEditBookingDialogState({
     formState: { errors, isDirty },
   } = form;
 
-  const guestMutation = useUpdateBooking();
-  const opsMutation = useOpsUpdateBooking();
-  const mutation = (mode === 'ops' ? opsMutation : guestMutation) as EditBookingMutation;
   const [formError, setFormError] = useState<{ message: string; code?: string } | null>(null);
   const startValue = watch('start');
   const hasCommittedStart = typeof startValue === 'string' ? startValue.trim().length > 0 : Boolean(startValue);
@@ -304,14 +304,17 @@ function useEditBookingDialogState({
       }
 
       try {
-        await mutation.mutateAsync({
+        const payload: EditBookingMutationInput = {
           id: booking.id,
           startIso,
           endIso,
           partySize: values.partySize,
           notes: values.notes ?? null,
-          restaurantId: mode === 'ops' ? booking.restaurantId ?? null : undefined,
-        });
+        };
+        if (includeRestaurantId) {
+          payload.restaurantId = booking.restaurantId ?? null;
+        }
+        await mutation.mutateAsync(payload);
         onOpenChange(false);
       } catch (error) {
         const err = error as HttpError;
@@ -345,7 +348,6 @@ function useEditBookingDialogState({
     form,
     control,
     errors,
-    mutation,
     derivedEndIso,
     derivedEndDisplay,
     derivedDurationLabel,
@@ -366,19 +368,52 @@ function useEditBookingDialogState({
   };
 }
 
-export function EditBookingDialog({
+function useGuestEditBookingMutation(): EditBookingMutation {
+  const mutation = useUpdateBooking();
+  return {
+    mutateAsync: async (input) =>
+      mutation.mutateAsync({
+        id: input.id,
+        startIso: input.startIso,
+        endIso: input.endIso,
+        partySize: input.partySize,
+        notes: input.notes ?? null,
+      }),
+    isPending: mutation.isPending,
+    error: mutation.error ?? null,
+  };
+}
+
+function useOpsEditBookingMutation(): EditBookingMutation {
+  const mutation = useOpsUpdateBooking();
+  return {
+    mutateAsync: async (input) =>
+      mutation.mutateAsync({
+        id: input.id,
+        startIso: input.startIso,
+        endIso: input.endIso,
+        partySize: input.partySize,
+        notes: input.notes ?? null,
+        restaurantId: input.restaurantId ?? null,
+      }),
+    isPending: mutation.isPending,
+    error: mutation.error ?? null,
+  };
+}
+
+function EditBookingDialogBase({
   booking,
   open,
   onOpenChange,
   restaurantSlug: restaurantSlugOverride,
   restaurantTimezone: restaurantTimezoneOverride,
-  mode = 'guest',
-}: EditBookingDialogProps) {
+  mutation,
+  includeRestaurantId = false,
+}: UseEditBookingDialogParams) {
   const {
     form,
     control,
     errors,
-    mutation,
     derivedEndDisplay,
     derivedDurationLabel,
     fallbackMinDate,
@@ -401,7 +436,8 @@ export function EditBookingDialog({
     onOpenChange,
     restaurantSlug: restaurantSlugOverride,
     restaurantTimezone: restaurantTimezoneOverride,
-    mode,
+    mutation,
+    includeRestaurantId,
   });
 
   const showReassignmentNotice = isDirty;
@@ -555,4 +591,21 @@ export function EditBookingDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+function EditBookingDialogGuest(props: EditBookingDialogProps) {
+  const mutation = useGuestEditBookingMutation();
+  return <EditBookingDialogBase {...props} mutation={mutation} includeRestaurantId={false} />;
+}
+
+function EditBookingDialogOps(props: EditBookingDialogProps) {
+  const mutation = useOpsEditBookingMutation();
+  return <EditBookingDialogBase {...props} mutation={mutation} includeRestaurantId />;
+}
+
+export function EditBookingDialog(props: EditBookingDialogProps) {
+  if (props.mode === 'ops') {
+    return <EditBookingDialogOps {...props} />;
+  }
+  return <EditBookingDialogGuest {...props} />;
 }
