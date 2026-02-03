@@ -1,46 +1,41 @@
 # Continuity Ledger
 
-Last updated: 2026-02-03T00:28:26Z
+Last updated: 2026-02-03T09:06:30Z
 
 ## Goal (incl. success criteria)
 
-- Fix flicker and improve scroll smoothness on Ops Customers, Ops Bookings, Ops Dashboard lists.
-- Ensure `/app` redirects to ops sign-in (`/app/auth/signin`).
+- Fix guest booking edit flow so email link works on a new device.
+- Success: Public booking detail no longer throws `useOpsServices must be used within an OpsServicesProvider`.
+- Success: Guest edit uses guest update API; ops edit continues via ops services.
 
 ## Constraints/Assumptions
 
-- Follow AGENTS.md SDLC; task folder with artifacts.
+- Follow AGENTS SDLC; task folder with artifacts.
 - Chrome DevTools MCP QA required for UI changes.
-- Keep changes focused; no extra abstractions.
+- Keep changes minimal in legacy `components/` folder.
 
 ## Key decisions
 
-- Use Motion opacity-only transitions on list containers (initial mount only).
-- Avoid Motion on per-row virtualized items; use translate3d and will-change.
-- Disable virtualization for short lists; keep for large lists/paged.
-- Standardize ops auth redirects to `/app/auth/signin`.
+- Dispatch `EditBookingDialog` into guest/ops subcomponents by `mode` to avoid ops hooks on guest routes.
 
 ## State
 
-- Code changes applied; lint warnings fixed; UI QA still blocked by auth for list pages.
+- Implementation complete; DevTools QA partially blocked by missing booking token/cookie.
 
 ## Done
 
-- Installed `motion` dependency.
-- Updated CustomersTable, BookingsList, BookingsTable with Motion container + short-list render path.
-- Reduced per-row Motion usage for smoother scroll.
-- Standardized ops auth redirects to `/app/auth/signin`.
-- Fixed lint warnings in OpsBookingsClient, OpsCustomersClient, OpsDashboardClient.
-- Verified `/app` redirects to `/app/auth/signin` via DevTools MCP.
+- Refactored `EditBookingDialog` to use guest/ops mutations via separate subcomponents.
+- Removed ops hook usage from guest booking detail.
+- Created task artifacts and captured DevTools screenshot.
 
 ## Now
 
-- Awaiting ops auth access to complete UI QA for scroll smoothness.
+- Document QA limitations and finalize verification notes.
 
 ## Next
 
-- Run Chrome DevTools MCP QA on customers/bookings/dashboard once authenticated.
-- Update `verification.md` with results.
+- Re-run DevTools MCP QA with a valid booking token/cookie when available.
+- Update `verification.md` to complete remaining checks.
 
 ## Open questions (UNCONFIRMED if needed)
 
@@ -48,14 +43,6 @@ Last updated: 2026-02-03T00:28:26Z
 
 ## Working set (files/ids/commands)
 
-- `src/components/features/customers/CustomersTable.tsx`
-- `src/components/features/dashboard/BookingsList.tsx`
-- `components/dashboard/BookingsTable.tsx`
-- `src/components/features/bookings/OpsBookingsClient.tsx`
-- `src/components/features/customers/OpsCustomersClient.tsx`
-- `src/components/features/dashboard/OpsDashboardClient.tsx`
-- `src/app/app/(app)/layout.tsx`
-- `src/app/app/(app)/new-bookings/page.tsx`
-- `src/app/app/(app)/settings/restaurant/layout.tsx`
-- `src/app/app/(app)/settings/tables/page.tsx`
-- `tasks/fix-list-flicker-20260202-2349/*`
+- `components/dashboard/EditBookingDialog.tsx`
+- `tasks/fix-guest-booking-edit-dialog-20260203-0902/*`
+- `tasks/fix-guest-booking-edit-dialog-20260203-0902/artifacts/auth-signin.png`
