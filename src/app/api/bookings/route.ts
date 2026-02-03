@@ -13,13 +13,12 @@ import { mapValidationFailure, withValidationHeaders } from '@/server/booking/ht
 import {
   BOOKING_TYPES,
   SEATING_OPTIONS,
-  deriveEndTime,
+  deriveEndTimeFromDuration,
   fetchBookingsForContact,
   buildBookingAuditSnapshot,
   updateBookingRecord,
   inferMealTypeFromTime,
   logAuditEvent,
-  calculateDurationMinutes,
   insertBookingRecord,
   generateUniqueBookingReference,
 } from '@/server/bookings';
@@ -28,6 +27,7 @@ import {
   computeTokenExpiry,
   attachTokenToBooking,
 } from '@/server/bookings/confirmation-token';
+import { resolveBookingDurationMinutes } from '@/server/bookings/duration';
 import { PastBookingError, assertBookingNotInPast } from '@/server/bookings/pastTimeValidation';
 import {
   OperatingHoursError,
@@ -836,7 +836,16 @@ export async function POST(req: NextRequest) {
       throw validationError;
     }
 
-    const endTime = deriveEndTime(startTime, normalizedBookingType);
+    const { durationMinutes } = await resolveBookingDurationMinutes({
+      restaurantId,
+      bookingDate: data.date,
+      startTime,
+      partySize: data.party,
+      bookingOption: normalizedBookingType,
+      timezone: scheduleTimezone,
+      client: supabase,
+    });
+    const endTime = deriveEndTimeFromDuration(startTime, durationMinutes);
 
     // Parallelize independent data fetches
     const [customer, loyaltyProgram] = await Promise.all([
@@ -875,7 +884,7 @@ export async function POST(req: NextRequest) {
         bookingType: normalizedBookingType,
         partySize: data.party,
         start: `${data.date}T${startTime}:00`,
-        durationMinutes: calculateDurationMinutes(normalizedBookingType),
+        durationMinutes,
         seatingPreference: data.seating,
         notes: data.notes ?? null,
         customerId: customer.id,

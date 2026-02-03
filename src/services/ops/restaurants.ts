@@ -63,6 +63,12 @@ type ServicePeriodsResponse = {
   periods: ServicePeriodRow[];
 };
 
+type TurnBandsResponse = {
+  restaurantId: string;
+  bands: TurnBandsPayload;
+  defaults: TurnBandsPayload;
+};
+
 export type RestaurantProfile = {
   id: string;
   name: string;
@@ -116,6 +122,19 @@ export type ServicePeriodRow = {
   bookingOption: OccasionKey;
 };
 
+export type TurnBandInput = {
+  maxPartySize: number;
+  durationMinutes: number;
+};
+
+export type TurnBandsPayload = Record<string, TurnBandInput[]>;
+
+export type TurnBandsSnapshot = {
+  restaurantId: string;
+  bands: TurnBandsPayload;
+  defaults: TurnBandsPayload;
+};
+
 export interface RestaurantService {
   listRestaurants(): Promise<Array<OpsRestaurantOption & { role: RestaurantRole }>>;
   getProfile(restaurantId: string): Promise<RestaurantProfile>;
@@ -124,6 +143,8 @@ export interface RestaurantService {
   updateOperatingHours(restaurantId: string, snapshot: OperatingHoursSnapshot): Promise<OperatingHoursSnapshot>;
   getServicePeriods(restaurantId: string): Promise<ServicePeriodRow[]>;
   updateServicePeriods(restaurantId: string, rows: ServicePeriodRow[]): Promise<ServicePeriodRow[]>;
+  getTurnBands(restaurantId: string): Promise<TurnBandsSnapshot>;
+  updateTurnBands(restaurantId: string, payload: TurnBandsPayload): Promise<TurnBandsSnapshot>;
 }
 
 export class NotImplementedRestaurantService implements RestaurantService {
@@ -157,6 +178,14 @@ export class NotImplementedRestaurantService implements RestaurantService {
 
   updateServicePeriods(): Promise<ServicePeriodRow[]> {
     this.error('updateServicePeriods not implemented');
+  }
+
+  getTurnBands(): Promise<TurnBandsSnapshot> {
+    this.error('getTurnBands not implemented');
+  }
+
+  updateTurnBands(): Promise<TurnBandsSnapshot> {
+    this.error('updateTurnBands not implemented');
   }
 }
 
@@ -251,6 +280,18 @@ export function createBrowserRestaurantService(): RestaurantService {
         body: JSON.stringify(rows),
       });
       return response.periods;
+    },
+
+    async getTurnBands(restaurantId: string) {
+      return fetchJson<TurnBandsResponse>(`${OPS_RESTAURANTS_BASE}/${restaurantId}/turn-bands`);
+    },
+
+    async updateTurnBands(restaurantId: string, payload: TurnBandsPayload) {
+      return fetchJson<TurnBandsResponse>(`${OPS_RESTAURANTS_BASE}/${restaurantId}/turn-bands`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
     },
   } satisfies RestaurantService;
 }

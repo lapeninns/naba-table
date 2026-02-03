@@ -37,6 +37,10 @@ const ServicePeriodsSection = dynamic(() => import('./ServicePeriodsSection').th
   loading: () => <SettingsSectionSkeleton title="Loading service periods" />,
 });
 
+const TurnDurationsSection = dynamic(() => import('./TurnDurationsSection').then((m) => m.TurnDurationsSection), {
+  loading: () => <SettingsSectionSkeleton title="Loading reservation durations" />,
+});
+
 const OpsTeamManagementClient = dynamic(() => import('../team').then((m) => m.OpsTeamManagementClient), {
   loading: () => <SettingsSectionSkeleton title="Loading team" />,
 });
@@ -90,6 +94,7 @@ export function OpsRestaurantSettingsClient({ defaultRestaurantId, view }: OpsRe
     'operating-hours': ({ restaurantId }) => <OperatingHoursSection restaurantId={restaurantId} />,
     occasions: () => <OccasionsSection />,
     'service-periods': ({ restaurantId }) => <ServicePeriodsSection restaurantId={restaurantId} />,
+    'turn-durations': ({ restaurantId }) => <TurnDurationsSection restaurantId={restaurantId} />,
     team: () => <OpsTeamManagementClient />,
   };
 

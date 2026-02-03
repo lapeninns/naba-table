@@ -22,6 +22,8 @@ export type TurnBand = {
   durationMinutes: number;
 };
 
+export type TurnBandsByOption = Record<string, TurnBand[]>;
+
 export type ServiceDefinition = {
   key: ServiceKey;
   label: string;
@@ -36,6 +38,7 @@ export type VenuePolicy = {
   timezone: string;
   services: Partial<Record<ServiceKey, ServiceDefinition>>;
   serviceOrder: ServiceKey[];
+  turnBandsByOption?: TurnBandsByOption;
 };
 
 export type SelectorScoringWeights = {
@@ -62,6 +65,15 @@ export type ServiceWindow = {
 
 function cloneTurnBands(bands: TurnBand[]): TurnBand[] {
   return bands.map((band) => ({ ...band }));
+}
+
+function cloneTurnBandsByOption(input?: TurnBandsByOption): TurnBandsByOption | undefined {
+  if (!input) {
+    return undefined;
+  }
+  return Object.fromEntries(
+    Object.entries(input).map(([key, bands]) => [key, cloneTurnBands(bands ?? [])]),
+  );
 }
 
 function cloneService(service: ServiceDefinition): ServiceDefinition {
@@ -165,9 +177,12 @@ export class ServiceOverrunError extends PolicyError {
 
 type PolicyOptions = {
   timezone?: string | null;
+  turnBandsByOption?: TurnBandsByOption | null;
 };
 
 export function getVenuePolicy(options?: PolicyOptions): VenuePolicy {
+  const turnBandsByOption = options?.turnBandsByOption ?? undefined;
+
   if (!options?.timezone || options.timezone === defaultVenuePolicy.timezone) {
     return {
       timezone: defaultVenuePolicy.timezone,
@@ -178,6 +193,7 @@ export function getVenuePolicy(options?: PolicyOptions): VenuePolicy {
           service ? cloneService(service) : service,
         ]),
       ),
+      ...(turnBandsByOption ? { turnBandsByOption: cloneTurnBandsByOption(turnBandsByOption) } : {}),
     };
   }
 
@@ -190,6 +206,7 @@ export function getVenuePolicy(options?: PolicyOptions): VenuePolicy {
         service ? cloneService(service) : service,
       ]),
     ),
+    ...(turnBandsByOption ? { turnBandsByOption: cloneTurnBandsByOption(turnBandsByOption) } : {}),
   };
 }
 
@@ -261,19 +278,17 @@ export function serviceEnd(
   return serviceWindowFor(serviceKey, dateTime, policy).end;
 }
 
-export function getTurnBand(
-  serviceKey: ServiceKey,
-  partySize: number,
-  policy: VenuePolicy = defaultVenuePolicy,
-): TurnBand {
-  const service = policy.services[serviceKey];
-  if (!service) {
-    throw new PolicyError(`Unknown service "${serviceKey}".`);
+function normalizeBookingOptionKey(value: string | null | undefined): string | null {
+  if (!value) {
+    return null;
   }
+  const normalized = value.toString().trim().toLowerCase();
+  return normalized.length > 0 ? normalized : null;
+}
 
-  const bands = service.turnBands;
+function selectTurnBand(bands: TurnBand[], partySize: number): TurnBand {
   if (!bands || bands.length === 0) {
-    throw new PolicyError(`No turn bands configured for service "${serviceKey}".`);
+    throw new PolicyError("No turn bands configured.");
   }
 
   if (!Number.isFinite(partySize) || partySize <= 0) {
@@ -289,12 +304,51 @@ export function getTurnBand(
   return bands[bands.length - 1]!;
 }
 
+export function getTurnBand(
+  serviceKey: ServiceKey,
+  partySize: number,
+  policy: VenuePolicy = defaultVenuePolicy,
+): TurnBand {
+  const service = policy.services[serviceKey];
+  if (!service) {
+    throw new PolicyError(`Unknown service "${serviceKey}".`);
+  }
+
+  const bands = service.turnBands;
+  try {
+    return selectTurnBand(bands, partySize);
+  } catch (error) {
+    if (error instanceof PolicyError) {
+      throw new PolicyError(`No turn bands configured for service "${serviceKey}".`);
+    }
+    throw error;
+  }
+}
+
+export function resolveTurnBand(args: {
+  serviceKey: ServiceKey;
+  partySize: number;
+  bookingOption?: string | null;
+  policy?: VenuePolicy;
+}): TurnBand {
+  const policy = args.policy ?? defaultVenuePolicy;
+  const optionKey = normalizeBookingOptionKey(args.bookingOption);
+  const overrideBands = optionKey ? policy.turnBandsByOption?.[optionKey] : undefined;
+
+  if (overrideBands && overrideBands.length > 0) {
+    return selectTurnBand(overrideBands, args.partySize);
+  }
+
+  return getTurnBand(args.serviceKey, args.partySize, policy);
+}
+
 export function bandDuration(
   serviceKey: ServiceKey,
   partySize: number,
   policy: VenuePolicy = defaultVenuePolicy,
+  bookingOption?: string | null,
 ): number {
-  return getTurnBand(serviceKey, partySize, policy).durationMinutes;
+  return resolveTurnBand({ serviceKey, partySize, bookingOption, policy }).durationMinutes;
 }
 
 export function getBufferConfig(

@@ -5,6 +5,7 @@ import {
   type BookingResult as CapacityBookingResult,
 } from "@/server/capacity";
 import { getRestaurantSchedule } from "@/server/restaurants/schedule";
+import { isTimeWithinPeriod, selectMatchingPeriod } from "@/server/restaurants/servicePeriodMatching";
 import { getServiceSupabaseClient } from "@/server/supabase";
 
 
@@ -149,7 +150,10 @@ class SupabaseCapacityService implements CapacityService {
         if (!matchingPeriod) {
           return true;
         }
-        return isTimeWithinPeriod(booking.start_time ?? null, matchingPeriod.start_time, matchingPeriod.end_time);
+        if (!booking.start_time) {
+          return true;
+        }
+        return isTimeWithinPeriod(booking.start_time, matchingPeriod.start_time, matchingPeriod.end_time);
       });
 
       const bookedCovers = applicableBookings.reduce((total, booking) => total + (booking.party_size ?? 0), 0);
@@ -270,69 +274,6 @@ function resolveDayOfWeek(isoDate: string): number {
   const date = new Date(`${isoDate}T00:00:00Z`);
   const day = Number.isNaN(date.getTime()) ? new Date().getUTCDay() : date.getUTCDay();
   return day;
-}
-
-function timeToMinutes(value: string | null | undefined): number | null {
-  if (!value) {
-    return null;
-  }
-
-  const match = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(value);
-  if (!match) {
-    return null;
-  }
-
-  const hours = Number.parseInt(match[1]!, 10);
-  const minutes = Number.parseInt(match[2]!, 10);
-  const seconds = match[3] ? Number.parseInt(match[3]!, 10) : 0;
-  if (Number.isNaN(hours) || Number.isNaN(minutes) || Number.isNaN(seconds)) {
-    return null;
-  }
-
-  return hours * 60 + minutes + Math.floor(seconds / 60);
-}
-
-function isTimeWithinPeriod(target: string | null, start: string | null, end: string | null): boolean {
-  const targetMinutes = timeToMinutes(target);
-  const startMinutes = timeToMinutes(start);
-  const endMinutes = timeToMinutes(end);
-
-  if (targetMinutes === null || startMinutes === null || endMinutes === null) {
-    return true;
-  }
-
-  if (endMinutes > startMinutes) {
-    return targetMinutes >= startMinutes && targetMinutes < endMinutes;
-  }
-
-  if (endMinutes < startMinutes) {
-    return targetMinutes >= startMinutes || targetMinutes < endMinutes;
-  }
-
-  return true;
-}
-
-function selectMatchingPeriod(periods: ServicePeriodRow[], requestedTime: string, dayOfWeek: number): ServicePeriodRow | null {
-  const candidatePeriods = periods
-    .filter((period) => period.day_of_week === null || period.day_of_week === dayOfWeek)
-    .filter((period) => isTimeWithinPeriod(requestedTime, period.start_time, period.end_time));
-
-  if (candidatePeriods.length === 0) {
-    return null;
-  }
-
-  candidatePeriods.sort((a, b) => {
-    const startA = timeToMinutes(a.start_time) ?? -1;
-    const startB = timeToMinutes(b.start_time) ?? -1;
-    if (startA !== startB) {
-      return startA - startB;
-    }
-    const nameA = a.name ?? "";
-    const nameB = b.name ?? "";
-    return nameA.localeCompare(nameB);
-  });
-
-  return candidatePeriods[0] ?? null;
 }
 
 function selectCapacityRule(

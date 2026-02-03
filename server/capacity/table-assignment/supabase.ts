@@ -38,6 +38,7 @@ export type ContextBookingRow = {
   start_at: string | null;
   end_at: string | null;
   booking_date: string | null;
+  booking_type?: string | null;
   seating_preference?: string | null;
   booking_table_assignments: Array<{ table_id: string | null }> | null;
 };
@@ -406,6 +407,7 @@ export async function loadContextBookings(
         "start_at",
         "end_at",
         "booking_date",
+        "booking_type",
         "booking_table_assignments(table_id)",
       ].join(","),
     )

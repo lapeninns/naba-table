@@ -19,13 +19,14 @@ import {
   SEATING_OPTIONS,
   buildBookingAuditSnapshot,
   clearBookingTableAssignments,
-  deriveEndTime,
+  deriveEndTimeFromDuration,
   fetchBookingsForContact,
   inferMealTypeFromTime,
   logAuditEvent,
   softCancelBooking,
   updateBookingRecord,
 } from '@/server/bookings';
+import { resolveBookingDurationMinutes } from '@/server/bookings/duration';
 import { beginBookingModificationFlow } from '@/server/bookings/modification-flow';
 import { PastBookingError, assertBookingNotInPast } from '@/server/bookings/pastTimeValidation';
 import {
@@ -411,11 +412,11 @@ async function handleDashboardUpdate(params: {
 
     let normalizedStartDateTime = startVenue.dateTime.set({ second: 0, millisecond: 0 });
     const existingBookingTypeRaw = existingBooking.booking_type ?? '';
+    let bookingType = isBookingType(existingBookingTypeRaw)
+      ? existingBookingTypeRaw
+      : inferMealTypeFromTime(startTime);
 
     try {
-      const bookingType = isBookingType(existingBookingTypeRaw)
-        ? existingBookingTypeRaw
-        : inferMealTypeFromTime(startTime);
       const { time } = assertBookingWithinOperatingWindow({
         schedule,
         requestedTime: startTime,
@@ -427,6 +428,9 @@ async function handleDashboardUpdate(params: {
         minute: Number.parseInt(time.slice(3, 5), 10),
       });
       bookingDate = normalizedStartDateTime.toISODate() ?? bookingDate;
+      bookingType = isBookingType(existingBookingTypeRaw)
+        ? existingBookingTypeRaw
+        : inferMealTypeFromTime(startTime);
     } catch (validationError) {
       if (validationError instanceof OperatingHoursError) {
         return NextResponse.json(
@@ -472,22 +476,25 @@ async function handleDashboardUpdate(params: {
       throw pastTimeError;
     }
 
-    const scheduleDuration =
-      typeof schedule.defaultDurationMinutes === 'number' && schedule.defaultDurationMinutes > 0
-        ? schedule.defaultDurationMinutes
-        : null;
-    const configuredDuration = scheduleDuration ?? null;
+    const { durationMinutes: computedDuration } = await resolveBookingDurationMinutes({
+      restaurantId,
+      bookingDate,
+      startTime,
+      partySize: data.partySize,
+      bookingOption: bookingType,
+      timezone: schedule.timezone ?? scheduleTimezone,
+      client: serviceSupabase,
+    });
     const fallbackDuration =
       existingDurationMinutes && existingDurationMinutes > 0
         ? existingDurationMinutes
-        : (env.reserve.defaultDurationMinutes ?? 90);
+        : (computedDuration > 0 ? computedDuration : (env.reserve.defaultDurationMinutes ?? 90));
 
     let durationMinutes: number;
     let endDateTime = normalizedStartDateTime;
 
     if (isTimeChanged) {
-      const enforcedDuration = configuredDuration ?? fallbackDuration;
-      durationMinutes = enforcedDuration > 0 ? enforcedDuration : 90;
+      durationMinutes = computedDuration > 0 ? computedDuration : fallbackDuration;
       endDateTime = normalizedStartDateTime.plus({ minutes: durationMinutes });
     } else if (explicitEndVenue) {
       endDateTime = explicitEndVenue.dateTime;
@@ -499,8 +506,7 @@ async function handleDashboardUpdate(params: {
       endDateTime = existingEndVenue.dateTime;
       durationMinutes = fallbackDuration > 0 ? fallbackDuration : 90;
     } else {
-      const inferredDuration = configuredDuration ?? fallbackDuration;
-      durationMinutes = inferredDuration > 0 ? inferredDuration : 90;
+      durationMinutes = computedDuration > 0 ? computedDuration : fallbackDuration;
       endDateTime = normalizedStartDateTime.plus({ minutes: durationMinutes });
     }
 
@@ -1248,7 +1254,16 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       throw validationError;
     }
 
-    const endTime = deriveEndTime(startTime, normalizedBookingType);
+    const { durationMinutes } = await resolveBookingDurationMinutes({
+      restaurantId,
+      bookingDate: data.date,
+      startTime,
+      partySize: data.party,
+      bookingOption: normalizedBookingType,
+      timezone: schedule.timezone ?? 'Europe/London',
+      client: serviceSupabase,
+    });
+    const endTime = deriveEndTimeFromDuration(startTime, durationMinutes);
 
     try {
       assertBookingNotInPast(schedule.timezone ?? 'Europe/London', data.date, startTime, {

@@ -220,8 +220,12 @@ export function inferMealTypeFromTime(time: string): BookingType {
 }
 
 export function deriveEndTime(startTime: string, bookingType: BookingType): string {
+  return deriveEndTimeFromDuration(startTime, calculateDurationMinutes(bookingType));
+}
+
+export function deriveEndTimeFromDuration(startTime: string, durationMinutes: number): string {
   const startMinutes = minutesFromTime(startTime);
-  const endMinutes = startMinutes + calculateDurationMinutes(bookingType);
+  const endMinutes = startMinutes + Math.max(1, Math.round(durationMinutes));
   return minutesToTime(endMinutes);
 }
 

@@ -280,6 +280,7 @@ function prepareLookaheadBookings(params: {
         bookingDate: booking.booking_date,
         startTime: booking.start_time,
         partySize,
+        bookingOption: booking.booking_type ?? null,
         policy,
       });
     } catch {
@@ -706,6 +707,7 @@ export function buildBusyMaps(params: {
       bookingDate: booking.booking_date,
       startTime: booking.start_time,
       partySize: booking.party_size,
+      bookingOption: booking.booking_type ?? null,
       policy,
     });
 
@@ -847,6 +849,7 @@ export async function isTableAvailableV2(
   options?: {
     excludeBookingId?: string;
     policy?: VenuePolicy;
+    bookingOption?: string | null;
     client?: DbClient;
   },
 ): Promise<boolean> {
@@ -855,6 +858,7 @@ export async function isTableAvailableV2(
   const { window } = computeBookingWindowWithFallback({
     startISO,
     partySize,
+    bookingOption: options?.bookingOption ?? null,
     policy,
   });
 
