@@ -12,9 +12,11 @@ import type { TransitionResult } from "@/server/ops/booking-lifecycle/actions";
 import type { Database, Tables } from "@/types/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-const DEFAULT_WINDOW_MINUTES = 15;
+import { resolveBookingEndAtUtc } from "@/server/bookings/booking-access";
+
+const DEFAULT_WINDOW_MINUTES = 30;
 const DEFAULT_LIMIT = 200;
-const CLOSE_BUFFER_MINUTES = 5;
+const CLOSE_DELAY_MINUTES = 30;
 const ACTOR_ID_OVERRIDE = process.env.AUTO_COMPLETE_ACTOR_ID?.trim() || null;
 
 type RestaurantRow = Pick<Tables<"restaurants">, "id" | "name" | "timezone">;
@@ -83,14 +85,17 @@ function resolveLocalDateTime(
   return dt.isValid ? dt : null;
 }
 
-function resolveClosingWindowStart(
+function resolveClosingWindowRange(
   localDate: string,
   closingTime: string | null,
   timezone: string,
-): DateTime | null {
+  windowMinutes: number,
+): { start: DateTime; end: DateTime } | null {
   const closeAt = resolveLocalDateTime(localDate, closingTime, timezone);
   if (!closeAt) return null;
-  return closeAt.plus({ minutes: CLOSE_BUFFER_MINUTES });
+  const start = closeAt.plus({ minutes: CLOSE_DELAY_MINUTES });
+  const end = start.plus({ minutes: windowMinutes });
+  return start.isValid && end.isValid ? { start, end } : null;
 }
 
 function toUtcIso(dt: DateTime | null): string | null {
@@ -105,16 +110,22 @@ function computeStartAtUtc(booking: BookingRow, timezone: string): string | null
   return toUtcIso(dt);
 }
 
-function computeEndAtUtc(booking: BookingRow, timezone: string): string | null {
-  if (booking.end_at) return booking.end_at;
-  const localEnd = resolveLocalDateTime(booking.booking_date, booking.end_time, timezone);
-  if (!localEnd) {
-    return computeStartAtUtc(booking, timezone);
+function computeFallbackEndAtUtc(
+  booking: BookingRow,
+  timezone: string,
+  defaultDurationMinutes: number,
+): string | null {
+  if (booking.start_at) {
+    const startAt = DateTime.fromISO(booking.start_at, { zone: "utc" });
+    if (startAt.isValid) {
+      return startAt.plus({ minutes: defaultDurationMinutes }).toUTC().toISO();
+    }
   }
 
   const localStart = resolveLocalDateTime(booking.booking_date, booking.start_time, timezone);
-  const adjustedEnd = localStart && localEnd < localStart ? localEnd.plus({ days: 1 }) : localEnd;
-  return toUtcIso(adjustedEnd) ?? computeStartAtUtc(booking, timezone);
+  if (!localStart) return null;
+  const localEnd = localStart.plus({ minutes: defaultDurationMinutes });
+  return toUtcIso(localEnd);
 }
 
 async function resolveActorId(
@@ -153,20 +164,7 @@ async function resolveActorId(
     }
   }
 
-  try {
-    const { data: listData } = await supabase.auth.admin.listUsers({ perPage: 1 });
-    const fallbackId = listData?.users?.[0]?.id ?? null;
-    if (!fallbackId) {
-      console.warn("[cron][auto-complete] no auth users available for fallback", { restaurantId });
-    }
-    return fallbackId;
-  } catch (authError) {
-    console.warn("[cron][auto-complete] failed to resolve fallback user", {
-      restaurantId,
-      error: formatError(authError),
-    });
-    return null;
-  }
+  return null;
 }
 
 async function applyTransition(
@@ -264,7 +262,7 @@ async function fetchEligibleBookings(
     )
     .eq("restaurant_id", restaurantId)
     .in("status", ["confirmed", "checked_in"])
-    .lte("booking_date", localDate)
+    .eq("booking_date", localDate)
     .order("end_at", { ascending: true, nullsFirst: false })
     .limit(limit);
 
@@ -329,14 +327,18 @@ export async function autoCompletePastBookings(options: AutoCompleteOptions = {}
       continue;
     }
 
-    const windowStart = resolveClosingWindowStart(localDate, schedule.window.closesAt, timezone);
-    if (!windowStart) {
+    const windowRange = resolveClosingWindowRange(
+      localDate,
+      schedule.window.closesAt,
+      timezone,
+      windowMinutes,
+    );
+    if (!windowRange) {
       restaurantsSkippedWindow += 1;
       continue;
     }
 
-    const windowEnd = windowStart.plus({ minutes: windowMinutes });
-    if (localNow < windowStart || localNow >= windowEnd) {
+    if (localNow < windowRange.start || localNow >= windowRange.end) {
       restaurantsSkippedWindow += 1;
       continue;
     }
@@ -357,19 +359,30 @@ export async function autoCompletePastBookings(options: AutoCompleteOptions = {}
     for (const booking of bookings) {
       if (candidates >= limit) break;
 
-      const endAtUtc = computeEndAtUtc(booking, timezone);
-      if (!endAtUtc) {
+      const baseEndAtUtc = resolveBookingEndAtUtc(booking, timezone);
+      const fallbackEndAtUtc =
+        booking.end_at || booking.end_time
+          ? null
+          : computeFallbackEndAtUtc(booking, timezone, schedule.defaultDurationMinutes);
+      const resolvedEndAtUtc = fallbackEndAtUtc ?? baseEndAtUtc;
+      const effectiveEndAtUtc = resolvedEndAtUtc ?? nowUtc.toISO();
+      if (!effectiveEndAtUtc) {
         skipped += 1;
         continue;
       }
 
-      const endAt = DateTime.fromISO(endAtUtc);
-      if (!endAt.isValid || endAt >= nowUtc) {
+      const endAt = DateTime.fromISO(effectiveEndAtUtc);
+      if (!endAt.isValid) {
         skipped += 1;
         continue;
       }
 
       const startAtUtc = computeStartAtUtc(booking, timezone);
+      const checkoutAtUtc = endAt <= nowUtc ? endAt.toUTC().toISO() : nowUtc.toISO();
+      if (!checkoutAtUtc) {
+        skipped += 1;
+        continue;
+      }
 
       candidates += 1;
       if (dryRun) {
@@ -380,7 +393,7 @@ export async function autoCompletePastBookings(options: AutoCompleteOptions = {}
         let currentBooking: BookingRow = booking;
 
         if (currentBooking.status === "confirmed" || !currentBooking.checked_in_at) {
-          const performedCheckInAt = currentBooking.checked_in_at ?? startAtUtc ?? endAtUtc;
+          const performedCheckInAt = currentBooking.checked_in_at ?? startAtUtc ?? checkoutAtUtc;
           if (!performedCheckInAt) {
             throw new Error("Missing start_at for check-in");
           }
@@ -428,7 +441,7 @@ export async function autoCompletePastBookings(options: AutoCompleteOptions = {}
             restaurant_id: currentBooking.restaurant_id,
           },
           actorId,
-          performedAt: endAtUtc,
+          performedAt: checkoutAtUtc,
           reason: "auto-complete",
         });
 
