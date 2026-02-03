@@ -1406,6 +1406,8 @@ export type Database = {
           is_closed: boolean;
           notes: string | null;
           opens_at: string | null;
+          reservation_interval_minutes: number | null;
+          reservation_slot_times: string[] | null;
           restaurant_id: string;
           updated_at: string;
         };
@@ -1418,6 +1420,8 @@ export type Database = {
           is_closed?: boolean;
           notes?: string | null;
           opens_at?: string | null;
+          reservation_interval_minutes?: number | null;
+          reservation_slot_times?: string[] | null;
           restaurant_id: string;
           updated_at?: string;
         };
@@ -1430,6 +1434,8 @@ export type Database = {
           is_closed?: boolean;
           notes?: string | null;
           opens_at?: string | null;
+          reservation_interval_minutes?: number | null;
+          reservation_slot_times?: string[] | null;
           restaurant_id?: string;
           updated_at?: string;
         };

@@ -1,0 +1,2 @@
+export const RESERVATION_INTERVAL_MIN = 1;
+export const RESERVATION_INTERVAL_MAX = 180;

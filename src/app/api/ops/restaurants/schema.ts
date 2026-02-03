@@ -1,8 +1,17 @@
 import { z } from 'zod';
 
+import {
+  RESERVATION_INTERVAL_MAX,
+  RESERVATION_INTERVAL_MIN,
+} from '@/lib/restaurants/reservation-interval';
+
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SLUG_REGEX = /^[a-z0-9]+(-[a-z0-9]+)*$/;
-const INTERVAL_SCHEMA = z.number().int().min(1).max(180);
+const INTERVAL_SCHEMA = z
+  .number()
+  .int()
+  .min(RESERVATION_INTERVAL_MIN)
+  .max(RESERVATION_INTERVAL_MAX);
 const DURATION_SCHEMA = z.number().int().min(15).max(300);
 const GRACE_SCHEMA = z.number().int().min(0).max(120);
 

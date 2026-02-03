@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import {
+  RESERVATION_INTERVAL_MAX,
+  RESERVATION_INTERVAL_MIN,
+} from '@/lib/restaurants/reservation-interval';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import {
   getOperatingHours,
@@ -19,6 +23,12 @@ const timeSchema = z
   .regex(TIME_REGEX)
   .transform((value) => canonicalTime(value));
 const notesSchema = z.string().max(250);
+const intervalSchema = z
+  .number()
+  .int()
+  .min(RESERVATION_INTERVAL_MIN)
+  .max(RESERVATION_INTERVAL_MAX);
+const slotTimesSchema = z.array(timeSchema);
 
 const weeklyEntrySchema = z
   .object({
@@ -27,6 +37,8 @@ const weeklyEntrySchema = z
     closesAt: z.union([timeSchema, z.null()]).optional(),
     isClosed: z.boolean().optional(),
     notes: notesSchema.nullable().optional(),
+    reservationIntervalMinutes: z.union([intervalSchema, z.null()]).optional(),
+    reservationSlotTimes: z.union([slotTimesSchema, z.null()]).optional(),
   })
   .superRefine((data, ctx) => {
     const isClosed = data.isClosed ?? false;
@@ -50,6 +62,8 @@ const overrideSchema = z
     closesAt: z.union([timeSchema, z.null()]).optional(),
     isClosed: z.boolean().optional(),
     notes: notesSchema.nullable().optional(),
+    reservationIntervalMinutes: z.union([intervalSchema, z.null()]).optional(),
+    reservationSlotTimes: z.union([slotTimesSchema, z.null()]).optional(),
   })
   .superRefine((data, ctx) => {
     const isClosed = data.isClosed ?? false;

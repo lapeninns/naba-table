@@ -81,6 +81,8 @@ type RawOperatingHours = {
   opens_at: string | null;
   closes_at: string | null;
   is_closed: boolean | null;
+  reservation_interval_minutes: number | null;
+  reservation_slot_times: string[] | null;
 };
 
 const ALLOWED_BOOKING_OPTIONS = new Set<OccasionKey>(['lunch', 'dinner']);
@@ -132,6 +134,42 @@ function resolveMonth(date: string, timezone: string): number {
 function normalizeMaybeTime(value: string | null | undefined): ReservationTime | null {
   const normalized = normalizeTime(value ?? null);
   return normalized;
+}
+
+function normalizeSlotTimes(value: string[] | null | undefined): ReservationTime[] {
+  if (!value || value.length === 0) {
+    return [];
+  }
+  const seen = new Set<number>();
+  const slots: Array<{ minutes: number; value: ReservationTime }> = [];
+  value.forEach((entry) => {
+    const normalized = normalizeTime(entry);
+    if (!normalized) {
+      return;
+    }
+    const minutes = toMinutes(normalized);
+    if (seen.has(minutes)) {
+      return;
+    }
+    seen.add(minutes);
+    slots.push({ minutes, value: normalized });
+  });
+  slots.sort((a, b) => a.minutes - b.minutes);
+  return slots.map((slot) => slot.value);
+}
+
+function resolveIntervalMinutes(
+  overrideInterval: number | null | undefined,
+  weeklyInterval: number | null | undefined,
+  fallback: number,
+): number {
+  if (typeof overrideInterval === 'number' && overrideInterval > 0) {
+    return overrideInterval;
+  }
+  if (typeof weeklyInterval === 'number' && weeklyInterval > 0) {
+    return weeklyInterval;
+  }
+  return fallback > 0 ? fallback : 15;
 }
 
 function isPeriodActiveForDay(period: RawServicePeriod, dayOfWeek: number): boolean {
@@ -248,6 +286,7 @@ function computeSlots(
   defaultDurationMinutes: number,
   lastSeatingBufferMinutes: number,
   month: number,
+  fixedSlots: ReservationTime[] | null,
 ): RestaurantScheduleSlot[] {
   if (!opensAt || !closesAt || toMinutes(closesAt) <= toMinutes(opensAt)) {
     return [];
@@ -330,8 +369,21 @@ function computeSlots(
     return matches[0]?.period ?? null;
   };
 
-  const baseSlots = slotsForRange(opensAt, closesAt, intervalMinutes);
+  const openingMinutes = toMinutes(opensAt);
   const closingMinutes = closesAt ? toMinutes(closesAt) : null;
+  const baseSlots =
+    fixedSlots && fixedSlots.length > 0
+      ? fixedSlots.filter((slot) => {
+          const minutes = toMinutes(slot);
+          if (minutes < openingMinutes) {
+            return false;
+          }
+          if (closingMinutes !== null && minutes >= closingMinutes) {
+            return false;
+          }
+          return true;
+        })
+      : slotsForRange(opensAt, closesAt, intervalMinutes);
 
   return baseSlots.reduce<RestaurantScheduleSlot[]>((acc, slot) => {
     const period = findPeriodForTime(slot);
@@ -419,13 +471,13 @@ export async function getRestaurantSchedule(
     await Promise.all([
       client
         .from('restaurant_operating_hours')
-        .select('opens_at, closes_at, is_closed')
+        .select('opens_at, closes_at, is_closed, reservation_interval_minutes, reservation_slot_times')
         .eq('restaurant_id', restaurantId)
         .eq('effective_date', date)
         .maybeSingle(),
       client
         .from('restaurant_operating_hours')
-        .select('opens_at, closes_at, is_closed')
+        .select('opens_at, closes_at, is_closed, reservation_interval_minutes, reservation_slot_times')
         .eq('restaurant_id', restaurantId)
         .eq('day_of_week', dayOfWeek)
         .is('effective_date', null)
@@ -453,6 +505,14 @@ export async function getRestaurantSchedule(
   const closesAt = normalizeMaybeTime(effectiveHours?.closes_at);
   const closedFlag = Boolean(effectiveHours?.is_closed);
   const isClosed = closedFlag || !opensAt || !closesAt || toMinutes(closesAt) <= toMinutes(opensAt);
+  const effectiveIntervalMinutes = resolveIntervalMinutes(
+    overrideRow?.reservation_interval_minutes,
+    weeklyRow?.reservation_interval_minutes,
+    intervalMinutes,
+  );
+  const overrideSlotTimes = normalizeSlotTimes(overrideRow?.reservation_slot_times);
+  const weeklySlotTimes = normalizeSlotTimes(weeklyRow?.reservation_slot_times);
+  const effectiveSlotTimes = overrideSlotTimes.length > 0 ? overrideSlotTimes : weeklySlotTimes;
 
   const relevantPeriods = (periods ?? []).filter((period): period is RawServicePeriod =>
     Boolean(period) && Boolean(period.start_time) && Boolean(period.end_time) && isPeriodActiveForDay(period, dayOfWeek),
@@ -470,7 +530,7 @@ export async function getRestaurantSchedule(
     : computeSlots(
       opensAt,
       closesAt,
-      intervalMinutes,
+      effectiveIntervalMinutes,
       relevantPeriods,
       dayOfWeek,
       coverage,
@@ -481,6 +541,7 @@ export async function getRestaurantSchedule(
       defaultDurationMinutes,
       lastSeatingBufferMinutes,
       month,
+      effectiveSlotTimes.length > 0 ? effectiveSlotTimes : null,
     );
 
   const availableOptionsSet = new Set<OccasionKey>();
@@ -502,7 +563,7 @@ export async function getRestaurantSchedule(
     restaurantId: restaurant.id,
     date,
     timezone: restaurant.timezone,
-    intervalMinutes,
+    intervalMinutes: effectiveIntervalMinutes,
     defaultDurationMinutes,
     window: {
       opensAt: opensAt,

@@ -97,6 +97,8 @@ export type OperatingHoursRow = {
   closesAt: string | null;
   isClosed: boolean;
   notes: string | null;
+  reservationIntervalMinutes?: number | null;
+  reservationSlotTimes?: string[] | null;
 };
 
 export type OperatingHoursOverride = {
@@ -106,6 +108,8 @@ export type OperatingHoursOverride = {
   closesAt: string | null;
   isClosed: boolean;
   notes: string | null;
+  reservationIntervalMinutes?: number | null;
+  reservationSlotTimes?: string[] | null;
 };
 
 export type OperatingHoursSnapshot = {

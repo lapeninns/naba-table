@@ -14,6 +14,8 @@ export type WeeklyRow = {
   closesAt: string;
   isClosed: boolean;
   notes: string;
+  reservationIntervalMinutes: string;
+  reservationSlotTimes: string;
 };
 
 export type OverrideRow = {
@@ -23,6 +25,8 @@ export type OverrideRow = {
   closesAt: string;
   isClosed: boolean;
   notes: string;
+  reservationIntervalMinutes: string;
+  reservationSlotTimes: string;
 };
 
 export type ServicePeriodRow = {
@@ -34,8 +38,17 @@ export type ServicePeriodRow = {
   bookingOption: OccasionKey;
 };
 
-export type WeeklyErrors = Record<number, { opensAt?: string; closesAt?: string }>;
-export type OverrideErrors = Array<{ effectiveDate?: string; opensAt?: string; closesAt?: string }>;
+export type WeeklyErrors = Record<
+  number,
+  { opensAt?: string; closesAt?: string; reservationIntervalMinutes?: string; reservationSlotTimes?: string }
+>;
+export type OverrideErrors = Array<{
+  effectiveDate?: string;
+  opensAt?: string;
+  closesAt?: string;
+  reservationIntervalMinutes?: string;
+  reservationSlotTimes?: string;
+}>;
 export type ServicePeriodErrors = Array<{
   name?: string;
   startTime?: string;
