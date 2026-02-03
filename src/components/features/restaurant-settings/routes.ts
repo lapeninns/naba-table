@@ -27,6 +27,12 @@ export const RESTAURANT_SETTINGS_ROUTES: RestaurantSettingsRoute[] = [
     description: 'Lunch/dinner booking windows within operating hours.',
   },
   {
+    view: 'turn-durations',
+    href: '/settings/restaurant/turn-durations',
+    title: 'Reservation Durations',
+    description: 'Define dining duration bands by party size.',
+  },
+  {
     view: 'occasions',
     href: '/settings/restaurant/occasions',
     title: 'Booking occasions',
@@ -52,6 +58,7 @@ export const RESTAURANT_SETTINGS_NAV_ITEMS: RestaurantSettingsNavItem[] = [
   getRoute('profile'),
   getRoute('operating-hours'),
   getRoute('service-periods'),
+  getRoute('turn-durations'),
   {
     href: '/settings/tables',
     title: 'Tables',

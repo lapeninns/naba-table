@@ -1,0 +1,14 @@
+Seed apply summary (production)
+Source slug: the-corner-house-pub-cambridge
+Target name: The Railway Pub
+Target id: 6c672bdb-da36-48b3-bd4c-a8b61e7c7121
+Applied: true
+
+Tables:
+- allowed_capacities: 4 (skipped; already seeded)
+- restaurant_operating_hours: 10 (skipped; already seeded)
+- restaurant_service_periods: 14 (skipped; already seeded)
+- zones: 3
+- table_inventory: 13
+- table_adjacencies: 56
+- restaurant_capacity_rules: 0

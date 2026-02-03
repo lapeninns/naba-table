@@ -1,41 +1,42 @@
 # Continuity Ledger
 
-Last updated: 2026-02-03T09:06:30Z
+Last updated: 2026-02-03T18:07:00Z
 
 ## Goal (incl. success criteria)
 
-- Fix guest booking edit flow so email link works on a new device.
-- Success: Public booking detail no longer throws `useOpsServices must be used within an OpsServicesProvider`.
-- Success: Guest edit uses guest update API; ops edit continues via ops services.
+- Fix eslint warnings in scripts so pre-commit passes.
+- Success: no `@typescript-eslint/no-unused-vars` warnings in `scripts/seed-railway-from-cornerhouse.ts` and `scripts/update-railway-details.ts`.
 
 ## Constraints/Assumptions
 
-- Follow AGENTS SDLC; task folder with artifacts.
-- Chrome DevTools MCP QA required for UI changes.
-- Keep changes minimal in legacy `components/` folder.
+- Follow root AGENTS policies.
+- Create task folder with SDLC artifacts before code changes.
+- Keep changes minimal and behavior-preserving.
 
 ## Key decisions
 
-- Dispatch `EditBookingDialog` into guest/ops subcomponents by `mode` to avoid ops hooks on guest routes.
+- Replace type-only const with union type.
+- Use `catch {}` to avoid unused error var.
+- Prefix unused destructured field to satisfy lint.
 
 ## State
 
-- Implementation complete; DevTools QA partially blocked by missing booking token/cookie.
+- Code changes applied; lint run succeeded.
 
 ## Done
 
-- Refactored `EditBookingDialog` to use guest/ops mutations via separate subcomponents.
-- Removed ops hook usage from guest booking detail.
-- Created task artifacts and captured DevTools screenshot.
+- Created task folder `tasks/fix-scripts-eslint-20260203-1645` with SDLC artifacts.
+- Updated `seed-railway-from-cornerhouse.ts` to use `TablesScope` union type and `_area_type` in fallback map.
+- Updated `update-railway-details.ts` to use `catch {}`.
+- Ran `pnpm eslint --fix --max-warnings=0 scripts/seed-railway-from-cornerhouse.ts scripts/update-railway-details.ts`.
 
 ## Now
 
-- Document QA limitations and finalize verification notes.
+- Report changes and lint result.
 
 ## Next
 
-- Re-run DevTools MCP QA with a valid booking token/cookie when available.
-- Update `verification.md` to complete remaining checks.
+- None.
 
 ## Open questions (UNCONFIRMED if needed)
 
@@ -43,6 +44,6 @@ Last updated: 2026-02-03T09:06:30Z
 
 ## Working set (files/ids/commands)
 
-- `components/dashboard/EditBookingDialog.tsx`
-- `tasks/fix-guest-booking-edit-dialog-20260203-0902/*`
-- `tasks/fix-guest-booking-edit-dialog-20260203-0902/artifacts/auth-signin.png`
+- `scripts/seed-railway-from-cornerhouse.ts`
+- `scripts/update-railway-details.ts`
+- `tasks/fix-scripts-eslint-20260203-1645/*`

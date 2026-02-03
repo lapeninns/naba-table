@@ -191,6 +191,22 @@ cancelled  cancelled  cancelled
 - Party size: 5 → Uses band with `maxPartySize: 6` → 85 minutes
 - Party size: 10 → Uses band with `maxPartySize: 8` → 90 minutes (largest)
 
+### Restaurant Turn Bands (Overrides)
+
+Restaurants can override turn bands per booking option using `restaurant_turn_bands`.
+
+**Priority order**:
+
+1. **Restaurant override** for the specific booking option
+2. **Default service bands** for lunch/dinner (based on time-of-day)
+3. **Existing default duration** (used only if a band is invalid or missing)
+
+**Notes**:
+
+- Booking options come from `booking_occasions`.
+- Overrides are stored by `(restaurant_id, booking_option, max_party_size)`.
+- When no overrides exist, defaults remain in effect.
+
 ### Buffer Rules
 
 **Purpose**: Prevent back-to-back bookings, allow for cleanup/turnover
@@ -687,7 +703,7 @@ This document catalogs **all business logic** in SajiloReserveX:
 - ✅ **16 core business rules** (table mobility, capacity, adjacency, etc.)
 - ✅ **30+ feature flags** controlling behavior
 - ✅ **6 booking statuses** with defined transitions
-- ✅ **2 service periods** (lunch, dinner) with turn durations
+- ✅ **Service periods** keyed by booking option (lunch/dinner defaults + overrides)
 - ✅ **5 scoring weights** for table optimization
 - ✅ **7 validation checks** for manual selection
 - ✅ **3 key algorithms** (service detection, turn calculation, table selection)

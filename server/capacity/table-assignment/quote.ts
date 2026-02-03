@@ -3,7 +3,13 @@ import { DateTime } from "luxon";
 import { env } from "@/lib/env";
 import { resolveDemandMultiplier, type DemandMultiplierResult } from "@/server/capacity/demand-profiles";
 import { createTableHold, releaseTableHold, findHoldConflicts, HoldConflictError, type HoldConflictInfo, type TableHold } from "@/server/capacity/holds";
-import { getVenuePolicy, getSelectorScoringConfig, getYieldManagementScarcityWeight, type SelectorScoringConfig, type ServiceKey } from "@/server/capacity/policy";
+import {
+  getVenuePolicy,
+  getSelectorScoringConfig,
+  getYieldManagementScarcityWeight,
+  type SelectorScoringConfig,
+  type ServiceKey,
+} from "@/server/capacity/policy";
 import { loadTableScarcityScores } from "@/server/capacity/scarcity";
 import { buildScoredTablePlans, type RankedTablePlan, type CandidateDiagnostics } from "@/server/capacity/selector";
 import { loadStrategicConfig } from "@/server/capacity/strategic-config";
@@ -27,6 +33,7 @@ import {
   isAllocatorServiceFailHard,
   isOpsMetricsEnabled,
 } from "@/server/feature-flags";
+import { getRestaurantTurnBands } from "@/server/restaurants/turnBands";
 import { getTenantServiceSupabaseClient } from "@/server/supabase";
 
 import {
@@ -272,7 +279,11 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     (booking.restaurants && !Array.isArray(booking.restaurants) ? booking.restaurants.timezone : null) ??
     restaurantTimezoneLookup ??
     getVenuePolicy().timezone;
-  const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
+  const turnBandsByOption = await getRestaurantTurnBands(booking.restaurant_id, supabase);
+  const policy = getVenuePolicy({
+    timezone: restaurantTimezone ?? undefined,
+    turnBandsByOption,
+  });
   const policyVersion = hashPolicyVersion(policy);
   const {
     window,
@@ -283,6 +294,7 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     bookingDate: booking.booking_date,
     startTime: booking.start_time,
     partySize: booking.party_size,
+    bookingOption: booking.booking_type ?? null,
     policy,
   });
   const shouldEmitPlannerStats = env.featureFlags.planner.debugProfiling ?? false;
@@ -945,15 +957,17 @@ export async function findSuitableTables(options: {
     (booking.restaurants && !Array.isArray(booking.restaurants) ? booking.restaurants.timezone : null) ??
     (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
     defaultPolicy.timezone;
+  const turnBandsByOption = await getRestaurantTurnBands(booking.restaurant_id, supabase);
   const policy =
     restaurantTimezone === defaultPolicy.timezone
-      ? defaultPolicy
-      : getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
+      ? getVenuePolicy({ timezone: defaultPolicy.timezone, turnBandsByOption })
+      : getVenuePolicy({ timezone: restaurantTimezone ?? undefined, turnBandsByOption });
   const { window } = computeBookingWindowWithFallback({
     startISO: booking.start_at,
     bookingDate: booking.booking_date,
     startTime: booking.start_time,
     partySize: booking.party_size,
+    bookingOption: booking.booking_type ?? null,
     policy,
   });
 

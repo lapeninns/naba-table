@@ -7,6 +7,7 @@ import {
   Map,
   Sparkles,
   Clock3,
+  Timer,
   TrendingDown,
   UtensilsCrossed,
   SlidersHorizontal,
@@ -122,6 +123,13 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         href: path('/settings/restaurant/service-periods'),
         icon: UtensilsCrossed,
         match: (pathname) => pathname.startsWith(path('/settings/restaurant/service-periods')),
+      },
+      {
+        title: 'Reservation Durations',
+        description: 'Party-size turn times',
+        href: path('/settings/restaurant/turn-durations'),
+        icon: Timer,
+        match: (pathname) => pathname.startsWith(path('/settings/restaurant/turn-durations')),
       },
       {
         title: 'Tables',

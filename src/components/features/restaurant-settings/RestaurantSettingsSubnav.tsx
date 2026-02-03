@@ -45,6 +45,13 @@ export function RestaurantSettingsSubnav() {
             queryFn: () => restaurantService.getServicePeriods(id),
             enabled: true,
           });
+        case '/settings/restaurant/turn-durations':
+          return prefetchIfStale({
+            queryClient,
+            queryKey: queryKeys.opsRestaurants.turnBands(id),
+            queryFn: () => restaurantService.getTurnBands(id),
+            enabled: true,
+          });
         case '/settings/restaurant/occasions':
           return prefetchIfStale({
             queryClient,

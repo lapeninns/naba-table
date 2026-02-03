@@ -3,6 +3,7 @@ import { getVenuePolicy } from "@/server/capacity/policy";
 import { emitRpcConflict } from "@/server/capacity/telemetry";
 import { isAllocatorV2Enabled, isPolicyRequoteEnabled, isManualAssignmentSnapshotValidationEnabled } from "@/server/feature-flags";
 import { recordObservabilityEvent } from "@/server/observability";
+import { getRestaurantTurnBands } from "@/server/restaurants/turnBands";
 import { getTenantServiceSupabaseClient } from "@/server/supabase";
 
 import { synchronizeAssignments } from "./assignment-sync";
@@ -398,7 +399,11 @@ export async function confirmHoldAssignment(options: ConfirmHoldAssignmentOption
     (booking.restaurants && !Array.isArray(booking.restaurants) ? booking.restaurants.timezone : null) ??
     (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
     getVenuePolicy().timezone;
-  const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
+  const turnBandsByOption = await getRestaurantTurnBands(booking.restaurant_id, supabase);
+  const policy = getVenuePolicy({
+    timezone: restaurantTimezone ?? undefined,
+    turnBandsByOption,
+  });
   const policyVersion = hashPolicyVersion(policy);
   const holdPolicyVersion = typeof holdMetadata?.policyVersion === "string" ? holdMetadata.policyVersion : null;
   if (holdPolicyVersion && holdPolicyVersion !== policyVersion) {
@@ -420,6 +425,7 @@ export async function confirmHoldAssignment(options: ConfirmHoldAssignmentOption
     bookingDate: booking.booking_date,
     startTime: booking.start_time,
     partySize: booking.party_size,
+    bookingOption: booking.booking_type ?? null,
     policy,
   });
   const holdRequireAdjacency =
@@ -846,12 +852,17 @@ export async function assignTableToBooking(
     (booking.restaurants && !Array.isArray(booking.restaurants) ? booking.restaurants.timezone : null) ??
     (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
     getVenuePolicy().timezone;
-  const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
+  const turnBandsByOption = await getRestaurantTurnBands(booking.restaurant_id, supabase);
+  const policy = getVenuePolicy({
+    timezone: restaurantTimezone ?? undefined,
+    turnBandsByOption,
+  });
   const { window } = computeBookingWindowWithFallback({
     startISO: booking.start_at,
     bookingDate: booking.booking_date,
     startTime: booking.start_time,
     partySize: booking.party_size,
+    bookingOption: booking.booking_type ?? null,
     policy,
   });
   const startIso = toIsoUtc(window.block.start);

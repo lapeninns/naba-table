@@ -9,6 +9,7 @@ type ComputeBookingWindow = (args: {
   bookingDate?: string | null;
   startTime?: string | null;
   partySize: number;
+  bookingOption?: string | null;
   policy: VenuePolicy;
   serviceHint?: ServiceKey | null;
 }) => {
@@ -31,6 +32,7 @@ export type BookingValidationInput = {
   bookingDate?: string | null;
   startTime?: string | null;
   partySize: number;
+  bookingOption?: string | null;
   dwellMinutes?: number | null;
   allowAfterHours?: boolean;
   serviceHint?: ServiceKey | null;
@@ -66,6 +68,7 @@ export function validateBookingWindow(input: BookingValidationInput): BookingVal
     bookingDate,
     startTime,
     partySize,
+    bookingOption,
     dwellMinutes,
     allowAfterHours = false,
     serviceHint,
@@ -89,6 +92,7 @@ export function validateBookingWindow(input: BookingValidationInput): BookingVal
       bookingDate,
       startTime,
       partySize,
+      bookingOption,
       policy,
       serviceHint: serviceHint ?? null,
     });

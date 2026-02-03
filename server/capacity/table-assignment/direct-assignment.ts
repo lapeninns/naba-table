@@ -13,8 +13,9 @@
  */
 
 import { evaluateAdjacency, isAdjacencySatisfied, summarizeAdjacencyStatus } from "@/server/capacity/adjacency";
-import { getVenuePolicy, ServiceOverrunError } from "@/server/capacity/policy";
+import { getVenuePolicy, ServiceOverrunError, type TurnBandsByOption } from "@/server/capacity/policy";
 import { getAllocatorAdjacencyMode } from "@/server/feature-flags";
+import { getRestaurantTurnBands } from "@/server/restaurants/turnBands";
 
 import { buildBusyMaps, extractConflictsForTables, resolveRequireAdjacency } from "./availability";
 import { computeBookingWindowWithFallback } from "./booking-window";
@@ -202,7 +203,11 @@ export async function assignTablesDirectly(input: DirectAssignmentInput): Promis
       : null) ??
     (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
     getVenuePolicy().timezone;
-  const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
+  const turnBandsByOption = await getRestaurantTurnBands(booking.restaurant_id, supabase);
+  const policy = getVenuePolicy({
+    timezone: restaurantTimezone ?? undefined,
+    turnBandsByOption,
+  });
 
   let window: BookingWindow;
   try {
@@ -211,6 +216,7 @@ export async function assignTablesDirectly(input: DirectAssignmentInput): Promis
       bookingDate: booking.booking_date,
       startTime: booking.start_time,
       partySize: booking.party_size,
+      bookingOption: booking.booking_type ?? null,
       policy,
     }));
   } catch (error) {
@@ -233,6 +239,7 @@ export async function assignTablesDirectly(input: DirectAssignmentInput): Promis
     window,
     requireAdjacency,
     restaurantTimezone: restaurantTimezone ?? undefined,
+    turnBandsByOption,
     supabase,
   });
 
@@ -345,9 +352,10 @@ async function validateSelection(params: {
   window: BookingWindow;
   requireAdjacency: boolean;
   restaurantTimezone?: string;
+  turnBandsByOption?: TurnBandsByOption | null;
   supabase: DbClient;
 }): Promise<ValidationResult> {
-  const { bookingId, booking, tables, window, requireAdjacency, restaurantTimezone, supabase } = params;
+  const { bookingId, booking, tables, window, requireAdjacency, restaurantTimezone, turnBandsByOption, supabase } = params;
   const checks: ValidationCheck[] = [];
   const summary = summarizeSelection(tables, booking.party_size);
 
@@ -482,7 +490,7 @@ async function validateSelection(params: {
     bookings: contextBookings,
     holds: [], // No holds in direct assignment
     excludeHoldId: null,
-    policy: getVenuePolicy({ timezone: restaurantTimezone ?? undefined }),
+    policy: getVenuePolicy({ timezone: restaurantTimezone ?? undefined, turnBandsByOption }),
     targetWindow: window,
   });
 

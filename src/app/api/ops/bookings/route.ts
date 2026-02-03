@@ -14,20 +14,20 @@ import {
 } from '@/server/booking';
 import { mapValidationFailure, withValidationHeaders } from '@/server/booking/http';
 import {
-  calculateDurationMinutes,
-  deriveEndTime,
+  deriveEndTimeFromDuration,
   fetchBookingsForContact,
   generateUniqueBookingReference,
   inferMealTypeFromTime,
   logAuditEvent,
   insertBookingRecord,
 } from '@/server/bookings';
+import { resolveBookingDurationMinutes } from '@/server/bookings/duration';
 import {
   PastBookingError,
   assertBookingNotInPast,
   canOverridePastBooking,
 } from '@/server/bookings/pastTimeValidation';
-import { validateBookingWindow } from '@/server/capacity';
+import { getVenuePolicy, validateBookingWindow } from '@/server/capacity';
 import { normalizeEmail, upsertCustomer } from '@/server/customers';
 import { isAutoAssignOnBookingEnabled } from '@/server/feature-flags';
 import {
@@ -36,6 +36,7 @@ import {
 } from '@/server/jobs/booking-side-effects';
 import { recordObservabilityEvent } from '@/server/observability';
 import { getRestaurantSchedule } from '@/server/restaurants/schedule';
+import { getRestaurantTurnBands } from '@/server/restaurants/turnBands';
 import { consumeRateLimit } from '@/server/security/rate-limit';
 import { anonymizeIp, extractClientIp } from '@/server/security/request';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
@@ -812,13 +813,28 @@ export async function POST(req: NextRequest) {
   }
 
   const bookingType = payload.bookingType ?? inferMealTypeFromTime(startTime);
+  const turnBandsByOption = await getRestaurantTurnBands(payload.restaurantId, service);
+  const { bookingOption: resolvedBookingOption, durationMinutes } = await resolveBookingDurationMinutes({
+    restaurantId: payload.restaurantId,
+    bookingDate: payload.date,
+    startTime,
+    partySize: payload.party,
+    bookingOption: bookingType,
+    timezone,
+    client: service,
+    turnBandsByOption,
+  });
+  const policy = getVenuePolicy({ timezone, turnBandsByOption });
   const validation = validateBookingWindow({
     startISO: startDateTime.toISO(),
     bookingDate: payload.date,
     startTime,
     partySize: payload.party,
+    bookingOption: resolvedBookingOption,
+    dwellMinutes: durationMinutes,
     allowAfterHours: false,
     timezone,
+    policyOverride: policy,
   });
 
   if (!validation.ok) {
@@ -831,9 +847,13 @@ export async function POST(req: NextRequest) {
   const diningEnd = validation.dining
     ? DateTime.fromISO(validation.dining.end).setZone(timezone ?? undefined)
     : null;
+  const expectedDuration =
+    typeof validation.expectedDiningMinutes === 'number' && validation.expectedDiningMinutes > 0
+      ? Math.round(validation.expectedDiningMinutes)
+      : durationMinutes;
   const endTime = diningEnd?.isValid
     ? diningEnd.toFormat('HH:mm')
-    : deriveEndTime(startTime, bookingType);
+    : deriveEndTimeFromDuration(startTime, expectedDuration);
 
   // Validate booking is not in the past (if feature flag enabled)
   if (env.featureFlags.bookingPastTimeBlocking) {
@@ -1126,7 +1146,17 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
   }
 
   const bookingType = (payload.bookingType ?? inferMealTypeFromTime(payload.time)) as BookingType;
-  const durationMinutes = calculateDurationMinutes(bookingType);
+  const turnBandsByOption = await getRestaurantTurnBands(payload.restaurantId, service);
+  const { durationMinutes } = await resolveBookingDurationMinutes({
+    restaurantId: payload.restaurantId,
+    bookingDate: payload.date,
+    startTime: payload.time,
+    partySize: payload.party,
+    bookingOption: bookingType,
+    timezone: schedule.timezone ?? null,
+    client: service,
+    turnBandsByOption,
+  });
 
   const rawCustomerEmail = (payload.email ?? '').trim();
   const rawCustomerPhone = (payload.phone ?? '').trim();

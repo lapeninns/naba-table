@@ -14,10 +14,12 @@ import {
 import { mapValidationFailure, withValidationHeaders } from '@/server/booking/http';
 import {
   buildBookingAuditSnapshot,
+  inferMealTypeFromTime,
   logAuditEvent,
   softCancelBooking,
   updateBookingRecord,
 } from '@/server/bookings';
+import { resolveBookingDurationMinutes } from '@/server/bookings/duration';
 import { beginBookingModificationFlow } from '@/server/bookings/modification-flow';
 import {
   PastBookingError,
@@ -32,6 +34,7 @@ import {
 } from '@/server/jobs/booking-side-effects';
 import { recordObservabilityEvent } from '@/server/observability';
 import { getRestaurantSchedule } from '@/server/restaurants/schedule';
+import { getRestaurantTurnBands } from '@/server/restaurants/turnBands';
 import {
   getRouteHandlerSupabaseClient,
   getServiceSupabaseClient,
@@ -487,25 +490,37 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     });
   }
 
-  let scheduleDuration: number | null = null;
-  if (schedule) {
-    const maybeDuration = (schedule as { defaultDurationMinutes?: unknown }).defaultDurationMinutes;
-    if (typeof maybeDuration === 'number') {
-      scheduleDuration = maybeDuration;
-    }
-  }
-  const configuredDuration = scheduleDuration && scheduleDuration > 0 ? scheduleDuration : null;
+  const bookingOption =
+    typeof existingBooking.booking_type === 'string' && existingBooking.booking_type.trim().length > 0
+      ? existingBooking.booking_type
+      : inferMealTypeFromTime(startTime);
+  const turnBandsByOption = needsScheduleForDuration
+    ? await getRestaurantTurnBands(restaurantId, serviceSupabase)
+    : null;
+  const computedDuration = needsScheduleForDuration
+    ? (
+        await resolveBookingDurationMinutes({
+          restaurantId,
+          bookingDate,
+          startTime,
+          partySize: parsed.data.partySize,
+          bookingOption,
+          timezone: schedule?.timezone ?? null,
+          client: serviceSupabase,
+          turnBandsByOption: turnBandsByOption ?? undefined,
+        })
+      ).durationMinutes
+    : null;
   const fallbackDuration =
     existingDurationMinutes && existingDurationMinutes > 0
       ? existingDurationMinutes
-      : (env.reserve.defaultDurationMinutes ?? 90);
+      : (computedDuration && computedDuration > 0 ? computedDuration : (env.reserve.defaultDurationMinutes ?? 90));
 
   let durationMinutes: number;
   let endDate: Date;
 
   if (isTimeChanged) {
-    const enforcedDuration = configuredDuration ?? fallbackDuration;
-    durationMinutes = enforcedDuration > 0 ? enforcedDuration : 90;
+    durationMinutes = computedDuration && computedDuration > 0 ? computedDuration : fallbackDuration;
     endDate = new Date(startDate.getTime() + durationMinutes * 60_000);
   } else if (explicitEndIso) {
     const parsedEnd = new Date(explicitEndIso);
@@ -518,8 +533,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     endDate = existingEndAt;
     durationMinutes = fallbackDuration > 0 ? fallbackDuration : 90;
   } else {
-    const inferredDuration = configuredDuration ?? fallbackDuration;
-    durationMinutes = inferredDuration > 0 ? inferredDuration : 90;
+    durationMinutes = computedDuration && computedDuration > 0 ? computedDuration : fallbackDuration;
     endDate = new Date(startDate.getTime() + durationMinutes * 60_000);
   }
 

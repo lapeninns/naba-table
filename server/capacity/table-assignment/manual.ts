@@ -28,6 +28,7 @@ import {
   isAllocatorAdjacencyRequired,
   isAdjacencyQueryUndirected,
 } from '@/server/feature-flags';
+import { getRestaurantTurnBands } from '@/server/restaurants/turnBands';
 
 import { buildBusyMaps, extractConflictsForTables, resolveRequireAdjacency } from './availability';
 import { computeBookingWindowWithFallback } from './booking-window';
@@ -316,7 +317,11 @@ export async function evaluateManualSelection(
       : null) ??
     (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
     getVenuePolicy().timezone;
-  const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
+  const turnBandsByOption = await getRestaurantTurnBands(booking.restaurant_id, supabase);
+  const policy = getVenuePolicy({
+    timezone: restaurantTimezone ?? undefined,
+    turnBandsByOption,
+  });
   const policyVersion = hashPolicyVersion(policy);
 
   let window: BookingWindow;
@@ -326,6 +331,7 @@ export async function evaluateManualSelection(
       bookingDate: booking.booking_date,
       startTime: booking.start_time,
       partySize: booking.party_size,
+      bookingOption: booking.booking_type ?? null,
       policy,
     }));
   } catch (error) {
@@ -529,7 +535,11 @@ export async function createManualHold(options: ManualHoldOptions): Promise<Manu
           : null) ??
         (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
         getVenuePolicy().timezone;
-      const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
+      const turnBandsByOption = await getRestaurantTurnBands(booking.restaurant_id, supabase);
+      const policy = getVenuePolicy({
+        timezone: restaurantTimezone ?? undefined,
+        turnBandsByOption,
+      });
 
       let window: BookingWindow;
       try {
@@ -538,6 +548,7 @@ export async function createManualHold(options: ManualHoldOptions): Promise<Manu
           bookingDate: booking.booking_date,
           startTime: booking.start_time,
           partySize: booking.party_size,
+          bookingOption: booking.booking_type ?? null,
           policy,
         }));
       } catch (error) {
@@ -631,7 +642,11 @@ export async function createManualHold(options: ManualHoldOptions): Promise<Manu
         : null) ??
       (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
       getVenuePolicy().timezone;
-    policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
+    const turnBandsByOption = await getRestaurantTurnBands(booking.restaurant_id, supabase);
+    policy = getVenuePolicy({
+      timezone: restaurantTimezone ?? undefined,
+      turnBandsByOption,
+    });
     policyVersion =
       typeof (validation as { policyVersion?: string }).policyVersion === 'string'
         ? (validation as { policyVersion?: string }).policyVersion!
@@ -643,6 +658,7 @@ export async function createManualHold(options: ManualHoldOptions): Promise<Manu
         bookingDate: booking.booking_date,
         startTime: booking.start_time,
         partySize: booking.party_size,
+        bookingOption: booking.booking_type ?? null,
         policy,
       }));
     } catch (error) {
@@ -805,7 +821,11 @@ export async function getManualAssignmentContext(options: {
       : null) ??
     (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
     getVenuePolicy().timezone;
-  const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
+  const turnBandsByOption = await getRestaurantTurnBands(booking.restaurant_id, supabase);
+  const policy = getVenuePolicy({
+    timezone: restaurantTimezone ?? undefined,
+    turnBandsByOption,
+  });
 
   let window: BookingWindow;
   try {
@@ -814,6 +834,7 @@ export async function getManualAssignmentContext(options: {
       bookingDate: booking.booking_date,
       startTime: booking.start_time,
       partySize: booking.party_size,
+      bookingOption: booking.booking_type ?? null,
       policy,
     }));
   } catch (error) {
@@ -1022,7 +1043,11 @@ export async function instantTableAssignment(
       : null) ??
     (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
     getVenuePolicy().timezone;
-  const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
+  const turnBandsByOption = await getRestaurantTurnBands(booking.restaurant_id, supabase);
+  const policy = getVenuePolicy({
+    timezone: restaurantTimezone ?? undefined,
+    turnBandsByOption,
+  });
   const policyVersion = hashPolicyVersion(policy);
 
   let window: BookingWindow;
@@ -1032,6 +1057,7 @@ export async function instantTableAssignment(
       bookingDate: booking.booking_date,
       startTime: booking.start_time,
       partySize: booking.party_size,
+      bookingOption: booking.booking_type ?? null,
       policy,
     }));
   } catch (error) {

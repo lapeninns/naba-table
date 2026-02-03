@@ -1494,6 +1494,52 @@ export type Database = {
           },
         ];
       };
+
+      restaurant_turn_bands: {
+        Row: {
+          booking_option: string;
+          created_at: string;
+          duration_minutes: number;
+          id: string;
+          max_party_size: number;
+          restaurant_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          booking_option: string;
+          created_at?: string;
+          duration_minutes: number;
+          id?: string;
+          max_party_size: number;
+          restaurant_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          booking_option?: string;
+          created_at?: string;
+          duration_minutes?: number;
+          id?: string;
+          max_party_size?: number;
+          restaurant_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'restaurant_turn_bands_booking_option_fkey';
+            columns: ['booking_option'];
+            isOneToOne: false;
+            referencedRelation: 'booking_occasions';
+            referencedColumns: ['key'];
+          },
+          {
+            foreignKeyName: 'restaurant_turn_bands_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       restaurants: {
         Row: {
           address: string | null;

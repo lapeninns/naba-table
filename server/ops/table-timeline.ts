@@ -6,6 +6,7 @@ import { computeBookingWindowWithFallback } from '@/server/capacity/table-assign
 import { loadActiveHoldsForDate } from '@/server/capacity/table-assignment/supabase';
 import { listTablesWithSummary, type TableRecord } from '@/server/ops/tables';
 import { getRestaurantSchedule, type RestaurantSchedule } from '@/server/restaurants/schedule';
+import { getRestaurantTurnBands } from '@/server/restaurants/turnBands';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { TableHold } from '@/server/capacity/holds';
@@ -37,6 +38,7 @@ type TimelineBookingRow = Pick<
   | 'start_at'
   | 'end_at'
   | 'booking_date'
+  | 'booking_type'
   | 'customer_name'
   | 'customer_email'
   | 'customer_email'
@@ -103,7 +105,11 @@ export async function getTableAvailabilityTimeline({
     return buildClosedResponse(schedule, summary ?? null, slotMeta.services);
   }
 
-  const policy = getVenuePolicy({ timezone: schedule.timezone });
+  const turnBandsByOption = await getRestaurantTurnBands(restaurantId, supabase);
+  const policy = getVenuePolicy({
+    timezone: schedule.timezone,
+    turnBandsByOption,
+  });
   const bookingsResult = await loadTimelineBookings(supabase, restaurantId, schedule.date);
   const { contextRows, bookingMeta } = enrichBookings(bookingsResult, policy);
   const holds = await loadHolds(supabase, restaurantId, schedule.date, policy);
@@ -170,7 +176,7 @@ async function loadTimelineBookings(
   const { data, error } = await supabase
     .from('bookings')
     .select(
-      `id, party_size, status, start_time, end_time, start_at, end_at, booking_date, customer_name, customer_email, customer_phone, notes, booking_table_assignments(table_id)`,
+      `id, party_size, status, start_time, end_time, start_at, end_at, booking_date, booking_type, customer_name, customer_email, customer_phone, notes, booking_table_assignments(table_id)`,
     )
     .eq('restaurant_id', restaurantId)
     .eq('booking_date', date)
@@ -199,6 +205,7 @@ function enrichBookings(bookings: TimelineBookingRow[], policy: ReturnType<typeo
       start_at: booking.start_at,
       end_at: booking.end_at,
       booking_date: booking.booking_date,
+      booking_type: booking.booking_type ?? null,
       seating_preference: null,
       booking_table_assignments: booking.booking_table_assignments ?? [],
     });
@@ -209,6 +216,7 @@ function enrichBookings(bookings: TimelineBookingRow[], policy: ReturnType<typeo
         bookingDate: booking.booking_date,
         startTime: booking.start_time,
         partySize: booking.party_size ?? 0,
+        bookingOption: booking.booking_type ?? null,
         policy,
       });
 

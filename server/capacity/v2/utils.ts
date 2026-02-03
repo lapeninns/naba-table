@@ -55,6 +55,7 @@ export function hashPolicyVersion(policy: VenuePolicy): string {
     timezone: policy.timezone,
     serviceOrder: policy.serviceOrder,
     services: policy.services,
+    turnBandsByOption: policy.turnBandsByOption ?? null,
   }));
   return hash.digest("hex").slice(0, 16);
 }

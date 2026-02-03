@@ -91,6 +91,7 @@ All routes are accessible at `app.nabatable.com/<route>`:
 - `/settings/restaurant/profile` — Restaurant profile
 - `/settings/restaurant/operating-hours` — Operating hours
 - `/settings/restaurant/service-periods` — Service periods
+- `/settings/restaurant/turn-durations` — Reservation durations
 - `/settings/restaurant/occasions` — Special occasions
 - `/settings/restaurant/team` — Team settings
 - `/settings/tables` — Table configuration

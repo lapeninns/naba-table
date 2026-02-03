@@ -20,6 +20,7 @@ export type ComputeWindowArgs = {
   bookingDate?: string | null;
   startTime?: string | null;
   partySize: number;
+  bookingOption?: string | null;
   policy?: VenuePolicy;
   serviceHint?: ServiceKey | null;
 };
@@ -37,7 +38,7 @@ export function computeBookingWindow(args: ComputeWindowArgs): BookingWindow {
   const serviceConfig = policy.services[service];
   const allowOverrun = Boolean(serviceConfig?.allowOverrun);
 
-  const diningMinutes = bandDuration(service, args.partySize, policy);
+  const diningMinutes = bandDuration(service, args.partySize, policy, args.bookingOption);
   const buffer = getBufferConfig(service, policy);
   const diningStart = baseStart;
   let diningEnd = diningStart.plus({ minutes: diningMinutes });
