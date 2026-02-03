@@ -69,6 +69,11 @@ export function useOpsTodaySummary(options: UseOpsTodaySummaryOptions) {
     refetchOnWindowFocus: isEnabled,
     // Keep previous data visible while fetching new date - enables smooth stale-while-revalidate UX
     placeholderData: keepPreviousData,
+    select: (data) => ({
+      ...data,
+      bookings: data.bookings ?? [],
+      totals: data.totals,
+    }),
   });
 
   // Realtime subscription for dashboard summary

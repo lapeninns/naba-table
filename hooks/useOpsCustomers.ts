@@ -1,4 +1,4 @@
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, type InfiniteData } from "@tanstack/react-query";
 import { useMemo } from "react";
 
 import { useCustomerService } from "@/contexts/ops-services";
@@ -19,7 +19,6 @@ export function useOpsCustomers(filters: CustomerFilters | null) {
 
     const params: CustomerListParams = {
       restaurantId: filters.restaurantId,
-      page: filters.page ?? 1,
       pageSize: filters.pageSize,
       sort: filters.sort ?? "desc",
       sortBy: filters.sortBy ?? "last_visit",
@@ -37,16 +36,24 @@ export function useOpsCustomers(filters: CustomerFilters | null) {
     ? queryKeys.opsCustomers.list(normalizedFilters)
     : queryKeys.opsCustomers.list();
 
-  return useQuery<OpsCustomersPage>({
+  return useInfiniteQuery<OpsCustomersPage>({
     queryKey,
-    queryFn: () => {
+    queryFn: ({ pageParam }) => {
       if (!normalizedFilters) {
         throw new Error("Restaurant is required to fetch customers");
       }
-      return customerService.list(normalizedFilters);
+      const page = typeof pageParam === "number" ? pageParam : 1;
+      return customerService.list({
+        ...normalizedFilters,
+        page,
+        pageSize: normalizedFilters.pageSize ?? 50,
+      });
     },
     enabled: Boolean(normalizedFilters?.restaurantId),
-    placeholderData: keepPreviousData,
+    initialPageParam: 1,
+    placeholderData: (previous: InfiniteData<OpsCustomersPage> | undefined) => previous,
     staleTime: 30_000,
+    getNextPageParam: (lastPage) =>
+      lastPage.pageInfo.hasNext ? lastPage.pageInfo.page + 1 : undefined,
   });
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { keepPreviousData, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient, type InfiniteData, type UseInfiniteQueryResult } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 
 import { useBookingService } from '@/contexts/ops-services';
@@ -28,7 +28,6 @@ function normalizeFilters(filters: OpsBookingsFilters) {
   };
 
   if (filters.tableId) normalized.tableId = filters.tableId;
-  if (filters.page) normalized.page = filters.page;
   if (filters.pageSize) normalized.pageSize = filters.pageSize;
   if (filters.status && filters.status !== 'all') normalized.status = filters.status;
   if (filters.statuses && filters.statuses.length > 0) normalized.statuses = filters.statuses.join(',');
@@ -49,7 +48,7 @@ function normalizeFilters(filters: OpsBookingsFilters) {
 
 export function useOpsBookingsList(
   filters: OpsBookingsFilters | null,
-): UseQueryResult<OpsBookingsPage, HttpError> {
+): UseInfiniteQueryResult<InfiniteData<OpsBookingsPage>, HttpError> {
   const bookingService = useBookingService();
   const queryClient = useQueryClient();
   const [realtimeHealthy, setRealtimeHealthy] = useState(true);
@@ -84,7 +83,7 @@ export function useOpsBookingsList(
     });
 
     const invalidate = debounce(() => {
-      queryClient.invalidateQueries({ queryKey, exact: true, refetchType: 'active' });
+      queryClient.invalidateQueries({ queryKey, exact: false, refetchType: 'active' });
     }, 150);
 
     channel.on(
@@ -117,20 +116,28 @@ export function useOpsBookingsList(
   const shouldPoll =
     Boolean(filters?.restaurantId) && isVisible && (!realtimeEnabled || !realtimeHealthy);
 
-  return useQuery<OpsBookingsPage, HttpError>({
+  return useInfiniteQuery<OpsBookingsPage, HttpError>({
     queryKey,
-    queryFn: () => {
+    queryFn: ({ pageParam }) => {
       if (!filters) {
         throw new Error('Restaurant is required to fetch bookings');
       }
-      return bookingService.listBookings(filters);
+      const page = typeof pageParam === 'number' ? pageParam : 1;
+      return bookingService.listBookings({
+        ...filters,
+        page,
+        pageSize: filters.pageSize ?? 50,
+      });
     },
     enabled: Boolean(filters?.restaurantId),
-    placeholderData: keepPreviousData,
+    initialPageParam: 1,
+    placeholderData: (previous) => previous,
     staleTime: 30_000,
     refetchInterval: shouldPoll ? pollIntervalMs : false,
     refetchIntervalInBackground: false,
     refetchOnReconnect: Boolean(filters?.restaurantId),
     refetchOnWindowFocus: Boolean(filters?.restaurantId),
+    getNextPageParam: (lastPage) =>
+      lastPage.pageInfo.hasNext ? lastPage.pageInfo.page + 1 : undefined,
   });
 }

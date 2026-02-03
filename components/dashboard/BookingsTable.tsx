@@ -1,7 +1,9 @@
 'use client';
 
 import { Loader2 } from 'lucide-react';
-import { useMemo } from 'react';
+import { motion, useReducedMotion } from 'motion/react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useWindowVirtualizer } from '@tanstack/react-virtual';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -10,7 +12,6 @@ import { BookingsHeader } from './BookingsHeader';
 import { EmptyState, type EmptyStateProps } from './EmptyState';
 import { OpsBookingCard } from './OpsBookingCard';
 import { OpsBookingCardSkeleton } from './OpsBookingCardSkeleton';
-import { Pagination } from './Pagination';
 
 import type { BookingAction } from '@/components/features/booking-state-machine';
 import type { BookingDTO, BookingsPage } from '@/hooks/useBookings';
@@ -19,17 +20,17 @@ import type { HttpError } from '@/lib/http/errors';
 
 export type BookingsTableProps = {
   bookings: BookingDTO[];
-  page: BookingsPage['pageInfo']['page'];
-  pageSize: BookingsPage['pageInfo']['pageSize'];
   total: BookingsPage['pageInfo']['total'];
   statusFilter: StatusFilter;
   isLoading: boolean;
   isFetching: boolean;
+  isFetchingNextPage?: boolean;
+  hasNextPage?: boolean;
   error: HttpError | null;
   searchTerm: string;
   onSearchChange: (value: string) => void;
   onStatusFilterChange: (status: StatusFilter) => void;
-  onPageChange: (page: number) => void;
+  onLoadMore?: () => void;
   onRetry: () => void;
   onEdit?: (booking: BookingDTO) => void;
   onCancel?: (booking: BookingDTO) => void;
@@ -40,10 +41,10 @@ export type BookingsTableProps = {
   opsLifecycle?: {
     pendingBookingId: string | null;
     pendingAction: BookingAction | null;
-    onCheckIn: (booking: BookingDTO) => Promise<void>;
-    onCheckOut: (booking: BookingDTO) => Promise<void>;
-    onMarkNoShow: (booking: BookingDTO, options?: { performedAt?: string | null; reason?: string | null }) => Promise<void>;
-    onUndoNoShow: (booking: BookingDTO, reason?: string | null) => Promise<void>;
+    onCheckIn: (bookingId: string) => Promise<void>;
+    onCheckOut: (bookingId: string) => Promise<void>;
+    onMarkNoShow: (bookingId: string, options?: { performedAt?: string | null; reason?: string | null }) => Promise<void>;
+    onUndoNoShow: (bookingId: string, reason?: string | null) => Promise<void>;
   };
   showHeaderTitle?: boolean;
   hideHeader?: boolean;
@@ -60,17 +61,17 @@ const DEFAULT_STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
 
 export function BookingsTable({
   bookings,
-  page,
-  pageSize,
   total,
   statusFilter,
   isLoading,
   isFetching,
+  isFetchingNextPage = false,
+  hasNextPage = false,
   error,
   searchTerm,
   onSearchChange,
   onStatusFilterChange,
-  onPageChange,
+  onLoadMore,
   onRetry,
   onEdit,
   onCancel,
@@ -83,6 +84,7 @@ export function BookingsTable({
   hideHeader = false,
   timezone,
 }: BookingsTableProps) {
+  const VIRTUALIZE_MIN_ITEMS = 20;
   const hasBookings = bookings.length > 0;
   const showSkeleton = isLoading && !hasBookings;
   const showUpdating = isFetching && !showSkeleton && !error;
@@ -91,6 +93,9 @@ export function BookingsTable({
   const isOpsVariant = variant === 'ops';
   const isLifecycleLockActive =
     opsLifecycle?.pendingAction === 'check-in' || opsLifecycle?.pendingAction === 'check-out';
+  const prefersReducedMotion = useReducedMotion();
+  const hasAnimatedRef = useRef(false);
+  const measureFrameRef = useRef<number | null>(null);
 
   const emptyState = useMemo(() => {
     if (trimmedSearch) {
@@ -165,6 +170,91 @@ export function BookingsTable({
     }
     : undefined;
 
+  const rowMeasureCacheRef = useRef(new Map<string, number>());
+  const rowStatusCacheRef = useRef(new Map<string, BookingDTO['status']>());
+  const totalItems = hasNextPage ? bookings.length + 1 : bookings.length;
+  const shouldVirtualize = bookings.length >= VIRTUALIZE_MIN_ITEMS || hasNextPage;
+  const rowVirtualizer = useWindowVirtualizer({
+    count: shouldVirtualize ? totalItems : 0,
+    estimateSize: (index) => {
+      if (index >= bookings.length) {
+        return 72;
+      }
+      const id = bookings[index]?.id;
+      if (!id) return 140;
+      return rowMeasureCacheRef.current.get(id) ?? 140;
+    },
+    overscan: 6,
+  });
+  const virtualRows = rowVirtualizer.getVirtualItems();
+
+  const scheduleMeasure = useCallback(() => {
+    if (!shouldVirtualize || measureFrameRef.current !== null) return;
+    measureFrameRef.current = requestAnimationFrame(() => {
+      measureFrameRef.current = null;
+      rowVirtualizer.measure();
+    });
+  }, [rowVirtualizer, shouldVirtualize]);
+
+  useEffect(() => {
+    return () => {
+      if (measureFrameRef.current !== null) {
+        cancelAnimationFrame(measureFrameRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!shouldVirtualize) return;
+    const statusCache = rowStatusCacheRef.current;
+    const measureCache = rowMeasureCacheRef.current;
+    const seen = new Set<string>();
+    let invalidated = false;
+
+    for (const booking of bookings) {
+      seen.add(booking.id);
+      const previousStatus = statusCache.get(booking.id);
+      if (previousStatus && previousStatus !== booking.status) {
+        measureCache.delete(booking.id);
+        invalidated = true;
+      }
+      statusCache.set(booking.id, booking.status);
+    }
+
+    for (const id of statusCache.keys()) {
+      if (!seen.has(id)) {
+        statusCache.delete(id);
+        measureCache.delete(id);
+        invalidated = true;
+      }
+    }
+
+    if (invalidated) {
+      scheduleMeasure();
+    }
+  }, [bookings, scheduleMeasure, shouldVirtualize]);
+
+  const shouldAnimate = !prefersReducedMotion && !hasAnimatedRef.current && bookings.length > 0;
+
+  useEffect(() => {
+    if (bookings.length > 0) {
+      hasAnimatedRef.current = true;
+    }
+  }, [bookings.length]);
+
+  useEffect(() => {
+    if (!shouldVirtualize) return;
+    if (!onLoadMore || !hasNextPage || isFetchingNextPage) {
+      return;
+    }
+    if (bookings.length === 0) return;
+    const lastItem = virtualRows[virtualRows.length - 1];
+    if (!lastItem) return;
+    if (lastItem.index >= bookings.length - 1) {
+      onLoadMore();
+    }
+  }, [bookings.length, hasNextPage, isFetchingNextPage, onLoadMore, shouldVirtualize, virtualRows]);
+
   return (
     <div className="space-y-3">
       {!hideHeader && (
@@ -206,67 +296,57 @@ export function BookingsTable({
       ) : null}
 
       <div className="space-y-3">
-        {/* Mobile View */}
-        <div className="md:hidden">
-          {showSkeleton ? (
-            <div className="grid grid-cols-1 gap-3">
+        {showSkeleton ? (
+          <>
+            <div className="grid grid-cols-1 gap-3 md:hidden">
               {Array.from({ length: 3 }).map((_, i) => (
                 <OpsBookingCardSkeleton key={i} />
               ))}
             </div>
-          ) : showEmpty ? (
-            <EmptyState {...mobileEmptyState} />
-          ) : (
-            <div className="grid grid-cols-1 gap-3">
-              {bookings.map((booking) => {
-                const actionsDisabled =
-                  isLifecycleLockActive &&
-                  Boolean(opsLifecycle?.pendingBookingId) &&
-                  opsLifecycle?.pendingBookingId !== booking.id;
-
-                return (
-                  <div
-                    key={booking.id}
-                    className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 motion-safe:ease-out motion-reduce:animate-none"
-                  >
-                    <OpsBookingCard
-                      booking={booking}
-                      timezone={timezone || 'UTC'}
-                      onEdit={onEdit}
-                      onCancel={onCancel}
-                      onDetails={onDetails}
-                      onCheckIn={opsLifecycle ? (_id: string) => opsLifecycle.onCheckIn(booking) : undefined}
-                      onCheckOut={opsLifecycle ? (_id: string) => opsLifecycle.onCheckOut(booking) : undefined}
-                      onMarkNoShow={opsLifecycle ? (_id: string) => opsLifecycle.onMarkNoShow(booking) : undefined}
-                      onUndoNoShow={opsLifecycle ? (_id: string) => opsLifecycle.onUndoNoShow(booking) : undefined}
-                      pendingAction={
-                        opsLifecycle?.pendingBookingId === booking.id
-                          ? (opsLifecycle.pendingAction as any)
-                          : null
-                      }
-                      actionsDisabled={actionsDisabled}
-                      allowTableAssignments={true}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Desktop View */}
-        <div className="hidden md:block">
-          {showSkeleton ? (
-            <div className="grid grid-cols-1 gap-3">
+            <div className="hidden grid-cols-1 gap-3 md:grid">
               {Array.from({ length: 5 }).map((_, i) => (
                 <OpsBookingCardSkeleton key={i} />
               ))}
             </div>
-          ) : showEmpty ? (
-            <EmptyState {...desktopEmptyState} />
-          ) : (
-            <div className="grid grid-cols-1 gap-3">
-              {bookings.map((booking) => {
+          </>
+        ) : showEmpty ? (
+          <>
+            <div className="md:hidden">
+              <EmptyState {...mobileEmptyState} />
+            </div>
+            <div className="hidden md:block">
+              <EmptyState {...desktopEmptyState} />
+            </div>
+          </>
+        ) : shouldVirtualize ? (
+          <motion.div
+            className="relative"
+            initial={shouldAnimate ? { opacity: 0 } : false}
+            animate={{ opacity: 1 }}
+            transition={shouldAnimate ? { duration: 0.2, ease: 'easeOut' } : undefined}
+          >
+            <div className="relative" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
+              {virtualRows.map((virtualRow) => {
+                if (virtualRow.index >= bookings.length) {
+                  return (
+                    <div
+                      key={virtualRow.key}
+                      data-index={virtualRow.index}
+                      ref={rowVirtualizer.measureElement}
+                      className="absolute left-0 top-0 w-full"
+                      style={{ transform: `translateY(${virtualRow.start}px)` }}
+                    >
+                      <div className="flex items-center justify-center gap-2 py-3 text-xs font-medium text-muted-foreground">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                        Loading more bookings...
+                      </div>
+                    </div>
+                  );
+                }
+
+                const booking = bookings[virtualRow.index];
+                if (!booking) return null;
+
                 const actionsDisabled =
                   isLifecycleLockActive &&
                   Boolean(opsLifecycle?.pendingBookingId) &&
@@ -274,8 +354,21 @@ export function BookingsTable({
 
                 return (
                   <div
-                    key={booking.id}
-                    className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 motion-safe:ease-out motion-reduce:animate-none"
+                    key={virtualRow.key}
+                    data-index={virtualRow.index}
+                    data-booking-id={booking.id}
+                    ref={(node) => {
+                      rowVirtualizer.measureElement(node);
+                      if (node) {
+                        const height = node.getBoundingClientRect().height;
+                        const cached = rowMeasureCacheRef.current.get(booking.id);
+                        if (!cached || Math.abs(cached - height) > 1) {
+                          rowMeasureCacheRef.current.set(booking.id, height);
+                        }
+                      }
+                    }}
+                    className="absolute left-0 top-0 w-full pb-3 will-change-transform"
+                    style={{ transform: `translate3d(0, ${virtualRow.start}px, 0)` }}
                   >
                     <OpsBookingCard
                       booking={booking}
@@ -283,10 +376,10 @@ export function BookingsTable({
                       onEdit={onEdit}
                       onCancel={onCancel}
                       onDetails={onDetails}
-                      onCheckIn={opsLifecycle ? (_id: string) => opsLifecycle.onCheckIn(booking) : undefined}
-                      onCheckOut={opsLifecycle ? (_id: string) => opsLifecycle.onCheckOut(booking) : undefined}
-                      onMarkNoShow={opsLifecycle ? (_id: string) => opsLifecycle.onMarkNoShow(booking) : undefined}
-                      onUndoNoShow={opsLifecycle ? (_id: string) => opsLifecycle.onUndoNoShow(booking) : undefined}
+                      onCheckIn={opsLifecycle?.onCheckIn}
+                      onCheckOut={opsLifecycle?.onCheckOut}
+                      onMarkNoShow={opsLifecycle?.onMarkNoShow}
+                      onUndoNoShow={opsLifecycle?.onUndoNoShow}
                       pendingAction={
                         opsLifecycle?.pendingBookingId === booking.id
                           ? (opsLifecycle.pendingAction as any)
@@ -299,19 +392,49 @@ export function BookingsTable({
                 );
               })}
             </div>
-          )}
-        </div>
+          </motion.div>
+        ) : (
+          <motion.div
+            className="space-y-3"
+            initial={shouldAnimate ? { opacity: 0 } : false}
+            animate={{ opacity: 1 }}
+            transition={shouldAnimate ? { duration: 0.2, ease: 'easeOut' } : undefined}
+          >
+            {bookings.map((booking) => {
+              const actionsDisabled =
+                isLifecycleLockActive &&
+                Boolean(opsLifecycle?.pendingBookingId) &&
+                opsLifecycle?.pendingBookingId !== booking.id;
+              return (
+                <div
+                  key={booking.id}
+                  data-booking-id={booking.id}
+                  className="pb-3"
+                >
+                  <OpsBookingCard
+                    booking={booking}
+                    timezone={timezone || 'UTC'}
+                    onEdit={onEdit}
+                    onCancel={onCancel}
+                    onDetails={onDetails}
+                    onCheckIn={opsLifecycle?.onCheckIn}
+                    onCheckOut={opsLifecycle?.onCheckOut}
+                    onMarkNoShow={opsLifecycle?.onMarkNoShow}
+                    onUndoNoShow={opsLifecycle?.onUndoNoShow}
+                    pendingAction={
+                      opsLifecycle?.pendingBookingId === booking.id
+                      ? (opsLifecycle.pendingAction as any)
+                      : null
+                    }
+                    actionsDisabled={actionsDisabled}
+                    allowTableAssignments={true}
+                  />
+                </div>
+              );
+            })}
+          </motion.div>
+        )}
       </div>
-
-      {total > 0 && (
-        <Pagination
-          page={page}
-          pageSize={pageSize}
-          total={total}
-          isLoading={isFetching}
-          onPageChange={onPageChange}
-        />
-      )}
     </div>
   );
 }

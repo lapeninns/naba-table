@@ -3,10 +3,8 @@
 import { Loader2, RefreshCcw, Search, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { DASHBOARD_DEFAULT_PAGE_SIZE } from '@/components/dashboard/constants';
-import { Pagination } from '@/components/dashboard/Pagination';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,7 +18,6 @@ import {
 } from '@/components/ui/select';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
-import { useToast } from '@/hooks/use-toast';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
 import { useOpsCustomers } from '@/hooks/useOpsCustomers';
 
@@ -55,6 +52,8 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: 'bookings_desc', label: 'Most bookings' },
   { value: 'bookings_asc', label: 'Fewest bookings' },
 ];
+
+const INFINITE_PAGE_SIZE = 50;
 
 function isMarketingFilter(value: string | null): value is MarketingFilter {
   return value === 'all' || value === 'opted_in' || value === 'opted_out';
@@ -115,8 +114,6 @@ export function OpsCustomersClient({
     useOpsSession();
   const activeMembership = useOpsActiveMembership();
   const isOnline = useOnlineStatus();
-  const { toast } = useToast();
-  const previousRestaurantId = useRef<string | null>(null);
 
   const parsedFromQuery = useMemo(() => {
     const sp = new URLSearchParams(searchParamsKey);
@@ -126,8 +123,6 @@ export function OpsCustomersClient({
     const sortByParam = sp.get('sortBy');
     const searchQuery = sp.get('search') ?? '';
     const minBookingsParam = Number.parseInt(sp.get('minBookings') ?? '0', 10);
-    const pageParam = Number.parseInt(sp.get('page') ?? '1', 10);
-
     return {
       search: searchQuery,
       marketingOptIn: isMarketingFilter(marketingParam) ? marketingParam : 'all',
@@ -135,7 +130,6 @@ export function OpsCustomersClient({
       minBookings: Number.isFinite(minBookingsParam) ? Math.max(0, minBookingsParam) : 0,
       sort: isSort(sortParam) ? sortParam : 'desc',
       sortBy: isSortBy(sortByParam) ? sortByParam : 'last_visit',
-      page: Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1,
     };
   }, [searchParamsKey]);
 
@@ -147,7 +141,6 @@ export function OpsCustomersClient({
   const [minBookings, setMinBookings] = useState<number>(parsedFromQuery.minBookings);
   const [sort, setSort] = useState<SortDirection>(parsedFromQuery.sort);
   const [sortBy, setSortBy] = useState<SortBy>(parsedFromQuery.sortBy);
-  const [page, setPage] = useState(parsedFromQuery.page);
 
   useEffect(() => {
     setSearchTerm(parsedFromQuery.search);
@@ -156,7 +149,6 @@ export function OpsCustomersClient({
     setMinBookings(parsedFromQuery.minBookings);
     setSort(parsedFromQuery.sort);
     setSortBy(parsedFromQuery.sortBy);
-    setPage(parsedFromQuery.page);
   }, [parsedFromQuery]);
 
   const debouncedSearch = useDebouncedValue(searchTerm, 250);
@@ -170,14 +162,6 @@ export function OpsCustomersClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultRestaurantId]);
 
-  useEffect(() => {
-    if (!activeRestaurantId) return;
-    if (previousRestaurantId.current && previousRestaurantId.current !== activeRestaurantId) {
-      setPage(1);
-    }
-    previousRestaurantId.current = activeRestaurantId;
-  }, [activeRestaurantId]);
-
   const syncQueryParams = useCallback(
     (next: {
       search?: string | null;
@@ -186,13 +170,13 @@ export function OpsCustomersClient({
       minBookings?: number;
       sort?: SortDirection;
       sortBy?: SortBy;
-      page?: number;
     }) => {
       if (!isOnline) {
         return;
       }
 
       const params = new URLSearchParams(searchParams?.toString() ?? '');
+      params.delete('page');
 
       const applyParam = (
         key: string,
@@ -217,8 +201,6 @@ export function OpsCustomersClient({
       applyParam('minBookings', next.minBookings ?? 0, 0);
       applyParam('sortBy', next.sortBy, 'last_visit');
       applyParam('sort', next.sort, 'desc');
-      applyParam('page', next.page ?? 1, 1);
-
       const current = searchParams?.toString() ?? '';
       const nextString = params.toString();
 
@@ -242,7 +224,6 @@ export function OpsCustomersClient({
       minBookings,
       sort,
       sortBy,
-      page,
     });
   }, [
     normalizedSearch,
@@ -251,7 +232,6 @@ export function OpsCustomersClient({
     minBookings,
     sort,
     sortBy,
-    page,
     syncQueryParams,
   ]);
 
@@ -261,8 +241,7 @@ export function OpsCustomersClient({
     }
     return {
       restaurantId: activeRestaurantId,
-      page,
-      pageSize: DASHBOARD_DEFAULT_PAGE_SIZE,
+      pageSize: INFINITE_PAGE_SIZE,
       sort,
       sortBy,
       search: normalizedSearch || undefined,
@@ -276,48 +255,53 @@ export function OpsCustomersClient({
     marketingOptIn,
     minBookings,
     normalizedSearch,
-    page,
     sort,
     sortBy,
   ]);
 
-  const { data, error, isLoading, isFetching, refetch } = useOpsCustomers(filters);
+  const {
+    data,
+    error,
+    isLoading,
+    isFetching,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+    refetch,
+  } = useOpsCustomers(filters);
 
-  const handlePageChange = useCallback(
-    (nextPage: number) => {
-      if (!isOnline) {
-        toast({
-          title: "You're offline",
-          description: 'Reconnect to load more customers.',
-        });
-        return;
-      }
-      setPage(nextPage);
-    },
-    [isOnline, toast],
+  const customerPages = useMemo(() => data?.pages ?? [], [data?.pages]);
+  const customers = useMemo(
+    () => customerPages.flatMap((page) => page.items),
+    [customerPages],
   );
+
+  const isRefreshing = isFetching && !isFetchingNextPage;
+
+  const handleLoadMore = useCallback(() => {
+    if (!isOnline) return;
+    if (hasNextPage && !isFetchingNextPage) {
+      void fetchNextPage();
+    }
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage, isOnline]);
 
   const handleSortChange = useCallback((value: SortOption) => {
     const decoded = decodeSortOption(value);
     setSort(decoded.sort);
     setSortBy(decoded.sortBy);
-    setPage(1);
   }, []);
 
   const handleMinBookingsChange = useCallback((value: string) => {
     const parsed = Number.parseInt(value, 10);
     setMinBookings(Number.isFinite(parsed) ? parsed : 0);
-    setPage(1);
   }, []);
 
   const handleMarketingChange = useCallback((value: MarketingFilter) => {
     setMarketingOptIn(value);
-    setPage(1);
   }, []);
 
   const handleLastVisitChange = useCallback((value: LastVisitFilter) => {
     setLastVisit(value);
-    setPage(1);
   }, []);
 
   const handleClearFilters = useCallback(() => {
@@ -327,32 +311,9 @@ export function OpsCustomersClient({
     setMinBookings(0);
     setSort('desc');
     setSortBy('last_visit');
-    setPage(1);
   }, []);
 
   const sortOption = useMemo(() => encodeSortOption(sortBy, sort), [sortBy, sort]);
-
-  useEffect(() => {
-    if (!focusCustomer || !data?.items?.length) return;
-    const selector = `[data-customer-id="${focusCustomer}"]`;
-    const emailSelector = `[data-customer-email="${focusCustomer.toLowerCase()}"]`;
-    const target =
-      (typeof document !== 'undefined' &&
-        (document.querySelector<HTMLElement>(selector) ??
-          document.querySelector<HTMLElement>(emailSelector))) ||
-      null;
-    if (target) {
-      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      target.focus({ preventScroll: true });
-    }
-  }, [data?.items, focusCustomer]);
-
-  const pageInfo = data?.pageInfo ?? {
-    page,
-    pageSize: DASHBOARD_DEFAULT_PAGE_SIZE,
-    total: 0,
-    hasNext: false,
-  };
 
   const currentRestaurantName =
     activeMembership?.restaurantName ?? accountSnapshot.restaurantName ?? 'Restaurant';
@@ -455,9 +416,9 @@ export function OpsCustomersClient({
               size="sm"
               className="h-11 sm:h-9"
               onClick={() => refetch()}
-              disabled={isFetching || isLoading}
+              disabled={isRefreshing || isLoading}
             >
-              {isFetching ? (
+              {isRefreshing ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <RefreshCcw className="mr-2 h-4 w-4" />
@@ -555,7 +516,6 @@ export function OpsCustomersClient({
                 value={searchTerm}
                 onChange={(event) => {
                   setSearchTerm(event.target.value);
-                  setPage(1);
                 }}
                 placeholder="Search guests..."
                 className="h-9 w-full rounded-lg border border-border bg-background pl-10 pr-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 touch-manipulation"
@@ -575,7 +535,6 @@ export function OpsCustomersClient({
                     className="rounded-full p-0.5 text-muted-foreground transition hover:bg-background/60"
                     onClick={() => {
                       badge.onClear();
-                      setPage(1);
                     }}
                     aria-label={`Remove ${badge.label} filter`}
                   >
@@ -589,7 +548,7 @@ export function OpsCustomersClient({
               </span>
             )}
 
-            {isFetching ? (
+            {isRefreshing ? (
               <span className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Updating results…
               </span>
@@ -611,20 +570,14 @@ export function OpsCustomersClient({
 
         <section className="space-y-3">
           <CustomersTable
-            customers={data?.items ?? []}
+            customers={customers}
             isLoading={isLoading}
             hasActiveFilters={hasActiveFilters}
+            onLoadMore={handleLoadMore}
+            hasNextPage={hasNextPage ?? false}
+            isFetchingNextPage={isFetchingNextPage ?? false}
+            focusCustomerId={focusCustomer}
           />
-
-          {pageInfo.total > 0 && (
-            <Pagination
-              page={pageInfo.page}
-              pageSize={pageInfo.pageSize}
-              total={pageInfo.total}
-              isLoading={isFetching}
-              onPageChange={handlePageChange}
-            />
-          )}
         </section>
       </main>
     </div>

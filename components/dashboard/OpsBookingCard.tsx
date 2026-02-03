@@ -16,7 +16,7 @@ import {
   Sparkles,
   Users,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 
 import { StatusBadge } from '@/components/features/dashboard/StatusBadge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -55,6 +55,37 @@ export type OpsBookingCardProps = {
   timeLabelOverride?: string | null;
   highlightUrgency?: boolean;
 };
+
+const formatterCache = new Map<string, Intl.DateTimeFormat>();
+
+function getFormatter(
+  cacheKey: string,
+  options: Intl.DateTimeFormatOptions,
+  timeZone: string,
+): Intl.DateTimeFormat {
+  const key = `${cacheKey}:${timeZone}`;
+  const existing = formatterCache.get(key);
+  if (existing) return existing;
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    ...options,
+  });
+  formatterCache.set(key, formatter);
+  return formatter;
+}
+
+function getDateKey(date: Date, timeZone: string): string {
+  const formatter = getFormatter(
+    'ops-card-date-key',
+    { year: 'numeric', month: '2-digit', day: '2-digit' },
+    timeZone,
+  );
+  const parts = formatter.formatToParts(date);
+  const year = parts.find((part) => part.type === 'year')?.value ?? '0000';
+  const month = parts.find((part) => part.type === 'month')?.value ?? '01';
+  const day = parts.find((part) => part.type === 'day')?.value ?? '01';
+  return `${year}-${month}-${day}`;
+}
 
 function getTableLabel(assignments: BookingDTO['tableAssignments']) {
   if (!assignments || assignments.length === 0) {
@@ -95,7 +126,7 @@ const InfoTile = ({
   </div>
 );
 
-export function OpsBookingCard({
+export const OpsBookingCard = memo(function OpsBookingCard({
   booking,
   timezone,
   now: propNow,
@@ -119,46 +150,32 @@ export function OpsBookingCard({
     const startDate = new Date(booking.startIso);
     const endDate = booking.endIso ? new Date(booking.endIso) : null;
 
-    const timeFormatter = new Intl.DateTimeFormat('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-      timeZone: timezone,
-    });
-    const dateFormatter = new Intl.DateTimeFormat('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      timeZone: timezone,
-    });
+    const timeFormatter = getFormatter(
+      'ops-card-time',
+      {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      },
+      timezone,
+    );
+    const dateFormatter = getFormatter(
+      'ops-card-date',
+      {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+      },
+      timezone,
+    );
 
     const startTimeStr = timeFormatter.format(startDate);
     const endTimeStr = endDate ? timeFormatter.format(endDate) : null;
 
-    const getZonedDay = (d: Date) =>
-      new Intl.DateTimeFormat('en-US', {
-        year: 'numeric',
-        month: 'numeric',
-        day: 'numeric',
-        timeZone: timezone,
-      }).format(d);
-
-    const isToday = getZonedDay(startDate) === getZonedDay(now);
-
-    const zonedStartOfDay = (d: Date) => {
-      const parts = new Intl.DateTimeFormat('en-US', {
-        year: 'numeric',
-        month: 'numeric',
-        day: 'numeric',
-        timeZone: timezone,
-      }).formatToParts(d);
-      const year = parseInt(parts.find((p) => p.type === 'year')?.value || '0');
-      const month = parseInt(parts.find((p) => p.type === 'month')?.value || '0') - 1;
-      const day = parseInt(parts.find((p) => p.type === 'day')?.value || '0');
-      return new Date(year, month, day).getTime();
-    };
-
-    const isPastDay = zonedStartOfDay(startDate) < zonedStartOfDay(now);
+    const startKey = getDateKey(startDate, timezone);
+    const nowKey = getDateKey(now, timezone);
+    const isToday = startKey === nowKey;
+    const isPastDay = startKey < nowKey;
 
     const isDone = ['completed', 'cancelled', 'no_show'].includes(booking.status);
     const isSeated = booking.status === 'checked_in';
@@ -497,4 +514,6 @@ export function OpsBookingCard({
       </Collapsible>
     </Card>
   );
-}
+});
+
+OpsBookingCard.displayName = 'OpsBookingCard';

@@ -13,10 +13,9 @@ import {
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useState, useTransition } from 'react';
 
 import { BookingOfflineBanner } from '@/components/features/booking-state-machine';
-import { BookingDetailsDialogWrapper } from '@/components/features/bookings/BookingDetailsDialogWrapper';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -42,11 +41,21 @@ import { HeatmapCalendar } from './HeatmapCalendar';
 
 import type { BookingFilter } from './BookingsFilterBar';
 import type { BookingDTO } from '@/hooks/useBookings';
+import type { ChangeEvent } from 'react';
 
 const EditBookingDialog = dynamic(
   () => import('@/components/dashboard/EditBookingDialog').then((m) => m.EditBookingDialog),
   {
     loading: () => <div className="h-10" />,
+  },
+);
+const BookingDetailsDialogWrapper = dynamic(
+  () =>
+    import('@/components/features/bookings/BookingDetailsDialogWrapper').then(
+      (m) => m.BookingDetailsDialogWrapper,
+    ),
+  {
+    loading: () => null,
   },
 );
 
@@ -77,11 +86,13 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
   // State
   const [filter, setFilter] = useState<BookingFilter>(DEFAULT_FILTER);
   const [searchQuery, setSearchQuery] = useState('');
+  const deferredSearchQuery = useDeferredValue(searchQuery);
   const [selectedDate, setSelectedDate] = useState<string | null>(
     sanitizeDateParam(initialDate ?? undefined),
   );
   const [sortKey, setSortKey] = useState<'time' | 'party' | 'name'>('time');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [pendingBookingAction, setPendingBookingAction] = useState<{
     bookingId: string;
     action: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show';
@@ -97,7 +108,14 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
   const restaurantDetails = useOpsRestaurantDetails(restaurantId ?? null);
 
   const summaryQuery = useOpsTodaySummary({ restaurantId, targetDate: selectedDate });
-  const summary = summaryQuery.data ?? null;
+  const {
+    data: summaryData,
+    isLoading: isSummaryLoading,
+    isFetching: isSummaryFetching,
+    isError: isSummaryError,
+    refetch: refetchSummary,
+  } = summaryQuery;
+  const summary = summaryData ?? null;
   const restaurantSlug = restaurantDetails.data?.slug ?? membership?.restaurantSlug ?? null;
   const restaurantTimezone = summary?.timezone ?? restaurantDetails.data?.timezone ?? null;
 
@@ -125,7 +143,7 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
     restaurantId,
     startDate: heatmapRange?.start ?? null,
     endDate: heatmapRange?.end ?? null,
-    enabled: Boolean(restaurantId && heatmapRange),
+    enabled: Boolean(restaurantId && heatmapRange && isCalendarOpen),
   });
 
   const bookingLifecycleMutations = useOpsBookingLifecycleActions();
@@ -144,11 +162,11 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
   }, [selectedDate, summary?.date, summary?.timezone]);
 
   // Handle Tab switching
-  const handleSelectFilter = (nextFilter: BookingFilter) => {
+  const handleSelectFilter = useCallback((nextFilter: BookingFilter) => {
     setFilter(nextFilter);
-  };
+  }, []);
 
-  const handleSelectDate = (date: string) => {
+  const handleSelectDate = useCallback((date: string) => {
     setSelectedDate(date);
     const params = new URLSearchParams(searchParams?.toString() || '');
     if (date) {
@@ -161,46 +179,54 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
       const query = params.size > 0 ? `?${params.toString()}` : '';
       router.replace(`${pathname}${query}`);
     });
-  };
+  }, [pathname, router, searchParams, startTransition]);
 
-  const handleShiftDate = (days: number) => {
+  const handleShiftDate = useCallback((days: number) => {
     const baseDate = selectedDate ?? summary?.date ?? null;
     if (!baseDate) return;
     const nextDate = new Date(`${baseDate}T00:00:00`);
     if (Number.isNaN(nextDate.getTime())) return;
     nextDate.setDate(nextDate.getDate() + days);
     handleSelectDate(formatDateKey(nextDate));
-  };
+  }, [handleSelectDate, selectedDate, summary?.date]);
 
-  const handleDetails = (booking: BookingDTO) => {
+  const handlePrevDate = useCallback(() => {
+    handleShiftDate(-1);
+  }, [handleShiftDate]);
+
+  const handleNextDate = useCallback(() => {
+    handleShiftDate(1);
+  }, [handleShiftDate]);
+
+  const handleDetails = useCallback((booking: BookingDTO) => {
     setIsEditOpen(false);
     setEditBooking(null);
     setDetailsBooking(booking);
     setIsDetailsOpen(true);
-  };
+  }, []);
 
-  const handleEdit = (booking: BookingDTO) => {
+  const handleEdit = useCallback((booking: BookingDTO) => {
     setIsDetailsOpen(false);
     setDetailsBooking(null);
     setEditBooking(booking);
     setIsEditOpen(true);
-  };
+  }, []);
 
-  const handleDetailsOpenChange = (open: boolean) => {
+  const handleDetailsOpenChange = useCallback((open: boolean) => {
     setIsDetailsOpen(open);
     if (!open) {
       setDetailsBooking(null);
     }
-  };
+  }, []);
 
-  const handleEditOpenChange = (open: boolean) => {
+  const handleEditOpenChange = useCallback((open: boolean) => {
     setIsEditOpen(open);
     if (!open) {
       setEditBooking(null);
     }
-  };
+  }, []);
 
-  const handlePrint = () => {
+  const handlePrint = useCallback(() => {
     if (typeof window === 'undefined') return;
     if (!summary) return;
     const params = new URLSearchParams();
@@ -217,42 +243,61 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
       pathname && pathname.endsWith('/dashboard') ? `${pathname}/print` : '/app/dashboard/print';
     const url = params.size > 0 ? `${printPath}?${params.toString()}` : printPath;
     window.open(url, '_blank', 'noopener');
-  };
+  }, [filter, pathname, searchQuery, selectedDate, sortDir, sortKey, summary]);
 
-  // Real-time Guest Stats
-  const guestStats = useMemo(() => {
-    if (!summary) return { upcoming: 0, seated: 0 };
+  const handleSearchChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(event.target.value);
+  }, []);
 
-    // Calculate guests (sum of partySize)
-    const upcoming = summary.bookings
-      .filter((b) => b.status === 'confirmed' || b.status === 'PRIORITY_WAITLIST')
-      .reduce((sum, b) => sum + b.partySize, 0);
+  const { guestStats, tabCounts } = useMemo(() => {
+    const empty = {
+      guestStats: { upcoming: 0, seated: 0 },
+      tabCounts: { all: 0, upcoming: 0, seated: 0, finished: 0, no_show: 0 },
+    };
+    if (!summary) return empty;
 
-    const seated = summary.bookings
-      .filter((b) => b.status === 'checked_in')
-      .reduce((sum, b) => sum + b.partySize, 0);
+    let all = 0;
+    let upcoming = 0;
+    let seatedCount = 0;
+    let finished = 0;
+    let noShow = 0;
+    let guestUpcoming = 0;
+    let guestSeated = 0;
 
-    return { upcoming, seated };
-  }, [summary]);
+    for (const booking of summary.bookings) {
+      all += 1;
+      const status = booking.status;
 
-  // Tab counts for badges
-  const tabCounts = useMemo(() => {
-    if (!summary) return { all: 0, upcoming: 0, seated: 0, finished: 0, no_show: 0 };
+      if (
+        status === 'confirmed' ||
+        status === 'PRIORITY_WAITLIST' ||
+        status === 'pending' ||
+        status === 'pending_allocation'
+      ) {
+        upcoming += 1;
+      }
 
-    const bookings = summary.bookings;
+      if (status === 'checked_in') {
+        seatedCount += 1;
+        guestSeated += booking.partySize;
+      }
+
+      if (status === 'no_show') {
+        noShow += 1;
+      }
+
+      if (status === 'completed' || status === 'cancelled' || status === 'no_show') {
+        finished += 1;
+      }
+
+      if (status === 'confirmed' || status === 'PRIORITY_WAITLIST') {
+        guestUpcoming += booking.partySize;
+      }
+    }
+
     return {
-      all: bookings.length,
-      upcoming: bookings.filter(
-        (b) =>
-          b.status === 'confirmed' ||
-          b.status === 'PRIORITY_WAITLIST' ||
-          b.status === 'pending' ||
-          b.status === 'pending_allocation',
-      ).length,
-      seated: bookings.filter((b) => b.status === 'checked_in').length,
-      finished: bookings.filter((b) => ['completed', 'cancelled', 'no_show'].includes(b.status))
-        .length,
-      no_show: bookings.filter((b) => b.status === 'no_show').length,
+      guestStats: { upcoming: guestUpcoming, seated: guestSeated },
+      tabCounts: { all, upcoming, seated: seatedCount, finished, no_show: noShow },
     };
   }, [summary]);
 
@@ -284,7 +329,7 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
   ]);
 
   // Handler functions
-  const handleMarkNoShow = async (
+  const handleMarkNoShow = useCallback(async (
     bookingId: string,
     options?: { performedAt?: string | null; reason?: string | null },
   ) => {
@@ -301,9 +346,9 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
     } finally {
       setPendingBookingAction(null);
     }
-  };
+  }, [bookingLifecycleMutations.markNoShow, restaurantId, selectedDate]);
 
-  const handleUndoNoShow = async (bookingId: string, reason?: string | null) => {
+  const handleUndoNoShow = useCallback(async (bookingId: string, reason?: string | null) => {
     if (!restaurantId) return;
     setPendingBookingAction({ bookingId, action: 'undo-no-show' });
     try {
@@ -316,9 +361,9 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
     } finally {
       setPendingBookingAction(null);
     }
-  };
+  }, [bookingLifecycleMutations.undoNoShow, restaurantId, selectedDate]);
 
-  const handleCheckIn = async (bookingId: string) => {
+  const handleCheckIn = useCallback(async (bookingId: string) => {
     if (!restaurantId) return;
     setPendingBookingAction({ bookingId, action: 'check-in' });
     try {
@@ -327,13 +372,13 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
         bookingId,
         targetDate: selectedDate,
       });
-      void summaryQuery.refetch();
+      void refetchSummary();
     } finally {
       setPendingBookingAction(null);
     }
-  };
+  }, [bookingLifecycleMutations.checkIn, refetchSummary, restaurantId, selectedDate]);
 
-  const handleCheckOut = async (bookingId: string) => {
+  const handleCheckOut = useCallback(async (bookingId: string) => {
     if (!restaurantId) return;
     setPendingBookingAction({ bookingId, action: 'check-out' });
     try {
@@ -342,31 +387,33 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
         bookingId,
         targetDate: selectedDate,
       });
-      void summaryQuery.refetch();
+      void refetchSummary();
     } finally {
       setPendingBookingAction(null);
     }
-  };
+  }, [bookingLifecycleMutations.checkOut, refetchSummary, restaurantId, selectedDate]);
 
-  const handleAssignTable = async (bookingId: string, tableId: string, tableName?: string) => {
+  const handleAssignTable = useCallback(async (bookingId: string, tableId: string, tableName?: string) => {
     const result = await tableAssignmentActions.assignTable.mutateAsync({
       bookingId,
       tableId,
       tableName,
     });
     return result.tableAssignments;
-  };
+  }, [tableAssignmentActions.assignTable]);
 
-  const handleUnassignTable = async (bookingId: string, tableId: string) => {
+  const handleUnassignTable = useCallback(async (bookingId: string, tableId: string) => {
     const result = await tableAssignmentActions.unassignTable.mutateAsync({ bookingId, tableId });
     return result.tableAssignments;
-  };
+  }, [tableAssignmentActions.unassignTable]);
+
+  const handleRetry = useCallback(() => refetchSummary(), [refetchSummary]);
 
   // ALL HOOKS MUST BE CALLED BEFORE EARLY RETURNS
   // Swipe gesture for touch devices
   const headerSwipeRef = useDateSwipe<HTMLElement>({
-    onSwipeLeft: () => handleShiftDate(1), // Swipe left = next day
-    onSwipeRight: () => handleShiftDate(-1), // Swipe right = previous day
+    onSwipeLeft: handleNextDate, // Swipe left = next day
+    onSwipeRight: handlePrevDate, // Swipe right = previous day
     threshold: 50,
   });
 
@@ -377,8 +424,8 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
 
   // Only show full page skeleton on INITIAL load (no cached data yet)
   // For date changes/refetches, we keep the page visible with list-only skeletons
-  const isInitialLoading = summaryQuery.isLoading && !summary;
-  const isRefetching = summaryQuery.isFetching && !!summary;
+  const isInitialLoading = isSummaryLoading && !summary;
+  const isRefetching = isSummaryFetching && !!summary;
 
   if (isInitialLoading) {
     return <DashboardSkeleton />;
@@ -386,9 +433,9 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
 
   // ONLY return error state if there is a REAL error AND no cached summary data.
   // This prevents transient error UI during reloads or navigation when stale data is available.
-  const hasError = summaryQuery.isError && !summary;
+  const hasError = isSummaryError && !summary;
   if (hasError) {
-    return <DashboardErrorState onRetry={() => summaryQuery.refetch()} />;
+    return <DashboardErrorState onRetry={handleRetry} />;
   }
 
   // Safety fallback: if for any reason summary is missing but we're not loading or showing error,
@@ -440,14 +487,15 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
               </div>
               {summary &&
                 (() => {
-                  const meta = heatmapQuery.data?.[summary.date];
-                  return meta ? (
+                  const totalBookings = summary.totals.total;
+                  const totalCovers = summary.totals.covers;
+                  return totalBookings > 0 ? (
                     <>
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition-all duration-200 ease-out hover:scale-105 hover:shadow-md active:scale-95 dark:bg-blue-900/30 dark:text-blue-300 motion-reduce:transition-none motion-reduce:hover:scale-100">
-                        {meta.bookings} {meta.bookings === 1 ? 'booking' : 'bookings'}
+                        {totalBookings} {totalBookings === 1 ? 'booking' : 'bookings'}
                       </span>
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-all duration-200 ease-out hover:scale-105 hover:shadow-md active:scale-95 dark:bg-emerald-900/30 dark:text-emerald-300 motion-reduce:transition-none motion-reduce:hover:scale-100">
-                        {meta.covers} {meta.covers === 1 ? 'cover' : 'covers'}
+                        {totalCovers} {totalCovers === 1 ? 'cover' : 'covers'}
                       </span>
                     </>
                   ) : (
@@ -473,7 +521,7 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
                 {/* Previous button */}
                 <button
                   type="button"
-                  onClick={() => handleShiftDate(-1)}
+                  onClick={handlePrevDate}
                   className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-all duration-200 hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring active:scale-95 motion-reduce:active:scale-100"
                   aria-label="Previous day"
                 >
@@ -488,12 +536,13 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
                   onSelectDate={handleSelectDate}
                   onShiftDate={handleShiftDate}
                   isLoading={heatmapQuery.isLoading}
+                  onOpenChange={setIsCalendarOpen}
                 />
 
                 {/* Next button */}
                 <button
                   type="button"
-                  onClick={() => handleShiftDate(1)}
+                  onClick={handleNextDate}
                   className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-all duration-200 hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring active:scale-95 motion-reduce:active:scale-100"
                   aria-label="Next day"
                 >
@@ -541,7 +590,7 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
                   name="search"
                   aria-label="Search guests"
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={handleSearchChange}
                   autoComplete="off"
                   className="h-10 w-full rounded-lg border border-border bg-background pl-10 pr-4 text-sm outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 touch-manipulation"
                 />
@@ -588,7 +637,7 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
             heatmapError={heatmapQuery.error ?? null}
             filter={filter}
             onFilterChange={handleSelectFilter}
-            searchQuery={searchQuery}
+            searchQuery={deferredSearchQuery}
             sortKey={sortKey}
             sortDir={sortDir}
             onSortKeyChange={setSortKey}
@@ -610,12 +659,14 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
             pendingLifecycleAction={pendingBookingAction}
           />
         </div>
-        <BookingDetailsDialogWrapper
-          bookingId={detailsBooking?.id ?? null}
-          initialData={detailsBooking}
-          open={isDetailsOpen}
-          onOpenChange={handleDetailsOpenChange}
-        />
+        {isDetailsOpen ? (
+          <BookingDetailsDialogWrapper
+            bookingId={detailsBooking?.id ?? null}
+            initialData={detailsBooking}
+            open={isDetailsOpen}
+            onOpenChange={handleDetailsOpenChange}
+          />
+        ) : null}
         <EditBookingDialog
           booking={editBooking}
           open={isEditOpen}

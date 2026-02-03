@@ -1,26 +1,26 @@
 'use client';
 
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useEffect, useMemo, useRef } from 'react';
 
 
 import { useTransitionToast } from '@/components/features/booking-state-machine';
 import { useOptionalBookingStateMachine } from '@/contexts/booking-state-machine';
-import { useBookingService } from '@/contexts/ops-services';
 import { isRealtimeFloorplanEnabled } from '@/lib/feature-flags/realtime';
 import { queryKeys } from '@/lib/query/keys';
 import { getRealtimeSupabaseClient } from '@/lib/supabase/realtime-client';
 import { debounce } from '@/utils/debounceThrottle';
 
-import type { OpsBookingStatus } from '@/types/ops';
+import type { OpsBookingStatus, OpsTodayBookingsSummary } from '@/types/ops';
 
 type UseBookingRealtimeOptions = {
   restaurantId: string | null;
   targetDate: string | null;
   bookingIds: string[];
   visibleBookingIds?: string[];
+  summary?: OpsTodayBookingsSummary | null;
+  isSummaryFetching?: boolean;
   enabled?: boolean;
-  intervalMs?: number;
 };
 
 type BookingSnapshot = {
@@ -29,8 +29,6 @@ type BookingSnapshot = {
   updatedAt: string | null;
   displayName?: string | null;
 };
-
-const DEFAULT_INTERVAL_MS = 5_000;
 
 function getRealtimeRetryDelayMs(tries: number): number {
   const delays = [1000, 2000, 5000, 10000];
@@ -42,17 +40,17 @@ export function useBookingRealtime({
   targetDate,
   bookingIds,
   visibleBookingIds,
+  summary = null,
+  isSummaryFetching = false,
   enabled = true,
-  intervalMs = DEFAULT_INTERVAL_MS,
 }: UseBookingRealtimeOptions) {
-  const bookingService = useBookingService();
   const bookingStateMachine = useOptionalBookingStateMachine();
   const { showExternalUpdate } = useTransitionToast();
   const queryClient = useQueryClient();
 
   const normalizedIds = useMemo(() => Array.from(new Set(bookingIds)).sort(), [bookingIds]);
   const idsKey = useMemo(() => normalizedIds.join(','), [normalizedIds]);
-  const shouldEnable = enabled && Boolean(restaurantId) && normalizedIds.length > 0;
+  const shouldEnable = enabled && Boolean(restaurantId) && normalizedIds.length > 0 && Boolean(summary);
   const idSet = useMemo(() => new Set(normalizedIds), [normalizedIds]);
   const visibleIds = useMemo(() => {
     if (visibleBookingIds === undefined || visibleBookingIds === null) {
@@ -63,9 +61,11 @@ export function useBookingRealtime({
 
   const lastStatusesRef = useRef<Record<string, OpsBookingStatus>>({});
   const lastToastFingerprintRef = useRef<Record<string, number>>({});
+  const pendingChangesRef = useRef<
+    Array<BookingSnapshot & { previousStatus: OpsBookingStatus | undefined }>
+  >([]);
+  const flushTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bootstrappedRef = useRef(false);
-
-  const [realtimeHealthy, setRealtimeHealthy] = useState(true);
   const subscribedRef = useRef(false);
   const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const retryTriesRef = useRef(0);
@@ -98,23 +98,6 @@ export function useBookingRealtime({
   }, [bookingStateMachine, bookingStateMachine?.state]);
 
   const realtimeEnabled = isRealtimeFloorplanEnabled();
-  const shouldPoll = shouldEnable && (!realtimeEnabled || !realtimeHealthy);
-
-  const query = useQuery({
-    queryKey: ['ops', 'bookings', 'realtime', restaurantId, targetDate, idsKey],
-    queryFn: async () => {
-      if (!restaurantId) {
-        return null;
-      }
-      return bookingService.getTodaySummary({ restaurantId, date: targetDate ?? undefined });
-    },
-    enabled: shouldEnable,
-    refetchInterval: shouldPoll ? intervalMs : false,
-    refetchIntervalInBackground: false,
-    refetchOnReconnect: shouldEnable,
-    refetchOnWindowFocus: shouldEnable,
-  });
-
   useEffect(() => {
     if (!shouldEnable || !restaurantId || !realtimeEnabled) {
       subscribedRef.current = false;
@@ -123,7 +106,6 @@ export function useBookingRealtime({
         retryTimeoutRef.current = null;
       }
       retryTriesRef.current = 0;
-      setRealtimeHealthy(true);
       return;
     }
 
@@ -136,7 +118,7 @@ export function useBookingRealtime({
       },
     });
 
-    const queryKey = ['ops', 'bookings', 'realtime', restaurantId, targetDate, idsKey] as const;
+    const queryKey = queryKeys.opsDashboard.summary(restaurantId, targetDate);
 
     const invalidate = debounce(() => {
       queryClient.invalidateQueries({ queryKey, refetchType: 'active' });
@@ -176,13 +158,11 @@ export function useBookingRealtime({
         if (status === 'SUBSCRIBED') {
           subscribedRef.current = true;
           retryTriesRef.current = 0;
-          setRealtimeHealthy(true);
           return;
         }
 
         if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR' || status === 'CLOSED') {
           subscribedRef.current = false;
-          setRealtimeHealthy(false);
 
           const tries = retryTriesRef.current + 1;
           retryTriesRef.current = tries;
@@ -209,7 +189,7 @@ export function useBookingRealtime({
 
     const connectGuard = setTimeout(() => {
       if (!subscribedRef.current) {
-        setRealtimeHealthy(false);
+        // No-op: summary polling is handled by useOpsTodaySummary when realtime is unhealthy.
       }
     }, 4000);
 
@@ -219,18 +199,22 @@ export function useBookingRealtime({
         clearTimeout(retryTimeoutRef.current);
         retryTimeoutRef.current = null;
       }
+      if (flushTimeoutRef.current) {
+        clearTimeout(flushTimeoutRef.current);
+        flushTimeoutRef.current = null;
+      }
       client.removeChannel(channel);
     };
   }, [idsKey, normalizedIds, queryClient, realtimeEnabled, restaurantId, shouldEnable, targetDate]);
 
   useEffect(() => {
     if (!shouldEnable) return;
-    if (!query.data || query.data.bookings.length === 0) return;
+    if (!summary || summary.bookings.length === 0) return;
 
     const snapshots: BookingSnapshot[] = [];
     const changes: Array<BookingSnapshot & { previousStatus: OpsBookingStatus | undefined }> = [];
 
-    for (const booking of query.data.bookings) {
+    for (const booking of summary.bookings) {
       if (!idSet.has(booking.id)) {
         continue;
       }
@@ -280,20 +264,27 @@ export function useBookingRealtime({
     }
 
     if (changes.length > 0) {
-      for (const change of changes) {
-        showExternalUpdate({
-          bookingLabel: change.displayName ?? change.id,
-          fromStatus: change.previousStatus ?? null,
-          toStatus: change.status,
-        });
+      pendingChangesRef.current.push(...changes);
+      if (!flushTimeoutRef.current) {
+        flushTimeoutRef.current = setTimeout(() => {
+          const batch = pendingChangesRef.current.splice(0);
+          flushTimeoutRef.current = null;
+          for (const change of batch) {
+            showExternalUpdate({
+              bookingLabel: change.displayName ?? change.id,
+              fromStatus: change.previousStatus ?? null,
+              toStatus: change.status,
+            });
+          }
+        }, 250);
       }
     }
 
     bootstrappedRef.current = true;
-  }, [bookingStateMachine, idSet, query.data, shouldEnable, showExternalUpdate, visibleIds]);
+  }, [bookingStateMachine, idSet, shouldEnable, showExternalUpdate, summary, visibleIds]);
 
   return {
-    isPolling: query.isFetching,
-    lastUpdatedAt: query.data?.date ?? null,
+    isPolling: isSummaryFetching,
+    lastUpdatedAt: summary?.date ?? null,
   };
 }

@@ -59,6 +59,7 @@
     "node_modules",
     "playwright.component.config.ts",
     "playwright.config.ts",
+    "vitest.config.ts",
     "tests/**/*",
     "**/*.test.ts",
     "**/*.test.tsx",
