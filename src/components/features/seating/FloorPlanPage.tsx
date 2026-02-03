@@ -528,38 +528,55 @@ export default function FloorPlanPage() {
 
     // Calculate Timeline Range & Periods for Selected Date
     const timelineConfig = useMemo(() => {
-        if (!operatingData) return { min: 11 * 60, max: 23 * 60, periods: [], interval: 15 };
+        if (!operatingData) {
+            return { min: 11 * 60, max: 23 * 60, periods: [], interval: 15, slotTimes: [] as number[] };
+        }
 
         const dayOfWeek = new Date(selectedDate).getDay(); // 0 = Sunday
-        // Adjust for JS getDay() (0=Sun) vs likely DB (1=Mon...7=Sun or 0=Sun) - Assuming 0=Sun matches for now
-
         const dailyHours = operatingData.hours.weekly.find(h => h.dayOfWeek === dayOfWeek);
+        const overrideHours = operatingData.hours.overrides.find(h => h.effectiveDate === selectedDate);
+        const effectiveHours = overrideHours ?? dailyHours;
         const periods = operatingData.periods.filter(p => p.dayOfWeek === dayOfWeek);
 
         let min = 11 * 60;
         let max = 23 * 60;
 
-        if (dailyHours && dailyHours.opensAt && dailyHours.closesAt) {
-            min = parseTimeToMinutes(dailyHours.opensAt);
-            max = parseTimeToMinutes(dailyHours.closesAt);
+        if (effectiveHours && effectiveHours.opensAt && effectiveHours.closesAt) {
+            min = parseTimeToMinutes(effectiveHours.opensAt);
+            max = parseTimeToMinutes(effectiveHours.closesAt);
             // Handle late night closing (e.g., 01:00)
             if (max < min) max += 24 * 60;
         }
 
-        // Remove buffer to match exact operating hours as requested
-        // min = Math.max(0, min - 30);
-        // max = Math.min(24 * 60 + 300, max + 30); 
+        const overrideSlotTimes = overrideHours?.reservationSlotTimes ?? [];
+        const weeklySlotTimes = dailyHours?.reservationSlotTimes ?? [];
+        const rawSlots = overrideSlotTimes.length > 0 ? overrideSlotTimes : weeklySlotTimes;
+        const slotTimes = rawSlots
+            .filter((slot) => typeof slot === 'string' && slot.trim().length > 0)
+            .map((slot) => parseTimeToMinutes(slot))
+            .filter((slot) => Number.isFinite(slot))
+            .filter((slot) => slot >= min && slot <= max)
+            .filter((slot, index, list) => list.indexOf(slot) === index)
+            .sort((a, b) => a - b);
 
-        const interval = operatingData.profile.reservationIntervalMinutes || 15;
+        if (slotTimes.length > 0) {
+            min = slotTimes[0];
+            max = slotTimes[slotTimes.length - 1];
+        }
 
-        return { min, max, periods, interval };
+        const baseInterval =
+            overrideHours?.reservationIntervalMinutes ??
+            dailyHours?.reservationIntervalMinutes ??
+            operatingData.profile.reservationIntervalMinutes ??
+            15;
+
+        const interval =
+            slotTimes.length > 1
+                ? Math.min(...slotTimes.slice(1).map((slot, index) => slot - slotTimes[index]))
+                : baseInterval;
+
+        return { min, max, periods, interval, slotTimes };
     }, [operatingData, selectedDate]);
-
-    // Update currentTimeVal if it falls out of range when date changes
-    React.useEffect(() => {
-        if (currentTimeVal < timelineConfig.min) setCurrentTimeVal(timelineConfig.min);
-        if (currentTimeVal > timelineConfig.max) setCurrentTimeVal(timelineConfig.max);
-    }, [currentTimeVal, timelineConfig.max, timelineConfig.min]);
 
     // Fetch Zones
     const { data: zones = [] } = useQuery({
@@ -875,14 +892,58 @@ export default function FloorPlanPage() {
         [timelineConfig.max, timelineConfig.min],
     );
 
+    const snapToSlots = useCallback(
+        (value: number) => {
+            if (!timelineConfig.slotTimes || timelineConfig.slotTimes.length === 0) {
+                return clampTime(value);
+            }
+            const clamped = clampTime(value);
+            let nearest = timelineConfig.slotTimes[0];
+            let minDiff = Math.abs(clamped - nearest);
+            timelineConfig.slotTimes.forEach((slot) => {
+                const diff = Math.abs(clamped - slot);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    nearest = slot;
+                }
+            });
+            return nearest;
+        },
+        [clampTime, timelineConfig.slotTimes],
+    );
+
+    React.useEffect(() => {
+        setCurrentTimeVal((current) => {
+            const next = snapToSlots(current);
+            return next === current ? current : next;
+        });
+    }, [snapToSlots]);
+
     const handleTimeChange = useCallback(
-        (value: number) => setCurrentTimeVal(clampTime(value)),
-        [clampTime],
+        (value: number) =>
+            setCurrentTimeVal((current) => {
+                const next = snapToSlots(value);
+                return next === current ? current : next;
+            }),
+        [snapToSlots],
     );
 
     const handleTimeStep = useCallback(
-        (delta: number) => setCurrentTimeVal((current) => clampTime(current + delta)),
-        [clampTime],
+        (delta: number) =>
+            setCurrentTimeVal((current) => {
+                if (!timelineConfig.slotTimes || timelineConfig.slotTimes.length === 0) {
+                    return clampTime(current + delta);
+                }
+                const slots = timelineConfig.slotTimes;
+                const currentIndex = slots.reduce((closestIdx, slot, idx) => {
+                    const prevDiff = Math.abs(slots[closestIdx] - current);
+                    const nextDiff = Math.abs(slot - current);
+                    return nextDiff < prevDiff ? idx : closestIdx;
+                }, 0);
+                const nextIndex = delta > 0 ? Math.min(currentIndex + 1, slots.length - 1) : Math.max(currentIndex - 1, 0);
+                return slots[nextIndex];
+            }),
+        [clampTime, timelineConfig.slotTimes],
     );
 
     if (!activeRestaurantId) {

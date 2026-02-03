@@ -1,13 +1,21 @@
 import { randomUUID } from 'crypto';
 
 
-import { canonicalOptionalTime, canonicalizeFromDb } from '@/server/restaurants/timeNormalization';
+import {
+  RESERVATION_INTERVAL_MAX,
+  RESERVATION_INTERVAL_MIN,
+} from '@/lib/restaurants/reservation-interval';
+import {
+  canonicalOptionalTime,
+  canonicalTime,
+  canonicalizeFromDb,
+} from '@/server/restaurants/timeNormalization';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-type DbClient = SupabaseClient<Database, 'public', any>;
+type DbClient = SupabaseClient<Database, 'public', Database['public']>;
 type OperatingHoursInsert = Database['public']['Tables']['restaurant_operating_hours']['Insert'];
 
 export type WeeklyOperatingHour = {
@@ -16,6 +24,8 @@ export type WeeklyOperatingHour = {
   closesAt: string | null;
   isClosed: boolean;
   notes: string | null;
+  reservationIntervalMinutes: number | null;
+  reservationSlotTimes: string[] | null;
 };
 
 export type OperatingHourOverride = {
@@ -25,6 +35,8 @@ export type OperatingHourOverride = {
   closesAt: string | null;
   isClosed: boolean;
   notes: string | null;
+  reservationIntervalMinutes: number | null;
+  reservationSlotTimes: string[] | null;
 };
 
 export type OperatingHoursSnapshot = {
@@ -40,6 +52,8 @@ export type UpdateWeeklyOperatingHour = {
   closesAt?: string | null;
   isClosed?: boolean;
   notes?: string | null;
+  reservationIntervalMinutes?: number | null;
+  reservationSlotTimes?: string[] | null;
 };
 
 export type UpdateOperatingHourOverride = {
@@ -49,6 +63,8 @@ export type UpdateOperatingHourOverride = {
   closesAt?: string | null;
   isClosed?: boolean;
   notes?: string | null;
+  reservationIntervalMinutes?: number | null;
+  reservationSlotTimes?: string[] | null;
 };
 
 export type UpdateOperatingHoursPayload = {
@@ -69,6 +85,59 @@ function ensureOpenBeforeClose(opensAt: string | null, closesAt: string | null, 
   }
 }
 
+function normalizeInterval(value: number | null | undefined, context: string): number | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (!Number.isInteger(value)) {
+    throw new Error(`${context}: interval must be a whole number`);
+  }
+  if (value < RESERVATION_INTERVAL_MIN || value > RESERVATION_INTERVAL_MAX) {
+    throw new Error(
+      `${context}: interval must be between ${RESERVATION_INTERVAL_MIN}-${RESERVATION_INTERVAL_MAX}`,
+    );
+  }
+  return value;
+}
+
+function normalizeSlotTimes(
+  value: string[] | null | undefined,
+  context: string,
+): string[] | null {
+  if (!value || value.length === 0) {
+    return null;
+  }
+  const normalized: string[] = [];
+  const seen = new Set<string>();
+  value.forEach((entry, index) => {
+    const time = canonicalTime(entry, `${context}: slotTimes[${index}]`);
+    if (!seen.has(time)) {
+      seen.add(time);
+      normalized.push(time);
+    }
+  });
+  return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeSlotTimesFromDb(value: string[] | null | undefined): string[] | null {
+  if (!value || value.length === 0) {
+    return null;
+  }
+  const normalized: string[] = [];
+  const seen = new Set<string>();
+  value.forEach((entry) => {
+    const time = canonicalizeFromDb(entry);
+    if (!time || !time.trim()) {
+      return;
+    }
+    if (!seen.has(time)) {
+      seen.add(time);
+      normalized.push(time);
+    }
+  });
+  return normalized.length > 0 ? normalized : null;
+}
+
 function validateWeeklyEntry(entry: UpdateWeeklyOperatingHour): WeeklyOperatingHour {
   if (!Number.isInteger(entry.dayOfWeek) || entry.dayOfWeek < 0 || entry.dayOfWeek >= DAYS_IN_WEEK) {
     throw new Error(`Weekly entry dayOfWeek must be between 0-6`);
@@ -77,6 +146,14 @@ function validateWeeklyEntry(entry: UpdateWeeklyOperatingHour): WeeklyOperatingH
   const isClosed = entry.isClosed ?? false;
   const opensAt = canonicalOptionalTime(entry.opensAt ?? null, `Weekly day ${entry.dayOfWeek} opensAt`);
   const closesAt = canonicalOptionalTime(entry.closesAt ?? null, `Weekly day ${entry.dayOfWeek} closesAt`);
+  const reservationIntervalMinutes = normalizeInterval(
+    entry.reservationIntervalMinutes ?? null,
+    `Weekly day ${entry.dayOfWeek} reservationIntervalMinutes`,
+  );
+  const reservationSlotTimes = normalizeSlotTimes(
+    entry.reservationSlotTimes ?? null,
+    `Weekly day ${entry.dayOfWeek} reservationSlotTimes`,
+  );
 
   if (isClosed) {
     return {
@@ -85,6 +162,8 @@ function validateWeeklyEntry(entry: UpdateWeeklyOperatingHour): WeeklyOperatingH
       closesAt: null,
       isClosed: true,
       notes: entry.notes?.trim() ?? null,
+      reservationIntervalMinutes: null,
+      reservationSlotTimes: null,
     };
   }
 
@@ -96,6 +175,8 @@ function validateWeeklyEntry(entry: UpdateWeeklyOperatingHour): WeeklyOperatingH
     closesAt: closesAt!,
     isClosed: false,
     notes: entry.notes?.trim() ?? null,
+    reservationIntervalMinutes,
+    reservationSlotTimes,
   };
 }
 
@@ -107,6 +188,14 @@ function validateOverride(entry: UpdateOperatingHourOverride): OperatingHourOver
   const isClosed = entry.isClosed ?? false;
   const opensAt = canonicalOptionalTime(entry.opensAt ?? null, `Override ${entry.effectiveDate} opensAt`);
   const closesAt = canonicalOptionalTime(entry.closesAt ?? null, `Override ${entry.effectiveDate} closesAt`);
+  const reservationIntervalMinutes = normalizeInterval(
+    entry.reservationIntervalMinutes ?? null,
+    `Override ${entry.effectiveDate} reservationIntervalMinutes`,
+  );
+  const reservationSlotTimes = normalizeSlotTimes(
+    entry.reservationSlotTimes ?? null,
+    `Override ${entry.effectiveDate} reservationSlotTimes`,
+  );
 
   if (!isClosed) {
     ensureOpenBeforeClose(opensAt, closesAt, `Override ${entry.effectiveDate}`);
@@ -119,6 +208,8 @@ function validateOverride(entry: UpdateOperatingHourOverride): OperatingHourOver
     closesAt: isClosed ? null : closesAt!,
     isClosed,
     notes: entry.notes?.trim() ?? null,
+    reservationIntervalMinutes: isClosed ? null : reservationIntervalMinutes,
+    reservationSlotTimes: isClosed ? null : reservationSlotTimes,
   };
 }
 
@@ -137,6 +228,8 @@ function buildDefaultWeeklySchedule(existing: WeeklyOperatingHour[]): WeeklyOper
         closesAt: null,
         isClosed: true,
         notes: null,
+        reservationIntervalMinutes: null,
+        reservationSlotTimes: null,
       });
     }
   }
@@ -157,13 +250,17 @@ export async function getOperatingHours(
         .maybeSingle(),
       client
         .from('restaurant_operating_hours')
-        .select('id, day_of_week, opens_at, closes_at, is_closed, notes')
+        .select(
+          'id, day_of_week, opens_at, closes_at, is_closed, notes, reservation_interval_minutes, reservation_slot_times',
+        )
         .eq('restaurant_id', restaurantId)
         .is('effective_date', null)
         .order('day_of_week', { ascending: true }),
       client
         .from('restaurant_operating_hours')
-        .select('id, effective_date, opens_at, closes_at, is_closed, notes')
+        .select(
+          'id, effective_date, opens_at, closes_at, is_closed, notes, reservation_interval_minutes, reservation_slot_times',
+        )
         .eq('restaurant_id', restaurantId)
         .not('effective_date', 'is', null)
         .order('effective_date', { ascending: true }),
@@ -191,6 +288,8 @@ export async function getOperatingHours(
     closesAt: canonicalizeFromDb(row.closes_at),
     isClosed: row.is_closed ?? false,
     notes: row.notes ?? null,
+    reservationIntervalMinutes: row.reservation_interval_minutes ?? null,
+    reservationSlotTimes: normalizeSlotTimesFromDb(row.reservation_slot_times),
   }));
 
   const overrides: OperatingHourOverride[] = (overrideRows ?? []).map((row) => ({
@@ -200,6 +299,8 @@ export async function getOperatingHours(
     closesAt: canonicalizeFromDb(row.closes_at),
     isClosed: row.is_closed ?? false,
     notes: row.notes ?? null,
+    reservationIntervalMinutes: row.reservation_interval_minutes ?? null,
+    reservationSlotTimes: normalizeSlotTimesFromDb(row.reservation_slot_times),
   }));
 
   return {
@@ -237,6 +338,8 @@ export async function updateOperatingHours(
       closes_at: entry.isClosed ? null : entry.closesAt,
       is_closed: entry.isClosed,
       notes: entry.notes,
+      reservation_interval_minutes: entry.reservationIntervalMinutes,
+      reservation_slot_times: entry.reservationSlotTimes,
     })),
     ...validatedOverrides.map<OperatingHoursInsert>((entry) => ({
       id: entry.id,
@@ -247,6 +350,8 @@ export async function updateOperatingHours(
       closes_at: entry.isClosed ? null : entry.closesAt,
       is_closed: entry.isClosed,
       notes: entry.notes,
+      reservation_interval_minutes: entry.reservationIntervalMinutes,
+      reservation_slot_times: entry.reservationSlotTimes,
     })),
   ];
 

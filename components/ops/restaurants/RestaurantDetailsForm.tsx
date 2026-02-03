@@ -9,6 +9,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import {
+  RESERVATION_INTERVAL_MAX,
+  RESERVATION_INTERVAL_MIN,
+} from '@/lib/restaurants/reservation-interval';
 
 import type { UpdateRestaurantInput } from '@/app/api/ops/restaurants/schema';
 import type { PropsWithChildren } from 'react';
@@ -179,8 +183,11 @@ function validate(state: FormState): FormErrors {
     const intervalValue = Number(intervalRaw);
     if (!Number.isInteger(intervalValue)) {
       errors.reservationIntervalMinutes = 'Must be a whole number';
-    } else if (intervalValue < 1 || intervalValue > 180) {
-      errors.reservationIntervalMinutes = 'Must be between 1 and 180 minutes';
+    } else if (
+      intervalValue < RESERVATION_INTERVAL_MIN ||
+      intervalValue > RESERVATION_INTERVAL_MAX
+    ) {
+      errors.reservationIntervalMinutes = `Must be between ${RESERVATION_INTERVAL_MIN} and ${RESERVATION_INTERVAL_MAX} minutes`;
     }
   }
 
@@ -389,8 +396,8 @@ export function RestaurantDetailsForm({
               id="restaurant-interval"
               type="number"
               inputMode="numeric"
-              min={1}
-              max={180}
+              min={RESERVATION_INTERVAL_MIN}
+              max={RESERVATION_INTERVAL_MAX}
               step={1}
               value={state.reservationIntervalMinutes}
               onChange={(event) => handleChange('reservationIntervalMinutes', event.target.value)}
@@ -405,7 +412,7 @@ export function RestaurantDetailsForm({
               )}
             />
             <p id="restaurant-interval-help" className="text-xs text-muted-foreground">
-              Controls slot spacing; must be between 1 and 180 minutes.
+              Controls slot spacing; must be between {RESERVATION_INTERVAL_MIN} and {RESERVATION_INTERVAL_MAX} minutes.
             </p>
             {errors.reservationIntervalMinutes && (
               <p id="restaurant-interval-error" className="text-xs text-destructive" role="alert">

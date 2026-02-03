@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import {
+  RESERVATION_INTERVAL_MAX,
+  RESERVATION_INTERVAL_MIN,
+} from '@/lib/restaurants/reservation-interval';
 import { updateOperatingHours } from '@/server/restaurants/operatingHours';
 import { validateCsrfToken } from '@/server/security/csrf';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
@@ -13,6 +17,14 @@ const operatingHourSchema = z.object({
   closesAt: z.string().trim().nullable(),
   isClosed: z.boolean(),
   notes: z.string().nullable().optional(),
+  reservationIntervalMinutes: z
+    .number()
+    .int()
+    .min(RESERVATION_INTERVAL_MIN)
+    .max(RESERVATION_INTERVAL_MAX)
+    .nullable()
+    .optional(),
+  reservationSlotTimes: z.array(z.string().trim()).nullable().optional(),
 });
 
 const requestSchema = z.object({

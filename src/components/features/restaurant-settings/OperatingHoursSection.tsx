@@ -13,6 +13,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useOpsOperatingHours, useOpsUpdateOperatingHours } from '@/hooks/ops/useOpsOperatingHours';
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
+import {
+  RESERVATION_INTERVAL_MAX,
+  RESERVATION_INTERVAL_MIN,
+} from '@/lib/restaurants/reservation-interval';
 import { cn } from '@/lib/utils';
 import { normalizeTime } from '@reserve/shared/time';
 
@@ -36,6 +40,13 @@ function mapWeeklyFromResponse(snapshot: OperatingHoursSnapshot['weekly']): Week
       closesAt: toInputTime(found?.closesAt ?? null),
       isClosed: found?.isClosed ?? true,
       notes: found?.notes ?? '',
+      reservationIntervalMinutes:
+        found?.reservationIntervalMinutes !== undefined && found?.reservationIntervalMinutes !== null
+          ? String(found.reservationIntervalMinutes)
+          : '',
+      reservationSlotTimes: Array.isArray(found?.reservationSlotTimes)
+        ? found.reservationSlotTimes.join(', ')
+        : '',
     };
   });
 }
@@ -48,6 +59,13 @@ function mapOverridesFromResponse(overrides: OperatingHoursSnapshot['overrides']
     closesAt: toInputTime(row.closesAt ?? null),
     isClosed: row.isClosed,
     notes: row.notes ?? '',
+    reservationIntervalMinutes:
+      row.reservationIntervalMinutes !== undefined && row.reservationIntervalMinutes !== null
+        ? String(row.reservationIntervalMinutes)
+        : '',
+    reservationSlotTimes: Array.isArray(row.reservationSlotTimes)
+      ? row.reservationSlotTimes.join(', ')
+      : '',
   }));
 }
 
@@ -82,6 +100,51 @@ function toComparableTime(value: string | null | undefined): string | null {
   return trimmed.length >= 5 ? trimmed.slice(0, 5) : trimmed;
 }
 
+function parseIntervalInput(value: string): { value: number | null; error?: string } {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return { value: null };
+  }
+  const parsed = Number(trimmed);
+  if (!Number.isInteger(parsed)) {
+    return { value: null, error: 'Must be a whole number' };
+  }
+  if (parsed < RESERVATION_INTERVAL_MIN || parsed > RESERVATION_INTERVAL_MAX) {
+    return {
+      value: null,
+      error: `Must be between ${RESERVATION_INTERVAL_MIN}-${RESERVATION_INTERVAL_MAX}`,
+    };
+  }
+  return { value: parsed };
+}
+
+function parseSlotTimesInput(value: string): { value: string[] | null; error?: string } {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return { value: null };
+  }
+  const parts = trimmed
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length === 0) {
+    return { value: null };
+  }
+  const normalized: string[] = [];
+  const seen = new Set<string>();
+  for (const part of parts) {
+    const time = normalizeTime(part);
+    if (!time) {
+      return { value: null, error: 'Use HH:MM format (e.g., 16:00)' };
+    }
+    if (!seen.has(time)) {
+      seen.add(time);
+      normalized.push(time);
+    }
+  }
+  return { value: normalized };
+}
+
 export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionProps) {
   const { data, error, isLoading } = useOpsOperatingHours(restaurantId);
   const updateMutation = useOpsUpdateOperatingHours(restaurantId);
@@ -93,6 +156,8 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
       closesAt: '',
       isClosed: true,
       notes: '',
+      reservationIntervalMinutes: '',
+      reservationSlotTimes: '',
     })),
   );
   const [overrideRows, setOverrideRows] = useState<OverrideRow[]>([]);
@@ -140,6 +205,8 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
         closesAt: '',
         isClosed: true,
         notes: '',
+        reservationIntervalMinutes: '',
+        reservationSlotTimes: '',
       },
     ]);
     setOverrideErrors((current) => [...current, {}]);
@@ -158,9 +225,11 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
 
     weeklyRows.forEach((row) => {
       if (row.isClosed) return;
-      const errors: { opensAt?: string; closesAt?: string } = {};
+      const errors: WeeklyErrors[number] = {};
       const openComparable = toComparableTime(row.opensAt);
       const closeComparable = toComparableTime(row.closesAt);
+      const intervalResult = parseIntervalInput(row.reservationIntervalMinutes);
+      const slotResult = parseSlotTimesInput(row.reservationSlotTimes);
 
       if (!row.opensAt) {
         errors.opensAt = 'Required';
@@ -178,6 +247,13 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
         errors.closesAt = 'Must be after open';
       }
 
+      if (intervalResult.error) {
+        errors.reservationIntervalMinutes = intervalResult.error;
+      }
+      if (slotResult.error) {
+        errors.reservationSlotTimes = slotResult.error;
+      }
+
       if (Object.keys(errors).length > 0) {
         wErrors[row.dayOfWeek] = errors;
         valid = false;
@@ -188,7 +264,9 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
     const seenDates = new Map<string, number>();
 
     overrideRows.forEach((row, index) => {
-      const errors: { effectiveDate?: string; opensAt?: string; closesAt?: string } = {};
+      const errors: OverrideErrors[number] = {};
+      const intervalResult = parseIntervalInput(row.reservationIntervalMinutes);
+      const slotResult = parseSlotTimesInput(row.reservationSlotTimes);
       if (!row.effectiveDate) {
         errors.effectiveDate = 'Required';
       } else if (seenDates.has(row.effectiveDate)) {
@@ -220,6 +298,13 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
         }
       }
 
+      if (intervalResult.error) {
+        errors.reservationIntervalMinutes = intervalResult.error;
+      }
+      if (slotResult.error) {
+        errors.reservationSlotTimes = slotResult.error;
+      }
+
       if (Object.keys(errors).length > 0) {
         oErrors[index] = errors;
         valid = false;
@@ -244,6 +329,12 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
         closesAt: row.isClosed ? null : row.closesAt ? canonicalizeRequiredTime(row.closesAt) : null,
         isClosed: row.isClosed,
         notes: row.notes || null,
+        reservationIntervalMinutes: row.isClosed
+          ? null
+          : parseIntervalInput(row.reservationIntervalMinutes).value,
+        reservationSlotTimes: row.isClosed
+          ? null
+          : parseSlotTimesInput(row.reservationSlotTimes).value,
       })),
       overrides: overrideRows.map((row) => ({
         id: row.id,
@@ -252,6 +343,12 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
         closesAt: row.isClosed ? null : row.closesAt ? canonicalizeRequiredTime(row.closesAt) : null,
         isClosed: row.isClosed,
         notes: row.notes || null,
+        reservationIntervalMinutes: row.isClosed
+          ? null
+          : parseIntervalInput(row.reservationIntervalMinutes).value,
+        reservationSlotTimes: row.isClosed
+          ? null
+          : parseSlotTimesInput(row.reservationSlotTimes).value,
       })),
     };
 
@@ -364,6 +461,8 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
                       <th className="px-4 py-3 text-left">Day</th>
                       <th className="px-4 py-3 text-left">Open</th>
                       <th className="px-4 py-3 text-left">Close</th>
+                      <th className="px-4 py-3 text-left">Interval (min)</th>
+                      <th className="px-4 py-3 text-left">Slots (HH:MM)</th>
                       <th className="px-4 py-3 text-left">Closed</th>
                       <th className="px-4 py-3 text-left">Notes</th>
                     </tr>
@@ -397,6 +496,43 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
                               className={cn('h-9 min-w-[100px]', errors.closesAt && 'border-destructive')}
                             />
                             {errors.closesAt && <p className="mt-1 text-xs text-destructive">{errors.closesAt}</p>}
+                          </td>
+                          <td className="px-4 py-3">
+                            <Input
+                              type="number"
+                              inputMode="numeric"
+                              min={RESERVATION_INTERVAL_MIN}
+                              max={RESERVATION_INTERVAL_MAX}
+                              step={1}
+                              value={row.reservationIntervalMinutes}
+                              disabled={isDisabled || row.isClosed}
+                              onChange={(event) =>
+                                handleWeeklyChange(index, {
+                                  reservationIntervalMinutes: event.target.value,
+                                })
+                              }
+                              aria-invalid={Boolean(errors.reservationIntervalMinutes)}
+                              className={cn('h-9 min-w-[120px]', errors.reservationIntervalMinutes && 'border-destructive')}
+                              placeholder="Default"
+                            />
+                            {errors.reservationIntervalMinutes && (
+                              <p className="mt-1 text-xs text-destructive">{errors.reservationIntervalMinutes}</p>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <Input
+                              value={row.reservationSlotTimes}
+                              placeholder="16:00, 18:00, 20:00"
+                              disabled={isDisabled || row.isClosed}
+                              onChange={(event) =>
+                                handleWeeklyChange(index, { reservationSlotTimes: event.target.value })
+                              }
+                              aria-invalid={Boolean(errors.reservationSlotTimes)}
+                              className={cn('h-9 min-w-[180px]', errors.reservationSlotTimes && 'border-destructive')}
+                            />
+                            {errors.reservationSlotTimes && (
+                              <p className="mt-1 text-xs text-destructive">{errors.reservationSlotTimes}</p>
+                            )}
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center justify-center">
@@ -460,7 +596,10 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
                 {overrideRows.map((row, index) => {
                   const errors = overrideErrors[index] ?? {};
                   return (
-                    <div key={row.id ?? index} className="grid gap-3 rounded-lg border border-border/60 p-4 text-sm md:grid-cols-[repeat(5,minmax(0,1fr))_auto]">
+                    <div
+                      key={row.id ?? index}
+                      className="grid gap-3 rounded-lg border border-border/60 p-4 text-sm md:grid-cols-[repeat(7,minmax(0,1fr))_auto]"
+                    >
                       <div>
                         <Label className="text-xs uppercase tracking-wide text-muted-foreground">Date</Label>
                         <Input
@@ -493,6 +632,41 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
                           className={cn('mt-1 h-9', errors.closesAt && 'border-destructive')}
                         />
                         {errors.closesAt && <p className="mt-1 text-xs text-destructive">{errors.closesAt}</p>}
+                      </div>
+                      <div>
+                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">Interval (min)</Label>
+                        <Input
+                          type="number"
+                          inputMode="numeric"
+                          min={RESERVATION_INTERVAL_MIN}
+                          max={RESERVATION_INTERVAL_MAX}
+                          step={1}
+                          value={row.reservationIntervalMinutes}
+                          disabled={isDisabled || row.isClosed}
+                          onChange={(event) =>
+                            handleOverrideChange(index, { reservationIntervalMinutes: event.target.value })
+                          }
+                          className={cn('mt-1 h-9', errors.reservationIntervalMinutes && 'border-destructive')}
+                          placeholder="Default"
+                        />
+                        {errors.reservationIntervalMinutes && (
+                          <p className="mt-1 text-xs text-destructive">{errors.reservationIntervalMinutes}</p>
+                        )}
+                      </div>
+                      <div>
+                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">Slots (HH:MM)</Label>
+                        <Input
+                          value={row.reservationSlotTimes}
+                          placeholder="16:00, 18:00, 20:00"
+                          disabled={isDisabled || row.isClosed}
+                          onChange={(event) =>
+                            handleOverrideChange(index, { reservationSlotTimes: event.target.value })
+                          }
+                          className={cn('mt-1 h-9', errors.reservationSlotTimes && 'border-destructive')}
+                        />
+                        {errors.reservationSlotTimes && (
+                          <p className="mt-1 text-xs text-destructive">{errors.reservationSlotTimes}</p>
+                        )}
                       </div>
                       <div className="flex flex-col justify-center gap-2">
                         <div className="flex items-center gap-1">

@@ -22,6 +22,7 @@
 | Date (UTC) | Description | Staging | Production | Priority |
 | ---------- | ----------- | ------- | ---------- | -------- |
 
+| 2026-02-03 | Add per-day reservation interval + fixed slots to operating hours | ⏳ | ⏳ | Medium |
 <<<<<<< Updated upstream
 | 2026-01-20 | Restore restaurant_capacity_rules for booking capacity | ⏳ | ⏳ | High |
 =======
@@ -36,6 +37,42 @@
 ---
 
 ## Migration Details
+
+### 2026-02-03: Add per-day reservation interval + fixed slots to operating hours
+
+**Status**: ⏳ Staging | ⏳ Production  
+**Priority**: Medium  
+**Migration File**: `supabase/migrations/20260203_add_operating_hours_reservation_slots.sql`
+
+#### Problem
+
+Need per-day reservation interval overrides and fixed slot times for specific weekdays or dates.
+
+#### SQL to Apply
+
+Apply the full migration file: `supabase/migrations/20260203_add_operating_hours_reservation_slots.sql`
+
+#### Verification
+
+After applying:
+
+```sql
+SELECT column_name, data_type, is_nullable
+FROM information_schema.columns
+WHERE table_schema = 'public'
+  AND table_name = 'restaurant_operating_hours'
+  AND column_name IN ('reservation_interval_minutes', 'reservation_slot_times')
+ORDER BY column_name;
+```
+
+#### Rollback
+
+```sql
+ALTER TABLE public.restaurant_operating_hours
+  DROP COLUMN IF EXISTS reservation_slot_times,
+  DROP COLUMN IF EXISTS reservation_interval_minutes;
+NOTIFY pgrst, 'reload schema';
+```
 
 <<<<<<< Updated upstream
 
