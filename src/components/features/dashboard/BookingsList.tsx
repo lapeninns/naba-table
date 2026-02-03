@@ -1,15 +1,16 @@
 'use client';
 
+import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import {
   Loader2,
   Search,
 } from 'lucide-react';
 import { DateTime } from 'luxon';
+import { motion, useReducedMotion } from 'motion/react';
 import dynamic from 'next/dynamic';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { OpsBookingCard } from '@/components/dashboard/OpsBookingCard';
-import { Pagination } from '@/components/dashboard/Pagination';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
@@ -85,8 +86,6 @@ type BookingSortKey = 'time' | 'party' | 'name';
 type BookingSortDir = 'asc' | 'desc';
 
 
-
-
 const UPCOMING_STATUSES = new Set<OpsTodayBooking['status']>([
   'confirmed',
   'PRIORITY_WAITLIST',
@@ -151,6 +150,18 @@ function sortBookingsGrouped(
   });
 }
 
+function toIsoTime(date: string, time: string | null) {
+  if (!time) return `${date}T00:00:00`;
+  const match = time.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (!match) {
+    return `${date}T${time}`;
+  }
+  const hours = match[1]?.padStart(2, '0') ?? '00';
+  const minutes = match[2] ?? '00';
+  const seconds = match[3] ?? '00';
+  return `${date}T${hours}:${minutes}:${seconds}`;
+}
+
 export function BookingsList(props: BookingsListProps) {
   const existingStateMachine = useOptionalBookingStateMachine();
   const initialSnapshots = useMemo(
@@ -199,10 +210,8 @@ function BookingsListContent({
 }: BookingsListProps) {
   const { registerBookings } = useBookingStateMachine();
   const [now, setNow] = useState(() => DateTime.now().setZone(summary.timezone));
-
-  // Pagination and Sorting State
-  const [page, setPage] = useState(1);
-  const [pageSize] = useState(10);
+  const nowDate = useMemo(() => now.toJSDate(), [now]);
+  const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
     registerBookings(
@@ -215,17 +224,35 @@ function BookingsListContent({
   }, [bookings, registerBookings]);
 
   useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const handleVisibility = () => setIsVisible(document.visibilityState === 'visible');
+    handleVisibility();
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, []);
+
+  useEffect(() => {
+    if (!isVisible) return;
     setNow(DateTime.now().setZone(summary.timezone));
     const interval = setInterval(() => {
       setNow(DateTime.now().setZone(summary.timezone));
     }, 60_000);
     return () => clearInterval(interval);
-  }, [summary.timezone, summary.date]);
+  }, [summary.timezone, summary.date, isVisible]);
 
-  // Reset page when filter changes
-  useEffect(() => {
-    setPage(1);
-  }, [filter, sortKey, sortDir, searchQuery]);
+  const normalizedSearch = useMemo(
+    () => (searchQuery ?? '').trim().toLowerCase(),
+    [searchQuery],
+  );
+  const searchIndex = useMemo(() => {
+    const index = new Map<string, string>();
+    for (const booking of bookings) {
+      const haystack = `${booking.customerName ?? ''} ${booking.reference ?? ''}`.toLowerCase();
+      index.set(booking.id, haystack);
+    }
+    return index;
+  }, [bookings]);
+  const attentionNow = filter === 'attention' ? now : null;
 
   const hasAssignmentHandlers = Boolean(onAssignTable && onUnassignTable);
   const isLifecycleLockActive =
@@ -235,12 +262,9 @@ function BookingsListContent({
     let result = bookings;
 
     // Search Filter
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter((b) =>
-        b.customerName.toLowerCase().includes(q) ||
-        (b.reference && b.reference.toLowerCase().includes(q))
-      );
+    if (normalizedSearch) {
+      const q = normalizedSearch;
+      result = result.filter((b) => (searchIndex.get(b.id) ?? '').includes(q));
     }
 
     if (filter === 'all') return result;
@@ -261,19 +285,23 @@ function BookingsListContent({
     }
 
     // Default 'attention' logic - uses actual status
+    if (!attentionNow) {
+      return result;
+    }
+
     return result.filter((booking) => {
-      const temporalInfo = getOpsBookingTemporalInfo(booking, summary, now);
+      const temporalInfo = getOpsBookingTemporalInfo(booking, summary, attentionNow);
       const requirements = getOpsBookingActionRequirements({
         booking,
         temporalInfo,
-        now,
+        now: attentionNow,
         statusForActions: booking.status,
         allowTableAssignments,
         hasAssignmentHandlers,
       });
       return requirements.needsAttention;
     });
-  }, [bookings, filter, summary, now, allowTableAssignments, hasAssignmentHandlers, searchQuery]);
+  }, [bookings, filter, summary, attentionNow, allowTableAssignments, hasAssignmentHandlers, normalizedSearch, searchIndex]);
 
   const sorted = useMemo(() => {
     if (filter === 'all') {
@@ -282,21 +310,155 @@ function BookingsListContent({
     return sortBookings(filtered, sortKey, sortDir);
   }, [filter, filtered, sortKey, sortDir]);
 
-  const paginated = useMemo(() => {
-    const start = (page - 1) * pageSize;
-    return sorted.slice(start, start + pageSize);
-  }, [sorted, page, pageSize]);
-
+  const VIRTUALIZE_MIN_ITEMS = 20;
   const bookingIds = useMemo(() => bookings.map((booking) => booking.id), [bookings]);
-  const visibleBookingIds = useMemo(() => paginated.map((booking) => booking.id), [paginated]);
+  const rowMeasureCacheRef = useRef(new Map<string, number>());
+  const rowStatusCacheRef = useRef(new Map<string, OpsTodayBooking['status']>());
+  const dtoCacheRef = useRef(new Map<string, BookingDTO>());
+  const prefersReducedMotion = useReducedMotion();
+  const hasAnimatedRef = useRef(false);
+  const measureFrameRef = useRef<number | null>(null);
+
+  const rowVirtualizer = useWindowVirtualizer({
+    count: sorted.length >= VIRTUALIZE_MIN_ITEMS ? sorted.length : 0,
+    estimateSize: (index) => {
+      const id = sorted[index]?.id;
+      if (!id) return 140;
+      return rowMeasureCacheRef.current.get(id) ?? 140;
+    },
+    overscan: 6,
+  });
+  const shouldVirtualize = sorted.length >= VIRTUALIZE_MIN_ITEMS;
+  const virtualRows = rowVirtualizer.getVirtualItems();
+  const visibleBookingIds = useMemo(() => {
+    if (!shouldVirtualize) {
+      return bookingIds;
+    }
+    return virtualRows
+      .map((row) => sorted[row.index]?.id)
+      .filter((id): id is string => Boolean(id));
+  }, [bookingIds, shouldVirtualize, sorted, virtualRows]);
+
+  const scheduleMeasure = useCallback(() => {
+    if (!shouldVirtualize || measureFrameRef.current !== null) return;
+    measureFrameRef.current = requestAnimationFrame(() => {
+      measureFrameRef.current = null;
+      rowVirtualizer.measure();
+    });
+  }, [rowVirtualizer, shouldVirtualize]);
+
+  useEffect(() => {
+    return () => {
+      if (measureFrameRef.current !== null) {
+        cancelAnimationFrame(measureFrameRef.current);
+      }
+    };
+  }, []);
 
   useBookingRealtime({
     restaurantId: summary.restaurantId,
     targetDate: summary.date,
     bookingIds,
     visibleBookingIds,
+    summary,
+    isSummaryFetching: isRefetching,
     enabled: bookings.length > 0,
   });
+
+  useEffect(() => {
+    if (!shouldVirtualize) return;
+    const statusCache = rowStatusCacheRef.current;
+    const measureCache = rowMeasureCacheRef.current;
+    const seen = new Set<string>();
+    let invalidated = false;
+
+    for (const booking of bookings) {
+      seen.add(booking.id);
+      const previousStatus = statusCache.get(booking.id);
+      if (previousStatus && previousStatus !== booking.status) {
+        measureCache.delete(booking.id);
+        invalidated = true;
+      }
+      statusCache.set(booking.id, booking.status);
+    }
+
+    for (const id of statusCache.keys()) {
+      if (!seen.has(id)) {
+        statusCache.delete(id);
+        measureCache.delete(id);
+        invalidated = true;
+      }
+    }
+    if (invalidated) {
+      scheduleMeasure();
+    }
+  }, [bookings, scheduleMeasure, shouldVirtualize]);
+
+  const shouldAnimate = !prefersReducedMotion && !hasAnimatedRef.current && sorted.length > 0;
+
+  useEffect(() => {
+    if (sorted.length > 0) {
+      hasAnimatedRef.current = true;
+    }
+  }, [sorted.length]);
+
+  const getBookingDTO = (booking: OpsTodayBooking) => {
+    const signature = [
+      booking.status,
+      booking.startTime ?? '',
+      booking.endTime ?? '',
+      booking.partySize,
+      booking.customerName,
+      booking.customerEmail ?? '',
+      booking.customerPhone ?? '',
+      booking.notes ?? '',
+      booking.allergies ?? '',
+      booking.dietaryRestrictions ?? '',
+      booking.seatingPreference ?? '',
+      booking.loyaltyTier ?? '',
+      booking.reference ?? '',
+      booking.checkedInAt ?? '',
+      booking.checkedOutAt ?? '',
+      (booking.tableAssignments ?? []).length,
+      booking.requiresTableAssignment ? '1' : '0',
+      summary.restaurantId,
+      summary.timezone,
+      summary.date,
+      restaurantSlug ?? '',
+    ].join('|');
+
+    const cacheKey = `${booking.id}:${signature}`;
+    const existing = dtoCacheRef.current.get(cacheKey);
+    if (existing) return existing;
+
+    const startIso = toIsoTime(summary.date, booking.startTime ?? null);
+    const endIso = toIsoTime(summary.date, booking.endTime ?? null);
+    const bookingDTO: BookingDTO = {
+      id: booking.id,
+      restaurantId: summary.restaurantId,
+      reference: booking.reference ?? null,
+      status: booking.status,
+      startIso,
+      endIso: endIso || startIso,
+      partySize: booking.partySize,
+      customerName: booking.customerName,
+      customerEmail: booking.customerEmail ?? null,
+      customerPhone: booking.customerPhone ?? null,
+      restaurantName: 'Restaurant',
+      restaurantSlug: restaurantSlug ?? null,
+      restaurantTimezone: summary.timezone,
+      notes: booking.notes ?? null,
+      allergies: booking.allergies ?? null,
+      dietaryRestrictions: booking.dietaryRestrictions ?? null,
+      seatingPreference: booking.seatingPreference ?? null,
+      loyaltyTier: booking.loyaltyTier ?? null,
+      tableAssignments: booking.tableAssignments,
+      requiresTableAssignment: booking.requiresTableAssignment,
+    };
+
+    dtoCacheRef.current.set(cacheKey, bookingDTO);
+    return bookingDTO;
+  };
 
   if (filtered.length === 0) {
     return (
@@ -356,94 +518,117 @@ function BookingsListContent({
       ) : null}
 
       {/* Booking Cards */}
-      <div className="grid grid-cols-1 gap-3">
-        {paginated.map((booking, index) => {
-          const temporalInfo = getOpsBookingTemporalInfo(booking, summary, now);
-          const allowAssignmentsForBooking = allowTableAssignments && hasAssignmentHandlers && temporalInfo.state !== 'past';
+      {shouldVirtualize ? (
+        <motion.div
+          className="relative"
+          initial={shouldAnimate ? { opacity: 0 } : false}
+          animate={{ opacity: 1 }}
+          transition={shouldAnimate ? { duration: 0.2, ease: 'easeOut' } : undefined}
+        >
+          <div className="relative" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
+            {virtualRows.map((virtualRow) => {
+              const booking = sorted[virtualRow.index];
+              if (!booking) return null;
 
-          const pendingAction = pendingLifecycleAction?.bookingId === booking.id ? pendingLifecycleAction.action : null;
-          const actionsDisabled =
-            isLifecycleLockActive &&
-            Boolean(pendingLifecycleAction?.bookingId) &&
-            pendingLifecycleAction?.bookingId !== booking.id;
+              const hasStartTime = Boolean(booking.startTime);
+              const bookingDTO = getBookingDTO(booking);
 
-          const toIsoTime = (date: string, time: string | null) => {
-            if (!time) return `${date}T00:00:00`;
-            const match = time.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
-            if (!match) {
-              return `${date}T${time}`;
-            }
-            const hours = match[1]?.padStart(2, '0') ?? '00';
-            const minutes = match[2] ?? '00';
-            const seconds = match[3] ?? '00';
-            return `${date}T${hours}:${minutes}:${seconds}`;
-          };
+              const temporalInfo = getOpsBookingTemporalInfo(booking, summary, now);
+              const allowAssignmentsForBooking =
+                allowTableAssignments && hasAssignmentHandlers && temporalInfo.state !== 'past';
 
-          const hasStartTime = Boolean(booking.startTime);
-          const startIso = toIsoTime(summary.date, booking.startTime ?? null);
-          const endIso = toIsoTime(summary.date, booking.endTime ?? null);
+              const pendingAction =
+                pendingLifecycleAction?.bookingId === booking.id ? pendingLifecycleAction.action : null;
+              const actionsDisabled =
+                isLifecycleLockActive &&
+                Boolean(pendingLifecycleAction?.bookingId) &&
+                pendingLifecycleAction?.bookingId !== booking.id;
 
-          const bookingDTO: BookingDTO = {
-            id: booking.id,
-            restaurantId: summary.restaurantId,
-            reference: booking.reference ?? null,
-            status: booking.status,
-            startIso,
-            endIso: endIso || startIso,
-            partySize: booking.partySize,
-            customerName: booking.customerName,
-            customerEmail: booking.customerEmail ?? null,
-            customerPhone: booking.customerPhone ?? null,
-            restaurantName: 'Restaurant',
-            restaurantSlug: restaurantSlug ?? null,
-            restaurantTimezone: summary.timezone,
-            notes: booking.notes ?? null,
-            allergies: booking.allergies ?? null,
-            dietaryRestrictions: booking.dietaryRestrictions ?? null,
-            seatingPreference: booking.seatingPreference ?? null,
-            loyaltyTier: booking.loyaltyTier ?? null,
-            tableAssignments: booking.tableAssignments,
-            requiresTableAssignment: booking.requiresTableAssignment,
-          };
+              return (
+                <div
+                  key={virtualRow.key}
+                  data-index={virtualRow.index}
+                  ref={(node) => {
+                    rowVirtualizer.measureElement(node);
+                    if (node) {
+                      const height = node.getBoundingClientRect().height;
+                      const cached = rowMeasureCacheRef.current.get(booking.id);
+                      if (!cached || Math.abs(cached - height) > 1) {
+                        rowMeasureCacheRef.current.set(booking.id, height);
+                      }
+                    }
+                  }}
+                  className="absolute left-0 top-0 w-full will-change-transform"
+                  style={{ transform: `translate3d(0, ${virtualRow.start}px, 0)` }}
+                >
+                  <OpsBookingCard
+                    booking={bookingDTO}
+                    timezone={summary.timezone}
+                    now={nowDate}
+                    onCheckIn={onCheckIn}
+                    onCheckOut={onCheckOut}
+                    onMarkNoShow={onMarkNoShow}
+                    onUndoNoShow={onUndoNoShow}
+                    onDetails={onDetails}
+                    onEdit={onEdit}
+                    onAssignTable={onAssignTable}
+                    onUnassignTable={onUnassignTable}
+                    pendingAction={pendingAction}
+                    actionsDisabled={actionsDisabled}
+                    allowTableAssignments={allowAssignmentsForBooking}
+                    timeLabelOverride={hasStartTime ? null : 'Time TBD'}
+                    highlightUrgency={hasStartTime}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </motion.div>
+      ) : (
+        <motion.div
+          className="space-y-3"
+          initial={shouldAnimate ? { opacity: 0 } : false}
+          animate={{ opacity: 1 }}
+          transition={shouldAnimate ? { duration: 0.2, ease: 'easeOut' } : undefined}
+        >
+          {sorted.map((booking) => {
+            const hasStartTime = Boolean(booking.startTime);
+            const bookingDTO = getBookingDTO(booking);
+            const temporalInfo = getOpsBookingTemporalInfo(booking, summary, now);
+            const allowAssignmentsForBooking =
+              allowTableAssignments && hasAssignmentHandlers && temporalInfo.state !== 'past';
+            const pendingAction =
+              pendingLifecycleAction?.bookingId === booking.id ? pendingLifecycleAction.action : null;
+            const actionsDisabled =
+              isLifecycleLockActive &&
+              Boolean(pendingLifecycleAction?.bookingId) &&
+              pendingLifecycleAction?.bookingId !== booking.id;
 
-          return (
-            <div
-              key={booking.id}
-              className="fill-mode-backwards motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-300 motion-safe:ease-out motion-reduce:animate-none"
-              style={{ animationDelay: `${index * 0.03}s` }}
-            >
-              <OpsBookingCard
-                booking={bookingDTO}
-                timezone={summary.timezone}
-                now={now.toJSDate()}
-                onCheckIn={onCheckIn}
-                onCheckOut={onCheckOut}
-                onMarkNoShow={onMarkNoShow}
-                onUndoNoShow={onUndoNoShow}
-                onDetails={onDetails}
-                onEdit={onEdit}
-                onAssignTable={onAssignTable}
-                onUnassignTable={onUnassignTable}
-                pendingAction={pendingAction}
-                actionsDisabled={actionsDisabled}
-                allowTableAssignments={allowAssignmentsForBooking}
-                timeLabelOverride={hasStartTime ? null : 'Time TBD'}
-                highlightUrgency={hasStartTime}
-              />
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Pagination */}
-      {sorted.length > pageSize ? (
-        <Pagination
-          page={page}
-          pageSize={pageSize}
-          total={sorted.length}
-          onPageChange={setPage}
-        />
-      ) : null}
+            return (
+              <div key={booking.id}>
+                <OpsBookingCard
+                  booking={bookingDTO}
+                  timezone={summary.timezone}
+                  now={nowDate}
+                  onCheckIn={onCheckIn}
+                  onCheckOut={onCheckOut}
+                  onMarkNoShow={onMarkNoShow}
+                  onUndoNoShow={onUndoNoShow}
+                  onDetails={onDetails}
+                  onEdit={onEdit}
+                  onAssignTable={onAssignTable}
+                  onUnassignTable={onUnassignTable}
+                  pendingAction={pendingAction}
+                  actionsDisabled={actionsDisabled}
+                  allowTableAssignments={allowAssignmentsForBooking}
+                  timeLabelOverride={hasStartTime ? null : 'Time TBD'}
+                  highlightUrgency={hasStartTime}
+                />
+              </div>
+            );
+          })}
+        </motion.div>
+      )}
     </div>
   );
 }

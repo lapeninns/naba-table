@@ -1,7 +1,9 @@
 'use client';
 
-import { Mail, Phone } from 'lucide-react';
-import { useMemo } from 'react';
+import { useWindowVirtualizer } from '@tanstack/react-virtual';
+import { Loader2, Mail, Phone } from 'lucide-react';
+import { motion, useReducedMotion } from 'motion/react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,9 +18,38 @@ type CustomersTableProps = {
   customers: OpsCustomer[];
   isLoading: boolean;
   hasActiveFilters?: boolean;
+  onLoadMore?: () => void;
+  hasNextPage?: boolean;
+  isFetchingNextPage?: boolean;
+  focusCustomerId?: string | null;
 };
 
 const skeletonRows = Array.from({ length: 5 }, (_, index) => index);
+
+function useMediaQuery(query: string) {
+  const [matches, setMatches] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const media = window.matchMedia(query);
+    const update = () => setMatches(media.matches);
+    update();
+    if (media.addEventListener) {
+      media.addEventListener('change', update);
+    } else {
+      media.addListener(update);
+    }
+    return () => {
+      if (media.removeEventListener) {
+        media.removeEventListener('change', update);
+      } else {
+        media.removeListener(update);
+      }
+    };
+  }, [query]);
+
+  return matches;
+}
 
 function formatDateWithRelative(isoString: string | null): string {
   if (!isoString) return 'No visits yet';
@@ -230,16 +261,89 @@ function DesktopCustomerCard({ customer }: { customer: OpsCustomer }) {
   );
 }
 
-export function CustomersTable({ customers, isLoading, hasActiveFilters }: CustomersTableProps) {
-  const showSkeleton = isLoading;
+export function CustomersTable({
+  customers,
+  isLoading,
+  hasActiveFilters,
+  onLoadMore,
+  hasNextPage = false,
+  isFetchingNextPage = false,
+  focusCustomerId,
+}: CustomersTableProps) {
+  const VIRTUALIZE_MIN_ITEMS = 24;
+  const showSkeleton = isLoading && customers.length === 0;
   const showEmpty = !isLoading && customers.length === 0;
+  const isDesktop = useMediaQuery('(min-width: 768px)');
+  const prefersReducedMotion = useReducedMotion();
+  const hasAnimatedRef = useRef(false);
+
+  const rowMeasureCacheRef = useRef(new Map<string, number>());
+  const totalItems = hasNextPage ? customers.length + 1 : customers.length;
+  const shouldVirtualize = customers.length >= VIRTUALIZE_MIN_ITEMS || hasNextPage;
+  const rowVirtualizer = useWindowVirtualizer({
+    count: shouldVirtualize ? totalItems : 0,
+    estimateSize: (index) => {
+      if (index >= customers.length) return 72;
+      const id = customers[index]?.id;
+      if (!id) return 140;
+      return rowMeasureCacheRef.current.get(id) ?? 140;
+    },
+    overscan: 6,
+  });
+  const virtualRows = rowVirtualizer.getVirtualItems();
+
+  useEffect(() => {
+    if (!shouldVirtualize) return;
+    rowVirtualizer.measure();
+  }, [isDesktop, rowVirtualizer, shouldVirtualize]);
+
+  const shouldAnimate = !prefersReducedMotion && !hasAnimatedRef.current && customers.length > 0;
+
+  useEffect(() => {
+    if (customers.length > 0) {
+      hasAnimatedRef.current = true;
+    }
+  }, [customers.length]);
+
+  useEffect(() => {
+    if (!shouldVirtualize) return;
+    if (!onLoadMore || !hasNextPage || isFetchingNextPage) {
+      return;
+    }
+    if (customers.length === 0) return;
+    const lastItem = virtualRows[virtualRows.length - 1];
+    if (!lastItem) return;
+    if (lastItem.index >= customers.length - 1) {
+      onLoadMore();
+    }
+  }, [customers.length, hasNextPage, isFetchingNextPage, onLoadMore, shouldVirtualize, virtualRows]);
+
+  useEffect(() => {
+    if (!focusCustomerId || customers.length === 0) return;
+    const focusLower = focusCustomerId.toLowerCase();
+    const targetIndex = customers.findIndex(
+      (customer) =>
+        customer.id === focusCustomerId ||
+        (customer.email ?? '').toLowerCase() === focusLower,
+    );
+    if (targetIndex < 0) return;
+    rowVirtualizer.scrollToIndex(targetIndex, { align: 'center' });
+    const targetId = customers[targetIndex]?.id;
+    if (!targetId) return;
+    setTimeout(() => {
+      const selector = `[data-customer-id="${targetId}"]`;
+      const target = document.querySelector<HTMLElement>(selector);
+      if (target) {
+        target.focus({ preventScroll: true });
+      }
+    }, 150);
+  }, [customers, focusCustomerId, rowVirtualizer]);
 
   return (
     <div className="space-y-4">
-      {/* Mobile view */}
-      <div className="md:hidden">
-        {showSkeleton ? (
-          <div className="grid grid-cols-1 gap-3">
+      {showSkeleton ? (
+        <>
+          <div className="grid grid-cols-1 gap-3 md:hidden">
             {skeletonRows.map((row) => (
               <div key={`skeleton-mobile-${row}`} className="rounded-lg border border-border bg-card p-4">
                 <Skeleton className="mb-3 h-5 w-40" />
@@ -253,21 +357,7 @@ export function CustomersTable({ customers, isLoading, hasActiveFilters }: Custo
               </div>
             ))}
           </div>
-        ) : showEmpty ? (
-          <EmptyState hasActiveFilters={hasActiveFilters} />
-        ) : (
-          <div className="grid grid-cols-1 gap-3">
-            {customers.map((customer) => (
-              <CustomerCard key={customer.id} customer={customer} />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Desktop view */}
-      <div className="hidden md:block">
-        {showSkeleton ? (
-          <div className="grid grid-cols-1 gap-3">
+          <div className="hidden grid-cols-1 gap-3 md:grid">
             {skeletonRows.map((row) => (
               <Card key={`skeleton-desktop-${row}`} className="border-border/60 bg-card/40 p-4">
                 <div className="flex items-center gap-4">
@@ -289,18 +379,85 @@ export function CustomersTable({ customers, isLoading, hasActiveFilters }: Custo
               </Card>
             ))}
           </div>
-        ) : showEmpty ? (
-          <EmptyState hasActiveFilters={hasActiveFilters} />
-        ) : (
-          <div className="grid grid-cols-1 gap-3">
-            {customers.map((customer) => (
-              <div key={customer.id} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                <DesktopCustomerCard customer={customer} />
-              </div>
-            ))}
+        </>
+      ) : showEmpty ? (
+        <EmptyState hasActiveFilters={hasActiveFilters} />
+      ) : shouldVirtualize ? (
+        <motion.div
+          className="relative"
+          initial={shouldAnimate ? { opacity: 0 } : false}
+          animate={{ opacity: 1 }}
+          transition={shouldAnimate ? { duration: 0.2, ease: 'easeOut' } : undefined}
+        >
+          <div className="relative" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
+            {virtualRows.map((virtualRow) => {
+              if (virtualRow.index >= customers.length) {
+                return (
+                  <div
+                    key={virtualRow.key}
+                    data-index={virtualRow.index}
+                    ref={rowVirtualizer.measureElement}
+                    className="absolute left-0 top-0 w-full"
+                    style={{ transform: `translateY(${virtualRow.start}px)` }}
+                  >
+                    <div className="flex items-center justify-center gap-2 py-3 text-xs font-medium text-muted-foreground">
+                      {isFetchingNextPage ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                      ) : null}
+                      <span>{isFetchingNextPage ? 'Loading more customers...' : 'Scroll to load more'}</span>
+                    </div>
+                  </div>
+                );
+              }
+
+              const customer = customers[virtualRow.index];
+              if (!customer) return null;
+
+              return (
+                <div
+                  key={virtualRow.key}
+                  data-index={virtualRow.index}
+                  ref={(node) => {
+                    rowVirtualizer.measureElement(node);
+                    if (node) {
+                      const height = node.getBoundingClientRect().height;
+                      const cached = rowMeasureCacheRef.current.get(customer.id);
+                      if (!cached || Math.abs(cached - height) > 1) {
+                        rowMeasureCacheRef.current.set(customer.id, height);
+                      }
+                    }
+                  }}
+                  className="absolute left-0 top-0 w-full pb-3 will-change-transform"
+                  style={{ transform: `translate3d(0, ${virtualRow.start}px, 0)` }}
+                >
+                  {isDesktop ? (
+                    <DesktopCustomerCard customer={customer} />
+                  ) : (
+                    <CustomerCard customer={customer} />
+                  )}
+                </div>
+              );
+            })}
           </div>
-        )}
-      </div>
+        </motion.div>
+      ) : (
+        <motion.div
+          className="space-y-3"
+          initial={shouldAnimate ? { opacity: 0 } : false}
+          animate={{ opacity: 1 }}
+          transition={shouldAnimate ? { duration: 0.2, ease: 'easeOut' } : undefined}
+        >
+          {customers.map((customer) => (
+            <div key={customer.id} className="pb-3">
+              {isDesktop ? (
+                <DesktopCustomerCard customer={customer} />
+              ) : (
+                <CustomerCard customer={customer} />
+              )}
+            </div>
+          ))}
+        </motion.div>
+      )}
     </div>
   );
 }

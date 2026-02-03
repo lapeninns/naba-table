@@ -18,7 +18,7 @@ export default async function RestaurantSettingsLayout({ children }: { children:
   }
 
   if (!user) {
-    redirect(withRedirectedFrom('/auth/signin', '/app/settings/restaurant/profile'));
+    redirect(withRedirectedFrom('/app/auth/signin', '/app/settings/restaurant/profile'));
   }
 
   return (

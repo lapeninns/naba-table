@@ -27,6 +27,7 @@ type HeatmapCalendarProps = {
   onSelectDate: (date: string) => void;
   onShiftDate?: (days: number) => void;
   isLoading?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
 type HeatmapMeta = {
@@ -35,7 +36,15 @@ type HeatmapMeta = {
   intensity: HeatIntensity;
 };
 
-export function HeatmapCalendar({ summary, heatmap, selectedDate, onSelectDate, onShiftDate, isLoading }: HeatmapCalendarProps) {
+export function HeatmapCalendar({
+  summary,
+  heatmap,
+  selectedDate,
+  onSelectDate,
+  onShiftDate,
+  isLoading,
+  onOpenChange,
+}: HeatmapCalendarProps) {
   const selectedDateObj = useMemo(() => {
     const next = new Date(`${selectedDate}T00:00:00`);
     return Number.isNaN(next.getTime()) ? undefined : next;
@@ -44,18 +53,21 @@ export function HeatmapCalendar({ summary, heatmap, selectedDate, onSelectDate, 
   const heatmapMeta = useMemo(() => deriveHeatmapMeta(heatmap), [heatmap]);
 
   const [open, setOpen] = useState(false);
-
-  if (isLoading) {
-    return <span className="px-2 text-sm font-medium text-muted-foreground animate-pulse">Loading...</span>;
-  }
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen);
+    onOpenChange?.(nextOpen);
+  };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <button
           type="button"
-          disabled={isLoading}
-          className="px-2 text-sm font-medium text-foreground transition-colors hover:text-primary whitespace-nowrap"
+          aria-busy={isLoading}
+          className={cn(
+            'px-2 text-sm font-medium text-foreground transition-colors hover:text-primary whitespace-nowrap',
+            isLoading && 'opacity-70',
+          )}
         >
           {formatDateReadable(selectedDate, summary.timezone)}
         </button>
@@ -68,7 +80,7 @@ export function HeatmapCalendar({ summary, heatmap, selectedDate, onSelectDate, 
               type="button"
               onClick={() => {
                 onShiftDate(-1);
-                setOpen(false);
+                handleOpenChange(false);
               }}
               className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring active:scale-95 motion-reduce:active:scale-100"
               aria-label="Previous day"
@@ -82,7 +94,7 @@ export function HeatmapCalendar({ summary, heatmap, selectedDate, onSelectDate, 
               type="button"
               onClick={() => {
                 onShiftDate(1);
-                setOpen(false);
+                handleOpenChange(false);
               }}
               className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring active:scale-95 motion-reduce:active:scale-100"
               aria-label="Next day"
@@ -100,7 +112,7 @@ export function HeatmapCalendar({ summary, heatmap, selectedDate, onSelectDate, 
             onSelect={(date) => {
               if (!date) return;
               onSelectDate(formatDateKey(date));
-              setOpen(false);
+              handleOpenChange(false);
             }}
             components={{
               DayButton: (props) => {
