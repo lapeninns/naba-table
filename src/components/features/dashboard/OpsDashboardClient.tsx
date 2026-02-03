@@ -16,6 +16,16 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useDeferredValue, useEffect, useMemo, useState, useTransition } from 'react';
 
 import { BookingOfflineBanner } from '@/components/features/booking-state-machine';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -23,13 +33,14 @@ import { BookingStateMachineProvider } from '@/contexts/booking-state-machine';
 import { useOpsActiveMembership } from '@/contexts/ops-session';
 import { useOpsBookingHeatmap } from '@/hooks/ops/useOpsBookingHeatmap';
 import { useOpsBookingLifecycleActions } from '@/hooks/ops/useOpsBookingStatusActions';
+import { useOpsCancelBooking } from '@/hooks/ops/useOpsCancelBooking';
 import { useOpsRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
 import { useOpsTableAssignmentActions } from '@/hooks/ops/useOpsTableAssignments';
 import { useOpsTodaySummary } from '@/hooks/ops/useOpsTodaySummary';
 import { useDateSwipe } from '@/hooks/useDateSwipe';
 import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils';
-import { formatDateKey, getTodayInTimezone } from '@/lib/utils/datetime';
+import { formatDateKey, getDateInTimezone, getTodayInTimezone } from '@/lib/utils/datetime';
 import { computeCalendarRange, sanitizeDateParam } from '@/utils/ops/dashboard';
 
 import { BookingsFilterBar } from './BookingsFilterBar';
@@ -101,6 +112,9 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [editBooking, setEditBooking] = useState<BookingDTO | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [cancelBooking, setCancelBooking] = useState<BookingDTO | null>(null);
+  const [isCancelOpen, setIsCancelOpen] = useState(false);
+  const cancelBookingMutation = useOpsCancelBooking();
 
   const [, startTransition] = useTransition();
 
@@ -225,6 +239,65 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
       setEditBooking(null);
     }
   }, []);
+
+  const resolveCancelTargetDate = useCallback(
+    (booking: BookingDTO, timezone: string) => {
+      if (booking.startIso) {
+        const startDate = new Date(booking.startIso);
+        if (!Number.isNaN(startDate.getTime())) {
+          return getDateInTimezone(startDate, timezone);
+        }
+      }
+      if (summary?.date) {
+        return summary.date;
+      }
+      if (selectedDate) {
+        return selectedDate;
+      }
+      return getTodayInTimezone(timezone);
+    },
+    [selectedDate, summary?.date],
+  );
+
+  const handleCancelRequest = useCallback((booking: BookingDTO) => {
+    setIsDetailsOpen(false);
+    setDetailsBooking(null);
+    setIsEditOpen(false);
+    setEditBooking(null);
+    setCancelBooking(booking);
+    setIsCancelOpen(true);
+  }, []);
+
+  const handleCancelOpenChange = useCallback((open: boolean) => {
+    setIsCancelOpen(open);
+    if (!open) {
+      setCancelBooking(null);
+    }
+  }, []);
+
+  const handleConfirmCancel = useCallback(async () => {
+    if (!cancelBooking) return;
+    const resolvedRestaurantId = cancelBooking.restaurantId ?? restaurantId;
+    if (!resolvedRestaurantId) return;
+    const timezone = cancelBooking.restaurantTimezone ?? restaurantTimezone ?? 'UTC';
+    const targetDate = resolveCancelTargetDate(cancelBooking, timezone);
+    try {
+      await cancelBookingMutation.mutateAsync({
+        bookingId: cancelBooking.id,
+        restaurantId: resolvedRestaurantId,
+        targetDate,
+      });
+    } finally {
+      handleCancelOpenChange(false);
+    }
+  }, [
+    cancelBooking,
+    cancelBookingMutation,
+    handleCancelOpenChange,
+    resolveCancelTargetDate,
+    restaurantId,
+    restaurantTimezone,
+  ]);
 
   const handlePrint = useCallback(() => {
     if (typeof window === 'undefined') return;
@@ -649,6 +722,7 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
             restaurantSlug={restaurantSlug}
             onDetails={handleDetails}
             onEdit={handleEdit}
+            onCancel={handleCancelRequest}
             onAssignTable={handleAssignTable}
             onUnassignTable={handleUnassignTable}
             tableActionState={tableActionState}
@@ -675,6 +749,30 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
           restaurantTimezone={restaurantTimezone}
           mode="ops"
         />
+        <AlertDialog open={isCancelOpen} onOpenChange={handleCancelOpenChange}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Cancel this booking?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {cancelBooking
+                  ? `You’re about to cancel ${cancelBooking.customerName ?? 'this booking'} for ${cancelBooking.partySize} covers. This action cannot be undone.`
+                  : 'This action cannot be undone.'}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={cancelBookingMutation.isPending}>
+                Keep booking
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleConfirmCancel}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={cancelBookingMutation.isPending}
+              >
+                Confirm cancellation
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

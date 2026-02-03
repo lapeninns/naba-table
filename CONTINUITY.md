@@ -1,45 +1,42 @@
 # Continuity Ledger
 
-Last updated: 2026-02-03T18:14:05Z
+Last updated: 2026-02-03T18:07:00Z
 
 ## Goal (incl. success criteria)
 
-- Add per-day reservation interval overrides and fixed slot times (weekly + date-specific).
-- Success: Friday/Saturday use slots 16:00/18:00/20:00 while open hours are 15:00–22:00; other days use defaults.
-- Success: Schedule API and Ops timeline reflect fixed slots and interval fallback.
+- Fix eslint warnings in scripts so pre-commit passes.
+- Success: no `@typescript-eslint/no-unused-vars` warnings in `scripts/seed-railway-from-cornerhouse.ts` and `scripts/update-railway-details.ts`.
 
 ## Constraints/Assumptions
 
-- Supabase remote-only; migrations via MCP with staging-first and log in docs.
-- Chrome DevTools MCP manual QA required for UI changes.
-- Shared min/max interval constants (1–180) used across server/API/UI.
-- Fixed slots override interval when present; still respect service periods.
+- Follow root AGENTS policies.
+- Create task folder with SDLC artifacts before code changes.
+- Keep changes minimal and behavior-preserving.
 
 ## Key decisions
 
-- Store per-day fixed slots on `restaurant_operating_hours` and use them if set; otherwise use interval.
-- Effective interval resolves as override → weekly → restaurant default → 15.
+- Replace type-only const with union type.
+- Use `catch {}` to avoid unused error var.
+- Prefix unused destructured field to satisfy lint.
 
 ## State
 
-- Core code changes implemented; migration and verification pending.
+- Code changes applied; lint run succeeded.
 
 ## Done
 
-- Added shared interval constants and wired profile validation to them.
-- Added migration file for operating-hours interval + slot times and logged in `docs/DATABASE_MIGRATIONS.md`.
-- Updated operating-hours server/API types and validation for interval + slot times.
-- Updated schedule computation to use fixed slots and effective interval.
-- Updated Ops Operating Hours UI and Ops floor plan timeline to support fixed slots.
+- Created task folder `tasks/fix-scripts-eslint-20260203-1645` with SDLC artifacts.
+- Updated `seed-railway-from-cornerhouse.ts` to use `TablesScope` union type and `_area_type` in fallback map.
+- Updated `update-railway-details.ts` to use `catch {}`.
+- Ran `pnpm eslint --fix --max-warnings=0 scripts/seed-railway-from-cornerhouse.ts scripts/update-railway-details.ts`.
 
 ## Now
 
-- Review for any remaining type/api updates and summarize changes.
+- Report changes and lint result.
 
 ## Next
 
-- Run tests/QA and capture Chrome DevTools MCP artifacts.
-- Apply Supabase migration via MCP (staging-first) and record diff in `tasks/.../artifacts/db-diff.txt`.
+- None.
 
 ## Open questions (UNCONFIRMED if needed)
 
@@ -47,10 +44,6 @@ Last updated: 2026-02-03T18:14:05Z
 
 ## Working set (files/ids/commands)
 
-- /Users/amankumarshrestha/.codex/worktrees/18cb/SajiloReserveX/server/restaurants/operatingHours.ts
-- /Users/amankumarshrestha/.codex/worktrees/18cb/SajiloReserveX/server/restaurants/schedule.ts
-- /Users/amankumarshrestha/.codex/worktrees/18cb/SajiloReserveX/src/app/api/ops/restaurants/[id]/hours/route.ts
-- /Users/amankumarshrestha/.codex/worktrees/18cb/SajiloReserveX/src/components/features/restaurant-settings/OperatingHoursSection.tsx
-- /Users/amankumarshrestha/.codex/worktrees/18cb/SajiloReserveX/src/components/features/seating/FloorPlanPage.tsx
-- /Users/amankumarshrestha/.codex/worktrees/18cb/SajiloReserveX/supabase/migrations/20260203_add_operating_hours_reservation_slots.sql
-- /Users/amankumarshrestha/.codex/worktrees/18cb/SajiloReserveX/docs/DATABASE_MIGRATIONS.md
+- `scripts/seed-railway-from-cornerhouse.ts`
+- `scripts/update-railway-details.ts`
+- `tasks/fix-scripts-eslint-20260203-1645/*`

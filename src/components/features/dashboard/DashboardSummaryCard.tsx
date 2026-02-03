@@ -35,6 +35,7 @@ type DashboardSummaryCardProps = {
   restaurantSlug?: string | null;
   onDetails?: (booking: BookingDTO) => void;
   onEdit?: (booking: BookingDTO) => void;
+  onCancel?: (booking: BookingDTO) => void;
   onAssignTable?: (bookingId: string, tableId: string) => Promise<OpsTodayBooking['tableAssignments']>;
   onUnassignTable?: (bookingId: string, tableId: string) => Promise<OpsTodayBooking['tableAssignments']>;
   tableActionState?: {
@@ -74,6 +75,7 @@ export function DashboardSummaryCard({
   restaurantSlug,
   onDetails,
   onEdit,
+  onCancel,
   onAssignTable,
   onUnassignTable,
   tableActionState,
@@ -128,6 +130,7 @@ export function DashboardSummaryCard({
           isRefetching={isRefetching}
           onDetails={onDetails}
           onEdit={onEdit}
+          onCancel={onCancel}
           onMarkNoShow={onMarkNoShow}
           onUndoNoShow={onUndoNoShow}
           onCheckIn={onCheckIn}

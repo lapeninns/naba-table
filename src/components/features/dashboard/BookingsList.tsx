@@ -65,6 +65,7 @@ type BookingsListProps = {
   isRefetching?: boolean; // Show list skeletons while data is being refetched
   onDetails?: (booking: BookingDTO) => void;
   onEdit?: (booking: BookingDTO) => void;
+  onCancel?: (booking: BookingDTO) => void;
   onMarkNoShow: (bookingId: string, options?: { performedAt?: string | null; reason?: string | null }) => Promise<void>;
   onUndoNoShow: (bookingId: string, reason?: string | null) => Promise<void>;
   onCheckIn: (bookingId: string) => Promise<void>;
@@ -199,6 +200,7 @@ function BookingsListContent({
   isRefetching = false,
   onDetails,
   onEdit,
+  onCancel,
   onMarkNoShow,
   onUndoNoShow,
   onCheckIn,
@@ -571,6 +573,7 @@ function BookingsListContent({
                     onUndoNoShow={onUndoNoShow}
                     onDetails={onDetails}
                     onEdit={onEdit}
+                    onCancel={onCancel}
                     onAssignTable={onAssignTable}
                     onUnassignTable={onUnassignTable}
                     pendingAction={pendingAction}
@@ -616,6 +619,7 @@ function BookingsListContent({
                   onUndoNoShow={onUndoNoShow}
                   onDetails={onDetails}
                   onEdit={onEdit}
+                  onCancel={onCancel}
                   onAssignTable={onAssignTable}
                   onUnassignTable={onUnassignTable}
                   pendingAction={pendingAction}
