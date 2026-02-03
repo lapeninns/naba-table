@@ -15,7 +15,7 @@ import { getServiceSupabaseClient } from '@/server/supabase';
 import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-type DbClient = SupabaseClient<Database, 'public', Database['public']>;
+type DbClient = SupabaseClient<Database, 'public'>;
 type OperatingHoursInsert = Database['public']['Tables']['restaurant_operating_hours']['Insert'];
 
 export type WeeklyOperatingHour = {
