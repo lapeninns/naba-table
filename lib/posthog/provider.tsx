@@ -1,11 +1,41 @@
 'use client';
 
 import { PostHogProvider as PHProvider, usePostHog } from 'posthog-js/react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { useSupabaseSession } from '@/hooks/useSupabaseSession';
 
 import type { PostHog } from 'posthog-js';
+
+type PosthogQueuedEvent = { event: string; payload: Record<string, unknown> };
+
+const noop = () => undefined;
+
+const createNoopPostHog = (): PostHog =>
+  ({
+    __loaded: false,
+    config: {},
+    identify: noop,
+    reset: noop,
+    capture: noop,
+    onFeatureFlags: () => noop,
+    isFeatureEnabled: () => undefined,
+    getFeatureFlag: () => undefined,
+    getFeatureFlagPayload: () => undefined,
+    getAllFlags: () => ({}),
+    reloadFeatureFlags: noop,
+    set_config: noop,
+  }) as unknown as PostHog;
+
+const flushPosthogQueue = (client: PostHog) => {
+  if (typeof window === 'undefined') return;
+  const win = window as Window & { __posthogQueue?: PosthogQueuedEvent[] };
+  if (!win.__posthogQueue || win.__posthogQueue.length === 0) return;
+  const batch = win.__posthogQueue.splice(0, win.__posthogQueue.length);
+  batch.forEach(({ event, payload }) => {
+    client.capture(event, payload);
+  });
+};
 
 /**
  * PostHog analytics provider for client-side tracking.
@@ -17,6 +47,7 @@ import type { PostHog } from 'posthog-js';
  */
 export function PostHogProvider({ children }: { children: ReactNode }) {
   const [client, setClient] = useState<PostHog | null>(null);
+  const noopClientRef = useRef<PostHog>(createNoopPostHog());
 
   useEffect(() => {
     const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
@@ -58,6 +89,7 @@ export function PostHogProvider({ children }: { children: ReactNode }) {
           }
         },
       });
+      flushPosthogQueue(posthog);
       setClient(posthog);
     };
 
@@ -78,13 +110,10 @@ export function PostHogProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  if (!client) {
-    return <>{children}</>;
-  }
-
+  const resolvedClient = client ?? noopClientRef.current;
   return (
-    <PHProvider client={client}>
-      <PostHogUserIdentifier />
+    <PHProvider client={resolvedClient}>
+      {client ? <PostHogUserIdentifier /> : null}
       {children}
     </PHProvider>
   );

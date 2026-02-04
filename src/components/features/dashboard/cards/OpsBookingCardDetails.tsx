@@ -46,14 +46,12 @@ export type OpsBookingCardDetailsProps = {
   booking: BookingDTO;
   meta: BookingMeta;
   tableLabel: string | null;
-  collapsible?: boolean;
 };
 
 export const OpsBookingCardDetails = memo(function OpsBookingCardDetails({
   booking,
   meta,
   tableLabel,
-  collapsible = true,
 }: OpsBookingCardDetailsProps) {
   const content = (
     <div className="grid grid-cols-1 gap-2 pb-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -110,12 +108,11 @@ export const OpsBookingCardDetails = memo(function OpsBookingCardDetails({
     </div>
   );
 
-  if (!collapsible) {
-    return <div className="px-4">{content}</div>;
-  }
-
   return (
-    <CollapsibleContent className="px-4 data-[state=closed]:hidden sm:block sm:data-[state=closed]:block">
+    <CollapsibleContent
+      forceMount
+      className="px-4 data-[state=closed]:hidden sm:block sm:data-[state=closed]:block"
+    >
       {content}
     </CollapsibleContent>
   );
