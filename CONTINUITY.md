@@ -1,38 +1,34 @@
 # Continuity Ledger
 
-Last updated: 2026-02-03T18:07:00Z
+Last updated: 2026-02-04T14:00:00Z
 
 ## Goal (incl. success criteria)
 
-- Fix eslint warnings in scripts so pre-commit passes.
-- Success: no `@typescript-eslint/no-unused-vars` warnings in `scripts/seed-railway-from-cornerhouse.ts` and `scripts/update-railway-details.ts`.
+- Set default booking buffer to 0 minutes.
+- Success: update default venue policy buffers in code after requirements/plan approval.
 
 ## Constraints/Assumptions
 
-- Follow root AGENTS policies.
-- Create task folder with SDLC artifacts before code changes.
-- Keep changes minimal and behavior-preserving.
+- Follow root AGENTS policies and any closer AGENTS.md files for touched paths.
+- Supabase operations must be remote-only.
+- User requested Supabase CLI usage for investigation.
 
 ## Key decisions
 
-- Replace type-only const with union type.
-- Use `catch {}` to avoid unused error var.
-- Prefix unused destructured field to satisfy lint.
+- None yet.
 
 ## State
 
-- Code changes applied; lint run succeeded.
+- Default policy buffers updated to 0 for lunch/dinner.
 
 ## Done
 
-- Created task folder `tasks/fix-scripts-eslint-20260203-1645` with SDLC artifacts.
-- Updated `seed-railway-from-cornerhouse.ts` to use `TablesScope` union type and `_area_type` in fallback map.
-- Updated `update-railway-details.ts` to use `catch {}`.
-- Ran `pnpm eslint --fix --max-warnings=0 scripts/seed-railway-from-cornerhouse.ts scripts/update-railway-details.ts`.
+- Created task folder `tasks/set-default-buffer-0-20260204-1354` with SDLC stubs.
+- Updated `server/capacity/policy.ts` default buffers to 0.
 
 ## Now
 
-- Report changes and lint result.
+- Await confirmation to proceed with code change.
 
 ## Next
 
@@ -40,10 +36,13 @@ Last updated: 2026-02-03T18:07:00Z
 
 ## Open questions (UNCONFIRMED if needed)
 
-- None.
+- What exact failure mode is observed in production (UI error, empty table list, API error)?
 
 ## Working set (files/ids/commands)
 
-- `scripts/seed-railway-from-cornerhouse.ts`
-- `scripts/update-railway-details.ts`
-- `tasks/fix-scripts-eslint-20260203-1645/*`
+- `tasks/debug-railway-table-assignment-20260204-1213/*`
+- `server/capacity/table-assignment/supabase.ts`
+- `server/capacity/table-assignment/availability.ts`
+- `server/feature-flags.ts`
+- `scripts/update-railway-zones-tables.ts`
+- `scripts/build-zone-adjacency.ts`

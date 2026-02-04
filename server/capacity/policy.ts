@@ -96,7 +96,7 @@ export const defaultVenuePolicy: VenuePolicy = {
       label: "Lunch",
       start: { hour: 12, minute: 0 },
       end: { hour: 15, minute: 0 },
-      buffer: { pre: 0, post: 5 },
+      buffer: { pre: 0, post: 0 },
       allowOverrun: true,
       turnBands: [
         { maxPartySize: 2, durationMinutes: 60 },
@@ -110,7 +110,7 @@ export const defaultVenuePolicy: VenuePolicy = {
       label: "Dinner",
       start: { hour: 16, minute: 0 },
       end: { hour: 22, minute: 0 },
-      buffer: { pre: 0, post: 5 },
+      buffer: { pre: 0, post: 0 },
       turnBands: [
         { maxPartySize: 2, durationMinutes: 60 },
         { maxPartySize: 4, durationMinutes: 75 },
