@@ -39,7 +39,7 @@ export function Pagination({ page, pageSize, total, isLoading = false, onPageCha
             <span className="font-medium text-foreground">{total}</span> bookings
           </>
         )}
-        {isLoading ? ' (updating...)' : ''}
+        {isLoading ? ' (updating…)' : ''}
       </p>
       <div className="flex items-center gap-2">
         <Button

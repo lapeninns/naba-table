@@ -3,14 +3,17 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from '@sentry/nextjs';
-import posthog from 'posthog-js';
+const isOpsRoute =
+  typeof window !== 'undefined' &&
+  (window.location.pathname.startsWith('/app') || window.location.hostname.startsWith('app.'));
+const enableReplay = !isOpsRoute;
 
 // Initialize Sentry
 Sentry.init({
   dsn: 'https://1488f284160e83bd738cf606f0ccf826@o4510764192497664.ingest.de.sentry.io/4510764200034384',
 
   // Add optional integrations for additional features
-  integrations: [Sentry.replayIntegration()],
+  integrations: enableReplay ? [Sentry.replayIntegration()] : [],
 
   // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
   tracesSampleRate: 1,
@@ -20,30 +23,19 @@ Sentry.init({
   // Define how likely Replay events are sampled.
   // This sets the sample rate to be 10%. You may want this to be 100% while
   // in development and sample at a lower rate in production
-  replaysSessionSampleRate: 0.1,
+  replaysSessionSampleRate: enableReplay ? 0.1 : 0,
 
   // Define how likely Replay events are sampled when an error occurs.
-  replaysOnErrorSampleRate: 1.0,
+  replaysOnErrorSampleRate: enableReplay ? 1.0 : 0,
 
   // Enable sending user PII (Personally Identifiable Information)
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
   sendDefaultPii: true,
 });
 
-// Initialize PostHog
+// PostHog is initialized in the client provider to defer work off the critical path.
 const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
 const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;
-
-if (posthogKey && posthogHost) {
-  posthog.init(posthogKey, {
-    api_host: posthogHost,
-    person_profiles: 'identified_only',
-    capture_pageview: false, // We capture pageviews manually below
-    capture_pageleave: true,
-    autocapture: true,
-    persistence: 'localStorage+cookie',
-  });
-}
 
 // Capture pageview on route transition
 export const onRouterTransitionStart: typeof Sentry.captureRouterTransitionStart = (...args) => {
@@ -51,8 +43,13 @@ export const onRouterTransitionStart: typeof Sentry.captureRouterTransitionStart
 
   // Capture pageview in PostHog
   if (posthogKey && posthogHost) {
-    posthog.capture('$pageview', {
-      $current_url: window.location.href,
-    });
+    const posthogClient = (window as Window & { posthog?: { capture: (event: string, payload: Record<string, unknown>) => void } })
+      .posthog;
+
+    if (posthogClient) {
+      posthogClient.capture('$pageview', {
+        $current_url: window.location.href,
+      });
+    }
   }
 };

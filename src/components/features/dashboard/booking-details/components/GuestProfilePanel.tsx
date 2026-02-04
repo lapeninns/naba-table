@@ -253,7 +253,7 @@ export function GuestProfilePanel({
             />
           ) : (
             <Alert variant="default" className="border-stone-200/70 bg-white/70 text-stone-600">
-              <Phone className="h-4 w-4" />
+              <Phone className="h-4 w-4" aria-hidden />
               <AlertTitle>No phone provided</AlertTitle>
               <AlertDescription>Phone number not available for this booking.</AlertDescription>
             </Alert>
@@ -270,11 +270,11 @@ export function GuestProfilePanel({
       </Card>
 
       <div className="grid grid-cols-2 gap-3">
-        <Card className="group hover:shadow-md transition-all duration-200 border-slate-200/60 bg-gradient-to-br from-white to-indigo-50/30">
+        <Card className="group hover:shadow-md transition-[transform,box-shadow,border-color,background-color] duration-200 border-slate-200/60 bg-gradient-to-br from-white to-indigo-50/30">
           <CardContent className="p-3">
             <div className="flex flex-col gap-2">
               <div className="h-8 w-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
-                <Users className="h-4 w-4" />
+                <Users className="h-4 w-4" aria-hidden />
               </div>
               <div>
                 <div className="text-xl font-bold text-slate-900 tracking-tight">
@@ -288,11 +288,11 @@ export function GuestProfilePanel({
           </CardContent>
         </Card>
 
-        <Card className="group hover:shadow-md transition-all duration-200 border-slate-200/60 bg-gradient-to-br from-white to-amber-50/30">
+        <Card className="group hover:shadow-md transition-[transform,box-shadow,border-color,background-color] duration-200 border-slate-200/60 bg-gradient-to-br from-white to-amber-50/30">
           <CardContent className="p-3">
             <div className="flex flex-col gap-2">
               <div className="h-8 w-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
-                <Clock className="h-4 w-4" />
+                <Clock className="h-4 w-4" aria-hidden />
               </div>
               <div>
                 <div className="text-sm font-bold text-slate-900 leading-tight">
@@ -306,11 +306,11 @@ export function GuestProfilePanel({
           </CardContent>
         </Card>
 
-        <Card className="group hover:shadow-md transition-all duration-200 border-slate-200/60 bg-white">
+        <Card className="group hover:shadow-md transition-[transform,box-shadow,border-color,background-color] duration-200 border-slate-200/60 bg-white">
           <CardContent className="p-3">
             <div className="flex items-center gap-2.5">
               <div className="h-7 w-7 rounded-md bg-slate-100 text-slate-500 flex items-center justify-center shrink-0">
-                <Star className="h-3.5 w-3.5" />
+                <Star className="h-3.5 w-3.5" aria-hidden />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 leading-none mb-0.5">
@@ -324,11 +324,11 @@ export function GuestProfilePanel({
           </CardContent>
         </Card>
 
-        <Card className="group hover:shadow-md transition-all duration-200 border-slate-200/60 bg-white">
+        <Card className="group hover:shadow-md transition-[transform,box-shadow,border-color,background-color] duration-200 border-slate-200/60 bg-white">
           <CardContent className="p-3">
             <div className="flex items-center gap-2.5">
               <div className="h-7 w-7 rounded-md bg-slate-100 text-slate-500 flex items-center justify-center shrink-0">
-                <Calendar className="h-3.5 w-3.5" />
+                <Calendar className="h-3.5 w-3.5" aria-hidden />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 leading-none mb-0.5">
@@ -428,7 +428,7 @@ export function GuestProfilePanel({
                   <div className="flex flex-col items-center">
                     <div
                       className={cn(
-                        'h-8 w-8 rounded-full flex items-center justify-center transition-all duration-300',
+                        'h-8 w-8 rounded-full flex items-center justify-center transition-[transform,background-color,box-shadow,color] duration-300',
                         step.done
                           ? 'bg-gradient-to-br from-emerald-400 to-teal-500 text-white shadow-md shadow-emerald-200/50'
                           : 'bg-slate-100 text-slate-400',
@@ -439,7 +439,7 @@ export function GuestProfilePanel({
                     {index < statusTimeline.length - 1 && (
                       <div
                         className={cn(
-                          'w-0.5 h-6 transition-all duration-300',
+                          'w-0.5 h-6 transition-[transform,background-color,opacity] duration-300',
                           step.done
                             ? 'bg-gradient-to-b from-emerald-400 to-emerald-200'
                             : 'bg-slate-200',

@@ -21,6 +21,9 @@ import {
 import { useRouter } from 'next/navigation';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
+import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
+import { OpsPageToolbar } from '@/components/features/ops-shell/patterns/OpsPageToolbar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -190,7 +193,7 @@ const ArchTable = ({
                 event.stopPropagation();
                 onClick(table.id);
             }}
-            className="absolute cursor-pointer transition-all duration-300 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/60"
+            className="absolute cursor-pointer transition-[transform,box-shadow] duration-300 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/60"
             data-table-id={table.id}
             style={{
                 left: `${table.xPercent}%`,
@@ -203,7 +206,7 @@ const ArchTable = ({
         >
             <div
                 className={cn(
-                    'absolute -inset-4 rounded-full border-2 border-indigo-500 opacity-0 scale-90 transition-all duration-300',
+                    'absolute -inset-4 rounded-full border-2 border-indigo-500 opacity-0 scale-90 transition-[opacity,transform] duration-300',
                     isSelected ? 'opacity-100 scale-100' : '',
                 )}
             />
@@ -292,7 +295,7 @@ const TimeScrubber = ({
                         <div
                             key={i}
                             className={cn(
-                                'flex-1 rounded-t-sm transition-all duration-300',
+                                'flex-1 rounded-t-sm transition-[height,background-color] duration-300',
                                 i > bars.length * 0.55 && i < bars.length * 0.75 ? 'bg-primary/60' : 'bg-muted'
                             )}
                             style={{ height: `${height}%` }}
@@ -311,7 +314,7 @@ const TimeScrubber = ({
                     />
 
                     <div
-                        className="absolute top-0 bottom-0 w-0.5 bg-primary pointer-events-none transition-all duration-75"
+                        className="absolute top-0 bottom-0 w-0.5 bg-primary pointer-events-none transition-[left] duration-75"
                         style={{ left: `${playhead}%` }}
                     >
                         <div className="absolute -top-1 -left-1.5 w-3 h-3 bg-primary rounded-full shadow-sm" />
@@ -948,30 +951,24 @@ export default function FloorPlanPage() {
 
     if (!activeRestaurantId) {
         return (
-            <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 py-10">
-                <Card className="border-dashed">
-                    <CardHeader className="items-center text-center">
-                        <div className="flex size-12 items-center justify-center rounded-2xl bg-muted/60 text-muted-foreground">
-                            <LayoutTemplate className="h-6 w-6" aria-hidden />
-                        </div>
-                        <CardTitle>No restaurant selected</CardTitle>
-                        <CardDescription>Select a restaurant to load the floor plan.</CardDescription>
-                    </CardHeader>
-                </Card>
+            <div className="mx-auto flex w-full max-w-4xl items-center justify-center px-4 py-10">
+                <OpsEmptyState
+                    title="No restaurant selected"
+                    description="Select a restaurant to load the floor plan."
+                    icon={<LayoutTemplate className="h-6 w-6" aria-hidden />}
+                />
             </div>
         );
     }
 
     if (isLoadingTables || isLoadingTimeline) {
         return (
-            <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 py-10">
-                <Card>
-                    <CardHeader className="items-center text-center">
-                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden />
-                        <CardTitle className="text-base font-semibold">Loading floor plan...</CardTitle>
-                        <CardDescription>Fetching tables, zones, and live status.</CardDescription>
-                    </CardHeader>
-                </Card>
+            <div className="mx-auto flex w-full max-w-4xl items-center justify-center px-4 py-10">
+                <OpsEmptyState
+                    title="Loading floor plan…"
+                    description="Fetching tables, zones, and live status."
+                    icon={<Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden />}
+                />
             </div>
         );
     }
@@ -999,21 +996,18 @@ export default function FloorPlanPage() {
 
     return (
         <div className="mx-auto flex w-full max-w-[90rem] flex-col gap-6 px-3 py-6 sm:px-6 lg:px-8">
-            <header className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-                <div className="flex flex-col gap-3">
-                    <div className="flex items-center gap-3">
-                        <div className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <OpsPageHeader
+                title={
+                    <span className="flex items-center gap-3">
+                        <span className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
                             <LayoutTemplate className="h-5 w-5" aria-hidden />
-                        </div>
-                        <div>
-                            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Floor plan</h1>
-                            <p className="text-sm text-muted-foreground">
-                                Manage table availability and jump into bookings quickly.
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        </span>
+                        <span>Floor plan</span>
+                    </span>
+                }
+                subtitle="Manage table availability and jump into bookings quickly."
+                meta={
+                    <>
                         <Badge variant="secondary" className="rounded-md">
                             {selectedZoneLabel}
                         </Badge>
@@ -1023,77 +1017,88 @@ export default function FloorPlanPage() {
                         <Badge variant="outline" className="rounded-md">
                             {timeString}
                         </Badge>
-                    </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button variant="outline" className="gap-2">
-                                <LayoutTemplate className="h-4 w-4" />
-                                {selectedZoneLabel}
-                                <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-56 p-2" align="start">
-                            <div className="px-2 py-1 text-[11px] uppercase tracking-wide text-muted-foreground">
-                                Zones
-                            </div>
-                            <div className="space-y-1">
-                                <Button
-                                    type="button"
-                                    variant={selectedZoneId === 'all' ? 'secondary' : 'ghost'}
-                                    className="w-full justify-start"
-                                    onClick={() => setSelectedZoneId('all')}
-                                >
-                                    All zones
-                                </Button>
-                                {zones.map((zone) => (
-                                    <Button
-                                        key={zone.id}
-                                        type="button"
-                                        variant={selectedZoneId === zone.id ? 'secondary' : 'ghost'}
-                                        className="w-full justify-start"
-                                        onClick={() => setSelectedZoneId(zone.id)}
-                                    >
-                                        {zone.name}
-                                    </Button>
-                                ))}
-                            </div>
-                        </PopoverContent>
-                    </Popover>
-
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button variant="outline" className="gap-2">
-                                <CalendarIcon className="h-4 w-4" />
-                                {formattedDate}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="end">
-                            <Calendar mode="single" selected={date} onSelect={setDate} initialFocus />
-                        </PopoverContent>
-                    </Popover>
-
-                    <div className="relative w-full sm:w-64">
-                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                            type="text"
-                            placeholder="Search guests, tables..."
-                            className="pl-9"
-                            aria-label="Search guests or tables"
-                        />
-                    </div>
-
+                    </>
+                }
+                secondaryActions={
                     <Button variant="outline" onClick={() => handleBrowseBookings()} disabled={!isOnline}>
                         Browse bookings
                     </Button>
+                }
+                primaryAction={
                     <Button onClick={() => handleAddBooking()} disabled={!isOnline || isLaunchingBooking} aria-busy={isLaunchingBooking}>
                         {isLaunchingBooking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> : null}
                         New booking
                     </Button>
-                </div>
-            </header>
+                }
+            />
+
+            <OpsPageToolbar
+                sticky={false}
+                filters={
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant="outline" className="gap-2">
+                                    <LayoutTemplate className="h-4 w-4" aria-hidden />
+                                    {selectedZoneLabel}
+                                    <ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-56 p-2" align="start">
+                                <div className="px-2 py-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+                                    Zones
+                                </div>
+                                <div className="space-y-1">
+                                    <Button
+                                        type="button"
+                                        variant={selectedZoneId === 'all' ? 'secondary' : 'ghost'}
+                                        className="w-full justify-start"
+                                        onClick={() => setSelectedZoneId('all')}
+                                    >
+                                        All zones
+                                    </Button>
+                                    {zones.map((zone) => (
+                                        <Button
+                                            key={zone.id}
+                                            type="button"
+                                            variant={selectedZoneId === zone.id ? 'secondary' : 'ghost'}
+                                            className="w-full justify-start"
+                                            onClick={() => setSelectedZoneId(zone.id)}
+                                        >
+                                            {zone.name}
+                                        </Button>
+                                    ))}
+                                </div>
+                            </PopoverContent>
+                        </Popover>
+
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant="outline" className="gap-2">
+                                    <CalendarIcon className="h-4 w-4" aria-hidden />
+                                    {formattedDate}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="end">
+                                <Calendar mode="single" selected={date} onSelect={setDate} initialFocus />
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                }
+                search={
+                    <div className="relative w-full sm:w-64">
+                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+                        <Input
+                            type="search"
+                            name="search"
+                            autoComplete="off"
+                            placeholder="Search guests, tables…"
+                            className="pl-9 focus-visible:ring-2 focus-visible:ring-primary/20"
+                            aria-label="Search guests or tables"
+                        />
+                    </div>
+                }
+            />
 
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
                 <div className="flex flex-col gap-4">

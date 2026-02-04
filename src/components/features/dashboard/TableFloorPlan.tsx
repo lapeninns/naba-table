@@ -390,7 +390,7 @@ export const TableFloorPlan = memo(function TableFloorPlan({
                       key={table.id}
                       type="button"
                       className={cn(
-                        'flex flex-col items-start gap-1 rounded-xl border-2 px-3 py-2.5 text-left transition-all hover:shadow-sm',
+                        'flex flex-col items-start gap-1 rounded-xl border-2 px-3 py-2.5 text-left transition-[transform,box-shadow,border-color,background-color,color] hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
                         isSelected
                           ? 'bg-primary/10 text-primary border-primary shadow-sm'
                           : 'bg-background text-foreground border-border hover:border-primary/30',

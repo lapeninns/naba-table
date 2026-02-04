@@ -60,7 +60,9 @@ export function BookingsHeader({
           <Input
             value={searchTerm}
             onChange={(event) => onSearchChange(event.target.value)}
-            placeholder="Search by guest name or email"
+            placeholder="Search by guest name or email…"
+            name="bookings-search"
+            autoComplete="off"
             className="h-10 w-full rounded-lg border-muted-foreground/20 bg-background pl-10 pr-11 text-sm"
             aria-label="Search bookings"
             aria-busy={isSearching}
@@ -68,7 +70,7 @@ export function BookingsHeader({
           {/* Loading indicator OR clear button */}
           {isSearching ? (
             <div className="absolute right-3 top-1/2 -translate-y-1/2">
-              <Loader2 className="size-4 animate-spin text-muted-foreground" aria-label="Searching..." />
+              <Loader2 className="size-4 animate-spin text-muted-foreground" aria-label="Searching…" />
             </div>
           ) : searchTerm ? (
             <button

@@ -162,16 +162,18 @@ export function OpsRestaurantSwitch({ className }: OpsRestaurantSwitchProps) {
         <div className="flex items-center gap-2 px-3 pb-2">
           <Search className="size-4 text-muted-foreground" aria-hidden />
           <Input
+            type="search"
             value={searchTerm}
             onChange={(event) => {
               const value = event.target.value;
               setSearchTerm(value);
               updateSearch(value);
             }}
-            placeholder="Search by name"
+            name="restaurant-search"
+            autoComplete="off"
+            placeholder="Search by name…"
             className="h-8 border-0 bg-transparent px-0 text-sm text-foreground shadow-none focus-visible:ring-0"
             aria-label="Search restaurants"
-            autoFocus={open}
           />
         </div>
         <DropdownMenuSeparator />

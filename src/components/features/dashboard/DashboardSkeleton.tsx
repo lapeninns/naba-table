@@ -1,4 +1,4 @@
-import { OpsBookingCardSkeleton } from '@/components/dashboard/OpsBookingCardSkeleton';
+import { OpsBookingCardSkeleton } from '@/components/features/dashboard/cards/OpsBookingCardSkeleton';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export function DashboardSkeleton() {
@@ -43,4 +43,3 @@ export function DashboardSkeleton() {
     </div>
   );
 }
-

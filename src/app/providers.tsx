@@ -1,12 +1,12 @@
 'use client';
 
 import { QueryClient, QueryClientProvider, type DefaultOptions } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { SupabaseSessionProvider, useSupabaseSession } from '@/hooks/useSupabaseSession';
 import { useClientErrorReporter } from '@/lib/monitoring/clientReporter';
-import { PostHogProvider, PostHogUserIdentifier } from '@/lib/posthog/provider';
+import { PostHogProvider } from '@/lib/posthog/provider';
 import { buildQueryStorageKey, clearPersistedQueryCache, configureQueryPersistence } from '@/lib/query/persist';
 import { getQueryGcTime, getQueryStaleTime } from '@/lib/query/staleTimes';
 
@@ -35,6 +35,10 @@ const defaultOptions: DefaultOptions = {
 };
 
 const enableDevtools = process.env.NODE_ENV !== 'production';
+const ReactQueryDevtools = dynamic(
+  () => import('@tanstack/react-query-devtools').then((mod) => mod.ReactQueryDevtools),
+  { ssr: false },
+);
 
 type AppProvidersProps = {
   children: ReactNode;
@@ -45,6 +49,7 @@ function QueryLayer({ children }: { children: ReactNode }) {
   const { user } = useSupabaseSession();
   useClientErrorReporter();
   const [queryClient] = useState(() => new QueryClient({ defaultOptions }));
+  const [showDevtools, setShowDevtools] = useState(false);
   const persistenceCleanupRef = useRef<(() => void) | null>(null);
   const storageKeyRef = useRef<string>(buildQueryStorageKey(user?.id ?? null));
 
@@ -78,10 +83,19 @@ function QueryLayer({ children }: { children: ReactNode }) {
     [],
   );
 
+  useEffect(() => {
+    if (!enableDevtools || typeof window === 'undefined') {
+      return;
+    }
+    const isOpsHost =
+      window.location.hostname.startsWith('app.') || window.location.pathname.startsWith('/app');
+    setShowDevtools(!isOpsHost);
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       {children}
-      {enableDevtools ? (
+      {showDevtools ? (
         <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />
       ) : null}
     </QueryClientProvider>
@@ -90,11 +104,10 @@ function QueryLayer({ children }: { children: ReactNode }) {
 
 export function AppProviders({ children, initialSession }: AppProvidersProps) {
   return (
-    <PostHogProvider>
-      <SupabaseSessionProvider initialSession={initialSession}>
-        <PostHogUserIdentifier />
+    <SupabaseSessionProvider initialSession={initialSession}>
+      <PostHogProvider>
         <QueryLayer>{children}</QueryLayer>
-      </SupabaseSessionProvider>
-    </PostHogProvider>
+      </PostHogProvider>
+    </SupabaseSessionProvider>
   );
 }

@@ -31,25 +31,14 @@ export function OpsTeamManagementClient() {
 
   return (
     <div className="space-y-10">
-      <section className="space-y-4">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground">Team management</h1>
-            <p className="text-sm text-muted-foreground">
-              Invite teammates, monitor pending invites, and keep your restaurant staff list up to date.
-            </p>
-          </div>
-        </div>
-
-        {!canManage ? (
-          <Alert>
-            <AlertTitle>Limited permissions</AlertTitle>
-            <AlertDescription>
-              Only owners and managers can send invitations. Contact an owner if you need to add teammates.
-            </AlertDescription>
-          </Alert>
-        ) : null}
-      </section>
+      {!canManage ? (
+        <Alert>
+          <AlertTitle>Limited permissions</AlertTitle>
+          <AlertDescription>
+            Only owners and managers can send invitations. Contact an owner if you need to add teammates.
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       <section className="space-y-12">
         {canManage ? <TeamInviteForm restaurantId={activeRestaurantId} /> : null}

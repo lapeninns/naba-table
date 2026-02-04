@@ -68,14 +68,17 @@ export function ConnectionStatusBeacon() {
     <div
       className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-200 bg-gray-50 text-xs font-medium"
       title={`Connection status: ${beacon.label}`}
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
     >
       <div className="relative">
         <span
-          className={`flex items-center justify-center w-2.5 h-2.5 rounded-full ${beacon.bgColor}`}
+          className={`ops-connection-pulse flex items-center justify-center w-2.5 h-2.5 rounded-full ${beacon.bgColor}`}
           style={{
             animation: beacon.pulseSpeed !== 'none' ? `pulse ${beacon.pulseSpeed}` : 'none',
           }}
-          aria-label={beacon.label}
+          aria-hidden="true"
         >
           {beacon.icon}
         </span>
@@ -92,6 +95,11 @@ export function ConnectionStatusBeacon() {
             100% {
               transform: scale(1);
               opacity: 1;
+            }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .ops-connection-pulse {
+              animation: none !important;
             }
           }
         `}</style>

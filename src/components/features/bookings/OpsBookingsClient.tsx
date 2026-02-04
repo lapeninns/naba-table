@@ -11,6 +11,9 @@ import { BookingsTable } from '@/components/dashboard/BookingsTable';
 import { BookingOfflineBanner } from '@/components/features/booking-state-machine';
 import { BookingDetailsDialogWrapper } from '@/components/features/bookings/BookingDetailsDialogWrapper';
 import { OpsStatusFilter as OpsStatusFilterPopover } from '@/components/features/bookings/OpsStatusFilter';
+import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
+import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
+import { OpsPageToolbar } from '@/components/features/ops-shell/patterns/OpsPageToolbar';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -681,13 +684,10 @@ export function OpsBookingsClient({
       <BookingStateRegistrar bookings={bookings} />
       <div className="min-h-screen bg-background font-sans text-foreground">
         <main className="mx-auto w-full max-w-6xl space-y-4 px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
-          {/* HEADER SECTION - Matches Dashboard Style */}
-          <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div className="space-y-1">
-              <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-                Manage bookings
-              </h1>
-              <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground sm:text-base">
+          <OpsPageHeader
+            title="Manage bookings"
+            meta={
+              <>
                 <Badge variant="secondary" className="rounded-md font-medium">
                   {currentRestaurantName}
                 </Badge>
@@ -700,23 +700,23 @@ export function OpsBookingsClient({
                     </span>
                   </span>
                 ) : null}
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              </>
+            }
+            secondaryActions={
               <Button asChild size="sm" variant="outline" className="h-11 sm:h-9">
                 <Link href={opsPath('/dashboard')}>Back to dashboard</Link>
               </Button>
+            }
+            primaryAction={
               <Button asChild size="sm" className="h-11 sm:h-9">
                 <Link href={opsPath('/new-bookings')}>New booking</Link>
               </Button>
-            </div>
-          </header>
+            }
+          />
 
-          {/* STICKY TOOLBAR - Matches Dashboard Style */}
-          <div className="sticky top-0 z-10 -mx-4 bg-background/80 px-4 py-2.5 backdrop-blur-md transition-all sm:-mx-6 sm:px-6 md:mx-0 md:rounded-xl md:border md:border-border/60 md:bg-card/80 md:px-3 md:shadow-sm">
-            <div className="flex flex-col gap-2.5 md:flex-row md:items-center md:justify-between">
-              {/* FILTERS */}
+          <OpsPageToolbar
+            sticky
+            filters={
               <div className="flex-1 overflow-x-auto scrollbar-hide">
                 <OpsStatusFilterPopover
                   options={statusFilterOptions}
@@ -727,37 +727,42 @@ export function OpsBookingsClient({
                   order={OPS_LISTABLE_STATUSES}
                 />
               </div>
-
-              <div className="flex flex-col gap-2 md:flex-row md:items-center">
-                {resolvedTime ? (
-                  <ToggleGroup
-                    type="single"
-                    value={resolvedWindowMode}
-                    onValueChange={handleWindowModeChange}
-                    variant="outline"
-                    size="sm"
-                    className="w-full justify-start md:w-auto"
-                    aria-label="Booking window"
-                  >
-                    <ToggleGroupItem value="window">Nearby</ToggleGroupItem>
-                    <ToggleGroupItem value="day">All day</ToggleGroupItem>
-                  </ToggleGroup>
-                ) : null}
-
-                {/* SEARCH */}
-                <div className="relative w-full md:w-60 md:flex-none">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    type="text"
-                    placeholder="Search guests..."
-                    value={search}
-                    onChange={handleSearchInputChange}
-                    className="h-9 w-full rounded-lg border border-border bg-background pl-10 pr-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 touch-manipulation"
-                  />
-                </div>
+            }
+            actions={
+              resolvedTime ? (
+                <ToggleGroup
+                  type="single"
+                  value={resolvedWindowMode}
+                  onValueChange={handleWindowModeChange}
+                  variant="outline"
+                  size="sm"
+                  className="w-full justify-start md:w-auto"
+                  aria-label="Booking window"
+                >
+                  <ToggleGroupItem value="window">Nearby</ToggleGroupItem>
+                  <ToggleGroupItem value="day">All day</ToggleGroupItem>
+                </ToggleGroup>
+              ) : null
+            }
+            search={
+              <div className="relative w-full md:w-60 md:flex-none">
+                <Search
+                  className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                  aria-hidden
+                />
+                <Input
+                  type="search"
+                  name="search"
+                  autoComplete="off"
+                  placeholder="Search guests…"
+                  value={search}
+                  onChange={handleSearchInputChange}
+                  className="h-9 w-full rounded-lg border border-border bg-background pl-10 pr-3 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 touch-manipulation"
+                  aria-label="Search guests"
+                />
               </div>
-            </div>
-          </div>
+            }
+          />
 
           {/* TABLE SECTION */}
           <section className="space-y-3">
@@ -867,25 +872,27 @@ export function OpsBookingsClient({
 
 function NoRestaurantAccess() {
   return (
-    <section className="mx-auto flex min-h-[60vh] max-w-2xl flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-border/60 bg-muted/20 p-8 text-center shadow-sm">
-      <h2 className="text-xl font-semibold text-foreground">No restaurant access yet</h2>
-      <p className="text-sm text-muted-foreground">
-        Ask an owner or manager to send you an invitation so you can manage bookings.
-      </p>
-      <Button asChild variant="secondary">
-        <Link href="/guest/dashboard">Back to dashboard</Link>
-      </Button>
+    <section className="mx-auto flex min-h-[60vh] max-w-2xl items-center justify-center p-8">
+      <OpsEmptyState
+        title="No restaurant access yet"
+        description="Ask an owner or manager to send you an invitation so you can manage bookings."
+        action={
+          <Button asChild variant="secondary">
+            <Link href="/guest/dashboard">Back to dashboard</Link>
+          </Button>
+        }
+      />
     </section>
   );
 }
 
 function SelectingRestaurantFallback() {
   return (
-    <section className="mx-auto flex min-h-[40vh] max-w-2xl flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-border/60 bg-muted/30 p-8 text-center shadow-sm">
-      <h2 className="text-lg font-semibold text-foreground">Loading restaurant access…</h2>
-      <p className="text-sm text-muted-foreground">
-        We’re preparing your bookings. This will only take a moment.
-      </p>
+    <section className="mx-auto flex min-h-[40vh] max-w-2xl items-center justify-center p-8">
+      <OpsEmptyState
+        title="Loading restaurant access…"
+        description="We’re preparing your bookings. This will only take a moment."
+      />
     </section>
   );
 }

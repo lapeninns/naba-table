@@ -3,6 +3,9 @@
 import { AlertTriangle, BarChart3, RefreshCw, Settings2, FlaskConical, TrendingDown } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 
+import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
+import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
+import { OpsPageToolbar } from '@/components/features/ops-shell/patterns/OpsPageToolbar';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -378,10 +381,10 @@ export function OpsRejectionDashboard() {
 
   if (!restaurantId) {
     return (
-      <Alert className="border-border/60">
-        <AlertTitle>Select a restaurant</AlertTitle>
-        <AlertDescription>Choose a restaurant to view rejection analytics and strategic settings.</AlertDescription>
-      </Alert>
+      <OpsEmptyState
+        title="Select a restaurant"
+        description="Choose a restaurant to view rejection analytics and strategic settings."
+      />
     );
   }
 
@@ -391,36 +394,46 @@ export function OpsRejectionDashboard() {
   const hasData = Boolean(analytics && analytics.summary.total > 0);
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-6 px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
+      <OpsPageHeader
+        title="Rejections"
+        subtitle="Review rejection analytics and strategic settings for your restaurant."
+        meta={<Badge variant="secondary" className="rounded-md font-medium">{restaurantName}</Badge>}
+      />
+
+      <OpsPageToolbar
+        sticky
+        filters={
+          <Select value={range.key} onValueChange={(value) => handleChangeRange(value as RangePresetKey)}>
+            <SelectTrigger className="w-full sm:w-48">
+              <SelectValue placeholder="Select range" />
+            </SelectTrigger>
+            <SelectContent>
+              {RANGE_PRESETS.map((preset) => (
+                <SelectItem key={preset.key} value={preset.key}>
+                  {preset.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        }
+        actions={
+          <Button variant="outline" onClick={handleRefresh} disabled={analyticsQuery.isRefetching}>
+            <RefreshCw className={cn('mr-2 size-4', analyticsQuery.isRefetching && 'animate-spin')} aria-hidden />
+            Refresh
+          </Button>
+        }
+      />
+
       <Card className="border-border/60">
-        <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2 text-xl font-semibold text-foreground">
-              <BarChart3 className="size-5" aria-hidden />
-              Rejection analytics
-            </CardTitle>
-            <CardDescription>
-              Understand why bookings were unassigned. Data shown for {restaurantName} ({activePreset.label}).
-            </CardDescription>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <Select value={range.key} onValueChange={(value) => handleChangeRange(value as RangePresetKey)}>
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="Select range" />
-              </SelectTrigger>
-              <SelectContent>
-                {RANGE_PRESETS.map((preset) => (
-                  <SelectItem key={preset.key} value={preset.key}>
-                    {preset.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button variant="outline" onClick={handleRefresh} disabled={analyticsQuery.isRefetching}>
-              <RefreshCw className={cn('mr-2 size-4', analyticsQuery.isRefetching && 'animate-spin')} aria-hidden />
-              Refresh
-            </Button>
-          </div>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-xl font-semibold text-foreground">
+            <BarChart3 className="size-5" aria-hidden />
+            Rejection analytics
+          </CardTitle>
+          <CardDescription>
+            Understand why bookings were unassigned. Data shown for {restaurantName} ({activePreset.label}).
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {loading ? (
