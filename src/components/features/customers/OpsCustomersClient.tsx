@@ -5,6 +5,9 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
+import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
+import { OpsPageToolbar } from '@/components/features/ops-shell/patterns/OpsPageToolbar';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -366,25 +369,27 @@ export function OpsCustomersClient({
 
   if (memberships.length === 0) {
     return (
-      <section className="mx-auto flex min-h-[60vh] max-w-2xl flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-border/60 bg-muted/20 p-8 text-center">
-        <h2 className="text-xl font-semibold text-foreground">No restaurant access yet</h2>
-        <p className="text-sm text-muted-foreground">
-          Ask an owner or manager to send you an invitation so you can view customer data.
-        </p>
-        <Button asChild variant="secondary">
-          <Link href="/guest/dashboard">Back to dashboard</Link>
-        </Button>
+      <section className="mx-auto flex min-h-[60vh] max-w-2xl items-center justify-center p-8">
+        <OpsEmptyState
+          title="No restaurant access yet"
+          description="Ask an owner or manager to send you an invitation so you can view customer data."
+          action={
+            <Button asChild variant="secondary">
+              <Link href="/guest/dashboard">Back to dashboard</Link>
+            </Button>
+          }
+        />
       </section>
     );
   }
 
   if (!activeRestaurantId) {
     return (
-      <section className="mx-auto flex min-h-[40vh] max-w-2xl flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-border/60 bg-muted/30 p-8 text-center shadow-sm">
-        <h2 className="text-lg font-semibold text-foreground">Loading restaurant access…</h2>
-        <p className="text-sm text-muted-foreground">
-          We’re preparing your customers. This will only take a moment.
-        </p>
+      <section className="mx-auto flex min-h-[40vh] max-w-2xl items-center justify-center p-8">
+        <OpsEmptyState
+          title="Loading restaurant access…"
+          description="We’re preparing your customers. This will only take a moment."
+        />
       </section>
     );
   }
@@ -392,39 +397,40 @@ export function OpsCustomersClient({
   return (
     <div className="min-h-screen bg-background font-sans text-foreground">
       <main className="mx-auto w-full max-w-6xl space-y-4 px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
-        <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div className="space-y-1">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              Customers
-            </h1>
-            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground sm:text-base">
+        <OpsPageHeader
+          title="Customers"
+          meta={
+            <>
               <Badge variant="secondary" className="rounded-md font-medium">
                 {currentRestaurantName}
               </Badge>
               <span className="text-muted-foreground/40">•</span>
               <span>View, filter, and export guest history.</span>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <Button asChild size="sm" variant="outline" className="h-11 sm:h-9">
-              <Link href={opsPath('/dashboard')}>Back to dashboard</Link>
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-11 sm:h-9"
-              onClick={() => refetch()}
-              disabled={isRefreshing || isLoading}
-            >
-              {isRefreshing ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCcw className="mr-2 h-4 w-4" />
-              )}
-              Refresh
-            </Button>
+            </>
+          }
+          secondaryActions={
+            <>
+              <Button asChild size="sm" variant="outline" className="h-11 sm:h-9">
+                <Link href={opsPath('/dashboard')}>Back to dashboard</Link>
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-11 sm:h-9"
+                onClick={() => refetch()}
+                disabled={isRefreshing || isLoading}
+              >
+                {isRefreshing ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCcw className="mr-2 h-4 w-4" />
+                )}
+                Refresh
+              </Button>
+            </>
+          }
+          primaryAction={
             <ExportCustomersButton
               restaurantId={activeRestaurantId}
               restaurantName={currentRestaurantName}
@@ -432,11 +438,12 @@ export function OpsCustomersClient({
               sort={sort}
               filters={exportFilters}
             />
-          </div>
-        </header>
+          }
+        />
 
-        <div className="sticky top-0 z-10 -mx-4 bg-background/80 px-4 py-2 backdrop-blur-md transition-all sm:-mx-6 sm:px-6 md:mx-0 md:rounded-xl md:border md:border-border/60 md:bg-card/80 md:px-3 md:shadow-sm">
-          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <OpsPageToolbar
+          sticky
+          filters={
             <div className="flex-1 overflow-x-auto scrollbar-hide">
               <div className="flex flex-wrap items-center gap-2">
                 <Select value={lastVisit} onValueChange={handleLastVisitChange}>
@@ -506,26 +513,29 @@ export function OpsCustomersClient({
                 </Button>
               </div>
             </div>
-
+          }
+          search={
             <div className="relative w-full md:w-72 md:flex-none">
               <Search
                 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
                 aria-hidden
               />
               <Input
+                type="search"
+                name="search"
                 value={searchTerm}
                 onChange={(event) => {
                   setSearchTerm(event.target.value);
                 }}
-                placeholder="Search guests..."
-                className="h-9 w-full rounded-lg border border-border bg-background pl-10 pr-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 touch-manipulation"
+                placeholder="Search guests…"
+                className="h-9 w-full rounded-lg border border-border bg-background pl-10 pr-3 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 touch-manipulation"
                 aria-label="Search customers"
                 autoComplete="off"
               />
             </div>
-          </div>
-
-          <div className="mt-2 flex flex-wrap items-center gap-2">
+          }
+        >
+          <div className="flex flex-wrap items-center gap-2">
             {activeFilterBadges.length > 0 ? (
               activeFilterBadges.map((badge) => (
                 <Badge key={badge.key} variant="secondary" className="flex items-center gap-1 py-1">
@@ -554,7 +564,7 @@ export function OpsCustomersClient({
               </span>
             ) : null}
           </div>
-        </div>
+        </OpsPageToolbar>
 
         {error ? (
           <Alert variant="destructive" role="alert">

@@ -1,9 +1,12 @@
+import dynamic from 'next/dynamic';
+
+import { OpsBookingCardSkeleton } from '@/components/features/dashboard/cards/OpsBookingCardSkeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { getTodayInTimezone } from '@/lib/utils/datetime';
 
 import { BookingsFilterBar, type BookingFilter } from './BookingsFilterBar';
-import { BookingsList } from './BookingsList';
 import { HeatmapCalendar } from './HeatmapCalendar';
 import { SummaryMetrics } from './SummaryMetrics';
 
@@ -52,6 +55,10 @@ type DashboardSummaryCardProps = {
     action: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show';
   } | null;
 };
+
+const BookingsList = dynamic(() => import('./BookingsList').then((mod) => mod.BookingsList), {
+  loading: () => <BookingsListSkeleton />,
+});
 
 export function DashboardSummaryCard({
   summary,
@@ -161,5 +168,21 @@ export function DashboardSummaryCard({
         ) : null}
       </CardContent>
     </Card>
+  );
+}
+
+function BookingsListSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <Skeleton className="h-9 w-40 rounded-full" />
+        <Skeleton className="h-9 w-28 rounded-full" />
+      </div>
+      <div className="space-y-4">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <OpsBookingCardSkeleton key={`booking-skeleton-${index}`} />
+        ))}
+      </div>
+    </div>
   );
 }

@@ -103,7 +103,7 @@ function CustomerCard({ customer }: { customer: OpsCustomer }) {
   return (
     <Card
       className={cn(
-        'group relative flex flex-col gap-2.5 rounded-xl p-3 transition-all',
+        'group relative flex flex-col gap-2.5 rounded-xl p-3 transition-[background-color,border-color,box-shadow] duration-200',
         'shadow-sm hover:shadow-md',
         cardBgClass,
       )}
@@ -188,7 +188,7 @@ function DesktopCustomerCard({ customer }: { customer: OpsCustomer }) {
   return (
     <Card
       className={cn(
-        'group relative grid grid-cols-[1fr_220px] items-start gap-3 rounded-xl p-3 transition-all',
+        'group relative grid grid-cols-[1fr_220px] items-start gap-3 rounded-xl p-3 transition-[background-color,border-color,box-shadow] duration-200',
         'shadow-sm hover:shadow-md',
         cardBgClass,
       )}

@@ -1,42 +1,51 @@
 # Continuity Ledger
 
-Last updated: 2026-02-03T18:07:00Z
+Last updated: 2026-02-04T08:31:32Z
 
 ## Goal (incl. success criteria)
 
-- Fix eslint warnings in scripts so pre-commit passes.
-- Success: no `@typescript-eslint/no-unused-vars` warnings in `scripts/seed-railway-from-cornerhouse.ts` and `scripts/update-railway-details.ts`.
+- Standardize ops UI patterns across `/app/*` pages (header/toolbar/empty state) while keeping behavior stable.
+- Success: shared ops page components adopted; focus-visible + explicit transitions; QA artifacts captured.
 
 ## Constraints/Assumptions
 
-- Follow root AGENTS policies.
-- Create task folder with SDLC artifacts before code changes.
-- Keep changes minimal and behavior-preserving.
+- Follow root + `src/app/AGENTS.md`, `src/components/AGENTS.md`.
+- Use Shadcn UI primitives only; no new primitives.
+- Manual UI QA via Chrome DevTools MCP required.
+- Keep behavior stable; layout refactor only.
 
 ## Key decisions
 
-- Replace type-only const with union type.
-- Use `catch {}` to avoid unused error var.
-- Prefix unused destructured field to satisfy lint.
+- Introduced shared `OpsPageHeader`, `OpsPageToolbar`, and `OpsEmptyState` patterns for ops pages.
+- Replaced ops-page `transition-all` usages with explicit transition properties.
+- Standardized search inputs to `type="search"` with focus-visible styling.
 
 ## State
 
-- Code changes applied; lint run succeeded.
+- Ops UI patterns applied across dashboard, bookings, customers, floor plan, rejections, settings shell, and new bookings page.
+- Empty states now use shared `OpsEmptyState` for consistent layout.
+- QA artifacts captured for dashboard/bookings/customers/settings pages.
+- Large perf artifacts removed from task folders per cleanup request; verification notes updated.
 
 ## Done
 
-- Created task folder `tasks/fix-scripts-eslint-20260203-1645` with SDLC artifacts.
-- Updated `seed-railway-from-cornerhouse.ts` to use `TablesScope` union type and `_area_type` in fallback map.
-- Updated `update-railway-details.ts` to use `catch {}`.
-- Ran `pnpm eslint --fix --max-warnings=0 scripts/seed-railway-from-cornerhouse.ts scripts/update-railway-details.ts`.
+- Created task folder `tasks/ops-ui-consistency-20260204-0740/` with SDLC artifacts.
+- Added ops-shell pattern components in `src/components/features/ops-shell/patterns/`.
+- Updated ops feature clients to use shared header/toolbar patterns.
+- Removed `transition-all` from ops pages; replaced with explicit transitions.
+- Standardized search inputs and focus-visible styles.
+- Ran `pnpm eslint --max-warnings=0 src/components/features/ops-shell src/components/features/dashboard src/components/features/bookings src/components/features/customers src/components/features/seating src/components/features/restaurant-settings src/components/features/tables src/components/features/team`.
+- Ran `pnpm typecheck`.
+- Captured Chrome DevTools MCP screenshots + performance trace for dashboard.
+- Removed large performance artifacts and non-core doc file from task folders.
 
 ## Now
 
-- Report changes and lint result.
+- Stage changes and commit on `codex/ops-ui-consistency-20260204-0740`.
 
 ## Next
 
-- None.
+- If needed, address Supabase fetch error seen on settings profile QA.
 
 ## Open questions (UNCONFIRMED if needed)
 
@@ -44,6 +53,16 @@ Last updated: 2026-02-03T18:07:00Z
 
 ## Working set (files/ids/commands)
 
-- `scripts/seed-railway-from-cornerhouse.ts`
-- `scripts/update-railway-details.ts`
-- `tasks/fix-scripts-eslint-20260203-1645/*`
+- `src/components/features/ops-shell/patterns/OpsPageHeader.tsx`
+- `src/components/features/ops-shell/patterns/OpsPageToolbar.tsx`
+- `src/components/features/ops-shell/patterns/OpsEmptyState.tsx`
+- `src/components/features/dashboard/OpsDashboardHeader.tsx`
+- `src/components/features/dashboard/OpsDashboardToolbar.tsx`
+- `src/components/features/bookings/OpsBookingsClient.tsx`
+- `src/components/features/customers/OpsCustomersClient.tsx`
+- `src/components/features/seating/FloorPlanPage.tsx`
+- `src/components/features/dashboard/rejections/OpsRejectionDashboard.tsx`
+- `src/components/features/restaurant-settings/OpsRestaurantSettingsClient.tsx`
+- `src/components/features/restaurant-settings/RestaurantSettingsPageShell.tsx`
+- `src/app/app/(app)/new-bookings/page.tsx`
+- `tasks/ops-ui-consistency-20260204-0740/verification.md`

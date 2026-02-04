@@ -1,10 +1,11 @@
 'use client';
 
-import posthog from 'posthog-js';
 import { PostHogProvider as PHProvider, usePostHog } from 'posthog-js/react';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 
 import { useSupabaseSession } from '@/hooks/useSupabaseSession';
+
+import type { PostHog } from 'posthog-js';
 
 /**
  * PostHog analytics provider for client-side tracking.
@@ -15,9 +16,18 @@ import { useSupabaseSession } from '@/hooks/useSupabaseSession';
  * - Event capturing
  */
 export function PostHogProvider({ children }: { children: ReactNode }) {
+  const [client, setClient] = useState<PostHog | null>(null);
+
   useEffect(() => {
     const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
     const host = process.env.NEXT_PUBLIC_POSTHOG_HOST;
+    const isOpsHost =
+      typeof window !== 'undefined' &&
+      (window.location.hostname.startsWith('app.') || window.location.pathname.startsWith('/app'));
+
+    if (isOpsHost) {
+      return;
+    }
 
     if (!key || !host) {
       if (process.env.NODE_ENV === 'development') {
@@ -26,23 +36,58 @@ export function PostHogProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    posthog.init(key, {
-      api_host: host,
-      person_profiles: 'identified_only',
-      capture_pageview: false, // We capture pageviews manually via instrumentation-client.ts
-      capture_pageleave: true,
-      autocapture: true,
-      persistence: 'localStorage+cookie',
-      loaded: (posthog) => {
-        if (process.env.NODE_ENV === 'development') {
-          // Enable debug mode in development
-          posthog.debug();
-        }
-      },
-    });
+    let didCancel = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let idleId: number | null = null;
+
+    const initPosthog = async () => {
+      if (didCancel) return;
+      const { default: posthog } = await import('posthog-js');
+      if (didCancel) return;
+      posthog.init(key, {
+        api_host: host,
+        person_profiles: 'identified_only',
+        capture_pageview: false, // We capture pageviews manually via instrumentation-client.ts
+        capture_pageleave: true,
+        autocapture: true,
+        persistence: 'localStorage+cookie',
+        loaded: (posthog) => {
+          if (process.env.NODE_ENV === 'development') {
+            // Enable debug mode in development
+            posthog.debug();
+          }
+        },
+      });
+      setClient(posthog);
+    };
+
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      idleId = window.requestIdleCallback(() => initPosthog(), { timeout: 3000 });
+    } else {
+      timeoutId = setTimeout(initPosthog, 1500);
+    }
+
+    return () => {
+      didCancel = true;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      if (idleId !== null && typeof window !== 'undefined' && 'cancelIdleCallback' in window) {
+        window.cancelIdleCallback(idleId);
+      }
+    };
   }, []);
 
-  return <PHProvider client={posthog}>{children}</PHProvider>;
+  if (!client) {
+    return <>{children}</>;
+  }
+
+  return (
+    <PHProvider client={client}>
+      <PostHogUserIdentifier />
+      {children}
+    </PHProvider>
+  );
 }
 
 /**
@@ -65,5 +110,3 @@ export function PostHogUserIdentifier() {
 
   return null;
 }
-
-export { posthog };

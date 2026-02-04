@@ -99,8 +99,8 @@ export const SelectableTableCard = memo(function SelectableTableCard({
       aria-pressed={isSelected}
       className={cn(
         'group relative flex flex-col items-start justify-between p-3 text-left touch-manipulation',
-        'min-h-[110px] rounded-xl border transition-all duration-200',
-        'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+        'min-h-[110px] rounded-xl border transition-[transform,box-shadow,border-color,background-color,color] duration-200',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2',
         isAssigned
           ? 'bg-emerald-50 border-emerald-300 cursor-default'
           : isSelected
@@ -117,7 +117,7 @@ export const SelectableTableCard = memo(function SelectableTableCard({
             isAssigned ? 'bg-emerald-500' : 'bg-blue-500',
           )}
         >
-          <Check className="h-3 w-3 text-white" />
+          <Check className="h-3 w-3 text-white" aria-hidden />
         </div>
       )}
 
@@ -135,14 +135,14 @@ export const SelectableTableCard = memo(function SelectableTableCard({
         </div>
         {isConflicted ? (
           <Badge variant="outline" className="border-amber-300 text-amber-700 bg-amber-50">
-            <AlertTriangle className="h-3 w-3 mr-1" />
+            <AlertTriangle className="h-3 w-3 mr-1" aria-hidden />
             Conflict
           </Badge>
         ) : null}
       </div>
 
       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
-        <Users className="h-3.5 w-3.5 text-slate-400" />
+        <Users className="h-3.5 w-3.5 text-slate-400" aria-hidden />
         <span>{table.capacity} seats</span>
         {table.section ? <span className="text-slate-400">· {table.section}</span> : null}
       </div>

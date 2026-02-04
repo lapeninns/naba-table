@@ -1,17 +1,17 @@
 'use client';
 
+import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { Loader2 } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { useWindowVirtualizer } from '@tanstack/react-virtual';
 
+import { OpsBookingCard } from '@/components/features/dashboard/cards/OpsBookingCard';
+import { OpsBookingCardSkeleton } from '@/components/features/dashboard/cards/OpsBookingCardSkeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 
 import { BookingsHeader } from './BookingsHeader';
 import { EmptyState, type EmptyStateProps } from './EmptyState';
-import { OpsBookingCard } from './OpsBookingCard';
-import { OpsBookingCardSkeleton } from './OpsBookingCardSkeleton';
 
 import type { BookingAction } from '@/components/features/booking-state-machine';
 import type { BookingDTO, BookingsPage } from '@/hooks/useBookings';
@@ -382,7 +382,7 @@ export function BookingsTable({
                       onUndoNoShow={opsLifecycle?.onUndoNoShow}
                       pendingAction={
                         opsLifecycle?.pendingBookingId === booking.id
-                          ? (opsLifecycle.pendingAction as any)
+                          ? opsLifecycle.pendingAction
                           : null
                       }
                       actionsDisabled={actionsDisabled}
@@ -423,8 +423,8 @@ export function BookingsTable({
                     onUndoNoShow={opsLifecycle?.onUndoNoShow}
                     pendingAction={
                       opsLifecycle?.pendingBookingId === booking.id
-                      ? (opsLifecycle.pendingAction as any)
-                      : null
+                        ? opsLifecycle.pendingAction
+                        : null
                     }
                     actionsDisabled={actionsDisabled}
                     allowTableAssignments={true}

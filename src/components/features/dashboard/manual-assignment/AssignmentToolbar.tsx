@@ -171,16 +171,16 @@ export function AssignmentToolbar({
                 <div className="flex items-center gap-2">
                     {selectedCount > 0 && (
                         <Button
-                            variant="outline"
-                            size="default"
-                            onClick={onClear}
-                            disabled={isPending}
-                            className="h-11 px-4 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30 font-medium transition-all"
-                            title="Clear selection"
-                            aria-label="Clear table selection"
+                          variant="outline"
+                          size="default"
+                          onClick={onClear}
+                          disabled={isPending}
+                          className="h-11 px-4 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30 font-medium transition-[color,background-color,border-color,box-shadow,transform]"
+                          title="Clear selection"
+                          aria-label="Clear table selection"
                         >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Clear
+                          <Trash2 className="h-4 w-4 mr-2" aria-hidden />
+                          Clear
                         </Button>
                     )}
 
@@ -193,7 +193,7 @@ export function AssignmentToolbar({
                                         onClick={onAssign}
                                         disabled={!canAssign || isPending}
                                         className={cn(
-                                            "h-11 min-w-[150px] font-semibold shadow-md transition-all",
+                                            "h-11 min-w-[150px] font-semibold shadow-md transition-[transform,box-shadow,background-color,color]",
                                             canAssign
                                                 ? "bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 hover:shadow-lg active:scale-95"
                                                 : "opacity-50"
@@ -202,12 +202,12 @@ export function AssignmentToolbar({
                                     >
                                         {isAssigning ? (
                                             <>
-                                                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                                                Assigning...
+                                                <Loader2 className="mr-2 h-5 w-5 animate-spin" aria-hidden />
+                                                Assigning…
                                             </>
                                         ) : (
                                             <>
-                                                <CheckCircle2 className="mr-2 h-5 w-5" />
+                                                <CheckCircle2 className="mr-2 h-5 w-5" aria-hidden />
                                                 Assign Tables
                                             </>
                                         )}

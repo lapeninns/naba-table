@@ -570,7 +570,7 @@ export function BookingAssignmentTabContent({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-50 dark:from-emerald-900/40 dark:to-emerald-900/20 border-2 border-emerald-200/50 dark:border-emerald-800/50 shadow-sm">
-                  <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" aria-hidden />
                 </div>
                 <div>
                   <h4 className="text-base font-semibold text-foreground">Assigned Tables</h4>
@@ -601,7 +601,7 @@ export function BookingAssignmentTabContent({
               {assignedTables.map((table, idx) => (
                 <div
                   key={table.id}
-                  className="group relative rounded-xl border-2 border-primary/20 bg-gradient-to-br from-primary/5 via-primary/3 to-transparent p-4 shadow-sm transition-all duration-200 hover:shadow-md hover:border-primary/40 hover:-translate-y-0.5 animate-in fade-in-50 slide-in-from-bottom-2"
+                  className="group relative rounded-xl border-2 border-primary/20 bg-gradient-to-br from-primary/5 via-primary/3 to-transparent p-4 shadow-sm transition-[transform,box-shadow,border-color,background-color] duration-200 hover:shadow-md hover:border-primary/40 hover:-translate-y-0.5 animate-in fade-in-50 slide-in-from-bottom-2"
                   style={{ animationDelay: `${idx * 50}ms` }}
                 >
                   <div className="absolute top-3 right-3">
