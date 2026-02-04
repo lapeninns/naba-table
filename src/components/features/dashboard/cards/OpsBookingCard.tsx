@@ -37,6 +37,31 @@ export type OpsBookingCardProps = {
   highlightUrgency?: boolean;
 };
 
+function useMediaQuery(query: string, defaultMatches = false) {
+  const [matches, setMatches] = useState(defaultMatches);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const media = window.matchMedia(query);
+    const update = () => setMatches(media.matches);
+    update();
+    if (media.addEventListener) {
+      media.addEventListener('change', update);
+    } else {
+      media.addListener(update);
+    }
+    return () => {
+      if (media.removeEventListener) {
+        media.removeEventListener('change', update);
+      } else {
+        media.removeListener(update);
+      }
+    };
+  }, [query]);
+
+  return matches;
+}
+
 export const OpsBookingCard = memo(function OpsBookingCard({
   booking,
   timezone,
@@ -55,10 +80,7 @@ export const OpsBookingCard = memo(function OpsBookingCard({
   const [isOpen, setIsOpen] = useState(false);
   const hasAutoExpanded = useRef(false);
   const hasUserToggled = useRef(false);
-  const isMobile = useMemo(() => {
-    if (typeof window === 'undefined') return false;
-    return window.matchMedia('(max-width: 639px)').matches;
-  }, []);
+  const isMobile = useMediaQuery('(max-width: 639px)');
   const now = useMemo(() => (propNow ? new Date(propNow) : new Date()), [propNow]);
 
   const meta = useMemo(
@@ -78,20 +100,15 @@ export const OpsBookingCard = memo(function OpsBookingCard({
   }, [booking.id]);
 
   useEffect(() => {
-    if (
-      !shouldAutoExpand ||
-      isOpen ||
-      hasAutoExpanded.current ||
-      hasUserToggled.current ||
-      typeof window === 'undefined'
-    ) {
+    if (!isMobile) {
       return;
     }
-    if (window.matchMedia('(max-width: 639px)').matches) {
-      setIsOpen(true);
-      hasAutoExpanded.current = true;
+    if (!shouldAutoExpand || isOpen || hasAutoExpanded.current || hasUserToggled.current) {
+      return;
     }
-  }, [shouldAutoExpand, isOpen]);
+    setIsOpen(true);
+    hasAutoExpanded.current = true;
+  }, [isMobile, shouldAutoExpand, isOpen]);
 
   const handleOpenChange = (open: boolean) => {
     hasUserToggled.current = true;
@@ -137,7 +154,6 @@ export const OpsBookingCard = memo(function OpsBookingCard({
         booking={booking}
         meta={meta}
         tableLabel={tableLabel}
-        collapsible={isMobile}
       />
 
       <OpsBookingCardActions
@@ -165,13 +181,9 @@ export const OpsBookingCard = memo(function OpsBookingCard({
       role="article"
       aria-labelledby={`guest-name-${booking.id}`}
     >
-      {isMobile ? (
-        <Collapsible open={isOpen} onOpenChange={handleOpenChange} className="w-full">
-          {cardBody}
-        </Collapsible>
-      ) : (
-        <div className="w-full">{cardBody}</div>
-      )}
+      <Collapsible open={isOpen} onOpenChange={handleOpenChange} className="w-full">
+        {cardBody}
+      </Collapsible>
     </Card>
   );
 });

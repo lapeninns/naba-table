@@ -160,13 +160,19 @@ export function useOpsDashboardState({ initialDate }: UseOpsDashboardStateProps)
     const nextSearch = params.get('search') ?? '';
     const nextSortKey = parseSortKeyParam(params.get('sortKey'));
     const nextSortDir = parseSortDirParam(params.get('sortDir'));
-    const nextDate = sanitizeDateParam(params.get('date') ?? undefined);
+    const hasDateParam = params.has('date');
+    const nextDate = hasDateParam ? sanitizeDateParam(params.get('date') ?? undefined) : null;
 
     setFilter((current) => (current === nextFilter ? current : nextFilter));
     setSearchQuery((current) => (current === nextSearch ? current : nextSearch));
     setSortKeyState((current) => (current === nextSortKey ? current : nextSortKey));
     setSortDirState((current) => (current === nextSortDir ? current : nextSortDir));
-    setSelectedDate((current) => (current === nextDate ? current : nextDate));
+    setSelectedDate((current) => {
+      if (!hasDateParam) {
+        return current === null ? current : null;
+      }
+      return current === nextDate ? current : nextDate;
+    });
   }, [searchParamsKey]);
 
   const heatmapRange = useMemo(
