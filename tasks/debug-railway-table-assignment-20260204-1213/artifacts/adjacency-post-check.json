@@ -1,0 +1,10 @@
+{
+  "restaurantId": "adf0252b-74f1-407c-9b3d-f03cd6c1f1c5",
+  "adjacencyCount": 28,
+  "missingAdjacency": [
+    {
+      "id": "1cd5e475-7ca3-4617-91be-9781aaf3b2d7",
+      "table_number": "30F"
+    }
+  ]
+}
