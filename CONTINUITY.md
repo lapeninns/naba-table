@@ -1,42 +1,36 @@
 # Continuity Ledger
 
-Last updated: 2026-02-05T17:29:40Z
+Last updated: 2026-02-05T17:41:10Z
 
 ## Goal (incl. success criteria)
 
-- Enhance mobile layout for /app/dashboard header and controls
-- Success: header uses less vertical space without losing status context
-- Success: responsive layout stable at sm/md/lg with DevTools MCP artifacts
+- Fix ops booking DTO cache so table assignment changes reflect immediately
+- Success: assignment labels refresh when tables are reassigned with same count
 
 ## Constraints/Assumptions
 
 - Follow root + src/components AGENTS policies
-- Use Web Interface Guidelines and frontend aesthetics skill
-- Tailwind default breakpoints; single design system
-- UI changes require Chrome DevTools MCP QA
+- Keep cache signature deterministic and lightweight
 
 ## Key decisions
 
-- Focus on header spacing, status beacon compactness, and date label shortening on mobile
+- Include assignment identifiers in cache signature
 
 ## State
 
-- UI adjustments implemented; DevTools MCP QA captured
+- Cache signature updated; verification pending
 
 ## Done
 
-- Created task folder `tasks/dashboard-mobile-enhancements-20260205-1721/`
-- Updated header spacing, service chips, and date navigation sizing
-- Added compact mobile status beacon and short date label
-- Captured DevTools MCP screenshots (mobile/tablet/desktop)
+- Created task folder `tasks/fix-booking-dto-cache-20260205-1740/`
 
 ## Now
 
-- Final review and summary
+- Update cache signature in BookingsListVirtualized
 
 ## Next
 
-- None
+- Verify reassignment refresh behavior
 
 ## Open questions (UNCONFIRMED if needed)
 
@@ -44,10 +38,5 @@ Last updated: 2026-02-05T17:29:40Z
 
 ## Working set (files/ids/commands)
 
-- tasks/dashboard-mobile-enhancements-20260205-1721/\*
-- src/components/features/dashboard/OpsDashboardHeader.tsx
-- src/components/features/dashboard/ConnectionStatusBeacon.tsx
-- src/components/features/dashboard/HeatmapCalendar.tsx
-- src/components/features/dashboard/OpsDashboardClient.tsx
-- src/components/features/dashboard/OpsDashboardToolbar.tsx
-- src/components/features/dashboard/BookingsFilterBar.tsx
+- tasks/fix-booking-dto-cache-20260205-1740/\*
+- src/components/features/dashboard/list/BookingsListVirtualized.tsx

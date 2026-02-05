@@ -115,6 +115,15 @@ export function BookingsListVirtualized({
 
   const getBookingDTO = useCallback(
     (booking: OpsTodayBooking) => {
+      const assignmentKey = (booking.tableAssignments ?? [])
+        .map((group) => {
+          const groupId = group.groupId ?? 'none';
+          const membersKey = (group.members ?? [])
+            .map((member) => `${member.tableId}:${member.tableNumber}:${member.section ?? ''}`)
+            .join(',');
+          return `${groupId}:${membersKey}`;
+        })
+        .join('|');
       const signature = [
         booking.status,
         booking.startTime ?? '',
@@ -131,7 +140,7 @@ export function BookingsListVirtualized({
         booking.reference ?? '',
         booking.checkedInAt ?? '',
         booking.checkedOutAt ?? '',
-        (booking.tableAssignments ?? []).length,
+        assignmentKey,
         booking.requiresTableAssignment ? '1' : '0',
         summary.restaurantId,
         summary.timezone,
