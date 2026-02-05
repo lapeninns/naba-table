@@ -4,16 +4,13 @@ import { memo, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Card } from '@/components/ui/card';
 import { Collapsible } from '@/components/ui/collapsible';
+import { useMinimumDelay } from '@/hooks/use-minimum-delay';
 import { cn } from '@/lib/utils';
 
 import { OpsBookingCardActions } from './OpsBookingCardActions';
 import { OpsBookingCardDetails } from './OpsBookingCardDetails';
 import { OpsBookingCardHeader } from './OpsBookingCardHeader';
-import {
-  buildBookingMeta,
-  getTableLabel,
-  getUrgencyBadge,
-} from './opsBookingCardUtils';
+import { buildBookingMeta, getTableLabel, getUrgencyBadge } from './opsBookingCardUtils';
 
 import type { BookingDTO } from '@/hooks/useBookings';
 
@@ -95,6 +92,7 @@ export const OpsBookingCard = memo(function OpsBookingCard({
   const shouldAutoExpand = urgency?.variant === 'destructive' || urgency?.label === 'Overdue';
 
   useEffect(() => {
+    if (!booking.id) return;
     hasAutoExpanded.current = false;
     hasUserToggled.current = false;
   }, [booking.id]);
@@ -116,26 +114,27 @@ export const OpsBookingCard = memo(function OpsBookingCard({
   };
 
   const isLoading = Boolean(pendingAction);
+  const showLoading = useMinimumDelay(isLoading, { delayMs: 200, minDurationMs: 400 });
   const isLocked = Boolean(actionsDisabled);
   const disableActions = isLoading || isLocked;
   const tableLabel = getTableLabel(booking.tableAssignments);
 
   const railClass = useMemo(() => {
     if (meta.isDone) return 'border-l-slate-300';
-    if (meta.isSeated) return 'border-l-emerald-500';
-    if (urgency?.variant === 'destructive') return 'border-l-rose-500';
-    if (urgency?.variant === 'warning') return 'border-l-amber-500';
-    return 'border-l-blue-600';
+    if (meta.isSeated) return 'border-l-emerald-400/70';
+    if (urgency?.variant === 'destructive') return 'border-l-rose-400';
+    if (urgency?.variant === 'warning') return 'border-l-amber-400/70';
+    return 'border-l-slate-300/80';
   }, [meta, urgency]);
 
   const cardBody = (
     <>
-      {isLoading ? (
+      {showLoading ? (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/45 backdrop-blur-[2px] motion-safe:animate-in motion-safe:fade-in motion-safe:duration-150">
           <div className="flex items-center gap-2 rounded-full border bg-white px-4 py-2 shadow-md">
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
             <span className="text-xs font-bold uppercase tracking-tighter text-slate-600">
-              Updating
+              Updating…
             </span>
           </div>
         </div>
@@ -150,11 +149,7 @@ export const OpsBookingCard = memo(function OpsBookingCard({
         showCollapseToggle={isMobile}
       />
 
-      <OpsBookingCardDetails
-        booking={booking}
-        meta={meta}
-        tableLabel={tableLabel}
-      />
+      <OpsBookingCardDetails booking={booking} meta={meta} tableLabel={tableLabel} />
 
       <OpsBookingCardActions
         booking={booking}
@@ -173,13 +168,15 @@ export const OpsBookingCard = memo(function OpsBookingCard({
   return (
     <Card
       className={cn(
-        'group relative overflow-hidden border-l-4 transition-[transform,box-shadow,opacity] duration-200 ease-out motion-reduce:transition-none',
+        'group relative overflow-hidden border-l-[3px] transition-shadow duration-200 ease-out hover:shadow-md motion-reduce:transition-none',
         railClass,
-        meta.isDone ? 'opacity-75' : 'hover:shadow-md motion-safe:hover:-translate-y-0.5',
-        (isLoading || isLocked) && 'pointer-events-none opacity-60',
+        meta.isDone && 'opacity-60',
+        (isLoading || isLocked) && 'pointer-events-none',
+        (showLoading || isLocked) && 'opacity-60',
       )}
       role="article"
       aria-labelledby={`guest-name-${booking.id}`}
+      aria-busy={showLoading}
     >
       <Collapsible open={isOpen} onOpenChange={handleOpenChange} className="w-full">
         {cardBody}

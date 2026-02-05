@@ -1,7 +1,6 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient, type UseMutationResult, type UseQueryResult } from '@tanstack/react-query';
-import { toast } from 'react-hot-toast';
 import { z } from 'zod';
 
 import { fetchJson } from '@/lib/http/fetchJson';
@@ -73,13 +72,11 @@ export function useCreateTeamInvite(): UseMutationResult<
       return parsed;
     },
     onSuccess: (result, variables) => {
-      toast.success('Invitation sent');
       queryClient.invalidateQueries({
         queryKey: queryKeys.team.invitations(variables.restaurantId, 'pending'),
       });
     },
     onError: (error) => {
-      toast.error(error.message);
     },
   });
 }
@@ -104,13 +101,11 @@ export function useRevokeTeamInvite(): UseMutationResult<RestaurantInvite, HttpE
       return parsed.invite;
     },
     onSuccess: (_invite, variables) => {
-      toast.success('Invitation revoked');
       queryClient.invalidateQueries({
         queryKey: queryKeys.team.invitations(variables.restaurantId, 'pending'),
       });
     },
     onError: (error) => {
-      toast.error(error.message);
     },
   });
 }

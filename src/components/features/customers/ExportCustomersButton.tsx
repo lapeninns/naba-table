@@ -2,7 +2,6 @@
 
 import { Download } from 'lucide-react';
 import { useState } from 'react';
-import { toast } from 'react-hot-toast';
 
 import { Button } from '@/components/ui/button';
 
@@ -92,10 +91,8 @@ export function ExportCustomersButton({ restaurantId, restaurantName, disabled, 
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
-      toast.success('Customer export ready.');
     } catch (error) {
       console.error('[ExportCustomersButton] Export failed', error);
-      toast.error('Unable to export customers. Please try again.');
     } finally {
       setIsExporting(false);
     }

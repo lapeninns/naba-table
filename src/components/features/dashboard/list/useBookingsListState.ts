@@ -3,7 +3,10 @@
 import { DateTime } from 'luxon';
 import { useEffect, useMemo, useState } from 'react';
 
-import { getOpsBookingActionRequirements, getOpsBookingTemporalInfo } from '@/utils/ops/todayBookingsAttention';
+import {
+  getOpsBookingActionRequirements,
+  getOpsBookingTemporalInfo,
+} from '@/utils/ops/todayBookingsAttention';
 
 import { sortBookings, sortBookingsGrouped } from './utils';
 
@@ -20,6 +23,10 @@ export type UseBookingsListStateProps = {
   hasAssignmentHandlers: boolean;
   sortKey: BookingSortKey;
   sortDir: BookingSortDir;
+  pendingLifecycleAction?: {
+    bookingId: string | null;
+    snapshot?: Pick<OpsTodayBooking, 'status' | 'startTime' | 'endTime'> | null;
+  } | null;
 };
 
 export function useBookingsListState({
@@ -31,6 +38,7 @@ export function useBookingsListState({
   hasAssignmentHandlers,
   sortKey,
   sortDir,
+  pendingLifecycleAction,
 }: UseBookingsListStateProps) {
   const [now, setNow] = useState(() => DateTime.now().setZone(summary.timezone));
   const [isVisible, setIsVisible] = useState(true);
@@ -50,25 +58,43 @@ export function useBookingsListState({
       setNow(DateTime.now().setZone(summary.timezone));
     }, 60_000);
     return () => clearInterval(interval);
-  }, [summary.timezone, summary.date, isVisible]);
+  }, [summary.timezone, isVisible]);
 
   const nowDate = useMemo(() => now.toJSDate(), [now]);
 
   const normalizedSearch = useMemo(() => (searchQuery ?? '').trim().toLowerCase(), [searchQuery]);
+  const bookingsForSort = useMemo(() => {
+    if (!pendingLifecycleAction?.bookingId || !pendingLifecycleAction.snapshot) {
+      return bookings;
+    }
+    const { bookingId, snapshot } = pendingLifecycleAction;
+    let replaced = false;
+    const next = bookings.map((booking) => {
+      if (booking.id !== bookingId) return booking;
+      replaced = true;
+      return {
+        ...booking,
+        status: snapshot.status,
+        startTime: snapshot.startTime ?? booking.startTime,
+        endTime: snapshot.endTime ?? booking.endTime,
+      };
+    });
+    return replaced ? next : bookings;
+  }, [bookings, pendingLifecycleAction]);
   const searchIndex = useMemo(() => {
     if (!normalizedSearch) return null;
     const index = new Map<string, string>();
-    for (const booking of bookings) {
+    for (const booking of bookingsForSort) {
       const haystack = `${booking.customerName ?? ''} ${booking.reference ?? ''}`.toLowerCase();
       index.set(booking.id, haystack);
     }
     return index;
-  }, [bookings, normalizedSearch]);
+  }, [bookingsForSort, normalizedSearch]);
 
   const attentionNow = filter === 'attention' ? now : null;
 
   const filtered = useMemo(() => {
-    let result = bookings;
+    let result = bookingsForSort;
 
     if (normalizedSearch && searchIndex) {
       const q = normalizedSearch;
@@ -115,7 +141,7 @@ export function useBookingsListState({
   }, [
     attentionNow,
     allowTableAssignments,
-    bookings,
+    bookingsForSort,
     filter,
     hasAssignmentHandlers,
     normalizedSearch,

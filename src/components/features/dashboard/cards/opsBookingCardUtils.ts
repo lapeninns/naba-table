@@ -134,8 +134,5 @@ export function getUrgencyBadge(
   if (diffMinutes <= 0) {
     return { variant: 'warning', label: 'Overdue' };
   }
-  if (diffMinutes <= 20) {
-    return { variant: 'warning', label: `In ${diffMinutes}m` };
-  }
   return null;
 }

@@ -3,7 +3,6 @@
 import { Loader2, Upload, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
-import { toast } from 'react-hot-toast';
 
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -109,12 +108,10 @@ export function RestaurantLogoUploader({
     try {
       const uploaded = await uploadMutation.mutateAsync(file);
       await updateMutation.mutateAsync({ logoUrl: uploaded.url });
-      toast.success('Logo updated');
     } catch (error) {
       console.error('[restaurant-logo] upload failed', error);
       const message = error instanceof Error ? error.message : 'Failed to upload logo';
       setErrorMessage(message);
-      toast.error(message);
     } finally {
       setLocalPreview(null);
       resetFileInput();
@@ -128,11 +125,9 @@ export function RestaurantLogoUploader({
     setErrorMessage(null);
     try {
       await updateMutation.mutateAsync({ logoUrl: null });
-      toast.success('Logo removed');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to remove logo';
       setErrorMessage(message);
-      toast.error(message);
     }
   };
 

@@ -18,6 +18,7 @@ export type OpsDashboardToolbarProps = {
   onFilterChange: (filter: BookingFilter) => void;
   onSearchChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onPrint: () => void;
+  sticky?: boolean;
 };
 
 export function OpsDashboardToolbar({
@@ -27,10 +28,12 @@ export function OpsDashboardToolbar({
   onFilterChange,
   onSearchChange,
   onPrint,
+  sticky = true,
 }: OpsDashboardToolbarProps) {
   return (
     <OpsPageToolbar
-      sticky
+      sticky={sticky}
+      className="py-2 sm:py-2.5"
       filters={
         <div className="-mx-2 overflow-x-auto px-2 scrollbar-hide md:mx-0 md:px-0">
           <div className="min-w-max">

@@ -3,8 +3,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef } from 'react';
 
-
-import { useTransitionToast } from '@/components/features/booking-state-machine';
 import { useOptionalBookingStateMachine } from '@/contexts/booking-state-machine';
 import { isRealtimeFloorplanEnabled } from '@/lib/feature-flags/realtime';
 import { queryKeys } from '@/lib/query/keys';
@@ -45,12 +43,12 @@ export function useBookingRealtime({
   enabled = true,
 }: UseBookingRealtimeOptions) {
   const bookingStateMachine = useOptionalBookingStateMachine();
-  const { showExternalUpdate } = useTransitionToast();
   const queryClient = useQueryClient();
 
   const normalizedIds = useMemo(() => Array.from(new Set(bookingIds)).sort(), [bookingIds]);
   const idsKey = useMemo(() => normalizedIds.join(','), [normalizedIds]);
-  const shouldEnable = enabled && Boolean(restaurantId) && normalizedIds.length > 0 && Boolean(summary);
+  const shouldEnable =
+    enabled && Boolean(restaurantId) && normalizedIds.length > 0 && Boolean(summary);
   const idSet = useMemo(() => new Set(normalizedIds), [normalizedIds]);
   const visibleIds = useMemo(() => {
     if (visibleBookingIds === undefined || visibleBookingIds === null) {
@@ -269,19 +267,13 @@ export function useBookingRealtime({
         flushTimeoutRef.current = setTimeout(() => {
           const batch = pendingChangesRef.current.splice(0);
           flushTimeoutRef.current = null;
-          for (const change of batch) {
-            showExternalUpdate({
-              bookingLabel: change.displayName ?? change.id,
-              fromStatus: change.previousStatus ?? null,
-              toStatus: change.status,
-            });
-          }
+          void batch;
         }, 250);
       }
     }
 
     bootstrappedRef.current = true;
-  }, [bookingStateMachine, idSet, shouldEnable, showExternalUpdate, summary, visibleIds]);
+  }, [bookingStateMachine, idSet, shouldEnable, summary, visibleIds]);
 
   return {
     isPolling: isSummaryFetching,

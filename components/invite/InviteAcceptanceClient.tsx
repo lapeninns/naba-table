@@ -5,7 +5,6 @@ import { Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { toast } from 'react-hot-toast';
 import { z } from 'zod';
 
 import { Button } from '@/components/ui/button';
@@ -72,7 +71,6 @@ export function InviteAcceptanceClient({ token, invite }: InviteAcceptanceClient
       if (!response.ok) {
         const message = typeof payload?.error === 'string' ? payload.error : 'Unable to accept invitation';
         setErrorMessage(message);
-        toast.error(message);
         return;
       }
 
@@ -86,9 +84,7 @@ export function InviteAcceptanceClient({ token, invite }: InviteAcceptanceClient
 
       if (signInError) {
         console.error('[invite][accept] sign-in failed', signInError.message);
-        toast.success('Invitation accepted. Sign in with your new password to continue.');
       } else {
-        toast.success('Invitation accepted. Welcome aboard!');
 
         // Force session refresh to ensure auth state is immediately available
         await supabase.auth.getUser();
@@ -101,7 +97,6 @@ export function InviteAcceptanceClient({ token, invite }: InviteAcceptanceClient
       console.error('[invite][accept] unexpected error', error);
       const message = 'Something went wrong while accepting the invitation.';
       setErrorMessage(message);
-      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }

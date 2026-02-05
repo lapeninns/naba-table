@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
-import toast from "react-hot-toast";
+
 
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -87,7 +87,6 @@ export function RestaurantBrowser({
 
     const payload = typeof status === "number" ? { status } : undefined;
     analytics("restaurants_list_error", payload);
-    toast.error("We can’t reach the restaurant list right now. Please retry.");
     errorTrackedRef.current = true;
   }, [analytics, error, showError]);
 

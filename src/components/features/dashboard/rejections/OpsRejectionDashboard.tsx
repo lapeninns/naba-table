@@ -19,7 +19,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useOpsSession } from '@/contexts/ops-session';
 import { useOpsRejectionAnalytics } from '@/hooks/ops/useOpsRejectionAnalytics';
 import { useOpsStrategicSettings, useUpdateOpsStrategicSettings } from '@/hooks/ops/useOpsStrategicSettings';
-import { useToast } from '@/hooks/use-toast';
 import { CSRF_HEADER_NAME, getBrowserCsrfToken } from '@/lib/security/csrf';
 import { cn } from '@/lib/utils';
 
@@ -261,7 +260,6 @@ function StrategicSettingsDialog({ restaurantName, open, onOpenChange, settings,
 type SimulationStatus = 'idle' | 'running';
 
 export function OpsRejectionDashboard() {
-  const { toast } = useToast();
   const { activeMembership } = useOpsSession();
   const restaurantId = activeMembership?.restaurantId ?? null;
   const restaurantName = activeMembership?.restaurantName ?? 'Restaurant';
@@ -299,20 +297,11 @@ export function OpsRejectionDashboard() {
       try {
         await updateSettings.mutateAsync({ restaurantId, weights });
         settingsQuery.refetch();
-        toast({
-          title: 'Strategic weights updated',
-          description: 'New configuration applied to the next table selection run.',
-        });
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Strategic settings are read-only in this environment.';
-        toast({
-          title: 'Unable to update strategic settings',
-          description: message,
-          variant: 'destructive',
-        });
+        console.error('[ops/rejections] unable to update strategic settings', err);
       }
     },
-    [restaurantId, updateSettings, settingsQuery, toast],
+    [restaurantId, updateSettings, settingsQuery],
   );
 
   const handleRunSimulation = useCallback(async () => {
@@ -353,31 +342,15 @@ export function OpsRejectionDashboard() {
         }),
       });
 
-      const payload = await response.json().catch(() => null);
       if (!response.ok) {
-        toast({
-          title: 'Unable to queue simulation',
-          description: payload?.error ?? 'An unexpected error occurred.',
-          variant: 'destructive',
-        });
         return;
       }
-
-      toast({
-        title: 'Simulation queued',
-        description: 'A placeholder job was accepted. Results will appear once the pipeline is available.',
-      });
     } catch (error) {
       console.error('[ops/rejections] failed to queue simulation', error);
-      toast({
-        title: 'Simulation failed',
-        description: 'We could not queue the simulation. Try again later.',
-        variant: 'destructive',
-      });
     } finally {
       setSimulationStatus('idle');
     }
-  }, [restaurantId, toast]);
+  }, [restaurantId]);
 
   if (!restaurantId) {
     return (

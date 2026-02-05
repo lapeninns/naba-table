@@ -2,7 +2,7 @@
 
 import { useMutation, useQueryClient, type UseMutationResult } from '@tanstack/react-query';
 
-import { useTransitionToast, useBookingErrorBoundary } from '@/components/features/booking-state-machine';
+import { useBookingErrorBoundary } from '@/components/features/booking-state-machine';
 import { useBookingOfflineQueue } from '@/contexts/booking-offline-queue';
 import { useOptionalBookingStateMachine } from '@/contexts/booking-state-machine';
 import { useBookingService } from '@/contexts/ops-services';
@@ -83,7 +83,6 @@ export function useOpsBookingLifecycleActions() {
   const queryClient = useQueryClient();
   const invalidate = useInvalidateLifecycle(queryClient);
   const bookingStateMachine = useOptionalBookingStateMachine();
-  const transitionToast = useTransitionToast();
   const bookingErrorBoundary = useBookingErrorBoundary();
   const offlineQueue = useBookingOfflineQueue();
   const opsBookingsListKey = ['ops', 'bookings', 'list'] as const;
@@ -126,7 +125,11 @@ export function useOpsBookingLifecycleActions() {
 
   const applyOpsBookingsSnapshot = (
     bookingId: string,
-    snapshot: { status: OpsBookingStatus; checkedInAt?: string | null; checkedOutAt?: string | null },
+    snapshot: {
+      status: OpsBookingStatus;
+      checkedInAt?: string | null;
+      checkedOutAt?: string | null;
+    },
   ) => {
     applyOpsBookingsPatch(bookingId, (booking) => {
       const next: OpsBookingListItem = { ...booking, status: snapshot.status };
@@ -155,10 +158,6 @@ export function useOpsBookingLifecycleActions() {
       label,
       perform: executor,
     });
-    transitionToast.showQueued({
-      action,
-      bookingLabel: variables.bookingId,
-    });
     return true;
   };
 
@@ -172,8 +171,11 @@ export function useOpsBookingLifecycleActions() {
     }
     const entry = bookingStateMachine?.getEntry(variables.bookingId);
     const details = (error.details as Record<string, unknown> | undefined) ?? {};
-    const detailsStatus = (details?.currentStatus ?? details?.status) as OpsBookingStatus | undefined;
-    const detailsUpdatedAt = typeof details?.updatedAt === 'string' ? (details.updatedAt as string) : undefined;
+    const detailsStatus = (details?.currentStatus ?? details?.status) as
+      | OpsBookingStatus
+      | undefined;
+    const detailsUpdatedAt =
+      typeof details?.updatedAt === 'string' ? (details.updatedAt as string) : undefined;
 
     bookingErrorBoundary.reportConflict({
       bookingId: variables.bookingId,
@@ -184,10 +186,10 @@ export function useOpsBookingLifecycleActions() {
       onReload:
         variables.restaurantId && typeof variables.restaurantId === 'string'
           ? () =>
-            invalidate(variables.restaurantId as string, variables.targetDate ?? null, {
-              invalidateSummary: true,
-              refetchSummary: true,
-            })
+              invalidate(variables.restaurantId as string, variables.targetDate ?? null, {
+                invalidateSummary: true,
+                refetchSummary: true,
+              })
           : null,
     });
     return true;
@@ -237,7 +239,10 @@ export function useOpsBookingLifecycleActions() {
     let previousOpsBookingDetail: OpsBookingListItem | undefined;
 
     if (variables.restaurantId) {
-      summaryKey = queryKeys.opsDashboard.summary(variables.restaurantId, variables.targetDate ?? null);
+      summaryKey = queryKeys.opsDashboard.summary(
+        variables.restaurantId,
+        variables.targetDate ?? null,
+      );
 
       // Cancel any in-flight refetches to prevent them from overwriting our optimistic update
       await queryClient.cancelQueries({ queryKey: summaryKey });
@@ -273,7 +278,10 @@ export function useOpsBookingLifecycleActions() {
     }
     if (context && 'previousOpsBookingDetail' in context) {
       if (context.previousOpsBookingDetail) {
-        applyOpsBookingsPatch(bookingId, () => context.previousOpsBookingDetail as OpsBookingListItem);
+        applyOpsBookingsPatch(
+          bookingId,
+          () => context.previousOpsBookingDetail as OpsBookingListItem,
+        );
       } else {
         queryClient.invalidateQueries({ queryKey: opsBookingsListKey, exact: false });
       }
@@ -288,7 +296,12 @@ export function useOpsBookingLifecycleActions() {
   const commitOptimisticTransition = (
     bookingId: string,
     context: MutationContext | undefined,
-    snapshot: { status: OpsBookingStatus; checkedInAt?: string | null; checkedOutAt?: string | null; updatedAt?: string | null },
+    snapshot: {
+      status: OpsBookingStatus;
+      checkedInAt?: string | null;
+      checkedOutAt?: string | null;
+      updatedAt?: string | null;
+    },
   ) => {
     if (context?.summaryKey) {
       queryClient.setQueryData<OpsTodayBookingsSummary>(context.summaryKey, (current) => {
@@ -322,11 +335,20 @@ export function useOpsBookingLifecycleActions() {
     });
   };
 
-  const checkInMutation = useMutation<LifecycleMutationResult, Error, BookingLifecycleVariables, MutationContext>({
+  const checkInMutation = useMutation<
+    LifecycleMutationResult,
+    Error,
+    BookingLifecycleVariables,
+    MutationContext
+  >({
     mutationFn: ({ bookingId, performedAt }) =>
-      bookingService.checkInBooking({ id: bookingId, performedAt: toPayloadTimestamp(performedAt) }),
+      bookingService.checkInBooking({
+        id: bookingId,
+        performedAt: toPayloadTimestamp(performedAt),
+      }),
     onMutate: async (variables) => {
-      const performedAt = variables.performedAt ?? new Date().toISOString();
+      const performedAt = variables.performedAt ?? null;
+      const optimisticCheckedInAt = performedAt ?? new Date().toISOString();
       return await applyOptimisticTransition(
         variables.bookingId,
         'checked_in',
@@ -334,15 +356,13 @@ export function useOpsBookingLifecycleActions() {
         (booking) => ({
           ...booking,
           status: 'checked_in',
-          checkedInAt: performedAt,
-          checkedOutAt: null,
+          checkedInAt: optimisticCheckedInAt,
         }),
         { action: 'check-in', performedAt },
         (booking) => ({
           ...booking,
           status: 'checked_in',
-          checkedInAt: performedAt,
-          checkedOutAt: null,
+          checkedInAt: optimisticCheckedInAt,
         }),
       );
     },
@@ -358,25 +378,29 @@ export function useOpsBookingLifecycleActions() {
         checkedOutAt: updated.checkedOutAt,
       });
       invalidate(variables.restaurantId, variables.targetDate ?? null);
-      transitionToast.showSuccess({ action: 'check-in' });
     },
     onError: (error, variables, context) => {
       rollbackOptimisticTransition(variables.bookingId, context);
       if (handleConflict(error, variables, 'checked_in')) {
         return;
       }
-      transitionToast.showError({
-        action: 'check-in',
-        errorMessage: error.message || 'Failed to check in guest',
-      });
     },
   });
 
-  const checkOutMutation = useMutation<LifecycleMutationResult, Error, BookingLifecycleVariables, MutationContext>({
+  const checkOutMutation = useMutation<
+    LifecycleMutationResult,
+    Error,
+    BookingLifecycleVariables,
+    MutationContext
+  >({
     mutationFn: ({ bookingId, performedAt }) =>
-      bookingService.checkOutBooking({ id: bookingId, performedAt: toPayloadTimestamp(performedAt) }),
+      bookingService.checkOutBooking({
+        id: bookingId,
+        performedAt: toPayloadTimestamp(performedAt),
+      }),
     onMutate: async (variables) => {
-      const performedAt = variables.performedAt ?? new Date().toISOString();
+      const performedAt = variables.performedAt ?? null;
+      const optimisticCheckedOutAt = performedAt ?? new Date().toISOString();
       return await applyOptimisticTransition(
         variables.bookingId,
         'completed',
@@ -384,13 +408,13 @@ export function useOpsBookingLifecycleActions() {
         (booking) => ({
           ...booking,
           status: 'completed',
-          checkedOutAt: performedAt,
+          checkedOutAt: optimisticCheckedOutAt,
         }),
         { action: 'check-out', performedAt },
         (booking) => ({
           ...booking,
           status: 'completed',
-          checkedOutAt: performedAt,
+          checkedOutAt: optimisticCheckedOutAt,
         }),
       );
     },
@@ -406,21 +430,21 @@ export function useOpsBookingLifecycleActions() {
         checkedOutAt: updated.checkedOutAt,
       });
       invalidate(variables.restaurantId, variables.targetDate ?? null);
-      transitionToast.showSuccess({ action: 'check-out' });
     },
     onError: (error, variables, context) => {
       rollbackOptimisticTransition(variables.bookingId, context);
       if (handleConflict(error, variables, 'completed')) {
         return;
       }
-      transitionToast.showError({
-        action: 'check-out',
-        errorMessage: error.message || 'Failed to check out guest',
-      });
     },
   });
 
-  const markNoShowMutation = useMutation<LifecycleMutationResult, Error, BookingLifecycleWithReasonVariables, MutationContext>({
+  const markNoShowMutation = useMutation<
+    LifecycleMutationResult,
+    Error,
+    BookingLifecycleWithReasonVariables,
+    MutationContext
+  >({
     mutationFn: ({ bookingId, performedAt, reason }) =>
       bookingService.markNoShowBooking({
         id: bookingId,
@@ -460,21 +484,21 @@ export function useOpsBookingLifecycleActions() {
         checkedOutAt: updated.checkedOutAt,
       });
       invalidate(variables.restaurantId, variables.targetDate ?? null);
-      transitionToast.showSuccess({ action: 'no-show' });
     },
     onError: (error, variables, context) => {
       rollbackOptimisticTransition(variables.bookingId, context);
       if (handleConflict(error, variables, 'no_show')) {
         return;
       }
-      transitionToast.showError({
-        action: 'no-show',
-        errorMessage: error.message || 'Failed to mark booking as no-show',
-      });
     },
   });
 
-  const undoNoShowMutation = useMutation<LifecycleMutationResult, Error, BookingLifecycleWithReasonVariables, MutationContext>({
+  const undoNoShowMutation = useMutation<
+    LifecycleMutationResult,
+    Error,
+    BookingLifecycleWithReasonVariables,
+    MutationContext
+  >({
     mutationFn: ({ bookingId, reason }) =>
       bookingService.undoNoShowBooking({
         id: bookingId,
@@ -508,17 +532,12 @@ export function useOpsBookingLifecycleActions() {
         checkedOutAt: updated.checkedOutAt,
       });
       invalidate(variables.restaurantId, variables.targetDate ?? null);
-      transitionToast.showSuccess({ action: 'undo-no-show' });
     },
     onError: (error, variables, context) => {
       rollbackOptimisticTransition(variables.bookingId, context);
       if (handleConflict(error, variables, 'confirmed')) {
         return;
       }
-      transitionToast.showError({
-        action: 'undo-no-show',
-        errorMessage: error.message || 'Failed to undo no-show',
-      });
     },
   });
 

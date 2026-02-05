@@ -5,7 +5,6 @@ export * from "./ConfirmationDialog";
 export * from "./TimestampPicker";
 export * from "./ScheduleAwareTimestampPicker";
 export * from "./StatusTransitionAnimator";
-export * from "./TransitionToast";
 export * from "./BookingErrorBoundary";
 export * from "./ConflictResolver";
 export * from "./BookingOfflineBanner";

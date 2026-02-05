@@ -16,13 +16,6 @@ vi.mock('@/lib/http/fetchJson', () => ({
 vi.mock('@/lib/analytics', () => ({ track: vi.fn() }));
 vi.mock('@/lib/analytics/emit', () => ({ emit: vi.fn() }));
 
-vi.mock('react-hot-toast', () => ({
-  toast: {
-    success: vi.fn(),
-    error: vi.fn(),
-  },
-}));
-
 describe('useCancelBooking', () => {
   it('marks bookings as cancelled after success', async () => {
     const queryClient = createTestQueryClient();

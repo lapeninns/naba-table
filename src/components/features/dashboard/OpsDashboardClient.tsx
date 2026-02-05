@@ -7,6 +7,7 @@ import { BookingOfflineBanner } from '@/components/features/booking-state-machin
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { Button } from '@/components/ui/button';
 import { BookingStateMachineProvider } from '@/contexts/booking-state-machine';
+import { useMinimumDelay } from '@/hooks/use-minimum-delay';
 import { getTodayInTimezone } from '@/lib/utils/datetime';
 
 import { DashboardErrorState } from './DashboardErrorState';
@@ -14,7 +15,6 @@ import { DashboardSummarySkeleton } from './DashboardSummarySkeleton';
 import { OpsDashboardDialogs } from './OpsDashboardDialogs';
 import { OpsDashboardHeader } from './OpsDashboardHeader';
 import { OpsDashboardSummarySection } from './OpsDashboardSummarySection';
-import { OpsDashboardToolbar } from './OpsDashboardToolbar';
 import { useOpsDashboardState } from './useOpsDashboardState';
 
 import type { OpsTodayBookingsSummary } from '@/types/ops';
@@ -54,7 +54,11 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
     };
   }, [state.restaurantId, state.restaurantTimezone, state.selectedDate]);
   const summary = state.summary ?? fallbackSummary;
-  const isSummaryLoading = !state.summary || state.isInitialLoading;
+  const showSummarySkeleton = useMinimumDelay(!state.summary || state.isInitialLoading, {
+    delayMs: 120,
+    minDurationMs: 300,
+  });
+  const isSummaryLoading = showSummarySkeleton;
 
   if (!state.restaurantId) {
     return <NoAccessState />;
@@ -66,13 +70,18 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
 
   return (
     <div className="w-full min-w-0 bg-background font-sans text-foreground">
-      <div className="mx-auto w-full min-w-0 max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+      <div className="mx-auto w-full min-w-0 max-w-6xl space-y-5 px-4 py-5 sm:space-y-6 sm:px-6 sm:py-8 lg:px-8">
         <OpsDashboardHeader
           headerSwipeRef={state.headerSwipeRef}
           guestStats={state.guestStats}
           summary={summary}
           isRefetching={state.isRefetching}
           isSummaryLoading={isSummaryLoading}
+          dataUpdatedAt={state.dataUpdatedAt}
+          realtimeEnabled={state.summaryRealtimeEnabled}
+          realtimeHealthy={state.summaryRealtimeHealthy}
+          isPolling={state.summaryIsPolling}
+          hasSummaryError={state.summaryHasError}
           heatmap={state.heatmapQuery.data}
           heatmapLoading={state.heatmapQuery.isLoading}
           onCalendarOpenChange={state.setIsCalendarOpen}
@@ -86,48 +95,40 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
           <BookingOfflineBanner />
         </section>
 
-        <OpsDashboardToolbar
-          filter={state.filter}
-          tabCounts={state.tabCounts}
-          searchQuery={state.searchQuery}
-          onFilterChange={state.handleSelectFilter}
-          onSearchChange={state.handleSearchChange}
-          onPrint={state.handlePrint}
-        />
-
-        {state.summary ? (
-          <OpsDashboardSummarySection
-            summary={state.summary}
-            restaurantName={state.restaurantName}
-            selectedDate={state.summary.date}
-            heatmap={state.heatmapQuery.data}
-            heatmapLoading={state.heatmapQuery.isLoading}
-            heatmapError={state.heatmapQuery.error ?? null}
-            filter={state.filter}
-            searchQuery={state.deferredSearchQuery}
-            sortKey={state.sortKey}
-            sortDir={state.sortDir}
-            onSortKeyChange={state.setSortKey}
-            onSortDirChange={state.setSortDir}
-            isRefetching={state.isRefetching}
-            allowTableAssignments={state.allowTableAssignments}
-            restaurantSlug={state.restaurantSlug}
-            onSelectDate={state.handleSelectDate}
-            onFilterChange={state.handleSelectFilter}
-            onDetails={state.handleDetails}
-            onEdit={state.handleEdit}
-            onCancel={state.handleCancelRequest}
-            onAssignTable={state.handleAssignTable}
-            onUnassignTable={state.handleUnassignTable}
-            tableActionState={state.tableActionState}
-            onMarkNoShow={state.handleMarkNoShow}
-            onUndoNoShow={state.handleUndoNoShow}
-            onCheckIn={state.handleCheckIn}
-            onCheckOut={state.handleCheckOut}
-            pendingLifecycleAction={state.pendingBookingAction}
-          />
-        ) : (
+        {showSummarySkeleton ? (
           <DashboardSummarySkeleton restaurantName={state.restaurantName} />
+        ) : (
+          <div className="motion-safe:animate-fade-in">
+            <OpsDashboardSummarySection
+              summary={summary}
+              restaurantName={state.restaurantName}
+              filter={state.filter}
+              tabCounts={state.tabCounts}
+              searchQuery={state.searchQuery}
+              deferredSearchQuery={state.deferredSearchQuery}
+              onSearchChange={state.handleSearchChange}
+              onPrint={state.handlePrint}
+              sortKey={state.sortKey}
+              sortDir={state.sortDir}
+              onSortKeyChange={state.setSortKey}
+              onSortDirChange={state.setSortDir}
+              isRefetching={state.isRefetching}
+              allowTableAssignments={state.allowTableAssignments}
+              restaurantSlug={state.restaurantSlug}
+              onFilterChange={state.handleSelectFilter}
+              onDetails={state.handleDetails}
+              onEdit={state.handleEdit}
+              onCancel={state.handleCancelRequest}
+              onAssignTable={state.handleAssignTable}
+              onUnassignTable={state.handleUnassignTable}
+              tableActionState={state.tableActionState}
+              onMarkNoShow={state.handleMarkNoShow}
+              onUndoNoShow={state.handleUndoNoShow}
+              onCheckIn={state.handleCheckIn}
+              onCheckOut={state.handleCheckOut}
+              pendingLifecycleAction={state.pendingBookingAction}
+            />
+          </div>
         )}
 
         <OpsDashboardDialogs

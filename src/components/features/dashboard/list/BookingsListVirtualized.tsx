@@ -26,16 +26,26 @@ export type BookingsListVirtualizedProps = {
   onDetails?: (booking: BookingDTO) => void;
   onEdit?: (booking: BookingDTO) => void;
   onCancel?: (booking: BookingDTO) => void;
-  onMarkNoShow: (bookingId: string, options?: { performedAt?: string | null; reason?: string | null }) => Promise<void>;
+  onMarkNoShow: (
+    bookingId: string,
+    options?: { performedAt?: string | null; reason?: string | null },
+  ) => Promise<void>;
   onUndoNoShow: (bookingId: string, reason?: string | null) => Promise<void>;
   onCheckIn: (bookingId: string) => Promise<void>;
   onCheckOut: (bookingId: string) => Promise<void>;
   pendingLifecycleAction?: {
     bookingId: string | null;
     action: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show';
+    snapshot?: Pick<OpsTodayBooking, 'status' | 'startTime' | 'endTime'> | null;
   } | null;
-  onAssignTable?: (bookingId: string, tableId: string) => Promise<OpsTodayBooking['tableAssignments']>;
-  onUnassignTable?: (bookingId: string, tableId: string) => Promise<OpsTodayBooking['tableAssignments']>;
+  onAssignTable?: (
+    bookingId: string,
+    tableId: string,
+  ) => Promise<OpsTodayBooking['tableAssignments']>;
+  onUnassignTable?: (
+    bookingId: string,
+    tableId: string,
+  ) => Promise<OpsTodayBooking['tableAssignments']>;
 };
 
 export function BookingsListVirtualized({
@@ -59,7 +69,8 @@ export function BookingsListVirtualized({
   onUnassignTable,
 }: BookingsListVirtualizedProps) {
   const VIRTUALIZE_MIN_ITEMS = 20;
-  const ROW_ESTIMATE = 140;
+  const ROW_GAP = 12;
+  const ROW_ESTIMATE = 140 + ROW_GAP;
   const bookingIds = useMemo(() => bookings.map((booking) => booking.id), [bookings]);
   const dtoCacheRef = useRef(new Map<string, BookingDTO>());
   const prefersReducedMotion = useReducedMotion();
@@ -164,8 +175,6 @@ export function BookingsListVirtualized({
   );
 
   const hasAssignmentHandlers = Boolean(onAssignTable && onUnassignTable);
-  const isLifecycleLockActive =
-    pendingLifecycleAction?.action === 'check-in' || pendingLifecycleAction?.action === 'check-out';
 
   const renderCard = useCallback(
     (booking: OpsTodayBooking) => {
@@ -177,10 +186,7 @@ export function BookingsListVirtualized({
 
       const pendingAction =
         pendingLifecycleAction?.bookingId === booking.id ? pendingLifecycleAction.action : null;
-      const actionsDisabled =
-        isLifecycleLockActive &&
-        Boolean(pendingLifecycleAction?.bookingId) &&
-        pendingLifecycleAction?.bookingId !== booking.id;
+      const actionsDisabled = pendingAction !== null;
 
       return (
         <OpsBookingCard
@@ -209,7 +215,6 @@ export function BookingsListVirtualized({
       now,
       getBookingDTO,
       hasAssignmentHandlers,
-      isLifecycleLockActive,
       onAssignTable,
       onCancel,
       onCheckIn,
@@ -229,7 +234,7 @@ export function BookingsListVirtualized({
   if (!shouldVirtualize) {
     return (
       <motion.div
-        className="space-y-3"
+        className="space-y-3 sm:space-y-4"
         initial={shouldAnimate ? { opacity: 0 } : false}
         animate={{ opacity: 1 }}
         transition={shouldAnimate ? { duration: 0.2, ease: 'easeOut' } : undefined}
@@ -248,7 +253,7 @@ export function BookingsListVirtualized({
       animate={{ opacity: 1 }}
       transition={shouldAnimate ? { duration: 0.2, ease: 'easeOut' } : undefined}
     >
-      <div
+      <section
         ref={parentRef}
         className="max-h-[70vh] overflow-y-auto pr-1"
         aria-label="Bookings list"
@@ -263,7 +268,7 @@ export function BookingsListVirtualized({
                 key={virtualRow.key}
                 data-index={virtualRow.index}
                 ref={rowVirtualizer.measureElement}
-                className="absolute left-0 top-0 w-full will-change-transform"
+                className="absolute left-0 top-0 w-full pb-3 will-change-transform sm:pb-4"
                 style={{ transform: `translate3d(0, ${virtualRow.start}px, 0)` }}
               >
                 {renderCard(booking)}
@@ -271,7 +276,7 @@ export function BookingsListVirtualized({
             );
           })}
         </div>
-      </div>
+      </section>
     </motion.div>
   );
 }

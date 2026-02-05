@@ -41,7 +41,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { useTableInventoryService, useZoneService } from '@/contexts/ops-services';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
-import { useToast } from '@/hooks/use-toast';
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
 import { isRestaurantAdminRole } from '@/lib/owner/auth/roles';
 import { queryKeys } from '@/lib/query/keys';
@@ -131,8 +130,6 @@ function TableForm({
   const [status, setStatus] = useState<TableInventory['status']>(table?.status ?? 'available');
   const [active, setActive] = useState<boolean>(table?.active ?? true);
 
-  const { toast } = useToast();
-
   const isZoneSelectDisabled = zones.length === 0;
 
   useEffect(() => {
@@ -160,20 +157,10 @@ function TableForm({
     const capacity = toInteger(formData.get('capacity'), 0) ?? 0;
 
     if (!tableNumber || capacity < 1) {
-      toast({
-        title: 'Check the table details',
-        description: 'Provide a table number and a valid capacity.',
-        variant: 'destructive',
-      });
       return;
     }
 
     if (!zoneId) {
-      toast({
-        title: 'Select a zone',
-        description: 'Every table must belong to a zone before you can save it.',
-        variant: 'destructive',
-      });
       return;
     }
 
@@ -181,11 +168,6 @@ function TableForm({
     const maxPartySize = toInteger(formData.get('maxPartySize'), null);
 
     if (maxPartySize !== null && maxPartySize < minPartySize) {
-      toast({
-        title: 'Invalid party size range',
-        description: 'Max party size must be greater than or equal to min party size.',
-        variant: 'destructive',
-      });
       return;
     }
 
@@ -396,7 +378,6 @@ export default function TableInventoryClient() {
   const tableService = useTableInventoryService();
   const zoneService = useZoneService();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTable, setEditingTable] = useState<TableInventory | null>(null);
@@ -589,11 +570,6 @@ export default function TableInventoryClient() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ops', 'tables'] });
       setIsDialogOpen(false);
-      toast({ title: 'Table created', description: 'The table has been added successfully.' });
-    },
-    onError: (mutationError: unknown) => {
-      const message = mutationError instanceof Error ? mutationError.message : 'Failed to create table.';
-      toast({ title: 'Unable to create table', description: message, variant: 'destructive' });
     },
   });
 
@@ -604,11 +580,6 @@ export default function TableInventoryClient() {
       queryClient.invalidateQueries({ queryKey: ['ops', 'tables'] });
       setIsDialogOpen(false);
       setEditingTable(null);
-      toast({ title: 'Table updated', description: 'The table details have been saved.' });
-    },
-    onError: (mutationError: unknown) => {
-      const message = mutationError instanceof Error ? mutationError.message : 'Failed to update table.';
-      toast({ title: 'Unable to update table', description: message, variant: 'destructive' });
     },
   });
 
@@ -616,11 +587,6 @@ export default function TableInventoryClient() {
     mutationFn: ({ tableId }: { tableId: string }) => tableService.remove(tableId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ops', 'tables'] });
-      toast({ title: 'Table deleted', description: 'The table has been removed.' });
-    },
-    onError: (mutationError: unknown) => {
-      const message = mutationError instanceof Error ? mutationError.message : 'Failed to delete table.';
-      toast({ title: 'Unable to delete table', description: message, variant: 'destructive' });
     },
   });
 
@@ -634,11 +600,6 @@ export default function TableInventoryClient() {
       setIsZoneDialogOpen(false);
       setEditingZone(null);
       setFilterZone(zone.id);
-      toast({ title: 'Zone created', description: `${zone.name} is ready for tables.` });
-    },
-    onError: (error) => {
-      const message = error instanceof Error ? error.message : 'Failed to create zone.';
-      toast({ title: 'Unable to create zone', description: message, variant: 'destructive' });
     },
   });
 
@@ -661,24 +622,17 @@ export default function TableInventoryClient() {
       }
       return { previousZones };
     },
-    onSuccess: (zone, variables) => {
+    onSuccess: (zone, _variables) => {
       queryClient.invalidateQueries({ queryKey: zonesQueryKey });
       queryClient.invalidateQueries({ queryKey: ['ops', 'tables'] });
       setIsZoneDialogOpen(false);
       setEditingZone(null);
-      const toggled = variables.active !== undefined;
-      toast({
-        title: toggled ? (variables.active ? 'Zone enabled' : 'Zone disabled') : 'Zone updated',
-        description: toggled ? `${zone.name} ${variables.active ? 'is back in service.' : 'is now out of service.'}` : 'Changes saved.',
-      });
       setFilterZone((current) => (current === zone.id ? zone.id : current));
     },
-    onError: (error, _variables, context) => {
+    onError: (_error, _variables, context) => {
       if (context?.previousZones) {
         queryClient.setQueryData(zonesQueryKey, context.previousZones);
       }
-      const message = error instanceof Error ? error.message : 'Failed to update zone.';
-      toast({ title: 'Unable to update zone', description: message, variant: 'destructive' });
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: zonesQueryKey });
@@ -693,12 +647,6 @@ export default function TableInventoryClient() {
       if (filterZone === variables.zoneId) {
         setFilterZone(ALL_ZONES_VALUE);
       }
-      toast({ title: 'Zone deleted', description: 'The zone has been removed.' });
-    },
-    onError: (error: unknown) => {
-      const message =
-        error instanceof Error ? error.message : 'Failed to delete zone. Make sure no tables use this zone.';
-      toast({ title: 'Unable to delete zone', description: message, variant: 'destructive' });
     },
   });
 
@@ -706,11 +654,6 @@ export default function TableInventoryClient() {
   const handleZoneDelete = (zone: Zone) => {
     const tablesInZone = tables.filter((table) => table.zoneId === zone.id);
     if (tablesInZone.length > 0) {
-      toast({
-        variant: 'destructive',
-        title: 'Cannot delete zone',
-        description: `Reassign the ${tablesInZone.length} table(s) from "${zone.name}" before deleting it.`,
-      });
       return;
     }
 
@@ -739,11 +682,6 @@ export default function TableInventoryClient() {
   const handleZoneSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!activeRestaurantId) {
-      toast({
-        title: 'Select a restaurant first',
-        description: 'Choose a restaurant to manage its zones.',
-        variant: 'destructive',
-      });
       return;
     }
 
@@ -759,11 +697,6 @@ export default function TableInventoryClient() {
     })();
 
     if (name.length === 0) {
-      toast({
-        title: 'Zone name required',
-        description: 'Provide a short name for the zone.',
-        variant: 'destructive',
-      });
       return;
     }
 
@@ -1100,14 +1033,6 @@ export default function TableInventoryClient() {
                             size="sm"
                             disabled={!canDeleteTables || deleteMutation.isPending}
                             onClick={() => {
-                              if (!canDeleteTables) {
-                                toast({
-                                  title: 'Admins only',
-                                  description: 'Only owners or admins can delete tables.',
-                                  variant: 'destructive',
-                                });
-                                return;
-                              }
                               if (confirm(`Delete table ${table.tableNumber}? This action cannot be undone.`)) {
                                 deleteMutation.mutate({ tableId: table.id });
                               }

@@ -1,7 +1,6 @@
 'use client';
 
 import { useMutation, useQueryClient, type QueryKey } from '@tanstack/react-query';
-import { toast } from 'react-hot-toast';
 
 import { fetchJson } from '@/lib/http/fetchJson';
 import { queryKeys } from '@/lib/query/keys';
@@ -55,11 +54,7 @@ export function useDeleteRestaurant() {
 
       return { lists, detail };
     },
-    onSuccess: (_result, variables) => {
-      toast.success(`Restaurant "${variables.name}" deleted successfully`);
-    },
     onError: (error, variables, context) => {
-      toast.error(error.message || 'Failed to delete restaurant');
       context?.lists.forEach(([key, data]) => {
         queryClient.setQueryData(key, data);
       });

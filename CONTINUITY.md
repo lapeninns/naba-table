@@ -1,45 +1,53 @@
 # Continuity Ledger
 
-Last updated: 2026-02-04T20:02:00Z
+Last updated: 2026-02-05T17:29:40Z
 
 ## Goal (incl. success criteria)
 
-- Fix telemetry regressions for Replay + PostHog initialization.
-- Success: Replay re-enables after leaving `/app`; PostHog captures early pageviews once loaded; ops routes remain excluded.
+- Enhance mobile layout for /app/dashboard header and controls
+- Success: header uses less vertical space without losing status context
+- Success: responsive layout stable at sm/md/lg with DevTools MCP artifacts
 
 ## Constraints/Assumptions
 
-- Follow root AGENTS policies.
-- Keep changes focused; no new analytics features.
-- Avoid new dependencies.
+- Follow root + src/components AGENTS policies
+- Use Web Interface Guidelines and frontend aesthetics skill
+- Tailwind default breakpoints; single design system
+- UI changes require Chrome DevTools MCP QA
 
 ## Key decisions
 
-- Always register Replay integration; route-gate start/stop.
-- Buffer PostHog pageviews until PostHog loads.
+- Focus on header spacing, status beacon compactness, and date label shortening on mobile
 
 ## State
 
-- Task created; implementation pending.
+- UI adjustments implemented; DevTools MCP QA captured
 
 ## Done
 
-- Created task folder `tasks/fix-ops-telemetry-20260204-2002/` with SDLC stubs.
+- Created task folder `tasks/dashboard-mobile-enhancements-20260205-1721/`
+- Updated header spacing, service chips, and date navigation sizing
+- Added compact mobile status beacon and short date label
+- Captured DevTools MCP screenshots (mobile/tablet/desktop)
 
 ## Now
 
-- Implement telemetry fixes in `src/instrumentation-client.ts` and `lib/posthog/provider.tsx`.
+- Final review and summary
 
 ## Next
 
-- Update `todo.md` and `verification.md`.
+- None
 
 ## Open questions (UNCONFIRMED if needed)
 
-- None.
+- None
 
 ## Working set (files/ids/commands)
 
-- `src/instrumentation-client.ts`
-- `lib/posthog/provider.tsx`
-- `tasks/fix-ops-telemetry-20260204-2002/*`
+- tasks/dashboard-mobile-enhancements-20260205-1721/\*
+- src/components/features/dashboard/OpsDashboardHeader.tsx
+- src/components/features/dashboard/ConnectionStatusBeacon.tsx
+- src/components/features/dashboard/HeatmapCalendar.tsx
+- src/components/features/dashboard/OpsDashboardClient.tsx
+- src/components/features/dashboard/OpsDashboardToolbar.tsx
+- src/components/features/dashboard/BookingsFilterBar.tsx

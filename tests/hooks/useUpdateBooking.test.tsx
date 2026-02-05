@@ -14,13 +14,6 @@ vi.mock('@/lib/http/fetchJson', () => ({
 
 vi.mock('@/lib/analytics/emit', () => ({ emit: vi.fn() }));
 
-vi.mock('react-hot-toast', () => ({
-  toast: {
-    success: vi.fn(),
-    error: vi.fn(),
-  },
-}));
-
 describe('useUpdateBooking', () => {
   it('updates booking details and refreshes cache', async () => {
     const queryClient = createTestQueryClient();

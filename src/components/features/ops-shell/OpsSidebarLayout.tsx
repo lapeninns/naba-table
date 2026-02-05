@@ -25,7 +25,6 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { useOpsSession } from '@/contexts/ops-session';
-import { useToast } from '@/hooks/use-toast';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
 import { signOutFromSupabase } from '@/lib/supabase/signOut';
 import { cn } from '@/lib/utils';
@@ -126,18 +125,13 @@ function OpsSidebarNav({
   pathname: string;
 }) {
   const isOnline = useOnlineStatus();
-  const { toast } = useToast();
 
   const handleOfflineNavigation = useCallback(
-    (event: MouseEvent<HTMLAnchorElement>, destination: string) => {
+    (event: MouseEvent<HTMLAnchorElement>) => {
       if (isOnline) return;
       event.preventDefault();
-      toast({
-        title: "You're offline",
-        description: `Reconnect to open ${destination}. We'll keep this page available until you're back online.`,
-      });
     },
-    [isOnline, toast],
+    [isOnline],
   );
 
   return (
@@ -165,7 +159,7 @@ function OpsSidebarNav({
                         aria-current={active ? 'page' : undefined}
                         aria-disabled={!isOnline}
                         prefetch={false}
-                        onClick={(event) => handleOfflineNavigation(event, item.title)}
+                        onClick={(event) => handleOfflineNavigation(event)}
                       >
                         <Icon
                           aria-hidden
