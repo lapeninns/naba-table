@@ -42,6 +42,29 @@ const allowProdResources = env.ALLOW_PROD_RESOURCES_IN_NONPROD === true;
 // Skip prod-resource guard when the deployment target itself is production (e.g., Vercel prod build)
 const treatAsProdTarget = appEnv === "production" || vercelEnv === "production";
 
+// -----------------------------------------------------------------------------
+// Production safety invariants (avoid silent background job failures)
+// -----------------------------------------------------------------------------
+if (treatAsProdTarget) {
+  const emailQueueEnabled = env.FEATURE_EMAIL_QUEUE_ENABLED === true;
+  if (emailQueueEnabled) {
+    if (!env.QUEUE_REDIS_URL) {
+      blockers.push(
+        "FEATURE_EMAIL_QUEUE_ENABLED=true requires QUEUE_REDIS_URL to be set. Without it, scheduled emails will backlog or fail silently.",
+      );
+    }
+    if (!env.CRON_SECRET) {
+      blockers.push(
+        "FEATURE_EMAIL_QUEUE_ENABLED=true requires CRON_SECRET to be set so Vercel cron can invoke /api/cron endpoints.",
+      );
+    }
+  }
+
+  if (env.RESEND_USE_MOCK === true) {
+    blockers.push("RESEND_USE_MOCK=true is not allowed for production targets.");
+  }
+}
+
 if (!treatAsProdTarget && !allowProdResources) {
   const comparisons: Array<{ key: string; value?: string; prodKey: string; prodValue?: string }> = [
     {

@@ -1,0 +1,6 @@
+Railway candidates: [{"id":"adf0252b-74f1-407c-9b3d-f03cd6c1f1c5","name":"The Railway Pub","slug":"the-railway-pub"}]
+Default slug match: [{"id":"adf0252b-74f1-407c-9b3d-f03cd6c1f1c5","name":"The Railway Pub","slug":"the-railway-pub"}]
+Selected restaurant id: adf0252b-74f1-407c-9b3d-f03cd6c1f1c5
+Table inventory count: 17
+Table adjacency count: 0
+Tables missing adjacency: 17

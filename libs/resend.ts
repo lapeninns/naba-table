@@ -108,6 +108,11 @@ function normalize(value?: string | string[]) {
 
 let replyToWarningLogged = false;
 
+export type SendEmailResult = {
+  provider: "resend" | "mock";
+  messageId: string;
+};
+
 export async function sendEmail({
   to,
   subject,
@@ -118,7 +123,7 @@ export async function sendEmail({
   bcc,
   fromName,
   attachments,
-}: SendEmailParams): Promise<void> {
+}: SendEmailParams): Promise<SendEmailResult> {
   if (!html && !text) {
     throw new Error("Resend email payloads must include HTML or text content.");
   }
@@ -152,19 +157,18 @@ export async function sendEmail({
   }
 
   const logPrefix = resendUseMock ? "[resend] (mock)" : "[resend]";
-  console.log(
-    `${logPrefix} Sending email to: ${Array.isArray(to) ? to.join(', ') : to}, subject: "${subject}", from: "${fromAddress}"`,
-  );
+  console.log(`${logPrefix} Sending email`, {
+    toCount: normalizedTo.length,
+    subject,
+    from: fromAddress,
+    hasHtml: Boolean(html),
+    hasText: Boolean(text),
+    attachmentCount: attachments?.length ?? 0,
+  });
 
   if (resendUseMock) {
-    console.log("[resend] (mock) Email delivery skipped.", {
-      to: normalizedTo,
-      subject,
-      hasHtml: Boolean(html),
-      hasText: Boolean(text),
-      attachmentCount: attachments?.length ?? 0,
-    });
-    return;
+    const messageId = `mock_${Date.now().toString(36)}`;
+    return { provider: "mock", messageId };
   }
 
   if (!resendClient) {
@@ -219,12 +223,11 @@ export async function sendEmail({
     }
 
     console.log(`[resend] Email sent successfully. ID: ${emailId}`);
+    return { provider: "resend", messageId: emailId };
   } catch (error) {
     console.error("[resend] Failed to send email:", {
-      to: Array.isArray(to) ? to : [to],
       subject,
       error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
     });
     throw error;
   }

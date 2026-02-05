@@ -1,0 +1,155 @@
+[
+  {
+    "id": "94616b82-26c4-4161-84d3-58dfbcbd87dd",
+    "table_number": "6M",
+    "capacity": 4,
+    "mobility": "movable",
+    "zone_id": "128f446b-98cc-451b-b838-946f7f981b2a",
+    "status": "available",
+    "active": true
+  },
+  {
+    "id": "7ec5b07d-096c-4c6b-9d06-0e3da621346f",
+    "table_number": "7M",
+    "capacity": 4,
+    "mobility": "movable",
+    "zone_id": "128f446b-98cc-451b-b838-946f7f981b2a",
+    "status": "available",
+    "active": true
+  },
+  {
+    "id": "98c059f7-a381-40e3-9314-f3fa76e01afe",
+    "table_number": "12M",
+    "capacity": 4,
+    "mobility": "movable",
+    "zone_id": "15e3708a-bc0d-41e4-a272-c330bbe16ae9",
+    "status": "available",
+    "active": true
+  },
+  {
+    "id": "49bf1ed7-4ac2-49e9-8d19-414ed2abdf0d",
+    "table_number": "18M",
+    "capacity": 4,
+    "mobility": "movable",
+    "zone_id": "15e3708a-bc0d-41e4-a272-c330bbe16ae9",
+    "status": "available",
+    "active": true
+  },
+  {
+    "id": "adedc04f-fe7b-48bd-991f-7225a0db264f",
+    "table_number": "9M",
+    "capacity": 4,
+    "mobility": "movable",
+    "zone_id": "15e3708a-bc0d-41e4-a272-c330bbe16ae9",
+    "status": "available",
+    "active": true
+  },
+  {
+    "id": "98252f35-d705-4a73-bcbe-c93c2586aa97",
+    "table_number": "10F",
+    "capacity": 2,
+    "mobility": "fixed",
+    "zone_id": "b6013bb7-11a1-42d0-88ac-b154eb5b83df",
+    "status": "available",
+    "active": true
+  },
+  {
+    "id": "649165ac-43ad-4bed-87ff-4fdc6b66ca26",
+    "table_number": "20F",
+    "capacity": 4,
+    "mobility": "fixed",
+    "zone_id": "b6013bb7-11a1-42d0-88ac-b154eb5b83df",
+    "status": "available",
+    "active": true
+  },
+  {
+    "id": "ee773d5b-ab63-438a-84c8-fc87493d76c6",
+    "table_number": "23F",
+    "capacity": 4,
+    "mobility": "fixed",
+    "zone_id": "b6013bb7-11a1-42d0-88ac-b154eb5b83df",
+    "status": "available",
+    "active": true
+  },
+  {
+    "id": "ce1dd76e-bec0-47aa-93a5-b9c759308d54",
+    "table_number": "3M",
+    "capacity": 2,
+    "mobility": "movable",
+    "zone_id": "ca56045a-c6da-4e0f-9b45-bb3f667a5841",
+    "status": "available",
+    "active": true
+  },
+  {
+    "id": "47ed637c-5eca-4011-9128-91722e03a78c",
+    "table_number": "4M",
+    "capacity": 4,
+    "mobility": "movable",
+    "zone_id": "ca56045a-c6da-4e0f-9b45-bb3f667a5841",
+    "status": "available",
+    "active": true
+  },
+  {
+    "id": "736358c3-d4e9-4ab3-95ba-4c066391b9b7",
+    "table_number": "5M",
+    "capacity": 4,
+    "mobility": "movable",
+    "zone_id": "ca56045a-c6da-4e0f-9b45-bb3f667a5841",
+    "status": "available",
+    "active": true
+  },
+  {
+    "id": "b5ecf969-000a-4bf8-8d4d-f94b080e0edf",
+    "table_number": "22M",
+    "capacity": 4,
+    "mobility": "movable",
+    "zone_id": "f2319f1c-3a3f-4b40-b027-cb83db9a956f",
+    "status": "available",
+    "active": true
+  },
+  {
+    "id": "a842b54f-dbc1-4aca-9da6-7f5d76a744b2",
+    "table_number": "8M",
+    "capacity": 2,
+    "mobility": "movable",
+    "zone_id": "f2319f1c-3a3f-4b40-b027-cb83db9a956f",
+    "status": "available",
+    "active": true
+  },
+  {
+    "id": "d5d26066-e2b2-486f-a689-285aa08702a6",
+    "table_number": "17M",
+    "capacity": 2,
+    "mobility": "movable",
+    "zone_id": "fa3e8a3d-c48b-40b9-9a43-eeeed148a44b",
+    "status": "available",
+    "active": true
+  },
+  {
+    "id": "5495f506-704a-4fd0-ad30-4905ba72aa7c",
+    "table_number": "1M",
+    "capacity": 4,
+    "mobility": "movable",
+    "zone_id": "fa3e8a3d-c48b-40b9-9a43-eeeed148a44b",
+    "status": "available",
+    "active": true
+  },
+  {
+    "id": "8612278d-4e1d-4a80-af63-fa8797fe8cd9",
+    "table_number": "2M",
+    "capacity": 4,
+    "mobility": "movable",
+    "zone_id": "fa3e8a3d-c48b-40b9-9a43-eeeed148a44b",
+    "status": "available",
+    "active": true
+  },
+  {
+    "id": "1cd5e475-7ca3-4617-91be-9781aaf3b2d7",
+    "table_number": "30F",
+    "capacity": 7,
+    "mobility": "fixed",
+    "zone_id": "fbf0b58d-f9d7-4fb5-8384-a4b2165a31e0",
+    "status": "available",
+    "active": true
+  }
+]

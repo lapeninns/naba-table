@@ -1,10 +1,18 @@
 // src/app/api/webhook/resend/route.ts
 import { NextResponse } from "next/server";
 
+import {
+  recordEmailDeliveryLog,
+  findLatestEmailDeliveryByMessageId,
+  type EmailDeliveryStatus,
+} from "@/server/emails/email-delivery-log";
 import { recordObservabilityEvent } from "@/server/observability";
 import { getServiceSupabaseClient } from "@/server/supabase";
 
 import type { NextRequest } from "next/server";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 // This is a simplified representation. In a real app, you'd use the Resend SDK or a more robust verification method.
 // For this example, we'll assume a simple shared secret check.
@@ -38,6 +46,11 @@ type UserProfileRow = {
 
 export async function POST(req: NextRequest) {
   // 1. --- Webhook Security ---
+  if (!RESEND_WEBHOOK_SECRET) {
+    console.error("[webhook][resend] RESEND_WEBHOOK_SECRET missing; refusing webhook");
+    return NextResponse.json({ error: "Webhook not configured" }, { status: 503 });
+  }
+
   const signature = req.headers.get("authorization");
   if (`Bearer ${RESEND_WEBHOOK_SECRET}` !== signature) {
     console.warn("[webhook][resend] Invalid signature received");
@@ -46,25 +59,63 @@ export async function POST(req: NextRequest) {
 
   try {
     const event = (await req.json()) as ResendWebhookEvent;
-    const recipientEmail = event.data.to[0];
+    const recipients = event.data.to ?? [];
+    const primaryRecipient = recipients[0] ?? null;
 
-    if (!recipientEmail) {
+    if (!primaryRecipient) {
       return NextResponse.json({ error: "No recipient email found" }, { status: 400 });
+    }
+
+    const statusMap: Partial<Record<ResendWebhookEvent["type"], EmailDeliveryStatus>> = {
+      "email.sent": "sent",
+      "email.delivered": "delivered",
+      "email.delivery_delayed": "delivery_delayed",
+      "email.complaint": "complained",
+      "email.bounced": "bounced",
+    };
+
+    const mappedStatus = statusMap[event.type] ?? null;
+    const occurredAt = event.created_at || new Date().toISOString();
+    const errorDetails = event.data.bounce?.message ?? null;
+
+    if (mappedStatus) {
+      for (const recipientEmail of recipients) {
+        const linkage = await findLatestEmailDeliveryByMessageId({
+          messageId: event.data.email_id,
+          recipientEmail,
+        });
+
+        await recordEmailDeliveryLog({
+          bookingId: linkage?.bookingId ?? null,
+          restaurantId: linkage?.restaurantId ?? null,
+          emailType: linkage?.emailType ?? null,
+          templateType: linkage?.templateType ?? null,
+          recipientEmail,
+          messageId: event.data.email_id,
+          status: mappedStatus,
+          provider: "resend",
+          providerEventId: null,
+          occurredAt,
+          error: errorDetails,
+          metadata: {
+            eventType: event.type,
+            // Do not include raw recipient email in metadata; it's already stored in the column.
+          },
+        });
+      }
     }
 
     // 2. --- Handle Relevant Events ---
     switch (event.type) {
       case "email.bounced":
       case "email.complaint": {
-        console.log(`[webhook][resend] Received ${event.type} for ${recipientEmail}`);
-
         const supabase = getServiceSupabaseClient();
 
         // Find the user profile by email (case-insensitive due to citext)
         const { data: profileData, error } = await supabase
           .from("user_profiles")
           .select("id, is_email_suppressed")
-          .eq("email", recipientEmail)
+          .eq("email", primaryRecipient)
           .maybeSingle();
 
         const profile = profileData as UserProfileRow | null;
@@ -84,20 +135,14 @@ export async function POST(req: NextRequest) {
             throw new Error(`Failed to update suppression flag: ${updateError.message}`);
           }
 
-          console.log(`[webhook][resend] Suppression flag set for ${recipientEmail}`);
           await recordObservabilityEvent({
             source: "webhook.resend",
             eventType: "email_suppression.added",
             severity: "warning",
             context: {
-              email: recipientEmail,
               reason: event.type,
             },
           });
-        } else if (profile) {
-          console.log(`[webhook][resend] Suppression flag already set for ${recipientEmail}`);
-        } else {
-          console.log(`[webhook][resend] No user profile found for email: ${recipientEmail}`);
         }
         break;
       }
