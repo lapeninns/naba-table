@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "message": "No pending emails to process",
+  "processed": 0,
+  "debug": {
+    "delayedCount": 265,
+    "waitingCount": 0,
+    "waitingFetched": 0,
+    "waitingMatched": 0,
+    "delayedScanned": 30,
+    "delayedReady": 0,
+    "delayedMatched": 0,
+    "filterTypes": ["review_request"]
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "now": "2026-02-05T18:03:05.201Z",
+  "dueCount": 151,
+  "dueByType": {
+    "reminder_short": 55,
+    "review_request": 58,
+    "reminder_24h": 38
+  },
+  "dueScheduledRange": {
+    "earliest": "2026-01-29T10:00:00.001Z",
+    "latest": "2026-02-05T18:00:00.000Z"
+  }
+}

@@ -1,0 +1,113 @@
+{
+  "window": {
+    "cutoff_iso": "2026-02-02T18:02:47.132Z",
+    "now_iso": "2026-02-05T18:02:47.629Z"
+  },
+  "pagesFetched": 1,
+  "totalFetched": 100,
+  "withinWindow": 58,
+  "reviewCandidateCount": 2,
+  "reviewSubjectMatchers": [
+    "How was dinner?",
+    "Rate your experience",
+    "We'd love your feedback",
+    "We'd love your feedback"
+  ],
+  "reviewCandidatesSample": [
+    {
+      "id": "4ec8badd-fb04-4aa7-b9fe-7139ad41fb88",
+      "created_at": "2026-02-04 22:07:22.555833+00",
+      "subject": "Rate your experience 📝 - The Old Crown Girton",
+      "to": ["j*****y@gmail.com"],
+      "last_event": "delivered",
+      "scheduled_at": null
+    },
+    {
+      "id": "257024aa-3757-48ff-9c28-0177f445b896",
+      "created_at": "2026-02-03 20:20:04.686846+00",
+      "subject": "How was dinner? ⭐ - White Horse Pub",
+      "to": ["t************6@gmail.com"],
+      "last_event": "delivered",
+      "scheduled_at": null
+    }
+  ],
+  "subjectsTop": [
+    {
+      "subject": "Table Secured 🍽️ - The Old Crown Girton",
+      "count": 10
+    },
+    {
+      "subject": "Booking Confirmed 🎉 - The Old Crown Girton",
+      "count": 8
+    },
+    {
+      "subject": "Table Secured 🍽️ - The Railway Pub",
+      "count": 8
+    },
+    {
+      "subject": "You're In! 🥂 - The Old Crown Girton",
+      "count": 5
+    },
+    {
+      "subject": "Booking Cancelled 😔 - The Railway Pub",
+      "count": 3
+    },
+    {
+      "subject": "Action Required - The Railway Pub",
+      "count": 3
+    },
+    {
+      "subject": "Request Received 🤞 - The Railway Pub",
+      "count": 3
+    },
+    {
+      "subject": "Change Requested 📝 - The Railway Pub",
+      "count": 3
+    },
+    {
+      "subject": "Changes Confirmed ✅ - The Old Crown Girton",
+      "count": 3
+    },
+    {
+      "subject": "You're In! 🥂 - The Railway Pub",
+      "count": 2
+    },
+    {
+      "subject": "Changes Confirmed ✅ - The Railway Pub",
+      "count": 2
+    },
+    {
+      "subject": "Booking Confirmed 🎉 - The Corner House Pub (Cambridge)",
+      "count": 1
+    },
+    {
+      "subject": "Booking Cancelled 😔 - The Old Crown Girton",
+      "count": 1
+    },
+    {
+      "subject": "Rate your experience 📝 - The Old Crown Girton",
+      "count": 1
+    },
+    {
+      "subject": "Table Secured 🍽️ - White Horse Pub",
+      "count": 1
+    },
+    {
+      "subject": "You're In! 🥂 - White Horse Pub",
+      "count": 1
+    },
+    {
+      "subject": "Booking Confirmed 🎉 - The Railway Pub",
+      "count": 1
+    },
+    {
+      "subject": "Booking Confirmed 🎉 - White Horse Pub",
+      "count": 1
+    },
+    {
+      "subject": "How was dinner? ⭐ - White Horse Pub",
+      "count": 1
+    }
+  ],
+  "note": "Review candidates matched by subject prefix; custom templates may not match these prefixes."
+}

@@ -1029,6 +1029,72 @@ export type Database = {
           },
         ];
       };
+      email_delivery_log: {
+        Row: {
+          booking_id: string | null;
+          created_at: string;
+          email_type: string | null;
+          error: string | null;
+          id: string;
+          message_id: string;
+          metadata: Json | null;
+          occurred_at: string;
+          provider: string | null;
+          provider_event_id: string | null;
+          recipient_email: string;
+          restaurant_id: string | null;
+          status: string;
+          template_type: string | null;
+        };
+        Insert: {
+          booking_id?: string | null;
+          created_at?: string;
+          email_type?: string | null;
+          error?: string | null;
+          id?: string;
+          message_id: string;
+          metadata?: Json | null;
+          occurred_at?: string;
+          provider?: string | null;
+          provider_event_id?: string | null;
+          recipient_email: string;
+          restaurant_id?: string | null;
+          status: string;
+          template_type?: string | null;
+        };
+        Update: {
+          booking_id?: string | null;
+          created_at?: string;
+          email_type?: string | null;
+          error?: string | null;
+          id?: string;
+          message_id?: string;
+          metadata?: Json | null;
+          occurred_at?: string;
+          provider?: string | null;
+          provider_event_id?: string | null;
+          recipient_email?: string;
+          restaurant_id?: string | null;
+          status?: string;
+          template_type?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'email_delivery_log_booking_id_fkey';
+            columns: ['booking_id'];
+            isOneToOne: false;
+            referencedRelation: 'bookings';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'email_delivery_log_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       feature_flag_overrides: {
         Row: {
           environment: string;

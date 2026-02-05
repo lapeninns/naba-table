@@ -11,6 +11,7 @@ import {
   escapeHtml,
   EMAIL_FONT_STACK,
 } from "@/server/emails/base";
+import { recordEmailDeliveryLog } from "@/server/emails/email-delivery-log";
 import { resolveInviteContext } from "@/server/team/invitations";
 
 import type { RestaurantInvite } from "@/server/team/invitations";
@@ -80,12 +81,24 @@ export async function sendTeamInviteEmail(params: { invite: RestaurantInvite; to
     "If you were not expecting this invitation, you can ignore this email.",
   ].join("\n");
 
-  await sendEmail({
+  const result = await sendEmail({
     to: invite.email,
     subject,
     html,
     text,
     fromName: config.email.fromSupport ?? "Nab a Table",
   });
-}
 
+  await recordEmailDeliveryLog({
+    restaurantId: invite.restaurant_id ?? null,
+    emailType: "team_invite",
+    templateType: "team_invite",
+    recipientEmail: invite.email,
+    messageId: result.messageId,
+    status: "sent",
+    provider: result.provider,
+    metadata: {
+      role: invite.role,
+    },
+  });
+}

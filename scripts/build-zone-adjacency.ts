@@ -117,7 +117,11 @@ async function loadTables(
   if (error) {
     throw new Error(`Failed to load table_inventory: ${error.message}`);
   }
-  return (data ?? []).filter((row): row is TableRow => Boolean(row?.id));
+  const rows = (data ?? []).filter((row) => Boolean(row?.id));
+  return rows.map((row) => ({
+    id: row.id,
+    zone_id: row.zone_id ?? null,
+  }));
 }
 
 async function loadExistingAdjacency(
