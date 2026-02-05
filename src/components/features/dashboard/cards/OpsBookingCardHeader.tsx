@@ -43,8 +43,8 @@ export const OpsBookingCardHeader = memo(function OpsBookingCardHeader({
           <Avatar>
             <AvatarFallback
               className={cn(
-                'text-sm font-bold',
-                meta.isDone ? 'bg-slate-100' : 'bg-blue-50 text-blue-600',
+                'text-sm font-semibold',
+                meta.isDone ? 'bg-muted/50 text-muted-foreground' : 'bg-muted/60 text-foreground/80',
               )}
             >
               {meta.initials}
@@ -68,7 +68,7 @@ export const OpsBookingCardHeader = memo(function OpsBookingCardHeader({
                 <Sparkles className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
               ) : null}
             </div>
-            <div className="mt-1 flex flex-col gap-1 text-xs font-medium text-slate-500 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-1.5 sm:text-sm">
+            <div className="mt-1 flex flex-col gap-1 text-xs font-medium text-muted-foreground sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-1.5 sm:text-sm">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1 sm:contents">
                 <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                   <Users className="h-3.5 w-3.5 shrink-0" aria-hidden />
@@ -80,7 +80,7 @@ export const OpsBookingCardHeader = memo(function OpsBookingCardHeader({
                 </span>
               </div>
               <div className="flex items-center sm:contents">
-                <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] text-slate-600">
+                <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded bg-muted/40 px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
                   <Clock className="h-3 w-3" aria-hidden />
                   {meta.timeRangeLabel}
                 </span>
@@ -97,12 +97,12 @@ export const OpsBookingCardHeader = memo(function OpsBookingCardHeader({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 w-6 rounded-full p-0 transition-colors duration-150 hover:bg-slate-100 motion-reduce:transition-none"
+                  className="h-6 w-6 rounded-full p-0 transition-colors duration-150 hover:bg-muted/60 motion-reduce:transition-none"
                   disabled={disableActions}
                 >
                   <ChevronDown
                     className={cn(
-                      'h-4 w-4 text-slate-400 transition-transform duration-150 ease-out motion-reduce:transition-none',
+                      'h-4 w-4 text-muted-foreground transition-transform duration-150 ease-out motion-reduce:transition-none',
                       isOpen && 'rotate-180',
                     )}
                   />

@@ -57,16 +57,26 @@ type BookingsListProps = {
   onDetails?: (booking: BookingDTO) => void;
   onEdit?: (booking: BookingDTO) => void;
   onCancel?: (booking: BookingDTO) => void;
-  onMarkNoShow: (bookingId: string, options?: { performedAt?: string | null; reason?: string | null }) => Promise<void>;
+  onMarkNoShow: (
+    bookingId: string,
+    options?: { performedAt?: string | null; reason?: string | null },
+  ) => Promise<void>;
   onUndoNoShow: (bookingId: string, reason?: string | null) => Promise<void>;
   onCheckIn: (bookingId: string) => Promise<void>;
   onCheckOut: (bookingId: string) => Promise<void>;
   pendingLifecycleAction?: {
     bookingId: string | null;
     action: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show';
+    snapshot?: Pick<OpsTodayBooking, 'status' | 'startTime' | 'endTime'> | null;
   } | null;
-  onAssignTable?: (bookingId: string, tableId: string) => Promise<OpsTodayBooking['tableAssignments']>;
-  onUnassignTable?: (bookingId: string, tableId: string) => Promise<OpsTodayBooking['tableAssignments']>;
+  onAssignTable?: (
+    bookingId: string,
+    tableId: string,
+  ) => Promise<OpsTodayBooking['tableAssignments']>;
+  onUnassignTable?: (
+    bookingId: string,
+    tableId: string,
+  ) => Promise<OpsTodayBooking['tableAssignments']>;
   tableActionState?: {
     type: 'assign' | 'unassign';
     bookingId: string | null;
@@ -135,6 +145,7 @@ function BookingsListContent({
     hasAssignmentHandlers,
     sortKey,
     sortDir,
+    pendingLifecycleAction,
   });
 
   if (filtered.length === 0) {

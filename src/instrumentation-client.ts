@@ -42,9 +42,8 @@ const updateReplayForUrl = (value?: string | URL | null) => {
     replay.stop?.();
     return;
   }
-  if (replay.isEnabled?.() === false) {
-    replay.start?.();
-  }
+  // Start replay for non-ops URLs (safe to call even if already running)
+  replay.start?.();
 };
 
 // Initialize Sentry

@@ -35,7 +35,6 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { useRestaurantService, useTableInventoryService, useZoneService } from '@/contexts/ops-services';
 import { useOpsSession } from '@/contexts/ops-session';
 import { useOpsTableTimeline } from '@/hooks/ops/useOpsTableTimeline';
-import { useToast } from '@/hooks/use-toast';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
 import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils';
@@ -489,7 +488,6 @@ const FloatingInspector = ({
 
 export default function FloorPlanPage() {
     const router = useRouter();
-    const { toast } = useToast();
     const { activeRestaurantId } = useOpsSession();
     const isOnline = useOnlineStatus();
     const isDesktop = useMediaQuery('(min-width: 1024px)');
@@ -790,10 +788,6 @@ export default function FloorPlanPage() {
     const handleAddBooking = useCallback(
         (table = selectedTable) => {
             if (!isOnline) {
-                toast({
-                    title: 'Offline',
-                    description: 'Reconnect to open the new booking flow.',
-                });
                 return;
             }
             if (isLaunchingBooking) return;
@@ -809,32 +803,18 @@ export default function FloorPlanPage() {
                     params.set('partySize', table.capacity.toString());
                 }
 
-                toast({
-                    title: 'Opening new booking',
-                    description: table ? `Table ${table.tableNumber} · ${timeString}` : `Selected time · ${timeString}`,
-                });
-
                 router.push(`/new-bookings?${params.toString()}`);
             } catch (error) {
                 console.error('[floor-plan] failed to open new booking', error);
-                toast({
-                    variant: 'destructive',
-                    title: 'Unable to open new booking',
-                    description: 'Please try again once you are online.',
-                });
                 setIsLaunchingBooking(false);
             }
         },
-        [isLaunchingBooking, isOnline, router, selectedDate, selectedTable, timeParam, timeString, toast],
+        [isLaunchingBooking, isOnline, router, selectedDate, selectedTable, timeParam],
     );
 
     const handleBrowseBookings = useCallback(
         (table = selectedTable) => {
             if (!isOnline) {
-                toast({
-                    title: 'Offline',
-                    description: 'Reconnect to browse bookings.',
-                });
                 return;
             }
 
@@ -849,7 +829,7 @@ export default function FloorPlanPage() {
 
             router.push(`/bookings?${params.toString()}`);
         },
-        [isOnline, router, selectedDate, selectedTable, timeParam, toast],
+        [isOnline, router, selectedDate, selectedTable, timeParam],
     );
 
     const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {

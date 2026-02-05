@@ -4,7 +4,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Controller, useForm, type Resolver } from 'react-hook-form';
-import { toast } from 'react-hot-toast';
 import { z } from 'zod';
 
 import { ScheduleAwareTimestampPicker } from '@/components/features/booking-state-machine';
@@ -300,7 +299,6 @@ function useEditBookingDialogState({
       const endIso = derivedEndIso;
 
       if (!startIso || Number.isNaN(startDate.getTime()) || !endIso) {
-        toast.error('Please provide valid date and time');
         return;
       }
 

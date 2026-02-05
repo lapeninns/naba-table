@@ -53,7 +53,7 @@ export function TeamInviteForm({ restaurantId }: TeamInviteFormProps) {
       setLastInvite(result);
       form.reset({ email: '', role: values.role });
     } catch {
-      // errors surfaced via toast in mutation hook
+      // Errors are surfaced via mutation error state.
     }
   };
 

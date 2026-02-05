@@ -30,11 +30,11 @@ const InfoTile = ({
 }) => (
   <div
     className={cn(
-      'flex flex-col gap-1 rounded-lg border border-slate-100 bg-slate-50/50 p-2.5',
+      'flex flex-col gap-1 rounded-lg border border-border/60 bg-muted/20 p-2.5',
       className,
     )}
   >
-    <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+    <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
       {Icon ? <Icon className="h-3 w-3" aria-hidden /> : null}
       {label}
     </div>
@@ -57,11 +57,11 @@ export const OpsBookingCardDetails = memo(function OpsBookingCardDetails({
     <div className="grid grid-cols-1 gap-2 pb-4 sm:grid-cols-2 lg:grid-cols-4">
       <InfoTile label="Table" icon={Armchair}>
         {tableLabel ? (
-          <span className="font-bold text-slate-900">Table {tableLabel}</span>
+          <span className="font-semibold text-foreground">Table {tableLabel}</span>
         ) : meta.isDone ? (
-          <span className="italic text-slate-400">N/A</span>
+          <span className="italic text-muted-foreground">N/A</span>
         ) : (
-          <span className="flex items-center gap-1 font-bold text-amber-600">
+          <span className="flex items-center gap-1 font-semibold text-amber-600">
             <AlertTriangle className="h-3.5 w-3.5" aria-hidden /> Unassigned
           </span>
         )}
@@ -70,27 +70,27 @@ export const OpsBookingCardDetails = memo(function OpsBookingCardDetails({
       <InfoTile label="Contact" icon={Mail}>
         <div className="flex flex-col gap-1 overflow-hidden leading-tight">
           {booking.customerPhone ? (
-            <span className="flex items-center gap-1 break-words text-[11px] font-bold text-slate-700">
+            <span className="flex items-center gap-1 break-words text-[11px] font-semibold text-foreground/80">
               <Phone className="h-2.5 w-2.5 shrink-0" aria-hidden /> {booking.customerPhone}
             </span>
           ) : null}
           {booking.customerEmail ? (
             <span
-              className="break-all text-[11px] italic leading-[1.1] text-slate-500 opacity-70"
+              className="break-all text-[11px] italic leading-[1.1] text-muted-foreground/70"
               title={booking.customerEmail}
             >
               {booking.customerEmail}
             </span>
           ) : null}
           {!booking.customerPhone && !booking.customerEmail ? (
-            <span className="text-xs italic text-slate-400">No contact</span>
+            <span className="text-xs italic text-muted-foreground">No contact</span>
           ) : null}
         </div>
       </InfoTile>
 
       <InfoTile label="Booking" icon={Users}>
         <div className="flex flex-col">
-          <span className="font-mono text-[11px] text-slate-500">
+          <span className="font-mono text-[11px] text-muted-foreground">
             Ref {booking.reference || booking.id.slice(0, 8)}
           </span>
         </div>
@@ -99,9 +99,9 @@ export const OpsBookingCardDetails = memo(function OpsBookingCardDetails({
       <InfoTile
         label="Notes"
         icon={FileText}
-        className={cn(booking.notes && 'border-amber-100 bg-amber-50/50')}
+        className={cn(booking.notes && 'border-amber-200/70 bg-amber-50/40')}
       >
-        <p className="break-words text-xs italic text-slate-500">
+        <p className="break-words text-xs italic text-muted-foreground">
           {booking.notes || 'No special requests.'}
         </p>
       </InfoTile>

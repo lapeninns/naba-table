@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { toast } from "react-hot-toast";
+
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +25,6 @@ const ButtonLead = ({ extraStyle }: { extraStyle?: string }) => {
     try {
       await apiClient.post("/lead", { email });
 
-      toast.success("Thanks for joining the waitlist!");
 
       // just remove the focus on the input
       inputRef.current?.blur();

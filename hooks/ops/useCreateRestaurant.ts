@@ -1,7 +1,6 @@
 'use client';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'react-hot-toast';
 
 import { fetchJson } from '@/lib/http/fetchJson';
 import { queryKeys } from '@/lib/query/keys';
@@ -21,10 +20,8 @@ export function useCreateRestaurant() {
       }),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.opsRestaurants.all });
-      toast.success(`Restaurant "${data.restaurant.name}" created successfully`);
     },
     onError: (error) => {
-      toast.error(error.message || 'Failed to create restaurant');
     },
   });
 }

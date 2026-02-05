@@ -6,61 +6,70 @@ import { DashboardSummaryCard } from './DashboardSummaryCard';
 
 import type { BookingFilter } from './BookingsFilterBar';
 import type { BookingDTO } from '@/hooks/useBookings';
-import type { OpsBookingHeatmap, OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
+import type { OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
+import type { ChangeEvent } from 'react';
 
 export type OpsDashboardSummarySectionProps = {
   summary: OpsTodayBookingsSummary;
   restaurantName: string;
-  selectedDate: string;
-  heatmap?: OpsBookingHeatmap;
-  heatmapLoading?: boolean;
-  heatmapError?: Error | null;
   filter: BookingFilter;
+  tabCounts: { all: number; upcoming: number; seated: number; finished: number; no_show: number };
   searchQuery?: string;
+  deferredSearchQuery?: string;
+  onSearchChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  onPrint: () => void;
   sortKey: 'time' | 'party' | 'name';
   sortDir: 'asc' | 'desc';
   isRefetching: boolean;
   allowTableAssignments: boolean;
   restaurantSlug?: string | null;
-  onSelectDate: (date: string) => void;
   onFilterChange: (filter: BookingFilter) => void;
   onSortKeyChange: (value: 'time' | 'party' | 'name') => void;
   onSortDirChange: (value: 'asc' | 'desc') => void;
   onDetails?: (booking: BookingDTO) => void;
   onEdit?: (booking: BookingDTO) => void;
   onCancel?: (booking: BookingDTO) => void;
-  onAssignTable?: (bookingId: string, tableId: string) => Promise<OpsTodayBooking['tableAssignments']>;
-  onUnassignTable?: (bookingId: string, tableId: string) => Promise<OpsTodayBooking['tableAssignments']>;
+  onAssignTable?: (
+    bookingId: string,
+    tableId: string,
+  ) => Promise<OpsTodayBooking['tableAssignments']>;
+  onUnassignTable?: (
+    bookingId: string,
+    tableId: string,
+  ) => Promise<OpsTodayBooking['tableAssignments']>;
   tableActionState?: {
     type: 'assign' | 'unassign';
     bookingId: string | null;
     tableId?: string | null;
   } | null;
-  onMarkNoShow: (bookingId: string, options?: { performedAt?: string | null; reason?: string | null }) => Promise<void>;
+  onMarkNoShow: (
+    bookingId: string,
+    options?: { performedAt?: string | null; reason?: string | null },
+  ) => Promise<void>;
   onUndoNoShow: (bookingId: string, reason?: string | null) => Promise<void>;
   onCheckIn: (bookingId: string) => Promise<void>;
   onCheckOut: (bookingId: string) => Promise<void>;
   pendingLifecycleAction?: {
     bookingId: string | null;
     action: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show';
+    snapshot?: Pick<OpsTodayBooking, 'status' | 'startTime' | 'endTime'> | null;
   } | null;
 };
 
 export function OpsDashboardSummarySection({
   summary,
   restaurantName,
-  selectedDate,
-  heatmap,
-  heatmapLoading,
-  heatmapError,
   filter,
+  tabCounts,
   searchQuery,
+  deferredSearchQuery,
+  onSearchChange,
+  onPrint,
   sortKey,
   sortDir,
   isRefetching,
   allowTableAssignments,
   restaurantSlug,
-  onSelectDate,
   onFilterChange,
   onSortKeyChange,
   onSortDirChange,
@@ -89,21 +98,18 @@ export function OpsDashboardSummarySection({
       <DashboardSummaryCard
         summary={summary}
         restaurantName={restaurantName}
-        selectedDate={selectedDate}
-        onSelectDate={onSelectDate}
-        heatmap={heatmap}
-        heatmapLoading={heatmapLoading}
-        heatmapError={heatmapError}
         filter={filter}
+        tabCounts={tabCounts}
         onFilterChange={onFilterChange}
         searchQuery={searchQuery}
+        deferredSearchQuery={deferredSearchQuery}
+        onSearchChange={onSearchChange}
+        onPrint={onPrint}
         sortKey={sortKey}
         sortDir={sortDir}
         onSortKeyChange={onSortKeyChange}
         onSortDirChange={onSortDirChange}
         isRefetching={isRefetching}
-        showFilterBar={false}
-        showHeatmap={false}
         allowTableAssignments={allowTableAssignments}
         restaurantSlug={restaurantSlug}
         onDetails={onDetails}

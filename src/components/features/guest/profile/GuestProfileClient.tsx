@@ -12,7 +12,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { useGuestProfile } from '@/guest/hooks';
-import { useToast } from '@/hooks/use-toast';
 import { coerceProfileUpdatePayload, useUpdateProfile } from '@/hooks/useProfile';
 
 import type { GuestProfileViewModel } from '@/guest/routes/profile/view-model';
@@ -34,7 +33,6 @@ export function GuestProfileClient({ viewModel }: { viewModel: GuestProfileViewM
   });
 
   const updateProfile = useUpdateProfile();
-  const { toast } = useToast();
 
   useEffect(() => {
     form.reset({
@@ -78,17 +76,6 @@ export function GuestProfileClient({ viewModel }: { viewModel: GuestProfileViewM
         form.reset({
           full_name: result.profile.name || '',
           phone_number: result.profile.phone || '',
-        });
-        toast({
-          title: 'Profile updated',
-          description: 'Your changes have been saved successfully.',
-        });
-      },
-      onError: () => {
-        toast({
-          variant: 'destructive',
-          title: 'Update failed',
-          description: "We couldn't save your changes. Please try again.",
         });
       },
     });

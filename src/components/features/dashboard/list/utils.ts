@@ -25,8 +25,12 @@ function compareBookings(
   let comparison = 0;
 
   if (sortKey === 'time') {
-    const tA = a.startTime ? new Date(`1970-01-01T${a.startTime}`).getTime() : Number.MAX_SAFE_INTEGER;
-    const tB = b.startTime ? new Date(`1970-01-01T${b.startTime}`).getTime() : Number.MAX_SAFE_INTEGER;
+    const tA = a.startTime
+      ? new Date(`1970-01-01T${a.startTime}`).getTime()
+      : Number.MAX_SAFE_INTEGER;
+    const tB = b.startTime
+      ? new Date(`1970-01-01T${b.startTime}`).getTime()
+      : Number.MAX_SAFE_INTEGER;
     comparison = tA - tB;
   } else if (sortKey === 'party') {
     comparison = a.partySize - b.partySize;
@@ -52,6 +56,22 @@ function getStatusGroup(status: OpsTodayBooking['status']) {
   return 1;
 }
 
+/**
+ * Get the relevant time for timeline sorting:
+ * - For checked_in: endTime (when they'll finish / table frees up)
+ * - For upcoming: startTime (when they arrive)
+ */
+function getTimelineTime(booking: OpsTodayBooking): number {
+  const timeStr = booking.status === 'checked_in' ? booking.endTime : booking.startTime;
+  if (!timeStr) return Number.MAX_SAFE_INTEGER;
+  return new Date(`1970-01-01T${timeStr}`).getTime();
+}
+
+/**
+ * Timeline merge sort for "All" filter:
+ * Interleaves seated (by end time) and upcoming (by start time) based on
+ * which event happens sooner. Completed bookings always sort to the bottom.
+ */
 export function sortBookingsGrouped(
   bookings: OpsTodayBooking[],
   sortKey: BookingSortKey,
@@ -60,9 +80,17 @@ export function sortBookingsGrouped(
   return [...bookings].sort((a, b) => {
     const groupA = getStatusGroup(a.status);
     const groupB = getStatusGroup(b.status);
-    if (groupA !== groupB) {
-      return groupA - groupB;
-    }
+
+    const aIsCompleted = groupA === 2;
+    const bIsCompleted = groupB === 2;
+    if (aIsCompleted && bIsCompleted) return compareBookings(a, b, sortKey, sortDir);
+    if (aIsCompleted) return 1;
+    if (bIsCompleted) return -1;
+
+    const timeA = getTimelineTime(a);
+    const timeB = getTimelineTime(b);
+    if (timeA !== timeB) return timeA - timeB;
+
     return compareBookings(a, b, sortKey, sortDir);
   });
 }

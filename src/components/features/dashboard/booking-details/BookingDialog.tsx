@@ -49,7 +49,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useToast } from '@/hooks/use-toast';
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
 import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils';
@@ -106,7 +105,6 @@ export function BookingDialog({
   isToday = true,
 }: BookingDialogProps) {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
   const isMobile = useIsMobile();
 
   const [isOpen, setIsOpen] = useState(Boolean(open));
@@ -225,13 +223,7 @@ export function BookingDialog({
       .filter(Boolean)
       .join('\n');
 
-    const success = await copyToClipboard(summaryText);
-    toast({
-      title: success ? 'Summary copied' : 'Copy failed',
-      description: success ? 'Booking summary copied to clipboard.' : 'Please try again.',
-      variant: success ? 'default' : 'destructive',
-      duration: 2000,
-    });
+    await copyToClipboard(summaryText);
   }, [
     assignedTableRows,
     booking,
@@ -239,7 +231,6 @@ export function BookingDialog({
     formattedEndTime,
     formattedStartTime,
     summary,
-    toast,
   ]);
 
   const handleCancel = useCallback(async () => {

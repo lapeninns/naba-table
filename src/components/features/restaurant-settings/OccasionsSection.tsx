@@ -2,7 +2,6 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState, type FormEvent } from 'react';
-import { toast } from 'react-hot-toast';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -75,11 +74,10 @@ export function OccasionsSection() {
     },
     onSuccess: async () => {
       await invalidate();
-      toast.success('Occasion created');
       closeDialog();
     },
     onError: (error: unknown) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to create occasion');
+      console.error('[occasions] create failed', error);
     },
   });
 
@@ -98,11 +96,10 @@ export function OccasionsSection() {
     },
     onSuccess: async () => {
       await invalidate();
-      toast.success('Occasion updated');
       closeDialog();
     },
     onError: (error: unknown) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to update occasion');
+      console.error('[occasions] update failed', error);
     },
   });
 
@@ -110,10 +107,9 @@ export function OccasionsSection() {
     mutationFn: async (key: string) => occasionService.deleteOccasion(key),
     onSuccess: async () => {
       await invalidate();
-      toast.success('Occasion deleted');
     },
     onError: (error: unknown) => {
-      toast.error(error instanceof Error ? error.message : 'Unable to delete occasion');
+      console.error('[occasions] delete failed', error);
     },
   });
 
@@ -136,15 +132,11 @@ export function OccasionsSection() {
       }
       return { previous };
     },
-    onError: (error, variables, context) => {
+    onError: (error, _variables, context) => {
       if (context?.previous) {
         queryClient.setQueryData(queryKeys.opsOccasions.list(), context.previous);
       }
       console.error('[occasions] toggle failed', error);
-      toast.error('Unable to update status');
-    },
-    onSuccess: (_data, variables) => {
-      toast.success(`Occasion ${variables.isActive ? 'activated' : 'deactivated'}`);
     },
     onSettled: invalidate,
   });
@@ -204,7 +196,6 @@ export function OccasionsSection() {
 
   const handleDelete = (occasion: OpsOccasion) => {
     if (occasion.isBuiltin) {
-      toast.error('Builtin occasions cannot be deleted');
       return;
     }
     const confirm = window.confirm(`Delete occasion "${occasion.label}"? This cannot be undone.`);

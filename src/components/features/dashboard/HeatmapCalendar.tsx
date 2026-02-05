@@ -5,6 +5,7 @@ import { useMemo, useState, type ComponentProps } from 'react';
 
 import { Calendar, CalendarDayButton } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { useMinimumDelay } from '@/hooks/use-minimum-delay';
 import { cn } from '@/lib/utils';
 import { formatDateKey, formatDateReadable } from '@/lib/utils/datetime';
 
@@ -51,6 +52,11 @@ export function HeatmapCalendar({
   }, [selectedDate]);
 
   const heatmapMeta = useMemo(() => deriveHeatmapMeta(heatmap), [heatmap]);
+  const showLoading = useMinimumDelay(Boolean(isLoading), { delayMs: 120, minDurationMs: 250 });
+  const shortLabel = useMemo(
+    () => formatDateReadableShort(selectedDate, summary.timezone),
+    [selectedDate, summary.timezone],
+  );
 
   const [open, setOpen] = useState(false);
   const handleOpenChange = (nextOpen: boolean) => {
@@ -63,13 +69,14 @@ export function HeatmapCalendar({
       <PopoverTrigger asChild>
         <button
           type="button"
-          aria-busy={isLoading}
+          aria-busy={showLoading}
           className={cn(
-            'px-2 text-sm font-medium text-foreground transition-colors hover:text-primary whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-            isLoading && 'opacity-70',
+            'px-2 text-xs font-medium text-foreground transition-colors hover:text-primary whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:text-sm',
+            showLoading && 'opacity-70',
           )}
         >
-          {formatDateReadable(selectedDate, summary.timezone)}
+          <span className="sm:hidden">{shortLabel}</span>
+          <span className="hidden sm:inline">{formatDateReadable(selectedDate, summary.timezone)}</span>
         </button>
       </PopoverTrigger>
       <PopoverContent align="center" className="p-0 w-auto">
@@ -119,7 +126,9 @@ export function HeatmapCalendar({
                 const dateKey = formatDateKey(props.day.date);
                 const meta = heatmapMeta.get(dateKey);
                 const intensity = meta?.intensity ?? 'none';
-                const ariaLabel = meta ? `${meta.bookings} bookings, ${meta.covers} covers` : `No bookings`;
+                const ariaLabel = meta
+                  ? `${meta.bookings} bookings, ${meta.covers} covers`
+                  : `No bookings`;
 
                 return (
                   <HeatmapDayButton
@@ -178,4 +187,23 @@ function computeIntensity(covers: number, max: number): HeatIntensity {
   if (ratio < 0.5) return 'low';
   if (ratio < 0.75) return 'medium';
   return 'high';
+}
+
+function formatDateReadableShort(value: string | Date, timeZone: string): string {
+  const date = value instanceof Date ? value : new Date(`${value}T00:00:00`);
+  const formatter = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+
+  const parts = formatter.formatToParts(date);
+  const weekday = parts.find((part) => part.type === 'weekday')?.value ?? '';
+  const day = parts.find((part) => part.type === 'day')?.value ?? '';
+  const month = parts.find((part) => part.type === 'month')?.value ?? '';
+  const year = parts.find((part) => part.type === 'year')?.value ?? '';
+
+  return [weekday, day, month, year].filter(Boolean).join(' ').trim();
 }

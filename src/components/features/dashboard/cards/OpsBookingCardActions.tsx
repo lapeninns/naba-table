@@ -47,12 +47,12 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
 }: OpsBookingCardActionsProps) {
   return (
     <div className="px-4 pb-4">
-      <div className="flex flex-wrap items-center justify-between gap-y-3 border-t border-slate-100 pt-3">
+      <div className="flex flex-wrap items-center justify-between gap-y-3 border-t border-border/60 pt-3">
         <div className="flex items-center gap-1">
           <Button
             variant="outline"
             size="sm"
-            className="h-8 px-4 text-xs font-semibold"
+            className="h-8 px-4 text-xs font-medium"
             onClick={() => onDetails?.(booking)}
             disabled={disableActions}
           >
@@ -107,8 +107,8 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
               size="sm"
               disabled={!meta.isToday || disableActions}
               className={cn(
-                'h-9 min-w-[120px] px-6 font-bold text-white shadow-sm transition-[transform,box-shadow,background-color] duration-150 ease-out motion-safe:hover:-translate-y-0.5 motion-safe:active:translate-y-0 hover:shadow-md motion-reduce:transition-none',
-                meta.isSeated ? 'bg-slate-800 hover:bg-slate-900' : 'bg-emerald-600 hover:bg-emerald-700',
+                'h-9 min-w-[120px] px-6 font-semibold text-white shadow-sm transition-[box-shadow,background-color] duration-150 ease-out hover:shadow-sm motion-reduce:transition-none',
+                meta.isSeated ? 'bg-slate-700 hover:bg-slate-800' : 'bg-emerald-600 hover:bg-emerald-700',
               )}
               onClick={() =>
                 meta.isSeated ? onCheckOut?.(booking.id) : onCheckIn?.(booking.id)
