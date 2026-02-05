@@ -229,9 +229,6 @@ function adjustToOptimalSendTime(
   // If already within optimal hours, no adjustment needed
   if (isWithinOptimalHours(localHour)) {
     const delayMs = proposedTimeMs - Date.now();
-    console.log(
-      `[smart-schedule] ✅ Already optimal: ${proposedDate.toISOString()} (${localHour}:00 ${timezone})`,
-    );
     return Math.max(0, delayMs);
   }
 
@@ -288,7 +285,6 @@ function adjustToOptimalSendTime(
           adjustedDate = prevEvening;
         } else {
           // Previous evening is in the past, can't schedule
-          console.log(`[smart-schedule] ❌ Cannot schedule: previous evening is in the past`);
           return null;
         }
       }
@@ -296,21 +292,11 @@ function adjustToOptimalSendTime(
 
     // Final check: ensure we're still before the event
     if (adjustedDate.getTime() >= eventTimeMs) {
-      console.log(`[smart-schedule] ❌ Cannot schedule: adjusted time would be after event`);
       return null;
     }
   }
 
   const adjustedDelayMs = adjustedDate.getTime() - Date.now();
-
-  // Log the adjustment for debugging
-  console.log(`[smart-schedule] 📧 Mode: ${mode}`);
-  console.log(
-    `[smart-schedule]    Original: ${proposedDate.toISOString()} (${localHour}:00 ${timezone})`,
-  );
-  console.log(
-    `[smart-schedule]    Adjusted: ${adjustedDate.toISOString()} (delay: ${Math.round(adjustedDelayMs / 60000)} min)`,
-  );
 
   return Math.max(0, adjustedDelayMs);
 }
@@ -368,29 +354,10 @@ async function scheduleReminderJob(
 
   // If smart scheduling returns null, we can't schedule this reminder properly
   if (optimizedDelayMs === null) {
-    console.log(`[reminder-job] Booking ${booking.id} (${variant}): Cannot schedule - skipping`);
     return;
   }
 
-  console.log(
-    `[reminder-job] Booking ${booking.id} (${variant}): Base delay ${Math.round(baseDelayMs / 60000)} min, Optimized delay ${Math.round(optimizedDelayMs / 60000)} min`,
-  );
-
-  const queueEnabled = isEmailQueueEnabled();
-  console.log('[DEBUG][reminder-job] Queue status', {
-    bookingId: booking.id,
-    variant,
-    queueEnabled,
-    FEATURE_EMAIL_QUEUE_ENABLED: process.env.FEATURE_EMAIL_QUEUE_ENABLED,
-  });
-
-  if (queueEnabled) {
-    console.log('[DEBUG][reminder-job] Attempting to enqueue', {
-      bookingId: booking.id,
-      variant,
-      delayMinutes: Math.round(optimizedDelayMs / 60000),
-    });
-
+  if (isEmailQueueEnabled()) {
     try {
       await enqueueEmailJob(
         {
@@ -401,35 +368,26 @@ async function scheduleReminderJob(
         },
         { jobId: `${variant}:${booking.id}`, delayMs: optimizedDelayMs },
       );
-
-      console.log('[DEBUG][reminder-job] Successfully enqueued', {
-        bookingId: booking.id,
-        variant,
-      });
     } catch (error) {
-      console.error('[DEBUG][reminder-job] Failed to enqueue', {
+      // Reminders are best-effort side effects; do not block booking lifecycle flows.
+      console.warn('[jobs][reminder-job] failed to enqueue reminder email', {
         bookingId: booking.id,
         variant,
         error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
       });
-      throw error;
     }
-  } else if (optimizedDelayMs >= 0) {
-    console.log('[DEBUG][reminder-job] Queue disabled, using inline send', {
-      bookingId: booking.id,
-      variant,
-    });
-
-    await sendEmailInlineWithDelay(
-      optimizedDelayMs,
-      () =>
-        sendBookingReminderEmail(booking, {
-          variant: variant === 'reminder_short' ? 'short' : 'standard',
-        }),
-      `booking.${variant}`,
-    );
+    return;
   }
+
+  // Fallback (dev-only / queue disabled): attempt a best-effort inline send.
+  await sendEmailInlineWithDelay(
+    optimizedDelayMs,
+    () =>
+      sendBookingReminderEmail(booking, {
+        variant: variant === 'reminder_short' ? 'short' : 'standard',
+      }),
+    `booking.${variant}`,
+  );
 }
 
 async function scheduleReviewJob(
@@ -455,25 +413,35 @@ async function scheduleReviewJob(
 
   // If smart scheduling returns null, it means we can't schedule this email
   if (optimizedDelayMs === null) {
-    console.log(`[review-job] Booking ${booking.id}: Cannot schedule review email - skipping`);
     return;
   }
 
-  console.log(
-    `[review-job] Booking ${booking.id}: Base delay ${Math.round(baseDelayMs / 60000)} min, Optimized delay ${Math.round(optimizedDelayMs / 60000)} min`,
-  );
-
-  if (isEmailQueueEnabled() && optimizedDelayMs > 0) {
-    await enqueueEmailJob(
-      {
+  // Always queue review requests when the email queue is enabled.
+  // Avoid relying on setTimeout in serverless environments for delayed sends.
+  if (isEmailQueueEnabled()) {
+    try {
+      await enqueueEmailJob(
+        {
+          bookingId: booking.id,
+          restaurantId,
+          type: 'review_request',
+          scheduledFor: new Date(Date.now() + Math.max(0, optimizedDelayMs)).toISOString(),
+        },
+        { jobId: `review_request:${booking.id}`, delayMs: Math.max(0, optimizedDelayMs) },
+      );
+    } catch (error) {
+      // Review requests are best-effort; do not block check-out flows.
+      console.warn('[jobs][review-job] failed to enqueue review request email', {
         bookingId: booking.id,
-        restaurantId,
-        type: 'review_request',
-        scheduledFor: new Date(Date.now() + optimizedDelayMs).toISOString(),
-      },
-      { jobId: `review_request:${booking.id}`, delayMs: optimizedDelayMs },
-    );
-  } else if (optimizedDelayMs >= 0) {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+    return;
+  }
+
+  // Fallback (dev-only / queue disabled): attempt a best-effort inline send.
+  // Note: any delay > 0 is not reliable in serverless environments.
+  if (optimizedDelayMs >= 0) {
     await sendEmailInlineWithDelay(
       optimizedDelayMs,
       () => sendBookingReviewRequestEmail(booking),
@@ -489,24 +457,9 @@ async function processBookingCreatedSideEffects(
   const client = resolveSupabase(_supabase);
   const { booking, idempotencyKey, restaurantId } = payload;
 
-  // DEBUG: Track job creation
-  console.log('[DEBUG][booking.created] START', {
-    bookingId: booking.id,
-    status: booking.status,
-    email: booking.customer_email,
-    source: booking.source,
-  });
-
   let queuedViaQueue = false;
   const normalizedEmail = booking.customer_email?.trim?.() ?? '';
   const shouldSendEmail = (payload.emailProvided ?? true) && normalizedEmail.length > 0;
-
-  console.log('[DEBUG][booking.created] Email check', {
-    bookingId: booking.id,
-    shouldSendEmail,
-    normalizedEmail: normalizedEmail ? 'present' : 'missing',
-    emailProvided: payload.emailProvided,
-  });
 
   const emailPrefs = await fetchRestaurantEmailPrefs(restaurantId, client);
 
@@ -610,16 +563,8 @@ async function processBookingCreatedSideEffects(
 
   // Schedule pre-visit reminders if already confirmed at creation.
   if (!SUPPRESS_EMAILS && shouldSendEmail && booking.status === 'confirmed') {
-    console.log('[DEBUG][booking.created] Scheduling reminders', {
-      bookingId: booking.id,
-      status: booking.status,
-      shouldSendEmail,
-    });
-
     try {
       const timezone = await fetchRestaurantTimezone(restaurantId, client);
-
-      console.log('[DEBUG][booking.created] Scheduling 24h reminder...');
       await scheduleReminderJob(
         booking as BookingRecord,
         restaurantId,
@@ -628,8 +573,6 @@ async function processBookingCreatedSideEffects(
         emailPrefs,
         timezone,
       );
-
-      console.log('[DEBUG][booking.created] Scheduling 2h reminder...');
       await scheduleReminderJob(
         booking as BookingRecord,
         restaurantId,
@@ -638,28 +581,12 @@ async function processBookingCreatedSideEffects(
         emailPrefs,
         timezone,
       );
-
-      console.log('[DEBUG][booking.created] Reminders scheduled successfully');
     } catch (error) {
-      console.error('[DEBUG][booking.created] Failed to schedule reminders', {
+      console.warn('[jobs][booking.created] failed to schedule reminders', {
         bookingId: booking.id,
         error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
       });
-      throw error;
     }
-  } else {
-    console.log('[DEBUG][booking.created] Skipping reminders', {
-      bookingId: booking.id,
-      SUPPRESS_EMAILS,
-      shouldSendEmail,
-      status: booking.status,
-      reason: !shouldSendEmail
-        ? 'no email'
-        : booking.status !== 'confirmed'
-          ? 'not confirmed'
-          : 'emails suppressed',
-    });
   }
 
   // Edge: if created as completed (rare), schedule review with smart timing.

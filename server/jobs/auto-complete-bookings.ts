@@ -1,7 +1,7 @@
 import { DateTime } from "luxon";
 
-
 import { clearBookingTableAssignments } from "@/server/bookings";
+import { resolveBookingEndAtUtc } from "@/server/bookings/booking-access";
 import { enqueueCheckOutSideEffects } from "@/server/jobs/booking-side-effects";
 import { prepareCheckInTransition, prepareCheckOutTransition } from "@/server/ops/booking-lifecycle/actions";
 import { BookingLifecycleError } from "@/server/ops/booking-lifecycle/stateMachine";
@@ -11,8 +11,6 @@ import { getServiceSupabaseClient } from "@/server/supabase";
 import type { TransitionResult } from "@/server/ops/booking-lifecycle/actions";
 import type { Database, Tables } from "@/types/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
-
-import { resolveBookingEndAtUtc } from "@/server/bookings/booking-access";
 
 const DEFAULT_WINDOW_MINUTES = 30;
 const DEFAULT_LIMIT = 200;

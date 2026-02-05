@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { prepareCheckInTransition, prepareNoShowTransition } from "@/server/ops/booking-lifecycle/actions";
+import { clearBookingTableAssignments } from "@/server/bookings";
+import { enqueueCheckOutSideEffects } from "@/server/jobs/booking-side-effects";
+import {
+  prepareCheckInTransition,
+  prepareCheckOutTransition,
+  prepareNoShowTransition,
+} from "@/server/ops/booking-lifecycle/actions";
 import { isBookingLifecycleAllowedToday } from "@/server/ops/booking-lifecycle/availability";
 import { BookingLifecycleError } from "@/server/ops/booking-lifecycle/stateMachine";
 import { invalidateOpsBookingChangesCache, invalidateOpsBookingsSummaryCache } from "@/server/ops/bookings";
@@ -133,79 +139,167 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   }
 
   try {
-    const transition =
-      payload.status === "no_show"
-        ? prepareNoShowTransition({
-            booking: {
-              id: bookingRow.id,
-              status: bookingRow.status,
-              checked_in_at: bookingRow.checked_in_at,
-              checked_out_at: bookingRow.checked_out_at,
-              booking_date: bookingRow.booking_date,
-              start_time: bookingRow.start_time,
-              restaurant_id: bookingRow.restaurant_id,
-            },
-            actorId: user.id,
-          })
-        : prepareCheckInTransition({
-            booking: {
-              id: bookingRow.id,
-              status: bookingRow.status,
-              checked_in_at: bookingRow.checked_in_at,
-              checked_out_at: bookingRow.checked_out_at,
-              booking_date: bookingRow.booking_date,
-              start_time: bookingRow.start_time,
-              restaurant_id: bookingRow.restaurant_id,
-            },
-            actorId: user.id,
-          });
+    const applyTransition = async (transition: ReturnType<typeof prepareCheckInTransition>) => {
+      if (transition.skipUpdate) {
+        return {
+          status: transition.response.status,
+          checkedInAt: transition.response.checkedInAt ?? null,
+          checkedOutAt: transition.response.checkedOutAt ?? null,
+          updatedAt: transition.response.updatedAt ?? null,
+        };
+      }
 
-    if (transition.skipUpdate) {
-      return NextResponse.json({
-        status: transition.response.status,
+      const historyRecord = transition.history;
+      if (!historyRecord) {
+        throw new Error("Missing history payload for transition");
+      }
+
+      const targetStatus = (transition.updates.status ?? bookingRow.status) as Tables<"bookings">["status"];
+      const finalCheckedInAt =
+        transition.updates.checked_in_at !== undefined
+          ? transition.updates.checked_in_at ?? null
+          : bookingRow.checked_in_at ?? null;
+      const finalCheckedOutAt =
+        transition.updates.checked_out_at !== undefined
+          ? transition.updates.checked_out_at ?? null
+          : bookingRow.checked_out_at ?? null;
+      const finalUpdatedAt = transition.updates.updated_at ?? new Date().toISOString();
+
+      const { data: transitionResult, error: transitionError } = await serviceSupabase.rpc(
+        "apply_booking_state_transition",
+        {
+          p_booking_id: bookingRow.id,
+          p_status: targetStatus,
+          p_checked_in_at: finalCheckedInAt,
+          p_checked_out_at: finalCheckedOutAt,
+          p_updated_at: finalUpdatedAt,
+          p_history_from: historyRecord.from_status ?? bookingRow.status,
+          p_history_to: historyRecord.to_status,
+          p_history_changed_by: historyRecord.changed_by ?? null,
+          p_history_changed_at: historyRecord.changed_at ?? finalUpdatedAt,
+          p_history_reason: historyRecord.reason ?? "status_change",
+          p_history_metadata: historyRecord.metadata ?? {},
+        },
+      );
+
+      if (transitionError) {
+        throw new Error(transitionError.message);
+      }
+
+      const resultRow = transitionResult?.[0];
+      return {
+        status: resultRow?.status ?? targetStatus,
+        checkedInAt: resultRow?.checked_in_at ?? finalCheckedInAt,
+        checkedOutAt: resultRow?.checked_out_at ?? finalCheckedOutAt,
+        updatedAt: resultRow?.updated_at ?? finalUpdatedAt,
+      };
+    };
+
+    // This endpoint is deprecated but still used by the UI.
+    // Ensure it performs the canonical lifecycle transitions and schedules post-checkout side-effects.
+    let finalStatus: Tables<"bookings">["status"] = bookingRow.status;
+
+    if (payload.status === "no_show") {
+      const transition = prepareNoShowTransition({
+        booking: {
+          id: bookingRow.id,
+          status: bookingRow.status,
+          checked_in_at: bookingRow.checked_in_at,
+          checked_out_at: bookingRow.checked_out_at,
+          booking_date: bookingRow.booking_date,
+          start_time: bookingRow.start_time,
+          restaurant_id: bookingRow.restaurant_id,
+        },
+        actorId: user.id,
       });
+
+      const result = await applyTransition(transition);
+      finalStatus = result.status as Tables<"bookings">["status"];
+
+      invalidateOpsBookingsSummaryCache(bookingRow.restaurant_id, bookingRow.booking_date);
+      invalidateOpsBookingChangesCache(bookingRow.restaurant_id, bookingRow.booking_date);
+
+      return withStatusDeprecation(
+        NextResponse.json({
+          status: finalStatus,
+        }),
+      );
     }
 
-    const historyRecord = transition.history;
-    if (!historyRecord) {
-      console.error("[ops][booking-status] missing history payload for transition");
-      return NextResponse.json({ error: "Unable to record booking transition" }, { status: 500 });
+    // payload.status === "completed"
+    // Ensure the booking is checked in before completing it.
+    if (!bookingRow.checked_in_at) {
+      const checkIn = prepareCheckInTransition({
+        booking: {
+          id: bookingRow.id,
+          status: bookingRow.status,
+          checked_in_at: bookingRow.checked_in_at,
+          checked_out_at: bookingRow.checked_out_at,
+          booking_date: bookingRow.booking_date,
+          start_time: bookingRow.start_time,
+          restaurant_id: bookingRow.restaurant_id,
+        },
+        actorId: user.id,
+        reason: "ops-status-complete",
+      });
+
+      const checkInResult = await applyTransition(checkIn);
+      bookingRow.status = checkInResult.status as Tables<"bookings">["status"];
+      bookingRow.checked_in_at = checkInResult.checkedInAt;
+      bookingRow.checked_out_at = checkInResult.checkedOutAt;
     }
 
-    const targetStatus = (transition.updates.status ?? bookingRow.status) as Tables<"bookings">["status"];
-    const finalCheckedInAt =
-      transition.updates.checked_in_at !== undefined ? transition.updates.checked_in_at ?? null : bookingRow.checked_in_at ?? null;
-    const finalCheckedOutAt =
-      transition.updates.checked_out_at !== undefined ? transition.updates.checked_out_at ?? null : bookingRow.checked_out_at ?? null;
-    const finalUpdatedAt = transition.updates.updated_at ?? new Date().toISOString();
-
-    const { data: transitionResult, error: transitionError } = await serviceSupabase.rpc("apply_booking_state_transition", {
-      p_booking_id: bookingRow.id,
-      p_status: targetStatus,
-      p_checked_in_at: finalCheckedInAt,
-      p_checked_out_at: finalCheckedOutAt,
-      p_updated_at: finalUpdatedAt,
-      p_history_from: historyRecord.from_status ?? bookingRow.status,
-      p_history_to: historyRecord.to_status,
-      p_history_changed_by: historyRecord.changed_by ?? null,
-      p_history_changed_at: historyRecord.changed_at ?? finalUpdatedAt,
-      p_history_reason: historyRecord.reason ?? "status_change",
-      p_history_metadata: historyRecord.metadata ?? {},
+    const checkOut = prepareCheckOutTransition({
+      booking: {
+        id: bookingRow.id,
+        status: bookingRow.status,
+        checked_in_at: bookingRow.checked_in_at,
+        checked_out_at: bookingRow.checked_out_at,
+        booking_date: bookingRow.booking_date,
+        start_time: bookingRow.start_time,
+        restaurant_id: bookingRow.restaurant_id,
+      },
+      actorId: user.id,
+      reason: "ops-status-complete",
     });
 
-    if (transitionError) {
-      console.error("[ops][booking-status] failed to persist transition", transitionError.message);
-      return NextResponse.json({ error: "Unable to update booking" }, { status: 500 });
+    const checkOutResult = await applyTransition(checkOut);
+    finalStatus = checkOutResult.status as Tables<"bookings">["status"];
+
+    // Release any table assignments once completed
+    try {
+      await clearBookingTableAssignments(serviceSupabase, bookingRow.id);
+    } catch (clearError) {
+      console.warn("[ops][booking-status] failed to clear table assignments", {
+        bookingId: bookingRow.id,
+        error: clearError instanceof Error ? clearError.message : clearError,
+      });
     }
 
     invalidateOpsBookingsSummaryCache(bookingRow.restaurant_id, bookingRow.booking_date);
     invalidateOpsBookingChangesCache(bookingRow.restaurant_id, bookingRow.booking_date);
 
-    const resultRow = transitionResult?.[0];
+    // Schedule review request email after completion (same as check-out route)
+    try {
+      const { data: fullBooking } = await serviceSupabase
+        .from("bookings")
+        .select("*")
+        .eq("id", bookingRow.id)
+        .maybeSingle();
+
+      if (fullBooking && bookingRow.restaurant_id) {
+        await enqueueCheckOutSideEffects(fullBooking, bookingRow.restaurant_id);
+      }
+    } catch (sideEffectsError) {
+      console.warn("[ops][booking-status] failed to schedule review email", {
+        bookingId: bookingRow.id,
+        error: sideEffectsError instanceof Error ? sideEffectsError.message : sideEffectsError,
+      });
+    }
 
     return withStatusDeprecation(
       NextResponse.json({
-        status: resultRow?.status ?? targetStatus,
+        status: finalStatus,
       }),
     );
   } catch (validationError) {

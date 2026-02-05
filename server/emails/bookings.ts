@@ -16,6 +16,7 @@ import {
   EMAIL_FONT_STACK,
   type EmailAnnotation,
 } from '@/server/emails/base';
+import { hasRecentEmailDelivery, recordEmailDeliveryLog } from '@/server/emails/email-delivery-log';
 import {
   ensureLogoColumnOnRow,
   isLogoUrlColumnMissing,
@@ -681,13 +682,41 @@ async function dispatchEmail(
     return;
   }
 
-  await sendEmail({
+  if (type === 'review_request') {
+    const alreadySent = await hasRecentEmailDelivery({
+      bookingId: booking.id,
+      templateType: type,
+      withinMs: 60 * 24 * 60 * 60 * 1000,
+    });
+    if (alreadySent) {
+      console.warn('[emails][bookings] review_request already sent recently; skipping', {
+        bookingId: booking.id,
+      });
+      return;
+    }
+  }
+
+  const result = await sendEmail({
     to: toEmail,
     subject: `${headline} - ${venue.name}`,
     html,
     text,
     attachments,
     fromName: venue.name,
+  });
+
+  await recordEmailDeliveryLog({
+    bookingId: booking.id,
+    restaurantId: booking.restaurant_id,
+    emailType: type,
+    templateType: type,
+    recipientEmail: toEmail,
+    messageId: result.messageId,
+    status: 'sent',
+    provider: result.provider,
+    metadata: {
+      subject: `${headline} - ${venue.name}`,
+    },
   });
 }
 
