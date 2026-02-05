@@ -1,17 +1,17 @@
 # Continuity Ledger
 
-Last updated: 2026-02-04T14:00:00Z
+Last updated: 2026-02-05T19:27:00Z
 
 ## Goal (incl. success criteria)
 
-- Set default booking buffer to 0 minutes.
-- Success: update default venue policy buffers in code after requirements/plan approval.
+- Investigate and fix broken auto-complete booking flow that should trigger post-booking emails (Resend) after status transitions to completed.
+- Success: determine why completion-triggered emails are missing, restore correct email dispatch for completed bookings, and document findings.
 
 ## Constraints/Assumptions
 
 - Follow root AGENTS policies and any closer AGENTS.md files for touched paths.
 - Supabase operations must be remote-only.
-- User requested Supabase CLI usage for investigation.
+- No secrets in logs or code.
 
 ## Key decisions
 
@@ -19,30 +19,42 @@ Last updated: 2026-02-04T14:00:00Z
 
 ## State
 
-- Default policy buffers updated to 0 for lunch/dinner.
+- Review-request backlog drained; cron review-only filter deployed to production.
+- Latest production deploy succeeded after fixing TypeScript error in `scripts/build-zone-adjacency.ts`.
 
 ## Done
 
-- Created task folder `tasks/set-default-buffer-0-20260204-1354` with SDLC stubs.
-- Updated `server/capacity/policy.ts` default buffers to 0.
+- Located main booking lifecycle, auto-complete cron, and email side-effect paths.
+- Confirmed review_request emails are scheduled via queue or inline delay in `server/jobs/booking-side-effects.ts`.
+- Created task folder `tasks/check-post-booking-emails-20260205-1753` with SDLC stubs.
+- Captured production queue status snapshot in `tasks/check-post-booking-emails-20260205-1753/artifacts/queue-status.json` (320 delayed jobs; 84 review_request).
+- Captured due delayed-job summary in `tasks/check-post-booking-emails-20260205-1753/artifacts/queue-due-summary.json` (151 due; 58 review_request).
+- Captured Resend audit for last 72h in `tasks/check-post-booking-emails-20260205-1753/artifacts/resend-review-audit.json` (2 review-like emails; delivered).
+- Probed cron endpoint without auth in `tasks/check-post-booking-emails-20260205-1753/artifacts/cron-process-emails-noauth.json` (401).
+- Added review-only filter support to `src/app/api/cron/process-emails/route.ts` (types=review_request).
+- Drained due review_request jobs via manual script; backlog cleared.
+- Fixed TypeScript predicate error in `scripts/build-zone-adjacency.ts`.
+- Deployed to production; cron filter endpoint verified via `artifacts/cron-process-emails-review-filter.json`.
 
 ## Now
 
-- Await confirmation to proceed with code change.
+- Monitor cron execution and verify no new backlog accrues.
 
 ## Next
 
-- None.
+- Compare completed bookings vs. review-request delivery (requires completed booking dataset).
+- Add lightweight observability for cron runs if requested.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- What exact failure mode is observed in production (UI error, empty table list, API error)?
+- Which environment and time window should be audited?
+- Is the failure limited to auto-complete cron or also manual check-out?
 
 ## Working set (files/ids/commands)
 
-- `tasks/debug-railway-table-assignment-20260204-1213/*`
-- `server/capacity/table-assignment/supabase.ts`
-- `server/capacity/table-assignment/availability.ts`
-- `server/feature-flags.ts`
-- `scripts/update-railway-zones-tables.ts`
-- `scripts/build-zone-adjacency.ts`
+- `tasks/check-post-booking-emails-20260205-1753/research.md`
+- `tasks/check-post-booking-emails-20260205-1753/plan.md`
+- `server/jobs/auto-complete-bookings.ts`
+- `server/jobs/booking-side-effects.ts`
+- `scripts/queues/email-worker.ts`
+- `libs/resend.ts`

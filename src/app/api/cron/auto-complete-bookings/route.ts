@@ -4,6 +4,9 @@ import { autoCompletePastBookings } from "@/server/jobs/auto-complete-bookings";
 
 const CRON_SECRET = process.env.CRON_SECRET;
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 function parseOptionalInt(value: string | null | undefined): number | undefined {
   if (!value) return undefined;
   const parsed = Number.parseInt(value, 10);
