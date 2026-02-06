@@ -5,6 +5,7 @@ import {
   DoorOpen,
   LayoutGrid,
   Map,
+  MailCheck,
   Sparkles,
   Clock3,
   Timer,
@@ -55,6 +56,13 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         href: path('/bookings'),
         icon: CalendarDays,
         match: (pathname) => pathname === path('/bookings') || pathname.startsWith(path('/bookings/')),
+      },
+      {
+        title: 'Email Delivery',
+        description: 'Track sent/delivered/bounced email status',
+        href: path('/email-delivery'),
+        icon: MailCheck,
+        match: (pathname) => pathname.startsWith(path('/email-delivery')),
       },
       {
         title: 'Rejections',
