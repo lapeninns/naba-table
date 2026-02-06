@@ -2,7 +2,7 @@
 agents_version: 5.4
 scope: root
 extends: null
-last_updated: 2026-01-22
+last_updated: 2026-02-06
 owner: github:@maintainers
 ---
 
@@ -22,7 +22,7 @@ owner: github:@maintainers
 
 For checklists, see **§11 Quick Reference**.
 
-**Skills Directory**: See `~/.codex/skills/` for detailed capability specifications referenced throughout this document.
+**Skills Directory**: See `.codex/skills/` (repo, if present) and `~/.codex/skills/` (global) for detailed capability specifications referenced throughout this document.
 
 ---
 
@@ -39,6 +39,13 @@ For checklists, see **§11 Quick Reference**.
 9. **Conventional Commits** and **PR templates** are enforced.
 10. **PRs must reference a valid task folder** (`tasks/<slug>-YYYYMMDD-HHMM>`). CI blocks merges otherwise.
 11. **Root policy path is exact.** The root file **must be** `/AGENTS.md` (uppercase). Any other path/casing fails CI.
+12. **Ship production-grade, scalable (>1000 users) implementations.** Avoid MVP/minimal shortcuts.
+13. **Optimize for long-term sustainability.** Prefer maintainable, reliable designs.
+14. **Make changes canonical in the primary codepath.** Avoid leaving duplicate/legacy paths; remove dead paths when part of the requested change (see §1D safety guards before deleting/moving files).
+15. **Use direct, first-class integrations.** Do not introduce shims, wrappers, glue code, or adapter layers unless explicitly justified in `plan.md`.
+16. **Single source of truth for business rules/policy.** Centralize validation, enums, flags, constants, and config.
+17. **Clean API invariants.** Define required inputs, validate up front at boundaries, and fail fast with stable errors.
+18. **Use latest stable libs/docs.** If unsure, do a web search and prefer primary/official docs (prefer 2026+ sources unless an older version is required).
 
 ### 1A) Non‑Overridable Core Rules (Root‑enforced; closest cannot relax)
 
@@ -64,6 +71,8 @@ Nested `AGENTS.md` files **cannot relax or override** these:
 - **Don't add backwards‑compat shims** if you can safely change the only caller.
 - **Keep edits focused.** Don't "clean up" unrelated code in the same change.
 - **Always read relevant files before editing.** Do not speculate about code you haven't inspected; follow existing patterns and style.
+- **File size discipline**: Target <=500 LOC per file (hard cap 750; imports/types excluded). Split responsibilities when approaching the cap.
+- **UI nesting discipline**: Keep UI/markup nesting <=3 levels; extract components/helpers when repetition or conditional complexity grows.
 
 ### 1C) Agent Quickstart
 
@@ -81,6 +90,14 @@ For **any change** (feature, fix, refactor):
 7. **Phase 5+ — PR & Release**:
    - Open PR with **Conventional Commit** title, link task folder, and attach evidence.
    - Once merged, follow rollout plan and document outcomes in the task folder.
+
+### 1D) Security & Safety Guards
+
+- No delete/move/overwrite files without explicit user request; for deletions prefer `trash` over `rm`.
+- Don’t expose secrets in code/logs; use env vars/secret stores.
+- Validate/sanitize untrusted input to prevent injection, path traversal, SSRF, and unsafe uploads.
+- Enforce AuthN/AuthZ and tenant boundaries; least privilege.
+- Be cautious with new dependencies; flag supply-chain/CVE risk.
 
 ---
 
@@ -213,16 +230,16 @@ related_tickets: [<TICKET-123>]
 
 ## 3) SDLC at a Glance (Map → Artifacts → MCP → Skills)
 
-| SDLC Phase                       | What happens                                       | Primary Artifacts             | Required MCP(s)                             | Skills Applied                                                                                    |
-| -------------------------------- | -------------------------------------------------- | ----------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| **0. Initiation**                | Create task, define scope stub                     | Task folder, stubs            | —                                           | **Continuity Ledger**                                                                             |
-| **1. Requirements & Analysis**   | Inventory code, clarify requirements, risks        | `research.md`                 | **Context7**, **DeepWiki**                  | **Continuity Ledger**, **MCP Integration**, **Multi-Agent Collaboration**                         |
-| **2. Design & Planning**         | Architecture, contracts, UX states, tests, rollout | `plan.md`                     | **Shadcn**, **Supabase**, **Next DevTools** | **Frontend Aesthetics**, **Style Principles**, **MCP Integration**, **Multi-Agent Collaboration** |
-| **3. Implementation**            | Code, migrations, components, unit tests           | `todo.md` (live)              | **Shadcn**, **Supabase**, **Next DevTools** | **Style Principles**, **MCP Integration**, **Continuity Ledger**, **Multi-Agent Collaboration**   |
-| **4. Verification & Validation** | Manual QA, a11y, perf, E2E, cross‑browser          | `verification.md` + artifacts | **Chrome DevTools**                         | **MCP Integration**, **Frontend Aesthetics**, **Multi-Agent Collaboration**                       |
-| **5. Review & Merge**            | PR, review, evidence, CI green                     | PR links to task              | **GitHub tool** (if configured)             | —                                                                                                 |
-| **6. Release & Deployment**      | Gradual rollout; metrics & logs                    | Release notes, runbook notes  | **Supabase** (if DB)                        | **MCP Integration**                                                                               |
-| **7. Operate & Improve**         | Monitor, hotfix, retrospective                     | Post‑release notes            | —                                           | **Continuity Ledger**                                                                             |
+| SDLC Phase                       | What happens                                       | Primary Artifacts             | Required MCP(s)                                                    | Skills Applied                                                                                    |
+| -------------------------------- | -------------------------------------------------- | ----------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| **0. Initiation**                | Create task, define scope stub                     | Task folder, stubs            | —                                                                  | **Continuity Ledger**                                                                             |
+| **1. Requirements & Analysis**   | Inventory code, clarify requirements, risks        | `research.md`                 | **Codebase Retrieval**, **Context7**, **DeepWiki (if configured)** | **Continuity Ledger**, **MCP Integration**, **Multi-Agent Collaboration**                         |
+| **2. Design & Planning**         | Architecture, contracts, UX states, tests, rollout | `plan.md`                     | **Shadcn**, **Supabase**                                           | **Frontend Aesthetics**, **Style Principles**, **MCP Integration**, **Multi-Agent Collaboration** |
+| **3. Implementation**            | Code, migrations, components, unit tests           | `todo.md` (live)              | **Shadcn**, **Supabase**                                           | **Style Principles**, **MCP Integration**, **Continuity Ledger**, **Multi-Agent Collaboration**   |
+| **4. Verification & Validation** | Manual QA, a11y, perf, E2E, cross‑browser          | `verification.md` + artifacts | **Chrome DevTools**                                                | **MCP Integration**, **Frontend Aesthetics**, **Multi-Agent Collaboration**                       |
+| **5. Review & Merge**            | PR, review, evidence, CI green                     | PR links to task              | **GitHub tool** (if configured)                                    | —                                                                                                 |
+| **6. Release & Deployment**      | Gradual rollout; metrics & logs                    | Release notes, runbook notes  | **Supabase** (if DB)                                               | **MCP Integration**                                                                               |
+| **7. Operate & Improve**         | Monitor, hotfix, retrospective                     | Post‑release notes            | —                                                                  | **Continuity Ledger**                                                                             |
 
 > **Skills**: See `~/.codex/skills/*/SKILL.md` for detailed capability specifications. **MCP**: See §8 and **MCP Integration** (~/.codex/skills/mcp-integration/SKILL.md).
 
@@ -252,7 +269,7 @@ related_tickets: [<TICKET-123>]
 **Apply Skills**:
 
 - **Continuity Ledger** (~/.codex/skills/continuity-ledger/SKILL.md) — Track requirements and constraints.
-- **MCP Integration** (~/.codex/skills/mcp-integration/SKILL.md) — Use **Context7** for internal prior art; **DeepWiki** for external references.
+- **MCP Integration** (~/.codex/skills/mcp-integration/SKILL.md) — Use **Codebase Retrieval** to inventory the repo and find reuse/anti-patterns; use **Context7** for up-to-date library docs/examples; use **DeepWiki** for external/domain research summaries when configured (otherwise use web search and prefer primary sources; prefer 2026+ sources unless an older version is required).
 - **Multi-Agent Collaboration** (~/.codex/skills/multi-agent-collaboration/SKILL.md) — Parallelize research and reconcile findings.
 
 **Goal**: Understand before building.
@@ -315,7 +332,7 @@ related_tickets: [<TICKET-123>]
 
 - **Frontend Aesthetics** (~/.codex/skills/frontend-aesthetics/SKILL.md) — Define visual direction (typography, color, motion). Avoid "AI slop".
 - **Style Principles** (~/.codex/skills/style-principles/SKILL.md) — Apply DRY/KISS/YAGNI to architecture decisions.
-- **MCP Integration** (~/.codex/skills/mcp-integration/SKILL.md) — Use **Shadcn** for components; **Supabase** for remote migrations (dry‑run → plan → apply); **Next DevTools** for routing/bundle inspection.
+- **MCP Integration** (~/.codex/skills/mcp-integration/SKILL.md) — Use **Shadcn** for components; **Supabase** for remote migrations (dry‑run → plan → apply).
 - **Multi-Agent Collaboration** (~/.codex/skills/multi-agent-collaboration/SKILL.md) — Coordinate parallel design reviews and edge case discovery.
 
 **Goal**: Turn analysis into an implementable blueprint.
@@ -393,7 +410,7 @@ Errors: { code, message }
 **Apply Skills**:
 
 - **Style Principles** (~/.codex/skills/style-principles/SKILL.md) — Write simple, focused code. Avoid over-engineering.
-- **MCP Integration** (~/.codex/skills/mcp-integration/SKILL.md) — Use **Shadcn** to scaffold, **Next DevTools** to optimize, **Supabase** for migrations.
+- **MCP Integration** (~/.codex/skills/mcp-integration/SKILL.md) — Use **Shadcn** to scaffold UI; **Supabase** for migrations; use **Codebase Retrieval** to locate existing implementations before adding new paths.
 - **Continuity Ledger** (~/.codex/skills/continuity-ledger/SKILL.md) — Update progress state (Done/Now/Next).
 - **Multi-Agent Collaboration** (~/.codex/skills/multi-agent-collaboration/SKILL.md) — Partition work and avoid overlapping edits.
 
@@ -752,14 +769,32 @@ Use MCP when it provides **repeatability, safety, or scale**. Configure via env/
   **Phase**: 4. **Rule**: Required for any UI change; attach artifacts.
 - **Shadcn MCP** — Discover/scaffold UI components, synchronize tokens.  
   **Phases**: 2, 3. **Rule**: Prefer SHADCN before custom.
-- **Next DevTools MCP** — Next.js routing/data‑fetch, server/client boundaries, bundle hints.  
-  **Phases**: 2, 3.
 - **Supabase MCP** — Remote migrations/seeds; schema drift; rollback plans.  
   **Phases**: 2, 3, 6. **Rule**: **Remote only**; connections via secrets.
-- **Context7 MCP** — Semantic search over internal knowledge.  
-  **Phase**: 1.
-- **DeepWiki MCP** — External/domain research summaries.  
-  **Phase**: 1.
+- **Codebase Retrieval (Augment) MCP** — Fast semantic search across the repo (best first step when you don't know file locations).  
+  **Phases**: 1, 2, 3.
+- **Context7 MCP** — Up-to-date documentation + code examples for third-party libraries and frameworks.  
+  **Phases**: 1, 2, 3.
+- **DeepWiki MCP** — External/domain research summaries (may be disabled/unavailable in some environments; treat as optional).  
+  **Phases**: 1.
+- **PostHog MCP** — Analytics, feature flags, experiments, surveys (when PostHog is part of the change).  
+  **Phases**: 2, 5, 7.
+
+### Skills & Prompts (Codex)
+
+- Skills live in `.codex/skills/` (repo) and `~/.codex/skills/` (global).
+- If a `$SkillName` is referenced and not present locally, load `~/.codex/skills/<skill-name>/SKILL.md` (plus any `references/` and `scripts/` referenced by that skill).
+- Skill triggers: if the user names a skill (e.g. `$SkillName`) or the task matches the skill’s `description`, you must use that skill for that turn.
+- Skill consumption: open the relevant `SKILL.md` and read only enough to follow the workflow (load only the specific `references/` files needed; prefer running/patching `scripts/` over retyping).
+- If a named skill isn’t available or can’t be read, say so briefly and proceed with the best fallback approach.
+- Prompts live in `~/.codex/prompts/*.md`.
+
+### Shell Discipline (Agents)
+
+- Prefer deterministic, non-interactive commands; limit output (`head`) and pick a single result consistently.
+- Prefer built-in file/search tools when available; use the shell as a deterministic fallback.
+- For searching: use `fd` (files), `rg` (text), `ast-grep` (syntax-aware).
+- For structured extraction/transform: use `jq` / `yq`.
 
 **If MCP unavailable temporarily**: run equivalent CLI/manual steps and attach artifacts. MCP usage is still **required** long‑term.
 
@@ -777,6 +812,7 @@ Use multiple agents to **parallelize research, analysis, and verification**, not
 - **Clear scopes**: Assign non-overlapping file or domain ownership before work starts.
 - **Shared constraints**: Every agent must receive the non-negotiables (security, Supabase remote-only, a11y, Shadcn, DevTools MCP).
 - **Artifact discipline**: Capture each agent's findings in the task folder (research/plan/verification notes or artifacts) with concise summaries.
+- **Parallel edits**: If files change unexpectedly, assume parallel edits; keep your diff scoped. Stop only for conflicts/breakage, then ask for clarification.
 - **MCP precedence**: When MCP outputs exist, treat them as the source of truth and reconcile multi-agent findings accordingly.
 
 **tAF Subagents**
@@ -791,8 +827,11 @@ Use multiple agents to **parallelize research, analysis, and verification**, not
 
 ## 9) Git & Branching
 
-- **Branch**: `task/<slug>-YYYYMMDD-HHMM` (short‑lived; trunk‑based; squash merges).
+- **Branch**: `codex/task/<slug>-YYYYMMDD-HHMM` (Codex) or `task/<slug>-YYYYMMDD-HHMM` (short‑lived; trunk‑based; squash merges).
 - **Commits**: Conventional Commits (`feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`).
+- **GitHub operations**: Use `gh` CLI for issues/PRs/releases.
+- **Push policy**: Ask before any `git push` (agents should not push unless explicitly requested).
+- **PR format**: Keep PRs short and structured: **Why** (1–2 bullets), **How** (1–3 bullets), **Tests** (commands run + results). Avoid noise (logs/dumps); include screenshots/clips when UX changes.
 - **PRs**: Must reference the task folder path and include evidence (screens, clips, Lighthouse, HAR, traces).
 
 ---
@@ -813,7 +852,7 @@ Escalate or stop immediately if:
 ### 10.1 Waiver / Hotfix Flow (exception path)
 
 - **Use only for urgent hotfixes (P0/P1).**
-- Branch: `hotfix/<slug>-YYYYMMDD-HHMM>`.
+- Branch: `codex/hotfix/<slug>-YYYYMMDD-HHMM` (Codex) or `hotfix/<slug>-YYYYMMDD-HHMM`.
 - Minimal `research.md`/`plan.md` allowed if risk explicitly documented.
 - **Post‑merge within 24h**: complete full Phase 4, attach artifacts, and file retro in Phase 7.
 - Approvals: Maintainer + QA Lead; time‑boxed waiver (≤72h).
@@ -1141,7 +1180,7 @@ Last updated: <ISO-8601 timestamp>
 
 ---
 
-**Last Updated**: 2025‑12-22  
+**Last Updated**: 2026‑02-06  
 **Version**: 5.4
 
 **Skills Directory**: See `~/.codex/skills/` for detailed capability specifications:

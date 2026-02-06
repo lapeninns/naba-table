@@ -4,6 +4,8 @@
 
 import { DateTime } from 'luxon';
 
+import { getOpsBookingStatusUi } from '@/lib/ops/booking-status';
+
 import type { AssignmentValidation } from './types';
 import type { ManualAssignmentTable } from '@/services/ops/bookings';
 import type { OpsBookingStatus, OpsTodayBooking } from '@/types/ops';
@@ -70,31 +72,11 @@ export function formatCountdown(minutes: number): string {
 // STATUS UTILITIES
 // =============================================================================
 
-export type StatusConfig = {
-  label: string;
-  color: string;
-  bg: string;
-};
-
-const STATUS_CONFIGS: Record<string, StatusConfig> = {
-  confirmed: { label: 'Confirmed', color: 'text-blue-700', bg: 'bg-blue-50 border-blue-200' },
-  pending: { label: 'Pending', color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200' },
-  pending_allocation: { label: 'Needs Table', color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200' },
-  PRIORITY_WAITLIST: { label: 'Waitlist', color: 'text-purple-700', bg: 'bg-purple-50 border-purple-200' },
-  checked_in: { label: 'Seated', color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200' },
-  completed: { label: 'Completed', color: 'text-slate-700', bg: 'bg-slate-100 border-slate-200' },
-  cancelled: { label: 'Cancelled', color: 'text-red-700', bg: 'bg-red-50 border-red-200' },
-  no_show: { label: 'No Show', color: 'text-orange-700', bg: 'bg-orange-50 border-orange-200' },
-};
-
-const DEFAULT_STATUS_CONFIG: StatusConfig = {
-  label: 'Unknown',
-  color: 'text-slate-700',
-  bg: 'bg-slate-100 border-slate-200',
-};
-
-export function getStatusConfig(status: OpsBookingStatus | string): StatusConfig {
-  return STATUS_CONFIGS[status] || { ...DEFAULT_STATUS_CONFIG, label: status };
+export function getStatusLabel(status: OpsBookingStatus | string): string {
+  if (!status) return 'Unknown';
+  if (typeof status !== 'string') return getOpsBookingStatusUi(status).label;
+  // booking details sometimes receive string statuses; keep a safe fallback.
+  return status.replaceAll('_', ' ');
 }
 
 export function canCheckIn(status: OpsBookingStatus): boolean {

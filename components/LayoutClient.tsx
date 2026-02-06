@@ -6,6 +6,7 @@ import { useMemo } from "react";
 
 import config from "@/config";
 import { ImplicitAuthHandler } from "@/components/auth/ImplicitAuthHandler";
+import { Toaster } from "@/components/ui/sonner";
 import type { ReactNode } from "react";
 
 const NextTopLoader = dynamic(() => import("nextjs-toploader"), { ssr: false });
@@ -49,6 +50,8 @@ const ClientLayout = ({ children }: { children: ReactNode }) => {
         id="tooltip"
         className="z-[60] !opacity-100 max-w-sm shadow-lg"
       />
+
+      <Toaster richColors closeButton />
 
       {/* Set Crisp customer chat support */}
       <CrispChat />

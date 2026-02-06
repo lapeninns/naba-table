@@ -35,7 +35,7 @@ export function StatusFilterGroup({ value, options, onChange }: StatusFilterGrou
           aria-pressed={option.value === value}
           variant="outline"
           size="sm"
-          className="h-9 min-w-[64px] px-3 text-xs sm:h-8 sm:min-w-[72px] sm:px-3 sm:text-sm"
+          className="h-11 min-w-[72px] px-3 text-xs sm:h-9 sm:min-w-[72px] sm:text-sm"
         >
           {option.label}
         </ToggleGroupItem>

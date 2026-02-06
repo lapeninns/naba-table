@@ -10,11 +10,15 @@ export const OPS_TABLE_ASSIGNMENT_ALLOWED_STATUSES = [
   'PRIORITY_WAITLIST',
 ] as const satisfies readonly OpsBookingStatus[];
 
+const OPS_TABLE_ASSIGNMENT_ALLOWED_STATUS_SET = new Set<OpsBookingStatus>(
+  OPS_TABLE_ASSIGNMENT_ALLOWED_STATUSES as unknown as OpsBookingStatus[],
+);
+
 export function isTableAssignmentStatusAllowed(
   status: OpsBookingStatus | null | undefined,
 ): boolean {
   if (!status) return false;
-  return OPS_TABLE_ASSIGNMENT_ALLOWED_STATUSES.includes(status);
+  return OPS_TABLE_ASSIGNMENT_ALLOWED_STATUS_SET.has(status);
 }
 
 export function isTableAssignmentDateAllowed(params: {

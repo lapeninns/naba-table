@@ -1,84 +1,14 @@
 "use client";
 
-import {
-  AlertTriangle,
-  Ban,
-  CheckCircle2,
-  Circle,
-  Clock,
-  LogIn,
-  Square,
-  type LucideIcon,
-} from "lucide-react";
-
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { getOpsBookingStatusUi } from "@/lib/ops/booking-status";
 import { cn } from "@/lib/utils";
 
 import type { OpsBookingStatus } from "@/types/ops";
 import type { ReactElement } from "react";
 
 type BadgeSize = "sm" | "md" | "lg";
-
-export type StatusBadgeConfig = {
-  label: string;
-  description: string;
-  icon: LucideIcon;
-  className: string;
-  pulse?: boolean;
-};
-
-export const BOOKING_STATUS_CONFIG: Record<OpsBookingStatus, StatusBadgeConfig> = {
-  pending: {
-    label: "Pending",
-    description: "Awaiting confirmation or allocation.",
-    icon: Clock,
-    className: "border-amber-200 bg-amber-50 text-amber-800",
-  },
-  pending_allocation: {
-    label: "Pending allocation",
-    description: "Needs table allocation.",
-    icon: Square,
-    className: "border-slate-200 bg-slate-100 text-slate-800",
-  },
-  confirmed: {
-    label: "Confirmed",
-    description: "Guest is confirmed to arrive.",
-    icon: CheckCircle2,
-    className: "border-sky-200 bg-sky-50 text-sky-700",
-  },
-  checked_in: {
-    label: "Checked in",
-    description: "Guest has arrived and is seated.",
-    icon: LogIn,
-    className: "border-emerald-200 bg-emerald-50 text-emerald-700",
-    pulse: true,
-  },
-  completed: {
-    label: "Completed",
-    description: "Visit is finished and closed out.",
-    icon: Circle,
-    className: "border-slate-200 bg-slate-100 text-slate-700",
-  },
-  cancelled: {
-    label: "Cancelled",
-    description: "Booking was cancelled.",
-    icon: Ban,
-    className: "border-slate-300 bg-slate-100 text-slate-700",
-  },
-  no_show: {
-    label: "No show",
-    description: "Guest did not arrive for the booking.",
-    icon: AlertTriangle,
-    className: "border-rose-200 bg-rose-50 text-rose-700",
-  },
-  PRIORITY_WAITLIST: {
-    label: "Priority Waitlist",
-    description: "Guest is late. Seat at the next available table.",
-    icon: AlertTriangle,
-    className: "border-orange-200 bg-orange-50 text-orange-700",
-  },
-};
 
 const SIZE_VARIANTS: Record<BadgeSize, string> = {
   sm: "h-6 px-2 text-[11px]",
@@ -106,11 +36,11 @@ function renderBadgeContent(
   size: BadgeSize,
   showIcon: boolean,
 ): { icon: ReactElement | null; label: string } {
-  const config = BOOKING_STATUS_CONFIG[status];
-  const Icon = config.icon;
+  const ui = getOpsBookingStatusUi(status);
+  const Icon = ui.icon;
   return {
     icon: showIcon ? <Icon aria-hidden className={cn(ICON_SIZE[size], "shrink-0")} /> : null,
-    label: config.label,
+    label: ui.label,
   };
 }
 
@@ -122,7 +52,7 @@ export function BookingStatusBadge({
   className,
   ariaLabel,
 }: BookingStatusBadgeProps) {
-  const config = BOOKING_STATUS_CONFIG[status] ?? BOOKING_STATUS_CONFIG.confirmed;
+  const config = getOpsBookingStatusUi(status);
   const { icon, label } = renderBadgeContent(status, size, showIcon);
 
   const badge = (
@@ -135,7 +65,7 @@ export function BookingStatusBadge({
         "inline-flex items-center gap-1.5 rounded-full font-semibold tracking-wide focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-ring",
         SIZE_VARIANTS[size],
         config.pulse ? "motion-safe:animate-pulse" : "",
-        config.className,
+        config.badgeClass,
         className,
       )}
     >

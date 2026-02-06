@@ -5,9 +5,20 @@ import {
   LogIn,
   LogOut,
   MoreHorizontal,
+  Loader2,
 } from 'lucide-react';
-import { memo } from 'react';
+import { memo, useCallback, useState } from 'react';
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -26,6 +37,7 @@ export type OpsBookingCardActionsProps = {
   booking: BookingDTO;
   meta: BookingMeta;
   disableActions: boolean;
+  pendingAction?: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show' | null;
   onDetails?: (booking: BookingDTO) => void;
   onEdit?: (booking: BookingDTO) => void;
   onCancel?: (booking: BookingDTO) => void;
@@ -38,6 +50,7 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
   booking,
   meta,
   disableActions,
+  pendingAction = null,
   onDetails,
   onEdit,
   onCancel,
@@ -45,6 +58,18 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
   onCheckIn,
   onCheckOut,
 }: OpsBookingCardActionsProps) {
+  const isLifecyclePending = pendingAction === 'check-in' || pendingAction === 'check-out';
+  const isNoShowPending = pendingAction === 'no-show';
+  const [isNoShowOpen, setIsNoShowOpen] = useState(false);
+
+  const handleConfirmNoShow = useCallback(async () => {
+    try {
+      await onMarkNoShow?.(booking.id);
+    } finally {
+      setIsNoShowOpen(false);
+    }
+  }, [booking.id, onMarkNoShow]);
+
   return (
     <div className="px-4 pb-4">
       <div className="flex flex-wrap items-center justify-between gap-y-3 border-t border-border/60 pt-3">
@@ -52,7 +77,7 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
           <Button
             variant="outline"
             size="sm"
-            className="h-8 px-4 text-xs font-medium"
+            className="h-11 px-4 text-xs font-medium focus-visible:ring-2 focus-visible:ring-ring sm:h-8"
             onClick={() => onDetails?.(booking)}
             disabled={disableActions}
           >
@@ -64,7 +89,7 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0"
+                className="h-11 w-11 p-0 focus-visible:ring-2 focus-visible:ring-ring sm:h-8 sm:w-8"
                 aria-label="More actions"
                 disabled={disableActions}
               >
@@ -83,7 +108,7 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
                 Edit Booking
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => onMarkNoShow?.(booking.id)}
+                onClick={() => setIsNoShowOpen(true)}
                 disabled={disableActions || !meta.isToday || meta.isSeated}
                 variant="destructive"
               >
@@ -105,16 +130,20 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
           {!meta.isDone ? (
             <Button
               size="sm"
-              disabled={!meta.isToday || disableActions}
+              disabled={!meta.isToday || disableActions || isLifecyclePending}
               className={cn(
-                'h-9 min-w-[120px] px-6 font-semibold text-white shadow-sm transition-[box-shadow,background-color] duration-150 ease-out hover:shadow-sm motion-reduce:transition-none',
+                'h-11 min-w-[120px] px-6 font-semibold text-white shadow-sm transition-[box-shadow,background-color] duration-150 ease-out hover:shadow-sm motion-reduce:transition-none sm:h-9',
                 meta.isSeated ? 'bg-slate-700 hover:bg-slate-800' : 'bg-emerald-600 hover:bg-emerald-700',
               )}
               onClick={() =>
                 meta.isSeated ? onCheckOut?.(booking.id) : onCheckIn?.(booking.id)
               }
             >
-              {meta.isSeated ? (
+              {isLifecyclePending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> Updating…
+                </>
+              ) : meta.isSeated ? (
                 <>
                   <LogOut className="mr-2 h-4 w-4" aria-hidden /> Finish
                 </>
@@ -135,6 +164,36 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
           )}
         </div>
       </div>
+
+      <AlertDialog open={isNoShowOpen} onOpenChange={setIsNoShowOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mark as no-show?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You’re about to mark{' '}
+              <span className="font-semibold text-foreground">{meta.customerLabel}</span> as a no-show
+              for <span className="font-semibold text-foreground">{booking.partySize}</span>{' '}
+              cover{booking.partySize === 1 ? '' : 's'} on{' '}
+              <span className="font-semibold text-foreground">
+                {meta.dateLabel} · {meta.timeRangeLabel}
+              </span>
+              . You can undo this shortly after confirming.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={disableActions || isNoShowPending}>
+              Keep booking
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => void handleConfirmNoShow()}
+              className="bg-rose-600 hover:bg-rose-700"
+              disabled={disableActions || isNoShowPending}
+            >
+              {isNoShowPending ? 'Marking…' : 'Confirm no-show'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 });

@@ -1,10 +1,11 @@
 'use client';
 
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 
 import { Card } from '@/components/ui/card';
 import { Collapsible } from '@/components/ui/collapsible';
 import { useMinimumDelay } from '@/hooks/use-minimum-delay';
+import { getOpsBookingStatusUi } from '@/lib/ops/booking-status';
 import { cn } from '@/lib/utils';
 
 import { OpsBookingCardActions } from './OpsBookingCardActions';
@@ -13,6 +14,7 @@ import { OpsBookingCardHeader } from './OpsBookingCardHeader';
 import { buildBookingMeta, getTableLabel, getUrgencyBadge } from './opsBookingCardUtils';
 
 import type { BookingDTO } from '@/hooks/useBookings';
+import type { OpsBookingStatus } from '@/types/ops';
 
 export type OpsBookingCardProps = {
   booking: BookingDTO;
@@ -75,8 +77,6 @@ export const OpsBookingCard = memo(function OpsBookingCard({
   highlightUrgency = true,
 }: OpsBookingCardProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const hasAutoExpanded = useRef(false);
-  const hasUserToggled = useRef(false);
   const isMobile = useMediaQuery('(max-width: 639px)');
   const now = useMemo(() => (propNow ? new Date(propNow) : new Date()), [propNow]);
 
@@ -89,27 +89,14 @@ export const OpsBookingCard = memo(function OpsBookingCard({
     [highlightUrgency, meta, now],
   );
 
-  const shouldAutoExpand = urgency?.variant === 'destructive' || urgency?.label === 'Overdue';
-
   useEffect(() => {
     if (!booking.id) return;
-    hasAutoExpanded.current = false;
-    hasUserToggled.current = false;
+    // Default to closed whenever the row re-renders for a different booking.
+    // This prevents unexpected auto-expansion in a virtualized list.
+    setIsOpen(false);
   }, [booking.id]);
 
-  useEffect(() => {
-    if (!isMobile) {
-      return;
-    }
-    if (!shouldAutoExpand || isOpen || hasAutoExpanded.current || hasUserToggled.current) {
-      return;
-    }
-    setIsOpen(true);
-    hasAutoExpanded.current = true;
-  }, [isMobile, shouldAutoExpand, isOpen]);
-
   const handleOpenChange = (open: boolean) => {
-    hasUserToggled.current = true;
     setIsOpen(open);
   };
 
@@ -120,25 +107,16 @@ export const OpsBookingCard = memo(function OpsBookingCard({
   const tableLabel = getTableLabel(booking.tableAssignments);
 
   const railClass = useMemo(() => {
-    if (meta.isDone) return 'border-l-slate-300';
-    if (meta.isSeated) return 'border-l-emerald-400/70';
+    const ui = getOpsBookingStatusUi(booking.status as OpsBookingStatus);
+    // Urgency is a contextual override on top of status rails.
     if (urgency?.variant === 'destructive') return 'border-l-rose-400';
     if (urgency?.variant === 'warning') return 'border-l-amber-400/70';
-    return 'border-l-slate-300/80';
-  }, [meta, urgency]);
+    return ui.railClass;
+  }, [booking.status, urgency?.variant]);
 
   const cardBody = (
     <>
-      {showLoading ? (
-        <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/45 backdrop-blur-[2px] motion-safe:animate-in motion-safe:fade-in motion-safe:duration-150">
-          <div className="flex items-center gap-2 rounded-full border bg-white px-4 py-2 shadow-md">
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
-            <span className="text-xs font-bold uppercase tracking-tighter text-slate-600">
-              Updating…
-            </span>
-          </div>
-        </div>
-      ) : null}
+      {/* Keep content visible while actions are pending; pending state is communicated via disabled controls + button-level spinners. */}
 
       <OpsBookingCardHeader
         booking={booking}
@@ -155,6 +133,7 @@ export const OpsBookingCard = memo(function OpsBookingCard({
         booking={booking}
         meta={meta}
         disableActions={disableActions}
+        pendingAction={pendingAction ?? null}
         onDetails={onDetails}
         onEdit={onEdit}
         onCancel={onCancel}
@@ -171,7 +150,7 @@ export const OpsBookingCard = memo(function OpsBookingCard({
         'group relative overflow-hidden border-l-[3px] transition-shadow duration-200 ease-out hover:shadow-md motion-reduce:transition-none',
         railClass,
         meta.isDone && 'opacity-60',
-        (isLoading || isLocked) && 'pointer-events-none',
+        isLocked && 'pointer-events-none',
         (showLoading || isLocked) && 'opacity-60',
       )}
       role="article"

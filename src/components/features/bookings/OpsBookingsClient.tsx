@@ -1,15 +1,16 @@
 'use client';
 
 import debounce from 'lodash/debounce';
-import { Search } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 
 import { BookingsTable } from '@/components/dashboard/BookingsTable';
 import { BookingOfflineBanner } from '@/components/features/booking-state-machine';
 import { BookingDetailsDialogWrapper } from '@/components/features/bookings/BookingDetailsDialogWrapper';
+import { OpsBookingsSearchInput } from '@/components/features/bookings/components/OpsBookingsSearchInput';
 import { OpsCancelBookingAlertDialog } from '@/components/features/bookings/components/OpsCancelBookingAlertDialog';
 import { OpsStatusFilter as OpsStatusFilterPopover } from '@/components/features/bookings/OpsStatusFilter';
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
@@ -17,7 +18,6 @@ import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageH
 import { OpsPageToolbar } from '@/components/features/ops-shell/patterns/OpsPageToolbar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
   BookingStateMachineProvider,
@@ -35,6 +35,7 @@ import { useOpsBookingStatusSummary } from '@/hooks/ops/useOpsBookingStatusSumma
 import { useOpsCancelBooking } from '@/hooks/ops/useOpsCancelBooking';
 import { useOpsRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
+import { HttpError } from '@/lib/http/errors';
 import { getDateInTimezone, getTodayInTimezone } from '@/lib/utils/datetime';
 import {
   DEFAULT_OPS_BOOKINGS_WINDOW_MINUTES,
@@ -47,7 +48,6 @@ import type { StatusOption } from '@/components/dashboard/StatusFilterGroup';
 import type { BookingDTO } from '@/hooks/useBookings';
 import type { StatusFilter } from '@/hooks/useBookingsTableState';
 import type { OpsBookingListItem, OpsBookingStatus, OpsBookingsFilters } from '@/types/ops';
-import type { ChangeEvent } from 'react';
 
 const EditBookingDialog = dynamic(
   () => import('@/components/dashboard/EditBookingDialog').then((m) => m.EditBookingDialog),
@@ -277,6 +277,22 @@ export function OpsBookingsClient({
     hasNext: false,
   };
 
+  const bookingLabelById = useMemo(() => {
+    const map = new Map<string, string>();
+    bookingsItems.forEach((booking) => {
+      const label = booking.customerName?.trim();
+      if (label) {
+        map.set(booking.id, label);
+      }
+    });
+    return map;
+  }, [bookingsItems]);
+
+  const getBookingLabel = useCallback(
+    (bookingId: string) => bookingLabelById.get(bookingId) || 'Walk-in Guest',
+    [bookingLabelById],
+  );
+
   const visibleSelectedStatuses = useMemo(
     () => selectedStatuses.filter((status) => OPS_LISTABLE_STATUSES.includes(status)),
     [selectedStatuses],
@@ -365,17 +381,96 @@ export function OpsBookingsClient({
     }
   }, [fetchNextPage, hasNextPage, isFetchingNextPage, isOnline]);
 
-  const [pendingBookingAction, setPendingBookingAction] = useState<{
-    bookingId: string;
-    action: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show';
-  } | null>(null);
+  const [pendingBookingActions, setPendingBookingActions] = useState<
+    Record<string, 'check-in' | 'check-out' | 'no-show' | 'undo-no-show'>
+  >({});
+
+  const setPendingBookingAction = useCallback(
+    (bookingId: string, action: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show') => {
+      setPendingBookingActions((current) => ({ ...current, [bookingId]: action }));
+    },
+    [],
+  );
+
+  const clearPendingBookingAction = useCallback((bookingId: string) => {
+    setPendingBookingActions((current) => {
+      if (!current[bookingId]) return current;
+      const next = { ...current };
+      delete next[bookingId];
+      return next;
+    });
+  }, []);
 
   const bookingLifecycleMutations = useOpsBookingLifecycleActions();
+
+  const handleUndoNoShow = useCallback(
+    async (bookingId: string, reason?: string | null) => {
+      if (!activeRestaurantId) return;
+      const guestLabel = getBookingLabel(bookingId);
+
+      if (!isOnline) {
+        bookingLifecycleMutations.undoNoShow.mutate({
+          restaurantId: activeRestaurantId,
+          bookingId,
+          reason: reason ?? null,
+          targetDate: appliedDateRange?.date,
+        });
+        toast.message(`Queued undo no-show: ${guestLabel}`, {
+          description: 'This will sync automatically once you reconnect.',
+        });
+        return;
+      }
+
+      setPendingBookingAction(bookingId, 'undo-no-show');
+      try {
+        await bookingLifecycleMutations.undoNoShow.mutateAsync({
+          restaurantId: activeRestaurantId,
+          bookingId,
+          reason: reason ?? null,
+          targetDate: appliedDateRange?.date,
+        });
+        toast.success(`Undo no-show: ${guestLabel}`);
+      } catch (error) {
+        if (error instanceof HttpError && error.status === 409) {
+          return;
+        }
+        const message = error instanceof Error ? error.message : 'Unable to undo no-show.';
+        toast.error('Unable to undo no-show', { description: message });
+      } finally {
+        clearPendingBookingAction(bookingId);
+      }
+    },
+    [
+      activeRestaurantId,
+      appliedDateRange?.date,
+      bookingLifecycleMutations.undoNoShow,
+      clearPendingBookingAction,
+      getBookingLabel,
+      isOnline,
+      setPendingBookingAction,
+    ],
+  );
 
   const handleMarkNoShow = useCallback(
     async (bookingId: string, options?: { performedAt?: string | null; reason?: string | null }) => {
       if (!activeRestaurantId) return;
-      setPendingBookingAction({ bookingId, action: 'no-show' });
+      const guestLabel = getBookingLabel(bookingId);
+
+      if (!isOnline) {
+        bookingLifecycleMutations.markNoShow.mutate({
+          restaurantId: activeRestaurantId,
+          bookingId,
+          performedAt: options?.performedAt ?? null,
+          reason: options?.reason ?? null,
+          targetDate: appliedDateRange?.date,
+        });
+        toast.message(`Queued no-show: ${guestLabel}`, {
+          description: 'This will sync automatically once you reconnect.',
+        });
+        return;
+      }
+
+      setPendingBookingAction(bookingId, 'no-show');
       try {
         await bookingLifecycleMutations.markNoShow.mutateAsync({
           restaurantId: activeRestaurantId,
@@ -384,65 +479,127 @@ export function OpsBookingsClient({
           reason: options?.reason ?? null,
           targetDate: appliedDateRange?.date,
         });
-      } finally {
-        setPendingBookingAction(null);
-      }
-    },
-    [activeRestaurantId, appliedDateRange?.date, bookingLifecycleMutations.markNoShow],
-  );
-
-  const handleUndoNoShow = useCallback(
-    async (bookingId: string, reason?: string | null) => {
-      if (!activeRestaurantId) return;
-      setPendingBookingAction({ bookingId, action: 'undo-no-show' });
-      try {
-        await bookingLifecycleMutations.undoNoShow.mutateAsync({
-          restaurantId: activeRestaurantId,
-          bookingId,
-          reason: reason ?? null,
-          targetDate: appliedDateRange?.date,
+        toast.success(`Marked no-show: ${guestLabel}`, {
+          duration: 5000,
+          action: {
+            label: 'Undo',
+            onClick: () => {
+              void handleUndoNoShow(bookingId);
+            },
+          },
         });
+      } catch (error) {
+        if (error instanceof HttpError && error.status === 409) {
+          return;
+        }
+        const message = error instanceof Error ? error.message : 'Unable to mark no-show.';
+        toast.error('Unable to mark no-show', { description: message });
       } finally {
-        setPendingBookingAction(null);
+        clearPendingBookingAction(bookingId);
       }
     },
-    [activeRestaurantId, appliedDateRange?.date, bookingLifecycleMutations.undoNoShow],
+    [
+      activeRestaurantId,
+      appliedDateRange?.date,
+      bookingLifecycleMutations.markNoShow,
+      clearPendingBookingAction,
+      getBookingLabel,
+      handleUndoNoShow,
+      isOnline,
+      setPendingBookingAction,
+    ],
   );
 
   const handleCheckIn = useCallback(
     async (bookingId: string) => {
       if (!activeRestaurantId) return;
-      setPendingBookingAction({ bookingId, action: 'check-in' });
+      const guestLabel = getBookingLabel(bookingId);
+
+      if (!isOnline) {
+        bookingLifecycleMutations.checkIn.mutate({
+          restaurantId: activeRestaurantId,
+          bookingId,
+          targetDate: appliedDateRange?.date,
+        });
+        toast.message(`Queued seat: ${guestLabel}`, {
+          description: 'This will sync automatically once you reconnect.',
+        });
+        return;
+      }
+
+      setPendingBookingAction(bookingId, 'check-in');
       try {
         await bookingLifecycleMutations.checkIn.mutateAsync({
           restaurantId: activeRestaurantId,
           bookingId,
           targetDate: appliedDateRange?.date,
         });
-        void refetch();
+        toast.success(`Seated: ${guestLabel}`);
+      } catch (error) {
+        if (error instanceof HttpError && error.status === 409) {
+          return;
+        }
+        const message = error instanceof Error ? error.message : 'Unable to seat guest.';
+        toast.error('Unable to seat guest', { description: message });
       } finally {
-        setPendingBookingAction(null);
+        clearPendingBookingAction(bookingId);
       }
     },
-    [activeRestaurantId, appliedDateRange?.date, bookingLifecycleMutations.checkIn, refetch],
+    [
+      activeRestaurantId,
+      appliedDateRange?.date,
+      bookingLifecycleMutations.checkIn,
+      clearPendingBookingAction,
+      getBookingLabel,
+      isOnline,
+      setPendingBookingAction,
+    ],
   );
 
   const handleCheckOut = useCallback(
     async (bookingId: string) => {
       if (!activeRestaurantId) return;
-      setPendingBookingAction({ bookingId, action: 'check-out' });
+      const guestLabel = getBookingLabel(bookingId);
+
+      if (!isOnline) {
+        bookingLifecycleMutations.checkOut.mutate({
+          restaurantId: activeRestaurantId,
+          bookingId,
+          targetDate: appliedDateRange?.date,
+        });
+        toast.message(`Queued finish: ${guestLabel}`, {
+          description: 'This will sync automatically once you reconnect.',
+        });
+        return;
+      }
+
+      setPendingBookingAction(bookingId, 'check-out');
       try {
         await bookingLifecycleMutations.checkOut.mutateAsync({
           restaurantId: activeRestaurantId,
           bookingId,
           targetDate: appliedDateRange?.date,
         });
-        void refetch();
+        toast.success(`Finished: ${guestLabel}`);
+      } catch (error) {
+        if (error instanceof HttpError && error.status === 409) {
+          return;
+        }
+        const message = error instanceof Error ? error.message : 'Unable to finish booking.';
+        toast.error('Unable to finish booking', { description: message });
       } finally {
-        setPendingBookingAction(null);
+        clearPendingBookingAction(bookingId);
       }
     },
-    [activeRestaurantId, appliedDateRange?.date, bookingLifecycleMutations.checkOut, refetch],
+    [
+      activeRestaurantId,
+      appliedDateRange?.date,
+      bookingLifecycleMutations.checkOut,
+      clearPendingBookingAction,
+      getBookingLabel,
+      isOnline,
+      setPendingBookingAction,
+    ],
   );
 
   const debouncedSearchUpdate = useMemo(
@@ -450,7 +607,7 @@ export function OpsBookingsClient({
       debounce((value: string) => {
         const trimmed = value.trim();
         updateSearchParams({ query: trimmed.length > 0 ? trimmed : null, page: null });
-      }, 500),
+      }, 200),
     [updateSearchParams],
   );
 
@@ -460,13 +617,6 @@ export function OpsBookingsClient({
       debouncedSearchUpdate(value);
     },
     [handleSearchChange, debouncedSearchUpdate],
-  );
-
-  const handleSearchInputChange = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) => {
-      handleSearchInput(event.target.value);
-    },
-    [handleSearchInput],
   );
 
   const handleToggleStatus = useCallback(
@@ -675,6 +825,12 @@ export function OpsBookingsClient({
       <BookingStateRegistrar bookings={bookings} />
       <div className="min-h-screen bg-background font-sans text-foreground">
         <main className="mx-auto w-full max-w-6xl space-y-4 px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
+          <a
+            href="#ops-bookings-list"
+            className="sr-only focus:not-sr-only focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            Skip to bookings list
+          </a>
           <OpsPageHeader
             title="Manage bookings"
             meta={
@@ -736,24 +892,19 @@ export function OpsBookingsClient({
               ) : null
             }
             search={
-              <div className="relative w-full md:w-60 md:flex-none">
-                <Search
-                  className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-                  aria-hidden
-                />
-                <Input
-                  type="search"
-                  name="search"
-                  autoComplete="off"
-                  placeholder="Search guests…"
-                  value={search}
-                  onChange={handleSearchInputChange}
-                  className="h-9 w-full rounded-lg border border-border bg-background pl-10 pr-3 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 touch-manipulation"
-                  aria-label="Search guests"
-                />
-              </div>
+              <OpsBookingsSearchInput
+                value={search}
+                onChange={handleSearchInput}
+                onClear={() => handleSearchInput('')}
+                isSearching={isFetching && !isFetchingNextPage}
+                placeholder="Search guests…"
+                ariaLabel="Search guests"
+                size="toolbar"
+              />
             }
-          />
+          >
+            <BookingOfflineBanner />
+          </OpsPageToolbar>
 
           {/* TABLE SECTION */}
           <section className="space-y-3">
@@ -782,7 +933,6 @@ export function OpsBookingsClient({
                 </Button>
               </div>
             ) : null}
-            <BookingOfflineBanner />
             <BookingsTable
               bookings={bookings}
               total={bookingsPageInfo.total}
@@ -804,8 +954,7 @@ export function OpsBookingsClient({
               statusOptions={OPS_STATUS_TABS}
               opsActionMode="full"
               opsLifecycle={{
-                pendingBookingId: pendingBookingAction?.bookingId ?? null,
-                pendingAction: pendingBookingAction?.action ?? null,
+                pendingActionsByBookingId: pendingBookingActions,
                 onCheckIn: handleCheckIn,
                 onCheckOut: handleCheckOut,
                 onMarkNoShow: handleMarkNoShow,
