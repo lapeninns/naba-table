@@ -9,6 +9,17 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
+      // Keep vitest resolution aligned with tsconfig "paths" for this hook (implementation lives in src/).
+      '@/hooks/useGlobalShortcuts': path.resolve(rootDir, 'src/hooks/useGlobalShortcuts.ts'),
+      // Contexts live under src/ (no root-level contexts/ directory).
+      '@/contexts': path.resolve(rootDir, 'src/contexts'),
+      // Ops/service layer lives under src/.
+      '@/services': path.resolve(rootDir, 'src/services'),
+      // Some ops hooks only exist under src/hooks/ops (tsconfig has a fallback path).
+      '@/hooks/ops/useOpsBookingEmailDeliveryLog': path.resolve(
+        rootDir,
+        'src/hooks/ops/useOpsBookingEmailDeliveryLog.ts',
+      ),
       '@/app': path.resolve(rootDir, 'src/app'),
       '@/guest': path.resolve(rootDir, 'src/guest'),
       '@/components/ui': path.resolve(rootDir, 'components/ui'),

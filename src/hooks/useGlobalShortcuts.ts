@@ -4,6 +4,11 @@ import { useEffect } from 'react';
 
 type Shortcut = {
   key: string; // lowercase key
+  /**
+   * Treat Cmd (macOS) and Ctrl (Windows/Linux) as the primary modifier.
+   * Useful for cross-platform shortcuts like "primary action" or "save".
+   */
+  metaOrCtrl?: boolean;
   meta?: boolean;
   ctrl?: boolean;
   shift?: boolean;
@@ -11,6 +16,7 @@ type Shortcut = {
   preventDefault?: boolean;
   enabled?: boolean;
   when?: () => boolean; // scope predicate
+  allowRepeat?: boolean;
   handler: (event: KeyboardEvent) => void;
 };
 
@@ -29,14 +35,36 @@ export function useGlobalShortcuts(shortcuts: Shortcut[]) {
       shortcuts.forEach((shortcut) => {
         if (shortcut.enabled === false) return;
         if (shortcut.key !== key) return;
-        if (shortcut.meta && !event.metaKey) return;
-        if (shortcut.ctrl && !event.ctrlKey) return;
-        if (shortcut.shift && !event.shiftKey) return;
-        if (shortcut.alt && !event.altKey) return;
-        if (!shortcut.meta && event.metaKey) return;
-        if (!shortcut.ctrl && event.ctrlKey) return;
-        if (!shortcut.shift && event.shiftKey) return;
-        if (!shortcut.alt && event.altKey) return;
+        if (event.repeat && shortcut.allowRepeat !== true) return;
+
+        const wantsMetaOrCtrl = shortcut.metaOrCtrl === true;
+        const wantsMeta = shortcut.meta === true;
+        const wantsCtrl = shortcut.ctrl === true;
+        const wantsShift = shortcut.shift === true;
+        const wantsAlt = shortcut.alt === true;
+
+        const hasMeta = event.metaKey;
+        const hasCtrl = event.ctrlKey;
+        const hasShift = event.shiftKey;
+        const hasAlt = event.altKey;
+
+        if (wantsMetaOrCtrl) {
+          // Cross-platform primary modifier: Cmd on macOS, Ctrl elsewhere.
+          if (!hasMeta && !hasCtrl) return;
+        } else {
+          // Exact matching for meta/ctrl unless metaOrCtrl is used.
+          if (wantsMeta && !hasMeta) return;
+          if (wantsCtrl && !hasCtrl) return;
+          if (!wantsMeta && hasMeta) return;
+          if (!wantsCtrl && hasCtrl) return;
+        }
+
+        // Exact matching for shift/alt to avoid collisions.
+        if (wantsShift && !hasShift) return;
+        if (!wantsShift && hasShift) return;
+        if (wantsAlt && !hasAlt) return;
+        if (!wantsAlt && hasAlt) return;
+
         if (shortcut.when && !shortcut.when()) return;
 
         if (shortcut.preventDefault !== false) {

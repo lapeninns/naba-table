@@ -3,6 +3,7 @@
 import { MailCheck, MailWarning } from 'lucide-react';
 import { useMemo } from 'react';
 
+
 import {
   Accordion,
   AccordionContent,
@@ -25,6 +26,7 @@ import {
 
 import type { EmailDeliveryGroup } from '@/src/lib/email-delivery/grouping';
 import type { EmailDeliveryStatus } from '@/types/emailDelivery';
+import type { CSSProperties, ReactElement } from 'react';
 
 function StatusBadge({ status }: { status: EmailDeliveryStatus }) {
   const tone = getEmailDeliveryStatusBadgeTone(status);
@@ -67,6 +69,11 @@ type EmailDeliveryPanelProps = {
 
 export function EmailDeliveryPanel({ bookingId, timezone, limit = 50 }: EmailDeliveryPanelProps) {
   const query = useOpsBookingEmailDeliveryLog(bookingId, { limit });
+  const heavyPanelStyle = {
+    contentVisibility: 'auto',
+    containIntrinsicSize: '1px 400px',
+  } as CSSProperties;
+  const wrapCard = (content: ReactElement) => <div style={heavyPanelStyle}>{content}</div>;
 
   const groups = useMemo(() => {
     const events = query.events ?? [];
@@ -74,7 +81,7 @@ export function EmailDeliveryPanel({ bookingId, timezone, limit = 50 }: EmailDel
   }, [query.events]);
 
   if (query.isLoading) {
-    return (
+    return wrapCard(
       <Card className="border-slate-200/60 bg-white">
         <CardContent className="p-3 space-y-3">
           <div className="flex items-center justify-between">
@@ -88,12 +95,12 @@ export function EmailDeliveryPanel({ bookingId, timezone, limit = 50 }: EmailDel
             <Skeleton className="h-10 w-full" />
           </div>
         </CardContent>
-      </Card>
+      </Card>,
     );
   }
 
   if (query.unavailable) {
-    return (
+    return wrapCard(
       <Card className="border-slate-200/60 bg-white">
         <CardContent className="p-3 space-y-2">
           <div className="flex items-center justify-between">
@@ -109,12 +116,12 @@ export function EmailDeliveryPanel({ bookingId, timezone, limit = 50 }: EmailDel
             </AlertDescription>
           </Alert>
         </CardContent>
-      </Card>
+      </Card>,
     );
   }
 
   if (query.apiError) {
-    return (
+    return wrapCard(
       <Card className="border-slate-200/60 bg-white">
         <CardContent className="p-3 space-y-2">
           <div className="flex items-center justify-between">
@@ -128,12 +135,12 @@ export function EmailDeliveryPanel({ bookingId, timezone, limit = 50 }: EmailDel
             <AlertDescription>{query.apiError.error}</AlertDescription>
           </Alert>
         </CardContent>
-      </Card>
+      </Card>,
     );
   }
 
   if (query.error) {
-    return (
+    return wrapCard(
       <Card className="border-slate-200/60 bg-white">
         <CardContent className="p-3 space-y-2">
           <div className="flex items-center justify-between">
@@ -147,12 +154,12 @@ export function EmailDeliveryPanel({ bookingId, timezone, limit = 50 }: EmailDel
             <AlertDescription>{query.error.message}</AlertDescription>
           </Alert>
         </CardContent>
-      </Card>
+      </Card>,
     );
   }
 
   if (groups.length === 0) {
-    return (
+    return wrapCard(
       <Card className="border-slate-200/60 bg-white">
         <CardContent className="p-3 space-y-2">
           <div className="flex items-center justify-between">
@@ -165,11 +172,11 @@ export function EmailDeliveryPanel({ bookingId, timezone, limit = 50 }: EmailDel
             No delivery events recorded for this booking yet.
           </div>
         </CardContent>
-      </Card>
+      </Card>,
     );
   }
 
-  return (
+  return wrapCard(
     <Card className="border-slate-200/60 bg-white">
       <CardContent className="p-3 space-y-3">
         <div className="flex items-center justify-between">
@@ -216,6 +223,6 @@ export function EmailDeliveryPanel({ bookingId, timezone, limit = 50 }: EmailDel
           })}
         </Accordion>
       </CardContent>
-    </Card>
+    </Card>,
   );
 }

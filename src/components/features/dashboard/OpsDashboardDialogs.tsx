@@ -2,16 +2,7 @@
 
 import dynamic from 'next/dynamic';
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+import { OpsCancelBookingAlertDialog } from '@/components/features/bookings/components/OpsCancelBookingAlertDialog';
 
 import type { BookingDTO } from '@/hooks/useBookings';
 
@@ -81,28 +72,15 @@ export function OpsDashboardDialogs({
         restaurantTimezone={restaurantTimezone}
         mode="ops"
       />
-      <AlertDialog open={isCancelOpen} onOpenChange={onCancelOpenChange}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Cancel this booking?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {cancelBooking
-                ? `You’re about to cancel ${cancelBooking.customerName ?? 'this booking'} for ${cancelBooking.partySize} covers. This action cannot be undone.`
-                : 'This action cannot be undone.'}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isCancelPending}>Keep booking</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={onConfirmCancel}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={isCancelPending}
-            >
-              Confirm cancellation
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <OpsCancelBookingAlertDialog
+        open={isCancelOpen}
+        onOpenChange={onCancelOpenChange}
+        customerName={cancelBooking?.customerName ?? null}
+        partySize={cancelBooking?.partySize ?? null}
+        whenLabel={null}
+        onConfirm={onConfirmCancel}
+        isPending={isCancelPending}
+      />
     </>
   );
 }

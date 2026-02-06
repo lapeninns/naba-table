@@ -10,20 +10,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BookingsTable } from '@/components/dashboard/BookingsTable';
 import { BookingOfflineBanner } from '@/components/features/booking-state-machine';
 import { BookingDetailsDialogWrapper } from '@/components/features/bookings/BookingDetailsDialogWrapper';
+import { OpsCancelBookingAlertDialog } from '@/components/features/bookings/components/OpsCancelBookingAlertDialog';
 import { OpsStatusFilter as OpsStatusFilterPopover } from '@/components/features/bookings/OpsStatusFilter';
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
 import { OpsPageToolbar } from '@/components/features/ops-shell/patterns/OpsPageToolbar';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -840,30 +831,15 @@ export function OpsBookingsClient({
             restaurantTimezone={restaurantTimezone ?? editBooking?.restaurantTimezone ?? null}
             mode="ops"
           />
-          <AlertDialog open={isCancelOpen} onOpenChange={handleCancelOpenChange}>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Cancel this booking?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  {cancelBooking
-                    ? `You’re about to cancel ${cancelBooking.customerName ?? 'this booking'} for ${cancelBooking.partySize} covers. This action cannot be undone.`
-                    : 'This action cannot be undone.'}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel disabled={cancelBookingMutation.isPending}>
-                  Keep booking
-                </AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={handleConfirmCancel}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  disabled={cancelBookingMutation.isPending}
-                >
-                  Confirm cancellation
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <OpsCancelBookingAlertDialog
+            open={isCancelOpen}
+            onOpenChange={handleCancelOpenChange}
+            customerName={cancelBooking?.customerName ?? null}
+            partySize={cancelBooking?.partySize ?? null}
+            whenLabel={null}
+            onConfirm={handleConfirmCancel}
+            isPending={cancelBookingMutation.isPending}
+          />
         </main>
       </div>
     </BookingStateMachineProvider>

@@ -33,6 +33,9 @@ export { DialogHeader, type DialogHeaderProps } from './DialogHeader';
 /** Guest profile panel for booking details */
 export { GuestProfilePanel, type GuestProfilePanelProps } from './GuestProfilePanel';
 
+/** Dialog body (mobile/desktop) extracted to keep BookingDialog under LOC cap */
+export { BookingDialogBody, type BookingDialogBodyProps } from './BookingDialogBody';
+
 // =============================================================================
 // COMPOSITE COMPONENTS
 // =============================================================================

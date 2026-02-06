@@ -8,6 +8,7 @@ import { useOpsBooking } from '@/hooks/ops/useOpsBooking';
 import { useOpsBookingLifecycleActions } from '@/hooks/ops/useOpsBookingStatusActions';
 import { useOpsCancelBooking } from '@/hooks/ops/useOpsCancelBooking';
 import { useMinimumDelay } from '@/hooks/use-minimum-delay';
+import { isTableAssignmentAllowed } from '@/lib/ops/table-assignment-policy';
 import { getTodayInTimezone } from '@/lib/utils/datetime';
 
 import type { BookingDTO } from '@/hooks/useBookings';
@@ -155,10 +156,14 @@ export function BookingDetailsDialogWrapper({
     if (!summary) return { allowTableAssignments: false, isToday: false };
     const today = getTodayInTimezone(summary.timezone);
     return {
-      allowTableAssignments: summary.date >= today,
+      allowTableAssignments: isTableAssignmentAllowed({
+        status: booking?.status ?? null,
+        bookingDate: summary.date,
+        timezone: summary.timezone,
+      }),
       isToday: summary.date === today,
     };
-  }, [summary]);
+  }, [booking?.status, summary]);
 
   // Lifecycle handlers
   const handleCheckIn = async () => {
