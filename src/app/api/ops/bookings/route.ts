@@ -215,6 +215,7 @@ const OPS_BOOKING_STATUSES = [
   'pending_allocation',
   'confirmed',
   'checked_in',
+  'PRIORITY_WAITLIST',
   'cancelled',
   'completed',
   'no_show',

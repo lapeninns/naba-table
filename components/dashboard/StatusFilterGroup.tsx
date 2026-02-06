@@ -13,14 +13,20 @@ export type StatusFilterGroupProps = {
   value: StatusFilter;
   options: StatusOption[];
   onChange: (value: StatusFilter) => void;
+  ariaLabel?: string;
 };
 
-export function StatusFilterGroup({ value, options, onChange }: StatusFilterGroupProps) {
+export function StatusFilterGroup({
+  value,
+  options,
+  onChange,
+  ariaLabel = 'Filter by status',
+}: StatusFilterGroupProps) {
   return (
     <ToggleGroup
       type="single"
       value={value}
-      aria-label="Filter by status"
+      aria-label={ariaLabel}
       onValueChange={(next) => {
         if (next) {
           onChange(next as StatusFilter);

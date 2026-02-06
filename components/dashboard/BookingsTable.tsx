@@ -48,6 +48,11 @@ export type BookingsTableProps = {
   showHeaderTitle?: boolean;
   hideHeader?: boolean;
   timezone?: string;
+  /**
+   * Ops routes can be served at `/bookings` (app subdomain) or `/app/bookings` (single-host mode).
+   * Pass `/app` in single-host mode so empty-state CTAs navigate correctly.
+   */
+  opsBasePath?: string;
 };
 
 const DEFAULT_STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
@@ -82,6 +87,7 @@ export function BookingsTable({
   showHeaderTitle = true,
   hideHeader = false,
   timezone,
+  opsBasePath = '',
 }: BookingsTableProps) {
   const VIRTUALIZE_MIN_ITEMS = 20;
   const hasBookings = bookings.length > 0;
@@ -95,13 +101,15 @@ export function BookingsTable({
   const measureFrameRef = useRef<number | null>(null);
 
   const emptyState = useMemo(() => {
+    const opsPath = (path: string) => `${opsBasePath}${path}`;
+
     if (trimmedSearch) {
       return {
         title: isOpsVariant ? 'No bookings match your search' : 'No bookings match your search',
         description: isOpsVariant
           ? 'Try a different guest name or email, or broaden the date/status filters.'
           : 'Try searching for a different guest name or email.',
-        ctaHref: isOpsVariant ? '/new-bookings' : '/',
+        ctaHref: isOpsVariant ? opsPath('/new-bookings') : '/',
         ctaLabel: isOpsVariant ? 'New booking' : 'Start a new booking',
         analyticsEvent: 'dashboard_empty_search',
       } as const;
@@ -114,7 +122,7 @@ export function BookingsTable({
           description: isOpsVariant
             ? 'New reservations will appear here as they’re created. You can also log walk-ins for today’s service.'
             : 'Ready for your next night out? Secure a table in just a few taps.',
-          ctaHref: isOpsVariant ? '/new-bookings' : '/',
+          ctaHref: isOpsVariant ? opsPath('/new-bookings') : '/',
           ctaLabel: isOpsVariant ? 'New booking' : 'Start a new booking',
           analyticsEvent: 'dashboard_empty_upcoming',
         } as const;
@@ -124,7 +132,7 @@ export function BookingsTable({
           description: isOpsVariant
             ? 'Completed and no-show reservations will appear here once they’re processed.'
             : 'Completed or no-show reservations will appear here for your records.',
-          ctaHref: isOpsVariant ? '/bookings' : '/',
+          ctaHref: isOpsVariant ? opsPath('/bookings') : '/',
           ctaLabel: isOpsVariant ? 'View today' : 'Start a new booking',
           analyticsEvent: 'dashboard_empty_past',
         } as const;
@@ -134,7 +142,7 @@ export function BookingsTable({
           description: isOpsVariant
             ? 'Cancelled reservations will show up here so your team can track changes.'
             : 'Great news—you haven’t had to cancel any reservations.',
-          ctaHref: isOpsVariant ? '/bookings' : '/',
+          ctaHref: isOpsVariant ? opsPath('/bookings') : '/',
           ctaLabel: isOpsVariant ? 'View all bookings' : 'Start a new booking',
           analyticsEvent: 'dashboard_empty_cancelled',
         } as const;
@@ -146,12 +154,12 @@ export function BookingsTable({
           description: isOpsVariant
             ? 'Reservations and walk-ins for this restaurant will appear here as they’re created.'
             : 'Once you make a reservation, it will appear here. Ready to secure your next table?',
-          ctaHref: isOpsVariant ? '/new-bookings' : '/',
+          ctaHref: isOpsVariant ? opsPath('/new-bookings') : '/',
           ctaLabel: isOpsVariant ? 'New booking' : 'Start a new booking',
           analyticsEvent: 'dashboard_empty_all',
         } as const;
     }
-  }, [isOpsVariant, statusFilter, trimmedSearch]);
+  }, [isOpsVariant, opsBasePath, statusFilter, trimmedSearch]);
 
   const totalLabel =
     typeof total === 'number'

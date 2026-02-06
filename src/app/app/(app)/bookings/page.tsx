@@ -16,8 +16,6 @@ export const metadata: Metadata = {
 type OpsBookingsSearchParams = {
   restaurantId?: string;
   filter?: string;
-  page?: string;
-  pageSize?: string;
   status?: string;
   query?: string;
   statuses?: string;
@@ -42,6 +40,7 @@ const VALID_STATUSES: OpsBookingStatus[] = [
   "pending_allocation",
   "confirmed",
   "checked_in",
+  "PRIORITY_WAITLIST",
   "completed",
   "cancelled",
   "no_show",
@@ -92,8 +91,6 @@ export default async function OpsBookingsPage({
   const resolvedParams = (await searchParams) ?? {};
 
   const initialFilter = parseStatusFilter(resolvedParams.filter ?? resolvedParams.status);
-  const parsedPage = resolvedParams.page ? Number.parseInt(resolvedParams.page, 10) : NaN;
-  const initialPage = Number.isNaN(parsedPage) || parsedPage <= 0 ? null : parsedPage;
   const initialRestaurantId = resolvedParams.restaurantId ?? null;
   const rawQuery = resolvedParams.query?.trim() ?? "";
   const initialQuery = rawQuery.length > 0 ? rawQuery : null;
@@ -112,7 +109,6 @@ export default async function OpsBookingsPage({
       <BookingOfflineQueueProvider>
         <OpsBookingsClient
           initialFilter={initialFilter}
-          initialPage={initialPage}
           initialRestaurantId={initialRestaurantId}
           initialQuery={initialQuery}
           initialStatuses={initialStatuses}
