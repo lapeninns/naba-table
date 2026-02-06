@@ -12,6 +12,7 @@
  * - Fast and reliable
  */
 
+import { isTableAssignmentAllowed } from "@/lib/ops/table-assignment-policy";
 import { evaluateAdjacency, isAdjacencySatisfied, summarizeAdjacencyStatus } from "@/server/capacity/adjacency";
 import { getVenuePolicy, ServiceOverrunError, type TurnBandsByOption } from "@/server/capacity/policy";
 import { getAllocatorAdjacencyMode } from "@/server/feature-flags";
@@ -181,6 +182,27 @@ export async function assignTablesDirectly(input: DirectAssignmentInput): Promis
 
   // === STEP 3: Load Booking ===
   const booking = await loadBooking(bookingId, supabase);
+  const restaurantTimezone =
+    (booking.restaurants && !Array.isArray(booking.restaurants)
+      ? booking.restaurants.timezone
+      : null) ??
+    (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
+    getVenuePolicy().timezone ??
+    "UTC";
+
+  if (
+    !isTableAssignmentAllowed({
+      status: booking.status ?? null,
+      bookingDate: booking.booking_date ?? null,
+      timezone: restaurantTimezone,
+    })
+  ) {
+    throw new DirectAssignmentError(
+      "Assignments are locked for past or completed bookings",
+      "ASSIGNMENT_LOCKED",
+      409,
+    );
+  }
 
   // === STEP 4: Load Tables ===
   const tables = await loadTablesByIds(booking.restaurant_id, tableIds, supabase);
@@ -197,15 +219,10 @@ export async function assignTablesDirectly(input: DirectAssignmentInput): Promis
   }
 
   // === STEP 5: Compute Booking Window ===
-  const restaurantTimezone =
-    (booking.restaurants && !Array.isArray(booking.restaurants)
-      ? booking.restaurants.timezone
-      : null) ??
-    (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
-    getVenuePolicy().timezone;
+  const restaurantTimezoneForPolicy = restaurantTimezone;
   const turnBandsByOption = await getRestaurantTurnBands(booking.restaurant_id, supabase);
   const policy = getVenuePolicy({
-    timezone: restaurantTimezone ?? undefined,
+    timezone: restaurantTimezoneForPolicy ?? undefined,
     turnBandsByOption,
   });
 
@@ -232,16 +249,16 @@ export async function assignTablesDirectly(input: DirectAssignmentInput): Promis
 
   // === STEP 6: Run Validation ===
   const requireAdjacency = resolveRequireAdjacency(booking.party_size, requireAdjacencyOverride);
-  const validation = await validateSelection({
-    bookingId,
-    booking,
-    tables,
-    window,
-    requireAdjacency,
-    restaurantTimezone: restaurantTimezone ?? undefined,
-    turnBandsByOption,
-    supabase,
-  });
+    const validation = await validateSelection({
+      bookingId,
+      booking,
+      tables,
+      window,
+      requireAdjacency,
+      restaurantTimezone: restaurantTimezoneForPolicy ?? undefined,
+      turnBandsByOption,
+      supabase,
+    });
 
   if (!validation.valid) {
     const firstError = validation.checks.find((c) => !c.passed);
@@ -534,6 +551,29 @@ export async function unassignTablesDirect(params: {
   }
 
   const supabase = ensureClient(client);
+
+  const booking = await loadBooking(bookingId, supabase);
+  const restaurantTimezone =
+    (booking.restaurants && !Array.isArray(booking.restaurants)
+      ? booking.restaurants.timezone
+      : null) ??
+    (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
+    getVenuePolicy().timezone ??
+    "UTC";
+
+  if (
+    !isTableAssignmentAllowed({
+      status: booking.status ?? null,
+      bookingDate: booking.booking_date ?? null,
+      timezone: restaurantTimezone,
+    })
+  ) {
+    throw new DirectAssignmentError(
+      "Assignments are locked for past or completed bookings",
+      "ASSIGNMENT_LOCKED",
+      409,
+    );
+  }
 
   const { error, count } = await supabase
     .from("booking_table_assignments")

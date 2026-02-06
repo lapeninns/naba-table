@@ -20,18 +20,19 @@
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Ban,
-  ChevronDown,
+  Check,
   Copy,
   LayoutGrid,
   LogIn,
   LogOut,
+  MoreHorizontal,
   Phone,
   RotateCcw,
   UserX,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { OpsCancelBookingAlertDialog } from '@/components/features/bookings/components/OpsCancelBookingAlertDialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,17 +44,21 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
 import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils';
 
-import { DialogHeader, GuestProfilePanel, TableAssignmentPanel } from './components';
+import { BookingDialogBody, DialogHeader } from './components';
 import {
   calculateCapacityPercent,
   calculateTotalCapacity,
@@ -113,14 +118,70 @@ export function BookingDialog({
   const [confirmNoShow, setConfirmNoShow] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const tablePanelRef = useRef<HTMLDivElement | null>(null);
+  const tableAssignmentPrimaryFocusRef = useRef<HTMLButtonElement | null>(null);
+  const tableAssignmentUserToggledRef = useRef(false);
+  const shouldFocusTablePanelRef = useRef(false);
+
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const wasOpenRef = useRef(false);
+
+  const [copySummaryStatus, setCopySummaryStatus] = useState<'idle' | 'copied' | 'failed'>(
+    'idle',
+  );
+  const [srStatusMessage, setSrStatusMessage] = useState<string>('');
 
   useEffect(() => {
     if (open !== undefined) setIsOpen(open);
   }, [open]);
 
+  const prefersReducedMotion = useMemo(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return false;
+    // Some non-browser runtimes expose a stub matchMedia that returns undefined.
+    return Boolean(window.matchMedia('(prefers-reduced-motion: reduce)')?.matches);
+  }, []);
+
+  const scrollBehavior = prefersReducedMotion ? 'auto' : 'smooth';
+
+  const isEditableTarget = useCallback((target: EventTarget | null) => {
+    if (!(target instanceof Element)) return false;
+    if (target.closest('[contenteditable="true"]')) return true;
+    return Boolean(target.closest('input, textarea, select'));
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      previousFocusRef.current =
+        document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    const wasOpen = wasOpenRef.current;
+    wasOpenRef.current = isOpen;
+
+    if (!isOpen && wasOpen) {
+      const previous = previousFocusRef.current;
+      if (previous && document.contains(previous)) {
+        requestAnimationFrame(() => previous.focus());
+      }
+    }
+  }, [isOpen]);
+
   useEffect(() => {
     if (!isOpen) setIsTableAssignmentOpen(false);
   }, [isOpen]);
+
+  useEffect(() => {
+    if (copySummaryStatus === 'idle') return;
+    const t = window.setTimeout(() => setCopySummaryStatus('idle'), 1800);
+    return () => window.clearTimeout(t);
+  }, [copySummaryStatus]);
+
+  useEffect(() => {
+    if (!srStatusMessage) return;
+    const t = window.setTimeout(() => setSrStatusMessage(''), 2000);
+    return () => window.clearTimeout(t);
+  }, [srStatusMessage]);
 
   const handleOpenChange = useCallback(
     (value: boolean) => {
@@ -175,6 +236,30 @@ export function BookingDialog({
     allowTableAssignments &&
     assignedTableRows.length === 0;
 
+  useEffect(() => {
+    if (!isOpen || !isMobile) return;
+    if (!needsAssignment) return;
+    if (tableAssignmentUserToggledRef.current) return;
+    setIsTableAssignmentOpen(true);
+  }, [isMobile, isOpen, needsAssignment]);
+
+  useEffect(() => {
+    if (!shouldFocusTablePanelRef.current) return;
+    if (!isOpen) return;
+    if (isMobile && !isTableAssignmentOpen) return;
+
+    shouldFocusTablePanelRef.current = false;
+
+    const panel = tablePanelRef.current;
+    if (panel) {
+      panel.scrollIntoView({ behavior: scrollBehavior, block: 'start' });
+    }
+
+    requestAnimationFrame(() => {
+      tableAssignmentPrimaryFocusRef.current?.focus();
+    });
+  }, [isMobile, isOpen, isTableAssignmentOpen, scrollBehavior]);
+
   const isActionPending = Boolean(pendingLifecycleAction || pendingAction || cancelPending);
   const canCancel =
     Boolean(booking) && !['cancelled', 'completed', 'no_show', 'checked_in'].includes(status);
@@ -223,7 +308,9 @@ export function BookingDialog({
       .filter(Boolean)
       .join('\n');
 
-    await copyToClipboard(summaryText);
+    const ok = await copyToClipboard(summaryText);
+    setCopySummaryStatus(ok ? 'copied' : 'failed');
+    setSrStatusMessage(ok ? 'Summary copied to clipboard.' : 'Unable to copy summary.');
   }, [
     assignedTableRows,
     booking,
@@ -251,16 +338,12 @@ export function BookingDialog({
         label: 'Assign table',
         icon: LayoutGrid,
         tone: 'bg-indigo-600 hover:bg-indigo-700',
-          onClick: () => {
-            if (isMobile) {
-              setIsTableAssignmentOpen(true);
-              setTimeout(() => {
-                tablePanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }, 100);
-            } else {
-              tablePanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-          },
+        onClick: () => {
+          shouldFocusTablePanelRef.current = true;
+          if (isMobile) {
+            setIsTableAssignmentOpen(true);
+          }
+        },
       };
     }
 
@@ -311,190 +394,31 @@ export function BookingDialog({
   useGlobalShortcuts([
     {
       key: 'enter',
-      meta: true,
-      ctrl: true,
+      metaOrCtrl: true,
       enabled: Boolean(isOpen && primaryAction),
+      when: () => {
+        if (confirmNoShow || confirmCancel) return false;
+        if (isEditableTarget(document.activeElement)) return false;
+        return true;
+      },
       handler: () => {
         if (isOpen && primaryAction) primaryAction.onClick();
       },
     },
-    {
-      key: 'escape',
-      enabled: isOpen,
-      preventDefault: false,
-      handler: () => {
-        if (isOpen) handleOpenChange(false);
-      },
-    },
   ]);
 
-  const renderBody = () => {
-    if (isLoading) {
-      return (
-        <div className="space-y-4 p-4">
-          <Skeleton className="h-20 w-full" />
-          <Skeleton className="h-32 w-full" />
-          <Skeleton className="h-24 w-full" />
-        </div>
-      );
-    }
+  const handleTableAssignmentOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      tableAssignmentUserToggledRef.current = true;
+      setIsTableAssignmentOpen(nextOpen);
+    },
+    [setIsTableAssignmentOpen],
+  );
 
-    if (errorMessage) {
-      return (
-        <div className="p-4">
-          <Alert variant="destructive">
-            <AlertTitle>Unable to load booking</AlertTitle>
-            <AlertDescription className="flex items-center justify-between gap-3">
-              <span>{errorMessage}</span>
-              {onRetry ? (
-                <Button variant="outline" size="sm" onClick={onRetry}>
-                  Retry
-                </Button>
-              ) : null}
-            </AlertDescription>
-          </Alert>
-        </div>
-      );
-    }
-
-    if (!booking || !summary) {
-      return (
-        <div className="p-4">
-          <Alert>
-            <AlertTitle>No booking selected</AlertTitle>
-            <AlertDescription>Select a booking to view details.</AlertDescription>
-          </Alert>
-        </div>
-      );
-    }
-
-    if (isMobile) {
-      return (
-        <ScrollArea className="h-full bg-slate-50/30">
-          <div className="flex flex-col gap-6 p-4 pb-20">
-            <GuestProfilePanel
-              booking={booking}
-              bookingDate={bookingDate}
-              timezone={timezone}
-              status={status}
-              minutesRemaining={minutesRemaining}
-              assignedTableRows={assignedTableRows}
-              totalCapacity={totalCapacity}
-              capacityPercent={capacityPercent}
-            />
-
-            <div ref={tablePanelRef} className="pt-4 border-t border-dashed border-slate-200">
-              <Collapsible
-                open={isTableAssignmentOpen}
-                onOpenChange={setIsTableAssignmentOpen}
-                className="space-y-3"
-              >
-                <CollapsibleTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="flex w-full items-center justify-between p-0 hover:bg-transparent mb-4 h-auto hover:no-underline"
-                  >
-                    <div className="text-left">
-                      <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-1">
-                        Table Assignment
-                      </h3>
-                      <p className="text-xs text-slate-500 font-normal">
-                        Manage seating and capacity.
-                      </p>
-                    </div>
-                    <ChevronDown
-                      className={cn(
-                        'h-4 w-4 text-slate-500 transition-transform duration-200',
-                        isTableAssignmentOpen && 'rotate-180',
-                      )}
-                    />
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  {isTableAssignmentOpen && (
-                    <>
-                      {allowTableAssignments ? (
-                        <TableAssignmentPanel
-                          bookingId={booking.id}
-                          restaurantId={summary.restaurantId}
-                          partySize={booking.partySize}
-                          date={summary.date}
-                          currentAssignments={assignedTableRows.map((row) => row.id)}
-                          onAssignmentComplete={() => {
-                            queryClient.invalidateQueries({
-                              queryKey: queryKeys.opsBookings.detail(booking.id),
-                            });
-                          }}
-                          bookingStartTime={booking.startTime}
-                          bookingEndTime={booking.endTime}
-                        />
-                      ) : (
-                        <Alert>
-                          <AlertTitle>Table assignment disabled</AlertTitle>
-                          <AlertDescription>
-                            Assignments are locked for past bookings.
-                          </AlertDescription>
-                        </Alert>
-                      )}
-                    </>
-                  )}
-                </CollapsibleContent>
-              </Collapsible>
-            </div>
-          </div>
-        </ScrollArea>
-      );
-    }
-
-    return (
-      <div className="grid h-full overflow-hidden grid-cols-1 lg:grid-cols-2">
-        <ScrollArea className="h-full border-b border-stone-200/70 lg:border-b-0 lg:border-r bg-gradient-to-b from-stone-50/80 via-white to-stone-50/60 overflow-x-hidden">
-          <div className="p-5 lg:p-6 space-y-5 overflow-x-hidden">
-            <GuestProfilePanel
-              booking={booking}
-              bookingDate={bookingDate}
-              timezone={timezone}
-              status={status}
-              minutesRemaining={minutesRemaining}
-              assignedTableRows={assignedTableRows}
-              totalCapacity={totalCapacity}
-              capacityPercent={capacityPercent}
-            />
-          </div>
-        </ScrollArea>
-        <ScrollArea className="h-full overflow-x-hidden bg-white">
-          <div ref={tablePanelRef} className="p-4 lg:p-6 overflow-x-hidden h-full">
-            <div className="mb-4 lg:hidden">
-              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-                Table Assignment
-              </h3>
-            </div>
-            {allowTableAssignments ? (
-              <TableAssignmentPanel
-                bookingId={booking.id}
-                restaurantId={summary.restaurantId}
-                partySize={booking.partySize}
-                date={summary.date}
-                currentAssignments={assignedTableRows.map((row) => row.id)}
-                onAssignmentComplete={() => {
-                  queryClient.invalidateQueries({
-                    queryKey: queryKeys.opsBookings.detail(booking.id),
-                  });
-                }}
-                bookingStartTime={booking.startTime}
-                bookingEndTime={booking.endTime}
-              />
-            ) : (
-              <Alert>
-                <AlertTitle>Table assignment disabled</AlertTitle>
-                <AlertDescription>Assignments are locked for past bookings.</AlertDescription>
-              </Alert>
-            )}
-          </div>
-        </ScrollArea>
-      </div>
-    );
-  };
+  const handleAssignmentComplete = useCallback(() => {
+    if (!booking?.id) return;
+    queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.detail(booking.id) });
+  }, [booking?.id, queryClient]);
 
   const content = (
     <div className="flex h-full flex-col overflow-hidden">
@@ -512,55 +436,40 @@ export function BookingDialog({
         />
       </div>
       {/* Body - takes remaining space and scrolls */}
-      <div className="flex-1 min-h-0 overflow-hidden">{renderBody()}</div>
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <BookingDialogBody
+          isLoading={isLoading}
+          errorMessage={errorMessage}
+          onRetry={onRetry}
+          booking={booking}
+          summary={summary}
+          isMobile={isMobile}
+          allowTableAssignments={allowTableAssignments}
+          needsAssignment={needsAssignment}
+          bookingDate={bookingDate}
+          timezone={timezone}
+          status={status}
+          minutesRemaining={minutesRemaining}
+          assignedTableRows={assignedTableRows}
+          totalCapacity={totalCapacity}
+          capacityPercent={capacityPercent}
+          isTableAssignmentOpen={isTableAssignmentOpen}
+          onTableAssignmentOpenChange={handleTableAssignmentOpenChange}
+          tablePanelRef={tablePanelRef}
+          tableAssignmentPrimaryFocusRef={tableAssignmentPrimaryFocusRef}
+          onAssignmentComplete={handleAssignmentComplete}
+          bookingStartTime={booking?.startTime ?? null}
+          bookingEndTime={booking?.endTime ?? null}
+        />
+      </div>
       {/* Footer - fixed height */}
-      <div className="shrink-0 border-t bg-background px-4 py-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="text-xs text-muted-foreground">
+      <div className="shrink-0 border-t bg-background px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
+        <div className="flex items-center justify-between gap-3">
+          <div className="hidden sm:block text-xs text-muted-foreground">
             {booking ? `${formattedDate} · ${formattedStartTime}` : 'Booking details'}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleCopySummary}
-              disabled={!booking || !summary}
-            >
-              <Copy className="h-3.5 w-3.5 mr-1" />
-              Copy summary
-            </Button>
-            {booking?.customerPhone ? (
-              <Button variant="outline" size="sm" asChild>
-                <a href={`tel:${formatPhoneForTel(booking.customerPhone)}`}>
-                  <Phone className="h-3.5 w-3.5 mr-1" />
-                  Call guest
-                </a>
-              </Button>
-            ) : null}
-            {shouldShowNoShow && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setConfirmNoShow(true)}
-                disabled={isActionPending}
-                className="text-rose-600 hover:text-rose-700"
-              >
-                <UserX className="h-3.5 w-3.5 mr-1" />
-                No-show
-              </Button>
-            )}
-            {onCancel && canCancel ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setConfirmCancel(true)}
-                disabled={isActionPending}
-                className="text-destructive hover:text-destructive"
-              >
-                <Ban className="h-3.5 w-3.5 mr-1" />
-                Cancel booking
-              </Button>
-            ) : null}
+
+          <div className="flex items-center gap-2">
             {primaryAction
               ? (() => {
                   const PrimaryIcon = primaryAction.icon;
@@ -577,7 +486,102 @@ export function BookingDialog({
                   );
                 })()
               : null}
+
+            {!isMobile && booking?.customerPhone ? (
+              <Button variant="outline" size="sm" asChild>
+                <a href={`tel:${formatPhoneForTel(booking.customerPhone)}`}>
+                  <Phone className="mr-1 h-3.5 w-3.5" />
+                  Call guest
+                </a>
+              </Button>
+            ) : null}
+
+            {booking ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    aria-label="More actions"
+                    disabled={isActionPending}
+                  >
+                    <MoreHorizontal className="h-4 w-4" aria-hidden />
+                    <span className="hidden sm:inline">More</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem
+                    onSelect={(event) => {
+                      event.preventDefault();
+                      void handleCopySummary();
+                    }}
+                    disabled={!summary}
+                    className="gap-2"
+                  >
+                    {copySummaryStatus === 'copied' ? (
+                      <Check className="h-4 w-4 text-emerald-600" aria-hidden />
+                    ) : (
+                      <Copy className="h-4 w-4" aria-hidden />
+                    )}
+                    {copySummaryStatus === 'copied' ? 'Copied summary' : 'Copy summary'}
+                  </DropdownMenuItem>
+
+                  {booking.reference ?? booking.id ? (
+                    <DropdownMenuItem
+                      onSelect={(event) => {
+                        event.preventDefault();
+                        const text = booking.reference ?? booking.id;
+                        void (async () => {
+                          const ok = await copyToClipboard(text);
+                          setSrStatusMessage(
+                            ok ? 'Reference copied to clipboard.' : 'Unable to copy reference.',
+                          );
+                        })();
+                      }}
+                      className="gap-2"
+                    >
+                      <Copy className="h-4 w-4" aria-hidden />
+                      Copy reference
+                    </DropdownMenuItem>
+                  ) : null}
+
+                  {(shouldShowNoShow || (onCancel && canCancel)) ? <DropdownMenuSeparator /> : null}
+
+                  {shouldShowNoShow ? (
+                    <DropdownMenuItem
+                      onSelect={(event) => {
+                        event.preventDefault();
+                        setConfirmNoShow(true);
+                      }}
+                      className="gap-2 text-rose-700 focus:text-rose-700"
+                    >
+                      <UserX className="h-4 w-4" aria-hidden />
+                      Mark no-show
+                    </DropdownMenuItem>
+                  ) : null}
+
+                  {onCancel && canCancel ? (
+                    <DropdownMenuItem
+                      onSelect={(event) => {
+                        event.preventDefault();
+                        setConfirmCancel(true);
+                      }}
+                      className="gap-2 text-destructive focus:text-destructive"
+                    >
+                      <Ban className="h-4 w-4" aria-hidden />
+                      Cancel booking
+                    </DropdownMenuItem>
+                  ) : null}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
           </div>
+        </div>
+
+        <div className="sr-only" role="status" aria-live="polite">
+          {srStatusMessage}
         </div>
       </div>
     </div>
@@ -589,7 +593,10 @@ export function BookingDialog({
         <Sheet open={isOpen} onOpenChange={handleOpenChange}>
           <SheetContent
             side="bottom"
-            className={cn('h-[92vh] p-0 gap-0 overflow-hidden [&>button]:hidden', 'rounded-t-2xl')}
+            className={cn(
+              'h-[92dvh] max-h-[calc(100dvh-var(--safe-area-inset-top))] p-0 gap-0 overflow-hidden [&>button]:hidden',
+              'rounded-t-2xl',
+            )}
           >
             <SheetTitle className="sr-only">{titleText}</SheetTitle>
             <SheetDescription className="sr-only">{descriptionText}</SheetDescription>
@@ -626,26 +633,17 @@ export function BookingDialog({
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={confirmCancel} onOpenChange={setConfirmCancel}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Cancel this booking?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will mark the booking as cancelled and notify the guest.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={Boolean(cancelPending)}>Keep booking</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleCancel}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={Boolean(cancelPending)}
-            >
-              Confirm cancellation
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {onCancel ? (
+        <OpsCancelBookingAlertDialog
+          open={confirmCancel}
+          onOpenChange={setConfirmCancel}
+          customerName={booking?.customerName ?? null}
+          partySize={booking?.partySize ?? null}
+          whenLabel={booking ? `${formattedDate} · ${formattedStartTime}` : null}
+          onConfirm={handleCancel}
+          isPending={Boolean(cancelPending)}
+        />
+      ) : null}
     </>
   );
 }

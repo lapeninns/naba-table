@@ -372,8 +372,7 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
   useGlobalShortcuts([
     {
       key: 's',
-      meta: true,
-      ctrl: true,
+      metaOrCtrl: true,
       preventDefault: true,
       enabled: !isDisabled && isDirty,
       handler: () => {

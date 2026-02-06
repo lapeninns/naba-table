@@ -472,8 +472,7 @@ export default function TableInventoryClient() {
   useGlobalShortcuts([
     {
       key: 'n',
-      meta: true,
-      ctrl: true,
+      metaOrCtrl: true,
       preventDefault: true,
       enabled: Boolean(activeRestaurantId),
       handler: () => {

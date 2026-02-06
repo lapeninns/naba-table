@@ -1,0 +1,2 @@
+tasks/**/artifacts/*.json
+tasks/**/artifacts/*.har

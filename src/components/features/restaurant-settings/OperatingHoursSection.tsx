@@ -372,8 +372,7 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
   useGlobalShortcuts([
     {
       key: 's',
-      meta: true,
-      ctrl: true,
+      metaOrCtrl: true,
       preventDefault: true,
       enabled: !isDisabled && isDirty,
       when: () => true,

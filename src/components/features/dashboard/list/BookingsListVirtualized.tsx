@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { OpsBookingCard } from '@/components/features/dashboard/cards/OpsBookingCard';
 import { useBookingRealtime } from '@/hooks/ops/useBookingRealtime';
+import { isTableAssignmentStatusAllowed } from '@/lib/ops/table-assignment-policy';
 import { getOpsBookingTemporalInfo } from '@/utils/ops/todayBookingsAttention';
 
 import { toIsoTime } from './utils';
@@ -191,7 +192,10 @@ export function BookingsListVirtualized({
       const bookingDTO = getBookingDTO(booking);
       const temporalInfo = getOpsBookingTemporalInfo(booking, summary, now);
       const allowAssignmentsForBooking =
-        allowTableAssignments && hasAssignmentHandlers && temporalInfo.state !== 'past';
+        allowTableAssignments &&
+        hasAssignmentHandlers &&
+        temporalInfo.state !== 'past' &&
+        isTableAssignmentStatusAllowed(booking.status);
 
       const pendingAction =
         pendingLifecycleAction?.bookingId === booking.id ? pendingLifecycleAction.action : null;

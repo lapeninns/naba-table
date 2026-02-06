@@ -256,8 +256,7 @@ export function TurnDurationsSection({ restaurantId }: TurnDurationsSectionProps
   useGlobalShortcuts([
     {
       key: 's',
-      meta: true,
-      ctrl: true,
+      metaOrCtrl: true,
       preventDefault: true,
       enabled: isDirty,
       handler: () => void handleSave(),

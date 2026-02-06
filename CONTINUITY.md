@@ -1,60 +1,54 @@
 # Continuity Ledger
 
-Last updated: 2026-02-05T19:27:00Z
+Last updated: 2026-02-06T10:22:40Z
 
 ## Goal (incl. success criteria)
 
-- Investigate and fix broken auto-complete booking flow that should trigger post-booking emails (Resend) after status transitions to completed.
-- Success: determine why completion-triggered emails are missing, restore correct email dispatch for completed bookings, and document findings.
+- Enforce Ops table assignment eligibility by status + date on both client and server.
+- Success: completed/cancelled/no_show cannot assign/unassign; only allowed statuses and today/future date.
+- Success: UI shows locked messaging; server returns ASSIGNMENT_LOCKED for disallowed actions.
+- Success: policy helpers tested.
 
 ## Constraints/Assumptions
 
-- Follow root AGENTS policies and any closer AGENTS.md files for touched paths.
-- Supabase operations must be remote-only.
-- No secrets in logs or code.
+- Follow root + path-level AGENTS policies.
+- Supabase operations are remote-only.
+- User requested skipping Chrome DevTools QA; document waiver in task artifacts.
+- Missing booking date or timezone => treat as not allowed (timezone fallback to UTC).
 
 ## Key decisions
 
-- None yet.
+- Single source of truth policy in lib/ops/table-assignment-policy.ts.
+- Server enforcement in direct-assignment guard + unassign guard.
 
 ## State
 
-- Review-request backlog drained; cron review-only filter deployed to production.
-- Latest production deploy succeeded after fixing TypeScript error in `scripts/build-zone-adjacency.ts`.
+- Phase 3: Implementation complete; verification update in progress.
 
 ## Done
 
-- Located main booking lifecycle, auto-complete cron, and email side-effect paths.
-- Confirmed review_request emails are scheduled via queue or inline delay in `server/jobs/booking-side-effects.ts`.
-- Created task folder `tasks/check-post-booking-emails-20260205-1753` with SDLC stubs.
-- Captured production queue status snapshot in `tasks/check-post-booking-emails-20260205-1753/artifacts/queue-status.json` (320 delayed jobs; 84 review_request).
-- Captured due delayed-job summary in `tasks/check-post-booking-emails-20260205-1753/artifacts/queue-due-summary.json` (151 due; 58 review_request).
-- Captured Resend audit for last 72h in `tasks/check-post-booking-emails-20260205-1753/artifacts/resend-review-audit.json` (2 review-like emails; delivered).
-- Probed cron endpoint without auth in `tasks/check-post-booking-emails-20260205-1753/artifacts/cron-process-emails-noauth.json` (401).
-- Added review-only filter support to `src/app/api/cron/process-emails/route.ts` (types=review_request).
-- Drained due review_request jobs via manual script; backlog cleared.
-- Fixed TypeScript predicate error in `scripts/build-zone-adjacency.ts`.
-- Deployed to production; cron filter endpoint verified via `artifacts/cron-process-emails-review-filter.json`.
+- Added status+date policy helper in lib/ops/table-assignment-policy.ts.
+- Enforced policy in BookingDetailsDialogWrapper and Ops list gating.
+- Added server guard in direct-assignment assign/unassign.
+- Added unit tests: tests/utils/tableAssignmentPolicy.test.ts.
+- Updated task research/plan/todo/verification with policy addendum and DevTools waiver note.
 
 ## Now
 
-- Monitor cron execution and verify no new backlog accrues.
+- Finalize response and explain updated assignment logic.
 
 ## Next
 
-- Compare completed bookings vs. review-request delivery (requires completed booking dataset).
-- Add lightweight observability for cron runs if requested.
+- Optional: run broader typecheck/lint if requested.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- Which environment and time window should be audited?
-- Is the failure limited to auto-complete cron or also manual check-out?
+- None.
 
 ## Working set (files/ids/commands)
 
-- `tasks/check-post-booking-emails-20260205-1753/research.md`
-- `tasks/check-post-booking-emails-20260205-1753/plan.md`
-- `server/jobs/auto-complete-bookings.ts`
-- `server/jobs/booking-side-effects.ts`
-- `scripts/queues/email-worker.ts`
-- `libs/resend.ts`
+- lib/ops/table-assignment-policy.ts
+- server/capacity/table-assignment/direct-assignment.ts
+- src/components/features/dashboard/list/BookingsListVirtualized.tsx
+- tests/utils/tableAssignmentPolicy.test.ts
+- tasks/ops-booking-dialog-redesign-20260206-0116/{research,plan,todo,verification}.md
