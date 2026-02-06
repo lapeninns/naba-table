@@ -1,8 +1,8 @@
 ---
-agents_version: 5.3
+agents_version: 5.4
 scope: subproject
 extends: ../../AGENTS.md
-last_updated: 2025-12-19
+last_updated: 2026-02-06
 owner: github:@amanshresthaa
 profile: web-next
 ---
@@ -39,5 +39,5 @@ Applies to all App Router routes, layouts, and route handlers under `src/app/**`
 ## MCP usage
 
 - Chrome DevTools MCP is required for UI changes.
-- Use Next DevTools MCP when changing route boundaries or data fetching strategy.
+- Use Codebase Retrieval (Augment) when changing route boundaries or data fetching strategy (server/client splits, route handlers).
 - Use Shadcn MCP for new UI primitives.

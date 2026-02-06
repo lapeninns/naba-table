@@ -112,6 +112,18 @@ export function OpsCustomersClient({
   const searchParams = useSearchParams();
   const opsBasePath = pathname?.startsWith('/app') ? '/app' : '';
   const opsPath = (path: string) => `${opsBasePath}${path}`;
+  const targetPath = useMemo(() => {
+    // When mounted under `/app/...`, keep the canonical Ops routes.
+    if (pathname?.startsWith('/app')) {
+      return '/app/customers';
+    }
+    // When mounted in a dev harness route (e.g. `/dev/ops-customers`), keep query sync on
+    // the current route instead of navigating to non-existent root aliases.
+    if (pathname) {
+      return pathname;
+    }
+    return '/customers';
+  }, [pathname]);
   const searchParamsKey = useMemo(() => searchParams?.toString() ?? '', [searchParams]);
   const { memberships, activeRestaurantId, setActiveRestaurantId, accountSnapshot } =
     useOpsSession();
@@ -211,12 +223,11 @@ export function OpsCustomersClient({
         return;
       }
 
-      const targetPath = `${opsBasePath}/customers`;
       router.replace(`${targetPath}${nextString ? `?${nextString}` : ''}`, {
         scroll: false,
       });
     },
-    [isOnline, opsBasePath, router, searchParams],
+    [isOnline, router, searchParams, targetPath],
   );
 
   useEffect(() => {

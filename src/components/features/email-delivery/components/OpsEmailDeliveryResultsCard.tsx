@@ -68,7 +68,7 @@ function GroupHeader({
   const bookingId = groupBookingId(group);
 
   return (
-    <div className="flex w-full items-start justify-between gap-3">
+    <div className="flex min-w-0 w-full items-start justify-between gap-3">
       <div className="flex items-start gap-3 min-w-0">
         <div className="mt-0.5">
           <StatusBadge status={group.currentStatus} />
@@ -77,13 +77,16 @@ function GroupHeader({
           <div className="text-sm font-semibold text-slate-900 truncate" title={subject}>
             {subject}
           </div>
-          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
-            <span className="truncate" title={group.recipientEmail}>
+          <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+            <span className="max-w-full break-all sm:truncate" title={group.recipientEmail}>
               {group.recipientEmail}
             </span>
             {when ? <span className="whitespace-nowrap">{when}</span> : null}
             {booking ? (
-              <span className="truncate" title={`${booking.reference} · ${booking.customerName}`}>
+              <span
+                className="max-w-full break-words sm:truncate"
+                title={`${booking.reference} · ${booking.customerName}`}
+              >
                 {booking.reference} · {booking.customerName}
               </span>
             ) : null}
@@ -93,7 +96,12 @@ function GroupHeader({
       </div>
 
       {bookingId ? (
-        <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-xs shrink-0">
+        <Button
+          asChild
+          variant="ghost"
+          size="sm"
+          className="hidden h-7 shrink-0 px-2 text-xs sm:inline-flex"
+        >
           <Link href={`/app/bookings?restaurantId=${restaurantId}&focus=${bookingId}`} prefetch={false}>
             Open booking
           </Link>
@@ -160,25 +168,28 @@ export function OpsEmailDeliveryResultsCard({
         <Accordion type="multiple" className="space-y-2">
           {items.map(({ key, group, booking }) => (
             <AccordionItem key={key} value={key} className="border-none rounded-lg bg-slate-50/60">
-              <AccordionTrigger className="px-3 py-2 hover:no-underline">
+              <AccordionTrigger className="min-w-0 px-3 py-2 hover:no-underline">
                 <GroupHeader group={group} timezone={timezone} booking={booking} restaurantId={restaurantId} />
               </AccordionTrigger>
               <AccordionContent className="px-3 pb-3">
                 <div className="space-y-2">
-                  <div className="text-xs text-slate-500 font-mono truncate" title={group.messageId}>
+                  <div
+                    className="max-w-full break-all text-xs font-mono text-slate-500 sm:truncate"
+                    title={group.messageId}
+                  >
                     messageId: {group.messageId}
                   </div>
                   {group.events.map((event) => {
                     const when = formatEmailDeliveryOccurredAt(event.occurredAt, timezone) ?? event.occurredAt;
                     return (
-                      <div key={event.id} className="flex items-start justify-between gap-3">
+                      <div key={event.id} className="flex min-w-0 items-start justify-between gap-3">
                         <div className="flex items-center gap-2">
                           <StatusBadge status={event.status} />
                           <span className="text-xs text-slate-600">{when ?? 'Unknown time'}</span>
                         </div>
                         {event.error ? (
                           <span
-                            className="text-xs text-rose-700 truncate max-w-[50%]"
+                            className="min-w-0 max-w-[50%] truncate text-xs text-rose-700"
                             title={event.error}
                           >
                             {event.error}
@@ -196,4 +207,3 @@ export function OpsEmailDeliveryResultsCard({
     </Card>
   );
 }
-

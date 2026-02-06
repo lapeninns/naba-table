@@ -70,7 +70,7 @@ import {
   formatBookingTime,
   formatPhoneForTel,
   getMinutesUntilTime,
-  getStatusConfig,
+  getStatusLabel,
 } from './utils';
 
 import type { BookingActionType, BookingDialogProps } from './types';
@@ -290,7 +290,7 @@ export function BookingDialog({
 
   const handleCopySummary = useCallback(async () => {
     if (!booking || !summary) return;
-    const statusLabel = getStatusConfig(booking.status).label;
+    const statusLabel = getStatusLabel(booking.status);
     const tableLabel = assignedTableRows.length
       ? assignedTableRows.map((member) => member.tableNumber).join(', ')
       : 'Unassigned';

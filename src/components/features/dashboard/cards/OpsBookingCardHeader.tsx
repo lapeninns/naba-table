@@ -4,12 +4,13 @@ import {
   Calendar,
   ChevronDown,
   Clock,
+  FileText,
   Sparkles,
   Users,
 } from 'lucide-react';
 import { memo } from 'react';
 
-import { StatusBadge } from '@/components/features/dashboard/StatusBadge';
+import { BookingStatusBadge } from '@/components/features/booking-state-machine';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,7 @@ import { cn } from '@/lib/utils';
 
 import type { BookingMeta, UrgencyBadge } from './opsBookingCardUtils';
 import type { BookingDTO } from '@/hooks/useBookings';
+import type { OpsBookingStatus } from '@/types/ops';
 
 export type OpsBookingCardHeaderProps = {
   booking: BookingDTO;
@@ -91,14 +93,20 @@ export const OpsBookingCardHeader = memo(function OpsBookingCardHeader({
 
         <div className="flex shrink-0 flex-col items-end gap-1.5">
           <div className="flex items-center gap-2">
-            <StatusBadge status={booking.status} />
+            <BookingStatusBadge
+              status={booking.status as OpsBookingStatus}
+              size="sm"
+              showTooltip={false}
+            />
             {showCollapseToggle ? (
               <CollapsibleTrigger asChild className="sm:hidden">
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 w-6 rounded-full p-0 transition-colors duration-150 hover:bg-muted/60 motion-reduce:transition-none"
+                  className="h-11 w-11 rounded-full p-0 transition-colors duration-150 hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
                   disabled={disableActions}
+                  aria-expanded={isOpen}
+                  aria-controls={`ops-booking-details-${booking.id}`}
                 >
                   <ChevronDown
                     className={cn(
@@ -111,11 +119,21 @@ export const OpsBookingCardHeader = memo(function OpsBookingCardHeader({
               </CollapsibleTrigger>
             ) : null}
           </div>
+          {showCollapseToggle && !isOpen && booking.notes ? (
+            <Badge
+              variant="secondary"
+              className="sm:hidden"
+            >
+              <FileText className="mr-1 h-3 w-3" aria-hidden />
+              Notes
+              <span className="sr-only"> available. Expand details to read.</span>
+            </Badge>
+          ) : null}
           {urgency ? (
             <Badge
               variant={urgency.variant === 'destructive' ? 'destructive' : 'outline'}
               className={cn(
-                'py-0.5 text-[9px] uppercase tracking-wider',
+                'py-0.5 text-xs uppercase tracking-wider',
                 urgency.variant === 'warning' && 'border-amber-200 bg-amber-50 text-amber-700',
               )}
             >

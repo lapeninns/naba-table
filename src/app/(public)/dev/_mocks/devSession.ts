@@ -1,0 +1,27 @@
+import { DEV_RESTAURANT_ID } from './devIds';
+
+import type { OpsFeatureFlags, OpsMembership, OpsUser } from '@/types/ops';
+
+export const DEV_USER: OpsUser = {
+  id: 'dev-user',
+  email: 'dev.ops@example.com',
+};
+
+export const DEV_MEMBERSHIPS: OpsMembership[] = [
+  {
+    restaurantId: DEV_RESTAURANT_ID,
+    restaurantName: 'Dev Restaurant (Ops Harness)',
+    restaurantSlug: 'dev-restaurant',
+    role: 'owner',
+    createdAt: new Date().toISOString(),
+  },
+];
+
+export const DEV_FEATURE_FLAGS: OpsFeatureFlags = {
+  opsMetrics: true,
+  selectorScoring: true,
+  rejectionAnalytics: true,
+};
+
+export { DEV_RESTAURANT_ID };
+

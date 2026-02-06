@@ -1,0 +1,8 @@
+# Session sources used for governance Q&A and policy reconciliation
+# (Paths only; do not copy raw contents into the repo.)
+
+/Users/amankumarshrestha/.codex/sessions/2026/01/25/rollout-2026-01-25T23-47-55-019bf78e-95bb-7943-9dac-739f412a91e9.jsonl
+/Users/amankumarshrestha/.codex/sessions/2026/02/06/rollout-2026-02-06T02-07-56-019c30b4-ba29-7c80-8250-adca384ce1e7.jsonl
+/Users/amankumarshrestha/.codex/sessions/2026/02/06/rollout-2026-02-06T09-14-30-019c323b-438d-7503-9cc5-e49a4936de37.jsonl
+/Users/amankumarshrestha/.codex/sessions/2026/01/18/rollout-2026-01-18T17-06-39-019bd212-b135-72c0-a06d-ce8e76a167b1.jsonl
+/Users/amankumarshrestha/.codex/sessions/2025/12/23/rollout-2025-12-23T00-17-49-019b4891-bdb4-7d41-9d4b-0252c8b3d277.jsonl

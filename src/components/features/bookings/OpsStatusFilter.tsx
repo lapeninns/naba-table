@@ -3,11 +3,11 @@
 import { X } from "lucide-react";
 import { useMemo, useRef } from "react";
 
-import { BOOKING_STATUS_CONFIG } from "@/components/features/booking-state-machine/BookingStatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
+import { OPS_BOOKING_STATUS_ORDER, getOpsBookingStatusUi } from "@/lib/ops/booking-status";
 import { cn } from "@/lib/utils";
 
 import type { OpsBookingStatus } from "@/types/ops";
@@ -26,19 +26,9 @@ type OpsStatusFilterProps = {
   order?: OpsBookingStatus[];
 };
 
-const STATUS_ORDER: OpsBookingStatus[] = [
-  "confirmed",
-  "checked_in",
-  "completed",
-  "pending",
-  "pending_allocation",
-  "no_show",
-  "cancelled",
-];
-
 export function OpsStatusFilter({ options, selected, onToggle, onClear, isLoading = false, order }: OpsStatusFilterProps) {
   const buttonRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const resolvedOrder = order ?? STATUS_ORDER;
+  const resolvedOrder = order ?? OPS_BOOKING_STATUS_ORDER;
 
   const orderedOptions = useMemo(() => {
     const lookup = new Map(options.map((option) => [option.status, option.count] as const));
@@ -79,7 +69,7 @@ export function OpsStatusFilter({ options, selected, onToggle, onClear, isLoadin
       <div className="flex flex-wrap items-center gap-2">
         <Popover>
           <PopoverTrigger asChild>
-            <Button type="button" variant="outline" className="h-9 gap-2">
+            <Button type="button" variant="outline" className="h-11 gap-2 sm:h-9">
               <span>Status: {selectedLabel}</span>
             </Button>
           </PopoverTrigger>
@@ -90,7 +80,7 @@ export function OpsStatusFilter({ options, selected, onToggle, onClear, isLoadin
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-8 px-2 text-xs"
+                className="h-11 px-3 text-xs sm:h-8 sm:px-2"
                 onClick={onClear}
                 disabled={selected.length === 0}
               >
@@ -99,7 +89,7 @@ export function OpsStatusFilter({ options, selected, onToggle, onClear, isLoadin
             </div>
             <div className="flex flex-col gap-1" role="menu" aria-label="Booking status filters" aria-busy={isLoading}>
               {orderedOptions.map((option, index) => {
-                const config = BOOKING_STATUS_CONFIG[option.status];
+                const config = getOpsBookingStatusUi(option.status);
                 const isSelected = selectedSet.has(option.status);
                 return (
                   <button
@@ -111,7 +101,7 @@ export function OpsStatusFilter({ options, selected, onToggle, onClear, isLoadin
                     role="menuitemcheckbox"
                     aria-checked={isSelected}
                     className={cn(
-                      'flex items-center justify-between rounded-lg border px-3 py-2 text-left text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                      'flex items-center justify-between rounded-lg border px-3 py-3 text-left text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:py-2',
                       isSelected ? 'border-primary bg-primary/5 text-primary' : 'border-border bg-background text-foreground',
                     )}
                     onClick={() => onToggle(option.status)}
@@ -133,7 +123,7 @@ export function OpsStatusFilter({ options, selected, onToggle, onClear, isLoadin
           </PopoverContent>
         </Popover>
         {selected.length > 0 ? (
-          <Button type="button" variant="ghost" size="sm" className="h-9" onClick={onClear}>
+          <Button type="button" variant="ghost" size="sm" className="h-11 sm:h-9" onClick={onClear}>
             <X className="mr-1 h-4 w-4" aria-hidden />
             Clear filters
           </Button>
@@ -143,7 +133,7 @@ export function OpsStatusFilter({ options, selected, onToggle, onClear, isLoadin
       {selected.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2">
           {selected.map((status) => {
-            const config = BOOKING_STATUS_CONFIG[status];
+            const config = getOpsBookingStatusUi(status);
             return (
               <Badge
                 key={status}

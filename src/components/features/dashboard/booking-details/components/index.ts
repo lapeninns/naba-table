@@ -9,9 +9,6 @@
 // ATOMIC COMPONENTS
 // =============================================================================
 
-/** Displays booking status with appropriate color styling */
-export { BookingStatusBadge, type BookingStatusBadgeProps } from './BookingStatusBadge';
-
 /** Click-to-copy text with visual feedback */
 export { ClickToCopy, type ClickToCopyProps } from './ClickToCopy';
 

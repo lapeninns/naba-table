@@ -1,8 +1,8 @@
 ---
-agents_version: 5.3
+agents_version: 5.4
 scope: subproject
 extends: ../../AGENTS.md
-last_updated: 2025-12-19
+last_updated: 2026-02-06
 owner: github:@amanshresthaa
 profile: web-hooks
 ---
@@ -27,4 +27,4 @@ UI (`src/components`) -> hooks (`src/hooks`) -> services/contexts (`src/services
 ## MCP usage
 
 - Chrome DevTools MCP for network/state inspection in UI flows.
-- Context7 MCP to find prior hook patterns before adding new ones.
+- Codebase Retrieval (Augment) to find prior hook patterns before adding new ones.

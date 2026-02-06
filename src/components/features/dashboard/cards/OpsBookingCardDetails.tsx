@@ -34,7 +34,7 @@ const InfoTile = ({
       className,
     )}
   >
-    <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+    <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
       {Icon ? <Icon className="h-3 w-3" aria-hidden /> : null}
       {label}
     </div>
@@ -70,13 +70,13 @@ export const OpsBookingCardDetails = memo(function OpsBookingCardDetails({
       <InfoTile label="Contact" icon={Mail}>
         <div className="flex flex-col gap-1 overflow-hidden leading-tight">
           {booking.customerPhone ? (
-            <span className="flex items-center gap-1 break-words text-[11px] font-semibold text-foreground/80">
+            <span className="flex items-center gap-1 break-words text-xs font-semibold text-foreground/80">
               <Phone className="h-2.5 w-2.5 shrink-0" aria-hidden /> {booking.customerPhone}
             </span>
           ) : null}
           {booking.customerEmail ? (
             <span
-              className="break-all text-[11px] italic leading-[1.1] text-muted-foreground/70"
+              className="break-all text-xs italic leading-[1.1] text-muted-foreground/70"
               title={booking.customerEmail}
             >
               {booking.customerEmail}
@@ -90,7 +90,7 @@ export const OpsBookingCardDetails = memo(function OpsBookingCardDetails({
 
       <InfoTile label="Booking" icon={Users}>
         <div className="flex flex-col">
-          <span className="font-mono text-[11px] text-muted-foreground">
+          <span className="font-mono text-xs text-muted-foreground">
             Ref {booking.reference || booking.id.slice(0, 8)}
           </span>
         </div>
@@ -111,6 +111,7 @@ export const OpsBookingCardDetails = memo(function OpsBookingCardDetails({
   return (
     <CollapsibleContent
       forceMount
+      id={`ops-booking-details-${booking.id}`}
       className="px-4 data-[state=closed]:hidden sm:block sm:data-[state=closed]:block"
     >
       {content}

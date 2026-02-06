@@ -103,7 +103,18 @@ export function OpsEmailDeliveryClient({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const opsBasePath = pathname?.startsWith('/app') ? '/app' : '';
-  const targetPath = `${opsBasePath}/email-delivery`;
+  const targetPath = useMemo(() => {
+    // When mounted under `/app/...`, keep the canonical Ops routes.
+    if (pathname?.startsWith('/app')) {
+      return '/app/email-delivery';
+    }
+    // When mounted in a dev harness route (e.g. `/dev/ops-email-delivery`), keep query sync on
+    // the current route instead of navigating to non-existent root aliases.
+    if (pathname) {
+      return pathname;
+    }
+    return `${opsBasePath}/email-delivery`;
+  }, [opsBasePath, pathname]);
 
   const { memberships, activeRestaurantId, setActiveRestaurantId } = useOpsSession();
   const membershipIds = useMemo(() => new Set(memberships.map((m) => m.restaurantId)), [memberships]);

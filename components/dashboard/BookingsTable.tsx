@@ -39,8 +39,7 @@ export type BookingsTableProps = {
   statusOptions?: { value: StatusFilter; label: string }[];
   opsActionMode?: 'full' | 'details-only';
   opsLifecycle?: {
-    pendingBookingId: string | null;
-    pendingAction: BookingAction | null;
+    pendingActionsByBookingId: Record<string, BookingAction | null>;
     onCheckIn: (bookingId: string) => Promise<void>;
     onCheckOut: (bookingId: string) => Promise<void>;
     onMarkNoShow: (bookingId: string, options?: { performedAt?: string | null; reason?: string | null }) => Promise<void>;
@@ -91,8 +90,6 @@ export function BookingsTable({
   const showEmpty = !showSkeleton && !error && bookings.length === 0;
   const trimmedSearch = searchTerm.trim();
   const isOpsVariant = variant === 'ops';
-  const isLifecycleLockActive =
-    opsLifecycle?.pendingAction === 'check-in' || opsLifecycle?.pendingAction === 'check-out';
   const prefersReducedMotion = useReducedMotion();
   const hasAnimatedRef = useRef(false);
   const measureFrameRef = useRef<number | null>(null);
@@ -155,6 +152,11 @@ export function BookingsTable({
         } as const;
     }
   }, [isOpsVariant, statusFilter, trimmedSearch]);
+
+  const totalLabel =
+    typeof total === 'number'
+      ? `${total} booking${total === 1 ? '' : 's'}`
+      : `${bookings.length} booking${bookings.length === 1 ? '' : 's'}`;
 
   const mobileEmptyState: EmptyStateProps | undefined = emptyState
     ? {
@@ -256,7 +258,19 @@ export function BookingsTable({
   }, [bookings.length, hasNextPage, isFetchingNextPage, onLoadMore, shouldVirtualize, virtualRows]);
 
   return (
-    <div className="space-y-3">
+    <div
+      id={isOpsVariant ? 'ops-bookings-list' : undefined}
+      tabIndex={isOpsVariant ? -1 : undefined}
+      role={isOpsVariant ? 'region' : undefined}
+      aria-label={isOpsVariant ? 'Bookings list' : undefined}
+      className="space-y-3"
+    >
+      {/* Screen reader summary for list changes (filters/search/pagination). */}
+      {isOpsVariant ? (
+        <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+          Showing {totalLabel}.
+        </div>
+      ) : null}
       {!hideHeader && (
         <BookingsHeader
           title={isOpsVariant ? 'Booking queue' : 'Bookings'}
@@ -347,10 +361,8 @@ export function BookingsTable({
                 const booking = bookings[virtualRow.index];
                 if (!booking) return null;
 
-                const actionsDisabled =
-                  isLifecycleLockActive &&
-                  Boolean(opsLifecycle?.pendingBookingId) &&
-                  opsLifecycle?.pendingBookingId !== booking.id;
+                const pendingAction =
+                  opsLifecycle?.pendingActionsByBookingId?.[booking.id] ?? null;
 
                 return (
                   <div
@@ -380,12 +392,8 @@ export function BookingsTable({
                       onCheckOut={opsLifecycle?.onCheckOut}
                       onMarkNoShow={opsLifecycle?.onMarkNoShow}
                       onUndoNoShow={opsLifecycle?.onUndoNoShow}
-                      pendingAction={
-                        opsLifecycle?.pendingBookingId === booking.id
-                          ? opsLifecycle.pendingAction
-                          : null
-                      }
-                      actionsDisabled={actionsDisabled}
+                      pendingAction={pendingAction}
+                      actionsDisabled={false}
                       allowTableAssignments={true}
                     />
                   </div>
@@ -401,10 +409,8 @@ export function BookingsTable({
             transition={shouldAnimate ? { duration: 0.2, ease: 'easeOut' } : undefined}
           >
             {bookings.map((booking) => {
-              const actionsDisabled =
-                isLifecycleLockActive &&
-                Boolean(opsLifecycle?.pendingBookingId) &&
-                opsLifecycle?.pendingBookingId !== booking.id;
+              const pendingAction =
+                opsLifecycle?.pendingActionsByBookingId?.[booking.id] ?? null;
               return (
                 <div
                   key={booking.id}
@@ -421,12 +427,8 @@ export function BookingsTable({
                     onCheckOut={opsLifecycle?.onCheckOut}
                     onMarkNoShow={opsLifecycle?.onMarkNoShow}
                     onUndoNoShow={opsLifecycle?.onUndoNoShow}
-                    pendingAction={
-                      opsLifecycle?.pendingBookingId === booking.id
-                        ? opsLifecycle.pendingAction
-                        : null
-                    }
-                    actionsDisabled={actionsDisabled}
+                    pendingAction={pendingAction}
+                    actionsDisabled={false}
                     allowTableAssignments={true}
                   />
                 </div>

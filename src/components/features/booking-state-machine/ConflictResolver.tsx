@@ -13,8 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-
-import { BOOKING_STATUS_CONFIG } from "./BookingStatusBadge";
+import { getOpsBookingStatusUi } from "@/lib/ops/booking-status";
 
 import type { ConflictPayload } from "./BookingErrorBoundary";
 import type { OpsBookingStatus } from "@/types/ops";
@@ -26,11 +25,7 @@ type ConflictResolverProps = {
 
 function formatStatus(status: OpsBookingStatus | null | undefined): string {
   if (!status) return "Unknown";
-  const config = BOOKING_STATUS_CONFIG[status];
-  if (config) {
-    return config.label;
-  }
-  return status.replaceAll("_", " ");
+  return getOpsBookingStatusUi(status).label;
 }
 
 export function ConflictResolver({ conflict, onClose }: ConflictResolverProps) {

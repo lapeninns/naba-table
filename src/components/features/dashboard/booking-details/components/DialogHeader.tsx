@@ -3,10 +3,10 @@
 import { Calendar, Check, Clock, Copy, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
+import { BookingStatusBadge } from '@/components/features/booking-state-machine';
 import { Button } from '@/components/ui/button';
 
 import { ArrivalCountdown } from './ArrivalCountdown';
-import { BookingStatusBadge } from './BookingStatusBadge';
 import { ClickToCopy } from './ClickToCopy';
 import { copyToClipboard, getGuestInitials } from '../utils';
 
@@ -60,7 +60,7 @@ export function DialogHeader({
             <span className="text-[15px] font-semibold leading-tight text-foreground break-words">
               {booking?.customerName ?? 'Booking details'}
             </span>
-            <BookingStatusBadge status={status} />
+            <BookingStatusBadge status={status} size="sm" showTooltip={false} />
           </div>
 
           <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium text-slate-500">
