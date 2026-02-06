@@ -1,100 +1,43 @@
+import { HttpError } from '@/lib/http/errors';
+
+import { createDevBookings, createDevTables, type DevOpsBookingRecord } from './devBookingServiceFixtures';
 import { createDevEmailDeliveryFeed } from './devEmailDelivery';
 
 import type { BookingService } from '@/services/ops/bookings';
-import type { OpsEmailDeliveryFeedResponse, OpsEmailDeliveryRange, EmailDeliveryStatus } from '@/types/emailDelivery';
+import type {
+  BookingEmailDeliveryResponse,
+  EmailDeliveryEventDTO,
+  EmailDeliveryStatus,
+  OpsEmailDeliveryFeedResponse,
+  OpsEmailDeliveryRange,
+} from '@/types/emailDelivery';
+import type { OpsBookingListItem, OpsBookingsFilters, OpsBookingsPage, OpsBookingStatus } from '@/types/ops';
 
+function parseIso(value: Date | string | null | undefined): Date | null {
+  if (!value) return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function normalizeSearch(value: string): string {
+  return value.trim().toLowerCase();
+}
 
 export class DevBookingService implements BookingService {
   private assignedByBookingId = new Map<string, string[]>();
   private readonly tables: Awaited<ReturnType<BookingService['getAssignmentContext']>>['tables'];
+  private readonly bookings: DevOpsBookingRecord[];
 
   constructor() {
-    this.tables = this.buildTables();
-  }
-
-  private buildTables(): Awaited<ReturnType<BookingService['getAssignmentContext']>>['tables'] {
-    const baseTables = [
-      {
-        id: 't-12',
-        tableNumber: '12',
-        name: 'Window 12',
-        capacity: 4,
-        minPartySize: 1,
-        maxPartySize: 6,
-        section: 'Main',
-        category: 'standard',
-        seatingType: 'standard',
-        mobility: 'standard',
-        zoneId: 'zone-main',
-        zoneActive: true,
-        status: 'available',
-        active: true,
-        position: null,
-      },
-      {
-        id: 't-7',
-        tableNumber: '7',
-        name: 'Booth 7',
-        capacity: 2,
-        minPartySize: 1,
-        maxPartySize: 2,
-        section: 'Booths',
-        category: 'booth',
-        seatingType: 'booth',
-        mobility: 'standard',
-        zoneId: 'zone-main',
-        zoneActive: true,
-        status: 'available',
-        active: true,
-        position: null,
-      },
-      {
-        id: 't-3',
-        tableNumber: '3',
-        name: 'Patio 3',
-        capacity: 4,
-        minPartySize: 1,
-        maxPartySize: 8,
-        section: 'Patio',
-        category: 'standard',
-        seatingType: 'standard',
-        mobility: 'standard',
-        zoneId: 'zone-patio',
-        zoneActive: true,
-        status: 'available',
-        active: true,
-        position: null,
-      },
-    ];
-
-    const generatedTables = Array.from({ length: 57 }, (_, index) => {
-      const tableNumber = 20 + index;
-      const sections = ['Main', 'Patio', 'Booths', 'Garden'];
-      const section = sections[index % sections.length]!;
-      const capacityOptions = [2, 4, 6, 8];
-      const capacity = capacityOptions[index % capacityOptions.length]!;
-      const zoneId = section === 'Patio' ? 'zone-patio' : 'zone-main';
-
-      return {
-        id: `t-${tableNumber}`,
-        tableNumber: `${tableNumber}`,
-        name: `${section} ${tableNumber}`,
-        capacity,
-        minPartySize: 1,
-        maxPartySize: capacity + 2,
-        section,
-        category: section === 'Booths' ? 'booth' : 'standard',
-        seatingType: section === 'Booths' ? 'booth' : 'standard',
-        mobility: 'standard',
-        zoneId,
-        zoneActive: true,
-        status: 'available',
-        active: true,
-        position: null,
-      };
+    this.tables = createDevTables();
+    this.bookings = createDevBookings();
+    this.bookings.forEach((booking) => {
+      const assigned = booking.tableAssignments?.flatMap((group) => group.members.map((member) => member.tableId)) ?? [];
+      if (assigned.length > 0) {
+        this.assignedByBookingId.set(booking.id, assigned);
+      }
     });
-
-    return [...baseTables, ...generatedTables];
   }
 
   private unimplemented<T extends (...args: unknown[]) => unknown>(name: string): T {
@@ -103,28 +46,293 @@ export class DevBookingService implements BookingService {
     }) as unknown as T;
   }
 
+  private toOpsBooking(record: DevOpsBookingRecord): OpsBookingListItem {
+    const { createdAt: createdAtRemoved, ...booking } = record;
+    void createdAtRemoved;
+    return booking;
+  }
+
+  private getBookingRecord(bookingId: string): DevOpsBookingRecord {
+    const record = this.bookings.find((booking) => booking.id === bookingId);
+    if (!record) {
+      throw new HttpError({
+        status: 404,
+        code: 'BOOKING_NOT_FOUND',
+        message: 'Booking not found.',
+      });
+    }
+    return record;
+  }
+
+  private conflictError(record: DevOpsBookingRecord, message: string): HttpError {
+    return new HttpError({
+      status: 409,
+      code: 'BOOKING_STATUS_CONFLICT',
+      message,
+      details: {
+        currentStatus: record.status,
+        updatedAt: new Date().toISOString(),
+      },
+    });
+  }
+
+  private getAssignedTableIds(record: DevOpsBookingRecord): string[] {
+    const fromMap = this.assignedByBookingId.get(record.id);
+    if (fromMap) return fromMap;
+    return record.tableAssignments?.flatMap((group) => group.members.map((member) => member.tableId)) ?? [];
+  }
+
+  private matchesFilters(record: DevOpsBookingRecord, filters: OpsBookingsFilters): boolean {
+    if (record.restaurantId !== filters.restaurantId) return false;
+
+    if (filters.tableId) {
+      const assigned = this.getAssignedTableIds(record);
+      if (!assigned.includes(filters.tableId)) return false;
+    }
+
+    if (filters.status && filters.status !== 'all' && record.status !== filters.status) {
+      return false;
+    }
+
+    if (filters.statuses && filters.statuses.length > 0 && !filters.statuses.includes(record.status)) {
+      return false;
+    }
+
+    const from = parseIso(filters.from);
+    const to = parseIso(filters.to);
+    if (from || to) {
+      const start = parseIso(record.startIso);
+      if (!start) return false;
+      if (from && start.getTime() < from.getTime()) return false;
+      // Treat `to` as an exclusive upper bound for predictable day/window filtering.
+      if (to && start.getTime() >= to.getTime()) return false;
+    }
+
+    const query = typeof filters.query === 'string' ? normalizeSearch(filters.query) : '';
+    if (query) {
+      const haystack = normalizeSearch(
+        [
+          record.customerName,
+          record.reference,
+          record.customerEmail,
+          record.customerPhone,
+          record.notes,
+        ]
+          .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+          .join(' '),
+      );
+      if (!haystack.includes(query)) return false;
+    }
+
+    return true;
+  }
+
   getTodaySummary = this.unimplemented<BookingService['getTodaySummary']>('getTodaySummary');
   getBookingHeatmap = this.unimplemented<BookingService['getBookingHeatmap']>('getBookingHeatmap');
   getRejectionAnalytics = this.unimplemented<BookingService['getRejectionAnalytics']>('getRejectionAnalytics');
   getStrategicSettings = this.unimplemented<BookingService['getStrategicSettings']>('getStrategicSettings');
   updateStrategicSettings = this.unimplemented<BookingService['updateStrategicSettings']>('updateStrategicSettings');
-  listBookings = this.unimplemented<BookingService['listBookings']>('listBookings');
   listDisabledAssignments = this.unimplemented<BookingService['listDisabledAssignments']>('listDisabledAssignments');
-  updateBooking = this.unimplemented<BookingService['updateBooking']>('updateBooking');
-  checkInBooking = this.unimplemented<BookingService['checkInBooking']>('checkInBooking');
-  checkOutBooking = this.unimplemented<BookingService['checkOutBooking']>('checkOutBooking');
-  markNoShowBooking = this.unimplemented<BookingService['markNoShowBooking']>('markNoShowBooking');
-  undoNoShowBooking = this.unimplemented<BookingService['undoNoShowBooking']>('undoNoShowBooking');
-  getStatusSummary = this.unimplemented<BookingService['getStatusSummary']>('getStatusSummary');
   getBookingHistory = this.unimplemented<BookingService['getBookingHistory']>('getBookingHistory');
-  getBooking = this.unimplemented<BookingService['getBooking']>('getBooking');
-  getBookingEmailDeliveryLog = this.unimplemented<BookingService['getBookingEmailDeliveryLog']>('getBookingEmailDeliveryLog');
-  cancelBooking = this.unimplemented<BookingService['cancelBooking']>('cancelBooking');
   createWalkInBooking = this.unimplemented<BookingService['createWalkInBooking']>('createWalkInBooking');
   assignTable = this.unimplemented<BookingService['assignTable']>('assignTable');
   unassignTable = this.unimplemented<BookingService['unassignTable']>('unassignTable');
   confirmHoldAssignment = this.unimplemented<BookingService['confirmHoldAssignment']>('confirmHoldAssignment');
   getManualAssignmentContext = this.unimplemented<BookingService['getManualAssignmentContext']>('getManualAssignmentContext');
+
+  listBookings: BookingService['listBookings'] = async (filters) => {
+    if (!filters.restaurantId) {
+      throw new Error('[dev][bookingService] restaurantId is required');
+    }
+
+    const page = Math.max(1, filters.page ?? 1);
+    const pageSize = Math.max(1, Math.min(200, filters.pageSize ?? 50));
+
+    const candidates = this.bookings.filter((record) => this.matchesFilters(record, filters));
+
+    const sortBy = filters.sortBy === 'created_at' ? 'created_at' : 'start_at';
+    const sortDir = filters.sort === 'desc' ? -1 : 1;
+
+    const sorted = candidates.slice().sort((a, b) => {
+      const aIso = sortBy === 'created_at' ? a.createdAt : a.startIso;
+      const bIso = sortBy === 'created_at' ? b.createdAt : b.startIso;
+      const aDate = parseIso(aIso);
+      const bDate = parseIso(bIso);
+      const aMs = aDate ? aDate.getTime() : 0;
+      const bMs = bDate ? bDate.getTime() : 0;
+      if (aMs === bMs) {
+        return a.id.localeCompare(b.id) * sortDir;
+      }
+      return (aMs - bMs) * sortDir;
+    });
+
+    const total = sorted.length;
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    const pageItems = sorted.slice(startIndex, endIndex).map((record) => this.toOpsBooking(record));
+
+    return {
+      items: pageItems,
+      pageInfo: {
+        page,
+        pageSize,
+        total,
+        hasNext: endIndex < total,
+      },
+    } satisfies OpsBookingsPage;
+  };
+
+  getStatusSummary: BookingService['getStatusSummary'] = async ({ restaurantId, from, to, statuses }) => {
+    const filterStatuses = statuses && statuses.length > 0 ? statuses : null;
+    const range: { from: string | null; to: string | null } = {
+      from: from ?? null,
+      to: to ?? null,
+    };
+
+    const totals: Record<OpsBookingStatus, number> = {
+      pending: 0,
+      pending_allocation: 0,
+      confirmed: 0,
+      checked_in: 0,
+      completed: 0,
+      cancelled: 0,
+      no_show: 0,
+      PRIORITY_WAITLIST: 0,
+    };
+
+    const fromDate = parseIso(from);
+    const toDate = parseIso(to);
+
+    this.bookings.forEach((record) => {
+      if (record.restaurantId !== restaurantId) return;
+      if (filterStatuses && !filterStatuses.includes(record.status)) return;
+      const start = parseIso(record.startIso);
+      if (!start) return;
+      if (fromDate && start.getTime() < fromDate.getTime()) return;
+      if (toDate && start.getTime() >= toDate.getTime()) return;
+      totals[record.status] = (totals[record.status] ?? 0) + 1;
+    });
+
+    return {
+      restaurantId,
+      range,
+      filter: { statuses: filterStatuses },
+      totals,
+      generatedAt: new Date().toISOString(),
+    };
+  };
+
+  getBooking: BookingService['getBooking'] = async (bookingId) => this.toOpsBooking(this.getBookingRecord(bookingId));
+
+  getBookingEmailDeliveryLog: BookingService['getBookingEmailDeliveryLog'] = async (
+    bookingId,
+  ): Promise<BookingEmailDeliveryResponse> => {
+    const booking = this.getBookingRecord(bookingId);
+    const recipientEmail = booking.customerEmail ?? 'guest@example.com';
+    const now = new Date();
+    const base: Omit<EmailDeliveryEventDTO, 'id' | 'status' | 'occurredAt'> = {
+      bookingId,
+      restaurantId: booking.restaurantId ?? null,
+      emailType: 'booking_confirmation',
+      templateType: 'booking_confirmation',
+      recipientEmail,
+      messageId: `dev-msg-${bookingId}`,
+      provider: 'mock',
+      error: null,
+      metadata: null,
+    };
+
+    return {
+      ok: true,
+      bookingId,
+      events: [
+        {
+          ...base,
+          id: `dev-mail-${bookingId}-sent`,
+          status: 'sent',
+          occurredAt: new Date(now.getTime() - 60_000).toISOString(),
+        },
+        {
+          ...base,
+          id: `dev-mail-${bookingId}-delivered`,
+          status: 'delivered',
+          occurredAt: new Date(now.getTime() - 30_000).toISOString(),
+        },
+      ],
+    };
+  };
+
+  updateBooking: BookingService['updateBooking'] = async (input) => {
+    const record = this.getBookingRecord(input.id);
+    record.startIso = input.startIso;
+    record.endIso = input.endIso;
+    record.partySize = input.partySize;
+    record.notes = input.notes ?? null;
+    return this.toOpsBooking(record);
+  };
+
+  cancelBooking: BookingService['cancelBooking'] = async ({ id }) => {
+    const record = this.getBookingRecord(id);
+    record.status = 'cancelled';
+    record.checkedInAt = null;
+    record.checkedOutAt = null;
+    return { id, status: record.status };
+  };
+
+  checkInBooking: BookingService['checkInBooking'] = async ({ id, performedAt }) => {
+    const record = this.getBookingRecord(id);
+    if (record.status === 'checked_in') {
+      return { status: record.status, checkedInAt: record.checkedInAt ?? null, checkedOutAt: record.checkedOutAt ?? null };
+    }
+    if (!['pending', 'pending_allocation', 'confirmed'].includes(record.status)) {
+      throw this.conflictError(record, 'Booking cannot be checked in from its current status.');
+    }
+
+    record.status = 'checked_in';
+    record.checkedInAt = performedAt ?? new Date().toISOString();
+    record.checkedOutAt = null;
+    return { status: record.status, checkedInAt: record.checkedInAt ?? null, checkedOutAt: record.checkedOutAt ?? null };
+  };
+
+  checkOutBooking: BookingService['checkOutBooking'] = async ({ id, performedAt }) => {
+    const record = this.getBookingRecord(id);
+    if (record.status === 'completed') {
+      return { status: record.status, checkedInAt: record.checkedInAt ?? null, checkedOutAt: record.checkedOutAt ?? null };
+    }
+    if (record.status !== 'checked_in') {
+      throw this.conflictError(record, 'Booking must be checked in before it can be completed.');
+    }
+
+    record.status = 'completed';
+    record.checkedOutAt = performedAt ?? new Date().toISOString();
+    return { status: record.status, checkedInAt: record.checkedInAt ?? null, checkedOutAt: record.checkedOutAt ?? null };
+  };
+
+  markNoShowBooking: BookingService['markNoShowBooking'] = async ({ id }) => {
+    const record = this.getBookingRecord(id);
+    if (record.status === 'no_show') {
+      return { status: record.status, checkedInAt: record.checkedInAt ?? null, checkedOutAt: record.checkedOutAt ?? null };
+    }
+    if (!['pending', 'pending_allocation', 'confirmed'].includes(record.status)) {
+      throw this.conflictError(record, 'Booking cannot be marked as no-show from its current status.');
+    }
+    record.status = 'no_show';
+    record.checkedInAt = null;
+    record.checkedOutAt = null;
+    return { status: record.status, checkedInAt: record.checkedInAt ?? null, checkedOutAt: record.checkedOutAt ?? null };
+  };
+
+  undoNoShowBooking: BookingService['undoNoShowBooking'] = async ({ id }) => {
+    const record = this.getBookingRecord(id);
+    if (record.status === 'confirmed') {
+      return { status: record.status, checkedInAt: record.checkedInAt ?? null, checkedOutAt: record.checkedOutAt ?? null };
+    }
+    if (record.status !== 'no_show') {
+      throw this.conflictError(record, 'Only no-show bookings can be restored.');
+    }
+    record.status = 'confirmed';
+    return { status: record.status, checkedInAt: record.checkedInAt ?? null, checkedOutAt: record.checkedOutAt ?? null };
+  };
 
   getAssignmentContext: BookingService['getAssignmentContext'] = async (bookingId) => {
     const assigned = this.assignedByBookingId.get(bookingId) ?? [];

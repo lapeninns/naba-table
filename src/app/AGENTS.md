@@ -41,3 +41,10 @@ Applies to all App Router routes, layouts, and route handlers under `src/app/**`
 - Chrome DevTools MCP is required for UI changes.
 - Use Codebase Retrieval (Augment) when changing route boundaries or data fetching strategy (server/client splits, route handlers).
 - Use Shadcn MCP for new UI primitives.
+
+## Dev Harness Routes (For UI QA)
+
+When a UI route is blocked in local dev (auth/tenant gating, redirects, etc.), you may add a **dev-only harness route** to enable the mandatory Chrome DevTools MCP verification.
+
+- Put harness pages under `src/app/(public)/dev/**` and call `enforceDevOnly()` from `src/app/(public)/dev/_shared/enforceDevOnly.ts` at the **server boundary**.
+- If you need to verify `/app/*` path-prefix behavior (single-host mode) without going through the protected `src/app/app/(app)/layout.tsx`, add a parallel harness page under `src/app/app/dev/**` (outside the `(app)` route group) and reuse the same harness UI component.

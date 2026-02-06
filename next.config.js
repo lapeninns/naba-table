@@ -139,6 +139,9 @@ const nextConfig = {
     return redirects;
   },
   turbopack: {
+    // Avoid accidental workspace-root inference when unrelated lockfiles exist outside this repo.
+    // Next.js expects an absolute path here; __dirname is the directory containing this config file.
+    root: __dirname,
     resolveAlias: aliasEntries,
   },
   webpack: (config) => {

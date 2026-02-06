@@ -476,6 +476,9 @@ Errors: { code, message }
 **Activities**:
 
 - **Chrome DevTools MCP Manual QA**: console/network; device emulation; profiling; Lighthouse; a11y.
+- If the UI route is **auth-gated** (or otherwise unreachable) in local dev, create a **dev-only harness route** to satisfy the DevTools MCP requirement:
+  - Location: `src/app/(public)/dev/<harness>/page.tsx` (and optionally `src/app/app/dev/<harness>/page.tsx` to validate `/app/*` base-path behavior without going through the protected `(app)` layout group).
+  - Guard: call `enforceDevOnly()` from `src/app/(public)/dev/_shared/enforceDevOnly.ts` at the **server component boundary** so the harness is never reachable in non-dev environments.
 - Cross‑browser smoke where relevant.
 - Validate edge cases & error paths; perf budgets; basic security checks.
 - Attach artifacts in `artifacts/` (Lighthouse JSON, HAR, traces, screenshots, db diff).
