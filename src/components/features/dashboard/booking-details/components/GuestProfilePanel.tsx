@@ -30,6 +30,7 @@ import { cn } from '@/lib/utils';
 import { ArrivalCountdown } from './ArrivalCountdown';
 import { ClickToCopy } from './ClickToCopy';
 import { ContactInfoRow } from './ContactInfoRow';
+import { EmailDeliveryPanel } from './EmailDeliveryPanel';
 import {
   formatBookingTime,
   formatPhoneForTel,
@@ -268,6 +269,8 @@ export function GuestProfilePanel({
           ) : null}
         </CardContent>
       </Card>
+
+      <EmailDeliveryPanel bookingId={booking.id} timezone={timezone} />
 
       <div className="grid grid-cols-2 gap-3">
         <Card className="group hover:shadow-md transition-[transform,box-shadow,border-color,background-color] duration-200 border-slate-200/60 bg-gradient-to-br from-white to-indigo-50/30">

@@ -1,6 +1,12 @@
 import '@testing-library/jest-dom/vitest';
 import { vi } from 'vitest';
 
+// Some server modules validate env vars at import-time (via lib/env.ts).
+// Provide safe dummy values so unit tests can import server code without requiring real secrets.
+process.env.NEXT_PUBLIC_SUPABASE_URL ??= 'https://test.supabase.co';
+process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??= 'test-anon-key';
+process.env.SUPABASE_SERVICE_ROLE_KEY ??= 'test-service-role-key';
+
 class ResizeObserverMock {
   observe() {}
   unobserve() {}
