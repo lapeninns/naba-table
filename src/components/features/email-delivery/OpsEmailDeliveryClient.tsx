@@ -1,12 +1,13 @@
 'use client';
 
-import { MailCheck, MailWarning } from 'lucide-react';
+import { MailWarning } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { OpsEmailDeliveryFiltersCard } from '@/components/features/email-delivery/components/OpsEmailDeliveryFiltersCard';
 import { OpsEmailDeliveryResultsCard } from '@/components/features/email-delivery/components/OpsEmailDeliveryResultsCard';
+import { OpsEmailDeliverySummaryMetrics } from '@/components/features/email-delivery/components/OpsEmailDeliverySummaryMetrics';
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
 import { OpsPageToolbar } from '@/components/features/ops-shell/patterns/OpsPageToolbar';
@@ -19,15 +20,14 @@ import { useOpsSession } from '@/contexts/ops-session';
 import { useOpsEmailDeliveryFeed } from '@/hooks/ops/useOpsEmailDeliveryFeed';
 import { useOpsRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
 import { EMAIL_DELIVERY_STATUS_VALUES } from '@/types/emailDelivery';
-import { groupEmailDeliveryEvents } from '@src/lib/email-delivery/grouping';
 import { parseEmailDeliverySearch } from '@src/lib/email-delivery/search';
 
 import type {
   EmailDeliveryStatus,
-  OpsEmailDeliveryBookingDTO,
   OpsEmailDeliveryRange,
 } from '@/types/emailDelivery';
 
+const EMPTY_STATUSES: EmailDeliveryStatus[] = [];
 
 export type OpsEmailDeliveryClientProps = {
   initialRestaurantId?: string | null;
@@ -92,7 +92,7 @@ export function OpsEmailDeliveryClient({
   initialRange = '7d',
   initialPage = 1,
   initialPageSize = 50,
-  initialStatuses = [],
+  initialStatuses = EMPTY_STATUSES,
   initialRecipientEmail = null,
   initialMessageId = null,
   initialBookingRef = null,
@@ -295,17 +295,18 @@ export function OpsEmailDeliveryClient({
     emailType: emailType ?? undefined,
   });
 
-  const bookingMap = useMemo(() => {
-    const rows = query.bookings ?? [];
-    const map = new Map<string, OpsEmailDeliveryBookingDTO>();
-    rows.forEach((row) => map.set(row.id, row));
-    return map;
-  }, [query.bookings]);
-
-  const groups = useMemo(() => {
-    const events = query.events ?? [];
-    return groupEmailDeliveryEvents(events);
-  }, [query.events]);
+  const attempts = query.attempts ?? [];
+  const summary = query.summary ?? null;
+  const statusCounts = summary
+    ? ({
+        sent: summary.sent,
+        delivered: summary.delivered,
+        delivery_delayed: summary.deliveryDelayed,
+        bounced: summary.bounced,
+        complained: summary.complained,
+        failed: summary.failed,
+      } satisfies Partial<Record<EmailDeliveryStatus, number>>)
+    : null;
 
   const handleSubmitSearch = useCallback(() => {
     const parsed = parseEmailDeliverySearch(searchValue);
@@ -329,13 +330,27 @@ export function OpsEmailDeliveryClient({
   const toggleStatus = useCallback(
     (status: EmailDeliveryStatus, enabled: boolean) => {
       setPage(1);
-      setStatuses((prev) => {
-        const next = enabled ? Array.from(new Set([...prev, status])) : prev.filter((s) => s !== status);
-        syncQueryParams({ statuses: next, page: 1 });
-        return next;
-      });
+      const next = enabled
+        ? Array.from(new Set([...statuses, status]))
+        : statuses.filter((s) => s !== status);
+      setStatuses(next);
+      syncQueryParams({ statuses: next, page: 1 });
     },
-    [syncQueryParams],
+    [statuses, syncQueryParams],
+  );
+
+  const filterStatusFromMetrics = useCallback(
+    (status: EmailDeliveryStatus | null) => {
+      setPage(1);
+      const next = status
+        ? statuses.length === 1 && statuses[0] === status
+          ? []
+          : [status]
+        : [];
+      setStatuses(next);
+      syncQueryParams({ statuses: next, page: 1 });
+    },
+    [statuses, syncQueryParams],
   );
 
   const handlePrev = useCallback(() => {
@@ -375,13 +390,22 @@ export function OpsEmailDeliveryClient({
     <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
       <OpsPageHeader
         title="Email Delivery"
-        subtitle="Track Resend delivery status for recent booking emails."
+        subtitle="Deliverability dashboard for booking emails (Resend)."
         meta={
-          effectiveRestaurantId ? (
-            <Badge variant="outline" className="font-mono text-xs">
-              {effectiveRestaurantId.slice(0, 8)}
+          restaurantDetails.data ? (
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-xs">
+                {restaurantDetails.data.name}
+              </Badge>
+              <Badge variant="outline" className="font-mono text-xs text-muted-foreground">
+                {timezone}
+              </Badge>
+            </div>
+          ) : (
+            <Badge variant="outline" className="font-mono text-xs text-muted-foreground">
+              {timezone}
             </Badge>
-          ) : null
+          )
         }
         secondaryActions={
           <Button asChild variant="outline" size="sm">
@@ -396,6 +420,7 @@ export function OpsEmailDeliveryClient({
         <OpsEmailDeliveryFiltersCard
           range={range}
           statuses={statuses}
+          statusCounts={statusCounts}
           searchValue={searchValue}
           templateType={templateType}
           emailType={emailType}
@@ -443,24 +468,8 @@ export function OpsEmailDeliveryClient({
         />
       </OpsPageToolbar>
 
-      <section className="mt-6">
-        {query.isLoading ? (
-          <Card className="border-slate-200/60 bg-white">
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Email Delivery
-                </div>
-                <MailCheck className="h-4 w-4 text-slate-400" aria-hidden />
-              </div>
-              <div className="space-y-2">
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-              </div>
-            </CardContent>
-          </Card>
-        ) : query.unavailable ? (
+      <section className="mt-6 space-y-4">
+        {query.unavailable ? (
           <Alert className="border-amber-200/70 bg-amber-50/60">
             <MailWarning className="h-4 w-4" aria-hidden />
             <AlertTitle>Delivery tracking unavailable</AlertTitle>
@@ -470,7 +479,7 @@ export function OpsEmailDeliveryClient({
           </Alert>
         ) : query.apiError ? (
           <Alert variant="destructive">
-            <AlertTitle>Unable to load delivery events</AlertTitle>
+            <AlertTitle>Unable to load email delivery attempts</AlertTitle>
             <AlertDescription>{query.apiError.error}</AlertDescription>
           </Alert>
         ) : query.error ? (
@@ -478,23 +487,57 @@ export function OpsEmailDeliveryClient({
             <AlertTitle>Unexpected error</AlertTitle>
             <AlertDescription>{query.error.message}</AlertDescription>
           </Alert>
-        ) : groups.length === 0 ? (
-          <Card className="border-slate-200/60 bg-white">
-            <CardContent className="p-4">
-              <div className="text-sm text-slate-600">No delivery events in this time range.</div>
-            </CardContent>
-          </Card>
         ) : (
-          <OpsEmailDeliveryResultsCard
-            groups={groups}
-            timezone={timezone}
-            restaurantId={effectiveRestaurantId ?? ''}
-            bookingMap={bookingMap}
-            page={page}
-            hasNext={Boolean(query.response && query.response.ok && query.response.pageInfo.hasNext)}
-            onPrev={handlePrev}
-            onNext={handleNext}
-          />
+          <>
+            <OpsEmailDeliverySummaryMetrics
+              summary={summary}
+              isLoading={query.isSummaryLoading}
+              isUpdating={query.isSummaryUpdating}
+              onFilterStatus={filterStatusFromMetrics}
+            />
+
+            {query.isLoading && attempts.length === 0 ? (
+              <div className="space-y-2" aria-label="Loading email delivery attempts">
+                <Card className="border-slate-200/60 bg-white">
+                  <CardContent className="p-4 space-y-2">
+                    <Skeleton className="h-4 w-[65%]" />
+                    <Skeleton className="h-3 w-[90%]" />
+                    <Skeleton className="h-3 w-[80%]" />
+                  </CardContent>
+                </Card>
+                <Card className="border-slate-200/60 bg-white">
+                  <CardContent className="p-4 space-y-2">
+                    <Skeleton className="h-4 w-[55%]" />
+                    <Skeleton className="h-3 w-[92%]" />
+                    <Skeleton className="h-3 w-[70%]" />
+                  </CardContent>
+                </Card>
+                <Card className="border-slate-200/60 bg-white">
+                  <CardContent className="p-4 space-y-2">
+                    <Skeleton className="h-4 w-[60%]" />
+                    <Skeleton className="h-3 w-[88%]" />
+                    <Skeleton className="h-3 w-[75%]" />
+                  </CardContent>
+                </Card>
+              </div>
+            ) : attempts.length === 0 ? (
+              <Card className="border-slate-200/60 bg-white">
+                <CardContent className="p-4">
+                  <div className="text-sm text-slate-600">No email attempts in this time range.</div>
+                </CardContent>
+              </Card>
+            ) : (
+              <OpsEmailDeliveryResultsCard
+                attempts={attempts}
+                timezone={timezone}
+                restaurantId={effectiveRestaurantId ?? ''}
+                page={page}
+                hasNext={Boolean(query.response && query.response.ok && query.response.pageInfo.hasNext)}
+                onPrev={handlePrev}
+                onNext={handleNext}
+              />
+            )}
+          </>
         )}
       </section>
     </main>

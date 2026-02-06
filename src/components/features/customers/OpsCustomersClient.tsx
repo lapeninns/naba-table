@@ -26,6 +26,7 @@ import { useOpsCustomers } from '@/hooks/useOpsCustomers';
 
 import { CustomersTable } from './CustomersTable';
 import { ExportCustomersButton } from './ExportCustomersButton';
+import { GuestsSummaryMetrics } from './GuestsSummaryMetrics';
 
 type MarketingFilter = 'all' | 'opted_in' | 'opted_out';
 type LastVisitFilter = 'any' | '30d' | '90d' | '365d' | 'never';
@@ -289,6 +290,9 @@ export function OpsCustomersClient({
     () => customerPages.flatMap((page) => page.items),
     [customerPages],
   );
+  const summary = customerPages[0]?.summary ?? null;
+  const isSummaryLoading = isLoading && !summary;
+  const isSummaryUpdating = isFetching && !!summary && !isFetchingNextPage;
 
   const isRefreshing = isFetching && !isFetchingNextPage;
 
@@ -399,7 +403,7 @@ export function OpsCustomersClient({
       <section className="mx-auto flex min-h-[40vh] max-w-2xl items-center justify-center p-8">
         <OpsEmptyState
           title="Loading restaurant access…"
-          description="We’re preparing your customers. This will only take a moment."
+          description="We’re preparing your guests. This will only take a moment."
         />
       </section>
     );
@@ -409,7 +413,7 @@ export function OpsCustomersClient({
     <div className="min-h-screen bg-background font-sans text-foreground">
       <main className="mx-auto w-full max-w-6xl space-y-4 px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
         <OpsPageHeader
-          title="Customers"
+          title="Guests"
           meta={
             <>
               <Badge variant="secondary" className="rounded-md font-medium">
@@ -540,7 +544,7 @@ export function OpsCustomersClient({
                 }}
                 placeholder="Search guests…"
                 className="h-9 w-full rounded-lg border border-border bg-background pl-10 pr-3 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 touch-manipulation"
-                aria-label="Search customers"
+                aria-label="Search guests"
                 autoComplete="off"
               />
             </div>
@@ -577,9 +581,15 @@ export function OpsCustomersClient({
           </div>
         </OpsPageToolbar>
 
+        <GuestsSummaryMetrics
+          summary={summary}
+          isLoading={isSummaryLoading}
+          isUpdating={isSummaryUpdating}
+        />
+
         {error ? (
           <Alert variant="destructive" role="alert">
-            <AlertTitle>Unable to load customers</AlertTitle>
+            <AlertTitle>Unable to load guests</AlertTitle>
             <AlertDescription className="flex items-center justify-between gap-4">
               <span>{error.message}</span>
               <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>

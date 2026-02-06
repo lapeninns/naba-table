@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { getSupabaseBrowserClient } from '@/lib/supabase/browser';
 import { useSupabaseSession } from '@/hooks/useSupabaseSession';
+import { getSupabaseBrowserClient } from '@/lib/supabase/browser';
 
 export type GuestPreferences = {
   preferredPartySize: number | null;
@@ -67,7 +67,7 @@ export function useGuestPreferences() {
           });
         } catch (error) {
           if (process.env.NODE_ENV === 'development') {
-            // eslint-disable-next-line no-console
+             
             console.warn('[preferences] failed to sync to auth metadata', error);
           }
         }

@@ -25,6 +25,7 @@ import type { EmailDeliveryStatus, OpsEmailDeliveryRange } from '@/types/emailDe
 export type OpsEmailDeliveryFiltersCardProps = {
   range: OpsEmailDeliveryRange;
   statuses: EmailDeliveryStatus[];
+  statusCounts?: Partial<Record<EmailDeliveryStatus, number>> | null;
   searchValue: string;
   templateType: string | null;
   emailType: string | null;
@@ -42,6 +43,7 @@ export type OpsEmailDeliveryFiltersCardProps = {
 export function OpsEmailDeliveryFiltersCard({
   range,
   statuses,
+  statusCounts,
   searchValue,
   templateType,
   emailType,
@@ -74,9 +76,10 @@ export function OpsEmailDeliveryFiltersCard({
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" aria-hidden />
               <Input
                 name="email_delivery_search"
+                type="search"
                 value={searchValue}
                 onChange={(e) => onSearchValueChange(e.target.value)}
-                placeholder="Search (email, message id, booking ref)…"
+                placeholder="Search (to:email, msg:id, ref:booking)…"
                 className="pl-9"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
@@ -84,7 +87,7 @@ export function OpsEmailDeliveryFiltersCard({
                     onSubmitSearch();
                   }
                 }}
-                aria-label="Search email delivery events"
+                aria-label="Search email delivery attempts"
               />
             </div>
           </div>
@@ -134,7 +137,14 @@ export function OpsEmailDeliveryFiltersCard({
                     checked={statuses.includes(status)}
                     onCheckedChange={(checked) => onToggleStatus(status, Boolean(checked))}
                   >
-                    {EMAIL_DELIVERY_STATUS_LABELS[status]}
+                    <div className="flex w-full items-center justify-between gap-2">
+                      <span>{EMAIL_DELIVERY_STATUS_LABELS[status]}</span>
+                      {typeof statusCounts?.[status] === 'number' ? (
+                        <Badge variant="secondary" className="h-5 px-2 text-[10px]">
+                          {statusCounts[status]}
+                        </Badge>
+                      ) : null}
+                    </div>
                   </DropdownMenuCheckboxItem>
                 ))}
               </DropdownMenuContent>
@@ -156,6 +166,12 @@ export function OpsEmailDeliveryFiltersCard({
             placeholder="Template type (optional)"
             aria-label="Filter by template type"
             onBlur={(e) => onTemplateTypeCommit(e.currentTarget.value.trim() || null)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                onTemplateTypeCommit(e.currentTarget.value.trim() || null);
+              }
+            }}
           />
           <Input
             name="email_delivery_email_type"
@@ -164,6 +180,12 @@ export function OpsEmailDeliveryFiltersCard({
             placeholder="Email type (optional)"
             aria-label="Filter by email type"
             onBlur={(e) => onEmailTypeCommit(e.currentTarget.value.trim() || null)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                onEmailTypeCommit(e.currentTarget.value.trim() || null);
+              }
+            }}
           />
         </div>
       </CardContent>

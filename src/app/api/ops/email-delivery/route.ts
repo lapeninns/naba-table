@@ -9,9 +9,9 @@ import {
 } from '@/server/auth/guards';
 import {
   EmailDeliveryLogUnavailableError,
-  listEmailDeliveryEventsForRestaurant,
+  getEmailDeliveryAttemptsSummary,
+  listEmailDeliveryAttemptsForRestaurant,
 } from '@/server/emails/email-delivery-log';
-import { getServiceSupabaseClient } from '@/server/supabase';
 import {
   EMAIL_DELIVERY_STATUS_VALUES,
   OPS_EMAIL_DELIVERY_RANGE_VALUES,
@@ -106,7 +106,7 @@ export async function GET(request: NextRequest) {
       restaurantId,
     });
 
-    const listResult = await listEmailDeliveryEventsForRestaurant({
+    const listResult = await listEmailDeliveryAttemptsForRestaurant({
       restaurantId,
       range: parsedQuery.data.range,
       page: parsedQuery.data.page,
@@ -119,56 +119,21 @@ export async function GET(request: NextRequest) {
       emailType: parsedQuery.data.emailType,
     });
 
-    const events = listResult.events;
-
-    const bookingIds = Array.from(
-      new Set(
-        events
-          .map((event) => event.bookingId)
-          .filter((value): value is string => typeof value === 'string' && value.length > 0),
-      ),
-    );
-
-    const bookings: Extract<OpsEmailDeliveryFeedResponse, { ok: true }>['bookings'] = [];
-
-    if (bookingIds.length > 0) {
+    let summary: Extract<OpsEmailDeliveryFeedResponse, { ok: true }>['summary'] = undefined;
+    if (listResult.page === 1) {
       try {
-        const service = getServiceSupabaseClient();
-        const { data, error } = await service
-          .from('bookings')
-          .select('id, reference, booking_date, start_time, end_time, customer_name, party_size')
-          .eq('restaurant_id', restaurantId)
-          .in('id', bookingIds);
-
-        if (error) {
-          console.error('[ops/email-delivery] failed to load booking context', {
-            restaurantId,
-            code: error.code ?? null,
-            message: error.message,
-          });
-        } else if (data) {
-          for (const row of data as Array<{
-            id: string;
-            reference: string;
-            booking_date: string;
-            start_time: string;
-            end_time: string;
-            customer_name: string;
-            party_size: number;
-          }>) {
-            bookings.push({
-              id: row.id,
-              reference: row.reference,
-              bookingDate: row.booking_date,
-              startTime: row.start_time,
-              endTime: row.end_time,
-              customerName: row.customer_name,
-              partySize: row.party_size,
-            });
-          }
-        }
+        summary = await getEmailDeliveryAttemptsSummary({
+          restaurantId,
+          range: parsedQuery.data.range,
+          statuses: statuses.statuses.length > 0 ? statuses.statuses : undefined,
+          recipientEmail: parsedQuery.data.recipientEmail,
+          messageId: parsedQuery.data.messageId,
+          bookingRef: parsedQuery.data.bookingRef ? parsedQuery.data.bookingRef.toUpperCase() : undefined,
+          templateType: parsedQuery.data.templateType,
+          emailType: parsedQuery.data.emailType,
+        });
       } catch (error) {
-        console.error('[ops/email-delivery] booking context lookup threw', {
+        console.error('[ops/email-delivery] failed to compute summary', {
           restaurantId,
           error: error instanceof Error ? error.message : String(error),
         });
@@ -185,8 +150,8 @@ export async function GET(request: NextRequest) {
           pageSize: listResult.pageSize,
           hasNext: listResult.hasNext,
         },
-        events,
-        bookings,
+        attempts: listResult.attempts,
+        ...(summary ? { summary } : {}),
       } satisfies Extract<OpsEmailDeliveryFeedResponse, { ok: true }>,
       { status: 200 },
     );

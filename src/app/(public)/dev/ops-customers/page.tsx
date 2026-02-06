@@ -5,8 +5,13 @@ export const metadata = {
   title: 'Dev: Ops customers',
 };
 
-export default function OpsCustomersDevPage() {
+export default async function OpsCustomersDevPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string>>;
+}) {
   enforceDevOnly();
-  return <OpsCustomersDevHarness />;
+  const resolvedSearchParams = (await searchParams) ?? {};
+  const focusCustomer = resolvedSearchParams.focus ?? null;
+  return <OpsCustomersDevHarness focusCustomer={focusCustomer} />;
 }
-

@@ -1,9 +1,9 @@
 import { render } from '@testing-library/react';
+import { createQueryWrapper, createTestQueryClient } from '@tests/utils/reactQuery';
 import { describe, expect, it, vi } from 'vitest';
 import { axe } from 'vitest-axe';
 import { toHaveNoViolations } from 'vitest-axe/matchers';
 
-import { createQueryWrapper, createTestQueryClient } from '@tests/utils/reactQuery';
 
 import type { OpsTodayBooking, OpsTodayBookingsSummary } from '@src/types/ops';
 

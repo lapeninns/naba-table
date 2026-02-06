@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
 import { render } from '@testing-library/react';
+import React, { useMemo } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { useGlobalShortcuts } from '@src/hooks/useGlobalShortcuts';

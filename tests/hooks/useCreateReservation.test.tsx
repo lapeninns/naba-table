@@ -1,11 +1,11 @@
 import { renderHook } from '@testing-library/react';
+import { createQueryWrapper, createTestQueryClient } from '@tests/utils/reactQuery';
 import { describe, expect, it, vi } from 'vitest';
 
 import { reservationAdapter, reservationListAdapter } from '@entities/reservation/adapter';
 import { useCreateReservation } from '@features/reservations/wizard/api/useCreateReservation';
-import { reservationKeys } from '@shared/api/queryKeys';
 import { apiClient } from '@shared/api/client';
-import { createQueryWrapper, createTestQueryClient } from '@tests/utils/reactQuery';
+import { reservationKeys } from '@shared/api/queryKeys';
 
 import type { ReservationDraft } from '@features/reservations/wizard/model/reducer';
 

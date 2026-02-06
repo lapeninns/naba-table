@@ -4,8 +4,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { OpsBookingCardActions } from '@/components/features/dashboard/cards/OpsBookingCardActions';
 
-import type { BookingDTO } from '@/hooks/useBookings';
 import type { BookingMeta } from '@/components/features/dashboard/cards/opsBookingCardUtils';
+import type { BookingDTO } from '@/hooks/useBookings';
 
 function makeBooking(overrides: Partial<BookingDTO> & Pick<BookingDTO, 'id'>): BookingDTO {
   return {

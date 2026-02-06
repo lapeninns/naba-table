@@ -7,17 +7,19 @@ import { useBookingService } from '@/contexts/ops-services';
 
 import type { HttpError } from '@/lib/http/errors';
 import type {
-  EmailDeliveryEventDTO,
   EmailDeliveryStatus,
-  OpsEmailDeliveryBookingDTO,
+  OpsEmailDeliveryAttemptDTO,
+  OpsEmailDeliverySummary,
   OpsEmailDeliveryFeedResponse,
   OpsEmailDeliveryRange,
 } from '@/types/emailDelivery';
 
 export type OpsEmailDeliveryFeedState = {
   response: OpsEmailDeliveryFeedResponse | null;
-  events: EmailDeliveryEventDTO[] | null;
-  bookings: OpsEmailDeliveryBookingDTO[] | null;
+  attempts: OpsEmailDeliveryAttemptDTO[] | null;
+  summary: OpsEmailDeliverySummary | null;
+  isSummaryLoading: boolean;
+  isSummaryUpdating: boolean;
   unavailable: boolean;
   apiError: Extract<OpsEmailDeliveryFeedResponse, { ok: false }> | null;
 };
@@ -90,6 +92,8 @@ export function useOpsEmailDeliveryFeed(
     },
     enabled: Boolean(restaurantId),
     staleTime: 30_000,
+    // Keep previous data visible while fetching new filters/range/page - enables smooth stale-while-revalidate UX.
+    placeholderData: (previous) => previous,
   });
 
   const derived = useMemo<OpsEmailDeliveryFeedState>(() => {
@@ -97,12 +101,21 @@ export function useOpsEmailDeliveryFeed(
     const unavailable = Boolean(
       response && response.ok === false && response.code === 'DELIVERY_LOG_UNAVAILABLE',
     );
-    const events = response && response.ok ? response.events : null;
-    const bookings = response && response.ok ? response.bookings : null;
+    const attempts = response && response.ok ? response.attempts : null;
+    const summary = response && response.ok ? response.summary ?? null : null;
+    const isSummaryLoading = Boolean(query.isLoading && !summary);
+    const isSummaryUpdating = Boolean(query.isFetching && !query.isLoading && Boolean(summary));
     const apiError = response && response.ok === false && !unavailable ? response : null;
-    return { response, events, bookings, unavailable, apiError };
-  }, [query.data]);
+    return {
+      response,
+      attempts,
+      summary,
+      isSummaryLoading,
+      isSummaryUpdating,
+      unavailable,
+      apiError,
+    };
+  }, [query.data, query.isFetching, query.isLoading]);
 
   return Object.assign(query, derived);
 }
-

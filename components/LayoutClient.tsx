@@ -4,9 +4,10 @@ import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { useMemo } from "react";
 
-import config from "@/config";
 import { ImplicitAuthHandler } from "@/components/auth/ImplicitAuthHandler";
 import { Toaster } from "@/components/ui/sonner";
+import config from "@/config";
+
 import type { ReactNode } from "react";
 
 const NextTopLoader = dynamic(() => import("nextjs-toploader"), { ssr: false });

@@ -19,7 +19,7 @@ function buildFallbackFilename(restaurantName: string): string {
   const baseName = restaurantName.trim().toLowerCase() || 'restaurant';
   const safeName = baseName.replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '') || 'restaurant';
   const date = new Date().toISOString().split('T')[0];
-  return `customers-${safeName}-${date}.csv`;
+  return `guests-${safeName}-${date}.csv`;
 }
 
 function extractFilename(headerValue: string | null, fallback: string): string {
@@ -109,7 +109,7 @@ export function ExportCustomersButton({ restaurantId, restaurantName, disabled, 
       variant="outline"
       size="sm"
       className="h-11 sm:h-9"
-      aria-label={isExporting ? 'Exporting customers...' : 'Export customers to CSV'}
+      aria-label={isExporting ? 'Exporting guests...' : 'Export guests to CSV'}
     >
       <Download className="mr-2 h-4 w-4" />
       {isExporting ? 'Exporting...' : 'Export CSV'}
