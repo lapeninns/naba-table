@@ -24,7 +24,7 @@ const SupabaseSessionContext = createContext<SupabaseSessionState | null>(null);
 
 const log = (...args: unknown[]) => {
   if (process.env.NODE_ENV === "development") {
-    // eslint-disable-next-line no-console
+     
     console.log("[useSupabaseSession]", ...args);
   }
 };

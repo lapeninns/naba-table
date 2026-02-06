@@ -2,11 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useSupabaseSession } from "@/hooks/useSupabaseSession";
 
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import config from "@/config";
+import { useSupabaseSession } from "@/hooks/useSupabaseSession";
+import { cn } from "@/lib/utils";
 
 // A simple button to sign in with our providers (Google & Magic Links).
 // It automatically redirects user to callbackUrl (config.auth.callbackUrl) after login, which is normally a private page for users to manage their accounts.

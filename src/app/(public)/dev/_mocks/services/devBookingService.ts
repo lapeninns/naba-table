@@ -444,15 +444,17 @@ export class DevBookingService implements BookingService {
     const page = Math.max(1, params.page ?? 1);
     const pageSize = Math.max(1, Math.min(200, params.pageSize ?? 50));
 
-    // For the dev harness, we keep server-side filtering minimal: status is supported.
-    // Free-text search is handled in the client by query params, but we don't need to
-    // replicate full backend matching to validate responsive UI.
     return createDevEmailDeliveryFeed({
       restaurantId: params.restaurantId,
       range,
       page,
       pageSize,
       status: params.status,
+      recipientEmail: params.recipientEmail,
+      messageId: params.messageId,
+      bookingRef: params.bookingRef,
+      templateType: params.templateType,
+      emailType: params.emailType,
     });
   }
 }

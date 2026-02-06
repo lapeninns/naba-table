@@ -10,7 +10,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Email Delivery · Nab a Table Ops',
-  description: 'Track sent/delivered/bounced email status for recent booking emails.',
+  description: 'Deliverability dashboard for booking emails (Resend).',
 };
 
 type EmailDeliverySearchParams = {

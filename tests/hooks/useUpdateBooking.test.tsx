@@ -1,10 +1,10 @@
 import { renderHook } from '@testing-library/react';
+import { createQueryWrapper, createTestQueryClient } from '@tests/utils/reactQuery';
 import { describe, expect, it, vi } from 'vitest';
 
 import { useUpdateBooking } from '@/hooks/useUpdateBooking';
 import { fetchJson } from '@/lib/http/fetchJson';
 import { queryKeys } from '@/lib/query/keys';
-import { createQueryWrapper, createTestQueryClient } from '@tests/utils/reactQuery';
 
 import type { BookingDTO, BookingsPage } from '@/hooks/useBookings';
 

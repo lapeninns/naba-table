@@ -2741,6 +2741,61 @@ export type Database = {
           expires_at: string | null;
         }[];
       };
+      ops_email_delivery_attempts_feed: {
+        Args: {
+          p_restaurant_id: string;
+          p_range: string;
+          p_page: number;
+          p_page_size: number;
+          p_statuses?: string[] | null;
+          p_recipient_email?: string | null;
+          p_message_id?: string | null;
+          p_booking_ref?: string | null;
+          p_template_type?: string | null;
+          p_email_type?: string | null;
+        };
+        Returns: {
+          messageId: string;
+          recipientEmail: string;
+          bookingId: string | null;
+          emailType: string | null;
+          templateType: string | null;
+          provider: string | null;
+          currentStatus: string;
+          currentOccurredAt: string;
+          events: Json;
+          booking: Json;
+        }[];
+      };
+      ops_email_delivery_attempts_summary: {
+        Args: {
+          p_restaurant_id: string;
+          p_range: string;
+          p_statuses?: string[] | null;
+          p_recipient_email?: string | null;
+          p_message_id?: string | null;
+          p_booking_ref?: string | null;
+          p_template_type?: string | null;
+          p_email_type?: string | null;
+        };
+        Returns: {
+          total: number;
+          sent: number;
+          delivered: number;
+          deliveryDelayed: number;
+          bounced: number;
+          complained: number;
+          failed: number;
+          deliveredRate: number;
+          failureRate: number;
+          uniqueRecipients: number;
+          uniqueBookings: number;
+          p50DeliverySeconds: number | null;
+          p95DeliverySeconds: number | null;
+          topFailedTemplates: Json;
+          topFailedEmailTypes: Json;
+        }[];
+      };
     };
     Enums: {
       analytics_event_type:

@@ -215,6 +215,15 @@ export type OpsCustomer = {
   totalCancellations: number;
 };
 
+export type OpsCustomersSummary = {
+  total: number;
+  optedIn: number;
+  optedOut: number;
+  returning: number;
+  vip: number;
+  neverVisited: number;
+};
+
 export type OpsCustomersPage = {
   items: OpsCustomer[];
   pageInfo: {
@@ -223,6 +232,7 @@ export type OpsCustomersPage = {
     total: number;
     hasNext: boolean;
   };
+  summary?: OpsCustomersSummary;
 };
 
 export type OpsRejectionBucket = 'day' | 'hour';

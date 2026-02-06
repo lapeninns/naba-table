@@ -6,6 +6,8 @@ import type {
   EmailDeliveryProvider,
   OpsEmailDeliveryRange,
   EmailDeliveryStatus,
+  OpsEmailDeliveryAttemptDTO,
+  OpsEmailDeliverySummary,
 } from '@/types/emailDelivery';
 import type { Json } from '@/types/supabase';
 
@@ -212,7 +214,38 @@ export async function listEmailDeliveryEventsForBooking(params: {
   return (data as EmailDeliveryLogRow[] | null | undefined)?.map(toEventDto) ?? [];
 }
 
-export async function listEmailDeliveryEventsForRestaurant(params: {
+function normalizePage(raw: unknown): number {
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) return 1;
+  return Math.max(1, Math.floor(raw));
+}
+
+function normalizePageSize(raw: unknown): number {
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) return 50;
+  return Math.max(1, Math.min(200, Math.floor(raw)));
+}
+
+function normalizeOptionalString(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function normalizeOptionalStringUpper(value: unknown): string | null {
+  const normalized = normalizeOptionalString(value);
+  return normalized ? normalized.toUpperCase() : null;
+}
+
+function ensureArray<T>(value: unknown): T[] {
+  return Array.isArray(value) ? (value as T[]) : [];
+}
+
+function ensureObject<T extends object>(value: unknown): T | null {
+  if (!value || typeof value !== 'object') return null;
+  if (Array.isArray(value)) return null;
+  return value as T;
+}
+
+export async function listEmailDeliveryAttemptsForRestaurant(params: {
   restaurantId: string;
   range: OpsEmailDeliveryRange;
   page?: number;
@@ -223,114 +256,116 @@ export async function listEmailDeliveryEventsForRestaurant(params: {
   bookingRef?: string;
   templateType?: string;
   emailType?: string;
-}): Promise<{ events: EmailDeliveryEventDTO[]; hasNext: boolean; page: number; pageSize: number }> {
-  const rawPage = typeof params.page === 'number' && Number.isFinite(params.page) ? params.page : 1;
-  const rawPageSize =
-    typeof params.pageSize === 'number' && Number.isFinite(params.pageSize) ? params.pageSize : 50;
-
-  const page = Math.max(1, Math.floor(rawPage));
-  const pageSize = Math.max(1, Math.min(200, Math.floor(rawPageSize)));
-
-  const now = Date.now();
-  const withinMs =
-    params.range === '24h'
-      ? 24 * 60 * 60 * 1000
-      : params.range === '30d'
-        ? 30 * 24 * 60 * 60 * 1000
-        : 7 * 24 * 60 * 60 * 1000;
-
-  const sinceIso = new Date(now - withinMs).toISOString();
+}): Promise<{ attempts: OpsEmailDeliveryAttemptDTO[]; hasNext: boolean; page: number; pageSize: number }> {
+  const page = normalizePage(params.page);
+  const pageSize = normalizePageSize(params.pageSize);
 
   const supabase = getServiceSupabaseClient();
-
-  let bookingIdsFilter: string[] | null = null;
-  const bookingRef = params.bookingRef?.trim();
-  if (bookingRef) {
-    const { data: rows, error } = await supabase
-      .from('bookings')
-      .select('id')
-      .eq('restaurant_id', params.restaurantId)
-      .eq('reference', bookingRef)
-      .limit(20);
-
-    if (error) {
-      throw new Error('Failed to resolve booking reference.');
-    }
-
-    const ids =
-      (rows as Array<{ id: string }> | null | undefined)
-        ?.map((row) => row.id)
-        .filter((value): value is string => typeof value === 'string' && value.length > 0) ?? [];
-
-    if (ids.length === 0) {
-      return { events: [], hasNext: false, page, pageSize };
-    }
-
-    bookingIdsFilter = ids;
-  }
-
-  const offset = (page - 1) * pageSize;
-  // Supabase range() is inclusive, so offset..offset+pageSize returns pageSize+1 rows.
-  const rangeTo = offset + pageSize;
-
-  let query = supabase
-    .from('email_delivery_log')
-    .select(
-      'id, booking_id, restaurant_id, email_type, template_type, recipient_email, message_id, status, provider, occurred_at, error, metadata',
-    )
-    .eq('restaurant_id', params.restaurantId)
-    .gte('occurred_at', sinceIso)
-    .order('occurred_at', { ascending: false })
-    .order('id', { ascending: false })
-    .range(offset, rangeTo);
-
-  if (bookingIdsFilter) {
-    query = query.in('booking_id', bookingIdsFilter);
-  }
-
-  const statuses = params.statuses?.length ? params.statuses : null;
-  if (statuses) {
-    query = query.in('status', statuses as string[]);
-  }
-
-  const recipientEmail = params.recipientEmail?.trim();
-  if (recipientEmail) {
-    // No wildcards: exact match, case-insensitive.
-    query = query.ilike('recipient_email', recipientEmail);
-  }
-
-  const messageId = params.messageId?.trim();
-  if (messageId) {
-    query = query.eq('message_id', messageId);
-  }
-
-  const templateType = params.templateType?.trim();
-  if (templateType) {
-    query = query.eq('template_type', templateType);
-  }
-
-  const emailType = params.emailType?.trim();
-  if (emailType) {
-    query = query.eq('email_type', emailType);
-  }
-
-  const { data, error } = await query;
+  const { data, error } = await supabase.rpc('ops_email_delivery_attempts_feed', {
+    p_restaurant_id: params.restaurantId,
+    p_range: params.range,
+    p_page: page,
+    p_page_size: pageSize,
+    p_statuses: params.statuses?.length ? (params.statuses as string[]) : null,
+    p_recipient_email: normalizeOptionalString(params.recipientEmail),
+    p_message_id: normalizeOptionalString(params.messageId),
+    p_booking_ref: normalizeOptionalStringUpper(params.bookingRef),
+    p_template_type: normalizeOptionalString(params.templateType),
+    p_email_type: normalizeOptionalString(params.emailType),
+  });
 
   if (error) {
     if (isDeliveryLogUnavailable(error)) {
       throw new EmailDeliveryLogUnavailableError();
     }
-    throw new Error(`Failed to load email delivery events (${error.code ?? 'unknown'}).`);
+    throw new Error(`Failed to load email delivery attempts (${error.code ?? 'unknown'}).`);
   }
 
-  const rows = (data as EmailDeliveryLogRow[] | null | undefined) ?? [];
+  const rows = (Array.isArray(data) ? data : []) as Array<Record<string, unknown>>;
   const hasNext = rows.length > pageSize;
   const pageRows = hasNext ? rows.slice(0, pageSize) : rows;
 
+  const attempts: OpsEmailDeliveryAttemptDTO[] = pageRows.map((row) => ({
+    messageId: String(row.messageId ?? ''),
+    recipientEmail: String(row.recipientEmail ?? ''),
+    bookingId: typeof row.bookingId === 'string' ? row.bookingId : null,
+    emailType: typeof row.emailType === 'string' ? row.emailType : null,
+    templateType: typeof row.templateType === 'string' ? row.templateType : null,
+    provider: typeof row.provider === 'string' ? (row.provider as EmailDeliveryProvider) : null,
+    currentStatus: row.currentStatus as EmailDeliveryStatus,
+    currentOccurredAt: typeof row.currentOccurredAt === 'string' ? row.currentOccurredAt : null,
+    events: ensureArray<EmailDeliveryEventDTO>(row.events),
+    booking: (ensureObject<Record<string, unknown>>(row.booking) as OpsEmailDeliveryAttemptDTO['booking']) ?? null,
+  }));
+
+  return { attempts, hasNext, page, pageSize };
+}
+
+export async function getEmailDeliveryAttemptsSummary(params: {
+  restaurantId: string;
+  range: OpsEmailDeliveryRange;
+  statuses?: ReadonlyArray<EmailDeliveryStatus>;
+  recipientEmail?: string;
+  messageId?: string;
+  bookingRef?: string;
+  templateType?: string;
+  emailType?: string;
+}): Promise<OpsEmailDeliverySummary> {
+  const supabase = getServiceSupabaseClient();
+  const { data, error } = await supabase.rpc('ops_email_delivery_attempts_summary', {
+    p_restaurant_id: params.restaurantId,
+    p_range: params.range,
+    p_statuses: params.statuses?.length ? (params.statuses as string[]) : null,
+    p_recipient_email: normalizeOptionalString(params.recipientEmail),
+    p_message_id: normalizeOptionalString(params.messageId),
+    p_booking_ref: normalizeOptionalStringUpper(params.bookingRef),
+    p_template_type: normalizeOptionalString(params.templateType),
+    p_email_type: normalizeOptionalString(params.emailType),
+  });
+
+  if (error) {
+    if (isDeliveryLogUnavailable(error)) {
+      throw new EmailDeliveryLogUnavailableError();
+    }
+    throw new Error(`Failed to load email delivery summary (${error.code ?? 'unknown'}).`);
+  }
+
+  const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | null | undefined;
+  if (!row) {
+    return {
+      total: 0,
+      sent: 0,
+      delivered: 0,
+      deliveryDelayed: 0,
+      bounced: 0,
+      complained: 0,
+      failed: 0,
+      deliveredRate: 0,
+      failureRate: 0,
+      uniqueRecipients: 0,
+      uniqueBookings: 0,
+      p50DeliverySeconds: null,
+      p95DeliverySeconds: null,
+      topFailedTemplates: [],
+      topFailedEmailTypes: [],
+    };
+  }
+
   return {
-    events: pageRows.map(toEventDto),
-    hasNext,
-    page,
-    pageSize,
+    total: Number(row.total ?? 0),
+    sent: Number(row.sent ?? 0),
+    delivered: Number(row.delivered ?? 0),
+    deliveryDelayed: Number(row.deliveryDelayed ?? 0),
+    bounced: Number(row.bounced ?? 0),
+    complained: Number(row.complained ?? 0),
+    failed: Number(row.failed ?? 0),
+    deliveredRate: Number(row.deliveredRate ?? 0),
+    failureRate: Number(row.failureRate ?? 0),
+    uniqueRecipients: Number(row.uniqueRecipients ?? 0),
+    uniqueBookings: Number(row.uniqueBookings ?? 0),
+    p50DeliverySeconds: typeof row.p50DeliverySeconds === 'number' ? row.p50DeliverySeconds : null,
+    p95DeliverySeconds: typeof row.p95DeliverySeconds === 'number' ? row.p95DeliverySeconds : null,
+    topFailedTemplates: ensureArray<OpsEmailDeliverySummary['topFailedTemplates'][number]>(row.topFailedTemplates),
+    topFailedEmailTypes: ensureArray<OpsEmailDeliverySummary['topFailedEmailTypes'][number]>(row.topFailedEmailTypes),
   };
 }

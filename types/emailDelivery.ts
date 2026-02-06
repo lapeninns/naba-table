@@ -61,14 +61,55 @@ export type OpsEmailDeliveryBookingDTO = {
   partySize: number;
 };
 
+export type OpsEmailDeliveryAttemptDTO = {
+  messageId: string;
+  recipientEmail: string;
+  bookingId: string | null;
+  emailType: string | null;
+  templateType: string | null;
+  provider: EmailDeliveryProvider | null;
+  currentStatus: EmailDeliveryStatus;
+  currentOccurredAt: string | null; // ISO
+  events: EmailDeliveryEventDTO[];
+  booking: OpsEmailDeliveryBookingDTO | null;
+};
+
+export type OpsEmailDeliveryTopTemplateEntry = {
+  templateType: string;
+  count: number;
+};
+
+export type OpsEmailDeliveryTopEmailTypeEntry = {
+  emailType: string;
+  count: number;
+};
+
+export type OpsEmailDeliverySummary = {
+  total: number;
+  sent: number;
+  delivered: number;
+  deliveryDelayed: number;
+  bounced: number;
+  complained: number;
+  failed: number;
+  deliveredRate: number; // 0..1
+  failureRate: number; // 0..1
+  uniqueRecipients: number;
+  uniqueBookings: number;
+  p50DeliverySeconds: number | null;
+  p95DeliverySeconds: number | null;
+  topFailedTemplates: OpsEmailDeliveryTopTemplateEntry[];
+  topFailedEmailTypes: OpsEmailDeliveryTopEmailTypeEntry[];
+};
+
 export type OpsEmailDeliveryFeedResponse =
   | {
       ok: true;
       restaurantId: string;
       range: OpsEmailDeliveryRange;
       pageInfo: { page: number; pageSize: number; hasNext: boolean };
-      events: EmailDeliveryEventDTO[];
-      bookings: OpsEmailDeliveryBookingDTO[];
+      attempts: OpsEmailDeliveryAttemptDTO[];
+      summary?: OpsEmailDeliverySummary;
     }
   | {
       ok: false;

@@ -1,8 +1,33 @@
+import {
+  OPS_GUEST_RETURNING_MIN_BOOKINGS,
+  OPS_GUEST_VIP_MIN_BOOKINGS,
+} from '@/lib/ops/customers';
+
 import { DEV_RESTAURANT_ID } from '../devIds';
 
 
 import type { CustomerListParams, CustomerService } from '@/services/ops/customers';
 import type { OpsCustomer, OpsCustomersPage } from '@/types/ops';
+
+function computeSummary(customers: OpsCustomer[]) {
+  const total = customers.length;
+  const optedIn = customers.reduce((acc, customer) => acc + (customer.marketingOptIn ? 1 : 0), 0);
+  const optedOut = total - optedIn;
+  const returning = customers.reduce(
+    (acc, customer) => acc + (customer.totalBookings >= OPS_GUEST_RETURNING_MIN_BOOKINGS ? 1 : 0),
+    0,
+  );
+  const vip = customers.reduce(
+    (acc, customer) => acc + (customer.totalBookings >= OPS_GUEST_VIP_MIN_BOOKINGS ? 1 : 0),
+    0,
+  );
+  const neverVisited = customers.reduce(
+    (acc, customer) => acc + (!customer.lastBookingAt ? 1 : 0),
+    0,
+  );
+
+  return { total, optedIn, optedOut, returning, vip, neverVisited };
+}
 
 
 function buildCustomers(): OpsCustomer[] {
@@ -115,6 +140,7 @@ export class DevCustomerService implements CustomerService {
     const pageSize = Math.max(1, Math.min(200, Math.floor(params.pageSize ?? 50)));
 
     const filtered = this.all.filter((c) => matchFilters(c, params));
+    const summary = page === 1 ? computeSummary(filtered) : undefined;
     const sorted = filtered.slice().sort((a, b) => {
       const dir = params.sort ?? 'desc';
       const mult = dir === 'asc' ? 1 : -1;
@@ -135,6 +161,7 @@ export class DevCustomerService implements CustomerService {
     return {
       items,
       pageInfo: { page, pageSize, total, hasNext: end < total },
+      summary,
     };
   }
 }
@@ -142,4 +169,3 @@ export class DevCustomerService implements CustomerService {
 export function createDevCustomerService(): CustomerService {
   return new DevCustomerService();
 }
-

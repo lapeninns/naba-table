@@ -80,7 +80,7 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         match: (pathname) => pathname === path('/new-bookings'),
       },
       {
-        title: 'Customers',
+        title: 'Guests',
         description: 'Review guest history and contact details',
         href: path('/customers'),
         icon: Users,

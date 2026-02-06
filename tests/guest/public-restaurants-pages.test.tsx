@@ -1,13 +1,14 @@
-import type { ComponentProps, ReactNode } from 'react';
 
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { getRestaurantBySlug } from '@/server/restaurants/getRestaurantBySlug';
+import { listRestaurants } from '@/server/restaurants/listRestaurants';
 import BookingPage from '@src/app/(public)/(marketing)/restaurants/[slug]/book/page';
 import RestaurantPage from '@src/app/(public)/(marketing)/restaurants/[slug]/page';
 import RestaurantsPage from '@src/app/(public)/(marketing)/restaurants/page';
-import { getRestaurantBySlug } from '@/server/restaurants/getRestaurantBySlug';
-import { listRestaurants } from '@/server/restaurants/listRestaurants';
+
+import type { ComponentProps, ReactNode } from 'react';
 
 const notFound = vi.hoisted(() =>
   vi.fn(() => {
