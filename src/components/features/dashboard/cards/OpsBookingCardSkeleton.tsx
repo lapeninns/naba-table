@@ -11,7 +11,7 @@ export function OpsBookingCardSkeleton() {
           <Skeleton className="h-2.5 w-14" />
         </div>
 
-        <div className="hidden h-8 w-px bg-border/60 sm:hidden" />
+        <div className="block h-8 w-px bg-border/60 sm:hidden" />
 
         <div className="mt-1 flex items-center gap-2 sm:mt-2">
           <Skeleton className="h-3.5 w-3.5 rounded-full" />

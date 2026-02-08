@@ -35,7 +35,10 @@ export function OpsDashboardToolbar({
       sticky={sticky}
       className="py-2 sm:py-2.5"
       filters={
-        <div className="-mx-2 overflow-x-auto px-2 scrollbar-hide md:mx-0 md:px-0">
+        <div
+          id="ops-bookings-filter-bar"
+          className="-mx-2 overflow-x-auto px-2 scrollbar-hide md:mx-0 md:px-0"
+        >
           <div className="min-w-max">
             <BookingsFilterBar value={filter} onChange={onFilterChange} counts={tabCounts} />
           </div>
@@ -48,6 +51,12 @@ export function OpsDashboardToolbar({
             size="icon"
             className="h-10 w-10 shrink-0 bg-card touch-manipulation"
             aria-label="Filter bookings"
+            aria-controls="ops-bookings-filter-bar"
+            onClick={() => {
+              document
+                .getElementById('ops-bookings-filter-bar')
+                ?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+            }}
           >
             <Filter className="h-4 w-4 text-muted-foreground" aria-hidden />
           </Button>

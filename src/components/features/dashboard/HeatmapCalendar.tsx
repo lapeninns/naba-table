@@ -1,6 +1,7 @@
 'use client';
 
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { DateTime } from 'luxon';
 import { useMemo, useState, type ComponentProps } from 'react';
 
 import { Calendar, CalendarDayButton } from '@/components/ui/calendar';
@@ -47,9 +48,11 @@ export function HeatmapCalendar({
   onOpenChange,
 }: HeatmapCalendarProps) {
   const selectedDateObj = useMemo(() => {
-    const next = new Date(`${selectedDate}T00:00:00`);
-    return Number.isNaN(next.getTime()) ? undefined : next;
-  }, [selectedDate]);
+    const parsed = DateTime.fromISO(selectedDate, { zone: summary.timezone });
+    if (!parsed.isValid) return undefined;
+    // Build a local date from restaurant calendar parts to avoid timezone drift.
+    return new Date(parsed.year, parsed.month - 1, parsed.day, 12);
+  }, [selectedDate, summary.timezone]);
 
   const heatmapMeta = useMemo(() => deriveHeatmapMeta(heatmap), [heatmap]);
   const showLoading = useMinimumDelay(Boolean(isLoading), { delayMs: 120, minDurationMs: 250 });
