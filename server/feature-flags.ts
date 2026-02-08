@@ -117,7 +117,9 @@ export function isAllocatorV2ShadowMode(): boolean {
 }
 
 export function isAllocatorAdjacencyRequired(): boolean {
-  return env.featureFlags.allocator.requireAdjacency ?? true;
+  // Hard business invariant: merged table plans must satisfy adjacency.
+  // This is not a feature flag; callers must not be able to bypass it.
+  return true;
 }
 
 export function isAllocatorServiceFailHard(): boolean {

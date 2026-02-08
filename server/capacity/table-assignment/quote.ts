@@ -525,15 +525,8 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     });
 
   let plans = runPlanner(plannerTables, requireAdjacency);
-  // Fallback: if no plans found and adjacency was required, retry without adjacency constraint
+  // Hard invariant: adjacency is required for merged plans. Do not relax/bypass.
   let requireAdjacencyUsed = requireAdjacency;
-  if (plans.plans.length === 0 && requireAdjacency) {
-    const relaxed = runPlanner(plannerTables, false);
-    if (relaxed.plans.length > 0) {
-      plans = relaxed;
-      requireAdjacencyUsed = false;
-    }
-  }
 
   if (plans.plans.length === 0 && !relaxedMinPartySize && booking.party_size > 0) {
     const relaxed = computeFilteredTables(true);
@@ -550,13 +543,6 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
       });
       plans = runPlanner(plannerTables, requireAdjacency, { allowMinPartySizeViolation: true });
       requireAdjacencyUsed = requireAdjacency;
-      if (plans.plans.length === 0 && requireAdjacencyUsed) {
-        const relaxedAdjacency = runPlanner(plannerTables, false, { allowMinPartySizeViolation: true });
-        if (relaxedAdjacency.plans.length > 0) {
-          plans = relaxedAdjacency;
-          requireAdjacencyUsed = false;
-        }
-      }
     }
   }
 

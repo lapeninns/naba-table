@@ -1,0 +1,12 @@
+DRY RUN: migrations will *not* be pushed to the database.
+Connecting to remote database...
+Skipping migration CONSOLIDATED_ALL_MIGRATIONS.sql... (file name must match pattern "<timestamp>_name.sql")
+Found local migration files to be inserted before the last migration on remote database.
+
+Rerun the command with --include-all flag to apply these migrations:
+supabase/migrations/20251226_add_google_review_url.sql            
+supabase/migrations/20260118_lock_down_table_soft_holds_access.sql
+supabase/migrations/20260120_fix_booking_rpc_type_casts.sql       
+supabase/migrations/20260120_restore_capacity_rules.sql           
+supabase/migrations/20260203_add_restaurant_turn_bands.sql        
+

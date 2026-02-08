@@ -456,10 +456,6 @@ function computeScore(
 }
 
 function comparePlans(a: RankedTablePlan, b: RankedTablePlan, _weights: SelectorScoringWeights): number {
-  if (a.score !== b.score) {
-    return a.score - b.score;
-  }
-
   if (a.metrics.overage !== b.metrics.overage) {
     return a.metrics.overage - b.metrics.overage;
   }
@@ -651,6 +647,10 @@ function enumerateCombinationPlans(args: CombinationPlannerArgs): RankedTablePla
     if (remainingSlots <= 0) {
       return 0;
     }
+    // Hard invariant: merged plans require a non-null zone; a null base zone cannot merge.
+    if (!baseZoneId) {
+      return 0;
+    }
     const capacities: number[] = [];
     for (const id of candidateIds) {
       if (selectionIds.has(id)) {
@@ -660,7 +660,7 @@ function enumerateCombinationPlans(args: CombinationPlannerArgs): RankedTablePla
       if (!table) {
         continue;
       }
-      if (baseZoneId && table.zoneId && table.zoneId !== baseZoneId) {
+      if (!table.zoneId || table.zoneId !== baseZoneId) {
         continue;
       }
       capacities.push(table.capacity ?? 0);
@@ -747,11 +747,6 @@ function enumerateCombinationPlans(args: CombinationPlannerArgs): RankedTablePla
         return;
       }
 
-      if (requireAdjacency && frontier && frontier.size === 0 && selection.length < kMax) {
-        incrementCounter(diagnostics.skipped, "adjacency_frontier");
-        return;
-      }
-
       if (selection.length >= 2 && runningCapacity >= partySize) {
         enumerated += 1;
         diagnostics.combinationsEnumerated = enumerated;
@@ -796,8 +791,16 @@ function enumerateCombinationPlans(args: CombinationPlannerArgs): RankedTablePla
             incrementCounter(diagnostics.skipped, "limit");
             limitRecorded = true;
           }
-          return;
         }
+
+        // Once we have met partySize, adding more tables can only increase total capacity (and overage),
+        // so continuing the DFS cannot produce a better plan under the "minimize overage" invariant.
+        return;
+      }
+
+      if (requireAdjacency && frontier && frontier.size === 0 && selection.length < kMax) {
+        incrementCounter(diagnostics.skipped, "adjacency_frontier");
+        return;
       }
 
       if (selection.length >= kMax) {
@@ -839,9 +842,12 @@ function enumerateCombinationPlans(args: CombinationPlannerArgs): RankedTablePla
           continue;
         }
 
-        if (selection.length > 0 && baseZoneId && candidate.zoneId && candidate.zoneId !== baseZoneId) {
-          incrementCounter(diagnostics.skipped, "zone");
-          continue;
+        if (selection.length > 0) {
+          // Hard invariant: merged plans require same non-null zone.
+          if (!baseZoneId || !candidate.zoneId || candidate.zoneId !== baseZoneId) {
+            incrementCounter(diagnostics.skipped, "zone");
+            continue;
+          }
         }
 
         if (selection.length + 1 > kMax) {
@@ -877,6 +883,11 @@ function enumerateCombinationPlans(args: CombinationPlannerArgs): RankedTablePla
   const seedLoop = applySeedLimit ? seedOrder.slice(0, maxSeeds) : seedOrder;
   for (let i = 0; i < seedLoop.length && !stopSearch; i += 1) {
     const base = seedLoop[i];
+    // Hard invariant: merged plans require a non-null zone. Skip seeds that can never merge.
+    if (!base.zoneId) {
+      incrementCounter(diagnostics.skipped, "zone");
+      continue;
+    }
     const baseSelection = [base];
     const baseSelectionIds = new Set<string>([base.id]);
     const baseFrontier = requireAdjacency ? buildFrontier(baseSelectionIds) : null;
