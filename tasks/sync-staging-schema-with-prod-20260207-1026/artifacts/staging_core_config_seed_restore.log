@@ -1,0 +1,12 @@
+pg_restore: connecting to database for restore
+pg_restore: executing SELECT pg_catalog.set_config('search_path', '', false);
+pg_restore: processing data for table "public.restaurants"
+pg_restore: processing data for table "public.allowed_capacities"
+pg_restore: processing data for table "public.booking_occasions"
+pg_restore: processing data for table "public.restaurant_service_periods"
+pg_restore: processing data for table "public.restaurant_capacity_rules"
+pg_restore: processing data for table "public.restaurant_operating_hours"
+pg_restore: processing data for table "public.restaurant_turn_bands"
+pg_restore: processing data for table "public.service_policy"
+pg_restore: processing data for table "public.zones"
+pg_restore: processing data for table "public.table_inventory"

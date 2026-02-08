@@ -5,7 +5,6 @@ import {
   ChevronDown,
   Clock,
   FileText,
-  Sparkles,
   Users,
 } from 'lucide-react';
 import { memo } from 'react';
@@ -66,9 +65,6 @@ export const OpsBookingCardHeader = memo(function OpsBookingCardHeader({
               >
                 {meta.customerLabel}
               </p>
-              {booking.loyaltyTier ? (
-                <Sparkles className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
-              ) : null}
             </div>
             <div className="mt-1 flex flex-col gap-1 text-xs font-medium text-muted-foreground sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-1.5 sm:text-sm">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1 sm:contents">

@@ -31,8 +31,6 @@ export function OpsBookingDialogDevHarness() {
       reference: 'DEV123',
       details: null,
       source: 'phone',
-      loyaltyTier: 'gold',
-      loyaltyPoints: 1200,
       profileNotes: 'Prefers quieter tables.',
       allergies: ['Nuts'],
       dietaryRestrictions: ['Vegetarian'],

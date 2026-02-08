@@ -9,8 +9,13 @@ import { createClient } from "@supabase/supabase-js";
 import * as fs from "fs";
 import * as path from "path";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://rrpeokmfbtbrirqjprpe.supabase.co";
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!SUPABASE_URL) {
+    console.error("Missing NEXT_PUBLIC_SUPABASE_URL. Set it before running this script.");
+    process.exit(1);
+}
 
 if (!SUPABASE_SERVICE_KEY) {
     console.error("Missing SUPABASE_SERVICE_ROLE_KEY. Set it before running this script.");

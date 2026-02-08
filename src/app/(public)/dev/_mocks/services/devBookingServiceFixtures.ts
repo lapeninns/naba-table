@@ -53,8 +53,6 @@ export function createDevBookings(): DevOpsBookingRecord[] {
       reference: 'DEV123',
       details: null,
       source: 'phone',
-      loyaltyTier: 'gold',
-      loyaltyPoints: 1200,
       profileNotes: 'Prefers quieter tables.',
       allergies: ['Nuts'],
       dietaryRestrictions: ['Vegetarian'],
@@ -84,8 +82,6 @@ export function createDevBookings(): DevOpsBookingRecord[] {
       reference: 'DEV456',
       details: null,
       source: 'walk_in',
-      loyaltyTier: null,
-      loyaltyPoints: null,
       profileNotes: null,
       allergies: null,
       dietaryRestrictions: null,
@@ -128,8 +124,6 @@ export function createDevBookings(): DevOpsBookingRecord[] {
       reference: 'DEV789',
       details: null,
       source: 'online',
-      loyaltyTier: 'silver',
-      loyaltyPoints: 180,
       profileNotes: null,
       allergies: null,
       dietaryRestrictions: null,
@@ -159,8 +153,6 @@ export function createDevBookings(): DevOpsBookingRecord[] {
       reference: 'DEVCAN',
       details: null,
       source: 'online',
-      loyaltyTier: null,
-      loyaltyPoints: null,
       profileNotes: null,
       allergies: null,
       dietaryRestrictions: null,
@@ -190,8 +182,6 @@ export function createDevBookings(): DevOpsBookingRecord[] {
       reference: 'DEVPAST',
       details: null,
       source: 'online',
-      loyaltyTier: null,
-      loyaltyPoints: null,
       profileNotes: null,
       allergies: null,
       dietaryRestrictions: null,
@@ -242,8 +232,6 @@ export function createDevBookings(): DevOpsBookingRecord[] {
       reference: `DEVX${String(index + 1).padStart(3, '0')}`,
       details: null,
       source: 'online',
-      loyaltyTier: null,
-      loyaltyPoints: null,
       profileNotes: null,
       allergies: null,
       dietaryRestrictions: null,
@@ -344,4 +332,3 @@ export function createDevTables(): Awaited<ReturnType<BookingService['getAssignm
 
   return [...baseTables, ...generatedTables];
 }
-

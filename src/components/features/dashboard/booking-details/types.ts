@@ -34,8 +34,6 @@ export type Booking = {
   allergies?: string[] | null;
   dietaryRestrictions?: string[] | null;
   seatingPreference?: string | null;
-  loyaltyTier?: string | null;
-  loyaltyPoints?: number | null;
   requiresTableAssignment?: boolean;
   checkedInAt?: string | null;
   checkedOutAt?: string | null;

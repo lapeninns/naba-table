@@ -98,7 +98,6 @@ export function GuestProfilePanel({
     booking.details?.['prepaidAmount'];
   const depositLabel = formatDepositGBP(depositRaw);
 
-  const isVip = booking.loyaltyTier === 'gold' || booking.loyaltyTier === 'platinum';
   const isLate = status === 'confirmed' && minutesRemaining !== null && minutesRemaining < 0;
   const hasDietary =
     Boolean(booking.allergies && booking.allergies.length > 0) ||
@@ -106,12 +105,6 @@ export function GuestProfilePanel({
 
   const CriticalStrip = (
     <div className="flex flex-wrap items-center gap-2">
-      {isVip ? (
-        <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-800">
-          VIP
-        </Badge>
-      ) : null}
-
       {hasDietary ? (
         <GuestDietaryBadge
           allergies={booking.allergies}
@@ -234,4 +227,3 @@ export function GuestProfilePanel({
 }
 
 export default GuestProfilePanel;
-

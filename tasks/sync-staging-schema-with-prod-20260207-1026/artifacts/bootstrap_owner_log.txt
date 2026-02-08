@@ -1,0 +1,8 @@
+[dotenv@17.2.3] injecting env (51) from .env.local -- tip: ⚙️  enable debug logging with { debug: true }
+[bootstrap-owner] Bootstrapped owner access in staging.
+- Supabase URL: https://ndxmivcrehsacuerwxtm.supabase.co
+- User: aman.shrestha@mail.bcu.ac.uk
+- User ID: 178310d1-0592-4f90-98ab-9cecb67f15de
+- Role: owner
+- Restaurants granted: 4
+- Password: (not printed; re-run with BOOTSTRAP_PRINT_PASSWORD=1 to display)

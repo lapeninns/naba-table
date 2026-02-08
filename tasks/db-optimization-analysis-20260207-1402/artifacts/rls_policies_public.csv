@@ -1,0 +1,176 @@
+schemaname,tablename,policyname,permissive,roles,cmd,qual,with_check
+public,_migrations,service_role_all,PERMISSIVE,{service_role},ALL,true,true
+public,allocations,Staff can view allocations for their restaurants,PERMISSIVE,{authenticated},SELECT,(restaurant_id IN ( SELECT user_restaurants() AS user_restaurants)),
+public,allocations,Tenant service role can manage allocations,PERMISSIVE,{service_role},ALL,(restaurant_id = require_restaurant_context()),(restaurant_id = require_restaurant_context())
+public,allocations,authenticated_select,PERMISSIVE,{authenticated},SELECT,"(EXISTS ( SELECT 1
+   FROM restaurant_memberships rm
+  WHERE ((rm.restaurant_id = allocations.restaurant_id) AND (rm.user_id = auth.uid()))))",
+public,allocations,service_role_all,PERMISSIVE,{service_role},ALL,true,true
+public,allocations_archive,Tenant service role can manage allocations archive,PERMISSIVE,{service_role},ALL,(restaurant_id = require_restaurant_context()),(restaurant_id = require_restaurant_context())
+public,allowed_capacities,Service role can manage allowed capacities,PERMISSIVE,{service_role},ALL,true,true
+public,allowed_capacities,Staff can manage allowed capacities,PERMISSIVE,{authenticated},ALL,(restaurant_id IN ( SELECT user_restaurants() AS user_restaurants)),(restaurant_id IN ( SELECT user_restaurants() AS user_restaurants))
+public,analytics_events,Restaurant staff can view analytics,PERMISSIVE,{public},SELECT,"(EXISTS ( SELECT 1
+   FROM restaurant_memberships rm
+  WHERE ((rm.restaurant_id = analytics_events.restaurant_id) AND (rm.user_id = ( SELECT auth.uid() AS uid)))))",
+public,analytics_events,service_role_all,PERMISSIVE,{service_role},ALL,true,true
+public,audit_logs,Service role can manage audit logs,PERMISSIVE,{public},ALL,true,true
+public,audit_logs,service_role_all,PERMISSIVE,{service_role},ALL,true,true
+public,booking_assignment_attempts,authenticated_select,PERMISSIVE,{authenticated},SELECT,"(EXISTS ( SELECT 1
+   FROM (bookings b
+     JOIN restaurant_memberships rm ON ((rm.restaurant_id = b.restaurant_id)))
+  WHERE ((b.id = booking_assignment_attempts.booking_id) AND (rm.user_id = ( SELECT auth.uid() AS uid)))))",
+public,booking_assignment_attempts,service_role_all,PERMISSIVE,{service_role},ALL,true,true
+public,booking_assignment_idempotency,Service role full access to booking_assignment_idempotency,PERMISSIVE,{public},ALL,true,true
+public,booking_assignment_idempotency,service_role_all,PERMISSIVE,{service_role},ALL,true,true
+public,booking_confirmation_results,Tenant service role can manage booking confirmation results,PERMISSIVE,{service_role},ALL,(restaurant_id = require_restaurant_context()),(restaurant_id = require_restaurant_context())
+public,booking_occasions,Allow public read access to booking_occasions,PERMISSIVE,{public},SELECT,true,
+public,booking_occasions_audit,service_role_all,PERMISSIVE,{service_role},ALL,true,true
+public,booking_slots,Service role can manage booking slots,PERMISSIVE,{service_role},ALL,true,true
+public,booking_slots,Staff can manage booking slots,PERMISSIVE,{public},ALL,(restaurant_id IN ( SELECT user_restaurants() AS user_restaurants)),(restaurant_id IN ( SELECT user_restaurants() AS user_restaurants))
+public,booking_state_history,authenticated_select,PERMISSIVE,{authenticated},SELECT,"(EXISTS ( SELECT 1
+   FROM (bookings b
+     JOIN restaurant_memberships rm ON ((rm.restaurant_id = b.restaurant_id)))
+  WHERE ((b.id = booking_state_history.booking_id) AND (rm.user_id = auth.uid()))))",
+public,booking_state_history,service_role_all,PERMISSIVE,{service_role},ALL,true,true
+public,booking_table_assignments,Customers can view their table assignments,PERMISSIVE,{public},SELECT,"(EXISTS ( SELECT 1
+   FROM bookings b
+  WHERE ((b.id = booking_table_assignments.booking_id) AND (b.auth_user_id = ( SELECT auth.uid() AS uid)))))",
+public,booking_table_assignments,Staff can manage table assignments,PERMISSIVE,{public},ALL,"(EXISTS ( SELECT 1
+   FROM (bookings b
+     JOIN restaurant_memberships rm ON ((rm.restaurant_id = b.restaurant_id)))
+  WHERE ((b.id = booking_table_assignments.booking_id) AND (rm.user_id = ( SELECT auth.uid() AS uid)))))","(EXISTS ( SELECT 1
+   FROM (bookings b
+     JOIN restaurant_memberships rm ON ((rm.restaurant_id = b.restaurant_id)))
+  WHERE ((b.id = booking_table_assignments.booking_id) AND (rm.user_id = ( SELECT auth.uid() AS uid)))))"
+public,booking_table_assignments,Tenant service role can manage table assignments,PERMISSIVE,{service_role},ALL,"(EXISTS ( SELECT 1
+   FROM bookings b
+  WHERE ((b.id = booking_table_assignments.booking_id) AND (b.restaurant_id = require_restaurant_context()))))","(EXISTS ( SELECT 1
+   FROM bookings b
+  WHERE ((b.id = booking_table_assignments.booking_id) AND (b.restaurant_id = require_restaurant_context()))))"
+public,booking_table_assignments,authenticated_select,PERMISSIVE,{authenticated},SELECT,"(EXISTS ( SELECT 1
+   FROM (bookings b
+     JOIN restaurant_memberships rm ON ((rm.restaurant_id = b.restaurant_id)))
+  WHERE ((b.id = booking_table_assignments.booking_id) AND (rm.user_id = auth.uid()))))",
+public,booking_table_assignments,service_role_all,PERMISSIVE,{service_role},ALL,true,true
+public,booking_versions,Restaurant members can view booking versions,PERMISSIVE,{public},SELECT,"(EXISTS ( SELECT 1
+   FROM restaurant_memberships rm
+  WHERE ((rm.restaurant_id = booking_versions.restaurant_id) AND (rm.user_id = ( SELECT auth.uid() AS uid)))))",
+public,booking_versions,service_role_all,PERMISSIVE,{service_role},ALL,true,true
+public,bookings,Admins and owners can delete bookings,PERMISSIVE,{public},DELETE,"(EXISTS ( SELECT 1
+   FROM restaurant_memberships rm
+  WHERE ((rm.restaurant_id = bookings.restaurant_id) AND (rm.user_id = ( SELECT auth.uid() AS uid)) AND (rm.role = ANY (ARRAY['owner'::text, 'admin'::text])))))",
+public,bookings,Staff can create bookings,PERMISSIVE,{public},INSERT,,(restaurant_id IN ( SELECT user_restaurants() AS user_restaurants))
+public,bookings,Staff can update bookings,PERMISSIVE,{public},UPDATE,(restaurant_id IN ( SELECT user_restaurants() AS user_restaurants)),
+public,bookings,Staff can view bookings,PERMISSIVE,{public},SELECT,(restaurant_id IN ( SELECT user_restaurants() AS user_restaurants)),
+public,bookings,Tenant service role can manage bookings,PERMISSIVE,{service_role},ALL,(restaurant_id = require_restaurant_context()),(restaurant_id = require_restaurant_context())
+public,capacity_outbox,Tenant service role can manage capacity outbox,PERMISSIVE,{service_role},ALL,(restaurant_id = require_restaurant_context()),(restaurant_id = require_restaurant_context())
+public,customer_profiles,Staff can view customer profiles,PERMISSIVE,{public},SELECT,"(EXISTS ( SELECT 1
+   FROM customers c
+  WHERE ((c.id = customer_profiles.customer_id) AND (c.restaurant_id IN ( SELECT user_restaurants() AS user_restaurants)))))",
+public,customers,Admins and owners can delete customers,PERMISSIVE,{public},DELETE,"(EXISTS ( SELECT 1
+   FROM restaurant_memberships rm
+  WHERE ((rm.restaurant_id = customers.restaurant_id) AND (rm.user_id = ( SELECT auth.uid() AS uid)) AND (rm.role = ANY (ARRAY['owner'::text, 'admin'::text])))))",
+public,customers,Staff can create customers,PERMISSIVE,{public},INSERT,,(restaurant_id IN ( SELECT user_restaurants() AS user_restaurants))
+public,customers,Staff can update customers,PERMISSIVE,{public},UPDATE,(restaurant_id IN ( SELECT user_restaurants() AS user_restaurants)),
+public,customers,Staff can view customers,PERMISSIVE,{public},SELECT,(restaurant_id IN ( SELECT user_restaurants() AS user_restaurants)),
+public,customers,Tenant service role can manage customers,PERMISSIVE,{service_role},ALL,(restaurant_id = require_restaurant_context()),(restaurant_id = require_restaurant_context())
+public,demand_profiles,Owners and managers can manage demand profiles,PERMISSIVE,{public},ALL,"(EXISTS ( SELECT 1
+   FROM restaurant_memberships rm
+  WHERE ((rm.restaurant_id = demand_profiles.restaurant_id) AND (rm.user_id = ( SELECT auth.uid() AS uid)) AND (rm.role = ANY (ARRAY['owner'::text, 'manager'::text, 'admin'::text])))))","(EXISTS ( SELECT 1
+   FROM restaurant_memberships rm
+  WHERE ((rm.restaurant_id = demand_profiles.restaurant_id) AND (rm.user_id = ( SELECT auth.uid() AS uid)) AND (rm.role = ANY (ARRAY['owner'::text, 'manager'::text, 'admin'::text])))))"
+public,demand_profiles,Users can view demand profiles for their restaurants,PERMISSIVE,{public},SELECT,"(EXISTS ( SELECT 1
+   FROM restaurant_memberships rm
+  WHERE ((rm.restaurant_id = demand_profiles.restaurant_id) AND (rm.user_id = ( SELECT auth.uid() AS uid)))))",
+public,feature_flag_overrides,Service role full access to feature_flag_overrides,PERMISSIVE,{public},ALL,true,true
+public,leads,Public can insert leads,PERMISSIVE,{public},INSERT,,true
+public,leads,service_role_all,PERMISSIVE,{service_role},ALL,true,true
+public,loyalty_point_events,Service role can manage loyalty events,PERMISSIVE,{public},ALL,true,true
+public,loyalty_points,Service role can manage loyalty points,PERMISSIVE,{public},ALL,true,true
+public,loyalty_programs,Service role can manage loyalty programs,PERMISSIVE,{public},ALL,true,true
+public,manual_assignment_sessions,service_role_all,PERMISSIVE,{service_role},ALL,true,true
+public,merge_rules,Staff can view merge rules,PERMISSIVE,{public},SELECT,true,
+public,observability_events,service_role_all,PERMISSIVE,{service_role},ALL,true,true
+public,profile_update_requests,profile_update_requests_delete,PERMISSIVE,{public},DELETE,(profile_id = ( SELECT auth.uid() AS uid)),
+public,profile_update_requests,profile_update_requests_insert,PERMISSIVE,{public},INSERT,,(profile_id = ( SELECT auth.uid() AS uid))
+public,profile_update_requests,profile_update_requests_select,PERMISSIVE,{public},SELECT,(profile_id = ( SELECT auth.uid() AS uid)),
+public,profile_update_requests,profile_update_requests_update,PERMISSIVE,{public},UPDATE,(profile_id = ( SELECT auth.uid() AS uid)),(profile_id = ( SELECT auth.uid() AS uid))
+public,profiles,Users can insert own profile,PERMISSIVE,{public},INSERT,,(id = ( SELECT auth.uid() AS uid))
+public,profiles,Users can update own profile,PERMISSIVE,{public},UPDATE,(id = ( SELECT auth.uid() AS uid)),(id = ( SELECT auth.uid() AS uid))
+public,profiles,Users can view own profile,PERMISSIVE,{public},SELECT,(id = ( SELECT auth.uid() AS uid)),
+public,profiles,service_role_all,PERMISSIVE,{service_role},ALL,true,true
+public,restaurant_capacity_rules,Service role can manage capacity rules,PERMISSIVE,{service_role},ALL,true,true
+public,restaurant_capacity_rules,Staff can manage capacity rules,PERMISSIVE,{public},ALL,(restaurant_id IN ( SELECT user_restaurants() AS user_restaurants)),(restaurant_id IN ( SELECT user_restaurants() AS user_restaurants))
+public,restaurant_invites,Owners and managers manage invites,PERMISSIVE,{public},ALL,"(EXISTS ( SELECT 1
+   FROM restaurant_memberships rm
+  WHERE ((rm.restaurant_id = restaurant_invites.restaurant_id) AND (rm.user_id = ( SELECT auth.uid() AS uid)) AND (rm.role = ANY (ARRAY['owner'::text, 'manager'::text, 'admin'::text])))))","(EXISTS ( SELECT 1
+   FROM restaurant_memberships rm
+  WHERE ((rm.restaurant_id = restaurant_invites.restaurant_id) AND (rm.user_id = ( SELECT auth.uid() AS uid)) AND (rm.role = ANY (ARRAY['owner'::text, 'manager'::text, 'admin'::text])))))"
+public,restaurant_memberships,Owners and admins can manage memberships,PERMISSIVE,{public},ALL,(restaurant_id IN ( SELECT user_restaurants_admin() AS user_restaurants_admin)),(restaurant_id IN ( SELECT user_restaurants_admin() AS user_restaurants_admin))
+public,restaurant_operating_hours,Service role can manage operating hours,PERMISSIVE,{service_role},ALL,true,true
+public,restaurant_operating_hours,Staff can manage operating hours,PERMISSIVE,{public},ALL,(restaurant_id IN ( SELECT user_restaurants() AS user_restaurants)),(restaurant_id IN ( SELECT user_restaurants() AS user_restaurants))
+public,restaurant_service_periods,Service role can manage service periods,PERMISSIVE,{service_role},ALL,true,true
+public,restaurant_service_periods,Staff can manage service periods,PERMISSIVE,{public},ALL,(restaurant_id IN ( SELECT user_restaurants() AS user_restaurants)),(restaurant_id IN ( SELECT user_restaurants() AS user_restaurants))
+public,restaurant_turn_bands,Service role can manage turn bands,PERMISSIVE,{service_role},ALL,true,true
+public,restaurant_turn_bands,Staff can manage turn bands,PERMISSIVE,{public},ALL,(restaurant_id IN ( SELECT user_restaurants() AS user_restaurants)),(restaurant_id IN ( SELECT user_restaurants() AS user_restaurants))
+public,restaurants,anon_read_all,PERMISSIVE,{anon},SELECT,true,
+public,restaurants,authenticated_can_create,PERMISSIVE,{public},INSERT,,(( SELECT auth.uid() AS uid) IS NOT NULL)
+public,restaurants,authenticated_read_all,PERMISSIVE,{authenticated},SELECT,true,
+public,restaurants,owners_admins_can_update,PERMISSIVE,{public},UPDATE,"(EXISTS ( SELECT 1
+   FROM restaurant_memberships rm
+  WHERE ((rm.restaurant_id = restaurants.id) AND (rm.user_id = ( SELECT auth.uid() AS uid)) AND (rm.role = ANY (ARRAY['owner'::text, 'admin'::text])))))","(EXISTS ( SELECT 1
+   FROM restaurant_memberships rm
+  WHERE ((rm.restaurant_id = restaurants.id) AND (rm.user_id = ( SELECT auth.uid() AS uid)) AND (rm.role = ANY (ARRAY['owner'::text, 'admin'::text])))))"
+public,restaurants,owners_can_delete,PERMISSIVE,{public},DELETE,"(EXISTS ( SELECT 1
+   FROM restaurant_memberships rm
+  WHERE ((rm.restaurant_id = restaurants.id) AND (rm.user_id = ( SELECT auth.uid() AS uid)) AND (rm.role = 'owner'::text))))",
+public,restaurants,service_role_all_access,PERMISSIVE,{service_role},ALL,true,true
+public,restaurants,service_role_read_all,PERMISSIVE,{service_role},SELECT,true,
+public,service_policy,Service role can manage service policy,PERMISSIVE,{service_role},ALL,true,true
+public,service_policy,Staff can view service policy,PERMISSIVE,{authenticated},SELECT,true,
+public,strategic_configs,Owners and managers can manage strategic configs,PERMISSIVE,{public},ALL,"(EXISTS ( SELECT 1
+   FROM restaurant_memberships rm
+  WHERE ((rm.restaurant_id = strategic_configs.restaurant_id) AND (rm.user_id = ( SELECT auth.uid() AS uid)) AND (rm.role = ANY (ARRAY['owner'::text, 'manager'::text, 'admin'::text, 'ops_manager'::text])))))","(EXISTS ( SELECT 1
+   FROM restaurant_memberships rm
+  WHERE ((rm.restaurant_id = strategic_configs.restaurant_id) AND (rm.user_id = ( SELECT auth.uid() AS uid)) AND (rm.role = ANY (ARRAY['owner'::text, 'manager'::text, 'admin'::text, 'ops_manager'::text])))))"
+public,strategic_configs,Users can view strategic configs for their restaurants,PERMISSIVE,{public},SELECT,"(EXISTS ( SELECT 1
+   FROM restaurant_memberships rm
+  WHERE ((rm.restaurant_id = strategic_configs.restaurant_id) AND (rm.user_id = ( SELECT auth.uid() AS uid)))))",
+public,table_adjacencies,Service role can manage adjacencies,PERMISSIVE,{service_role},ALL,true,true
+public,table_adjacencies,Staff can manage adjacencies,PERMISSIVE,{authenticated},ALL,"(EXISTS ( SELECT 1
+   FROM table_inventory ti
+  WHERE ((ti.id = table_adjacencies.table_a) AND (ti.restaurant_id IN ( SELECT user_restaurants() AS user_restaurants)))))","(EXISTS ( SELECT 1
+   FROM table_inventory ti
+  WHERE ((ti.id = table_adjacencies.table_a) AND (ti.restaurant_id IN ( SELECT user_restaurants() AS user_restaurants)))))"
+public,table_hold_members,Service role full access to table_hold_members,PERMISSIVE,{service_role},ALL,true,true
+public,table_hold_members,Staff can view table hold members,PERMISSIVE,{authenticated},SELECT,"(EXISTS ( SELECT 1
+   FROM table_holds h
+  WHERE ((h.id = table_hold_members.hold_id) AND (h.restaurant_id IN ( SELECT user_restaurants() AS user_restaurants)))))",
+public,table_hold_windows,Service role full access to table_hold_windows,PERMISSIVE,{public},ALL,true,true
+public,table_holds,Service role full access to table_holds,PERMISSIVE,{service_role},ALL,true,true
+public,table_holds,Staff can view table holds,PERMISSIVE,{authenticated},SELECT,(restaurant_id IN ( SELECT user_restaurants() AS user_restaurants)),
+public,table_inventory,Service role can manage table inventory,PERMISSIVE,{service_role},ALL,true,true
+public,table_inventory,Staff can manage table inventory,PERMISSIVE,{public},ALL,(restaurant_id IN ( SELECT user_restaurants() AS user_restaurants)),(restaurant_id IN ( SELECT user_restaurants() AS user_restaurants))
+public,table_merge_graph,authenticated_select,PERMISSIVE,{authenticated},SELECT,"(EXISTS ( SELECT 1
+   FROM restaurant_memberships rm
+  WHERE ((rm.user_id = ( SELECT auth.uid() AS uid)) AND (rm.restaurant_id = table_merge_graph.restaurant_id))))",
+public,table_merge_graph,service_role_all,PERMISSIVE,{service_role},ALL,true,true
+public,table_scarcity_metrics,Owners and managers can manage scarcity metrics,PERMISSIVE,{public},ALL,"(EXISTS ( SELECT 1
+   FROM restaurant_memberships rm
+  WHERE ((rm.restaurant_id = table_scarcity_metrics.restaurant_id) AND (rm.user_id = ( SELECT auth.uid() AS uid)) AND (rm.role = ANY (ARRAY['owner'::text, 'manager'::text, 'admin'::text])))))","(EXISTS ( SELECT 1
+   FROM restaurant_memberships rm
+  WHERE ((rm.restaurant_id = table_scarcity_metrics.restaurant_id) AND (rm.user_id = ( SELECT auth.uid() AS uid)) AND (rm.role = ANY (ARRAY['owner'::text, 'manager'::text, 'admin'::text])))))"
+public,table_scarcity_metrics,Users can view scarcity metrics for their restaurants,PERMISSIVE,{public},SELECT,"(EXISTS ( SELECT 1
+   FROM restaurant_memberships rm
+  WHERE ((rm.restaurant_id = table_scarcity_metrics.restaurant_id) AND (rm.user_id = ( SELECT auth.uid() AS uid)))))",
+public,user_profiles,Users can update own profile,PERMISSIVE,{public},UPDATE,(id = ( SELECT auth.uid() AS uid)),(id = ( SELECT auth.uid() AS uid))
+public,user_profiles,Users can view own profile,PERMISSIVE,{public},SELECT,(id = ( SELECT auth.uid() AS uid)),
+public,user_profiles,service_role_all,PERMISSIVE,{service_role},ALL,true,true
+public,waiting_list,Restaurant members can manage waiting list,PERMISSIVE,{public},ALL,"(EXISTS ( SELECT 1
+   FROM restaurant_memberships rm
+  WHERE ((rm.restaurant_id = waiting_list.restaurant_id) AND (rm.user_id = ( SELECT auth.uid() AS uid)))))","(EXISTS ( SELECT 1
+   FROM restaurant_memberships rm
+  WHERE ((rm.restaurant_id = waiting_list.restaurant_id) AND (rm.user_id = ( SELECT auth.uid() AS uid)))))"
+public,waiting_list,service_role_all,PERMISSIVE,{service_role},ALL,true,true
+public,zones,Service role can manage zones,PERMISSIVE,{service_role},ALL,true,true
+public,zones,Staff can manage zones,PERMISSIVE,{authenticated},ALL,(restaurant_id IN ( SELECT user_restaurants() AS user_restaurants)),(restaurant_id IN ( SELECT user_restaurants() AS user_restaurants))

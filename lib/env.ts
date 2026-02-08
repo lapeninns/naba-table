@@ -188,7 +188,6 @@ export const env = {
         ? parsed.FEATURE_HOLDS_STRICT_CONFLICTS_ENABLED
         : parsed.APP_ENV === 'staging';
     return {
-      loyaltyPilotRestaurantIds: parsed.LOYALTY_PILOT_RESTAURANT_IDS,
       guestLookupPolicy: parsed.FEATURE_GUEST_LOOKUP_POLICY ?? false,
       opsGuardV2: parsed.FEATURE_OPS_GUARD_V2 ?? false,
       bookingPastTimeBlocking: parsed.FEATURE_BOOKING_PAST_TIME_BLOCKING ?? false,

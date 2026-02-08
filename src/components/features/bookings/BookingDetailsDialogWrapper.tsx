@@ -59,8 +59,6 @@ function normalizeBooking(source: BookingSource, timezone: string): OpsTodayBook
         ? ((source.details as Record<string, unknown> | null | undefined) ?? null)
         : null,
     source: 'source' in source ? (source.source ?? null) : null,
-    loyaltyTier: 'loyaltyTier' in source ? (source.loyaltyTier ?? null) : null,
-    loyaltyPoints: 'loyaltyPoints' in source ? (source.loyaltyPoints ?? null) : null,
     profileNotes: 'profileNotes' in source ? (source.profileNotes ?? null) : null,
     allergies: 'allergies' in source ? (source.allergies ?? null) : null,
     dietaryRestrictions:

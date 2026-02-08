@@ -224,15 +224,15 @@ function normalizePageSize(raw: unknown): number {
   return Math.max(1, Math.min(200, Math.floor(raw)));
 }
 
-function normalizeOptionalString(value: unknown): string | null {
-  if (typeof value !== 'string') return null;
+function normalizeOptionalString(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
   const trimmed = value.trim();
-  return trimmed ? trimmed : null;
+  return trimmed ? trimmed : undefined;
 }
 
-function normalizeOptionalStringUpper(value: unknown): string | null {
+function normalizeOptionalStringUpper(value: unknown): string | undefined {
   const normalized = normalizeOptionalString(value);
-  return normalized ? normalized.toUpperCase() : null;
+  return normalized ? normalized.toUpperCase() : undefined;
 }
 
 function ensureArray<T>(value: unknown): T[] {
@@ -266,7 +266,7 @@ export async function listEmailDeliveryAttemptsForRestaurant(params: {
     p_range: params.range,
     p_page: page,
     p_page_size: pageSize,
-    p_statuses: params.statuses?.length ? (params.statuses as string[]) : null,
+    p_statuses: params.statuses?.length ? (params.statuses as string[]) : undefined,
     p_recipient_email: normalizeOptionalString(params.recipientEmail),
     p_message_id: normalizeOptionalString(params.messageId),
     p_booking_ref: normalizeOptionalStringUpper(params.bookingRef),
@@ -315,7 +315,7 @@ export async function getEmailDeliveryAttemptsSummary(params: {
   const { data, error } = await supabase.rpc('ops_email_delivery_attempts_summary', {
     p_restaurant_id: params.restaurantId,
     p_range: params.range,
-    p_statuses: params.statuses?.length ? (params.statuses as string[]) : null,
+    p_statuses: params.statuses?.length ? (params.statuses as string[]) : undefined,
     p_recipient_email: normalizeOptionalString(params.recipientEmail),
     p_message_id: normalizeOptionalString(params.messageId),
     p_booking_ref: normalizeOptionalStringUpper(params.bookingRef),

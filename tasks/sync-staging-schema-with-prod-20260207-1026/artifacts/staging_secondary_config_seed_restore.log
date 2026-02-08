@@ -1,0 +1,6 @@
+pg_restore: connecting to database for restore
+pg_restore: executing SELECT pg_catalog.set_config('search_path', '', false);
+pg_restore: processing data for table "public.merge_rules"
+pg_restore: processing data for table "public.strategic_configs"
+pg_restore: processing data for table "public.table_adjacencies"
+pg_restore: processing data for table "public.table_merge_graph"

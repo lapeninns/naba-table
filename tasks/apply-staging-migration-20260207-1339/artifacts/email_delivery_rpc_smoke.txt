@@ -1,0 +1,9 @@
+smoke-email-delivery-rpc: OK
+
+- Verified RPC calls via Supabase API using service role key:
+  - ops_email_delivery_attempts_summary
+  - ops_email_delivery_attempts_feed
+
+Expected in empty staging:
+- Summary total=0
+- Feed rows=0

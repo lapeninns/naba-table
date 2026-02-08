@@ -1,0 +1,1799 @@
+pg_restore: connecting to database for restore
+pg_restore: executing SELECT pg_catalog.set_config('search_path', '', false);
+pg_restore: dropping POLICY restaurants service_role_read_all
+pg_restore: while PROCESSING TOC:
+pg_restore: from TOC entry 5204; 3256 61973 POLICY restaurants service_role_read_all postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.restaurants" does not exist
+Command was: DROP POLICY IF EXISTS service_role_read_all ON public.restaurants;
+pg_restore: dropping POLICY restaurants service_role_all_access
+pg_restore: from TOC entry 5203; 3256 61972 POLICY restaurants service_role_all_access postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.restaurants" does not exist
+Command was: DROP POLICY IF EXISTS service_role_all_access ON public.restaurants;
+pg_restore: dropping POLICY waiting_list service_role_all
+pg_restore: from TOC entry 5244; 3256 63889 POLICY waiting_list service_role_all postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.waiting_list" does not exist
+Command was: DROP POLICY IF EXISTS service_role_all ON public.waiting_list;
+pg_restore: dropping POLICY user_profiles service_role_all
+pg_restore: from TOC entry 5243; 3256 63888 POLICY user_profiles service_role_all postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.user_profiles" does not exist
+Command was: DROP POLICY IF EXISTS service_role_all ON public.user_profiles;
+pg_restore: dropping POLICY table_merge_graph service_role_all
+pg_restore: from TOC entry 5210; 3256 63842 POLICY table_merge_graph service_role_all postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.table_merge_graph" does not exist
+Command was: DROP POLICY IF EXISTS service_role_all ON public.table_merge_graph;
+pg_restore: dropping POLICY profiles service_role_all
+pg_restore: from TOC entry 5242; 3256 63887 POLICY profiles service_role_all postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.profiles" does not exist
+Command was: DROP POLICY IF EXISTS service_role_all ON public.profiles;
+pg_restore: dropping POLICY observability_events service_role_all
+pg_restore: from TOC entry 5209; 3256 63841 POLICY observability_events service_role_all postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.observability_events" does not exist
+Command was: DROP POLICY IF EXISTS service_role_all ON public.observability_events;
+pg_restore: dropping POLICY manual_assignment_sessions service_role_all
+pg_restore: from TOC entry 5211; 3256 63845 POLICY manual_assignment_sessions service_role_all postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.manual_assignment_sessions" does not exist
+Command was: DROP POLICY IF EXISTS service_role_all ON public.manual_assignment_sessions;
+pg_restore: dropping POLICY leads service_role_all
+pg_restore: from TOC entry 5241; 3256 63886 POLICY leads service_role_all postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.leads" does not exist
+Command was: DROP POLICY IF EXISTS service_role_all ON public.leads;
+pg_restore: dropping POLICY booking_versions service_role_all
+pg_restore: from TOC entry 5240; 3256 63885 POLICY booking_versions service_role_all postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.booking_versions" does not exist
+Command was: DROP POLICY IF EXISTS service_role_all ON public.booking_versions;
+pg_restore: dropping POLICY booking_table_assignments service_role_all
+pg_restore: from TOC entry 5143; 3256 65055 POLICY booking_table_assignments service_role_all postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.booking_table_assignments" does not exist
+Command was: DROP POLICY IF EXISTS service_role_all ON public.booking_table_assignments;
+pg_restore: dropping POLICY booking_state_history service_role_all
+pg_restore: from TOC entry 5150; 3256 65060 POLICY booking_state_history service_role_all postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.booking_state_history" does not exist
+Command was: DROP POLICY IF EXISTS service_role_all ON public.booking_state_history;
+pg_restore: dropping POLICY booking_occasions_audit service_role_all
+pg_restore: from TOC entry 5212; 3256 63846 POLICY booking_occasions_audit service_role_all postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.booking_occasions_audit" does not exist
+Command was: DROP POLICY IF EXISTS service_role_all ON public.booking_occasions_audit;
+pg_restore: dropping POLICY booking_assignment_idempotency service_role_all
+pg_restore: from TOC entry 5152; 3256 65063 POLICY booking_assignment_idempotency service_role_all postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.booking_assignment_idempotency" does not exist
+Command was: DROP POLICY IF EXISTS service_role_all ON public.booking_assignment_idempotency;
+pg_restore: dropping POLICY booking_assignment_attempts service_role_all
+pg_restore: from TOC entry 5207; 3256 63838 POLICY booking_assignment_attempts service_role_all postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.booking_assignment_attempts" does not exist
+Command was: DROP POLICY IF EXISTS service_role_all ON public.booking_assignment_attempts;
+pg_restore: dropping POLICY audit_logs service_role_all
+pg_restore: from TOC entry 5206; 3256 63837 POLICY audit_logs service_role_all postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.audit_logs" does not exist
+Command was: DROP POLICY IF EXISTS service_role_all ON public.audit_logs;
+pg_restore: dropping POLICY analytics_events service_role_all
+pg_restore: from TOC entry 5239; 3256 63884 POLICY analytics_events service_role_all postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.analytics_events" does not exist
+Command was: DROP POLICY IF EXISTS service_role_all ON public.analytics_events;
+pg_restore: dropping POLICY allocations service_role_all
+pg_restore: from TOC entry 5146; 3256 65058 POLICY allocations service_role_all postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.allocations" does not exist
+Command was: DROP POLICY IF EXISTS service_role_all ON public.allocations;
+pg_restore: dropping POLICY _migrations service_role_all
+pg_restore: from TOC entry 5200; 3256 63844 POLICY _migrations service_role_all postgres
+pg_restore: error: could not execute query: ERROR:  relation "public._migrations" does not exist
+Command was: DROP POLICY IF EXISTS service_role_all ON public._migrations;
+pg_restore: dropping POLICY profile_update_requests profile_update_requests_update
+pg_restore: from TOC entry 5237; 3256 63882 POLICY profile_update_requests profile_update_requests_update postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.profile_update_requests" does not exist
+Command was: DROP POLICY IF EXISTS profile_update_requests_update ON public.profile_update_requests;
+pg_restore: dropping POLICY profile_update_requests profile_update_requests_select
+pg_restore: from TOC entry 5236; 3256 63881 POLICY profile_update_requests profile_update_requests_select postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.profile_update_requests" does not exist
+Command was: DROP POLICY IF EXISTS profile_update_requests_select ON public.profile_update_requests;
+pg_restore: dropping POLICY profile_update_requests profile_update_requests_insert
+pg_restore: from TOC entry 5235; 3256 63880 POLICY profile_update_requests profile_update_requests_insert postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.profile_update_requests" does not exist
+Command was: DROP POLICY IF EXISTS profile_update_requests_insert ON public.profile_update_requests;
+pg_restore: dropping POLICY profile_update_requests profile_update_requests_delete
+pg_restore: from TOC entry 5238; 3256 63883 POLICY profile_update_requests profile_update_requests_delete postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.profile_update_requests" does not exist
+Command was: DROP POLICY IF EXISTS profile_update_requests_delete ON public.profile_update_requests;
+pg_restore: dropping POLICY restaurants owners_can_delete
+pg_restore: from TOC entry 5234; 3256 63879 POLICY restaurants owners_can_delete postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.restaurants" does not exist
+Command was: DROP POLICY IF EXISTS owners_can_delete ON public.restaurants;
+pg_restore: dropping POLICY restaurants owners_admins_can_update
+pg_restore: from TOC entry 5233; 3256 63877 POLICY restaurants owners_admins_can_update postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.restaurants" does not exist
+Command was: DROP POLICY IF EXISTS owners_admins_can_update ON public.restaurants;
+pg_restore: dropping POLICY table_merge_graph authenticated_select
+pg_restore: from TOC entry 5205; 3256 63843 POLICY table_merge_graph authenticated_select postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.table_merge_graph" does not exist
+Command was: DROP POLICY IF EXISTS authenticated_select ON public.table_merge_graph;
+pg_restore: dropping POLICY booking_table_assignments authenticated_select
+pg_restore: from TOC entry 5144; 3256 65056 POLICY booking_table_assignments authenticated_select postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.booking_table_assignments" does not exist
+Command was: DROP POLICY IF EXISTS authenticated_select ON public.booking_table_assignments;
+pg_restore: dropping POLICY booking_state_history authenticated_select
+pg_restore: from TOC entry 5151; 3256 65061 POLICY booking_state_history authenticated_select postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.booking_state_history" does not exist
+Command was: DROP POLICY IF EXISTS authenticated_select ON public.booking_state_history;
+pg_restore: dropping POLICY booking_assignment_attempts authenticated_select
+pg_restore: from TOC entry 5208; 3256 63839 POLICY booking_assignment_attempts authenticated_select postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.booking_assignment_attempts" does not exist
+Command was: DROP POLICY IF EXISTS authenticated_select ON public.booking_assignment_attempts;
+pg_restore: dropping POLICY allocations authenticated_select
+pg_restore: from TOC entry 5147; 3256 65059 POLICY allocations authenticated_select postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.allocations" does not exist
+Command was: DROP POLICY IF EXISTS authenticated_select ON public.allocations;
+pg_restore: dropping POLICY restaurants authenticated_read_all
+pg_restore: from TOC entry 5202; 3256 61964 POLICY restaurants authenticated_read_all postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.restaurants" does not exist
+Command was: DROP POLICY IF EXISTS authenticated_read_all ON public.restaurants;
+pg_restore: dropping POLICY restaurants authenticated_can_create
+pg_restore: from TOC entry 5232; 3256 63876 POLICY restaurants authenticated_can_create postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.restaurants" does not exist
+Command was: DROP POLICY IF EXISTS authenticated_can_create ON public.restaurants;
+pg_restore: dropping POLICY restaurants anon_read_all
+pg_restore: from TOC entry 5201; 3256 61962 POLICY restaurants anon_read_all postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.restaurants" does not exist
+Command was: DROP POLICY IF EXISTS anon_read_all ON public.restaurants;
+pg_restore: dropping POLICY strategic_configs Users can view strategic configs for their restaurants
+pg_restore: from TOC entry 5224; 3256 63862 POLICY strategic_configs Users can view strategic configs for their restaurants postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.strategic_configs" does not exist
+Command was: DROP POLICY IF EXISTS "Users can view strategic configs for their restaurants" ON public.strategic_configs;
+pg_restore: dropping POLICY table_scarcity_metrics Users can view scarcity metrics for their restaurants
+pg_restore: from TOC entry 5215; 3256 63853 POLICY table_scarcity_metrics Users can view scarcity metrics for their restaurants postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.table_scarcity_metrics" does not exist
+Command was: DROP POLICY IF EXISTS "Users can view scarcity metrics for their restaurants" ON public.table_scarcity_metrics;
+pg_restore: dropping POLICY user_profiles Users can view own profile
+pg_restore: from TOC entry 5217; 3256 63856 POLICY user_profiles Users can view own profile postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.user_profiles" does not exist
+Command was: DROP POLICY IF EXISTS "Users can view own profile" ON public.user_profiles;
+pg_restore: dropping POLICY profiles Users can view own profile
+pg_restore: from TOC entry 5219; 3256 63858 POLICY profiles Users can view own profile postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.profiles" does not exist
+Command was: DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
+pg_restore: dropping POLICY demand_profiles Users can view demand profiles for their restaurants
+pg_restore: from TOC entry 5213; 3256 63850 POLICY demand_profiles Users can view demand profiles for their restaurants postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.demand_profiles" does not exist
+Command was: DROP POLICY IF EXISTS "Users can view demand profiles for their restaurants" ON public.demand_profiles;
+pg_restore: dropping POLICY user_profiles Users can update own profile
+pg_restore: from TOC entry 5218; 3256 63857 POLICY user_profiles Users can update own profile postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.user_profiles" does not exist
+Command was: DROP POLICY IF EXISTS "Users can update own profile" ON public.user_profiles;
+pg_restore: dropping POLICY profiles Users can update own profile
+pg_restore: from TOC entry 5222; 3256 63860 POLICY profiles Users can update own profile postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.profiles" does not exist
+Command was: DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
+pg_restore: dropping POLICY profiles Users can insert own profile
+pg_restore: from TOC entry 5220; 3256 63859 POLICY profiles Users can insert own profile postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.profiles" does not exist
+Command was: DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
+pg_restore: dropping POLICY booking_table_assignments Tenant service role can manage table assignments
+pg_restore: from TOC entry 5199; 3256 61951 POLICY booking_table_assignments Tenant service role can manage table assignments postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.booking_table_assignments" does not exist
+Command was: DROP POLICY IF EXISTS "Tenant service role can manage table assignments" ON public.booking_table_assignments;
+pg_restore: dropping POLICY customers Tenant service role can manage customers
+pg_restore: from TOC entry 5198; 3256 61950 POLICY customers Tenant service role can manage customers postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.customers" does not exist
+Command was: DROP POLICY IF EXISTS "Tenant service role can manage customers" ON public.customers;
+pg_restore: dropping POLICY capacity_outbox Tenant service role can manage capacity outbox
+pg_restore: from TOC entry 5197; 3256 61949 POLICY capacity_outbox Tenant service role can manage capacity outbox postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.capacity_outbox" does not exist
+Command was: DROP POLICY IF EXISTS "Tenant service role can manage capacity outbox" ON public.capacity_outbox;
+pg_restore: dropping POLICY bookings Tenant service role can manage bookings
+pg_restore: from TOC entry 5196; 3256 61948 POLICY bookings Tenant service role can manage bookings postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.bookings" does not exist
+Command was: DROP POLICY IF EXISTS "Tenant service role can manage bookings" ON public.bookings;
+pg_restore: dropping POLICY booking_confirmation_results Tenant service role can manage booking confirmation results
+pg_restore: from TOC entry 5195; 3256 61947 POLICY booking_confirmation_results Tenant service role can manage booking confirmation results postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.booking_confirmation_results" does not exist
+Command was: DROP POLICY IF EXISTS "Tenant service role can manage booking confirmation results" ON public.booking_confirmation_results;
+pg_restore: dropping POLICY allocations_archive Tenant service role can manage allocations archive
+pg_restore: from TOC entry 5194; 3256 61946 POLICY allocations_archive Tenant service role can manage allocations archive postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.allocations_archive" does not exist
+Command was: DROP POLICY IF EXISTS "Tenant service role can manage allocations archive" ON public.allocations_archive;
+pg_restore: dropping POLICY allocations Tenant service role can manage allocations
+pg_restore: from TOC entry 5193; 3256 61945 POLICY allocations Tenant service role can manage allocations postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.allocations" does not exist
+Command was: DROP POLICY IF EXISTS "Tenant service role can manage allocations" ON public.allocations;
+pg_restore: dropping POLICY table_holds Staff can view table holds
+pg_restore: from TOC entry 5192; 3256 61944 POLICY table_holds Staff can view table holds postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.table_holds" does not exist
+Command was: DROP POLICY IF EXISTS "Staff can view table holds" ON public.table_holds;
+pg_restore: dropping POLICY table_hold_members Staff can view table hold members
+pg_restore: from TOC entry 5191; 3256 61943 POLICY table_hold_members Staff can view table hold members postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.table_hold_members" does not exist
+Command was: DROP POLICY IF EXISTS "Staff can view table hold members" ON public.table_hold_members;
+pg_restore: dropping POLICY service_policy Staff can view service policy
+pg_restore: from TOC entry 5190; 3256 61942 POLICY service_policy Staff can view service policy postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.service_policy" does not exist
+Command was: DROP POLICY IF EXISTS "Staff can view service policy" ON public.service_policy;
+pg_restore: dropping POLICY merge_rules Staff can view merge rules
+pg_restore: from TOC entry 5189; 3256 61941 POLICY merge_rules Staff can view merge rules postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.merge_rules" does not exist
+Command was: DROP POLICY IF EXISTS "Staff can view merge rules" ON public.merge_rules;
+pg_restore: dropping POLICY customers Staff can view customers
+pg_restore: from TOC entry 5188; 3256 61940 POLICY customers Staff can view customers postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.customers" does not exist
+Command was: DROP POLICY IF EXISTS "Staff can view customers" ON public.customers;
+pg_restore: dropping POLICY customer_profiles Staff can view customer profiles
+pg_restore: from TOC entry 5187; 3256 61939 POLICY customer_profiles Staff can view customer profiles postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.customer_profiles" does not exist
+Command was: DROP POLICY IF EXISTS "Staff can view customer profiles" ON public.customer_profiles;
+pg_restore: dropping POLICY bookings Staff can view bookings
+pg_restore: from TOC entry 5186; 3256 61938 POLICY bookings Staff can view bookings postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.bookings" does not exist
+Command was: DROP POLICY IF EXISTS "Staff can view bookings" ON public.bookings;
+pg_restore: dropping POLICY allocations Staff can view allocations for their restaurants
+pg_restore: from TOC entry 5185; 3256 61937 POLICY allocations Staff can view allocations for their restaurants postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.allocations" does not exist
+Command was: DROP POLICY IF EXISTS "Staff can view allocations for their restaurants" ON public.allocations;
+pg_restore: dropping POLICY customers Staff can update customers
+pg_restore: from TOC entry 5184; 3256 61936 POLICY customers Staff can update customers postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.customers" does not exist
+Command was: DROP POLICY IF EXISTS "Staff can update customers" ON public.customers;
+pg_restore: dropping POLICY bookings Staff can update bookings
+pg_restore: from TOC entry 5183; 3256 61935 POLICY bookings Staff can update bookings postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.bookings" does not exist
+Command was: DROP POLICY IF EXISTS "Staff can update bookings" ON public.bookings;
+pg_restore: dropping POLICY zones Staff can manage zones
+pg_restore: from TOC entry 5182; 3256 61934 POLICY zones Staff can manage zones postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.zones" does not exist
+Command was: DROP POLICY IF EXISTS "Staff can manage zones" ON public.zones;
+pg_restore: dropping POLICY restaurant_turn_bands Staff can manage turn bands
+pg_restore: from TOC entry 5154; 3256 112058 POLICY restaurant_turn_bands Staff can manage turn bands postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.restaurant_turn_bands" does not exist
+Command was: DROP POLICY IF EXISTS "Staff can manage turn bands" ON public.restaurant_turn_bands;
+pg_restore: dropping POLICY table_inventory Staff can manage table inventory
+pg_restore: from TOC entry 5181; 3256 61933 POLICY table_inventory Staff can manage table inventory postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.table_inventory" does not exist
+Command was: DROP POLICY IF EXISTS "Staff can manage table inventory" ON public.table_inventory;
+pg_restore: dropping POLICY booking_table_assignments Staff can manage table assignments
+pg_restore: from TOC entry 5228; 3256 63868 POLICY booking_table_assignments Staff can manage table assignments postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.booking_table_assignments" does not exist
+Command was: DROP POLICY IF EXISTS "Staff can manage table assignments" ON public.booking_table_assignments;
+pg_restore: dropping POLICY restaurant_service_periods Staff can manage service periods
+pg_restore: from TOC entry 5180; 3256 61930 POLICY restaurant_service_periods Staff can manage service periods postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.restaurant_service_periods" does not exist
+Command was: DROP POLICY IF EXISTS "Staff can manage service periods" ON public.restaurant_service_periods;
+pg_restore: dropping POLICY restaurant_operating_hours Staff can manage operating hours
+pg_restore: from TOC entry 5179; 3256 61929 POLICY restaurant_operating_hours Staff can manage operating hours postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.restaurant_operating_hours" does not exist
+Command was: DROP POLICY IF EXISTS "Staff can manage operating hours" ON public.restaurant_operating_hours;
+pg_restore: dropping POLICY restaurant_capacity_rules Staff can manage capacity rules
+pg_restore: from TOC entry 5157; 3256 94402 POLICY restaurant_capacity_rules Staff can manage capacity rules postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.restaurant_capacity_rules" does not exist
+Command was: DROP POLICY IF EXISTS "Staff can manage capacity rules" ON public.restaurant_capacity_rules;
+pg_restore: dropping POLICY booking_slots Staff can manage booking slots
+pg_restore: from TOC entry 5178; 3256 61928 POLICY booking_slots Staff can manage booking slots postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.booking_slots" does not exist
+Command was: DROP POLICY IF EXISTS "Staff can manage booking slots" ON public.booking_slots;
+pg_restore: dropping POLICY allowed_capacities Staff can manage allowed capacities
+pg_restore: from TOC entry 5177; 3256 61927 POLICY allowed_capacities Staff can manage allowed capacities postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.allowed_capacities" does not exist
+Command was: DROP POLICY IF EXISTS "Staff can manage allowed capacities" ON public.allowed_capacities;
+pg_restore: dropping POLICY table_adjacencies Staff can manage adjacencies
+pg_restore: from TOC entry 5176; 3256 61925 POLICY table_adjacencies Staff can manage adjacencies postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.table_adjacencies" does not exist
+Command was: DROP POLICY IF EXISTS "Staff can manage adjacencies" ON public.table_adjacencies;
+pg_restore: dropping POLICY customers Staff can create customers
+pg_restore: from TOC entry 5175; 3256 61924 POLICY customers Staff can create customers postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.customers" does not exist
+Command was: DROP POLICY IF EXISTS "Staff can create customers" ON public.customers;
+pg_restore: dropping POLICY bookings Staff can create bookings
+pg_restore: from TOC entry 5174; 3256 61923 POLICY bookings Staff can create bookings postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.bookings" does not exist
+Command was: DROP POLICY IF EXISTS "Staff can create bookings" ON public.bookings;
+pg_restore: dropping POLICY table_holds Service role full access to table_holds
+pg_restore: from TOC entry 5173; 3256 61919 POLICY table_holds Service role full access to table_holds postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.table_holds" does not exist
+Command was: DROP POLICY IF EXISTS "Service role full access to table_holds" ON public.table_holds;
+pg_restore: dropping POLICY table_hold_windows Service role full access to table_hold_windows
+pg_restore: from TOC entry 5172; 3256 61918 POLICY table_hold_windows Service role full access to table_hold_windows postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.table_hold_windows" does not exist
+Command was: DROP POLICY IF EXISTS "Service role full access to table_hold_windows" ON public.table_hold_windows;
+pg_restore: dropping POLICY table_hold_members Service role full access to table_hold_members
+pg_restore: from TOC entry 5171; 3256 61917 POLICY table_hold_members Service role full access to table_hold_members postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.table_hold_members" does not exist
+Command was: DROP POLICY IF EXISTS "Service role full access to table_hold_members" ON public.table_hold_members;
+pg_restore: dropping POLICY feature_flag_overrides Service role full access to feature_flag_overrides
+pg_restore: from TOC entry 5170; 3256 61914 POLICY feature_flag_overrides Service role full access to feature_flag_overrides postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.feature_flag_overrides" does not exist
+Command was: DROP POLICY IF EXISTS "Service role full access to feature_flag_overrides" ON public.feature_flag_overrides;
+pg_restore: dropping POLICY booking_assignment_idempotency Service role full access to booking_assignment_idempotency
+pg_restore: from TOC entry 5169; 3256 61912 POLICY booking_assignment_idempotency Service role full access to booking_assignment_idempotency postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.booking_assignment_idempotency" does not exist
+Command was: DROP POLICY IF EXISTS "Service role full access to booking_assignment_idempotency" ON public.booking_assignment_idempotency;
+pg_restore: dropping POLICY zones Service role can manage zones
+pg_restore: from TOC entry 5149; 3256 61909 POLICY zones Service role can manage zones postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.zones" does not exist
+Command was: DROP POLICY IF EXISTS "Service role can manage zones" ON public.zones;
+pg_restore: dropping POLICY restaurant_turn_bands Service role can manage turn bands
+pg_restore: from TOC entry 5153; 3256 112057 POLICY restaurant_turn_bands Service role can manage turn bands postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.restaurant_turn_bands" does not exist
+Command was: DROP POLICY IF EXISTS "Service role can manage turn bands" ON public.restaurant_turn_bands;
+pg_restore: dropping POLICY table_inventory Service role can manage table inventory
+pg_restore: from TOC entry 5148; 3256 61908 POLICY table_inventory Service role can manage table inventory postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.table_inventory" does not exist
+Command was: DROP POLICY IF EXISTS "Service role can manage table inventory" ON public.table_inventory;
+pg_restore: dropping POLICY service_policy Service role can manage service policy
+pg_restore: from TOC entry 5168; 3256 61907 POLICY service_policy Service role can manage service policy postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.service_policy" does not exist
+Command was: DROP POLICY IF EXISTS "Service role can manage service policy" ON public.service_policy;
+pg_restore: dropping POLICY restaurant_service_periods Service role can manage service periods
+pg_restore: from TOC entry 5167; 3256 61906 POLICY restaurant_service_periods Service role can manage service periods postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.restaurant_service_periods" does not exist
+Command was: DROP POLICY IF EXISTS "Service role can manage service periods" ON public.restaurant_service_periods;
+pg_restore: dropping POLICY restaurant_operating_hours Service role can manage operating hours
+pg_restore: from TOC entry 5166; 3256 61904 POLICY restaurant_operating_hours Service role can manage operating hours postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.restaurant_operating_hours" does not exist
+Command was: DROP POLICY IF EXISTS "Service role can manage operating hours" ON public.restaurant_operating_hours;
+pg_restore: dropping POLICY loyalty_programs Service role can manage loyalty programs
+pg_restore: from TOC entry 5165; 3256 61902 POLICY loyalty_programs Service role can manage loyalty programs postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.loyalty_programs" does not exist
+Command was: DROP POLICY IF EXISTS "Service role can manage loyalty programs" ON public.loyalty_programs;
+pg_restore: dropping POLICY loyalty_points Service role can manage loyalty points
+pg_restore: from TOC entry 5164; 3256 61901 POLICY loyalty_points Service role can manage loyalty points postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.loyalty_points" does not exist
+Command was: DROP POLICY IF EXISTS "Service role can manage loyalty points" ON public.loyalty_points;
+pg_restore: dropping POLICY loyalty_point_events Service role can manage loyalty events
+pg_restore: from TOC entry 5163; 3256 61900 POLICY loyalty_point_events Service role can manage loyalty events postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.loyalty_point_events" does not exist
+Command was: DROP POLICY IF EXISTS "Service role can manage loyalty events" ON public.loyalty_point_events;
+pg_restore: dropping POLICY restaurant_capacity_rules Service role can manage capacity rules
+pg_restore: from TOC entry 5156; 3256 94401 POLICY restaurant_capacity_rules Service role can manage capacity rules postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.restaurant_capacity_rules" does not exist
+Command was: DROP POLICY IF EXISTS "Service role can manage capacity rules" ON public.restaurant_capacity_rules;
+pg_restore: dropping POLICY booking_slots Service role can manage booking slots
+pg_restore: from TOC entry 5162; 3256 61897 POLICY booking_slots Service role can manage booking slots postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.booking_slots" does not exist
+Command was: DROP POLICY IF EXISTS "Service role can manage booking slots" ON public.booking_slots;
+pg_restore: dropping POLICY audit_logs Service role can manage audit logs
+pg_restore: from TOC entry 5161; 3256 61896 POLICY audit_logs Service role can manage audit logs postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.audit_logs" does not exist
+Command was: DROP POLICY IF EXISTS "Service role can manage audit logs" ON public.audit_logs;
+pg_restore: dropping POLICY allowed_capacities Service role can manage allowed capacities
+pg_restore: from TOC entry 5160; 3256 61894 POLICY allowed_capacities Service role can manage allowed capacities postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.allowed_capacities" does not exist
+Command was: DROP POLICY IF EXISTS "Service role can manage allowed capacities" ON public.allowed_capacities;
+pg_restore: dropping POLICY table_adjacencies Service role can manage adjacencies
+pg_restore: from TOC entry 5159; 3256 61893 POLICY table_adjacencies Service role can manage adjacencies postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.table_adjacencies" does not exist
+Command was: DROP POLICY IF EXISTS "Service role can manage adjacencies" ON public.table_adjacencies;
+pg_restore: dropping POLICY analytics_events Restaurant staff can view analytics
+pg_restore: from TOC entry 5230; 3256 63873 POLICY analytics_events Restaurant staff can view analytics postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.analytics_events" does not exist
+Command was: DROP POLICY IF EXISTS "Restaurant staff can view analytics" ON public.analytics_events;
+pg_restore: dropping POLICY booking_versions Restaurant members can view booking versions
+pg_restore: from TOC entry 5223; 3256 63861 POLICY booking_versions Restaurant members can view booking versions postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.booking_versions" does not exist
+Command was: DROP POLICY IF EXISTS "Restaurant members can view booking versions" ON public.booking_versions;
+pg_restore: dropping POLICY waiting_list Restaurant members can manage waiting list
+pg_restore: from TOC entry 5231; 3256 63874 POLICY waiting_list Restaurant members can manage waiting list postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.waiting_list" does not exist
+Command was: DROP POLICY IF EXISTS "Restaurant members can manage waiting list" ON public.waiting_list;
+pg_restore: dropping POLICY leads Public can insert leads
+pg_restore: from TOC entry 5158; 3256 61885 POLICY leads Public can insert leads postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.leads" does not exist
+Command was: DROP POLICY IF EXISTS "Public can insert leads" ON public.leads;
+pg_restore: dropping POLICY restaurant_invites Owners and managers manage invites
+pg_restore: from TOC entry 5229; 3256 63871 POLICY restaurant_invites Owners and managers manage invites postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.restaurant_invites" does not exist
+Command was: DROP POLICY IF EXISTS "Owners and managers manage invites" ON public.restaurant_invites;
+pg_restore: dropping POLICY strategic_configs Owners and managers can manage strategic configs
+pg_restore: from TOC entry 5225; 3256 63863 POLICY strategic_configs Owners and managers can manage strategic configs postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.strategic_configs" does not exist
+Command was: DROP POLICY IF EXISTS "Owners and managers can manage strategic configs" ON public.strategic_configs;
+pg_restore: dropping POLICY table_scarcity_metrics Owners and managers can manage scarcity metrics
+pg_restore: from TOC entry 5216; 3256 63854 POLICY table_scarcity_metrics Owners and managers can manage scarcity metrics postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.table_scarcity_metrics" does not exist
+Command was: DROP POLICY IF EXISTS "Owners and managers can manage scarcity metrics" ON public.table_scarcity_metrics;
+pg_restore: dropping POLICY demand_profiles Owners and managers can manage demand profiles
+pg_restore: from TOC entry 5214; 3256 63851 POLICY demand_profiles Owners and managers can manage demand profiles postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.demand_profiles" does not exist
+Command was: DROP POLICY IF EXISTS "Owners and managers can manage demand profiles" ON public.demand_profiles;
+pg_restore: dropping POLICY restaurant_memberships Owners and admins can manage memberships
+pg_restore: from TOC entry 5155; 3256 61879 POLICY restaurant_memberships Owners and admins can manage memberships postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.restaurant_memberships" does not exist
+Command was: DROP POLICY IF EXISTS "Owners and admins can manage memberships" ON public.restaurant_memberships;
+pg_restore: dropping POLICY booking_table_assignments Customers can view their table assignments
+pg_restore: from TOC entry 5227; 3256 63867 POLICY booking_table_assignments Customers can view their table assignments postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.booking_table_assignments" does not exist
+Command was: DROP POLICY IF EXISTS "Customers can view their table assignments" ON public.booking_table_assignments;
+pg_restore: dropping POLICY booking_occasions Allow public read access to booking_occasions
+pg_restore: from TOC entry 5145; 3256 61876 POLICY booking_occasions Allow public read access to booking_occasions postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.booking_occasions" does not exist
+Command was: DROP POLICY IF EXISTS "Allow public read access to booking_occasions" ON public.booking_occasions;
+pg_restore: dropping POLICY customers Admins and owners can delete customers
+pg_restore: from TOC entry 5221; 3256 63866 POLICY customers Admins and owners can delete customers postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.customers" does not exist
+Command was: DROP POLICY IF EXISTS "Admins and owners can delete customers" ON public.customers;
+pg_restore: dropping POLICY bookings Admins and owners can delete bookings
+pg_restore: from TOC entry 5226; 3256 63865 POLICY bookings Admins and owners can delete bookings postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.bookings" does not exist
+Command was: DROP POLICY IF EXISTS "Admins and owners can delete bookings" ON public.bookings;
+pg_restore: dropping FK CONSTRAINT zones zones_restaurant_id_fkey
+pg_restore: dropping FK CONSTRAINT waiting_list waiting_list_restaurant_id_fkey
+pg_restore: dropping FK CONSTRAINT user_profiles user_profiles_id_fkey
+pg_restore: dropping FK CONSTRAINT table_scarcity_metrics table_scarcity_metrics_restaurant_id_fkey
+pg_restore: dropping FK CONSTRAINT table_inventory table_inventory_zone_id_fkey
+pg_restore: dropping FK CONSTRAINT table_inventory table_inventory_restaurant_id_fkey
+pg_restore: dropping FK CONSTRAINT table_inventory table_inventory_allowed_capacity_fkey
+pg_restore: dropping FK CONSTRAINT table_holds table_holds_zone_id_fkey
+pg_restore: dropping FK CONSTRAINT table_holds table_holds_session_id_fkey
+pg_restore: dropping FK CONSTRAINT table_holds table_holds_restaurant_id_fkey
+pg_restore: dropping FK CONSTRAINT table_holds table_holds_created_by_fkey
+pg_restore: dropping FK CONSTRAINT table_holds table_holds_booking_id_fkey
+pg_restore: dropping FK CONSTRAINT table_hold_windows table_hold_windows_table_id_fkey
+pg_restore: dropping FK CONSTRAINT table_hold_windows table_hold_windows_restaurant_id_fkey
+pg_restore: dropping FK CONSTRAINT table_hold_windows table_hold_windows_hold_id_fkey
+pg_restore: dropping FK CONSTRAINT table_hold_members table_hold_members_table_id_fkey
+pg_restore: dropping FK CONSTRAINT table_hold_members table_hold_members_hold_id_fkey
+pg_restore: dropping FK CONSTRAINT table_adjacencies table_adjacencies_table_b_fkey
+pg_restore: dropping FK CONSTRAINT table_adjacencies table_adjacencies_table_a_fkey
+pg_restore: dropping FK CONSTRAINT strategic_configs strategic_configs_updated_by_fkey
+pg_restore: dropping FK CONSTRAINT strategic_configs strategic_configs_restaurant_id_fkey
+pg_restore: dropping FK CONSTRAINT restaurant_turn_bands restaurant_turn_bands_restaurant_id_fkey
+pg_restore: dropping FK CONSTRAINT restaurant_turn_bands restaurant_turn_bands_booking_option_fkey
+pg_restore: dropping FK CONSTRAINT restaurant_service_periods restaurant_service_periods_restaurant_id_fkey
+pg_restore: dropping FK CONSTRAINT restaurant_service_periods restaurant_service_periods_booking_option_fkey
+pg_restore: dropping FK CONSTRAINT restaurant_operating_hours restaurant_operating_hours_restaurant_id_fkey
+pg_restore: dropping FK CONSTRAINT restaurant_memberships restaurant_memberships_restaurant_id_fkey
+pg_restore: dropping FK CONSTRAINT restaurant_invites restaurant_invites_restaurant_id_fkey
+pg_restore: dropping FK CONSTRAINT restaurant_invites restaurant_invites_invited_by_fkey
+pg_restore: dropping FK CONSTRAINT restaurant_capacity_rules restaurant_capacity_rules_service_period_id_fkey
+pg_restore: dropping FK CONSTRAINT restaurant_capacity_rules restaurant_capacity_rules_restaurant_id_fkey
+pg_restore: dropping FK CONSTRAINT profiles profiles_id_fkey
+pg_restore: dropping FK CONSTRAINT profile_update_requests profile_update_requests_profile_id_fkey
+pg_restore: dropping FK CONSTRAINT manual_assignment_sessions manual_assignment_sessions_restaurant_id_fkey
+pg_restore: dropping FK CONSTRAINT manual_assignment_sessions manual_assignment_sessions_hold_fkey
+pg_restore: dropping FK CONSTRAINT manual_assignment_sessions manual_assignment_sessions_created_by_fkey
+pg_restore: dropping FK CONSTRAINT manual_assignment_sessions manual_assignment_sessions_booking_id_fkey
+pg_restore: dropping FK CONSTRAINT loyalty_programs loyalty_programs_restaurant_id_fkey
+pg_restore: dropping FK CONSTRAINT loyalty_points loyalty_points_restaurant_id_fkey
+pg_restore: dropping FK CONSTRAINT loyalty_points loyalty_points_customer_id_fkey
+pg_restore: dropping FK CONSTRAINT loyalty_point_events loyalty_point_events_restaurant_id_fkey
+pg_restore: dropping FK CONSTRAINT loyalty_point_events loyalty_point_events_customer_id_fkey
+pg_restore: dropping FK CONSTRAINT loyalty_point_events loyalty_point_events_booking_id_fkey
+pg_restore: dropping FK CONSTRAINT email_delivery_log email_delivery_log_restaurant_id_fkey
+pg_restore: dropping FK CONSTRAINT email_delivery_log email_delivery_log_booking_id_fkey
+pg_restore: dropping FK CONSTRAINT demand_profiles demand_profiles_restaurant_id_fkey
+pg_restore: dropping FK CONSTRAINT customers customers_user_profile_id_fkey
+pg_restore: dropping FK CONSTRAINT customers customers_restaurant_id_fkey
+pg_restore: dropping FK CONSTRAINT customer_profiles customer_profiles_customer_id_fkey
+pg_restore: dropping FK CONSTRAINT bookings bookings_restaurant_id_fkey
+pg_restore: dropping FK CONSTRAINT bookings bookings_customer_id_fkey
+pg_restore: dropping FK CONSTRAINT bookings bookings_booking_type_fkey
+pg_restore: dropping FK CONSTRAINT bookings bookings_assigned_zone_id_fkey
+pg_restore: dropping FK CONSTRAINT booking_versions booking_versions_restaurant_id_fkey
+pg_restore: dropping FK CONSTRAINT booking_versions booking_versions_booking_id_fkey
+pg_restore: dropping FK CONSTRAINT booking_table_assignments booking_table_assignments_table_id_fkey
+pg_restore: dropping FK CONSTRAINT booking_table_assignments booking_table_assignments_slot_id_fkey
+pg_restore: dropping FK CONSTRAINT booking_table_assignments booking_table_assignments_merge_group_id_fkey
+pg_restore: dropping FK CONSTRAINT booking_table_assignments booking_table_assignments_booking_id_fkey
+pg_restore: dropping FK CONSTRAINT booking_table_assignments booking_table_assignments_assigned_by_fkey
+pg_restore: dropping FK CONSTRAINT booking_table_assignments booking_table_assignments_allocation_id_fkey
+pg_restore: dropping FK CONSTRAINT booking_state_history booking_state_history_changed_by_fkey
+pg_restore: dropping FK CONSTRAINT booking_state_history booking_state_history_booking_id_fkey
+pg_restore: dropping FK CONSTRAINT booking_slots booking_slots_service_period_id_fkey
+pg_restore: dropping FK CONSTRAINT booking_slots booking_slots_restaurant_id_fkey
+pg_restore: dropping FK CONSTRAINT booking_confirmation_results booking_confirmation_results_restaurant_id_fkey
+pg_restore: dropping FK CONSTRAINT booking_confirmation_results booking_confirmation_results_booking_id_fkey
+pg_restore: dropping FK CONSTRAINT booking_assignment_idempotency booking_assignment_idempotency_merge_group_fkey
+pg_restore: dropping FK CONSTRAINT booking_assignment_idempotency booking_assignment_idempotency_booking_id_fkey
+pg_restore: dropping FK CONSTRAINT booking_assignment_attempts booking_assignment_attempts_booking_id_fkey
+pg_restore: dropping FK CONSTRAINT analytics_events analytics_events_restaurant_id_fkey
+pg_restore: dropping FK CONSTRAINT analytics_events analytics_events_customer_id_fkey
+pg_restore: dropping FK CONSTRAINT analytics_events analytics_events_booking_id_fkey
+pg_restore: dropping FK CONSTRAINT allowed_capacities allowed_capacities_restaurant_id_fkey
+pg_restore: dropping FK CONSTRAINT allocations allocations_restaurant_id_fkey
+pg_restore: dropping FK CONSTRAINT allocations allocations_created_by_fkey
+pg_restore: dropping FK CONSTRAINT allocations allocations_booking_id_fkey
+pg_restore: dropping TRIGGER zones zones_updated_at
+pg_restore: from TOC entry 4942; 2620 61400 TRIGGER zones zones_updated_at postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.zones" does not exist
+Command was: DROP TRIGGER IF EXISTS zones_updated_at ON public.zones;
+pg_restore: dropping TRIGGER waiting_list waiting_list_updated_at
+pg_restore: from TOC entry 4941; 2620 61399 TRIGGER waiting_list waiting_list_updated_at postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.waiting_list" does not exist
+Command was: DROP TRIGGER IF EXISTS waiting_list_updated_at ON public.waiting_list;
+pg_restore: dropping TRIGGER waiting_list update_waiting_list_updated_at
+pg_restore: from TOC entry 4940; 2620 61398 TRIGGER waiting_list update_waiting_list_updated_at postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.waiting_list" does not exist
+Command was: DROP TRIGGER IF EXISTS update_waiting_list_updated_at ON public.waiting_list;
+pg_restore: dropping TRIGGER user_profiles update_user_profiles_updated_at
+pg_restore: from TOC entry 4939; 2620 61397 TRIGGER user_profiles update_user_profiles_updated_at postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.user_profiles" does not exist
+Command was: DROP TRIGGER IF EXISTS update_user_profiles_updated_at ON public.user_profiles;
+pg_restore: dropping TRIGGER strategic_configs update_strategic_configs_updated_at
+pg_restore: from TOC entry 4931; 2620 61396 TRIGGER strategic_configs update_strategic_configs_updated_at postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.strategic_configs" does not exist
+Command was: DROP TRIGGER IF EXISTS update_strategic_configs_updated_at ON public.strategic_configs;
+pg_restore: dropping TRIGGER profiles update_profiles_updated_at
+pg_restore: from TOC entry 4925; 2620 61395 TRIGGER profiles update_profiles_updated_at postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.profiles" does not exist
+Command was: DROP TRIGGER IF EXISTS update_profiles_updated_at ON public.profiles;
+pg_restore: dropping TRIGGER loyalty_programs update_loyalty_programs_updated_at
+pg_restore: from TOC entry 4923; 2620 61394 TRIGGER loyalty_programs update_loyalty_programs_updated_at postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.loyalty_programs" does not exist
+Command was: DROP TRIGGER IF EXISTS update_loyalty_programs_updated_at ON public.loyalty_programs;
+pg_restore: dropping TRIGGER loyalty_points update_loyalty_points_updated_at
+pg_restore: from TOC entry 4922; 2620 61393 TRIGGER loyalty_points update_loyalty_points_updated_at postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.loyalty_points" does not exist
+Command was: DROP TRIGGER IF EXISTS update_loyalty_points_updated_at ON public.loyalty_points;
+pg_restore: dropping TRIGGER demand_profiles update_demand_profiles_updated_at
+pg_restore: from TOC entry 4921; 2620 61392 TRIGGER demand_profiles update_demand_profiles_updated_at postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.demand_profiles" does not exist
+Command was: DROP TRIGGER IF EXISTS update_demand_profiles_updated_at ON public.demand_profiles;
+pg_restore: dropping TRIGGER capacity_outbox trg_capacity_outbox_updated_at
+pg_restore: from TOC entry 4919; 2620 61391 TRIGGER capacity_outbox trg_capacity_outbox_updated_at postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.capacity_outbox" does not exist
+Command was: DROP TRIGGER IF EXISTS trg_capacity_outbox_updated_at ON public.capacity_outbox;
+pg_restore: dropping TRIGGER bookings trg_booking_status_refresh
+pg_restore: from TOC entry 4918; 2620 61390 TRIGGER bookings trg_booking_status_refresh postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.bookings" does not exist
+Command was: DROP TRIGGER IF EXISTS trg_booking_status_refresh ON public.bookings;
+pg_restore: dropping TRIGGER allocations trg_allocations_refresh
+pg_restore: from TOC entry 4910; 2620 61389 TRIGGER allocations trg_allocations_refresh postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.allocations" does not exist
+Command was: DROP TRIGGER IF EXISTS trg_allocations_refresh ON public.allocations;
+pg_restore: dropping TRIGGER table_inventory table_inventory_updated_at
+pg_restore: from TOC entry 4937; 2620 61388 TRIGGER table_inventory table_inventory_updated_at postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.table_inventory" does not exist
+Command was: DROP TRIGGER IF EXISTS table_inventory_updated_at ON public.table_inventory;
+pg_restore: dropping TRIGGER table_holds table_holds_sync_windows
+pg_restore: from TOC entry 4936; 2620 61387 TRIGGER table_holds table_holds_sync_windows postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.table_holds" does not exist
+Command was: DROP TRIGGER IF EXISTS table_holds_sync_windows ON public.table_holds;
+pg_restore: dropping TRIGGER table_holds table_holds_sync_update
+pg_restore: from TOC entry 4935; 2620 61386 TRIGGER table_holds table_holds_sync_update postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.table_holds" does not exist
+Command was: DROP TRIGGER IF EXISTS table_holds_sync_update ON public.table_holds;
+pg_restore: dropping TRIGGER table_hold_members table_hold_members_sync_insert
+pg_restore: from TOC entry 4934; 2620 61385 TRIGGER table_hold_members table_hold_members_sync_insert postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.table_hold_members" does not exist
+Command was: DROP TRIGGER IF EXISTS table_hold_members_sync_insert ON public.table_hold_members;
+pg_restore: dropping TRIGGER table_hold_members table_hold_members_sync_delete
+pg_restore: from TOC entry 4933; 2620 61384 TRIGGER table_hold_members table_hold_members_sync_delete postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.table_hold_members" does not exist
+Command was: DROP TRIGGER IF EXISTS table_hold_members_sync_delete ON public.table_hold_members;
+pg_restore: dropping TRIGGER table_adjacencies table_adjacencies_validate
+pg_restore: from TOC entry 4932; 2620 61383 TRIGGER table_adjacencies table_adjacencies_validate postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.table_adjacencies" does not exist
+Command was: DROP TRIGGER IF EXISTS table_adjacencies_validate ON public.table_adjacencies;
+pg_restore: dropping TRIGGER user_profiles set_user_profiles_updated_at
+pg_restore: from TOC entry 4938; 2620 61382 TRIGGER user_profiles set_user_profiles_updated_at postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.user_profiles" does not exist
+Command was: DROP TRIGGER IF EXISTS set_user_profiles_updated_at ON public.user_profiles;
+pg_restore: dropping TRIGGER restaurant_invites set_restaurant_invites_updated_at
+pg_restore: from TOC entry 4926; 2620 61381 TRIGGER restaurant_invites set_restaurant_invites_updated_at postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.restaurant_invites" does not exist
+Command was: DROP TRIGGER IF EXISTS set_restaurant_invites_updated_at ON public.restaurant_invites;
+pg_restore: dropping TRIGGER service_policy service_policy_updated_at
+pg_restore: from TOC entry 4930; 2620 61380 TRIGGER service_policy service_policy_updated_at postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.service_policy" does not exist
+Command was: DROP TRIGGER IF EXISTS service_policy_updated_at ON public.service_policy;
+pg_restore: dropping TRIGGER restaurants restaurants_updated_at
+pg_restore: from TOC entry 4929; 2620 61379 TRIGGER restaurants restaurants_updated_at postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.restaurants" does not exist
+Command was: DROP TRIGGER IF EXISTS restaurants_updated_at ON public.restaurants;
+pg_restore: dropping TRIGGER restaurant_turn_bands restaurant_turn_bands_updated_at
+pg_restore: from TOC entry 4944; 2620 112056 TRIGGER restaurant_turn_bands restaurant_turn_bands_updated_at postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.restaurant_turn_bands" does not exist
+Command was: DROP TRIGGER IF EXISTS restaurant_turn_bands_updated_at ON public.restaurant_turn_bands;
+pg_restore: dropping TRIGGER restaurant_service_periods restaurant_service_periods_updated_at
+pg_restore: from TOC entry 4928; 2620 61378 TRIGGER restaurant_service_periods restaurant_service_periods_updated_at postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.restaurant_service_periods" does not exist
+Command was: DROP TRIGGER IF EXISTS restaurant_service_periods_updated_at ON public.restaurant_service_periods;
+pg_restore: dropping TRIGGER restaurant_operating_hours restaurant_operating_hours_updated_at
+pg_restore: from TOC entry 4927; 2620 61377 TRIGGER restaurant_operating_hours restaurant_operating_hours_updated_at postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.restaurant_operating_hours" does not exist
+Command was: DROP TRIGGER IF EXISTS restaurant_operating_hours_updated_at ON public.restaurant_operating_hours;
+pg_restore: dropping TRIGGER restaurant_capacity_rules restaurant_capacity_rules_updated_at
+pg_restore: from TOC entry 4943; 2620 94400 TRIGGER restaurant_capacity_rules restaurant_capacity_rules_updated_at postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.restaurant_capacity_rules" does not exist
+Command was: DROP TRIGGER IF EXISTS restaurant_capacity_rules_updated_at ON public.restaurant_capacity_rules;
+pg_restore: dropping TRIGGER merge_rules merge_rules_updated_at
+pg_restore: from TOC entry 4924; 2620 61376 TRIGGER merge_rules merge_rules_updated_at postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.merge_rules" does not exist
+Command was: DROP TRIGGER IF EXISTS merge_rules_updated_at ON public.merge_rules;
+pg_restore: dropping TRIGGER customers customers_updated_at
+pg_restore: from TOC entry 4920; 2620 61375 TRIGGER customers customers_updated_at postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.customers" does not exist
+Command was: DROP TRIGGER IF EXISTS customers_updated_at ON public.customers;
+pg_restore: dropping TRIGGER bookings bookings_updated_at
+pg_restore: from TOC entry 4917; 2620 61374 TRIGGER bookings bookings_updated_at postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.bookings" does not exist
+Command was: DROP TRIGGER IF EXISTS bookings_updated_at ON public.bookings;
+pg_restore: dropping TRIGGER bookings bookings_set_reference
+pg_restore: from TOC entry 4916; 2620 61373 TRIGGER bookings bookings_set_reference postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.bookings" does not exist
+Command was: DROP TRIGGER IF EXISTS bookings_set_reference ON public.bookings;
+pg_restore: dropping TRIGGER bookings bookings_set_instants
+pg_restore: from TOC entry 4915; 2620 61372 TRIGGER bookings bookings_set_instants postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.bookings" does not exist
+Command was: DROP TRIGGER IF EXISTS bookings_set_instants ON public.bookings;
+pg_restore: dropping TRIGGER booking_table_assignments booking_table_assignments_updated_at
+pg_restore: from TOC entry 4908; 2620 61371 TRIGGER booking_table_assignments booking_table_assignments_updated_at postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.booking_table_assignments" does not exist
+Command was: DROP TRIGGER IF EXISTS booking_table_assignments_updated_at ON public.booking_table_assignments;
+pg_restore: dropping TRIGGER booking_table_assignments booking_table_assignments_audit
+pg_restore: from TOC entry 4907; 2620 61370 TRIGGER booking_table_assignments booking_table_assignments_audit postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.booking_table_assignments" does not exist
+Command was: DROP TRIGGER IF EXISTS booking_table_assignments_audit ON public.booking_table_assignments;
+pg_restore: dropping TRIGGER booking_slots booking_slots_updated_at
+pg_restore: from TOC entry 4913; 2620 61369 TRIGGER booking_slots booking_slots_updated_at postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.booking_slots" does not exist
+Command was: DROP TRIGGER IF EXISTS booking_slots_updated_at ON public.booking_slots;
+pg_restore: dropping TRIGGER booking_slots booking_slots_increment_version
+pg_restore: from TOC entry 4912; 2620 61368 TRIGGER booking_slots booking_slots_increment_version postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.booking_slots" does not exist
+Command was: DROP TRIGGER IF EXISTS booking_slots_increment_version ON public.booking_slots;
+pg_restore: dropping TRIGGER bookings booking_assignment_validation
+pg_restore: from TOC entry 4914; 2620 61367 TRIGGER bookings booking_assignment_validation postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.bookings" does not exist
+Command was: DROP TRIGGER IF EXISTS booking_assignment_validation ON public.bookings;
+pg_restore: dropping TRIGGER booking_table_assignments bar_tables_drinks_only
+pg_restore: from TOC entry 4906; 2620 61366 TRIGGER booking_table_assignments bar_tables_drinks_only postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.booking_table_assignments" does not exist
+Command was: DROP TRIGGER IF EXISTS bar_tables_drinks_only ON public.booking_table_assignments;
+pg_restore: dropping TRIGGER allowed_capacities allowed_capacities_touch_updated_at
+pg_restore: from TOC entry 4911; 2620 61365 TRIGGER allowed_capacities allowed_capacities_touch_updated_at postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.allowed_capacities" does not exist
+Command was: DROP TRIGGER IF EXISTS allowed_capacities_touch_updated_at ON public.allowed_capacities;
+pg_restore: dropping TRIGGER allocations allocations_updated_at
+pg_restore: from TOC entry 4909; 2620 61364 TRIGGER allocations allocations_updated_at postgres
+pg_restore: error: could not execute query: ERROR:  relation "public.allocations" does not exist
+Command was: DROP TRIGGER IF EXISTS allocations_updated_at ON public.allocations;
+pg_restore: dropping INDEX zones_restaurant_name_idx
+pg_restore: dropping INDEX waiting_list_restaurant_date_time_idx
+pg_restore: dropping INDEX waiting_list_customer_unique_idx
+pg_restore: dropping INDEX thw_window_gist
+pg_restore: dropping INDEX thm_unique
+pg_restore: dropping INDEX table_inventory_zone_idx
+pg_restore: dropping INDEX table_holds_zone_start_idx
+pg_restore: dropping INDEX table_holds_status_idx
+pg_restore: dropping INDEX table_holds_session_idx
+pg_restore: dropping INDEX table_holds_restaurant_idx
+pg_restore: dropping INDEX table_holds_expires_at_idx
+pg_restore: dropping INDEX table_holds_booking_idx
+pg_restore: dropping INDEX table_holds_active_restaurant_idx
+pg_restore: dropping INDEX table_holds_active_booking_idx
+pg_restore: dropping INDEX table_hold_windows_table_idx
+pg_restore: dropping INDEX table_hold_windows_restaurant_idx
+pg_restore: dropping INDEX table_hold_members_table_idx
+pg_restore: dropping INDEX table_hold_members_table_active_idx
+pg_restore: dropping INDEX table_adjacencies_table_b_idx
+pg_restore: dropping INDEX restaurant_turn_bands_unique_idx
+pg_restore: dropping INDEX restaurant_turn_bands_lookup_idx
+pg_restore: dropping INDEX restaurant_invites_token_hash_key
+pg_restore: dropping INDEX restaurant_invites_restaurant_status_idx
+pg_restore: dropping INDEX restaurant_invites_pending_unique_email
+pg_restore: dropping INDEX profile_update_requests_profile_key_idx
+pg_restore: dropping INDEX observability_events_created_at_idx
+pg_restore: dropping INDEX merge_rules_from_to_idx
+pg_restore: dropping INDEX mas_restaurant_state_idx
+pg_restore: dropping INDEX mas_booking_state_idx
+pg_restore: dropping INDEX mas_active_state_idx
+pg_restore: dropping INDEX idx_waiting_list_restaurant_date
+pg_restore: dropping INDEX idx_user_profiles_phone
+pg_restore: dropping INDEX idx_table_scarcity_metrics_restaurant_type
+pg_restore: dropping INDEX idx_table_scarcity_metrics_computed_at
+pg_restore: dropping INDEX idx_table_merge_graph_table_b
+pg_restore: dropping INDEX idx_table_merge_graph_table_a
+pg_restore: dropping INDEX idx_table_merge_graph_restaurant_id
+pg_restore: dropping INDEX idx_table_inventory_section
+pg_restore: dropping INDEX idx_table_inventory_lookup
+pg_restore: dropping INDEX idx_table_holds_restaurant_start
+pg_restore: dropping INDEX idx_table_holds_restaurant_expires
+pg_restore: dropping INDEX idx_table_holds_restaurant_end
+pg_restore: dropping INDEX idx_table_hold_members_table
+pg_restore: dropping INDEX idx_table_hold_members_hold
+pg_restore: dropping INDEX idx_strategic_configs_restaurant
+pg_restore: dropping INDEX idx_restaurants_slug
+pg_restore: dropping INDEX idx_restaurants_active
+pg_restore: dropping INDEX idx_restaurant_service_periods_scope
+pg_restore: dropping INDEX idx_restaurant_operating_hours_scope
+pg_restore: dropping INDEX idx_restaurant_capacity_rules_scope
+pg_restore: dropping INDEX idx_profiles_has_access
+pg_restore: dropping INDEX idx_profiles_email
+pg_restore: dropping INDEX idx_memberships_user
+pg_restore: dropping INDEX idx_memberships_restaurant
+pg_restore: dropping INDEX idx_loyalty_programs_restaurant
+pg_restore: dropping INDEX idx_loyalty_points_restaurant_customer
+pg_restore: dropping INDEX idx_loyalty_point_events_customer
+pg_restore: dropping INDEX idx_loyalty_point_events_booking
+pg_restore: dropping INDEX idx_demand_profiles_updated_at
+pg_restore: dropping INDEX idx_demand_profiles_restaurant_day_window
+pg_restore: dropping INDEX idx_customers_user_profile_id
+pg_restore: dropping INDEX idx_customers_restaurant
+pg_restore: dropping INDEX idx_customers_phone_normalized
+pg_restore: dropping INDEX idx_customers_email_normalized
+pg_restore: dropping INDEX idx_customers_auth_user
+pg_restore: dropping INDEX idx_customer_profiles_updated_at
+pg_restore: dropping INDEX idx_bta_booking_start
+pg_restore: dropping INDEX idx_bta_booking_end
+pg_restore: dropping INDEX idx_bookings_status
+pg_restore: dropping INDEX idx_bookings_restaurant_date_start
+pg_restore: dropping INDEX idx_bookings_restaurant_date_end
+pg_restore: dropping INDEX idx_bookings_restaurant
+pg_restore: dropping INDEX idx_bookings_reference
+pg_restore: dropping INDEX idx_bookings_pending_ref
+pg_restore: dropping INDEX idx_bookings_idempotency_key
+pg_restore: dropping INDEX idx_bookings_datetime
+pg_restore: dropping INDEX idx_bookings_date
+pg_restore: dropping INDEX idx_bookings_customer
+pg_restore: dropping INDEX idx_bookings_created
+pg_restore: dropping INDEX idx_bookings_confirmation_token
+pg_restore: dropping INDEX idx_bookings_client_request_id
+pg_restore: dropping INDEX idx_bookings_auto_assign_idempotency_key
+pg_restore: dropping INDEX idx_bookings_auth_user
+pg_restore: dropping INDEX idx_booking_versions_restaurant_id
+pg_restore: dropping INDEX idx_booking_versions_changed_at
+pg_restore: dropping INDEX idx_booking_versions_booking_id
+pg_restore: dropping INDEX idx_booking_table_assignments_table
+pg_restore: dropping INDEX idx_booking_table_assignments_slot
+pg_restore: dropping INDEX idx_booking_table_assignments_booking_id
+pg_restore: dropping INDEX idx_booking_table_assignments_booking
+pg_restore: dropping INDEX idx_booking_state_history_changed_at
+pg_restore: dropping INDEX idx_booking_state_history_booking
+pg_restore: dropping INDEX idx_booking_slots_service_period
+pg_restore: dropping INDEX idx_booking_slots_lookup
+pg_restore: dropping INDEX idx_booking_slots_date_range
+pg_restore: dropping INDEX idx_booking_assignment_idempotency_created
+pg_restore: dropping INDEX idx_booking_assignment_idempotency_booking
+pg_restore: dropping INDEX idx_audit_logs_entity_id
+pg_restore: dropping INDEX idx_audit_logs_entity
+pg_restore: dropping INDEX idx_audit_logs_created_at
+pg_restore: dropping INDEX idx_audit_logs_action
+pg_restore: dropping INDEX idx_analytics_events_restaurant_occurred
+pg_restore: dropping INDEX idx_analytics_events_restaurant_id
+pg_restore: dropping INDEX idx_analytics_events_occurred_at
+pg_restore: dropping INDEX idx_analytics_events_event_type
+pg_restore: dropping INDEX idx_analytics_events_customer_id
+pg_restore: dropping INDEX idx_analytics_events_booking_id
+pg_restore: dropping INDEX idx_allocations_window_gist
+pg_restore: dropping INDEX idx_allocations_restaurant
+pg_restore: dropping INDEX email_delivery_log_restaurant_id_idx
+pg_restore: dropping INDEX email_delivery_log_occurred_at_idx
+pg_restore: dropping INDEX email_delivery_log_message_id_idx
+pg_restore: dropping INDEX email_delivery_log_booking_id_idx
+pg_restore: dropping INDEX customers_restaurant_id_user_profile_id_unique
+pg_restore: dropping INDEX capacity_outbox_restaurant_idx
+pg_restore: dropping INDEX capacity_outbox_dispatch_idx
+pg_restore: dropping INDEX capacity_outbox_dedupe
+pg_restore: dropping INDEX capacity_outbox_booking_idx
+pg_restore: dropping INDEX bta_window_gist
+pg_restore: dropping INDEX bta_table_id_idx
+pg_restore: dropping INDEX bta_booking_id_idx
+pg_restore: dropping INDEX bookings_restaurant_date_status_idx
+pg_restore: dropping INDEX bookings_restaurant_date_idx
+pg_restore: dropping INDEX booking_table_assignments_merge_group_idx
+pg_restore: dropping INDEX booking_occasions_display_order_idx
+pg_restore: dropping INDEX booking_occasions_audit_key_idx
+pg_restore: dropping INDEX booking_occasions_active_idx
+pg_restore: dropping INDEX booking_confirmation_results_hold_idx
+pg_restore: dropping INDEX booking_confirmation_results_created_idx
+pg_restore: dropping INDEX booking_assignment_idempotency_created_idx
+pg_restore: dropping INDEX booking_assignment_idempotency_booking_hash_key
+pg_restore: dropping INDEX booking_assignment_idempo_bkid_key_idx
+pg_restore: dropping INDEX booking_assignment_attempts_booking_created_idx
+pg_restore: dropping INDEX booking_assignment_attempts_booking_attempt_idx
+pg_restore: dropping INDEX bai_rest_bk_idx
+pg_restore: dropping INDEX allowed_capacities_restaurant_idx
+pg_restore: dropping INDEX allocations_archive_restaurant_idx
+pg_restore: dropping INDEX allocations_archive_booking_idx
+pg_restore: dropping CONSTRAINT zones zones_pkey
+pg_restore: dropping CONSTRAINT waiting_list waiting_list_pkey
+pg_restore: dropping CONSTRAINT user_profiles user_profiles_pkey
+pg_restore: dropping CONSTRAINT table_scarcity_metrics unique_restaurant_table_type
+pg_restore: dropping CONSTRAINT table_scarcity_metrics table_scarcity_metrics_pkey
+pg_restore: dropping CONSTRAINT table_inventory table_inventory_restaurant_id_table_number_key
+pg_restore: dropping CONSTRAINT table_inventory table_inventory_pkey
+pg_restore: dropping CONSTRAINT table_holds table_holds_pkey
+pg_restore: dropping CONSTRAINT table_hold_windows table_hold_windows_pkey
+pg_restore: dropping CONSTRAINT table_hold_members table_hold_members_pkey
+pg_restore: dropping CONSTRAINT table_hold_members table_hold_members_hold_id_table_id_key
+pg_restore: dropping CONSTRAINT table_adjacencies table_adjacencies_pkey
+pg_restore: dropping CONSTRAINT strategic_configs strategic_configs_restaurant_id_key
+pg_restore: dropping CONSTRAINT strategic_configs strategic_configs_pkey
+pg_restore: dropping CONSTRAINT service_policy service_policy_pkey
+pg_restore: dropping CONSTRAINT restaurants restaurants_slug_key
+pg_restore: dropping CONSTRAINT restaurants restaurants_pkey
+pg_restore: dropping CONSTRAINT restaurant_turn_bands restaurant_turn_bands_pkey
+pg_restore: dropping CONSTRAINT restaurant_service_periods restaurant_service_periods_pkey
+pg_restore: dropping CONSTRAINT restaurant_operating_hours restaurant_operating_hours_pkey
+pg_restore: dropping CONSTRAINT restaurant_memberships restaurant_memberships_pkey
+pg_restore: dropping CONSTRAINT restaurant_invites restaurant_invites_pkey
+pg_restore: dropping CONSTRAINT restaurant_capacity_rules restaurant_capacity_rules_pkey
+pg_restore: dropping CONSTRAINT profiles profiles_pkey
+pg_restore: dropping CONSTRAINT profile_update_requests profile_update_requests_pkey
+pg_restore: dropping CONSTRAINT observability_events observability_events_pkey
+pg_restore: dropping CONSTRAINT merge_rules merge_rules_pkey
+pg_restore: dropping CONSTRAINT manual_assignment_sessions manual_assignment_sessions_pkey
+pg_restore: dropping CONSTRAINT manual_assignment_sessions manual_assignment_sessions_booking_id_key
+pg_restore: dropping CONSTRAINT loyalty_programs loyalty_programs_restaurant_id_key
+pg_restore: dropping CONSTRAINT loyalty_programs loyalty_programs_pkey
+pg_restore: dropping CONSTRAINT loyalty_points loyalty_points_restaurant_id_customer_id_key
+pg_restore: dropping CONSTRAINT loyalty_points loyalty_points_pkey
+pg_restore: dropping CONSTRAINT loyalty_point_events loyalty_point_events_pkey
+pg_restore: dropping CONSTRAINT leads leads_pkey
+pg_restore: dropping CONSTRAINT feature_flag_overrides feature_flag_overrides_unique_flag_env
+pg_restore: dropping CONSTRAINT feature_flag_overrides feature_flag_overrides_pkey
+pg_restore: dropping CONSTRAINT email_delivery_log email_delivery_log_pkey
+pg_restore: dropping CONSTRAINT email_delivery_log email_delivery_log_message_recipient_status_key
+pg_restore: dropping CONSTRAINT demand_profiles demand_profiles_pkey
+pg_restore: dropping CONSTRAINT customers customers_restaurant_id_phone_normalized_key
+pg_restore: dropping CONSTRAINT customers customers_restaurant_id_email_normalized_key
+pg_restore: dropping CONSTRAINT customers customers_restaurant_email_phone_key
+pg_restore: dropping CONSTRAINT customers customers_pkey
+pg_restore: dropping CONSTRAINT customer_profiles customer_profiles_pkey
+pg_restore: dropping CONSTRAINT capacity_outbox capacity_outbox_pkey
+pg_restore: dropping CONSTRAINT bookings bookings_reference_key
+pg_restore: dropping CONSTRAINT bookings bookings_pkey
+pg_restore: dropping CONSTRAINT bookings bookings_confirmation_token_unique
+pg_restore: dropping CONSTRAINT booking_versions booking_versions_pkey
+pg_restore: dropping CONSTRAINT booking_table_assignments booking_table_assignments_table_id_slot_id_key
+pg_restore: dropping CONSTRAINT booking_table_assignments booking_table_assignments_pkey
+pg_restore: dropping CONSTRAINT booking_table_assignments booking_table_assignments_booking_table_key
+pg_restore: dropping CONSTRAINT booking_state_history booking_state_history_pkey
+pg_restore: dropping CONSTRAINT booking_slots booking_slots_restaurant_slot_key
+pg_restore: dropping CONSTRAINT booking_slots booking_slots_pkey
+pg_restore: dropping CONSTRAINT booking_occasions booking_occasions_pkey
+pg_restore: dropping CONSTRAINT booking_occasions_audit booking_occasions_audit_pkey
+pg_restore: dropping CONSTRAINT booking_confirmation_results booking_confirmation_results_pkey
+pg_restore: dropping CONSTRAINT booking_confirmation_results booking_confirmation_results_hold_id_key
+pg_restore: dropping CONSTRAINT booking_assignment_idempotency booking_assignment_idempotency_pkey
+pg_restore: dropping CONSTRAINT booking_assignment_attempts booking_assignment_attempts_pkey
+pg_restore: dropping CONSTRAINT audit_logs audit_logs_pkey
+pg_restore: dropping CONSTRAINT analytics_events analytics_events_pkey
+pg_restore: dropping CONSTRAINT allowed_capacities allowed_capacities_pkey
+pg_restore: dropping CONSTRAINT allocations allocations_pkey
+pg_restore: dropping CONSTRAINT allocations allocations_booking_resource_key
+pg_restore: dropping CONSTRAINT allocations_archive allocations_archive_pkey
+pg_restore: dropping CONSTRAINT _migrations _migrations_pkey
+pg_restore: dropping CONSTRAINT _migrations _migrations_name_key
+pg_restore: dropping DEFAULT booking_state_history id
+pg_restore: dropping DEFAULT _migrations id
+pg_restore: dropping TABLE zones
+pg_restore: dropping TABLE waiting_list
+pg_restore: dropping TABLE user_profiles
+pg_restore: dropping TABLE table_scarcity_metrics
+pg_restore: dropping TABLE table_merge_graph
+pg_restore: dropping TABLE table_inventory
+pg_restore: dropping TABLE table_holds
+pg_restore: dropping TABLE table_hold_windows
+pg_restore: dropping TABLE table_hold_members
+pg_restore: dropping TABLE table_adjacencies
+pg_restore: dropping TABLE strategic_configs
+pg_restore: dropping TABLE service_policy
+pg_restore: dropping TABLE restaurants
+pg_restore: dropping TABLE restaurant_turn_bands
+pg_restore: dropping TABLE restaurant_service_periods
+pg_restore: dropping TABLE restaurant_operating_hours
+pg_restore: dropping TABLE restaurant_memberships
+pg_restore: dropping TABLE restaurant_invites
+pg_restore: dropping TABLE restaurant_capacity_rules
+pg_restore: dropping TABLE profiles
+pg_restore: dropping TABLE profile_update_requests
+pg_restore: dropping TABLE observability_events
+pg_restore: dropping TABLE merge_rules
+pg_restore: dropping TABLE manual_assignment_sessions
+pg_restore: dropping TABLE loyalty_programs
+pg_restore: dropping TABLE loyalty_points
+pg_restore: dropping TABLE loyalty_point_events
+pg_restore: dropping TABLE leads
+pg_restore: dropping TABLE feature_flag_overrides
+pg_restore: dropping TABLE email_delivery_log
+pg_restore: dropping TABLE demand_profiles
+pg_restore: dropping TABLE customers
+pg_restore: dropping TABLE customer_profiles
+pg_restore: dropping TABLE capacity_outbox
+pg_restore: dropping TABLE bookings
+pg_restore: dropping TABLE booking_versions
+pg_restore: dropping SEQUENCE booking_state_history_id_seq
+pg_restore: dropping TABLE booking_state_history
+pg_restore: dropping TABLE booking_slots
+pg_restore: dropping TABLE booking_occasions_audit
+pg_restore: dropping TABLE booking_occasions
+pg_restore: dropping TABLE booking_confirmation_results
+pg_restore: dropping TABLE booking_assignment_idempotency
+pg_restore: dropping TABLE booking_assignment_attempts
+pg_restore: dropping TABLE audit_logs
+pg_restore: dropping TABLE analytics_events
+pg_restore: dropping TABLE allowed_capacities
+pg_restore: dropping TABLE allocations_archive
+pg_restore: dropping TABLE allocations
+pg_restore: dropping SEQUENCE _migrations_id_seq
+pg_restore: dropping TABLE _migrations
+pg_restore: dropping FUNCTION validate_table_adjacency()
+pg_restore: dropping FUNCTION validate_booking_has_assignments()
+pg_restore: dropping FUNCTION validate_booking_capacity_after_assignment(uuid)
+pg_restore: dropping FUNCTION user_restaurants_admin()
+pg_restore: dropping FUNCTION user_restaurants()
+pg_restore: dropping FUNCTION update_updated_at_column()
+pg_restore: dropping FUNCTION update_updated_at()
+pg_restore: dropping FUNCTION update_table_hold_windows()
+pg_restore: dropping FUNCTION update_booking_with_capacity_check(uuid, uuid, uuid, date, time without time zone, time without time zone, integer, text, text, text, text, text, text, boolean, uuid, text, jsonb, integer, text)
+pg_restore: dropping FUNCTION unassign_tables_atomic(uuid, uuid[])
+pg_restore: dropping FUNCTION unassign_table_from_booking(uuid, uuid)
+pg_restore: dropping FUNCTION sync_table_hold_windows()
+pg_restore: dropping FUNCTION sync_confirmed_assignment_windows(uuid, uuid[], timestamp with time zone, timestamp with time zone, uuid, uuid, uuid, text, text)
+pg_restore: dropping TABLE booking_table_assignments
+pg_restore: dropping FUNCTION set_timestamp_updated_at()
+pg_restore: dropping FUNCTION set_restaurant_context(uuid)
+pg_restore: dropping FUNCTION set_hold_conflict_enforcement(boolean)
+pg_restore: dropping FUNCTION set_booking_reference()
+pg_restore: dropping FUNCTION set_booking_instants()
+pg_restore: dropping FUNCTION require_restaurant_context()
+pg_restore: dropping FUNCTION release_hold_and_emit(uuid, uuid)
+pg_restore: dropping FUNCTION refresh_table_status(uuid)
+pg_restore: dropping FUNCTION prune_allocations_history(timestamp with time zone, integer)
+pg_restore: dropping FUNCTION process_late_arrivals()
+pg_restore: dropping FUNCTION on_booking_status_refresh()
+pg_restore: dropping FUNCTION on_allocations_refresh()
+pg_restore: dropping FUNCTION log_table_assignment_change()
+pg_restore: dropping FUNCTION is_table_available_v2(uuid, timestamp with time zone, timestamp with time zone, uuid)
+pg_restore: dropping FUNCTION is_holds_strict_conflicts_enabled()
+pg_restore: dropping FUNCTION increment_booking_slot_version()
+pg_restore: dropping FUNCTION get_or_create_booking_slot(uuid, date, time without time zone, integer)
+pg_restore: dropping FUNCTION generate_booking_reference()
+pg_restore: dropping FUNCTION enforce_bar_drinks_only()
+pg_restore: dropping FUNCTION current_restaurant_id()
+pg_restore: dropping FUNCTION create_booking_with_capacity_check(uuid, uuid, date, time without time zone, time without time zone, integer, text, text, text, text, text, text, boolean, text, text, uuid, text, jsonb, integer)
+pg_restore: dropping FUNCTION confirm_hold_assignment_with_transition(uuid, uuid[], text, boolean, uuid, timestamp with time zone, timestamp with time zone, public.booking_status, uuid, text, jsonb)
+pg_restore: dropping FUNCTION confirm_hold_assignment_tx(uuid, uuid, text, boolean, uuid, timestamp with time zone, timestamp with time zone, text, text, public.booking_status, text, jsonb, uuid)
+pg_restore: dropping FUNCTION booking_status_summary(uuid, date, date, public.booking_status[])
+pg_restore: dropping FUNCTION assign_tables_atomic_v2(uuid, uuid[], text, boolean, uuid, timestamp with time zone, timestamp with time zone)
+pg_restore: dropping FUNCTION assign_tables_atomic_v2(uuid, uuid[], text, boolean, uuid)
+pg_restore: dropping FUNCTION assign_tables_atomic(uuid, uuid[], tstzrange, uuid, text)
+pg_restore: dropping FUNCTION assign_single_table(uuid, uuid, uuid, text)
+pg_restore: dropping FUNCTION assign_merged_tables(uuid, uuid[], boolean, uuid, text)
+pg_restore: dropping FUNCTION are_tables_connected(uuid[])
+pg_restore: dropping FUNCTION apply_booking_state_transition(uuid, public.booking_status, timestamp with time zone, timestamp with time zone, timestamp with time zone, public.booking_status, public.booking_status, uuid, timestamp with time zone, text, jsonb)
+pg_restore: dropping FUNCTION allowed_capacities_set_updated_at()
+pg_restore: dropping FUNCTION allocations_overlap(tstzrange, tstzrange)
+pg_restore: dropping TYPE table_status
+pg_restore: dropping TYPE table_seating_type
+pg_restore: dropping TYPE table_mobility
+pg_restore: dropping TYPE table_hold_status
+pg_restore: dropping TYPE table_category
+pg_restore: dropping TYPE seating_preference_type
+pg_restore: dropping TYPE manual_assignment_session_state
+pg_restore: dropping TYPE loyalty_tier
+pg_restore: dropping TYPE capacity_override_type
+pg_restore: dropping TYPE booking_status
+pg_restore: dropping TYPE booking_change_type
+pg_restore: dropping TYPE analytics_event_type
+pg_restore: creating TYPE "public.analytics_event_type"
+pg_restore: creating TYPE "public.booking_change_type"
+pg_restore: creating TYPE "public.booking_status"
+pg_restore: creating COMMENT "public.TYPE booking_status"
+pg_restore: creating TYPE "public.capacity_override_type"
+pg_restore: creating TYPE "public.loyalty_tier"
+pg_restore: creating TYPE "public.manual_assignment_session_state"
+pg_restore: creating TYPE "public.seating_preference_type"
+pg_restore: creating TYPE "public.table_category"
+pg_restore: creating TYPE "public.table_hold_status"
+pg_restore: creating TYPE "public.table_mobility"
+pg_restore: creating TYPE "public.table_seating_type"
+pg_restore: creating TYPE "public.table_status"
+pg_restore: creating COMMENT "public.TYPE table_status"
+pg_restore: creating FUNCTION "public.allocations_overlap(tstzrange, tstzrange)"
+pg_restore: creating COMMENT "public.FUNCTION allocations_overlap(a tstzrange, b tstzrange)"
+pg_restore: creating FUNCTION "public.allowed_capacities_set_updated_at()"
+pg_restore: creating FUNCTION "public.apply_booking_state_transition(uuid, public.booking_status, timestamp with time zone, timestamp with time zone, timestamp with time zone, public.booking_status, public.booking_status, uuid, timestamp with time zone, text, jsonb)"
+pg_restore: creating FUNCTION "public.are_tables_connected(uuid[])"
+pg_restore: creating FUNCTION "public.assign_merged_tables(uuid, uuid[], boolean, uuid, text)"
+pg_restore: creating COMMENT "public.FUNCTION assign_merged_tables(p_booking_id uuid, p_table_ids uuid[], p_require_adjacency boolean, p_assigned_by uuid, p_idempotency_key text)"
+pg_restore: creating FUNCTION "public.assign_single_table(uuid, uuid, uuid, text)"
+pg_restore: creating COMMENT "public.FUNCTION assign_single_table(p_booking_id uuid, p_table_id uuid, p_assigned_by uuid, p_idempotency_key text)"
+pg_restore: creating FUNCTION "public.assign_tables_atomic(uuid, uuid[], tstzrange, uuid, text)"
+pg_restore: creating COMMENT "public.FUNCTION assign_tables_atomic(p_booking_id uuid, p_table_ids uuid[], p_window tstzrange, p_assigned_by uuid, p_idempotency_key text)"
+pg_restore: creating FUNCTION "public.assign_tables_atomic_v2(uuid, uuid[], text, boolean, uuid)"
+pg_restore: creating COMMENT "public.FUNCTION assign_tables_atomic_v2(p_booking_id uuid, p_table_ids uuid[], p_idempotency_key text, p_require_adjacency boolean, p_assigned_by uuid)"
+pg_restore: creating FUNCTION "public.assign_tables_atomic_v2(uuid, uuid[], text, boolean, uuid, timestamp with time zone, timestamp with time zone)"
+pg_restore: creating COMMENT "public.FUNCTION assign_tables_atomic_v2(p_booking_id uuid, p_table_ids uuid[], p_idempotency_key text, p_require_adjacency boolean, p_assigned_by uuid, p_start_at timestamp with time zone, p_end_at timestamp with time zone)"
+pg_restore: creating FUNCTION "public.booking_status_summary(uuid, date, date, public.booking_status[])"
+pg_restore: creating COMMENT "public.FUNCTION booking_status_summary(p_restaurant_id uuid, p_start_date date, p_end_date date, p_status_filter public.booking_status[])"
+pg_restore: creating FUNCTION "public.confirm_hold_assignment_tx(uuid, uuid, text, boolean, uuid, timestamp with time zone, timestamp with time zone, text, text, public.booking_status, text, jsonb, uuid)"
+pg_restore: creating FUNCTION "public.confirm_hold_assignment_with_transition(uuid, uuid[], text, boolean, uuid, timestamp with time zone, timestamp with time zone, public.booking_status, uuid, text, jsonb)"
+pg_restore: creating FUNCTION "public.create_booking_with_capacity_check(uuid, uuid, date, time without time zone, time without time zone, integer, text, text, text, text, text, text, boolean, text, text, uuid, text, jsonb, integer)"
+pg_restore: creating COMMENT "public.FUNCTION create_booking_with_capacity_check(p_restaurant_id uuid, p_customer_id uuid, p_booking_date date, p_start_time time without time zone, p_end_time time without time zone, p_party_size integer, p_booking_type text, p_customer_name text, p_customer_email text, p_customer_phone text, p_seating_preference text, p_notes text, p_marketing_opt_in boolean, p_idempotency_key text, p_source text, p_auth_user_id uuid, p_client_request_id text, p_details jsonb, p_loyalty_points_awarded integer)"
+pg_restore: creating FUNCTION "public.current_restaurant_id()"
+pg_restore: creating COMMENT "public.FUNCTION current_restaurant_id()"
+pg_restore: creating FUNCTION "public.enforce_bar_drinks_only()"
+pg_restore: creating FUNCTION "public.generate_booking_reference()"
+pg_restore: creating FUNCTION "public.get_or_create_booking_slot(uuid, date, time without time zone, integer)"
+pg_restore: creating COMMENT "public.FUNCTION get_or_create_booking_slot(p_restaurant_id uuid, p_slot_date date, p_slot_time time without time zone, p_default_capacity integer)"
+pg_restore: creating FUNCTION "public.increment_booking_slot_version()"
+pg_restore: creating COMMENT "public.FUNCTION increment_booking_slot_version()"
+pg_restore: creating FUNCTION "public.is_holds_strict_conflicts_enabled()"
+pg_restore: creating FUNCTION "public.is_table_available_v2(uuid, timestamp with time zone, timestamp with time zone, uuid)"
+pg_restore: creating FUNCTION "public.log_table_assignment_change()"
+pg_restore: creating COMMENT "public.FUNCTION log_table_assignment_change()"
+pg_restore: creating FUNCTION "public.on_allocations_refresh()"
+pg_restore: creating FUNCTION "public.on_booking_status_refresh()"
+pg_restore: creating FUNCTION "public.process_late_arrivals()"
+pg_restore: creating FUNCTION "public.prune_allocations_history(timestamp with time zone, integer)"
+pg_restore: creating FUNCTION "public.refresh_table_status(uuid)"
+pg_restore: creating FUNCTION "public.release_hold_and_emit(uuid, uuid)"
+pg_restore: creating FUNCTION "public.require_restaurant_context()"
+pg_restore: creating COMMENT "public.FUNCTION require_restaurant_context()"
+pg_restore: creating FUNCTION "public.set_booking_instants()"
+pg_restore: creating FUNCTION "public.set_booking_reference()"
+pg_restore: creating FUNCTION "public.set_hold_conflict_enforcement(boolean)"
+pg_restore: creating FUNCTION "public.set_restaurant_context(uuid)"
+pg_restore: creating COMMENT "public.FUNCTION set_restaurant_context(p_restaurant_id uuid)"
+pg_restore: creating FUNCTION "public.set_timestamp_updated_at()"
+pg_restore: creating TABLE "public.booking_table_assignments"
+pg_restore: creating COMMENT "public.TABLE booking_table_assignments"
+pg_restore: creating COMMENT "public.COLUMN booking_table_assignments.booking_id"
+pg_restore: creating COMMENT "public.COLUMN booking_table_assignments.table_id"
+pg_restore: creating COMMENT "public.COLUMN booking_table_assignments.slot_id"
+pg_restore: creating COMMENT "public.COLUMN booking_table_assignments.assigned_at"
+pg_restore: creating COMMENT "public.COLUMN booking_table_assignments.assigned_by"
+pg_restore: creating COMMENT "public.COLUMN booking_table_assignments.notes"
+pg_restore: creating COMMENT "public.COLUMN booking_table_assignments.allocation_id"
+pg_restore: creating FUNCTION "public.sync_confirmed_assignment_windows(uuid, uuid[], timestamp with time zone, timestamp with time zone, uuid, uuid, uuid, text, text)"
+pg_restore: creating FUNCTION "public.sync_table_hold_windows()"
+pg_restore: creating FUNCTION "public.unassign_table_from_booking(uuid, uuid)"
+pg_restore: creating COMMENT "public.FUNCTION unassign_table_from_booking(p_booking_id uuid, p_table_id uuid)"
+pg_restore: creating FUNCTION "public.unassign_tables_atomic(uuid, uuid[])"
+pg_restore: creating FUNCTION "public.update_booking_with_capacity_check(uuid, uuid, uuid, date, time without time zone, time without time zone, integer, text, text, text, text, text, text, boolean, uuid, text, jsonb, integer, text)"
+pg_restore: creating FUNCTION "public.update_table_hold_windows()"
+pg_restore: creating FUNCTION "public.update_updated_at()"
+pg_restore: creating FUNCTION "public.update_updated_at_column()"
+pg_restore: creating FUNCTION "public.user_restaurants()"
+pg_restore: creating FUNCTION "public.user_restaurants_admin()"
+pg_restore: creating FUNCTION "public.validate_booking_capacity_after_assignment(uuid)"
+pg_restore: creating COMMENT "public.FUNCTION validate_booking_capacity_after_assignment(p_booking_id uuid)"
+pg_restore: creating FUNCTION "public.validate_booking_has_assignments()"
+pg_restore: creating COMMENT "public.FUNCTION validate_booking_has_assignments()"
+pg_restore: creating FUNCTION "public.validate_table_adjacency()"
+pg_restore: creating TABLE "public._migrations"
+pg_restore: creating SEQUENCE "public._migrations_id_seq"
+pg_restore: creating SEQUENCE OWNED BY "public._migrations_id_seq"
+pg_restore: creating TABLE "public.allocations"
+pg_restore: creating COMMENT "public.COLUMN allocations.shadow"
+pg_restore: creating COMMENT "public.COLUMN allocations.is_maintenance"
+pg_restore: creating TABLE "public.allocations_archive"
+pg_restore: creating TABLE "public.allowed_capacities"
+pg_restore: creating TABLE "public.analytics_events"
+pg_restore: creating COMMENT "public.TABLE analytics_events"
+pg_restore: creating TABLE "public.audit_logs"
+pg_restore: creating TABLE "public.booking_assignment_attempts"
+pg_restore: creating TABLE "public.booking_assignment_idempotency"
+pg_restore: creating COMMENT "public.TABLE booking_assignment_idempotency"
+pg_restore: creating COMMENT "public.COLUMN booking_assignment_idempotency.table_set_hash"
+pg_restore: creating TABLE "public.booking_confirmation_results"
+pg_restore: creating TABLE "public.booking_occasions"
+pg_restore: creating TABLE "public.booking_occasions_audit"
+pg_restore: creating TABLE "public.booking_slots"
+pg_restore: creating COMMENT "public.TABLE booking_slots"
+pg_restore: creating COMMENT "public.COLUMN booking_slots.slot_date"
+pg_restore: creating COMMENT "public.COLUMN booking_slots.slot_time"
+pg_restore: creating COMMENT "public.COLUMN booking_slots.service_period_id"
+pg_restore: creating COMMENT "public.COLUMN booking_slots.available_capacity"
+pg_restore: creating COMMENT "public.COLUMN booking_slots.reserved_count"
+pg_restore: creating COMMENT "public.COLUMN booking_slots.version"
+pg_restore: creating TABLE "public.booking_state_history"
+pg_restore: creating COMMENT "public.TABLE booking_state_history"
+pg_restore: creating COMMENT "public.COLUMN booking_state_history.booking_id"
+pg_restore: creating COMMENT "public.COLUMN booking_state_history.from_status"
+pg_restore: creating COMMENT "public.COLUMN booking_state_history.to_status"
+pg_restore: creating COMMENT "public.COLUMN booking_state_history.changed_by"
+pg_restore: creating COMMENT "public.COLUMN booking_state_history.changed_at"
+pg_restore: creating COMMENT "public.COLUMN booking_state_history.reason"
+pg_restore: creating COMMENT "public.COLUMN booking_state_history.metadata"
+pg_restore: creating SEQUENCE "public.booking_state_history_id_seq"
+pg_restore: creating SEQUENCE OWNED BY "public.booking_state_history_id_seq"
+pg_restore: creating TABLE "public.booking_versions"
+pg_restore: creating COMMENT "public.TABLE booking_versions"
+pg_restore: creating TABLE "public.bookings"
+pg_restore: creating COMMENT "public.TABLE bookings"
+pg_restore: creating COMMENT "public.COLUMN bookings.pending_ref"
+pg_restore: creating COMMENT "public.COLUMN bookings.confirmation_token"
+pg_restore: creating COMMENT "public.COLUMN bookings.confirmation_token_expires_at"
+pg_restore: creating COMMENT "public.COLUMN bookings.confirmation_token_used_at"
+pg_restore: creating COMMENT "public.COLUMN bookings.auth_user_id"
+pg_restore: creating COMMENT "public.COLUMN bookings.checked_in_at"
+pg_restore: creating COMMENT "public.COLUMN bookings.checked_out_at"
+pg_restore: creating COMMENT "public.COLUMN bookings.assigned_zone_id"
+pg_restore: creating COMMENT "public.CONSTRAINT bookings_checked_out_after_checked_in ON bookings"
+pg_restore: creating COMMENT "public.CONSTRAINT bookings_lifecycle_timestamp_consistency ON bookings"
+pg_restore: creating TABLE "public.capacity_outbox"
+pg_restore: creating COMMENT "public.TABLE capacity_outbox"
+pg_restore: creating TABLE "public.customer_profiles"
+pg_restore: creating TABLE "public.customers"
+pg_restore: creating COMMENT "public.TABLE customers"
+pg_restore: creating COMMENT "public.COLUMN customers.user_profile_id"
+pg_restore: creating TABLE "public.demand_profiles"
+pg_restore: creating COMMENT "public.TABLE demand_profiles"
+pg_restore: creating TABLE "public.email_delivery_log"
+pg_restore: creating COMMENT "public.TABLE email_delivery_log"
+pg_restore: creating TABLE "public.feature_flag_overrides"
+pg_restore: creating COMMENT "public.TABLE feature_flag_overrides"
+pg_restore: creating TABLE "public.leads"
+pg_restore: creating COMMENT "public.TABLE leads"
+pg_restore: creating TABLE "public.loyalty_point_events"
+pg_restore: creating TABLE "public.loyalty_points"
+pg_restore: creating TABLE "public.loyalty_programs"
+pg_restore: creating TABLE "public.manual_assignment_sessions"
+pg_restore: creating TABLE "public.merge_rules"
+pg_restore: creating TABLE "public.observability_events"
+pg_restore: creating TABLE "public.profile_update_requests"
+pg_restore: creating TABLE "public.profiles"
+pg_restore: creating COMMENT "public.COLUMN profiles.has_access"
+pg_restore: creating TABLE "public.restaurant_capacity_rules"
+pg_restore: creating COMMENT "public.COLUMN restaurant_capacity_rules.label"
+pg_restore: creating COMMENT "public.COLUMN restaurant_capacity_rules.override_type"
+pg_restore: creating TABLE "public.restaurant_invites"
+pg_restore: creating TABLE "public.restaurant_memberships"
+pg_restore: creating TABLE "public.restaurant_operating_hours"
+pg_restore: creating COMMENT "public.COLUMN restaurant_operating_hours.reservation_interval_minutes"
+pg_restore: creating COMMENT "public.COLUMN restaurant_operating_hours.reservation_slot_times"
+pg_restore: creating TABLE "public.restaurant_service_periods"
+pg_restore: creating TABLE "public.restaurant_turn_bands"
+pg_restore: creating COMMENT "public.TABLE restaurant_turn_bands"
+pg_restore: creating COMMENT "public.COLUMN restaurant_turn_bands.restaurant_id"
+pg_restore: creating COMMENT "public.COLUMN restaurant_turn_bands.booking_option"
+pg_restore: creating COMMENT "public.COLUMN restaurant_turn_bands.max_party_size"
+pg_restore: creating COMMENT "public.COLUMN restaurant_turn_bands.duration_minutes"
+pg_restore: creating TABLE "public.restaurants"
+pg_restore: creating COMMENT "public.TABLE restaurants"
+pg_restore: creating COMMENT "public.COLUMN restaurants.timezone"
+pg_restore: creating COMMENT "public.COLUMN restaurants.reservation_last_seating_buffer_minutes"
+pg_restore: creating COMMENT "public.COLUMN restaurants.is_active"
+pg_restore: creating COMMENT "public.COLUMN restaurants.logo_url"
+pg_restore: creating COMMENT "public.COLUMN restaurants.reservation_lifecycle_grace_minutes"
+pg_restore: creating COMMENT "public.COLUMN restaurants.google_review_url"
+pg_restore: creating COMMENT "public.COLUMN restaurants.email_templates"
+pg_restore: creating TABLE "public.service_policy"
+pg_restore: creating COMMENT "public.COLUMN service_policy.allow_after_hours"
+pg_restore: creating TABLE "public.strategic_configs"
+pg_restore: creating COMMENT "public.TABLE strategic_configs"
+pg_restore: creating TABLE "public.table_adjacencies"
+pg_restore: creating TABLE "public.table_hold_members"
+pg_restore: creating COMMENT "public.TABLE table_hold_members"
+pg_restore: creating TABLE "public.table_hold_windows"
+pg_restore: creating COMMENT "public.TABLE table_hold_windows"
+pg_restore: creating TABLE "public.table_holds"
+pg_restore: creating COMMENT "public.TABLE table_holds"
+pg_restore: creating TABLE "public.table_inventory"
+pg_restore: creating COMMENT "public.TABLE table_inventory"
+pg_restore: creating COMMENT "public.COLUMN table_inventory.table_number"
+pg_restore: creating COMMENT "public.COLUMN table_inventory.capacity"
+pg_restore: creating COMMENT "public.COLUMN table_inventory.section"
+pg_restore: creating COMMENT "public.COLUMN table_inventory.status"
+pg_restore: creating COMMENT "public.COLUMN table_inventory."position""
+pg_restore: creating COMMENT "public.COLUMN table_inventory.mobility"
+pg_restore: creating COMMENT "public.COLUMN table_inventory.min_party_size"
+pg_restore: creating COMMENT "public.COLUMN table_inventory.max_party_size"
+pg_restore: creating TABLE "public.table_merge_graph"
+pg_restore: creating TABLE "public.table_scarcity_metrics"
+pg_restore: creating COMMENT "public.TABLE table_scarcity_metrics"
+pg_restore: creating TABLE "public.user_profiles"
+pg_restore: creating COMMENT "public.TABLE user_profiles"
+pg_restore: creating COMMENT "public.COLUMN user_profiles.phone"
+pg_restore: creating COMMENT "public.COLUMN user_profiles.is_email_suppressed"
+pg_restore: creating TABLE "public.waiting_list"
+pg_restore: creating COMMENT "public.TABLE waiting_list"
+pg_restore: creating TABLE "public.zones"
+pg_restore: creating COMMENT "public.TABLE zones"
+pg_restore: creating COMMENT "public.COLUMN zones.active"
+pg_restore: creating DEFAULT "public._migrations id"
+pg_restore: creating DEFAULT "public.booking_state_history id"
+pg_restore: creating CONSTRAINT "public._migrations _migrations_name_key"
+pg_restore: creating CONSTRAINT "public._migrations _migrations_pkey"
+pg_restore: creating CONSTRAINT "public.allocations_archive allocations_archive_pkey"
+pg_restore: creating CONSTRAINT "public.allocations allocations_booking_resource_key"
+pg_restore: creating CONSTRAINT "public.allocations allocations_pkey"
+pg_restore: creating CONSTRAINT "public.allowed_capacities allowed_capacities_pkey"
+pg_restore: creating CONSTRAINT "public.analytics_events analytics_events_pkey"
+pg_restore: creating CONSTRAINT "public.audit_logs audit_logs_pkey"
+pg_restore: creating CONSTRAINT "public.booking_assignment_attempts booking_assignment_attempts_pkey"
+pg_restore: creating CONSTRAINT "public.booking_assignment_idempotency booking_assignment_idempotency_pkey"
+pg_restore: creating CONSTRAINT "public.booking_confirmation_results booking_confirmation_results_hold_id_key"
+pg_restore: creating CONSTRAINT "public.booking_confirmation_results booking_confirmation_results_pkey"
+pg_restore: creating CONSTRAINT "public.booking_occasions_audit booking_occasions_audit_pkey"
+pg_restore: creating CONSTRAINT "public.booking_occasions booking_occasions_pkey"
+pg_restore: creating CONSTRAINT "public.booking_slots booking_slots_pkey"
+pg_restore: creating CONSTRAINT "public.booking_slots booking_slots_restaurant_slot_key"
+pg_restore: creating CONSTRAINT "public.booking_state_history booking_state_history_pkey"
+pg_restore: creating CONSTRAINT "public.booking_table_assignments booking_table_assignments_booking_table_key"
+pg_restore: creating CONSTRAINT "public.booking_table_assignments booking_table_assignments_pkey"
+pg_restore: creating CONSTRAINT "public.booking_table_assignments booking_table_assignments_table_id_slot_id_key"
+pg_restore: creating CONSTRAINT "public.booking_versions booking_versions_pkey"
+pg_restore: creating CONSTRAINT "public.bookings bookings_confirmation_token_unique"
+pg_restore: creating CONSTRAINT "public.bookings bookings_pkey"
+pg_restore: creating CONSTRAINT "public.bookings bookings_reference_key"
+pg_restore: creating CONSTRAINT "public.capacity_outbox capacity_outbox_pkey"
+pg_restore: creating CONSTRAINT "public.customer_profiles customer_profiles_pkey"
+pg_restore: creating CONSTRAINT "public.customers customers_pkey"
+pg_restore: creating CONSTRAINT "public.customers customers_restaurant_email_phone_key"
+pg_restore: creating CONSTRAINT "public.customers customers_restaurant_id_email_normalized_key"
+pg_restore: creating CONSTRAINT "public.customers customers_restaurant_id_phone_normalized_key"
+pg_restore: creating CONSTRAINT "public.demand_profiles demand_profiles_pkey"
+pg_restore: creating CONSTRAINT "public.email_delivery_log email_delivery_log_message_recipient_status_key"
+pg_restore: creating CONSTRAINT "public.email_delivery_log email_delivery_log_pkey"
+pg_restore: creating CONSTRAINT "public.feature_flag_overrides feature_flag_overrides_pkey"
+pg_restore: creating CONSTRAINT "public.feature_flag_overrides feature_flag_overrides_unique_flag_env"
+pg_restore: creating CONSTRAINT "public.leads leads_pkey"
+pg_restore: creating CONSTRAINT "public.loyalty_point_events loyalty_point_events_pkey"
+pg_restore: creating CONSTRAINT "public.loyalty_points loyalty_points_pkey"
+pg_restore: creating CONSTRAINT "public.loyalty_points loyalty_points_restaurant_id_customer_id_key"
+pg_restore: creating CONSTRAINT "public.loyalty_programs loyalty_programs_pkey"
+pg_restore: creating CONSTRAINT "public.loyalty_programs loyalty_programs_restaurant_id_key"
+pg_restore: creating CONSTRAINT "public.manual_assignment_sessions manual_assignment_sessions_booking_id_key"
+pg_restore: creating CONSTRAINT "public.manual_assignment_sessions manual_assignment_sessions_pkey"
+pg_restore: creating CONSTRAINT "public.merge_rules merge_rules_pkey"
+pg_restore: creating CONSTRAINT "public.observability_events observability_events_pkey"
+pg_restore: creating CONSTRAINT "public.profile_update_requests profile_update_requests_pkey"
+pg_restore: creating CONSTRAINT "public.profiles profiles_pkey"
+pg_restore: creating CONSTRAINT "public.restaurant_capacity_rules restaurant_capacity_rules_pkey"
+pg_restore: creating CONSTRAINT "public.restaurant_invites restaurant_invites_pkey"
+pg_restore: creating CONSTRAINT "public.restaurant_memberships restaurant_memberships_pkey"
+pg_restore: creating CONSTRAINT "public.restaurant_operating_hours restaurant_operating_hours_pkey"
+pg_restore: creating CONSTRAINT "public.restaurant_service_periods restaurant_service_periods_pkey"
+pg_restore: creating CONSTRAINT "public.restaurant_turn_bands restaurant_turn_bands_pkey"
+pg_restore: creating CONSTRAINT "public.restaurants restaurants_pkey"
+pg_restore: creating CONSTRAINT "public.restaurants restaurants_slug_key"
+pg_restore: creating CONSTRAINT "public.service_policy service_policy_pkey"
+pg_restore: creating CONSTRAINT "public.strategic_configs strategic_configs_pkey"
+pg_restore: creating CONSTRAINT "public.strategic_configs strategic_configs_restaurant_id_key"
+pg_restore: creating CONSTRAINT "public.table_adjacencies table_adjacencies_pkey"
+pg_restore: creating CONSTRAINT "public.table_hold_members table_hold_members_hold_id_table_id_key"
+pg_restore: creating CONSTRAINT "public.table_hold_members table_hold_members_pkey"
+pg_restore: creating CONSTRAINT "public.table_hold_windows table_hold_windows_pkey"
+pg_restore: creating CONSTRAINT "public.table_holds table_holds_pkey"
+pg_restore: creating CONSTRAINT "public.table_inventory table_inventory_pkey"
+pg_restore: creating CONSTRAINT "public.table_inventory table_inventory_restaurant_id_table_number_key"
+pg_restore: creating CONSTRAINT "public.table_scarcity_metrics table_scarcity_metrics_pkey"
+pg_restore: creating CONSTRAINT "public.table_scarcity_metrics unique_restaurant_table_type"
+pg_restore: creating CONSTRAINT "public.user_profiles user_profiles_pkey"
+pg_restore: creating CONSTRAINT "public.waiting_list waiting_list_pkey"
+pg_restore: creating CONSTRAINT "public.zones zones_pkey"
+pg_restore: creating INDEX "public.allocations_archive_booking_idx"
+pg_restore: creating INDEX "public.allocations_archive_restaurant_idx"
+pg_restore: creating INDEX "public.allowed_capacities_restaurant_idx"
+pg_restore: creating INDEX "public.bai_rest_bk_idx"
+pg_restore: creating INDEX "public.booking_assignment_attempts_booking_attempt_idx"
+pg_restore: creating INDEX "public.booking_assignment_attempts_booking_created_idx"
+pg_restore: creating INDEX "public.booking_assignment_idempo_bkid_key_idx"
+pg_restore: creating INDEX "public.booking_assignment_idempotency_booking_hash_key"
+pg_restore: creating INDEX "public.booking_assignment_idempotency_created_idx"
+pg_restore: creating INDEX "public.booking_confirmation_results_created_idx"
+pg_restore: creating INDEX "public.booking_confirmation_results_hold_idx"
+pg_restore: creating INDEX "public.booking_occasions_active_idx"
+pg_restore: creating INDEX "public.booking_occasions_audit_key_idx"
+pg_restore: creating INDEX "public.booking_occasions_display_order_idx"
+pg_restore: creating INDEX "public.booking_table_assignments_merge_group_idx"
+pg_restore: creating INDEX "public.bookings_restaurant_date_idx"
+pg_restore: creating INDEX "public.bookings_restaurant_date_status_idx"
+pg_restore: creating INDEX "public.bta_booking_id_idx"
+pg_restore: creating INDEX "public.bta_table_id_idx"
+pg_restore: creating INDEX "public.bta_window_gist"
+pg_restore: creating INDEX "public.capacity_outbox_booking_idx"
+pg_restore: creating INDEX "public.capacity_outbox_dedupe"
+pg_restore: creating INDEX "public.capacity_outbox_dispatch_idx"
+pg_restore: creating INDEX "public.capacity_outbox_restaurant_idx"
+pg_restore: creating INDEX "public.customers_restaurant_id_user_profile_id_unique"
+pg_restore: creating INDEX "public.email_delivery_log_booking_id_idx"
+pg_restore: creating INDEX "public.email_delivery_log_message_id_idx"
+pg_restore: creating INDEX "public.email_delivery_log_occurred_at_idx"
+pg_restore: creating INDEX "public.email_delivery_log_restaurant_id_idx"
+pg_restore: creating INDEX "public.idx_allocations_restaurant"
+pg_restore: creating INDEX "public.idx_allocations_window_gist"
+pg_restore: creating INDEX "public.idx_analytics_events_booking_id"
+pg_restore: creating INDEX "public.idx_analytics_events_customer_id"
+pg_restore: creating INDEX "public.idx_analytics_events_event_type"
+pg_restore: creating INDEX "public.idx_analytics_events_occurred_at"
+pg_restore: creating INDEX "public.idx_analytics_events_restaurant_id"
+pg_restore: creating INDEX "public.idx_analytics_events_restaurant_occurred"
+pg_restore: creating INDEX "public.idx_audit_logs_action"
+pg_restore: creating INDEX "public.idx_audit_logs_created_at"
+pg_restore: creating INDEX "public.idx_audit_logs_entity"
+pg_restore: creating INDEX "public.idx_audit_logs_entity_id"
+pg_restore: creating INDEX "public.idx_booking_assignment_idempotency_booking"
+pg_restore: creating INDEX "public.idx_booking_assignment_idempotency_created"
+pg_restore: creating INDEX "public.idx_booking_slots_date_range"
+pg_restore: creating COMMENT "public.INDEX idx_booking_slots_date_range"
+pg_restore: creating INDEX "public.idx_booking_slots_lookup"
+pg_restore: creating COMMENT "public.INDEX idx_booking_slots_lookup"
+pg_restore: creating INDEX "public.idx_booking_slots_service_period"
+pg_restore: creating COMMENT "public.INDEX idx_booking_slots_service_period"
+pg_restore: creating INDEX "public.idx_booking_state_history_booking"
+pg_restore: creating COMMENT "public.INDEX idx_booking_state_history_booking"
+pg_restore: creating INDEX "public.idx_booking_state_history_changed_at"
+pg_restore: creating COMMENT "public.INDEX idx_booking_state_history_changed_at"
+pg_restore: creating INDEX "public.idx_booking_table_assignments_booking"
+pg_restore: creating COMMENT "public.INDEX idx_booking_table_assignments_booking"
+pg_restore: creating INDEX "public.idx_booking_table_assignments_booking_id"
+pg_restore: creating COMMENT "public.INDEX idx_booking_table_assignments_booking_id"
+pg_restore: creating INDEX "public.idx_booking_table_assignments_slot"
+pg_restore: creating COMMENT "public.INDEX idx_booking_table_assignments_slot"
+pg_restore: creating INDEX "public.idx_booking_table_assignments_table"
+pg_restore: creating COMMENT "public.INDEX idx_booking_table_assignments_table"
+pg_restore: creating INDEX "public.idx_booking_versions_booking_id"
+pg_restore: creating INDEX "public.idx_booking_versions_changed_at"
+pg_restore: creating INDEX "public.idx_booking_versions_restaurant_id"
+pg_restore: creating INDEX "public.idx_bookings_auth_user"
+pg_restore: creating INDEX "public.idx_bookings_auto_assign_idempotency_key"
+pg_restore: creating INDEX "public.idx_bookings_client_request_id"
+pg_restore: creating INDEX "public.idx_bookings_confirmation_token"
+pg_restore: creating INDEX "public.idx_bookings_created"
+pg_restore: creating INDEX "public.idx_bookings_customer"
+pg_restore: creating INDEX "public.idx_bookings_date"
+pg_restore: creating INDEX "public.idx_bookings_datetime"
+pg_restore: creating INDEX "public.idx_bookings_idempotency_key"
+pg_restore: creating INDEX "public.idx_bookings_pending_ref"
+pg_restore: creating INDEX "public.idx_bookings_reference"
+pg_restore: creating INDEX "public.idx_bookings_restaurant"
+pg_restore: creating INDEX "public.idx_bookings_restaurant_date_end"
+pg_restore: creating INDEX "public.idx_bookings_restaurant_date_start"
+pg_restore: creating INDEX "public.idx_bookings_status"
+pg_restore: creating INDEX "public.idx_bta_booking_end"
+pg_restore: creating INDEX "public.idx_bta_booking_start"
+pg_restore: creating INDEX "public.idx_customer_profiles_updated_at"
+pg_restore: creating INDEX "public.idx_customers_auth_user"
+pg_restore: creating INDEX "public.idx_customers_email_normalized"
+pg_restore: creating INDEX "public.idx_customers_phone_normalized"
+pg_restore: creating INDEX "public.idx_customers_restaurant"
+pg_restore: creating INDEX "public.idx_customers_user_profile_id"
+pg_restore: creating INDEX "public.idx_demand_profiles_restaurant_day_window"
+pg_restore: creating INDEX "public.idx_demand_profiles_updated_at"
+pg_restore: creating INDEX "public.idx_loyalty_point_events_booking"
+pg_restore: creating INDEX "public.idx_loyalty_point_events_customer"
+pg_restore: creating INDEX "public.idx_loyalty_points_restaurant_customer"
+pg_restore: creating INDEX "public.idx_loyalty_programs_restaurant"
+pg_restore: creating INDEX "public.idx_memberships_restaurant"
+pg_restore: creating INDEX "public.idx_memberships_user"
+pg_restore: creating INDEX "public.idx_profiles_email"
+pg_restore: creating INDEX "public.idx_profiles_has_access"
+pg_restore: creating INDEX "public.idx_restaurant_capacity_rules_scope"
+pg_restore: creating INDEX "public.idx_restaurant_operating_hours_scope"
+pg_restore: creating INDEX "public.idx_restaurant_service_periods_scope"
+pg_restore: creating INDEX "public.idx_restaurants_active"
+pg_restore: creating INDEX "public.idx_restaurants_slug"
+pg_restore: creating INDEX "public.idx_strategic_configs_restaurant"
+pg_restore: creating INDEX "public.idx_table_hold_members_hold"
+pg_restore: creating INDEX "public.idx_table_hold_members_table"
+pg_restore: creating INDEX "public.idx_table_holds_restaurant_end"
+pg_restore: creating INDEX "public.idx_table_holds_restaurant_expires"
+pg_restore: creating INDEX "public.idx_table_holds_restaurant_start"
+pg_restore: creating INDEX "public.idx_table_inventory_lookup"
+pg_restore: creating COMMENT "public.INDEX idx_table_inventory_lookup"
+pg_restore: creating INDEX "public.idx_table_inventory_section"
+pg_restore: creating COMMENT "public.INDEX idx_table_inventory_section"
+pg_restore: creating INDEX "public.idx_table_merge_graph_restaurant_id"
+pg_restore: creating INDEX "public.idx_table_merge_graph_table_a"
+pg_restore: creating INDEX "public.idx_table_merge_graph_table_b"
+pg_restore: creating INDEX "public.idx_table_scarcity_metrics_computed_at"
+pg_restore: creating INDEX "public.idx_table_scarcity_metrics_restaurant_type"
+pg_restore: creating INDEX "public.idx_user_profiles_phone"
+pg_restore: creating INDEX "public.idx_waiting_list_restaurant_date"
+pg_restore: creating INDEX "public.mas_active_state_idx"
+pg_restore: creating INDEX "public.mas_booking_state_idx"
+pg_restore: creating INDEX "public.mas_restaurant_state_idx"
+pg_restore: creating INDEX "public.merge_rules_from_to_idx"
+pg_restore: creating INDEX "public.observability_events_created_at_idx"
+pg_restore: creating INDEX "public.profile_update_requests_profile_key_idx"
+pg_restore: creating INDEX "public.restaurant_invites_pending_unique_email"
+pg_restore: creating INDEX "public.restaurant_invites_restaurant_status_idx"
+pg_restore: creating INDEX "public.restaurant_invites_token_hash_key"
+pg_restore: creating INDEX "public.restaurant_turn_bands_lookup_idx"
+pg_restore: creating INDEX "public.restaurant_turn_bands_unique_idx"
+pg_restore: creating INDEX "public.table_adjacencies_table_b_idx"
+pg_restore: creating INDEX "public.table_hold_members_table_active_idx"
+pg_restore: creating INDEX "public.table_hold_members_table_idx"
+pg_restore: creating INDEX "public.table_hold_windows_restaurant_idx"
+pg_restore: creating INDEX "public.table_hold_windows_table_idx"
+pg_restore: creating INDEX "public.table_holds_active_booking_idx"
+pg_restore: creating INDEX "public.table_holds_active_restaurant_idx"
+pg_restore: creating INDEX "public.table_holds_booking_idx"
+pg_restore: creating INDEX "public.table_holds_expires_at_idx"
+pg_restore: creating INDEX "public.table_holds_restaurant_idx"
+pg_restore: creating INDEX "public.table_holds_session_idx"
+pg_restore: creating INDEX "public.table_holds_status_idx"
+pg_restore: creating INDEX "public.table_holds_zone_start_idx"
+pg_restore: creating INDEX "public.table_inventory_zone_idx"
+pg_restore: creating INDEX "public.thm_unique"
+pg_restore: creating INDEX "public.thw_window_gist"
+pg_restore: creating INDEX "public.waiting_list_customer_unique_idx"
+pg_restore: creating INDEX "public.waiting_list_restaurant_date_time_idx"
+pg_restore: creating INDEX "public.zones_restaurant_name_idx"
+pg_restore: creating TRIGGER "public.allocations allocations_updated_at"
+pg_restore: creating TRIGGER "public.allowed_capacities allowed_capacities_touch_updated_at"
+pg_restore: creating TRIGGER "public.booking_table_assignments bar_tables_drinks_only"
+pg_restore: creating TRIGGER "public.bookings booking_assignment_validation"
+pg_restore: creating TRIGGER "public.booking_slots booking_slots_increment_version"
+pg_restore: creating TRIGGER "public.booking_slots booking_slots_updated_at"
+pg_restore: creating TRIGGER "public.booking_table_assignments booking_table_assignments_audit"
+pg_restore: creating TRIGGER "public.booking_table_assignments booking_table_assignments_updated_at"
+pg_restore: creating TRIGGER "public.bookings bookings_set_instants"
+pg_restore: creating TRIGGER "public.bookings bookings_set_reference"
+pg_restore: creating TRIGGER "public.bookings bookings_updated_at"
+pg_restore: creating TRIGGER "public.customers customers_updated_at"
+pg_restore: creating TRIGGER "public.merge_rules merge_rules_updated_at"
+pg_restore: creating TRIGGER "public.restaurant_capacity_rules restaurant_capacity_rules_updated_at"
+pg_restore: creating TRIGGER "public.restaurant_operating_hours restaurant_operating_hours_updated_at"
+pg_restore: creating TRIGGER "public.restaurant_service_periods restaurant_service_periods_updated_at"
+pg_restore: creating TRIGGER "public.restaurant_turn_bands restaurant_turn_bands_updated_at"
+pg_restore: creating TRIGGER "public.restaurants restaurants_updated_at"
+pg_restore: creating TRIGGER "public.service_policy service_policy_updated_at"
+pg_restore: creating TRIGGER "public.restaurant_invites set_restaurant_invites_updated_at"
+pg_restore: creating TRIGGER "public.user_profiles set_user_profiles_updated_at"
+pg_restore: creating TRIGGER "public.table_adjacencies table_adjacencies_validate"
+pg_restore: creating TRIGGER "public.table_hold_members table_hold_members_sync_delete"
+pg_restore: creating TRIGGER "public.table_hold_members table_hold_members_sync_insert"
+pg_restore: creating TRIGGER "public.table_holds table_holds_sync_update"
+pg_restore: creating TRIGGER "public.table_holds table_holds_sync_windows"
+pg_restore: creating TRIGGER "public.table_inventory table_inventory_updated_at"
+pg_restore: creating TRIGGER "public.allocations trg_allocations_refresh"
+pg_restore: creating TRIGGER "public.bookings trg_booking_status_refresh"
+pg_restore: creating TRIGGER "public.capacity_outbox trg_capacity_outbox_updated_at"
+pg_restore: creating TRIGGER "public.demand_profiles update_demand_profiles_updated_at"
+pg_restore: creating TRIGGER "public.loyalty_points update_loyalty_points_updated_at"
+pg_restore: creating TRIGGER "public.loyalty_programs update_loyalty_programs_updated_at"
+pg_restore: creating TRIGGER "public.profiles update_profiles_updated_at"
+pg_restore: creating TRIGGER "public.strategic_configs update_strategic_configs_updated_at"
+pg_restore: creating TRIGGER "public.user_profiles update_user_profiles_updated_at"
+pg_restore: creating TRIGGER "public.waiting_list update_waiting_list_updated_at"
+pg_restore: creating TRIGGER "public.waiting_list waiting_list_updated_at"
+pg_restore: creating TRIGGER "public.zones zones_updated_at"
+pg_restore: creating FK CONSTRAINT "public.allocations allocations_booking_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.allocations allocations_created_by_fkey"
+pg_restore: creating FK CONSTRAINT "public.allocations allocations_restaurant_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.allowed_capacities allowed_capacities_restaurant_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.analytics_events analytics_events_booking_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.analytics_events analytics_events_customer_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.analytics_events analytics_events_restaurant_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.booking_assignment_attempts booking_assignment_attempts_booking_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.booking_assignment_idempotency booking_assignment_idempotency_booking_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.booking_assignment_idempotency booking_assignment_idempotency_merge_group_fkey"
+pg_restore: creating FK CONSTRAINT "public.booking_confirmation_results booking_confirmation_results_booking_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.booking_confirmation_results booking_confirmation_results_restaurant_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.booking_slots booking_slots_restaurant_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.booking_slots booking_slots_service_period_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.booking_state_history booking_state_history_booking_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.booking_state_history booking_state_history_changed_by_fkey"
+pg_restore: creating FK CONSTRAINT "public.booking_table_assignments booking_table_assignments_allocation_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.booking_table_assignments booking_table_assignments_assigned_by_fkey"
+pg_restore: creating FK CONSTRAINT "public.booking_table_assignments booking_table_assignments_booking_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.booking_table_assignments booking_table_assignments_merge_group_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.booking_table_assignments booking_table_assignments_slot_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.booking_table_assignments booking_table_assignments_table_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.booking_versions booking_versions_booking_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.booking_versions booking_versions_restaurant_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.bookings bookings_assigned_zone_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.bookings bookings_booking_type_fkey"
+pg_restore: creating FK CONSTRAINT "public.bookings bookings_customer_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.bookings bookings_restaurant_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.customer_profiles customer_profiles_customer_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.customers customers_restaurant_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.customers customers_user_profile_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.demand_profiles demand_profiles_restaurant_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.email_delivery_log email_delivery_log_booking_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.email_delivery_log email_delivery_log_restaurant_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.loyalty_point_events loyalty_point_events_booking_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.loyalty_point_events loyalty_point_events_customer_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.loyalty_point_events loyalty_point_events_restaurant_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.loyalty_points loyalty_points_customer_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.loyalty_points loyalty_points_restaurant_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.loyalty_programs loyalty_programs_restaurant_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.manual_assignment_sessions manual_assignment_sessions_booking_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.manual_assignment_sessions manual_assignment_sessions_created_by_fkey"
+pg_restore: creating FK CONSTRAINT "public.manual_assignment_sessions manual_assignment_sessions_hold_fkey"
+pg_restore: creating FK CONSTRAINT "public.manual_assignment_sessions manual_assignment_sessions_restaurant_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.profile_update_requests profile_update_requests_profile_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.profiles profiles_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.restaurant_capacity_rules restaurant_capacity_rules_restaurant_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.restaurant_capacity_rules restaurant_capacity_rules_service_period_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.restaurant_invites restaurant_invites_invited_by_fkey"
+pg_restore: creating FK CONSTRAINT "public.restaurant_invites restaurant_invites_restaurant_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.restaurant_memberships restaurant_memberships_restaurant_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.restaurant_operating_hours restaurant_operating_hours_restaurant_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.restaurant_service_periods restaurant_service_periods_booking_option_fkey"
+pg_restore: creating FK CONSTRAINT "public.restaurant_service_periods restaurant_service_periods_restaurant_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.restaurant_turn_bands restaurant_turn_bands_booking_option_fkey"
+pg_restore: creating FK CONSTRAINT "public.restaurant_turn_bands restaurant_turn_bands_restaurant_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.strategic_configs strategic_configs_restaurant_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.strategic_configs strategic_configs_updated_by_fkey"
+pg_restore: creating FK CONSTRAINT "public.table_adjacencies table_adjacencies_table_a_fkey"
+pg_restore: creating FK CONSTRAINT "public.table_adjacencies table_adjacencies_table_b_fkey"
+pg_restore: creating FK CONSTRAINT "public.table_hold_members table_hold_members_hold_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.table_hold_members table_hold_members_table_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.table_hold_windows table_hold_windows_hold_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.table_hold_windows table_hold_windows_restaurant_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.table_hold_windows table_hold_windows_table_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.table_holds table_holds_booking_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.table_holds table_holds_created_by_fkey"
+pg_restore: creating FK CONSTRAINT "public.table_holds table_holds_restaurant_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.table_holds table_holds_session_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.table_holds table_holds_zone_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.table_inventory table_inventory_allowed_capacity_fkey"
+pg_restore: creating FK CONSTRAINT "public.table_inventory table_inventory_restaurant_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.table_inventory table_inventory_zone_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.table_scarcity_metrics table_scarcity_metrics_restaurant_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.user_profiles user_profiles_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.waiting_list waiting_list_restaurant_id_fkey"
+pg_restore: creating FK CONSTRAINT "public.zones zones_restaurant_id_fkey"
+pg_restore: creating POLICY "public.bookings Admins and owners can delete bookings"
+pg_restore: creating POLICY "public.customers Admins and owners can delete customers"
+pg_restore: creating POLICY "public.booking_occasions Allow public read access to booking_occasions"
+pg_restore: creating POLICY "public.booking_table_assignments Customers can view their table assignments"
+pg_restore: creating POLICY "public.restaurant_memberships Owners and admins can manage memberships"
+pg_restore: creating POLICY "public.demand_profiles Owners and managers can manage demand profiles"
+pg_restore: creating POLICY "public.table_scarcity_metrics Owners and managers can manage scarcity metrics"
+pg_restore: creating POLICY "public.strategic_configs Owners and managers can manage strategic configs"
+pg_restore: creating POLICY "public.restaurant_invites Owners and managers manage invites"
+pg_restore: creating POLICY "public.leads Public can insert leads"
+pg_restore: creating POLICY "public.waiting_list Restaurant members can manage waiting list"
+pg_restore: creating POLICY "public.booking_versions Restaurant members can view booking versions"
+pg_restore: creating POLICY "public.analytics_events Restaurant staff can view analytics"
+pg_restore: creating POLICY "public.table_adjacencies Service role can manage adjacencies"
+pg_restore: creating POLICY "public.allowed_capacities Service role can manage allowed capacities"
+pg_restore: creating POLICY "public.audit_logs Service role can manage audit logs"
+pg_restore: creating POLICY "public.booking_slots Service role can manage booking slots"
+pg_restore: creating POLICY "public.restaurant_capacity_rules Service role can manage capacity rules"
+pg_restore: creating POLICY "public.loyalty_point_events Service role can manage loyalty events"
+pg_restore: creating POLICY "public.loyalty_points Service role can manage loyalty points"
+pg_restore: creating POLICY "public.loyalty_programs Service role can manage loyalty programs"
+pg_restore: creating POLICY "public.restaurant_operating_hours Service role can manage operating hours"
+pg_restore: creating POLICY "public.restaurant_service_periods Service role can manage service periods"
+pg_restore: creating POLICY "public.service_policy Service role can manage service policy"
+pg_restore: creating POLICY "public.table_inventory Service role can manage table inventory"
+pg_restore: creating POLICY "public.restaurant_turn_bands Service role can manage turn bands"
+pg_restore: creating POLICY "public.zones Service role can manage zones"
+pg_restore: creating POLICY "public.booking_assignment_idempotency Service role full access to booking_assignment_idempotency"
+pg_restore: creating POLICY "public.feature_flag_overrides Service role full access to feature_flag_overrides"
+pg_restore: creating POLICY "public.table_hold_members Service role full access to table_hold_members"
+pg_restore: creating POLICY "public.table_hold_windows Service role full access to table_hold_windows"
+pg_restore: creating POLICY "public.table_holds Service role full access to table_holds"
+pg_restore: creating POLICY "public.bookings Staff can create bookings"
+pg_restore: creating POLICY "public.customers Staff can create customers"
+pg_restore: creating POLICY "public.table_adjacencies Staff can manage adjacencies"
+pg_restore: creating POLICY "public.allowed_capacities Staff can manage allowed capacities"
+pg_restore: creating POLICY "public.booking_slots Staff can manage booking slots"
+pg_restore: creating POLICY "public.restaurant_capacity_rules Staff can manage capacity rules"
+pg_restore: creating POLICY "public.restaurant_operating_hours Staff can manage operating hours"
+pg_restore: creating POLICY "public.restaurant_service_periods Staff can manage service periods"
+pg_restore: creating POLICY "public.booking_table_assignments Staff can manage table assignments"
+pg_restore: creating POLICY "public.table_inventory Staff can manage table inventory"
+pg_restore: creating POLICY "public.restaurant_turn_bands Staff can manage turn bands"
+pg_restore: creating POLICY "public.zones Staff can manage zones"
+pg_restore: creating POLICY "public.bookings Staff can update bookings"
+pg_restore: creating POLICY "public.customers Staff can update customers"
+pg_restore: creating POLICY "public.allocations Staff can view allocations for their restaurants"
+pg_restore: creating POLICY "public.bookings Staff can view bookings"
+pg_restore: creating POLICY "public.customer_profiles Staff can view customer profiles"
+pg_restore: creating POLICY "public.customers Staff can view customers"
+pg_restore: creating POLICY "public.merge_rules Staff can view merge rules"
+pg_restore: creating POLICY "public.service_policy Staff can view service policy"
+pg_restore: creating POLICY "public.table_hold_members Staff can view table hold members"
+pg_restore: creating POLICY "public.table_holds Staff can view table holds"
+pg_restore: creating POLICY "public.allocations Tenant service role can manage allocations"
+pg_restore: creating POLICY "public.allocations_archive Tenant service role can manage allocations archive"
+pg_restore: creating POLICY "public.booking_confirmation_results Tenant service role can manage booking confirmation results"
+pg_restore: creating POLICY "public.bookings Tenant service role can manage bookings"
+pg_restore: creating POLICY "public.capacity_outbox Tenant service role can manage capacity outbox"
+pg_restore: creating POLICY "public.customers Tenant service role can manage customers"
+pg_restore: creating POLICY "public.booking_table_assignments Tenant service role can manage table assignments"
+pg_restore: creating POLICY "public.profiles Users can insert own profile"
+pg_restore: creating POLICY "public.profiles Users can update own profile"
+pg_restore: creating POLICY "public.user_profiles Users can update own profile"
+pg_restore: creating POLICY "public.demand_profiles Users can view demand profiles for their restaurants"
+pg_restore: creating POLICY "public.profiles Users can view own profile"
+pg_restore: creating POLICY "public.user_profiles Users can view own profile"
+pg_restore: creating POLICY "public.table_scarcity_metrics Users can view scarcity metrics for their restaurants"
+pg_restore: creating POLICY "public.strategic_configs Users can view strategic configs for their restaurants"
+pg_restore: creating ROW SECURITY "public._migrations"
+pg_restore: creating ROW SECURITY "public.allocations"
+pg_restore: creating ROW SECURITY "public.allocations_archive"
+pg_restore: creating ROW SECURITY "public.allowed_capacities"
+pg_restore: creating ROW SECURITY "public.analytics_events"
+pg_restore: creating POLICY "public.restaurants anon_read_all"
+pg_restore: creating ROW SECURITY "public.audit_logs"
+pg_restore: creating POLICY "public.restaurants authenticated_can_create"
+pg_restore: creating POLICY "public.restaurants authenticated_read_all"
+pg_restore: creating POLICY "public.allocations authenticated_select"
+pg_restore: creating POLICY "public.booking_assignment_attempts authenticated_select"
+pg_restore: creating POLICY "public.booking_state_history authenticated_select"
+pg_restore: creating POLICY "public.booking_table_assignments authenticated_select"
+pg_restore: creating POLICY "public.table_merge_graph authenticated_select"
+pg_restore: creating ROW SECURITY "public.booking_assignment_attempts"
+pg_restore: creating ROW SECURITY "public.booking_assignment_idempotency"
+pg_restore: creating ROW SECURITY "public.booking_confirmation_results"
+pg_restore: creating ROW SECURITY "public.booking_occasions"
+pg_restore: creating ROW SECURITY "public.booking_occasions_audit"
+pg_restore: creating ROW SECURITY "public.booking_slots"
+pg_restore: creating ROW SECURITY "public.booking_state_history"
+pg_restore: creating ROW SECURITY "public.booking_table_assignments"
+pg_restore: creating ROW SECURITY "public.booking_versions"
+pg_restore: creating ROW SECURITY "public.bookings"
+pg_restore: creating ROW SECURITY "public.capacity_outbox"
+pg_restore: creating ROW SECURITY "public.customer_profiles"
+pg_restore: creating ROW SECURITY "public.customers"
+pg_restore: creating ROW SECURITY "public.demand_profiles"
+pg_restore: creating ROW SECURITY "public.email_delivery_log"
+pg_restore: creating ROW SECURITY "public.feature_flag_overrides"
+pg_restore: creating ROW SECURITY "public.leads"
+pg_restore: creating ROW SECURITY "public.loyalty_point_events"
+pg_restore: creating ROW SECURITY "public.loyalty_points"
+pg_restore: creating ROW SECURITY "public.loyalty_programs"
+pg_restore: creating ROW SECURITY "public.manual_assignment_sessions"
+pg_restore: creating ROW SECURITY "public.merge_rules"
+pg_restore: creating ROW SECURITY "public.observability_events"
+pg_restore: creating POLICY "public.restaurants owners_admins_can_update"
+pg_restore: creating POLICY "public.restaurants owners_can_delete"
+pg_restore: creating ROW SECURITY "public.profile_update_requests"
+pg_restore: creating POLICY "public.profile_update_requests profile_update_requests_delete"
+pg_restore: creating POLICY "public.profile_update_requests profile_update_requests_insert"
+pg_restore: creating POLICY "public.profile_update_requests profile_update_requests_select"
+pg_restore: creating POLICY "public.profile_update_requests profile_update_requests_update"
+pg_restore: creating ROW SECURITY "public.profiles"
+pg_restore: creating ROW SECURITY "public.restaurant_capacity_rules"
+pg_restore: creating ROW SECURITY "public.restaurant_invites"
+pg_restore: creating ROW SECURITY "public.restaurant_memberships"
+pg_restore: creating ROW SECURITY "public.restaurant_operating_hours"
+pg_restore: creating ROW SECURITY "public.restaurant_service_periods"
+pg_restore: creating ROW SECURITY "public.restaurant_turn_bands"
+pg_restore: creating ROW SECURITY "public.restaurants"
+pg_restore: creating ROW SECURITY "public.service_policy"
+pg_restore: creating POLICY "public._migrations service_role_all"
+pg_restore: creating POLICY "public.allocations service_role_all"
+pg_restore: creating POLICY "public.analytics_events service_role_all"
+pg_restore: creating POLICY "public.audit_logs service_role_all"
+pg_restore: creating POLICY "public.booking_assignment_attempts service_role_all"
+pg_restore: creating POLICY "public.booking_assignment_idempotency service_role_all"
+pg_restore: creating POLICY "public.booking_occasions_audit service_role_all"
+pg_restore: creating POLICY "public.booking_state_history service_role_all"
+pg_restore: creating POLICY "public.booking_table_assignments service_role_all"
+pg_restore: creating POLICY "public.booking_versions service_role_all"
+pg_restore: creating POLICY "public.leads service_role_all"
+pg_restore: creating POLICY "public.manual_assignment_sessions service_role_all"
+pg_restore: creating POLICY "public.observability_events service_role_all"
+pg_restore: creating POLICY "public.profiles service_role_all"
+pg_restore: creating POLICY "public.table_merge_graph service_role_all"
+pg_restore: creating POLICY "public.user_profiles service_role_all"
+pg_restore: creating POLICY "public.waiting_list service_role_all"
+pg_restore: creating POLICY "public.restaurants service_role_all_access"
+pg_restore: creating POLICY "public.restaurants service_role_read_all"
+pg_restore: creating ROW SECURITY "public.strategic_configs"
+pg_restore: creating ROW SECURITY "public.table_adjacencies"
+pg_restore: creating ROW SECURITY "public.table_hold_members"
+pg_restore: creating ROW SECURITY "public.table_hold_windows"
+pg_restore: creating ROW SECURITY "public.table_holds"
+pg_restore: creating ROW SECURITY "public.table_inventory"
+pg_restore: creating ROW SECURITY "public.table_merge_graph"
+pg_restore: creating ROW SECURITY "public.table_scarcity_metrics"
+pg_restore: creating ROW SECURITY "public.user_profiles"
+pg_restore: creating ROW SECURITY "public.waiting_list"
+pg_restore: creating ROW SECURITY "public.zones"
+pg_restore: creating ACL "public.FUNCTION allocations_overlap(a tstzrange, b tstzrange)"
+pg_restore: creating ACL "public.FUNCTION allowed_capacities_set_updated_at()"
+pg_restore: creating ACL "public.FUNCTION apply_booking_state_transition(p_booking_id uuid, p_status public.booking_status, p_checked_in_at timestamp with time zone, p_checked_out_at timestamp with time zone, p_updated_at timestamp with time zone, p_history_from public.booking_status, p_history_to public.booking_status, p_history_changed_by uuid, p_history_changed_at timestamp with time zone, p_history_reason text, p_history_metadata jsonb)"
+pg_restore: creating ACL "public.FUNCTION are_tables_connected(table_ids uuid[])"
+pg_restore: creating ACL "public.FUNCTION assign_merged_tables(p_booking_id uuid, p_table_ids uuid[], p_require_adjacency boolean, p_assigned_by uuid, p_idempotency_key text)"
+pg_restore: creating ACL "public.FUNCTION assign_single_table(p_booking_id uuid, p_table_id uuid, p_assigned_by uuid, p_idempotency_key text)"
+pg_restore: creating ACL "public.FUNCTION assign_tables_atomic(p_booking_id uuid, p_table_ids uuid[], p_window tstzrange, p_assigned_by uuid, p_idempotency_key text)"
+pg_restore: creating ACL "public.FUNCTION assign_tables_atomic_v2(p_booking_id uuid, p_table_ids uuid[], p_idempotency_key text, p_require_adjacency boolean, p_assigned_by uuid)"
+pg_restore: creating ACL "public.FUNCTION assign_tables_atomic_v2(p_booking_id uuid, p_table_ids uuid[], p_idempotency_key text, p_require_adjacency boolean, p_assigned_by uuid, p_start_at timestamp with time zone, p_end_at timestamp with time zone)"
+pg_restore: creating ACL "public.FUNCTION booking_status_summary(p_restaurant_id uuid, p_start_date date, p_end_date date, p_status_filter public.booking_status[])"
+pg_restore: creating ACL "public.FUNCTION confirm_hold_assignment_tx(p_hold_id uuid, p_booking_id uuid, p_idempotency_key text, p_require_adjacency boolean, p_assigned_by uuid, p_window_start timestamp with time zone, p_window_end timestamp with time zone, p_expected_policy_version text, p_expected_adjacency_hash text, p_target_status public.booking_status, p_history_reason text, p_history_metadata jsonb, p_history_changed_by uuid)"
+pg_restore: creating ACL "public.FUNCTION confirm_hold_assignment_with_transition(p_booking_id uuid, p_table_ids uuid[], p_idempotency_key text, p_require_adjacency boolean, p_assigned_by uuid, p_start_at timestamp with time zone, p_end_at timestamp with time zone, p_target_status public.booking_status, p_history_changed_by uuid, p_history_reason text, p_history_metadata jsonb)"
+pg_restore: creating ACL "public.FUNCTION create_booking_with_capacity_check(p_restaurant_id uuid, p_customer_id uuid, p_booking_date date, p_start_time time without time zone, p_end_time time without time zone, p_party_size integer, p_booking_type text, p_customer_name text, p_customer_email text, p_customer_phone text, p_seating_preference text, p_notes text, p_marketing_opt_in boolean, p_idempotency_key text, p_source text, p_auth_user_id uuid, p_client_request_id text, p_details jsonb, p_loyalty_points_awarded integer)"
+pg_restore: creating ACL "public.FUNCTION current_restaurant_id()"
+pg_restore: creating ACL "public.FUNCTION enforce_bar_drinks_only()"
+pg_restore: creating ACL "public.FUNCTION generate_booking_reference()"
+pg_restore: creating ACL "public.FUNCTION get_or_create_booking_slot(p_restaurant_id uuid, p_slot_date date, p_slot_time time without time zone, p_default_capacity integer)"
+pg_restore: creating ACL "public.FUNCTION increment_booking_slot_version()"
+pg_restore: creating ACL "public.FUNCTION is_holds_strict_conflicts_enabled()"
+pg_restore: creating ACL "public.FUNCTION is_table_available_v2(p_table_id uuid, p_start_at timestamp with time zone, p_end_at timestamp with time zone, p_exclude_booking_id uuid)"
+pg_restore: creating ACL "public.FUNCTION log_table_assignment_change()"
+pg_restore: creating ACL "public.FUNCTION on_allocations_refresh()"
+pg_restore: creating ACL "public.FUNCTION on_booking_status_refresh()"
+pg_restore: creating ACL "public.FUNCTION process_late_arrivals()"
+pg_restore: creating ACL "public.FUNCTION prune_allocations_history(p_cutoff timestamp with time zone, p_limit integer)"
+pg_restore: creating ACL "public.FUNCTION refresh_table_status(p_table_id uuid)"
+pg_restore: creating ACL "public.FUNCTION release_hold_and_emit(p_hold_id uuid, p_actor_id uuid)"
+pg_restore: creating ACL "public.FUNCTION require_restaurant_context()"
+pg_restore: creating ACL "public.FUNCTION set_booking_instants()"
+pg_restore: creating ACL "public.FUNCTION set_booking_reference()"
+pg_restore: creating ACL "public.FUNCTION set_hold_conflict_enforcement(enabled boolean)"
+pg_restore: creating ACL "public.FUNCTION set_restaurant_context(p_restaurant_id uuid)"
+pg_restore: creating ACL "public.FUNCTION set_timestamp_updated_at()"
+pg_restore: creating ACL "public.TABLE booking_table_assignments"
+pg_restore: creating ACL "public.FUNCTION sync_confirmed_assignment_windows(p_booking_id uuid, p_table_ids uuid[], p_window_start timestamp with time zone, p_window_end timestamp with time zone, p_actor_id uuid, p_hold_id uuid, p_merge_group_id uuid, p_idempotency_key text, p_payload_checksum text)"
+pg_restore: creating ACL "public.FUNCTION sync_table_hold_windows()"
+pg_restore: creating ACL "public.FUNCTION unassign_table_from_booking(p_booking_id uuid, p_table_id uuid)"
+pg_restore: creating ACL "public.FUNCTION unassign_tables_atomic(p_booking_id uuid, p_table_ids uuid[])"
+pg_restore: creating ACL "public.FUNCTION update_booking_with_capacity_check(p_booking_id uuid, p_restaurant_id uuid, p_customer_id uuid, p_booking_date date, p_start_time time without time zone, p_end_time time without time zone, p_party_size integer, p_booking_type text, p_customer_name text, p_customer_email text, p_customer_phone text, p_seating_preference text, p_notes text, p_marketing_opt_in boolean, p_auth_user_id uuid, p_client_request_id text, p_details jsonb, p_loyalty_points_awarded integer, p_source text)"
+pg_restore: creating ACL "public.FUNCTION update_table_hold_windows()"
+pg_restore: creating ACL "public.FUNCTION update_updated_at()"
+pg_restore: creating ACL "public.FUNCTION update_updated_at_column()"
+pg_restore: creating ACL "public.FUNCTION user_restaurants()"
+pg_restore: creating ACL "public.FUNCTION user_restaurants_admin()"
+pg_restore: creating ACL "public.FUNCTION validate_booking_capacity_after_assignment(p_booking_id uuid)"
+pg_restore: creating ACL "public.FUNCTION validate_booking_has_assignments()"
+pg_restore: creating ACL "public.FUNCTION validate_table_adjacency()"
+pg_restore: creating ACL "public.TABLE _migrations"
+pg_restore: creating ACL "public.SEQUENCE _migrations_id_seq"
+pg_restore: creating ACL "public.TABLE allocations"
+pg_restore: creating ACL "public.TABLE allocations_archive"
+pg_restore: creating ACL "public.TABLE allowed_capacities"
+pg_restore: creating ACL "public.TABLE analytics_events"
+pg_restore: creating ACL "public.TABLE audit_logs"
+pg_restore: creating ACL "public.TABLE booking_assignment_attempts"
+pg_restore: creating ACL "public.TABLE booking_assignment_idempotency"
+pg_restore: creating ACL "public.TABLE booking_confirmation_results"
+pg_restore: creating ACL "public.TABLE booking_occasions"
+pg_restore: creating ACL "public.TABLE booking_occasions_audit"
+pg_restore: creating ACL "public.TABLE booking_slots"
+pg_restore: creating ACL "public.TABLE booking_state_history"
+pg_restore: creating ACL "public.SEQUENCE booking_state_history_id_seq"
+pg_restore: creating ACL "public.TABLE booking_versions"
+pg_restore: creating ACL "public.TABLE bookings"
+pg_restore: creating ACL "public.TABLE capacity_outbox"
+pg_restore: creating ACL "public.TABLE customer_profiles"
+pg_restore: creating ACL "public.TABLE customers"
+pg_restore: creating ACL "public.TABLE demand_profiles"
+pg_restore: creating ACL "public.TABLE email_delivery_log"
+pg_restore: creating ACL "public.TABLE feature_flag_overrides"
+pg_restore: creating ACL "public.TABLE leads"
+pg_restore: creating ACL "public.TABLE loyalty_point_events"
+pg_restore: creating ACL "public.TABLE loyalty_points"
+pg_restore: creating ACL "public.TABLE loyalty_programs"
+pg_restore: creating ACL "public.TABLE manual_assignment_sessions"
+pg_restore: creating ACL "public.TABLE merge_rules"
+pg_restore: creating ACL "public.TABLE observability_events"
+pg_restore: creating ACL "public.TABLE profile_update_requests"
+pg_restore: creating ACL "public.TABLE profiles"
+pg_restore: creating ACL "public.TABLE restaurant_capacity_rules"
+pg_restore: creating ACL "public.TABLE restaurant_invites"
+pg_restore: creating ACL "public.TABLE restaurant_memberships"
+pg_restore: creating ACL "public.TABLE restaurant_operating_hours"
+pg_restore: creating ACL "public.TABLE restaurant_service_periods"
+pg_restore: creating ACL "public.TABLE restaurant_turn_bands"
+pg_restore: creating ACL "public.TABLE restaurants"
+pg_restore: creating ACL "public.TABLE service_policy"
+pg_restore: creating ACL "public.TABLE strategic_configs"
+pg_restore: creating ACL "public.TABLE table_adjacencies"
+pg_restore: creating ACL "public.TABLE table_hold_members"
+pg_restore: creating ACL "public.TABLE table_hold_windows"
+pg_restore: creating ACL "public.TABLE table_holds"
+pg_restore: creating ACL "public.TABLE table_inventory"
+pg_restore: creating ACL "public.TABLE table_merge_graph"
+pg_restore: creating ACL "public.TABLE table_scarcity_metrics"
+pg_restore: creating ACL "public.TABLE user_profiles"
+pg_restore: creating ACL "public.TABLE waiting_list"
+pg_restore: creating ACL "public.TABLE zones"
+pg_restore: creating DEFAULT ACL "public.DEFAULT PRIVILEGES FOR SEQUENCES"
+pg_restore: creating DEFAULT ACL "public.DEFAULT PRIVILEGES FOR SEQUENCES"
+pg_restore: from TOC entry 3097; 826 62012 DEFAULT ACL DEFAULT PRIVILEGES FOR SEQUENCES supabase_admin
+pg_restore: error: could not execute query: ERROR:  permission denied to change default privileges
+Command was: ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON SEQUENCES TO postgres;
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON SEQUENCES TO anon;
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON SEQUENCES TO authenticated;
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON SEQUENCES TO service_role;
+
+
+pg_restore: creating DEFAULT ACL "public.DEFAULT PRIVILEGES FOR FUNCTIONS"
+pg_restore: creating DEFAULT ACL "public.DEFAULT PRIVILEGES FOR FUNCTIONS"
+pg_restore: from TOC entry 3099; 826 62014 DEFAULT ACL DEFAULT PRIVILEGES FOR FUNCTIONS supabase_admin
+pg_restore: error: could not execute query: ERROR:  permission denied to change default privileges
+Command was: ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON FUNCTIONS TO postgres;
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon;
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON FUNCTIONS TO authenticated;
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON FUNCTIONS TO service_role;
+
+
+pg_restore: creating DEFAULT ACL "public.DEFAULT PRIVILEGES FOR TABLES"
+pg_restore: creating DEFAULT ACL "public.DEFAULT PRIVILEGES FOR TABLES"
+pg_restore: from TOC entry 3104; 826 62016 DEFAULT ACL DEFAULT PRIVILEGES FOR TABLES supabase_admin
+pg_restore: error: could not execute query: ERROR:  permission denied to change default privileges
+Command was: ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON TABLES TO postgres;
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON TABLES TO anon;
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON TABLES TO authenticated;
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON TABLES TO service_role;
+
+
+pg_restore: warning: errors ignored on restore: 144

@@ -137,7 +137,6 @@ export function BookingsListVirtualized({
         booking.allergies ?? '',
         booking.dietaryRestrictions ?? '',
         booking.seatingPreference ?? '',
-        booking.loyaltyTier ?? '',
         booking.reference ?? '',
         booking.checkedInAt ?? '',
         booking.checkedOutAt ?? '',
@@ -173,7 +172,6 @@ export function BookingsListVirtualized({
         allergies: booking.allergies ?? null,
         dietaryRestrictions: booking.dietaryRestrictions ?? null,
         seatingPreference: booking.seatingPreference ?? null,
-        loyaltyTier: booking.loyaltyTier ?? null,
         tableAssignments: booking.tableAssignments,
         requiresTableAssignment: booking.requiresTableAssignment,
       };
