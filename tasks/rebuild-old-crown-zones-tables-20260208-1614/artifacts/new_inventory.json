@@ -1,0 +1,179 @@
+{
+  "atUtc": "2026-02-08T16:29:13.355Z",
+  "restaurant": {
+    "id": "a050d1ad-1ee0-4ea0-abc2-22c3778aa52c",
+    "slug": "the-old-crown-girton",
+    "name": "The Old Crown Girton"
+  },
+  "inserted": {
+    "zones": [
+      {
+        "id": "488cba6d-8db5-438d-9567-39c0d4ee035b",
+        "name": "Zone 1",
+        "sort_order": 1
+      },
+      {
+        "id": "75dccafe-f954-4a5c-9f92-3d7ae1b700c1",
+        "name": "Zone 2",
+        "sort_order": 2
+      },
+      {
+        "id": "cbe3f1e1-d490-4a13-aeee-da32a70fa592",
+        "name": "Zone 3",
+        "sort_order": 3
+      },
+      {
+        "id": "47a117ed-e5a8-4832-a3f6-745ab154f451",
+        "name": "Zone 4",
+        "sort_order": 4
+      }
+    ],
+    "tables": [
+      {
+        "id": "2d8d3dd6-c35e-4f8d-9b2b-cae5a0ea84aa",
+        "table_number": "01",
+        "capacity": 4,
+        "mobility": "fixed",
+        "zone_id": "488cba6d-8db5-438d-9567-39c0d4ee035b",
+        "zone_name": "Zone 1"
+      },
+      {
+        "id": "dc0f39c9-9e7a-4cfd-a1d9-7070da40e88a",
+        "table_number": "05",
+        "capacity": 4,
+        "mobility": "fixed",
+        "zone_id": "488cba6d-8db5-438d-9567-39c0d4ee035b",
+        "zone_name": "Zone 1"
+      },
+      {
+        "id": "b5e239a4-4c9f-45e6-a7a0-74e7ca4ff3e6",
+        "table_number": "07",
+        "capacity": 2,
+        "mobility": "fixed",
+        "zone_id": "488cba6d-8db5-438d-9567-39c0d4ee035b",
+        "zone_name": "Zone 1"
+      },
+      {
+        "id": "88315083-67ff-4f81-b9c7-2261bba1728f",
+        "table_number": "08",
+        "capacity": 2,
+        "mobility": "fixed",
+        "zone_id": "488cba6d-8db5-438d-9567-39c0d4ee035b",
+        "zone_name": "Zone 1"
+      },
+      {
+        "id": "9da0fde3-8209-4cae-85de-2d60dd8e5204",
+        "table_number": "09",
+        "capacity": 7,
+        "mobility": "fixed",
+        "zone_id": "488cba6d-8db5-438d-9567-39c0d4ee035b",
+        "zone_name": "Zone 1"
+      },
+      {
+        "id": "8b9fe7c7-ee8a-479c-9d90-1215d1cb9f7f",
+        "table_number": "02",
+        "capacity": 4,
+        "mobility": "movable",
+        "zone_id": "75dccafe-f954-4a5c-9f92-3d7ae1b700c1",
+        "zone_name": "Zone 2"
+      },
+      {
+        "id": "71038964-9fc9-4ea3-b9af-09eb6a340bcf",
+        "table_number": "03",
+        "capacity": 4,
+        "mobility": "movable",
+        "zone_id": "75dccafe-f954-4a5c-9f92-3d7ae1b700c1",
+        "zone_name": "Zone 2"
+      },
+      {
+        "id": "519dde39-f7df-406e-9bcc-e4e4d79336fc",
+        "table_number": "04",
+        "capacity": 4,
+        "mobility": "movable",
+        "zone_id": "75dccafe-f954-4a5c-9f92-3d7ae1b700c1",
+        "zone_name": "Zone 2"
+      },
+      {
+        "id": "445af8a2-e02a-4415-b87c-78b02a8db5f7",
+        "table_number": "06",
+        "capacity": 4,
+        "mobility": "movable",
+        "zone_id": "75dccafe-f954-4a5c-9f92-3d7ae1b700c1",
+        "zone_name": "Zone 2"
+      },
+      {
+        "id": "1ab20a00-a336-4d34-a6e1-30becd8cbd1b",
+        "table_number": "10",
+        "capacity": 4,
+        "mobility": "fixed",
+        "zone_id": "cbe3f1e1-d490-4a13-aeee-da32a70fa592",
+        "zone_name": "Zone 3"
+      },
+      {
+        "id": "149034fe-4ce9-4498-8220-553b09e78569",
+        "table_number": "11",
+        "capacity": 4,
+        "mobility": "movable",
+        "zone_id": "cbe3f1e1-d490-4a13-aeee-da32a70fa592",
+        "zone_name": "Zone 3"
+      },
+      {
+        "id": "521615ed-50eb-4ad1-91d4-b9f18f096508",
+        "table_number": "12",
+        "capacity": 4,
+        "mobility": "movable",
+        "zone_id": "cbe3f1e1-d490-4a13-aeee-da32a70fa592",
+        "zone_name": "Zone 3"
+      },
+      {
+        "id": "27e499fa-88fa-4be5-ae7f-d22f269f718f",
+        "table_number": "13",
+        "capacity": 4,
+        "mobility": "movable",
+        "zone_id": "cbe3f1e1-d490-4a13-aeee-da32a70fa592",
+        "zone_name": "Zone 3"
+      },
+      {
+        "id": "30ac8142-df4f-4033-bbfc-cd7b8911e659",
+        "table_number": "14",
+        "capacity": 4,
+        "mobility": "movable",
+        "zone_id": "cbe3f1e1-d490-4a13-aeee-da32a70fa592",
+        "zone_name": "Zone 3"
+      },
+      {
+        "id": "2430cb58-e5b6-40c8-a868-d72972e96b5a",
+        "table_number": "15",
+        "capacity": 2,
+        "mobility": "movable",
+        "zone_id": "47a117ed-e5a8-4832-a3f6-745ab154f451",
+        "zone_name": "Zone 4"
+      },
+      {
+        "id": "bd562f37-136b-417b-9df8-1666ed7b086b",
+        "table_number": "16",
+        "capacity": 4,
+        "mobility": "movable",
+        "zone_id": "47a117ed-e5a8-4832-a3f6-745ab154f451",
+        "zone_name": "Zone 4"
+      },
+      {
+        "id": "e0de39a1-1378-451b-b8d2-7cdc2d3c613d",
+        "table_number": "17",
+        "capacity": 4,
+        "mobility": "movable",
+        "zone_id": "47a117ed-e5a8-4832-a3f6-745ab154f451",
+        "zone_name": "Zone 4"
+      },
+      {
+        "id": "3869bcf3-232f-4109-9cee-1027735763ee",
+        "table_number": "18",
+        "capacity": 2,
+        "mobility": "movable",
+        "zone_id": "47a117ed-e5a8-4832-a3f6-745ab154f451",
+        "zone_name": "Zone 4"
+      }
+    ],
+    "adjacency_edges": 64
+  }
+}

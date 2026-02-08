@@ -1,0 +1,912 @@
+[
+  {
+    "id": "6323e307-4024-418d-aa8b-4bd6b93f2fb4",
+    "booking_id": "539d1be4-a5e1-4b7c-be8c-7c2b87f89485",
+    "table_id": "2430cb58-e5b6-40c8-a868-d72972e96b5a",
+    "start_at": "2026-02-14T18:30:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "64f7a242-e8dd-4583-a7f8-342a46bb27d2",
+    "booking_id": "d2e994bc-abfc-4d54-b826-69f90629f87e",
+    "table_id": "71038964-9fc9-4ea3-b9af-09eb6a340bcf",
+    "start_at": "2026-04-02T16:30:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "98bd74cd-6e4f-43ee-aded-ab233ef251e3",
+    "booking_id": "b343bfeb-cffd-48ce-a625-e0d98da370c7",
+    "table_id": "9da0fde3-8209-4cae-85de-2d60dd8e5204",
+    "start_at": "2026-02-13T19:00:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "6786d2e5-73fb-44c1-906b-600b7f31e7e6",
+    "booking_id": "ad13efbb-0dc5-4ce2-8e6d-10c488dc0e8f",
+    "table_id": "9da0fde3-8209-4cae-85de-2d60dd8e5204",
+    "start_at": "2026-02-10T18:30:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "944b40c8-3203-4b52-9058-1e8102a32763",
+    "booking_id": "86816e5f-936d-41b1-b781-6f68ebf54499",
+    "table_id": "b5e239a4-4c9f-45e6-a7a0-74e7ca4ff3e6",
+    "start_at": "2026-02-14T17:30:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "88897ccb-7346-4f04-b3b1-6fdb434894ad",
+    "booking_id": "23c7f8c2-d717-4440-bd01-614d43425d96",
+    "table_id": "8b9fe7c7-ee8a-479c-9d90-1215d1cb9f7f",
+    "start_at": "2026-01-17T19:00:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "98b52121-b03e-41f3-9ae2-b57eefec9adf",
+    "booking_id": "85a129d4-a2bb-477b-b7d4-7b514695a63a",
+    "table_id": "9da0fde3-8209-4cae-85de-2d60dd8e5204",
+    "start_at": "2026-01-11T13:00:00+00:00",
+    "status": "checked_in"
+  },
+  {
+    "id": "01ee0030-6a72-40c1-ad55-4f69b41d2306",
+    "booking_id": "06fad832-8d28-4b07-a400-536920aeef96",
+    "table_id": "9da0fde3-8209-4cae-85de-2d60dd8e5204",
+    "start_at": "2026-01-17T19:00:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "1aa41cc8-3660-4b6f-bf01-4dde9227878f",
+    "booking_id": "84ec7d5a-bb9c-4605-b76c-379ffc3c3ec6",
+    "table_id": "9da0fde3-8209-4cae-85de-2d60dd8e5204",
+    "start_at": "2026-01-30T18:00:00+00:00",
+    "status": "checked_in"
+  },
+  {
+    "id": "a84fecd0-8901-474d-a4f4-465d5b82cd6e",
+    "booking_id": "b6da523c-08ce-4914-967d-3bdaebcbdad7",
+    "table_id": "8b9fe7c7-ee8a-479c-9d90-1215d1cb9f7f",
+    "start_at": "2026-01-24T17:15:00+00:00",
+    "status": "checked_in"
+  },
+  {
+    "id": "71edc61d-6390-42c4-b308-7ee1912e019d",
+    "booking_id": "4959363c-f596-46e1-83c1-b8e68b635116",
+    "table_id": "2430cb58-e5b6-40c8-a868-d72972e96b5a",
+    "start_at": "2026-01-24T18:00:00+00:00",
+    "status": "checked_in"
+  },
+  {
+    "id": "7565efbc-11c2-46eb-bc32-f5f9deb37018",
+    "booking_id": "8b78ab82-e33f-4606-ac13-374bc154b022",
+    "table_id": "2430cb58-e5b6-40c8-a868-d72972e96b5a",
+    "start_at": "2026-01-30T19:00:00+00:00",
+    "status": "checked_in"
+  },
+  {
+    "id": "695b6bbb-7a5e-4bb9-8feb-4c63c6981ad3",
+    "booking_id": "b22727ec-71a0-404e-b0a4-c0d12aeb5e25",
+    "table_id": "9da0fde3-8209-4cae-85de-2d60dd8e5204",
+    "start_at": "2026-01-20T18:00:00+00:00",
+    "status": "cancelled"
+  },
+  {
+    "id": "631a53b0-92cb-4ffd-8390-2506ea16704c",
+    "booking_id": "00ba3146-e352-4b1d-be5b-eb1caca45eac",
+    "table_id": "8b9fe7c7-ee8a-479c-9d90-1215d1cb9f7f",
+    "start_at": "2026-01-02T12:00:00+00:00",
+    "status": "cancelled"
+  },
+  {
+    "id": "4e461321-ebfe-439c-b741-d90f9ef15883",
+    "booking_id": "9ff036cf-3081-4966-b8eb-18ca7843a879",
+    "table_id": "8b9fe7c7-ee8a-479c-9d90-1215d1cb9f7f",
+    "start_at": "2026-01-16T18:00:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "fbfcaf91-15db-47c0-a00d-09609d2e7dda",
+    "booking_id": "9ff036cf-3081-4966-b8eb-18ca7843a879",
+    "table_id": "71038964-9fc9-4ea3-b9af-09eb6a340bcf",
+    "start_at": "2026-01-16T18:00:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "c48c9ec5-8c76-418e-adef-081b8bf2739f",
+    "booking_id": "a26f8cf4-3a86-49d9-ada3-b2dc46a60687",
+    "table_id": "2430cb58-e5b6-40c8-a868-d72972e96b5a",
+    "start_at": "2026-02-17T17:00:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "f95ce3c9-1eaa-4aca-9818-24516bc289a5",
+    "booking_id": "6749858a-70a8-4c3b-8a22-61858800af20",
+    "table_id": "71038964-9fc9-4ea3-b9af-09eb6a340bcf",
+    "start_at": "2026-03-01T13:00:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "306f10a4-63c9-4f49-8f71-94f059326c78",
+    "booking_id": "a8ca57c3-38de-4c1e-9063-1585a7c5ab1b",
+    "table_id": "9da0fde3-8209-4cae-85de-2d60dd8e5204",
+    "start_at": "2026-02-12T19:00:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "5f5e7e84-3ec6-4313-b730-fc651b4359bd",
+    "booking_id": "db1afc4c-e05f-4e19-b9a7-14b7e3c5cb9f",
+    "table_id": "88315083-67ff-4f81-b9c7-2261bba1728f",
+    "start_at": "2026-02-14T18:00:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "58d0c81d-a5bc-49f6-bc25-03e885cff055",
+    "booking_id": "6f8265f7-4580-4131-b12f-8719e8834b87",
+    "table_id": "149034fe-4ce9-4498-8220-553b09e78569",
+    "start_at": "2026-02-28T19:00:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "e992584f-fa8f-440b-85da-eb99faac4695",
+    "booking_id": "6f8265f7-4580-4131-b12f-8719e8834b87",
+    "table_id": "521615ed-50eb-4ad1-91d4-b9f18f096508",
+    "start_at": "2026-02-28T19:00:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "0e0d1f98-5fe2-4977-a394-b5f6cac4e71b",
+    "booking_id": "572449fc-3523-404e-bfbd-3e84552d6372",
+    "table_id": "8b9fe7c7-ee8a-479c-9d90-1215d1cb9f7f",
+    "start_at": "2026-02-13T19:30:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "5012c24f-5f19-4a72-97f6-373e7ca9df71",
+    "booking_id": "edac9eec-289d-4c9f-ae3f-b1f421584307",
+    "table_id": "445af8a2-e02a-4415-b87c-78b02a8db5f7",
+    "start_at": "2026-02-14T18:00:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "72a81051-8e10-42b7-b8e5-17fd6cc56047",
+    "booking_id": "f62acb84-1992-4e2e-9242-87e9e00297f9",
+    "table_id": "e0de39a1-1378-451b-b8d2-7cdc2d3c613d",
+    "start_at": "2026-02-14T18:15:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "299069dd-156f-4f43-b753-c1d2a7f7f566",
+    "booking_id": "32e06b61-74f1-410b-824a-794ec6c114ce",
+    "table_id": "9e7c260d-c772-44c5-83ed-2966a8a5e9a0",
+    "start_at": "2026-01-30T19:00:00+00:00",
+    "status": "checked_in"
+  },
+  {
+    "id": "2df98530-7aeb-4bae-a788-5f2d529d67d0",
+    "booking_id": "18a14dc2-019e-4109-aea7-9e7e8e8b2033",
+    "table_id": "8b9fe7c7-ee8a-479c-9d90-1215d1cb9f7f",
+    "start_at": "2026-01-10T19:00:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "66171b4e-1512-4d77-bf43-0a13e3c02de1",
+    "booking_id": "2f5f60ab-bf33-43ac-bfcc-d318a7e023ed",
+    "table_id": "6a58a48e-a023-4334-b55c-d8cbd00e4079",
+    "start_at": "2026-01-10T20:00:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "b11e4a95-45d6-4f97-8881-3c5bd4a9710c",
+    "booking_id": "2f5f60ab-bf33-43ac-bfcc-d318a7e023ed",
+    "table_id": "cd7f6dde-6932-4c02-9baa-457d75d203e8",
+    "start_at": "2026-01-10T20:00:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "f855fcaf-b6ef-482b-ac6b-afc86a2a15fa",
+    "booking_id": "fb382f6f-9371-4927-a021-f958157cdc16",
+    "table_id": "c34e916b-8263-431e-bb53-00c34981b124",
+    "start_at": "2026-01-11T13:00:00+00:00",
+    "status": "checked_in"
+  },
+  {
+    "id": "40b5a134-40ee-4517-bf31-93bc170b83a5",
+    "booking_id": "65e7c79a-d958-4b8d-a34d-d1f70e1835f3",
+    "table_id": "65ca2f2c-707c-4e2b-bdc0-11af0a7adac8",
+    "start_at": "2026-01-17T18:30:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "19e02ce0-ded7-406c-90b2-7e0ae82de4d7",
+    "booking_id": "65e7c79a-d958-4b8d-a34d-d1f70e1835f3",
+    "table_id": "9e7c260d-c772-44c5-83ed-2966a8a5e9a0",
+    "start_at": "2026-01-17T18:30:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "04b5534b-1a90-4824-b741-7384f2405d9d",
+    "booking_id": "effa7bd6-9fb9-4519-b0ed-d213b0780c38",
+    "table_id": "049cb2c1-ab64-43cb-b145-6fc6f355aefa",
+    "start_at": "2026-01-10T17:30:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "9936f9d9-0d8c-41ca-9680-0a3e1a9ec0af",
+    "booking_id": "776c5350-5c70-419c-b485-99126493c3e2",
+    "table_id": "6a58a48e-a023-4334-b55c-d8cbd00e4079",
+    "start_at": "2026-01-10T17:45:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "eab0b4f2-154b-436d-81e2-f1e13e8e4df9",
+    "booking_id": "776c5350-5c70-419c-b485-99126493c3e2",
+    "table_id": "cd7f6dde-6932-4c02-9baa-457d75d203e8",
+    "start_at": "2026-01-10T17:45:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "681e6a29-f06c-4e7c-971e-bec18f377001",
+    "booking_id": "a9e61370-e12f-4f4a-ac5d-24edfad9bb48",
+    "table_id": "5e2269cf-dd06-40a7-b366-949ba85d26c2",
+    "start_at": "2026-01-10T13:00:00+00:00",
+    "status": "checked_in"
+  },
+  {
+    "id": "d0a98b32-e74a-4630-90b8-b14111cf8e6b",
+    "booking_id": "a9e61370-e12f-4f4a-ac5d-24edfad9bb48",
+    "table_id": "8fa0f125-45f8-4b6c-a246-490b91175e32",
+    "start_at": "2026-01-10T13:00:00+00:00",
+    "status": "checked_in"
+  },
+  {
+    "id": "0fbbe1a5-4d36-4cbe-9225-32a800349693",
+    "booking_id": "5299e62f-9b6d-4d09-aeb7-40a74728d6b7",
+    "table_id": "2430cb58-e5b6-40c8-a868-d72972e96b5a",
+    "start_at": "2026-02-18T12:30:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "a0439b89-5b62-4a27-8a70-aa0eef09ff42",
+    "booking_id": "41f39174-5f57-4737-994b-c11c1a3a174b",
+    "table_id": "8b9fe7c7-ee8a-479c-9d90-1215d1cb9f7f",
+    "start_at": "2026-02-11T19:00:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "811d5cbb-64f0-452a-baf4-6a532f46bef3",
+    "booking_id": "fccecd7e-df61-4178-a5ee-a68e7f3a67f2",
+    "table_id": "8b9fe7c7-ee8a-479c-9d90-1215d1cb9f7f",
+    "start_at": "2026-01-08T20:00:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "3bac2ef7-99bf-4786-8994-40ac4000b8c8",
+    "booking_id": "67962d73-6498-47f6-b8b5-3836e1d1b3dc",
+    "table_id": "1b629144-8824-4fd7-9383-4c7a3fe3f554",
+    "start_at": "2026-01-10T18:30:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "4b91c909-6e95-4b5a-9274-ae6deb3c0182",
+    "booking_id": "90b5edc6-272b-4190-be1b-9965896a4d41",
+    "table_id": "43d693a1-ec02-47c8-88e4-d6f3fbb47614",
+    "start_at": "2026-01-10T19:00:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "4b879295-744b-491d-9557-cd033e035bb6",
+    "booking_id": "f8482483-ffd0-437c-b40e-ebb404eac9dd",
+    "table_id": "a8289170-7696-48af-9394-d690556fe417",
+    "start_at": "2026-01-10T19:30:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "efea7d4a-f2be-4d82-8966-75dc8aeb9bdd",
+    "booking_id": "0dc30664-ab79-46c4-bf66-35632382ddee",
+    "table_id": "bebcc928-95fe-478f-9db4-5a19dcb4f451",
+    "start_at": "2026-01-10T18:30:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "1cb579fc-2ef2-4630-bd79-de47237ae20d",
+    "booking_id": "2819b9eb-1b65-4462-b93d-06ed93cced50",
+    "table_id": "5e2269cf-dd06-40a7-b366-949ba85d26c2",
+    "start_at": "2026-01-11T13:00:00+00:00",
+    "status": "checked_in"
+  },
+  {
+    "id": "031785cb-63ac-467a-aef6-9da0ed66aa0d",
+    "booking_id": "2819b9eb-1b65-4462-b93d-06ed93cced50",
+    "table_id": "8fa0f125-45f8-4b6c-a246-490b91175e32",
+    "start_at": "2026-01-11T13:00:00+00:00",
+    "status": "checked_in"
+  },
+  {
+    "id": "fd88ba06-ad90-40aa-9eec-f22837f54b6d",
+    "booking_id": "2819b9eb-1b65-4462-b93d-06ed93cced50",
+    "table_id": "d1dcb42f-b17b-4e6e-8b03-7556c589c96f",
+    "start_at": "2026-01-11T13:00:00+00:00",
+    "status": "checked_in"
+  },
+  {
+    "id": "23621d68-3b14-4807-9d97-8ee35b58ed00",
+    "booking_id": "f93e3663-c80a-4e99-a3d9-6be5332fbfb4",
+    "table_id": "65ca2f2c-707c-4e2b-bdc0-11af0a7adac8",
+    "start_at": "2026-01-10T18:00:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "1322456c-56a0-443d-834e-251b50e0dea7",
+    "booking_id": "a4ff685d-b17f-4bfb-aae1-5198b5192250",
+    "table_id": "e6157ca0-044f-48ff-a1a8-2ca5dabe121c",
+    "start_at": "2026-01-10T18:30:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "8222db55-79c7-4e6e-9e0f-2d01d2bdca09",
+    "booking_id": "eb65968c-a3b8-42b0-a2ed-c26186e46a70",
+    "table_id": "c34e916b-8263-431e-bb53-00c34981b124",
+    "start_at": "2026-01-11T19:00:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "5f227774-4194-45f6-88d7-f647ece110ca",
+    "booking_id": "a5846f50-0bc7-47f7-bf30-8ac687e04e6c",
+    "table_id": "1b629144-8824-4fd7-9383-4c7a3fe3f554",
+    "start_at": "2026-01-11T19:00:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "460a16aa-70a7-433c-884b-73ee5e094762",
+    "booking_id": "5fb17ada-1110-4f00-9413-bf2a987f2a0f",
+    "table_id": "43d693a1-ec02-47c8-88e4-d6f3fbb47614",
+    "start_at": "2026-01-11T18:45:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "07093716-37e5-4d6c-ae00-d36e79f3bf05",
+    "booking_id": "33745b6a-b89c-4c50-b8ea-abe92f513e6c",
+    "table_id": "049cb2c1-ab64-43cb-b145-6fc6f355aefa",
+    "start_at": "2026-01-17T17:00:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "1613116a-fbf9-44c7-94e7-ca14ea866f0e",
+    "booking_id": "fffb29ed-a9a1-4ef5-91f6-b558b683ef46",
+    "table_id": "c34e916b-8263-431e-bb53-00c34981b124",
+    "start_at": "2026-01-17T13:15:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "c2327486-5992-4ad5-b01d-96cad182937e",
+    "booking_id": "179da0e6-7de6-4013-b0b9-db9f70ddb783",
+    "table_id": "e6157ca0-044f-48ff-a1a8-2ca5dabe121c",
+    "start_at": "2026-01-17T18:30:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "fadc3126-f400-4a69-86fb-f76f8cc6afc9",
+    "booking_id": "58ee8041-019b-4108-8bce-0b7d6542735b",
+    "table_id": "04fb8333-bc4d-40be-867f-e289db5ce782",
+    "start_at": "2026-01-17T18:45:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "468ecccd-a6da-4ad5-a45b-ce7d2b04e06d",
+    "booking_id": "930481f9-d0c8-4777-948c-2c806aa3d8f5",
+    "table_id": "a8289170-7696-48af-9394-d690556fe417",
+    "start_at": "2026-01-30T19:30:00+00:00",
+    "status": "checked_in"
+  },
+  {
+    "id": "2c8734e7-546a-4a1e-96c4-96400a29afbb",
+    "booking_id": "930481f9-d0c8-4777-948c-2c806aa3d8f5",
+    "table_id": "e6157ca0-044f-48ff-a1a8-2ca5dabe121c",
+    "start_at": "2026-01-30T19:30:00+00:00",
+    "status": "checked_in"
+  },
+  {
+    "id": "118c9de6-e37e-4cc8-8bc9-74b3e0f9f3d6",
+    "booking_id": "d6f78d9c-b38a-4f11-b766-f032cef787de",
+    "table_id": "2430cb58-e5b6-40c8-a868-d72972e96b5a",
+    "start_at": "2026-02-12T12:30:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "8c4397a1-e88e-4de0-beac-fd9858bba77c",
+    "booking_id": "43147d6b-f6f4-4c0c-9324-6230a72db443",
+    "table_id": "9da0fde3-8209-4cae-85de-2d60dd8e5204",
+    "start_at": "2026-02-15T13:00:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "7fd3828d-d976-4486-8bb8-4caee7b2b7c1",
+    "booking_id": "2dbda961-79cb-4195-aa04-83385e5d56de",
+    "table_id": "9da0fde3-8209-4cae-85de-2d60dd8e5204",
+    "start_at": "2026-02-21T18:30:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "df0cc238-dfa3-4cfc-ac62-c4c5524685f6",
+    "booking_id": "b7a6a9c0-aa01-48c4-b561-d7752b40527a",
+    "table_id": "149034fe-4ce9-4498-8220-553b09e78569",
+    "start_at": "2026-02-15T13:00:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "10f124c3-f7f8-40bf-926d-3601e0ab1c6d",
+    "booking_id": "940ff0aa-37da-4df9-b384-fc3ed6aed0db",
+    "table_id": "149034fe-4ce9-4498-8220-553b09e78569",
+    "start_at": "2026-02-25T18:00:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "64cf6f5d-bad5-4f4e-8e90-e1d170e157d0",
+    "booking_id": "805d7e4f-5f07-48d3-878a-2d7377f47f6e",
+    "table_id": "9e88681b-1a29-4f6a-90f4-e19dc02ac8e2",
+    "start_at": "2026-01-17T18:30:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "cbcd840c-ce20-4537-8d5d-eede7bf2d505",
+    "booking_id": "b7a6a9c0-aa01-48c4-b561-d7752b40527a",
+    "table_id": "521615ed-50eb-4ad1-91d4-b9f18f096508",
+    "start_at": "2026-02-15T13:00:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "b0531ebb-4222-423e-8dfc-ab520ec88025",
+    "booking_id": "a27eae77-f17e-4370-af25-dec68ce57c0a",
+    "table_id": "6a58a48e-a023-4334-b55c-d8cbd00e4079",
+    "start_at": "2026-01-17T19:00:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "be4adb37-1f62-46ba-9ee4-10e471ad3f34",
+    "booking_id": "a27eae77-f17e-4370-af25-dec68ce57c0a",
+    "table_id": "fb800a77-680e-4aa0-a119-dc69b24bee6b",
+    "start_at": "2026-01-17T19:00:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "8a428f70-c429-4fff-add0-2d71f2e256e1",
+    "booking_id": "940ff0aa-37da-4df9-b384-fc3ed6aed0db",
+    "table_id": "521615ed-50eb-4ad1-91d4-b9f18f096508",
+    "start_at": "2026-02-25T18:00:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "f4ae8e1b-6ba9-4273-b490-40f21bf14d94",
+    "booking_id": "30bd5769-a169-40c4-92aa-e5fffd7e6bd2",
+    "table_id": "8b9fe7c7-ee8a-479c-9d90-1215d1cb9f7f",
+    "start_at": "2026-02-21T12:30:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "855f27ee-b9ed-448c-a4a4-983afa75a62f",
+    "booking_id": "c78b805c-e57f-404f-b456-5fd51e937093",
+    "table_id": "bd562f37-136b-417b-9df8-1666ed7b086b",
+    "start_at": "2026-02-14T18:30:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "a0b6533f-3404-45c0-bfa6-e816ef78bc56",
+    "booking_id": "8a1c4321-137f-4014-93a9-1b511141a216",
+    "table_id": "519dde39-f7df-406e-9bcc-e4e4d79336fc",
+    "start_at": "2026-02-14T18:00:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "48e4fb05-9323-43dd-b540-1fb7942ec2bc",
+    "booking_id": "425ab9ff-6b3f-408e-a6e7-8b00f0fd3680",
+    "table_id": "65ca2f2c-707c-4e2b-bdc0-11af0a7adac8",
+    "start_at": "2026-02-06T18:30:00+00:00",
+    "status": "cancelled"
+  },
+  {
+    "id": "39053310-ce4c-4ea8-9631-22e34a34f5ef",
+    "booking_id": "bf6c3433-359a-421c-a250-82580b6e8485",
+    "table_id": "cd7f6dde-6932-4c02-9baa-457d75d203e8",
+    "start_at": "2026-01-17T19:00:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "b0018af5-da81-4b8a-a743-eed21a36f6da",
+    "booking_id": "bf6c3433-359a-421c-a250-82580b6e8485",
+    "table_id": "d779bb14-177e-4f4a-82c9-860af265a457",
+    "start_at": "2026-01-17T19:00:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "75b8af48-834c-4c26-a938-f18299cd1ab0",
+    "booking_id": "0ae9a572-a27e-4df3-96d3-27914a3e9e0d",
+    "table_id": "3869bcf3-232f-4109-9cee-1027735763ee",
+    "start_at": "2026-02-21T12:30:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "e933fae7-01ac-44fe-9936-5ff33d043b76",
+    "booking_id": "2ccb032b-39e7-4acd-b04b-2f9b489aa7bb",
+    "table_id": "3869bcf3-232f-4109-9cee-1027735763ee",
+    "start_at": "2026-02-14T18:30:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "af400fb2-22f4-4964-8dd7-963d80cd81b8",
+    "booking_id": "772e58df-795e-410d-8568-bdbacdc5b61d",
+    "table_id": "43d693a1-ec02-47c8-88e4-d6f3fbb47614",
+    "start_at": "2026-01-16T18:30:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "4eedfb53-5644-4430-8f67-a40034788506",
+    "booking_id": "b7a6a9c0-aa01-48c4-b561-d7752b40527a",
+    "table_id": "27e499fa-88fa-4be5-ae7f-d22f269f718f",
+    "start_at": "2026-02-15T13:00:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "7ee084b3-8aa1-4e5c-80d9-cea93de0ce77",
+    "booking_id": "940ff0aa-37da-4df9-b384-fc3ed6aed0db",
+    "table_id": "27e499fa-88fa-4be5-ae7f-d22f269f718f",
+    "start_at": "2026-02-25T18:00:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "18b62478-724d-402f-a5df-9709b62d86c8",
+    "booking_id": "730c6ab1-d872-4984-9d18-b60f5a37a993",
+    "table_id": "049cb2c1-ab64-43cb-b145-6fc6f355aefa",
+    "start_at": "2026-01-25T17:00:00+00:00",
+    "status": "checked_in"
+  },
+  {
+    "id": "84be6cf9-2edb-40e0-afa8-cdec120e233b",
+    "booking_id": "a1fcdf60-b3df-42b7-ab23-c059712fb6d9",
+    "table_id": "8fa0f125-45f8-4b6c-a246-490b91175e32",
+    "start_at": "2026-01-17T18:00:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "fe6b50e9-3a4c-41de-b6e5-726e47eb799c",
+    "booking_id": "213e1c9f-c5c3-4ee9-8e1b-2e1790969b0f",
+    "table_id": "1b629144-8824-4fd7-9383-4c7a3fe3f554",
+    "start_at": "2026-01-17T20:00:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "2ff580f1-d7ed-4d15-a038-52e18fd7955e",
+    "booking_id": "39ad6870-b49c-4478-84ad-f87effdc8b2b",
+    "table_id": "5e2269cf-dd06-40a7-b366-949ba85d26c2",
+    "start_at": "2026-01-17T18:00:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "70bb324e-6d06-4c6e-a881-cc1c8ff378f0",
+    "booking_id": "39ad6870-b49c-4478-84ad-f87effdc8b2b",
+    "table_id": "d1dcb42f-b17b-4e6e-8b03-7556c589c96f",
+    "start_at": "2026-01-17T18:00:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "52419ede-8574-406f-884e-ade1fe72d2b6",
+    "booking_id": "6ab7d44b-1127-4d3b-be78-3be07f128ad2",
+    "table_id": "8fa0f125-45f8-4b6c-a246-490b91175e32",
+    "start_at": "2026-01-16T18:30:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "95fd9e62-5c5b-4ab1-bf7e-425680201a25",
+    "booking_id": "6ab7d44b-1127-4d3b-be78-3be07f128ad2",
+    "table_id": "fb800a77-680e-4aa0-a119-dc69b24bee6b",
+    "start_at": "2026-01-16T18:30:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "4bc6df4e-337d-484f-a300-ecbc198da2f5",
+    "booking_id": "438c2da6-2460-4f0d-a462-d96f87405d1c",
+    "table_id": "9da0fde3-8209-4cae-85de-2d60dd8e5204",
+    "start_at": "2026-02-14T18:00:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "2e3a647c-4d51-4836-8a1f-1b94eaedb6c7",
+    "booking_id": "908b1607-d140-4069-a2bd-7f128e0f177e",
+    "table_id": "9da0fde3-8209-4cae-85de-2d60dd8e5204",
+    "start_at": "2026-02-28T18:30:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "7a0dd9d9-3bbe-4685-980c-0ec80c4bd76f",
+    "booking_id": "e19914d4-8761-4c38-a380-ff00819c2544",
+    "table_id": "149034fe-4ce9-4498-8220-553b09e78569",
+    "start_at": "2026-02-14T15:15:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "bc21920d-9122-45ba-9c89-3fd4f306fb04",
+    "booking_id": "1168ad45-e23f-4e5e-977f-ca2a87ad11f1",
+    "table_id": "149034fe-4ce9-4498-8220-553b09e78569",
+    "start_at": "2026-03-14T12:00:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "74026ffc-0529-47c3-8b8f-ac94557c18e1",
+    "booking_id": "e19914d4-8761-4c38-a380-ff00819c2544",
+    "table_id": "521615ed-50eb-4ad1-91d4-b9f18f096508",
+    "start_at": "2026-02-14T15:15:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "e794bb63-2658-4ba8-a859-9b69e02234c9",
+    "booking_id": "35dadd46-726a-4573-9b5e-7147e143d991",
+    "table_id": "049cb2c1-ab64-43cb-b145-6fc6f355aefa",
+    "start_at": "2026-01-16T19:00:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "4445fd1a-27ff-42f7-981c-00e537539815",
+    "booking_id": "c3393e26-a047-4a41-8ded-d4078832a0e1",
+    "table_id": "8b9fe7c7-ee8a-479c-9d90-1215d1cb9f7f",
+    "start_at": "2026-02-14T19:30:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "07bb49c6-9b2a-4cea-8006-1347614a4bdb",
+    "booking_id": "116dd9eb-2c27-4d8d-9464-108e4c87d103",
+    "table_id": "8b9fe7c7-ee8a-479c-9d90-1215d1cb9f7f",
+    "start_at": "2026-02-27T18:30:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "9f93504c-4569-427a-84ff-0f78f13909d5",
+    "booking_id": "2ce4cfc8-7de4-4a8d-939e-30621e0e8a23",
+    "table_id": "bebcc928-95fe-478f-9db4-5a19dcb4f451",
+    "start_at": "2026-01-17T19:00:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "3b29b12f-accb-4590-a6f4-4f50e617d971",
+    "booking_id": "849b3a76-3412-449a-b190-c2c88c648f74",
+    "table_id": "b8fef4ce-e52f-4e2b-9290-fe3ea7ba8a17",
+    "start_at": "2026-01-17T19:00:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "fa705fa4-21b6-4159-a638-129a5e11cf91",
+    "booking_id": "b6efcfc9-87c1-40bb-8a7b-7f1246e29854",
+    "table_id": "f39debb4-07c5-46cf-a849-8f6de41f7adf",
+    "start_at": "2026-01-17T18:30:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "a194c0da-6409-4e2a-a419-fee13ed3f4d9",
+    "booking_id": "5416161d-09ca-4367-8098-398b1917f526",
+    "table_id": "458dc79d-db25-4024-a387-b6df2a266376",
+    "start_at": "2026-01-17T18:00:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "156af89d-fc8b-4f1d-b90f-b38cb65adcf2",
+    "booking_id": "8d59aec5-102c-4c40-9c2b-61318334b4e8",
+    "table_id": "8b9fe7c7-ee8a-479c-9d90-1215d1cb9f7f",
+    "start_at": "2026-02-28T19:00:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "83074f8a-cac8-402b-ac9a-564e634afb23",
+    "booking_id": "7a5fbde7-7ccb-45be-965e-147562616504",
+    "table_id": "8b9fe7c7-ee8a-479c-9d90-1215d1cb9f7f",
+    "start_at": "2026-02-21T20:00:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "902d0163-0918-4a15-b58f-f6ffdf0c500f",
+    "booking_id": "5bba10e1-6ff7-4cf6-8ac1-f3486f1b0d8f",
+    "table_id": "3869bcf3-232f-4109-9cee-1027735763ee",
+    "start_at": "2026-02-27T19:00:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "b5797143-1dd8-4163-b7aa-fe94969ff9f1",
+    "booking_id": "54ff3322-072e-4401-8572-86aff5ca78ca",
+    "table_id": "9e88681b-1a29-4f6a-90f4-e19dc02ac8e2",
+    "start_at": "2026-01-17T20:00:00+00:00",
+    "status": "completed"
+  },
+  {
+    "id": "bccf7cb2-5a85-42d4-8a02-2a9a8f4ae49e",
+    "booking_id": "e19914d4-8761-4c38-a380-ff00819c2544",
+    "table_id": "27e499fa-88fa-4be5-ae7f-d22f269f718f",
+    "start_at": "2026-02-14T15:15:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "26be6e33-69da-4823-bb5c-eb7e90d542c3",
+    "booking_id": "1168ad45-e23f-4e5e-977f-ca2a87ad11f1",
+    "table_id": "27e499fa-88fa-4be5-ae7f-d22f269f718f",
+    "start_at": "2026-03-14T12:00:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "7bd307f5-1859-4f84-857f-89965bc2e657",
+    "booking_id": "f97fa290-89b8-48b3-aecb-45d41904c0ea",
+    "table_id": "30ac8142-df4f-4033-bbfc-cd7b8911e659",
+    "start_at": "2026-02-14T18:30:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "55548fe0-788d-4fa6-a1a3-0674618caa42",
+    "booking_id": "fc31c301-0b2e-4a91-bc4b-2ff80c9eb034",
+    "table_id": "2430cb58-e5b6-40c8-a868-d72972e96b5a",
+    "start_at": "2026-03-20T19:00:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "494364de-5704-4727-9cd8-ae91362870dc",
+    "booking_id": "b8536d9f-531f-4dde-8f5e-2508e8556e07",
+    "table_id": "9e7c260d-c772-44c5-83ed-2966a8a5e9a0",
+    "start_at": "2026-02-08T13:00:00+00:00",
+    "status": "checked_in"
+  },
+  {
+    "id": "c42e3be7-7eb9-4398-87d2-e5bd99dbf941",
+    "booking_id": "b4f8931c-e56a-4350-ac33-9392cae36dd0",
+    "table_id": "2430cb58-e5b6-40c8-a868-d72972e96b5a",
+    "start_at": "2026-02-28T18:30:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "19debf66-138e-4296-87c5-9c02a533c422",
+    "booking_id": "32e96bee-a83b-4278-a725-7ad90f0f4691",
+    "table_id": "71038964-9fc9-4ea3-b9af-09eb6a340bcf",
+    "start_at": "2026-02-14T18:30:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "af01efa3-fa5c-4326-a858-7a27e60bf95c",
+    "booking_id": "4c2a4190-6d3f-4485-b765-14c0d83c75bf",
+    "table_id": "9da0fde3-8209-4cae-85de-2d60dd8e5204",
+    "start_at": "2026-02-20T18:30:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "876eea07-1533-48b2-9de4-46c72bb60e64",
+    "booking_id": "7913d7ae-212e-49d7-a4da-b93a8fb7f48a",
+    "table_id": "9e7c260d-c772-44c5-83ed-2966a8a5e9a0",
+    "start_at": "2026-01-31T15:15:00+00:00",
+    "status": "checked_in"
+  },
+  {
+    "id": "7b4e5b07-6886-4fb2-abfd-593dd9c44909",
+    "booking_id": "5603b5fb-5c60-4be5-bdc2-15a03c214a5e",
+    "table_id": "9da0fde3-8209-4cae-85de-2d60dd8e5204",
+    "start_at": "2026-02-18T19:00:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "9f48863e-6dba-48a5-ad65-e2ac0aca6506",
+    "booking_id": "b4f8931c-e56a-4350-ac33-9392cae36dd0",
+    "table_id": "519dde39-f7df-406e-9bcc-e4e4d79336fc",
+    "start_at": "2026-02-28T18:30:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "7f4fbf60-2014-4fed-ac24-6ca9e6641ac5",
+    "booking_id": "db6c1bb7-60b9-440a-8e14-c04f1e4fb8b1",
+    "table_id": "049cb2c1-ab64-43cb-b145-6fc6f355aefa",
+    "start_at": "2026-02-08T12:30:00+00:00",
+    "status": "checked_in"
+  },
+  {
+    "id": "73a4bffa-002f-46d5-b965-c41fa7b19f3e",
+    "booking_id": "facf4163-84ca-4b69-b496-fb6a1a5acee8",
+    "table_id": "2430cb58-e5b6-40c8-a868-d72972e96b5a",
+    "start_at": "2026-02-13T13:30:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "a74b1816-4109-4b58-8b42-04ba58128822",
+    "booking_id": "7800a3c7-3184-4c8f-aa22-503e59cc5cc9",
+    "table_id": "71038964-9fc9-4ea3-b9af-09eb6a340bcf",
+    "start_at": "2026-03-08T12:00:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "4dd0cb6b-75ae-4d87-8fca-d2b05de876a2",
+    "booking_id": "5411b84d-e641-4bd0-8f76-3c3a01e2cbb8",
+    "table_id": "71038964-9fc9-4ea3-b9af-09eb6a340bcf",
+    "start_at": "2026-02-28T18:30:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "35f382af-18a8-4f86-85c1-3c135885a8b8",
+    "booking_id": "23be6bb8-78ab-4379-a8ab-ced2ed235ae8",
+    "table_id": "71038964-9fc9-4ea3-b9af-09eb6a340bcf",
+    "start_at": "2026-02-08T17:30:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "219c8045-efe5-469f-8831-acb1c24914be",
+    "booking_id": "619b755c-2b39-476d-b617-bfbf8022b35b",
+    "table_id": "9da0fde3-8209-4cae-85de-2d60dd8e5204",
+    "start_at": "2026-02-08T17:00:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "fdd24652-fc3d-44f0-af3b-d5b020d431a4",
+    "booking_id": "77030662-7e81-4853-8a39-30585d2dbdbe",
+    "table_id": "43d693a1-ec02-47c8-88e4-d6f3fbb47614",
+    "start_at": "2026-02-08T12:30:00+00:00",
+    "status": "checked_in"
+  },
+  {
+    "id": "15a251b0-7ccc-4748-9e39-225e5b50097b",
+    "booking_id": "5f787e0f-08c6-4c3c-a557-b6f8655a0ea6",
+    "table_id": "a8289170-7696-48af-9394-d690556fe417",
+    "start_at": "2026-02-08T12:30:00+00:00",
+    "status": "checked_in"
+  },
+  {
+    "id": "f6bd7ed5-26cb-4ba7-84dc-ec1136be0409",
+    "booking_id": "6388a5e8-07d2-4349-b8e7-afcad1731b63",
+    "table_id": "149034fe-4ce9-4498-8220-553b09e78569",
+    "start_at": "2026-02-08T19:15:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "87fe4b82-896b-4ffb-8604-d8a57608d2ac",
+    "booking_id": "1168ad45-e23f-4e5e-977f-ca2a87ad11f1",
+    "table_id": "521615ed-50eb-4ad1-91d4-b9f18f096508",
+    "start_at": "2026-03-14T12:00:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "14367af6-85ec-4da1-b852-42546ff98f38",
+    "booking_id": "6388a5e8-07d2-4349-b8e7-afcad1731b63",
+    "table_id": "521615ed-50eb-4ad1-91d4-b9f18f096508",
+    "start_at": "2026-02-08T19:15:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "c50a7b64-de33-468a-bcde-efc4813ba0ec",
+    "booking_id": "523c0604-d553-421f-b5ad-4d7c8d011fa9",
+    "table_id": "8b9fe7c7-ee8a-479c-9d90-1215d1cb9f7f",
+    "start_at": "2026-02-14T17:30:00+00:00",
+    "status": "confirmed"
+  },
+  {
+    "id": "87b68be1-b156-4f4b-b5cb-8dcde73a1f31",
+    "booking_id": "c4bd5bd8-d043-479e-b880-a6801ffd9cdc",
+    "table_id": "43d693a1-ec02-47c8-88e4-d6f3fbb47614",
+    "start_at": "2026-02-08T13:30:00+00:00",
+    "status": "checked_in"
+  },
+  {
+    "id": "7479c454-0b45-4a0d-9dda-acdee03d0136",
+    "booking_id": "c4bd5bd8-d043-479e-b880-a6801ffd9cdc",
+    "table_id": "e6157ca0-044f-48ff-a1a8-2ca5dabe121c",
+    "start_at": "2026-02-08T13:30:00+00:00",
+    "status": "checked_in"
+  },
+  {
+    "id": "52b758cf-98ba-40ff-9a38-22770247d6b9",
+    "booking_id": "45083638-9879-4789-a19b-056e1394b435",
+    "table_id": "c34e916b-8263-431e-bb53-00c34981b124",
+    "start_at": "2026-02-08T13:30:00+00:00",
+    "status": "checked_in"
+  },
+  {
+    "id": "1a7b3173-0462-4ab4-b1e7-83e27e31a6f0",
+    "booking_id": "6a02928f-2219-4eb4-affe-f9697526c26f",
+    "table_id": "08fad74e-8f17-4514-ad25-e2771d5dc84b",
+    "start_at": "2026-02-08T13:00:00+00:00",
+    "status": "checked_in"
+  },
+  {
+    "id": "9c42639d-d99b-4944-99f7-7cf097182ddd",
+    "booking_id": "1cadac92-f28e-4553-bf75-8bb0c50dd97a",
+    "table_id": "8b9fe7c7-ee8a-479c-9d90-1215d1cb9f7f",
+    "start_at": "2026-02-15T18:00:00+00:00",
+    "status": "confirmed"
+  }
+]
