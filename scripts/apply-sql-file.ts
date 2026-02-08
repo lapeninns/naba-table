@@ -117,8 +117,9 @@ async function main(): Promise<void> {
 
   await client.connect();
   try {
-    // Force the simple query protocol so multi-statement SQL files run correctly.
-    await client.query({ text: sql, queryMode: "simple" });
+    // Use a plain string query so Postgres runs it via the simple query protocol,
+    // which supports multi-statement SQL files (BEGIN/COMMIT, DO $$, etc).
+    await client.query(sql);
   } finally {
     await client.end();
   }
