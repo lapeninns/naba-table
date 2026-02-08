@@ -101,6 +101,10 @@ fi
 
 # Repair in small batches to avoid command length limits.
 printf '%s\n' "$versions" \
-  | xargs -n 20 supabase migration repair --linked --status applied --yes "${password_args[@]}"
+  | if [[ ${#password_args[@]} -gt 0 ]]; then
+      xargs -n 20 supabase migration repair --linked --status applied --yes "${password_args[@]}"
+    else
+      xargs -n 20 supabase migration repair --linked --status applied --yes
+    fi
 
 echo "Done. Verify with: supabase migration list --linked"
