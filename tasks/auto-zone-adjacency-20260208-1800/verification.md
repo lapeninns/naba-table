@@ -19,10 +19,11 @@ related_tickets: []
 ## DB Verification
 
 - [x] Run read-only adjacency verification script against staging
-- [ ] Run read-only adjacency verification script against production
+- [x] Run read-only adjacency verification script against production
 
 Artifacts:
 `tasks/auto-zone-adjacency-20260208-1800/artifacts/adjacency-verification-staging.json`
+`tasks/auto-zone-adjacency-20260208-1800/artifacts/adjacency-verification-production.json`
 
 ### Notes / Blockers
 

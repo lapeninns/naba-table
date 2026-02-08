@@ -1,0 +1,163 @@
+{
+  "ok": true,
+  "restaurant": null,
+  "totals": {
+    "zonesChecked": 18,
+    "tablesChecked": 73,
+    "eligibleTables": 50,
+    "expectedEdges": 158,
+    "actualEdges": 158,
+    "missingEdges": 0,
+    "extraEdges": 0
+  },
+  "zones": [
+    {
+      "zoneId": "4b013494-6d4a-4fcb-a734-48278d49959a",
+      "eligibleCount": 5,
+      "expectedEdges": 20,
+      "actualEdgesWithinZone": 20,
+      "missingEdges": 0,
+      "extraEdgesWithinZone": 0
+    },
+    {
+      "zoneId": "0870d6ed-a1a7-4083-9afd-559b96e8536c",
+      "eligibleCount": 4,
+      "expectedEdges": 12,
+      "actualEdgesWithinZone": 12,
+      "missingEdges": 0,
+      "extraEdgesWithinZone": 0
+    },
+    {
+      "zoneId": "722b3790-70f2-4cd2-9acf-31682b8e2b28",
+      "eligibleCount": 7,
+      "expectedEdges": 42,
+      "actualEdgesWithinZone": 42,
+      "missingEdges": 0,
+      "extraEdgesWithinZone": 0
+    },
+    {
+      "zoneId": "8b3e0e53-e801-4c9d-93dc-77b0f182437c",
+      "eligibleCount": 3,
+      "expectedEdges": 6,
+      "actualEdgesWithinZone": 6,
+      "missingEdges": 0,
+      "extraEdgesWithinZone": 0
+    },
+    {
+      "zoneId": "a6c64ae2-6ff2-4cbf-bc99-ca4538f35ce5",
+      "eligibleCount": 1,
+      "expectedEdges": 0,
+      "actualEdgesWithinZone": 0,
+      "missingEdges": 0,
+      "extraEdgesWithinZone": 0
+    },
+    {
+      "zoneId": "96141bb4-643f-46d5-a7f3-86d6e7256d37",
+      "eligibleCount": 5,
+      "expectedEdges": 20,
+      "actualEdgesWithinZone": 20,
+      "missingEdges": 0,
+      "extraEdgesWithinZone": 0
+    },
+    {
+      "zoneId": "63838c2b-08d5-4e47-becb-c4fc5a111640",
+      "eligibleCount": 0,
+      "expectedEdges": 0,
+      "actualEdgesWithinZone": 0,
+      "missingEdges": 0,
+      "extraEdgesWithinZone": 0
+    },
+    {
+      "zoneId": "15e3708a-bc0d-41e4-a272-c330bbe16ae9",
+      "eligibleCount": 3,
+      "expectedEdges": 6,
+      "actualEdgesWithinZone": 6,
+      "missingEdges": 0,
+      "extraEdgesWithinZone": 0
+    },
+    {
+      "zoneId": "ca56045a-c6da-4e0f-9b45-bb3f667a5841",
+      "eligibleCount": 3,
+      "expectedEdges": 6,
+      "actualEdgesWithinZone": 6,
+      "missingEdges": 0,
+      "extraEdgesWithinZone": 0
+    },
+    {
+      "zoneId": "128f446b-98cc-451b-b838-946f7f981b2a",
+      "eligibleCount": 2,
+      "expectedEdges": 2,
+      "actualEdgesWithinZone": 2,
+      "missingEdges": 0,
+      "extraEdgesWithinZone": 0
+    },
+    {
+      "zoneId": "f2319f1c-3a3f-4b40-b027-cb83db9a956f",
+      "eligibleCount": 2,
+      "expectedEdges": 2,
+      "actualEdgesWithinZone": 2,
+      "missingEdges": 0,
+      "extraEdgesWithinZone": 0
+    },
+    {
+      "zoneId": "fa3e8a3d-c48b-40b9-9a43-eeeed148a44b",
+      "eligibleCount": 3,
+      "expectedEdges": 6,
+      "actualEdgesWithinZone": 6,
+      "missingEdges": 0,
+      "extraEdgesWithinZone": 0
+    },
+    {
+      "zoneId": "b6013bb7-11a1-42d0-88ac-b154eb5b83df",
+      "eligibleCount": 0,
+      "expectedEdges": 0,
+      "actualEdgesWithinZone": 0,
+      "missingEdges": 0,
+      "extraEdgesWithinZone": 0
+    },
+    {
+      "zoneId": "fbf0b58d-f9d7-4fb5-8384-a4b2165a31e0",
+      "eligibleCount": 0,
+      "expectedEdges": 0,
+      "actualEdgesWithinZone": 0,
+      "missingEdges": 0,
+      "extraEdgesWithinZone": 0
+    },
+    {
+      "zoneId": "488cba6d-8db5-438d-9567-39c0d4ee035b",
+      "eligibleCount": 0,
+      "expectedEdges": 0,
+      "actualEdgesWithinZone": 0,
+      "missingEdges": 0,
+      "extraEdgesWithinZone": 0
+    },
+    {
+      "zoneId": "75dccafe-f954-4a5c-9f92-3d7ae1b700c1",
+      "eligibleCount": 4,
+      "expectedEdges": 12,
+      "actualEdgesWithinZone": 12,
+      "missingEdges": 0,
+      "extraEdgesWithinZone": 0
+    },
+    {
+      "zoneId": "cbe3f1e1-d490-4a13-aeee-da32a70fa592",
+      "eligibleCount": 4,
+      "expectedEdges": 12,
+      "actualEdgesWithinZone": 12,
+      "missingEdges": 0,
+      "extraEdgesWithinZone": 0
+    },
+    {
+      "zoneId": "47a117ed-e5a8-4832-a3f6-745ab154f451",
+      "eligibleCount": 4,
+      "expectedEdges": 12,
+      "actualEdgesWithinZone": 12,
+      "missingEdges": 0,
+      "extraEdgesWithinZone": 0
+    }
+  ],
+  "samples": {
+    "missing": [],
+    "extra": []
+  }
+}
