@@ -63,7 +63,11 @@ fi
 list_out="$(mktemp)"
 trap 'rm -f "$list_out"' EXIT
 
-supabase migration list --linked "${password_args[@]}" >"$list_out"
+if [[ ${#password_args[@]} -gt 0 ]]; then
+  supabase migration list --linked "${password_args[@]}" >"$list_out"
+else
+  supabase migration list --linked >"$list_out"
+fi
 
 # Parse the table output:
 # - We only want rows where Local is blank and Remote is non-blank.
@@ -94,8 +98,11 @@ if [[ "$dry_run" == "true" ]]; then
 fi
 
 printf '%s\n' "$remote_only" \
-  | xargs -n 20 supabase migration repair --linked --status reverted --yes "${password_args[@]}"
+  | if [[ ${#password_args[@]} -gt 0 ]]; then
+      xargs -n 20 supabase migration repair --linked --status reverted --yes "${password_args[@]}"
+    else
+      xargs -n 20 supabase migration repair --linked --status reverted --yes
+    fi
 
 echo "Done. Verify with:"
 echo "  supabase migration list --linked"
-
