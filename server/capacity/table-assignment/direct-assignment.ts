@@ -14,10 +14,11 @@
 
 import { evaluateAdjacency, isAdjacencySatisfied, summarizeAdjacencyStatus } from "@/server/capacity/adjacency";
 import { getVenuePolicy, ServiceOverrunError, type TurnBandsByOption } from "@/server/capacity/policy";
+import { deriveTableRules } from "@/server/capacity/table-rules";
 import { getAllocatorAdjacencyMode } from "@/server/feature-flags";
 import { getRestaurantTurnBands } from "@/server/restaurants/turnBands";
 
-import { buildBusyMaps, extractConflictsForTables, resolveRequireAdjacency } from "./availability";
+import { buildBusyMaps, extractConflictsForTables } from "./availability";
 import { computeBookingWindowWithFallback } from "./booking-window";
 import {
   ensureClient,
@@ -231,13 +232,13 @@ export async function assignTablesDirectly(input: DirectAssignmentInput): Promis
   }
 
   // === STEP 6: Run Validation ===
-  const requireAdjacency = resolveRequireAdjacency(booking.party_size, requireAdjacencyOverride);
+  // Hard invariant: merged assignments must satisfy adjacency; do not allow bypass.
+  void requireAdjacencyOverride;
   const validation = await validateSelection({
     bookingId,
     booking,
     tables,
     window,
-    requireAdjacency,
     restaurantTimezone: restaurantTimezone ?? undefined,
     turnBandsByOption,
     supabase,
@@ -350,12 +351,11 @@ async function validateSelection(params: {
   };
   tables: Table[];
   window: BookingWindow;
-  requireAdjacency: boolean;
   restaurantTimezone?: string;
   turnBandsByOption?: TurnBandsByOption | null;
   supabase: DbClient;
 }): Promise<ValidationResult> {
-  const { bookingId, booking, tables, window, requireAdjacency, restaurantTimezone, turnBandsByOption, supabase } = params;
+  const { bookingId, booking, tables, window, restaurantTimezone, turnBandsByOption, supabase } = params;
   const checks: ValidationCheck[] = [];
   const summary = summarizeSelection(tables, booking.party_size);
 
@@ -381,16 +381,20 @@ async function validateSelection(params: {
   });
 
   // Check 1: Zone consistency - All tables must be in the same zone
-  const zones = new Set(tables.map((t) => t.zoneId).filter(Boolean));
+  const zones = new Set<string | null>(tables.map((t) => t.zoneId ?? null));
+  const [onlyZone] = Array.from(zones.values());
   const singleZone = zones.size <= 1;
+  const mergedZoneOk = tables.length <= 1 ? true : singleZone && Boolean(onlyZone);
   checks.push({
     id: "zone",
-    passed: singleZone,
-    message: singleZone
+    passed: mergedZoneOk,
+    message: mergedZoneOk
       ? summary.zoneId
         ? `All tables in zone ${summary.zoneId}`
         : "No zone specified"
-      : `Tables are in different zones: ${Array.from(zones).join(", ")}`,
+      : tables.length > 1 && !onlyZone
+        ? "Merged assignments require all tables to belong to the same (non-empty) zone."
+        : `Tables are in different zones: ${Array.from(zones).join(", ")}`,
     details: {
       zones: Array.from(zones),
       zoneId: summary.zoneId,
@@ -412,17 +416,20 @@ async function validateSelection(params: {
 
   // Check 3: Movable requirement - When merging multiple tables, all must be movable
   if (tables.length > 1) {
-    const allMovable = tables.every((table) => table.mobility === "movable");
-    const nonMovableTables = tables.filter((t) => t.mobility !== "movable");
+    const nonMergeable = tables.filter((t) => {
+      const rules = deriveTableRules({ capacity: t.capacity ?? 0, mobility: t.mobility });
+      return !rules.canBeMerged;
+    });
+    const allMovable = nonMergeable.length === 0;
     checks.push({
       id: "movable",
       passed: allMovable,
       message: allMovable
         ? "All tables are movable (can be merged)"
-        : `Merged assignments require movable tables. Fixed tables: ${nonMovableTables.map((t) => t.tableNumber).join(", ")}`,
+        : `Merged assignments require movable tables. Non-movable tables: ${nonMergeable.map((t) => t.tableNumber).join(", ")}`,
       details: {
         allMovable,
-        nonMovableTables: nonMovableTables.map((t) => ({
+        nonMovableTables: nonMergeable.map((t) => ({
           id: t.id,
           tableNumber: t.tableNumber,
           mobility: t.mobility,
@@ -447,7 +454,7 @@ async function validateSelection(params: {
   });
 
   // Check 5: Adjacency (if required)
-  if (requireAdjacency && tables.length > 1) {
+  if (tables.length > 1) {
     const tableIds = tables.map((t) => t.id);
     const adjacency = await loadAdjacency(booking.restaurant_id, tableIds, supabase);
     const evaluation = evaluateAdjacency(tableIds, adjacency);

@@ -16,8 +16,6 @@ if (fs.existsSync(envLocalPath)) {
   loadEnv({ path: envLocalPath, override: false });
 }
 
-const APPLY = process.env.APPLY === "true";
-const CONFIRM_PRODUCTION = process.env.CONFIRM_PRODUCTION === "true";
 const EXPECTED_PROJECT_REF = process.env.EXPECTED_PROJECT_REF?.trim() || null;
 const RESTAURANT_SLUG = (process.env.RESTAURANT_SLUG ?? "the-railway-pub").trim();
 
@@ -30,10 +28,7 @@ function requireEnv(): { supabaseUrl: string; serviceRoleKey: string } {
   if (!RESTAURANT_SLUG) {
     throw new Error("RESTAURANT_SLUG is required.");
   }
-  if (APPLY && !CONFIRM_PRODUCTION) {
-    throw new Error("APPLY requested without CONFIRM_PRODUCTION=true. Refusing to write in production.");
-  }
-  if (CONFIRM_PRODUCTION && EXPECTED_PROJECT_REF && !supabaseUrl.includes(EXPECTED_PROJECT_REF)) {
+  if (EXPECTED_PROJECT_REF && !supabaseUrl.includes(EXPECTED_PROJECT_REF)) {
     throw new Error(`Supabase URL does not match expected project ref (${EXPECTED_PROJECT_REF}). Aborting.`);
   }
   return { supabaseUrl, serviceRoleKey };
@@ -42,6 +37,11 @@ function requireEnv(): { supabaseUrl: string; serviceRoleKey: string } {
 type TableRow = {
   id: string;
   zone_id: string | null;
+  active: boolean | null;
+  capacity: number | null;
+  mobility: string | null;
+  status: string | null;
+  zone_active: boolean | null;
 };
 
 type AdjacencyRow = {
@@ -54,15 +54,37 @@ type AdjacencyBuild = {
   singleTableZones: number;
 };
 
+function normalizeLower(value: unknown): string {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+function isEligible(table: TableRow): boolean {
+  if (!table.zone_id) return false;
+  if (table.zone_active === false) return false;
+  if (table.active === false) return false;
+  if (!Number.isFinite(table.capacity ?? NaN) || (table.capacity ?? 0) <= 0) return false;
+
+  const status = normalizeLower(table.status || "available");
+  if (status === "out_of_service" || status === "maintenance") return false;
+
+  const mobility = normalizeLower(table.mobility || "movable");
+  if (mobility === "fixed") return false;
+  return true;
+}
+
 function buildAdjacencyPayload(tables: TableRow[]): AdjacencyBuild {
   const byZone = new Map<string, string[]>();
   for (const table of tables) {
-    if (!table.zone_id) {
+    if (!isEligible(table)) {
       continue;
     }
-    const list = byZone.get(table.zone_id) ?? [];
+    const zoneId = table.zone_id;
+    if (!zoneId) {
+      continue;
+    }
+    const list = byZone.get(zoneId) ?? [];
     list.push(table.id);
-    byZone.set(table.zone_id, list);
+    byZone.set(zoneId, list);
   }
 
   const payload: AdjacencyRow[] = [];
@@ -112,16 +134,25 @@ async function loadTables(
 ): Promise<TableRow[]> {
   const { data, error } = await supabase
     .from("table_inventory")
-    .select("id, zone_id")
+    .select("id, zone_id, active, capacity, mobility, status, zones(active)")
     .eq("restaurant_id", restaurantId);
   if (error) {
     throw new Error(`Failed to load table_inventory: ${error.message}`);
   }
   const rows = (data ?? []).filter((row) => Boolean(row?.id));
-  return rows.map((row) => ({
-    id: row.id,
-    zone_id: row.zone_id ?? null,
-  }));
+  return rows.map((row) => {
+    const zone_active =
+      (row as unknown as { zones?: { active: boolean | null } | null }).zones?.active ?? true;
+    return {
+      id: row.id,
+      zone_id: row.zone_id ?? null,
+      active: row.active ?? null,
+      capacity: (row.capacity ?? null) as number | null,
+      mobility: (row.mobility ?? null) as string | null,
+      status: (row.status ?? null) as string | null,
+      zone_active,
+    } satisfies TableRow;
+  });
 }
 
 async function loadExistingAdjacency(
@@ -151,20 +182,6 @@ async function loadExistingAdjacency(
   return existing;
 }
 
-async function insertAdjacency(
-  supabase: SupabaseClient<Database>,
-  rows: AdjacencyRow[],
-): Promise<void> {
-  const chunkSize = 200;
-  for (let i = 0; i < rows.length; i += chunkSize) {
-    const batch = rows.slice(i, i + chunkSize);
-    const { error } = await supabase.from("table_adjacencies").insert(batch);
-    if (error) {
-      throw new Error(`Failed to insert table_adjacencies: ${error.message}`);
-    }
-  }
-}
-
 async function main(): Promise<void> {
   const { supabaseUrl, serviceRoleKey } = requireEnv();
 
@@ -179,15 +196,21 @@ async function main(): Promise<void> {
   }
 
   const { payload, singleTableZones } = buildAdjacencyPayload(tables);
+  const tableIdSet = new Set(tables.map((t) => t.id));
   const existing = await loadExistingAdjacency(
     supabase,
     tables.map((table) => table.id),
   );
-  const toInsert = payload.filter((row) => !existing.has(`${row.table_a}|${row.table_b}`));
-
-  if (APPLY && toInsert.length > 0) {
-    await insertAdjacency(supabase, toInsert);
-  }
+  const missing = payload.filter((row) => !existing.has(`${row.table_a}|${row.table_b}`));
+  const expectedSet = new Set(payload.map((row) => `${row.table_a}|${row.table_b}`));
+  const extra = Array.from(existing).filter((key) => {
+    const [a, b] = key.split("|");
+    if (!a || !b) return false;
+    // Only consider edges entirely within this restaurant scope.
+    const inScope = tableIdSet.has(a) && tableIdSet.has(b);
+    if (!inScope) return false;
+    return !expectedSet.has(key);
+  });
 
   console.log("Adjacency build summary:");
   console.log({
@@ -196,10 +219,18 @@ async function main(): Promise<void> {
     tableCount: tables.length,
     edgesCalculated: payload.length,
     existingEdges: existing.size,
-    edgesToInsert: toInsert.length,
+    missingEdges: missing.length,
+    extraEdges: extra.length,
     singleTableZones,
-    applied: APPLY,
   });
+
+  if (missing.length > 0 || extra.length > 0) {
+    console.error("Adjacency mismatch detected. Sample:", {
+      missing: missing.slice(0, 10).map((r) => `${r.table_a}|${r.table_b}`),
+      extra: extra.slice(0, 10),
+    });
+    process.exit(2);
+  }
 }
 
 void main().catch((error) => {
