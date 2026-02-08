@@ -1,3 +1,4 @@
+import { DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES } from '@/lib/restaurants/defaults';
 import { ensureLogoColumnOnRow, isLogoUrlColumnMissing, logLogoColumnFallback } from '@/server/restaurants/logo-url-compat';
 import { restaurantSelectColumns } from '@/server/restaurants/select-fields';
 import { assertValidTimezone } from '@/server/restaurants/timezone';
@@ -217,7 +218,8 @@ export async function createRestaurant(
     reservationIntervalMinutes: restaurant.reservation_interval_minutes,
     reservationDefaultDurationMinutes: restaurant.reservation_default_duration_minutes,
     reservationLastSeatingBufferMinutes: restaurant.reservation_last_seating_buffer_minutes,
-    reservationLifecycleGraceMinutes: restaurant.reservation_lifecycle_grace_minutes,
+    reservationLifecycleGraceMinutes:
+      restaurant.reservation_lifecycle_grace_minutes ?? DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES,
     createdAt: restaurant.created_at,
     updatedAt: restaurant.updated_at,
   };

@@ -36,8 +36,6 @@ describe('BookingDialog accessibility', () => {
       reference: 'ABC123',
       details: null,
       source: 'phone',
-      loyaltyTier: null,
-      loyaltyPoints: null,
       profileNotes: null,
       allergies: ['Nuts'],
       dietaryRestrictions: ['Vegetarian'],
@@ -90,4 +88,3 @@ describe('BookingDialog accessibility', () => {
     expect(results).toHaveNoViolations();
   });
 });
-

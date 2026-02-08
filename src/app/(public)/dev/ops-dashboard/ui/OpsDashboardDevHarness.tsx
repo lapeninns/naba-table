@@ -30,8 +30,6 @@ function buildSummary(): OpsTodayBookingsSummary {
       reference: 'DEV123',
       details: null,
       source: 'phone',
-      loyaltyTier: 'gold',
-      loyaltyPoints: 1200,
       profileNotes: 'Prefers quieter tables.',
       allergies: ['Nuts'],
       dietaryRestrictions: ['Vegetarian'],
@@ -55,8 +53,6 @@ function buildSummary(): OpsTodayBookingsSummary {
       reference: 'DEV456',
       details: null,
       source: 'walk_in',
-      loyaltyTier: null,
-      loyaltyPoints: null,
       profileNotes: null,
       allergies: null,
       dietaryRestrictions: null,
@@ -180,4 +176,3 @@ export function OpsDashboardDevHarness() {
     </OpsDevProviders>
   );
 }
-

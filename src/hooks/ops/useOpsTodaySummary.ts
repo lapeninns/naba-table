@@ -178,18 +178,6 @@ export function useOpsTodaySummary(options: UseOpsTodaySummaryOptions): UseOpsTo
       handleChange,
     );
 
-    // Listen to loyalty_points changes
-    channel.on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'loyalty_points',
-        filter: `restaurant_id=eq.${restaurantId}`,
-      },
-      handleChange,
-    );
-
     // Listen to customer_profiles changes
     channel.on(
       'postgres_changes',

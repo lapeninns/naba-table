@@ -56,8 +56,6 @@ export type OpsTodayBooking = {
   reference: string | null;
   details: Record<string, unknown> | null;
   source: string | null;
-  loyaltyTier?: 'bronze' | 'silver' | 'gold' | 'platinum' | null;
-  loyaltyPoints?: number | null;
   profileNotes?: string | null;
   allergies?: string[] | null;
   dietaryRestrictions?: string[] | null;
@@ -158,8 +156,6 @@ export type OpsBookingListItem = {
   reference?: string | null;
   details?: Record<string, unknown> | null;
   source?: string | null;
-  loyaltyTier?: 'bronze' | 'silver' | 'gold' | 'platinum' | null;
-  loyaltyPoints?: number | null;
   profileNotes?: string | null;
   allergies?: string[] | null;
   dietaryRestrictions?: string[] | null;

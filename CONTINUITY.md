@@ -1,54 +1,59 @@
 # Continuity Ledger
 
-Last updated: 2026-02-06T10:22:40Z
+Last updated: 2026-02-07T16:36:30Z
 
 ## Goal (incl. success criteria)
 
-- Enforce Ops table assignment eligibility by status + date on both client and server.
-- Success: completed/cancelled/no_show cannot assign/unassign; only allowed statuses and today/future date.
-- Success: UI shows locked messaging; server returns ASSIGNMENT_LOCKED for disallowed actions.
-- Success: policy helpers tested.
+- Deliver a comprehensive database optimization/enhancement analysis (staging-backed) and ensure staging migrations are organized for a future production rollout.
+- Success: Staging is migration-up-to-date via Supabase CLI.
+- Success: Report covers requested 12 areas + deliverables (exec summary, roadmap, cost/benefit, risks, projections).
+- Success: Migration approach supports "no legacy history" baselining (Option A) for production.
 
 ## Constraints/Assumptions
 
 - Follow root + path-level AGENTS policies.
-- Supabase operations are remote-only.
-- User requested skipping Chrome DevTools QA; document waiver in task artifacts.
-- Missing booking date or timezone => treat as not allowed (timezone fallback to UTC).
+- Supabase: remote-only; use staging first (`ndxmivcrehsacuerwxtm`).
+- Use Supabase CLI for migrations; note: `CREATE/DROP INDEX CONCURRENTLY` is not supported by `supabase db push` (pipeline mode).
+- Do not write secrets (DB passwords, tokens) into repo files or responses.
 
 ## Key decisions
 
-- Single source of truth policy in lib/ops/table-assignment-policy.ts.
-- Server enforcement in direct-assignment guard + unassign guard.
+- Migration model: **Option A** (baseline + forward-only migrations); do not import legacy migration history.
+- Keep analysis artifacts, but record that pre-change artifacts may be stale relative to later applied migrations; document current state in `report.md`.
 
 ## State
 
-- Phase 3: Implementation complete; verification update in progress.
+- Staging migrations verified; analysis report written; follow-up migration added for remaining FK index coverage.
 
 ## Done
 
-- Added status+date policy helper in lib/ops/table-assignment-policy.ts.
-- Enforced policy in BookingDetailsDialogWrapper and Ops list gating.
-- Added server guard in direct-assignment assign/unassign.
-- Added unit tests: tests/utils/tableAssignmentPolicy.test.ts.
-- Updated task research/plan/todo/verification with policy addendum and DevTools waiver note.
+- Verified staging migration status:
+  - `supabase migration list --linked`
+  - `supabase db push --linked --dry-run` => remote up to date
+- Added migration `supabase/migrations/20260207170000_add_remaining_fk_indexes.sql` and applied to staging.
+- Wrote analysis deliverable: `tasks/db-optimization-analysis-20260207-1402/report.md`.
+- Documented follow-up implementation task: `tasks/db-optimization-index-followups-20260207-1636/`.
 
 ## Now
 
-- Finalize response and explain updated assignment logic.
+- Final pass: ensure report and follow-up task docs are consistent with current migrations and constraints.
 
 ## Next
 
-- Optional: run broader typecheck/lint if requested.
+- Plan production rollout using `docs/db/supabase-baseline-migrations.md`:
+  - baseline production to the correct version
+  - apply forward-only migrations in a change window
+  - verify post-apply security and key query paths
 
 ## Open questions (UNCONFIRMED if needed)
 
-- None.
+- Desired production RPO/RTO targets? (UNCONFIRMED)
+- Any compliance constraints beyond standard PII handling (e.g., GDPR retention requests)? (UNCONFIRMED)
 
 ## Working set (files/ids/commands)
 
-- lib/ops/table-assignment-policy.ts
-- server/capacity/table-assignment/direct-assignment.ts
-- src/components/features/dashboard/list/BookingsListVirtualized.tsx
-- tests/utils/tableAssignmentPolicy.test.ts
-- tasks/ops-booking-dialog-redesign-20260206-0116/{research,plan,todo,verification}.md
+- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/supabase/migrations/20260207144113_rls_hardening_internal_tables.sql
+- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/supabase/migrations/20260207170000_add_remaining_fk_indexes.sql
+- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/db-optimization-analysis-20260207-1402/report.md
+- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/docs/db/supabase-baseline-migrations.md
+- `supabase db push --linked --dry-run`

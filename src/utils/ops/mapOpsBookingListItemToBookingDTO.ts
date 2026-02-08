@@ -22,8 +22,6 @@ export function mapOpsBookingListItemToBookingDTO(
     reservationIntervalMinutes: booking.reservationIntervalMinutes ?? null,
     reference: booking.reference ?? null,
     source: booking.source ?? null,
-    loyaltyTier: booking.loyaltyTier ?? null,
-    loyaltyPoints: booking.loyaltyPoints ?? null,
     seatingPreference: booking.seatingPreference ?? null,
     allergies: booking.allergies ?? null,
     dietaryRestrictions: booking.dietaryRestrictions ?? null,
@@ -33,4 +31,3 @@ export function mapOpsBookingListItemToBookingDTO(
     checkedOutAt: booking.checkedOutAt ?? null,
   };
 }
-

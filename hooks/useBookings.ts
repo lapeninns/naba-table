@@ -44,8 +44,6 @@ export type BookingDTO = {
   // Ops-enriched fields (optional for guest flows)
   reference?: string | null;
   source?: string | null;
-  loyaltyTier?: 'bronze' | 'silver' | 'gold' | 'platinum' | null;
-  loyaltyPoints?: number | null;
   seatingPreference?: string | null;
   allergies?: string[] | null;
   dietaryRestrictions?: string[] | null;

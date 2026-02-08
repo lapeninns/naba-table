@@ -4,7 +4,6 @@ import { logger } from "@/lib/logger";
 import { getDateInTimezone } from "@/lib/utils/datetime";
 import { LruCache } from "@/server/capacity/lru-cache";
 import { getCustomerProfilesForCustomers } from "@/server/ops/customer-profiles";
-import { getLoyaltyPointsForCustomers } from "@/server/ops/loyalty";
 import { getServiceSupabaseClient } from "@/server/supabase";
 
 import type { OpsTodayBooking, OpsTodayBookingsSummary } from "@/types/ops";
@@ -295,20 +294,12 @@ export async function getTodayBookingsSummary(
       .map((booking) => booking.customer_id)
       .filter((customerId): customerId is string => typeof customerId === "string" && customerId.length > 0);
 
-    const [loyaltyPointsMap, customerProfilesMap] = await Promise.all([
-      getLoyaltyPointsForCustomers({
-        restaurantId,
-        customerIds,
-        client,
-      }),
-      getCustomerProfilesForCustomers({
-        customerIds,
-        client,
-      }),
-    ]);
+    const customerProfilesMap = await getCustomerProfilesForCustomers({
+      customerIds,
+      client,
+    });
 
     const summaryBookings: TodayBooking[] = bookings.map((booking) => {
-      const loyaltyData = booking.customer_id ? loyaltyPointsMap.get(booking.customer_id) ?? null : null;
       const profileData = booking.customer_id ? customerProfilesMap.get(booking.customer_id) ?? null : null;
       const parsedPreferences = parsePreferences(profileData?.preferences);
 
@@ -377,8 +368,6 @@ export async function getTodayBookingsSummary(
         reference: booking.reference ?? null,
         details: normalizeDetails(booking.details),
         source: (booking.source as Tables<"bookings">["source"]) ?? null,
-        loyaltyTier: (loyaltyData?.tier as Tables<"loyalty_points">["tier"] | null) ?? null,
-        loyaltyPoints: loyaltyData?.totalPoints ?? null,
         profileNotes: profileData?.notes ?? null,
         allergies: parsedPreferences.allergies,
         dietaryRestrictions: parsedPreferences.dietaryRestrictions,

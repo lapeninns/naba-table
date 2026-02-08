@@ -46,7 +46,6 @@ const baseEnvSchema = z
     RESEND_USE_MOCK: booleanStringOptional,
     RESEND_WEBHOOK_SECRET: z.string().min(1).optional(),
     CRON_SECRET: z.string().min(1).optional(),
-    LOYALTY_PILOT_RESTAURANT_IDS: z.string().optional(),
     FEATURE_GUEST_LOOKUP_POLICY: booleanStringOptional,
     FEATURE_OPS_GUARD_V2: booleanStringOptional,
     FEATURE_BOOKING_PAST_TIME_BLOCKING: booleanStringOptional,

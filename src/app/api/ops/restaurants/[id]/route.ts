@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { RESTAURANT_ROLE_OWNER } from '@/lib/owner/auth/roles';
+import { DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES } from '@/lib/restaurants/defaults';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { deleteRestaurant, updateRestaurant } from '@/server/restaurants';
 import { ensureLogoColumnOnRow, isLogoUrlColumnMissing, logLogoColumnFallback } from '@/server/restaurants/logo-url-compat';
@@ -120,7 +121,8 @@ export async function GET(req: NextRequest, context: RouteContext) {
       reservationIntervalMinutes: restaurantRow.reservation_interval_minutes,
       reservationDefaultDurationMinutes: restaurantRow.reservation_default_duration_minutes,
       reservationLastSeatingBufferMinutes: restaurantRow.reservation_last_seating_buffer_minutes,
-      reservationLifecycleGraceMinutes: restaurantRow.reservation_lifecycle_grace_minutes,
+      reservationLifecycleGraceMinutes:
+        restaurantRow.reservation_lifecycle_grace_minutes ?? DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES,
       createdAt: restaurantRow.created_at,
       updatedAt: restaurantRow.updated_at,
       role: membershipRole,
