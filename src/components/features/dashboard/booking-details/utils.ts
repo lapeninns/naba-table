@@ -4,7 +4,7 @@
 
 import { DateTime } from 'luxon';
 
-import { getOpsBookingStatusUi } from '@/lib/ops/booking-status';
+import { OPS_BOOKING_STATUS_UI } from '@/lib/ops/booking-status';
 
 import type { AssignmentValidation } from './types';
 import type { ManualAssignmentTable } from '@/services/ops/bookings';
@@ -74,9 +74,14 @@ export function formatCountdown(minutes: number): string {
 
 export function getStatusLabel(status: OpsBookingStatus | string): string {
   if (!status) return 'Unknown';
-  if (typeof status !== 'string') return getOpsBookingStatusUi(status).label;
+  if (
+    typeof status === 'string' &&
+    Object.prototype.hasOwnProperty.call(OPS_BOOKING_STATUS_UI, status)
+  ) {
+    return OPS_BOOKING_STATUS_UI[status as OpsBookingStatus].label;
+  }
   // booking details sometimes receive string statuses; keep a safe fallback.
-  return status.replaceAll('_', ' ');
+  return String(status).replaceAll('_', ' ');
 }
 
 export function canCheckIn(status: OpsBookingStatus): boolean {

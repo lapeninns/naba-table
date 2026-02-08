@@ -1,10 +1,10 @@
 import { HydrationBoundary, QueryClient, dehydrate } from "@tanstack/react-query";
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import ReservationDetailClient from "@/components/features/booking/detail/ReservationDetailClient";
 import { env } from "@/lib/env";
-import { getCanonicalSiteUrl } from "@/lib/site-url";
+import { getTrustedSiteOrigin } from "@/lib/site-url";
 import { withRedirectedFrom } from "@/lib/url/withRedirectedFrom";
 import { validateSessionRecoveryAccessToken } from "@/server/security/session-recovery-access-token";
 import { getServerComponentSupabaseClient } from "@/server/supabase";
@@ -27,19 +27,12 @@ const cookieHeaderFromStore = (cookieStore: Awaited<ReturnType<typeof cookies>>)
     .join("; ");
 };
 
-const resolveOrigin = (requestHeaders: Headers): string => {
-  const forwardedHost = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
-  const forwardedProto = requestHeaders.get("x-forwarded-proto");
-  if (forwardedHost) {
-    return `${forwardedProto ?? "https"}://${forwardedHost}`;
-  }
-  return process.env.NEXT_PUBLIC_SITE_URL ?? getCanonicalSiteUrl();
-};
+const resolveOrigin = (): string => getTrustedSiteOrigin();
 
 async function prefetchReservation(queryClient: QueryClient, reservationId: string, token?: string | null) {
-  const [requestHeaders, cookieStore] = await Promise.all([headers(), cookies()]);
+  const cookieStore = await cookies();
   const cookieHeader = cookieHeaderFromStore(cookieStore);
-  const origin = resolveOrigin(requestHeaders);
+  const origin = resolveOrigin();
 
   const url = new URL(`${origin}/api/bookings/${reservationId}`);
   if (token) {

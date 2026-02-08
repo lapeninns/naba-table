@@ -24,3 +24,15 @@ function normalizeOrigin(candidate?: string | null): string | null {
 export function getCanonicalSiteUrl(): string {
   return normalizeOrigin(config.domainName) ?? `https://${DEFAULT_FALLBACK_DOMAIN}`;
 }
+
+export function getTrustedSiteOrigin(): string {
+  const candidate =
+    process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? null;
+  return normalizeOrigin(candidate) ?? getCanonicalSiteUrl();
+}
+
+export function getTrustedAppOrigin(): string {
+  const candidate =
+    process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? null;
+  return normalizeOrigin(candidate) ?? getCanonicalSiteUrl();
+}

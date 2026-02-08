@@ -1,11 +1,11 @@
 import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query';
-import { cookies, headers } from 'next/headers';
+import { cookies } from 'next/headers';
 
 import { BookingErrorBoundary } from '@/components/features/booking-state-machine';
 import { OpsDashboardClient } from '@/components/features/dashboard/OpsDashboardClient';
 import { BookingOfflineQueueProvider } from '@/contexts/booking-offline-queue';
 import { queryKeys } from '@/lib/query/keys';
-import { getCanonicalSiteUrl } from '@/lib/site-url';
+import { getTrustedAppOrigin } from '@/lib/site-url';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
 import { fetchUserMemberships } from '@/server/team/access';
 import { sanitizeDateParam } from '@/utils/ops/dashboard';
@@ -30,14 +30,7 @@ const cookieHeaderFromStore = (cookieStore: Awaited<ReturnType<typeof cookies>>)
     .join('; ');
 };
 
-const resolveOrigin = (requestHeaders: Headers): string => {
-  const forwardedHost = requestHeaders.get('x-forwarded-host') ?? requestHeaders.get('host');
-  const forwardedProto = requestHeaders.get('x-forwarded-proto');
-  if (forwardedHost) {
-    return `${forwardedProto ?? 'https'}://${forwardedHost}`;
-  }
-  return process.env.NEXT_PUBLIC_SITE_URL ?? getCanonicalSiteUrl();
-};
+const resolveOrigin = (): string => getTrustedAppOrigin();
 
 async function prefetchOpsSummary(
   queryClient: QueryClient,
@@ -45,9 +38,9 @@ async function prefetchOpsSummary(
   date: string | null,
 ) {
   try {
-    const [requestHeaders, cookieStore] = await Promise.all([headers(), cookies()]);
+    const cookieStore = await cookies();
     const cookieHeader = cookieHeaderFromStore(cookieStore);
-    const origin = resolveOrigin(requestHeaders);
+    const origin = resolveOrigin();
     const url = new URL(`${origin}/api/ops/dashboard/summary`);
 
     url.searchParams.set('restaurantId', restaurantId);
