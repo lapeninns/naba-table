@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import { BOOKING_BLOCKING_STATUSES } from '@/lib/enums';
 import { env } from '@/lib/env';
+import { getTodayInTimezone } from '@/lib/utils/datetime';
 import {
   createBookingValidationService,
   BookingValidationError,
@@ -1344,14 +1345,44 @@ async function handleMyBookings(req: NextRequest) {
     | null;
   };
 
-  const { data, error, count } = await query.range(offset, offset + pageSize - 1);
+  const isActive = params.status === 'active';
+  let rows: BookingRow[] = [];
+  let total = 0;
 
-  if (error) {
-    console.error('[bookings][GET][me]', error);
-    return NextResponse.json({ error: 'Unable to fetch bookings' }, { status: 500 });
+  if (isActive) {
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('[bookings][GET][me]', error);
+      return NextResponse.json({ error: 'Unable to fetch bookings' }, { status: 500 });
+    }
+
+    const rawRows: BookingRow[] = (data ?? []) as BookingRow[];
+    const activeRows = rawRows.filter((booking) => {
+      const restaurant = Array.isArray(booking.restaurants)
+        ? (booking.restaurants[0] ?? null)
+        : booking.restaurants;
+      const timezone =
+        typeof restaurant?.timezone === 'string' && restaurant.timezone.trim().length > 0
+          ? restaurant.timezone
+          : 'UTC';
+      const today = getTodayInTimezone(timezone);
+      return booking.booking_date >= today;
+    });
+
+    total = activeRows.length;
+    rows = activeRows.slice(offset, offset + pageSize);
+  } else {
+    const { data, error, count } = await query.range(offset, offset + pageSize - 1);
+
+    if (error) {
+      console.error('[bookings][GET][me]', error);
+      return NextResponse.json({ error: 'Unable to fetch bookings' }, { status: 500 });
+    }
+
+    rows = (data ?? []) as BookingRow[];
+    total = count ?? rows.length;
   }
-
-  const rows: BookingRow[] = (data ?? []) as BookingRow[];
 
   const items: BookingDTO[] = rows.map((booking) => {
     const restaurant = Array.isArray(booking.restaurants)
@@ -1379,7 +1410,6 @@ async function handleMyBookings(req: NextRequest) {
     };
   });
 
-  const total = count ?? items.length;
   const hasNext = offset + items.length < total;
 
   const response: PageResponse<BookingDTO> = {
