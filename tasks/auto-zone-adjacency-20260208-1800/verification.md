@@ -18,12 +18,16 @@ related_tickets: []
 
 ## DB Verification
 
-- [ ] Run read-only adjacency verification script against staging
+- [x] Run read-only adjacency verification script against staging
 - [ ] Run read-only adjacency verification script against production
+
+Artifacts:
+`tasks/auto-zone-adjacency-20260208-1800/artifacts/adjacency-verification-staging.json`
 
 ### Notes / Blockers
 
-- Staging DB apply is currently blocked on updated staging DB credentials (pooler password auth failure).
+- Staging migration applied via direct Postgres connection (shared pooler) using a chunked apply to avoid
+  transition-table constraints. Verification artifact captured above.
 - Supabase CLI `db push` is not currently usable against production due to remote migration history drift
   (remote has versions not present locally, and local has versions the CLI wants inserted). The migration SQL
   is idempotent; the next safe step is to apply it via a direct Postgres connection using

@@ -151,8 +151,8 @@ begin
       and z.active is distinct from false
       and ti.active is distinct from false
       and coalesce(ti.capacity, 0) > 0
-      and lower(coalesce(ti.status, 'available')) not in ('out_of_service', 'maintenance')
-      and lower(coalesce(ti.mobility, 'movable')) in ('movable', 'adjustable')
+      and lower(coalesce(ti.status::text, 'available')) not in ('out_of_service', 'maintenance')
+      and lower(coalesce(ti.mobility::text, 'movable')) in ('movable', 'adjustable')
   )
   insert into public.table_adjacencies (table_a, table_b)
   select a.id, b.id
@@ -166,7 +166,7 @@ $$;
 -- 3) Triggers
 -- -----------------------------------------------------------------------------
 
-create or replace function public.trg_table_inventory_rebuild_zone_adjacencies()
+create or replace function public.trg_table_inventory_rebuild_zone_adjacencies_update()
 returns trigger
 language plpgsql
 security definer
@@ -175,22 +175,15 @@ as $$
 declare
   zid uuid;
 begin
-  -- DELETEs are handled by FK ON DELETE CASCADE; remaining edges among other tables stay valid.
-  if tg_op = 'DELETE' then
-    return null;
-  end if;
-
-  if tg_op = 'UPDATE' then
-    -- If a table moved zones or became unzoned, remove all its edges so old-zone leftovers cannot persist.
-    delete from public.table_adjacencies ta
-    using (
-      select n.id
-      from new_rows n
-      join old_rows o on o.id = n.id
-      where o.zone_id is distinct from n.zone_id
-    ) moved
-    where ta.table_a = moved.id or ta.table_b = moved.id;
-  end if;
+  -- If a table moved zones or became unzoned, remove all its edges so old-zone leftovers cannot persist.
+  delete from public.table_adjacencies ta
+  using (
+    select n.id
+    from new_rows n
+    join old_rows o on o.id = n.id
+    where o.zone_id is distinct from n.zone_id
+  ) moved
+  where ta.table_a = moved.id or ta.table_b = moved.id;
 
   -- Rebuild zones impacted by relevant changes.
   for zid in
@@ -205,47 +198,39 @@ begin
             n.zone_id is not null
             and n.active is distinct from false
             and coalesce(n.capacity, 0) > 0
-            and lower(coalesce(n.status, 'available')) not in ('out_of_service', 'maintenance')
-            and lower(coalesce(n.mobility, 'movable')) in ('movable', 'adjustable')
+            and lower(coalesce(n.status::text, 'available')) not in ('out_of_service', 'maintenance')
+            and lower(coalesce(n.mobility::text, 'movable')) in ('movable', 'adjustable')
           ) as eligible_new,
           (
             o.zone_id is not null
             and o.active is distinct from false
             and coalesce(o.capacity, 0) > 0
-            and lower(coalesce(o.status, 'available')) not in ('out_of_service', 'maintenance')
-            and lower(coalesce(o.mobility, 'movable')) in ('movable', 'adjustable')
+            and lower(coalesce(o.status::text, 'available')) not in ('out_of_service', 'maintenance')
+            and lower(coalesce(o.mobility::text, 'movable')) in ('movable', 'adjustable')
           ) as eligible_old,
-          lower(coalesce(o.status, 'available')) as status_old,
-          lower(coalesce(n.status, 'available')) as status_new
+          lower(coalesce(o.status::text, 'available')) as status_old,
+          lower(coalesce(n.status::text, 'available')) as status_new
         from new_rows n
         left join old_rows o on o.id = n.id
       ),
       affected as (
-        -- inserts: rebuild zone only if new row is eligible
-        select zone_id_new as zone_id
-        from norm
-        where tg_op = 'INSERT' and eligible_new
-
-        union
-
         -- updates: zone change => rebuild both old and new
         select zone_id_old as zone_id
         from norm
-        where tg_op = 'UPDATE' and zone_id_old is distinct from zone_id_new
+        where zone_id_old is distinct from zone_id_new
 
         union
 
         select zone_id_new as zone_id
         from norm
-        where tg_op = 'UPDATE' and zone_id_old is distinct from zone_id_new
+        where zone_id_old is distinct from zone_id_new
 
         union
 
         -- updates: eligibility changed in-place
         select zone_id_new as zone_id
         from norm
-        where tg_op = 'UPDATE'
-          and zone_id_old is not distinct from zone_id_new
+        where zone_id_old is not distinct from zone_id_new
           and eligible_old is distinct from eligible_new
 
         union
@@ -253,8 +238,7 @@ begin
         -- updates: status crossing into/out of out_of_service/maintenance (structural)
         select zone_id_new as zone_id
         from norm
-        where tg_op = 'UPDATE'
-          and zone_id_new is not null
+        where zone_id_new is not null
           and (
             (status_old in ('out_of_service', 'maintenance')) is distinct from (status_new in ('out_of_service', 'maintenance'))
           )
@@ -267,16 +251,39 @@ begin
   end loop;
 
   -- If any updated rows became unzoned, ensure their edges are gone.
-  if tg_op = 'UPDATE' then
-    delete from public.table_adjacencies ta
-    using (
-      select n.id
-      from new_rows n
-      join old_rows o on o.id = n.id
-      where o.zone_id is not null and n.zone_id is null
-    ) unzoned
-    where ta.table_a = unzoned.id or ta.table_b = unzoned.id;
-  end if;
+  delete from public.table_adjacencies ta
+  using (
+    select n.id
+    from new_rows n
+    join old_rows o on o.id = n.id
+    where o.zone_id is not null and n.zone_id is null
+  ) unzoned
+  where ta.table_a = unzoned.id or ta.table_b = unzoned.id;
+
+  return null;
+end;
+$$;
+
+create or replace function public.trg_table_inventory_rebuild_zone_adjacencies_insert()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  zid uuid;
+begin
+  for zid in
+    select distinct n.zone_id
+    from new_rows n
+    where n.zone_id is not null
+      and n.active is distinct from false
+      and coalesce(n.capacity, 0) > 0
+      and lower(coalesce(n.status::text, 'available')) not in ('out_of_service', 'maintenance')
+      and lower(coalesce(n.mobility::text, 'movable')) in ('movable', 'adjustable')
+  loop
+    perform public.rebuild_zone_adjacencies(zid);
+  end loop;
 
   return null;
 end;
@@ -288,17 +295,31 @@ begin
   if exists (
     select 1
     from pg_trigger
-    where tgname = 'table_inventory_rebuild_zone_adjacencies'
+    where tgname = 'table_inventory_rebuild_zone_adjacencies_update'
   ) then
-    drop trigger table_inventory_rebuild_zone_adjacencies on public.table_inventory;
+    drop trigger table_inventory_rebuild_zone_adjacencies_update on public.table_inventory;
+  end if;
+
+  if exists (
+    select 1
+    from pg_trigger
+    where tgname = 'table_inventory_rebuild_zone_adjacencies_insert'
+  ) then
+    drop trigger table_inventory_rebuild_zone_adjacencies_insert on public.table_inventory;
   end if;
 end $$;
 
-create trigger table_inventory_rebuild_zone_adjacencies
-after insert or update or delete on public.table_inventory
+create trigger table_inventory_rebuild_zone_adjacencies_update
+after update on public.table_inventory
 referencing new table as new_rows old table as old_rows
 for each statement
-execute function public.trg_table_inventory_rebuild_zone_adjacencies();
+execute function public.trg_table_inventory_rebuild_zone_adjacencies_update();
+
+create trigger table_inventory_rebuild_zone_adjacencies_insert
+after insert on public.table_inventory
+referencing new table as new_rows
+for each statement
+execute function public.trg_table_inventory_rebuild_zone_adjacencies_insert();
 
 create or replace function public.trg_zones_rebuild_zone_adjacencies()
 returns trigger
