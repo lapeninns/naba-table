@@ -6,17 +6,17 @@ const FAQ_ITEMS = [
   {
     question: 'The 90-Day No-Show Recovery Guarantee',
     answer:
-      'If we don&apos;t recover at least 3x our fee in no-show or late-cancel revenue within 90 days, we work for free until we do.',
+      "If we don't recover at least 3x our fee in no-show or late-cancel revenue within 90 days, we work for free until we do.",
   },
   {
-    question: 'The &quot;Anti-Guarantee&quot;',
+    question: 'The "Anti-Guarantee"',
     answer:
       'We have no long-term contracts. We have to earn your business every single month. If you hate making more money, you can leave at any time.',
   },
   {
     question: 'How does pricing work?',
     answer:
-      'We abandoned the commodity model. We charge a one-time &quot;White Glove&quot; setup (£3k-£9k) and a monthly Profit-Engine fee (£299-£899).',
+      'We abandoned the commodity model. We charge a one-time "White Glove" setup (£3k-£9k) and a monthly Profit-Engine fee (£299-£899).',
   },
 ];
 

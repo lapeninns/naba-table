@@ -4,15 +4,15 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { HelpTooltip } from '@/components/features/restaurant-settings/HelpTooltip';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { TooltipProvider } from '@/components/ui/tooltip';
-import { cn } from '@/lib/utils';
-import {
-  RESERVATION_INTERVAL_MAX,
-  RESERVATION_INTERVAL_MIN,
-} from '@/lib/restaurants/reservation-interval';
+	import { Input } from '@/components/ui/input';
+	import { Label } from '@/components/ui/label';
+	import { Textarea } from '@/components/ui/textarea';
+	import { TooltipProvider } from '@/components/ui/tooltip';
+	import {
+	  RESERVATION_INTERVAL_MAX,
+	  RESERVATION_INTERVAL_MIN,
+	} from '@/lib/restaurants/reservation-interval';
+	import { cn } from '@/lib/utils';
 
 import type { UpdateRestaurantInput } from '@/app/api/ops/restaurants/schema';
 import type { PropsWithChildren } from 'react';
@@ -74,7 +74,7 @@ const FIELD_TOOLTIPS = {
   lifecycleGrace:
     'Minutes after the reservation end time when staff can still check out or mark no-shows.',
   bookingPolicy:
-    'Optional message shown to guests during booking and in confirmations (e.g., deposits, grace periods).',
+    'Optional message shown to guests during booking and in confirmations (e.g., grace periods, large-party policies).',
   googleReviewUrl: 'Link for customers to leave a Google review. This is sent in post-visit emails.',
   googleMapUrl: 'Link shared with guests for directions in Google Maps.',
 } as const;
@@ -138,25 +138,26 @@ function sanitizePayload(state: FormState): UpdateRestaurantInput {
   const lastSeatingBufferMinutes = Number.parseInt(state.reservationLastSeatingBufferMinutes, 10);
   const lifecycleGraceMinutes = Number.parseInt(state.reservationLifecycleGraceMinutes, 10);
 
-  return {
-    name: trimmedName,
-    slug: trimmedSlug,
-    timezone: trimmedTimezone,
+	  return {
+	    name: trimmedName,
+	    slug: trimmedSlug,
+	    timezone: trimmedTimezone,
     contactEmail: trimmedEmail.length > 0 ? trimmedEmail : null,
     contactPhone: trimmedPhone.length > 0 ? trimmedPhone : null,
     address: trimmedAddress.length > 0 ? trimmedAddress : null,
     googleMapUrl: trimmedMapUrl.length > 0 ? trimmedMapUrl : null,
     googleReviewUrl: trimmedReviewUrl.length > 0 ? trimmedReviewUrl : null,
     bookingPolicy: trimmedPolicy.length > 0 ? trimmedPolicy : null,
-    reservationIntervalMinutes: intervalMinutes,
-    reservationDefaultDurationMinutes: defaultDurationMinutes,
-    reservationLastSeatingBufferMinutes: lastSeatingBufferMinutes,
-    // Email preferences are always enabled - no longer configurable
-    emailSendReminder24h: true,
-    emailSendReminderShort: true,
-    emailSendReviewRequest: true,
-  };
-}
+	    reservationIntervalMinutes: intervalMinutes,
+	    reservationDefaultDurationMinutes: defaultDurationMinutes,
+	    reservationLastSeatingBufferMinutes: lastSeatingBufferMinutes,
+	    reservationLifecycleGraceMinutes: lifecycleGraceMinutes,
+	    // Email preferences are always enabled - no longer configurable
+	    emailSendReminder24h: true,
+	    emailSendReminderShort: true,
+	    emailSendReviewRequest: true,
+	  };
+	}
 
 function validate(state: FormState): FormErrors {
   const errors: FormErrors = {};
@@ -238,23 +239,23 @@ function validate(state: FormState): FormErrors {
     errors.contactPhone = 'Phone number must be at least 5 characters';
   }
 
-  const reviewUrl = state.googleReviewUrl.trim();
-  if (reviewUrl) {
-    try {
-      new URL(reviewUrl);
-    } catch (error) {
-      errors.googleReviewUrl = 'Enter a valid URL (e.g., https://g.page/.../review)';
-    }
-  }
+	  const reviewUrl = state.googleReviewUrl.trim();
+	  if (reviewUrl) {
+	    try {
+	      new URL(reviewUrl);
+	    } catch {
+	      errors.googleReviewUrl = 'Enter a valid URL (e.g., https://g.page/.../review)';
+	    }
+	  }
 
-  const mapUrl = state.googleMapUrl.trim();
-  if (mapUrl) {
-    try {
-      new URL(mapUrl);
-    } catch (error) {
-      errors.googleMapUrl = 'Enter a valid URL (e.g., https://maps.google.com/...)';
-    }
-  }
+	  const mapUrl = state.googleMapUrl.trim();
+	  if (mapUrl) {
+	    try {
+	      new URL(mapUrl);
+	    } catch {
+	      errors.googleMapUrl = 'Enter a valid URL (e.g., https://maps.google.com/...)';
+	    }
+	  }
 
   return errors;
 }
@@ -530,14 +531,14 @@ export function RestaurantDetailsForm({
                 errors.reservationLifecycleGraceMinutes &&
                 'border-destructive focus-visible:ring-destructive/60',
               )}
-            />
-            <p id="restaurant-lifecycle-grace-help" className="text-xs text-muted-foreground">
-              Extra time after a booking ends before it's hidden; usually 0-120 mins.
-            </p>
-            {errors.reservationLifecycleGraceMinutes && (
-              <p id="restaurant-lifecycle-grace-error" className="text-xs text-destructive" role="alert">
-                {errors.reservationLifecycleGraceMinutes}
-              </p>
+	            />
+	            <p id="restaurant-lifecycle-grace-help" className="text-xs text-muted-foreground">
+	              Extra time after a booking ends before it is hidden; usually 0-120 mins.
+	            </p>
+	            {errors.reservationLifecycleGraceMinutes && (
+	              <p id="restaurant-lifecycle-grace-error" className="text-xs text-destructive" role="alert">
+	                {errors.reservationLifecycleGraceMinutes}
+	              </p>
             )}
           </div>
 
