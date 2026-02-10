@@ -8,6 +8,8 @@ import { BrandLogo } from '@/components/shared/BrandLogo';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
+import { LOCAL_VENUES, venueNameFromLabel } from './shared/localVenues';
+
 const inter = Inter({
   subsets: ['latin'],
   display: 'swap',
@@ -19,17 +21,6 @@ const jetbrainsMono = JetBrains_Mono({
   display: 'swap',
   variable: '--font-mono',
 });
-
-const LOCAL_VENUES = [
-  'The Barley Mow Pub — Hartford',
-  'The Queen Elizabeth Pub — King’s Lynn',
-  'Prince of Wales Pub — Bromham',
-  'White Horse Pub — Waterbeach',
-  'The Corner House Pub — Cambridge',
-  'Old Crown Pub — Girton',
-  'The Bell — Sawtry',
-  'The Railway Pub — Whittlesey',
-];
 
 const FACTORY_THEME = {
   '--brand-blue': '#2563EB',
@@ -97,13 +88,11 @@ const METRICS = [
 
 type Metric = (typeof METRICS)[number];
 
-const INTEGRATIONS = ['Toast', 'Square', 'Lightspeed', 'Stripe', 'Twilio'];
-
 const BENEFITS = [
   {
     title: 'The Core Engine',
     description:
-      'Automated bookings and SMS confirmations. No-shows drop to near zero immediately.',
+      'Automated bookings and email confirmations. No-shows drop to near zero immediately.',
     value: '£5,000 Value',
     icon: 'check' as const,
   },
@@ -117,7 +106,7 @@ const BENEFITS = [
   {
     title: 'No-Show Prevention Pack',
     description:
-      'Deposit and card pre-auth templates designed specifically for UK legal standards.',
+      'Email reminder sequences and confirmation copy designed specifically for UK pubs.',
     value: '£1,000 Value',
     icon: 'shield' as const,
   },
@@ -195,7 +184,7 @@ const OBJECTION_POINTS = [
   'We Import Your Data',
 ];
 
-const LIVE_FEED_VENUES: string[] = LOCAL_VENUES;
+const LIVE_FEED_VENUES: readonly string[] = LOCAL_VENUES;
 const LIVE_FEED_VISIBLE_COUNT = 3;
 const LIVE_FEED_STATUSES: LiveFeedStatus[] = ['Confirmed', 'Pending', 'Arriving', 'Seated'];
 const LIVE_FEED_SUCCESS_STATUSES: LiveFeedStatus[] = ['Confirmed', 'Arriving', 'Seated'];
@@ -206,20 +195,42 @@ const TESTIMONIALS = [
   {
     quote:
       'I was paying a host £45k/year just to answer phones. Nab a Table does it better for pennies. It paid for itself on day one.',
-    name: 'Sarah J.',
-    city: 'Owner, The Barley Mow',
+    venue: venueNameFromLabel(LOCAL_VENUES[0]),
   },
   {
     quote:
-      'We used to lose 5 tables a night to no-shows. Now? Zero. That’s an extra £100k a year in my pocket.',
-    name: 'Marcus H.',
-    city: 'GM, Riverstone Kitchen',
+      "We used to lose 5 tables a night to no-shows. Now? Zero. That's an extra £100k a year in my pocket.",
+    venue: venueNameFromLabel(LOCAL_VENUES[3]),
   },
   {
     quote:
       'The Sunday Roast Capacity Calculator saved our kitchen. No more meltdowns, just steady revenue.',
-    name: 'Chef David L.',
-    city: 'Harbor & Hearth',
+    venue: venueNameFromLabel(LOCAL_VENUES[4]),
+  },
+  {
+    quote:
+      'We stopped juggling DMs, voicemails, and scribbled notes. Now bookings are clean, confirmed, and predictable.',
+    venue: venueNameFromLabel(LOCAL_VENUES[1]),
+  },
+  {
+    quote:
+      'Our host team finally has a calm shift. Guests get clear confirmations and we get fewer last-minute surprises.',
+    venue: venueNameFromLabel(LOCAL_VENUES[2]),
+  },
+  {
+    quote:
+      'We used to lose track of changes during peak service. Now everything is in one place and the floor runs smoother.',
+    venue: venueNameFromLabel(LOCAL_VENUES[5]),
+  },
+  {
+    quote:
+      'Weekend trading is noticeably steadier. Less chaos, fewer gaps, and better visibility for the team.',
+    venue: venueNameFromLabel(LOCAL_VENUES[6]),
+  },
+  {
+    quote:
+      'Setup was quick and the impact was immediate. We spend less time chasing bookings and more time serving guests.',
+    venue: venueNameFromLabel(LOCAL_VENUES[7]),
   },
 ];
 
@@ -609,22 +620,6 @@ function Hero({ reduceMotion }: { reduceMotion: boolean }) {
               <Link href="/contact">Contact Sales</Link>
             </Button>
           </div>
-
-          <div className="pt-8">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-4">
-              Integrated with your stack
-            </p>
-            <div className="flex flex-wrap justify-center lg:justify-start gap-4">
-              {INTEGRATIONS.map((tech) => (
-                <span
-                  key={tech}
-                  className="text-xs font-mono bg-slate-100 px-2 py-1 rounded text-slate-600 border border-slate-200"
-                >
-                  {tech}
-                </span>
-              ))}
-            </div>
-          </div>
         </div>
 
         <div className="relative reveal-up active delay-100 lg:pl-10">
@@ -674,8 +669,7 @@ function ProblemSection() {
             The &quot;Old Way&quot; is Broken.
           </h2>
           <p className="text-lg text-slate-600">
-            Most operators accept these problems as &quot;part of the business&quot;. They
-            aren&apos;t. They are leaks in your bucket.
+            Most operators accept these problems as &quot;part of the business&quot;. They aren&apos;t. They are leaks in your bucket.
           </p>
         </div>
         <div className="grid md:grid-cols-3 gap-8">
@@ -730,7 +724,7 @@ function MetricsSection({ reduceMotion }: { reduceMotion: boolean }) {
       <div className="max-w-7xl mx-auto px-6">
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-1 space-y-4">
-            <h2 className="text-3xl font-bold text-slate-900">Numbers Don&apos;t Lie.</h2>
+              <h2 className="text-3xl font-bold text-slate-900">Numbers Don&apos;t Lie.</h2>
             <p className="text-slate-600">
               Stop guessing. See exactly how automated confirmations and waitlist monetization
               impact your bottom line.
@@ -846,37 +840,35 @@ function Testimonials() {
           </div>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8">
-          {TESTIMONIALS.map((testimonial, index) => {
-            const delayClass = index === 0 ? 'delay-100' : index === 1 ? 'delay-200' : 'delay-300';
-            return (
-              <div
-                key={testimonial.name}
-                className={cx(
-                  'p-8 rounded-2xl bg-slate-800/50 border border-slate-700 reveal-up hover:bg-slate-800 transition-colors',
-                  delayClass,
-                )}
-              >
-                <div className="mb-6 text-blue-400">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <Icon
-                      key={star}
+	        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+	          {TESTIMONIALS.map((testimonial, index) => {
+	            return (
+	              <div
+	                key={testimonial.venue}
+	                className={cx(
+	                  'p-8 rounded-2xl bg-slate-800/50 border border-slate-700 reveal-up hover:bg-slate-800 transition-colors',
+	                )}
+	                style={{ transitionDelay: `${index * 80}ms` }}
+	              >
+	                <div className="mb-6 text-blue-400">
+	                  {[1, 2, 3, 4, 5].map((star) => (
+	                    <Icon
+	                      key={star}
                       name="star"
                       className="w-4 h-4 inline-block mr-1 fill-current"
                     />
                   ))}
                 </div>
-                <p className="text-lg text-slate-200 italic mb-6 leading-relaxed">
-                  &quot;{testimonial.quote}&quot;
-                </p>
-                <div>
-                  <div className="font-bold text-white">{testimonial.name}</div>
-                  <div className="text-sm text-slate-400">{testimonial.city}</div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+	                <p className="text-lg text-slate-200 italic mb-6 leading-relaxed">
+	                  &quot;{testimonial.quote}&quot;
+	                </p>
+	                <div>
+	                  <div className="font-bold text-white">{testimonial.venue}</div>
+	                </div>
+	              </div>
+	            );
+	          })}
+	        </div>
       </div>
     </section>
   );
