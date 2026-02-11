@@ -18,7 +18,7 @@ Tool: Chrome DevTools MCP
 
 ## Test Outcomes
 
-- Not run locally (needs Vercel build).
+- `pnpm lint` (warnings only; no errors).
 
 ## Artifacts
 

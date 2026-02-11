@@ -14,11 +14,11 @@ related_tickets: []
 
 Tool: Chrome DevTools MCP
 
-- Not run (not requested in this fix).
+- Not run (Chrome DevTools MCP not available in this environment).
 
 ## Test Outcomes
 
-- Not run (not requested).
+- `pnpm lint` (warnings only; no errors).
 
 ## Artifacts
 
