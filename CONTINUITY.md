@@ -1,6 +1,6 @@
 # Continuity Ledger
 
-Last updated: 2026-02-08T21:03:49Z
+Last updated: 2026-02-10T19:22:00Z
 
 ## Goal (incl. success criteria)
 
@@ -24,7 +24,7 @@ Last updated: 2026-02-08T21:03:49Z
 
 ## State
 
-- Code fixes applied; pending verification and Vercel build confirmation.
+- Lint run (warnings only). DevTools MCP QA still pending due to tool availability.
 
 ## Done
 
@@ -37,15 +37,16 @@ Last updated: 2026-02-08T21:03:49Z
 - Wired filter button to scroll to the filters bar.
 - Fixed skeleton divider visibility class.
 - Added `outputFileTracingExcludes` and `.vercelignore` for task artifacts.
+- Ran `pnpm lint` (warnings only; no errors).
 
 ## Now
 
-- Summarize changes for user and request Vercel rebuild confirmation.
+- Request approval to push, open PR, and merge; flag missing DevTools MCP QA.
 
 ## Next
 
-- Update verification notes after Vercel build result.
-- Run DevTools MCP QA if requested.
+- Run tests/QA, update verification artifacts.
+- Create branch/commit/PR once verification is complete and push is approved.
 
 ## Open questions (UNCONFIRMED if needed)
 
