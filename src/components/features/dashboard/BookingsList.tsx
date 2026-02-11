@@ -151,16 +151,26 @@ function sortBookingsGrouped(
   });
 }
 
-function toIsoTime(date: string, time: string | null) {
-  if (!time) return `${date}T00:00:00`;
-  const match = time.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
-  if (!match) {
-    return `${date}T${time}`;
+function toIsoTime(date: string, time: string | null, timezone: string | null | undefined) {
+  const normalizedZone = typeof timezone === 'string' && timezone.trim().length > 0 ? timezone : 'UTC';
+  const normalizedTime = (() => {
+    if (!time) return '00:00:00';
+    const match = time.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    if (!match) return time;
+    const hours = match[1]?.padStart(2, '0') ?? '00';
+    const minutes = match[2] ?? '00';
+    const seconds = match[3] ?? '00';
+    return `${hours}:${minutes}:${seconds}`;
+  })();
+
+  const zoned = DateTime.fromISO(`${date}T${normalizedTime}`, { zone: normalizedZone });
+  if (zoned.isValid) {
+    const iso = zoned.toUTC().toISO();
+    if (iso) return iso;
   }
-  const hours = match[1]?.padStart(2, '0') ?? '00';
-  const minutes = match[2] ?? '00';
-  const seconds = match[3] ?? '00';
-  return `${date}T${hours}:${minutes}:${seconds}`;
+
+  // Fallback for malformed timezone/time values to avoid crashing edit flows.
+  return `${date}T${normalizedTime.endsWith('Z') ? normalizedTime : `${normalizedTime}Z`}`;
 }
 
 export function BookingsList(props: BookingsListProps) {
@@ -433,8 +443,8 @@ function BookingsListContent({
     const existing = dtoCacheRef.current.get(cacheKey);
     if (existing) return existing;
 
-    const startIso = toIsoTime(summary.date, booking.startTime ?? null);
-    const endIso = toIsoTime(summary.date, booking.endTime ?? null);
+    const startIso = toIsoTime(summary.date, booking.startTime ?? null, summary.timezone);
+    const endIso = toIsoTime(summary.date, booking.endTime ?? null, summary.timezone);
     const bookingDTO: BookingDTO = {
       id: booking.id,
       restaurantId: summary.restaurantId,
