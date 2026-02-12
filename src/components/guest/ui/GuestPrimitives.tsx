@@ -91,7 +91,7 @@ export function GuestSection({
     <section
       className={cn(
         'relative flex flex-col gap-6 rounded-3xl',
-        'border border-slate-200 bg-white',
+        'border border-border bg-background',
         'shadow-[0_1px_2px_rgba(0,0,0,0.05)]', // shadow-sm
         paddingMap[padding],
         className,
@@ -101,14 +101,14 @@ export function GuestSection({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-1">
             {eyebrow ? (
-              <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-slate-500">
+              <span className="inline-flex items-center rounded-full border border-border bg-muted px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-muted-foreground">
                 {eyebrow}
               </span>
             ) : null}
             {title ? (
-              <h2 className="text-2xl font-bold leading-tight text-slate-900">{title}</h2>
+              <h2 className="text-2xl font-bold leading-tight text-foreground">{title}</h2>
             ) : null}
-            {description ? <p className="text-base text-slate-500">{description}</p> : null}
+            {description ? <p className="text-base text-muted-foreground">{description}</p> : null}
           </div>
           {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
         </div>
@@ -130,15 +130,15 @@ export function GuestCard({ header, footer, className, style, children }: GuestC
   return (
     <div
       className={cn(
-        'rounded-3xl border border-slate-200 bg-white',
+        'rounded-3xl border border-border bg-background',
         'shadow-[0_1px_2px_rgba(0,0,0,0.05)] transition-shadow duration-200 hover:shadow-[0_10px_15px_-3px_rgba(0,0,0,0.08)]',
         className,
       )}
       style={style}
     >
-      {header ? <div className="p-6 pb-2 text-slate-900 font-semibold">{header}</div> : null}
-      <div className="p-6 text-slate-900">{children}</div>
-      {footer ? <div className="p-6 pt-2 border-t border-slate-50">{footer}</div> : null}
+      {header ? <div className="p-6 pb-2 text-foreground font-semibold">{header}</div> : null}
+      <div className="p-6 text-foreground">{children}</div>
+      {footer ? <div className="p-6 pt-2 border-t border-border/30">{footer}</div> : null}
     </div>
   );
 }
@@ -164,7 +164,7 @@ export function MetricTile({
     <div
       className={cn(
         'relative flex flex-col gap-4 rounded-xl border p-6 transition-all duration-200',
-        'bg-white border-slate-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)]',
+        'bg-background border-border shadow-[0_1px_2px_rgba(0,0,0,0.05)]',
         'hover:shadow-[0_10px_15px_-3px_rgba(0,0,0,0.08)] hover:-translate-y-0.5',
       )}
     >
@@ -172,22 +172,22 @@ export function MetricTile({
         <div
           className={cn(
             'p-2.5 rounded-full flex items-center justify-center',
-            variant === 'highlight' ? 'bg-blue-50 text-blue-600' : 'bg-slate-50 text-slate-700',
+            variant === 'highlight' ? 'bg-primary/10 text-primary' : 'bg-muted text-foreground',
           )}
         >
           {IconComp ? <IconComp className="w-5 h-5" /> : null}
         </div>
         {detail && (
-          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-blue-50 text-blue-700">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-primary/10 text-primary">
             {detail}
           </span>
         )}
       </div>
       <div>
-        <div className="text-slate-500 text-sm font-medium mb-1 uppercase tracking-wider">
+        <div className="text-muted-foreground text-sm font-medium mb-1 uppercase tracking-wider">
           {label}
         </div>
-        <div className="text-slate-900 text-3xl font-bold tracking-tight">{value}</div>
+        <div className="text-foreground text-3xl font-bold tracking-tight">{value}</div>
       </div>
     </div>
   );
@@ -215,69 +215,69 @@ export function ActionCard({
       {...props}
       className={cn(
         'group relative flex flex-col gap-3 rounded-2xl border p-5 text-left transition-all duration-200',
-        'bg-white border-slate-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)]',
+        'bg-background border-border shadow-[0_1px_2px_rgba(0,0,0,0.05)]',
         'hover:shadow-[0_10px_15px_-3px_rgba(0,0,0,0.08)] hover:-translate-y-1',
       )}
     >
-      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-50 text-slate-900 transition-colors group-hover:bg-blue-600 group-hover:text-white">
+      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted text-foreground transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
         <IconComp className="h-6 w-6" />
       </div>
       <div>
-        <div className="font-semibold text-slate-900">{label}</div>
-        <div className="text-sm text-slate-500">{description}</div>
+        <div className="font-semibold text-foreground">{label}</div>
+        <div className="text-sm text-muted-foreground">{description}</div>
       </div>
-      <ChevronRight className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-300 opacity-0 transition-all group-hover:opacity-100 group-hover:translate-x-1" />
+      <ChevronRight className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground/50 opacity-0 transition-all group-hover:opacity-100 group-hover:translate-x-1" />
     </Wrapper>
   );
 }
 
 export function SearchBar({ onSearch }: { onSearch?: () => void }) {
   return (
-    <div className="flex flex-col md:flex-row items-center bg-white rounded-3xl md:rounded-full border border-slate-200 shadow-[0_6px_16px_rgba(0,0,0,0.08)] p-2 max-w-4xl w-full mx-auto relative z-20">
+    <div className="flex flex-col md:flex-row items-center bg-background rounded-3xl md:rounded-full border border-border shadow-[0_6px_16px_rgba(0,0,0,0.08)] p-2 max-w-4xl w-full mx-auto relative z-20">
       {/* Location */}
-      <div className="w-full md:flex-1 px-6 py-3 cursor-pointer relative group border-b md:border-b-0 border-slate-100 transition-colors hover:bg-slate-50/50 md:rounded-l-full">
-        <label className="block text-xs font-bold text-slate-900 mb-0.5 uppercase tracking-wide">
+      <div className="w-full md:flex-1 px-6 py-3 cursor-pointer relative group border-b md:border-b-0 border-border transition-colors hover:bg-muted/50 md:rounded-l-full">
+        <label className="block text-xs font-bold text-foreground mb-0.5 uppercase tracking-wide">
           Where
         </label>
         <input
           type="text"
           placeholder="Search destinations"
-          className="w-full bg-transparent border-none p-0 text-sm text-slate-600 placeholder:text-slate-400 focus:ring-0 focus:outline-none"
+          className="w-full bg-transparent border-none p-0 text-sm text-muted-foreground placeholder:text-muted-foreground/70 focus:ring-0 focus:outline-none"
         />
-        <div className="hidden md:block absolute right-0 top-1/2 -translate-y-1/2 h-8 w-[1px] bg-slate-200 group-hover:hidden"></div>
+        <div className="hidden md:block absolute right-0 top-1/2 -translate-y-1/2 h-8 w-[1px] bg-border group-hover:hidden"></div>
       </div>
 
       {/* Date */}
-      <div className="w-full md:flex-1 px-6 py-3 cursor-pointer relative group border-b md:border-b-0 border-slate-100 transition-colors hover:bg-slate-50/50">
-        <label className="block text-xs font-bold text-slate-900 mb-0.5 uppercase tracking-wide">
+      <div className="w-full md:flex-1 px-6 py-3 cursor-pointer relative group border-b md:border-b-0 border-border transition-colors hover:bg-muted/50">
+        <label className="block text-xs font-bold text-foreground mb-0.5 uppercase tracking-wide">
           Date
         </label>
-        <div className="text-sm text-slate-600">Add dates</div>
-        <div className="hidden md:block absolute right-0 top-1/2 -translate-y-1/2 h-8 w-[1px] bg-slate-200 group-hover:hidden"></div>
+        <div className="text-sm text-muted-foreground">Add dates</div>
+        <div className="hidden md:block absolute right-0 top-1/2 -translate-y-1/2 h-8 w-[1px] bg-border group-hover:hidden"></div>
       </div>
 
       {/* Time */}
-      <div className="w-full md:flex-1 px-6 py-3 cursor-pointer relative group border-b md:border-b-0 border-slate-100 transition-colors hover:bg-slate-50/50">
-        <label className="block text-xs font-bold text-slate-900 mb-0.5 uppercase tracking-wide">
+      <div className="w-full md:flex-1 px-6 py-3 cursor-pointer relative group border-b md:border-b-0 border-border transition-colors hover:bg-muted/50">
+        <label className="block text-xs font-bold text-foreground mb-0.5 uppercase tracking-wide">
           Time
         </label>
-        <div className="text-sm text-slate-600">Add time</div>
-        <div className="hidden md:block absolute right-0 top-1/2 -translate-y-1/2 h-8 w-[1px] bg-slate-200 group-hover:hidden"></div>
+        <div className="text-sm text-muted-foreground">Add time</div>
+        <div className="hidden md:block absolute right-0 top-1/2 -translate-y-1/2 h-8 w-[1px] bg-border group-hover:hidden"></div>
       </div>
 
       {/* Guests */}
-      <div className="w-full md:flex-1 px-6 py-3 cursor-pointer relative group transition-colors hover:bg-slate-50/50 md:rounded-r-full md:mr-2">
-        <label className="block text-xs font-bold text-slate-900 mb-0.5 uppercase tracking-wide">
+      <div className="w-full md:flex-1 px-6 py-3 cursor-pointer relative group transition-colors hover:bg-muted/50 md:rounded-r-full md:mr-2">
+        <label className="block text-xs font-bold text-foreground mb-0.5 uppercase tracking-wide">
           Who
         </label>
-        <div className="text-sm text-slate-600">Add guests</div>
+        <div className="text-sm text-muted-foreground">Add guests</div>
       </div>
 
       {/* Search Button */}
       <div className="p-2 w-full md:w-auto">
         <button
           onClick={onSearch}
-          className="bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-full transition-all shadow-md hover:scale-105 flex items-center justify-center gap-2 w-full md:w-auto active:scale-95"
+          className="bg-primary hover:bg-primary/90 text-white p-4 rounded-full transition-all shadow-md hover:scale-105 flex items-center justify-center gap-2 w-full md:w-auto active:scale-95"
         >
           <Search className="w-5 h-5 font-bold" />
           <span className="font-semibold px-2 md:hidden lg:inline">Search</span>
@@ -323,7 +323,7 @@ export const GuestStatus = forwardRef<HTMLDivElement, GuestStatusProps>(function
       role="status"
       tabIndex={-1}
       className={cn(
-        'flex items-start gap-4 rounded-2xl border border-slate-200 px-4 py-3',
+        'flex items-start gap-4 rounded-2xl border border-border px-4 py-3',
         palette.bg,
         palette.text,
         className,
@@ -364,16 +364,16 @@ export function GuestEmpty({
   return (
     <div
       className={cn(
-        'flex flex-col items-center rounded-3xl border border-slate-200',
-        'bg-slate-50/50 px-8 py-12 text-center',
+        'flex flex-col items-center rounded-3xl border border-border',
+        'bg-muted/50 px-8 py-12 text-center',
         className,
       )}
     >
-      <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-sm border border-slate-200 text-slate-400">
+      <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-background shadow-sm border border-border text-muted-foreground">
         <Icon className="h-8 w-8" aria-hidden />
       </div>
-      <h3 className="text-xl font-bold text-slate-900">{title}</h3>
-      <p className="mt-2 max-w-sm text-slate-500">{description}</p>
+      <h3 className="text-xl font-bold text-foreground">{title}</h3>
+      <p className="mt-2 max-w-sm text-muted-foreground">{description}</p>
       <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
         {actionLabel && actionHref ? (
           <Button asChild className="rounded-full px-8">
@@ -428,7 +428,7 @@ export function GuestError({
         </div>
       }
     >
-      <p className="text-center text-slate-600">{description}</p>
+      <p className="text-center text-muted-foreground">{description}</p>
     </GuestCard>
   );
 }

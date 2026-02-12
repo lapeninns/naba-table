@@ -320,17 +320,30 @@ export function ReservationDetailClient({
   // Loading State
   if (isLoading && !reservation) {
     return (
-      <div className="min-h-screen bg-surface-warm pb-20 px-6">
-        <Skeleton className="h-6 w-32 mb-8" />
-        <Skeleton className="h-12 w-2/3 mb-4" />
-        <Skeleton className="h-6 w-48 mb-10" />
-        <div className="grid gap-4 sm:grid-cols-3 mb-10">
-          <Skeleton className="h-28 rounded-2xl" />
-          <Skeleton className="h-28 rounded-2xl" />
-          <Skeleton className="h-28 rounded-2xl" />
+      <section className="min-h-screen bg-surface-warm py-8 sm:py-10 pb-20">
+        <div className="mx-auto w-full max-w-5xl space-y-6 sm:space-y-8 px-4 sm:px-6">
+          {/* Summary card skeleton */}
+          <div className="rounded-2xl border border-border bg-background p-6 sm:p-8 space-y-6 animate-fade-in-up">
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-11 w-11 rounded-full" />
+              <Skeleton className="h-6 w-24 rounded-full" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-10 w-2/3" />
+              <Skeleton className="h-5 w-96 max-w-full" />
+            </div>
+            <Skeleton className="h-4 w-32" />
+          </div>
+          {/* Stat cards skeleton */}
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Skeleton className="h-28 rounded-2xl" />
+            <Skeleton className="h-28 rounded-2xl" />
+            <Skeleton className="h-28 rounded-2xl" />
+          </div>
+          {/* Info panel skeleton */}
+          <Skeleton className="h-48 rounded-2xl" />
         </div>
-        <Skeleton className="h-64 rounded-2xl" />
-      </div>
+      </section>
     );
   }
 
@@ -467,7 +480,7 @@ export function ReservationDetailClient({
                 </Button>
                 <Button
                   variant="outline"
-                  className="w-full rounded-full border-slate-200 min-h-[44px]"
+                  className="w-full rounded-full border-border min-h-[44px]"
                   size="lg"
                   onClick={handleCancel}
                   disabled={actionDisabled}
@@ -487,7 +500,7 @@ export function ReservationDetailClient({
                 <p className="font-semibold">Sign in to modify this reservation.</p>
                 <Link
                   href={`/auth/signin?redirectedFrom=/guest/bookings/${reservationId}`}
-                  className="font-semibold text-blue-700 underline"
+                  className="font-semibold text-primary underline"
                 >
                   Sign In →
                 </Link>
