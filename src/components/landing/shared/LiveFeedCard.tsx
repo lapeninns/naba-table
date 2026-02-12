@@ -5,6 +5,8 @@ import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
+import { LOCAL_VENUES } from './localVenues';
+
 type LiveFeedStatus = 'Confirmed' | 'Pending' | 'Arriving' | 'Seated';
 
 interface LiveFeedItem {
@@ -18,16 +20,6 @@ const LIVE_FEED_VISIBLE_COUNT = 3;
 const LIVE_FEED_STATUSES: LiveFeedStatus[] = ['Confirmed', 'Pending', 'Arriving', 'Seated'];
 const LIVE_FEED_SUCCESS_STATUSES: LiveFeedStatus[] = ['Confirmed', 'Arriving', 'Seated'];
 const TIME_OPTIONS = ['18:15', '18:45', '19:00', '19:30', '20:00', '20:30', '21:00'];
-const LOCAL_VENUES = [
-  'The Barley Mow Pub — Hartford',
-  "The Queen Elizabeth Pub — King's Lynn",
-  'Prince of Wales Pub — Bromham',
-  'White Horse Pub — Waterbeach',
-  'The Corner House Pub — Cambridge',
-  'Old Crown Pub — Girton',
-  'The Bell — Sawtry',
-  'The Railway Pub — Whittlesey',
-];
 const LIVE_FEED_PARTY_SIZES = ['2 guests', '3 guests', '4 guests', '5 guests', '6 guests'];
 const INITIAL_SEED = 42;
 

@@ -19,6 +19,7 @@ import {
   ServiceOverrunError,
   type VenuePolicy,
 } from '@/server/capacity/policy';
+import { deriveTableRules } from '@/server/capacity/table-rules';
 import { computePayloadChecksum, hashPolicyVersion } from '@/server/capacity/v2';
 import {
   getAllocatorAdjacencyMode,
@@ -156,7 +157,7 @@ function buildManualChecks(params: {
   slackBudget: number;
 }): ManualSelectionCheck[] {
   const checks: ManualSelectionCheck[] = [];
-  const { summary, tables, requireAdjacency, adjacency, conflicts, holdConflicts, slackBudget } =
+  const { summary, tables, adjacency, conflicts, holdConflicts, slackBudget } =
     params;
 
   const unavailableTables = findUnavailableTables(tables);
@@ -203,7 +204,7 @@ function buildManualChecks(params: {
     },
   });
 
-  if (summary.zoneId === null) {
+  if (tables.length > 1 && summary.zoneId === null) {
     checks.push({
       id: 'zone',
       status: 'error',
@@ -218,7 +219,7 @@ function buildManualChecks(params: {
   }
 
   if (tables.length > 1) {
-    const allMovable = tables.every((table) => table.mobility === 'movable');
+    const allMovable = tables.every((table) => deriveTableRules({ capacity: table.capacity, mobility: table.mobility }).canBeMerged);
     checks.push({
       id: 'movable',
       status: allMovable ? 'ok' : 'error',
@@ -232,7 +233,7 @@ function buildManualChecks(params: {
     });
   }
 
-  if (requireAdjacency && tables.length > 1) {
+  if (tables.length > 1) {
     const adjacencyMode = getAllocatorAdjacencyMode();
     const evaluation = evaluateAdjacencyGraph(
       tables.map((table) => table.id),
@@ -260,9 +261,9 @@ function buildManualChecks(params: {
     checks.push({
       id: 'adjacency',
       status: 'ok',
-      message: 'Adjacency not required',
+      message: 'Single table selection',
       details: {
-        mode: requireAdjacency ? getAllocatorAdjacencyMode() : 'off',
+        mode: 'off',
       },
     });
   }

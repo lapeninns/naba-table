@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import { LiveFeedCard } from '../shared/LiveFeedCard';
 
 const HERO_BADGE = 'Installed in 24 Hours';
-const INTEGRATIONS = ['Toast', 'Square', 'Lightspeed', 'Stripe', 'Twilio'];
 
 interface HeroSectionProps {
   reduceMotion: boolean;
@@ -60,22 +59,6 @@ export function HeroSection({ reduceMotion }: HeroSectionProps) {
             >
               <Link href="/contact">Contact Sales</Link>
             </Button>
-          </div>
-
-          <div className="pt-8">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-4">
-              Integrated with your stack
-            </p>
-            <div className="flex flex-wrap justify-center lg:justify-start gap-4">
-              {INTEGRATIONS.map((tech) => (
-                <span
-                  key={tech}
-                  className="text-xs font-mono bg-slate-100 px-2 py-1 rounded text-slate-600 border border-slate-200"
-                >
-                  {tech}
-                </span>
-              ))}
-            </div>
           </div>
         </div>
 

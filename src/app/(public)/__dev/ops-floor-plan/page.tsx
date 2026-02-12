@@ -1,0 +1,19 @@
+import { notFound } from 'next/navigation';
+
+import { OpsFloorPlanDevHarness } from './ui/OpsFloorPlanDevHarness';
+
+export const metadata = {
+  title: 'Dev: Ops floor plan',
+};
+
+export default function OpsFloorPlanDevPage() {
+  // This page is only for local UI verification via Chrome DevTools MCP.
+  // It must not be reachable in production/staging environments.
+  // Next dev does not reliably expose NODE_ENV/APP_ENV as runtime env vars (they can be absent),
+  // so we gate on Vercel deployment indicators instead.
+  if (process.env.NODE_ENV === 'production' || process.env.VERCEL || process.env.VERCEL_ENV) {
+    notFound();
+  }
+
+  return <OpsFloorPlanDevHarness />;
+}

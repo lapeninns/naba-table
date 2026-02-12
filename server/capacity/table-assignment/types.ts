@@ -32,7 +32,7 @@ export type Table = {
   category?: Tables<'table_inventory'>['category'] | string | null;
   seatingType?: Tables<'table_inventory'>['seating_type'] | string | null;
   mobility?: Tables<'table_inventory'>['mobility'] | string | null;
-  zoneId: string;
+  zoneId: string | null;
   /**
    * Whether the parent zone is active. Optional so existing callers can ignore until needed.
    */

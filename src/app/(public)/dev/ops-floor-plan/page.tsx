@@ -9,4 +9,3 @@ export default function OpsFloorPlanDevPage() {
   enforceDevOnly();
   return <OpsFloorPlanDevHarness />;
 }
-
