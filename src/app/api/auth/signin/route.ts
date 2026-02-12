@@ -76,10 +76,10 @@ function buildCallbackUrl(
     validHostname = hostname.includes(':') ? hostname : `${hostname}:3000`;
   }
 
-  // Normalize to naked domain to match Supabase wildcard (https://nabatable.com/**)
-  if (validHostname.startsWith('www.')) {
-    validHostname = validHostname.replace('www.', '');
-  }
+  // Keep www prefix if present — callback must run on the same host where the
+  // PKCE code-verifier cookie was set, otherwise session exchange fails.
+  // Both https://nabatable.com/** and https://www.nabatable.com/** must be in
+  // the Supabase redirect allowlist.
 
   const protocol = validHostname.includes('localhost') ? 'http' : 'https';
   const url = new URL(pathname, `${protocol}://${validHostname}`);

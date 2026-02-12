@@ -170,6 +170,45 @@ type EmailDeliveryLogRow = {
   metadata: Json | null;
 };
 
+type BookingSnapshotRow = {
+  id: string;
+  reference: string | null;
+  booking_date: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  customer_name: string | null;
+  party_size: number | null;
+};
+
+type ListEmailDeliveryAttemptsParams = {
+  restaurantId: string;
+  range: OpsEmailDeliveryRange;
+  page?: number;
+  pageSize?: number;
+  statuses?: ReadonlyArray<EmailDeliveryStatus>;
+  recipientEmail?: string;
+  messageId?: string;
+  bookingRef?: string;
+  templateType?: string;
+  emailType?: string;
+};
+
+type AttemptAggregate = {
+  messageId: string;
+  recipientEmail: string;
+  bookingId: string | null;
+  emailType: string | null;
+  templateType: string | null;
+  provider: EmailDeliveryProvider | null;
+  currentStatus: EmailDeliveryStatus;
+  currentOccurredAt: string | null;
+  currentEventId: string;
+  events: EmailDeliveryEventDTO[];
+};
+
+const FALLBACK_BATCH_SIZE = 500;
+const FALLBACK_MAX_SCANNED_EVENTS = 10_000;
+
 function toEventDto(row: EmailDeliveryLogRow): EmailDeliveryEventDTO {
   return {
     id: row.id,
@@ -185,6 +224,215 @@ function toEventDto(row: EmailDeliveryLogRow): EmailDeliveryEventDTO {
     error: row.error ?? null,
     metadata: row.metadata ?? null,
   };
+}
+
+function resolveRangeStartIso(range: OpsEmailDeliveryRange): string {
+  const now = Date.now();
+  const lookbackMs =
+    range === '24h' ? 24 * 60 * 60 * 1000 : range === '30d' ? 30 * 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
+  return new Date(now - lookbackMs).toISOString();
+}
+
+function parseIsoMs(value: string | null | undefined): number {
+  if (!value) return 0;
+  const ms = new Date(value).getTime();
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+function isNewerEvent(candidate: EmailDeliveryEventDTO, current: AttemptAggregate): boolean {
+  const candidateMs = parseIsoMs(candidate.occurredAt);
+  const currentMs = parseIsoMs(current.currentOccurredAt);
+  if (candidateMs !== currentMs) return candidateMs > currentMs;
+  return candidate.id > current.currentEventId;
+}
+
+function compareAttemptsByCurrentDesc(a: AttemptAggregate, b: AttemptAggregate): number {
+  const byTime = parseIsoMs(b.currentOccurredAt) - parseIsoMs(a.currentOccurredAt);
+  if (byTime !== 0) return byTime;
+  return b.currentEventId.localeCompare(a.currentEventId);
+}
+
+function toBookingDto(row: BookingSnapshotRow): NonNullable<OpsEmailDeliveryAttemptDTO['booking']> {
+  return {
+    id: row.id,
+    reference: row.reference ?? '',
+    bookingDate: row.booking_date ?? '',
+    startTime: row.start_time ?? '',
+    endTime: row.end_time ?? '',
+    customerName: row.customer_name ?? '',
+    partySize: typeof row.party_size === 'number' ? row.party_size : 0,
+  };
+}
+
+async function listEmailDeliveryAttemptsWithQueryFallback(params: ListEmailDeliveryAttemptsParams): Promise<{
+  attempts: OpsEmailDeliveryAttemptDTO[];
+  hasNext: boolean;
+  page: number;
+  pageSize: number;
+}> {
+  const page = normalizePage(params.page);
+  const pageSize = normalizePageSize(params.pageSize);
+  const start = (page - 1) * pageSize;
+  const needed = start + pageSize + 1;
+
+  const normalizedStatuses = params.statuses?.length ? new Set(params.statuses) : null;
+  const normalizedRecipient = normalizeOptionalString(params.recipientEmail)?.toLowerCase();
+  const normalizedMessageId = normalizeOptionalString(params.messageId);
+  const normalizedBookingRef = normalizeOptionalStringUpper(params.bookingRef);
+  const normalizedTemplateType = normalizeOptionalString(params.templateType);
+  const normalizedEmailType = normalizeOptionalString(params.emailType);
+  const sinceIso = resolveRangeStartIso(params.range);
+
+  const supabase = getServiceSupabaseClient();
+
+  let bookingRefIds: string[] | null = null;
+  if (normalizedBookingRef) {
+    const { data, error } = await supabase
+      .from('bookings')
+      .select('id')
+      .eq('restaurant_id', params.restaurantId)
+      .eq('reference', normalizedBookingRef)
+      .limit(50);
+
+    if (error) {
+      throw new Error(`Failed to resolve booking reference filter (${error.code ?? 'unknown'}).`);
+    }
+
+    bookingRefIds = (Array.isArray(data) ? data : [])
+      .map((row) => (typeof row.id === 'string' ? row.id : null))
+      .filter((value): value is string => Boolean(value));
+
+    if (bookingRefIds.length === 0) {
+      return { attempts: [], hasNext: false, page, pageSize };
+    }
+  }
+
+  const buckets = new Map<string, AttemptAggregate>();
+  let offset = 0;
+  let scanned = 0;
+  let exhausted = false;
+  const stopWhenBucketCountSatisfied = normalizedStatuses === null;
+
+  while (
+    !exhausted &&
+    scanned < FALLBACK_MAX_SCANNED_EVENTS &&
+    (!stopWhenBucketCountSatisfied || buckets.size < needed)
+  ) {
+    let query = supabase
+      .from('email_delivery_log')
+      .select(
+        'id, booking_id, restaurant_id, email_type, template_type, recipient_email, message_id, status, provider, occurred_at, error, metadata',
+      )
+      .eq('restaurant_id', params.restaurantId)
+      .gte('occurred_at', sinceIso)
+      .order('occurred_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range(offset, offset + FALLBACK_BATCH_SIZE - 1);
+
+    if (normalizedMessageId) query = query.eq('message_id', normalizedMessageId);
+    if (normalizedTemplateType) query = query.eq('template_type', normalizedTemplateType);
+    if (normalizedEmailType) query = query.eq('email_type', normalizedEmailType);
+    if (bookingRefIds) query = query.in('booking_id', bookingRefIds);
+
+    const { data, error } = await query;
+
+    if (error) {
+      if (isDeliveryLogUnavailable(error)) {
+        throw new EmailDeliveryLogUnavailableError();
+      }
+      throw new Error(`Failed to load email delivery attempts (${error.code ?? 'unknown'}).`);
+    }
+
+    const rows = (data as EmailDeliveryLogRow[] | null | undefined) ?? [];
+    if (rows.length < FALLBACK_BATCH_SIZE) exhausted = true;
+    offset += rows.length;
+    scanned += rows.length;
+
+    for (const row of rows) {
+      const event = toEventDto(row);
+      if (normalizedRecipient && event.recipientEmail.toLowerCase() !== normalizedRecipient) continue;
+
+      const key = `${event.messageId}__${event.recipientEmail.toLowerCase()}`;
+      const existing = buckets.get(key);
+
+      if (!existing) {
+        buckets.set(key, {
+          messageId: event.messageId,
+          recipientEmail: event.recipientEmail,
+          bookingId: event.bookingId,
+          emailType: event.emailType,
+          templateType: event.templateType,
+          provider: event.provider,
+          currentStatus: event.status,
+          currentOccurredAt: event.occurredAt,
+          currentEventId: event.id,
+          events: [event],
+        });
+        continue;
+      }
+
+      existing.events.push(event);
+      if (isNewerEvent(event, existing)) {
+        existing.bookingId = event.bookingId ?? existing.bookingId;
+        existing.emailType = event.emailType ?? existing.emailType;
+        existing.templateType = event.templateType ?? existing.templateType;
+        existing.provider = event.provider ?? existing.provider;
+        existing.currentStatus = event.status;
+        existing.currentOccurredAt = event.occurredAt;
+        existing.currentEventId = event.id;
+      }
+    }
+  }
+
+  const aggregates = Array.from(buckets.values()).filter((attempt) =>
+    normalizedStatuses ? normalizedStatuses.has(attempt.currentStatus) : true,
+  );
+
+  aggregates.sort(compareAttemptsByCurrentDesc);
+
+  const pageSlice = aggregates.slice(start, start + pageSize + 1);
+  const hasMoreSlice = pageSlice.length > pageSize;
+  const pageAggregates = hasMoreSlice ? pageSlice.slice(0, pageSize) : pageSlice;
+  const hasNext = hasMoreSlice || (!exhausted && scanned >= FALLBACK_MAX_SCANNED_EVENTS);
+
+  const bookingIds = Array.from(
+    new Set(
+      pageAggregates
+        .map((attempt) => attempt.bookingId)
+        .filter((bookingId): bookingId is string => typeof bookingId === 'string' && bookingId.length > 0),
+    ),
+  );
+
+  let bookingById = new Map<string, NonNullable<OpsEmailDeliveryAttemptDTO['booking']>>();
+  if (bookingIds.length > 0) {
+    const { data, error } = await supabase
+      .from('bookings')
+      .select('id, reference, booking_date, start_time, end_time, customer_name, party_size')
+      .in('id', bookingIds);
+
+    if (!error) {
+      bookingById = new Map(
+        ((data as BookingSnapshotRow[] | null | undefined) ?? []).map((row) => [row.id, toBookingDto(row)]),
+      );
+    }
+  }
+
+  const attempts: OpsEmailDeliveryAttemptDTO[] = pageAggregates.map((attempt) => ({
+    messageId: attempt.messageId,
+    recipientEmail: attempt.recipientEmail,
+    bookingId: attempt.bookingId,
+    emailType: attempt.emailType,
+    templateType: attempt.templateType,
+    provider: attempt.provider,
+    currentStatus: attempt.currentStatus,
+    currentOccurredAt: attempt.currentOccurredAt,
+    events: attempt.events
+      .slice()
+      .sort((a, b) => parseIsoMs(a.occurredAt) - parseIsoMs(b.occurredAt) || a.id.localeCompare(b.id)),
+    booking: attempt.bookingId ? bookingById.get(attempt.bookingId) ?? null : null,
+  }));
+
+  return { attempts, hasNext, page, pageSize };
 }
 
 export async function listEmailDeliveryEventsForBooking(params: {
@@ -276,7 +524,21 @@ export async function listEmailDeliveryAttemptsForRestaurant(params: {
 
   if (error) {
     if (isDeliveryLogUnavailable(error)) {
-      throw new EmailDeliveryLogUnavailableError();
+      await recordObservabilityEvent({
+        source: 'email.delivery_log',
+        eventType: 'attempts_feed_rpc_fallback',
+        severity: 'warning',
+        context: {
+          restaurantId: params.restaurantId,
+          range: params.range,
+          page,
+          pageSize,
+          error: typeof error.message === 'string' ? error.message : 'rpc unavailable',
+        },
+        restaurantId: params.restaurantId,
+      });
+
+      return listEmailDeliveryAttemptsWithQueryFallback(params);
     }
     throw new Error(`Failed to load email delivery attempts (${error.code ?? 'unknown'}).`);
   }
