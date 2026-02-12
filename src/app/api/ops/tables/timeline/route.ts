@@ -16,6 +16,7 @@ const querySchema = z.object({
     .optional(),
   zoneId: z.string().uuid().optional(),
   service: z.enum(['lunch', 'dinner', 'all']).optional(),
+  includeSummary: z.enum(['0', '1', 'true', 'false']).optional(),
 });
 
 type TimelineQuery = z.infer<typeof querySchema>;
@@ -64,6 +65,7 @@ export async function GET(request: NextRequest) {
       date: query.date,
       zoneId: query.zoneId,
       service: query.service,
+      includeSummary: query.includeSummary ? query.includeSummary !== '0' && query.includeSummary !== 'false' : true,
       client: supabase,
     });
 
