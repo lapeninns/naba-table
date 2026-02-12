@@ -1,11 +1,11 @@
 'use client';
 
 import { Shield, Settings, Save } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { ZodError } from 'zod';
 
-import { MetricTile } from '@/components/guest/ui';
+import { GuestStatus, MetricTile } from '@/components/guest/ui';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -33,6 +33,7 @@ export function GuestProfileClient({ viewModel }: { viewModel: GuestProfileViewM
   });
 
   const updateProfile = useUpdateProfile();
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   useEffect(() => {
     form.reset({
@@ -77,6 +78,12 @@ export function GuestProfileClient({ viewModel }: { viewModel: GuestProfileViewM
           full_name: result.profile.name || '',
           phone_number: result.profile.phone || '',
         });
+        setFeedback({ type: 'success', message: 'Profile updated successfully.' });
+        setTimeout(() => setFeedback(null), 4000);
+      },
+      onError: () => {
+        setFeedback({ type: 'error', message: 'Failed to save changes. Please try again.' });
+        setTimeout(() => setFeedback(null), 6000);
       },
     });
   };
@@ -87,7 +94,7 @@ export function GuestProfileClient({ viewModel }: { viewModel: GuestProfileViewM
   return (
     <div className="min-h-screen bg-surface-warm pb-20">
       {/* Hero Section */}
-      <section className="border-b border-slate-100 bg-gradient-hero">
+      <section className="border-b border-border/50 bg-gradient-hero">
         <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 sm:gap-4 py-8 sm:py-12 lg:py-16 px-4 sm:px-6">
           <div className="space-y-2 sm:space-y-3 animate-fade-in-up">
             <p className="text-xs uppercase tracking-[0.2em] text-subtle">Settings</p>
@@ -135,7 +142,7 @@ export function GuestProfileClient({ viewModel }: { viewModel: GuestProfileViewM
                     disabled={isSubmitting}
                   />
                   {form.formState.errors.full_name ? (
-                    <p className="text-xs text-red-600">
+                    <p className="text-xs text-destructive">
                       {form.formState.errors.full_name.message}
                     </p>
                   ) : null}
@@ -151,9 +158,9 @@ export function GuestProfileClient({ viewModel }: { viewModel: GuestProfileViewM
                     autoComplete="email"
                     value={profile.email}
                     disabled
-                    className="bg-slate-50 rounded-lg sm:rounded-xl h-11 sm:h-12 text-base opacity-70"
+                    className="bg-muted rounded-lg sm:rounded-xl h-11 sm:h-12 text-base opacity-70"
                   />
-                  <p className="text-xs text-slate-500">Email cannot be changed manually.</p>
+                  <p className="text-xs text-muted-foreground">Email cannot be changed manually.</p>
                 </div>
 
                 <div className="space-y-1.5 sm:space-y-2">
@@ -169,12 +176,21 @@ export function GuestProfileClient({ viewModel }: { viewModel: GuestProfileViewM
                     disabled={isSubmitting}
                   />
                   {form.formState.errors.phone_number ? (
-                    <p className="text-xs text-red-600">
+                    <p className="text-xs text-destructive">
                       {form.formState.errors.phone_number.message}
                     </p>
                   ) : null}
                 </div>
               </div>
+
+              {feedback && (
+                <GuestStatus
+                  title={feedback.type === 'success' ? 'Saved' : 'Error'}
+                  description={feedback.message}
+                  tone={feedback.type === 'success' ? 'success' : 'danger'}
+                  aria-live="polite"
+                />
+              )}
 
               <div className="flex justify-end pt-2 sm:pt-4">
                 <Button

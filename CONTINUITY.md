@@ -1,8 +1,43 @@
 # Continuity Ledger
 
-Last updated: 2026-02-12T16:02:00Z
+Last updated: 2026-02-12T17:50:00Z
 
 ## Goal (incl. success criteria)
+
+- Comprehensive UI/UX polish of ALL guest-facing pages (public + authenticated).
+- Zero hardcoded blue/slate in guest components; consistent typography, terminology, and states.
+- TypeScript compiles, lint passes (✅ complete).
+
+## State
+
+- Implementation complete across 9 files. Awaiting manual UI QA.
+
+## Done
+
+- Tokenized GuestPrimitives + BookingComponents (60+ hardcoded colors → tokens)
+- Polished Footer (glassmorphism, expanded links, copyright)
+- Rewrote /bookings landing (hero + gradient + animations)
+- Polished Dashboard (tokens, empty state, linked elements)
+- Polished Bookings List ("Reservations" terminology, 44px touch targets, removed fake location)
+- Polished Profile (save success/error GuestStatus feedback)
+- Polished Sign In (heading-hero, tokenized error alert)
+- Polished Booking Detail (structured loading skeleton)
+
+## Now
+
+- Manual UI QA via Chrome DevTools MCP.
+
+## Next
+
+- Consider GuestPageShell/GuestHero component extraction to prevent drift.
+
+---
+
+## Previous entry
+
+Last updated: 2026-02-12T16:02:00Z
+
+## Goal (incl. success criteria) (previous)
 
 - Reduce perceived and actual load time for ops floor plan and ops app hard reloads.
 - Success:

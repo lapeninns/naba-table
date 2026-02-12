@@ -11,7 +11,7 @@ import type { ElementType, ReactNode } from 'react';
 type StatusTone = 'default' | 'success' | 'warning' | 'danger' | 'info';
 
 const toneClasses: Record<StatusTone, { badge: string; text: string }> = {
-  default: { badge: 'bg-slate-100 text-slate-700', text: 'text-slate-600' },
+  default: { badge: 'bg-muted text-foreground', text: 'text-muted-foreground' },
   success: { badge: 'bg-emerald-50 text-emerald-700 border-emerald-100', text: 'text-emerald-600' },
   warning: { badge: 'bg-amber-50 text-amber-700 border-amber-100', text: 'text-amber-600' },
   danger: { badge: 'bg-red-50 text-red-700 border-red-100', text: 'text-red-600' },
@@ -55,7 +55,7 @@ export function BookingSummaryCard({
           <div className="flex items-center gap-3">
             <Link
               href={backHref}
-              className="inline-flex items-center justify-center rounded-full bg-slate-100 p-2 text-slate-500 hover:bg-slate-200 hover:text-slate-900 transition-colors min-h-[44px] min-w-[44px]"
+              className="inline-flex items-center justify-center rounded-full bg-muted p-2 text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors min-h-[44px] min-w-[44px]"
             >
               <span className="sr-only">Back</span>
               <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -78,9 +78,9 @@ export function BookingSummaryCard({
             {description ? <p className="mt-2 text-body-warm">{description}</p> : null}
           </div>
 
-          <div className="flex items-center gap-2 text-sm text-slate-400 font-mono">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground font-mono">
             <span>REF:</span>
-            <span className="font-bold text-slate-700">{reference}</span>
+            <span className="font-bold text-foreground">{reference}</span>
           </div>
         </div>
         {actions ? <div className="flex flex-col gap-3 sm:flex-row pt-2">{actions}</div> : null}
@@ -104,7 +104,7 @@ export function DetailStatCard({
   return (
     <Card variant="interactive" className="flex flex-col gap-3 p-5">
       <div className="flex justify-between items-start">
-        <div className="p-2.5 rounded-xl flex items-center justify-center bg-blue-50 text-blue-600">
+        <div className="p-2.5 rounded-xl flex items-center justify-center bg-primary/10 text-primary">
           <Icon className="w-5 h-5" />
         </div>
       </div>
@@ -125,18 +125,18 @@ export function InfoPanel({
   rows: Array<{ icon: ElementType; label: string; value: ReactNode }>;
 }) {
   return (
-    <Card className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-100 bg-slate-50/50 px-6 py-4">
+    <Card className="overflow-hidden rounded-3xl border border-border bg-background shadow-sm">
+      <div className="border-b border-border/50 bg-muted/50 px-6 py-4">
         <h3 className="heading-subsection">{title}</h3>
       </div>
-      <div className="divide-y divide-slate-100">
+      <div className="divide-y divide-border/50">
         {rows.map((row, index) => (
           <div key={`${row.label}-${index}`} className="flex items-center gap-4 px-6 py-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-slate-500">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
               <row.icon className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">
                 {row.label}
               </p>
               <p className="heading-subsection truncate">{row.value}</p>
@@ -154,7 +154,7 @@ export function ActionButtonRow({ children }: { children: ReactNode }) {
 
 export function BookingSidebarCard({ children }: { children: ReactNode }) {
   return (
-    <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+    <Card className="rounded-3xl border border-border bg-background shadow-sm overflow-hidden">
       {children}
     </Card>
   );
@@ -229,7 +229,7 @@ export function SecondaryButton({
   return (
     <Button
       variant="outline"
-      className="rounded-full border-slate-200 hover:bg-slate-50 font-medium px-5 min-h-[44px] btn-tactile focus-ring touch-feedback"
+      className="rounded-full border-border hover:bg-muted font-medium px-5 min-h-[44px] btn-tactile focus-ring touch-feedback"
       onClick={onClick}
       disabled={disabled}
     >
@@ -250,7 +250,7 @@ export function GhostButton({
   return (
     <Button
       variant="ghost"
-      className="rounded-full text-slate-500 hover:text-slate-900 hover:bg-slate-100 min-h-[44px]"
+      className="rounded-full text-muted-foreground hover:text-foreground hover:bg-muted min-h-[44px]"
       onClick={onClick}
       disabled={disabled}
     >

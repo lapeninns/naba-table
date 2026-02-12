@@ -79,7 +79,7 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
     return (
       <div className="min-h-screen bg-surface-warm pb-20">
         {/* Hero skeleton */}
-        <section className="border-b border-slate-100 bg-gradient-hero py-12 px-6">
+        <section className="border-b border-border/50 bg-gradient-hero py-12 px-6">
           <div className="mx-auto max-w-6xl space-y-4">
             <Skeleton className="h-8 w-48" />
             <Skeleton className="h-5 w-96" />
@@ -87,7 +87,7 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
         </section>
 
         {/* Tabs skeleton */}
-        <div className="mx-auto max-w-6xl px-6 py-8">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8">
           <Skeleton className="h-12 w-80 mb-8" />
           <div className="grid gap-6 md:grid-cols-2">
             <Skeleton className="h-56 rounded-xl" />
@@ -132,12 +132,12 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
   return (
     <div className="min-h-screen bg-surface-warm pb-20">
       {/* Hero Section */}
-      <section className="border-b border-slate-100 bg-gradient-hero">
+      <section className="border-b border-border/50 bg-gradient-hero">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 py-12 px-5 sm:gap-6 sm:px-8 sm:py-16 lg:px-10 lg:py-20">
           <div className="space-y-2 sm:space-y-3 animate-fade-in-up">
             <p className="text-xs uppercase tracking-[0.2em] text-subtle">My Reservations</p>
             <h1 className="heading-hero">
-              Your Trips
+              Your Reservations
             </h1>
             <p className="text-body-warm max-w-2xl">
               Manage your upcoming and past reservations
@@ -173,13 +173,13 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
           }}
           className="w-full"
         >
-          <TabsList className="w-full justify-start gap-1 border-b border-slate-200 bg-transparent p-0 mb-8 sm:mb-10 lg:mb-12 h-auto rounded-none overflow-x-auto flex-nowrap scrollbar-hide">
+          <TabsList className="w-full justify-start gap-1 border-b border-border bg-transparent p-0 mb-8 sm:mb-10 lg:mb-12 h-auto rounded-none overflow-x-auto flex-nowrap scrollbar-hide">
             <TabsTrigger
               value="upcoming"
               className={cn(
                 'relative rounded-none border-b-2 border-transparent bg-transparent px-4 py-3 sm:px-6 text-sm sm:text-base font-semibold transition-colors min-h-[44px] whitespace-nowrap',
-                'data-[state=active]:border-blue-600 data-[state=active]:text-slate-900 data-[state=active]:shadow-none',
-                'text-slate-500 hover:text-slate-700',
+                'data-[state=active]:border-primary data-[state=active]:text-foreground data-[state=active]:shadow-none',
+                'text-muted-foreground hover:text-foreground/80',
               )}
             >
               Upcoming
@@ -191,14 +191,14 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
               value="past"
               className={cn(
                 'relative rounded-none border-b-2 border-transparent bg-transparent px-4 py-3 sm:px-6 text-sm sm:text-base font-semibold transition-colors min-h-[44px] whitespace-nowrap',
-                'data-[state=active]:border-blue-600 data-[state=active]:text-slate-900 data-[state=active]:shadow-none',
-                'text-slate-500 hover:text-slate-700',
+                'data-[state=active]:border-primary data-[state=active]:text-foreground data-[state=active]:shadow-none',
+                'text-muted-foreground hover:text-foreground/80',
               )}
             >
               Past
               <Badge
                 variant="secondary"
-                className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500"
+                className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground"
               >
                 {past.length}
               </Badge>
@@ -208,8 +208,8 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
           <TabsContent value="upcoming" className="mt-0">
             {upcoming.length === 0 ? (
               <Card className="p-12 bg-surface-elevated text-center">
-                <Calendar className="h-12 w-12 mx-auto mb-4 text-slate-400" />
-                <h3 className="heading-subsection mb-2">No upcoming trips</h3>
+                <Calendar className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="heading-subsection mb-2">No upcoming reservations</h3>
                 <p className="text-sm text-subtle mb-6">Time to plan your next dining adventure.</p>
                 <Button
                   asChild
@@ -234,8 +234,8 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
           <TabsContent value="past" className="mt-0">
             {past.length === 0 ? (
               <Card className="p-12 bg-surface-elevated text-center">
-                <Calendar className="h-12 w-12 mx-auto mb-4 text-slate-400" />
-                <h3 className="heading-subsection mb-2">No past trips</h3>
+                <Calendar className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="heading-subsection mb-2">No past reservations</h3>
                 <p className="text-sm text-subtle">Your completed reservations will appear here.</p>
               </Card>
             ) : (
@@ -291,10 +291,12 @@ function BookingCard({ booking, isPast = false, style }: BookingCardProps) {
               </h3>
               <StatusBadge status={booking.status} isPast={isPast} />
             </div>
-            <div className="flex items-center gap-2 text-sm text-slate-500">
-              <MapPin className="h-3.5 w-3.5" />
-              <span className="truncate">Main Dining Room</span>
-            </div>
+            {booking.restaurantSlug && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <MapPin className="h-3.5 w-3.5" />
+                <span className="truncate">{booking.restaurantSlug}</span>
+              </div>
+            )}
           </div>
 
           <DropdownMenu>
@@ -302,7 +304,7 @@ function BookingCard({ booking, isPast = false, style }: BookingCardProps) {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 -mr-2 text-slate-400 hover:text-slate-900 focus-ring"
+                className="h-10 w-10 -mr-2 text-muted-foreground/60 hover:text-foreground focus-ring"
               >
                 <MoreHorizontal className="h-5 w-5" />
                 <span className="sr-only">Open menu</span>
@@ -329,7 +331,7 @@ function BookingCard({ booking, isPast = false, style }: BookingCardProps) {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     asChild
-                    className="text-red-600 focus:text-red-600 focus:bg-red-50 rounded-lg cursor-pointer"
+                    className="text-destructive focus:text-destructive focus:bg-destructive/5 rounded-lg cursor-pointer"
                   >
                     <Link href={`/guest/bookings/${booking.id}?intent=cancel`}>Cancel Booking</Link>
                   </DropdownMenuItem>
@@ -346,8 +348,8 @@ function BookingCard({ booking, isPast = false, style }: BookingCardProps) {
             className={cn(
               'flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-xl border text-center transition-colors',
               isPast
-                ? 'border-slate-200 bg-slate-100 text-slate-500'
-                : 'border-blue-100 bg-blue-50 text-blue-700',
+                ? 'border-border bg-muted text-muted-foreground'
+                : 'border-primary/10 bg-primary/5 text-primary',
             )}
           >
             <span className="text-xs font-bold uppercase leading-none mb-1">
@@ -358,12 +360,12 @@ function BookingCard({ booking, isPast = false, style }: BookingCardProps) {
 
           {/* Time and Party Details */}
           <div className="flex-1 space-y-1.5">
-            <div className="flex items-center gap-2.5 text-slate-700">
-              <Clock className="h-4 w-4 text-slate-400" />
+            <div className="flex items-center gap-2.5 text-foreground/80">
+              <Clock className="h-4 w-4 text-muted-foreground/60" />
               <span className="font-semibold">{formattedTime}</span>
             </div>
-            <div className="flex items-center gap-2.5 text-slate-700">
-              <Users className="h-4 w-4 text-slate-400" />
+            <div className="flex items-center gap-2.5 text-foreground/80">
+              <Users className="h-4 w-4 text-muted-foreground/60" />
               <span>
                 {booking.partySize} {booking.partySize === 1 ? 'guest' : 'guests'}
               </span>
@@ -374,7 +376,7 @@ function BookingCard({ booking, isPast = false, style }: BookingCardProps) {
         {/* Footer Link */}
         <Link
           href={`/guest/bookings/${booking.id}`}
-          className="flex items-center justify-between -mx-5 -mb-5 px-5 py-4 sm:-mx-6 sm:-mb-6 sm:px-6 sm:py-5 lg:-mx-8 lg:-mb-8 lg:px-8 lg:py-6 text-sm font-medium text-slate-500 hover:text-blue-600 hover:bg-slate-50 transition-colors border-t border-slate-100 group focus-ring touch-feedback"
+          className="flex items-center justify-between -mx-5 -mb-5 px-5 py-4 sm:-mx-6 sm:-mb-6 sm:px-6 sm:py-5 lg:-mx-8 lg:-mb-8 lg:px-8 lg:py-6 text-sm font-medium text-muted-foreground hover:text-primary hover:bg-muted transition-colors border-t border-border/50 group focus-ring touch-feedback"
         >
           <span>View reservation details</span>
           <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
@@ -441,7 +443,7 @@ function StatusBadge({ status, isPast = false }: StatusBadgeProps) {
   return (
     <Badge
       variant="secondary"
-      className="rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wider font-bold border border-slate-200 bg-slate-50 text-slate-600"
+      className="rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wider font-bold border border-border bg-muted text-muted-foreground"
     >
       {label}
     </Badge>

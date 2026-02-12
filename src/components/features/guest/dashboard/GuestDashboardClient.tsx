@@ -73,7 +73,7 @@ export function GuestDashboardClient() {
       <StatusRegion focus live="assertive" className="min-h-screen pb-20">
         <div className="flex min-h-[60vh] items-center justify-center">
           <GuestError
-            description="We couldn’t fetch your reservations. Please try again."
+            description="We couldn't fetch your reservations. Please try again."
             onRetry={() => {
               queryClient.invalidateQueries({ queryKey: queryKeys.bookings.all });
               queryClient.invalidateQueries({ queryKey: queryKeys.profile.self() });
@@ -87,7 +87,7 @@ export function GuestDashboardClient() {
   return (
     <div className="min-h-screen bg-surface-warm pb-20">
       {/* Hero */}
-      <section className="border-b border-slate-100 bg-gradient-hero">
+      <section className="border-b border-border/50 bg-gradient-hero">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 sm:gap-8 py-10 sm:py-16 lg:py-20 px-4 sm:px-6">
           <div className="space-y-3 sm:space-y-4 animate-fade-in-up">
             <p className="text-xs uppercase tracking-[0.2em] text-subtle">Guest dashboard</p>
@@ -111,7 +111,7 @@ export function GuestDashboardClient() {
               asChild
               size="lg"
               variant="outline"
-              className="rounded-full border-slate-200 bg-white text-blue-700 hover:border-blue-500 min-h-[48px] btn-tactile focus-ring touch-feedback"
+              className="rounded-full border-border bg-background text-primary hover:border-primary/40 min-h-[48px] btn-tactile focus-ring touch-feedback"
             >
               <Link href="/guest/bookings">My bookings</Link>
             </Button>
@@ -119,7 +119,7 @@ export function GuestDashboardClient() {
               asChild
               size="lg"
               variant="ghost"
-              className="text-blue-700 hover:text-blue-800 min-h-[48px] btn-tactile focus-ring touch-feedback"
+              className="text-primary hover:text-primary min-h-[48px] btn-tactile focus-ring touch-feedback"
             >
               <Link href="/guest/profile">Profile</Link>
             </Button>
@@ -136,7 +136,7 @@ export function GuestDashboardClient() {
               <h2 className="heading-section">Next up</h2>
               <Link
                 href="/guest/bookings"
-                className="text-sm font-semibold text-blue-700 hover:text-blue-800 flex items-center gap-1 rounded-sm focus-ring touch-feedback p-1 -mr-1"
+                className="text-sm font-semibold text-primary hover:text-primary flex items-center gap-1 rounded-sm focus-ring touch-feedback p-1 -mr-1"
               >
                 View all <ChevronRight className="h-4 w-4" />
               </Link>
@@ -156,7 +156,7 @@ export function GuestDashboardClient() {
             </div>
             {upcomingList.length === 0 ? (
               <Card className="p-6 bg-surface-elevated">
-                <p className="text-base font-semibold text-slate-900">No upcoming reservations</p>
+                <p className="text-base font-semibold text-foreground">No upcoming reservations</p>
                 <p className="text-sm text-subtle mt-1">
                   Book a table now and it will appear here.
                 </p>
@@ -184,10 +184,10 @@ export function GuestDashboardClient() {
           {/* Quick stats */}
           <Card className="p-4 sm:p-5">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-slate-900">At a glance</p>
+              <p className="text-sm font-semibold text-foreground">At a glance</p>
               <Badge
                 variant="secondary"
-                className="rounded-full px-2.5 sm:px-3 py-1 text-blue-900 text-xs"
+                className="rounded-full px-2.5 sm:px-3 py-1 text-foreground text-xs"
               >
                 {stats.total} total
               </Badge>
@@ -210,18 +210,18 @@ export function GuestDashboardClient() {
           {derived.favorites.length > 0 && (
             <Card className="p-4 sm:p-5 space-y-2.5 sm:space-y-3">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-slate-900">Favorites</p>
-                <Badge className="rounded-full bg-blue-50 text-blue-700 text-xs">Top picks</Badge>
+                <p className="text-sm font-semibold text-foreground">Favorites</p>
+                <Badge className="rounded-full bg-primary/5 text-primary text-xs">Top picks</Badge>
               </div>
               <ul className="space-y-2.5 sm:space-y-3">
                 {derived.favorites.slice(0, 5).map((fav) => (
                   <li
                     key={fav.name}
-                    className="flex items-center justify-between text-xs sm:text-sm text-slate-700"
+                    className="flex items-center justify-between text-xs sm:text-sm text-foreground/80"
                   >
                     <span className="flex items-center gap-2 min-w-0">
                       <Heart
-                        className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600 flex-shrink-0"
+                        className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary flex-shrink-0"
                         aria-hidden
                       />
                       <span className="truncate">{fav.name}</span>
@@ -234,13 +234,13 @@ export function GuestDashboardClient() {
           )}
 
           {/* Profile quick access */}
-          <Card className="p-4 sm:p-5 bg-slate-50">
+          <Card className="p-4 sm:p-5 bg-muted">
             <div className="flex items-center gap-3">
-              <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-white shadow-card flex items-center justify-center flex-shrink-0">
-                <User className="h-4 w-4 sm:h-5 sm:w-5 text-blue-700" />
+              <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-background shadow-card flex items-center justify-center flex-shrink-0">
+                <User className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-slate-900">Your profile</p>
+                <p className="text-sm font-semibold text-foreground">Your profile</p>
                 <p className="text-xs text-subtle truncate">Preferences and contact details</p>
               </div>
             </div>
@@ -248,7 +248,7 @@ export function GuestDashboardClient() {
               <Button
                 asChild
                 variant="secondary"
-                className="w-full rounded-full text-blue-700 btn-tactile focus-ring touch-feedback"
+                className="w-full rounded-full text-primary btn-tactile focus-ring touch-feedback"
               >
                 <Link href="/guest/profile">Edit profile</Link>
               </Button>
@@ -300,7 +300,7 @@ function FeaturedBooking({
               ))}
             </div>
           </div>
-          <div className="bg-slate-50 border-t sm:border-t-0 sm:border-l border-slate-200 p-5 sm:p-6 flex flex-col items-center justify-center gap-3 sm:gap-4">
+          <div className="bg-muted border-t sm:border-t-0 sm:border-l border-border p-5 sm:p-6 flex flex-col items-center justify-center gap-3 sm:gap-4">
             <Skeleton className="h-20 sm:h-24 w-full rounded-2xl" />
             <Skeleton className="h-3 w-28 sm:w-32 rounded" />
             <Skeleton className="h-11 sm:h-12 w-full rounded-full" />
@@ -312,29 +312,29 @@ function FeaturedBooking({
 
   if (!booking) {
     return (
-      <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-slate-900 text-white shadow-[0_20px_25px_-5px_rgba(0,0,0,0.1)] p-6 sm:p-8 lg:p-12 text-center">
+      <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-foreground text-background shadow-[0_20px_25px_-5px_rgba(0,0,0,0.1)] p-6 sm:p-8 lg:p-12 text-center">
         <div className="relative z-10 flex flex-col items-center">
-          <div className="h-12 w-12 sm:h-16 sm:w-16 bg-white/10 rounded-full flex items-center justify-center mb-4 sm:mb-6">
-            <Sparkles className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
+          <div className="h-12 w-12 sm:h-16 sm:w-16 bg-background/10 rounded-full flex items-center justify-center mb-4 sm:mb-6">
+            <Sparkles className="h-6 w-6 sm:h-8 sm:w-8 text-background" />
           </div>
           <h2 className="heading-page mb-3 sm:mb-4">
             No upcoming plans?
           </h2>
-          <p className="text-base sm:text-lg text-slate-300 max-w-xl mb-6 sm:mb-8">
+          <p className="text-base sm:text-lg text-background/70 max-w-xl mb-6 sm:mb-8">
             Explore our curated list of restaurants and secure your table for tonight.
           </p>
           <div className="flex gap-4">
             <Button
               asChild
-              className="rounded-full bg-white text-slate-900 hover:bg-slate-100 px-6 sm:px-8 py-5 sm:py-6 text-base sm:text-lg font-semibold border-none btn-tactile focus-ring touch-feedback"
+              className="rounded-full bg-background text-foreground hover:bg-background/90 px-6 sm:px-8 py-5 sm:py-6 text-base sm:text-lg font-semibold border-none btn-tactile focus-ring touch-feedback"
             >
               <Link href="/restaurants">Find a Table</Link>
             </Button>
           </div>
         </div>
         {/* Decorative background elements */}
-        <div className="absolute top-0 right-0 w-48 sm:w-64 h-48 sm:h-64 bg-blue-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-        <div className="absolute bottom-0 left-0 w-48 sm:w-64 h-48 sm:h-64 bg-indigo-500/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
+        <div className="absolute top-0 right-0 w-48 sm:w-64 h-48 sm:h-64 bg-primary/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+        <div className="absolute bottom-0 left-0 w-48 sm:w-64 h-48 sm:h-64 bg-primary/30 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
       </div>
     );
   }
@@ -350,7 +350,7 @@ function FeaturedBooking({
             variant={isToday ? 'status-confirmed' : 'default'}
             className={cn(
               'rounded-full px-3 py-1 font-semibold text-xs sm:text-sm',
-              !isToday && 'bg-slate-100 text-slate-700 border-none',
+              !isToday && 'bg-muted text-foreground/80 border-none',
             )}
           >
             {isToday ? 'Happening today' : 'Upcoming reservation'}
@@ -360,7 +360,7 @@ function FeaturedBooking({
             <h2 className="heading-page mb-1">
               {booking.restaurantName}
             </h2>
-            <div className="flex items-center text-slate-500 font-medium text-sm">
+            <div className="flex items-center text-muted-foreground font-medium text-sm">
               <MapPin className="w-4 h-4 mr-2 flex-shrink-0" />
               {booking.restaurantSlug ? 'View details' : 'Restaurant'}
             </div>
@@ -373,16 +373,16 @@ function FeaturedBooking({
           </div>
         </div>
 
-        <div className="bg-slate-50 border-t sm:border-t-0 sm:border-l border-slate-200 p-5 sm:p-6 flex flex-col items-center justify-center text-center gap-3 sm:gap-4">
-          <div className="w-full rounded-xl sm:rounded-2xl border border-slate-200 bg-white py-3 sm:py-4">
-            <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.2em] sm:tracking-[0.3em] text-slate-400">
+        <div className="bg-muted border-t sm:border-t-0 sm:border-l border-border p-5 sm:p-6 flex flex-col items-center justify-center text-center gap-3 sm:gap-4">
+          <div className="w-full rounded-xl sm:rounded-2xl border border-border bg-background py-3 sm:py-4">
+            <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.2em] sm:tracking-[0.3em] text-muted-foreground/60">
               Code
             </p>
-            <div className="font-mono text-xl sm:text-2xl font-bold text-slate-900 tracking-[0.2em] sm:tracking-[0.3em]">
+            <div className="font-mono text-xl sm:text-2xl font-bold text-foreground tracking-[0.2em] sm:tracking-[0.3em]">
               {booking.id.slice(0, 8).toUpperCase()}
             </div>
           </div>
-          <p className="text-[10px] sm:text-xs text-slate-500 uppercase tracking-wide">
+          <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide">
             Show this code at check-in
           </p>
 
@@ -407,22 +407,22 @@ function UpcomingBookingCard({ booking }: { booking: BookingDTO }) {
         variant="interactive"
         className="p-3 sm:p-4 flex items-center gap-3 sm:gap-4 group card-interactive touch-feedback"
       >
-        <div className="flex-shrink-0 w-14 h-14 sm:w-16 sm:h-16 bg-blue-50 text-blue-700 rounded-lg sm:rounded-xl flex flex-col items-center justify-center leading-none">
+        <div className="flex-shrink-0 w-14 h-14 sm:w-16 sm:h-16 bg-primary/5 text-primary rounded-lg sm:rounded-xl flex flex-col items-center justify-center leading-none">
           <span className="text-[10px] sm:text-xs font-bold uppercase mb-0.5 sm:mb-1">
             {bookingDate.toLocaleString('en-US', { month: 'short' })}
           </span>
           <span className="text-xl sm:text-2xl font-bold">{bookingDate.getDate()}</span>
         </div>
         <div className="flex-1 min-w-0">
-          <h4 className="font-bold text-slate-900 truncate text-sm sm:text-base">
+          <h4 className="font-bold text-foreground truncate text-sm sm:text-base">
             {booking.restaurantName}
           </h4>
-          <div className="text-xs sm:text-sm text-slate-500 flex items-center mt-0.5 sm:mt-1">
+          <div className="text-xs sm:text-sm text-muted-foreground flex items-center mt-0.5 sm:mt-1">
             <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 mr-1 sm:mr-1.5 flex-shrink-0" />
             {formatReservationTimeFromDate(bookingDate)}
           </div>
         </div>
-        <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-slate-300 group-hover:text-slate-600 transition-colors flex-shrink-0" />
+        <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground/40 group-hover:text-foreground transition-colors flex-shrink-0" />
       </Card>
     </Link>
   );
@@ -442,12 +442,12 @@ function isSameDay(d1: Date, d2: Date): boolean {
 
 function StatPill({ label, value, icon }: { label: string; value: number; icon: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between rounded-lg sm:rounded-xl border border-slate-200 bg-slate-50 px-2.5 sm:px-3 py-2">
-      <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-slate-700">
-        <span className="text-blue-700">{icon}</span>
+    <div className="flex items-center justify-between rounded-lg sm:rounded-xl border border-border bg-muted px-2.5 sm:px-3 py-2">
+      <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-foreground/80">
+        <span className="text-primary">{icon}</span>
         {label}
       </div>
-      <span className="text-sm sm:text-base font-semibold text-slate-900">{value}</span>
+      <span className="text-sm sm:text-base font-semibold text-foreground">{value}</span>
     </div>
   );
 }
@@ -455,10 +455,10 @@ function StatPill({ label, value, icon }: { label: string; value: number; icon: 
 function Detail({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
-      <div className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400 mb-0.5 sm:mb-1">
+      <div className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-muted-foreground/60 mb-0.5 sm:mb-1">
         {label}
       </div>
-      <div className="text-sm sm:text-base font-semibold text-slate-900 truncate">{value}</div>
+      <div className="text-sm sm:text-base font-semibold text-foreground truncate">{value}</div>
     </div>
   );
 }
