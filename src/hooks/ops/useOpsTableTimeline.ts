@@ -15,6 +15,7 @@ export type UseOpsTableTimelineOptions = {
   date?: string | null;
   zoneId?: string | null;
   service?: 'lunch' | 'dinner' | 'all';
+  includeSummary?: boolean;
   enabled?: boolean;
 };
 
@@ -25,6 +26,7 @@ export function useOpsTableTimeline({
   date,
   zoneId,
   service = 'all',
+  includeSummary = true,
   enabled = true,
 }: UseOpsTableTimelineOptions) {
   const tableService = useTableInventoryService();
@@ -32,9 +34,14 @@ export function useOpsTableTimeline({
   const queryKey = useMemo(
     () =>
       restaurantId
-        ? queryKeys.opsTables.timeline(restaurantId, { date: date ?? null, zoneId: zoneId ?? null, service })
+        ? queryKeys.opsTables.timeline(restaurantId, {
+            date: date ?? null,
+            zoneId: zoneId ?? null,
+            service,
+            includeSummary,
+          })
         : (['ops', 'tables', 'timeline', 'disabled'] as const),
-    [date, restaurantId, service, zoneId],
+    [date, includeSummary, restaurantId, service, zoneId],
   );
   const shouldEnable = Boolean(restaurantId) && enabled;
 
@@ -48,6 +55,7 @@ export function useOpsTableTimeline({
         date: date ?? undefined,
         zoneId: zoneId ?? undefined,
         service,
+        includeSummary,
       });
     },
     enabled: shouldEnable,
