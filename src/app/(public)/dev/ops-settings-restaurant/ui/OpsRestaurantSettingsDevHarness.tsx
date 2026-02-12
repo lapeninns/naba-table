@@ -1,0 +1,67 @@
+'use client';
+
+import { useMemo, useState } from 'react';
+
+import { OpsRestaurantSettingsClient } from '@/components/features/restaurant-settings/OpsRestaurantSettingsClient';
+import { RestaurantSettingsPageShell } from '@/components/features/restaurant-settings/RestaurantSettingsPageShell';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+
+import { DEV_RESTAURANT_ID } from '../../_mocks/devIds';
+import { createOpsDevServiceFactories } from '../../_mocks/services/devFactories';
+import { OpsDevProviders } from '../../_shared/OpsDevProviders';
+
+import type { RestaurantSettingsView } from '@/components/features/restaurant-settings/types';
+
+const VIEW_OPTIONS: Array<{ value: RestaurantSettingsView; label: string }> = [
+  { value: 'profile', label: 'Profile' },
+  { value: 'operating-hours', label: 'Operating hours' },
+  { value: 'service-periods', label: 'Service periods' },
+  { value: 'turn-durations', label: 'Turn durations' },
+  { value: 'occasions', label: 'Occasions' },
+  { value: 'team', label: 'Team' },
+];
+
+export function OpsRestaurantSettingsDevHarness() {
+  const factories = useMemo(() => createOpsDevServiceFactories(), []);
+  const [view, setView] = useState<RestaurantSettingsView>('profile');
+
+  return (
+    <OpsDevProviders factories={factories} initialRestaurantId={DEV_RESTAURANT_ID}>
+      <RestaurantSettingsPageShell
+        title="Restaurant"
+        description="Dev harness for the restaurant settings shell, subnav, and sections."
+        eyebrow="Dev"
+      >
+        <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-muted-foreground">
+            View selector is local to this harness; the left subnav is rendered for responsive layout
+            verification but links to authenticated routes.
+          </p>
+          <div className="w-full sm:w-[260px]">
+            <Select value={view} onValueChange={(next) => setView(next as RestaurantSettingsView)}>
+              <SelectTrigger className="h-11 sm:h-9">
+                <SelectValue placeholder="Select view" />
+              </SelectTrigger>
+              <SelectContent>
+                {VIEW_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <OpsRestaurantSettingsClient defaultRestaurantId={DEV_RESTAURANT_ID} view={view} />
+      </RestaurantSettingsPageShell>
+    </OpsDevProviders>
+  );
+}
+

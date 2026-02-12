@@ -273,7 +273,6 @@ eventsPerSecond: 10; // Was 2
 ALTER PUBLICATION supabase_realtime ADD TABLE bookings;
 ALTER PUBLICATION supabase_realtime ADD TABLE booking_table_assignments;
 ALTER PUBLICATION supabase_realtime ADD TABLE booking_history;
-ALTER PUBLICATION supabase_realtime ADD TABLE loyalty_points;
 ALTER PUBLICATION supabase_realtime ADD TABLE customer_profiles;
 ```
 
@@ -400,7 +399,7 @@ Should see logs:
 ### 5. Check Network Tab
 
 - Should see WebSocket connection to Supabase
-- URL: `wss://rrpeokmfbtbrirqjprpe.supabase.co/realtime/v1/websocket`
+- URL: `wss://<your-project-ref>.supabase.co/realtime/v1/websocket`
 - Status: 101 Switching Protocols
 
 ## Performance Tuning

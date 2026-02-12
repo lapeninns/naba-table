@@ -98,8 +98,6 @@ export async function GET(request: NextRequest) {
       { header: "Phone", accessor: (booking) => booking.customerPhone ?? "" },
       { header: "Reference", accessor: (booking) => booking.reference ?? "" },
       { header: "Source", accessor: (booking) => booking.source ?? "" },
-      { header: "Loyalty Tier", accessor: (booking) => booking.loyaltyTier ?? "" },
-      { header: "Loyalty Points", accessor: (booking) => booking.loyaltyPoints ?? "" },
       { header: "Allergies", accessor: (booking) => normalizeText(booking.allergies) },
       { header: "Dietary Restrictions", accessor: (booking) => normalizeText(booking.dietaryRestrictions) },
       { header: "Seating Preference", accessor: (booking) => booking.seatingPreference ?? "" },

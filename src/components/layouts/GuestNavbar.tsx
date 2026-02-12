@@ -5,7 +5,6 @@ import { LogOut, Menu, User, LayoutDashboard, Calendar } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { toast } from 'react-hot-toast';
 
 import { BrandLogo } from '@/components/shared/BrandLogo';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -436,14 +435,12 @@ export function GuestNavbar({ tone = 'light', isSticky = true }: GuestNavbarProp
     try {
       setIsSigningOut(true);
       await signOutFromSupabase();
-      toast.success('Signed out');
       const storageKey = buildQueryStorageKey(user?.id ?? null);
       queryClient.clear();
       clearPersistedQueryCache(storageKey);
       router.replace('/');
     } catch (error) {
       console.error('[GuestNavbar] sign out failed', error);
-      toast.error('We couldn’t sign you out. Please try again.');
     } finally {
       setIsSigningOut(false);
       setIsMobileOpen(false);

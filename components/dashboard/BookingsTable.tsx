@@ -1,17 +1,17 @@
 'use client';
 
+import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { Loader2 } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { useWindowVirtualizer } from '@tanstack/react-virtual';
 
+import { OpsBookingCard } from '@/components/features/dashboard/cards/OpsBookingCard';
+import { OpsBookingCardSkeleton } from '@/components/features/dashboard/cards/OpsBookingCardSkeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 
 import { BookingsHeader } from './BookingsHeader';
 import { EmptyState, type EmptyStateProps } from './EmptyState';
-import { OpsBookingCard } from './OpsBookingCard';
-import { OpsBookingCardSkeleton } from './OpsBookingCardSkeleton';
 
 import type { BookingAction } from '@/components/features/booking-state-machine';
 import type { BookingDTO, BookingsPage } from '@/hooks/useBookings';
@@ -39,8 +39,7 @@ export type BookingsTableProps = {
   statusOptions?: { value: StatusFilter; label: string }[];
   opsActionMode?: 'full' | 'details-only';
   opsLifecycle?: {
-    pendingBookingId: string | null;
-    pendingAction: BookingAction | null;
+    pendingActionsByBookingId: Record<string, BookingAction | null>;
     onCheckIn: (bookingId: string) => Promise<void>;
     onCheckOut: (bookingId: string) => Promise<void>;
     onMarkNoShow: (bookingId: string, options?: { performedAt?: string | null; reason?: string | null }) => Promise<void>;
@@ -49,6 +48,11 @@ export type BookingsTableProps = {
   showHeaderTitle?: boolean;
   hideHeader?: boolean;
   timezone?: string;
+  /**
+   * Ops routes can be served at `/bookings` (app subdomain) or `/app/bookings` (single-host mode).
+   * Pass `/app` in single-host mode so empty-state CTAs navigate correctly.
+   */
+  opsBasePath?: string;
 };
 
 const DEFAULT_STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
@@ -83,6 +87,7 @@ export function BookingsTable({
   showHeaderTitle = true,
   hideHeader = false,
   timezone,
+  opsBasePath = '',
 }: BookingsTableProps) {
   const VIRTUALIZE_MIN_ITEMS = 20;
   const hasBookings = bookings.length > 0;
@@ -91,20 +96,20 @@ export function BookingsTable({
   const showEmpty = !showSkeleton && !error && bookings.length === 0;
   const trimmedSearch = searchTerm.trim();
   const isOpsVariant = variant === 'ops';
-  const isLifecycleLockActive =
-    opsLifecycle?.pendingAction === 'check-in' || opsLifecycle?.pendingAction === 'check-out';
   const prefersReducedMotion = useReducedMotion();
   const hasAnimatedRef = useRef(false);
   const measureFrameRef = useRef<number | null>(null);
 
   const emptyState = useMemo(() => {
+    const opsPath = (path: string) => `${opsBasePath}${path}`;
+
     if (trimmedSearch) {
       return {
         title: isOpsVariant ? 'No bookings match your search' : 'No bookings match your search',
         description: isOpsVariant
           ? 'Try a different guest name or email, or broaden the date/status filters.'
           : 'Try searching for a different guest name or email.',
-        ctaHref: isOpsVariant ? '/new-bookings' : '/',
+        ctaHref: isOpsVariant ? opsPath('/new-bookings') : '/',
         ctaLabel: isOpsVariant ? 'New booking' : 'Start a new booking',
         analyticsEvent: 'dashboard_empty_search',
       } as const;
@@ -117,7 +122,7 @@ export function BookingsTable({
           description: isOpsVariant
             ? 'New reservations will appear here as they’re created. You can also log walk-ins for today’s service.'
             : 'Ready for your next night out? Secure a table in just a few taps.',
-          ctaHref: isOpsVariant ? '/new-bookings' : '/',
+          ctaHref: isOpsVariant ? opsPath('/new-bookings') : '/',
           ctaLabel: isOpsVariant ? 'New booking' : 'Start a new booking',
           analyticsEvent: 'dashboard_empty_upcoming',
         } as const;
@@ -127,7 +132,7 @@ export function BookingsTable({
           description: isOpsVariant
             ? 'Completed and no-show reservations will appear here once they’re processed.'
             : 'Completed or no-show reservations will appear here for your records.',
-          ctaHref: isOpsVariant ? '/bookings' : '/',
+          ctaHref: isOpsVariant ? opsPath('/bookings') : '/',
           ctaLabel: isOpsVariant ? 'View today' : 'Start a new booking',
           analyticsEvent: 'dashboard_empty_past',
         } as const;
@@ -137,7 +142,7 @@ export function BookingsTable({
           description: isOpsVariant
             ? 'Cancelled reservations will show up here so your team can track changes.'
             : 'Great news—you haven’t had to cancel any reservations.',
-          ctaHref: isOpsVariant ? '/bookings' : '/',
+          ctaHref: isOpsVariant ? opsPath('/bookings') : '/',
           ctaLabel: isOpsVariant ? 'View all bookings' : 'Start a new booking',
           analyticsEvent: 'dashboard_empty_cancelled',
         } as const;
@@ -149,12 +154,17 @@ export function BookingsTable({
           description: isOpsVariant
             ? 'Reservations and walk-ins for this restaurant will appear here as they’re created.'
             : 'Once you make a reservation, it will appear here. Ready to secure your next table?',
-          ctaHref: isOpsVariant ? '/new-bookings' : '/',
+          ctaHref: isOpsVariant ? opsPath('/new-bookings') : '/',
           ctaLabel: isOpsVariant ? 'New booking' : 'Start a new booking',
           analyticsEvent: 'dashboard_empty_all',
         } as const;
     }
-  }, [isOpsVariant, statusFilter, trimmedSearch]);
+  }, [isOpsVariant, opsBasePath, statusFilter, trimmedSearch]);
+
+  const totalLabel =
+    typeof total === 'number'
+      ? `${total} booking${total === 1 ? '' : 's'}`
+      : `${bookings.length} booking${bookings.length === 1 ? '' : 's'}`;
 
   const mobileEmptyState: EmptyStateProps | undefined = emptyState
     ? {
@@ -256,7 +266,19 @@ export function BookingsTable({
   }, [bookings.length, hasNextPage, isFetchingNextPage, onLoadMore, shouldVirtualize, virtualRows]);
 
   return (
-    <div className="space-y-3">
+    <div
+      id={isOpsVariant ? 'ops-bookings-list' : undefined}
+      tabIndex={isOpsVariant ? -1 : undefined}
+      role={isOpsVariant ? 'region' : undefined}
+      aria-label={isOpsVariant ? 'Bookings list' : undefined}
+      className="space-y-3"
+    >
+      {/* Screen reader summary for list changes (filters/search/pagination). */}
+      {isOpsVariant ? (
+        <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+          Showing {totalLabel}.
+        </div>
+      ) : null}
       {!hideHeader && (
         <BookingsHeader
           title={isOpsVariant ? 'Booking queue' : 'Bookings'}
@@ -347,10 +369,8 @@ export function BookingsTable({
                 const booking = bookings[virtualRow.index];
                 if (!booking) return null;
 
-                const actionsDisabled =
-                  isLifecycleLockActive &&
-                  Boolean(opsLifecycle?.pendingBookingId) &&
-                  opsLifecycle?.pendingBookingId !== booking.id;
+                const pendingAction =
+                  opsLifecycle?.pendingActionsByBookingId?.[booking.id] ?? null;
 
                 return (
                   <div
@@ -380,12 +400,8 @@ export function BookingsTable({
                       onCheckOut={opsLifecycle?.onCheckOut}
                       onMarkNoShow={opsLifecycle?.onMarkNoShow}
                       onUndoNoShow={opsLifecycle?.onUndoNoShow}
-                      pendingAction={
-                        opsLifecycle?.pendingBookingId === booking.id
-                          ? (opsLifecycle.pendingAction as any)
-                          : null
-                      }
-                      actionsDisabled={actionsDisabled}
+                      pendingAction={pendingAction}
+                      actionsDisabled={false}
                       allowTableAssignments={true}
                     />
                   </div>
@@ -401,10 +417,8 @@ export function BookingsTable({
             transition={shouldAnimate ? { duration: 0.2, ease: 'easeOut' } : undefined}
           >
             {bookings.map((booking) => {
-              const actionsDisabled =
-                isLifecycleLockActive &&
-                Boolean(opsLifecycle?.pendingBookingId) &&
-                opsLifecycle?.pendingBookingId !== booking.id;
+              const pendingAction =
+                opsLifecycle?.pendingActionsByBookingId?.[booking.id] ?? null;
               return (
                 <div
                   key={booking.id}
@@ -421,12 +435,8 @@ export function BookingsTable({
                     onCheckOut={opsLifecycle?.onCheckOut}
                     onMarkNoShow={opsLifecycle?.onMarkNoShow}
                     onUndoNoShow={opsLifecycle?.onUndoNoShow}
-                    pendingAction={
-                      opsLifecycle?.pendingBookingId === booking.id
-                      ? (opsLifecycle.pendingAction as any)
-                      : null
-                    }
-                    actionsDisabled={actionsDisabled}
+                    pendingAction={pendingAction}
+                    actionsDisabled={false}
                     allowTableAssignments={true}
                   />
                 </div>

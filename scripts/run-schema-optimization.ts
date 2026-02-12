@@ -3,26 +3,21 @@
  * Executes the schema optimization fixes directly on Supabase
  * 
  * Run with: 
- *   SUPABASE_DB_URL="postgresql://postgres.rrpeokmfbtbrirqjprpe:PASSWORD@aws-0-eu-west-2.pooler.supabase.com:5432/postgres" npx tsx scripts/run-schema-optimization.ts
+ *   SUPABASE_DB_URL="postgresql://postgres.<project_ref>:<password>@aws-1-<region>.pooler.supabase.com:6543/postgres" npx tsx scripts/run-schema-optimization.ts
  * 
- * Or set the password only:
- *   DB_PASSWORD="your_password" npx tsx scripts/run-schema-optimization.ts
+ * NOTE: This script intentionally requires an explicit SUPABASE_DB_URL so it cannot accidentally target an old/stale project.
  */
 
 import { Client } from "pg";
 
-const password = process.env.DB_PASSWORD || "";
+const connectionString = process.env.SUPABASE_DB_URL?.trim() || "";
 
-// Pooler connection provided by the user (aws-1-eu-west-2)
-const connectionString = process.env.SUPABASE_DB_URL ||
-    `postgresql://postgres.rrpeokmfbtbrirqjprpe:${password}@aws-1-eu-west-2.pooler.supabase.com:6543/postgres`;
-
-if (!password && !process.env.SUPABASE_DB_URL) {
-    console.error("❌ Missing database password.");
-    console.error("   Set DB_PASSWORD or SUPABASE_DB_URL environment variable.");
+if (!connectionString) {
+    console.error("❌ Missing SUPABASE_DB_URL.");
+    console.error("   Set SUPABASE_DB_URL environment variable.");
     console.error("");
     console.error("   Example:");
-    console.error('   DB_PASSWORD="your_password" npx tsx scripts/run-schema-optimization.ts');
+    console.error('   SUPABASE_DB_URL="postgresql://postgres.<project_ref>:<password>@aws-1-<region>.pooler.supabase.com:6543/postgres" npx tsx scripts/run-schema-optimization.ts');
     process.exit(1);
 }
 

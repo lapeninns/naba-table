@@ -1,0 +1,3 @@
+export const OPS_GUEST_RETURNING_MIN_BOOKINGS = 2;
+export const OPS_GUEST_VIP_MIN_BOOKINGS = 5;
+

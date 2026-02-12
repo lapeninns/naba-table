@@ -1,11 +1,9 @@
 'use client';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'react-hot-toast';
 
 import { useBookingService } from '@/contexts/ops-services';
 import { emit } from '@/lib/analytics/emit';
-import { BOOKING_IN_PAST_CUSTOMER_MESSAGE } from '@/lib/bookings/messages';
 import { queryKeys } from '@/lib/query/keys';
 
 import type { HttpError } from '@/lib/http/errors';
@@ -32,18 +30,12 @@ export function useOpsUpdateBooking() {
       return updated;
     },
     onSuccess: (updated) => {
-      toast.success('Booking updated');
       if (updated?.id) {
         queryClient.setQueryData(queryKeys.opsBookings.detail(updated.id), updated);
       }
     },
     onError: (error, variables) => {
       emit('booking_edit_failed', { bookingId: variables.id, code: error?.code });
-      const message =
-        error?.code === 'BOOKING_IN_PAST' ? BOOKING_IN_PAST_CUSTOMER_MESSAGE : error?.message;
-      if (message) {
-        toast.error(message);
-      }
     },
     onSettled: (_data, _error, variables) => {
       queryClient.invalidateQueries({

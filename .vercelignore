@@ -1,0 +1,2 @@
+# Exclude large task artifacts from build context
+/tasks/**/artifacts/**

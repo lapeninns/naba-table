@@ -1,13 +1,13 @@
 import { render } from '@testing-library/react';
+import { createQueryWrapper, createTestQueryClient } from '@tests/utils/reactQuery';
 import { describe, expect, it, vi } from 'vitest';
 import { axe } from 'vitest-axe';
 import { toHaveNoViolations } from 'vitest-axe/matchers';
 
-import { createQueryWrapper, createTestQueryClient } from '@tests/utils/reactQuery';
 
 import type { WizardActions } from '@features/reservations/wizard/model/store';
-import type { ReservationSchedule } from '@features/reservations/wizard/services/timeSlots';
 import type { CalendarMask } from '@features/reservations/wizard/services/schedule';
+import type { ReservationSchedule } from '@features/reservations/wizard/services/timeSlots';
 
 expect.extend({ toHaveNoViolations });
 

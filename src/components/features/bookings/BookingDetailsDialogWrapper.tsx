@@ -7,6 +7,8 @@ import { BookingDetailsDialog } from '@/components/features/dashboard/BookingDet
 import { useOpsBooking } from '@/hooks/ops/useOpsBooking';
 import { useOpsBookingLifecycleActions } from '@/hooks/ops/useOpsBookingStatusActions';
 import { useOpsCancelBooking } from '@/hooks/ops/useOpsCancelBooking';
+import { useMinimumDelay } from '@/hooks/use-minimum-delay';
+import { isTableAssignmentAllowed } from '@/lib/ops/table-assignment-policy';
 import { getTodayInTimezone } from '@/lib/utils/datetime';
 
 import type { BookingDTO } from '@/hooks/useBookings';
@@ -23,17 +25,23 @@ const deriveTimeFromIso = (iso: string | null | undefined, timezone: string): st
 };
 
 function normalizeBooking(source: BookingSource, timezone: string): OpsTodayBooking {
-  const tableAssignments = 'tableAssignments' in source && Array.isArray(source.tableAssignments)
-    ? source.tableAssignments ?? []
-    : [];
+  const tableAssignments =
+    'tableAssignments' in source && Array.isArray(source.tableAssignments)
+      ? (source.tableAssignments ?? [])
+      : [];
 
-  const startTime = ('startTime' in source ? source.startTime : null) ?? deriveTimeFromIso(source.startIso, timezone);
-  const endTime = ('endTime' in source ? source.endTime : null) ?? deriveTimeFromIso(source.endIso, timezone);
+  const startTime =
+    ('startTime' in source ? source.startTime : null) ??
+    deriveTimeFromIso(source.startIso, timezone);
+  const endTime =
+    ('endTime' in source ? source.endTime : null) ?? deriveTimeFromIso(source.endIso, timezone);
 
   const requiresTableAssignment =
     'requiresTableAssignment' in source && typeof source.requiresTableAssignment === 'boolean'
       ? source.requiresTableAssignment
-      : tableAssignments.length === 0 && source.status !== 'cancelled' && source.status !== 'no_show';
+      : tableAssignments.length === 0 &&
+        source.status !== 'cancelled' &&
+        source.status !== 'no_show';
 
   return {
     id: source.id,
@@ -45,25 +53,30 @@ function normalizeBooking(source: BookingSource, timezone: string): OpsTodayBook
     customerEmail: source.customerEmail ?? null,
     customerPhone: source.customerPhone ?? null,
     notes: source.notes ?? null,
-    reference: 'reference' in source ? source.reference ?? null : null,
-    details: 'details' in source ? (source.details as Record<string, unknown> | null | undefined) ?? null : null,
-    source: 'source' in source ? source.source ?? null : null,
-    loyaltyTier: 'loyaltyTier' in source ? source.loyaltyTier ?? null : null,
-    loyaltyPoints: 'loyaltyPoints' in source ? source.loyaltyPoints ?? null : null,
-    profileNotes: 'profileNotes' in source ? source.profileNotes ?? null : null,
-    allergies: 'allergies' in source ? source.allergies ?? null : null,
-    dietaryRestrictions: 'dietaryRestrictions' in source ? source.dietaryRestrictions ?? null : null,
-    seatingPreference: 'seatingPreference' in source ? source.seatingPreference ?? null : null,
-    marketingOptIn: 'marketingOptIn' in source ? source.marketingOptIn ?? null : null,
+    reference: 'reference' in source ? (source.reference ?? null) : null,
+    details:
+      'details' in source
+        ? ((source.details as Record<string, unknown> | null | undefined) ?? null)
+        : null,
+    source: 'source' in source ? (source.source ?? null) : null,
+    profileNotes: 'profileNotes' in source ? (source.profileNotes ?? null) : null,
+    allergies: 'allergies' in source ? (source.allergies ?? null) : null,
+    dietaryRestrictions:
+      'dietaryRestrictions' in source ? (source.dietaryRestrictions ?? null) : null,
+    seatingPreference: 'seatingPreference' in source ? (source.seatingPreference ?? null) : null,
+    marketingOptIn: 'marketingOptIn' in source ? (source.marketingOptIn ?? null) : null,
     tableAssignments,
     requiresTableAssignment,
-    checkedInAt: 'checkedInAt' in source ? source.checkedInAt ?? null : null,
-    checkedOutAt: 'checkedOutAt' in source ? source.checkedOutAt ?? null : null,
+    checkedInAt: 'checkedInAt' in source ? (source.checkedInAt ?? null) : null,
+    checkedOutAt: 'checkedOutAt' in source ? (source.checkedOutAt ?? null) : null,
   } satisfies OpsTodayBooking;
 }
 
 function normalizeBookingSource(source: BookingSource, fallbackTimezone: string) {
-  const timezone = (source as OpsBookingListItem).restaurantTimezone ?? source.restaurantTimezone ?? fallbackTimezone;
+  const timezone =
+    (source as OpsBookingListItem).restaurantTimezone ??
+    source.restaurantTimezone ??
+    fallbackTimezone;
   const booking = normalizeBooking(source, timezone ?? fallbackTimezone);
   const restaurantId = (source as OpsBookingListItem).restaurantId ?? source.restaurantId ?? null;
   const startIso = source.startIso ?? null;
@@ -84,8 +97,18 @@ export function BookingDetailsDialogWrapper({
   open,
   onOpenChange,
 }: BookingDetailsDialogWrapperProps) {
-  const { data: fetchedBooking, isLoading, isError, error, refetch } = useOpsBooking(open ? bookingId : null);
+  const {
+    data: fetchedBooking,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useOpsBooking(open ? bookingId : null);
   const bookingSource = fetchedBooking ?? initialData ?? null;
+  const showSkeleton = useMinimumDelay(isLoading && !bookingSource, {
+    delayMs: 120,
+    minDurationMs: 250,
+  });
   const normalized = useMemo(() => {
     if (!bookingSource) return null;
     const fallbackTz = initialData?.restaurantTimezone ?? 'UTC';
@@ -131,10 +154,14 @@ export function BookingDetailsDialogWrapper({
     if (!summary) return { allowTableAssignments: false, isToday: false };
     const today = getTodayInTimezone(summary.timezone);
     return {
-      allowTableAssignments: summary.date >= today,
+      allowTableAssignments: isTableAssignmentAllowed({
+        status: booking?.status ?? null,
+        bookingDate: summary.date,
+        timezone: summary.timezone,
+      }),
       isToday: summary.date === today,
     };
-  }, [summary]);
+  }, [booking?.status, summary]);
 
   // Lifecycle handlers
   const handleCheckIn = async () => {
@@ -147,7 +174,10 @@ export function BookingDetailsDialogWrapper({
     await checkOut.mutateAsync({ restaurantId, bookingId, targetDate: null });
   };
 
-  const handleMarkNoShow = async (options?: { performedAt?: string | null; reason?: string | null }) => {
+  const handleMarkNoShow = async (options?: {
+    performedAt?: string | null;
+    reason?: string | null;
+  }) => {
     if (!restaurantId || !bookingId) return;
     await markNoShow.mutateAsync({
       restaurantId,
@@ -173,9 +203,20 @@ export function BookingDetailsDialogWrapper({
     if (checkIn.isPending && checkIn.variables?.bookingId === bookingId) return 'check-in';
     if (checkOut.isPending && checkOut.variables?.bookingId === bookingId) return 'check-out';
     if (markNoShow.isPending && markNoShow.variables?.bookingId === bookingId) return 'no-show';
-    if (undoNoShow.isPending && undoNoShow.variables?.bookingId === bookingId) return 'undo-no-show';
+    if (undoNoShow.isPending && undoNoShow.variables?.bookingId === bookingId)
+      return 'undo-no-show';
     return null;
-  }, [checkIn.isPending, checkIn.variables, checkOut.isPending, checkOut.variables, markNoShow.isPending, markNoShow.variables, undoNoShow.isPending, undoNoShow.variables, bookingId]);
+  }, [
+    checkIn.isPending,
+    checkIn.variables,
+    checkOut.isPending,
+    checkOut.variables,
+    markNoShow.isPending,
+    markNoShow.variables,
+    undoNoShow.isPending,
+    undoNoShow.variables,
+    bookingId,
+  ]);
 
   const handleCancel = async () => {
     if (!restaurantId || !bookingId) return;
@@ -191,8 +232,8 @@ export function BookingDetailsDialogWrapper({
     <BookingDetailsDialog
       booking={booking}
       summary={summary}
-      isLoading={isLoading}
-      errorMessage={isError ? error?.message ?? 'Unable to load booking.' : null}
+      isLoading={showSkeleton}
+      errorMessage={isError ? (error?.message ?? 'Unable to load booking.') : null}
       onRetry={() => refetch()}
       onCheckIn={handleCheckIn}
       onCheckOut={handleCheckOut}

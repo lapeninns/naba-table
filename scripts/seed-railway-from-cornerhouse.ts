@@ -311,31 +311,31 @@ async function copyZones(
   const source = sourceRows ?? [];
 
   if (apply) {
-    const existing = await getRestaurantCount(supabase, "zones", targetId);
-    if (existing > 0) {
-      const { data: targetRows, error: targetError } = await supabase
-        .from("zones")
-        .select("id, name, sort_order, area_type")
-        .eq("restaurant_id", targetId);
+      const existing = await getRestaurantCount(supabase, "zones", targetId);
+      if (existing > 0) {
+        const { data: targetRows, error: targetError } = await supabase
+          .from("zones")
+          .select("id, name, sort_order")
+          .eq("restaurant_id", targetId);
 
-      if (targetError) {
-        throw new Error(`Failed to load target zones: ${targetError.message}`);
-      }
-
-      const targetByKey = new Map<string, string>();
-      for (const row of targetRows ?? []) {
-        const key = `${row.name}|${row.sort_order ?? ""}|${row.area_type ?? ""}`;
-        targetByKey.set(key, row.id);
-      }
-
-      const idMap = new Map<string, string>();
-      for (const row of source) {
-        const key = `${row.name}|${row.sort_order ?? ""}|${row.area_type ?? ""}`;
-        const match = targetByKey.get(key);
-        if (!match) {
-          throw new Error(`Missing zone match for "${row.name}" (sort ${row.sort_order ?? "-"})`);
+        if (targetError) {
+          throw new Error(`Failed to load target zones: ${targetError.message}`);
         }
-        idMap.set(row.id, match);
+
+        const targetByKey = new Map<string, string>();
+        for (const row of targetRows ?? []) {
+          const key = `${row.name}|${row.sort_order ?? ""}`;
+          targetByKey.set(key, row.id);
+        }
+
+        const idMap = new Map<string, string>();
+        for (const row of source) {
+          const key = `${row.name}|${row.sort_order ?? ""}`;
+          const match = targetByKey.get(key);
+          if (!match) {
+            throw new Error(`Missing zone match for "${row.name}" (sort ${row.sort_order ?? "-"})`);
+          }
+          idMap.set(row.id, match);
       }
 
       return { summary: { table: "zones", rows: existing, skipped: true }, map: idMap };
@@ -352,23 +352,13 @@ async function copyZones(
       name: row.name,
       sort_order: row.sort_order,
       active: row.active,
-      area_type: row.area_type,
     };
   });
 
   if (apply && payload.length > 0) {
     const { error: insertError } = await supabase.from("zones").insert(payload);
     if (insertError) {
-      const message = insertError.message ?? "";
-      if (/area_type/i.test(message)) {
-        const fallback = payload.map(({ area_type: _area_type, ...rest }) => rest);
-        const { error: fallbackError } = await supabase.from("zones").insert(fallback);
-        if (fallbackError) {
-          throw new Error(`Failed to insert zones: ${fallbackError.message}`);
-        }
-      } else {
-        throw new Error(`Failed to insert zones: ${insertError.message}`);
-      }
+      throw new Error(`Failed to insert zones: ${insertError.message}`);
     }
   }
 

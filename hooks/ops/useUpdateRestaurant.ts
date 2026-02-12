@@ -1,7 +1,6 @@
 'use client';
 
 import { useMutation, useQueryClient, type QueryKey } from '@tanstack/react-query';
-import { toast } from 'react-hot-toast';
 
 import { fetchJson } from '@/lib/http/fetchJson';
 import { queryKeys } from '@/lib/query/keys';
@@ -62,11 +61,7 @@ export function useUpdateRestaurant() {
 
       return { lists, detail };
     },
-    onSuccess: (response) => {
-      toast.success(`Restaurant "${response.restaurant.name}" updated successfully`);
-    },
     onError: (error, variables, context) => {
-      toast.error(error.message || 'Failed to update restaurant');
       context?.lists.forEach(([key, data]) => {
         queryClient.setQueryData(key, data);
       });

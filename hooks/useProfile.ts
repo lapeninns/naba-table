@@ -8,7 +8,6 @@ import {
   type UseQueryResult,
 } from '@tanstack/react-query';
 import { useRef } from 'react';
-import { toast } from 'react-hot-toast';
 import { z } from 'zod';
 
 import { track } from '@/lib/analytics';
@@ -132,13 +131,11 @@ export function useUpdateProfile(): UseMutationResult<
         track('profile_update_duplicate', duplicatePayload);
         emit('profile_update_duplicate', duplicatePayload);
       }
-      toast.success(result.idempotent ? 'Profile already up to date' : 'Profile updated');
     },
     onError: (error, _variables, context) => {
       if (context?.previous) {
         queryClient.setQueryData(queryKeys.profile.self(), context.previous);
       }
-      toast.error(error.message);
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.profile.self() });
@@ -169,7 +166,6 @@ export function useUploadProfileAvatar(): UseMutationResult<ProfileUploadRespons
       };
       track('profile_upload_error', analyticsPayload);
       emit('profile_upload_error', analyticsPayload);
-      toast.error(error.message);
     },
   });
 }

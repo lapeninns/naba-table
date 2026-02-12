@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo } from 'react';
-import { toast } from 'react-hot-toast';
 
 import {
   RestaurantDetailsForm,
@@ -83,10 +82,8 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
         reservationLastSeatingBufferMinutes: values.reservationLastSeatingBufferMinutes,
         reservationLifecycleGraceMinutes: values.reservationLifecycleGraceMinutes,
       });
-      toast.success('Restaurant details updated');
     } catch (submitError) {
-      const message = submitError instanceof Error ? submitError.message : 'Failed to update restaurant';
-      toast.error(message);
+      console.error('[restaurant-profile] update failed', submitError);
     }
   };
 

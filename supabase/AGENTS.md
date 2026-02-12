@@ -1,8 +1,8 @@
 ---
-agents_version: 5.3
+agents_version: 5.4
 scope: subproject
 extends: ../AGENTS.md
-last_updated: 2025-12-19
+last_updated: 2026-02-06
 owner: github:@amanshresthaa
 profile: db
 ---

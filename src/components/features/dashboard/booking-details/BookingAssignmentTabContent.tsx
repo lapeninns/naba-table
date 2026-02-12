@@ -32,7 +32,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useBookingService } from '@/contexts/ops-services';
 import { useAssignmentContext } from '@/hooks/ops/useAssignmentContext';
-import { useToast } from '@/hooks/use-toast';
 import { HttpError } from '@/lib/http/errors';
 import { queryKeys } from '@/lib/query/keys';
 import { generateIdempotencyKey } from '@/lib/utils/idempotency';
@@ -55,7 +54,6 @@ export function BookingAssignmentTabContent({
   onUnassignTable,
   onAssignmentComplete,
 }: BookingAssignmentTabContentProps) {
-  const { toast } = useToast();
   const bookingService = useBookingService();
   const queryClient = useQueryClient();
 
@@ -125,7 +123,7 @@ export function BookingAssignmentTabContent({
         requireAdjacency: false,
       });
     },
-    onSuccess: async (_data, tableIds) => {
+    onSuccess: async (_data, _tableIds) => {
       setErrorBanner(null);
       // Clear local state
       setSelectedTables([]);
@@ -153,13 +151,6 @@ export function BookingAssignmentTabContent({
 
       // Notify parent component
       onAssignmentComplete?.();
-
-      // Show success message
-      toast({
-        title: 'Tables assigned',
-        description: `Successfully assigned ${tableIds.length} table(s) to booking.`,
-        duration: 3000,
-      });
     },
     onError: (error: unknown) => {
       console.error('[BookingAssignmentTabContent] Assignment failed:', error);
@@ -181,12 +172,6 @@ export function BookingAssignmentTabContent({
               ? `Selected tables were removed: ${missing.join(', ')}`
               : 'Selected tables were removed. Please reselect.';
           setErrorBanner(message);
-          toast({
-            title: 'Tables unavailable',
-            description: message,
-            variant: 'destructive',
-            duration: 8000,
-          });
           return;
         }
 
@@ -220,34 +205,18 @@ export function BookingAssignmentTabContent({
             } as ManualValidationResult);
           }
 
-          // Show error banner and toast with full details
+          // Show error banner with full details
           setErrorBanner(errorMessage);
-          toast({
-            title: 'Cannot assign tables',
-            description: errorMessage,
-            variant: 'destructive',
-            duration: 10000,
-          });
           return;
         }
 
         // Other HTTP errors
-        toast({
-          title: 'Assignment failed',
-          description: error.message,
-          variant: 'destructive',
-        });
         setErrorBanner(error.message);
         return;
       }
 
       // Generic error handling
       const message = error instanceof Error ? error.message : 'Assignment failed';
-      toast({
-        title: 'Assignment failed',
-        description: message,
-        variant: 'destructive',
-      });
       setErrorBanner(message);
     },
   });
@@ -266,15 +235,10 @@ export function BookingAssignmentTabContent({
       const message =
         'Tables are already assigned. Remove existing tables before assigning new ones.';
       setErrorBanner(message);
-      toast({ title: 'Assignment blocked', description: message, variant: 'destructive' });
       return;
     }
     if (selectedTables.length === 0) {
-      toast({
-        title: 'No tables selected',
-        description: 'Please select tables to assign.',
-        variant: 'destructive',
-      });
+      setErrorBanner('Please select tables to assign.');
       return;
     }
 
@@ -295,18 +259,9 @@ export function BookingAssignmentTabContent({
       refetchAssignmentContext();
 
       if (validTableIds.length === 0) {
-        toast({
-          title: 'Tables unavailable',
-          description: 'Selected tables are no longer available. Please select again.',
-          variant: 'destructive',
-        });
+        setErrorBanner('Selected tables are no longer available. Please select again.');
         return;
       }
-      // If some valid tables remain, show a partial warning and proceed with them
-      toast({
-        title: 'Some tables unavailable',
-        description: `${staleTableIds.length} table(s) removed. Proceeding with ${validTableIds.length} table(s).`,
-      });
       // Use validTableIds for the mutation since we filtered out stale ones
       setErrorBanner(null);
       directAssignMutation.mutate(validTableIds);
@@ -321,7 +276,6 @@ export function BookingAssignmentTabContent({
     selectedTables,
     tableMap,
     directAssignMutation,
-    toast,
     refetchAssignmentContext,
   ]);
 
@@ -358,13 +312,8 @@ export function BookingAssignmentTabContent({
       // Notify parent component
       onAssignmentComplete?.();
 
-      toast({
-        title: 'Table removed',
-        description: 'Table unassigned successfully. Data refreshed.',
-      });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to unassign table';
-      toast({ title: 'Unassign failed', description: message, variant: 'destructive' });
+      console.error('[BookingAssignmentTabContent] Failed to unassign tables', error);
     } finally {
       setUnassignTableId(null);
     }
@@ -377,7 +326,6 @@ export function BookingAssignmentTabContent({
     _restaurantId,
     _date,
     onAssignmentComplete,
-    toast,
   ]);
 
   // Handle removing ALL assigned tables (for merged table groups)
@@ -411,14 +359,8 @@ export function BookingAssignmentTabContent({
 
       // Notify parent component
       onAssignmentComplete?.();
-
-      toast({
-        title: 'All tables removed',
-        description: `Successfully removed ${assignedTables.length} table(s). You can now re-assign fresh tables.`,
-      });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to remove tables';
-      toast({ title: 'Remove failed', description: message, variant: 'destructive' });
+      console.error('[BookingAssignmentTabContent] Failed to remove all tables', error);
     }
   }, [
     assignedTables,
@@ -429,7 +371,6 @@ export function BookingAssignmentTabContent({
     _restaurantId,
     _date,
     onAssignmentComplete,
-    toast,
   ]);
 
   // -- Render Helpers --
@@ -517,7 +458,7 @@ export function BookingAssignmentTabContent({
                   />
                 ))}
               </div>
-              <span className="sr-only">Loading floor plan...</span>
+              <span className="sr-only">Loading floor plan…</span>
             </div>
           ) : assignmentContext && assignmentContext.tables.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-6 p-8">
@@ -570,7 +511,7 @@ export function BookingAssignmentTabContent({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-50 dark:from-emerald-900/40 dark:to-emerald-900/20 border-2 border-emerald-200/50 dark:border-emerald-800/50 shadow-sm">
-                  <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" aria-hidden />
                 </div>
                 <div>
                   <h4 className="text-base font-semibold text-foreground">Assigned Tables</h4>
@@ -601,7 +542,7 @@ export function BookingAssignmentTabContent({
               {assignedTables.map((table, idx) => (
                 <div
                   key={table.id}
-                  className="group relative rounded-xl border-2 border-primary/20 bg-gradient-to-br from-primary/5 via-primary/3 to-transparent p-4 shadow-sm transition-all duration-200 hover:shadow-md hover:border-primary/40 hover:-translate-y-0.5 animate-in fade-in-50 slide-in-from-bottom-2"
+                  className="group relative rounded-xl border-2 border-primary/20 bg-gradient-to-br from-primary/5 via-primary/3 to-transparent p-4 shadow-sm transition-[transform,box-shadow,border-color,background-color] duration-200 hover:shadow-md hover:border-primary/40 hover:-translate-y-0.5 animate-in fade-in-50 slide-in-from-bottom-2"
                   style={{ animationDelay: `${idx * 50}ms` }}
                 >
                   <div className="absolute top-3 right-3">

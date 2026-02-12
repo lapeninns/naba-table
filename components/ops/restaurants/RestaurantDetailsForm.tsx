@@ -4,15 +4,15 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { HelpTooltip } from '@/components/features/restaurant-settings/HelpTooltip';
 import { Button } from '@/components/ui/button';
-	import { Input } from '@/components/ui/input';
-	import { Label } from '@/components/ui/label';
-	import { Textarea } from '@/components/ui/textarea';
-	import { TooltipProvider } from '@/components/ui/tooltip';
-	import {
-	  RESERVATION_INTERVAL_MAX,
-	  RESERVATION_INTERVAL_MIN,
-	} from '@/lib/restaurants/reservation-interval';
-	import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import {
+  RESERVATION_INTERVAL_MAX,
+  RESERVATION_INTERVAL_MIN,
+} from '@/lib/restaurants/reservation-interval';
+import { cn } from '@/lib/utils';
 
 import type { UpdateRestaurantInput } from '@/app/api/ops/restaurants/schema';
 import type { PropsWithChildren } from 'react';

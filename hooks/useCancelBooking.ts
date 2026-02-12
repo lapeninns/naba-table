@@ -1,7 +1,6 @@
 'use client';
 
 import { type QueryKey, useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'react-hot-toast';
 
 import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';
@@ -68,7 +67,6 @@ export function useCancelBooking() {
     onSuccess: ({ id }) => {
       emit('booking_cancelled', { bookingId: id });
       track('booking_cancelled', { bookingId: id });
-      toast.success('Booking cancelled');
     },
     onError: (error, variables, context) => {
       emit('booking_cancel_error', { bookingId: variables.id, code: error.code });
@@ -87,7 +85,6 @@ export function useCancelBooking() {
         : error.code === 'BOOKING_IN_PAST'
           ? BOOKING_IN_PAST_CUSTOMER_MESSAGE
           : error.message;
-      toast.error(message);
     },
     onSettled: (_data, _error, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.bookings.all });

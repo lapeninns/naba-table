@@ -13,6 +13,10 @@
 **/.next/
 .reserve-dist
 
+# Next.js ignores route segments starting with "_" so this folder is a local-only scratch area.
+# Keep it out of git to avoid accidental commits of dead routes.
+src/app/(public)/__dev/
+
 # production
 /build
 

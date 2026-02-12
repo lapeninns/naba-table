@@ -1,8 +1,6 @@
 'use client';
 
-import { Loader2, Search, X } from 'lucide-react';
-
-import { Input } from '@/components/ui/input';
+import { OpsBookingsSearchInput } from '@/components/features/bookings/components/OpsBookingsSearchInput';
 
 import { StatusFilterGroup, type StatusOption } from './StatusFilterGroup';
 
@@ -55,32 +53,15 @@ export function BookingsHeader({
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3">
         {/* Search Input */}
-        <div className="relative w-full sm:w-72">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
-          <Input
-            value={searchTerm}
-            onChange={(event) => onSearchChange(event.target.value)}
-            placeholder="Search by guest name or email"
-            className="h-10 w-full rounded-lg border-muted-foreground/20 bg-background pl-10 pr-11 text-sm"
-            aria-label="Search bookings"
-            aria-busy={isSearching}
-          />
-          {/* Loading indicator OR clear button */}
-          {isSearching ? (
-            <div className="absolute right-3 top-1/2 -translate-y-1/2">
-              <Loader2 className="size-4 animate-spin text-muted-foreground" aria-label="Searching..." />
-            </div>
-          ) : searchTerm ? (
-            <button
-              type="button"
-              onClick={() => onSearchChange('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              aria-label="Clear search"
-            >
-              <X className="size-3.5" aria-hidden />
-            </button>
-          ) : null}
-        </div>
+        <OpsBookingsSearchInput
+          value={searchTerm}
+          onChange={onSearchChange}
+          onClear={() => onSearchChange('')}
+          isSearching={isSearching}
+          placeholder="Search by guest name or email…"
+          ariaLabel="Search bookings"
+          size="header"
+        />
 
         {/* Filter Tabs */}
         <StatusFilterGroup value={statusFilter} options={statusOptions} onChange={onStatusFilterChange} />

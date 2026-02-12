@@ -1,5 +1,7 @@
 import { DateTime } from 'luxon';
 
+import { isTableAssignmentStatusAllowed } from '@/lib/ops/table-assignment-policy';
+
 import type { OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
 
 export const OPS_CHECK_IN_ELIGIBLE_STATUSES: OpsTodayBooking['status'][] = [
@@ -114,7 +116,10 @@ export function getOpsBookingActionRequirements(params: {
   const needsCheckOut = temporalInfo.end !== null && temporalInfo.end <= now && statusForActions === 'checked_in';
 
   const allowAssignmentsForBooking =
-    allowTableAssignments && hasAssignmentHandlers && temporalInfo.state !== 'past';
+    allowTableAssignments &&
+    hasAssignmentHandlers &&
+    temporalInfo.state !== 'past' &&
+    isTableAssignmentStatusAllowed(statusForActions);
 
   const hasAssignedTable = (booking.tableAssignments?.length ?? 0) > 0;
 
@@ -130,4 +135,3 @@ export function getOpsBookingActionRequirements(params: {
     needsAttention,
   };
 }
-

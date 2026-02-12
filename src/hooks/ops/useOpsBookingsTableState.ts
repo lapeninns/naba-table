@@ -17,19 +17,15 @@ const UPCOMING_STATUSES: OpsBookingStatus[] = [
 
 export type UseOpsBookingsTableStateOptions = {
   initialStatus?: OpsStatusFilter;
-  initialPage?: number;
-  pageSize?: number;
   initialQuery?: string;
   initialSelectedStatuses?: OpsBookingStatus[];
 };
 
 type OpsBookingsTableStoreState = {
   statusFilter: OpsStatusFilter;
-  page: number;
   search: string;
   selectedStatuses: OpsBookingStatus[];
   setStatusFilter: (next: OpsStatusFilter) => void;
-  setPage: (next: number) => void;
   setSearch: (next: string) => void;
   toggleSelectedStatus: (status: OpsBookingStatus) => void;
   setSelectedStatuses: (next: OpsBookingStatus[]) => void;
@@ -38,37 +34,32 @@ type OpsBookingsTableStoreState = {
 
 function createOpsBookingsTableStore(initial: {
   statusFilter: OpsStatusFilter;
-  page: number;
   search: string;
   selectedStatuses: OpsBookingStatus[];
 }) {
   return create<OpsBookingsTableStoreState>()((set, get) => ({
     ...initial,
-    setStatusFilter: (next) => set({ statusFilter: next, page: 1 }),
-    setPage: (next) => set({ page: next }),
-    setSearch: (next) => set({ search: next, page: 1 }),
+    setStatusFilter: (next) => set({ statusFilter: next }),
+    setSearch: (next) => set({ search: next }),
     toggleSelectedStatus: (status) => {
       const current = get().selectedStatuses;
       const exists = current.includes(status);
       const next = exists ? current.filter((value) => value !== status) : [...current, status];
-      set({ selectedStatuses: next, page: 1 });
+      set({ selectedStatuses: next });
     },
-    setSelectedStatuses: (next) => set({ selectedStatuses: next, page: 1 }),
-    clearSelectedStatuses: () => set({ selectedStatuses: [], page: 1 }),
+    setSelectedStatuses: (next) => set({ selectedStatuses: next }),
+    clearSelectedStatuses: () => set({ selectedStatuses: [] }),
   }));
 }
 
 export function useOpsBookingsTableState({
   initialStatus = 'upcoming',
-  initialPage = 1,
-  pageSize = 10,
   initialQuery = '',
   initialSelectedStatuses = [],
 }: UseOpsBookingsTableStateOptions = {}) {
   const [store] = useState(() =>
     createOpsBookingsTableStore({
       statusFilter: initialStatus,
-      page: initialPage,
       search: initialQuery,
       selectedStatuses: initialSelectedStatuses,
     }),
@@ -77,19 +68,16 @@ export function useOpsBookingsTableState({
   useEffect(() => {
     store.setState({
       statusFilter: initialStatus,
-      page: initialPage,
       search: initialQuery,
       selectedStatuses: initialSelectedStatuses,
     });
-  }, [initialPage, initialQuery, initialSelectedStatuses, initialStatus, store]);
+  }, [initialQuery, initialSelectedStatuses, initialStatus, store]);
 
   const {
     statusFilter,
-    page,
     search,
     selectedStatuses,
     setStatusFilter,
-    setPage,
     setSearch,
     toggleSelectedStatus,
     setSelectedStatuses,
@@ -98,13 +86,6 @@ export function useOpsBookingsTableState({
 
   const handleStatusFilterChange = (nextStatus: OpsStatusFilter) => {
     setStatusFilter(nextStatus);
-  };
-
-  const handlePageChange = (nextPage: number, totalItems: number) => {
-    if (Number.isNaN(nextPage)) return;
-    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-    const clamped = Math.min(Math.max(nextPage, 1), totalPages);
-    setPage(clamped);
   };
 
   const handleSearchChange = (nextSearch: string) => {
@@ -116,8 +97,6 @@ export function useOpsBookingsTableState({
   const queryFilters = useMemo(() => {
     const now = new Date();
     const filters: {
-      page: number;
-      pageSize: number;
       status?: OpsBookingStatus;
       sort?: 'asc' | 'desc';
       from?: Date;
@@ -126,8 +105,6 @@ export function useOpsBookingsTableState({
       statuses?: OpsBookingStatus[];
       sortBy?: 'start_at' | 'created_at';
     } = {
-      page,
-      pageSize,
     };
 
     switch (statusFilter) {
@@ -171,23 +148,20 @@ export function useOpsBookingsTableState({
     }
 
     return filters;
-  }, [deferredSearch, page, pageSize, selectedStatuses, statusFilter]);
+  }, [deferredSearch, selectedStatuses, statusFilter]);
 
   return {
     statusFilter,
-    page,
-    pageSize,
     queryFilters,
     handleStatusFilterChange,
-    handlePageChange,
     handleSearchChange,
     setStatusFilter,
-    setPage,
     search,
     setSearch,
     selectedStatuses,
     toggleSelectedStatus,
     setSelectedStatuses,
     clearSelectedStatuses,
+    deferredSearch,
   } as const;
 }

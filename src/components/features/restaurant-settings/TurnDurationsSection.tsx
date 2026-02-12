@@ -2,7 +2,6 @@
 
 import { Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { toast } from 'react-hot-toast';
 
 import { HelpTooltip } from '@/components/features/restaurant-settings/HelpTooltip';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -232,9 +231,8 @@ export function TurnDurationsSection({ restaurantId }: TurnDurationsSectionProps
       const snapshot = await updateMutation.mutateAsync({});
       setDraft(snapshot.bands ?? {});
       setErrors({});
-      toast.success('Defaults restored');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to reset durations');
+      console.error('[turn-durations] reset failed', error);
     }
   }, [restaurantId, updateMutation]);
 
@@ -244,24 +242,21 @@ export function TurnDurationsSection({ restaurantId }: TurnDurationsSectionProps
     const validation = validatePayload(payload);
     if (!validation.ok) {
       setErrors(validation.errors);
-      toast.error('Please fix validation errors before saving');
       return;
     }
     try {
       const snapshot = await updateMutation.mutateAsync(payload);
       setDraft(snapshot.bands ?? {});
       setErrors({});
-      toast.success('Reservation durations updated');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update durations');
+      console.error('[turn-durations] save failed', error);
     }
   }, [draft, restaurantId, updateMutation]);
 
   useGlobalShortcuts([
     {
       key: 's',
-      meta: true,
-      ctrl: true,
+      metaOrCtrl: true,
       preventDefault: true,
       enabled: isDirty,
       handler: () => void handleSave(),

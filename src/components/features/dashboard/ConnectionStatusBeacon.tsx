@@ -1,112 +1,160 @@
 'use client';
 
-import { useRealtimeConnection } from '@/hooks/ops/useRealtimeConnection';
+import { DateTime } from 'luxon';
+import { useEffect, useMemo, useState } from 'react';
 
-export function ConnectionStatusBeacon() {
-  const { status, metrics } = useRealtimeConnection();
+import { SUMMARY_STALE_AFTER_MS } from '@/lib/ops/realtime';
+import { formatRelativeTime } from '@/lib/utils/relative-time';
 
-  const getBeaconProps = () => {
-    switch (status) {
-      case 'connected':
-        return {
-          color: '#10b981',
-          bgColor: 'bg-green-500',
-          pulseSpeed: '2000ms',
-          label: 'Live',
-          icon: '●',
-        };
-      case 'connecting':
-        return {
-          color: '#f59e0b',
-          bgColor: 'bg-amber-500',
-          pulseSpeed: '500ms',
-          label: 'Connecting',
-          icon: '○',
-        };
-      case 'degraded':
-        return {
-          color: '#eab308',
-          bgColor: 'bg-yellow-500',
-          pulseSpeed: '4000ms',
-          label: 'Slow',
-          icon: '◎',
-        };
-      case 'disconnected':
-      case 'error':
-        return {
-          color: '#ef4444',
-          bgColor: 'bg-red-500',
-          pulseSpeed: 'none',
-          label: 'Offline',
-          icon: '×',
-        };
-      default:
-        return {
-          color: '#6b7280',
-          bgColor: 'bg-gray-500',
-          pulseSpeed: 'none',
-          label: 'Unknown',
-          icon: '?',
-        };
-    }
+import { OpsStatusBadge } from '../ops-shell/patterns/OpsStatusBadge';
+
+import type { OpsStatusBadgeProps } from '../ops-shell/patterns/OpsStatusBadge';
+
+export type ConnectionStatusBeaconProps = {
+  dataUpdatedAt?: number | null;
+  dataStaleAfterMs?: number;
+  realtimeEnabled?: boolean;
+  realtimeHealthy?: boolean;
+  isPolling?: boolean;
+  isSummaryLoading?: boolean;
+  hasSummaryError?: boolean;
+};
+
+type BeaconStatus = 'initializing' | 'connected' | 'stale' | 'error';
+
+type BeaconConfig = {
+  label: string;
+  tone: NonNullable<OpsStatusBadgeProps['tone']>;
+  dotClass: string;
+  ringClass: string;
+  pulseClass: string;
+};
+
+const STATUS_CONFIG: Record<BeaconStatus, BeaconConfig> = {
+  initializing: {
+    label: 'Initializing',
+    tone: 'muted',
+    dotClass: 'bg-muted-foreground/70',
+    ringClass: 'ring-muted-foreground/20',
+    pulseClass: 'hidden',
+  },
+  connected: {
+    label: 'Live',
+    tone: 'success',
+    dotClass: 'bg-emerald-500',
+    ringClass: 'ring-emerald-500/30',
+    pulseClass: 'bg-emerald-400/30 animate-ping',
+  },
+  stale: {
+    label: 'Stale',
+    tone: 'warning',
+    dotClass: 'bg-amber-500',
+    ringClass: 'ring-amber-500/30',
+    pulseClass: 'bg-amber-400/30 animate-pulse',
+  },
+  error: {
+    label: 'Error',
+    tone: 'danger',
+    dotClass: 'bg-rose-500',
+    ringClass: 'ring-rose-500/25',
+    pulseClass: 'hidden',
+  },
+};
+
+export function ConnectionStatusBeacon({
+  dataUpdatedAt,
+  dataStaleAfterMs = SUMMARY_STALE_AFTER_MS,
+  realtimeEnabled,
+  realtimeHealthy,
+  isPolling,
+  isSummaryLoading = false,
+  hasSummaryError = false,
+}: ConnectionStatusBeaconProps) {
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setNowMs(Date.now()), 15_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const hasData = typeof dataUpdatedAt === 'number';
+  const isLoading = isSummaryLoading && !hasData;
+  const isDataStale = hasData && nowMs - dataUpdatedAt > dataStaleAfterMs;
+  const effectiveStatus: BeaconStatus = hasSummaryError && !hasData
+    ? 'error'
+    : isLoading || !hasData
+      ? 'initializing'
+      : isDataStale
+        ? 'stale'
+        : 'connected';
+  const beacon = STATUS_CONFIG[effectiveStatus] ?? STATUS_CONFIG.initializing;
+  const label = beacon.label;
+  const resolvedIsPolling =
+    typeof isPolling === 'boolean' ? isPolling : realtimeEnabled === false || realtimeHealthy === false;
+  const syncLabel = resolvedIsPolling ? 'Polling' : 'Realtime';
+
+  const reference = useMemo(() => DateTime.fromMillis(nowMs), [nowMs]);
+
+  const formatRelative = (value: number | Date | null | undefined) => {
+    if (!value) return null;
+    const dateTime = typeof value === 'number' ? DateTime.fromMillis(value) : DateTime.fromJSDate(value);
+    return formatRelativeTime(dateTime, reference, { style: 'short', includeSeconds: true });
   };
 
-  const beacon = getBeaconProps();
-
-  const formatRelativeTime = (date: Date | null) => {
-    if (!date) return null;
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffSeconds = Math.floor(diffMs / 1000);
-
-    if (diffSeconds < 60) return `${diffSeconds}s ago`;
-    if (diffSeconds < 3600) return `${Math.floor(diffSeconds / 60)}m ago`;
-    return `${Math.floor(diffSeconds / 3600)}h ago`;
-  };
+  const updatedRelative = hasData ? formatRelative(dataUpdatedAt) : null;
+  const syncClassName = resolvedIsPolling ? 'text-amber-600' : 'text-muted-foreground';
 
   return (
     <div
-      className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-200 bg-gray-50 text-xs font-medium"
-      title={`Connection status: ${beacon.label}`}
+      className="inline-flex flex-col gap-1 rounded-xl border border-border/70 bg-card/70 px-2.5 py-1.5 text-[11px] font-medium shadow-sm backdrop-blur sm:gap-1.5 sm:rounded-2xl sm:px-3 sm:py-2 sm:text-xs"
+      title={`Connection status: ${label}`}
+      aria-label={`Connection status: ${label}. Sync: ${syncLabel}.`}
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
     >
-      <div className="relative">
-        <span
-          className={`flex items-center justify-center w-2.5 h-2.5 rounded-full ${beacon.bgColor}`}
-          style={{
-            animation: beacon.pulseSpeed !== 'none' ? `pulse ${beacon.pulseSpeed}` : 'none',
-          }}
-          aria-label={beacon.label}
-        >
-          {beacon.icon}
+      <span className="sr-only">
+        Connection status: {label}. Sync: {syncLabel}.
+      </span>
+      <div className="flex items-center gap-2">
+        <span className="relative flex h-3 w-3 items-center justify-center">
+          <span
+            className={`absolute inline-flex h-4 w-4 rounded-full ${beacon.pulseClass} motion-reduce:animate-none`}
+            aria-hidden="true"
+          />
+          <span
+            className={`relative inline-flex h-2.5 w-2.5 rounded-full ring-2 ${beacon.dotClass} ${beacon.ringClass}`}
+            aria-hidden="true"
+          />
         </span>
-        <style>{`
-          @keyframes pulse {
-            0% {
-              transform: scale(1);
-              opacity: 1;
-            }
-            50% {
-              transform: scale(1.5);
-              opacity: 0.5;
-            }
-            100% {
-              transform: scale(1);
-              opacity: 1;
-            }
-          }
-        `}</style>
+        <OpsStatusBadge label={label} tone={beacon.tone} className="px-1.5 py-0.5 text-[10px] sm:px-2 sm:text-[11px]" />
       </div>
-      <span className="text-gray-700">{beacon.label}</span>
 
-      {status === 'connected' && metrics.lastHeartbeat && (
-        <span className="text-gray-400 text-[10px]">
-          {formatRelativeTime(metrics.lastHeartbeat)}
-        </span>
-      )}
+      <div className="flex items-center gap-1 text-[10px] text-muted-foreground sm:hidden" aria-hidden="true">
+        {updatedRelative ? (
+          <span className={isDataStale ? 'text-amber-600' : 'text-muted-foreground'}>
+            Updated {updatedRelative}
+          </span>
+        ) : (
+          <span>Updating…</span>
+        )}
+        <span aria-hidden="true">·</span>
+        <span className={syncClassName}>{syncLabel}</span>
+      </div>
 
-      {status === 'degraded' && metrics.latencyMs > 500 && (
-        <span className="text-amber-600 text-[10px]">{metrics.latencyMs}ms latency</span>
-      )}
+      <div className="hidden flex-wrap items-center gap-1 text-[10px] text-muted-foreground sm:flex" aria-hidden="true">
+        {updatedRelative ? (
+          <>
+            <span className={isDataStale ? 'text-amber-600' : 'text-muted-foreground'}>
+              Bookings updated {updatedRelative}
+            </span>
+            <span aria-hidden="true">·</span>
+            <span>Summary updated {updatedRelative}</span>
+            <span aria-hidden="true">·</span>
+          </>
+        ) : null}
+        <span className={syncClassName}>Sync: {syncLabel}</span>
+      </div>
     </div>
   );
 }

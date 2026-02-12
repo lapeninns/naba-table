@@ -267,7 +267,7 @@ export function OpsBookingsPrintView({ params }: OpsBookingsPrintViewProps) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center px-6 text-center">
         <div className="max-w-md space-y-2">
-          <h1 className="text-lg font-semibold text-foreground">Preparing print view...</h1>
+          <h1 className="text-lg font-semibold text-foreground">Preparing print view…</h1>
           <p className="text-sm text-muted-foreground">
             Fetching bookings{targetDate ? ` for ${targetDate}` : ''}.
           </p>

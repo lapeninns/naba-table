@@ -2,7 +2,6 @@
 
 import { Plus, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { toast } from 'react-hot-toast';
 
 import { HelpTooltip } from '@/components/features/restaurant-settings/HelpTooltip';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -318,7 +317,6 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
 
   const handleSave = async () => {
     if (!validate()) {
-      toast.error('Please fix validation errors before saving');
       return;
     }
 
@@ -355,9 +353,8 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
     try {
       await updateMutation.mutateAsync(payload);
       setIsDirty(false);
-      toast.success('Operating hours updated');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to update hours');
+    } catch (error) {
+      console.error('[operating-hours] save failed', error);
     }
   };
 
@@ -375,8 +372,7 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
   useGlobalShortcuts([
     {
       key: 's',
-      meta: true,
-      ctrl: true,
+      metaOrCtrl: true,
       preventDefault: true,
       enabled: !isDisabled && isDirty,
       when: () => true,
