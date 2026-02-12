@@ -1,0 +1,12 @@
+Verified static labels in extracted PDF text operators:
+- Nab a Table
+- Reservation Confirmation
+- Reference
+- Guest
+- Date
+- Time
+- Party Size
+- Venue
+- Address
+- Status
+- Notes

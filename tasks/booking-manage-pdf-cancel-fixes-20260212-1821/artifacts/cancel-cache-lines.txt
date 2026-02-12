@@ -1,0 +1,5 @@
+46:      await queryClient.cancelQueries({ queryKey: reservationKeys.detail(id) });
+50:      const reservationDetail = queryClient.getQueryData<Reservation>(reservationKeys.detail(id));
+70:        queryClient.setQueryData(reservationKeys.detail(id), {
+96:          reservationKeys.detail(variables.id),
+107:      queryClient.invalidateQueries({ queryKey: reservationKeys.detail(variables.id) });

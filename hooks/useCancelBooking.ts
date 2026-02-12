@@ -4,12 +4,13 @@ import { type QueryKey, useMutation, useQueryClient } from '@tanstack/react-quer
 
 import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';
-import { BOOKING_IN_PAST_CUSTOMER_MESSAGE } from '@/lib/bookings/messages';
 import { fetchJson } from '@/lib/http/fetchJson';
 import { queryKeys } from '@/lib/query/keys';
+import { reservationKeys } from '@shared/api/queryKeys';
 
 import type { BookingDTO, BookingsPage } from './useBookings';
 import type { HttpError } from '@/lib/http/errors';
+import type { Reservation } from '@entities/reservation/reservation.schema';
 
 export type CancelBookingInput = {
   id: string;
@@ -23,6 +24,7 @@ export type CancelBookingResponse = {
 export type CancelContext = {
   lists: Array<[QueryKey, BookingsPage | undefined]>;
   detail: BookingDTO | undefined;
+  reservationDetail: Reservation | undefined;
 };
 
 export function useCancelBooking() {
@@ -41,9 +43,11 @@ export function useCancelBooking() {
     onMutate: async ({ id }) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.bookings.all });
       await queryClient.cancelQueries({ queryKey: queryKeys.bookings.detail(id) });
+      await queryClient.cancelQueries({ queryKey: reservationKeys.detail(id) });
 
       const lists = queryClient.getQueriesData<BookingsPage>({ queryKey: queryKeys.bookings.all });
       const detail = queryClient.getQueryData<BookingDTO>(queryKeys.bookings.detail(id));
+      const reservationDetail = queryClient.getQueryData<Reservation>(reservationKeys.detail(id));
 
       lists.forEach(([key, data]) => {
         if (!data || !Array.isArray(data.items)) return;
@@ -62,7 +66,14 @@ export function useCancelBooking() {
         });
       }
 
-      return { lists, detail };
+      if (reservationDetail) {
+        queryClient.setQueryData(reservationKeys.detail(id), {
+          ...reservationDetail,
+          status: 'cancelled',
+        });
+      }
+
+      return { lists, detail, reservationDetail };
     },
     onSuccess: ({ id }) => {
       emit('booking_cancelled', { bookingId: id });
@@ -80,15 +91,20 @@ export function useCancelBooking() {
       if (context?.detail) {
         queryClient.setQueryData(queryKeys.bookings.detail(variables.id), context.detail);
       }
-      const message = error.code === 'PENDING_LOCKED'
-        ? 'This booking is pending review and cannot be changed online. Please contact the venue.'
-        : error.code === 'BOOKING_IN_PAST'
-          ? BOOKING_IN_PAST_CUSTOMER_MESSAGE
-          : error.message;
+      if (context?.reservationDetail) {
+        queryClient.setQueryData(
+          reservationKeys.detail(variables.id),
+          context.reservationDetail,
+        );
+      }
+      if (error.code === 'PENDING_LOCKED' || error.code === 'BOOKING_IN_PAST') {
+        emit('booking_cancel_blocked', { bookingId: variables.id, code: error.code });
+      }
     },
     onSettled: (_data, _error, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.bookings.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.bookings.detail(variables.id) });
+      queryClient.invalidateQueries({ queryKey: reservationKeys.detail(variables.id) });
     },
   });
 }
