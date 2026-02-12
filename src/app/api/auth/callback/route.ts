@@ -64,6 +64,7 @@ export async function GET(req: NextRequest) {
   const redirectedFrom = requestUrl.searchParams.get('redirectedFrom');
   const hostname = parseHostname(req);
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'localhost';
+  const hasAuthParams = !!code || !!tokenHash;
 
   console.log('[auth/callback] Request received:', {
     hostname,
@@ -99,12 +100,32 @@ export async function GET(req: NextRequest) {
   };
 
   // Resolve destination URL first so we can create redirect response
+  const buildLoginRedirect = (errorType: string, userMessage: string) => {
+    const loginUrl = new URL(config.auth.loginUrl, requestUrl.origin);
+    loginUrl.searchParams.set('error', errorType);
+    loginUrl.searchParams.set('message', userMessage);
+    return NextResponse.redirect(loginUrl.toString());
+  };
+
+  if (!hasAuthParams) {
+    console.warn(
+      '[auth/callback] No code or token_hash parameter in request - possible direct access or malformed link',
+      {
+        redirectedFrom,
+      },
+    );
+    return buildLoginRedirect(
+      'missing_auth_parameters',
+      'Authentication callback was missing required parameters. Please try signing in again.',
+    );
+  }
+
   const destination = toAbsoluteRedirectTarget(resolveDestination(), rootDomain);
   const redirectUrl = new URL(destination, requestUrl.origin);
 
-  if (code || tokenHash) {
-    const cookieStore = await cookies();
+  const cookieStore = await cookies();
 
+  if (code || tokenHash) {
     // Debug: Log all cookies to identify if PKCE code verifier is present
     const allCookies = cookieStore.getAll();
     const supabaseCookies = allCookies.filter(
@@ -154,11 +175,11 @@ export async function GET(req: NextRequest) {
           );
         }
 
-        const loginUrl = new URL(config.auth.loginUrl, requestUrl.origin);
-        loginUrl.searchParams.set('error', errorType);
-        loginUrl.searchParams.set('message', userMessage);
-        console.log('[auth/callback] Redirecting to login due to error:', loginUrl.toString());
-        return NextResponse.redirect(loginUrl.toString());
+        console.log('[auth/callback] Redirecting to login due to error:', {
+          errorType,
+          userMessage,
+        });
+        return buildLoginRedirect(errorType, userMessage);
       } else {
         console.log('[auth/callback] Session exchanged successfully:', {
           userId: data.user?.id,
@@ -203,10 +224,7 @@ export async function GET(req: NextRequest) {
           errorType = 'link_used';
         }
 
-        const loginUrl = new URL(config.auth.loginUrl, requestUrl.origin);
-        loginUrl.searchParams.set('error', errorType);
-        loginUrl.searchParams.set('message', userMessage);
-        return NextResponse.redirect(loginUrl.toString());
+        return buildLoginRedirect(errorType, userMessage);
       }
 
       console.log('[auth/callback] token_hash verified', {
@@ -218,12 +236,7 @@ export async function GET(req: NextRequest) {
         await linkAuthUserToCustomers(data.session.user.id, data.session.user.email);
       }
     }
-  } else {
-    console.warn(
-      '[auth/callback] No code or token_hash parameter in request - possible direct access or malformed link',
-    );
   }
-
   console.log('[auth/callback] Final redirect:', {
     destination,
     redirectUrl: redirectUrl.toString(),
