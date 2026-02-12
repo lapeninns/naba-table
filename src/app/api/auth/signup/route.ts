@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { validatePasswordStrength } from '@/lib/security/passwordPolicy';
+import {
+  getMagicLinkFailure,
+  isMagicLinkDeliveryError,
+  sendAuthMagicLink,
+} from '@/server/auth/magic-link-email';
 import { validateCsrfToken } from '@/server/security/csrf';
 import { consumeRateLimit } from '@/server/security/rate-limit';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
@@ -112,15 +117,26 @@ export async function POST(req: NextRequest) {
   }
 
   const emailRedirectTo = buildCallbackUrl(req.nextUrl.origin, redirectedFrom);
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: { emailRedirectTo, data: { intent: 'onboarding_signup' } },
-  });
+  try {
+    await sendAuthMagicLink({
+      email,
+      emailRedirectTo,
+      intent: 'signup',
+      data: { intent: 'onboarding_signup' },
+    });
+  } catch (error) {
+    console.error('[Auth/signup] Magic link delivery failed', {
+      status: isMagicLinkDeliveryError(error) ? error.status : undefined,
+      error: error instanceof Error ? error.message : String(error),
+    });
 
-  if (error) {
+    const failure = getMagicLinkFailure(
+      error,
+      'We could not send a magic link right now. Please try again.',
+    );
     const response = NextResponse.json(
-      { message: error.message ?? 'We could not send a magic link right now. Please try again.' },
-      { status: error.status ?? 400 },
+      { message: failure.message },
+      { status: failure.status },
     );
     return setRateHeaders(response, rateResult);
   }
