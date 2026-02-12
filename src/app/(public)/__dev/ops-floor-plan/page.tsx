@@ -1,12 +1,12 @@
 import { notFound } from 'next/navigation';
 
-import { OpsBookingDialogDevHarness } from './ui/OpsBookingDialogDevHarness';
+import { OpsFloorPlanDevHarness } from './ui/OpsFloorPlanDevHarness';
 
 export const metadata = {
-  title: 'Dev: Ops booking dialog',
+  title: 'Dev: Ops floor plan',
 };
 
-export default function OpsBookingDialogDevPage() {
+export default function OpsFloorPlanDevPage() {
   // This page is only for local UI verification via Chrome DevTools MCP.
   // It must not be reachable in production/staging environments.
   // Next dev does not reliably expose NODE_ENV/APP_ENV as runtime env vars (they can be absent),
@@ -15,5 +15,5 @@ export default function OpsBookingDialogDevPage() {
     notFound();
   }
 
-  return <OpsBookingDialogDevHarness />;
+  return <OpsFloorPlanDevHarness />;
 }

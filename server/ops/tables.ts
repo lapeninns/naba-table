@@ -422,6 +422,19 @@ export async function listTablesWithSummary(
   restaurantId: string,
   filters: TableListFilters = {},
 ): Promise<{ tables: TableRecord[]; summary: TableSummary }> {
+  const [tables, zones] = await Promise.all([
+    listTables(client, restaurantId, filters),
+    listZones(client, restaurantId),
+  ]);
+
+  return { tables, summary: await computeSummary(client, restaurantId, tables, zones) };
+}
+
+export async function listTables(
+  client: PublicClient,
+  restaurantId: string,
+  filters: TableListFilters = {},
+): Promise<TableRecord[]> {
   let tableQuery = client
     .from("table_inventory")
     .select(TABLE_SELECT)
@@ -438,6 +451,16 @@ export async function listTablesWithSummary(
     tableQuery = tableQuery.eq("zone_id", filters.zoneId);
   }
 
+  const tablesResult = await tableQuery;
+
+  if (tablesResult.error) {
+    throw tablesResult.error;
+  }
+
+  return ((tablesResult.data ?? []) as RawTableRecord[]).map(toTableRecord);
+}
+
+export async function listZones(client: PublicClient, restaurantId: string): Promise<ZoneRow[]> {
   const zonesQuery = client
     .from("zones")
     .select("id, name, active")
@@ -445,27 +468,17 @@ export async function listTablesWithSummary(
     .order("sort_order", { ascending: true })
     .order("name", { ascending: true });
 
-  const [tablesResult, zonesResult] = await Promise.all([tableQuery, zonesQuery]);
-
-  if (tablesResult.error) {
-    throw tablesResult.error;
-  }
+  const zonesResult = await zonesQuery;
 
   if (zonesResult.error) {
     throw zonesResult.error;
   }
 
-  const tables = ((tablesResult.data ?? []) as RawTableRecord[]).map(toTableRecord);
-  const zones = (zonesResult.data ?? []).map((zone) => ({
+  return (zonesResult.data ?? []).map((zone) => ({
     id: zone.id,
     name: zone.name,
     active: zone.active ?? true,
   })) as ZoneRow[];
-
-  return {
-    tables,
-    summary: await computeSummary(client, restaurantId, tables, zones),
-  };
 }
 
 export async function findTableByNumber(

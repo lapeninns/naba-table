@@ -72,6 +72,7 @@ export type ListTablesParams = {
   section?: string | null;
   zoneId?: string | null;
   status?: TableInventoryDto['status'] | null;
+  includeSummary?: boolean;
 };
 
 export type CreateTablePayload = {
@@ -103,6 +104,7 @@ export type TableTimelineParams = {
   date?: string | null;
   zoneId?: string | null;
   service?: 'lunch' | 'dinner' | 'all';
+  includeSummary?: boolean;
 };
 
 export interface TableInventoryService {
@@ -225,6 +227,9 @@ export function createBrowserTableInventoryService(): TableInventoryService {
       if (params.status) {
         searchParams.set('status', params.status);
       }
+      if (params.includeSummary === false) {
+        searchParams.set('includeSummary', '0');
+      }
 
       const response = await fetchJson<ListTablesResponseDto>(`${OPS_TABLES_BASE}?${searchParams.toString()}`);
       return {
@@ -296,6 +301,9 @@ export function createBrowserTableInventoryService(): TableInventoryService {
       }
       if (params.service && params.service !== 'all') {
         searchParams.set('service', params.service);
+      }
+      if (params.includeSummary === false) {
+        searchParams.set('includeSummary', '0');
       }
 
       return fetchJson<TableTimelineResponse>(`${OPS_TABLE_TIMELINE_BASE}?${searchParams.toString()}`);
