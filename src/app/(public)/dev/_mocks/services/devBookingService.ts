@@ -8,6 +8,7 @@ import type {
   BookingEmailDeliveryResponse,
   EmailDeliveryEventDTO,
   EmailDeliveryStatus,
+  OpsEmailDeliveryContentResponse,
   OpsEmailDeliveryFeedResponse,
   OpsEmailDeliveryRange,
 } from '@/types/emailDelivery';
@@ -456,6 +457,38 @@ export class DevBookingService implements BookingService {
       templateType: params.templateType,
       emailType: params.emailType,
     });
+  }
+
+  async getEmailDeliveryMessageContent(params: {
+    messageId: string;
+    recipientEmail?: string;
+  }): Promise<OpsEmailDeliveryContentResponse> {
+    const messageId = params.messageId?.trim();
+    if (!messageId) {
+      return { ok: false, code: 'INTERNAL', error: 'Message id is required', message: 'Message id is required' };
+    }
+
+    const to = params.recipientEmail?.trim() ? [params.recipientEmail.trim()] : [];
+    const isSimulatedFailure = messageId.toLowerCase().includes('fail');
+
+    return {
+      ok: true,
+      content: {
+        messageId,
+        subject: isSimulatedFailure ? 'DEV: Booking email (simulated failure)' : 'DEV: Booking email preview',
+        from: 'no-reply@example.test',
+        to,
+        cc: null,
+        bcc: null,
+        replyTo: null,
+        createdAt: new Date().toISOString(),
+        scheduledAt: null,
+        lastEvent: isSimulatedFailure ? 'failed' : 'delivered',
+        text:
+          'This is a dev-only email preview.\n\nIn production, this content is fetched from Resend using the message id.',
+        html: `<!doctype html><html><body style="font-family:system-ui;line-height:1.4"><h1>Dev Email Preview</h1><p><strong>Message:</strong> ${messageId}</p><p>In production, this content comes from Resend.</p></body></html>`,
+      },
+    };
   }
 }
 

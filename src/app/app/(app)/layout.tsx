@@ -7,7 +7,7 @@ import { OpsServicesProvider } from '@/contexts/ops-services';
 import { OpsSessionProvider } from '@/contexts/ops-session';
 import { env } from '@/lib/env';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
-import { fetchUserMemberships, type RestaurantMembershipWithDetails } from '@/server/team/access';
+import { fetchUserMembershipsCached, type RestaurantMembershipWithDetails } from '@/server/team/access';
 
 import type { RestaurantRole } from '@/lib/owner/auth/roles';
 import type { OpsMembership, OpsUser } from '@/types/ops';
@@ -77,7 +77,7 @@ export default async function OpsAppLayout({ children }: OpsAppLayoutProps) {
   }
 
   if (supabaseUser) {
-    const membershipsPromise = fetchUserMemberships(supabaseUser.id);
+    const membershipsPromise = fetchUserMembershipsCached(supabaseUser.id);
 
     try {
       memberships = await membershipsPromise;

@@ -1,69 +1,62 @@
 # Continuity Ledger
 
-Last updated: 2026-02-10T19:22:00Z
+Last updated: 2026-02-12T16:02:00Z
 
 ## Goal (incl. success criteria)
 
-- Resolve ops UI regressions and Vercel serverless function size failures.
-- Success: canonical status labels, safe origin handling, timezone-stable calendar, functional filter button, visible skeleton divider, and Vercel build passes size checks.
+- Reduce perceived and actual load time for ops floor plan and ops app hard reloads.
+- Success:
+  - `/app/floor-plan` does not block UI rendering on timeline status (tables render as soon as inventory is available).
+  - `/api/ops/tables` and `/api/ops/tables/timeline` can skip summary work via `includeSummary=0`.
+  - `/app/*` hard reload avoids repeated membership lookups via a bounded TTL cache.
 
 ## Constraints/Assumptions
 
-- Follow root + path-level AGENTS policies.
-- Supabase is remote-only (no local migrations).
-- UI changes require DevTools MCP QA (not run yet).
-- Use trusted env vars for origins (no forwarded headers).
-- Do not delete or move artifacts without explicit user request.
+- Follow root AGENTS policies.
+- Supabase access is remote-only; do not run local migrations.
+- Manual UI QA via Chrome DevTools MCP is required for UI changes.
+- Secrets must stay in env/secret stores; nothing should be committed.
 
 ## Key decisions
 
-- Centralize trusted origin selection in `lib/site-url.ts`.
-- Exclude `tasks/**/artifacts/**` from Vercel build context and Next tracing.
-- Derive calendar selection dates from restaurant date parts to avoid drift.
-- Make filter button scroll to the filters bar instead of remaining inert.
+- Keep `includeSummary=0` as an opt-in toggle to preserve default API behavior for existing consumers.
+- Use a small in-memory TTL cache for ops memberships keyed by `userId` (best-effort across requests within the same Node process).
 
 ## State
 
-- Lint run (warnings only). DevTools MCP QA still pending due to tool availability.
+- Implemented performance improvements; remaining manual QA requires an authenticated ops session to measure real `/app/*` TTFB and API latencies against remote Supabase.
 
 ## Done
 
-- Created task `tasks/fix-ops-ui-issues-20260208-2049/` with Phase docs.
-- Created task `tasks/fix-vercel-function-size-20260208-2102/` with Phase docs.
-- Updated `lib/site-url.ts` with trusted origin helpers.
-- Removed header-derived origin usage in server-side prefetches.
-- Fixed status label resolution in booking details utils.
-- Adjusted heatmap calendar date construction to avoid timezone drift.
-- Wired filter button to scroll to the filters bar.
-- Fixed skeleton divider visibility class.
-- Added `outputFileTracingExcludes` and `.vercelignore` for task artifacts.
-- Ran `pnpm lint` (warnings only; no errors).
+- Floor plan timeline drag no longer pans the canvas.
+- Floor plan modularization/refactor completed (file size + a11y improvements).
+- Fixed broken floor plan “New booking” / “Browse bookings” links to `/app/*`.
+- Perf: added `includeSummary=0` fast-paths for tables + timeline and parallelized timeline builder awaits.
+- Perf: updated floor plan to render once table layout is available (timeline loads in background).
+- Perf: added ops membership TTL cache and switched ops layout + dashboard prefetch to use cached memberships.
 
 ## Now
 
-- Request approval to push, open PR, and merge; flag missing DevTools MCP QA.
+- Awaiting authenticated manual QA on `/app/floor-plan` to confirm:
+  - Reduced document TTFB on repeat reloads (membership cache hit).
+  - Faster `/api/ops/tables?includeSummary=0` and `/api/ops/tables/timeline?includeSummary=0`.
 
 ## Next
 
-- Run tests/QA, update verification artifacts.
-- Create branch/commit/PR once verification is complete and push is approved.
+- If TTFB remains high: optimize layout auth/membership resolution further (instrument timings; consider caching/column trimming elsewhere).
+- If timeline endpoints remain slow: DB-level improvements (indexes, projection trimming, query consolidation) as a separate Supabase remote-only task.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- None.
+- What deployment model is used for ops (serverless vs long-lived Node)? In-memory caches help most on long-lived instances.
 
 ## Working set (files/ids/commands)
 
-- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/lib/site-url.ts
-- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/next.config.js
-- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/.vercelignore
-- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/src/components/features/dashboard/booking-details/utils.ts
-- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/src/components/features/dashboard/HeatmapCalendar.tsx
-- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/src/components/features/dashboard/OpsDashboardToolbar.tsx
-- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/src/components/features/dashboard/cards/OpsBookingCardSkeleton.tsx
-- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/src/app/app/(app)/dashboard/page.tsx
-- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/src/app/(public)/bookings/[bookingId]/page.tsx
-- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/src/app/(public)/bookings/booking-page.tsx
-- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/src/app/guest/bookings/[bookingId]/receipt/page.tsx
-- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/fix-ops-ui-issues-20260208-2049/\*
-- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/fix-vercel-function-size-20260208-2102/\*
+- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/src/components/features/seating/FloorPlanPage.tsx
+- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/ops/table-timeline.ts
+- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/ops/tables.ts
+- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/team/access.ts
+- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/src/app/app/(app)/layout.tsx
+- Task folders:
+  - /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/perf-floor-plan-load-20260212-1533/
+  - /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/perf-app-layout-memberships-20260212-1555/

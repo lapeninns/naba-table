@@ -4,7 +4,7 @@ import { getVenuePolicy } from '@/server/capacity/policy';
 import { buildBusyMaps } from '@/server/capacity/table-assignment/availability';
 import { computeBookingWindowWithFallback } from '@/server/capacity/table-assignment/booking-window';
 import { loadActiveHoldsForDate } from '@/server/capacity/table-assignment/supabase';
-import { listTablesWithSummary, type TableRecord } from '@/server/ops/tables';
+import { listTables, listTablesWithSummary, type TableRecord } from '@/server/ops/tables';
 import { getRestaurantSchedule, type RestaurantSchedule } from '@/server/restaurants/schedule';
 import { getRestaurantTurnBands } from '@/server/restaurants/turnBands';
 import { getServiceSupabaseClient } from '@/server/supabase';
@@ -53,6 +53,7 @@ type TimelineParams = {
   date?: string | null;
   zoneId?: string | null;
   service?: 'lunch' | 'dinner' | 'all';
+  includeSummary?: boolean;
   client?: SupabaseClient<Database, 'public'>;
 };
 
@@ -89,28 +90,46 @@ export async function getTableAvailabilityTimeline({
   date,
   zoneId,
   service = 'all',
+  includeSummary = true,
   client,
 }: TimelineParams): Promise<TableTimelineResponse> {
   const supabase = client ?? getServiceSupabaseClient();
-  const schedule = await getRestaurantSchedule(restaurantId, { date: date ?? undefined, client: supabase });
-  const { tables, summary } = await listTablesWithSummary(supabase, restaurantId, zoneId ? { zoneId } : {});
+  const schedulePromise = getRestaurantSchedule(restaurantId, { date: date ?? undefined, client: supabase });
+  const turnBandsPromise = getRestaurantTurnBands(restaurantId, supabase);
+
+  // Tables and bookings can start loading before we compute policy.
+  const tablesPromise = includeSummary
+    ? listTablesWithSummary(supabase, restaurantId, zoneId ? { zoneId } : {})
+    : listTables(supabase, restaurantId, zoneId ? { zoneId } : {});
+
+  const schedule = await schedulePromise;
+
+  const bookingsPromise = loadTimelineBookings(supabase, restaurantId, schedule.date);
+
+  const [tablesResult, turnBandsByOption, bookingsResult] = await Promise.all([
+    tablesPromise,
+    turnBandsPromise,
+    bookingsPromise,
+  ]);
+
+  const tables = Array.isArray(tablesResult) ? tablesResult : tablesResult.tables;
+  const summary = Array.isArray(tablesResult) ? null : tablesResult.summary ?? null;
   const filteredTables = zoneId ? tables.filter((table) => table.zone_id === zoneId) : tables;
 
   if (!schedule.window.opensAt || !schedule.window.closesAt || schedule.isClosed) {
-    return buildClosedResponse(schedule, summary ?? null);
+    return buildClosedResponse(schedule, summary);
   }
 
   const slotMeta = buildSlotMetadata(schedule, service);
   if (!slotMeta.windowStart || !slotMeta.windowEnd || slotMeta.slots.length === 0) {
-    return buildClosedResponse(schedule, summary ?? null, slotMeta.services);
+    return buildClosedResponse(schedule, summary, slotMeta.services);
   }
 
-  const turnBandsByOption = await getRestaurantTurnBands(restaurantId, supabase);
   const policy = getVenuePolicy({
     timezone: schedule.timezone,
     turnBandsByOption,
   });
-  const bookingsResult = await loadTimelineBookings(supabase, restaurantId, schedule.date);
+
   const { contextRows, bookingMeta } = enrichBookings(bookingsResult, policy);
   const holds = await loadHolds(supabase, restaurantId, schedule.date, policy);
   const busyMap = buildBusyMaps({
@@ -143,7 +162,7 @@ export async function getTableAvailabilityTimeline({
     },
     slots: slotMeta.slots,
     services: slotMeta.services,
-    summary: summary ?? null,
+    summary,
     tables: tablesResponse,
   };
 }
