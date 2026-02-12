@@ -6,9 +6,10 @@
 - `NODE_ENV` should mirror `APP_ENV` in production (`NODE_ENV=production`).
 - `DB_TARGET_ENV` defaults to `APP_ENV` for DB scripts.
 
-## Supabase email (Resend SMTP)
+## Auth email delivery (Resend + Supabase)
 
-- Supabase dashboard is configured to send auth/transactional emails via Resend SMTP.
+- Magic-link emails from app auth routes are generated server-side via Supabase Admin API and delivered by the app's Resend integration (`server/auth/magic-link-email.ts` + `libs/resend.ts`).
+- Supabase dashboard is configured to send remaining built-in auth emails via Resend SMTP.
 - Provider setup (per env):
   - Resend API key name: **Supabase Integration** (create under Resend → API Keys; store secret in the hosting secret manager, not git).
   - Sender name: **Lapen Inns**
@@ -16,7 +17,7 @@
   - SMTP host/port/user: `smtp.resend.com` / `465` / `resend`
   - SMTP password: use the generated secret from Resend; inject only in Supabase dashboard (not committed).
 - In Supabase: go to **Settings → Email** and paste the above values; confirm the integration from the Supabase dashboard as prompted.
-- App-side Resend usage remains via `RESEND_API_KEY` + `RESEND_FROM` in `.env.example`; keep those populated for API-based emails.
+- App-side Resend usage remains via `RESEND_API_KEY` + `RESEND_FROM` in `.env.example`; keep those populated for API-based emails (including auth magic links).
 
 ## Guardrails
 

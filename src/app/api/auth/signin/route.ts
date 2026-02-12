@@ -7,6 +7,12 @@ import {
   sanitizeRedirect,
   toAbsoluteRedirectTarget,
 } from '@/lib/auth/redirects';
+import {
+  MAGIC_LINK_FAILURE_MESSAGE,
+  getMagicLinkFailure,
+  isMagicLinkDeliveryError,
+  sendAuthMagicLink,
+} from '@/server/auth/magic-link-email';
 import { validateCsrfToken } from '@/server/security/csrf';
 import { consumeRateLimit } from '@/server/security/rate-limit';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
@@ -178,27 +184,24 @@ export async function POST(req: NextRequest) {
       emailRedirectTo,
     });
 
-    // Use Supabase's built-in signInWithOtp for proper PKCE flow
-    // This handles code challenges automatically and works reliably with the callback
-    // shouldCreateUser: true allows new guests to sign up via magic link
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
+    try {
+      await sendAuthMagicLink({
+        email,
         emailRedirectTo,
-        shouldCreateUser: true,
-      },
-    });
+        intent: 'signin',
+      });
+    } catch (error) {
+      console.error('[Auth/signin] Magic link delivery failed', {
+        status: isMagicLinkDeliveryError(error) ? error.status : undefined,
+        error: error instanceof Error ? error.message : String(error),
+      });
 
-    console.log('[Auth/signin] OTP result:', { error: error?.message, status: error?.status });
-
-    if (error) {
-      const status = error.status ?? 400;
+      const failure = getMagicLinkFailure(error, MAGIC_LINK_FAILURE_MESSAGE);
       const response = NextResponse.json(
         {
-          message:
-            error.message ?? "We couldn't send a magic link right now. Please try again shortly.",
+          message: failure.message,
         },
-        { status },
+        { status: failure.status },
       );
       return setRateHeaders(response, rateResult);
     }
