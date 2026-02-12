@@ -10,7 +10,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { findTableByNumber, insertTable, listTablesWithSummary } from "@/server/ops/tables";
+import { findTableByNumber, insertTable, listTables, listTablesWithSummary } from "@/server/ops/tables";
 import { getRouteHandlerSupabaseClient } from "@/server/supabase";
 
 import type { TablesInsert } from "@/types/supabase";
@@ -30,6 +30,7 @@ const querySchema = z.object({
   section: z.string().optional(),
   status: tableStatusEnum.optional(),
   zoneId: z.string().uuid().optional(),
+  includeSummary: z.enum(["0", "1", "true", "false"]).optional(),
 });
 
 const createTableSchema = z.object({
@@ -80,7 +81,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Invalid query parameters" }, { status: 400 });
     }
 
-    const { restaurantId, section, status, zoneId } = parsed.data;
+    const { restaurantId, section, status, zoneId, includeSummary } = parsed.data;
 
     const filters = {
       section: section && section.trim().length > 0 ? section : undefined,
@@ -88,7 +89,13 @@ export async function GET(req: NextRequest) {
       zoneId,
     } as const;
 
-    const { tables, summary } = await listTablesWithSummary(supabase, restaurantId, filters);
+    const shouldIncludeSummary = includeSummary ? includeSummary !== "0" && includeSummary !== "false" : true;
+
+    const result = shouldIncludeSummary
+      ? await listTablesWithSummary(supabase, restaurantId, filters)
+      : { tables: await listTables(supabase, restaurantId, filters), summary: null };
+
+    const { tables, summary } = result;
 
     return NextResponse.json({
       tables,
