@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { toast } from 'react-hot-toast';
 
 import { HelpTooltip } from '@/components/features/restaurant-settings/HelpTooltip';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -340,11 +339,9 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
 
   const handleSave = async () => {
     if (!validate()) {
-      toast.error('Please fix validation errors before saving');
       return;
     }
     if (!hasRequiredOccasions) {
-      toast.error('Required booking occasions are missing');
       return;
     }
 
@@ -360,10 +357,9 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
     try {
       await updateMutation.mutateAsync(payload);
       initializeState();
-      toast.success('Service periods updated');
       setIsDirty(false);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update service periods');
+      console.error('[service-periods] save failed', error);
     }
   };
 
@@ -376,8 +372,7 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
   useGlobalShortcuts([
     {
       key: 's',
-      meta: true,
-      ctrl: true,
+      metaOrCtrl: true,
       preventDefault: true,
       enabled: !isDisabled && isDirty,
       handler: () => {

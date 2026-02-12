@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import { queryKeys } from '@/lib/query/keys';
 import { buildGuestBookingsViewModel } from '@src/guest/routes/bookings/view-model';
 import { buildGuestDashboardViewModel } from '@src/guest/routes/dashboard/view-model';
 import { buildGuestProfileViewModel } from '@src/guest/routes/profile/view-model';
 import { buildBookingsQueryKeyParams } from '@src/guest/services/bookings-params';
-import { queryKeys } from '@/lib/query/keys';
 
-import type { GuestServerServices } from '@src/guest/services/server';
-import type { BookingsPage } from '@src/guest/services/ports';
 import type { ProfileResponse } from '@/lib/profile/schema';
+import type { BookingsPage } from '@src/guest/services/ports';
+import type { GuestServerServices } from '@src/guest/services/server';
 import type { User } from '@supabase/supabase-js';
 
 const mockUser = {

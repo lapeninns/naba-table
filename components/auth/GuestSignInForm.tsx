@@ -6,6 +6,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
+import { GuestStatus } from '@/components/guest/ui';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -16,7 +17,6 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { GuestStatus } from '@/components/guest/ui';
 import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';
 import { HttpError } from '@/lib/http/errors';

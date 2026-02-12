@@ -9,6 +9,7 @@ import {
   parseOpsCustomersQuery,
   type CustomerDTO,
   type OpsCustomersResponse,
+  type OpsCustomersSummaryDTO,
 } from "./schema";
 
 import type { NextRequest} from "next/server";
@@ -115,6 +116,7 @@ export async function GET(req: NextRequest) {
       lastVisit: params.lastVisit,
       minBookings: params.minBookings,
       client: serviceSupabase,
+      includeSummary: params.page === 1,
     });
 
     const items: CustomerDTO[] = result.customers.map((customer) => ({
@@ -131,6 +133,18 @@ export async function GET(req: NextRequest) {
       totalCancellations: customer.totalCancellations,
     }));
 
+    const summary: OpsCustomersSummaryDTO | undefined =
+      params.page === 1 && result.summary
+        ? {
+            total: result.summary.total,
+            optedIn: result.summary.optedIn,
+            optedOut: result.summary.optedOut,
+            returning: result.summary.returning,
+            vip: result.summary.vip,
+            neverVisited: result.summary.neverVisited,
+          }
+        : undefined;
+
     const response: OpsCustomersResponse = {
       items,
       pageInfo: {
@@ -139,11 +153,12 @@ export async function GET(req: NextRequest) {
         total: result.total,
         hasNext: result.hasNext,
       },
+      summary,
     };
 
     return NextResponse.json(response);
   } catch (error) {
     console.error("[ops/customers][GET] query failed", error);
-    return NextResponse.json({ error: "Unable to fetch customers" }, { status: 500 });
+    return NextResponse.json({ error: "Unable to fetch guests" }, { status: 500 });
   }
 }

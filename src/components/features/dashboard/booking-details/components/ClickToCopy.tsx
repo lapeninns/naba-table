@@ -1,7 +1,7 @@
 /**
  * ClickToCopy
  *
- * Copy helper with tooltip + toast feedback.
+ * Copy helper with tooltip feedback.
  */
 
 'use client';
@@ -16,7 +16,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 import { copyToClipboard } from '../utils';
@@ -29,24 +28,16 @@ export interface ClickToCopyProps {
 }
 
 export function ClickToCopy({ text, label, className, compact = false }: ClickToCopyProps) {
-  const { toast } = useToast();
   const [copied, setCopied] = useState(false);
 
   const handleCopy = useCallback(async () => {
     const success = await copyToClipboard(text);
     setCopied(success);
 
-    toast({
-      title: success ? 'Copied' : 'Copy failed',
-      description: success ? `${label} copied to clipboard` : 'Please try again.',
-      variant: success ? 'default' : 'destructive',
-      duration: 2000,
-    });
-
     if (success) {
       setTimeout(() => setCopied(false), 1800);
     }
-  }, [label, text, toast]);
+  }, [text]);
 
   return (
     <TooltipProvider>

@@ -50,7 +50,7 @@ function buildFilename(restaurantName: string | null | undefined): string {
   const baseName = restaurantName?.trim().toLowerCase() ?? "restaurant";
   const safeName = baseName.replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "") || "restaurant";
   const date = new Date().toISOString().split("T")[0];
-  return `customers-${safeName}-${date}.csv`;
+  return `guests-${safeName}-${date}.csv`;
 }
 
 export async function GET(req: NextRequest) {
@@ -130,7 +130,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     console.error("[ops/customers/export][GET] query failed", error);
-    return NextResponse.json({ error: "Unable to export customers" }, { status: 500 });
+    return NextResponse.json({ error: "Unable to export guests" }, { status: 500 });
   }
 
   const csv = generateCSV(customers, CUSTOMER_EXPORT_COLUMNS);

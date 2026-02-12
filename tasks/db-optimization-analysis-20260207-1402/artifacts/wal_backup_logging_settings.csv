@@ -1,0 +1,20 @@
+name,setting,unit,source
+archive_command,/usr/bin/admin-mgr wal-push %p >> /var/log/wal-g/wal-push.log 2>&1,,configuration file
+archive_mode,on,,configuration file
+archive_timeout,120,s,configuration file
+deadlock_timeout,1000,ms,default
+hot_standby,off,,configuration file
+log_connections,on,,configuration file
+log_disconnections,off,,default
+log_lock_waits,on,,configuration file
+log_min_duration_statement,-1,ms,default
+log_statement,ddl,,configuration file
+max_replication_slots,10,,configuration file
+max_standby_archive_delay,30000,ms,default
+max_standby_streaming_delay,30000,ms,default
+max_wal_senders,10,,configuration file
+pgaudit.log,none,,default
+primary_conninfo,,,default
+shared_preload_libraries,"pg_stat_statements, pgaudit, plpgsql, plpgsql_check, pg_cron, pg_net, pgsodium, auto_explain, pg_tle, plan_filter, supabase_vault",,configuration file
+wal_compression,off,,default
+wal_keep_size,0,MB,default

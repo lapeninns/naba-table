@@ -3,13 +3,6 @@ import { getFeatureFlagOverride, type FeatureFlagKey } from '@/server/feature-fl
 
 export type AdjacencyMode = 'connected' | 'pairwise' | 'neighbors';
 
-const loyaltyPilotIds = new Set(
-  (env.featureFlags.loyaltyPilotRestaurantIds ?? '')
-    .split(',')
-    .map((value) => value.trim())
-    .filter((value) => value.length > 0),
-);
-
 const issuedSafetyWarnings = new Set<string>();
 
 function warnUnsafeFeatureFlag(message: string, context: Record<string, unknown>): void {
@@ -30,11 +23,6 @@ function resolveFeatureFlag(flag: FeatureFlagKey, fallback: boolean): boolean {
     return override;
   }
   return fallback;
-}
-
-export function isLoyaltyPilotRestaurant(restaurantId: string): boolean {
-  if (!restaurantId) return false;
-  return loyaltyPilotIds.has(restaurantId);
 }
 
 export function isAllocationsDualWriteEnabled(): boolean {

@@ -1,13 +1,19 @@
 'use client';
 
-import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useBookingService } from '@/contexts/ops-services';
 import { useSupabaseSession } from '@/hooks/useSupabaseSession';
 import { isRealtimeFloorplanEnabled } from '@/lib/feature-flags/realtime';
+import {
+  SUMMARY_INVALIDATION_DEBOUNCE_MS,
+  SUMMARY_POLL_INTERVAL_MS,
+  SUMMARY_SAFETY_POLL_INTERVAL_MS,
+} from '@/lib/ops/realtime';
 import { queryKeys } from '@/lib/query/keys';
 import { getRealtimeSupabaseClient } from '@/lib/supabase/realtime-client';
+import { debounce } from '@/utils/debounceThrottle';
 
 import type { OpsTodayBookingsSummary } from '@/types/ops';
 
@@ -17,7 +23,13 @@ export type UseOpsTodaySummaryOptions = {
   enabled?: boolean;
 };
 
-export function useOpsTodaySummary(options: UseOpsTodaySummaryOptions) {
+export type UseOpsTodaySummaryResult = UseQueryResult<OpsTodayBookingsSummary> & {
+  realtimeHealthy: boolean;
+  realtimeEnabled: boolean;
+  isPolling: boolean;
+};
+
+export function useOpsTodaySummary(options: UseOpsTodaySummaryOptions): UseOpsTodaySummaryResult {
   const bookingService = useBookingService();
   const { status } = useSupabaseSession();
   const queryClient = useQueryClient();
@@ -26,8 +38,8 @@ export function useOpsTodaySummary(options: UseOpsTodaySummaryOptions) {
   const [realtimeHealthy, setRealtimeHealthy] = useState(true);
   const [isVisible, setIsVisible] = useState(true);
   const subscribedRef = useRef(false);
+  const lastSummaryUpdatedAtRef = useRef<number | null>(null);
   const realtimeFlag = isRealtimeFloorplanEnabled();
-  const pollIntervalMs = 15_000;
   const queryKey = useMemo(
     () =>
       restaurantId
@@ -51,7 +63,8 @@ export function useOpsTodaySummary(options: UseOpsTodaySummaryOptions) {
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, []);
 
-  const shouldPoll = isEnabled && isVisible && (!realtimeFlag || !realtimeHealthy);
+  const realtimeEnabled = isEnabled && realtimeFlag;
+  const shouldPoll = isEnabled && isVisible && (!realtimeEnabled || !realtimeHealthy);
 
   const query = useQuery<OpsTodayBookingsSummary>({
     queryKey,
@@ -63,7 +76,7 @@ export function useOpsTodaySummary(options: UseOpsTodaySummaryOptions) {
     },
     enabled: isEnabled,
     staleTime: 60_000,
-    refetchInterval: shouldPoll ? pollIntervalMs : false,
+    refetchInterval: shouldPoll ? SUMMARY_POLL_INTERVAL_MS : false,
     refetchIntervalInBackground: false,
     refetchOnReconnect: isEnabled,
     refetchOnWindowFocus: isEnabled,
@@ -75,6 +88,50 @@ export function useOpsTodaySummary(options: UseOpsTodaySummaryOptions) {
       totals: data.totals,
     }),
   });
+  const { data, dataUpdatedAt, isFetching, refetch } = query;
+
+  useEffect(() => {
+    if (!data) return;
+    if (dataUpdatedAt) {
+      lastSummaryUpdatedAtRef.current = dataUpdatedAt;
+    }
+  }, [data, dataUpdatedAt]);
+
+  useEffect(() => {
+    if (!isEnabled || !realtimeFlag || !realtimeHealthy || !isVisible) return;
+
+    const interval = setInterval(() => {
+      const lastUpdatedAt = lastSummaryUpdatedAtRef.current;
+      if (!lastUpdatedAt) return;
+      if (isFetching) return;
+      const age = Date.now() - lastUpdatedAt;
+      if (age >= SUMMARY_SAFETY_POLL_INTERVAL_MS) {
+        void refetch();
+      }
+    }, SUMMARY_SAFETY_POLL_INTERVAL_MS);
+
+    return () => clearInterval(interval);
+  }, [isEnabled, isFetching, isVisible, realtimeFlag, realtimeHealthy, refetch]);
+
+  const invalidateActiveRef = useRef(true);
+
+  useEffect(() => {
+    invalidateActiveRef.current = true;
+  }, [queryKey]);
+
+  const debouncedInvalidate = useMemo(() => {
+    const run = debounce(() => {
+      if (!invalidateActiveRef.current) return;
+      queryClient.invalidateQueries({ queryKey, refetchType: 'active' });
+    }, SUMMARY_INVALIDATION_DEBOUNCE_MS);
+
+    return {
+      run,
+      deactivate: () => {
+        invalidateActiveRef.current = false;
+      },
+    };
+  }, [queryClient, queryKey]);
 
   // Realtime subscription for dashboard summary
   useEffect(() => {
@@ -95,7 +152,7 @@ export function useOpsTodaySummary(options: UseOpsTodaySummaryOptions) {
         targetDate: targetDate ?? 'today',
         payload,
       });
-      queryClient.invalidateQueries({ queryKey, refetchType: 'active' });
+      debouncedInvalidate.run();
     };
 
     // Listen to bookings table changes
@@ -117,18 +174,6 @@ export function useOpsTodaySummary(options: UseOpsTodaySummaryOptions) {
         event: '*',
         schema: 'public',
         table: 'booking_table_assignments',
-      },
-      handleChange,
-    );
-
-    // Listen to loyalty_points changes
-    channel.on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'loyalty_points',
-        filter: `restaurant_id=eq.${restaurantId}`,
       },
       handleChange,
     );
@@ -167,8 +212,14 @@ export function useOpsTodaySummary(options: UseOpsTodaySummaryOptions) {
       clearTimeout(connectGuard);
       channel.unsubscribe();
       client.removeChannel(channel);
+      debouncedInvalidate.deactivate();
     };
-  }, [isEnabled, queryClient, queryKey, realtimeFlag, restaurantId, targetDate]);
+  }, [debouncedInvalidate, isEnabled, realtimeFlag, restaurantId, targetDate]);
 
-  return query;
+  return {
+    ...query,
+    realtimeHealthy,
+    realtimeEnabled,
+    isPolling: !realtimeEnabled || !realtimeHealthy,
+  };
 }

@@ -1,0 +1,42 @@
+calls,max_ms,mean_ms,query_sample,queryid,rows,shared_blks_hit,shared_blks_read,temp_blks_read,temp_blks_written,total_ms,wal_bytes
+600,1.14,0.36,"select id, start_at, end_at, booking_date, start_time, end_time, party_size, status, customer_name, customer_email, created_at
+      from public.bookings
+      where restaurant_id = $1
+        and start_at >= $2
+        and start_at < $3
+        and (customer_name ilike $6 or customer_email ilike $6)
+      order by start_at desc
+      limit $4 offset $5",3375285890734606959,30000,20264,0,0,0,215.74,0
+600,0.36,0.21,"select id, start_at, end_at, booking_date, start_time, end_time, party_size, status, customer_name, customer_email, created_at
+      from public.bookings
+      where restaurant_id = $1
+        and start_at >= $2
+        and start_at < $3
+      order by start_at desc
+      limit $4 offset $5",8925452674337904763,30000,20324,0,0,0,126.18,0
+200,0.27,0.14,"select b.id, b.status, b.start_time, b.end_time, b.party_size, b.customer_name, b.reference,
+             a.table_id, t.table_number, t.capacity, t.section
+      from public.bookings b
+      left join public.booking_table_assignments a on a.booking_id = b.id
+      left join public.table_inventory t on t.id = a.table_id
+      where b.restaurant_id = $1
+        and b.booking_date = $2
+      order by b.start_time asc",-5073827570665881390,3000,11421,0,0,0,28.11,0
+4,6.28,6.07,"select
+          min(booking_date)::text as min,
+          max(booking_date)::text as max
+        from public.bookings
+        where reference like $1",8499484755594338499,4,3308,0,0,0,24.27,0
+1,5.09,5.09,"select
+      (select count(*)::bigint from public.restaurants) as restaurants,
+      (select count(*)::bigint from public.table_inventory) as table_inventory,
+      (select count(*)::bigint from public.table_adjacencies) as table_adjacencies,
+      (select count(*)::bigint from public.customers) as customers,
+      (select count(*)::bigint from public.bookings) as bookings,
+      (select count(*)::bigint from public.booking_table_assignments) as assignments",1156995008051278036,1,316,0,0,0,5.09,0
+50,0.07,0.02,"select count(*)::int as n from public.bookings where restaurant_id=$1 and reference like $2",-3106556272351643011,50,97,0,0,0,1.13,0
+50,0.06,0.02,"select count(*)::int as n from public.customers where restaurant_id=$1 and email like $2",-993744666890677890,50,95,0,0,0,1.04,0
+1,0.02,0.02,"select count(*) as customers_count from public.customers",1503246077296183806,1,0,0,0,0,0.02,0
+1,0.02,0.02,"select count(*)::int as total, count(*) filter (where start_at is null)::int as null_start_at from public.bookings",2928043336425164760,1,0,0,0,0,0.02,0
+1,0.02,0.02,"select count(*) as booking_table_assignments_count from public.booking_table_assignments",-8991393225879859876,1,0,0,0,0,0.02,0
+1,0.01,0.01,"select count(*) as bookings_count from public.bookings",5968550065958855669,1,0,0,0,0,0.01,0

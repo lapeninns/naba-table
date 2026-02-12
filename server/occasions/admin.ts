@@ -1,6 +1,6 @@
 import { getServiceSupabaseClient } from '@/server/supabase';
 
-import type { Database } from '@/types/supabase';
+import type { Database, Json } from '@/types/supabase';
 import type { OccasionDefinition } from '@reserve/shared/occasions';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -23,22 +23,9 @@ type OccasionRow = Database['public']['Tables']['booking_occasions']['Row'] & {
 type AuditInsert = {
   occasion_key: string;
   action: 'create' | 'update' | 'delete';
-  before_change: Record<string, unknown> | null;
-  after_change: Record<string, unknown> | null;
+  before_change: Json | null;
+  after_change: Json | null;
   changed_by: string | null;
-};
-
-type AuditEnabledDatabase = Database & {
-  public: Database['public'] & {
-    Tables: Database['public']['Tables'] & {
-      booking_occasions_audit: {
-        Row: AuditInsert & { created_at?: string | null; id?: string };
-        Insert: AuditInsert;
-        Update: Partial<AuditInsert>;
-        Relationships: [];
-      };
-    };
-  };
 };
 
 const ACTIVE_COLUMNS =
@@ -99,9 +86,7 @@ export async function insertAudit(entry: AuditInsert, client = getServiceSupabas
     after_change: entry.after_change,
     changed_by: entry.changed_by,
   };
-  // Audit table is not present in generated types; widen client type to include it.
-  const auditClient = client as SupabaseClient<AuditEnabledDatabase>;
-  const { error } = await auditClient.from('booking_occasions_audit').insert(payload);
+  const { error } = await client.from('booking_occasions_audit').insert(payload);
   if (error) {
     // Log but do not block request flow.
     console.warn('[ops/occasions] failed to insert audit log', error);

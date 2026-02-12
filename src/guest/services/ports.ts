@@ -29,8 +29,6 @@ export type BookingDTO = {
   reservationIntervalMinutes?: number | null;
   reference?: string | null;
   source?: string | null;
-  loyaltyTier?: "bronze" | "silver" | "gold" | "platinum" | null;
-  loyaltyPoints?: number | null;
   seatingPreference?: string | null;
   allergies?: string[] | null;
   dietaryRestrictions?: string[] | null;

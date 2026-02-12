@@ -1,0 +1,37 @@
+# Drop Candidates (present on staging public schema; not referenced in canonical repo paths)
+# Paths searched: src, server, reserve, lib, libs, types, supabase/migrations, openapi.yaml, generate_bookings.sql
+
+## tables (2)
+zone_floorplan_edit_locks
+zone_floorplan_layout_versions
+
+## views (0)
+
+## mat_views (0)
+
+## functions (18)
+acquire_zone_floorplan_lock_v1
+allowed_capacities_set_updated_at
+apply_zone_floorplan_layout_v1
+enforce_bar_drinks_only
+increment_booking_slot_version
+log_table_assignment_change
+on_allocations_refresh
+on_booking_status_refresh
+release_zone_floorplan_lock_v1
+restore_zone_floorplan_layout_v1
+set_booking_instants
+set_booking_reference
+set_timestamp_updated_at
+sync_table_hold_windows
+update_table_hold_windows
+update_updated_at_column
+validate_booking_has_assignments
+validate_table_adjacency
+
+## sequences (2)
+_migrations_id_seq
+booking_state_history_id_seq
+
+## types (0)
+

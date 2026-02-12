@@ -44,7 +44,17 @@ export type PageInfo = {
   hasNext: boolean;
 };
 
+export type OpsCustomersSummaryDTO = {
+  total: number;
+  optedIn: number;
+  optedOut: number;
+  returning: number;
+  vip: number;
+  neverVisited: number;
+};
+
 export type OpsCustomersResponse = {
   items: CustomerDTO[];
   pageInfo: PageInfo;
+  summary?: OpsCustomersSummaryDTO;
 };

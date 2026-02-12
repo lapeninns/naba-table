@@ -35,7 +35,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         </head>
       )}
       <body className="relative font-sans" suppressHydrationWarning>
-        {/* ClientLayout contains all the client wrappers (Crisp chat support, toast messages, tooltips, etc.) */}
+        {/* ClientLayout contains all the client wrappers (Crisp chat support, tooltips, etc.) */}
         <AppProviders initialSession={null}>
           <ClientLayout>{children}</ClientLayout>
         </AppProviders>

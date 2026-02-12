@@ -1,7 +1,6 @@
 'use client';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'react-hot-toast';
 
 import { useBookingService } from '@/contexts/ops-services';
 import { queryKeys } from '@/lib/query/keys';
@@ -230,7 +229,7 @@ export function useOpsTableAssignmentActions(params: {
         queryClient.setQueryData(context.summaryKey, context.previousSummary);
       }
       const message = error instanceof Error ? error.message : 'Unable to assign table';
-      toast.error(message);
+      console.error('[table-assign] assign failed', { message, error });
     },
     onSuccess: (data, variables, context) => {
       if (context?.summaryKey) {
@@ -270,7 +269,6 @@ export function useOpsTableAssignmentActions(params: {
       // 500ms delay workaround.
       invalidateCaches({ invalidateSummary: false, refetchSummary: false });
 
-      toast.success('Table assigned');
     },
   });
 
@@ -330,7 +328,7 @@ export function useOpsTableAssignmentActions(params: {
         queryClient.setQueryData(context.summaryKey, context.previousSummary);
       }
       const message = error instanceof Error ? error.message : 'Unable to unassign table';
-      toast.error(message);
+      console.error('[table-assign] unassign failed', { message, error });
     },
     onSuccess: (data, variables, context) => {
       let summaryUpdated = false;
@@ -377,7 +375,6 @@ export function useOpsTableAssignmentActions(params: {
         invalidateSummary: !summaryUpdated,
         refetchSummary: !summaryUpdated,
       });
-      toast.success('Table unassigned');
     },
   });
 

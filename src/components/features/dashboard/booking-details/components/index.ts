@@ -9,9 +9,6 @@
 // ATOMIC COMPONENTS
 // =============================================================================
 
-/** Displays booking status with appropriate color styling */
-export { BookingStatusBadge, type BookingStatusBadgeProps } from './BookingStatusBadge';
-
 /** Click-to-copy text with visual feedback */
 export { ClickToCopy, type ClickToCopyProps } from './ClickToCopy';
 
@@ -32,6 +29,9 @@ export { DialogHeader, type DialogHeaderProps } from './DialogHeader';
 
 /** Guest profile panel for booking details */
 export { GuestProfilePanel, type GuestProfilePanelProps } from './GuestProfilePanel';
+
+/** Dialog body (mobile/desktop) extracted to keep BookingDialog under LOC cap */
+export { BookingDialogBody, type BookingDialogBodyProps } from './BookingDialogBody';
 
 // =============================================================================
 // COMPOSITE COMPONENTS

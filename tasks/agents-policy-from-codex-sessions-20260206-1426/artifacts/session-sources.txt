@@ -1,0 +1,20 @@
+# Session sources used for governance refresh (2026-02-06T14:26Z)
+# Paths only; do not copy raw contents into the repo.
+
+# R1 — Full AGENTS.md instruction block (Non-negotiables, Codex behaviour, Skills, Coding Style, Security, Git, PR, Shell)
+/Users/amankumarshrestha/.codex/sessions/2026/01/28/rollout-2026-01-28T12-48-08-019c04a5-9f17-72b0-a14a-88ee5f6ebaa4.jsonl:3
+
+# R2 — Same instruction block (cross-project consistency confirmation)
+/Users/amankumarshrestha/.codex/sessions/2026/01/30/rollout-2026-01-30T19-35-38-019c1067-67b7-73d3-ba0b-e7c63cf808bb.jsonl:3
+
+# R3 — Full AGENTS.md + project-doc snapshot (MCP catalog, Skills list, trigger/progressive-disclosure/fallback rules)
+/Users/amankumarshrestha/.codex/sessions/2026/02/06/rollout-2026-02-06T12-58-45-019c3308-91fa-7373-a711-beb7761538a6.jsonl:4
+
+# R4 — "Prefer built-in tools" shell discipline
+/Users/amankumarshrestha/.codex/sessions/2026/01/27/rollout-2026-01-27T09-38-53-019bfed1-fc6b-7893-8c16-51c1ed4d22fa.jsonl:3
+
+# R5 — session_meta with "Trigger rules" and "Description as trigger" skills rules
+/Users/amankumarshrestha/.codex/sessions/2025/12/25/rollout-2025-12-25T15-29-13-019b5620-de9c-7bd1-b331-a6425cce13cc.jsonl:1
+
+# R6 — DeepWiki referenced in MCP catalog in project-doc
+/Users/amankumarshrestha/.codex/sessions/2026/02/06/rollout-2026-02-06T13-38-49-019c332d-41b3-7493-84cb-7eb6cd9ae8b0.jsonl:4

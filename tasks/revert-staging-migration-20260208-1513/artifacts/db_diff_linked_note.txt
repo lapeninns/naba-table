@@ -1,0 +1,1 @@
+supabase db diff --linked is not usable in this repo because baseline migrations are not replayable from an empty shadow DB; see verification.md

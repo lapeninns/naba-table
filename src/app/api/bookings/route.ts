@@ -2,7 +2,9 @@ import { randomUUID, createHash } from 'crypto';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { BOOKING_BLOCKING_STATUSES } from '@/lib/enums';
 import { env } from '@/lib/env';
+import { getTodayInTimezone } from '@/lib/utils/datetime';
 import {
   createBookingValidationService,
   BookingValidationError,
@@ -39,11 +41,6 @@ import {
   enqueueBookingCreatedSideEffects,
   safeBookingPayload,
 } from '@/server/jobs/booking-side-effects';
-import {
-  getActiveLoyaltyProgram,
-  calculateLoyaltyAward,
-  applyLoyaltyAward,
-} from '@/server/loyalty';
 import { recordObservabilityEvent } from '@/server/observability';
 import { getRestaurantBySlug } from '@/server/restaurants/getRestaurantBySlug';
 import { getRestaurantSchedule } from '@/server/restaurants/schedule';
@@ -576,7 +573,15 @@ export async function GET(req: NextRequest) {
 
       if (contactHash) {
         try {
-          const { data: guestRows, error: guestError } = await supabase.rpc('get_guest_bookings', {
+          // `get_guest_bookings` may not exist (or may be missing from generated types).
+          // This path is best-effort and falls back to legacy lookup on failures.
+          const untyped = supabase as unknown as {
+            rpc: (
+              fn: string,
+              args: Record<string, unknown>,
+            ) => Promise<{ data: unknown; error: unknown }>;
+          };
+          const { data: guestRows, error: guestError } = await untyped.rpc('get_guest_bookings', {
             p_restaurant_id: targetRestaurantId,
             p_hash: contactHash,
           });
@@ -603,7 +608,10 @@ export async function GET(req: NextRequest) {
           }
 
           if (guestError) {
-            const guestCode = typeof guestError.code === 'string' ? guestError.code : undefined;
+            const guestCode =
+              typeof (guestError as { code?: unknown } | null | undefined)?.code === 'string'
+                ? (guestError as { code: string }).code
+                : undefined;
             const message = stringifyError(guestError);
             const isMissingFunction =
               guestCode === 'PGRST100' ||
@@ -847,21 +855,13 @@ export async function POST(req: NextRequest) {
     });
     const endTime = deriveEndTimeFromDuration(startTime, durationMinutes);
 
-    // Parallelize independent data fetches
-    const [customer, loyaltyProgram] = await Promise.all([
-      upsertCustomer(supabase, {
-        restaurantId,
-        email: data.email,
-        phone: data.phone,
-        name: data.name,
-        marketingOptIn: data.marketingOptIn ?? false,
-      }),
-      getActiveLoyaltyProgram(supabase, restaurantId)
-    ]);
-
-    const estimatedLoyaltyAward = loyaltyProgram
-      ? calculateLoyaltyAward(loyaltyProgram, { partySize: data.party })
-      : 0;
+    const customer = await upsertCustomer(supabase, {
+      restaurantId,
+      email: data.email,
+      phone: data.phone,
+      name: data.name,
+      marketingOptIn: data.marketingOptIn ?? false,
+    });
 
     const useUnifiedValidation = env.featureFlags.bookingValidationUnified;
     const deterministicKey = buildDeterministicIdempotencyKey({
@@ -1066,49 +1066,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // This booking may be updated by later side-effects (e.g. inline auto-assign),
+    // so it must be mutable.
     let finalBooking = booking;
-    let loyaltyAward = 0;
-
-    if (!reusedExisting && loyaltyProgram) {
-      loyaltyAward = estimatedLoyaltyAward;
-
-      if (loyaltyAward > 0) {
-        try {
-          await applyLoyaltyAward(supabase, {
-            program: loyaltyProgram,
-            customerId: customer.id,
-            bookingId: booking.id,
-            points: loyaltyAward,
-            metadata: {
-              reference: booking.reference,
-              source: 'api',
-            },
-            occurredAt: booking.created_at,
-          });
-
-          finalBooking = await updateBookingRecord(supabase, booking.id, {
-            loyalty_points_awarded: loyaltyAward,
-          });
-        } catch (error) {
-          console.error('[bookings][POST][loyalty] Failed to record loyalty award', {
-            bookingId: booking.id,
-            error: stringifyError(error),
-          });
-          loyaltyAward = 0;
-
-          finalBooking = await updateBookingRecord(supabase, booking.id, {
-            loyalty_points_awarded: 0,
-          });
-        }
-      }
-    } else {
-      const awardedFromRecord =
-        'loyalty_points_awarded' in finalBooking &&
-          typeof finalBooking.loyalty_points_awarded === 'number'
-          ? finalBooking.loyalty_points_awarded
-          : (finalBooking as Record<string, unknown>).loyalty_points_awarded;
-      loyaltyAward = typeof awardedFromRecord === 'number' ? awardedFromRecord : 0;
-    }
+    const loyaltyAward = 0;
 
     if (!reusedExisting) {
       const auditMetadata = {
@@ -1325,22 +1286,17 @@ async function handleMyBookings(req: NextRequest) {
   }
 
   const client = getServiceSupabaseClient();
-  let query =
-    params.status === 'active'
-      ? client
-        .from('current_bookings')
-        .select(
-          'id, restaurant_id, booking_date, start_time, end_time, party_size, status, notes, restaurants(id, name, slug, timezone, reservation_interval_minutes)',
-          { count: 'exact' },
-        )
-        .eq('customer_email', email)
-      : client
-        .from('bookings')
-        .select(
-          'id, restaurant_id, booking_date, start_time, end_time, party_size, status, notes, restaurants(id, name, slug, timezone, reservation_interval_minutes)',
-          { count: 'exact' },
-        )
-        .eq('customer_email', email);
+  let query = client
+    .from('bookings')
+    .select(
+      'id, restaurant_id, booking_date, start_time, end_time, party_size, status, notes, restaurants(id, name, slug, timezone, reservation_interval_minutes)',
+      { count: 'exact' },
+    )
+    .eq('customer_email', email);
+
+  if (params.status === 'active') {
+    query = query.in('status', BOOKING_BLOCKING_STATUSES);
+  }
 
   if (params.restaurantId) {
     query = query.eq('restaurant_id', params.restaurantId);
@@ -1389,14 +1345,44 @@ async function handleMyBookings(req: NextRequest) {
     | null;
   };
 
-  const { data, error, count } = await query.range(offset, offset + pageSize - 1);
+  const isActive = params.status === 'active';
+  let rows: BookingRow[] = [];
+  let total = 0;
 
-  if (error) {
-    console.error('[bookings][GET][me]', error);
-    return NextResponse.json({ error: 'Unable to fetch bookings' }, { status: 500 });
+  if (isActive) {
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('[bookings][GET][me]', error);
+      return NextResponse.json({ error: 'Unable to fetch bookings' }, { status: 500 });
+    }
+
+    const rawRows: BookingRow[] = (data ?? []) as BookingRow[];
+    const activeRows = rawRows.filter((booking) => {
+      const restaurant = Array.isArray(booking.restaurants)
+        ? (booking.restaurants[0] ?? null)
+        : booking.restaurants;
+      const timezone =
+        typeof restaurant?.timezone === 'string' && restaurant.timezone.trim().length > 0
+          ? restaurant.timezone
+          : 'UTC';
+      const today = getTodayInTimezone(timezone);
+      return booking.booking_date >= today;
+    });
+
+    total = activeRows.length;
+    rows = activeRows.slice(offset, offset + pageSize);
+  } else {
+    const { data, error, count } = await query.range(offset, offset + pageSize - 1);
+
+    if (error) {
+      console.error('[bookings][GET][me]', error);
+      return NextResponse.json({ error: 'Unable to fetch bookings' }, { status: 500 });
+    }
+
+    rows = (data ?? []) as BookingRow[];
+    total = count ?? rows.length;
   }
-
-  const rows: BookingRow[] = (data ?? []) as BookingRow[];
 
   const items: BookingDTO[] = rows.map((booking) => {
     const restaurant = Array.isArray(booking.restaurants)
@@ -1424,7 +1410,6 @@ async function handleMyBookings(req: NextRequest) {
     };
   });
 
-  const total = count ?? items.length;
   const hasNext = offset + items.length < total;
 
   const response: PageResponse<BookingDTO> = {

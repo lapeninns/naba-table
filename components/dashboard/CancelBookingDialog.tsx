@@ -51,8 +51,8 @@ export function CancelBookingDialog({ booking, open, onOpenChange }: CancelBooki
     try {
       await mutation.mutateAsync({ id: booking.id });
       onOpenChange(false);
-    } catch (error) {
-      // error toast already handled in hook
+    } catch {
+      // Error surfaced via mutation error state.
     }
   };
 

@@ -9,12 +9,14 @@
 import { AlertTriangle, Check, Users } from 'lucide-react';
 import { memo } from 'react';
 
+
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
 import { getCapacityFit, getCapacityFitLabel } from '../utils';
 
 import type { ManualAssignmentTable } from '@/services/ops/bookings';
+import type { KeyboardEventHandler, Ref } from 'react';
 
 export interface SelectableTableCardProps {
   tableId: string;
@@ -25,6 +27,11 @@ export interface SelectableTableCardProps {
   isConflicted: boolean;
   onToggle: (tableId: string) => void;
   disabled: boolean;
+  tabIndex?: number;
+  onFocus?: () => void;
+  onKeyDown?: KeyboardEventHandler<HTMLButtonElement>;
+  describedById?: string;
+  buttonRef?: Ref<HTMLButtonElement>;
   bookingStartTime?: string | null;
   bookingEndTime?: string | null;
   serviceWindowStart?: string | null;
@@ -44,6 +51,11 @@ export const SelectableTableCard = memo(function SelectableTableCard({
   isConflicted,
   onToggle,
   disabled,
+  tabIndex,
+  onFocus,
+  onKeyDown,
+  describedById,
+  buttonRef,
   bookingStartTime,
   bookingEndTime,
   serviceWindowStart,
@@ -91,16 +103,35 @@ export const SelectableTableCard = memo(function SelectableTableCard({
     blockWidth = Math.max(8, ((clampedEnd - clampedStart) / serviceDuration) * 100);
   }
 
+  const srSummary =
+    `Table ${table.tableNumber}. ` +
+    `${table.capacity} seats. ` +
+    (table.section ? `Section ${table.section}. ` : '') +
+    `${getCapacityFitLabel(fit)} fit. ` +
+    (isAssigned
+      ? 'Already assigned.'
+      : isUnavailable
+        ? isConflicted
+          ? 'Unavailable due to a conflict.'
+          : 'Unavailable.'
+        : 'Available.');
+
   return (
     <button
       type="button"
+      ref={buttonRef}
       onClick={handleToggle}
+      onFocus={onFocus}
+      onKeyDown={onKeyDown}
       disabled={disabled || isUnavailable || isAssigned}
       aria-pressed={isSelected}
+      aria-describedby={describedById}
+      tabIndex={tabIndex}
       className={cn(
         'group relative flex flex-col items-start justify-between p-3 text-left touch-manipulation',
-        'min-h-[110px] rounded-xl border transition-all duration-200',
-        'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+        'min-h-[110px] rounded-xl border transition-[transform,box-shadow,border-color,background-color,color] duration-200',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2',
+        'motion-reduce:transition-none motion-reduce:transform-none',
         isAssigned
           ? 'bg-emerald-50 border-emerald-300 cursor-default'
           : isSelected
@@ -117,7 +148,7 @@ export const SelectableTableCard = memo(function SelectableTableCard({
             isAssigned ? 'bg-emerald-500' : 'bg-blue-500',
           )}
         >
-          <Check className="h-3 w-3 text-white" />
+          <Check className="h-3 w-3 text-white" aria-hidden />
         </div>
       )}
 
@@ -131,18 +162,22 @@ export const SelectableTableCard = memo(function SelectableTableCard({
           >
             Table {table.tableNumber}
           </span>
-          {table.name ? <div className="text-xs text-slate-500">{table.name}</div> : null}
+          {table.name ? (
+            <div className="text-xs text-slate-500 truncate max-w-[10rem]" title={table.name}>
+              {table.name}
+            </div>
+          ) : null}
         </div>
         {isConflicted ? (
           <Badge variant="outline" className="border-amber-300 text-amber-700 bg-amber-50">
-            <AlertTriangle className="h-3 w-3 mr-1" />
+            <AlertTriangle className="h-3 w-3 mr-1" aria-hidden />
             Conflict
           </Badge>
         ) : null}
       </div>
 
       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
-        <Users className="h-3.5 w-3.5 text-slate-400" />
+        <Users className="h-3.5 w-3.5 text-slate-400" aria-hidden />
         <span>{table.capacity} seats</span>
         {table.section ? <span className="text-slate-400">· {table.section}</span> : null}
       </div>
@@ -182,12 +217,13 @@ export const SelectableTableCard = memo(function SelectableTableCard({
               'relative h-2 w-full rounded-full border',
               conflictTone ? 'bg-rose-100 border-rose-200' : 'bg-slate-100 border-slate-200',
             )}
+            aria-hidden
           >
             {bookingStart !== null && (
               <div
                 className="absolute top-0 h-full rounded-full bg-blue-500"
                 style={{ left: `${blockLeft}%`, width: `${blockWidth}%` }}
-                aria-label="Current booking"
+                aria-hidden
               />
             )}
           </div>
@@ -196,6 +232,12 @@ export const SelectableTableCard = memo(function SelectableTableCard({
             {bookingStart !== null ? <span>Current booking</span> : null}
           </div>
         </div>
+      ) : null}
+
+      {describedById ? (
+        <span id={describedById} className="sr-only">
+          {srSummary}
+        </span>
       ) : null}
     </button>
   );

@@ -23,16 +23,11 @@
 | ---------- | ----------- | ------- | ---------- | -------- |
 
 | 2026-02-03 | Add per-day reservation interval + fixed slots to operating hours | ⏳ | ⏳ | Medium |
-<<<<<<< Updated upstream
-| 2026-01-20 | Restore restaurant_capacity_rules for booking capacity | ⏳ | ⏳ | High |
-=======
 | 2026-01-20 | Restore restaurant_capacity_rules (capacity enforcement) | N/A | ⏳ | High |
-
-> > > > > > > Stashed changes
-> > > > > > > | 2026-01-18 | Lock down table_soft_holds access (RLS/GRANTS) | ✅ | ⏳ | High |
-> > > > > > > | 2026-01-18 | CASCADE delete on booking_table_assignments FKs | ✅ | ⏳ | High |
-> > > > > > > | 2026-01-17 | Add table_soft_holds for race condition prevention | ✅ | ⏳ | Medium |
-> > > > > > > | 2025-12-27 | Add FK: booking_table_assignments.booking_id → bookings.id | ✅ | ⏳ | High |
+| 2026-01-18 | Lock down table_soft_holds access (RLS/GRANTS) | ✅ | ⏳ | High |
+| 2026-01-18 | CASCADE delete on booking_table_assignments FKs | ✅ | ⏳ | High |
+| 2026-01-17 | Add table_soft_holds for race condition prevention | ✅ | ⏳ | Medium |
+| 2025-12-27 | Add FK: booking_table_assignments.booking_id → bookings.id | ✅ | ⏳ | High |
 
 ---
 
@@ -74,43 +69,6 @@ ALTER TABLE public.restaurant_operating_hours
 NOTIFY pgrst, 'reload schema';
 ```
 
-<<<<<<< Updated upstream
-
-### 2026-01-20: Restore restaurant_capacity_rules for booking capacity
-
-**Status**: ⏳ Staging | ⏳ Production  
-**Priority**: High  
-**Related Issue**: Booking capacity RPC fails due to missing restaurant_capacity_rules  
-**Migration File**: `supabase/migrations/20260120_add_restaurant_capacity_rules.sql`
-
-#### Problem
-
-Booking capacity checks query `public.restaurant_capacity_rules`, but the table is missing in staging and production, causing `42P01 relation does not exist`.
-
-#### Root Cause
-
-The capacity schema was previously removed via migration, but the booking capacity flow still references the table. No migration reintroduced the table.
-
-#### SQL to Apply
-
-Apply the full migration file: `supabase/migrations/20260120_add_restaurant_capacity_rules.sql`
-
-#### Verification
-
-After applying:
-
-```sql
-SELECT to_regclass('public.restaurant_capacity_rules') AS table_name;
-
-SELECT column_name, data_type, is_nullable
-FROM information_schema.columns
-WHERE table_schema = 'public'
-  AND table_name = 'restaurant_capacity_rules'
-ORDER BY ordinal_position;
-```
-
-=======
-
 ### 2026-01-20: Restore restaurant_capacity_rules (capacity enforcement)
 
 **Status**: N/A Staging | ⏳ Production  
@@ -134,25 +92,15 @@ Apply the full migration file: `supabase/migrations/20260120_restore_capacity_ru
 
 - Confirm table exists and RLS enabled
 - Smoke-test `create_booking_with_capacity_check` in production
-  > > > > > > > Stashed changes
 
 #### Rollback
 
 ```sql
 DROP TABLE IF EXISTS public.restaurant_capacity_rules CASCADE;
-<<<<<<< Updated upstream
+DROP TYPE IF EXISTS public.capacity_override_type;
 NOTIFY pgrst, 'reload schema';
 ```
 
----
-
-=======
-DROP TYPE IF EXISTS public.capacity_override_type;
-NOTIFY pgrst, 'reload schema';
-
-````
-
->>>>>>> Stashed changes
 ### 2026-01-18: Lock down table_soft_holds access (RLS/GRANTS)
 
 **Status**: ✅ Staging (2026-01-18) | ⏳ Production
@@ -196,7 +144,7 @@ SELECT policyname, roles, cmd
 FROM pg_policies
 WHERE schemaname = 'public'
   AND tablename = 'table_soft_holds';
-````
+```
 
 #### Rollback
 

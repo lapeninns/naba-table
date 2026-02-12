@@ -28,7 +28,6 @@ export type {
 // =============================================================================
 
 export {
-  BookingStatusBadge,
   ClickToCopy,
   ContactInfoRow,
   DialogHeader,
@@ -40,7 +39,6 @@ export {
 } from './components';
 
 export type {
-  BookingStatusBadgeProps,
   ClickToCopyProps,
   ContactInfoRowProps,
   ContactInfoRowAction,
@@ -68,7 +66,7 @@ export {
   getMinutesUntilTime,
   formatCountdown,
   parseBookingDateTime,
-  getStatusConfig,
+  getStatusLabel,
   getGuestInitials,
   flattenTableAssignments,
   calculateTotalCapacity,

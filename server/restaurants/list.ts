@@ -1,3 +1,4 @@
+import { DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES } from '@/lib/restaurants/defaults';
 import { ensureLogoColumnOnRows, isLogoUrlColumnMissing, logLogoColumnFallback } from '@/server/restaurants/logo-url-compat';
 import { restaurantSelectColumns } from '@/server/restaurants/select-fields';
 import { getServiceSupabaseClient } from '@/server/supabase';
@@ -137,7 +138,8 @@ export async function listRestaurantsForOps(
       reservationIntervalMinutes: row.reservation_interval_minutes,
       reservationDefaultDurationMinutes: row.reservation_default_duration_minutes,
       reservationLastSeatingBufferMinutes: row.reservation_last_seating_buffer_minutes,
-      reservationLifecycleGraceMinutes: row.reservation_lifecycle_grace_minutes,
+      reservationLifecycleGraceMinutes:
+        row.reservation_lifecycle_grace_minutes ?? DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       role,

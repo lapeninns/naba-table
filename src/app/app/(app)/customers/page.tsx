@@ -3,8 +3,8 @@ import { OpsCustomersClient } from '@/components/features/customers/OpsCustomers
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Customers · Nab a Table Ops',
-  description: 'View and export customer booking data for your restaurant.',
+  title: 'Guests · Nab a Table Ops',
+  description: 'View and export guest booking history for your restaurant.',
 };
 
 export default async function OpsCustomersPage({ searchParams }: { searchParams?: Promise<Record<string, string>> }) {

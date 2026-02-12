@@ -1,0 +1,172 @@
+Pager usage is off.
+== Collection Metadata ==
+      collected_at_utc      
+----------------------------
+ 2026-02-07 14:08:29.889792
+(1 row)
+
+    db    |   user   
+----------+----------
+ postgres | postgres
+(1 row)
+
+ is_in_recovery 
+----------------
+ f
+(1 row)
+
+
+== Version ==
+                                      version                                       
+------------------------------------------------------------------------------------
+ PostgreSQL 17.6 on aarch64-unknown-linux-gnu, compiled by gcc (GCC) 13.2.0, 64-bit
+(1 row)
+
+
+== Core Settings (selected) ==
+                name                 |                                                              setting                                                              | unit |       source       
+-------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------+------+--------------------
+ autovacuum                          | on                                                                                                                                |      | default
+ autovacuum_analyze_scale_factor     | 0.1                                                                                                                               |      | default
+ autovacuum_analyze_threshold        | 50                                                                                                                                |      | default
+ autovacuum_max_workers              | 3                                                                                                                                 |      | default
+ autovacuum_naptime                  | 60                                                                                                                                | s    | default
+ autovacuum_vacuum_scale_factor      | 0.2                                                                                                                               |      | default
+ autovacuum_vacuum_threshold         | 50                                                                                                                                |      | default
+ checkpoint_timeout                  | 300                                                                                                                               | s    | default
+ default_transaction_isolation       | read committed                                                                                                                    |      | default
+ effective_cache_size                | 98304                                                                                                                             | 8kB  | configuration file
+ idle_in_transaction_session_timeout | 0                                                                                                                                 | ms   | default
+ lock_timeout                        | 0                                                                                                                                 | ms   | default
+ maintenance_work_mem                | 65536                                                                                                                             | kB   | configuration file
+ max_connections                     | 60                                                                                                                                |      | configuration file
+ max_parallel_workers                | 2                                                                                                                                 |      | configuration file
+ max_parallel_workers_per_gather     | 1                                                                                                                                 |      | configuration file
+ max_wal_size                        | 4096                                                                                                                              | MB   | configuration file
+ max_worker_processes                | 6                                                                                                                                 |      | configuration file
+ min_wal_size                        | 1024                                                                                                                              | MB   | configuration file
+ server_version                      | 17.6                                                                                                                              |      | default
+ server_version_num                  | 170006                                                                                                                            |      | default
+ shared_buffers                      | 32768                                                                                                                             | 8kB  | configuration file
+ shared_preload_libraries            | pg_stat_statements, pgaudit, plpgsql, plpgsql_check, pg_cron, pg_net, pgsodium, auto_explain, pg_tle, plan_filter, supabase_vault |      | configuration file
+ statement_timeout                   | 120000                                                                                                                            | ms   | configuration file
+ superuser_reserved_connections      | 3                                                                                                                                 |      | default
+ synchronous_commit                  | on                                                                                                                                |      | default
+ temp_buffers                        | 1024                                                                                                                              | 8kB  | default
+ track_io_timing                     | off                                                                                                                               |      | default
+ wal_level                           | logical                                                                                                                           |      | configuration file
+ work_mem                            | 3500                                                                                                                              | kB   | configuration file
+(30 rows)
+
+
+== Database Size ==
+  bytes   | pretty 
+----------+--------
+ 14797971 | 14 MB
+(1 row)
+
+
+== Per-schema Table Size (public only; top 30 tables by total size) ==
+ schema |             table              | est_rows | total_size | table_size | indexes_size 
+--------+--------------------------------+----------+------------+------------+--------------
+ public | bookings                       |       -1 | 168 kB     | 0 bytes    | 160 kB
+ public | table_inventory                |       81 | 128 kB     | 16 kB      | 80 kB
+ public | booking_table_assignments      |       -1 | 112 kB     | 0 bytes    | 104 kB
+ public | table_adjacencies              |      266 | 112 kB     | 32 kB      | 56 kB
+ public | table_holds                    |       -1 | 104 kB     | 0 bytes    | 96 kB
+ public | customers                      |       -1 | 88 kB      | 0 bytes    | 80 kB
+ public | restaurants                    |       -1 | 80 kB      | 8192 bytes | 64 kB
+ public | profiles                       |       -1 | 64 kB      | 8192 bytes | 48 kB
+ public | booking_occasions              |       -1 | 64 kB      | 8192 bytes | 48 kB
+ public | booking_assignment_idempotency |       -1 | 64 kB      | 0 bytes    | 56 kB
+ public | restaurant_memberships         |       -1 | 64 kB      | 8192 bytes | 48 kB
+ public | email_delivery_log             |       -1 | 64 kB      | 0 bytes    | 56 kB
+ public | analytics_events               |       -1 | 64 kB      | 0 bytes    | 56 kB
+ public | table_hold_members             |       -1 | 56 kB      | 0 bytes    | 56 kB
+ public | restaurant_operating_hours     |       29 | 48 kB      | 8192 bytes | 32 kB
+ public | manual_assignment_sessions     |       -1 | 48 kB      | 0 bytes    | 40 kB
+ public | zones                          |       -1 | 48 kB      | 8192 bytes | 32 kB
+ public | user_profiles                  |       -1 | 48 kB      | 8192 bytes | 32 kB
+ public | restaurant_service_periods     |       45 | 48 kB      | 8192 bytes | 32 kB
+ public | capacity_outbox                |       -1 | 48 kB      | 0 bytes    | 40 kB
+ public | audit_logs                     |       -1 | 48 kB      | 0 bytes    | 40 kB
+ public | table_hold_windows             |       -1 | 40 kB      | 0 bytes    | 32 kB
+ public | booking_slots                  |       -1 | 40 kB      | 0 bytes    | 40 kB
+ public | waiting_list                   |       -1 | 40 kB      | 0 bytes    | 32 kB
+ public | table_scarcity_metrics         |       -1 | 40 kB      | 0 bytes    | 32 kB
+ public | booking_versions               |       -1 | 40 kB      | 0 bytes    | 32 kB
+ public | allowed_capacities             |       -1 | 40 kB      | 8192 bytes | 32 kB
+ public | booking_confirmation_results   |       -1 | 40 kB      | 0 bytes    | 32 kB
+ public | allocations                    |       -1 | 40 kB      | 0 bytes    | 32 kB
+ public | restaurant_invites             |       -1 | 40 kB      | 0 bytes    | 32 kB
+(30 rows)
+
+
+== Schema Object Counts ==
+   schema   | tables | indexes | matviews | views 
+------------+--------+---------+----------+-------
+ auth       |     20 |      75 |        0 |     0
+ extensions |      0 |       0 |        0 |     2
+ graphql    |      0 |       0 |        0 |     0
+ pg_toast   |      0 |     115 |        0 |     0
+ public     |     50 |     209 |        0 |     0
+ realtime   |      8 |      14 |        0 |     0
+ storage    |      9 |      21 |        0 |     0
+ vault      |      1 |       2 |        0 |     1
+(8 rows)
+
+
+== Extensions (selected) ==
+      extname       | extversion 
+--------------------+------------
+ pg_graphql         | 1.5.11
+ pg_stat_statements | 1.11
+ pgcrypto           | 1.3
+ plpgsql            | 1.0
+ supabase_vault     | 0.3.1
+ uuid-ossp          | 1.1
+(6 rows)
+
+
+== Database Activity Counters (pg_stat_database) ==
+ numbackends | xact_commit | xact_rollback | blks_read | blks_hit | tup_returned | tup_fetched | tup_inserted | tup_updated | tup_deleted | conflicts | deadlocks | temp_files | temp_bytes | blk_read_time | blk_write_time |          stats_reset          
+-------------+-------------+---------------+-----------+----------+--------------+-------------+--------------+-------------+-------------+-----------+-----------+------------+------------+---------------+----------------+-------------------------------
+           7 |       21529 |           173 |      1656 | 20623145 |     18713085 |    13853940 |        10476 |        2120 |        1152 |         0 |         0 |          2 |   16662528 |             0 |              0 | 2025-12-08 11:03:29.274482+00
+(1 row)
+
+
+== Autovacuum / Table Bloat Signals (top 30 by dead tuples) ==
+ schemaname |             table              | n_live_tup | n_dead_tup | dead_tuple_pct | last_vacuum | last_autovacuum | last_analyze |       last_autoanalyze        
+------------+--------------------------------+------------+------------+----------------+-------------+-----------------+--------------+-------------------------------
+ public     | profiles                       |          5 |          7 |          58.33 |             |                 |              | 
+ public     | user_profiles                  |          5 |          7 |          58.33 |             |                 |              | 
+ public     | restaurant_memberships         |         20 |          4 |          16.67 |             |                 |              | 
+ public     | zones                          |         18 |          0 |           0.00 |             |                 |              | 
+ public     | restaurant_invites             |          0 |          0 |                |             |                 |              | 
+ public     | booking_table_assignments      |          0 |          0 |                |             |                 |              | 
+ public     | booking_state_history          |          0 |          0 |                |             |                 |              | 
+ public     | restaurant_operating_hours     |         29 |          0 |           0.00 |             |                 |              | 2026-02-07 11:15:15.14653+00
+ public     | booking_slots                  |          0 |          0 |                |             |                 |              | 
+ public     | capacity_outbox                |          0 |          0 |                |             |                 |              | 
+ public     | customers                      |          0 |          0 |                |             |                 |              | 
+ public     | table_scarcity_metrics         |          0 |          0 |                |             |                 |              | 
+ public     | _migrations                    |          0 |          0 |                |             |                 |              | 
+ public     | booking_versions               |          0 |          0 |                |             |                 |              | 
+ public     | restaurant_capacity_rules      |          0 |          0 |                |             |                 |              | 
+ public     | restaurant_service_periods     |         45 |          0 |           0.00 |             |                 |              | 2026-02-07 11:15:15.148233+00
+ public     | allocations_archive            |          0 |          0 |                |             |                 |              | 
+ public     | booking_assignment_idempotency |          0 |          0 |                |             |                 |              | 
+ public     | merge_rules                    |          0 |          0 |                |             |                 |              | 
+ public     | restaurant_turn_bands          |          0 |          0 |                |             |                 |              | 
+ public     | table_hold_members             |          0 |          0 |                |             |                 |              | 
+ public     | allowed_capacities             |         13 |          0 |           0.00 |             |                 |              | 
+ public     | booking_assignment_attempts    |          0 |          0 |                |             |                 |              | 
+ public     | email_delivery_log             |          0 |          0 |                |             |                 |              | 
+ public     | customer_profiles              |          0 |          0 |                |             |                 |              | 
+ public     | leads                          |          0 |          0 |                |             |                 |              | 
+ public     | manual_assignment_sessions     |          0 |          0 |                |             |                 |              | 
+ public     | table_merge_graph              |          0 |          0 |                |             |                 |              | 
+ public     | waiting_list                   |          0 |          0 |                |             |                 |              | 
+ public     | service_policy                 |          0 |          0 |                |             |                 |              | 
+(30 rows)
+

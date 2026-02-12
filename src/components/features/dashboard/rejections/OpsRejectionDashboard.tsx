@@ -3,6 +3,9 @@
 import { AlertTriangle, BarChart3, RefreshCw, Settings2, FlaskConical, TrendingDown } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 
+import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
+import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
+import { OpsPageToolbar } from '@/components/features/ops-shell/patterns/OpsPageToolbar';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,7 +19,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useOpsSession } from '@/contexts/ops-session';
 import { useOpsRejectionAnalytics } from '@/hooks/ops/useOpsRejectionAnalytics';
 import { useOpsStrategicSettings, useUpdateOpsStrategicSettings } from '@/hooks/ops/useOpsStrategicSettings';
-import { useToast } from '@/hooks/use-toast';
 import { CSRF_HEADER_NAME, getBrowserCsrfToken } from '@/lib/security/csrf';
 import { cn } from '@/lib/utils';
 
@@ -258,7 +260,6 @@ function StrategicSettingsDialog({ restaurantName, open, onOpenChange, settings,
 type SimulationStatus = 'idle' | 'running';
 
 export function OpsRejectionDashboard() {
-  const { toast } = useToast();
   const { activeMembership } = useOpsSession();
   const restaurantId = activeMembership?.restaurantId ?? null;
   const restaurantName = activeMembership?.restaurantName ?? 'Restaurant';
@@ -296,20 +297,11 @@ export function OpsRejectionDashboard() {
       try {
         await updateSettings.mutateAsync({ restaurantId, weights });
         settingsQuery.refetch();
-        toast({
-          title: 'Strategic weights updated',
-          description: 'New configuration applied to the next table selection run.',
-        });
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Strategic settings are read-only in this environment.';
-        toast({
-          title: 'Unable to update strategic settings',
-          description: message,
-          variant: 'destructive',
-        });
+        console.error('[ops/rejections] unable to update strategic settings', err);
       }
     },
-    [restaurantId, updateSettings, settingsQuery, toast],
+    [restaurantId, updateSettings, settingsQuery],
   );
 
   const handleRunSimulation = useCallback(async () => {
@@ -350,38 +342,22 @@ export function OpsRejectionDashboard() {
         }),
       });
 
-      const payload = await response.json().catch(() => null);
       if (!response.ok) {
-        toast({
-          title: 'Unable to queue simulation',
-          description: payload?.error ?? 'An unexpected error occurred.',
-          variant: 'destructive',
-        });
         return;
       }
-
-      toast({
-        title: 'Simulation queued',
-        description: 'A placeholder job was accepted. Results will appear once the pipeline is available.',
-      });
     } catch (error) {
       console.error('[ops/rejections] failed to queue simulation', error);
-      toast({
-        title: 'Simulation failed',
-        description: 'We could not queue the simulation. Try again later.',
-        variant: 'destructive',
-      });
     } finally {
       setSimulationStatus('idle');
     }
-  }, [restaurantId, toast]);
+  }, [restaurantId]);
 
   if (!restaurantId) {
     return (
-      <Alert className="border-border/60">
-        <AlertTitle>Select a restaurant</AlertTitle>
-        <AlertDescription>Choose a restaurant to view rejection analytics and strategic settings.</AlertDescription>
-      </Alert>
+      <OpsEmptyState
+        title="Select a restaurant"
+        description="Choose a restaurant to view rejection analytics and strategic settings."
+      />
     );
   }
 
@@ -391,36 +367,46 @@ export function OpsRejectionDashboard() {
   const hasData = Boolean(analytics && analytics.summary.total > 0);
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-6 px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
+      <OpsPageHeader
+        title="Rejections"
+        subtitle="Review rejection analytics and strategic settings for your restaurant."
+        meta={<Badge variant="secondary" className="rounded-md font-medium">{restaurantName}</Badge>}
+      />
+
+      <OpsPageToolbar
+        sticky
+        filters={
+          <Select value={range.key} onValueChange={(value) => handleChangeRange(value as RangePresetKey)}>
+            <SelectTrigger className="w-full sm:w-48">
+              <SelectValue placeholder="Select range" />
+            </SelectTrigger>
+            <SelectContent>
+              {RANGE_PRESETS.map((preset) => (
+                <SelectItem key={preset.key} value={preset.key}>
+                  {preset.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        }
+        actions={
+          <Button variant="outline" onClick={handleRefresh} disabled={analyticsQuery.isRefetching}>
+            <RefreshCw className={cn('mr-2 size-4', analyticsQuery.isRefetching && 'animate-spin')} aria-hidden />
+            Refresh
+          </Button>
+        }
+      />
+
       <Card className="border-border/60">
-        <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2 text-xl font-semibold text-foreground">
-              <BarChart3 className="size-5" aria-hidden />
-              Rejection analytics
-            </CardTitle>
-            <CardDescription>
-              Understand why bookings were unassigned. Data shown for {restaurantName} ({activePreset.label}).
-            </CardDescription>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <Select value={range.key} onValueChange={(value) => handleChangeRange(value as RangePresetKey)}>
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="Select range" />
-              </SelectTrigger>
-              <SelectContent>
-                {RANGE_PRESETS.map((preset) => (
-                  <SelectItem key={preset.key} value={preset.key}>
-                    {preset.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button variant="outline" onClick={handleRefresh} disabled={analyticsQuery.isRefetching}>
-              <RefreshCw className={cn('mr-2 size-4', analyticsQuery.isRefetching && 'animate-spin')} aria-hidden />
-              Refresh
-            </Button>
-          </div>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-xl font-semibold text-foreground">
+            <BarChart3 className="size-5" aria-hidden />
+            Rejection analytics
+          </CardTitle>
+          <CardDescription>
+            Understand why bookings were unassigned. Data shown for {restaurantName} ({activePreset.label}).
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {loading ? (

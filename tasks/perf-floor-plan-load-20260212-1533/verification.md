@@ -32,6 +32,8 @@ related_tickets: []
 
 ## Artifacts
 
+- Screenshot (full): `artifacts/dev-ops-floor-plan-full.png`
 - Screenshot (viewport): `artifacts/dev-ops-floor-plan-viewport-20260212-2.png`
 - Screenshot (mobile viewport): `artifacts/dev-ops-floor-plan-mobile-20260212.png`
+- Performance trace: `artifacts/dev-ops-floor-plan-trace.json.gz`
 - Performance trace (latest): `artifacts/dev-ops-floor-plan-trace-20260212-2.json.gz`

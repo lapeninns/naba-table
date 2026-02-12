@@ -1,4 +1,5 @@
 import { fetchJson } from '@/lib/http/fetchJson';
+import { DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES } from '@/lib/restaurants/defaults';
 
 import type { RestaurantRole } from '@/lib/owner/auth/roles';
 import type { OpsRestaurantOption, OpsServiceError } from '@/types/ops';
@@ -228,7 +229,8 @@ function mapRestaurant(dto: RestaurantResponse['restaurant']): RestaurantProfile
     reservationIntervalMinutes: dto.reservationIntervalMinutes ?? 15,
     reservationDefaultDurationMinutes: dto.reservationDefaultDurationMinutes ?? 90,
     reservationLastSeatingBufferMinutes: dto.reservationLastSeatingBufferMinutes ?? 15,
-    reservationLifecycleGraceMinutes: dto.reservationLifecycleGraceMinutes ?? 30,
+    reservationLifecycleGraceMinutes:
+      dto.reservationLifecycleGraceMinutes ?? DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES,
   };
 }
 

@@ -195,15 +195,16 @@ export async function acquireSoftHolds(
 
   const startTime = performance.now();
 
-  try {
-    const { data, error } = await supabase.rpc('acquire_soft_holds_atomic', {
-      p_table_ids: tableIds,
-      p_window: windowRange,
-      p_session_token: sessionToken,
-      p_restaurant_id: restaurantId,
-      p_booking_id: bookingId,
-      p_ttl_seconds: clampedTtl,
-    });
+	try {
+		const { data, error } = await supabase.rpc('acquire_soft_holds_atomic', {
+			p_table_ids: tableIds,
+			p_window: windowRange,
+			p_session_token: sessionToken,
+			p_restaurant_id: restaurantId,
+			// Supabase typegen models this arg as optional; use `undefined` to omit.
+			p_booking_id: bookingId ?? undefined,
+			p_ttl_seconds: clampedTtl,
+		});
 
     const durationMs = performance.now() - startTime;
 
@@ -314,14 +315,19 @@ export async function acquireSoftHolds(
  * @returns Number of soft-holds released
  */
 export async function releaseSoftHolds(options: ReleaseSoftHoldsOptions): Promise<number> {
-  const { sessionToken, tableIds, client } = options;
-  const supabase = ensureClient(client);
+	const { sessionToken, tableIds, client } = options;
+	const supabase = ensureClient(client);
 
-  try {
-    const { data, error } = await supabase.rpc('release_soft_holds', {
-      p_session_token: sessionToken,
-      p_table_ids: tableIds ?? null,
-    });
+	try {
+		const rpcArgs: { p_session_token: string; p_table_ids?: string[] } = {
+			p_session_token: sessionToken,
+		};
+		// Omitting the arg releases all holds for the session.
+		if (tableIds && tableIds.length > 0) {
+			rpcArgs.p_table_ids = tableIds;
+		}
+
+		const { data, error } = await supabase.rpc('release_soft_holds', rpcArgs);
 
     if (error) {
       console.warn('[soft-holds] Failed to release soft-holds', {

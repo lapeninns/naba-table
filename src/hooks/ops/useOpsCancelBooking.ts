@@ -3,7 +3,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { useBookingService } from '@/contexts/ops-services';
-import { useToast } from '@/hooks/use-toast';
 import { queryKeys } from '@/lib/query/keys';
 
 import type { HttpError } from '@/lib/http/errors';
@@ -24,7 +23,6 @@ type CancelContext = {
 export function useOpsCancelBooking() {
   const bookingService = useBookingService();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation<{ id: string; status: string }, HttpError, CancelInput, CancelContext>({
     mutationFn: async ({ bookingId }) => bookingService.cancelBooking({ id: bookingId }),
@@ -67,17 +65,6 @@ export function useOpsCancelBooking() {
         queryClient.setQueryData(queryKeys.opsBookings.detail(variables.bookingId), context.previousDetail);
       }
 
-      toast({
-        title: 'Cancellation failed',
-        description: error.message,
-        variant: 'destructive',
-      });
-    },
-    onSuccess: () => {
-      toast({
-        title: 'Booking cancelled',
-        description: 'The booking has been marked as cancelled.',
-      });
     },
     onSettled: (_data, _error, variables) => {
       queryClient.invalidateQueries({

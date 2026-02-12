@@ -1,8 +1,15 @@
 
 import { Client } from "pg";
 
-const password = process.env.DB_PASSWORD || "BCCPLjrcJLAlDFO2";
-const connectionString = `postgresql://postgres.rrpeokmfbtbrirqjprpe:${password}@aws-1-eu-west-2.pooler.supabase.com:6543/postgres`;
+const connectionString = process.env.SUPABASE_DB_URL?.trim();
+
+if (!connectionString) {
+    console.error("❌ Missing SUPABASE_DB_URL.");
+    console.error("   Provide an explicit database connection string so this script never targets the wrong project.");
+    console.error("");
+    console.error('   Example (pooler): postgresql://postgres.<project_ref>:<password>@aws-1-<region>.pooler.supabase.com:6543/postgres');
+    process.exit(1);
+}
 
 async function preCheck() {
     const client = new Client({

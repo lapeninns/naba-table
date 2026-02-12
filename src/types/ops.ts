@@ -56,8 +56,6 @@ export type OpsTodayBooking = {
   reference: string | null;
   details: Record<string, unknown> | null;
   source: string | null;
-  loyaltyTier?: 'bronze' | 'silver' | 'gold' | 'platinum' | null;
-  loyaltyPoints?: number | null;
   profileNotes?: string | null;
   allergies?: string[] | null;
   dietaryRestrictions?: string[] | null;
@@ -158,8 +156,6 @@ export type OpsBookingListItem = {
   reference?: string | null;
   details?: Record<string, unknown> | null;
   source?: string | null;
-  loyaltyTier?: 'bronze' | 'silver' | 'gold' | 'platinum' | null;
-  loyaltyPoints?: number | null;
   profileNotes?: string | null;
   allergies?: string[] | null;
   dietaryRestrictions?: string[] | null;
@@ -215,6 +211,15 @@ export type OpsCustomer = {
   totalCancellations: number;
 };
 
+export type OpsCustomersSummary = {
+  total: number;
+  optedIn: number;
+  optedOut: number;
+  returning: number;
+  vip: number;
+  neverVisited: number;
+};
+
 export type OpsCustomersPage = {
   items: OpsCustomer[];
   pageInfo: {
@@ -223,6 +228,7 @@ export type OpsCustomersPage = {
     total: number;
     hasNext: boolean;
   };
+  summary?: OpsCustomersSummary;
 };
 
 export type OpsRejectionBucket = 'day' | 'hour';

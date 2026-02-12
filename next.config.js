@@ -63,6 +63,9 @@ const nextConfig = {
   images: {
     remotePatterns: imageRemotePatterns,
   },
+  outputFileTracingExcludes: {
+    '*': ['tasks/**/artifacts/**'],
+  },
   async redirects() {
     const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'nabatable.com';
 
@@ -139,6 +142,9 @@ const nextConfig = {
     return redirects;
   },
   turbopack: {
+    // Avoid accidental workspace-root inference when unrelated lockfiles exist outside this repo.
+    // Next.js expects an absolute path here; __dirname is the directory containing this config file.
+    root: __dirname,
     resolveAlias: aliasEntries,
   },
   webpack: (config) => {

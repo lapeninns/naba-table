@@ -1,0 +1,10 @@
+ restaurants 
+-------------
+           0
+(1 row)
+
+ tables 
+--------
+      0
+(1 row)
+

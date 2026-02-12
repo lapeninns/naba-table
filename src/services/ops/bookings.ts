@@ -1,6 +1,12 @@
+import { HttpError } from '@/lib/http/errors';
 import { fetchJson } from '@/lib/http/fetchJson';
 
-import type { HttpError } from '@/lib/http/errors';
+import type {
+  BookingEmailDeliveryResponse,
+  EmailDeliveryStatus,
+  OpsEmailDeliveryFeedResponse,
+  OpsEmailDeliveryRange,
+} from '@/types/emailDelivery';
 import type {
   OpsBookingHeatmap,
   OpsBookingListItem,
@@ -436,6 +442,22 @@ export interface BookingService {
   getStatusSummary(params: StatusSummaryParams): Promise<StatusSummaryResponse>;
   getBookingHistory(bookingId: string): Promise<BookingHistoryResponse>;
   getBooking(bookingId: string): Promise<OpsBookingListItem>;
+  getBookingEmailDeliveryLog(
+    bookingId: string,
+    params?: { limit?: number },
+  ): Promise<BookingEmailDeliveryResponse>;
+  getRestaurantEmailDeliveryFeed(params: {
+    restaurantId?: string;
+    range?: OpsEmailDeliveryRange;
+    page?: number;
+    pageSize?: number;
+    status?: EmailDeliveryStatus[];
+    recipientEmail?: string;
+    messageId?: string;
+    bookingRef?: string;
+    templateType?: string;
+    emailType?: string;
+  }): Promise<OpsEmailDeliveryFeedResponse>;
   cancelBooking(input: CancelBookingInput): Promise<{ id: string; status: string }>;
   createWalkInBooking(input: WalkInInput): Promise<WalkInResponse>;
   assignTable(input: AssignTableInput): Promise<TableAssignmentsResponse>;
@@ -623,6 +645,78 @@ export function createBrowserBookingService(): BookingService {
     async getBooking(bookingId) {
       return fetchJson<OpsBookingListItem>(`${OPS_BOOKINGS_BASE}/${bookingId}`);
     },
+    async getBookingEmailDeliveryLog(bookingId, params) {
+      const rawLimit = params?.limit;
+      const fallback = 50;
+      const limit =
+        typeof rawLimit === 'number' && Number.isFinite(rawLimit) ? Math.floor(rawLimit) : fallback;
+      const clamped = Math.max(1, Math.min(200, limit));
+
+      const search = new URLSearchParams({ limit: String(clamped) });
+      const url = `${OPS_BOOKINGS_BASE}/${bookingId}/email-delivery?${search.toString()}`;
+
+      try {
+        return await fetchJson<BookingEmailDeliveryResponse>(url);
+      } catch (error) {
+        if (error instanceof HttpError) {
+          const code =
+            error.status === 401 || error.status === 419
+              ? 'UNAUTHENTICATED'
+              : error.status === 403
+                ? 'FORBIDDEN'
+                : error.status === 404
+                  ? 'BOOKING_NOT_FOUND'
+                  : error.status === 503
+                    ? 'DELIVERY_LOG_UNAVAILABLE'
+                    : 'INTERNAL';
+          return { ok: false, code, error: error.message, message: error.message };
+        }
+        throw error;
+      }
+    },
+    async getRestaurantEmailDeliveryFeed(params) {
+      const rawPage = typeof params.page === 'number' && Number.isFinite(params.page) ? params.page : 1;
+      const rawPageSize =
+        typeof params.pageSize === 'number' && Number.isFinite(params.pageSize) ? params.pageSize : 50;
+
+      const page = Math.max(1, Math.floor(rawPage));
+      const pageSize = Math.max(1, Math.min(200, Math.floor(rawPageSize)));
+      const range: OpsEmailDeliveryRange = params.range ?? '7d';
+
+      const search = new URLSearchParams();
+      if (params.restaurantId) search.set('restaurantId', params.restaurantId);
+      search.set('range', range);
+      search.set('page', String(page));
+      search.set('pageSize', String(pageSize));
+
+      if (params.status && params.status.length > 0) {
+        search.set('status', params.status.join(','));
+      }
+      if (params.recipientEmail) search.set('recipientEmail', params.recipientEmail.trim());
+      if (params.messageId) search.set('messageId', params.messageId.trim());
+      if (params.bookingRef) search.set('bookingRef', params.bookingRef.trim().toUpperCase());
+      if (params.templateType) search.set('templateType', params.templateType.trim());
+      if (params.emailType) search.set('emailType', params.emailType.trim());
+
+      const url = `/api/ops/email-delivery?${search.toString()}`;
+
+      try {
+        return await fetchJson<OpsEmailDeliveryFeedResponse>(url);
+      } catch (error) {
+        if (error instanceof HttpError) {
+          const code =
+            error.status === 401 || error.status === 419
+              ? 'UNAUTHENTICATED'
+              : error.status === 403
+                ? 'FORBIDDEN'
+                : error.status === 503
+                  ? 'DELIVERY_LOG_UNAVAILABLE'
+                  : 'INTERNAL';
+          return { ok: false, code, error: error.message, message: error.message };
+        }
+        throw error;
+      }
+    },
     async cancelBooking({ id }) {
       return fetchJson<{ id: string; status: string }>(`${OPS_BOOKINGS_BASE}/${id}`, {
         method: 'DELETE',
@@ -802,6 +896,14 @@ export class NotImplementedBookingService implements BookingService {
 
   getBooking(): Promise<OpsBookingListItem> {
     this.error('getBooking not implemented');
+  }
+
+  getBookingEmailDeliveryLog(): Promise<BookingEmailDeliveryResponse> {
+    this.error('getBookingEmailDeliveryLog not implemented');
+  }
+
+  getRestaurantEmailDeliveryFeed(): Promise<OpsEmailDeliveryFeedResponse> {
+    this.error('getRestaurantEmailDeliveryFeed not implemented');
   }
 
   cancelBooking(): Promise<{ id: string; status: string }> {

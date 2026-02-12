@@ -1,11 +1,11 @@
 import { renderHook } from '@testing-library/react';
+import { createQueryWrapper, createTestQueryClient } from '@tests/utils/reactQuery';
 import { describe, expect, it, vi } from 'vitest';
 
 import { useCancelBooking } from '@/hooks/useCancelBooking';
-import { fetchJson } from '@/lib/http/fetchJson';
 import { HttpError } from '@/lib/http/errors';
+import { fetchJson } from '@/lib/http/fetchJson';
 import { queryKeys } from '@/lib/query/keys';
-import { createQueryWrapper, createTestQueryClient } from '@tests/utils/reactQuery';
 
 import type { BookingDTO, BookingsPage } from '@/hooks/useBookings';
 
@@ -15,13 +15,6 @@ vi.mock('@/lib/http/fetchJson', () => ({
 
 vi.mock('@/lib/analytics', () => ({ track: vi.fn() }));
 vi.mock('@/lib/analytics/emit', () => ({ emit: vi.fn() }));
-
-vi.mock('react-hot-toast', () => ({
-  toast: {
-    success: vi.fn(),
-    error: vi.fn(),
-  },
-}));
 
 describe('useCancelBooking', () => {
   it('marks bookings as cancelled after success', async () => {

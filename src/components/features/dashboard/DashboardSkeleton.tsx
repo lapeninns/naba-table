@@ -1,9 +1,15 @@
-import { OpsBookingCardSkeleton } from '@/components/dashboard/OpsBookingCardSkeleton';
+import { OpsBookingCardSkeleton } from '@/components/features/dashboard/cards/OpsBookingCardSkeleton';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export function DashboardSkeleton() {
+  const skeletonKeys = [
+    'booking-skeleton-1',
+    'booking-skeleton-2',
+    'booking-skeleton-3',
+    'booking-skeleton-4',
+  ];
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background" aria-busy="true">
       <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         {/* Header Skeleton matching OpsDashboardClient layout */}
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -35,12 +41,11 @@ export function DashboardSkeleton() {
 
         {/* Booking Cards Skeleton */}
         <div className="space-y-4">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <OpsBookingCardSkeleton key={index} />
+          {skeletonKeys.map((key) => (
+            <OpsBookingCardSkeleton key={key} />
           ))}
         </div>
       </main>
     </div>
   );
 }
-
