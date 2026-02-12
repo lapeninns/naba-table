@@ -1,60 +1,66 @@
 # Continuity Ledger
 
-Last updated: 2026-02-05T19:27:00Z
+Last updated: 2026-02-11T23:59:00Z
 
 ## Goal (incl. success criteria)
 
-- Investigate and fix broken auto-complete booking flow that should trigger post-booking emails (Resend) after status transitions to completed.
-- Success: determine why completion-triggered emails are missing, restore correct email dispatch for completed bookings, and document findings.
+- Incorporate OpenAI shell tooling guidance into root policy with concrete runtime/security controls.
+- Success: add canonical shell runtime section + checklist gates in `AGENTS.md`, with SDLC artifacts captured.
 
 ## Constraints/Assumptions
 
 - Follow root AGENTS policies and any closer AGENTS.md files for touched paths.
 - Supabase operations must be remote-only.
 - No secrets in logs or code.
+- Keep changes documentation-only and scoped to workflow policy.
 
 ## Key decisions
 
-- None yet.
+- Added `8.6 Skills + Shell Execution Practices` to root `AGENTS.md`.
+- Added a `Skills + Shell Execution` checklist block in Quick Reference.
+- Kept `tmux` guidance optional (recommended when available), not mandatory.
+- Added `8.7 Shell Tool Runtime & Security Policy` to root `AGENTS.md`.
+- Added `Shell Tool Runtime` checklist block in Quick Reference.
+- Adopted explicit policy for hosted/local runtime selection, `/mnt/data`, `network_policy`, `domain_secrets`, and multi-turn shell continuity.
 
 ## State
 
-- Review-request backlog drained; cron review-only filter deployed to production.
-- Latest production deploy succeeded after fixing TypeScript error in `scripts/build-zone-adjacency.ts`.
+- Documentation policy update complete; no runtime code paths changed.
 
 ## Done
 
-- Located main booking lifecycle, auto-complete cron, and email side-effect paths.
-- Confirmed review_request emails are scheduled via queue or inline delay in `server/jobs/booking-side-effects.ts`.
-- Created task folder `tasks/check-post-booking-emails-20260205-1753` with SDLC stubs.
-- Captured production queue status snapshot in `tasks/check-post-booking-emails-20260205-1753/artifacts/queue-status.json` (320 delayed jobs; 84 review_request).
-- Captured due delayed-job summary in `tasks/check-post-booking-emails-20260205-1753/artifacts/queue-due-summary.json` (151 due; 58 review_request).
-- Captured Resend audit for last 72h in `tasks/check-post-booking-emails-20260205-1753/artifacts/resend-review-audit.json` (2 review-like emails; delivered).
-- Probed cron endpoint without auth in `tasks/check-post-booking-emails-20260205-1753/artifacts/cron-process-emails-noauth.json` (401).
-- Added review-only filter support to `src/app/api/cron/process-emails/route.ts` (types=review_request).
-- Drained due review_request jobs via manual script; backlog cleared.
-- Fixed TypeScript predicate error in `scripts/build-zone-adjacency.ts`.
-- Deployed to production; cron filter endpoint verified via `artifacts/cron-process-emails-review-filter.json`.
+- Created task folder `tasks/skills-shell-workflow-20260211-2347/` with required SDLC artifacts.
+- Extracted 10 recommendations from the OpenAI article and evaluated repo fit in `research.md`.
+- Updated root `AGENTS.md` with a new section `8.6 Skills + Shell Execution Practices`.
+- Updated root `AGENTS.md` Quick Reference with `Skills + Shell Execution` checklist.
+- Updated task verification/todo artifacts to reflect completed policy changes.
+- Created task folder `tasks/shell-tool-runtime-policy-20260211-2356/` with required SDLC artifacts.
+- Verified OpenAI Shell guide controls and mapped policy gaps.
+- Updated root `AGENTS.md` with `8.7 Shell Tool Runtime & Security Policy`.
+- Updated root `AGENTS.md` Quick Reference with `Shell Tool Runtime` checklist.
+- Updated task verification/todo artifacts for `shell-tool-runtime-policy`.
 
 ## Now
 
-- Monitor cron execution and verify no new backlog accrues.
+- Final review and user handoff.
 
 ## Next
 
-- Compare completed bookings vs. review-request delivery (requires completed booking dataset).
-- Add lightweight observability for cron runs if requested.
+- Use `8.6` + `8.7` as baseline for all future shell-heavy workflows.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- Which environment and time window should be audited?
-- Is the failure limited to auto-complete cron or also manual check-out?
+- None.
 
 ## Working set (files/ids/commands)
 
-- `tasks/check-post-booking-emails-20260205-1753/research.md`
-- `tasks/check-post-booking-emails-20260205-1753/plan.md`
-- `server/jobs/auto-complete-bookings.ts`
-- `server/jobs/booking-side-effects.ts`
-- `scripts/queues/email-worker.ts`
-- `libs/resend.ts`
+- `AGENTS.md`
+- `CONTINUITY.md`
+- `tasks/skills-shell-workflow-20260211-2347/research.md`
+- `tasks/skills-shell-workflow-20260211-2347/plan.md`
+- `tasks/skills-shell-workflow-20260211-2347/todo.md`
+- `tasks/skills-shell-workflow-20260211-2347/verification.md`
+- `tasks/shell-tool-runtime-policy-20260211-2356/research.md`
+- `tasks/shell-tool-runtime-policy-20260211-2356/plan.md`
+- `tasks/shell-tool-runtime-policy-20260211-2356/todo.md`
+- `tasks/shell-tool-runtime-policy-20260211-2356/verification.md`
