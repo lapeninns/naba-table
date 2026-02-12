@@ -5,6 +5,7 @@ import { memo, useEffect, useMemo, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Collapsible } from '@/components/ui/collapsible';
 import { useMinimumDelay } from '@/hooks/use-minimum-delay';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { getOpsBookingStatusUi } from '@/lib/ops/booking-status';
 import { cn } from '@/lib/utils';
 
@@ -35,31 +36,6 @@ export type OpsBookingCardProps = {
   timeLabelOverride?: string | null;
   highlightUrgency?: boolean;
 };
-
-function useMediaQuery(query: string, defaultMatches = false) {
-  const [matches, setMatches] = useState(defaultMatches);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const media = window.matchMedia(query);
-    const update = () => setMatches(media.matches);
-    update();
-    if (media.addEventListener) {
-      media.addEventListener('change', update);
-    } else {
-      media.addListener(update);
-    }
-    return () => {
-      if (media.removeEventListener) {
-        media.removeEventListener('change', update);
-      } else {
-        media.removeListener(update);
-      }
-    };
-  }, [query]);
-
-  return matches;
-}
 
 export const OpsBookingCard = memo(function OpsBookingCard({
   booking,

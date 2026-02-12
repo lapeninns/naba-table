@@ -7,7 +7,7 @@ import { BookingOfflineQueueProvider } from '@/contexts/booking-offline-queue';
 import { queryKeys } from '@/lib/query/keys';
 import { getTrustedAppOrigin } from '@/lib/site-url';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
-import { fetchUserMemberships } from '@/server/team/access';
+import { fetchUserMembershipsCached } from '@/server/team/access';
 import { sanitizeDateParam } from '@/utils/ops/dashboard';
 
 import type { Metadata } from 'next';
@@ -80,7 +80,7 @@ export default async function OpsDashboardPage({ searchParams }: { searchParams?
       } = await supabase.auth.getUser();
 
       if (user) {
-        const memberships = await fetchUserMemberships(user.id);
+        const memberships = await fetchUserMembershipsCached(user.id);
         const restaurantId = memberships.find((membership) => Boolean(membership.restaurant_id))?.restaurant_id ?? null;
         if (restaurantId) {
           await prefetchOpsSummary(queryClient, restaurantId, initialDate);
