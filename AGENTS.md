@@ -2,7 +2,7 @@
 agents_version: 5.4
 scope: root
 extends: null
-last_updated: 2026-01-22
+last_updated: 2026-02-11
 owner: github:@maintainers
 ---
 
@@ -789,6 +789,82 @@ Use multiple agents to **parallelize research, analysis, and verification**, not
 
 ---
 
+## 8.6) Skills + Shell Execution Practices
+
+> **Ref**: [How to use Codex with skills, shell commands, and compaction](https://developers.openai.com/blog/skills-shell-tips).
+
+Use these rules to convert repeat work into reliable, reusable execution patterns.
+
+**Skills-first for recurring work**
+
+- If a workflow repeats two or more times, use an existing skill or create/update one in `~/.codex/skills/`.
+- Skills must include: trigger conditions, required inputs, deterministic command patterns, and verification steps.
+- Keep skills narrow and composable; avoid broad "do everything" skills.
+
+**Prompt and planning discipline**
+
+- Before implementation, write a concise state summary (what is true now), desired end state, and measurable success criteria.
+- Create or update `todo.md` with atomic steps before file edits for non-trivial tasks.
+- Include expected failure branches and next actions in the plan for likely breakpoints.
+
+**Shell reliability defaults**
+
+- For multi-step shell flows, run with `set -euo pipefail` and explicit quoting.
+- Prefer robust iteration patterns (`while IFS= read -r`) over brittle command substitution (`for f in $(...)`).
+- Use `jq`/`yq` for structured parsing instead of regex parsing JSON/YAML where possible.
+- Use `trap` cleanup for temporary files/background processes.
+
+**Long-running and parallel execution**
+
+- Prefer `tmux` sessions for long-running local jobs when available; keep session names deterministic per task.
+- Record long-running command purpose and outputs in task artifacts so work can be resumed after interruptions.
+
+**Compaction-safe execution**
+
+- Treat context compaction as normal operation; persist decisions, commands, and next actions in `CONTINUITY.md` and task files.
+- Do not rely on chat memory for critical state; if it matters, write it to disk.
+
+---
+
+## 8.7) Shell Tool Runtime & Security Policy
+
+> **Ref**: [Tools: Shell (OpenAI API docs)](https://developers.openai.com/api/docs/guides/tools-shell), [How to use Codex with skills, shell commands, and compaction](https://developers.openai.com/blog/skills-shell-tips).
+
+Apply these controls whenever shell tooling is used in agent workflows.
+
+**Runtime selection**
+
+- Choose runtime intentionally:
+  - **Hosted shell** for isolated, ephemeral execution and reproducible artifact capture.
+  - **Local shell** only when host access is required and the target workspace/environment is trusted.
+- Record runtime choice and rationale in task artifacts for non-trivial tasks.
+
+**Hosted-shell storage boundary**
+
+- In hosted shell, treat `/mnt/data` as the writable artifact boundary.
+- Persist required outputs from hosted runs into `tasks/<slug>-YYYYMMDD-HHMM>/artifacts/` before ending the task.
+
+**Network and outbound access**
+
+- Default to no outbound network access unless required by the task.
+- When network is required, configure `network_policy` with least privilege.
+- `network_policy` must be a subset of the organization allowlist; do not assume it can expand organization-level permissions.
+- For authenticated outbound requests, use `domain_secrets` per domain and least-privilege credentials only.
+
+**Session continuity for multi-turn shell work**
+
+- For follow-up tool calls in the same workflow, reuse `previous_response_id` and `container_reference` when available.
+- If a container/session expires, recover state from `CONTINUITY.md` and task artifacts before resuming.
+
+**Execution safety**
+
+- Keep shell commands deterministic and non-interactive by default.
+- Capture command, exit status, and key outputs in verification artifacts for critical workflows.
+- Fail fast on non-zero exits unless explicitly handled as an expected branch.
+- Never print or persist secrets in command output, logs, or artifacts.
+
+---
+
 ## 9) Git & Branching
 
 - **Branch**: `task/<slug>-YYYYMMDD-HHMM` (short‑lived; trunk‑based; squash merges).
@@ -834,6 +910,28 @@ Escalate or stop immediately if:
 [ ] Approvals & merge
 [ ] Release & monitor; notes added
 [ ] Post‑release learnings filed (tickets)
+```
+
+**Skills + Shell Execution**
+
+```text
+[ ] Reuse/create a skill for repeated workflows (2+ repeats)
+[ ] Capture state, target outcome, and success criteria before implementation
+[ ] Maintain atomic checklist in todo.md for non-trivial changes
+[ ] Use robust shell defaults (`set -euo pipefail`, quoted vars, safe loops)
+[ ] Capture verification commands and outcomes in verification.md
+[ ] Persist key decisions and next actions in CONTINUITY.md
+```
+
+**Shell Tool Runtime**
+
+```text
+[ ] Runtime selected intentionally (hosted vs local) and documented
+[ ] Hosted-shell outputs saved from `/mnt/data` into task artifacts
+[ ] Outbound access restricted via least-privilege `network_policy`
+[ ] Authenticated domains configured with `domain_secrets`
+[ ] Multi-turn shell calls reuse `previous_response_id` + `container_reference` when available
+[ ] Commands are non-interactive, fail-fast, and have recorded exit status
 ```
 
 **UI/A11y Essentials**
