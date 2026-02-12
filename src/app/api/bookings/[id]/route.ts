@@ -179,6 +179,16 @@ function respondWithPendingLock() {
   );
 }
 
+function respondWithCancelledBookingLock() {
+  return NextResponse.json(
+    {
+      error: 'This reservation has already been cancelled and can no longer be changed.',
+      code: 'BOOKING_CANCELLED',
+    },
+    { status: 409 },
+  );
+}
+
 function evaluateGuestModificationLock(params: {
   booking: Pick<
     Tables<'bookings'>,
@@ -345,6 +355,10 @@ async function handleDashboardUpdate(params: {
 
   if (isPendingBookingLocked(existingBooking)) {
     return respondWithPendingLock();
+  }
+
+  if (existingBooking.status === 'cancelled') {
+    return respondWithCancelledBookingLock();
   }
 
   try {
@@ -1184,6 +1198,10 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
         { error: 'Booking not found', code: 'BOOKING_NOT_FOUND' },
         { status: 404 },
       );
+    }
+
+    if (existingBooking.status === 'cancelled') {
+      return respondWithCancelledBookingLock();
     }
 
     if (isPendingBookingLocked(existingBooking)) {
