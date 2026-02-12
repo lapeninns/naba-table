@@ -93,6 +93,7 @@ const baseEnvSchema = z
     FEATURE_SELECTOR_ENUMERATION_TIMEOUT_MS: z.coerce.number().int().min(50).max(10000).optional(),
     FEATURE_CONTEXT_QUERY_PADDING_MINUTES: z.coerce.number().int().min(0).max(240).optional(),
     FEATURE_ADJACENCY_VALIDATION: booleanStringOptional,
+    FEATURE_ADJACENCY_QUERY_UNDIRECTED: booleanStringOptional,
     FEATURE_OPS_METRICS: booleanStringOptional,
     FEATURE_OPS_REJECTION_ANALYTICS: booleanStringOptional,
     FEATURE_EMAIL_QUEUE_ENABLED: booleanStringOptional,

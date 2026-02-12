@@ -1,0 +1,16 @@
+{
+  "exportedAtUtc": "2026-02-08T15:29:08.295Z",
+  "source": {
+    "supabaseHostname": "vrdiqfudmwydclqpydee.supabase.co",
+    "expectedProjectRef": null
+  },
+  "restaurant": {
+    "id": "a050d1ad-1ee0-4ea0-abc2-22c3778aa52c",
+    "slug": "the-old-crown-girton",
+    "name": "The Old Crown Girton"
+  },
+  "counts": {
+    "zones": 4,
+    "table_inventory": 26
+  }
+}

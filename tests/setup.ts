@@ -1,9 +1,9 @@
 import '@testing-library/jest-dom/vitest';
 import { vi } from 'vitest';
 
-// Some server modules validate env vars at import-time (via lib/env.ts).
-// Provide safe dummy values so unit tests can import server code without requiring real secrets.
-process.env.NEXT_PUBLIC_SUPABASE_URL ??= 'https://test.supabase.co';
+// Minimal env required for modules that validate config at import-time (via lib/env.ts).
+// Values are dummy; tests should not perform real network calls.
+process.env.NEXT_PUBLIC_SUPABASE_URL ??= 'https://example.supabase.co';
 process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??= 'test-anon-key';
 process.env.SUPABASE_SERVICE_ROLE_KEY ??= 'test-service-role-key';
 

@@ -182,7 +182,9 @@ export const env = {
       typeof parsed.FEATURE_SELECTOR_ENUMERATION_TIMEOUT_MS === 'number'
         ? Math.max(50, Math.min(parsed.FEATURE_SELECTOR_ENUMERATION_TIMEOUT_MS, 10_000))
         : null;
-    const adjacencyQueryUndirectedDefault = true;
+    // When we store adjacency edges both directions (A->B and B->A), we can query by table_a only.
+    // Default stays true for backwards compatibility unless explicitly overridden in env.
+    const adjacencyQueryUndirectedDefault = parsed.FEATURE_ADJACENCY_QUERY_UNDIRECTED ?? true;
     const strictConflictsDefault =
       typeof parsed.FEATURE_HOLDS_STRICT_CONFLICTS_ENABLED === 'boolean'
         ? parsed.FEATURE_HOLDS_STRICT_CONFLICTS_ENABLED

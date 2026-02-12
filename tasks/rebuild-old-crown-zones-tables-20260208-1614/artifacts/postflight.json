@@ -1,0 +1,70 @@
+{
+  "atUtc": "2026-02-08T16:29:20.892Z",
+  "restaurant": {
+    "id": "a050d1ad-1ee0-4ea0-abc2-22c3778aa52c",
+    "slug": "the-old-crown-girton",
+    "name": "The Old Crown Girton"
+  },
+  "counts": {
+    "zones": 4,
+    "tables": 18,
+    "adjacency_edges_forward_only": 64
+  },
+  "breakdown": {
+    "byCapacity": {
+      "2": 4,
+      "4": 13,
+      "7": 1
+    },
+    "byMobility": {
+      "fixed": 6,
+      "movable": 12
+    }
+  },
+  "zones": [
+    {
+      "id": "488cba6d-8db5-438d-9567-39c0d4ee035b",
+      "name": "Zone 1",
+      "sort_order": 1,
+      "active": true
+    },
+    {
+      "id": "75dccafe-f954-4a5c-9f92-3d7ae1b700c1",
+      "name": "Zone 2",
+      "sort_order": 2,
+      "active": true
+    },
+    {
+      "id": "cbe3f1e1-d490-4a13-aeee-da32a70fa592",
+      "name": "Zone 3",
+      "sort_order": 3,
+      "active": true
+    },
+    {
+      "id": "47a117ed-e5a8-4832-a3f6-745ab154f451",
+      "name": "Zone 4",
+      "sort_order": 4,
+      "active": true
+    }
+  ],
+  "table_numbers": [
+    "01",
+    "02",
+    "03",
+    "04",
+    "05",
+    "06",
+    "07",
+    "08",
+    "09",
+    "10",
+    "11",
+    "12",
+    "13",
+    "14",
+    "15",
+    "16",
+    "17",
+    "18"
+  ]
+}

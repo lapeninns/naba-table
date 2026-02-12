@@ -6,7 +6,7 @@ import { getVenuePolicy, type VenuePolicy, type SelectorScoringConfig, type Serv
 import { buildScoredTablePlans, type RankedTablePlan, type CandidateDiagnostics, type BuildCandidatesResult } from "@/server/capacity/selector";
 import { deriveTableRules } from "@/server/capacity/table-rules";
 import { windowsOverlap } from "@/server/capacity/time-windows";
-import { getAllocatorAdjacencyMinPartySize, isAllocatorAdjacencyRequired, isPlannerTimePruningEnabled } from "@/server/feature-flags";
+import { isAllocatorAdjacencyRequired, isPlannerTimePruningEnabled } from "@/server/feature-flags";
 
 import { computeBookingWindowWithFallback, type BookingWindowWithFallback } from "./booking-window";
 import { ensureClient, extractErrorCode, type ContextBookingRow } from "./supabase";
@@ -209,21 +209,20 @@ export function filterAvailableTables(
 }
 
 export function partiesRequireAdjacency(partySize: number): boolean {
-  if (!isAllocatorAdjacencyRequired()) {
-    return false;
-  }
-  const minPartySize = getAllocatorAdjacencyMinPartySize();
-  if (typeof minPartySize === "number") {
-    return partySize >= minPartySize;
-  }
-  return true;
+  // Hard business invariant: if we ever consider merged plans, adjacency is required.
+  // The party-size threshold concept is deprecated; adjacency applies uniformly.
+  void partySize;
+  return isAllocatorAdjacencyRequired();
 }
 
 export function resolveRequireAdjacency(partySize: number, override?: boolean): boolean {
-  if (typeof override === "boolean") {
-   return override;
+  // Callers are not allowed to bypass adjacency (override=false) for merged plans.
+  // We accept override=true only for forward compatibility, but default to the invariant.
+  void partySize;
+  if (override === true) {
+    return true;
   }
-  return partiesRequireAdjacency(partySize);
+  return true;
 }
 
 export type LookaheadConfig = {

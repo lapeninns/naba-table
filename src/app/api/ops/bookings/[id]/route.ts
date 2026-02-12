@@ -72,8 +72,9 @@ const overrideSchema = z
   });
 
 const dashboardUpdateSchema = z.object({
-  startIso: z.string().datetime(),
-  endIso: z.string().datetime().optional(),
+  // Accept both Z and explicit offsets (+00:00) to match guest edit payload handling.
+  startIso: z.string().datetime({ offset: true }),
+  endIso: z.string().datetime({ offset: true }).optional(),
   partySize: z.coerce.number().int().min(1),
   notes: z.string().max(500).optional().nullable(),
   override: overrideSchema.optional(),

@@ -37,8 +37,11 @@ export function deriveTableRules(table: TablePhysicalProperties): TablePartyRule
   // 1-person tables allow solo diners, 2+ person tables typically need at least 2
   const defaultMinPartySize = capacity === 1 ? 1 : 1;
 
-  // Default to movable if mobility is not set (legacy compatibility)
-  const effectiveMobility = (mobility ?? "movable") as TableMobility;
+  // Default to movable if mobility is not set (legacy compatibility).
+  // Treat legacy/unknown values (e.g. "adjustable") as movable to avoid accidental merge breakage.
+  const mobilityNormalized =
+    typeof mobility === "string" ? mobility.trim().toLowerCase() : mobility ?? "movable";
+  const effectiveMobility: TableMobility = mobilityNormalized === "fixed" ? "fixed" : "movable";
 
   if (effectiveMobility === "movable") {
     // Movable tables can be combined with other tables

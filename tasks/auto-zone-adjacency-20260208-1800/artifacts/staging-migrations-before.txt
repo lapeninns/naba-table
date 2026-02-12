@@ -1,0 +1,3 @@
+Connecting to remote database...
+failed to connect to postgres: failed to connect to `host=aws-1-eu-west-2.pooler.supabase.com user=postgres.ndxmivcrehsacuerwxtm database=postgres`: failed SASL auth (FATAL: password authentication failed for user "postgres" (SQLSTATE 28P01))
+Try rerunning the command with --debug to troubleshoot the error.

@@ -9,7 +9,7 @@ const BENEFITS = [
   {
     title: 'The Core Engine',
     description:
-      'Automated bookings and SMS confirmations. No-shows drop to near zero immediately.',
+      'Automated bookings and email confirmations. No-shows drop to near zero immediately.',
     value: '£5,000 Value',
     icon: 'check' as const,
   },
@@ -23,7 +23,7 @@ const BENEFITS = [
   {
     title: 'No-Show Prevention Pack',
     description:
-      'Deposit and card pre-auth templates designed specifically for UK legal standards.',
+      'Email reminder sequences and confirmation copy designed specifically for UK pubs.',
     value: '£1,000 Value',
     icon: 'shield' as const,
   },
