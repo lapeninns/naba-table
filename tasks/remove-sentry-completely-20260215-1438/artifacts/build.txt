@@ -1,0 +1,35 @@
+
+> nabatable-platform@0.1.0 prebuild /Users/amankumarshrestha/LapenInns Project/SajiloReserveX
+> npm run validate:env
+
+
+> nabatable-platform@0.1.0 validate:env
+> tsx scripts/validate-env.ts
+
+[dotenv@17.2.3] injecting env (61) from .env.local -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+Environment validation passed for NODE_ENV=development, APP_ENV=staging, VERCEL_ENV=unset.
+
+> nabatable-platform@0.1.0 build /Users/amankumarshrestha/LapenInns Project/SajiloReserveX
+> next build
+
+▲ Next.js 16.1.6 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 7.6s
+  Running TypeScript ...
+Failed to compile.
+
+./lib/posthog/provider.tsx:78:20
+Type error: Argument of type 'string | null' is not assignable to parameter of type 'string'.
+  Type 'null' is not assignable to type 'string'.
+
+[0m [90m 76 |[39m       [36mconst[39m { [36mdefault[39m[33m:[39m posthog } [33m=[39m [36mawait[39m [36mimport[39m([32m'posthog-js'[39m)[33m;[39m
+ [90m 77 |[39m       [36mif[39m (didCancel) [36mreturn[39m[33m;[39m
+[31m[1m>[22m[39m[90m 78 |[39m       posthog[33m.[39minit(key[33m,[39m {
+ [90m    |[39m                    [31m[1m^[22m[39m
+ [90m 79 |[39m         api_host[33m:[39m host[33m,[39m
+ [90m 80 |[39m         person_profiles[33m:[39m [32m'identified_only'[39m[33m,[39m
+ [90m 81 |[39m         capture_pageview[33m:[39m [36mfalse[39m[33m,[39m [90m// We capture pageviews manually via instrumentation-client.ts[39m[0m
+Next.js build worker exited with code: 1 and signal: null
+ ELIFECYCLE  Command failed with exit code 1.

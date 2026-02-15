@@ -1,0 +1,4 @@
+./CONTINUITY.md:9:  - No `@sentry/nextjs` dependency in `package.json`/lockfile.
+./CONTINUITY.md:18:- Deletions are explicitly requested by user ("remove sentry completely").
+./CONTINUITY.md:25:- Remove `.env.sentry-build-plugin` as part of complete teardown and secret hygiene.
+./CONTINUITY.md:33:- Created task folder `tasks/remove-sentry-completely-20260215-1438/`.
