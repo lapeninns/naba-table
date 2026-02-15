@@ -18,25 +18,6 @@ export function useRealtimeErrorHandler() {
       console.error('[Realtime Error]', error);
     }
 
-    const windowWithSentry = window as Window & {
-      Sentry?: {
-        captureException: (
-          message: string,
-          options: { tags: Record<string, string>; extra?: Record<string, unknown> },
-        ) => void;
-      };
-    };
-    if (typeof window !== 'undefined' && windowWithSentry.Sentry) {
-      windowWithSentry.Sentry.captureException(error.message, {
-        tags: {
-          realtime_error_code: error.code,
-          severity: error.severity,
-          component: 'realtime',
-        },
-        extra: error.context,
-      });
-    }
-
     if (error.severity === 'critical') {
       triggerCriticalAlert(error);
     } else if (error.severity === 'high') {

@@ -1,35 +1,57 @@
 # Continuity Ledger
 
-Last updated: 2026-02-12T17:50:00Z
+Last updated: 2026-02-15T14:52:10Z
 
 ## Goal (incl. success criteria)
 
-- Comprehensive UI/UX polish of ALL guest-facing pages (public + authenticated).
-- Zero hardcoded blue/slate in guest components; consistent typography, terminology, and states.
-- TypeScript compiles, lint passes (✅ complete).
+- Remove Sentry completely from active runtime/config/dependency codepaths.
+- Success:
+  - No `@sentry/nextjs` dependency in `package.json`/lockfile.
+  - No Sentry integration wrappers/imports in `next.config.js`, instrumentation, or error boundary files.
+  - Sentry test routes/config files removed.
+  - `pnpm run build` runs without Sentry compile/upload logs.
+
+## Constraints/Assumptions
+
+- Follow root + nested AGENTS policies for touched files.
+- No local Supabase work required (remote-only policy unaffected).
+- Deletions are explicitly requested by user ("remove sentry completely").
+- Historical task/doc artifacts may still mention Sentry and are out of active runtime scope.
+
+## Key decisions
+
+- Keep `src/instrumentation-client.ts` route transition hook for PostHog pageview capture, but remove all Sentry behavior/types.
+- Keep `src/instrumentation.ts` as a minimal no-op register hook to avoid unexpected framework contract regressions.
+- Remove `.env.sentry-build-plugin` as part of complete teardown and secret hygiene.
 
 ## State
 
-- Implementation complete across 9 files. Awaiting manual UI QA.
+- Sentry removal implementation complete; verification recorded with pre-existing non-Sentry TS blockers.
 
 ## Done
 
-- Tokenized GuestPrimitives + BookingComponents (60+ hardcoded colors → tokens)
-- Polished Footer (glassmorphism, expanded links, copyright)
-- Rewrote /bookings landing (hero + gradient + animations)
-- Polished Dashboard (tokens, empty state, linked elements)
-- Polished Bookings List ("Reservations" terminology, 44px touch targets, removed fake location)
-- Polished Profile (save success/error GuestStatus feedback)
-- Polished Sign In (heading-hero, tokenized error alert)
-- Polished Booking Detail (structured loading skeleton)
+- Created task folder `tasks/remove-sentry-completely-20260215-1438/`.
+- Added `research.md`, `plan.md`, `todo.md`, and `verification.md` with frontmatter + initial scope.
+- Enumerated all active Sentry references across config/runtime/routes/dependency graph.
+- Removed Sentry wrapper from `next.config.js`.
+- Removed Sentry instrumentation from `src/instrumentation.ts` and `src/instrumentation-client.ts`.
+- Removed Sentry capture from `src/app/global-error.tsx` and `src/hooks/ops/useRealtimeErrorHandler.ts`.
+- Deleted Sentry-specific files/routes:
+  - `sentry.server.config.ts`
+  - `sentry.edge.config.ts`
+  - `src/app/sentry-example-page/page.tsx`
+  - `src/app/api/sentry-example-api/route.ts`
+- Removed `@sentry/nextjs` via `pnpm remove` and updated `pnpm-lock.yaml`.
+- Removed local `.env.sentry-build-plugin` file and Sentry ignore entry in `.gitignore`.
+- Captured verification artifacts in `tasks/remove-sentry-completely-20260215-1438/artifacts/`.
 
 ## Now
 
-- Manual UI QA via Chrome DevTools MCP.
+- Final handoff to user with changed files and remaining repo-level TS blockers.
 
 ## Next
 
-- Consider GuestPageShell/GuestHero component extraction to prevent drift.
+- Optional follow-up: fix existing `lib/posthog/provider.tsx` nullability error to restore green `typecheck`/`build`.
 
 ---
 

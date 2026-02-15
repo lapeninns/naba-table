@@ -75,6 +75,3 @@ public/sitemap-0.xml
 
 # build outputs
 reserve/storybook-static
-
-# Sentry Config File
-.env.sentry-build-plugin
