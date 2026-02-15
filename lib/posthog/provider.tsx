@@ -60,7 +60,9 @@ export function PostHogProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (!enabled) {
+    const missingConfig = !enabled || !key || !host;
+
+    if (missingConfig) {
       if (process.env.NODE_ENV === 'development') {
         console.warn('[PostHog] Missing NEXT_PUBLIC_POSTHOG_KEY or NEXT_PUBLIC_POSTHOG_HOST environment variables');
       }

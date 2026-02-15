@@ -1,57 +1,43 @@
 # Continuity Ledger
 
-Last updated: 2026-02-15T14:52:10Z
+Last updated: 2026-02-15T14:57:00Z
 
 ## Goal (incl. success criteria)
 
-- Remove Sentry completely from active runtime/config/dependency codepaths.
+- Fix Vercel-blocking TypeScript error in PostHog provider (`string | null` passed into `posthog.init`).
 - Success:
-  - No `@sentry/nextjs` dependency in `package.json`/lockfile.
-  - No Sentry integration wrappers/imports in `next.config.js`, instrumentation, or error boundary files.
-  - Sentry test routes/config files removed.
-  - `pnpm run build` runs without Sentry compile/upload logs.
+  - `lib/posthog/provider.tsx` no longer produces key/host nullability TypeScript errors.
+  - Build logs show the previous PostHog error removed.
 
 ## Constraints/Assumptions
 
 - Follow root + nested AGENTS policies for touched files.
-- No local Supabase work required (remote-only policy unaffected).
-- Deletions are explicitly requested by user ("remove sentry completely").
-- Historical task/doc artifacts may still mention Sentry and are out of active runtime scope.
+- Keep change minimal and canonical in `lib/posthog/provider.tsx` without introducing wrappers/shims.
+- No UI behavior change intended; analytics enablement semantics must remain unchanged.
 
 ## Key decisions
 
-- Keep `src/instrumentation-client.ts` route transition hook for PostHog pageview capture, but remove all Sentry behavior/types.
-- Keep `src/instrumentation.ts` as a minimal no-op register hook to avoid unexpected framework contract regressions.
-- Remove `.env.sentry-build-plugin` as part of complete teardown and secret hygiene.
+- Preserve `clientEnv.posthog` shape and add explicit runtime narrowing in the provider (`missingConfig = !enabled || !key || !host`) before initialization.
+- Keep existing development warning message and host/path guard behavior intact.
 
 ## State
 
-- Sentry removal implementation complete; verification recorded with pre-existing non-Sentry TS blockers.
+- PostHog nullability fix implemented and verified as removed from build output; local full build still blocked by an unrelated pre-existing task artifact type error.
 
 ## Done
 
-- Created task folder `tasks/remove-sentry-completely-20260215-1438/`.
-- Added `research.md`, `plan.md`, `todo.md`, and `verification.md` with frontmatter + initial scope.
-- Enumerated all active Sentry references across config/runtime/routes/dependency graph.
-- Removed Sentry wrapper from `next.config.js`.
-- Removed Sentry instrumentation from `src/instrumentation.ts` and `src/instrumentation-client.ts`.
-- Removed Sentry capture from `src/app/global-error.tsx` and `src/hooks/ops/useRealtimeErrorHandler.ts`.
-- Deleted Sentry-specific files/routes:
-  - `sentry.server.config.ts`
-  - `sentry.edge.config.ts`
-  - `src/app/sentry-example-page/page.tsx`
-  - `src/app/api/sentry-example-api/route.ts`
-- Removed `@sentry/nextjs` via `pnpm remove` and updated `pnpm-lock.yaml`.
-- Removed local `.env.sentry-build-plugin` file and Sentry ignore entry in `.gitignore`.
-- Captured verification artifacts in `tasks/remove-sentry-completely-20260215-1438/artifacts/`.
+- Created task folder `tasks/fix-posthog-build-null-key-20260215-1454/` with required SDLC docs and build artifact capture.
+- Updated `lib/posthog/provider.tsx` to enforce non-null key/host invariant before `posthog.init`.
+- Ran `pnpm run build` and saved output to `tasks/fix-posthog-build-null-key-20260215-1454/artifacts/build.txt`.
+- Confirmed remaining failure is unrelated to PostHog (`tasks/booking-confirmation-pdf-template-20260212-1831/artifacts/pdf-template-smoke.ts`).
 
 ## Now
 
-- Final handoff to user with changed files and remaining repo-level TS blockers.
+- Handoff fix details and verification evidence to user for redeploy.
 
 ## Next
 
-- Optional follow-up: fix existing `lib/posthog/provider.tsx` nullability error to restore green `typecheck`/`build`.
+- Optional follow-up: exclude `tasks/**/artifacts/*.ts` from local TypeScript build scope or fix the existing task artifact nullability issue if local full build parity is required.
 
 ---
 
