@@ -51,6 +51,48 @@ function resolveRedirectTarget(raw: string | string[] | undefined): string {
   return isAllowed ? candidate : '/app';
 }
 
+const INVALID_CLIENT_ID_SAFE_MESSAGE =
+  'Sign-in is temporarily unavailable due to an authentication provider setup issue. Please contact support or try again later.';
+
+function safeDecodeURIComponent(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function normalizeAuthMessage(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  const decoded = safeDecodeURIComponent(raw).trim();
+  const parts = [decoded];
+
+  if (decoded.startsWith('{') && decoded.endsWith('}')) {
+    try {
+      const parsed = JSON.parse(decoded) as {
+        error?: string;
+        error_description?: string;
+        message?: string;
+      };
+      if (typeof parsed.error === 'string') parts.push(parsed.error);
+      if (typeof parsed.error_description === 'string') parts.push(parsed.error_description);
+      if (typeof parsed.message === 'string') parts.push(parsed.message);
+    } catch {
+      // Keep decoded value when payload is not valid JSON.
+    }
+  }
+
+  const normalized = parts.join(' ').toLowerCase();
+  if (
+    normalized.includes('invalid_client_id') ||
+    normalized.includes('invalid client_id parameter value')
+  ) {
+    return INVALID_CLIENT_ID_SAFE_MESSAGE;
+  }
+
+  return decoded;
+}
+
 export default async function OpsAuthSignInPage({ searchParams }: OpsLoginPageProps) {
   await ensureCsrfCookie();
 
@@ -69,7 +111,7 @@ export default async function OpsAuthSignInPage({ searchParams }: OpsLoginPagePr
 
   // Extract error info from URL params
   const errorType = resolvedParams?.error;
-  const errorMessage = resolvedParams?.message;
+  const errorMessage = normalizeAuthMessage(resolvedParams?.message);
   const hasError = !!errorType;
 
   // Only redirect authenticated users if there's no error
@@ -173,7 +215,7 @@ export default async function OpsAuthSignInPage({ searchParams }: OpsLoginPagePr
                 <AlertCircle className="h-5 w-5 flex-shrink-0 text-red-500" aria-hidden="true" />
                 <div className="text-sm">
                   <p className="font-medium">Unable to sign in</p>
-                  <p className="mt-1 text-red-700">{decodeURIComponent(errorMessage)}</p>
+                  <p className="mt-1 text-red-700">{errorMessage}</p>
                 </div>
               </div>
             )}

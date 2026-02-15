@@ -4,6 +4,8 @@ import { Component, type ErrorInfo, type ReactNode, createContext, useCallback, 
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { track } from "@/lib/analytics";
+import { emit } from "@/lib/analytics/emit";
 
 import { ConflictResolver } from "./ConflictResolver";
 
@@ -136,9 +138,21 @@ export function BookingErrorBoundary({ children, onRetry, className }: BookingEr
   const [conflict, setConflict] = useState<ConflictPayload | null>(null);
   const [boundaryKey, setBoundaryKey] = useState(0);
 
-  const handleCaughtError = useCallback((caught: Error) => {
-    setError(normalizeError(caught));
+  const reportBoundaryError = useCallback((source: "caught" | "reported", errorInput: unknown) => {
+    const normalizedError = normalizeError(errorInput);
+    const payload = {
+      source,
+      kind: classifyError(normalizedError),
+      message: normalizedError.message,
+    };
+    track("booking_error_boundary_triggered", payload);
+    emit("booking_error_boundary_triggered", payload);
+    setError(normalizedError);
   }, []);
+
+  const handleCaughtError = useCallback((caught: Error) => {
+    reportBoundaryError("caught", caught);
+  }, [reportBoundaryError]);
 
   const handleDismiss = useCallback(() => {
     setError(null);
@@ -158,7 +172,7 @@ export function BookingErrorBoundary({ children, onRetry, className }: BookingEr
   const contextValue = useMemo<BookingErrorBoundaryContextValue>(
     () => ({
       reportError: (err: unknown) => {
-        setError(normalizeError(err));
+        reportBoundaryError("reported", err);
       },
       reportConflict: (payload: ConflictPayload) => {
         setConflict(payload);
@@ -168,7 +182,7 @@ export function BookingErrorBoundary({ children, onRetry, className }: BookingEr
       },
       resetError: handleDismiss,
     }),
-    [handleDismiss],
+    [handleDismiss, reportBoundaryError],
   );
 
   return (

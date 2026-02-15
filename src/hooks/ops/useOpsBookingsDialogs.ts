@@ -34,6 +34,7 @@ export function useOpsBookingsDialogs({
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [cancelBooking, setCancelBooking] = useState<BookingDTO | null>(null);
   const [isCancelOpen, setIsCancelOpen] = useState(false);
+  const [isFocusAutoOpenReady, setIsFocusAutoOpenReady] = useState(false);
 
   const cancelBookingMutation = useOpsCancelBooking();
 
@@ -45,6 +46,11 @@ export function useOpsBookingsDialogs({
   );
 
   useEffect(() => {
+    setIsFocusAutoOpenReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isFocusAutoOpenReady) return;
     if (!focusBookingId) return;
 
     const foundInList = bookings.find((booking) => booking.id === focusBookingId);
@@ -61,7 +67,7 @@ export function useOpsBookingsDialogs({
         row.scrollIntoView({ block: 'center', behavior: 'smooth' });
       }
     }, 100);
-  }, [bookings, focusBookingId, focusedBooking]);
+  }, [bookings, focusBookingId, focusedBooking, isFocusAutoOpenReady]);
 
   const onDetails = useCallback((booking: BookingDTO) => {
     setIsEditOpen(false);
@@ -167,4 +173,3 @@ export function useOpsBookingsDialogs({
     isCancelling: cancelBookingMutation.isPending,
   } as const;
 }
-

@@ -108,10 +108,16 @@ export function OpsBookingsClient({
   const urlDate = sanitizeDateParam(searchParams ? searchParams.get('date') : initialDate);
   const [selectedDate, setSelectedDate] = useState<string | null>(() => urlDate);
   const resolvedTime = sanitizeTimeParam(searchParams?.get('time') ?? initialTime) ?? null;
+  const [hasHydrated, setHasHydrated] = useState(false);
+  const hydratedFocusBookingId = hasHydrated ? focusBookingId : null;
 
   useEffect(() => {
     setSelectedDate(urlDate);
   }, [urlDate]);
+
+  useEffect(() => {
+    setHasHydrated(true);
+  }, []);
 
   const resolvedWindowMode = useMemo<OpsBookingsWindowMode>(() => {
     const raw = searchParams?.get('windowMode');
@@ -446,7 +452,7 @@ export function OpsBookingsClient({
     Boolean(selectedDate) ||
     Boolean(resolvedTableId) ||
     Boolean(resolvedTime) ||
-    Boolean(focusBookingId) ||
+    Boolean(hydratedFocusBookingId) ||
     statusFilter !== defaultStatusFilter;
 
   const handleReset = useCallback(() => {
@@ -524,7 +530,7 @@ export function OpsBookingsClient({
     isCancelling: isCancelPending,
   } = useOpsBookingsDialogs({
     bookings,
-    focusBookingId,
+    focusBookingId: hydratedFocusBookingId,
     activeRestaurantId,
     restaurantTimezone,
     appliedDate: appliedDateRange?.date ?? null,

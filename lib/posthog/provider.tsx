@@ -4,6 +4,7 @@ import { PostHogProvider as PHProvider, usePostHog } from 'posthog-js/react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { useSupabaseSession } from '@/hooks/useSupabaseSession';
+import { clientEnv } from '@/lib/env-client';
 
 import type { PostHog } from 'posthog-js';
 
@@ -50,8 +51,7 @@ export function PostHogProvider({ children }: { children: ReactNode }) {
   const noopClientRef = useRef<PostHog>(createNoopPostHog());
 
   useEffect(() => {
-    const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
-    const host = process.env.NEXT_PUBLIC_POSTHOG_HOST;
+    const { key, host, enabled } = clientEnv.posthog;
     const isOpsHost =
       typeof window !== 'undefined' &&
       (window.location.hostname.startsWith('app.') || window.location.pathname.startsWith('/app'));
@@ -60,7 +60,7 @@ export function PostHogProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (!key || !host) {
+    if (!enabled) {
       if (process.env.NODE_ENV === 'development') {
         console.warn('[PostHog] Missing NEXT_PUBLIC_POSTHOG_KEY or NEXT_PUBLIC_POSTHOG_HOST environment variables');
       }

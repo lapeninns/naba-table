@@ -13,9 +13,16 @@ export const ANALYTICS_EVENTS = [
   'confirm_open',
   'details_submit',
   'booking_created',
+  'booking_check_in',
+  'booking_check_out',
+  'booking_no_show',
+  'booking_completed',
+  'booking_error_boundary_triggered',
   'wizard_offline_detected',
   'wizard_submit_failed',
   'booking_timeout_unrecovered',
+  'client_error_reported',
+  'user_signed_up',
 ] as const;
 
 export type AnalyticsEvent = (typeof ANALYTICS_EVENTS)[number];

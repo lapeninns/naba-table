@@ -199,7 +199,7 @@ export function TableTimelineClient() {
     return timeline.tables.filter((row) => {
       const matchesSearch =
         !query ||
-        row.table.tableNumber.toLowerCase().includes(query) ||
+        String(row.table.tableNumber ?? '').toLowerCase().includes(query) ||
         (row.table.zoneName ?? '').toLowerCase().includes(query);
       const hasVisibleSegments = row.segments.some((segment) => statusFilterSet.has(segment.state));
       return matchesSearch && hasVisibleSegments;

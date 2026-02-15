@@ -15,6 +15,62 @@ import type { NextRequest } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
+const INVALID_CLIENT_ID_ERROR_TYPE = 'invalid_client_id';
+const INVALID_CLIENT_ID_USER_MESSAGE =
+  'Sign-in is temporarily unavailable due to an authentication provider setup issue. Please contact support or try again later.';
+
+function isInvalidClientIdError(error: {
+  message?: string | null;
+  code?: string | null;
+  name?: string | null;
+}): boolean {
+  const parts = [error.code, error.name, error.message].filter(
+    (part): part is string => typeof part === 'string',
+  );
+
+  const message = error.message;
+  if (typeof message === 'string') {
+    try {
+      const decodedMessage = decodeURIComponent(message);
+      if (decodedMessage !== message) {
+        parts.push(decodedMessage);
+      }
+    } catch {
+      // Ignore decode errors and continue with raw value.
+    }
+
+    try {
+      const parsed = JSON.parse(message) as {
+        error?: string;
+        error_description?: string;
+        message?: string;
+      };
+      if (parsed.error) parts.push(parsed.error);
+      if (parsed.error_description) parts.push(parsed.error_description);
+      if (parsed.message) parts.push(parsed.message);
+    } catch {
+      try {
+        const parsed = JSON.parse(decodeURIComponent(message)) as {
+          error?: string;
+          error_description?: string;
+          message?: string;
+        };
+        if (parsed.error) parts.push(parsed.error);
+        if (parsed.error_description) parts.push(parsed.error_description);
+        if (parsed.message) parts.push(parsed.message);
+      } catch {
+        // Ignore parse errors and rely on raw message matching.
+      }
+    }
+  }
+
+  const normalized = parts.join(' ').toLowerCase();
+  return (
+    normalized.includes('invalid_client_id') ||
+    normalized.includes('invalid client_id parameter value')
+  );
+}
+
 async function linkAuthUserToCustomers(authUserId: string, email: string): Promise<void> {
   try {
     const serviceClient = getServiceSupabaseClient();
@@ -160,7 +216,10 @@ export async function GET(req: NextRequest) {
         let userMessage = 'Authentication link has expired or is invalid. Please try again.';
         let errorType = 'auth_failed';
 
-        if (error.message?.includes('expired') || error.code === 'otp_expired') {
+        if (isInvalidClientIdError(error)) {
+          userMessage = INVALID_CLIENT_ID_USER_MESSAGE;
+          errorType = INVALID_CLIENT_ID_ERROR_TYPE;
+        } else if (error.message?.includes('expired') || error.code === 'otp_expired') {
           userMessage = 'Your magic link has expired. Please request a new one.';
           errorType = 'link_expired';
         } else if (error.message?.includes('already been used') || error.code === 'otp_disabled') {
@@ -216,7 +275,10 @@ export async function GET(req: NextRequest) {
         let userMessage = 'Authentication link has expired or is invalid. Please try again.';
         let errorType = 'auth_failed';
 
-        if (error.message?.includes('expired') || error.code === 'otp_expired') {
+        if (isInvalidClientIdError(error)) {
+          userMessage = INVALID_CLIENT_ID_USER_MESSAGE;
+          errorType = INVALID_CLIENT_ID_ERROR_TYPE;
+        } else if (error.message?.includes('expired') || error.code === 'otp_expired') {
           userMessage = 'Your magic link has expired. Please request a new one.';
           errorType = 'link_expired';
         } else if (error.message?.includes('already been used') || error.code === 'otp_disabled') {

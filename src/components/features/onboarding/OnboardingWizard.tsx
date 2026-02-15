@@ -16,6 +16,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { track } from '@/lib/analytics';
+import { emit } from '@/lib/analytics/emit';
 import { fetchJson } from '@/lib/http/fetchJson';
 
 import { OnboardingProvider, useOnboarding } from './context/OnboardingContext';
@@ -102,6 +104,8 @@ function AccountStep({ onComplete }: { onComplete: () => void }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(values),
       });
+      track('user_signed_up', { method: values.mode });
+      emit('user_signed_up', { method: values.mode });
       setAccount(values);
       setStep(2);
       onComplete();

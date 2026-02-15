@@ -4,6 +4,8 @@
 
 import * as Sentry from '@sentry/nextjs';
 
+import { clientEnv } from '@/lib/env-client';
+
 const isOpsPath = (path: string) => path.startsWith('/app');
 const isOpsHost = (host: string) => host.startsWith('app.');
 
@@ -76,8 +78,7 @@ if (typeof window !== 'undefined') {
 }
 
 // PostHog is initialized in the client provider to defer work off the critical path.
-const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
-const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;
+const posthogConfig = clientEnv.posthog;
 
 type PosthogQueuedEvent = { event: string; payload: Record<string, unknown> };
 
@@ -103,7 +104,7 @@ const flushPosthogQueue = () => {
 };
 
 const capturePosthogPageview = () => {
-  if (!posthogKey || !posthogHost) return;
+  if (!posthogConfig.enabled) return;
   if (isOpsUrl()) return;
   if (typeof window === 'undefined') return;
   const win = window as Window & { posthog?: { capture: (event: string, payload: Record<string, unknown>) => void } };
