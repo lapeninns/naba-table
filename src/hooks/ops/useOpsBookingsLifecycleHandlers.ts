@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
 
 import { useOpsBookingLifecycleActions } from '@/hooks/ops/useOpsBookingStatusActions';
+import { track } from '@/lib/analytics';
 import { HttpError } from '@/lib/http/errors';
 
 import type { BookingAction } from '@/components/features/booking-state-machine';
@@ -116,6 +117,12 @@ export function useOpsBookingsLifecycleHandlers({
           reason: options?.reason ?? null,
           targetDate,
         });
+        track('booking_no_show', {
+          booking_id: bookingId,
+          restaurant_id: restaurantId,
+          date: targetDate,
+          is_online: isOnline,
+        });
         toast.success(`Marked no-show: ${guestLabel}`, {
           duration: 5000,
           action: {
@@ -171,6 +178,12 @@ export function useOpsBookingsLifecycleHandlers({
           bookingId,
           targetDate,
         });
+        track('booking_check_in', {
+          booking_id: bookingId,
+          restaurant_id: restaurantId,
+          date: targetDate,
+          is_online: isOnline,
+        });
         toast.success(`Seated: ${guestLabel}`);
       } catch (error) {
         if (error instanceof HttpError && error.status === 409) {
@@ -217,6 +230,18 @@ export function useOpsBookingsLifecycleHandlers({
           bookingId,
           targetDate,
         });
+        track('booking_check_out', {
+          booking_id: bookingId,
+          restaurant_id: restaurantId,
+          date: targetDate,
+          is_online: isOnline,
+        });
+        track('booking_completed', {
+          booking_id: bookingId,
+          restaurant_id: restaurantId,
+          date: targetDate,
+          is_online: isOnline,
+        });
         toast.success(`Finished: ${guestLabel}`);
       } catch (error) {
         if (error instanceof HttpError && error.status === 409) {
@@ -247,4 +272,3 @@ export function useOpsBookingsLifecycleHandlers({
     onUndoNoShow,
   } as const;
 }
-

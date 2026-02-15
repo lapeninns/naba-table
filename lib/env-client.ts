@@ -26,6 +26,11 @@ export const clientEnv = {
       'web-dev',
     siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? getCanonicalSiteUrl(),
   },
+  posthog: {
+    key: process.env.NEXT_PUBLIC_POSTHOG_KEY ?? null,
+    host: process.env.NEXT_PUBLIC_POSTHOG_HOST ?? null,
+    enabled: Boolean(process.env.NEXT_PUBLIC_POSTHOG_KEY && process.env.NEXT_PUBLIC_POSTHOG_HOST),
+  },
   flags: {
     reserveV2: process.env.NEXT_PUBLIC_RESERVE_V2 === 'true',
     forcePasswordSignIn: process.env.NEXT_PUBLIC_FORCE_PASSWORD_SIGNIN === 'true',

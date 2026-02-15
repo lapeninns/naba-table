@@ -26,6 +26,14 @@
       },
       "enabled": true
     },
+    "posthog": {
+      "type": "remote",
+      "url": "https://mcp-eu.posthog.com/sse",
+      "headers": {
+        "Authorization": "Bearer {env:POSTHOG_MCP_ACCESS_TOKEN}"
+      },
+      "enabled": true
+    },
     "augment-context-engine": {
       "type": "local",
       "command": [

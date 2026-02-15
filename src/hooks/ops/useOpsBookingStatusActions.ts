@@ -117,7 +117,7 @@ export function useOpsBookingLifecycleActions() {
       exact: false,
     });
     for (const [, data] of queries) {
-      const match = data?.items.find((item) => item.id === bookingId);
+      const match = data?.items?.find((item) => item.id === bookingId);
       if (match) return match;
     }
     return undefined;
