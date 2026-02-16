@@ -300,7 +300,8 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
   });
   const shouldEmitPlannerStats = env.featureFlags.planner.debugProfiling ?? false;
   const attachPlannerStats = (result: QuoteTablesResult, stats?: QuotePlannerStats | null) => {
-    if (shouldEmitPlannerStats && stats) {
+    const shouldAttachStats = Boolean(stats) && (shouldEmitPlannerStats || !result.hold);
+    if (shouldAttachStats && stats) {
       result.plannerStats = stats;
     }
     return result;

@@ -23,6 +23,10 @@ import {
   getAutoAssignRetryDelaysMs,
   getAutoAssignStartCutoffMinutes,
 } from "@/server/feature-flags";
+import {
+  ensureMinimumAttemptsForDeferredHardStop,
+  shouldDeferHardStop,
+} from "@/server/jobs/auto-assign-retry-policy";
 import { recordObservabilityEvent } from "@/server/observability";
 import { getServiceSupabaseClient } from "@/server/supabase";
 
@@ -399,8 +403,39 @@ export async function autoAssignAndConfirmIfPossible(
           reasonCode: classification.code,
         });
         if (classification.category === "hard") {
-          shouldRetry = false;
-          hardStopReason = classification.code;
+          const deferHardStop = shouldDeferHardStop(classification, attempt);
+          if (deferHardStop) {
+            const previousMaxAttempts = maxAttempts;
+            maxAttempts = ensureMinimumAttemptsForDeferredHardStop(maxAttempts);
+            if (maxAttempts !== previousMaxAttempts) {
+              computedMaxAttempts = maxAttempts;
+            }
+            await recordObservabilityEvent({
+              source: "auto_assign",
+              eventType: "auto_assign.hard_stop_deferred",
+              restaurantId: booking.restaurant_id,
+              bookingId: booking.id,
+              context: {
+                attempt_index: attempt,
+                reason: cachedEntry.reason ?? null,
+                reasonCode: classification.code,
+                trigger: reason,
+                cache_hit: true,
+                previousMaxAttempts,
+                nextMaxAttempts: maxAttempts,
+              },
+            });
+            logJob("attempt.defer_hard_stop", {
+              attempt,
+              reasonCode: classification.code,
+              previousMaxAttempts,
+              nextMaxAttempts: maxAttempts,
+              cacheHit: true,
+            });
+          } else {
+            shouldRetry = false;
+            hardStopReason = classification.code;
+          }
         }
       } else {
         const plannerStart = Date.now();
@@ -462,20 +497,49 @@ export async function autoAssignAndConfirmIfPossible(
             });
 
             if (classification.category === "hard") {
-              shouldRetry = false;
-              hardStopReason = classification.code;
-              await recordObservabilityEvent({
-                source: "auto_assign",
-                eventType: "auto_assign.hard_stop",
-                restaurantId: booking.restaurant_id,
-                bookingId: booking.id,
-                context: {
-                  attempt_index: attempt,
-                  reason: quote.reason ?? null,
+              const deferHardStop = shouldDeferHardStop(classification, attempt);
+              if (deferHardStop) {
+                const previousMaxAttempts = maxAttempts;
+                maxAttempts = ensureMinimumAttemptsForDeferredHardStop(maxAttempts);
+                if (maxAttempts !== previousMaxAttempts) {
+                  computedMaxAttempts = maxAttempts;
+                }
+                await recordObservabilityEvent({
+                  source: "auto_assign",
+                  eventType: "auto_assign.hard_stop_deferred",
+                  restaurantId: booking.restaurant_id,
+                  bookingId: booking.id,
+                  context: {
+                    attempt_index: attempt,
+                    reason: quote.reason ?? null,
+                    reasonCode: classification.code,
+                    trigger: reason,
+                    previousMaxAttempts,
+                    nextMaxAttempts: maxAttempts,
+                  },
+                });
+                logJob("attempt.defer_hard_stop", {
+                  attempt,
                   reasonCode: classification.code,
-                  trigger: reason,
-                },
-              });
+                  previousMaxAttempts,
+                  nextMaxAttempts: maxAttempts,
+                });
+              } else {
+                shouldRetry = false;
+                hardStopReason = classification.code;
+                await recordObservabilityEvent({
+                  source: "auto_assign",
+                  eventType: "auto_assign.hard_stop",
+                  restaurantId: booking.restaurant_id,
+                  bookingId: booking.id,
+                  context: {
+                    attempt_index: attempt,
+                    reason: quote.reason ?? null,
+                    reasonCode: classification.code,
+                    trigger: reason,
+                  },
+                });
+              }
             }
           } else {
             const idempotencyKey = booking.auto_assign_idempotency_key ?? `auto-${bookingId}`;
