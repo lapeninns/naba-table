@@ -199,6 +199,23 @@ export type QuotePlannerStats = {
   requireAdjacency?: boolean;
   demandMultiplier?: number;
   plannerDurationMs?: number;
+  filterStatusPolicy?: "available_only" | "exclude_out_of_service";
+  filterFutureWindow?: boolean;
+  filterInputTables?: number;
+  filterCandidatesAfterBasic?: number;
+  filterCandidatesAfterTime?: number;
+  filterDroppedByAvoid?: number;
+  filterDroppedByZone?: number;
+  filterDroppedByZoneInactive?: number;
+  filterDroppedByTableInactive?: number;
+  filterDroppedByStatus?: number;
+  filterDroppedByMobility?: number;
+  filterDroppedByInvalidCapacity?: number;
+  filterDroppedByInsufficientCapacity?: number;
+  filterDroppedByMaxPartySize?: number;
+  filterDroppedByMinPartySize?: number;
+  filterDroppedByAdjacency?: number;
+  filterDroppedByTime?: number;
 };
 
 export type QuoteTablesResult = {

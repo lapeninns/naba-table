@@ -48,6 +48,28 @@ export type TimeFilterOptions = {
   captureStats?: (stats: TimeFilterStats) => void;
 };
 
+export type TableFilterStatusPolicy = "available_only" | "exclude_out_of_service";
+
+export type TableFilterDiagnostics = {
+  inputTables: number;
+  candidatesAfterBasic: number;
+  candidatesAfterTime: number;
+  droppedByAvoid: number;
+  droppedByZone: number;
+  droppedByZoneInactive: number;
+  droppedByTableInactive: number;
+  droppedByStatus: number;
+  droppedByMobility: number;
+  droppedByInvalidCapacity: number;
+  droppedByInsufficientCapacity: number;
+  droppedByMaxPartySize: number;
+  droppedByMinPartySize: number;
+  droppedByAdjacency: number;
+  droppedByTime: number;
+  statusPolicy: TableFilterStatusPolicy;
+  futureWindow: boolean;
+};
+
 export function filterTimeAvailableTables(
   tables: Table[],
   window: BookingWindow,
@@ -121,6 +143,7 @@ export function filterAvailableTables(
     allowMaxPartySizeViolation?: boolean;
     allowMinPartySizeViolation?: boolean;
     timeFilter?: TimeFilterOptions;
+    captureDiagnostics?: (diagnostics: TableFilterDiagnostics) => void;
   },
 ): Table[] {
   const DEBUG = process.env.CAPACITY_DEBUG === '1' || process.env.CAPACITY_DEBUG === 'true';
@@ -128,6 +151,27 @@ export function filterAvailableTables(
   const allowMaxPartySizeViolation = options?.allowMaxPartySizeViolation ?? false;
   const allowMinPartySizeViolation = options?.allowMinPartySizeViolation ?? false;
   const avoid = avoidTables ?? new Set<string>();
+  const futureWindow = window.block.start.toMillis() > Date.now();
+  const statusPolicy: TableFilterStatusPolicy = futureWindow ? "exclude_out_of_service" : "available_only";
+  const diagnostics: TableFilterDiagnostics = {
+    inputTables: tables.length,
+    candidatesAfterBasic: 0,
+    candidatesAfterTime: 0,
+    droppedByAvoid: 0,
+    droppedByZone: 0,
+    droppedByZoneInactive: 0,
+    droppedByTableInactive: 0,
+    droppedByStatus: 0,
+    droppedByMobility: 0,
+    droppedByInvalidCapacity: 0,
+    droppedByInsufficientCapacity: 0,
+    droppedByMaxPartySize: 0,
+    droppedByMinPartySize: 0,
+    droppedByAdjacency: 0,
+    droppedByTime: 0,
+    statusPolicy,
+    futureWindow,
+  };
 
   if (DEBUG) {
     console.warn('[capacity.debug][filter] input', {
@@ -140,22 +184,56 @@ export function filterAvailableTables(
       allowMinPartySizeViolation,
       zoneId: zoneId ?? null,
       avoidCount: avoid.size,
+      statusPolicy,
+      futureWindow,
     });
   }
 
   const filtered = tables.filter((table) => {
-    if (!table) return false;
-    if (avoid.has(table.id)) return false;
-    if (zoneId && table.zoneId !== zoneId) return false;
-    if (table.zoneActive === false) return false;
-    if (table.active === false) return false;
-    const status = (table.status ?? "").toString().toLowerCase();
-    if (status !== "available") return false;
+    if (!table) {
+      diagnostics.droppedByInvalidCapacity += 1;
+      return false;
+    }
+    if (avoid.has(table.id)) {
+      diagnostics.droppedByAvoid += 1;
+      return false;
+    }
+    if (zoneId && table.zoneId !== zoneId) {
+      diagnostics.droppedByZone += 1;
+      return false;
+    }
+    if (table.zoneActive === false) {
+      diagnostics.droppedByZoneInactive += 1;
+      return false;
+    }
+    if (table.active === false) {
+      diagnostics.droppedByTableInactive += 1;
+      return false;
+    }
+    const normalizedStatus = ((table.status ?? "").toString().trim().toLowerCase() || "unknown");
+    if (statusPolicy === "available_only") {
+      if (normalizedStatus !== "available") {
+        diagnostics.droppedByStatus += 1;
+        return false;
+      }
+    } else if (normalizedStatus === "out_of_service" || normalizedStatus === "unknown") {
+      diagnostics.droppedByStatus += 1;
+      return false;
+    }
     // If more capacity than a single table is needed, only movable tables can be merged.
-    if (table.mobility !== "movable" && (table.capacity ?? 0) < partySize) return false;
+    if (table.mobility !== "movable" && (table.capacity ?? 0) < partySize) {
+      diagnostics.droppedByMobility += 1;
+      return false;
+    }
     const capacity = table.capacity ?? 0;
-    if (!Number.isFinite(capacity) || capacity <= 0) return false;
-    if (!allowPartial && capacity < partySize) return false;
+    if (!Number.isFinite(capacity) || capacity <= 0) {
+      diagnostics.droppedByInvalidCapacity += 1;
+      return false;
+    }
+    if (!allowPartial && capacity < partySize) {
+      diagnostics.droppedByInsufficientCapacity += 1;
+      return false;
+    }
 
     // Derive party size rules from physical properties (mobility, capacity)
     // instead of reading from database columns
@@ -170,6 +248,7 @@ export function filterAvailableTables(
       rules.maxPartySize !== null &&
       partySize > rules.maxPartySize
     ) {
+      diagnostics.droppedByMaxPartySize += 1;
       return false;
     }
 
@@ -177,17 +256,25 @@ export function filterAvailableTables(
       !allowMinPartySizeViolation &&
       partySize < rules.minPartySize
     ) {
+      diagnostics.droppedByMinPartySize += 1;
       return false;
     }
     // Require explicit adjacency info when enforcement is on; missing entry means we cannot validate.
     if (partiesRequireAdjacency(partySize) && !adjacency.has(table.id)) {
+      diagnostics.droppedByAdjacency += 1;
       return false;
     }
     return true;
   });
 
+  diagnostics.candidatesAfterBasic = filtered.length;
+
   if (DEBUG) {
-    console.warn('[capacity.debug][filter] after basic', { remaining: filtered.length });
+    console.warn('[capacity.debug][filter] after basic', {
+      remaining: filtered.length,
+      droppedByStatus: diagnostics.droppedByStatus,
+      droppedByTime: diagnostics.droppedByTime,
+    });
   }
 
   const timeFiltered =
@@ -196,9 +283,15 @@ export function filterAvailableTables(
           options.timeFilter?.captureStats?.(stats),
         )
       : filtered;
+  diagnostics.droppedByTime = Math.max(0, filtered.length - timeFiltered.length);
+  diagnostics.candidatesAfterTime = timeFiltered.length;
+  options?.captureDiagnostics?.(diagnostics);
 
   if (DEBUG) {
-    console.warn('[capacity.debug][filter] after time', { remaining: timeFiltered.length });
+    console.warn('[capacity.debug][filter] after time', {
+      remaining: timeFiltered.length,
+      droppedByTime: diagnostics.droppedByTime,
+    });
   }
 
   return timeFiltered.sort((a, b) => {

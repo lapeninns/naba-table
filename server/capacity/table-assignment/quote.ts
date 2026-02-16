@@ -43,6 +43,7 @@ import {
   resolveRequireAdjacency,
   partiesRequireAdjacency,
   type AvailabilityMap,
+  type TableFilterDiagnostics,
   type TimeFilterStats,
   type LookaheadConfig,
   type TimeFilterMode,
@@ -410,10 +411,41 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     });
   }
 
-  const buildFilterOptions = (overrides?: { allowMinPartySizeViolation?: boolean }) => ({
+  let filterDiagnostics: TableFilterDiagnostics | null = null;
+  const withFilterDiagnostics = (stats: QuotePlannerStats): QuotePlannerStats => {
+    if (!filterDiagnostics) {
+      return stats;
+    }
+    return {
+      ...stats,
+      filterStatusPolicy: filterDiagnostics.statusPolicy,
+      filterFutureWindow: filterDiagnostics.futureWindow,
+      filterInputTables: filterDiagnostics.inputTables,
+      filterCandidatesAfterBasic: filterDiagnostics.candidatesAfterBasic,
+      filterCandidatesAfterTime: filterDiagnostics.candidatesAfterTime,
+      filterDroppedByAvoid: filterDiagnostics.droppedByAvoid,
+      filterDroppedByZone: filterDiagnostics.droppedByZone,
+      filterDroppedByZoneInactive: filterDiagnostics.droppedByZoneInactive,
+      filterDroppedByTableInactive: filterDiagnostics.droppedByTableInactive,
+      filterDroppedByStatus: filterDiagnostics.droppedByStatus,
+      filterDroppedByMobility: filterDiagnostics.droppedByMobility,
+      filterDroppedByInvalidCapacity: filterDiagnostics.droppedByInvalidCapacity,
+      filterDroppedByInsufficientCapacity: filterDiagnostics.droppedByInsufficientCapacity,
+      filterDroppedByMaxPartySize: filterDiagnostics.droppedByMaxPartySize,
+      filterDroppedByMinPartySize: filterDiagnostics.droppedByMinPartySize,
+      filterDroppedByAdjacency: filterDiagnostics.droppedByAdjacency,
+      filterDroppedByTime: filterDiagnostics.droppedByTime,
+    };
+  };
+
+  const buildFilterOptions = (overrides?: {
+    allowMinPartySizeViolation?: boolean;
+    captureDiagnostics?: (diagnostics: TableFilterDiagnostics) => void;
+  }) => ({
     allowInsufficientCapacity: true,
     allowMaxPartySizeViolation: combinationEnabled,
     allowMinPartySizeViolation: overrides?.allowMinPartySizeViolation ?? false,
+    captureDiagnostics: overrides?.captureDiagnostics,
     timeFilter:
       busyForPlanner && timePruningEnabled
         ? {
@@ -428,26 +460,37 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
 
   const computeCapacity = (list: Table[]) => list.reduce((sum, table) => sum + (table.capacity ?? 0), 0);
 
-  const computeFilteredTables = (allowMinPartySizeViolation: boolean) =>
-    filterAvailableTables(
+  const computeFilteredTables = (allowMinPartySizeViolation: boolean): { tables: Table[]; diagnostics: TableFilterDiagnostics | null } => {
+    let diagnostics: TableFilterDiagnostics | null = null;
+    const tableCandidates = filterAvailableTables(
       tables,
       booking.party_size,
       window,
       adjacency,
       new Set(avoidTables),
       zoneId ?? null,
-      buildFilterOptions({ allowMinPartySizeViolation }),
+      buildFilterOptions({
+        allowMinPartySizeViolation,
+        captureDiagnostics: (captured) => {
+          diagnostics = captured;
+        },
+      }),
     );
+    return { tables: tableCandidates, diagnostics };
+  };
 
-  let filtered = computeFilteredTables(false);
+  const initialFiltered = computeFilteredTables(false);
+  let filtered = initialFiltered.tables;
+  filterDiagnostics = initialFiltered.diagnostics;
   let filteredCapacity = computeCapacity(filtered);
   let relaxedMinPartySize = false;
 
   if ((filtered.length === 0 || filteredCapacity < booking.party_size) && booking.party_size > 0) {
     const relaxed = computeFilteredTables(true);
-    const relaxedCapacity = computeCapacity(relaxed);
-    if (relaxed.length > 0 && relaxedCapacity >= booking.party_size) {
-      filtered = relaxed;
+    const relaxedCapacity = computeCapacity(relaxed.tables);
+    if (relaxed.tables.length > 0 && relaxedCapacity >= booking.party_size) {
+      filtered = relaxed.tables;
+      filterDiagnostics = relaxed.diagnostics;
       filteredCapacity = relaxedCapacity;
       relaxedMinPartySize = true;
     }
@@ -457,13 +500,13 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     await demandMultiplierPromise.catch(() => null);
     return buildFailureResult(
       "No tables available for requested window",
-      {
+      withFilterDiagnostics({
         totalTables: tables.length,
         filteredTables: 0,
         combinationEnabled,
         demandMultiplier: 0,
         plannerDurationMs: roundMilliseconds(highResNow() - operationStart),
-      },
+      }),
       { relaxedMinPartySize },
     );
   }
@@ -471,13 +514,13 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     await demandMultiplierPromise.catch(() => null);
     return buildFailureResult(
       "Insufficient filtered capacity",
-      {
+      withFilterDiagnostics({
         totalTables: tables.length,
         filteredTables: filtered.length,
         combinationEnabled,
         demandMultiplier: 0,
         plannerDurationMs: roundMilliseconds(highResNow() - operationStart),
-      },
+      }),
       { relaxedMinPartySize },
     );
   }
@@ -530,12 +573,13 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
 
   if (plans.plans.length === 0 && !relaxedMinPartySize && booking.party_size > 0) {
     const relaxed = computeFilteredTables(true);
-    const relaxedCapacity = computeCapacity(relaxed);
-    if (relaxed.length > 0 && relaxedCapacity >= booking.party_size) {
-      filtered = relaxed;
+    const relaxedCapacity = computeCapacity(relaxed.tables);
+    if (relaxed.tables.length > 0 && relaxedCapacity >= booking.party_size) {
+      filtered = relaxed.tables;
+      filterDiagnostics = relaxed.diagnostics;
       filteredCapacity = relaxedCapacity;
       relaxedMinPartySize = true;
-      plannerTables = relaxed;
+      plannerTables = relaxed.tables;
       tableScarcityScores = await loadTableScarcityScores({
         restaurantId: booking.restaurant_id,
         tables: plannerTables,
@@ -644,20 +688,21 @@ export async function quoteTablesForBooking(options: QuoteTablesOptions): Promis
     });
   };
 
-  const collectPlannerStats = (): QuotePlannerStats => ({
-    totalTables: tables.length,
-    filteredTables: filtered.length,
-    generatedPlans: plans.plans.length,
-    alternatesGenerated: alternates.length,
-    skippedCandidates: skippedCandidates.length,
-    holdConflictSkips: holdConflictSkipCount,
-    timePruned: timePruningStats?.prunedByTime,
-    candidatesAfterTimePrune: timePruningStats?.candidatesAfterTimePrune,
-    combinationEnabled,
-    requireAdjacency: requireAdjacencyUsed,
-    demandMultiplier,
-    plannerDurationMs: roundMilliseconds(plannerDurationMs),
-  });
+  const collectPlannerStats = (): QuotePlannerStats =>
+    withFilterDiagnostics({
+      totalTables: tables.length,
+      filteredTables: filtered.length,
+      generatedPlans: plans.plans.length,
+      alternatesGenerated: alternates.length,
+      skippedCandidates: skippedCandidates.length,
+      holdConflictSkips: holdConflictSkipCount,
+      timePruned: timePruningStats?.prunedByTime,
+      candidatesAfterTimePrune: timePruningStats?.candidatesAfterTimePrune,
+      combinationEnabled,
+      requireAdjacency: requireAdjacencyUsed,
+      demandMultiplier,
+      plannerDurationMs: roundMilliseconds(plannerDurationMs),
+    });
 
   for (let index = 0; index < plans.plans.length; index += 1) {
     const plan = plans.plans[index]!;

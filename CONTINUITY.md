@@ -1,43 +1,78 @@
 # Continuity Ledger
 
-Last updated: 2026-02-15T14:57:00Z
+Last updated: 2026-02-16T01:37:00Z
 
 ## Goal (incl. success criteria)
 
-- Fix Vercel-blocking TypeScript error in PostHog provider (`string | null` passed into `posthog.init`).
+- Debug why `ebrain@doctors.org.uk` did not get table assignment in production (Old Crown Girton), with evidence from Supabase and telemetry.
 - Success:
-  - `lib/posthog/provider.tsx` no longer produces key/host nullability TypeScript errors.
-  - Build logs show the previous PostHog error removed.
+  - Identify exact booking row and assignment timeline.
+  - Confirm failure stage in auto-assignment path.
+  - Provide evidence-backed root cause and remediation options.
 
 ## Constraints/Assumptions
 
-- Follow root + nested AGENTS policies for touched files.
-- Keep change minimal and canonical in `lib/posthog/provider.tsx` without introducing wrappers/shims.
-- No UI behavior change intended; analytics enablement semantics must remain unchanged.
+- Follow root AGENTS SDLC task-artifact workflow.
+- Production investigation remains read-only (no write/migration actions).
+- PostHog MCP is currently unavailable in-session; fallback telemetry comes from `observability_events`.
 
 ## Key decisions
 
-- Preserve `clientEnv.posthog` shape and add explicit runtime narrowing in the provider (`missingConfig = !enabled || !key || !host`) before initialization.
-- Keep existing development warning message and host/path guard behavior intact.
+- Use production env file `.env.vercel-production.live` with explicit ref guard (`vrdiqfudmwydclqpydee`) to avoid accidental staging queries.
+- Treat `booking_table_assignments` row absence on completed bookings as expected because checkout/no-show flows call `clearBookingTableAssignments`.
+- Use audit + observability correlation as source of truth for historical assignment lifecycle.
 
 ## State
 
-- PostHog nullability fix implemented and verified as removed from build output; local full build still blocked by an unrelated pre-existing task artifact type error.
+- Diagnosis and patch complete. Root cause remains a filter-stage capacity rejection at quote time; planner reason classification and status filtering/telemetry are now patched in canonical server paths.
 
 ## Done
 
-- Created task folder `tasks/fix-posthog-build-null-key-20260215-1454/` with required SDLC docs and build artifact capture.
-- Updated `lib/posthog/provider.tsx` to enforce non-null key/host invariant before `posthog.init`.
-- Ran `pnpm run build` and saved output to `tasks/fix-posthog-build-null-key-20260215-1454/artifacts/build.txt`.
-- Confirmed remaining failure is unrelated to PostHog (`tasks/booking-confirmation-pdf-template-20260212-1831/artifacts/pdf-template-smoke.ts`).
+- Created task folder `tasks/debug-old-crown-missing-assignment-ebr-20260216-0105/` with SDLC docs and evidence artifacts.
+- Confirmed target booking and venue in production:
+  - Booking `160681eb-ca50-4a52-90d3-4e4e2f12f3d2` (`FP9SWA7D24`)
+  - Restaurant `The Old Crown Girton` (`a050d1ad-1ee0-4ea0-abc2-22c3778aa52c`)
+- Captured observability timeline:
+  - `inline_auto_assign.no_hold` + `auto_assign.failed` with reason `Insufficient filtered capacity`
+  - `auto_assign.summary` result `exhausted`, `maxAttempts=1`
+- Captured assignment audit timeline:
+  - Manual assignment at `2026-02-15T11:48:27Z` to table `05` by `oldcrown@lapeninns.com`
+  - Unassignment at checkout `2026-02-15T17:13:16Z`
+- Implemented patch set:
+  - `server/capacity/planner-reason.ts`: classify `Insufficient filtered capacity` as `hard.insufficient_filtered_capacity`.
+  - `server/capacity/table-assignment/availability.ts`: use window-aware status policy (`available_only` near-now, `exclude_out_of_service` for future windows) and emit filter diagnostics.
+  - `server/capacity/table-assignment/quote.ts` + `server/capacity/table-assignment/types.ts` + `server/capacity/planner-telemetry.ts`: carry filter diagnostics into `plannerStats`/observability.
+- Added regression tests:
+  - `tests/server/capacity/planner-reason.test.ts`
+  - `tests/server/capacity/availability-status-policy.test.ts`
+- Verification:
+  - `pnpm vitest tests/server/capacity/planner-reason.test.ts tests/server/capacity/availability-status-policy.test.ts` passed.
+  - `pnpm exec eslint ...` on touched files passed.
+  - `pnpm run typecheck` still fails only on pre-existing unrelated file `tasks/booking-confirmation-pdf-template-20260212-1831/artifacts/pdf-template-smoke.ts`.
 
 ## Now
 
-- Handoff fix details and verification evidence to user for redeploy.
+- Handoff patch + test evidence to user.
 
 ## Next
 
-- Optional follow-up: exclude `tasks/**/artifacts/*.ts` from local TypeScript build scope or fix the existing task artifact nullability issue if local full build parity is required.
+- Optional: monitor production `auto_assign.quote` events for increased `hard.insufficient_filtered_capacity` signal quality and new filter diagnostics.
+- Optional: clear baseline typecheck debt in legacy task artifact (`tasks/booking-confirmation-pdf-template-20260212-1831/artifacts/pdf-template-smoke.ts`) to restore full repo green typecheck.
+
+## Open questions (UNCONFIRMED if needed)
+
+- None.
+
+## Working set (files/ids/commands)
+
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/debug-old-crown-missing-assignment-ebr-20260216-0105/research.md`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/debug-old-crown-missing-assignment-ebr-20260216-0105/plan.md`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/debug-old-crown-missing-assignment-ebr-20260216-0105/todo.md`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/debug-old-crown-missing-assignment-ebr-20260216-0105/verification.md`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/debug-old-crown-missing-assignment-ebr-20260216-0105/artifacts/incident-timeline.md`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/capacity/planner-reason.ts`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/capacity/table-assignment/availability.ts`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/capacity/table-assignment/quote.ts`
 
 ---
 
