@@ -339,6 +339,7 @@ export async function autoAssignAndConfirmIfPossible(
               restaurantId: booking.restaurant_id,
               bookingDate: booking.booking_date ?? null,
               startTime: booking.start_time ?? null,
+              bookingType: booking.booking_type ?? null,
               partySize: booking.party_size ?? null,
               strategy: plannerStrategy,
               trigger: reason,

@@ -1,6 +1,6 @@
 # Continuity Ledger
 
-Last updated: 2026-02-16T01:37:00Z
+Last updated: 2026-02-16T10:53:00Z
 
 ## Goal (incl. success criteria)
 
@@ -24,7 +24,7 @@ Last updated: 2026-02-16T01:37:00Z
 
 ## State
 
-- Diagnosis and patch complete. Root cause remains a filter-stage capacity rejection at quote time; planner reason classification and status filtering/telemetry are now patched in canonical server paths.
+- Diagnosis plus follow-up hardening complete. Remaining risk around false capacity denials is reduced in canonical planner/filter/cache code paths, and Vercel deployment blockers found in logs are now patched.
 
 ## Done
 
@@ -42,22 +42,37 @@ Last updated: 2026-02-16T01:37:00Z
   - `server/capacity/planner-reason.ts`: classify `Insufficient filtered capacity` as `hard.insufficient_filtered_capacity`.
   - `server/capacity/table-assignment/availability.ts`: use window-aware status policy (`available_only` near-now, `exclude_out_of_service` for future windows) and emit filter diagnostics.
   - `server/capacity/table-assignment/quote.ts` + `server/capacity/table-assignment/types.ts` + `server/capacity/planner-telemetry.ts`: carry filter diagnostics into `plannerStats`/observability.
+- Implemented additional hardening for similar failure modes:
+  - `server/capacity/table-assignment/availability.ts`: derive mergeability from `deriveTableRules` (legacy mobility-safe) and require adjacency metadata only for merge candidates (single-table fits no longer dropped for missing adjacency edges).
+  - `server/capacity/selector.ts`: derive fallback reason from diagnostics to surface transient timeout/evaluation-limit outcomes instead of always collapsing to deterministic no-table reason.
+  - `server/capacity/planner-reason.ts`: classify `evaluation limit` failures as transient (`transient.evaluation_limit`).
+  - `server/capacity/planner-cache.ts` + `server/jobs/auto-assign.ts`: include `booking_type` in planner cache key to avoid cross-option cache collisions.
 - Added regression tests:
   - `tests/server/capacity/planner-reason.test.ts`
   - `tests/server/capacity/availability-status-policy.test.ts`
+  - `tests/server/capacity/selector-fallback-reason.test.ts`
+  - `tests/server/capacity/planner-cache-key.test.ts`
+- Investigated Vercel production deployment errors via CLI:
+  - `vercel inspect nabatable-6chdx9fwg-lapen-inns-projects.vercel.app --logs`
+  - `vercel inspect nabatable-jru8fk5a9-lapen-inns-projects.vercel.app --logs`
+  - Confirmed common failure signature: `./lib/posthog/provider.tsx:78:20` (`string | null` passed to `posthog.init`).
+- Patched deployment blockers:
+  - `lib/posthog/provider.tsx`: explicit non-null key/host narrowing before `posthog.init`.
+  - `tasks/booking-confirmation-pdf-template-20260212-1831/artifacts/pdf-template-smoke.ts`: null-safe venue-name check to restore branch-wide typecheck/build.
 - Verification:
-  - `pnpm vitest tests/server/capacity/planner-reason.test.ts tests/server/capacity/availability-status-policy.test.ts` passed.
+  - `pnpm vitest tests/server/capacity/planner-reason.test.ts tests/server/capacity/availability-status-policy.test.ts tests/server/capacity/selector-fallback-reason.test.ts tests/server/capacity/planner-cache-key.test.ts tests/server/capacity/selector-merge-policy.test.ts` passed (15 tests).
   - `pnpm exec eslint ...` on touched files passed.
-  - `pnpm run typecheck` still fails only on pre-existing unrelated file `tasks/booking-confirmation-pdf-template-20260212-1831/artifacts/pdf-template-smoke.ts`.
+  - `pnpm run build` passed.
+  - `pnpm run typecheck` passed.
 
 ## Now
 
-- Handoff patch + test evidence to user.
+- Handoff complete patch set and verification evidence to user.
 
 ## Next
 
+- Optional: trigger a new production deployment and verify no recurrence of the `lib/posthog/provider.tsx` TypeScript failure in Vercel build logs.
 - Optional: monitor production `auto_assign.quote` events for increased `hard.insufficient_filtered_capacity` signal quality and new filter diagnostics.
-- Optional: clear baseline typecheck debt in legacy task artifact (`tasks/booking-confirmation-pdf-template-20260212-1831/artifacts/pdf-template-smoke.ts`) to restore full repo green typecheck.
 
 ## Open questions (UNCONFIRMED if needed)
 
@@ -73,6 +88,11 @@ Last updated: 2026-02-16T01:37:00Z
 - `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/capacity/planner-reason.ts`
 - `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/capacity/table-assignment/availability.ts`
 - `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/capacity/table-assignment/quote.ts`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/capacity/selector.ts`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/capacity/planner-cache.ts`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/jobs/auto-assign.ts`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tests/server/capacity/selector-fallback-reason.test.ts`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tests/server/capacity/planner-cache-key.test.ts`
 
 ---
 

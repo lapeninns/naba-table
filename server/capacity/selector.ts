@@ -151,6 +151,8 @@ export type BuildCandidatesResult = {
 };
 
 const FALLBACK_NO_TABLES = "No tables meet the capacity requirements for this party size.";
+const FALLBACK_EVALUATION_LIMIT = "Planner evaluation limit reached before finding suitable tables.";
+const FALLBACK_TIMEOUT = "Planner timeout before finding suitable tables.";
 const DEFAULT_MAX_PLANS_PER_SLACK = 50;
 const DEFAULT_MAX_COMBINATION_EVALUATIONS = 500;
 
@@ -164,6 +166,22 @@ function createSkipCounts(): DiagnosticSkipCounts {
 function incrementCounter(target: Record<string, number>, key: string, amount = 1): void {
   const current = target[key] ?? 0;
   target[key] = current + amount;
+}
+
+function resolveFallbackReason(params: {
+  planCount: number;
+  diagnostics: CandidateDiagnostics;
+}): string | undefined {
+  if (params.planCount > 0) {
+    return undefined;
+  }
+  if ((params.diagnostics.skipped.timeout ?? 0) > 0) {
+    return FALLBACK_TIMEOUT;
+  }
+  if ((params.diagnostics.skipped.limit ?? 0) > 0) {
+    return FALLBACK_EVALUATION_LIMIT;
+  }
+  return FALLBACK_NO_TABLES;
 }
 
 export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCandidatesResult {
@@ -333,7 +351,10 @@ export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCan
   plans.sort((a, b) => comparePlans(a, b, weights));
   const sortingMs = performance.now() - sortStartTime;
 
-  const fallbackReason = plans.length > 0 ? undefined : FALLBACK_NO_TABLES;
+  const fallbackReason = resolveFallbackReason({
+    planCount: plans.length,
+    diagnostics,
+  });
 
   diagnostics.totals.enumerated = diagnostics.combinationsEnumerated + diagnostics.singlesConsidered;
   diagnostics.totals.accepted = plans.length;

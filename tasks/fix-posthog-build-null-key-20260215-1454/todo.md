@@ -17,7 +17,8 @@ related_tickets: []
 ## Core
 
 - [x] Add explicit `key`/`host` null guards in PostHog provider.
-- [x] Use narrowed values in `posthog.init`.
+- [x] Use narrowed `posthogKey`/`posthogHost` values in `posthog.init`.
+- [x] Capture Vercel failed deployment evidence showing the nullability failure signature.
 
 ## UI/UX
 
@@ -25,14 +26,16 @@ related_tickets: []
 
 ## Tests
 
-- [x] Build (`pnpm run build`) executed; blocked by unrelated pre-existing task artifact TypeScript error.
+- [x] `pnpm exec eslint lib/posthog/provider.tsx` (pass).
+- [x] `pnpm run build` (pass).
+- [x] `pnpm run typecheck` (pass).
 
 ## Notes
 
 - Assumptions:
   - Existing `enabled` semantics should remain intact.
 - Deviations:
-  - Local `next build` includes `tasks/**/artifacts/*.ts`; this differs from Vercel build context where `.vercelignore` excludes `tasks/**/artifacts/**`.
+  - Local `next build` includes `tasks/**/artifacts/*.ts`; fixed follow-up nullability in `tasks/booking-confirmation-pdf-template-20260212-1831/artifacts/pdf-template-smoke.ts` to keep local build/typecheck green.
 
 ## Batched Questions
 

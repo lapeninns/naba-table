@@ -1,5 +1,5 @@
-import { config as loadEnv } from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
+import { config as loadEnv } from 'dotenv';
 
 import { createSessionRecoveryAccessToken } from '@/server/security/session-recovery-access-token';
 
@@ -70,6 +70,7 @@ async function main() {
   const textOps = extractTextOperators(bytes);
   const joinedText = textOps.join('\n');
 
+  const restaurantName = restaurant?.name ?? null;
   const checks = {
     containsBrand: joinedText.includes('Nab a Table'),
     containsTitle: joinedText.includes('Reservation Confirmation'),
@@ -84,7 +85,7 @@ async function main() {
     containsNotesLabel: joinedText.includes('Notes'),
     containsReferenceValue: Boolean(booking.reference) && joinedText.includes(booking.reference),
     containsGuestValue: Boolean(booking.customer_name) && joinedText.includes(booking.customer_name),
-    containsVenueValue: Boolean(restaurant?.name) && joinedText.includes(restaurant.name),
+    containsVenueValue: Boolean(restaurantName) && joinedText.includes(restaurantName),
     containsStatusValue: Boolean(booking.status) && joinedText.toLowerCase().includes(String(booking.status).replace(/_/g, ' ').toLowerCase()),
   };
 

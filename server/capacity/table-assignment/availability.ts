@@ -220,28 +220,29 @@ export function filterAvailableTables(
       diagnostics.droppedByStatus += 1;
       return false;
     }
-    // If more capacity than a single table is needed, only movable tables can be merged.
-    if (table.mobility !== "movable" && (table.capacity ?? 0) < partySize) {
-      diagnostics.droppedByMobility += 1;
-      return false;
-    }
     const capacity = table.capacity ?? 0;
     if (!Number.isFinite(capacity) || capacity <= 0) {
       diagnostics.droppedByInvalidCapacity += 1;
       return false;
     }
-    if (!allowPartial && capacity < partySize) {
-      diagnostics.droppedByInsufficientCapacity += 1;
-      return false;
-    }
 
-    // Derive party size rules from physical properties (mobility, capacity)
-    // instead of reading from database columns
     const rules = deriveTableRules({
-      capacity: table.capacity ?? 0,
+      capacity,
       mobility: table.mobility,
       category: table.category,
     });
+    const requiresMerge = capacity < partySize;
+
+    // When capacity alone is insufficient, table must be mergeable by rules.
+    if (requiresMerge && !rules.canBeMerged) {
+      diagnostics.droppedByMobility += 1;
+      return false;
+    }
+
+    if (!allowPartial && requiresMerge) {
+      diagnostics.droppedByInsufficientCapacity += 1;
+      return false;
+    }
 
     if (
       !allowMaxPartySizeViolation &&
@@ -259,8 +260,8 @@ export function filterAvailableTables(
       diagnostics.droppedByMinPartySize += 1;
       return false;
     }
-    // Require explicit adjacency info when enforcement is on; missing entry means we cannot validate.
-    if (partiesRequireAdjacency(partySize) && !adjacency.has(table.id)) {
+    // Adjacency evidence is required only for merge candidates.
+    if (requiresMerge && partiesRequireAdjacency(partySize) && !adjacency.has(table.id)) {
       diagnostics.droppedByAdjacency += 1;
       return false;
     }

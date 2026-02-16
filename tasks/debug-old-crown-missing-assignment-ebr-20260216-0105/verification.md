@@ -19,9 +19,9 @@ related_tickets: []
 - [x] Supabase evidence queries completed.
 - [x] PostHog evidence queries completed (fallback path via `observability_events`; MCP unavailable).
 - [x] Root-cause assessment documented with references.
-- [x] `pnpm vitest tests/server/capacity/planner-reason.test.ts tests/server/capacity/availability-status-policy.test.ts` (5 tests passed).
-- [x] `pnpm exec eslint server/capacity/planner-reason.ts server/capacity/planner-telemetry.ts server/capacity/table-assignment/availability.ts server/capacity/table-assignment/quote.ts server/capacity/table-assignment/types.ts tests/server/capacity/planner-reason.test.ts tests/server/capacity/availability-status-policy.test.ts` (pass).
-- [x] `pnpm run typecheck` re-run after patching investigation artifact; only unrelated pre-existing error remains.
+- [x] `pnpm vitest tests/server/capacity/planner-reason.test.ts tests/server/capacity/availability-status-policy.test.ts tests/server/capacity/selector-fallback-reason.test.ts tests/server/capacity/planner-cache-key.test.ts tests/server/capacity/selector-merge-policy.test.ts` (15 tests passed).
+- [x] `pnpm exec eslint server/capacity/table-assignment/availability.ts server/capacity/selector.ts server/capacity/planner-reason.ts server/capacity/planner-cache.ts server/jobs/auto-assign.ts tests/server/capacity/planner-reason.test.ts tests/server/capacity/availability-status-policy.test.ts tests/server/capacity/selector-fallback-reason.test.ts tests/server/capacity/planner-cache-key.test.ts` (pass).
+- [x] `pnpm run typecheck` (pass).
 
 ## Artifacts
 
@@ -40,7 +40,9 @@ related_tickets: []
 
 - [x] PostHog MCP unavailable in-session (`Unexpected content type: text/plain; charset=UTF-8`); direct PostHog API not available from current env secrets.
 - [x] Resolved: Planner reason `Insufficient filtered capacity` now maps to hard code `hard.insufficient_filtered_capacity`.
-- [x] Residual baseline: `pnpm run typecheck` fails on pre-existing unrelated file `tasks/booking-confirmation-pdf-template-20260212-1831/artifacts/pdf-template-smoke.ts` (`restaurant` possibly null).
+- [x] Resolved: selector now emits transient fallback reason on planner timeout/evaluation-limit instead of collapsing to deterministic no-table reason.
+- [x] Resolved: planner cache key now includes `booking_type`.
+- [x] Resolved: `pnpm run typecheck` baseline blocker in `tasks/booking-confirmation-pdf-template-20260212-1831/artifacts/pdf-template-smoke.ts` patched (`restaurant` null-safe access).
 
 ## Sign-off
 

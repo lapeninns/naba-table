@@ -14,20 +14,26 @@ related_tickets: []
 
 - Not required for this change because no UI behavior or rendering path was modified.
 
+## Production Evidence (Vercel CLI)
+
+- [x] `vercel inspect nabatable-6chdx9fwg-lapen-inns-projects.vercel.app --logs` (failed deployment logs captured)
+- [x] `vercel inspect nabatable-jru8fk5a9-lapen-inns-projects.vercel.app --logs` (failed deployment logs captured)
+- Result:
+  - Both deployments failed with `./lib/posthog/provider.tsx:78:20` (`Argument of type 'string | null' is not assignable to parameter of type 'string'`).
+
 ## Test Outcomes
 
-- [x] `pnpm run build` executed.
-  - Result: `lib/posthog/provider.tsx` nullability error is resolved.
-  - Remaining failure: unrelated pre-existing TypeScript issue in `tasks/booking-confirmation-pdf-template-20260212-1831/artifacts/pdf-template-smoke.ts` (`'restaurant' is possibly 'null'`).
+- [x] `pnpm exec eslint lib/posthog/provider.tsx` (pass).
+- [x] `pnpm run build` (pass).
+- [x] `pnpm run typecheck` (pass).
 
 ## Artifacts
 
-- Build log: `artifacts/build.txt`
+- Vercel failed deploy extracts: `artifacts/vercel-build-errors-20260216.txt`
 
 ## Known Issues
 
-- Local `next build` currently fails due to an unrelated task artifact file included by TypeScript.
-- Vercel build context excludes `tasks/**/artifacts/**` via `.vercelignore`, so this blocker should not affect Vercel deployment.
+- None.
 
 ## Sign-off
 

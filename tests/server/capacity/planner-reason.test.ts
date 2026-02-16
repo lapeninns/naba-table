@@ -26,4 +26,11 @@ describe('planner reason classification', () => {
       code: 'transient.hold_conflict',
     });
   });
+
+  it('classifies planner evaluation limit as transient failure', () => {
+    expect(classifyPlannerReason('Planner evaluation limit reached before finding suitable tables.')).toEqual({
+      category: 'transient',
+      code: 'transient.evaluation_limit',
+    });
+  });
 });
