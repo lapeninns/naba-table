@@ -1,98 +1,77 @@
 # Continuity Ledger
 
-Last updated: 2026-02-16T10:53:00Z
+Last updated: 2026-02-16T13:39:00Z
 
 ## Goal (incl. success criteria)
 
-- Debug why `ebrain@doctors.org.uk` did not get table assignment in production (Old Crown Girton), with evidence from Supabase and telemetry.
+- Fix recurring ops booking edit regression by aligning dashboard datetime payload shape with the strict ops API contract.
 - Success:
-  - Identify exact booking row and assignment timeline.
-  - Confirm failure stage in auto-assignment path.
-  - Provide evidence-backed root cause and remediation options.
+  - Last-15m telemetry identifies and explains the failing request path.
+  - Dashboard-originated edit payloads are offset-aware (`Z`/offset) and accepted by ops PATCH validation.
+  - Regression test prevents timezone-less payload reintroduction.
 
 ## Constraints/Assumptions
 
-- Follow root AGENTS SDLC task-artifact workflow.
-- Production investigation remains read-only (no write/migration actions).
-- PostHog MCP is currently unavailable in-session; fallback telemetry comes from `observability_events`.
+- Follow root AGENTS SDLC artifacts flow.
+- Keep API validation strict; do not loosen boundary contracts to mask bad client payloads.
+- PostHog MCP unavailable in-session; fallback telemetry from Vercel logs and in-repo instrumentation paths.
 
 ## Key decisions
 
-- Use production env file `.env.vercel-production.live` with explicit ref guard (`vrdiqfudmwydclqpydee`) to avoid accidental staging queries.
-- Treat `booking_table_assignments` row absence on completed bookings as expected because checkout/no-show flows call `clearBookingTableAssignments`.
-- Use audit + observability correlation as source of truth for historical assignment lifecycle.
+- Treat `PATCH /api/ops/bookings/[id]` `400` as a client payload regression, not a server validation bug.
+- Fix canonical dashboard mapper path:
+  - `src/components/features/dashboard/list/utils.ts`
+  - `src/components/features/dashboard/list/BookingsListVirtualized.tsx`
+- Add focused unit guardrail: `tests/components/OpsDashboardListUtils.test.ts`.
 
 ## State
 
-- Diagnosis plus follow-up hardening complete. Remaining risk around false capacity denials is reduced in canonical planner/filter/cache code paths, and Vercel deployment blockers found in logs are now patched.
+- Patch + tests complete locally; telemetry evidence captured in task artifacts.
 
 ## Done
 
-- Created task folder `tasks/debug-old-crown-missing-assignment-ebr-20260216-0105/` with SDLC docs and evidence artifacts.
-- Confirmed target booking and venue in production:
-  - Booking `160681eb-ca50-4a52-90d3-4e4e2f12f3d2` (`FP9SWA7D24`)
-  - Restaurant `The Old Crown Girton` (`a050d1ad-1ee0-4ea0-abc2-22c3778aa52c`)
-- Captured observability timeline:
-  - `inline_auto_assign.no_hold` + `auto_assign.failed` with reason `Insufficient filtered capacity`
-  - `auto_assign.summary` result `exhausted`, `maxAttempts=1`
-- Captured assignment audit timeline:
-  - Manual assignment at `2026-02-15T11:48:27Z` to table `05` by `oldcrown@lapeninns.com`
-  - Unassignment at checkout `2026-02-15T17:13:16Z`
-- Implemented patch set:
-  - `server/capacity/planner-reason.ts`: classify `Insufficient filtered capacity` as `hard.insufficient_filtered_capacity`.
-  - `server/capacity/table-assignment/availability.ts`: use window-aware status policy (`available_only` near-now, `exclude_out_of_service` for future windows) and emit filter diagnostics.
-  - `server/capacity/table-assignment/quote.ts` + `server/capacity/table-assignment/types.ts` + `server/capacity/planner-telemetry.ts`: carry filter diagnostics into `plannerStats`/observability.
-- Implemented additional hardening for similar failure modes:
-  - `server/capacity/table-assignment/availability.ts`: derive mergeability from `deriveTableRules` (legacy mobility-safe) and require adjacency metadata only for merge candidates (single-table fits no longer dropped for missing adjacency edges).
-  - `server/capacity/selector.ts`: derive fallback reason from diagnostics to surface transient timeout/evaluation-limit outcomes instead of always collapsing to deterministic no-table reason.
-  - `server/capacity/planner-reason.ts`: classify `evaluation limit` failures as transient (`transient.evaluation_limit`).
-  - `server/capacity/planner-cache.ts` + `server/jobs/auto-assign.ts`: include `booking_type` in planner cache key to avoid cross-option cache collisions.
+- Created task folder `tasks/fix-ops-booking-edit-regression-20260216-1321/` with SDLC docs and artifacts.
+- Captured production Vercel logs for last 15 minutes:
+  - Isolated failure: `2026-02-16T13:18:57.671Z` `PATCH /api/ops/bookings/:id` → `400`
+  - requestId: `zn25l-1771247937671-3e915bd9fa61`
+- Correlated regression source:
+  - `toIsoTime()` in dashboard list utils emitted timezone-less `YYYY-MM-DDTHH:mm:ss`.
+  - Ops API requires `datetime({ offset: true })`.
+- Implemented fix:
+  - `toIsoTime(date, time, timezone)` now normalizes with Luxon timezone and returns UTC ISO.
+  - `BookingsListVirtualized` now passes `summary.timezone` into `toIsoTime`.
 - Added regression tests:
-  - `tests/server/capacity/planner-reason.test.ts`
-  - `tests/server/capacity/availability-status-policy.test.ts`
-  - `tests/server/capacity/selector-fallback-reason.test.ts`
-  - `tests/server/capacity/planner-cache-key.test.ts`
-- Investigated Vercel production deployment errors via CLI:
-  - `vercel inspect nabatable-6chdx9fwg-lapen-inns-projects.vercel.app --logs`
-  - `vercel inspect nabatable-jru8fk5a9-lapen-inns-projects.vercel.app --logs`
-  - Confirmed common failure signature: `./lib/posthog/provider.tsx:78:20` (`string | null` passed to `posthog.init`).
-- Patched deployment blockers:
-  - `lib/posthog/provider.tsx`: explicit non-null key/host narrowing before `posthog.init`.
-  - `tasks/booking-confirmation-pdf-template-20260212-1831/artifacts/pdf-template-smoke.ts`: null-safe venue-name check to restore branch-wide typecheck/build.
+  - `tests/components/OpsDashboardListUtils.test.ts` (4 tests).
 - Verification:
-  - `pnpm vitest tests/server/capacity/planner-reason.test.ts tests/server/capacity/availability-status-policy.test.ts tests/server/capacity/selector-fallback-reason.test.ts tests/server/capacity/planner-cache-key.test.ts tests/server/capacity/selector-merge-policy.test.ts` passed (15 tests).
-  - `pnpm exec eslint ...` on touched files passed.
-  - `pnpm run build` passed.
-  - `pnpm run typecheck` passed.
+  - `pnpm vitest tests/components/OpsDashboardListUtils.test.ts` passed.
+  - `pnpm -s exec tsc --noEmit --pretty false` passed.
+  - `pnpm -s exec eslint src/components/features/dashboard/list/utils.ts src/components/features/dashboard/list/BookingsListVirtualized.tsx tests/components/OpsDashboardListUtils.test.ts` passed.
+- DevTools MCP run completed against local harness routes; edit dialog opens, but harness schedule endpoints return 500 so full submit is blocked in harness context.
 
 ## Now
 
-- Handoff complete patch set and verification evidence to user.
+- Handoff patch + evidence for deploy and production validation.
 
 ## Next
 
-- Optional: trigger a new production deployment and verify no recurrence of the `lib/posthog/provider.tsx` TypeScript failure in Vercel build logs.
-- Optional: monitor production `auto_assign.quote` events for increased `hard.insufficient_filtered_capacity` signal quality and new filter diagnostics.
+- Deploy and verify `vercel logsv2 --environment production --since 15m --status-code 400 --query \"/api/ops/bookings\"` shows no repeat datetime-shape 400s.
+- Restore PostHog MCP auth/config (or API-based query workflow) for direct ops telemetry correlation.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- None.
+- Should ops-host PostHog capture be enabled for `booking_edit_failed` events, or should this stay first-party only?
 
 ## Working set (files/ids/commands)
 
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/debug-old-crown-missing-assignment-ebr-20260216-0105/research.md`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/debug-old-crown-missing-assignment-ebr-20260216-0105/plan.md`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/debug-old-crown-missing-assignment-ebr-20260216-0105/todo.md`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/debug-old-crown-missing-assignment-ebr-20260216-0105/verification.md`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/debug-old-crown-missing-assignment-ebr-20260216-0105/artifacts/incident-timeline.md`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/capacity/planner-reason.ts`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/capacity/table-assignment/availability.ts`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/capacity/table-assignment/quote.ts`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/capacity/selector.ts`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/capacity/planner-cache.ts`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/jobs/auto-assign.ts`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tests/server/capacity/selector-fallback-reason.test.ts`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tests/server/capacity/planner-cache-key.test.ts`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/src/components/features/dashboard/list/utils.ts`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/src/components/features/dashboard/list/BookingsListVirtualized.tsx`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tests/components/OpsDashboardListUtils.test.ts`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/fix-ops-booking-edit-regression-20260216-1321/research.md`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/fix-ops-booking-edit-regression-20260216-1321/plan.md`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/fix-ops-booking-edit-regression-20260216-1321/todo.md`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/fix-ops-booking-edit-regression-20260216-1321/verification.md`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/fix-ops-booking-edit-regression-20260216-1321/artifacts/vercel-logsv2-ops-failure.json`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/fix-ops-booking-edit-regression-20260216-1321/artifacts/posthog-mcp-status.txt`
 
 ---
 

@@ -1,3 +1,5 @@
+import { DateTime } from 'luxon';
+
 import type { OpsTodayBooking } from '@/types/ops';
 
 export type BookingSortKey = 'time' | 'party' | 'name';
@@ -95,14 +97,25 @@ export function sortBookingsGrouped(
   });
 }
 
-export function toIsoTime(date: string, time: string | null) {
-  if (!time) return `${date}T00:00:00`;
-  const match = time.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
-  if (!match) {
-    return `${date}T${time}`;
+export function toIsoTime(date: string, time: string | null, timezone: string | null | undefined) {
+  const normalizedZone =
+    typeof timezone === 'string' && timezone.trim().length > 0 ? timezone.trim() : 'UTC';
+  const normalizedTime = (() => {
+    if (!time) return '00:00:00';
+    const match = time.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    if (!match) return time;
+    const hours = match[1]?.padStart(2, '0') ?? '00';
+    const minutes = match[2] ?? '00';
+    const seconds = match[3] ?? '00';
+    return `${hours}:${minutes}:${seconds}`;
+  })();
+
+  const zoned = DateTime.fromISO(`${date}T${normalizedTime}`, { zone: normalizedZone });
+  if (zoned.isValid) {
+    const iso = zoned.toUTC().toISO();
+    if (iso) return iso;
   }
-  const hours = match[1]?.padStart(2, '0') ?? '00';
-  const minutes = match[2] ?? '00';
-  const seconds = match[3] ?? '00';
-  return `${date}T${hours}:${minutes}:${seconds}`;
+
+  // Last-resort fallback keeps API payload offset-aware even if zone/time input is malformed.
+  return `${date}T${normalizedTime.endsWith('Z') ? normalizedTime : `${normalizedTime}Z`}`;
 }

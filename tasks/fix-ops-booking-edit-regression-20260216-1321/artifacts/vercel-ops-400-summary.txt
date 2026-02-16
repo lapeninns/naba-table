@@ -1,0 +1,10 @@
+Vercel request log query (2026-02-16, last 15m)
+
+Command:
+- vercel logsv2 --environment production --since 15m --status-code 400 --json
+
+Unique failures:
+- 2026-02-16T13:18:57.671Z PATCH /api/ops/bookings/1168ad45-e23f-4e5e-977f-ca2a87ad11f1
+  route: /api/ops/bookings/[id]
+  status: 400
+  requestId: zn25l-1771247937671-3e915bd9fa61

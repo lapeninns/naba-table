@@ -152,8 +152,8 @@ export function BookingsListVirtualized({
       const existing = dtoCacheRef.current.get(cacheKey);
       if (existing) return existing;
 
-      const startIso = toIsoTime(summary.date, booking.startTime ?? null);
-      const endIso = toIsoTime(summary.date, booking.endTime ?? null);
+      const startIso = toIsoTime(summary.date, booking.startTime ?? null, summary.timezone);
+      const endIso = toIsoTime(summary.date, booking.endTime ?? null, summary.timezone);
       const bookingDTO: BookingDTO = {
         id: booking.id,
         restaurantId: summary.restaurantId,

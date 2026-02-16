@@ -1,0 +1,12 @@
+PostHog MCP status check (2026-02-16T13:24Z)
+
+Command:
+- list_mcp_resources(server="posthog")
+
+Result:
+- failed to get client: MCP startup failed: handshaking with MCP server failed
+- Send message error ... Unexpected content type: text/plain; charset=UTF-8
+
+Fallback used:
+- Vercel request logs (`vercel logsv2`) for the last 15 minutes.
+- In-repo analytics pipeline review (`useOpsUpdateBooking` -> `/api/v1/events`).
