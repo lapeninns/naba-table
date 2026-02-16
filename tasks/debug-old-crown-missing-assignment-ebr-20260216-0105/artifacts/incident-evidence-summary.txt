@@ -1,0 +1,11 @@
+generated_at=2026-02-16T01:20:33.528Z
+supabase_host=vrdiqfudmwydclqpydee.supabase.co
+target_restaurant_id=a050d1ad-1ee0-4ea0-abc2-22c3778aa52c
+target_restaurant_name=The Old Crown Girton
+booking_count_for_email=1
+assignment_row_count=0
+observability_event_count=8
+state_history_count=2
+active_table_count=18
+adjacency_directed_edge_count=36
+unassigned_booking_ids=160681eb-ca50-4a52-90d3-4e4e2f12f3d2

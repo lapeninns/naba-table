@@ -14,6 +14,7 @@ type ReasonPattern = {
 };
 
 const HARD_FAILURE_PATTERNS: ReasonPattern[] = [
+  { pattern: /insufficient filtered capacity/i, code: "hard.insufficient_filtered_capacity", category: "hard" },
   { pattern: /no suitable tables/i, code: "hard.no_suitable_tables", category: "hard" },
   { pattern: /no capacity/i, code: "hard.no_capacity", category: "hard" },
   { pattern: /insufficient capacity/i, code: "hard.insufficient_capacity", category: "hard" },

@@ -1,0 +1,55 @@
+[
+  {
+    "id": "160681eb-ca50-4a52-90d3-4e4e2f12f3d2",
+    "reference": "FP9SWA7D24",
+    "restaurant_id": "a050d1ad-1ee0-4ea0-abc2-22c3778aa52c",
+    "customer_id": "a42902ae-6dab-4a7b-9575-9ddc19daa1d3",
+    "customer_name": "Elisabeth Brain",
+    "customer_email": "ebrain@doctors.org.uk",
+    "customer_phone": "07961068840",
+    "status": "completed",
+    "source": "api",
+    "booking_type": "lunch",
+    "party_size": 3,
+    "booking_date": "2026-02-15",
+    "start_time": "12:30:00",
+    "end_time": "13:45:00",
+    "start_at": "2026-02-15T12:30:00+00:00",
+    "end_at": "2026-02-15T13:45:00+00:00",
+    "created_at": "2026-02-14T18:16:28.704207+00:00",
+    "updated_at": "2026-02-15T17:13:16.15969+00:00",
+    "assigned_zone_id": null,
+    "assignment_strategy": null,
+    "assignment_state_version": 1,
+    "auto_assign_idempotency_key": null,
+    "auto_assign_last_result": {
+      "reason": "Insufficient filtered capacity",
+      "success": false,
+      "trigger": "inline_creation",
+      "strategy": {
+        "maxTables": null,
+        "requireAdjacency": null
+      },
+      "attemptId": "35645322-8e2d-41dc-8204-d61955c7b52f",
+      "emailSent": false,
+      "alternates": 0,
+      "durationMs": 904,
+      "attemptedAt": "2026-02-14T18:16:30.931Z",
+      "emailVariant": "standard"
+    },
+    "details": {
+      "channel": "api.capacity_safe",
+      "timezone": "Europe/London",
+      "capacity_check": {
+        "max_covers": 999999,
+        "service_period_id": "cf23e29f-56fa-4027-8c45-e1b0758a0ee0",
+        "booked_covers_after": 48,
+        "booked_covers_before": 45
+      },
+      "client_request_id": "6fa123a0-49ea-4d55-b00d-712476fa679c",
+      "original_timezone": "Europe/London",
+      "pending_admin_reason": null,
+      "pending_admin_notified_at": "2026-02-14T18:22:34.017Z"
+    }
+  }
+]
