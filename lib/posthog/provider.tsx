@@ -60,14 +60,20 @@ export function PostHogProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const missingConfig = !enabled || !key || !host;
-
-    if (missingConfig) {
+    if (
+      !enabled ||
+      typeof key !== 'string' ||
+      key.length === 0 ||
+      typeof host !== 'string' ||
+      host.length === 0
+    ) {
       if (process.env.NODE_ENV === 'development') {
         console.warn('[PostHog] Missing NEXT_PUBLIC_POSTHOG_KEY or NEXT_PUBLIC_POSTHOG_HOST environment variables');
       }
       return;
     }
+    const posthogKey = key;
+    const posthogHost = host;
 
     let didCancel = false;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -77,8 +83,8 @@ export function PostHogProvider({ children }: { children: ReactNode }) {
       if (didCancel) return;
       const { default: posthog } = await import('posthog-js');
       if (didCancel) return;
-      posthog.init(key, {
-        api_host: host,
+      posthog.init(posthogKey, {
+        api_host: posthogHost,
         person_profiles: 'identified_only',
         capture_pageview: false, // We capture pageviews manually via instrumentation-client.ts
         capture_pageleave: true,

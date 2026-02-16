@@ -15,6 +15,7 @@ type PlannerCacheKeyInput = {
   restaurantId: string | null;
   bookingDate: string | null;
   startTime: string | null;
+  bookingType: string | null;
   partySize: number | null;
   strategy: PlannerStrategyContext;
   trigger?: string | null;
@@ -41,6 +42,7 @@ export function buildPlannerCacheKey(input: PlannerCacheKeyInput): string {
   const restaurantComponent = input.restaurantId ?? "unknown_restaurant";
   const dateComponent = input.bookingDate ?? "unknown_date";
   const timeComponent = input.startTime ?? "unknown_time";
+  const bookingTypeComponent = input.bookingType ?? "unknown_booking_type";
   const partyComponent = typeof input.partySize === "number" ? input.partySize : "auto_party";
   const triggerComponent = input.trigger ?? "default";
   return [
@@ -48,6 +50,7 @@ export function buildPlannerCacheKey(input: PlannerCacheKeyInput): string {
     restaurantComponent,
     dateComponent,
     timeComponent,
+    bookingTypeComponent,
     partyComponent,
     adjacencyLabel,
     maxTablesLabel,

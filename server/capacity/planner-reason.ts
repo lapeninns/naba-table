@@ -25,6 +25,7 @@ const HARD_FAILURE_PATTERNS: ReasonPattern[] = [
 
 const TRANSIENT_FAILURE_PATTERNS: ReasonPattern[] = [
   { pattern: /hold conflict/i, code: "transient.hold_conflict", category: "transient" },
+  { pattern: /evaluation limit/i, code: "transient.evaluation_limit", category: "transient" },
   { pattern: /timeout/i, code: "transient.timeout", category: "transient" },
   { pattern: /abort/i, code: "transient.abort", category: "transient" },
   { pattern: /rpc/i, code: "transient.rpc_error", category: "transient" },
