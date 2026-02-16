@@ -1,77 +1,73 @@
 # Continuity Ledger
 
-Last updated: 2026-02-16T13:39:00Z
+Last updated: 2026-02-16T18:58:00Z
 
 ## Goal (incl. success criteria)
 
-- Fix recurring ops booking edit regression by aligning dashboard datetime payload shape with the strict ops API contract.
+- Improve auto-assign reliability for ambiguous `hard.no_tables` outcomes.
 - Success:
-  - Last-15m telemetry identifies and explains the failing request path.
-  - Dashboard-originated edit payloads are offset-aware (`Z`/offset) and accepted by ops PATCH validation.
-  - Regression test prevents timezone-less payload reintroduction.
+  - Async auto-assign does not hard-stop on the first `hard.no_tables`/`hard.no_suitable_tables` result.
+  - A follow-up attempt is guaranteed even when computed max attempts would otherwise be 1.
+  - Failed quote responses carry planner stats in production so observability includes filter-stage evidence.
 
 ## Constraints/Assumptions
 
 - Follow root AGENTS SDLC artifacts flow.
-- Keep API validation strict; do not loosen boundary contracts to mask bad client payloads.
-- PostHog MCP unavailable in-session; fallback telemetry from Vercel logs and in-repo instrumentation paths.
+- Keep retry behavior bounded and deterministic.
+- No schema changes and no UI changes in this patch.
 
 ## Key decisions
 
-- Treat `PATCH /api/ops/bookings/[id]` `400` as a client payload regression, not a server validation bug.
-- Fix canonical dashboard mapper path:
-  - `src/components/features/dashboard/list/utils.ts`
-  - `src/components/features/dashboard/list/BookingsListVirtualized.tsx`
-- Add focused unit guardrail: `tests/components/OpsDashboardListUtils.test.ts`.
+- Added explicit retry policy helper in `server/jobs/auto-assign-retry-policy.ts`.
+- Deferred hard-stop exactly once (attempt index 0) for:
+  - `hard.no_tables`
+  - `hard.no_suitable_tables`
+- Kept immediate hard-stop for all other hard failure codes.
+- Added `auto_assign.hard_stop_deferred` observability event for transparent runtime decisions.
+- Updated quote behavior to always attach planner stats for failure results (success remains debug-flag gated).
 
 ## State
 
-- Patch + tests complete locally; telemetry evidence captured in task artifacts.
+- Patch + tests completed locally.
 
 ## Done
 
-- Created task folder `tasks/fix-ops-booking-edit-regression-20260216-1321/` with SDLC docs and artifacts.
-- Captured production Vercel logs for last 15 minutes:
-  - Isolated failure: `2026-02-16T13:18:57.671Z` `PATCH /api/ops/bookings/:id` → `400`
-  - requestId: `zn25l-1771247937671-3e915bd9fa61`
-- Correlated regression source:
-  - `toIsoTime()` in dashboard list utils emitted timezone-less `YYYY-MM-DDTHH:mm:ss`.
-  - Ops API requires `datetime({ offset: true })`.
-- Implemented fix:
-  - `toIsoTime(date, time, timezone)` now normalizes with Luxon timezone and returns UTC ISO.
-  - `BookingsListVirtualized` now passes `summary.timezone` into `toIsoTime`.
-- Added regression tests:
-  - `tests/components/OpsDashboardListUtils.test.ts` (4 tests).
+- Created task folder `tasks/auto-assign-no-tables-retry-guard-20260216-1854/` with SDLC docs.
+- Implemented retry policy helper and integrated it in:
+  - `server/jobs/auto-assign.ts`
+  - `server/jobs/auto-assign-retry-policy.ts`
+- Updated planner stats attachment behavior in:
+  - `server/capacity/table-assignment/quote.ts`
+- Added tests:
+  - `tests/server/jobs/auto-assign-retry-policy.test.ts`
 - Verification:
-  - `pnpm vitest tests/components/OpsDashboardListUtils.test.ts` passed.
-  - `pnpm -s exec tsc --noEmit --pretty false` passed.
-  - `pnpm -s exec eslint src/components/features/dashboard/list/utils.ts src/components/features/dashboard/list/BookingsListVirtualized.tsx tests/components/OpsDashboardListUtils.test.ts` passed.
-- DevTools MCP run completed against local harness routes; edit dialog opens, but harness schedule endpoints return 500 so full submit is blocked in harness context.
+  - `pnpm vitest tests/server/jobs/auto-assign-retry-policy.test.ts tests/server/capacity/planner-reason.test.ts` passed.
+  - `pnpm exec eslint server/jobs/auto-assign.ts server/jobs/auto-assign-retry-policy.ts server/capacity/table-assignment/quote.ts tests/server/jobs/auto-assign-retry-policy.test.ts` passed.
+  - `pnpm run typecheck` passed.
 
 ## Now
 
-- Handoff patch + evidence for deploy and production validation.
+- Ready for runtime validation in production telemetry.
 
 ## Next
 
-- Deploy and verify `vercel logsv2 --environment production --since 15m --status-code 400 --query \"/api/ops/bookings\"` shows no repeat datetime-shape 400s.
-- Restore PostHog MCP auth/config (or API-based query workflow) for direct ops telemetry correlation.
+- Monitor `auto_assign.hard_stop_deferred` events for frequency and outcomes.
+- Validate whether deferred retries reduce pending bookings caused by one-shot `hard.no_tables` outcomes.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- Should ops-host PostHog capture be enabled for `booking_edit_failed` events, or should this stay first-party only?
+- Should inline auto-assign also adopt the same defer-once policy, or remain single-shot by design?
 
 ## Working set (files/ids/commands)
 
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/src/components/features/dashboard/list/utils.ts`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/src/components/features/dashboard/list/BookingsListVirtualized.tsx`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tests/components/OpsDashboardListUtils.test.ts`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/fix-ops-booking-edit-regression-20260216-1321/research.md`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/fix-ops-booking-edit-regression-20260216-1321/plan.md`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/fix-ops-booking-edit-regression-20260216-1321/todo.md`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/fix-ops-booking-edit-regression-20260216-1321/verification.md`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/fix-ops-booking-edit-regression-20260216-1321/artifacts/vercel-logsv2-ops-failure.json`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/fix-ops-booking-edit-regression-20260216-1321/artifacts/posthog-mcp-status.txt`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/jobs/auto-assign.ts`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/jobs/auto-assign-retry-policy.ts`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/capacity/table-assignment/quote.ts`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tests/server/jobs/auto-assign-retry-policy.test.ts`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/auto-assign-no-tables-retry-guard-20260216-1854/research.md`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/auto-assign-no-tables-retry-guard-20260216-1854/plan.md`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/auto-assign-no-tables-retry-guard-20260216-1854/todo.md`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/auto-assign-no-tables-retry-guard-20260216-1854/verification.md`
 
 ---
 
