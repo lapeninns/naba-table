@@ -1,70 +1,85 @@
 # Continuity Ledger
 
-Last updated: 2026-02-19T13:58:43Z
+Last updated: 2026-02-19T16:06:00Z
 
 ## Goal (incl. success criteria)
 
-- Reduce noisy PostHog client exception volume while preserving actionable exception capture.
+- Implement production hardening for public magic-link sign-in.
 - Success:
-  - Client-side telemetry reporting does not generate additional unhandled `fetch` rejections.
-  - Recurring non-actionable `Object Not Found Matching Id:* MethodName:update, ParamCount:4` exceptions are filtered before PostHog ingestion.
-  - Targeted lint/tests/typecheck pass.
+  - Prevent account-enumeration leakage by normalizing magic-link non-boundary responses to `202`.
+  - Enforce anti-automation controls (guest CAPTCHA + IP/global throttling).
+  - Emit deterministic auth-send audit events with hashed fingerprints and explicit outcomes.
 
 ## Constraints/Assumptions
 
 - Follow root AGENTS SDLC artifacts flow.
-- Keep a single canonical PostHog/client-error instrumentation path.
-- No schema changes and no UI behavior changes in this patch.
+- Keep changes scoped to auth-hardening files only.
+- Avoid schema changes; use existing `observability_events` table.
 
 ## Key decisions
 
-- Hardened `/api/client-error` reporter with explicit promise rejection handling (`fetch(...).catch(...)`).
-- Added a dedicated suppression predicate in `lib/posthog/error-filter.ts` for the exact noisy exception signature only.
-- Wired suppression through PostHog `before_send` in `lib/posthog/provider.tsx` (drop only matching `$exception` events; pass all others unchanged).
-- Added browser debug state at `window.__srxPosthogSuppressionDebug` to track suppression counts and recent samples without reintroducing telemetry noise.
-- Added focused unit coverage for suppress/non-suppress cases.
+- Keep `sendAuthMagicLink` as the single canonical transport path; hardening happens in `/api/auth/signin` boundary.
+- Use Cloudflare Turnstile for guest/public magic-link requests only.
+- Unknown-email magic-link requests should be no-send + `202` with audit outcome `suppressed_unknown_email`.
+- Require `AUTH_AUDIT_HASH_SECRET` in production to guarantee deterministic non-PII fingerprints in observability.
 
 ## State
 
-- Patch + targeted checks completed locally.
+- Implementation complete and verified for scoped hardening changes.
 
 ## Done
 
-- Created task folder `tasks/posthog-issue-noise-hardening-20260219-1314/` with SDLC docs.
-- Updated:
-  - `lib/monitoring/clientReporter.ts`
-  - `lib/posthog/provider.tsx`
-- Added:
-  - `lib/posthog/error-filter.ts`
-  - `tests/lib/posthog/error-filter.test.ts`
-- Verification:
-  - `pnpm exec eslint lib/posthog/provider.tsx lib/posthog/error-filter.ts lib/monitoring/clientReporter.ts tests/lib/posthog/error-filter.test.ts` passed.
-  - `pnpm vitest tests/lib/posthog/error-filter.test.ts` passed (1 file, 7 tests).
-  - `pnpm run typecheck` passed.
+- Created task folder `tasks/harden-magic-link-signin-20260219-1544/` with SDLC docs.
+- Implemented canonical auth hardening path:
+  - `src/app/api/auth/signin/route.ts` now normalizes magic-link non-boundary outcomes to `202`.
+  - Added guest-surface CAPTCHA enforcement and chained IP/global magic-link throttling.
+  - Added unknown-email suppression (no send) with deterministic audit outcomes.
+- Added new helper modules:
+  - `server/auth/signin-surface.ts`
+  - `server/auth/signin-throttle.ts`
+  - `server/auth/signin-audit.ts`
+  - `server/security/turnstile.ts`
+- Updated guest UI and env wiring:
+  - `components/auth/GuestSignInForm.tsx`
+  - `config/env.schema.ts`
+  - `lib/env.ts`
+  - `.env.example`
+- Added and passed tests:
+  - `tests/server/auth/signin-route-magic-link-policy.test.ts`
+  - `tests/server/auth/signin-throttle.test.ts`
+  - `tests/server/security/turnstile.test.ts`
+  - `tests/components/auth/GuestSignInForm.test.tsx`
+- Verification completed:
+  - `pnpm typecheck` pass
+  - targeted vitest suite pass
+  - manual QA evidence documented in task artifacts
 
 ## Now
 
-- Ready for deployment and PostHog issue-volume observation.
+- Ready for staging deploy with real Turnstile credentials and outcome monitoring.
 
 ## Next
 
-- Confirm the filtered exception fingerprint trend drops after deploy.
-- Recheck if `/auth` `Failed to fetch` exceptions continue after reporter hardening.
+1. Roll out to staging with real Turnstile credentials and expected hostname.
+2. Monitor `observability_events` (`event_type = magic_link.send_attempt`) for outcome distribution.
+3. Promote to production after staging boundary checks pass.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- Should any additional suppression be introduced, or keep current filter intentionally narrow?
+- None.
 
 ## Working set (files/ids/commands)
 
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/lib/monitoring/clientReporter.ts`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/lib/posthog/provider.tsx`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/lib/posthog/error-filter.ts`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tests/lib/posthog/error-filter.test.ts`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/posthog-issue-noise-hardening-20260219-1314/research.md`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/posthog-issue-noise-hardening-20260219-1314/plan.md`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/posthog-issue-noise-hardening-20260219-1314/todo.md`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/posthog-issue-noise-hardening-20260219-1314/verification.md`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/src/app/api/auth/signin/route.ts`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/auth/signin-surface.ts`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/auth/signin-throttle.ts`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/auth/signin-audit.ts`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/security/turnstile.ts`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/components/auth/GuestSignInForm.tsx`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/harden-magic-link-signin-20260219-1544/research.md`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/harden-magic-link-signin-20260219-1544/plan.md`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/harden-magic-link-signin-20260219-1544/todo.md`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/harden-magic-link-signin-20260219-1544/verification.md`
 
 ---
 

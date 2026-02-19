@@ -330,6 +330,9 @@ export const env = {
     return {
       guestLookupPepper: parsed.GUEST_LOOKUP_PEPPER ?? null,
       sessionRecoveryAccessTokenSecret: parsed.SESSION_RECOVERY_ACCESS_TOKEN_SECRET ?? null,
+      authAuditHashSecret: parsed.AUTH_AUDIT_HASH_SECRET ?? null,
+      turnstileSecretKey: parsed.TURNSTILE_SECRET_KEY ?? null,
+      turnstileExpectedHostname: parsed.TURNSTILE_EXPECTED_HOSTNAME ?? null,
       sessionRecoveryAccessTokenTtlSeconds: (() => {
         const value = parsed.SESSION_RECOVERY_ACCESS_TOKEN_TTL_SECONDS ?? 900;
         if (typeof value !== 'number' || Number.isNaN(value)) return 900;

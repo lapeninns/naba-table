@@ -1,0 +1,32 @@
+Verification timestamp (UTC): 2026-02-19T16:05:00Z
+
+Automated checks
+- `pnpm typecheck` -> pass
+- `pnpm vitest tests/server/auth/magic-link-email.test.ts tests/server/auth/signin-route-magic-link-policy.test.ts tests/server/security/turnstile.test.ts tests/server/auth/signin-throttle.test.ts tests/components/auth/GuestSignInForm.test.tsx` -> pass
+  - 5 test files passed
+  - 13 tests passed
+
+Manual QA inputs
+- Dev server started on port 3001 for local checks.
+- Turnstile widget render/submit path validated with Cloudflare test keys (session env only):
+  - `NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA`
+  - `TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA`
+- Rate-limit validation in dev requires `ENABLE_RATE_LIMIT_IN_DEV=true`.
+
+Manual QA observations
+- `/auth/signin` displays Turnstile widget and keeps submit disabled until token is available.
+- Successful guest submission sent `POST /api/auth/signin` with `captchaToken` and returned `202`.
+- Response headers included `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`.
+- Public request without captcha token returned:
+  - `403`
+  - body: `{\"message\":\"Complete verification and try again.\",\"code\":\"CAPTCHA_REQUIRED\"}`
+- Repeated public submissions (same IP, `ENABLE_RATE_LIMIT_IN_DEV=true`) returned:
+  - `429`
+  - `Retry-After` present
+  - `X-RateLimit-Scope: ip`
+- Invalid captcha verifier path (session with invalid `TURNSTILE_SECRET_KEY`) returned:
+  - `403`
+  - body includes `code: CAPTCHA_INVALID`
+
+Notes
+- Default dev behavior bypasses rate limit unless `ENABLE_RATE_LIMIT_IN_DEV=true`; this is expected from `server/security/rate-limit.ts`.
