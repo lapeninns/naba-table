@@ -13,7 +13,7 @@ const send = (payload: Record<string, unknown>) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
       keepalive: true,
-    });
+    }).catch(() => undefined);
   } catch {
     // ignore
   }

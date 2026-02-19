@@ -1,5 +1,75 @@
 # Continuity Ledger
 
+Last updated: 2026-02-19T13:58:43Z
+
+## Goal (incl. success criteria)
+
+- Reduce noisy PostHog client exception volume while preserving actionable exception capture.
+- Success:
+  - Client-side telemetry reporting does not generate additional unhandled `fetch` rejections.
+  - Recurring non-actionable `Object Not Found Matching Id:* MethodName:update, ParamCount:4` exceptions are filtered before PostHog ingestion.
+  - Targeted lint/tests/typecheck pass.
+
+## Constraints/Assumptions
+
+- Follow root AGENTS SDLC artifacts flow.
+- Keep a single canonical PostHog/client-error instrumentation path.
+- No schema changes and no UI behavior changes in this patch.
+
+## Key decisions
+
+- Hardened `/api/client-error` reporter with explicit promise rejection handling (`fetch(...).catch(...)`).
+- Added a dedicated suppression predicate in `lib/posthog/error-filter.ts` for the exact noisy exception signature only.
+- Wired suppression through PostHog `before_send` in `lib/posthog/provider.tsx` (drop only matching `$exception` events; pass all others unchanged).
+- Added browser debug state at `window.__srxPosthogSuppressionDebug` to track suppression counts and recent samples without reintroducing telemetry noise.
+- Added focused unit coverage for suppress/non-suppress cases.
+
+## State
+
+- Patch + targeted checks completed locally.
+
+## Done
+
+- Created task folder `tasks/posthog-issue-noise-hardening-20260219-1314/` with SDLC docs.
+- Updated:
+  - `lib/monitoring/clientReporter.ts`
+  - `lib/posthog/provider.tsx`
+- Added:
+  - `lib/posthog/error-filter.ts`
+  - `tests/lib/posthog/error-filter.test.ts`
+- Verification:
+  - `pnpm exec eslint lib/posthog/provider.tsx lib/posthog/error-filter.ts lib/monitoring/clientReporter.ts tests/lib/posthog/error-filter.test.ts` passed.
+  - `pnpm vitest tests/lib/posthog/error-filter.test.ts` passed (1 file, 7 tests).
+  - `pnpm run typecheck` passed.
+
+## Now
+
+- Ready for deployment and PostHog issue-volume observation.
+
+## Next
+
+- Confirm the filtered exception fingerprint trend drops after deploy.
+- Recheck if `/auth` `Failed to fetch` exceptions continue after reporter hardening.
+
+## Open questions (UNCONFIRMED if needed)
+
+- Should any additional suppression be introduced, or keep current filter intentionally narrow?
+
+## Working set (files/ids/commands)
+
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/lib/monitoring/clientReporter.ts`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/lib/posthog/provider.tsx`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/lib/posthog/error-filter.ts`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tests/lib/posthog/error-filter.test.ts`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/posthog-issue-noise-hardening-20260219-1314/research.md`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/posthog-issue-noise-hardening-20260219-1314/plan.md`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/posthog-issue-noise-hardening-20260219-1314/todo.md`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/posthog-issue-noise-hardening-20260219-1314/verification.md`
+
+---
+
+## Previous entry
+
 Last updated: 2026-02-16T18:58:00Z
 
 ## Goal (incl. success criteria)

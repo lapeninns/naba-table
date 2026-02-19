@@ -5,6 +5,10 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { useSupabaseSession } from '@/hooks/useSupabaseSession';
 import { clientEnv } from '@/lib/env-client';
+import {
+  matchPosthogExceptionSuppression,
+  recordSuppressedPosthogException,
+} from '@/lib/posthog/error-filter';
 
 import type { PostHog } from 'posthog-js';
 
@@ -90,6 +94,21 @@ export function PostHogProvider({ children }: { children: ReactNode }) {
         capture_pageleave: true,
         autocapture: true,
         persistence: 'localStorage+cookie',
+        before_send: (event) => {
+          const suppressionMatch = matchPosthogExceptionSuppression(event);
+          if (!suppressionMatch) {
+            return event;
+          }
+
+          recordSuppressedPosthogException(suppressionMatch);
+          if (process.env.NODE_ENV === 'development') {
+            console.info('[PostHog] Suppressed noisy exception', {
+              key: suppressionMatch.key,
+              message: suppressionMatch.message,
+            });
+          }
+          return null;
+        },
         loaded: (posthog) => {
           if (process.env.NODE_ENV === 'development') {
             // Enable debug mode in development
