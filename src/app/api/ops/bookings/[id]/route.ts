@@ -33,6 +33,7 @@ import {
   safeBookingPayload,
 } from '@/server/jobs/booking-side-effects';
 import { recordObservabilityEvent } from '@/server/observability';
+import { invalidateOpsDashboardCaches } from '@/server/ops/bookings';
 import { getRestaurantSchedule } from '@/server/restaurants/schedule';
 import { getRestaurantTurnBands } from '@/server/restaurants/turnBands';
 import {
@@ -702,6 +703,10 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       console.error('[ops/bookings][PATCH] side effects failed', jobError);
     }
 
+    invalidateOpsDashboardCaches(updated.restaurant_id ?? existingBooking.restaurant_id, {
+      summaryDates: [existingBooking.booking_date, updated.booking_date],
+    });
+
     const restaurantRelation = Array.isArray(existingBooking.restaurants)
       ? (existingBooking.restaurants[0] ?? null)
       : (existingBooking.restaurants ?? null);
@@ -895,6 +900,10 @@ async function handleUnifiedOpsUpdate(params: UnifiedOpsUpdateParams) {
       });
     }
 
+    invalidateOpsDashboardCaches(updated.restaurant_id ?? existingBooking.restaurant_id, {
+      summaryDates: [existingBooking.booking_date, updated.booking_date],
+    });
+
     const restaurantRelation = Array.isArray(existingBooking.restaurants)
       ? (existingBooking.restaurants[0] ?? null)
       : (existingBooking.restaurants ?? null);
@@ -1047,6 +1056,10 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
     } catch (jobError) {
       console.error('[ops/bookings][DELETE] side effects failed', jobError);
     }
+
+    invalidateOpsDashboardCaches(existingBooking.restaurant_id, {
+      summaryDates: [existingBooking.booking_date, cancelled.booking_date],
+    });
 
     return NextResponse.json({ id: bookingId, status: cancelled.status });
   } catch (deleteError) {

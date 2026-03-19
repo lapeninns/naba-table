@@ -5,6 +5,7 @@ import { getDateInTimezone } from "@/lib/utils/datetime";
 import { LruCache } from "@/server/capacity/lru-cache";
 import { getCustomerProfilesForCustomers } from "@/server/ops/customer-profiles";
 import { getServiceSupabaseClient } from "@/server/supabase";
+import { getDashboardDayBoundsUtc } from "@/utils/ops/dashboard";
 
 import type { OpsTodayBooking, OpsTodayBookingsSummary } from "@/types/ops";
 import type { Database, Tables } from "@/types/supabase";
@@ -166,6 +167,34 @@ export function invalidateOpsBookingChangesCache(restaurantId: string, date?: st
       changesInFlight.delete(key);
     }
   }
+}
+
+export function invalidateOpsDashboardCaches(
+  restaurantId: string,
+  options: {
+    summaryDates?: readonly (string | null | undefined)[];
+  } = {},
+): void {
+  if (!restaurantId) {
+    return;
+  }
+
+  const validSummaryDates = new Set<string>();
+  for (const date of options.summaryDates ?? []) {
+    if (date && isValidDateString(date)) {
+      validSummaryDates.add(date);
+    }
+  }
+
+  if (validSummaryDates.size === 0) {
+    invalidateOpsBookingsSummaryCache(restaurantId);
+  } else {
+    for (const date of validSummaryDates) {
+      invalidateOpsBookingsSummaryCache(restaurantId, date);
+    }
+  }
+
+  invalidateOpsBookingChangesCache(restaurantId);
 }
 
 async function getRestaurantMeta(restaurantId: string, client: DbClient): Promise<RestaurantMeta> {
@@ -357,6 +386,7 @@ export async function getTodayBookingsSummary(
 
       return {
         id: booking.id,
+        customerId: booking.customer_id ?? null,
         status: booking.status,
         startTime: booking.start_time,
         endTime: booking.end_time,
@@ -476,7 +506,7 @@ export type BookingChange = {
   bookingId: string;
   bookingReference: string | null;
   customerName: string | null;
-  changeType: "created" | "updated" | "cancelled" | "status_changed";
+  changeType: Database["public"]["Enums"]["booking_change_type"];
   changedAt: string;
   changedBy: string | null;
   oldData: Record<string, unknown> | null;
@@ -538,9 +568,10 @@ export async function getBookingsHeatmap(
 }
 
 type ChangeFeedOptions = {
-  date: string;
+  date?: string;
   limit?: number;
   client?: DbClient;
+  referenceDate?: Date;
 };
 
 export async function getTodayBookingChanges(
@@ -549,10 +580,13 @@ export async function getTodayBookingChanges(
 ): Promise<BookingChangeFeedResponse> {
   const client = options.client ?? getServiceSupabaseClient();
   const limit = options.limit ?? 50;
-  const targetDate = options.date;
-
-  const startOfDay = `${targetDate}T00:00:00`;
-  const endOfDay = `${targetDate}T23:59:59`;
+  const referenceDate = options.referenceDate ?? new Date();
+  const restaurantMeta = await getRestaurantMeta(restaurantId, client);
+  const timezone = restaurantMeta.timezone;
+  const targetDate = isValidDateString(options.date)
+    ? options.date
+    : getDateInTimezone(referenceDate, timezone);
+  const { startUtcIso, endUtcIso } = getDashboardDayBoundsUtc(targetDate, timezone);
 
   const cacheKey = buildChangesCacheKey(restaurantId, targetDate, limit);
 
@@ -579,8 +613,8 @@ export async function getTodayBookingChanges(
       bookings!inner(customer_name, reference)`,
       )
       .eq("restaurant_id", restaurantId)
-      .gte("changed_at", startOfDay)
-      .lte("changed_at", endOfDay)
+      .gte("changed_at", startUtcIso)
+      .lt("changed_at", endUtcIso)
       .order("changed_at", { ascending: false })
       .limit(limit);
 
@@ -614,6 +648,7 @@ export async function getTodayBookingChanges(
     opsLogger.info("ops.changes.fetch", {
       restaurantId,
       date: targetDate,
+      timezone,
       duration_ms: durationMs,
       changes: changes.length,
       source: "db",

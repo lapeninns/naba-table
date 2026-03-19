@@ -1,70 +1,65 @@
 # Continuity Ledger
 
-Last updated: 2026-02-19T13:58:43Z
+Last updated: 2026-02-19T14:47:00Z
 
 ## Goal (incl. success criteria)
 
-- Reduce noisy PostHog client exception volume while preserving actionable exception capture.
+- Triage suspected production magic-link abuse and identify why many requestors have no bookings.
 - Success:
-  - Client-side telemetry reporting does not generate additional unhandled `fetch` rejections.
-  - Recurring non-actionable `Object Not Found Matching Id:* MethodName:update, ParamCount:4` exceptions are filtered before PostHog ingestion.
-  - Targeted lint/tests/typecheck pass.
+  - Quantify recent magic-link send/request volume with concrete windows.
+  - Correlate recipients with bookings/customers.
+  - Determine whether traffic pattern indicates attack vs normal behavior.
 
 ## Constraints/Assumptions
 
 - Follow root AGENTS SDLC artifacts flow.
-- Keep a single canonical PostHog/client-error instrumentation path.
-- No schema changes and no UI behavior changes in this patch.
+- Read-only production investigation only (no schema or behavior changes in this task).
+- Keep secrets out of artifacts.
 
 ## Key decisions
 
-- Hardened `/api/client-error` reporter with explicit promise rejection handling (`fetch(...).catch(...)`).
-- Added a dedicated suppression predicate in `lib/posthog/error-filter.ts` for the exact noisy exception signature only.
-- Wired suppression through PostHog `before_send` in `lib/posthog/provider.tsx` (drop only matching `$exception` events; pass all others unchanged).
-- Added browser debug state at `window.__srxPosthogSuppressionDebug` to track suppression counts and recent samples without reintroducing telemetry noise.
-- Added focused unit coverage for suppress/non-suppress cases.
+- Magic-link subject `Your Nab a Table magic sign-in link` remains route-driven (`POST /api/auth/signin`), not cron-driven.
+- 24h/7d Resend audit indicates low absolute volume but high no-booking/no-customer ratio.
+- Vercel logs show mixed `401/202/500` on `/api/auth/signin`; all 500s are `Unexpected verification type from Supabase generateLink: signup`.
+- The 500 vs 202 split creates a likely account-enumeration signal and should be normalized.
 
 ## State
 
-- Patch + targeted checks completed locally.
+- Investigation complete with artifacts captured.
 
 ## Done
 
-- Created task folder `tasks/posthog-issue-noise-hardening-20260219-1314/` with SDLC docs.
-- Updated:
-  - `lib/monitoring/clientReporter.ts`
-  - `lib/posthog/provider.tsx`
-- Added:
-  - `lib/posthog/error-filter.ts`
-  - `tests/lib/posthog/error-filter.test.ts`
-- Verification:
-  - `pnpm exec eslint lib/posthog/provider.tsx lib/posthog/error-filter.ts lib/monitoring/clientReporter.ts tests/lib/posthog/error-filter.test.ts` passed.
-  - `pnpm vitest tests/lib/posthog/error-filter.test.ts` passed (1 file, 7 tests).
-  - `pnpm run typecheck` passed.
+- Created task folder `tasks/magic-link-incident-audit-20260219-1434/` with SDLC docs.
+- Produced artifacts:
+  - `tasks/magic-link-incident-audit-20260219-1434/artifacts/magic-link-production-audit.json`
+  - `tasks/magic-link-incident-audit-20260219-1434/artifacts/vercel-logsv2-auth-signin-7d.jsonl`
+  - `tasks/magic-link-incident-audit-20260219-1434/artifacts/vercel-logsv2-auth-signin-7d-summary.json`
+- Confirmed current codepath:
+  - `src/app/api/auth/signin/route.ts`
+  - `server/auth/magic-link-email.ts`
 
 ## Now
 
-- Ready for deployment and PostHog issue-volume observation.
+- Ready to apply hardening changes if approved.
 
 ## Next
 
-- Confirm the filtered exception fingerprint trend drops after deploy.
-- Recheck if `/auth` `Failed to fetch` exceptions continue after reporter hardening.
+1. Normalize `/api/auth/signin` responses for unknown-user magic-link attempts (prevent 202/500 enumeration leak).
+2. Add request fingerprint audit logging (hashed email/IP/UA + outcome + mode).
+3. Tighten anti-automation controls (IP/global limiter and CAPTCHA on public sign-in).
 
 ## Open questions (UNCONFIRMED if needed)
 
-- Should any additional suppression be introduced, or keep current filter intentionally narrow?
+- Should the sign-in endpoint silently return success for unknown emails (anti-enumeration) or preserve explicit hard failure semantics?
 
 ## Working set (files/ids/commands)
 
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/lib/monitoring/clientReporter.ts`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/lib/posthog/provider.tsx`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/lib/posthog/error-filter.ts`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tests/lib/posthog/error-filter.test.ts`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/posthog-issue-noise-hardening-20260219-1314/research.md`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/posthog-issue-noise-hardening-20260219-1314/plan.md`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/posthog-issue-noise-hardening-20260219-1314/todo.md`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/posthog-issue-noise-hardening-20260219-1314/verification.md`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/src/app/api/auth/signin/route.ts`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/auth/magic-link-email.ts`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/magic-link-incident-audit-20260219-1434/research.md`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/magic-link-incident-audit-20260219-1434/plan.md`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/magic-link-incident-audit-20260219-1434/todo.md`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/magic-link-incident-audit-20260219-1434/verification.md`
 
 ---
 

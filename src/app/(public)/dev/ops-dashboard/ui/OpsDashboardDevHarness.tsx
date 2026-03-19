@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
+import { getBookingTabCounts } from '@/components/features/dashboard/bookingFilters';
 import { OpsDashboardHeader } from '@/components/features/dashboard/OpsDashboardHeader';
 import { OpsDashboardSummarySection } from '@/components/features/dashboard/OpsDashboardSummarySection';
 
@@ -106,13 +107,12 @@ export function OpsDashboardDevHarness() {
 
   const summary = useMemo(() => buildSummary(), []);
   const tabCounts = useMemo(() => {
-    const all = summary.bookings.length;
-    const upcoming = summary.bookings.filter((b) => b.status === 'confirmed' || b.status === 'pending').length;
-    const seated = summary.bookings.filter((b) => b.status === 'checked_in').length;
-    const finished = summary.bookings.filter((b) => b.status === 'completed').length;
-    const no_show = summary.bookings.filter((b) => b.status === 'no_show').length;
-    return { all, upcoming, seated, finished, no_show };
-  }, [summary.bookings]);
+    return getBookingTabCounts({
+      summary,
+      allowTableAssignments: true,
+      hasAssignmentHandlers: true,
+    });
+  }, [summary]);
 
   const guestStats = useMemo(() => ({ upcoming: tabCounts.upcoming, seated: tabCounts.seated }), [tabCounts]);
 
@@ -126,6 +126,7 @@ export function OpsDashboardDevHarness() {
             headerSwipeRef={headerSwipeRef}
             guestStats={guestStats}
             summary={summary}
+            selectedDate={summary.date}
             isRefetching={false}
             dataUpdatedAt={Date.now()}
             realtimeEnabled={false}

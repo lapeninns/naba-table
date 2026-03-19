@@ -2,6 +2,11 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
+import {
+  OPS_ACTIVE_RESTAURANT_STORAGE_KEY,
+  resolvePreferredOpsRestaurantId,
+  writeBrowserOpsRestaurantCookie,
+} from '@/lib/ops/session';
 import { isRestaurantAdminRole } from '@/lib/owner/auth/roles';
 
 import type {
@@ -11,8 +16,6 @@ import type {
   OpsPermissionSet,
   OpsUser,
 } from '@/types/ops';
-
-const STORAGE_KEY = 'ops.activeRestaurantId';
 
 export type OpsSessionContextValue = {
   user: OpsUser | null;
@@ -34,7 +37,7 @@ function readStoredRestaurantId(): string | null {
   }
 
   try {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
+    const stored = window.localStorage.getItem(OPS_ACTIVE_RESTAURANT_STORAGE_KEY);
     return stored && stored.length > 0 ? stored : null;
   } catch (error) {
     console.warn('[ops-session] failed to read stored restaurant id', error);
@@ -49,13 +52,15 @@ function persistRestaurantId(value: string | null) {
 
   try {
     if (!value) {
-      window.localStorage.removeItem(STORAGE_KEY);
+      window.localStorage.removeItem(OPS_ACTIVE_RESTAURANT_STORAGE_KEY);
     } else {
-      window.localStorage.setItem(STORAGE_KEY, value);
+      window.localStorage.setItem(OPS_ACTIVE_RESTAURANT_STORAGE_KEY, value);
     }
   } catch (error) {
     console.warn('[ops-session] failed to persist restaurant id', error);
   }
+
+  writeBrowserOpsRestaurantCookie(value);
 }
 
 export type OpsSessionProviderProps = {
@@ -79,13 +84,17 @@ export function OpsSessionProvider({
   featureFlags = DEFAULT_FEATURE_FLAGS,
   children,
 }: OpsSessionProviderProps) {
-  const membershipIds = useMemo(() => new Set(memberships.map((membership) => membership.restaurantId)), [memberships]);
+  const membershipRestaurantIds = useMemo(
+    () => memberships.map((membership) => membership.restaurantId),
+    [memberships],
+  );
+  const membershipIds = useMemo(
+    () => new Set(membershipRestaurantIds),
+    [membershipRestaurantIds],
+  );
   const fallbackRestaurantId = useMemo(() => {
-    if (initialRestaurantId && membershipIds.has(initialRestaurantId)) {
-      return initialRestaurantId;
-    }
-    return memberships[0]?.restaurantId ?? null;
-  }, [initialRestaurantId, membershipIds, memberships]);
+    return resolvePreferredOpsRestaurantId(membershipRestaurantIds, initialRestaurantId);
+  }, [initialRestaurantId, membershipRestaurantIds]);
 
   const initialisedRef = useRef(false);
   const [activeRestaurantId, setActiveRestaurantIdState] = useState<string | null>(fallbackRestaurantId);
@@ -96,15 +105,20 @@ export function OpsSessionProvider({
     }
 
     const stored = readStoredRestaurantId();
-    if (stored && membershipIds.has(stored)) {
-      setActiveRestaurantIdState(stored);
-    } else if (fallbackRestaurantId && fallbackRestaurantId !== activeRestaurantId) {
-      setActiveRestaurantIdState(fallbackRestaurantId);
+    const nextRestaurantId =
+      activeRestaurantId && membershipIds.has(activeRestaurantId)
+        ? activeRestaurantId
+        : resolvePreferredOpsRestaurantId(
+            membershipRestaurantIds,
+            stored ?? fallbackRestaurantId,
+          );
+
+    if (nextRestaurantId !== activeRestaurantId) {
+      setActiveRestaurantIdState(nextRestaurantId);
     }
 
     initialisedRef.current = true;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fallbackRestaurantId, membershipIds]);
+  }, [activeRestaurantId, fallbackRestaurantId, membershipIds, membershipRestaurantIds]);
 
   useEffect(() => {
     if (!activeRestaurantId || !membershipIds.has(activeRestaurantId)) {
@@ -122,7 +136,7 @@ export function OpsSessionProvider({
     }
 
     const handleStorage = (event: StorageEvent) => {
-      if (event.key !== STORAGE_KEY) {
+      if (event.key !== OPS_ACTIVE_RESTAURANT_STORAGE_KEY) {
         return;
       }
 

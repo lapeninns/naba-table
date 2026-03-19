@@ -8,33 +8,17 @@ import { useOpsActiveMembership } from '@/contexts/ops-session';
 import { useOpsTodaySummary } from '@/hooks/ops/useOpsTodaySummary';
 import { formatDateReadable, formatTimeRange, getTodayInTimezone } from '@/lib/utils/datetime';
 import { sanitizeDateParam } from '@/utils/ops/dashboard';
-import { getOpsBookingActionRequirements, getOpsBookingTemporalInfo } from '@/utils/ops/todayBookingsAttention';
 
 import { flattenTableAssignments } from './booking-details/utils';
+import {
+  getBookingFilterLabel,
+  matchesBookingFilter,
+  normalizeBookingFilter,
+} from './bookingFilters';
 import { type BookingFilter } from './BookingsFilterBar';
 import styles from './OpsBookingsPrintView.module.css';
 
 import type { OpsTodayBooking } from '@/types/ops';
-
-const FILTER_LABELS: Record<BookingFilter, string> = {
-  all: 'All',
-  upcoming: 'Upcoming',
-  seated: 'Seated',
-  finished: 'Finished',
-  completed: 'Completed',
-  no_show: 'No show',
-  attention: 'Needs attention',
-};
-
-const FILTER_VALUES: BookingFilter[] = [
-  'all',
-  'upcoming',
-  'seated',
-  'finished',
-  'completed',
-  'no_show',
-  'attention',
-];
 
 type BookingSortKey = 'time' | 'party' | 'name';
 type BookingSortDir = 'asc' | 'desc';
@@ -70,11 +54,7 @@ const SORT_DIRS: BookingSortDir[] = ['asc', 'desc'];
 const pickFirst = (value?: string | string[]) => (Array.isArray(value) ? value[0] : value);
 
 const parseFilter = (value?: string | string[]): BookingFilter => {
-  const raw = pickFirst(value);
-  if (raw && FILTER_VALUES.includes(raw as BookingFilter)) {
-    return raw as BookingFilter;
-  }
-  return 'all';
+  return normalizeBookingFilter(pickFirst(value)) ?? 'all';
 };
 
 const parseSortKey = (value?: string | string[]): BookingSortKey => {
@@ -209,40 +189,16 @@ export function OpsBookingsPrintView({ params }: OpsBookingsPrintViewProps) {
 
     if (filter === 'all') return result;
 
-    if (filter === 'upcoming') {
-      return result.filter(
-        (booking) =>
-          booking.status === 'confirmed' ||
-          booking.status === 'PRIORITY_WAITLIST' ||
-          booking.status === 'pending' ||
-          booking.status === 'pending_allocation',
-      );
-    }
-
-    if (filter === 'seated') {
-      return result.filter((booking) => booking.status === 'checked_in');
-    }
-
-    if (filter === 'finished' || filter === 'completed') {
-      return result.filter((booking) => ['completed', 'cancelled', 'no_show'].includes(booking.status));
-    }
-
-    if (filter === 'no_show') {
-      return result.filter((booking) => booking.status === 'no_show');
-    }
-
-    return result.filter((booking) => {
-      const temporalInfo = getOpsBookingTemporalInfo(booking, summary, now);
-      const requirements = getOpsBookingActionRequirements({
+    return result.filter((booking) =>
+      matchesBookingFilter({
         booking,
-        temporalInfo,
+        filter,
+        summary,
         now,
-        statusForActions: booking.status,
         allowTableAssignments,
         hasAssignmentHandlers: true,
-      });
-      return requirements.needsAttention;
-    });
+      }),
+    );
   }, [allowTableAssignments, filter, isSummaryReady, now, searchQuery, summary]);
 
   const sortedBookings = useMemo(() => {
@@ -290,7 +246,7 @@ export function OpsBookingsPrintView({ params }: OpsBookingsPrintViewProps) {
   }
 
   const readableDate = formatDateReadable(summary.date, summary.timezone);
-  const filterLabel = FILTER_LABELS[filter] ?? 'All';
+  const filterLabel = getBookingFilterLabel(filter);
   const sortLabel = sortKey === 'time' ? 'Time' : sortKey === 'party' ? 'Party size' : 'Guest name';
   const sortDirLabel = sortDir === 'asc' ? 'Ascending' : 'Descending';
 
