@@ -1,8 +1,7 @@
 'use client';
 
-import { useQueryClient } from '@tanstack/react-query';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useDeferredValue, useEffect, useMemo, useState, useTransition } from 'react';
+import { usePathname } from 'next/navigation';
+import { useCallback, useMemo } from 'react';
 
 import { useOpsActiveMembership } from '@/contexts/ops-session';
 import { useOpsBookingHeatmap } from '@/hooks/ops/useOpsBookingHeatmap';
@@ -12,134 +11,63 @@ import { useOpsRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
 import { useOpsTableAssignmentActions } from '@/hooks/ops/useOpsTableAssignments';
 import { useOpsTodaySummary } from '@/hooks/ops/useOpsTodaySummary';
 import { useDateSwipe } from '@/hooks/useDateSwipe';
-import { queryKeys } from '@/lib/query/keys';
 import { formatDateKey, getDateInTimezone, getTodayInTimezone } from '@/lib/utils/datetime';
-import { computeCalendarRange, sanitizeDateParam } from '@/utils/ops/dashboard';
+import {
+  computeCalendarRange,
+  resolveDashboardDateState,
+} from '@/utils/ops/dashboard';
 
-import type { BookingFilter } from './BookingsFilterBar';
+import {
+  getBookingTabCounts,
+  getEmptyBookingTabCounts,
+} from './bookingFilters';
+import { useOpsDashboardBookingActions } from './useOpsDashboardBookingActions';
+import { useOpsDashboardDialogs } from './useOpsDashboardDialogs';
+import { useOpsDashboardQueryState } from './useOpsDashboardQueryState';
+
+import type { UseOpsDashboardStateProps } from './types';
 import type { BookingDTO } from '@/hooks/useBookings';
-import type { OpsTodayBooking } from '@/types/ops';
-import type { ChangeEvent } from 'react';
-
-const DEFAULT_FILTER: BookingFilter = 'all';
-const FILTER_PARAMS: BookingFilter[] = [
-  'all',
-  'upcoming',
-  'seated',
-  'finished',
-  'completed',
-  'no_show',
-  'attention',
-];
-const SORT_KEYS = ['time', 'party', 'name'] as const;
-const SORT_DIRS = ['asc', 'desc'] as const;
-
-const parseFilterParam = (value: string | null): BookingFilter | null => {
-  if (!value) return null;
-  return FILTER_PARAMS.includes(value as BookingFilter) ? (value as BookingFilter) : null;
-};
-
-const parseSortKeyParam = (value: string | null): (typeof SORT_KEYS)[number] => {
-  if (!value) return 'time';
-  return (SORT_KEYS as readonly string[]).includes(value)
-    ? (value as (typeof SORT_KEYS)[number])
-    : 'time';
-};
-
-const parseSortDirParam = (value: string | null): (typeof SORT_DIRS)[number] => {
-  if (!value) return 'asc';
-  return (SORT_DIRS as readonly string[]).includes(value)
-    ? (value as (typeof SORT_DIRS)[number])
-    : 'asc';
-};
-
-type UseOpsDashboardStateProps = {
-  initialDate: string | null;
-};
-
-type PendingBookingSnapshot = Pick<OpsTodayBooking, 'status' | 'startTime' | 'endTime'>;
-
-type PendingBookingAction = {
-  bookingId: string;
-  action: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show';
-  snapshot?: PendingBookingSnapshot | null;
-};
 
 export function useOpsDashboardState({ initialDate }: UseOpsDashboardStateProps) {
   const membership = useOpsActiveMembership();
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const pathname = usePathname();
-  const queryClient = useQueryClient();
-
-  const [filter, setFilter] = useState<BookingFilter>(() => {
-    const initial = parseFilterParam(searchParams?.get('filter') ?? null);
-    return initial ?? DEFAULT_FILTER;
-  });
-  const [searchQuery, setSearchQuery] = useState(() => searchParams?.get('search') ?? '');
-  const deferredSearchQuery = useDeferredValue(searchQuery);
-  const [selectedDate, setSelectedDate] = useState<string | null>(
-    sanitizeDateParam(initialDate ?? undefined),
-  );
-  const [sortKey, setSortKeyState] = useState<'time' | 'party' | 'name'>(() =>
-    parseSortKeyParam(searchParams?.get('sortKey') ?? null),
-  );
-  const [sortDir, setSortDirState] = useState<'asc' | 'desc'>(() =>
-    parseSortDirParam(searchParams?.get('sortDir') ?? null),
-  );
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-  const [pendingBookingAction, setPendingBookingAction] = useState<PendingBookingAction | null>(
-    null,
-  );
-  const [detailsBooking, setDetailsBooking] = useState<BookingDTO | null>(null);
-  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
-  const [editBooking, setEditBooking] = useState<BookingDTO | null>(null);
-  const [isEditOpen, setIsEditOpen] = useState(false);
-  const [cancelBooking, setCancelBooking] = useState<BookingDTO | null>(null);
-  const [isCancelOpen, setIsCancelOpen] = useState(false);
   const cancelBookingMutation = useOpsCancelBooking();
-
-  const [, startTransition] = useTransition();
-
-  const updateQueryParams = useCallback(
-    (updates: {
-      date?: string | null;
-      filter?: BookingFilter | null;
-      search?: string | null;
-      sortKey?: 'time' | 'party' | 'name' | null;
-      sortDir?: 'asc' | 'desc' | null;
-    }) => {
-      const params = new URLSearchParams(searchParams?.toString() ?? '');
-      const apply = (key: string, value?: string | null) => {
-        if (value === null || value === undefined || value === '') {
-          params.delete(key);
-        } else {
-          params.set(key, value);
-        }
-      };
-
-      if ('date' in updates) apply('date', updates.date ?? null);
-      if ('filter' in updates) apply('filter', updates.filter ?? null);
-      if ('search' in updates) apply('search', updates.search ?? null);
-      if ('sortKey' in updates) apply('sortKey', updates.sortKey ?? null);
-      if ('sortDir' in updates) apply('sortDir', updates.sortDir ?? null);
-
-      const nextQuery = params.toString();
-      const currentQuery = searchParams?.toString() ?? '';
-      if (nextQuery === currentQuery) return;
-
-      startTransition(() => {
-        const query = nextQuery ? `?${nextQuery}` : '';
-        router.replace(`${pathname}${query}`);
-      });
-    },
-    [pathname, router, searchParams],
-  );
+  const queryState = useOpsDashboardQueryState({ initialDate });
+  const dialogs = useOpsDashboardDialogs();
+  const {
+    filter,
+    searchQuery,
+    deferredSearchQuery,
+    selectedDate: explicitDate,
+    sortKey,
+    sortDir,
+    isCalendarOpen,
+    setIsCalendarOpen,
+    handleSelectFilter,
+    handleSelectDate,
+    handleSearchChange,
+    handleSortKeyChange,
+    handleSortDirChange,
+  } = queryState;
+  const {
+    detailsBooking,
+    isDetailsOpen,
+    editBooking,
+    isEditOpen,
+    cancelBooking,
+    isCancelOpen,
+    handleDetails,
+    handleEdit,
+    handleDetailsOpenChange,
+    handleEditOpenChange,
+    handleCancelRequest,
+    handleCancelOpenChange,
+  } = dialogs;
 
   const restaurantId = membership?.restaurantId ?? null;
   const restaurantDetails = useOpsRestaurantDetails(restaurantId ?? null);
 
-  const summaryQuery = useOpsTodaySummary({ restaurantId, targetDate: selectedDate });
+  const summaryQuery = useOpsTodaySummary({ restaurantId, targetDate: explicitDate });
   const {
     data: summaryData,
     isLoading: isSummaryLoading,
@@ -148,49 +76,22 @@ export function useOpsDashboardState({ initialDate }: UseOpsDashboardStateProps)
     refetch: refetchSummary,
   } = summaryQuery;
   const summary = summaryData ?? null;
+  const dateState = resolveDashboardDateState({
+    summary,
+    restaurantId,
+    explicitDate,
+  });
+  const isSummaryMismatch = dateState.isSummaryMismatch;
+  const requestedDate = dateState.activeDate;
   const restaurantSlug = restaurantDetails.data?.slug ?? membership?.restaurantSlug ?? null;
-  const restaurantTimezone = summary?.timezone ?? restaurantDetails.data?.timezone ?? null;
+  const restaurantTimezone =
+    restaurantDetails.data?.timezone ?? (!isSummaryMismatch ? summary?.timezone ?? null : null);
   const restaurantName = membership?.restaurantName ?? 'Restaurant';
 
-  useEffect(() => {
-    if (!summary) return;
-    if (selectedDate) return;
-    if (summary.date !== selectedDate) {
-      if (restaurantId) {
-        const nextKey = queryKeys.opsDashboard.summary(restaurantId, summary.date);
-        queryClient.setQueryData(nextKey, summary);
-      }
-      setSelectedDate(summary.date);
-    }
-  }, [queryClient, restaurantId, selectedDate, summary]);
-
-  const searchParamsKey = searchParams?.toString() ?? '';
-
-  useEffect(() => {
-    const params = new URLSearchParams(searchParamsKey);
-    const nextFilter = parseFilterParam(params.get('filter')) ?? DEFAULT_FILTER;
-    const nextSearch = params.get('search') ?? '';
-    const nextSortKey = parseSortKeyParam(params.get('sortKey'));
-    const nextSortDir = parseSortDirParam(params.get('sortDir'));
-    const hasDateParam = params.has('date');
-    const nextDate = hasDateParam ? sanitizeDateParam(params.get('date') ?? undefined) : null;
-
-    setFilter((current) => (current === nextFilter ? current : nextFilter));
-    setSearchQuery((current) => (current === nextSearch ? current : nextSearch));
-    setSortKeyState((current) => (current === nextSortKey ? current : nextSortKey));
-    setSortDirState((current) => (current === nextSortDir ? current : nextSortDir));
-    setSelectedDate((current) => {
-      if (!hasDateParam) {
-        return current === null ? current : null;
-      }
-      return current === nextDate ? current : nextDate;
-    });
-  }, [searchParamsKey]);
-
-  const heatmapRange = useMemo(
-    () => (summary ? computeCalendarRange(summary.date) : null),
-    [summary],
-  );
+  const heatmapRange = useMemo(() => {
+    if (!requestedDate) return null;
+    return computeCalendarRange(requestedDate);
+  }, [requestedDate]);
   const heatmapQuery = useOpsBookingHeatmap({
     restaurantId,
     startDate: heatmapRange?.start ?? null,
@@ -199,46 +100,38 @@ export function useOpsDashboardState({ initialDate }: UseOpsDashboardStateProps)
   });
 
   const bookingLifecycleMutations = useOpsBookingLifecycleActions();
-  const assignmentDate = selectedDate;
+  const assignmentDate = explicitDate;
   const tableAssignmentActions = useOpsTableAssignmentActions({
     restaurantId,
     date: assignmentDate,
   });
   const allowTableAssignments = useMemo(() => {
-    const targetDate = selectedDate ?? summary?.date ?? null;
+    const targetDate = requestedDate;
     if (!targetDate) return true;
 
-    const timezone = summary?.timezone ?? 'UTC';
+    const timezone = restaurantTimezone ?? summary?.timezone ?? 'UTC';
     const today = getTodayInTimezone(timezone);
     return targetDate >= today;
-  }, [selectedDate, summary?.date, summary?.timezone]);
-
-  const handleSelectFilter = useCallback(
-    (nextFilter: BookingFilter) => {
-      setFilter(nextFilter);
-      updateQueryParams({ filter: nextFilter === DEFAULT_FILTER ? null : nextFilter });
-    },
-    [updateQueryParams],
-  );
-
-  const handleSelectDate = useCallback(
-    (date: string) => {
-      setSelectedDate(date);
-      updateQueryParams({ date });
-    },
-    [updateQueryParams],
-  );
+  }, [requestedDate, restaurantTimezone, summary?.timezone]);
+  const bookingActions = useOpsDashboardBookingActions({
+    summary,
+    restaurantId,
+    selectedDate: explicitDate,
+    refetchSummary,
+    bookingLifecycleMutations,
+    tableAssignmentActions,
+  });
 
   const handleShiftDate = useCallback(
     (days: number) => {
-      const baseDate = selectedDate ?? summary?.date ?? null;
+      const baseDate = requestedDate;
       if (!baseDate) return;
       const nextDate = new Date(`${baseDate}T00:00:00`);
       if (Number.isNaN(nextDate.getTime())) return;
       nextDate.setDate(nextDate.getDate() + days);
       handleSelectDate(formatDateKey(nextDate));
     },
-    [handleSelectDate, selectedDate, summary?.date],
+    [handleSelectDate, requestedDate],
   );
 
   const handlePrevDate = useCallback(() => {
@@ -249,34 +142,6 @@ export function useOpsDashboardState({ initialDate }: UseOpsDashboardStateProps)
     handleShiftDate(1);
   }, [handleShiftDate]);
 
-  const handleDetails = useCallback((booking: BookingDTO) => {
-    setIsEditOpen(false);
-    setEditBooking(null);
-    setDetailsBooking(booking);
-    setIsDetailsOpen(true);
-  }, []);
-
-  const handleEdit = useCallback((booking: BookingDTO) => {
-    setIsDetailsOpen(false);
-    setDetailsBooking(null);
-    setEditBooking(booking);
-    setIsEditOpen(true);
-  }, []);
-
-  const handleDetailsOpenChange = useCallback((open: boolean) => {
-    setIsDetailsOpen(open);
-    if (!open) {
-      setDetailsBooking(null);
-    }
-  }, []);
-
-  const handleEditOpenChange = useCallback((open: boolean) => {
-    setIsEditOpen(open);
-    if (!open) {
-      setEditBooking(null);
-    }
-  }, []);
-
   const resolveCancelTargetDate = useCallback(
     (booking: BookingDTO, timezone: string) => {
       if (booking.startIso) {
@@ -285,32 +150,13 @@ export function useOpsDashboardState({ initialDate }: UseOpsDashboardStateProps)
           return getDateInTimezone(startDate, timezone);
         }
       }
-      if (summary?.date) {
-        return summary.date;
-      }
-      if (selectedDate) {
-        return selectedDate;
+      if (requestedDate) {
+        return requestedDate;
       }
       return getTodayInTimezone(timezone);
     },
-    [selectedDate, summary?.date],
+    [requestedDate],
   );
-
-  const handleCancelRequest = useCallback((booking: BookingDTO) => {
-    setIsDetailsOpen(false);
-    setDetailsBooking(null);
-    setIsEditOpen(false);
-    setEditBooking(null);
-    setCancelBooking(booking);
-    setIsCancelOpen(true);
-  }, []);
-
-  const handleCancelOpenChange = useCallback((open: boolean) => {
-    setIsCancelOpen(open);
-    if (!open) {
-      setCancelBooking(null);
-    }
-  }, []);
 
   const handleConfirmCancel = useCallback(async () => {
     if (!cancelBooking) return;
@@ -340,7 +186,7 @@ export function useOpsDashboardState({ initialDate }: UseOpsDashboardStateProps)
     if (typeof window === 'undefined') return;
     if (!summary) return;
     const params = new URLSearchParams();
-    const date = selectedDate ?? summary.date;
+    const date = explicitDate ?? summary.date;
     params.set('date', date);
     params.set('filter', filter);
     params.set('sortKey', sortKey);
@@ -353,78 +199,23 @@ export function useOpsDashboardState({ initialDate }: UseOpsDashboardStateProps)
       pathname && pathname.endsWith('/dashboard') ? `${pathname}/print` : '/app/dashboard/print';
     const url = params.size > 0 ? `${printPath}?${params.toString()}` : printPath;
     window.open(url, '_blank', 'noopener');
-  }, [filter, pathname, searchQuery, selectedDate, sortDir, sortKey, summary]);
-
-  const handleSearchChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(event.target.value);
-  }, []);
-
-  const handleSortKeyChange = useCallback(
-    (value: 'time' | 'party' | 'name') => {
-      setSortKeyState(value);
-      updateQueryParams({
-        sortKey: value === 'time' ? null : value,
-        sortDir: sortDir === 'asc' ? null : sortDir,
-      });
-    },
-    [sortDir, updateQueryParams],
-  );
-
-  const handleSortDirChange = useCallback(
-    (value: 'asc' | 'desc') => {
-      setSortDirState(value);
-      updateQueryParams({
-        sortKey: sortKey === 'time' ? null : sortKey,
-        sortDir: value === 'asc' ? null : value,
-      });
-    },
-    [sortKey, updateQueryParams],
-  );
-
-  useEffect(() => {
-    const trimmed = deferredSearchQuery.trim();
-    updateQueryParams({ search: trimmed ? trimmed : null });
-  }, [deferredSearchQuery, updateQueryParams]);
+  }, [explicitDate, filter, pathname, searchQuery, sortDir, sortKey, summary]);
 
   const { guestStats, tabCounts } = useMemo(() => {
     const empty = {
       guestStats: { upcoming: 0, seated: 0 },
-      tabCounts: { all: 0, upcoming: 0, seated: 0, finished: 0, no_show: 0 },
+      tabCounts: getEmptyBookingTabCounts(),
     };
     if (!summary) return empty;
 
-    let all = 0;
-    let upcoming = 0;
-    let seatedCount = 0;
-    let finished = 0;
-    let noShow = 0;
     let guestUpcoming = 0;
     let guestSeated = 0;
 
     for (const booking of summary.bookings) {
-      all += 1;
       const status = booking.status;
 
-      if (
-        status === 'confirmed' ||
-        status === 'PRIORITY_WAITLIST' ||
-        status === 'pending' ||
-        status === 'pending_allocation'
-      ) {
-        upcoming += 1;
-      }
-
       if (status === 'checked_in') {
-        seatedCount += 1;
         guestSeated += booking.partySize;
-      }
-
-      if (status === 'no_show') {
-        noShow += 1;
-      }
-
-      if (status === 'completed' || status === 'cancelled' || status === 'no_show') {
-        finished += 1;
       }
 
       if (status === 'confirmed' || status === 'PRIORITY_WAITLIST') {
@@ -434,173 +225,13 @@ export function useOpsDashboardState({ initialDate }: UseOpsDashboardStateProps)
 
     return {
       guestStats: { upcoming: guestUpcoming, seated: guestSeated },
-      tabCounts: { all, upcoming, seated: seatedCount, finished, no_show: noShow },
+      tabCounts: getBookingTabCounts({
+        summary,
+        allowTableAssignments,
+        hasAssignmentHandlers: true,
+      }),
     };
-  }, [summary]);
-
-  const getPendingSnapshot = useCallback(
-    (bookingId: string) => {
-      if (!summary) return null;
-      const booking = summary.bookings.find((item) => item.id === bookingId);
-      if (!booking) return null;
-      return {
-        status: booking.status,
-        startTime: booking.startTime ?? null,
-        endTime: booking.endTime ?? null,
-      };
-    },
-    [summary],
-  );
-
-  const tableActionState = useMemo(() => {
-    if (tableAssignmentActions.assignTable.isPending) {
-      const variables = tableAssignmentActions.assignTable.variables;
-      return {
-        type: 'assign' as const,
-        bookingId: variables?.bookingId ?? null,
-        tableId: variables?.tableId ?? null,
-        tableName: variables?.tableName,
-      };
-    }
-    if (tableAssignmentActions.unassignTable.isPending) {
-      const variables = tableAssignmentActions.unassignTable.variables;
-      return {
-        type: 'unassign' as const,
-        bookingId: variables?.bookingId ?? null,
-        tableId: variables?.tableId ?? null,
-      };
-    }
-    return null;
-  }, [
-    tableAssignmentActions.assignTable.isPending,
-    tableAssignmentActions.assignTable.variables,
-    tableAssignmentActions.unassignTable.isPending,
-    tableAssignmentActions.unassignTable.variables,
-  ]);
-
-  const handleMarkNoShow = useCallback(
-    async (
-      bookingId: string,
-      options?: { performedAt?: string | null; reason?: string | null },
-    ) => {
-      if (!restaurantId) return;
-      setPendingBookingAction({
-        bookingId,
-        action: 'no-show',
-        snapshot: getPendingSnapshot(bookingId),
-      });
-      try {
-        await bookingLifecycleMutations.markNoShow.mutateAsync({
-          restaurantId,
-          bookingId,
-          performedAt: options?.performedAt ?? null,
-          reason: options?.reason ?? null,
-          targetDate: selectedDate,
-        });
-      } finally {
-        setPendingBookingAction(null);
-      }
-    },
-    [bookingLifecycleMutations.markNoShow, getPendingSnapshot, restaurantId, selectedDate],
-  );
-
-  const handleUndoNoShow = useCallback(
-    async (bookingId: string, reason?: string | null) => {
-      if (!restaurantId) return;
-      setPendingBookingAction({
-        bookingId,
-        action: 'undo-no-show',
-        snapshot: getPendingSnapshot(bookingId),
-      });
-      try {
-        await bookingLifecycleMutations.undoNoShow.mutateAsync({
-          restaurantId,
-          bookingId,
-          reason: reason ?? null,
-          targetDate: selectedDate,
-        });
-      } finally {
-        setPendingBookingAction(null);
-      }
-    },
-    [bookingLifecycleMutations.undoNoShow, getPendingSnapshot, restaurantId, selectedDate],
-  );
-
-  const handleCheckIn = useCallback(
-    async (bookingId: string) => {
-      if (!restaurantId) return;
-      setPendingBookingAction({
-        bookingId,
-        action: 'check-in',
-        snapshot: getPendingSnapshot(bookingId),
-      });
-      try {
-        await bookingLifecycleMutations.checkIn.mutateAsync({
-          restaurantId,
-          bookingId,
-          targetDate: selectedDate,
-        });
-        void refetchSummary();
-      } finally {
-        setPendingBookingAction(null);
-      }
-    },
-    [
-      bookingLifecycleMutations.checkIn,
-      getPendingSnapshot,
-      refetchSummary,
-      restaurantId,
-      selectedDate,
-    ],
-  );
-
-  const handleCheckOut = useCallback(
-    async (bookingId: string) => {
-      if (!restaurantId) return;
-      setPendingBookingAction({
-        bookingId,
-        action: 'check-out',
-        snapshot: getPendingSnapshot(bookingId),
-      });
-      try {
-        await bookingLifecycleMutations.checkOut.mutateAsync({
-          restaurantId,
-          bookingId,
-          targetDate: selectedDate,
-        });
-        void refetchSummary();
-      } finally {
-        setPendingBookingAction(null);
-      }
-    },
-    [
-      bookingLifecycleMutations.checkOut,
-      getPendingSnapshot,
-      refetchSummary,
-      restaurantId,
-      selectedDate,
-    ],
-  );
-
-  const handleAssignTable = useCallback(
-    async (bookingId: string, tableId: string, tableName?: string) => {
-      const result = await tableAssignmentActions.assignTable.mutateAsync({
-        bookingId,
-        tableId,
-        tableName,
-      });
-      return result.tableAssignments;
-    },
-    [tableAssignmentActions.assignTable],
-  );
-
-  const handleUnassignTable = useCallback(
-    async (bookingId: string, tableId: string) => {
-      const result = await tableAssignmentActions.unassignTable.mutateAsync({ bookingId, tableId });
-      return result.tableAssignments;
-    },
-    [tableAssignmentActions.unassignTable],
-  );
+  }, [allowTableAssignments, summary]);
 
   const handleRetry = useCallback(() => refetchSummary(), [refetchSummary]);
 
@@ -610,9 +241,10 @@ export function useOpsDashboardState({ initialDate }: UseOpsDashboardStateProps)
     threshold: 50,
   });
 
-  const isInitialLoading = isSummaryLoading && !summary;
-  const isRefetching = isSummaryFetching && !!summary;
-  const hasError = isSummaryError && !summary;
+  const isInitialLoading =
+    (isSummaryLoading && !summary) || (isSummaryMismatch && !summaryQuery.isError);
+  const isRefetching = isSummaryFetching && !!summary && !isSummaryMismatch;
+  const hasError = isSummaryError && (!summary || isSummaryMismatch);
   const summaryHasError = summaryQuery.isError;
 
   return {
@@ -634,7 +266,8 @@ export function useOpsDashboardState({ initialDate }: UseOpsDashboardStateProps)
     filter,
     searchQuery,
     deferredSearchQuery,
-    selectedDate,
+    selectedDate: explicitDate,
+    requestedDate,
     sortKey,
     sortDir,
     setSortKey: handleSortKeyChange,
@@ -642,8 +275,8 @@ export function useOpsDashboardState({ initialDate }: UseOpsDashboardStateProps)
     guestStats,
     tabCounts,
     allowTableAssignments,
-    pendingBookingAction,
-    tableActionState,
+    pendingBookingAction: bookingActions.pendingBookingAction,
+    tableActionState: bookingActions.tableActionState,
     detailsBooking,
     isDetailsOpen,
     editBooking,
@@ -652,6 +285,7 @@ export function useOpsDashboardState({ initialDate }: UseOpsDashboardStateProps)
     isCancelOpen,
     isInitialLoading,
     isRefetching,
+    isSummaryMismatch,
     hasError,
     headerSwipeRef,
     handleSelectFilter,
@@ -668,12 +302,12 @@ export function useOpsDashboardState({ initialDate }: UseOpsDashboardStateProps)
     handleCancelRequest,
     handleCancelOpenChange,
     handleConfirmCancel,
-    handleMarkNoShow,
-    handleUndoNoShow,
-    handleCheckIn,
-    handleCheckOut,
-    handleAssignTable,
-    handleUnassignTable,
+    handleMarkNoShow: bookingActions.handleMarkNoShow,
+    handleUndoNoShow: bookingActions.handleUndoNoShow,
+    handleCheckIn: bookingActions.handleCheckIn,
+    handleCheckOut: bookingActions.handleCheckOut,
+    handleAssignTable: bookingActions.handleAssignTable,
+    handleUnassignTable: bookingActions.handleUnassignTable,
     handleRetry,
     cancelBookingPending: cancelBookingMutation.isPending,
   };

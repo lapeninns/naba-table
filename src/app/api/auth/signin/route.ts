@@ -57,6 +57,19 @@ const GUEST_MAGIC_LINK_TURNSTILE_ACTION = 'guest_signin_magic_link';
 
 type MagicLinkLookupStatus = 'found' | 'not_found' | 'error';
 
+function normalizeHttpStatus(status: number | undefined, fallback: number): number {
+  if (typeof status !== 'number' || !Number.isFinite(status)) {
+    return fallback;
+  }
+
+  const parsed = Math.trunc(status);
+  if (parsed < 400 || parsed > 599) {
+    return fallback;
+  }
+
+  return parsed;
+}
+
 function buildCallbackUrl(
   hostname: string,
   redirectedFrom: string | undefined,
@@ -186,9 +199,11 @@ export async function POST(req: NextRequest) {
       });
 
       if (error) {
-        const status = error.status ?? 401;
+        const status = normalizeHttpStatus(error.status, 500);
         const message =
-          status === 401 || status === 400 ? 'Invalid email or password' : error.message;
+          status === 401 || status === 400
+            ? 'Invalid email or password'
+            : 'Unable to sign in right now. Please try again.';
         const response = NextResponse.json(
           { message },
           { status: status === 400 ? 401 : status },

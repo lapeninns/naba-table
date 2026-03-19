@@ -3,11 +3,7 @@
 import { DateTime } from 'luxon';
 import { useEffect, useMemo, useState } from 'react';
 
-import {
-  getOpsBookingActionRequirements,
-  getOpsBookingTemporalInfo,
-} from '@/utils/ops/todayBookingsAttention';
-
+import { matchesBookingFilter } from '../bookingFilters';
 import { sortBookings, sortBookingsGrouped } from './utils';
 
 import type { BookingFilter } from '../BookingsFilterBar';
@@ -91,8 +87,6 @@ export function useBookingsListState({
     return index;
   }, [bookingsForSort, normalizedSearch]);
 
-  const attentionNow = filter === 'attention' ? now : null;
-
   const filtered = useMemo(() => {
     let result = bookingsForSort;
 
@@ -103,47 +97,22 @@ export function useBookingsListState({
 
     if (filter === 'all') return result;
 
-    if (filter === 'upcoming') {
-      return result.filter(
-        (b) =>
-          b.status === 'confirmed' ||
-          b.status === 'PRIORITY_WAITLIST' ||
-          b.status === 'pending' ||
-          b.status === 'pending_allocation',
-      );
-    }
-    if (filter === 'seated') {
-      return result.filter((b) => b.status === 'checked_in');
-    }
-    if (filter === 'finished' || filter === 'completed') {
-      return result.filter((b) => ['completed', 'cancelled', 'no_show'].includes(b.status));
-    }
-    if (filter === 'no_show') {
-      return result.filter((b) => b.status === 'no_show');
-    }
-
-    if (!attentionNow) {
-      return result;
-    }
-
-    return result.filter((booking) => {
-      const temporalInfo = getOpsBookingTemporalInfo(booking, summary, attentionNow);
-      const requirements = getOpsBookingActionRequirements({
+    return result.filter((booking) =>
+      matchesBookingFilter({
         booking,
-        temporalInfo,
-        now: attentionNow,
-        statusForActions: booking.status,
+        filter,
+        summary,
+        now,
         allowTableAssignments,
         hasAssignmentHandlers,
-      });
-      return requirements.needsAttention;
-    });
+      }),
+    );
   }, [
-    attentionNow,
     allowTableAssignments,
     bookingsForSort,
     filter,
     hasAssignmentHandlers,
+    now,
     normalizedSearch,
     searchIndex,
     summary,

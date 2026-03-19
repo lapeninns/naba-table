@@ -6,6 +6,10 @@ import { OpsShell } from '@/components/features/ops-shell/OpsShell';
 import { OpsServicesProvider } from '@/contexts/ops-services';
 import { OpsSessionProvider } from '@/contexts/ops-session';
 import { env } from '@/lib/env';
+import {
+  OPS_ACTIVE_RESTAURANT_COOKIE_NAME,
+  resolvePreferredOpsRestaurantId,
+} from '@/lib/ops/session';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
 import { fetchUserMembershipsCached, type RestaurantMembershipWithDetails } from '@/server/team/access';
 
@@ -97,7 +101,10 @@ export default async function OpsAppLayout({ children }: OpsAppLayoutProps) {
     .filter((membership) => Boolean(membership.restaurant_id))
     .map(mapMembershipToOps);
 
-  const initialRestaurantId = opsMemberships[0]?.restaurantId ?? null;
+  const initialRestaurantId = resolvePreferredOpsRestaurantId(
+    opsMemberships.map((membership) => membership.restaurantId),
+    cookieStore.get(OPS_ACTIVE_RESTAURANT_COOKIE_NAME)?.value ?? null,
+  );
   const featureFlags = {
     opsMetrics: env.featureFlags.opsMetrics ?? false,
     selectorScoring: env.featureFlags.selectorScoring ?? false,

@@ -10,12 +10,15 @@ import {
 } from "@/server/ops/booking-lifecycle/actions";
 import { isBookingLifecycleAllowedToday } from "@/server/ops/booking-lifecycle/availability";
 import { BookingLifecycleError } from "@/server/ops/booking-lifecycle/stateMachine";
-import { invalidateOpsBookingChangesCache, invalidateOpsBookingsSummaryCache } from "@/server/ops/bookings";
+import { invalidateOpsDashboardCaches } from "@/server/ops/bookings";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 import { fetchUserMemberships } from "@/server/team/access";
 
+import { persistLifecycleTransition, resolveBookingId } from "../_shared/lifecycleRoute";
+
 import type { Tables } from "@/types/supabase";
 import type { NextRequest } from "next/server";
+
 
 const bodySchema = z.object({
   status: z.enum(["completed", "no_show"]),
@@ -39,15 +42,6 @@ type RouteParams = {
     id: string | string[];
   }>;
 };
-
-async function resolveBookingId(paramsPromise: Promise<{ id: string | string[] }> | undefined): Promise<string | null> {
-  if (!paramsPromise) return null;
-  const params = await paramsPromise;
-  const { id } = params;
-  if (typeof id === "string") return id;
-  if (Array.isArray(id)) return id[0] ?? null;
-  return null;
-}
 
 export async function PATCH(req: NextRequest, { params }: RouteParams) {
   const id = await resolveBookingId(params);
@@ -140,58 +134,22 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
   try {
     const applyTransition = async (transition: ReturnType<typeof prepareCheckInTransition>) => {
-      if (transition.skipUpdate) {
+      const persistResult = await persistLifecycleTransition({
+        booking: bookingRow,
+        transition,
+        serviceSupabase,
+        logLabel: "booking-status",
+        failureMessage: "Unable to update booking",
+      });
+
+      if (persistResult.response) {
         return {
-          status: transition.response.status,
-          checkedInAt: transition.response.checkedInAt ?? null,
-          checkedOutAt: transition.response.checkedOutAt ?? null,
-          updatedAt: transition.response.updatedAt ?? null,
+          response: withStatusDeprecation(persistResult.response),
         };
       }
 
-      const historyRecord = transition.history;
-      if (!historyRecord) {
-        throw new Error("Missing history payload for transition");
-      }
-
-      const targetStatus = (transition.updates.status ?? bookingRow.status) as Tables<"bookings">["status"];
-      const finalCheckedInAt =
-        transition.updates.checked_in_at !== undefined
-          ? transition.updates.checked_in_at ?? null
-          : bookingRow.checked_in_at ?? null;
-      const finalCheckedOutAt =
-        transition.updates.checked_out_at !== undefined
-          ? transition.updates.checked_out_at ?? null
-          : bookingRow.checked_out_at ?? null;
-      const finalUpdatedAt = transition.updates.updated_at ?? new Date().toISOString();
-
-      const { data: transitionResult, error: transitionError } = await serviceSupabase.rpc(
-        "apply_booking_state_transition",
-        {
-          p_booking_id: bookingRow.id,
-          p_status: targetStatus,
-          p_checked_in_at: finalCheckedInAt,
-          p_checked_out_at: finalCheckedOutAt,
-          p_updated_at: finalUpdatedAt,
-          p_history_from: historyRecord.from_status ?? bookingRow.status,
-          p_history_to: historyRecord.to_status,
-          p_history_changed_by: historyRecord.changed_by ?? null,
-          p_history_changed_at: historyRecord.changed_at ?? finalUpdatedAt,
-          p_history_reason: historyRecord.reason ?? "status_change",
-          p_history_metadata: historyRecord.metadata ?? {},
-        },
-      );
-
-      if (transitionError) {
-        throw new Error(transitionError.message);
-      }
-
-      const resultRow = transitionResult?.[0];
       return {
-        status: resultRow?.status ?? targetStatus,
-        checkedInAt: resultRow?.checked_in_at ?? finalCheckedInAt,
-        checkedOutAt: resultRow?.checked_out_at ?? finalCheckedOutAt,
-        updatedAt: resultRow?.updated_at ?? finalUpdatedAt,
+        result: persistResult.result,
       };
     };
 
@@ -213,11 +171,15 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
         actorId: user.id,
       });
 
-      const result = await applyTransition(transition);
-      finalStatus = result.status as Tables<"bookings">["status"];
+      const persisted = await applyTransition(transition);
+      if ("response" in persisted) {
+        return persisted.response;
+      }
+      finalStatus = persisted.result.status as Tables<"bookings">["status"];
 
-      invalidateOpsBookingsSummaryCache(bookingRow.restaurant_id, bookingRow.booking_date);
-      invalidateOpsBookingChangesCache(bookingRow.restaurant_id, bookingRow.booking_date);
+      invalidateOpsDashboardCaches(bookingRow.restaurant_id, {
+        summaryDates: [bookingRow.booking_date],
+      });
 
       return withStatusDeprecation(
         NextResponse.json({
@@ -244,9 +206,12 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       });
 
       const checkInResult = await applyTransition(checkIn);
-      bookingRow.status = checkInResult.status as Tables<"bookings">["status"];
-      bookingRow.checked_in_at = checkInResult.checkedInAt;
-      bookingRow.checked_out_at = checkInResult.checkedOutAt;
+      if ("response" in checkInResult) {
+        return checkInResult.response;
+      }
+      bookingRow.status = checkInResult.result.status as Tables<"bookings">["status"];
+      bookingRow.checked_in_at = checkInResult.result.checkedInAt;
+      bookingRow.checked_out_at = checkInResult.result.checkedOutAt;
     }
 
     const checkOut = prepareCheckOutTransition({
@@ -264,7 +229,10 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     });
 
     const checkOutResult = await applyTransition(checkOut);
-    finalStatus = checkOutResult.status as Tables<"bookings">["status"];
+    if ("response" in checkOutResult) {
+      return checkOutResult.response;
+    }
+    finalStatus = checkOutResult.result.status as Tables<"bookings">["status"];
 
     // Release any table assignments once completed
     try {
@@ -276,8 +244,9 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       });
     }
 
-    invalidateOpsBookingsSummaryCache(bookingRow.restaurant_id, bookingRow.booking_date);
-    invalidateOpsBookingChangesCache(bookingRow.restaurant_id, bookingRow.booking_date);
+    invalidateOpsDashboardCaches(bookingRow.restaurant_id, {
+      summaryDates: [bookingRow.booking_date],
+    });
 
     // Schedule review request email after completion (same as check-out route)
     try {

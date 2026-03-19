@@ -35,7 +35,7 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
   const state = useOpsDashboardState({ initialDate });
   const fallbackSummary = useMemo<OpsTodayBookingsSummary>(() => {
     const timezone = state.restaurantTimezone ?? 'UTC';
-    const date = state.selectedDate ?? getTodayInTimezone(timezone);
+    const date = state.requestedDate ?? getTodayInTimezone(timezone);
     return {
       date,
       timezone,
@@ -52,8 +52,8 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
       },
       bookings: [],
     };
-  }, [state.restaurantId, state.restaurantTimezone, state.selectedDate]);
-  const summary = state.summary ?? fallbackSummary;
+  }, [state.requestedDate, state.restaurantId, state.restaurantTimezone]);
+  const summary = state.summary && !state.isSummaryMismatch ? state.summary : fallbackSummary;
   const showSummarySkeleton = useMinimumDelay(!state.summary || state.isInitialLoading, {
     delayMs: 120,
     minDurationMs: 300,
@@ -75,6 +75,7 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
           headerSwipeRef={state.headerSwipeRef}
           guestStats={state.guestStats}
           summary={summary}
+          selectedDate={state.requestedDate ?? summary.date}
           isRefetching={state.isRefetching}
           isSummaryLoading={isSummaryLoading}
           dataUpdatedAt={state.dataUpdatedAt}

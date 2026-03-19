@@ -1,19 +1,19 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { prepareUndoNoShowTransition } from '@/server/ops/booking-lifecycle/actions';
-import { isBookingLifecycleAllowedToday } from '@/server/ops/booking-lifecycle/availability';
 import { BookingLifecycleError } from '@/server/ops/booking-lifecycle/stateMachine';
-import {
-  invalidateOpsBookingChangesCache,
-  invalidateOpsBookingsSummaryCache,
-} from '@/server/ops/bookings';
-import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
-import { requireMembershipForRestaurant } from '@/server/team/access';
+import { invalidateOpsDashboardCaches } from '@/server/ops/bookings';
 
-import type { Tables } from '@/types/supabase';
+import {
+  loadLifecycleRouteContext,
+  parseOptionalRouteBody,
+  persistLifecycleTransition,
+  resolveBookingId,
+} from '../_shared/lifecycleRoute';
+
 import type { NextRequest } from 'next/server';
+
 
 const bodySchema = z
   .object({
@@ -26,117 +26,27 @@ type RouteParams = {
   params: Promise<{ id: string | string[] }>;
 };
 
-async function resolveBookingId(
-  paramsPromise: Promise<{ id: string | string[] }> | undefined,
-): Promise<string | null> {
-  if (!paramsPromise) return null;
-  const params = await paramsPromise;
-  const { id } = params;
-  if (typeof id === 'string') return id;
-  if (Array.isArray(id)) return id[0] ?? null;
-  return null;
-}
-
 export async function POST(req: NextRequest, { params }: RouteParams) {
   const id = await resolveBookingId(params);
   if (!id) {
     return NextResponse.json({ error: 'Missing booking id' }, { status: 400 });
   }
 
-  let payload: { reason?: string };
-  try {
-    const contentLengthHeader = req.headers.get('content-length');
-    const hasBody = contentLengthHeader !== null && Number.parseInt(contentLengthHeader, 10) > 0;
-    const rawBody = hasBody ? await req.json() : {};
-    payload = bodySchema.parse(rawBody);
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid payload', details: error.flatten() },
-        { status: 400 },
-      );
-    }
-    return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
+  const parsedBody = await parseOptionalRouteBody(req, bodySchema);
+  if (parsedBody.response) {
+    return parsedBody.response;
+  }
+  const payload = parsedBody.data;
+
+  const contextResult = await loadLifecycleRouteContext({
+    bookingId: id,
+    logLabel: 'booking-undo-no-show',
+  });
+  if (contextResult.response) {
+    return contextResult.response;
   }
 
-  const supabase = await getRouteHandlerSupabaseClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-
-  if (error) {
-    console.error('[ops][booking-undo-no-show] failed to resolve auth', error.message);
-    const mapped = mapSupabaseAuthError(error);
-    return NextResponse.json(
-      { error: mapped.message, code: mapped.code },
-      { status: mapped.status },
-    );
-  }
-
-  if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-  }
-
-  const serviceSupabase = getServiceSupabaseClient();
-
-  const { data: booking, error: bookingError } = await serviceSupabase
-    .from('bookings')
-    .select(
-      'id, restaurant_id, status, checked_in_at, checked_out_at, booking_date, start_time, end_time',
-    )
-    .eq('id', id)
-    .maybeSingle();
-
-  if (bookingError) {
-    console.error('[ops][booking-undo-no-show] failed to load booking', bookingError.message);
-    return NextResponse.json({ error: 'Unable to load booking' }, { status: 500 });
-  }
-
-  const bookingRow = booking as Tables<'bookings'> | null;
-  if (!bookingRow) {
-    return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
-  }
-
-  try {
-    await requireMembershipForRestaurant({
-      userId: user.id,
-      restaurantId: bookingRow.restaurant_id,
-    });
-  } catch (accessError) {
-    console.error('[ops][booking-undo-no-show] access denied', accessError);
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
-
-  const { data: restaurant, error: restaurantError } = await serviceSupabase
-    .from('restaurants')
-    .select('timezone, reservation_lifecycle_grace_minutes')
-    .eq('id', bookingRow.restaurant_id)
-    .maybeSingle();
-
-  if (restaurantError) {
-    console.error('[ops][booking-undo-no-show] failed to load restaurant', restaurantError.message);
-    return NextResponse.json({ error: 'Unable to verify booking' }, { status: 500 });
-  }
-
-  const timezone =
-    typeof restaurant?.timezone === 'string' && restaurant.timezone.trim().length > 0
-      ? restaurant.timezone
-      : 'UTC';
-  if (
-    !isBookingLifecycleAllowedToday({
-      bookingDate: bookingRow.booking_date,
-      timezone,
-      startTime: bookingRow.start_time,
-      endTime: bookingRow.end_time,
-      graceMinutes: restaurant?.reservation_lifecycle_grace_minutes ?? undefined,
-    })
-  ) {
-    return NextResponse.json(
-      { error: 'Lifecycle actions are only available on the reservation date' },
-      { status: 409 },
-    );
-  }
+  const { booking, serviceSupabase, userId } = contextResult.context;
 
   const { data: historyEntry, error: historyError } = await serviceSupabase
     .from('booking_state_history')
@@ -156,15 +66,15 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   try {
     transition = prepareUndoNoShowTransition({
       booking: {
-        id: bookingRow.id,
-        status: bookingRow.status,
-        checked_in_at: bookingRow.checked_in_at,
-        checked_out_at: bookingRow.checked_out_at,
-        booking_date: bookingRow.booking_date,
-        start_time: bookingRow.start_time,
-        restaurant_id: bookingRow.restaurant_id,
+        id: booking.id,
+        status: booking.status,
+        checked_in_at: booking.checked_in_at,
+        checked_out_at: booking.checked_out_at,
+        booking_date: booking.booking_date,
+        start_time: booking.start_time,
+        restaurant_id: booking.restaurant_id,
       },
-      actorId: user.id,
+      actorId: userId,
       historyEntry: historyEntry ?? null,
       reason: payload.reason ?? null,
     });
@@ -180,59 +90,24 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Unable to process booking' }, { status: 500 });
   }
 
-  const historyRecord = transition.history;
-  if (!historyRecord) {
-    console.error('[ops][booking-undo-no-show] missing history payload for transition');
-    return NextResponse.json({ error: 'Unable to record booking transition' }, { status: 500 });
+  const persistResult = await persistLifecycleTransition({
+    booking,
+    transition,
+    serviceSupabase,
+    logLabel: 'booking-undo-no-show',
+    failureMessage: 'Unable to undo no-show',
+  });
+  if (persistResult.response) {
+    return persistResult.response;
   }
 
-  const targetStatus = (transition.updates.status ??
-    bookingRow.status) as Tables<'bookings'>['status'];
-  const finalCheckedInAtRaw =
-    transition.updates.checked_in_at !== undefined
-      ? (transition.updates.checked_in_at ?? null)
-      : bookingRow.checked_in_at;
-  const finalCheckedOutAtRaw =
-    transition.updates.checked_out_at !== undefined
-      ? (transition.updates.checked_out_at ?? null)
-      : bookingRow.checked_out_at;
-  const finalUpdatedAt = transition.updates.updated_at ?? new Date().toISOString();
+  invalidateOpsDashboardCaches(booking.restaurant_id, {
+    summaryDates: [booking.booking_date],
+  });
 
-  const finalCheckedInAt = finalCheckedInAtRaw ?? null;
-  const finalCheckedOutAt = finalCheckedOutAtRaw ?? null;
-
-  const { data: transitionResult, error: transitionError } = await serviceSupabase.rpc(
-    'apply_booking_state_transition',
-    {
-      p_booking_id: bookingRow.id,
-      p_status: targetStatus,
-      p_checked_in_at: finalCheckedInAt,
-      p_checked_out_at: finalCheckedOutAt,
-      p_updated_at: finalUpdatedAt,
-      p_history_from: historyRecord.from_status ?? bookingRow.status,
-      p_history_to: historyRecord.to_status,
-      p_history_changed_by: historyRecord.changed_by ?? null,
-      p_history_changed_at: historyRecord.changed_at ?? finalUpdatedAt,
-      p_history_reason: historyRecord.reason ?? 'status_change',
-      p_history_metadata: historyRecord.metadata ?? {},
-    },
-  );
-
-  if (transitionError) {
-    console.error(
-      '[ops][booking-undo-no-show] failed to persist transition',
-      transitionError.message,
-    );
-    return NextResponse.json({ error: 'Unable to undo no-show' }, { status: 500 });
-  }
-
-  invalidateOpsBookingsSummaryCache(bookingRow.restaurant_id, bookingRow.booking_date);
-  invalidateOpsBookingChangesCache(bookingRow.restaurant_id, bookingRow.booking_date);
-
-  const resultRow = transitionResult?.[0];
   return NextResponse.json({
-    status: resultRow?.status ?? targetStatus,
-    checkedInAt: resultRow?.checked_in_at ?? finalCheckedInAt,
-    checkedOutAt: resultRow?.checked_out_at ?? finalCheckedOutAt,
+    status: persistResult.result.status,
+    checkedInAt: persistResult.result.checkedInAt,
+    checkedOutAt: persistResult.result.checkedOutAt,
   });
 }
