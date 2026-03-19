@@ -1,0 +1,15 @@
+Merge conflict verification summary
+
+- Resolved `src/app/api/auth/signin/route.ts` by keeping `main`'s hardened magic-link flow and retaining this branch's sanitized password error fallback.
+- Resolved `CONTINUITY.md` by preserving both the investigation entry and the subsequent hardening entry.
+- Fixed one merge-adjacent lint issue in `components/auth/GuestSignInForm.tsx` by escaping an apostrophe in JSX text.
+
+Commands run:
+
+- `pnpm vitest tests/server/auth/signin-route-magic-link-policy.test.ts tests/server/auth/signin-throttle.test.ts tests/server/security/turnstile.test.ts tests/components/auth/GuestSignInForm.test.tsx`
+- `pnpm vitest tests/components/auth/GuestSignInForm.test.tsx`
+- `pnpm exec eslint src/app/api/auth/signin/route.ts server/auth/signin-audit.ts server/auth/signin-surface.ts server/auth/signin-throttle.ts server/security/turnstile.ts components/auth/GuestSignInForm.tsx tests/server/auth/signin-route-magic-link-policy.test.ts tests/server/auth/signin-throttle.test.ts tests/server/security/turnstile.test.ts tests/components/auth/GuestSignInForm.test.tsx`
+
+Manual QA note:
+
+- Reused upstream manual QA evidence from `tasks/harden-magic-link-signin-20260219-1544/artifacts/verification-evidence.txt` because this merge-specific resolution did not introduce new UI behavior.
