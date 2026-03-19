@@ -2,6 +2,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2, Mail, Send } from 'lucide-react';
+import Script from 'next/script';
 import React, { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -29,6 +30,10 @@ const formSchema = z.object({
 type AuthResponse = { status: 'magic_link_sent'; redirectTo: string };
 
 const AUTH_ENDPOINT = '/api/auth/signin';
+const TURNSTILE_ACTION = 'guest_signin_magic_link';
+const TURNSTILE_SCRIPT_SRC =
+  'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() ?? '';
 
 export type GuestSignInFormProps = {
   redirectedFrom?: string;
@@ -46,6 +51,25 @@ type FormValues = z.infer<typeof formSchema>;
 
 const MAGIC_LINK_COOLDOWN_SECONDS = 60;
 
+type TurnstileRenderOptions = {
+  sitekey: string;
+  action?: string;
+  callback?: (token: string) => void;
+  'expired-callback'?: () => void;
+  'error-callback'?: () => void;
+};
+
+type TurnstileApi = {
+  render: (element: HTMLElement, options: TurnstileRenderOptions) => string;
+  reset: (widgetId?: string) => void;
+};
+
+declare global {
+  interface Window {
+    turnstile?: TurnstileApi;
+  }
+}
+
 export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -60,6 +84,13 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
   const [magicCooldown, setMagicCooldown] = useState(0);
   const [status, setStatus] = useState<StatusState | null>(null);
   const statusRef = useRef<HTMLDivElement | null>(null);
+  const captchaContainerRef = useRef<HTMLDivElement | null>(null);
+  const captchaWidgetIdRef = useRef<string | null>(null);
+  const isCaptchaEnabled = TURNSTILE_SITE_KEY.length > 0;
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaScriptReady, setCaptchaScriptReady] = useState<boolean>(
+    () => typeof window !== 'undefined' && Boolean(window.turnstile),
+  );
 
   const allowedRedirectPrefixes = ['/guest', '/bookings', '/restaurants', '/app'];
   const isSafeRedirect =
@@ -89,6 +120,7 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
     mode: 'magic_link';
     email: string;
     redirectedFrom: string;
+    captchaToken?: string;
   }) =>
     fetchJson<AuthResponse>(AUTH_ENDPOINT, {
       method: 'POST',
@@ -108,6 +140,29 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
         };
       }
       if (error.status === 403) {
+        if (error.code === 'CAPTCHA_REQUIRED') {
+          return {
+            message: 'Complete the verification challenge to continue.',
+            tone: 'error',
+            live: 'assertive',
+          };
+        }
+        if (error.code === 'CAPTCHA_INVALID') {
+          const reason =
+            typeof error.details === 'object' &&
+            error.details !== null &&
+            'reason' in error.details
+              ? (error.details as { reason?: string }).reason
+              : undefined;
+          return {
+            message:
+              reason === 'verify_unavailable' || reason === 'missing_secret'
+                ? 'Verification is temporarily unavailable. Please try again shortly.'
+                : 'Verification failed. Please complete the challenge and try again.',
+            tone: 'error',
+            live: 'assertive',
+          };
+        }
         return {
           message: 'Session expired. Refresh and try again.',
           tone: 'error',
@@ -131,8 +186,46 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
     return { message: 'Something went wrong. Please try again.', tone: 'error', live: 'assertive' };
   };
 
+  useEffect(() => {
+    if (!isCaptchaEnabled) return;
+    if (window.turnstile) {
+      setCaptchaScriptReady(true);
+    }
+  }, [isCaptchaEnabled]);
+
+  useEffect(() => {
+    if (!isCaptchaEnabled || !captchaScriptReady || !window.turnstile) return;
+    if (!captchaContainerRef.current || captchaWidgetIdRef.current) return;
+
+    const widgetId = window.turnstile.render(captchaContainerRef.current, {
+      sitekey: TURNSTILE_SITE_KEY,
+      action: TURNSTILE_ACTION,
+      callback: (token) => setCaptchaToken(token),
+      'expired-callback': () => setCaptchaToken(null),
+      'error-callback': () => setCaptchaToken(null),
+    });
+    captchaWidgetIdRef.current = widgetId;
+  }, [isCaptchaEnabled, captchaScriptReady]);
+
+  const resetCaptcha = () => {
+    if (!isCaptchaEnabled) return;
+    setCaptchaToken(null);
+    if (captchaWidgetIdRef.current && window.turnstile) {
+      window.turnstile.reset(captchaWidgetIdRef.current);
+    }
+  };
+
   const onSubmit = form.handleSubmit(async (values) => {
     if (magicCooldown > 0) {
+      return;
+    }
+    if (isCaptchaEnabled && !captchaToken) {
+      setStatus({
+        message: 'Complete the verification challenge to continue.',
+        tone: 'error',
+        live: 'assertive',
+      });
+      focusStatus();
       return;
     }
 
@@ -145,6 +238,7 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
         mode: 'magic_link',
         email: values.email,
         redirectedFrom: targetPath,
+        captchaToken: isCaptchaEnabled ? captchaToken ?? undefined : undefined,
       });
 
       track('auth_magiclink_sent', { redirectedFrom: response.redirectTo ?? targetPath });
@@ -171,15 +265,26 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
       setStatus(mapErrorToStatus(error));
       focusStatus();
     } finally {
+      resetCaptcha();
       setIsSubmitting(false);
     }
   });
 
-  const submitDisabled = isSubmitting || magicCooldown > 0;
+  const submitDisabled =
+    isSubmitting ||
+    magicCooldown > 0 ||
+    (isCaptchaEnabled && (!captchaScriptReady || !captchaToken));
   const submitLabel = magicCooldown > 0 ? `Resend in ${magicCooldown}s` : 'Send magic link';
 
   return (
     <div id="guest-signin-form" className="space-y-6">
+      {isCaptchaEnabled ? (
+        <Script
+          src={TURNSTILE_SCRIPT_SRC}
+          strategy="afterInteractive"
+          onLoad={() => setCaptchaScriptReady(true)}
+        />
+      ) : null}
       {/* Header */}
       <div className="space-y-2 text-center">
         <h2 className="text-2xl font-bold tracking-tight text-slate-900">
@@ -198,7 +303,9 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
             name="email"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-sm font-medium text-slate-700">Email address</FormLabel>
+                <FormLabel htmlFor="guest-signin-email" className="text-sm font-medium text-slate-700">
+                  Email address
+                </FormLabel>
                 <FormControl>
                   <div className="relative">
                     <Mail
@@ -207,6 +314,7 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
                     />
                     <Input
                       {...field}
+                      id="guest-signin-email"
                       type="email"
                       inputMode="email"
                       autoComplete="email"
@@ -232,6 +340,19 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
               />
             </div>
           )}
+
+          {isCaptchaEnabled ? (
+            <div className="space-y-2">
+              <div
+                ref={captchaContainerRef}
+                className="min-h-[70px] rounded-xl border border-slate-200 bg-slate-50 p-2"
+                data-testid="guest-signin-turnstile"
+              />
+              <p className="text-xs text-slate-500">
+                Complete verification to enable magic-link delivery.
+              </p>
+            </div>
+          ) : null}
 
           <Button
             type="submit"
