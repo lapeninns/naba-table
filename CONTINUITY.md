@@ -85,6 +85,71 @@ Last updated: 2026-02-19T16:06:00Z
 
 ## Previous entry
 
+Last updated: 2026-02-19T14:47:00Z
+
+## Goal (incl. success criteria)
+
+- Triage suspected production magic-link abuse and identify why many requestors have no bookings.
+- Success:
+  - Quantify recent magic-link send/request volume with concrete windows.
+  - Correlate recipients with bookings/customers.
+  - Determine whether traffic pattern indicates attack vs normal behavior.
+
+## Constraints/Assumptions
+
+- Follow root AGENTS SDLC artifacts flow.
+- Read-only production investigation only (no schema or behavior changes in this task).
+- Keep secrets out of artifacts.
+
+## Key decisions
+
+- Magic-link subject `Your Nab a Table magic sign-in link` remains route-driven (`POST /api/auth/signin`), not cron-driven.
+- 24h/7d Resend audit indicates low absolute volume but high no-booking/no-customer ratio.
+- Vercel logs show mixed `401/202/500` on `/api/auth/signin`; all 500s are `Unexpected verification type from Supabase generateLink: signup`.
+- The 500 vs 202 split creates a likely account-enumeration signal and should be normalized.
+
+## State
+
+- Investigation complete with artifacts captured.
+
+## Done
+
+- Created task folder `tasks/magic-link-incident-audit-20260219-1434/` with SDLC docs.
+- Produced artifacts:
+  - `tasks/magic-link-incident-audit-20260219-1434/artifacts/magic-link-production-audit.json`
+  - `tasks/magic-link-incident-audit-20260219-1434/artifacts/vercel-logsv2-auth-signin-7d.jsonl`
+  - `tasks/magic-link-incident-audit-20260219-1434/artifacts/vercel-logsv2-auth-signin-7d-summary.json`
+- Confirmed current codepath:
+  - `src/app/api/auth/signin/route.ts`
+  - `server/auth/magic-link-email.ts`
+
+## Now
+
+- Ready to apply hardening changes if approved.
+
+## Next
+
+1. Normalize `/api/auth/signin` responses for unknown-user magic-link attempts (prevent 202/500 enumeration leak).
+2. Add request fingerprint audit logging (hashed email/IP/UA + outcome + mode).
+3. Tighten anti-automation controls (IP/global limiter and CAPTCHA on public sign-in).
+
+## Open questions (UNCONFIRMED if needed)
+
+- Should the sign-in endpoint silently return success for unknown emails (anti-enumeration) or preserve explicit hard failure semantics?
+
+## Working set (files/ids/commands)
+
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/src/app/api/auth/signin/route.ts`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/auth/magic-link-email.ts`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/magic-link-incident-audit-20260219-1434/research.md`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/magic-link-incident-audit-20260219-1434/plan.md`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/magic-link-incident-audit-20260219-1434/todo.md`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/magic-link-incident-audit-20260219-1434/verification.md`
+
+---
+
+## Previous entry
+
 Last updated: 2026-02-16T18:58:00Z
 
 ## Goal (incl. success criteria)

@@ -45,6 +45,7 @@ export type OpsBookingStatus =
 
 export type OpsTodayBooking = {
   id: string;
+  customerId?: string | null;
   status: OpsBookingStatus;
   startTime: string | null;
   endTime: string | null;

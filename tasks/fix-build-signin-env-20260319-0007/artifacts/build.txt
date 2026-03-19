@@ -1,0 +1,182 @@
+
+> nabatable-platform@0.1.0 prebuild
+> npm run validate:env
+
+
+> nabatable-platform@0.1.0 validate:env
+> tsx scripts/validate-env.ts
+
+[dotenv@17.2.3] injecting env (62) from .env.local -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+Environment validation passed for NODE_ENV=development, APP_ENV=staging, VERCEL_ENV=unset.
+
+> nabatable-platform@0.1.0 build
+> next build
+
+▲ Next.js 16.1.6 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 4.1s
+  Running TypeScript ...
+  Collecting page data using 17 workers ...
+  Generating static pages using 17 workers (0/80) ...
+  Generating static pages using 17 workers (20/80) 
+  Generating static pages using 17 workers (40/80) 
+  Generating static pages using 17 workers (60/80) 
+✓ Generating static pages using 17 workers (80/80) in 194.0ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ○ /_not-found
+├ ƒ /api/admin/queue-status
+├ ƒ /api/auth/callback
+├ ƒ /api/auth/signin
+├ ƒ /api/auth/signout
+├ ƒ /api/auth/signup
+├ ƒ /api/availability
+├ ƒ /api/bookings
+├ ƒ /api/bookings/[id]
+├ ƒ /api/bookings/[id]/history
+├ ƒ /api/bookings/confirm
+├ ƒ /api/client-error
+├ ƒ /api/config/merge-rules
+├ ƒ /api/config/service-policy
+├ ƒ /api/cron/auto-complete-bookings
+├ ƒ /api/cron/process-emails
+├ ƒ /api/events
+├ ƒ /api/health
+├ ƒ /api/lead
+├ ƒ /api/onboarding/restaurant
+├ ƒ /api/onboarding/restaurant/[id]/complete
+├ ƒ /api/onboarding/restaurant/[id]/hours
+├ ƒ /api/onboarding/restaurant/[id]/service-periods
+├ ƒ /api/onboarding/restaurant/[id]/tables
+├ ƒ /api/onboarding/restaurant/[id]/zones
+├ ƒ /api/ops/bookings
+├ ƒ /api/ops/bookings/[id]
+├ ƒ /api/ops/bookings/[id]/assign-tables
+├ ƒ /api/ops/bookings/[id]/assignment-context
+├ ƒ /api/ops/bookings/[id]/check-in
+├ ƒ /api/ops/bookings/[id]/check-out
+├ ƒ /api/ops/bookings/[id]/email-delivery
+├ ƒ /api/ops/bookings/[id]/history
+├ ƒ /api/ops/bookings/[id]/manual-context
+├ ƒ /api/ops/bookings/[id]/no-show
+├ ƒ /api/ops/bookings/[id]/status
+├ ƒ /api/ops/bookings/[id]/tables
+├ ƒ /api/ops/bookings/[id]/tables/[tableId]
+├ ƒ /api/ops/bookings/[id]/undo-no-show
+├ ƒ /api/ops/bookings/disabled
+├ ƒ /api/ops/bookings/export
+├ ƒ /api/ops/bookings/status-summary
+├ ƒ /api/ops/customers
+├ ƒ /api/ops/customers/export
+├ ƒ /api/ops/dashboard/changes
+├ ƒ /api/ops/dashboard/heatmap
+├ ƒ /api/ops/dashboard/rejections
+├ ƒ /api/ops/dashboard/summary
+├ ƒ /api/ops/email-delivery
+├ ƒ /api/ops/occasions
+├ ƒ /api/ops/occasions/[key]
+├ ƒ /api/ops/operations-hub
+├ ƒ /api/ops/restaurants
+├ ƒ /api/ops/restaurants/[id]
+├ ƒ /api/ops/restaurants/[id]/details
+├ ƒ /api/ops/restaurants/[id]/hours
+├ ƒ /api/ops/restaurants/[id]/logo
+├ ƒ /api/ops/restaurants/[id]/service-periods
+├ ƒ /api/ops/restaurants/[id]/turn-bands
+├ ƒ /api/ops/settings/strategic-config
+├ ƒ /api/ops/strategies/simulate
+├ ƒ /api/ops/tables
+├ ƒ /api/ops/tables/[id]
+├ ƒ /api/ops/tables/timeline
+├ ƒ /api/ops/team/invitations
+├ ƒ /api/ops/team/invitations/[id]
+├ ƒ /api/ops/team/memberships
+├ ƒ /api/ops/zones
+├ ƒ /api/ops/zones/[id]
+├ ƒ /api/profile
+├ ƒ /api/profile/image
+├ ƒ /api/reservations/[id]/confirmation
+├ ƒ /api/restaurants
+├ ƒ /api/restaurants/[slug]
+├ ƒ /api/restaurants/[slug]/calendar-mask
+├ ƒ /api/restaurants/[slug]/schedule
+├ ƒ /api/staff/auto/confirm
+├ ƒ /api/staff/auto/quote
+├ ƒ /api/team/invitations/[token]
+├ ƒ /api/team/invitations/[token]/accept
+├ ƒ /api/v1/events
+├ ƒ /api/webhook/resend
+├ ƒ /app/auth/signin
+├ ƒ /app/bookings
+├ ƒ /app/customers
+├ ƒ /app/dashboard
+├ ƒ /app/dashboard/print
+├ ○ /app/dev/ops-bookings
+├ ○ /app/dev/ops-email-delivery
+├ ƒ /app/email-delivery
+├ ƒ /app/floor-plan
+├ ƒ /app/management/team
+├ ƒ /app/new-bookings
+├ ƒ /app/rejections
+├ ƒ /app/seating
+├ ƒ /app/seating/floor-plan
+├ ƒ /app/settings/restaurant
+├ ƒ /app/settings/restaurant/occasions
+├ ƒ /app/settings/restaurant/operating-hours
+├ ƒ /app/settings/restaurant/profile
+├ ƒ /app/settings/restaurant/service-periods
+├ ƒ /app/settings/restaurant/team
+├ ƒ /app/settings/restaurant/turn-durations
+├ ƒ /app/settings/tables
+├ ƒ /auth
+├ ƒ /auth/signin
+├ ○ /auth/signup
+├ ○ /bookings
+├ ƒ /bookings/[bookingId]
+├ ƒ /bookings/[bookingId]/manage
+├ ƒ /bookings/[bookingId]/thank-you
+├ ƒ /bookings/recover
+├ ƒ /bookings/recover/error
+├ ○ /dev/ops-booking-dialog
+├ ○ /dev/ops-bookings
+├ ○ /dev/ops-bookings-list
+├ ○ /dev/ops-customers
+├ ○ /dev/ops-dashboard
+├ ○ /dev/ops-email-delivery
+├ ○ /dev/ops-floor-plan
+├ ○ /dev/ops-new-booking
+├ ○ /dev/ops-settings-restaurant
+├ ○ /dev/ops-settings-tables
+├ ƒ /guest
+├ ƒ /guest/bookings
+├ ƒ /guest/bookings/[bookingId]
+├ ƒ /guest/bookings/[bookingId]/receipt
+├ ƒ /guest/dashboard
+├ ƒ /guest/profile
+├ ƒ /guest/thank-you
+├ ○ /icon.svg
+├ ○ /onboarding
+├ ○ /onboarding/hours
+├ ○ /onboarding/profile
+├ ○ /onboarding/review
+├ ○ /onboarding/services
+├ ○ /onboarding/tables
+├ ○ /privacy
+├ ƒ /restaurants
+├ ƒ /restaurants/[slug]
+├ ƒ /restaurants/[slug]/book
+├ ƒ /restaurants/[slug]/book/thank-you
+├ ƒ /restaurants/[slug]/thank-you
+├ ○ /robots.txt
+└ ○ /sitemap.xml
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

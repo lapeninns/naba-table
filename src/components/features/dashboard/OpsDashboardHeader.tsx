@@ -17,6 +17,7 @@ export type OpsDashboardHeaderProps = {
   headerSwipeRef: Ref<HTMLElement>;
   guestStats: { upcoming: number; seated: number };
   summary: OpsTodayBookingsSummary;
+  selectedDate: string;
   isRefetching: boolean;
   isSummaryLoading?: boolean;
   dataUpdatedAt?: number | null;
@@ -37,6 +38,7 @@ export function OpsDashboardHeader({
   headerSwipeRef,
   guestStats,
   summary,
+  selectedDate,
   isRefetching,
   isSummaryLoading = false,
   dataUpdatedAt,
@@ -148,7 +150,7 @@ export function OpsDashboardHeader({
               <HeatmapCalendar
                 summary={summary}
                 heatmap={heatmap}
-                selectedDate={summary.date}
+                selectedDate={selectedDate}
                 onSelectDate={onSelectDate}
                 onShiftDate={onShiftDate}
                 isLoading={heatmapLoading}

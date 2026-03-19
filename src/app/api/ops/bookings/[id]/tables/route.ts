@@ -4,6 +4,7 @@ import { z } from "zod";
 import { mapSupabaseAuthError } from "@/server/auth/supabase-auth-errors";
 import { assignTableToBooking, evaluateManualSelection, getBookingTableAssignments } from "@/server/capacity";
 import { AssignTablesRpcError } from "@/server/capacity/holds";
+import { invalidateOpsDashboardCaches } from "@/server/ops/bookings";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 import { requireMembershipForRestaurant } from "@/server/team/access";
 
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   const { data: booking, error: bookingError } = await supabase
     .from("bookings")
-    .select("id, restaurant_id")
+    .select("id, restaurant_id, booking_date")
     .eq("id", bookingId)
     .maybeSingle();
 
@@ -139,6 +140,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   try {
     const tableAssignments = await getBookingTableAssignments(bookingId, serviceClient);
+    invalidateOpsDashboardCaches(booking.restaurant_id, {
+      summaryDates: [booking.booking_date],
+    });
     return NextResponse.json({ tableAssignments });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to load table assignments";

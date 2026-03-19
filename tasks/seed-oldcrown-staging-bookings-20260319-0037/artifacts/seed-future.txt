@@ -1,0 +1,15 @@
+[dotenv@17.2.3] injecting env (62) from .env.local -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+Starting booking generation with corrected schema...
+Found 26 active tables.
+Created booking 1 for Staging Guest 1 715 at 12:30 (Assigned to table fb800a77)
+Using existing customer for Staging Guest 2 889
+Created booking 2 for Staging Guest 2 889 at 13:00 (Assigned to table 8fa0f125)
+Using existing customer for Staging Guest 3 492
+Created booking 3 for Staging Guest 3 492 at 13:30 (Assigned to table 43d693a1)
+Using existing customer for Staging Guest 4 504
+Created booking 4 for Staging Guest 4 504 at 14:00 (Assigned to table e6157ca0)
+Using existing customer for Staging Guest 5 842
+Created booking 5 for Staging Guest 5 842 at 14:30 (Assigned to table 5e2269cf)
+Using existing customer for Staging Guest 6 336
+Created booking 6 for Staging Guest 6 336 at 15:00 (Assigned to table 9e88681b)
+Finished corrected booking generation.

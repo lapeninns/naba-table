@@ -48,12 +48,6 @@ export function useOpsBooking(
     const handleChange = () => {
       // Invalidate this specific booking's cache
       queryClient.invalidateQueries({ queryKey });
-
-      // Also invalidate the dashboard summary to keep it in sync
-      queryClient.invalidateQueries({
-        queryKey: ['ops', 'dashboard', 'summary'],
-        exact: false,
-      });
     };
 
     // Listen to this specific booking

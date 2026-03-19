@@ -1,0 +1,25 @@
+[dotenv@17.2.3] injecting env (62) from .env.local -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+Starting booking generation with corrected schema...
+Found 26 active tables.
+Error creating customer 1: {
+  code: '23505',
+  details: 'Key (restaurant_id, phone_normalized)=(a050d1ad-1ee0-4ea0-abc2-22c3778aa52c, 44700000001) already exists.',
+  hint: null,
+  message: 'duplicate key value violates unique constraint "customers_restaurant_id_phone_normalized_key"'
+}
+Error creating customer 2: {
+  code: '23505',
+  details: 'Key (restaurant_id, phone_normalized)=(a050d1ad-1ee0-4ea0-abc2-22c3778aa52c, 44700000002) already exists.',
+  hint: null,
+  message: 'duplicate key value violates unique constraint "customers_restaurant_id_phone_normalized_key"'
+}
+Created booking 3 for Staging Guest 3 112 at 13:30 (Assigned to table 43d693a1)
+Error creating customer 4: {
+  code: '23505',
+  details: 'Key (restaurant_id, phone_normalized)=(a050d1ad-1ee0-4ea0-abc2-22c3778aa52c, 44700000004) already exists.',
+  hint: null,
+  message: 'duplicate key value violates unique constraint "customers_restaurant_id_phone_normalized_key"'
+}
+Created booking 5 for Staging Guest 5 729 at 14:30 (Assigned to table 5e2269cf)
+Created booking 6 for Staging Guest 6 250 at 15:00 (Assigned to table 9e88681b)
+Finished corrected booking generation.

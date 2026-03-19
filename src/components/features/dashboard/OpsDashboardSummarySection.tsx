@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 
 import { DashboardSummaryCard } from './DashboardSummaryCard';
 
-import type { BookingFilter } from './BookingsFilterBar';
+import type { BookingFilter, BookingTabCounts } from './BookingsFilterBar';
 import type { BookingDTO } from '@/hooks/useBookings';
 import type { OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
 import type { ChangeEvent } from 'react';
@@ -13,7 +13,7 @@ export type OpsDashboardSummarySectionProps = {
   summary: OpsTodayBookingsSummary;
   restaurantName: string;
   filter: BookingFilter;
-  tabCounts: { all: number; upcoming: number; seated: number; finished: number; no_show: number };
+  tabCounts: BookingTabCounts;
   searchQuery?: string;
   deferredSearchQuery?: string;
   onSearchChange: (event: ChangeEvent<HTMLInputElement>) => void;

@@ -8,12 +8,12 @@ import { Input } from '@/components/ui/input';
 
 import { BookingsFilterBar } from './BookingsFilterBar';
 
-import type { BookingFilter } from './BookingsFilterBar';
+import type { BookingFilter, BookingTabCounts } from './BookingsFilterBar';
 import type { ChangeEvent } from 'react';
 
 export type OpsDashboardToolbarProps = {
   filter: BookingFilter;
-  tabCounts: { all: number; upcoming: number; seated: number; finished: number; no_show: number };
+  tabCounts: BookingTabCounts;
   searchQuery: string;
   onFilterChange: (filter: BookingFilter) => void;
   onSearchChange: (event: ChangeEvent<HTMLInputElement>) => void;

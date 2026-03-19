@@ -291,7 +291,7 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
           Sign in to your account
         </h2>
         <p className="text-sm text-slate-600">
-          We'll send you a secure magic link—no password needed
+          We&apos;ll send you a secure magic link—no password needed
         </p>
       </div>
 

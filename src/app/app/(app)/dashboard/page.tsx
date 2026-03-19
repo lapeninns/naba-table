@@ -4,6 +4,10 @@ import { cookies } from 'next/headers';
 import { BookingErrorBoundary } from '@/components/features/booking-state-machine';
 import { OpsDashboardClient } from '@/components/features/dashboard/OpsDashboardClient';
 import { BookingOfflineQueueProvider } from '@/contexts/booking-offline-queue';
+import {
+  OPS_ACTIVE_RESTAURANT_COOKIE_NAME,
+  resolvePreferredOpsRestaurantId,
+} from '@/lib/ops/session';
 import { queryKeys } from '@/lib/query/keys';
 import { getTrustedAppOrigin } from '@/lib/site-url';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
@@ -72,6 +76,7 @@ export default async function OpsDashboardPage({ searchParams }: { searchParams?
     // Auth is now handled by the layout - no need for duplicate check
     const initialDate = sanitizeDateParam(resolvedParams.date);
     const queryClient = new QueryClient();
+    const cookieStore = await cookies();
 
     try {
       const supabase = await getServerComponentSupabaseClient();
@@ -81,7 +86,12 @@ export default async function OpsDashboardPage({ searchParams }: { searchParams?
 
       if (user) {
         const memberships = await fetchUserMembershipsCached(user.id);
-        const restaurantId = memberships.find((membership) => Boolean(membership.restaurant_id))?.restaurant_id ?? null;
+        const restaurantId = resolvePreferredOpsRestaurantId(
+          memberships
+            .map((membership) => membership.restaurant_id)
+            .filter((membershipId): membershipId is string => Boolean(membershipId)),
+          cookieStore.get(OPS_ACTIVE_RESTAURANT_COOKIE_NAME)?.value ?? null,
+        );
         if (restaurantId) {
           await prefetchOpsSummary(queryClient, restaurantId, initialDate);
         }
