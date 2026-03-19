@@ -49,6 +49,19 @@ const RATE_LIMITS = {
   magic_link: { limit: 5, windowMs: 10 * 60 * 1000 },
 } as const;
 
+function normalizeHttpStatus(status: number | undefined, fallback: number): number {
+  if (typeof status !== 'number' || !Number.isFinite(status)) {
+    return fallback;
+  }
+
+  const parsed = Math.trunc(status);
+  if (parsed < 400 || parsed > 599) {
+    return fallback;
+  }
+
+  return parsed;
+}
+
 function buildCallbackUrl(
   hostname: string,
   redirectedFrom: string | undefined,
@@ -164,10 +177,15 @@ export async function POST(req: NextRequest) {
       });
 
       if (error) {
-        const status = error.status ?? 401;
+        const status = normalizeHttpStatus(error.status, 500);
         const message =
-          status === 401 || status === 400 ? 'Invalid email or password' : error.message;
-        const response = NextResponse.json({ message }, { status: status === 400 ? 401 : status });
+          status === 401 || status === 400
+            ? 'Invalid email or password'
+            : 'Unable to sign in right now. Please try again.';
+        const response = NextResponse.json(
+          { message },
+          { status: status === 400 ? 401 : status },
+        );
         return setRateHeaders(response, rateResult);
       }
 

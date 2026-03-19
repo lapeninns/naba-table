@@ -57,10 +57,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  if (!query.date) {
-    return NextResponse.json({ error: "Date parameter is required" }, { status: 400 });
-  }
-
   try {
     const limit = query.limit ? parseInt(query.limit, 10) : 50;
     const changesData = await getTodayBookingChanges(query.restaurantId, {

@@ -6,9 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { getTodayInTimezone } from '@/lib/utils/datetime';
 
-import { type BookingFilter } from './BookingsFilterBar';
 import { OpsDashboardToolbar } from './OpsDashboardToolbar';
 
+import type { BookingFilter, BookingTabCounts } from './BookingsFilterBar';
 import type { BookingDTO } from '@/hooks/useBookings';
 import type { OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
 import type { ChangeEvent } from 'react';
@@ -21,7 +21,7 @@ type DashboardSummaryCardProps = {
   summary: OpsTodayBookingsSummary;
   restaurantName: string;
   filter: BookingFilter;
-  tabCounts: { all: number; upcoming: number; seated: number; finished: number; no_show: number };
+  tabCounts: BookingTabCounts;
   onFilterChange: (filter: BookingFilter) => void;
   searchQuery?: string;
   deferredSearchQuery?: string;

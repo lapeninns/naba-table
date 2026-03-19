@@ -13,7 +13,10 @@ import {
 } from '@/lib/ops/realtime';
 import { queryKeys } from '@/lib/query/keys';
 import { getRealtimeSupabaseClient } from '@/lib/supabase/realtime-client';
-import { debounce } from '@/utils/debounceThrottle';
+import {
+  createScopedRealtimeInvalidator,
+  matchesDashboardSummaryRealtimePayload,
+} from '@/utils/ops/realtimeInvalidation';
 
 import type { OpsTodayBookingsSummary } from '@/types/ops';
 
@@ -89,6 +92,39 @@ export function useOpsTodaySummary(options: UseOpsTodaySummaryOptions): UseOpsTo
     }),
   });
   const { data, dataUpdatedAt, isFetching, refetch } = query;
+  const activeSummary = useMemo(() => {
+    if (!data) {
+      return null;
+    }
+
+    if (data.restaurantId !== restaurantId) {
+      return null;
+    }
+
+    if (targetDate && data.date !== targetDate) {
+      return null;
+    }
+
+    return data;
+  }, [data, restaurantId, targetDate]);
+  const effectiveDate = activeSummary?.date ?? targetDate ?? null;
+  const bookingIds = useMemo(
+    () => Array.from(new Set(activeSummary?.bookings.map((booking) => booking.id) ?? [])),
+    [activeSummary],
+  );
+  const customerIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          activeSummary?.bookings
+        .map((booking) => booking.customerId ?? null)
+        .filter((customerId): customerId is string => Boolean(customerId)) ?? [],
+        ),
+      ),
+    [activeSummary],
+  );
+  const bookingIdsKey = bookingIds.join(',');
+  const customerIdsKey = customerIds.join(',');
 
   useEffect(() => {
     if (!data) return;
@@ -113,26 +149,6 @@ export function useOpsTodaySummary(options: UseOpsTodaySummaryOptions): UseOpsTo
     return () => clearInterval(interval);
   }, [isEnabled, isFetching, isVisible, realtimeFlag, realtimeHealthy, refetch]);
 
-  const invalidateActiveRef = useRef(true);
-
-  useEffect(() => {
-    invalidateActiveRef.current = true;
-  }, [queryKey]);
-
-  const debouncedInvalidate = useMemo(() => {
-    const run = debounce(() => {
-      if (!invalidateActiveRef.current) return;
-      queryClient.invalidateQueries({ queryKey, refetchType: 'active' });
-    }, SUMMARY_INVALIDATION_DEBOUNCE_MS);
-
-    return {
-      run,
-      deactivate: () => {
-        invalidateActiveRef.current = false;
-      },
-    };
-  }, [queryClient, queryKey]);
-
   // Realtime subscription for dashboard summary
   useEffect(() => {
     if (!isEnabled || !restaurantId || !realtimeFlag) {
@@ -145,11 +161,36 @@ export function useOpsTodaySummary(options: UseOpsTodaySummaryOptions): UseOpsTo
     const channel = client.channel(
       `ops-dashboard-summary:${restaurantId}:${targetDate ?? 'today'}`,
     );
+    const scopedBookingIds = bookingIdsKey;
+    const scopedCustomerIds = customerIdsKey;
+    const debouncedInvalidate = createScopedRealtimeInvalidator({
+      queryClient,
+      queryKey,
+      waitMs: SUMMARY_INVALIDATION_DEBOUNCE_MS,
+    });
 
-    const handleChange = (payload: unknown) => {
+    const handleBookingsChange = (payload: unknown) => {
+      if (
+        !matchesDashboardSummaryRealtimePayload({
+          payload,
+          restaurantId,
+          effectiveDate,
+        })
+      ) {
+        return;
+      }
+
       console.log('[realtime] Dashboard summary change detected:', {
         restaurantId,
-        targetDate: targetDate ?? 'today',
+        targetDate: effectiveDate ?? targetDate ?? 'today',
+        payload,
+      });
+      debouncedInvalidate.run();
+    };
+    const handleScopedChange = (payload: unknown) => {
+      console.log('[realtime] Dashboard summary scoped change detected:', {
+        restaurantId,
+        targetDate: effectiveDate ?? targetDate ?? 'today',
         payload,
       });
       debouncedInvalidate.run();
@@ -164,30 +205,34 @@ export function useOpsTodaySummary(options: UseOpsTodaySummaryOptions): UseOpsTo
         table: 'bookings',
         filter: `restaurant_id=eq.${restaurantId}`,
       },
-      handleChange,
+      handleBookingsChange,
     );
 
-    // Listen to booking_table_assignments changes
-    channel.on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'booking_table_assignments',
-      },
-      handleChange,
-    );
+    if (scopedBookingIds.length > 0) {
+      channel.on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'booking_table_assignments',
+          filter: `booking_id=in.(${scopedBookingIds})`,
+        },
+        handleScopedChange,
+      );
+    }
 
-    // Listen to customer_profiles changes
-    channel.on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'customer_profiles',
-      },
-      handleChange,
-    );
+    if (scopedCustomerIds.length > 0) {
+      channel.on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'customer_profiles',
+          filter: `customer_id=in.(${scopedCustomerIds})`,
+        },
+        handleScopedChange,
+      );
+    }
 
     channel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
@@ -209,12 +254,22 @@ export function useOpsTodaySummary(options: UseOpsTodaySummaryOptions): UseOpsTo
     }, 4000);
 
     return () => {
+      debouncedInvalidate.deactivate();
       clearTimeout(connectGuard);
       channel.unsubscribe();
       client.removeChannel(channel);
-      debouncedInvalidate.deactivate();
     };
-  }, [debouncedInvalidate, isEnabled, realtimeFlag, restaurantId, targetDate]);
+  }, [
+    bookingIdsKey,
+    customerIdsKey,
+    effectiveDate,
+    isEnabled,
+    queryClient,
+    queryKey,
+    realtimeFlag,
+    restaurantId,
+    targetDate,
+  ]);
 
   return {
     ...query,

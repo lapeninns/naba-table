@@ -2,20 +2,16 @@
 
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
-export type BookingFilter = 'all' | 'upcoming' | 'seated' | 'finished' | 'completed' | 'no_show' | 'attention';
+import { BOOKING_FILTER_OPTIONS } from './bookingFilters';
 
-const FILTERS: Array<{ value: BookingFilter; label: string; description: string }> = [
-  { value: 'all', label: 'All', description: 'All bookings' },
-  { value: 'upcoming', label: 'Upcoming', description: 'Expected or pending arrivals' },
-  { value: 'seated', label: 'Seated', description: 'Currently seated guests' },
-  { value: 'finished', label: 'Finished', description: 'Completed or closed bookings' },
-  { value: 'no_show', label: 'No shows', description: 'Marked as no show' },
-];
+export type { BookingFilter, BookingTabCounts } from './bookingFilters';
+
+import type { BookingFilter, BookingTabCounts } from './bookingFilters';
 
 type BookingsFilterBarProps = {
   value: BookingFilter;
   onChange: (value: BookingFilter) => void;
-  counts?: Partial<Record<BookingFilter, number>>;
+  counts?: Partial<BookingTabCounts>;
 };
 
 export function BookingsFilterBar({ value, onChange, counts }: BookingsFilterBarProps) {
@@ -29,7 +25,7 @@ export function BookingsFilterBar({ value, onChange, counts }: BookingsFilterBar
       }}
       className="w-full flex-wrap gap-2 py-2 sm:gap-3"
     >
-      {FILTERS.map((filter) => (
+      {BOOKING_FILTER_OPTIONS.map((filter) => (
         <ToggleGroupItem
           key={filter.value}
           value={filter.value}
