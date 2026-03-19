@@ -45,6 +45,10 @@ const baseEnvSchema = z
     RESEND_FROM: z.string().email().optional(),
     RESEND_USE_MOCK: booleanStringOptional,
     RESEND_WEBHOOK_SECRET: z.string().min(1).optional(),
+    NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().min(1).optional(),
+    TURNSTILE_SECRET_KEY: z.string().min(1).optional(),
+    TURNSTILE_EXPECTED_HOSTNAME: z.string().min(1).optional(),
+    AUTH_AUDIT_HASH_SECRET: z.string().min(1).optional(),
     CRON_SECRET: z.string().min(1).optional(),
     FEATURE_GUEST_LOOKUP_POLICY: booleanStringOptional,
     FEATURE_OPS_GUARD_V2: booleanStringOptional,
@@ -159,6 +163,9 @@ const productionEnvSchema = baseEnvSchema.extend({
   NEXT_PUBLIC_SITE_URL: z.string().url(),
   RESEND_API_KEY: z.string().min(1),
   RESEND_FROM: z.string().email(),
+  NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().min(1),
+  TURNSTILE_SECRET_KEY: z.string().min(1),
+  AUTH_AUDIT_HASH_SECRET: z.string().min(1),
   CRON_SECRET: z.string().min(1),
 });
 

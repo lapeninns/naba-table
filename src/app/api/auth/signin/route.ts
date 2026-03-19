@@ -8,14 +8,21 @@ import {
   toAbsoluteRedirectTarget,
 } from '@/lib/auth/redirects';
 import {
-  MAGIC_LINK_FAILURE_MESSAGE,
-  getMagicLinkFailure,
   isMagicLinkDeliveryError,
   sendAuthMagicLink,
 } from '@/server/auth/magic-link-email';
+import { recordMagicLinkSigninAudit } from '@/server/auth/signin-audit';
+import { classifySigninSurface } from '@/server/auth/signin-surface';
+import { consumeMagicLinkSigninThrottle } from '@/server/auth/signin-throttle';
+import { normalizeEmail } from '@/server/customers';
 import { validateCsrfToken } from '@/server/security/csrf';
 import { consumeRateLimit } from '@/server/security/rate-limit';
-import { getRouteHandlerSupabaseClient } from '@/server/supabase';
+import { extractClientIp } from '@/server/security/request';
+import { verifyTurnstileToken } from '@/server/security/turnstile';
+import {
+  getRouteHandlerSupabaseClient,
+  getServiceSupabaseClient,
+} from '@/server/supabase';
 
 import type { NextRequest } from 'next/server';
 
@@ -33,6 +40,7 @@ const requestSchema = z
     password: z.string().trim().optional(),
     redirectedFrom: z.string().optional(),
     rememberMe: z.boolean().optional().default(true),
+    captchaToken: z.string().trim().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.mode === 'password' && !data.password) {
@@ -44,10 +52,10 @@ const requestSchema = z
     }
   });
 
-const RATE_LIMITS = {
-  password: { limit: 5, windowMs: 5 * 60 * 1000 },
-  magic_link: { limit: 5, windowMs: 10 * 60 * 1000 },
-} as const;
+const PASSWORD_RATE_LIMIT = { limit: 5, windowMs: 5 * 60 * 1000 } as const;
+const GUEST_MAGIC_LINK_TURNSTILE_ACTION = 'guest_signin_magic_link';
+
+type MagicLinkLookupStatus = 'found' | 'not_found' | 'error';
 
 function normalizeHttpStatus(status: number | undefined, fallback: number): number {
   if (typeof status !== 'number' || !Number.isFinite(status)) {
@@ -70,29 +78,19 @@ function buildCallbackUrl(
 ) {
   let validHostname = hostname;
 
-  // Ensure hostname is one of our allowed public domains
-  // This prevents issues where the server sees an internal IP (e.g. AWS/Vercel internal IP) as the host
   const isLocal = hostname.includes('localhost');
   const isValidDomain = hostname.endsWith('nabatable.com');
 
   if (!isLocal && !isValidDomain) {
-    console.warn(`[Auth] Invalid hostname '${hostname}' detected. Falling back to 'nabatable.com'`);
+    console.warn(
+      `[Auth] Invalid hostname '${hostname}' detected. Falling back to 'nabatable.com'`,
+    );
     validHostname = 'nabatable.com';
   }
 
-  // For local development with production Supabase, we need to use localhost
-  // but localhost:3000 must be in Supabase's redirect URL allowlist
-  // In Supabase Dashboard → Authentication → URL Configuration → Redirect URLs, add:
-  //   http://localhost:3000/**
   if (isLocal) {
-    // Ensure port is included for localhost
     validHostname = hostname.includes(':') ? hostname : `${hostname}:3000`;
   }
-
-  // Keep www prefix if present — callback must run on the same host where the
-  // PKCE code-verifier cookie was set, otherwise session exchange fails.
-  // Both https://nabatable.com/** and https://www.nabatable.com/** must be in
-  // the Supabase redirect allowlist.
 
   const protocol = validHostname.includes('localhost') ? 'http' : 'https';
   const url = new URL(pathname, `${protocol}://${validHostname}`);
@@ -104,11 +102,11 @@ function buildCallbackUrl(
   return url.toString();
 }
 
-function buildRateLimitId(req: NextRequest, email: string, mode: 'password' | 'magic_link') {
+function buildPasswordRateLimitId(req: NextRequest, email: string) {
   const realIp = req.headers.get('x-real-ip')?.trim();
   const forwardedFor = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
   const ip = realIp ?? forwardedFor ?? 'unknown';
-  return `auth:${mode}:${ip}:${email}`;
+  return `auth:password:${ip}:${email}`;
 }
 
 function setRateHeaders(
@@ -119,6 +117,31 @@ function setRateHeaders(
   response.headers.set('X-RateLimit-Remaining', limitResult.remaining.toString());
   response.headers.set('X-RateLimit-Reset', limitResult.resetAt.toString());
   return response;
+}
+
+function resolveRetryAfter(resetAt: number): number {
+  return Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
+}
+
+async function lookupMagicLinkProfile(email: string): Promise<MagicLinkLookupStatus> {
+  const serviceSupabase = getServiceSupabaseClient();
+  const normalizedEmail = normalizeEmail(email);
+
+  const { data, error } = await serviceSupabase
+    .from('user_profiles')
+    .select('id')
+    .eq('email', normalizedEmail)
+    .limit(1)
+    .maybeSingle();
+
+  if (error && error.code !== 'PGRST116') {
+    console.error('[Auth/signin] Failed to lookup user profile for magic link', {
+      error: error.message,
+    });
+    return 'error';
+  }
+
+  return data?.id ? 'found' : 'not_found';
 }
 
 export async function POST(req: NextRequest) {
@@ -146,31 +169,30 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { email, password, mode, redirectedFrom, rememberMe } = validated.data;
+    const { email, password, mode, redirectedFrom, rememberMe, captchaToken } =
+      validated.data;
     const redirectTarget =
       sanitizeRedirect(redirectedFrom, rootDomain, hostname) ??
       defaultRedirectForHost(hostname, rootDomain);
     const absoluteRedirect = toAbsoluteRedirectTarget(redirectTarget, rootDomain);
 
-    const rateResult = await consumeRateLimit({
-      identifier: buildRateLimitId(req, email, mode),
-      limit: RATE_LIMITS[mode].limit,
-      windowMs: RATE_LIMITS[mode].windowMs,
-    });
-
-    if (!rateResult.ok) {
-      const retryAfter = Math.max(1, Math.ceil((rateResult.resetAt - Date.now()) / 1000));
-      const response = NextResponse.json(
-        { message: 'Too many attempts. Please try again later.' },
-        { status: 429 },
-      );
-      response.headers.set('Retry-After', retryAfter.toString());
-      return setRateHeaders(response, rateResult);
-    }
-
-    const supabase = await getRouteHandlerSupabaseClient();
-
     if (mode === 'password') {
+      const rateResult = await consumeRateLimit({
+        identifier: buildPasswordRateLimitId(req, email),
+        limit: PASSWORD_RATE_LIMIT.limit,
+        windowMs: PASSWORD_RATE_LIMIT.windowMs,
+      });
+
+      if (!rateResult.ok) {
+        const response = NextResponse.json(
+          { message: 'Too many attempts. Please try again later.' },
+          { status: 429 },
+        );
+        response.headers.set('Retry-After', resolveRetryAfter(rateResult.resetAt).toString());
+        return setRateHeaders(response, rateResult);
+      }
+
+      const supabase = await getRouteHandlerSupabaseClient();
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password: password!,
@@ -193,6 +215,138 @@ export async function POST(req: NextRequest) {
       return setRateHeaders(response, rateResult);
     }
 
+    const clientIp = extractClientIp(req);
+    const userAgent = req.headers.get('user-agent');
+    const surface = classifySigninSurface(hostname, rootDomain);
+    const throttleResult = await consumeMagicLinkSigninThrottle({ clientIp });
+    const primaryRateResult =
+      throttleResult.checks.find((check) => check.scope === 'ip')?.result ??
+      throttleResult.checks[0]?.result;
+
+    if (!primaryRateResult) {
+      return NextResponse.json(
+        { message: 'Unable to process request right now.' },
+        { status: 503 },
+      );
+    }
+
+    if (!throttleResult.ok) {
+      const blockedScope = throttleResult.blocked.scope;
+      await recordMagicLinkSigninAudit({
+        email,
+        clientIp,
+        userAgent,
+        surface,
+        redirectedFrom,
+        outcome:
+          blockedScope === 'ip'
+            ? 'blocked_rate_limit_ip'
+            : 'blocked_rate_limit_global',
+        throttleScope: blockedScope,
+        throttleLimit: throttleResult.blocked.result.limit,
+        throttleRemaining: throttleResult.blocked.result.remaining,
+        throttleResetAt: throttleResult.blocked.result.resetAt,
+      });
+
+      const response = NextResponse.json(
+        { message: 'Too many attempts. Please try again later.' },
+        { status: 429 },
+      );
+      response.headers.set(
+        'Retry-After',
+        resolveRetryAfter(throttleResult.blocked.result.resetAt).toString(),
+      );
+      response.headers.set('X-RateLimit-Scope', blockedScope);
+      return setRateHeaders(response, throttleResult.blocked.result);
+    }
+
+    if (surface === 'public_guest') {
+      if (!captchaToken) {
+        await recordMagicLinkSigninAudit({
+          email,
+          clientIp,
+          userAgent,
+          surface,
+          redirectedFrom,
+          outcome: 'blocked_captcha_missing',
+          throttleScope: 'ip',
+          throttleLimit: primaryRateResult.limit,
+          throttleRemaining: primaryRateResult.remaining,
+          throttleResetAt: primaryRateResult.resetAt,
+        });
+
+        const response = NextResponse.json(
+          {
+            message: 'Complete verification and try again.',
+            code: 'CAPTCHA_REQUIRED',
+          },
+          { status: 403 },
+        );
+        return setRateHeaders(response, primaryRateResult);
+      }
+
+      const captchaResult = await verifyTurnstileToken({
+        token: captchaToken,
+        remoteIp: clientIp,
+        expectedAction: GUEST_MAGIC_LINK_TURNSTILE_ACTION,
+      });
+
+      if (!captchaResult.ok) {
+        const captchaOutcome =
+          captchaResult.reason === 'verify_unavailable' ||
+          captchaResult.reason === 'missing_secret'
+            ? 'captcha_verify_unavailable'
+            : 'blocked_captcha_invalid';
+
+        await recordMagicLinkSigninAudit({
+          email,
+          clientIp,
+          userAgent,
+          surface,
+          redirectedFrom,
+          outcome: captchaOutcome,
+          throttleScope: 'ip',
+          throttleLimit: primaryRateResult.limit,
+          throttleRemaining: primaryRateResult.remaining,
+          throttleResetAt: primaryRateResult.resetAt,
+          captchaErrorCodes: captchaResult.errorCodes,
+        });
+
+        const response = NextResponse.json(
+          {
+            message: 'Verification failed. Please try again.',
+            code: 'CAPTCHA_INVALID',
+            details: { reason: captchaResult.reason },
+          },
+          { status: 403 },
+        );
+        return setRateHeaders(response, primaryRateResult);
+      }
+    }
+
+    const lookupStatus = await lookupMagicLinkProfile(email);
+    if (lookupStatus !== 'found') {
+      await recordMagicLinkSigninAudit({
+        email,
+        clientIp,
+        userAgent,
+        surface,
+        redirectedFrom,
+        outcome:
+          lookupStatus === 'not_found' ? 'suppressed_unknown_email' : 'lookup_error',
+        throttleScope: 'ip',
+        throttleLimit: primaryRateResult.limit,
+        throttleRemaining: primaryRateResult.remaining,
+        throttleResetAt: primaryRateResult.resetAt,
+      });
+
+      const response = NextResponse.json(
+        { status: 'magic_link_sent', redirectTo: absoluteRedirect },
+        { status: 202 },
+      );
+      return setRateHeaders(response, primaryRateResult);
+    }
+
     const emailRedirectTo = buildCallbackUrl(hostname, absoluteRedirect, rememberMe);
     console.log('[Auth/signin] Magic link details:', {
       hostname,
@@ -200,6 +354,7 @@ export async function POST(req: NextRequest) {
       redirectTarget,
       absoluteRedirect,
       emailRedirectTo,
+      surface,
     });
 
     try {
@@ -209,26 +364,53 @@ export async function POST(req: NextRequest) {
         intent: 'signin',
       });
     } catch (error) {
+      const sendErrorReason =
+        error instanceof Error ? error.message : String(error);
+
       console.error('[Auth/signin] Magic link delivery failed', {
         status: isMagicLinkDeliveryError(error) ? error.status : undefined,
-        error: error instanceof Error ? error.message : String(error),
+        error: sendErrorReason,
       });
 
-      const failure = getMagicLinkFailure(error, MAGIC_LINK_FAILURE_MESSAGE);
+      await recordMagicLinkSigninAudit({
+        email,
+        clientIp,
+        userAgent,
+        surface,
+        redirectedFrom,
+        outcome: 'send_error',
+        sendErrorReason,
+        throttleScope: 'ip',
+        throttleLimit: primaryRateResult.limit,
+        throttleRemaining: primaryRateResult.remaining,
+        throttleResetAt: primaryRateResult.resetAt,
+      });
+
       const response = NextResponse.json(
-        {
-          message: failure.message,
-        },
-        { status: failure.status },
+        { status: 'magic_link_sent', redirectTo: absoluteRedirect },
+        { status: 202 },
       );
-      return setRateHeaders(response, rateResult);
+      return setRateHeaders(response, primaryRateResult);
     }
+
+    await recordMagicLinkSigninAudit({
+      email,
+      clientIp,
+      userAgent,
+      surface,
+      redirectedFrom,
+      outcome: 'sent',
+      throttleScope: 'ip',
+      throttleLimit: primaryRateResult.limit,
+      throttleRemaining: primaryRateResult.remaining,
+      throttleResetAt: primaryRateResult.resetAt,
+    });
 
     const response = NextResponse.json(
       { status: 'magic_link_sent', redirectTo: absoluteRedirect },
       { status: 202 },
     );
-    return setRateHeaders(response, rateResult);
+    return setRateHeaders(response, primaryRateResult);
   } catch (err) {
     console.error('[Auth/signin] Unhandled error:', err);
     return NextResponse.json({ message: 'Internal server error' }, { status: 500 });

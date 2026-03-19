@@ -1,5 +1,90 @@
 # Continuity Ledger
 
+Last updated: 2026-02-19T16:06:00Z
+
+## Goal (incl. success criteria)
+
+- Implement production hardening for public magic-link sign-in.
+- Success:
+  - Prevent account-enumeration leakage by normalizing magic-link non-boundary responses to `202`.
+  - Enforce anti-automation controls (guest CAPTCHA + IP/global throttling).
+  - Emit deterministic auth-send audit events with hashed fingerprints and explicit outcomes.
+
+## Constraints/Assumptions
+
+- Follow root AGENTS SDLC artifacts flow.
+- Keep changes scoped to auth-hardening files only.
+- Avoid schema changes; use existing `observability_events` table.
+
+## Key decisions
+
+- Keep `sendAuthMagicLink` as the single canonical transport path; hardening happens in `/api/auth/signin` boundary.
+- Use Cloudflare Turnstile for guest/public magic-link requests only.
+- Unknown-email magic-link requests should be no-send + `202` with audit outcome `suppressed_unknown_email`.
+- Require `AUTH_AUDIT_HASH_SECRET` in production to guarantee deterministic non-PII fingerprints in observability.
+
+## State
+
+- Implementation complete and verified for scoped hardening changes.
+
+## Done
+
+- Created task folder `tasks/harden-magic-link-signin-20260219-1544/` with SDLC docs.
+- Implemented canonical auth hardening path:
+  - `src/app/api/auth/signin/route.ts` now normalizes magic-link non-boundary outcomes to `202`.
+  - Added guest-surface CAPTCHA enforcement and chained IP/global magic-link throttling.
+  - Added unknown-email suppression (no send) with deterministic audit outcomes.
+- Added new helper modules:
+  - `server/auth/signin-surface.ts`
+  - `server/auth/signin-throttle.ts`
+  - `server/auth/signin-audit.ts`
+  - `server/security/turnstile.ts`
+- Updated guest UI and env wiring:
+  - `components/auth/GuestSignInForm.tsx`
+  - `config/env.schema.ts`
+  - `lib/env.ts`
+  - `.env.example`
+- Added and passed tests:
+  - `tests/server/auth/signin-route-magic-link-policy.test.ts`
+  - `tests/server/auth/signin-throttle.test.ts`
+  - `tests/server/security/turnstile.test.ts`
+  - `tests/components/auth/GuestSignInForm.test.tsx`
+- Verification completed:
+  - `pnpm typecheck` pass
+  - targeted vitest suite pass
+  - manual QA evidence documented in task artifacts
+
+## Now
+
+- Ready for staging deploy with real Turnstile credentials and outcome monitoring.
+
+## Next
+
+1. Roll out to staging with real Turnstile credentials and expected hostname.
+2. Monitor `observability_events` (`event_type = magic_link.send_attempt`) for outcome distribution.
+3. Promote to production after staging boundary checks pass.
+
+## Open questions (UNCONFIRMED if needed)
+
+- None.
+
+## Working set (files/ids/commands)
+
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/src/app/api/auth/signin/route.ts`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/auth/signin-surface.ts`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/auth/signin-throttle.ts`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/auth/signin-audit.ts`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/security/turnstile.ts`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/components/auth/GuestSignInForm.tsx`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/harden-magic-link-signin-20260219-1544/research.md`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/harden-magic-link-signin-20260219-1544/plan.md`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/harden-magic-link-signin-20260219-1544/todo.md`
+- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/harden-magic-link-signin-20260219-1544/verification.md`
+
+---
+
+## Previous entry
+
 Last updated: 2026-02-19T14:47:00Z
 
 ## Goal (incl. success criteria)

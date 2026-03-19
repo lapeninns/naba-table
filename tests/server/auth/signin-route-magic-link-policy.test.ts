@@ -1,0 +1,204 @@
+import { NextRequest } from 'next/server';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const validateCsrfTokenMock = vi.hoisted(() => vi.fn());
+const consumeMagicLinkSigninThrottleMock = vi.hoisted(() => vi.fn());
+const classifySigninSurfaceMock = vi.hoisted(() => vi.fn());
+const verifyTurnstileTokenMock = vi.hoisted(() => vi.fn());
+const recordMagicLinkSigninAuditMock = vi.hoisted(() => vi.fn());
+const sendAuthMagicLinkMock = vi.hoisted(() => vi.fn());
+const getServiceSupabaseClientMock = vi.hoisted(() => vi.fn());
+const getRouteHandlerSupabaseClientMock = vi.hoisted(() => vi.fn());
+const consumeRateLimitMock = vi.hoisted(() => vi.fn());
+
+vi.mock('@/server/security/csrf', () => ({
+  validateCsrfToken: validateCsrfTokenMock,
+}));
+
+vi.mock('@/server/auth/signin-throttle', () => ({
+  consumeMagicLinkSigninThrottle: consumeMagicLinkSigninThrottleMock,
+}));
+
+vi.mock('@/server/auth/signin-surface', () => ({
+  classifySigninSurface: classifySigninSurfaceMock,
+}));
+
+vi.mock('@/server/security/turnstile', () => ({
+  verifyTurnstileToken: verifyTurnstileTokenMock,
+}));
+
+vi.mock('@/server/auth/signin-audit', () => ({
+  recordMagicLinkSigninAudit: recordMagicLinkSigninAuditMock,
+}));
+
+vi.mock('@/server/auth/magic-link-email', () => ({
+  sendAuthMagicLink: sendAuthMagicLinkMock,
+  isMagicLinkDeliveryError: () => false,
+}));
+
+vi.mock('@/server/supabase', () => ({
+  getServiceSupabaseClient: getServiceSupabaseClientMock,
+  getRouteHandlerSupabaseClient: getRouteHandlerSupabaseClientMock,
+}));
+
+vi.mock('@/server/security/rate-limit', () => ({
+  consumeRateLimit: consumeRateLimitMock,
+}));
+
+import { POST } from '@/src/app/api/auth/signin/route';
+
+function buildMagicLinkThrottleOk() {
+  return {
+    ok: true as const,
+    checks: [
+      {
+        scope: 'ip' as const,
+        result: {
+          ok: true,
+          limit: 5,
+          remaining: 4,
+          resetAt: Date.now() + 60_000,
+          source: 'memory' as const,
+        },
+      },
+      {
+        scope: 'global' as const,
+        result: {
+          ok: true,
+          limit: 120,
+          remaining: 119,
+          resetAt: Date.now() + 60_000,
+          source: 'memory' as const,
+        },
+      },
+    ],
+  };
+}
+
+function buildLookupClient(result: { data: unknown; error: { code?: string; message?: string } | null }) {
+  const maybeSingle = vi.fn().mockResolvedValue(result);
+  const limit = vi.fn().mockReturnValue({ maybeSingle });
+  const eq = vi.fn().mockReturnValue({ limit });
+  const select = vi.fn().mockReturnValue({ eq });
+  const from = vi.fn().mockReturnValue({ select });
+  return { from };
+}
+
+function buildRequest(payload: Record<string, unknown>): NextRequest {
+  return new NextRequest('https://www.nabatable.com/api/auth/signin', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      host: 'www.nabatable.com',
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+describe('signin route magic-link policy', () => {
+  beforeEach(() => {
+    validateCsrfTokenMock.mockReset();
+    consumeMagicLinkSigninThrottleMock.mockReset();
+    classifySigninSurfaceMock.mockReset();
+    verifyTurnstileTokenMock.mockReset();
+    recordMagicLinkSigninAuditMock.mockReset();
+    sendAuthMagicLinkMock.mockReset();
+    getServiceSupabaseClientMock.mockReset();
+    getRouteHandlerSupabaseClientMock.mockReset();
+    consumeRateLimitMock.mockReset();
+
+    validateCsrfTokenMock.mockReturnValue(true);
+    classifySigninSurfaceMock.mockReturnValue('app_ops');
+    consumeMagicLinkSigninThrottleMock.mockResolvedValue(buildMagicLinkThrottleOk());
+    verifyTurnstileTokenMock.mockResolvedValue({
+      ok: true,
+      action: 'guest_signin_magic_link',
+      hostname: 'www.nabatable.com',
+      errorCodes: [],
+    });
+    getRouteHandlerSupabaseClientMock.mockResolvedValue({
+      auth: {
+        signInWithPassword: vi.fn(),
+      },
+    });
+    consumeRateLimitMock.mockResolvedValue({
+      ok: true,
+      limit: 5,
+      remaining: 4,
+      resetAt: Date.now() + 60_000,
+      source: 'memory',
+    });
+  });
+
+  it('returns 202 and suppresses send for unknown email', async () => {
+    getServiceSupabaseClientMock.mockReturnValue(
+      buildLookupClient({
+        data: null,
+        error: null,
+      }),
+    );
+
+    const response = await POST(
+      buildRequest({
+        mode: 'magic_link',
+        email: 'unknown@example.com',
+        redirectedFrom: '/guest/dashboard',
+      }),
+    );
+
+    expect(response.status).toBe(202);
+    expect(sendAuthMagicLinkMock).not.toHaveBeenCalled();
+    expect(recordMagicLinkSigninAuditMock).toHaveBeenCalledWith(
+      expect.objectContaining({ outcome: 'suppressed_unknown_email' }),
+    );
+  });
+
+  it('returns 202 and sends magic link for known email', async () => {
+    getServiceSupabaseClientMock.mockReturnValue(
+      buildLookupClient({
+        data: { id: 'a4f4be11-9d83-4ced-839a-8abbde5336c0' },
+        error: null,
+      }),
+    );
+    sendAuthMagicLinkMock.mockResolvedValue(undefined);
+
+    const response = await POST(
+      buildRequest({
+        mode: 'magic_link',
+        email: 'known@example.com',
+        redirectedFrom: '/guest/dashboard',
+      }),
+    );
+
+    expect(response.status).toBe(202);
+    expect(sendAuthMagicLinkMock).toHaveBeenCalledTimes(1);
+    expect(recordMagicLinkSigninAuditMock).toHaveBeenCalledWith(
+      expect.objectContaining({ outcome: 'sent' }),
+    );
+  });
+
+  it('returns 202 and records send_error when delivery fails', async () => {
+    getServiceSupabaseClientMock.mockReturnValue(
+      buildLookupClient({
+        data: { id: '2db9dc1f-2bf0-4d49-ad66-f345d4ecc7c8' },
+        error: null,
+      }),
+    );
+    sendAuthMagicLinkMock.mockRejectedValue(new Error('delivery-failed'));
+
+    const response = await POST(
+      buildRequest({
+        mode: 'magic_link',
+        email: 'known@example.com',
+        redirectedFrom: '/guest/dashboard',
+      }),
+    );
+
+    expect(response.status).toBe(202);
+    expect(
+      recordMagicLinkSigninAuditMock.mock.calls.some(
+        ([call]) => call?.outcome === 'send_error',
+      ),
+    ).toBe(true);
+  });
+});
