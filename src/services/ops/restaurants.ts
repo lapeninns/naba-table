@@ -1,5 +1,6 @@
 import { fetchJson } from '@/lib/http/fetchJson';
 import { DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES } from '@/lib/restaurants/defaults';
+import { DEFAULT_RESERVATION_INTERVAL_MINUTES } from '@reserve/shared/config/reservations';
 
 import type { RestaurantRole } from '@/lib/owner/auth/roles';
 import type { OpsRestaurantOption, OpsServiceError } from '@/types/ops';
@@ -226,7 +227,8 @@ function mapRestaurant(dto: RestaurantResponse['restaurant']): RestaurantProfile
     emailSendReminder24h: dto.emailSendReminder24h ?? true,
     emailSendReminderShort: dto.emailSendReminderShort ?? true,
     emailSendReviewRequest: dto.emailSendReviewRequest ?? true,
-    reservationIntervalMinutes: dto.reservationIntervalMinutes ?? 15,
+    reservationIntervalMinutes:
+      dto.reservationIntervalMinutes ?? DEFAULT_RESERVATION_INTERVAL_MINUTES,
     reservationDefaultDurationMinutes: dto.reservationDefaultDurationMinutes ?? 90,
     reservationLastSeatingBufferMinutes: dto.reservationLastSeatingBufferMinutes ?? 15,
     reservationLifecycleGraceMinutes:

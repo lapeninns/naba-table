@@ -1,0 +1,174 @@
+[dotenv@17.2.3] injecting env (62) from .env.local -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+{"ts":"2026-03-23T12:38:50.129Z","level":"info","module":"supabase","message":"strict hold enforcement active"}
+{
+  "2026-03-27": {
+    "intervalMinutes": 15,
+    "slots": [
+      {
+        "value": "14:00",
+        "bookingOption": "lunch",
+        "disabled": false
+      },
+      {
+        "value": "14:15",
+        "bookingOption": "lunch",
+        "disabled": false
+      },
+      {
+        "value": "14:30",
+        "bookingOption": "lunch",
+        "disabled": false
+      },
+      {
+        "value": "14:45",
+        "bookingOption": "lunch",
+        "disabled": false
+      },
+      {
+        "value": "17:00",
+        "bookingOption": "dinner",
+        "disabled": false
+      }
+    ]
+  },
+  "2026-03-28": {
+    "intervalMinutes": 15,
+    "slots": [
+      {
+        "value": "14:00",
+        "bookingOption": "lunch",
+        "disabled": false
+      },
+      {
+        "value": "14:15",
+        "bookingOption": "lunch",
+        "disabled": false
+      },
+      {
+        "value": "14:30",
+        "bookingOption": "lunch",
+        "disabled": false
+      },
+      {
+        "value": "14:45",
+        "bookingOption": "lunch",
+        "disabled": false
+      },
+      {
+        "value": "15:00",
+        "bookingOption": "lunch",
+        "disabled": false
+      },
+      {
+        "value": "15:15",
+        "bookingOption": "lunch",
+        "disabled": false
+      },
+      {
+        "value": "15:30",
+        "bookingOption": "lunch",
+        "disabled": true
+      },
+      {
+        "value": "15:45",
+        "bookingOption": "lunch",
+        "disabled": true
+      },
+      {
+        "value": "16:00",
+        "bookingOption": "lunch",
+        "disabled": true
+      },
+      {
+        "value": "16:15",
+        "bookingOption": "lunch",
+        "disabled": true
+      },
+      {
+        "value": "16:30",
+        "bookingOption": "lunch",
+        "disabled": true
+      },
+      {
+        "value": "16:45",
+        "bookingOption": "lunch",
+        "disabled": true
+      },
+      {
+        "value": "17:00",
+        "bookingOption": "dinner",
+        "disabled": false
+      }
+    ]
+  },
+  "2026-03-29": {
+    "intervalMinutes": 15,
+    "slots": [
+      {
+        "value": "14:00",
+        "bookingOption": "lunch",
+        "disabled": false
+      },
+      {
+        "value": "14:15",
+        "bookingOption": "lunch",
+        "disabled": false
+      },
+      {
+        "value": "14:30",
+        "bookingOption": "lunch",
+        "disabled": false
+      },
+      {
+        "value": "14:45",
+        "bookingOption": "lunch",
+        "disabled": false
+      },
+      {
+        "value": "15:00",
+        "bookingOption": "lunch",
+        "disabled": false
+      },
+      {
+        "value": "15:15",
+        "bookingOption": "lunch",
+        "disabled": false
+      },
+      {
+        "value": "15:30",
+        "bookingOption": "lunch",
+        "disabled": true
+      },
+      {
+        "value": "15:45",
+        "bookingOption": "lunch",
+        "disabled": true
+      },
+      {
+        "value": "16:00",
+        "bookingOption": "lunch",
+        "disabled": true
+      },
+      {
+        "value": "16:15",
+        "bookingOption": "lunch",
+        "disabled": true
+      },
+      {
+        "value": "16:30",
+        "bookingOption": "lunch",
+        "disabled": true
+      },
+      {
+        "value": "16:45",
+        "bookingOption": "lunch",
+        "disabled": true
+      },
+      {
+        "value": "17:00",
+        "bookingOption": "dinner",
+        "disabled": false
+      }
+    ]
+  }
+}

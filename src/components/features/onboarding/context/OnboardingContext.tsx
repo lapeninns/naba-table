@@ -2,6 +2,8 @@
 
 import { createContext, useContext, useMemo, useReducer } from 'react';
 
+import { DEFAULT_RESERVATION_INTERVAL_MINUTES } from '@reserve/shared/config/reservations';
+
 import type {
   AccountDetails,
   OnboardingState,
@@ -25,7 +27,7 @@ const DEFAULT_STATE: OnboardingState = {
     timezone: DEFAULT_TIMEZONE,
     contactEmail: '',
     contactPhone: '',
-    reservationIntervalMinutes: 15,
+    reservationIntervalMinutes: DEFAULT_RESERVATION_INTERVAL_MINUTES,
     reservationDefaultDurationMinutes: 90,
     reservationLastSeatingBufferMinutes: 120,
     emailSendReminder24h: true,

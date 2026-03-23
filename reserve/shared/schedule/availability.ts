@@ -48,6 +48,21 @@ const getScheduleTimezone = (schedule: ReservationSchedule | null | undefined): 
   return value && value.length > 0 ? value : 'UTC';
 };
 
+const getLatestSlotMinutes = (schedule: ReservationSchedule | null | undefined): number | null => {
+  if (!schedule || schedule.slots.length === 0) {
+    return null;
+  }
+
+  return schedule.slots.reduce<number | null>((latest, slot) => {
+    const normalized = normalizeTime(slot.value);
+    if (!normalized) {
+      return latest;
+    }
+    const candidate = toMinutes(normalized);
+    return latest === null ? candidate : Math.max(latest, candidate);
+  }, null);
+};
+
 const resolveDateKey = (value: string | Date): string => {
   if (typeof value === 'string') {
     return value;
@@ -101,7 +116,7 @@ export function getTimeSlots(
 }
 
 /**
- * Guard against past selections or slots that would exceed the closing window.
+ * Guard against past selections or times beyond the configured schedule slots.
  */
 export function isPastOrClosing(params: {
   date: string;
@@ -128,20 +143,15 @@ export function isPastOrClosing(params: {
     return true;
   }
 
-  const closesAt = normalizeTime(schedule.window?.closesAt ?? null);
-  const guardMinutes = Math.max(
-    0,
-    schedule.lastSeatingBufferMinutes ?? 0,
-    schedule.defaultDurationMinutes ?? 0,
-  );
-
-  if (closesAt) {
-    const closing = DateTime.fromISO(`${schedule.date}T${closesAt}`, { zone });
-    if (!closing.isValid) {
-      return false;
-    }
-    const latestStart = closing.minus({ minutes: guardMinutes });
-    if (start > latestStart) {
+  const latestSlotMinutes = getLatestSlotMinutes(schedule);
+  if (latestSlotMinutes !== null) {
+    const latestHours = Math.floor(latestSlotMinutes / 60);
+    const latestMinutes = latestSlotMinutes % 60;
+    const latestSlot = DateTime.fromISO(
+      `${schedule.date}T${String(latestHours).padStart(2, '0')}:${String(latestMinutes).padStart(2, '0')}`,
+      { zone },
+    );
+    if (latestSlot.isValid && start > latestSlot) {
       return true;
     }
   }
@@ -178,18 +188,5 @@ export function hasCapacity(slot: TimeSlotDescriptor | null | undefined): boolea
 export function getLatestStartMinutes(
   schedule: ReservationSchedule | null | undefined,
 ): number | null {
-  if (!schedule) {
-    return null;
-  }
-  const closesAt = normalizeTime(schedule.window?.closesAt ?? null);
-  if (!closesAt) {
-    return null;
-  }
-  const closingMinutes = toMinutes(closesAt);
-  const guardMinutes = Math.max(
-    0,
-    schedule.lastSeatingBufferMinutes ?? 0,
-    schedule.defaultDurationMinutes ?? 0,
-  );
-  return Math.max(0, closingMinutes - guardMinutes);
+  return getLatestSlotMinutes(schedule);
 }

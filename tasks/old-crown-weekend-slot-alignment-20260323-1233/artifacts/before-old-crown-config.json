@@ -1,0 +1,123 @@
+[dotenv@17.2.3] injecting env (62) from .env.local -- tip: ⚙️  suppress all logs with { quiet: true }
+{
+  "restaurant": {
+    "id": "a050d1ad-1ee0-4ea0-abc2-22c3778aa52c",
+    "name": "The Old Crown Girton",
+    "slug": "the-old-crown-girton",
+    "reservation_interval_minutes": 15,
+    "reservation_default_duration_minutes": 90,
+    "reservation_last_seating_buffer_minutes": 30,
+    "updated_at": "2025-12-26T16:11:57.148502+00:00"
+  },
+  "lunchOccasion": {
+    "key": "lunch",
+    "label": "Lunch",
+    "availability": [
+      {
+        "end": "15:30",
+        "kind": "time_window",
+        "start": "11:30"
+      }
+    ],
+    "default_duration_minutes": 90,
+    "updated_at": "2025-12-03T00:31:12.823384+00:00"
+  },
+  "servicePeriods": [
+    {
+      "id": "cf23e29f-56fa-4027-8c45-e1b0758a0ee0",
+      "name": "Sunday Lunch",
+      "day_of_week": 0,
+      "start_time": "12:00:00",
+      "end_time": "17:00:00",
+      "booking_option": "lunch"
+    },
+    {
+      "id": "d19143d5-942e-4f85-add9-21e92a0e88d4",
+      "name": "Sunday Dinner",
+      "day_of_week": 0,
+      "start_time": "17:00:00",
+      "end_time": "21:00:00",
+      "booking_option": "dinner"
+    },
+    {
+      "id": "58b48b6b-170e-44ce-af63-3704fd8637d6",
+      "name": "Weekday Lunch",
+      "day_of_week": 2,
+      "start_time": "12:00:00",
+      "end_time": "15:00:00",
+      "booking_option": "lunch"
+    },
+    {
+      "id": "eedf86e3-b41a-4aed-9174-dd09c5637cee",
+      "name": "Weekday Dinner",
+      "day_of_week": 2,
+      "start_time": "17:00:00",
+      "end_time": "22:00:00",
+      "booking_option": "dinner"
+    },
+    {
+      "id": "6517e11a-6355-445f-82a3-c76febe90656",
+      "name": "Weekday Lunch",
+      "day_of_week": 3,
+      "start_time": "12:00:00",
+      "end_time": "15:00:00",
+      "booking_option": "lunch"
+    },
+    {
+      "id": "0e764b6d-0ce0-42ec-b75f-335812837647",
+      "name": "Weekday Dinner",
+      "day_of_week": 3,
+      "start_time": "17:00:00",
+      "end_time": "22:00:00",
+      "booking_option": "dinner"
+    },
+    {
+      "id": "010d1e20-bee3-48a4-a5b4-fc3182faf54e",
+      "name": "Weekday Lunch",
+      "day_of_week": 4,
+      "start_time": "12:00:00",
+      "end_time": "15:00:00",
+      "booking_option": "lunch"
+    },
+    {
+      "id": "cea2604a-24e5-4b84-b992-6831ace11751",
+      "name": "Weekday Dinner",
+      "day_of_week": 4,
+      "start_time": "17:00:00",
+      "end_time": "22:00:00",
+      "booking_option": "dinner"
+    },
+    {
+      "id": "7601334f-9269-4aff-bdd2-2b4ef8e329cd",
+      "name": "Friday Lunch",
+      "day_of_week": 5,
+      "start_time": "12:00:00",
+      "end_time": "15:00:00",
+      "booking_option": "lunch"
+    },
+    {
+      "id": "46479168-d395-43ea-a41e-6a193d8052de",
+      "name": "Friday Dinner",
+      "day_of_week": 5,
+      "start_time": "17:00:00",
+      "end_time": "22:00:00",
+      "booking_option": "dinner"
+    },
+    {
+      "id": "5f5e4f88-667a-4fe1-9098-ba7919a16f0f",
+      "name": "Saturday Lunch",
+      "day_of_week": 6,
+      "start_time": "12:00:00",
+      "end_time": "17:00:00",
+      "booking_option": "lunch"
+    },
+    {
+      "id": "258feaa1-f150-471d-aadd-e4915f063b5d",
+      "name": "Saturday Dinner",
+      "day_of_week": 6,
+      "start_time": "17:00:00",
+      "end_time": "22:00:00",
+      "booking_option": "dinner"
+    }
+  ]
+}

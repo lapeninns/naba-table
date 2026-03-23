@@ -1,6 +1,7 @@
 import { getTodayInTimezone } from '@/lib/utils/datetime';
 import { getOccasionCatalog } from '@/server/occasions/catalog';
 import { getServiceSupabaseClient } from '@/server/supabase';
+import { DEFAULT_RESERVATION_INTERVAL_MINUTES } from '@reserve/shared/config/reservations';
 import { formatReservationTime } from '@reserve/shared/formatting/booking';
 import { isOccasionAvailable, type OccasionCatalog, type OccasionDefinition, type OccasionKey } from '@reserve/shared/occasions';
 import { normalizeTime, slotsForRange, toMinutes } from '@reserve/shared/time';
@@ -283,8 +284,6 @@ function computeSlots(
   catalog: OccasionCatalog,
   date: string,
   timezone: string,
-  defaultDurationMinutes: number,
-  lastSeatingBufferMinutes: number,
   month: number,
   fixedSlots: ReservationTime[] | null,
 ): RestaurantScheduleSlot[] {
@@ -406,16 +405,6 @@ function computeSlots(
     });
     const defaultBookingOption = bookingOption;
     const optionDefinition = catalog.byKey.get(bookingOption);
-    const optionDuration = optionDefinition?.defaultDurationMinutes ?? defaultDurationMinutes;
-    const guardMinutes = Math.max(lastSeatingBufferMinutes, optionDuration);
-    const slotMinutes = toMinutes(slot);
-    const exceedsClosing =
-      closingMinutes !== null ? slotMinutes + guardMinutes > closingMinutes : false;
-
-    if (exceedsClosing) {
-      return acc;
-    }
-
     const disabled = availability.services[defaultBookingOption] === 'disabled';
     const label =
       period?.name?.trim() ??
@@ -459,7 +448,8 @@ export async function getRestaurantSchedule(
     throw new Error('Restaurant not found');
   }
 
-  const intervalMinutes = restaurant.reservation_interval_minutes ?? 15;
+  const intervalMinutes =
+    restaurant.reservation_interval_minutes ?? DEFAULT_RESERVATION_INTERVAL_MINUTES;
   const defaultDurationMinutes = restaurant.reservation_default_duration_minutes ?? 90;
   const lastSeatingBufferMinutes =
     restaurant.reservation_last_seating_buffer_minutes ?? defaultDurationMinutes;
@@ -538,8 +528,6 @@ export async function getRestaurantSchedule(
       catalog,
       date,
       restaurant.timezone,
-      defaultDurationMinutes,
-      lastSeatingBufferMinutes,
       month,
       effectiveSlotTimes.length > 0 ? effectiveSlotTimes : null,
     );

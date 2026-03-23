@@ -8,6 +8,7 @@ import { listTables, listTablesWithSummary, type TableRecord } from '@/server/op
 import { getRestaurantSchedule, type RestaurantSchedule } from '@/server/restaurants/schedule';
 import { getRestaurantTurnBands } from '@/server/restaurants/turnBands';
 import { getServiceSupabaseClient } from '@/server/supabase';
+import { DEFAULT_RESERVATION_INTERVAL_MINUTES } from '@reserve/shared/config/reservations';
 
 import type { TableHold } from '@/server/capacity/holds';
 import type { ContextBookingRow } from '@/server/capacity/table-assignment/supabase';
@@ -305,7 +306,7 @@ function buildHoldLookup(holds: TableHold[]): HoldLookup {
 }
 
 function buildSlotMetadata(schedule: RestaurantSchedule, serviceFilter: 'lunch' | 'dinner' | 'all'): SlotMetadata {
-  const intervalMinutes = schedule.intervalMinutes ?? 15;
+  const intervalMinutes = schedule.intervalMinutes ?? DEFAULT_RESERVATION_INTERVAL_MINUTES;
   const timezone = schedule.timezone ?? 'UTC';
   const slots: TableTimelineResponse['slots'] = [];
   const servicesMap = new Map<TableTimelineServiceKey, { start: DateTime; end: DateTime; slotCount: number }>();

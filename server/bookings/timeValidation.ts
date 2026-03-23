@@ -1,7 +1,5 @@
-import { calculateDurationMinutes } from '@/server/bookings';
 import { normalizeTime, toMinutes } from '@reserve/shared/time';
 
-import type { BookingType } from '@/lib/enums';
 import type { RestaurantSchedule } from '@/server/restaurants/schedule';
 import type { ReservationTime } from '@reserve/shared/time';
 
@@ -23,7 +21,6 @@ export type BookingOperatingWindow = Pick<RestaurantSchedule, 'isClosed' | 'slot
 export type AssertBookingWithinOperatingWindowParams = {
   schedule: BookingOperatingWindow;
   requestedTime: string;
-  bookingType: BookingType;
 };
 
 export type BookingOperatingWindowResult = {
@@ -37,7 +34,7 @@ function ensureSlotExists(schedule: BookingOperatingWindow, time: ReservationTim
   }
 }
 
-function ensureWithinWindowBounds(schedule: BookingOperatingWindow, time: ReservationTime, bookingType: BookingType) {
+function ensureWithinWindowBounds(schedule: BookingOperatingWindow, time: ReservationTime) {
   const opensAt = schedule.window.opensAt;
   const closesAt = schedule.window.closesAt;
   const startMinutes = toMinutes(time);
@@ -51,10 +48,7 @@ function ensureWithinWindowBounds(schedule: BookingOperatingWindow, time: Reserv
 
   if (closesAt) {
     const closesMinutes = toMinutes(closesAt);
-    const durationMinutes = calculateDurationMinutes(bookingType);
-    const endMinutes = startMinutes + durationMinutes;
-
-    if (endMinutes > closesMinutes) {
+    if (startMinutes >= closesMinutes) {
       throw new OperatingHoursError('AFTER_CLOSE', 'Selected time extends beyond closing hours.');
     }
   }
@@ -63,7 +57,6 @@ function ensureWithinWindowBounds(schedule: BookingOperatingWindow, time: Reserv
 export function assertBookingWithinOperatingWindow({
   schedule,
   requestedTime,
-  bookingType,
 }: AssertBookingWithinOperatingWindowParams): BookingOperatingWindowResult {
   if (schedule.isClosed) {
     throw new OperatingHoursError('CLOSED', 'Restaurant is closed on the selected date.');
@@ -75,7 +68,7 @@ export function assertBookingWithinOperatingWindow({
   }
 
   ensureSlotExists(schedule, normalizedTime);
-  ensureWithinWindowBounds(schedule, normalizedTime, bookingType);
+  ensureWithinWindowBounds(schedule, normalizedTime);
 
   return { time: normalizedTime } satisfies BookingOperatingWindowResult;
 }

@@ -434,7 +434,6 @@ async function handleDashboardUpdate(params: {
       const { time } = assertBookingWithinOperatingWindow({
         schedule,
         requestedTime: startTime,
-        bookingType,
       });
       startTime = time;
       normalizedStartDateTime = normalizedStartDateTime.set({
@@ -1258,7 +1257,6 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       const { time } = assertBookingWithinOperatingWindow({
         schedule,
         requestedTime: data.time,
-        bookingType: normalizedBookingType,
       });
 
       startTime = time;

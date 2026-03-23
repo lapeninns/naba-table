@@ -11,6 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useOpsRestaurantDetails, useOpsUpdateRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
+import { DEFAULT_RESERVATION_INTERVAL_MINUTES } from '@reserve/shared/config/reservations';
 
 import { RestaurantLogoUploader } from './RestaurantLogoUploader';
 import { SettingsCard } from './shared/SettingsCard';
@@ -27,7 +28,7 @@ const EMPTY_VALUES: RestaurantDetailsFormValues = {
   googleMapUrl: null,
   googleReviewUrl: null,
   bookingPolicy: null,
-  reservationIntervalMinutes: 15,
+  reservationIntervalMinutes: DEFAULT_RESERVATION_INTERVAL_MINUTES,
   reservationDefaultDurationMinutes: 90,
   reservationLastSeatingBufferMinutes: 15,
   reservationLifecycleGraceMinutes: 15,

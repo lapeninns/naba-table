@@ -329,7 +329,6 @@ export class BookingValidationService {
       const { time: normalizedTime } = assertBookingWithinOperatingWindow({
         schedule,
         requestedTime: startTime,
-        bookingType,
       });
 
       normalizedStartTime = normalizedTime;
@@ -392,25 +391,6 @@ export class BookingValidationService {
 
     normalizedEndDateTime = normalizedStartDateTime.plus({ minutes: input.durationMinutes });
     normalizedEndTime = normalizedEndDateTime.toFormat("HH:mm");
-
-    const windowClose = schedule.window?.closesAt;
-    if (windowClose) {
-      const closeMinutes = this.toMinutes(windowClose);
-      const endMinutes = this.toMinutes(normalizedEndTime);
-      if (endMinutes > closeMinutes) {
-        issues.push(
-          this.createError(
-            "OUTSIDE_HOURS",
-            "Selected duration extends beyond closing hours.",
-            {
-              closesAt: windowClose,
-              endTime: normalizedEndTime,
-            },
-            true,
-          ),
-        );
-      }
-    }
 
     if (ctx.flags.bookingPastTimeBlocking) {
       try {
