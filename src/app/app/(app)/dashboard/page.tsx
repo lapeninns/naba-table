@@ -75,6 +75,7 @@ export default async function OpsDashboardPage({ searchParams }: { searchParams?
     const resolvedParams = (await searchParams) ?? {};
     // Auth is now handled by the layout - no need for duplicate check
     const initialDate = sanitizeDateParam(resolvedParams.date);
+    const initialNowIso = new Date().toISOString();
     const queryClient = new QueryClient();
     const cookieStore = await cookies();
 
@@ -105,7 +106,7 @@ export default async function OpsDashboardPage({ searchParams }: { searchParams?
         <BookingErrorBoundary>
             <BookingOfflineQueueProvider>
                 <HydrationBoundary state={dehydratedState}>
-                    <OpsDashboardClient initialDate={initialDate} />
+                    <OpsDashboardClient initialDate={initialDate} initialNowIso={initialNowIso} />
                 </HydrationBoundary>
             </BookingOfflineQueueProvider>
         </BookingErrorBoundary>

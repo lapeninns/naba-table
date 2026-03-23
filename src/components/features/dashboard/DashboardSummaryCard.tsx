@@ -22,6 +22,7 @@ type DashboardSummaryCardProps = {
   restaurantName: string;
   filter: BookingFilter;
   tabCounts: BookingTabCounts;
+  initialNowIso: string;
   onFilterChange: (filter: BookingFilter) => void;
   searchQuery?: string;
   deferredSearchQuery?: string;
@@ -73,6 +74,7 @@ export function DashboardSummaryCard({
   restaurantName,
   filter,
   tabCounts,
+  initialNowIso,
   onFilterChange,
   searchQuery,
   deferredSearchQuery,
@@ -140,6 +142,7 @@ export function DashboardSummaryCard({
           filter={filter}
           searchQuery={deferredSearchQuery ?? searchQuery}
           summary={summary}
+          initialNowIso={initialNowIso}
           allowTableAssignments={canAssignTables}
           restaurantSlug={restaurantSlug}
           sortKey={sortKey}

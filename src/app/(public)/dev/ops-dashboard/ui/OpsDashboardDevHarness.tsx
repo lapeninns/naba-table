@@ -100,6 +100,7 @@ function buildSummary(): OpsTodayBookingsSummary {
 export function OpsDashboardDevHarness() {
   const factories = useMemo(() => createOpsDevServiceFactories(), []);
   const headerSwipeRef = useRef<HTMLElement>(null);
+  const initialNowIso = '2026-02-10T18:45:00.000Z';
   const [filter, setFilter] = useState<BookingFilter>('all');
   const [sortKey, setSortKey] = useState<'time' | 'party' | 'name'>('time');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
@@ -128,7 +129,8 @@ export function OpsDashboardDevHarness() {
             summary={summary}
             selectedDate={summary.date}
             isRefetching={false}
-            dataUpdatedAt={Date.now()}
+            initialNowIso={initialNowIso}
+            dataUpdatedAt={Date.parse(initialNowIso)}
             realtimeEnabled={false}
             realtimeHealthy={true}
             isPolling={false}
@@ -148,6 +150,7 @@ export function OpsDashboardDevHarness() {
             restaurantSlug="dev-restaurant"
             filter={filter}
             tabCounts={tabCounts}
+            initialNowIso={initialNowIso}
             searchQuery={search}
             deferredSearchQuery={search}
             onSearchChange={(event) => setSearch(event.currentTarget.value)}

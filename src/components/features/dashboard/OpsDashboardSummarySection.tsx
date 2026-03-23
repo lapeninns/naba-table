@@ -14,6 +14,7 @@ export type OpsDashboardSummarySectionProps = {
   restaurantName: string;
   filter: BookingFilter;
   tabCounts: BookingTabCounts;
+  initialNowIso: string;
   searchQuery?: string;
   deferredSearchQuery?: string;
   onSearchChange: (event: ChangeEvent<HTMLInputElement>) => void;
@@ -61,6 +62,7 @@ export function OpsDashboardSummarySection({
   restaurantName,
   filter,
   tabCounts,
+  initialNowIso,
   searchQuery,
   deferredSearchQuery,
   onSearchChange,
@@ -100,6 +102,7 @@ export function OpsDashboardSummarySection({
         restaurantName={restaurantName}
         filter={filter}
         tabCounts={tabCounts}
+        initialNowIso={initialNowIso}
         onFilterChange={onFilterChange}
         searchQuery={searchQuery}
         deferredSearchQuery={deferredSearchQuery}

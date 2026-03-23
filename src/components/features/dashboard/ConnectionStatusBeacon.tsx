@@ -11,6 +11,7 @@ import { OpsStatusBadge } from '../ops-shell/patterns/OpsStatusBadge';
 import type { OpsStatusBadgeProps } from '../ops-shell/patterns/OpsStatusBadge';
 
 export type ConnectionStatusBeaconProps = {
+  initialNowIso: string;
   dataUpdatedAt?: number | null;
   dataStaleAfterMs?: number;
   realtimeEnabled?: boolean;
@@ -61,7 +62,13 @@ const STATUS_CONFIG: Record<BeaconStatus, BeaconConfig> = {
   },
 };
 
+function resolveInitialNowMs(initialNowIso: string): number {
+  const parsed = Date.parse(initialNowIso);
+  return Number.isNaN(parsed) ? Date.now() : parsed;
+}
+
 export function ConnectionStatusBeacon({
+  initialNowIso,
   dataUpdatedAt,
   dataStaleAfterMs = SUMMARY_STALE_AFTER_MS,
   realtimeEnabled,
@@ -70,9 +77,10 @@ export function ConnectionStatusBeacon({
   isSummaryLoading = false,
   hasSummaryError = false,
 }: ConnectionStatusBeaconProps) {
-  const [nowMs, setNowMs] = useState(() => Date.now());
+  const [nowMs, setNowMs] = useState(() => resolveInitialNowMs(initialNowIso));
 
   useEffect(() => {
+    setNowMs(Date.now());
     const interval = setInterval(() => setNowMs(Date.now()), 15_000);
     return () => clearInterval(interval);
   }, []);

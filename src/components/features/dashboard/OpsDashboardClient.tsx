@@ -21,17 +21,18 @@ import type { OpsTodayBookingsSummary } from '@/types/ops';
 
 export type OpsDashboardClientProps = {
   initialDate: string | null;
+  initialNowIso: string;
 };
 
-export function OpsDashboardClient({ initialDate }: OpsDashboardClientProps) {
+export function OpsDashboardClient({ initialDate, initialNowIso }: OpsDashboardClientProps) {
   return (
     <BookingStateMachineProvider>
-      <OpsDashboardClientContent initialDate={initialDate} />
+      <OpsDashboardClientContent initialDate={initialDate} initialNowIso={initialNowIso} />
     </BookingStateMachineProvider>
   );
 }
 
-function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
+function OpsDashboardClientContent({ initialDate, initialNowIso }: OpsDashboardClientProps) {
   const state = useOpsDashboardState({ initialDate });
   const fallbackSummary = useMemo<OpsTodayBookingsSummary>(() => {
     const timezone = state.restaurantTimezone ?? 'UTC';
@@ -78,6 +79,7 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
           selectedDate={state.requestedDate ?? summary.date}
           isRefetching={state.isRefetching}
           isSummaryLoading={isSummaryLoading}
+          initialNowIso={initialNowIso}
           dataUpdatedAt={state.dataUpdatedAt}
           realtimeEnabled={state.summaryRealtimeEnabled}
           realtimeHealthy={state.summaryRealtimeHealthy}
@@ -111,6 +113,7 @@ function OpsDashboardClientContent({ initialDate }: OpsDashboardClientProps) {
               onPrint={state.handlePrint}
               sortKey={state.sortKey}
               sortDir={state.sortDir}
+              initialNowIso={initialNowIso}
               onSortKeyChange={state.setSortKey}
               onSortDirChange={state.setSortDir}
               isRefetching={state.isRefetching}
