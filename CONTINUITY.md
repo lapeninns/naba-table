@@ -1,75 +1,65 @@
 # Continuity Ledger
 
-Last updated: 2026-03-23T13:26:00Z
+Last updated: 2026-03-23T13:45:00Z
 
 ## Goal (incl. success criteria)
 
-- Align booking slots fully with restaurant config and remove global built-in lunch/dinner time windows.
+- Push the config-driven slot logic rollout fully to production and align Old Crown's live production interval.
 - Success:
-  - Old Crown uses a 30-minute reservation interval.
-  - Friday lunch remains aligned with the `12:00-15:00` service period.
-  - Saturday/Sunday lunch reflect the configured `12:00-17:00` service periods instead of stopping at `15:15`.
-  - Built-in `lunch`/`dinner` occasions no longer impose hidden global time windows.
+  - Production Old Crown uses a 30-minute reservation interval.
+  - Production built-in `lunch`/`dinner` occasion availability is cleared.
+  - Production booking slots follow service periods and operating hours rather than built-in occasion windows.
 
 ## Constraints/Assumptions
 
 - Follow root AGENTS SDLC artifacts flow.
 - Follow root AGENTS SDLC artifacts flow.
-- This pass includes live remote config corrections plus canonical repo-side records.
+- This pass is a production rollout of already merged slot-logic changes plus canonical repo-side records.
 - Keep secrets out of artifacts.
 
 ## Key decisions
 
-- Old Crown needs a live restaurant-specific interval update from `15` to `30`.
-- Built-in `lunch` and `dinner` occasions should not define their own daily clock windows.
-- Service periods and operating hours are the only timing source for built-in services.
+- Production still needs the Old Crown interval override and the built-in occasion cleanup applied.
+- Service periods and operating hours are the only intended timing source for built-in services.
 
 ## State
 
-- Live config correction applied and built-in occasion time windows removed.
+- Production before-state confirmed; rollout in progress.
 
 ## Done
 
-- Created task folder `tasks/old-crown-weekend-slot-alignment-20260323-1233/`.
-- Confirmed Old Crown live config:
-  - `reservation_interval_minutes = 15`
-  - `reservation_default_duration_minutes = 90`
-  - `reservation_last_seating_buffer_minutes = 30`
-- Confirmed Old Crown service periods:
-  - Friday lunch `12:00-15:00`
-  - Saturday lunch `12:00-17:00`
-  - Sunday lunch `12:00-17:00`
-- Confirmed shared lunch occasion availability is currently `11:30-15:30`.
-- Verified current Old Crown schedule behavior:
-  - Friday last lunch slot: `14:45`
-  - Saturday/Sunday last enabled lunch slot: `15:15`
-  - Saturday/Sunday `15:30-16:45` are present but disabled
+- Created rollout task folder `tasks/slot-logic-production-rollout-20260323-1345/`.
+- Confirmed production target from `.env.vercel-production`.
+- Captured production before-state:
+  - Old Crown `reservation_interval_minutes = 15`
+  - built-in `lunch` availability `11:30-15:30`
+  - built-in `dinner` availability `16:00-23:00`
+- Added canonical migration `20260323135000_set_old_crown_interval_30m.sql`.
 
 ## Now
 
-- Finalizing verification for the built-in occasion cleanup and preparing a push.
+- Preparing the production rollout commit and live apply.
 
 ## Next
 
-1. Run the new built-in occasion availability regression test.
-2. Commit and push the built-in occasion cleanup.
+1. Push the production rollout commit.
+2. Apply production data updates.
+3. Capture after-state and update migration records.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- Should schedule generation eventually enforce last seating against service-period end rather than restaurant closing time? (UNCONFIRMED)
+- None.
 
 ## Working set (files/ids/commands)
 
 - `/Users/amankumarshrestha/LapenInns Project/nabatableLP/CONTINUITY.md`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/CONTINUITY.md`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/server/restaurants/schedule.ts`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/server/occasions/catalog.ts`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/reserve/shared/occasions/index.ts`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/supabase/migrations/20260323132600_remove_builtin_occasion_time_windows.sql`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/supabase/migrations/20260323135000_set_old_crown_interval_30m.sql`
 - `/Users/amankumarshrestha/LapenInns Project/nabatableLP/supabase/migrations/`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/old-crown-weekend-slot-alignment-20260323-1233/research.md`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/old-crown-weekend-slot-alignment-20260323-1233/plan.md`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/old-crown-weekend-slot-alignment-20260323-1233/todo.md`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/old-crown-weekend-slot-alignment-20260323-1233/verification.md`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/slot-logic-production-rollout-20260323-1345/research.md`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/slot-logic-production-rollout-20260323-1345/plan.md`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/slot-logic-production-rollout-20260323-1345/todo.md`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/slot-logic-production-rollout-20260323-1345/verification.md`
 
 ---
 
