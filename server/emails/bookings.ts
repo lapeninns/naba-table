@@ -511,6 +511,13 @@ async function dispatchEmail(
   const calendarPayload = buildCalendarPayload(booking, venue);
   const calendarEventContent = buildCalendarEvent(calendarPayload);
   const attachments: EmailAttachment[] = [];
+  const deliveryTemplateType =
+    type === 'reminder'
+      ? options?.reminderVariant === 'short'
+        ? 'reminder_short'
+        : 'reminder_24h'
+      : type;
+  const deliveryEmailType = type === 'reminder' ? 'reminder' : type;
 
   let calendarAttachmentName: string | undefined;
   if (
@@ -682,15 +689,32 @@ async function dispatchEmail(
     return;
   }
 
-  if (type === 'review_request') {
+  if (deliveryTemplateType === 'review_request') {
     const alreadySent = await hasRecentEmailDelivery({
       bookingId: booking.id,
-      templateType: type,
+      templateType: deliveryTemplateType,
       withinMs: 60 * 24 * 60 * 60 * 1000,
     });
     if (alreadySent) {
       console.warn('[emails][bookings] review_request already sent recently; skipping', {
         bookingId: booking.id,
+      });
+      return;
+    }
+  }
+
+  if (deliveryTemplateType === 'reminder_24h' || deliveryTemplateType === 'reminder_short') {
+    const withinMs =
+      deliveryTemplateType === 'reminder_24h' ? 3 * 24 * 60 * 60 * 1000 : 12 * 60 * 60 * 1000;
+    const alreadySent = await hasRecentEmailDelivery({
+      bookingId: booking.id,
+      templateType: deliveryTemplateType,
+      withinMs,
+    });
+    if (alreadySent) {
+      console.warn('[emails][bookings] reminder already sent recently; skipping', {
+        bookingId: booking.id,
+        templateType: deliveryTemplateType,
       });
       return;
     }
@@ -708,8 +732,8 @@ async function dispatchEmail(
   await recordEmailDeliveryLog({
     bookingId: booking.id,
     restaurantId: booking.restaurant_id,
-    emailType: type,
-    templateType: type,
+    emailType: deliveryEmailType,
+    templateType: deliveryTemplateType,
     recipientEmail: toEmail,
     messageId: result.messageId,
     status: 'sent',

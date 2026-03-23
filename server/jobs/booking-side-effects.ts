@@ -10,11 +10,9 @@ import {
   sendRestaurantCancellationEmail,
 } from '@/server/emails/bookings';
 import {
-  getAutoAssignCreatedEmailDeferMinutes,
-  isAutoAssignOnBookingEnabled,
   isEmailQueueEnabled,
 } from '@/server/feature-flags';
-import { enqueueEmailJob, removeEmailJob, type EmailJobType } from '@/server/queue/email';
+import { enqueueEmailJob } from '@/server/queue/email';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { BookingRecord } from '@/server/bookings';
@@ -94,17 +92,6 @@ const REMINDER_24H_MINUTES = 24 * 60;
 const REMINDER_SHORT_MINUTES = 2 * 60;
 const REVIEW_DELAY_MINUTES = 180; // 3 hours after visit ends
 const INLINE_EMAIL_DELAY_CAP_MS = 48 * 60 * 60 * 1000;
-const INSTANT_EMAIL_TYPES: ReadonlySet<EmailJobType> = new Set([
-  'request_received',
-  'confirmation',
-  'updated',
-  'cancelled',
-  'restaurant_cancellation',
-  'booking_rejected',
-]);
-
-const shouldQueueEmail = (type: EmailJobType) =>
-  isEmailQueueEnabled() && !INSTANT_EMAIL_TYPES.has(type);
 
 type EmailPrefs = {
   sendReminder24h: boolean;
@@ -457,7 +444,7 @@ async function processBookingCreatedSideEffects(
   const client = resolveSupabase(_supabase);
   const { booking, idempotencyKey, restaurantId } = payload;
 
-  let queuedViaQueue = false;
+  const queuedViaQueue = false;
   const normalizedEmail = booking.customer_email?.trim?.() ?? '';
   const shouldSendEmail = (payload.emailProvided ?? true) && normalizedEmail.length > 0;
 
@@ -484,80 +471,10 @@ async function processBookingCreatedSideEffects(
   }
 
   if (!SUPPRESS_EMAILS && shouldSendEmail) {
-    const isPending = booking.status === 'pending' || booking.status === 'pending_allocation';
-    const shouldQueueRequest = shouldQueueEmail('request_received');
-    const deferMinutes = isAutoAssignOnBookingEnabled()
-      ? getAutoAssignCreatedEmailDeferMinutes()
-      : 0;
-    const shouldDeferPending = deferMinutes > 0 && isPending;
-    const delayMs =
-      shouldQueueRequest && shouldDeferPending
-        ? Math.max(0, Math.min(deferMinutes, 120)) * 60_000
-        : 0;
-
-    if (isPending) {
-      if (shouldQueueRequest) {
-        try {
-          await enqueueEmailJob(
-            {
-              bookingId: booking.id,
-              restaurantId,
-              type: 'request_received',
-              scheduledFor: delayMs > 0 ? new Date(Date.now() + delayMs).toISOString() : null,
-            },
-            {
-              jobId: `request_received:${booking.id}`,
-              delayMs,
-            },
-          );
-          queuedViaQueue = true;
-        } catch (error) {
-          console.error('[jobs][booking.created][queue]', error);
-          try {
-            await sendBookingConfirmationEmail(booking as BookingRecord);
-          } catch (fallbackError) {
-            console.error('[jobs][booking.created][email-fallback]', fallbackError);
-          }
-        }
-      } else {
-        try {
-          await sendBookingConfirmationEmail(booking as BookingRecord);
-        } catch (error) {
-          console.error('[jobs][booking.created][email]', error);
-        }
-      }
-    } else {
-      const shouldQueueConfirmation = shouldQueueEmail('confirmation');
-      if (shouldQueueConfirmation) {
-        try {
-          await enqueueEmailJob(
-            {
-              bookingId: booking.id,
-              restaurantId,
-              type: 'confirmation',
-              scheduledFor: null,
-            },
-            {
-              jobId: `confirmation:${booking.id}`,
-              delayMs: 0,
-            },
-          );
-          queuedViaQueue = true;
-        } catch (error) {
-          console.error('[jobs][booking.created][queue-confirmation]', error);
-          try {
-            await sendBookingConfirmationEmail(booking as BookingRecord);
-          } catch (fallbackError) {
-            console.error('[jobs][booking.created][email-fallback]', fallbackError);
-          }
-        }
-      } else {
-        try {
-          await sendBookingConfirmationEmail(booking as BookingRecord);
-        } catch (error) {
-          console.error('[jobs][booking.created][email]', error);
-        }
-      }
+    try {
+      await sendBookingConfirmationEmail(booking as BookingRecord);
+    } catch (error) {
+      console.error('[jobs][booking.created][email]', error);
     }
   }
 
@@ -619,41 +536,10 @@ async function processBookingUpdatedSideEffects(
     (prevStatus === 'pending' || prevStatus === 'pending_allocation') && currStatus === 'confirmed';
 
   if (confirmedFromPending && !SUPPRESS_EMAILS && isValidEmail(current.customer_email)) {
-    const shouldQueueConfirmation = shouldQueueEmail('confirmation');
-    if (shouldQueueConfirmation) {
-      try {
-        await enqueueEmailJob(
-          {
-            bookingId: current.id,
-            restaurantId,
-            type: 'confirmation',
-            scheduledFor: null,
-          },
-          {
-            jobId: `confirmation:${current.id}`,
-            delayMs: 0,
-          },
-        );
-        // Try to cancel any pending "request received" email to avoid confusion/spam
-        // If it was scheduled with a delay, and we confirm before that delay, we should axe it.
-        await removeEmailJob(`request_received:${current.id}`);
-      } catch (error) {
-        console.error('[jobs][booking.updated][queue-confirmation]', error);
-        try {
-          await sendBookingConfirmationEmail(current as BookingRecord);
-        } catch (fallbackError) {
-          console.error('[jobs][booking.updated][email-fallback]', fallbackError);
-        }
-      }
-    } else {
-      try {
-        await sendBookingConfirmationEmail(current as BookingRecord);
-        if (isEmailQueueEnabled()) {
-          await removeEmailJob(`request_received:${current.id}`);
-        }
-      } catch (error) {
-        console.error('[jobs][booking.updated][email]', error);
-      }
+    try {
+      await sendBookingConfirmationEmail(current as BookingRecord);
+    } catch (error) {
+      console.error('[jobs][booking.updated][email-confirmation]', error);
     }
 
     const timezone = await fetchRestaurantTimezone(restaurantId, resolveSupabase(_supabase));
@@ -680,35 +566,10 @@ async function processBookingUpdatedSideEffects(
   }
 
   if (!SUPPRESS_EMAILS && current.customer_email && current.customer_email.trim().length > 0) {
-    const shouldQueueUpdate = shouldQueueEmail('updated');
-    if (shouldQueueUpdate) {
-      try {
-        await enqueueEmailJob(
-          {
-            bookingId: current.id,
-            restaurantId,
-            type: 'updated',
-            scheduledFor: null,
-          },
-          {
-            jobId: `updated:${current.id}`,
-            delayMs: 0,
-          },
-        );
-      } catch (error) {
-        console.error('[jobs][booking.updated][queue-update]', error);
-        try {
-          await sendBookingUpdateEmail(current as BookingRecord);
-        } catch (fallbackError) {
-          console.error('[jobs][booking.updated][email-fallback]', fallbackError);
-        }
-      }
-    } else {
-      try {
-        await sendBookingUpdateEmail(current as BookingRecord);
-      } catch (error) {
-        console.error('[jobs][booking.updated][email]', error);
-      }
+    try {
+      await sendBookingUpdateEmail(current as BookingRecord);
+    } catch (error) {
+      console.error('[jobs][booking.updated][email]', error);
     }
   }
 
@@ -740,39 +601,12 @@ async function processBookingCancelledSideEffects(
   }
 
   if (!SUPPRESS_EMAILS && cancelled.customer_email && cancelled.customer_email.trim().length > 0) {
-    const jobType = cancelledBy === 'customer' ? 'cancelled' : 'restaurant_cancellation';
     const sendFn =
       cancelledBy === 'customer' ? sendBookingCancellationEmail : sendRestaurantCancellationEmail;
-    const shouldQueueCancel = shouldQueueEmail(jobType);
-
-    if (shouldQueueCancel) {
-      try {
-        await enqueueEmailJob(
-          {
-            bookingId: cancelled.id,
-            restaurantId,
-            type: jobType,
-            scheduledFor: null,
-          },
-          {
-            jobId: `${jobType}:${cancelled.id}`,
-            delayMs: 0,
-          },
-        );
-      } catch (error) {
-        console.error('[jobs][booking.cancelled][queue]', error);
-        try {
-          await sendFn(cancelled as BookingRecord);
-        } catch (fallbackError) {
-          console.error('[jobs][booking.cancelled][email-fallback]', fallbackError);
-        }
-      }
-    } else {
-      try {
-        await sendFn(cancelled as BookingRecord);
-      } catch (error) {
-        console.error('[jobs][booking.cancelled][email]', error);
-      }
+    try {
+      await sendFn(cancelled as BookingRecord);
+    } catch (error) {
+      console.error('[jobs][booking.cancelled][email]', error);
     }
   }
 }

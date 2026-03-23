@@ -48,14 +48,14 @@ const treatAsProdTarget = appEnv === "production" || vercelEnv === "production";
 if (treatAsProdTarget) {
   const emailQueueEnabled = env.FEATURE_EMAIL_QUEUE_ENABLED === true;
   if (emailQueueEnabled) {
-    if (!env.QUEUE_REDIS_URL) {
+    if (!env.CLOUDFLARE_EMAIL_QUEUE_GATEWAY_URL || !env.CLOUDFLARE_EMAIL_QUEUE_GATEWAY_TOKEN) {
       blockers.push(
-        "FEATURE_EMAIL_QUEUE_ENABLED=true requires QUEUE_REDIS_URL to be set. Without it, scheduled emails will backlog or fail silently.",
+        "FEATURE_EMAIL_QUEUE_ENABLED=true requires CLOUDFLARE_EMAIL_QUEUE_GATEWAY_URL and CLOUDFLARE_EMAIL_QUEUE_GATEWAY_TOKEN to be set. Without them, delayed emails cannot reach the Cloudflare queue bridge.",
       );
     }
     if (!env.CRON_SECRET) {
       blockers.push(
-        "FEATURE_EMAIL_QUEUE_ENABLED=true requires CRON_SECRET to be set so Vercel cron can invoke /api/cron endpoints.",
+        "FEATURE_EMAIL_QUEUE_ENABLED=true requires CRON_SECRET to be set so trusted queue consumers can call /api/cron/process-emails.",
       );
     }
   }

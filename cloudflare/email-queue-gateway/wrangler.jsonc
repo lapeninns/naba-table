@@ -1,0 +1,40 @@
+{
+  "name": "nabatable-email-queue-gateway",
+  "main": "src/index.mjs",
+  "compatibility_date": "2026-03-23",
+  "workers_dev": true,
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "EMAIL_QUEUE_STATE",
+        "class_name": "EmailQueueState"
+      },
+      {
+        "name": "RATE_LIMIT_STATE",
+        "class_name": "RateLimitState"
+      },
+      {
+        "name": "CAPACITY_VERSION_STATE",
+        "class_name": "CapacityVersionState"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "EmailQueueState"
+      ]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": [
+        "RateLimitState",
+        "CapacityVersionState"
+      ]
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}

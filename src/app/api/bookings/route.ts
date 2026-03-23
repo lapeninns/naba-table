@@ -429,7 +429,7 @@ export async function GET(req: NextRequest) {
       restaurantSource: 'query' as 'query' | 'default' | 'token',
       lookupStrategy: 'unknown' as 'unknown' | 'policy' | 'legacy' | 'legacy-fallback',
       policyEnabled: false,
-      rateSource: 'unknown' as 'unknown' | 'redis' | 'memory' | 'none',
+      rateSource: 'unknown' as 'unknown' | 'cloudflare' | 'memory' | 'none',
     };
 
     let email: string;
