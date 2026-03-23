@@ -1,31 +1,32 @@
 # Continuity Ledger
 
-Last updated: 2026-03-23T13:04:00Z
+Last updated: 2026-03-23T13:26:00Z
 
 ## Goal (incl. success criteria)
 
-- Align Old Crown's live weekend lunch slots with the configured service periods and move the venue to 30-minute intervals.
+- Align booking slots fully with restaurant config and remove global built-in lunch/dinner time windows.
 - Success:
   - Old Crown uses a 30-minute reservation interval.
   - Friday lunch remains aligned with the `12:00-15:00` service period.
   - Saturday/Sunday lunch reflect the configured `12:00-17:00` service periods instead of stopping at `15:15`.
+  - Built-in `lunch`/`dinner` occasions no longer impose hidden global time windows.
 
 ## Constraints/Assumptions
 
 - Follow root AGENTS SDLC artifacts flow.
 - Follow root AGENTS SDLC artifacts flow.
-- This pass includes a live remote config correction plus a canonical repo-side record.
+- This pass includes live remote config corrections plus canonical repo-side records.
 - Keep secrets out of artifacts.
 
 ## Key decisions
 
 - Old Crown needs a live restaurant-specific interval update from `15` to `30`.
-- The shared `lunch` occasion availability (`11:30-15:30`) is out of sync with multiple weekend lunch service periods already configured to `17:00`.
-- Service-period coverage should continue to control weekday lunch ends even after widening the shared lunch availability window.
+- Built-in `lunch` and `dinner` occasions should not define their own daily clock windows.
+- Service periods and operating hours are the only timing source for built-in services.
 
 ## State
 
-- Live config correction applied and verified.
+- Live config correction applied and built-in occasion time windows removed.
 
 ## Done
 
@@ -46,12 +47,12 @@ Last updated: 2026-03-23T13:04:00Z
 
 ## Now
 
-- Finalizing verification for the config-driven slot alignment code changes.
+- Finalizing verification for the built-in occasion cleanup and preparing a push.
 
 ## Next
 
-1. Summarize the exact Friday/Saturday/Sunday slot behavior now produced by the updated code.
-2. Note that Sunday dinner still ends at `20:30` because the configured Sunday dinner period ends at `21:00`.
+1. Run the new built-in occasion availability regression test.
+2. Commit and push the built-in occasion cleanup.
 
 ## Open questions (UNCONFIRMED if needed)
 
