@@ -1,5 +1,6 @@
-import { envSchemas, type Env } from '@/config/env.schema';
+import { envSchemas, resolveEnvSchemaTarget, type Env } from '@/config/env.schema';
 import { getCanonicalSiteUrl } from '@/lib/site-url';
+import { DEFAULT_RESERVATION_INTERVAL_MINUTES } from '@reserve/shared/config/reservations';
 
 const DEFAULT_RESEND_DOMAIN = 'no-reply-notifications.nabatable.com';
 const DEFAULT_RESEND_FROM = `no-reply@${DEFAULT_RESEND_DOMAIN}`;
@@ -52,8 +53,8 @@ function parseEnv(): Env {
     return cachedEnv;
   }
 
-  const nodeEnv = (process.env.NODE_ENV ?? 'development') as keyof typeof envSchemas;
-  const schema = envSchemas[nodeEnv] ?? envSchemas.development;
+  const schemaTarget = resolveEnvSchemaTarget(process.env);
+  const schema = envSchemas[schemaTarget] ?? envSchemas.development;
 
   const result = schema.safeParse(process.env);
 
@@ -129,7 +130,8 @@ export const env = {
       routerBasePath: parsed.RESERVE_ROUTER_BASE_PATH ?? '/reserve',
       buildOutDir: parsed.RESERVE_BUILD_OUT_DIR,
       defaultDurationMinutes: parsed.RESERVE_RESERVATION_DEFAULT_DURATION_MINUTES ?? 90,
-      intervalMinutes: parsed.RESERVE_RESERVATION_INTERVAL_MINUTES ?? 15,
+      intervalMinutes:
+        parsed.RESERVE_RESERVATION_INTERVAL_MINUTES ?? DEFAULT_RESERVATION_INTERVAL_MINUTES,
       isOpenLabel: parsed.RESERVE_RESERVATION_OPEN,
       timezone: parsed.RESERVE_RESERVATION_TIMEZONE,
       unavailableTooltip: parsed.RESERVE_RESERVATION_UNAVAILABLE_TOOLTIP,
