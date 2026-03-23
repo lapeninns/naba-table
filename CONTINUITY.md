@@ -1,46 +1,44 @@
 # Continuity Ledger
 
-Last updated: 2026-03-23T14:33:34Z
+Last updated: 2026-03-23T17:01:00Z
 
 ## Goal (incl. success criteria)
 
-- Fix first-party PostHog runtime errors that still have active issue status.
+- Fix the `/dashboard` hydration mismatch causing React error `#418` in production.
 - Success:
-  - Public booking flow no longer crashes on partial schedule payloads.
-  - Ops-side query cache mutations tolerate malformed cache shapes instead of throwing.
-  - Ops restaurant switch search no longer assumes every membership has a valid `restaurantName`.
+  - `/dashboard` hydrates without React error `#418`.
+  - First-render dashboard text is deterministic between SSR and hydration.
+  - Live dashboard timestamps and urgency badges still update after hydration.
 
 ## Constraints/Assumptions
 
 - Follow root AGENTS SDLC artifact flow and closest nested policies.
-- Manual UI QA via Chrome DevTools MCP is required because the public booking route is user-facing UI.
-- Keep fixes narrow and production-safe; no schema changes.
-- Production source maps are still unavailable, so some fixes are based on high-confidence repo matches rather than symbolicated stacks.
+- Manual UI QA via Chrome DevTools MCP is required because the ops dashboard is user-facing UI.
+- Keep fixes narrow and production-safe; no schema or API changes.
+- Production source maps are unavailable in the supplied error report, so diagnosis is based on the route tree and React hydration guidance.
 
 ## Key decisions
 
-- Use the existing `tasks/posthog-error-audit-20260323-1116/` task as the investigation baseline rather than re-auditing from scratch.
-- Harden the guest schedule API client boundary instead of relying on every runtime payload to match the ideal TypeScript shape.
-- Fix the low-ambiguity ops-side null/shape assumptions in the same pass because they map directly to still-active PostHog issue families.
+- Treat the reported error as a hydration mismatch, not a generic runtime exception, based on React error `#418`.
+- Fix the initial render by threading one server-generated time snapshot through the dashboard tree.
+- Cover both connection-status relative timestamps and booking urgency calculations because both render time-dependent text on first paint.
 
 ## State
 
-- Patch and verification completed locally; ready for review or commit.
+- Patch and verification completed locally; ready for review.
 
 ## Done
 
-- Confirmed active PostHog issues and detailed issue IDs in project `120939`.
-- Reviewed root, `src/app/AGENTS.md`, `src/guest/AGENTS.md`, `src/components/AGENTS.md`, and `src/hooks/AGENTS.md`.
-- Located existing investigation task `tasks/posthog-error-audit-20260323-1116/`.
-- Created task folder `tasks/fix-posthog-runtime-errors-20260323-1428/`.
-- Drafted `research.md`, `plan.md`, `todo.md`, and `verification.md` for the new fix task.
-- Identified target codepaths:
-  - `reserve/features/reservations/wizard/services/schedule.ts`
-  - `src/components/features/ops-shell/OpsRestaurantSwitch.tsx`
-  - `hooks/useUpdateBooking.ts`
-  - `hooks/useCancelBooking.ts`
-  - `hooks/ops/useUpdateRestaurant.ts`
-  - `src/hooks/ops/useOpsBookingStatusActions.ts`
+- Reviewed root, `src/app/AGENTS.md`, and `src/components/AGENTS.md`.
+- Confirmed React error `#418` maps to a hydration mismatch from the official React docs.
+- Created task folder `tasks/fix-dashboard-hydration-mismatch-20260323-1649/`.
+- Drafted `research.md`, `plan.md`, `todo.md`, and `verification.md` for the dashboard fix task.
+- Identified likely mismatch sources:
+  - `src/components/features/dashboard/ConnectionStatusBeacon.tsx`
+  - `src/components/features/dashboard/list/useBookingsListState.ts`
+  - `src/components/features/dashboard/cards/OpsBookingCard.tsx`
+  - `src/app/app/(app)/dashboard/page.tsx`
+  - `src/components/features/dashboard/OpsDashboardClient.tsx`
 
 ## Now
 
@@ -48,26 +46,26 @@ Last updated: 2026-03-23T14:33:34Z
 
 ## Next
 
-- Review or commit the PostHog runtime hardening changes.
-- Decide whether to open a follow-up task for the booking-form accessibility warnings and the remaining `Script error.` telemetry.
+- Review or commit the hydration mismatch fix.
+- Monitor production `/dashboard` client-error telemetry after deployment.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- Whether the active `Script error.` issue is fully first-party or still blocked by third-party/script-source visibility. (UNCONFIRMED)
+- Whether the production `/dashboard` route has any additional auth-only text branches that were not exercised by the dev harness. (UNCONFIRMED)
 
 ## Working set (files/ids/commands)
 
 - `/Users/amankumarshrestha/LapenInns Project/nabatableLP/CONTINUITY.md`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/fix-posthog-runtime-errors-20260323-1428/research.md`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/fix-posthog-runtime-errors-20260323-1428/plan.md`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/fix-posthog-runtime-errors-20260323-1428/todo.md`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/fix-posthog-runtime-errors-20260323-1428/verification.md`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/reserve/features/reservations/wizard/services/schedule.ts`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/features/ops-shell/OpsRestaurantSwitch.tsx`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/src/hooks/ops/useOpsBookingStatusActions.ts`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/hooks/useUpdateBooking.ts`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/hooks/useCancelBooking.ts`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/hooks/ops/useUpdateRestaurant.ts`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/fix-dashboard-hydration-mismatch-20260323-1649/research.md`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/fix-dashboard-hydration-mismatch-20260323-1649/plan.md`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/fix-dashboard-hydration-mismatch-20260323-1649/todo.md`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/fix-dashboard-hydration-mismatch-20260323-1649/verification.md`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/src/app/app/(app)/dashboard/page.tsx`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/features/dashboard/OpsDashboardClient.tsx`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/features/dashboard/ConnectionStatusBeacon.tsx`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/features/dashboard/list/useBookingsListState.ts`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/features/dashboard/cards/OpsBookingCard.tsx`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/src/app/(public)/dev/ops-dashboard/ui/OpsDashboardDevHarness.tsx`
 
 ---
 

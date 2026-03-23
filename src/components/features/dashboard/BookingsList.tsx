@@ -47,6 +47,7 @@ type BookingsListProps = {
   filter: BookingFilter;
   searchQuery?: string;
   summary: OpsTodayBookingsSummary;
+  initialNowIso: string;
   allowTableAssignments: boolean;
   restaurantSlug?: string | null;
   sortKey: BookingSortKey;
@@ -104,6 +105,7 @@ function BookingsListContent({
   filter,
   searchQuery,
   summary,
+  initialNowIso,
   allowTableAssignments,
   restaurantSlug,
   sortKey,
@@ -141,6 +143,7 @@ function BookingsListContent({
     filter,
     searchQuery,
     summary,
+    initialNowIso,
     allowTableAssignments,
     hasAssignmentHandlers,
     sortKey,

@@ -20,6 +20,7 @@ export type OpsDashboardHeaderProps = {
   selectedDate: string;
   isRefetching: boolean;
   isSummaryLoading?: boolean;
+  initialNowIso: string;
   dataUpdatedAt?: number | null;
   realtimeEnabled?: boolean;
   realtimeHealthy?: boolean;
@@ -41,6 +42,7 @@ export function OpsDashboardHeader({
   selectedDate,
   isRefetching,
   isSummaryLoading = false,
+  initialNowIso,
   dataUpdatedAt,
   realtimeEnabled,
   realtimeHealthy,
@@ -111,6 +113,7 @@ export function OpsDashboardHeader({
       subtitle={subtitle}
       meta={
         <ConnectionStatusBeacon
+          initialNowIso={initialNowIso}
           dataUpdatedAt={dataUpdatedAt}
           realtimeEnabled={realtimeEnabled}
           realtimeHealthy={realtimeHealthy}

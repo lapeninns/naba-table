@@ -15,6 +15,7 @@ export type UseBookingsListStateProps = {
   filter: BookingFilter;
   searchQuery?: string;
   summary: OpsTodayBookingsSummary;
+  initialNowIso: string;
   allowTableAssignments: boolean;
   hasAssignmentHandlers: boolean;
   sortKey: BookingSortKey;
@@ -25,18 +26,24 @@ export type UseBookingsListStateProps = {
   } | null;
 };
 
+function resolveInitialNow(initialNowIso: string, timezone: string): DateTime {
+  const parsed = DateTime.fromISO(initialNowIso).setZone(timezone);
+  return parsed.isValid ? parsed : DateTime.now().setZone(timezone);
+}
+
 export function useBookingsListState({
   bookings,
   filter,
   searchQuery,
   summary,
+  initialNowIso,
   allowTableAssignments,
   hasAssignmentHandlers,
   sortKey,
   sortDir,
   pendingLifecycleAction,
 }: UseBookingsListStateProps) {
-  const [now, setNow] = useState(() => DateTime.now().setZone(summary.timezone));
+  const [now, setNow] = useState(() => resolveInitialNow(initialNowIso, summary.timezone));
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
