@@ -1,0 +1,17 @@
+[dotenv@17.2.3] injecting env (62) from .env.local -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[
+  {
+    "key": "dinner",
+    "label": "Dinner",
+    "availability": [],
+    "default_duration_minutes": 120,
+    "updated_at": "2026-03-23T13:23:17.259+00:00"
+  },
+  {
+    "key": "lunch",
+    "label": "Lunch",
+    "availability": [],
+    "default_duration_minutes": 90,
+    "updated_at": "2026-03-23T13:23:17.259+00:00"
+  }
+]

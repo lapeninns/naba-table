@@ -17,7 +17,7 @@ related_tickets: []
 ## Remote Data Verification
 
 - [x] Old Crown interval updated to `30`.
-- [x] Lunch availability updated to `11:30-17:00`.
+- [x] Built-in `lunch` and `dinner` occasion availability cleared.
 - [x] Friday slots verified.
 - [x] Saturday slots verified.
 - [x] Sunday slots verified.
@@ -43,7 +43,7 @@ related_tickets: []
 
 ## Code Verification
 
-- `pnpm exec vitest run tests/server/bookings/timeValidation.test.ts tests/reserve/service-slots.test.ts tests/reserve/buildReservationDraft.test.ts tests/reserve/reservation-config.test.ts`
+- `pnpm exec vitest run tests/server/bookings/timeValidation.test.ts tests/reserve/service-slots.test.ts tests/reserve/buildReservationDraft.test.ts tests/reserve/reservation-config.test.ts tests/reserve/occasion-availability.test.ts`
 - `pnpm exec eslint server/restaurants/schedule.ts server/bookings/timeValidation.ts server/booking/BookingValidationService.ts src/app/api/bookings/route.ts 'src/app/api/bookings/[id]/route.ts' src/app/api/ops/bookings/route.ts reserve/shared/schedule/availability.ts src/components/features/booking-state-machine/ScheduleAwareTimestampPicker.tsx reserve/features/reservations/wizard/hooks/usePlanStepForm.ts tests/server/bookings/timeValidation.test.ts tests/reserve/service-slots.test.ts`
 - `pnpm run typecheck`
 
@@ -54,6 +54,7 @@ related_tickets: []
 - After config: `artifacts/after-old-crown-config.json`
 - After slots: `artifacts/after-old-crown-slots.json`
 - After code alignment: `artifacts/after-code-slot-alignment.json`
+- After built-in occasion cleanup: `artifacts/after-builtin-occasion-cleanup.json`
 
 ## Known Issues
 

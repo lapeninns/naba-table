@@ -23,6 +23,8 @@ related_tickets: []
 - [x] Remove duration/buffer-based trimming from schedule slot generation.
 - [x] Align guest and ops booking-time validation with configured slot boundaries.
 - [x] Align picker/manual-time helpers with the last configured slot instead of derived guard minutes.
+- [x] Remove global time-window constraints from built-in `lunch` and `dinner` occasions.
+- [x] Add canonical migration for the built-in occasion cleanup.
 
 ## UI/UX
 
@@ -35,11 +37,12 @@ related_tickets: []
 - [x] Re-query Sunday schedule.
 - [x] Add regression coverage for exclusive-end service slots.
 - [x] Add regression coverage for accepting the last configured slot.
+- [x] Add regression coverage for built-in occasions without global time windows.
 
 ## Notes
 
 - Assumptions:
-  - Shared lunch availability should match the existing weekend lunch service-period model already used by multiple restaurants.
+  - Built-in lunch/dinner time-of-day windows are redundant once service periods and operating hours define availability.
 - Deviations:
   - Immediate live correction is being applied before a formal staged migration because the user asked for an urgent config fix.
   - The task expanded into a code alignment pass so slot generation, validation, and picker helpers all follow the same config-driven rule.

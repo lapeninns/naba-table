@@ -36,8 +36,8 @@ related_tickets: []
 
 ## Constraints & Risks
 
-- The shared `booking_occasions` record for `lunch` currently caps lunch at `15:30`, which overrides multiple restaurant service periods that extend to `17:00`.
-- Changing the shared lunch availability affects all restaurants using the `lunch` occasion, so verification must confirm that service-period coverage still constrains weekdays correctly.
+- Built-in `booking_occasions` records for `lunch`/`dinner` can impose hidden global clock windows on top of restaurant service periods.
+- Removing global built-in occasion windows affects all restaurants using those built-ins, so verification must confirm service periods and operating hours fully control visible slots.
 - Old Crown currently has:
   - `reservation_interval_minutes = 15`
   - `reservation_default_duration_minutes = 90`
@@ -51,5 +51,5 @@ related_tickets: []
 ## Recommended Direction (with rationale)
 
 - Update Old Crown's live `reservation_interval_minutes` from `15` to `30`.
-- Update the shared `lunch` occasion availability window from `11:30-15:30` to `11:30-17:00` so it matches the existing weekend lunch service-period pattern already configured for multiple restaurants.
-- Add a canonical migration recording the `lunch` occasion update so future environments remain aligned with production.
+- Remove global time windows from built-in `lunch` and `dinner` occasions so restaurant service periods and operating hours are the only timing source for built-in services.
+- Add canonical migrations recording the built-in occasion cleanup so future environments remain aligned with production.

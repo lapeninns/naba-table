@@ -20,14 +20,15 @@ We will align Old Crown's live slot generation with the already-configured weeke
 - [ ] Friday lunch remains `12:00-14:30` at 30-minute intervals.
 - [ ] Saturday and Sunday lunch expose `15:00`, `15:30`, `16:00`, and `16:30`.
 - [ ] Dinner still starts at `17:00`.
+- [ ] Built-in `lunch` and `dinner` occasions have no global time-window constraint.
 
 ## Architecture & Components
 
 - Live data update:
   - `restaurants.reservation_interval_minutes` for Old Crown
-  - `booking_occasions.availability` for `lunch`
+  - `booking_occasions.availability` for built-in `lunch` and `dinner`
 - Canonical record:
-  - Supabase migration documenting the shared lunch availability correction
+  - Supabase migrations documenting the built-in occasion cleanup
 
 ## Data Flow & API Contracts
 
@@ -65,4 +66,4 @@ We will align Old Crown's live slot generation with the already-configured weeke
 - Backfill strategy: none.
 - Rollback plan:
   - Old Crown interval back to `15`
-  - Lunch occasion availability back to `11:30-15:30`
+  - Built-in occasion availability restored to prior values if needed
