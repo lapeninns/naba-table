@@ -5,7 +5,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import type { ZodIssue } from "zod";
 
-import { envSchemas } from "../config/env.schema";
+import { envSchemas, resolveEnvSchemaTarget } from "../config/env.schema";
 
 const modulePath = fileURLToPath(import.meta.url);
 const projectRoot = path.resolve(path.dirname(modulePath), "..");
@@ -15,11 +15,11 @@ if (fs.existsSync(envLocalPath)) {
   loadEnv({ path: envLocalPath, override: false });
 }
 
-const nodeEnv = (process.env.NODE_ENV ?? "development") as keyof typeof envSchemas;
-const schema = envSchemas[nodeEnv];
+const schemaTarget = resolveEnvSchemaTarget(process.env);
+const schema = envSchemas[schemaTarget];
 
 if (!schema) {
-  console.error(`Unknown NODE_ENV "${nodeEnv}". Expected one of: ${Object.keys(envSchemas).join(", ")}.`);
+  console.error(`Unknown env schema target "${schemaTarget}". Expected one of: ${Object.keys(envSchemas).join(", ")}.`);
   process.exit(1);
 }
 
@@ -132,7 +132,7 @@ if (warnings.length > 0) {
 }
 
 console.log(
-  `Environment validation passed for NODE_ENV=${nodeEnv}, APP_ENV=${appEnv}, VERCEL_ENV=${vercelEnv ?? "unset"}.`,
+  `Environment validation passed for schema=${schemaTarget}, NODE_ENV=${process.env.NODE_ENV ?? "development"}, APP_ENV=${appEnv}, VERCEL_ENV=${vercelEnv ?? "unset"}.`,
 );
 
 function logIssues(issues: ZodIssue[]) {

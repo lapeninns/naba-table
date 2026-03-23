@@ -178,4 +178,21 @@ export const envSchemas = {
   test: testEnvSchema,
 } as const;
 
+export type EnvSchemaTarget = keyof typeof envSchemas;
+
+export function resolveEnvSchemaTarget(
+  input: Partial<Record<'NODE_ENV' | 'APP_ENV' | 'VERCEL_ENV', string | undefined>>,
+): EnvSchemaTarget {
+  const nodeEnv = input.NODE_ENV ?? 'development';
+  if (nodeEnv === 'test') {
+    return 'test';
+  }
+
+  const appEnv = input.APP_ENV ?? 'development';
+  const vercelEnv = input.VERCEL_ENV;
+  const treatAsProdTarget = appEnv === 'production' || vercelEnv === 'production';
+
+  return treatAsProdTarget ? 'production' : 'development';
+}
+
 export type Env = z.infer<typeof baseEnvSchema>;
