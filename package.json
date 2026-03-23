@@ -50,9 +50,13 @@
     "email:check": "tsx scripts/email/check-resend-status.ts",
     "email:preview": "tsx -r tsconfig-paths/register scripts/preview-booking-email.ts",
     "email:setup:notifications-domain": "tsx scripts/email/setup-notifications-domain.ts",
+    "cloudflare:email-gateway:deploy": "bash scripts/cloudflare/deploy-email-gateway.sh",
+    "cloudflare:email-gateway:versions": "script -q /dev/null npx wrangler deployments list --config \"cloudflare/email-queue-gateway/wrangler.jsonc\"",
+    "cloudflare:email-gateway:rollback": "bash scripts/cloudflare/rollback-email-gateway.sh",
+    "cloudflare:email-gateway:smoke": "dotenv -e .env.local -- tsx -r tsconfig-paths/register scripts/cloudflare/smoke-email-gateway.ts",
+    "vercel:rollback": "npx vercel rollback",
     "jobs:hold-sweeper": "tsx -r tsconfig-paths/register scripts/jobs/run-hold-sweeper.ts",
     "jobs:allocations-pruner": "tsx -r tsconfig-paths/register scripts/jobs/run-allocations-pruner.ts",
-    "queue:email-worker": "tsx -r tsconfig-paths/register scripts/queues/email-worker.ts",
     "assign:loop": "tsx -r tsconfig-paths/register scripts/ops-auto-assign-ultra-fast-loop.ts --slug white-horse-pub-waterbeach --date 2025-11-10",
     "booking:flow": "tsx -r tsconfig-paths/register scripts/run-booking-flow.ts",
     "db:reset": "tsx scripts/db/safe-run.ts reset",
@@ -104,16 +108,13 @@
     "@tanstack/react-query": "^5.90.11",
     "@tanstack/react-query-devtools": "^5.91.1",
     "@tanstack/react-virtual": "^3.13.18",
-    "@upstash/redis": "^1.35.7",
     "axios": "^1.13.2",
-    "bullmq": "^5.65.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "crisp-sdk-web": "^1.0.26",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
     "import-in-the-middle": "^2.0.5",
-    "ioredis": "^5.8.2",
     "libphonenumber-js": "1.12.35",
     "lodash": "^4.17.21",
     "lucide-react": "^0.555.0",
@@ -203,9 +204,6 @@
     "onlyBuiltDependencies": [
       "esbuild",
       "sharp"
-    ],
-    "patchedDependencies": {
-      "bullmq": "patches/bullmq.patch"
-    }
+    ]
   }
 }

@@ -128,7 +128,6 @@ async function main(): Promise<void> {
 
   const { getServiceSupabaseClient } = await import('@/server/supabase');
   const { enqueueEmailJob } = await import('@/server/queue/email');
-  const { closeRedisConnection } = await import('@/lib/queue/redis');
 
   const supabase = getServiceSupabaseClient();
 
@@ -221,28 +220,24 @@ async function main(): Promise<void> {
   let enqueued = 0;
   let enqueueFailed = 0;
 
-  try {
-    for (const booking of toEnqueue) {
-      try {
-        await enqueueEmailJob(
-          {
-            bookingId: booking.id,
-            restaurantId: booking.restaurant_id ?? null,
-            type: 'review_request',
-            scheduledFor: new Date().toISOString(),
-          },
-          { jobId: `review_request:${booking.id}`, delayMs: 0 },
-        );
-        enqueued += 1;
-      } catch (error) {
-        enqueueFailed += 1;
-        console.warn('[backfill-review] failed to enqueue job', {
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
+  for (const booking of toEnqueue) {
+    try {
+      await enqueueEmailJob(
+        {
+          bookingId: booking.id,
+          restaurantId: booking.restaurant_id ?? null,
+          type: 'review_request',
+          scheduledFor: new Date().toISOString(),
+        },
+        { jobId: `review_request:${booking.id}`, delayMs: 0 },
+      );
+      enqueued += 1;
+    } catch (error) {
+      enqueueFailed += 1;
+      console.warn('[backfill-review] failed to enqueue job', {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
-  } finally {
-    await closeRedisConnection();
   }
 
   console.log('[backfill-review] enqueue results', { enqueued, enqueueFailed });

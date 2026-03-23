@@ -16,7 +16,6 @@ import { getCachedOccasionCatalog } from '@/server/occasions/catalog';
 import { assertActiveOccasionKey } from '@/server/occasions/validateBookingType';
 
 import { computeTokenExpiry, generateConfirmationToken } from "./bookings/confirmation-token";
-import { invalidateAvailabilitySnapshot } from "./cache/availability";
 import {
   findCustomerByContact,
   normalizeEmail,
@@ -423,8 +422,6 @@ export async function softCancelBooking(client: DbClient, bookingId: string): Pr
     cancelledAt: booking.updated_at,
   });
 
-  await invalidateAvailabilitySnapshot(booking.restaurant_id, booking.booking_date);
-
   return booking;
 }
 
@@ -465,8 +462,6 @@ export async function updateBookingRecord(
   }
 
   const booking = data as BookingRecord;
-
-  await invalidateAvailabilitySnapshot(booking.restaurant_id, booking.booking_date);
 
   return booking;
 }
@@ -617,8 +612,6 @@ export async function insertBookingRecord(
     marketingOptIn: booking.marketing_opt_in,
     status: booking.status,
   });
-
-  await invalidateAvailabilitySnapshot(booking.restaurant_id, booking.booking_date);
 
   return booking;
 }

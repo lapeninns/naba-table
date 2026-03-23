@@ -361,18 +361,6 @@ export const env = {
     } as const;
   },
 
-  get cache() {
-    const parsed = parseEnv();
-    return {
-      enableAvailabilityCache: parsed.ENABLE_AVAILABILITY_CACHE ?? false,
-      availabilityTtlSeconds: parsed.AVAILABILITY_CACHE_TTL_SECONDS ?? 300,
-      upstash: {
-        restUrl: parsed.UPSTASH_REDIS_REST_URL,
-        restToken: parsed.UPSTASH_REDIS_REST_TOKEN,
-      },
-    } as const;
-  },
-
   get opsCache() {
     const parsed = parseEnv();
 
@@ -389,15 +377,11 @@ export const env = {
     } as const;
   },
 
-  get queue() {
+  get cloudflare() {
     const parsed = parseEnv();
     return {
-      redisUrl: parsed.QUEUE_REDIS_URL,
-      host: parsed.QUEUE_REDIS_HOST,
-      port: parsed.QUEUE_REDIS_PORT,
-      username: parsed.QUEUE_REDIS_USERNAME,
-      password: parsed.QUEUE_REDIS_PASSWORD,
-      tls: parsed.QUEUE_REDIS_TLS ?? false,
+      emailQueueGatewayUrl: parsed.CLOUDFLARE_EMAIL_QUEUE_GATEWAY_URL,
+      emailQueueGatewayToken: parsed.CLOUDFLARE_EMAIL_QUEUE_GATEWAY_TOKEN,
     } as const;
   },
 } as const;

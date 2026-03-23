@@ -1,4 +1,8 @@
-import { Redis } from "@upstash/redis";
+import {
+  extractCloudflareGatewayError,
+  isCloudflareGatewayConfigured,
+  requestCloudflareGateway,
+} from '@/server/cloudflare/gateway';
 
 import { LruCache } from "./lru-cache";
 
@@ -14,34 +18,93 @@ const adjacencyCache = new LruCache<Map<string, Set<string>>>(MAX_ADJ_ENTRIES, D
 inventoryCache.startScavenger(SCAVENGE_INTERVAL_MS);
 adjacencyCache.startScavenger(SCAVENGE_INTERVAL_MS);
 
-// Optional distributed invalidation (eventual consistency) via Upstash Redis
-const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL;
-const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
-const redis: Redis | null = REDIS_URL && REDIS_TOKEN ? new Redis({ url: REDIS_URL, token: REDIS_TOKEN }) : null;
-
 const POLL_INTERVAL_MS = 10_000; // 10s
-const VERSION_TTL_SECONDS = 60 * 60; // 1 hour
 
 const localVersionInventory = new Map<string, number>();
 const localVersionAdjacency = new Map<string, number>();
 
-function versionKey(kind: "inv" | "adj", restaurantId: string): string {
-  return `cap:${kind}:ver:${restaurantId}`;
-}
-
 async function bumpVersion(kind: "inv" | "adj", restaurantId: string): Promise<void> {
-  if (!redis) return;
+  if (!isCloudflareGatewayConfigured()) return;
   try {
-    const key = versionKey(kind, restaurantId);
-    await redis.incr(key);
-    await redis.expire(key, VERSION_TTL_SECONDS);
-  } catch {
-    // best-effort; ignore
+    const { response, body } = await requestCloudflareGateway<{ version?: number }>(
+      '/capacity/versions/bump',
+      {
+        method: 'POST',
+        body: JSON.stringify({ kind, restaurantId }),
+      },
+    );
+    if (!response.ok) {
+      throw new Error(
+        extractCloudflareGatewayError(
+          body,
+          `Capacity version bump failed with status ${response.status}`,
+        ),
+      );
+    }
+  } catch (error) {
+    console.warn('[capacity-cache] failed to bump remote version', {
+      restaurantId,
+      kind,
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 }
 
 function schedule<T>(fn: () => Promise<T>): void {
   void fn();
+}
+
+function getLocalVersionStore(kind: "inv" | "adj") {
+  return kind === 'inv' ? localVersionInventory : localVersionAdjacency;
+}
+
+function setLocalVersion(kind: "inv" | "adj", restaurantId: string, version: number): void {
+  getLocalVersionStore(kind).set(restaurantId, version);
+}
+
+async function readRemoteVersions(restaurantIds: string[]): Promise<
+  Record<string, { inv: number; adj: number }>
+> {
+  if (!isCloudflareGatewayConfigured() || restaurantIds.length === 0) {
+    return {};
+  }
+
+  const uniqueIds = Array.from(new Set(restaurantIds));
+
+  try {
+    const { response, body } = await requestCloudflareGateway<{
+      versions?: Record<string, { inv?: number; adj?: number }>;
+    }>('/capacity/versions/read', {
+      method: 'POST',
+      body: JSON.stringify({ restaurantIds: uniqueIds }),
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        extractCloudflareGatewayError(
+          body,
+          `Capacity version read failed with status ${response.status}`,
+        ),
+      );
+    }
+
+    const versions: Record<string, { inv: number; adj: number }> = {};
+    for (const restaurantId of uniqueIds) {
+      const version = body?.versions?.[restaurantId];
+      versions[restaurantId] = {
+        inv: typeof version?.inv === 'number' ? version.inv : 0,
+        adj: typeof version?.adj === 'number' ? version.adj : 0,
+      };
+    }
+
+    return versions;
+  } catch (error) {
+    console.warn('[capacity-cache] failed to read remote versions', {
+      restaurantIds: uniqueIds,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return {};
+  }
 }
 
 // shim helpers to preserve API
@@ -59,10 +122,6 @@ export function getInventoryCache(restaurantId: string): InventoryItem[] | null 
 
 export function setInventoryCache(restaurantId: string, tables: InventoryItem[], ttlMs?: number): void {
   setWithTtl(inventoryCache, restaurantId, tables, ttlMs);
-  // Update local version and bump distributed version asynchronously
-  const prev = localVersionInventory.get(restaurantId) ?? 0;
-  localVersionInventory.set(restaurantId, prev + 1);
-  schedule(() => bumpVersion("inv", restaurantId));
 }
 
 export function invalidateInventoryCache(restaurantId: string): void {
@@ -82,9 +141,6 @@ export function setAdjacencyCache(
   ttlMs?: number,
 ): void {
   setWithTtl(adjacencyCache, restaurantId, graph, ttlMs);
-  const prev = localVersionAdjacency.get(restaurantId) ?? 0;
-  localVersionAdjacency.set(restaurantId, prev + 1);
-  schedule(() => bumpVersion("adj", restaurantId));
 }
 
 export function invalidateAdjacencyCache(restaurantId: string): void {
@@ -94,33 +150,27 @@ export function invalidateAdjacencyCache(restaurantId: string): void {
   schedule(() => bumpVersion("adj", restaurantId));
 }
 
-// Background poller: if Redis configured, observe version keys and invalidate local entries when changed
-if (redis) {
+// Background poller: if Cloudflare gateway configured, observe remote versions and invalidate local entries when changed
+if (isCloudflareGatewayConfigured()) {
   setInterval(async () => {
     try {
-      // Inventory cache versions
-      for (const restaurantId of inventoryCache.keys()) {
-        const key = versionKey("inv", restaurantId);
-        const remote = await redis.get<number>(key);
-        if (typeof remote === "number") {
-          const local = localVersionInventory.get(restaurantId) ?? 0;
-          if (remote > local) {
-            inventoryCache.delete(restaurantId);
-            localVersionInventory.set(restaurantId, remote);
-          }
-        }
-      }
+      const restaurantIds = Array.from(new Set([...inventoryCache.keys(), ...adjacencyCache.keys()]));
+      const versions = await readRemoteVersions(restaurantIds);
 
-      // Adjacency cache versions
-      for (const restaurantId of adjacencyCache.keys()) {
-        const key = versionKey("adj", restaurantId);
-        const remote = await redis.get<number>(key);
-        if (typeof remote === "number") {
-          const local = localVersionAdjacency.get(restaurantId) ?? 0;
-          if (remote > local) {
-            adjacencyCache.delete(restaurantId);
-            localVersionAdjacency.set(restaurantId, remote);
-          }
+      for (const restaurantId of restaurantIds) {
+        const remote = versions[restaurantId];
+        if (!remote) continue;
+
+        const localInv = localVersionInventory.get(restaurantId) ?? 0;
+        if (remote.inv > localInv) {
+          inventoryCache.delete(restaurantId);
+          setLocalVersion('inv', restaurantId, remote.inv);
+        }
+
+        const localAdj = localVersionAdjacency.get(restaurantId) ?? 0;
+        if (remote.adj > localAdj) {
+          adjacencyCache.delete(restaurantId);
+          setLocalVersion('adj', restaurantId, remote.adj);
         }
       }
     } catch {
@@ -130,5 +180,5 @@ if (redis) {
 }
 
 export function isDistributedCacheEnabled(): boolean {
-  return !!redis;
+  return isCloudflareGatewayConfigured();
 }

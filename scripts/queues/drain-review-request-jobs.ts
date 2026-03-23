@@ -4,9 +4,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 
-import type { BookingRecord } from '@/server/bookings';
-import type { EmailJobPayload } from '@/server/queue/email';
-
 const projectRoot = process.cwd();
 const envPath = process.env.ENV_PATH
   ? path.resolve(projectRoot, process.env.ENV_PATH)
@@ -20,34 +17,6 @@ const SUPPRESS_EMAILS =
   process.env.LOAD_TEST_DISABLE_EMAILS === 'true' || process.env.SUPPRESS_EMAILS === 'true';
 
 const MAX_JOBS = Number.parseInt(process.env.MAX_JOBS ?? '50', 10);
-const DELAYED_SCAN_LIMIT = Number.parseInt(process.env.DELAYED_SCAN_LIMIT ?? '500', 10);
-
-function isValidEmail(value?: string | null): boolean {
-  return Boolean(value && value.trim().length > 3 && value.includes('@'));
-}
-
-async function fetchBooking(bookingId: string): Promise<BookingRecord | null> {
-  const { getServiceSupabaseClient } = await import('@/server/supabase');
-  const supabase = getServiceSupabaseClient();
-  const { data, error } = await supabase
-    .from('bookings')
-    .select('*')
-    .eq('id', bookingId)
-    .maybeSingle();
-  if (error) {
-    console.error('[drain-review][fetch-booking]', {
-      bookingId,
-      error: error.message,
-    });
-    return null;
-  }
-  return (data ?? null) as BookingRecord | null;
-}
-
-function isDue(job: { timestamp: number; opts?: { delay?: number } }, now: number): boolean {
-  const delay = job.opts?.delay ?? 0;
-  return job.timestamp + delay <= now;
-}
 
 async function main(): Promise<void> {
   if (SUPPRESS_EMAILS) {
@@ -59,83 +28,43 @@ async function main(): Promise<void> {
     throw new Error('MAX_JOBS must be a positive integer.');
   }
 
-  const { sendBookingReviewRequestEmail } = await import('@/server/emails/bookings');
-  const { getEmailQueue } = await import('@/server/queue/email');
-  const { closeRedisConnection } = await import('@/lib/queue/redis');
+  const appOrigin = (process.env.CRON_ORIGIN ?? 'https://app.nabatable.com').replace(/\/+$/, '');
+  const cronSecret = process.env.CRON_SECRET;
 
-  const queue = getEmailQueue();
-
-  try {
-    const now = Date.now();
-
-    const waitingJobs = await queue.getJobs(['wait'], 0, MAX_JOBS - 1, true);
-    const delayedJobs = await queue.getJobs(
-      ['delayed'],
-      0,
-      Math.max(0, DELAYED_SCAN_LIMIT - 1),
-      true,
-    );
-
-    const reviewWaiting = waitingJobs.filter((job) => job.data.type === 'review_request');
-    const reviewDelayed = delayedJobs.filter(
-      (job) => job.data.type === 'review_request' && isDue(job, now),
-    );
-
-    const candidates = [...reviewWaiting, ...reviewDelayed].slice(0, MAX_JOBS);
-
-    console.log('[drain-review] candidate jobs', {
-      waitingMatched: reviewWaiting.length,
-      delayedMatched: reviewDelayed.length,
-      totalSelected: candidates.length,
-    });
-
-    const results: Array<{ jobId: string; status: 'sent' | 'skipped' | 'failed'; reason?: string }> = [];
-
-    for (const job of candidates) {
-      const payload = job.data as EmailJobPayload;
-      const jobId = job.id?.toString() ?? 'unknown';
-
-      try {
-        const booking = await fetchBooking(payload.bookingId);
-        if (!booking) {
-          await job.remove();
-          results.push({ jobId, status: 'skipped', reason: 'booking_missing' });
-          continue;
-        }
-
-        if (!isValidEmail(booking.customer_email)) {
-          await job.remove();
-          results.push({ jobId, status: 'skipped', reason: 'invalid_email' });
-          continue;
-        }
-
-        if (booking.status !== 'completed') {
-          await job.remove();
-          results.push({ jobId, status: 'skipped', reason: `status_${booking.status ?? 'unknown'}` });
-          continue;
-        }
-
-        await sendBookingReviewRequestEmail(booking);
-        await job.remove();
-        results.push({ jobId, status: 'sent' });
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        console.error('[drain-review] failed', { jobId, error: message });
-        results.push({ jobId, status: 'failed', reason: message });
-      }
-    }
-
-    const summary = {
-      processed: results.length,
-      sent: results.filter((r) => r.status === 'sent').length,
-      skipped: results.filter((r) => r.status === 'skipped').length,
-      failed: results.filter((r) => r.status === 'failed').length,
-    };
-
-    console.log('[drain-review] summary', summary);
-  } finally {
-    await closeRedisConnection();
+  if (!cronSecret) {
+    throw new Error('CRON_SECRET is required to trigger /api/cron/process-emails.');
   }
+
+  const url = new URL(`${appOrigin}/api/cron/process-emails`);
+  url.searchParams.set('types', 'review_request');
+  url.searchParams.set('maxJobs', String(MAX_JOBS));
+
+  const response = await fetch(url.toString(), {
+    method: 'GET',
+    headers: {
+      authorization: `Bearer ${cronSecret}`,
+    },
+  });
+
+  const payload = (await response.json().catch(() => null)) as
+    | {
+        success?: boolean;
+        processed?: number;
+        stats?: { sent?: number; skipped?: number; failed?: number };
+        error?: string;
+      }
+    | null;
+
+  if (!response.ok) {
+    throw new Error(payload?.error ?? `Drain failed with status ${response.status}`);
+  }
+
+  console.log('[drain-review] summary', {
+    processed: payload?.processed ?? 0,
+    sent: payload?.stats?.sent ?? 0,
+    skipped: payload?.stats?.skipped ?? 0,
+    failed: payload?.stats?.failed ?? 0,
+  });
 }
 
 main()

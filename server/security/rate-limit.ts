@@ -1,6 +1,9 @@
-import { Redis } from "@upstash/redis";
-
-import { env } from "@/lib/env";
+import { env } from '@/lib/env';
+import {
+  extractCloudflareGatewayError,
+  isCloudflareGatewayConfigured,
+  requestCloudflareGateway,
+} from '@/server/cloudflare/gateway';
 
 type RateLimitParams = {
   identifier: string;
@@ -13,7 +16,7 @@ export type RateLimitResult = {
   limit: number;
   remaining: number;
   resetAt: number;
-  source: "redis" | "memory" | "none";
+  source: 'cloudflare' | 'memory' | 'none';
 };
 
 type MemoryBucket = {
@@ -24,16 +27,15 @@ type MemoryBucket = {
 class RateLimitConfigurationError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = "RateLimitConfigurationError";
+    this.name = 'RateLimitConfigurationError';
   }
 }
 
-let redisClient: Redis | null | undefined;
 const memoryStore = new Map<string, MemoryBucket>();
 let warnedAboutMemoryStore = false;
-let warnedAboutMissingUpstash = false;
-const devMode = env.node.env === "development";
-const isProductionEnv = env.node.env === "production";
+let warnedAboutMissingGateway = false;
+const devMode = env.node.env === 'development';
+const isProductionEnv = env.node.env === 'production';
 
 function parseBooleanEnv(value: string | undefined): boolean | undefined {
   if (!value) return undefined;
@@ -45,56 +47,25 @@ function parseBooleanEnv(value: string | undefined): boolean | undefined {
 const enableRateLimitInDev = parseBooleanEnv(process.env.ENABLE_RATE_LIMIT_IN_DEV);
 const shouldBypassRateLimit = devMode && enableRateLimitInDev !== true;
 
-function logMissingUpstashWarning() {
+function logMissingCloudflareWarning() {
   if (shouldBypassRateLimit) {
     return;
   }
-  if (warnedAboutMissingUpstash) {
+  if (warnedAboutMissingGateway) {
     return;
   }
 
   if (isProductionEnv) {
-    warnedAboutMissingUpstash = true;
+    warnedAboutMissingGateway = true;
     throw new RateLimitConfigurationError(
-      "Upstash Redis credentials (UPSTASH_REDIS_REST_URL/UPSTASH_REDIS_REST_TOKEN) are required in production.",
+      'Cloudflare gateway credentials (CLOUDFLARE_EMAIL_QUEUE_GATEWAY_URL/CLOUDFLARE_EMAIL_QUEUE_GATEWAY_TOKEN) are required in production.',
     );
   }
 
   console.warn(
-    "[rate-limit] Upstash Redis credentials (UPSTASH_REDIS_REST_URL/UPSTASH_REDIS_REST_TOKEN) are missing. Falling back to in-memory limiter for this session.",
+    '[rate-limit] Cloudflare gateway credentials are missing. Falling back to in-memory limiter for this session.',
   );
-  warnedAboutMissingUpstash = true;
-}
-
-function getRedisClient(): Redis | null {
-  if (redisClient !== undefined) {
-    return redisClient;
-  }
-
-  try {
-    const { restUrl, restToken } = env.cache.upstash;
-    if (restUrl && restToken) {
-      redisClient = new Redis({
-        url: restUrl,
-        token: restToken,
-      });
-      return redisClient;
-    }
-    logMissingUpstashWarning();
-  } catch (error) {
-    if (isProductionEnv) {
-      throw new RateLimitConfigurationError(
-        `Failed to initialize Upstash client: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
-    console.warn(
-      "[rate-limit] unable to initialize Upstash client, falling back to in-memory store",
-      error instanceof Error ? error.message : error,
-    );
-  }
-
-  redisClient = null;
-  return redisClient;
+  warnedAboutMissingGateway = true;
 }
 
 function assertMemoryFallbackAllowed(): void {
@@ -116,12 +87,12 @@ function memoryStoreRateLimit(params: RateLimitParams): RateLimitResult {
       limit: params.limit,
       remaining: params.limit,
       resetAt,
-      source: "none",
+      source: 'none',
     };
   }
 
   if (!warnedAboutMemoryStore) {
-    console.warn("[rate-limit] Falling back to in-memory rate limiter. Configure Upstash Redis for multi-instance safety.");
+    console.warn('[rate-limit] Falling back to in-memory rate limiter. Configure the Cloudflare gateway for multi-instance safety.');
     warnedAboutMemoryStore = true;
   }
 
@@ -137,7 +108,7 @@ function memoryStoreRateLimit(params: RateLimitParams): RateLimitResult {
       limit: params.limit,
       remaining: params.limit - 1,
       resetAt,
-      source: "memory",
+      source: 'memory',
     };
   }
 
@@ -149,7 +120,7 @@ function memoryStoreRateLimit(params: RateLimitParams): RateLimitResult {
     limit: params.limit,
     remaining: Math.max(0, params.limit - nextCount),
     resetAt: existing.resetAt,
-    source: "memory",
+    source: 'memory',
   };
 }
 
@@ -161,48 +132,33 @@ export async function consumeRateLimit(params: RateLimitParams): Promise<RateLim
       limit: params.limit,
       remaining: params.limit,
       resetAt,
-      source: "none",
+      source: 'none',
     };
   }
 
-  const redis = getRedisClient();
-  if (!redis) {
+  if (!isCloudflareGatewayConfigured()) {
+    logMissingCloudflareWarning();
     return memoryStoreRateLimit(params);
   }
 
-  const current = now();
-  const windowStart = Math.floor(current / params.windowMs) * params.windowMs;
-  const resetAt = windowStart + params.windowMs;
-  const redisKey = `rl:${params.identifier}:${windowStart}`;
-
   try {
-    const countResult = await redis.incr(redisKey);
-    const count = typeof countResult === "number" ? countResult : Number(countResult ?? 0);
+    const { response, body } = await requestCloudflareGateway<RateLimitResult>('/rate-limit/consume', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
 
-    if (Number.isNaN(count)) {
-      console.error("[rate-limit] redis incr returned non-numeric value", countResult);
-      return memoryStoreRateLimit(params);
+    if (!response.ok || !body) {
+      throw new Error(
+        extractCloudflareGatewayError(
+          body,
+          `Cloudflare rate limit request failed with status ${response.status}`,
+        ),
+      );
     }
 
-    if (count === 1) {
-      try {
-        await redis.pexpire(redisKey, params.windowMs);
-      } catch (expireError) {
-        console.warn("[rate-limit] failed to set redis TTL", expireError);
-      }
-    }
-
-    const remaining = Math.max(0, params.limit - count);
-
-    return {
-      ok: count <= params.limit,
-      limit: params.limit,
-      remaining,
-      resetAt,
-      source: "redis",
-    };
+    return body;
   } catch (error) {
-    console.error("[rate-limit] redis pipeline failed", error);
+    console.error('[rate-limit] cloudflare request failed', error);
     return memoryStoreRateLimit(params);
   }
 }
