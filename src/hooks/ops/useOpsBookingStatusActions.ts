@@ -43,6 +43,18 @@ type MutationContext = {
 
 type OfflineActionType = 'check-in' | 'check-out' | 'no-show' | 'undo-no-show';
 
+const hasBookingItems = (
+  value: OpsBookingsPage | undefined,
+): value is OpsBookingsPage & { items: OpsBookingListItem[] } => {
+  return Array.isArray(value?.items);
+};
+
+const hasSummaryBookings = (
+  value: OpsTodayBookingsSummary | undefined,
+): value is OpsTodayBookingsSummary & { bookings: OpsTodayBooking[] } => {
+  return Array.isArray(value?.bookings);
+};
+
 function useInvalidateLifecycle(queryClient: ReturnType<typeof useQueryClient>) {
   return (
     restaurantId: string,
@@ -94,7 +106,7 @@ export function useOpsBookingLifecycleActions() {
     queryClient.setQueriesData<OpsBookingsPage>(
       { queryKey: opsBookingsListKey, exact: false },
       (current) => {
-        if (!current) return current;
+        if (!hasBookingItems(current)) return current;
         let didChange = false;
         const items = current.items.map((item) => {
           if (item.id !== bookingId) return item;
@@ -117,7 +129,10 @@ export function useOpsBookingLifecycleActions() {
       exact: false,
     });
     for (const [, data] of queries) {
-      const match = data?.items?.find((item) => item.id === bookingId);
+      if (!hasBookingItems(data)) {
+        continue;
+      }
+      const match = data.items.find((item) => item.id === bookingId);
       if (match) return match;
     }
     return undefined;
@@ -248,7 +263,7 @@ export function useOpsBookingLifecycleActions() {
       await queryClient.cancelQueries({ queryKey: summaryKey });
 
       const currentSummary = queryClient.getQueryData<OpsTodayBookingsSummary>(summaryKey);
-      if (currentSummary) {
+      if (hasSummaryBookings(currentSummary)) {
         previousSummary = currentSummary;
         const updatedSummary: OpsTodayBookingsSummary = {
           ...currentSummary,
@@ -305,7 +320,7 @@ export function useOpsBookingLifecycleActions() {
   ) => {
     if (context?.summaryKey) {
       queryClient.setQueryData<OpsTodayBookingsSummary>(context.summaryKey, (current) => {
-        if (!current) return current;
+        if (!hasSummaryBookings(current)) return current;
         return {
           ...current,
           bookings: current.bookings.map((booking) => {

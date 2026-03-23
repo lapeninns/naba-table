@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { debounce } from '@/utils/debounceThrottle';
 
 const FALLBACK_INITIALS = 'SR';
+const FALLBACK_RESTAURANT_NAME = 'Unknown restaurant';
 
 function computeInitials(name: string | null): string {
   if (!name) {
@@ -44,6 +45,15 @@ function computeInitials(name: string | null): string {
   }
 
   return trimmed[0]?.toUpperCase() ?? FALLBACK_INITIALS;
+}
+
+function normalizeRestaurantName(name: string | null | undefined): string {
+  if (typeof name !== 'string') {
+    return FALLBACK_RESTAURANT_NAME;
+  }
+
+  const trimmed = name.trim();
+  return trimmed.length > 0 ? trimmed : FALLBACK_RESTAURANT_NAME;
 }
 
 type OpsRestaurantSwitchProps = {
@@ -84,7 +94,9 @@ export function OpsRestaurantSwitch({ className }: OpsRestaurantSwitchProps) {
   }, [account.role, account.userEmail, activeMembership?.role]);
 
   const restaurantName =
-    activeMembership?.restaurantName ?? account.restaurantName ?? memberships[0]?.restaurantName ?? 'Nab a Table';
+    normalizeRestaurantName(
+      activeMembership?.restaurantName ?? account.restaurantName ?? memberships[0]?.restaurantName,
+    );
 
   const filteredMemberships = useMemo(() => {
     if (!debouncedSearch.trim()) {
@@ -92,7 +104,9 @@ export function OpsRestaurantSwitch({ className }: OpsRestaurantSwitchProps) {
     }
 
     const needle = debouncedSearch.trim().toLowerCase();
-    return memberships.filter((membership) => membership.restaurantName.toLowerCase().includes(needle));
+    return memberships.filter((membership) =>
+      normalizeRestaurantName(membership.restaurantName).toLowerCase().includes(needle),
+    );
   }, [debouncedSearch, memberships]);
 
   const handleSelect = (restaurantId: string) => {
@@ -200,7 +214,9 @@ export function OpsRestaurantSwitch({ className }: OpsRestaurantSwitchProps) {
                     className={cn('size-4 shrink-0 text-sidebar-primary', selected ? 'opacity-100' : 'opacity-0')}
                     aria-hidden
                   />
-                  <span className="flex-1 truncate">{membership.restaurantName}</span>
+                  <span className="flex-1 truncate">
+                    {normalizeRestaurantName(membership.restaurantName)}
+                  </span>
                   <Badge variant="outline" className="text-xs capitalize">
                     {membership.role}
                   </Badge>
