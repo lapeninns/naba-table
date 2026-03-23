@@ -1,27 +1,28 @@
 # Continuity Ledger
 
-Last updated: 2026-03-23T17:01:00Z
+Last updated: 2026-03-23T18:31:00Z
 
 ## Goal (incl. success criteria)
 
-- Fix the `/dashboard` hydration mismatch causing React error `#418` in production.
+- Standardize calendar usage onto one shared base implementation.
 - Success:
-  - `/dashboard` hydrates without React error `#418`.
-  - First-render dashboard text is deterministic between SSR and hydration.
-  - Live dashboard timestamps and urgency badges still update after hydration.
+  - `@/components/ui/calendar` resolves to a canonical source in `src/components/ui/calendar.tsx`.
+  - Legacy and reserve calendar access paths still resolve to the same implementation.
+  - Existing calendar consumers behave the same after the change.
 
 ## Constraints/Assumptions
 
 - Follow root AGENTS SDLC artifact flow and closest nested policies.
-- Manual UI QA via Chrome DevTools MCP is required because the ops dashboard is user-facing UI.
-- Keep fixes narrow and production-safe; no schema or API changes.
-- Production source maps are unavailable in the supplied error report, so diagnosis is based on the route tree and React hydration guidance.
+- Manual UI QA via Chrome DevTools MCP is required because this changes a shared UI primitive.
+- Keep the change narrow; no schema or API changes.
+- Do not broadly migrate all UI primitives in this task.
 
 ## Key decisions
 
-- Treat the reported error as a hydration mismatch, not a generic runtime exception, based on React error `#418`.
-- Fix the initial render by threading one server-generated time snapshot through the dashboard tree.
-- Cover both connection-status relative timestamps and booking urgency calculations because both render time-dependent text on first paint.
+- Treat the legacy issue as ownership and resolution drift, not a multi-library problem.
+- Canonicalize the calendar in `src/components/ui/calendar.tsx`.
+- Preserve compatibility by routing the old legacy file to the canonical source instead of changing every consumer path.
+- Use an exact `tsconfig.json` alias entry for the calendar only, so other primitive resolution stays unchanged.
 
 ## State
 
@@ -29,16 +30,24 @@ Last updated: 2026-03-23T17:01:00Z
 
 ## Done
 
-- Reviewed root, `src/app/AGENTS.md`, and `src/components/AGENTS.md`.
-- Confirmed React error `#418` maps to a hydration mismatch from the official React docs.
-- Created task folder `tasks/fix-dashboard-hydration-mismatch-20260323-1649/`.
-- Drafted `research.md`, `plan.md`, `todo.md`, and `verification.md` for the dashboard fix task.
-- Identified likely mismatch sources:
-  - `src/components/features/dashboard/ConnectionStatusBeacon.tsx`
-  - `src/components/features/dashboard/list/useBookingsListState.ts`
-  - `src/components/features/dashboard/cards/OpsBookingCard.tsx`
-  - `src/app/app/(app)/dashboard/page.tsx`
-  - `src/components/features/dashboard/OpsDashboardClient.tsx`
+- Reviewed root, `components/AGENTS.md`, `src/components/AGENTS.md`, and `src/app/AGENTS.md`.
+- Read the continuity, style-principles, and MCP-integration skill instructions.
+- Confirmed the active calendar surface:
+  - `components/ui/calendar.tsx` is the only implementation.
+  - `reserve/shared/ui/calendar.tsx` is already a re-export.
+  - Current consumers use `@/components/ui/calendar` or `@shared/ui/calendar`.
+- Confirmed `tsconfig.json` currently resolves `@/components/*` to `./components/*` before `./src/components/*`.
+- Created task folder `tasks/standardize-calendar-base-20260323-1814/` with SDLC docs.
+- Verified the project's Shadcn registry is configured and includes the `calendar` primitive.
+- Added canonical calendar implementation:
+  - `src/components/ui/calendar.tsx`
+- Updated compatibility wiring:
+  - `components/ui/calendar.tsx`
+  - `tsconfig.json`
+- Verification completed:
+  - Focused eslint passed.
+  - `tsc --noEmit` passed.
+  - Chrome DevTools QA completed on bookings, dashboard, and floor-plan harnesses.
 
 ## Now
 
@@ -46,26 +55,28 @@ Last updated: 2026-03-23T17:01:00Z
 
 ## Next
 
-- Review or commit the hydration mismatch fix.
-- Monitor production `/dashboard` client-error telemetry after deployment.
+- Review or commit the calendar standardization change.
+- Consider a follow-up task to improve dashboard heatmap day-button accessibility labels.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- Whether the production `/dashboard` route has any additional auth-only text branches that were not exercised by the dev harness. (UNCONFIRMED)
+- Whether the broader UI primitive set should eventually migrate out of `components/ui` as a separate follow-up task. (UNCONFIRMED)
 
 ## Working set (files/ids/commands)
 
 - `/Users/amankumarshrestha/LapenInns Project/nabatableLP/CONTINUITY.md`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/fix-dashboard-hydration-mismatch-20260323-1649/research.md`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/fix-dashboard-hydration-mismatch-20260323-1649/plan.md`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/fix-dashboard-hydration-mismatch-20260323-1649/todo.md`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/fix-dashboard-hydration-mismatch-20260323-1649/verification.md`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/src/app/app/(app)/dashboard/page.tsx`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/features/dashboard/OpsDashboardClient.tsx`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/features/dashboard/ConnectionStatusBeacon.tsx`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/features/dashboard/list/useBookingsListState.ts`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/features/dashboard/cards/OpsBookingCard.tsx`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/src/app/(public)/dev/ops-dashboard/ui/OpsDashboardDevHarness.tsx`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tsconfig.json`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/components/ui/calendar.tsx`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/ui/calendar.tsx`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/reserve/shared/ui/calendar.tsx`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/features/bookings/components/OpsBookingsDatePicker.tsx`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/features/dashboard/HeatmapCalendar.tsx`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/features/seating/FloorPlanPage.tsx`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/reserve/features/reservations/wizard/ui/steps/plan-step/components/Calendar24Field.tsx`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/standardize-calendar-base-20260323-1814/research.md`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/standardize-calendar-base-20260323-1814/plan.md`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/standardize-calendar-base-20260323-1814/todo.md`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/standardize-calendar-base-20260323-1814/verification.md`
 
 ---
 
