@@ -43,7 +43,7 @@ export function useUpdateRestaurant() {
       const detail = queryClient.getQueryData<RestaurantDTO>(queryKeys.opsRestaurants.detail(id));
 
       lists.forEach(([key, listData]) => {
-        if (!listData) return;
+        if (!listData || !Array.isArray(listData.items)) return;
         queryClient.setQueryData<RestaurantsListResponse>(key, {
           ...listData,
           items: listData.items.map((restaurant) =>

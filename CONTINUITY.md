@@ -1,65 +1,73 @@
 # Continuity Ledger
 
-Last updated: 2026-03-23T14:06:00Z
+Last updated: 2026-03-23T14:33:34Z
 
 ## Goal (incl. success criteria)
 
-- Add a public sales contact page and publish the requested sales email and phone.
+- Fix first-party PostHog runtime errors that still have active issue status.
 - Success:
-  - `/contact` exists as a real public marketing page.
-  - The page shows the requested sales email and phone number.
-  - Existing `Contact Sales` links land on a valid route.
+  - Public booking flow no longer crashes on partial schedule payloads.
+  - Ops-side query cache mutations tolerate malformed cache shapes instead of throwing.
+  - Ops restaurant switch search no longer assumes every membership has a valid `restaurantName`.
 
 ## Constraints/Assumptions
 
-- Follow root AGENTS SDLC artifacts flow.
-- Follow root AGENTS SDLC artifacts flow.
-- Keep the change small and reuse the existing marketing page pattern.
-- Keep secrets out of artifacts.
+- Follow root AGENTS SDLC artifact flow and closest nested policies.
+- Manual UI QA via Chrome DevTools MCP is required because the public booking route is user-facing UI.
+- Keep fixes narrow and production-safe; no schema changes.
+- Production source maps are still unavailable, so some fixes are based on high-confidence repo matches rather than symbolicated stacks.
 
 ## Key decisions
 
-- Existing marketing links already point to `/contact`, but the route does not currently exist.
-- Sales contact details should live in one shared place so page content and schema stay aligned.
+- Use the existing `tasks/posthog-error-audit-20260323-1116/` task as the investigation baseline rather than re-auditing from scratch.
+- Harden the guest schedule API client boundary instead of relying on every runtime payload to match the ideal TypeScript shape.
+- Fix the low-ambiguity ops-side null/shape assumptions in the same pass because they map directly to still-active PostHog issue families.
 
 ## State
 
-- Route/content update completed and verified locally.
+- Patch and verification completed locally; ready for review or commit.
 
 ## Done
 
-- Created task folder `tasks/contact-sales-page-20260323-1358/`.
-- Confirmed multiple marketing surfaces already link to `/contact`.
-- Confirmed there is no current `/contact` page route under `src/app/(public)/(marketing)/`.
-- Identified the privacy page as the closest styling pattern to reuse.
-- Added shared sales contact constants in `config/sales-contact.ts`.
-- Added the public marketing route `src/app/(public)/(marketing)/contact/page.tsx`.
-- Updated `SchemaOrg` and sitemap to include the new sales contact details and route.
-- Verified `/contact` in Chrome DevTools with no console errors.
+- Confirmed active PostHog issues and detailed issue IDs in project `120939`.
+- Reviewed root, `src/app/AGENTS.md`, `src/guest/AGENTS.md`, `src/components/AGENTS.md`, and `src/hooks/AGENTS.md`.
+- Located existing investigation task `tasks/posthog-error-audit-20260323-1116/`.
+- Created task folder `tasks/fix-posthog-runtime-errors-20260323-1428/`.
+- Drafted `research.md`, `plan.md`, `todo.md`, and `verification.md` for the new fix task.
+- Identified target codepaths:
+  - `reserve/features/reservations/wizard/services/schedule.ts`
+  - `src/components/features/ops-shell/OpsRestaurantSwitch.tsx`
+  - `hooks/useUpdateBooking.ts`
+  - `hooks/useCancelBooking.ts`
+  - `hooks/ops/useUpdateRestaurant.ts`
+  - `src/hooks/ops/useOpsBookingStatusActions.ts`
 
 ## Now
 
-- Ready to commit or continue with follow-up marketing polish if requested.
+- Preparing final summary and handoff notes.
 
 ## Next
 
-1. Commit the contact page changes if requested.
+- Review or commit the PostHog runtime hardening changes.
+- Decide whether to open a follow-up task for the booking-form accessibility warnings and the remaining `Script error.` telemetry.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- None.
+- Whether the active `Script error.` issue is fully first-party or still blocked by third-party/script-source visibility. (UNCONFIRMED)
 
 ## Working set (files/ids/commands)
 
 - `/Users/amankumarshrestha/LapenInns Project/nabatableLP/CONTINUITY.md`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/config/sales-contact.ts`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/src/app/(public)/(marketing)/contact/page.tsx`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/landing/seo/SchemaOrg.tsx`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/src/app/sitemap.ts`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/contact-sales-page-20260323-1358/research.md`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/contact-sales-page-20260323-1358/plan.md`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/contact-sales-page-20260323-1358/todo.md`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/contact-sales-page-20260323-1358/verification.md`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/fix-posthog-runtime-errors-20260323-1428/research.md`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/fix-posthog-runtime-errors-20260323-1428/plan.md`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/fix-posthog-runtime-errors-20260323-1428/todo.md`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/fix-posthog-runtime-errors-20260323-1428/verification.md`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/reserve/features/reservations/wizard/services/schedule.ts`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/features/ops-shell/OpsRestaurantSwitch.tsx`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/src/hooks/ops/useOpsBookingStatusActions.ts`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/hooks/useUpdateBooking.ts`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/hooks/useCancelBooking.ts`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/hooks/ops/useUpdateRestaurant.ts`
 
 ---
 
