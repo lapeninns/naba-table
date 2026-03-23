@@ -36,12 +36,14 @@ type MutableReservationConfig = {
   issues: ReservationConfigIssue[];
 };
 
+export const DEFAULT_RESERVATION_INTERVAL_MINUTES = 30;
+
 const DEFAULT_RESERVATION_CONFIG: ReservationConfig = {
   timezone: 'Europe/London',
   opening: {
     open: '12:00' as ReservationTime,
     close: '23:00' as ReservationTime,
-    intervalMinutes: 15,
+    intervalMinutes: DEFAULT_RESERVATION_INTERVAL_MINUTES,
   },
   windows: {
     weekdayLunchEnd: '15:00' as ReservationTime,

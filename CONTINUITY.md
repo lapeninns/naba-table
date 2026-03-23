@@ -1,85 +1,74 @@
 # Continuity Ledger
 
-Last updated: 2026-02-19T16:06:00Z
+Last updated: 2026-03-23T13:04:00Z
 
 ## Goal (incl. success criteria)
 
-- Implement production hardening for public magic-link sign-in.
+- Align Old Crown's live weekend lunch slots with the configured service periods and move the venue to 30-minute intervals.
 - Success:
-  - Prevent account-enumeration leakage by normalizing magic-link non-boundary responses to `202`.
-  - Enforce anti-automation controls (guest CAPTCHA + IP/global throttling).
-  - Emit deterministic auth-send audit events with hashed fingerprints and explicit outcomes.
+  - Old Crown uses a 30-minute reservation interval.
+  - Friday lunch remains aligned with the `12:00-15:00` service period.
+  - Saturday/Sunday lunch reflect the configured `12:00-17:00` service periods instead of stopping at `15:15`.
 
 ## Constraints/Assumptions
 
 - Follow root AGENTS SDLC artifacts flow.
-- Keep changes scoped to auth-hardening files only.
-- Avoid schema changes; use existing `observability_events` table.
+- Follow root AGENTS SDLC artifacts flow.
+- This pass includes a live remote config correction plus a canonical repo-side record.
+- Keep secrets out of artifacts.
 
 ## Key decisions
 
-- Keep `sendAuthMagicLink` as the single canonical transport path; hardening happens in `/api/auth/signin` boundary.
-- Use Cloudflare Turnstile for guest/public magic-link requests only.
-- Unknown-email magic-link requests should be no-send + `202` with audit outcome `suppressed_unknown_email`.
-- Require `AUTH_AUDIT_HASH_SECRET` in production to guarantee deterministic non-PII fingerprints in observability.
+- Old Crown needs a live restaurant-specific interval update from `15` to `30`.
+- The shared `lunch` occasion availability (`11:30-15:30`) is out of sync with multiple weekend lunch service periods already configured to `17:00`.
+- Service-period coverage should continue to control weekday lunch ends even after widening the shared lunch availability window.
 
 ## State
 
-- Implementation complete and verified for scoped hardening changes.
+- Live config correction applied and verified.
 
 ## Done
 
-- Created task folder `tasks/harden-magic-link-signin-20260219-1544/` with SDLC docs.
-- Implemented canonical auth hardening path:
-  - `src/app/api/auth/signin/route.ts` now normalizes magic-link non-boundary outcomes to `202`.
-  - Added guest-surface CAPTCHA enforcement and chained IP/global magic-link throttling.
-  - Added unknown-email suppression (no send) with deterministic audit outcomes.
-- Added new helper modules:
-  - `server/auth/signin-surface.ts`
-  - `server/auth/signin-throttle.ts`
-  - `server/auth/signin-audit.ts`
-  - `server/security/turnstile.ts`
-- Updated guest UI and env wiring:
-  - `components/auth/GuestSignInForm.tsx`
-  - `config/env.schema.ts`
-  - `lib/env.ts`
-  - `.env.example`
-- Added and passed tests:
-  - `tests/server/auth/signin-route-magic-link-policy.test.ts`
-  - `tests/server/auth/signin-throttle.test.ts`
-  - `tests/server/security/turnstile.test.ts`
-  - `tests/components/auth/GuestSignInForm.test.tsx`
-- Verification completed:
-  - `pnpm typecheck` pass
-  - targeted vitest suite pass
-  - manual QA evidence documented in task artifacts
+- Created task folder `tasks/old-crown-weekend-slot-alignment-20260323-1233/`.
+- Confirmed Old Crown live config:
+  - `reservation_interval_minutes = 15`
+  - `reservation_default_duration_minutes = 90`
+  - `reservation_last_seating_buffer_minutes = 30`
+- Confirmed Old Crown service periods:
+  - Friday lunch `12:00-15:00`
+  - Saturday lunch `12:00-17:00`
+  - Sunday lunch `12:00-17:00`
+- Confirmed shared lunch occasion availability is currently `11:30-15:30`.
+- Verified current Old Crown schedule behavior:
+  - Friday last lunch slot: `14:45`
+  - Saturday/Sunday last enabled lunch slot: `15:15`
+  - Saturday/Sunday `15:30-16:45` are present but disabled
 
 ## Now
 
-- Ready for staging deploy with real Turnstile credentials and outcome monitoring.
+- Finalizing verification for the config-driven slot alignment code changes.
 
 ## Next
 
-1. Roll out to staging with real Turnstile credentials and expected hostname.
-2. Monitor `observability_events` (`event_type = magic_link.send_attempt`) for outcome distribution.
-3. Promote to production after staging boundary checks pass.
+1. Summarize the exact Friday/Saturday/Sunday slot behavior now produced by the updated code.
+2. Note that Sunday dinner still ends at `20:30` because the configured Sunday dinner period ends at `21:00`.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- None.
+- Should schedule generation eventually enforce last seating against service-period end rather than restaurant closing time? (UNCONFIRMED)
 
 ## Working set (files/ids/commands)
 
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/src/app/api/auth/signin/route.ts`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/auth/signin-surface.ts`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/auth/signin-throttle.ts`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/auth/signin-audit.ts`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/security/turnstile.ts`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/components/auth/GuestSignInForm.tsx`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/harden-magic-link-signin-20260219-1544/research.md`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/harden-magic-link-signin-20260219-1544/plan.md`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/harden-magic-link-signin-20260219-1544/todo.md`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/harden-magic-link-signin-20260219-1544/verification.md`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/CONTINUITY.md`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/CONTINUITY.md`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/server/restaurants/schedule.ts`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/server/occasions/catalog.ts`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/reserve/shared/occasions/index.ts`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/supabase/migrations/`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/old-crown-weekend-slot-alignment-20260323-1233/research.md`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/old-crown-weekend-slot-alignment-20260323-1233/plan.md`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/old-crown-weekend-slot-alignment-20260323-1233/todo.md`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/old-crown-weekend-slot-alignment-20260323-1233/verification.md`
 
 ---
 

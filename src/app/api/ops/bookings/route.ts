@@ -27,7 +27,10 @@ import {
   assertBookingNotInPast,
   canOverridePastBooking,
 } from '@/server/bookings/pastTimeValidation';
-import { getVenuePolicy, validateBookingWindow } from '@/server/capacity';
+import {
+  OperatingHoursError,
+  assertBookingWithinOperatingWindow,
+} from '@/server/bookings/timeValidation';
 import { normalizeEmail, upsertCustomer } from '@/server/customers';
 import { isAutoAssignOnBookingEnabled } from '@/server/feature-flags';
 import {
@@ -825,36 +828,28 @@ export async function POST(req: NextRequest) {
     client: service,
     turnBandsByOption,
   });
-  const policy = getVenuePolicy({ timezone, turnBandsByOption });
-  const validation = validateBookingWindow({
-    startISO: startDateTime.toISO(),
-    bookingDate: payload.date,
-    startTime,
-    partySize: payload.party,
-    bookingOption: resolvedBookingOption,
-    dwellMinutes: durationMinutes,
-    allowAfterHours: false,
-    timezone,
-    policyOverride: policy,
-  });
+  try {
+    assertBookingWithinOperatingWindow({
+      schedule,
+      requestedTime: startTime,
+    });
+  } catch (error) {
+    if (error instanceof OperatingHoursError) {
+      return NextResponse.json(
+        { error: error.message, reason: error.reason },
+        { status: 422 },
+      );
+    }
+    throw error;
+  }
 
-  if (!validation.ok) {
+  const endTime = deriveEndTimeFromDuration(startTime, durationMinutes);
+  if (!resolvedBookingOption) {
     return NextResponse.json(
-      { error: 'Booking outside service policy', reasons: validation.reasons },
+      { error: 'Unable to resolve booking option for selected time' },
       { status: 422 },
     );
   }
-
-  const diningEnd = validation.dining
-    ? DateTime.fromISO(validation.dining.end).setZone(timezone ?? undefined)
-    : null;
-  const expectedDuration =
-    typeof validation.expectedDiningMinutes === 'number' && validation.expectedDiningMinutes > 0
-      ? Math.round(validation.expectedDiningMinutes)
-      : durationMinutes;
-  const endTime = diningEnd?.isValid
-    ? diningEnd.toFormat('HH:mm')
-    : deriveEndTimeFromDuration(startTime, expectedDuration);
 
   // Validate booking is not in the past (if feature flag enabled)
   if (env.featureFlags.bookingPastTimeBlocking) {

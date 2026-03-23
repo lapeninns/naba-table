@@ -3,6 +3,7 @@ import { ensureLogoColumnOnRow, isLogoUrlColumnMissing, logLogoColumnFallback } 
 import { restaurantSelectColumns } from '@/server/restaurants/select-fields';
 import { assertValidTimezone } from '@/server/restaurants/timezone';
 import { getServiceSupabaseClient } from '@/server/supabase';
+import { DEFAULT_RESERVATION_INTERVAL_MINUTES } from '@reserve/shared/config/reservations';
 
 import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -101,7 +102,9 @@ export async function createRestaurant(
   const uniqueSlug = await ensureUniqueSlug(slug, client);
   const timezone = assertValidTimezone(input.timezone);
   const intervalMinutes =
-    input.reservationIntervalMinutes !== undefined ? input.reservationIntervalMinutes : 15;
+    input.reservationIntervalMinutes !== undefined
+      ? input.reservationIntervalMinutes
+      : DEFAULT_RESERVATION_INTERVAL_MINUTES;
   const defaultDurationMinutes =
     input.reservationDefaultDurationMinutes !== undefined
       ? input.reservationDefaultDurationMinutes

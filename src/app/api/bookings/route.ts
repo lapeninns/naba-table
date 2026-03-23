@@ -757,7 +757,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const supabase = getServiceSupabaseClient();
-    const normalizedBookingType = data.bookingType ?? inferMealTypeFromTime(data.time);
+    let normalizedBookingType = data.bookingType ?? inferMealTypeFromTime(data.time);
     const pastTimeBlocking = env.featureFlags.bookingPastTimeBlocking ?? true;
 
     let startTime = data.time;
@@ -776,10 +776,13 @@ export async function POST(req: NextRequest) {
       const { time } = assertBookingWithinOperatingWindow({
         schedule,
         requestedTime: data.time,
-        bookingType: normalizedBookingType,
       });
 
       startTime = time;
+      const matchedSlot = schedule.slots.find((slot) => slot.value === startTime && !slot.disabled);
+      if (matchedSlot?.bookingOption === 'lunch' || matchedSlot?.bookingOption === 'dinner') {
+        normalizedBookingType = matchedSlot.bookingOption;
+      }
 
       // Validate booking is not in the past (if feature flag enabled)
       if (pastTimeBlocking) {

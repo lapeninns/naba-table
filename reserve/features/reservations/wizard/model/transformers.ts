@@ -44,7 +44,11 @@ export const buildReservationDraft = (
     return { ok: false, error: 'Please select a time for your reservation.' };
   }
 
-  const bookingType = inferBookingOption(normalizedTime, details.date);
+  const explicitBookingType = details.bookingType?.toString().trim().toLowerCase();
+  const bookingType =
+    explicitBookingType === 'lunch' || explicitBookingType === 'dinner'
+      ? explicitBookingType
+      : inferBookingOption(normalizedTime, details.date);
 
   return {
     ok: true,

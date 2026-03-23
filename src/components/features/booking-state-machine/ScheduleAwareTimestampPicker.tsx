@@ -19,6 +19,7 @@ import {
   type TimeSlotDescriptor,
 } from '@reserve/features/reservations/wizard/services/timeSlots';
 import { Calendar24Date, Calendar24Time } from '@reserve/features/reservations/wizard/ui/steps/plan-step/components';
+import { DEFAULT_RESERVATION_INTERVAL_MINUTES } from '@reserve/shared/config/reservations';
 import { formatDateForInput } from '@reserve/shared/formatting/booking';
 import { getLatestStartMinutes, hasCapacity, type UnavailabilityReason } from '@reserve/shared/schedule/availability';
 import { MINUTES_PER_DAY, normalizeTime, toMinutes } from '@reserve/shared/time';
@@ -55,7 +56,7 @@ export type ScheduleAwareTimestampPickerProps = {
   children?: React.ReactNode;
 };
 
-const DEFAULT_MINUTES_STEP = 15;
+const DEFAULT_MINUTES_STEP = DEFAULT_RESERVATION_INTERVAL_MINUTES;
 const DEFAULT_TIMEZONE = 'UTC';
 
 const CLOSED_COPY =
@@ -69,7 +70,7 @@ const OVERRIDE_SELECTION_COPY =
   'There are no regular slots for this date at this time, but you can still save changes to override availability.';
 
 /**
- * Build a full 15m grid (or schedule interval) from opening → latest allowed start,
+ * Build a full interval grid from opening → latest configured slot,
  * filling in missing slots so edit flows don't "lose" times when booking_slots is sparse.
  */
 const mergeWithSyntheticSlots = (schedule: ReservationSchedule | null): ReservationSchedule | null => {
@@ -82,15 +83,12 @@ const mergeWithSyntheticSlots = (schedule: ReservationSchedule | null): Reservat
     : DEFAULT_MINUTES_STEP;
 
   const opensAt = normalizeTime(schedule.window?.opensAt ?? null);
-  const closesAt = normalizeTime(schedule.window?.closesAt ?? null);
-  if (!opensAt || !closesAt) {
+  const latestStartMinutes = getLatestStartMinutes(schedule);
+  if (!opensAt || typeof latestStartMinutes !== 'number') {
     return schedule;
   }
 
   const openingMinutes = toMinutes(opensAt);
-  const closingMinutes = toMinutes(closesAt);
-  const guardMinutes = Math.max(0, schedule.lastSeatingBufferMinutes ?? 0, schedule.defaultDurationMinutes ?? 0);
-  const latestStartMinutes = Math.max(0, closingMinutes - guardMinutes);
   if (openingMinutes >= latestStartMinutes) {
     return schedule;
   }
@@ -153,7 +151,7 @@ const snapTimeToInterval = (value: string, intervalMinutes: number): string | nu
 
 /**
  * Allow manual time selection even when the schedule API omits specific slots.
- * Treat a time as eligible if it falls inside the venue's operating window (opensAt → latest start).
+ * Treat a time as eligible if it falls inside the configured schedule span.
  */
 const isWithinScheduleWindow = (
   timeValue: string,
