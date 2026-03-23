@@ -1,52 +1,49 @@
 # Continuity Ledger
 
-Last updated: 2026-03-23T13:52:00Z
+Last updated: 2026-03-23T14:06:00Z
 
 ## Goal (incl. success criteria)
 
-- Push the config-driven slot logic rollout fully to production and align Old Crown's live production interval.
+- Add a public sales contact page and publish the requested sales email and phone.
 - Success:
-  - Production Old Crown uses a 30-minute reservation interval.
-  - Production built-in `lunch`/`dinner` occasion availability is cleared.
-  - Production booking slots follow service periods and operating hours rather than built-in occasion windows.
+  - `/contact` exists as a real public marketing page.
+  - The page shows the requested sales email and phone number.
+  - Existing `Contact Sales` links land on a valid route.
 
 ## Constraints/Assumptions
 
 - Follow root AGENTS SDLC artifacts flow.
 - Follow root AGENTS SDLC artifacts flow.
-- This pass is a production rollout of already merged slot-logic changes plus canonical repo-side records.
+- Keep the change small and reuse the existing marketing page pattern.
 - Keep secrets out of artifacts.
 
 ## Key decisions
 
-- Production still needs the Old Crown interval override and the built-in occasion cleanup applied.
-- Service periods and operating hours are the only intended timing source for built-in services.
+- Existing marketing links already point to `/contact`, but the route does not currently exist.
+- Sales contact details should live in one shared place so page content and schema stay aligned.
 
 ## State
 
-- Production rollout completed and verified.
+- Route/content update completed and verified locally.
 
 ## Done
 
-- Created rollout task folder `tasks/slot-logic-production-rollout-20260323-1345/`.
-- Confirmed production target from `.env.vercel-production`.
-- Captured production before-state:
-  - Old Crown `reservation_interval_minutes = 15`
-  - built-in `lunch` availability `11:30-15:30`
-  - built-in `dinner` availability `16:00-23:00`
-- Added canonical migration `20260323135000_set_old_crown_interval_30m.sql`.
-- Pushed rollout commit `910e63bd` to `origin/main`.
-- Applied production built-in occasion cleanup and verified both built-in rows now have empty availability arrays.
-- Applied production Old Crown interval update and verified `reservation_interval_minutes = 30`.
-- Updated `docs/DATABASE_MIGRATIONS.md` with the completed 2026-03-23 rollout entries.
+- Created task folder `tasks/contact-sales-page-20260323-1358/`.
+- Confirmed multiple marketing surfaces already link to `/contact`.
+- Confirmed there is no current `/contact` page route under `src/app/(public)/(marketing)/`.
+- Identified the privacy page as the closest styling pattern to reuse.
+- Added shared sales contact constants in `config/sales-contact.ts`.
+- Added the public marketing route `src/app/(public)/(marketing)/contact/page.tsx`.
+- Updated `SchemaOrg` and sitemap to include the new sales contact details and route.
+- Verified `/contact` in Chrome DevTools with no console errors.
 
 ## Now
 
-- Production rollout is complete; preparing final repo sync.
+- Ready to commit or continue with follow-up marketing polish if requested.
 
 ## Next
 
-1. Commit and push the verification/migration-log follow-up.
+1. Commit the contact page changes if requested.
 
 ## Open questions (UNCONFIRMED if needed)
 
@@ -55,14 +52,14 @@ Last updated: 2026-03-23T13:52:00Z
 ## Working set (files/ids/commands)
 
 - `/Users/amankumarshrestha/LapenInns Project/nabatableLP/CONTINUITY.md`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/supabase/migrations/20260323132600_remove_builtin_occasion_time_windows.sql`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/supabase/migrations/20260323135000_set_old_crown_interval_30m.sql`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/docs/DATABASE_MIGRATIONS.md`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/supabase/migrations/`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/slot-logic-production-rollout-20260323-1345/research.md`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/slot-logic-production-rollout-20260323-1345/plan.md`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/slot-logic-production-rollout-20260323-1345/todo.md`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/slot-logic-production-rollout-20260323-1345/verification.md`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/config/sales-contact.ts`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/src/app/(public)/(marketing)/contact/page.tsx`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/landing/seo/SchemaOrg.tsx`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/src/app/sitemap.ts`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/contact-sales-page-20260323-1358/research.md`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/contact-sales-page-20260323-1358/plan.md`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/contact-sales-page-20260323-1358/todo.md`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/contact-sales-page-20260323-1358/verification.md`
 
 ---
 

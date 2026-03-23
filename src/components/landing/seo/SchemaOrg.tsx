@@ -2,6 +2,8 @@
 
 import { useMemo } from 'react';
 
+import { salesContact } from '@/config/sales-contact';
+
 export function SchemaOrg() {
   const schema = useMemo(
     () => ({
@@ -16,7 +18,8 @@ export function SchemaOrg() {
             'The operating system for modern hospitality. Empowering venues to deliver exceptional guest experiences through data and automation.',
           contactPoint: {
             '@type': 'ContactPoint',
-            telephone: '+1-555-123-4567',
+            telephone: salesContact.phone,
+            email: salesContact.email,
             contactType: 'sales',
             areaServed: 'GB',
             availableLanguage: ['en'],
