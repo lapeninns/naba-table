@@ -14,18 +14,18 @@ related_tickets: []
 
 - [x] Confirm production Supabase target from production env files.
 - [x] Capture production before-state for Old Crown and built-in occasions.
-- [ ] Add canonical migration for Old Crown interval override.
+- [x] Add canonical migration for Old Crown interval override.
 
 ## Core
 
-- [ ] Push rollout commit to `origin/main`.
-- [ ] Apply production built-in occasion cleanup.
-- [ ] Apply production Old Crown interval update.
+- [x] Push rollout commit to `origin/main`.
+- [x] Apply production built-in occasion cleanup.
+- [x] Apply production Old Crown interval update.
 
 ## Tests
 
-- [ ] Reconfirm relevant slot-logic automated coverage if needed.
-- [ ] Verify production after-state snapshots.
+- [x] Reconfirm relevant slot-logic automated coverage if needed.
+- [x] Verify production after-state snapshots.
 
 ## Notes
 
@@ -33,6 +33,7 @@ related_tickets: []
   - Production env files in the repo reflect the intended production Supabase project.
 - Deviations:
   - Supabase CLI and `psql` are unavailable, so production apply uses direct production service-role data updates.
+  - The first production write used the correct built-in occasion filter but the restaurant update had to be retried without `deleted_at` because `public.restaurants` in production has no such column.
 
 ## Batched Questions
 

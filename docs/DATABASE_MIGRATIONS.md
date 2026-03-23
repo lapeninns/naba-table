@@ -22,6 +22,8 @@
 | Date (UTC) | Description | Staging | Production | Priority |
 | ---------- | ----------- | ------- | ---------- | -------- |
 
+| 2026-03-23 | Remove built-in lunch/dinner occasion time windows | ✅ | ✅ | High |
+| 2026-03-23 | Set Old Crown interval to 30 minutes | ✅ | ✅ | Medium |
 | 2026-02-03 | Add per-day reservation interval + fixed slots to operating hours | ⏳ | ⏳ | Medium |
 | 2026-01-20 | Restore restaurant_capacity_rules (capacity enforcement) | N/A | ⏳ | High |
 | 2026-01-18 | Lock down table_soft_holds access (RLS/GRANTS) | ✅ | ⏳ | High |
@@ -32,6 +34,83 @@
 ---
 
 ## Migration Details
+
+### 2026-03-23: Remove built-in lunch/dinner occasion time windows
+
+**Status**: ✅ Staging (2026-03-23) | ✅ Production (2026-03-23)  
+**Priority**: High  
+**Migration File**: `supabase/migrations/20260323132600_remove_builtin_occasion_time_windows.sql`
+
+#### Problem
+
+Built-in `lunch` and `dinner` occasion rows were imposing global time windows on top of restaurant service periods, which caused production slot generation to stop too early for venues like Old Crown.
+
+#### SQL to Apply
+
+Apply the full migration file: `supabase/migrations/20260323132600_remove_builtin_occasion_time_windows.sql`
+
+#### Verification
+
+After applying:
+
+```sql
+SELECT key, availability
+FROM public.booking_occasions
+WHERE key IN ('lunch', 'dinner')
+  AND deleted_at IS NULL
+ORDER BY key;
+```
+
+Expected: both rows return `[]` for `availability`.
+
+#### Rollback
+
+```sql
+UPDATE public.booking_occasions
+SET availability = CASE key
+  WHEN 'lunch' THEN '[{"kind":"time_window","start":"11:30","end":"15:30"}]'::jsonb
+  WHEN 'dinner' THEN '[{"kind":"time_window","start":"16:00","end":"23:00"}]'::jsonb
+  ELSE availability
+END,
+updated_at = timezone('utc', now())
+WHERE key IN ('lunch', 'dinner')
+  AND deleted_at IS NULL;
+```
+
+### 2026-03-23: Set Old Crown interval to 30 minutes
+
+**Status**: ✅ Staging (2026-03-23) | ✅ Production (2026-03-23)  
+**Priority**: Medium  
+**Migration File**: `supabase/migrations/20260323135000_set_old_crown_interval_30m.sql`
+
+#### Problem
+
+The Old Crown Girton production row was still pinned to `15` minute reservation intervals even after the slot logic and default config moved to `30` minute intervals.
+
+#### SQL to Apply
+
+Apply the full migration file: `supabase/migrations/20260323135000_set_old_crown_interval_30m.sql`
+
+#### Verification
+
+After applying:
+
+```sql
+SELECT slug, reservation_interval_minutes
+FROM public.restaurants
+WHERE slug = 'the-old-crown-girton';
+```
+
+Expected: `reservation_interval_minutes = 30`
+
+#### Rollback
+
+```sql
+UPDATE public.restaurants
+SET reservation_interval_minutes = 15,
+    updated_at = timezone('utc', now())
+WHERE slug = 'the-old-crown-girton';
+```
 
 ### 2026-02-03: Add per-day reservation interval + fixed slots to operating hours
 

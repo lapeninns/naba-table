@@ -1,0 +1,20 @@
+{
+  "captured_at_utc": "2026-03-23T13:50:30.146Z",
+  "restaurant": {
+    "id": "a050d1ad-1ee0-4ea0-abc2-22c3778aa52c",
+    "slug": "the-old-crown-girton",
+    "reservation_interval_minutes": 30,
+    "reservation_default_duration_minutes": 90,
+    "reservation_last_seating_buffer_minutes": 30
+  },
+  "occasions": [
+    {
+      "key": "dinner",
+      "availability": []
+    },
+    {
+      "key": "lunch",
+      "availability": []
+    }
+  ]
+}

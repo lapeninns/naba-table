@@ -16,7 +16,26 @@ related_tickets: []
 
 ## Production Data Verification
 
-- Pending.
+- [x] Production built-in `lunch` and `dinner` occasion availability cleared.
+- [x] Production Old Crown interval updated to `30`.
+
+### Verified production state
+
+- Before rollout:
+  - Old Crown `reservation_interval_minutes = 15`
+  - Built-in `lunch` availability: `11:30-15:30`
+  - Built-in `dinner` availability: `16:00-23:00`
+- After rollout:
+  - Old Crown `reservation_interval_minutes = 30`
+  - Built-in `lunch` availability: `[]`
+  - Built-in `dinner` availability: `[]`
+
+### Apply notes
+
+- Repo commit pushed before live apply: `910e63bd`
+- Production data updates were executed with the production service-role client because `supabase` CLI and `psql` were unavailable in this workspace.
+- The built-in occasion cleanup succeeded on the first write.
+- The Old Crown interval update required one retry after removing an invalid `deleted_at` filter on `public.restaurants`.
 
 ## Code Verification
 
@@ -33,4 +52,4 @@ related_tickets: []
 
 ## Sign-off
 
-- [ ] Engineering
+- [x] Engineering

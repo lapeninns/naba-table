@@ -1,6 +1,6 @@
 # Continuity Ledger
 
-Last updated: 2026-03-23T13:45:00Z
+Last updated: 2026-03-23T13:52:00Z
 
 ## Goal (incl. success criteria)
 
@@ -24,7 +24,7 @@ Last updated: 2026-03-23T13:45:00Z
 
 ## State
 
-- Production before-state confirmed; rollout in progress.
+- Production rollout completed and verified.
 
 ## Done
 
@@ -35,16 +35,18 @@ Last updated: 2026-03-23T13:45:00Z
   - built-in `lunch` availability `11:30-15:30`
   - built-in `dinner` availability `16:00-23:00`
 - Added canonical migration `20260323135000_set_old_crown_interval_30m.sql`.
+- Pushed rollout commit `910e63bd` to `origin/main`.
+- Applied production built-in occasion cleanup and verified both built-in rows now have empty availability arrays.
+- Applied production Old Crown interval update and verified `reservation_interval_minutes = 30`.
+- Updated `docs/DATABASE_MIGRATIONS.md` with the completed 2026-03-23 rollout entries.
 
 ## Now
 
-- Preparing the production rollout commit and live apply.
+- Production rollout is complete; preparing final repo sync.
 
 ## Next
 
-1. Push the production rollout commit.
-2. Apply production data updates.
-3. Capture after-state and update migration records.
+1. Commit and push the verification/migration-log follow-up.
 
 ## Open questions (UNCONFIRMED if needed)
 
@@ -55,6 +57,7 @@ Last updated: 2026-03-23T13:45:00Z
 - `/Users/amankumarshrestha/LapenInns Project/nabatableLP/CONTINUITY.md`
 - `/Users/amankumarshrestha/LapenInns Project/nabatableLP/supabase/migrations/20260323132600_remove_builtin_occasion_time_windows.sql`
 - `/Users/amankumarshrestha/LapenInns Project/nabatableLP/supabase/migrations/20260323135000_set_old_crown_interval_30m.sql`
+- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/docs/DATABASE_MIGRATIONS.md`
 - `/Users/amankumarshrestha/LapenInns Project/nabatableLP/supabase/migrations/`
 - `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/slot-logic-production-rollout-20260323-1345/research.md`
 - `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/slot-logic-production-rollout-20260323-1345/plan.md`
