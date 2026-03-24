@@ -1,13 +1,13 @@
 'use client';
 
-import { MailWarning } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MailWarning } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { OpsEmailDeliveryFiltersCard } from '@/components/features/email-delivery/components/OpsEmailDeliveryFiltersCard';
-import { OpsEmailDeliveryResultsCard } from '@/components/features/email-delivery/components/OpsEmailDeliveryResultsCard';
 import { OpsEmailDeliverySummaryMetrics } from '@/components/features/email-delivery/components/OpsEmailDeliverySummaryMetrics';
+import { OpsEmailDeliveryTable } from '@/components/features/email-delivery/components/OpsEmailDeliveryTable';
 import { OpsEmailQueuePanel } from '@/components/features/email-delivery/components/OpsEmailQueuePanel';
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
@@ -15,8 +15,6 @@ import { OpsPageToolbar } from '@/components/features/ops-shell/patterns/OpsPage
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useOpsSession } from '@/contexts/ops-session';
 import { useOpsEmailDeliveryFeed } from '@/hooks/ops/useOpsEmailDeliveryFeed';
@@ -521,49 +519,27 @@ export function OpsEmailDeliveryClient({
                 <AlertDescription>{query.error.message}</AlertDescription>
               </Alert>
             ) : (
-              <>
-                {query.isLoading && attempts.length === 0 ? (
-                  <div className="space-y-2" aria-label="Loading email delivery attempts">
-                    <Card className="border-slate-200/60 bg-white">
-                      <CardContent className="p-4 space-y-2">
-                        <Skeleton className="h-4 w-[65%]" />
-                        <Skeleton className="h-3 w-[90%]" />
-                        <Skeleton className="h-3 w-[80%]" />
-                      </CardContent>
-                    </Card>
-                    <Card className="border-slate-200/60 bg-white">
-                      <CardContent className="p-4 space-y-2">
-                        <Skeleton className="h-4 w-[55%]" />
-                        <Skeleton className="h-3 w-[92%]" />
-                        <Skeleton className="h-3 w-[70%]" />
-                      </CardContent>
-                    </Card>
-                    <Card className="border-slate-200/60 bg-white">
-                      <CardContent className="p-4 space-y-2">
-                        <Skeleton className="h-4 w-[60%]" />
-                        <Skeleton className="h-3 w-[88%]" />
-                        <Skeleton className="h-3 w-[75%]" />
-                      </CardContent>
-                    </Card>
-                  </div>
-                ) : attempts.length === 0 ? (
-                  <Card className="border-slate-200/60 bg-white">
-                    <CardContent className="p-4">
-                      <div className="text-sm text-slate-600">No email attempts in this time range.</div>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <OpsEmailDeliveryResultsCard
-                    attempts={attempts}
-                    timezone={timezone}
-                    restaurantId={effectiveRestaurantId ?? ''}
-                    page={page}
-                    hasNext={Boolean(query.response && query.response.ok && query.response.pageInfo.hasNext)}
-                    onPrev={handlePrev}
-                    onNext={handleNext}
-                  />
-                )}
-              </>
+              <OpsEmailDeliveryTable
+                attempts={attempts}
+                timezone={timezone}
+                restaurantId={effectiveRestaurantId ?? ''}
+                isLoading={query.isLoading}
+              />
+            )}
+
+            {/* Pagination */}
+            {attempts.length > 0 && (
+              <div className="flex items-center justify-end gap-2">
+                <Button variant="outline" size="sm" onClick={handlePrev} disabled={page <= 1}>
+                  <ChevronLeft className="h-4 w-4" aria-hidden />
+                  Prev
+                </Button>
+                <span className="text-xs text-muted-foreground">Page {page}</span>
+                <Button variant="outline" size="sm" onClick={handleNext} disabled={!query.response || query.response.ok === false || !query.response.pageInfo.hasNext}>
+                  Next
+                  <ChevronRight className="h-4 w-4" aria-hidden />
+                </Button>
+              </div>
             )}
           </section>
         </TabsContent>
