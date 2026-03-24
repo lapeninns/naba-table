@@ -343,7 +343,8 @@ describe('OpsEmailDeliveryTable', () => {
       />,
     );
 
-    expect(screen.getByText(/no email attempts/i)).toBeInTheDocument();
+    expect(screen.getByText(/no email deliveries found/i)).toBeInTheDocument();
+    expect(screen.getByText(/adjust the filters or try a wider date range/i)).toBeInTheDocument();
   });
 
   it('shows loading skeleton while data fetches', () => {

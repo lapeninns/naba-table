@@ -273,7 +273,10 @@ export function OpsEmailDeliveryTable({
   if (!isLoading && attempts.length === 0) {
     return (
       <div className="rounded-lg border border-slate-200/60 bg-white p-8 text-center">
-        <p className="text-sm text-slate-600">No email attempts in this time range.</p>
+        <p className="text-base font-semibold text-slate-900">No email deliveries found</p>
+        <p className="mt-2 text-sm text-slate-600">
+          There are no delivery attempts for the current filters yet. Adjust the filters or try a wider date range to see more results.
+        </p>
       </div>
     );
   }

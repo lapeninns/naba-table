@@ -19,6 +19,19 @@ export default defineConfig({
         rootDir,
         'src/hooks/ops/useOpsBookingEmailDeliveryLog.ts',
       ),
+      '@/hooks/ops/useOpsEmailDeliveryFeed': path.resolve(
+        rootDir,
+        'src/hooks/ops/useOpsEmailDeliveryFeed.ts',
+      ),
+      '@/hooks/ops/useOpsRestaurantDetails': path.resolve(
+        rootDir,
+        'src/hooks/ops/useOpsRestaurantDetails.ts',
+      ),
+      '@/hooks/ops/useOpsEmailQueueFeed': path.resolve(
+        rootDir,
+        'src/hooks/ops/useOpsEmailQueueFeed.ts',
+      ),
+      '@/utils': path.resolve(rootDir, 'src/utils'),
       '@/app': path.resolve(rootDir, 'src/app'),
       '@/guest': path.resolve(rootDir, 'src/guest'),
       '@/components/ui': path.resolve(rootDir, 'components/ui'),
