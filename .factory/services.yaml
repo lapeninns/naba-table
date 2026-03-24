@@ -1,0 +1,16 @@
+commands:
+  install: pnpm install
+  dev: pnpm dev
+  build: pnpm build
+  typecheck: pnpm typecheck
+  lint: pnpm lint
+  test: npx vitest run
+  test:e2e: npx playwright test tests/e2e/ops-email-delivery-dev-harness.spec.ts
+
+services:
+  web:
+    start: pnpm dev
+    stop: lsof -ti :3000 | xargs kill
+    healthcheck: curl -sf http://localhost:3000
+    port: 3000
+    depends_on: []

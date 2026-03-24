@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { OpsEmailDeliveryFiltersCard } from '@/components/features/email-delivery/components/OpsEmailDeliveryFiltersCard';
 import { OpsEmailDeliveryResultsCard } from '@/components/features/email-delivery/components/OpsEmailDeliveryResultsCard';
 import { OpsEmailDeliverySummaryMetrics } from '@/components/features/email-delivery/components/OpsEmailDeliverySummaryMetrics';
+import { OpsEmailQueuePanel } from '@/components/features/email-delivery/components/OpsEmailQueuePanel';
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
 import { OpsPageToolbar } from '@/components/features/ops-shell/patterns/OpsPageToolbar';
@@ -16,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useOpsSession } from '@/contexts/ops-session';
 import { useOpsEmailDeliveryFeed } from '@/hooks/ops/useOpsEmailDeliveryFeed';
 import { useOpsRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
@@ -29,7 +31,11 @@ import type {
 
 const EMPTY_STATUSES: EmailDeliveryStatus[] = [];
 
+const EMAIL_DELIVERY_TABS = ['delivery-log', 'queue', 'analytics'] as const;
+export type EmailDeliveryTab = (typeof EMAIL_DELIVERY_TABS)[number];
+
 export type OpsEmailDeliveryClientProps = {
+  initialTab?: EmailDeliveryTab;
   initialRestaurantId?: string | null;
   initialRange?: OpsEmailDeliveryRange;
   initialPage?: number;
@@ -88,6 +94,7 @@ function resolveSearchValue(filters: {
 }
 
 export function OpsEmailDeliveryClient({
+  initialTab = 'delivery-log',
   initialRestaurantId = null,
   initialRange = '7d',
   initialPage = 1,
@@ -181,6 +188,15 @@ export function OpsEmailDeliveryClient({
 
   const restaurantDetails = useOpsRestaurantDetails(effectiveRestaurantId);
   const timezone = restaurantDetails.data?.timezone ?? 'UTC';
+
+  const activeTab = useMemo<EmailDeliveryTab>(() => {
+    const sp = new URLSearchParams(searchKey);
+    const tabParam = sp.get('tab');
+    if (tabParam && (EMAIL_DELIVERY_TABS as readonly string[]).includes(tabParam)) {
+      return tabParam as EmailDeliveryTab;
+    }
+    return initialTab;
+  }, [searchKey, initialTab]);
 
   const [range, setRange] = useState<OpsEmailDeliveryRange>(parsedFromQuery.range);
   const [statuses, setStatuses] = useState<EmailDeliveryStatus[]>(parsedFromQuery.statuses);
@@ -281,6 +297,15 @@ export function OpsEmailDeliveryClient({
       router.replace(`${targetPath}?${current.toString()}`, { scroll: false });
     }
   }, [effectiveRestaurantId, router, searchParams, targetPath]);
+
+  const handleTabChange = useCallback(
+    (value: string) => {
+      const params = new URLSearchParams(searchParams?.toString() ?? '');
+      params.set('tab', value);
+      router.replace(`${targetPath}?${params.toString()}`, { scroll: false });
+    },
+    [router, searchParams, targetPath],
+  );
 
   const query = useOpsEmailDeliveryFeed({
     restaurantId: effectiveRestaurantId,
@@ -416,130 +441,146 @@ export function OpsEmailDeliveryClient({
         }
       />
 
-      <OpsPageToolbar className="mt-6 space-y-4">
-        <OpsEmailDeliveryFiltersCard
-          range={range}
-          statuses={statuses}
-          statusCounts={statusCounts}
-          searchValue={searchValue}
-          templateType={templateType}
-          emailType={emailType}
-          onSearchValueChange={setSearchValue}
-          onSubmitSearch={handleSubmitSearch}
-          onRangeChange={(next) => {
-            setRange(next);
-            setPage(1);
-            syncQueryParams({ range: next, page: 1 });
-          }}
-          onToggleStatus={toggleStatus}
-          onTemplateTypeChange={setTemplateType}
-          onTemplateTypeCommit={(next) => {
-            setTemplateType(next);
-            setPage(1);
-            syncQueryParams({ templateType: next, page: 1 });
-          }}
-          onEmailTypeChange={setEmailType}
-          onEmailTypeCommit={(next) => {
-            setEmailType(next);
-            setPage(1);
-            syncQueryParams({ emailType: next, page: 1 });
-          }}
-          onClear={() => {
-            setSearchValue('');
-            setRecipientEmail(null);
-            setMessageId(null);
-            setBookingRef(null);
-            setTemplateType(null);
-            setEmailType(null);
-            setStatuses([]);
-            setRange('7d');
-            setPage(1);
-            syncQueryParams({
-              range: '7d',
-              page: 1,
-              statuses: [],
-              recipientEmail: null,
-              messageId: null,
-              bookingRef: null,
-              templateType: null,
-              emailType: null,
-            });
-          }}
-        />
-      </OpsPageToolbar>
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="mt-6">
+        <TabsList>
+          <TabsTrigger value="delivery-log">Delivery Log</TabsTrigger>
+          <TabsTrigger value="queue">Queue</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+        </TabsList>
 
-      <section className="mt-6 space-y-4">
-        {query.unavailable ? (
-          <Alert className="border-amber-200/70 bg-amber-50/60">
-            <MailWarning className="h-4 w-4" aria-hidden />
-            <AlertTitle>Delivery tracking unavailable</AlertTitle>
-            <AlertDescription>
-              This environment is not currently recording or exposing delivery events. Email sending can still work normally.
-            </AlertDescription>
-          </Alert>
-        ) : query.apiError ? (
-          <Alert variant="destructive">
-            <AlertTitle>Unable to load email delivery attempts</AlertTitle>
-            <AlertDescription>{query.apiError.error}</AlertDescription>
-          </Alert>
-        ) : query.error ? (
-          <Alert variant="destructive">
-            <AlertTitle>Unexpected error</AlertTitle>
-            <AlertDescription>{query.error.message}</AlertDescription>
-          </Alert>
-        ) : (
-          <>
-            <OpsEmailDeliverySummaryMetrics
-              summary={summary}
-              isLoading={query.isSummaryLoading}
-              isUpdating={query.isSummaryUpdating}
-              onFilterStatus={filterStatusFromMetrics}
+        <TabsContent value="delivery-log">
+          <OpsPageToolbar className="space-y-4">
+            <OpsEmailDeliveryFiltersCard
+              range={range}
+              statuses={statuses}
+              statusCounts={statusCounts}
+              searchValue={searchValue}
+              templateType={templateType}
+              emailType={emailType}
+              onSearchValueChange={setSearchValue}
+              onSubmitSearch={handleSubmitSearch}
+              onRangeChange={(next) => {
+                setRange(next);
+                setPage(1);
+                syncQueryParams({ range: next, page: 1 });
+              }}
+              onToggleStatus={toggleStatus}
+              onTemplateTypeChange={setTemplateType}
+              onTemplateTypeCommit={(next) => {
+                setTemplateType(next);
+                setPage(1);
+                syncQueryParams({ templateType: next, page: 1 });
+              }}
+              onEmailTypeChange={setEmailType}
+              onEmailTypeCommit={(next) => {
+                setEmailType(next);
+                setPage(1);
+                syncQueryParams({ emailType: next, page: 1 });
+              }}
+              onClear={() => {
+                setSearchValue('');
+                setRecipientEmail(null);
+                setMessageId(null);
+                setBookingRef(null);
+                setTemplateType(null);
+                setEmailType(null);
+                setStatuses([]);
+                setRange('7d');
+                setPage(1);
+                syncQueryParams({
+                  range: '7d',
+                  page: 1,
+                  statuses: [],
+                  recipientEmail: null,
+                  messageId: null,
+                  bookingRef: null,
+                  templateType: null,
+                  emailType: null,
+                });
+              }}
             />
+          </OpsPageToolbar>
 
-            {query.isLoading && attempts.length === 0 ? (
-              <div className="space-y-2" aria-label="Loading email delivery attempts">
-                <Card className="border-slate-200/60 bg-white">
-                  <CardContent className="p-4 space-y-2">
-                    <Skeleton className="h-4 w-[65%]" />
-                    <Skeleton className="h-3 w-[90%]" />
-                    <Skeleton className="h-3 w-[80%]" />
-                  </CardContent>
-                </Card>
-                <Card className="border-slate-200/60 bg-white">
-                  <CardContent className="p-4 space-y-2">
-                    <Skeleton className="h-4 w-[55%]" />
-                    <Skeleton className="h-3 w-[92%]" />
-                    <Skeleton className="h-3 w-[70%]" />
-                  </CardContent>
-                </Card>
-                <Card className="border-slate-200/60 bg-white">
-                  <CardContent className="p-4 space-y-2">
-                    <Skeleton className="h-4 w-[60%]" />
-                    <Skeleton className="h-3 w-[88%]" />
-                    <Skeleton className="h-3 w-[75%]" />
-                  </CardContent>
-                </Card>
-              </div>
-            ) : attempts.length === 0 ? (
-              <Card className="border-slate-200/60 bg-white">
-                <CardContent className="p-4">
-                  <div className="text-sm text-slate-600">No email attempts in this time range.</div>
-                </CardContent>
-              </Card>
+          <section className="mt-4 space-y-4">
+            {query.unavailable ? (
+              <Alert className="border-amber-200/70 bg-amber-50/60">
+                <MailWarning className="h-4 w-4" aria-hidden />
+                <AlertTitle>Delivery tracking unavailable</AlertTitle>
+                <AlertDescription>
+                  This environment is not currently recording or exposing delivery events. Email sending can still work normally.
+                </AlertDescription>
+              </Alert>
+            ) : query.apiError ? (
+              <Alert variant="destructive">
+                <AlertTitle>Unable to load email delivery attempts</AlertTitle>
+                <AlertDescription>{query.apiError.error}</AlertDescription>
+              </Alert>
+            ) : query.error ? (
+              <Alert variant="destructive">
+                <AlertTitle>Unexpected error</AlertTitle>
+                <AlertDescription>{query.error.message}</AlertDescription>
+              </Alert>
             ) : (
-              <OpsEmailDeliveryResultsCard
-                attempts={attempts}
-                timezone={timezone}
-                restaurantId={effectiveRestaurantId ?? ''}
-                page={page}
-                hasNext={Boolean(query.response && query.response.ok && query.response.pageInfo.hasNext)}
-                onPrev={handlePrev}
-                onNext={handleNext}
-              />
+              <>
+                {query.isLoading && attempts.length === 0 ? (
+                  <div className="space-y-2" aria-label="Loading email delivery attempts">
+                    <Card className="border-slate-200/60 bg-white">
+                      <CardContent className="p-4 space-y-2">
+                        <Skeleton className="h-4 w-[65%]" />
+                        <Skeleton className="h-3 w-[90%]" />
+                        <Skeleton className="h-3 w-[80%]" />
+                      </CardContent>
+                    </Card>
+                    <Card className="border-slate-200/60 bg-white">
+                      <CardContent className="p-4 space-y-2">
+                        <Skeleton className="h-4 w-[55%]" />
+                        <Skeleton className="h-3 w-[92%]" />
+                        <Skeleton className="h-3 w-[70%]" />
+                      </CardContent>
+                    </Card>
+                    <Card className="border-slate-200/60 bg-white">
+                      <CardContent className="p-4 space-y-2">
+                        <Skeleton className="h-4 w-[60%]" />
+                        <Skeleton className="h-3 w-[88%]" />
+                        <Skeleton className="h-3 w-[75%]" />
+                      </CardContent>
+                    </Card>
+                  </div>
+                ) : attempts.length === 0 ? (
+                  <Card className="border-slate-200/60 bg-white">
+                    <CardContent className="p-4">
+                      <div className="text-sm text-slate-600">No email attempts in this time range.</div>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <OpsEmailDeliveryResultsCard
+                    attempts={attempts}
+                    timezone={timezone}
+                    restaurantId={effectiveRestaurantId ?? ''}
+                    page={page}
+                    hasNext={Boolean(query.response && query.response.ok && query.response.pageInfo.hasNext)}
+                    onPrev={handlePrev}
+                    onNext={handleNext}
+                  />
+                )}
+              </>
             )}
-          </>
-        )}
-      </section>
+          </section>
+        </TabsContent>
+
+        <TabsContent value="queue">
+          <OpsEmailQueuePanel restaurantId={effectiveRestaurantId} timezone={timezone} />
+        </TabsContent>
+
+        <TabsContent value="analytics">
+          <OpsEmailDeliverySummaryMetrics
+            summary={summary}
+            isLoading={query.isSummaryLoading}
+            isUpdating={query.isSummaryUpdating}
+            onFilterStatus={filterStatusFromMetrics}
+          />
+        </TabsContent>
+      </Tabs>
     </main>
   );
 }
