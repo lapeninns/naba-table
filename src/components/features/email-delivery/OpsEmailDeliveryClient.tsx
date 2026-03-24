@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronLeft, ChevronRight, MailWarning } from 'lucide-react';
+import { AlertCircle, ChevronLeft, ChevronRight, MailWarning, RotateCcw } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -107,6 +107,28 @@ function resolveSearchValue(filters: {
   if (filters.messageId) return filters.messageId;
   if (filters.bookingRef) return filters.bookingRef;
   return '';
+}
+
+function getDeliveryFeedErrorMessage(error: { message?: string | null; error?: string | null } | Error): string {
+  const message = 'message' in error ? error.message : null;
+  const fallback = 'error' in error ? error.error : null;
+  const raw = message?.trim() || fallback?.trim() || '';
+
+  if (!raw) {
+    return 'We could not load the delivery log right now. Please try again.';
+  }
+
+  const normalized = raw.toLowerCase();
+  if (
+    normalized.includes('failed to fetch') ||
+    normalized.includes('networkerror') ||
+    normalized.includes('network request failed') ||
+    normalized.includes('load failed')
+  ) {
+    return 'We could not reach the delivery log service. Check your connection and try again.';
+  }
+
+  return raw;
 }
 
 export function OpsEmailDeliveryClient({
@@ -427,6 +449,11 @@ export function OpsEmailDeliveryClient({
   const currentPageSize = pageInfo?.pageSize ?? pageSize;
   const startResult = totalResults > 0 ? (currentPage - 1) * currentPageSize + 1 : 0;
   const endResult = totalResults > 0 ? Math.min(totalResults, startResult + attempts.length - 1) : 0;
+  const deliveryLogErrorMessage = query.apiError
+    ? getDeliveryFeedErrorMessage(query.apiError)
+    : query.error
+      ? getDeliveryFeedErrorMessage(query.error)
+      : null;
 
   if (memberships.length === 0) {
     return (
@@ -546,15 +573,24 @@ export function OpsEmailDeliveryClient({
                   This environment is not currently recording or exposing delivery events. Email sending can still work normally.
                 </AlertDescription>
               </Alert>
-            ) : query.apiError ? (
+            ) : deliveryLogErrorMessage ? (
               <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" aria-hidden />
                 <AlertTitle>Unable to load email delivery attempts</AlertTitle>
-                <AlertDescription>{query.apiError.error}</AlertDescription>
-              </Alert>
-            ) : query.error ? (
-              <Alert variant="destructive">
-                <AlertTitle>Unexpected error</AlertTitle>
-                <AlertDescription>{query.error.message}</AlertDescription>
+                <AlertDescription className="space-y-3">
+                  <p>{deliveryLogErrorMessage}</p>
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="h-auto px-0 text-destructive underline-offset-4 hover:underline"
+                    onClick={() => {
+                      void query.refetch();
+                    }}
+                  >
+                    <RotateCcw className="mr-1 h-4 w-4" aria-hidden />
+                    Retry
+                  </Button>
+                </AlertDescription>
               </Alert>
             ) : (
               <OpsEmailDeliveryTable
