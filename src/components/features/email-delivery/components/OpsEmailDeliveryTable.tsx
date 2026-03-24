@@ -35,21 +35,14 @@ type SortState = {
 
 // --- Status sort order (for deterministic sorting) ---
 
-const STATUS_SORT_ORDER: Record<EmailDeliveryStatus, number> = {
-  delivered: 0,
-  sent: 1,
-  delivery_delayed: 2,
-  bounced: 3,
-  complained: 4,
-  failed: 5,
-};
-
-// --- Helpers ---
-
 function parseIsoMs(value: string | null): number {
   if (!value) return 0;
   const ms = Date.parse(value);
   return Number.isFinite(ms) ? ms : 0;
+}
+
+function getStatusSortValue(status: EmailDeliveryStatus): string {
+  return (EMAIL_DELIVERY_STATUS_LABELS[status] ?? status).toLowerCase();
 }
 
 function resolveSubject(attempt: OpsEmailDeliveryAttemptDTO): string {
@@ -256,12 +249,13 @@ export function OpsEmailDeliveryTable({
         if (aMs !== bMs) return (aMs - bMs) * dir;
         return a.messageId.localeCompare(b.messageId) * dir;
       }
-      // Sort by status
-      const aOrder = STATUS_SORT_ORDER[a.currentStatus] ?? 99;
-      const bOrder = STATUS_SORT_ORDER[b.currentStatus] ?? 99;
-      if (aOrder !== bOrder) return (aOrder - bOrder) * dir;
-      // Tiebreak by sentAt desc
-      return (parseIsoMs(b.currentOccurredAt) - parseIsoMs(a.currentOccurredAt));
+      const aStatus = getStatusSortValue(a.currentStatus);
+      const bStatus = getStatusSortValue(b.currentStatus);
+      const statusCompare = aStatus.localeCompare(bStatus);
+      if (statusCompare !== 0) return statusCompare * dir;
+      const sentAtCompare = parseIsoMs(b.currentOccurredAt) - parseIsoMs(a.currentOccurredAt);
+      if (sentAtCompare !== 0) return sentAtCompare;
+      return a.messageId.localeCompare(b.messageId);
     });
     return sorted;
   }, [attempts, sortState]);
