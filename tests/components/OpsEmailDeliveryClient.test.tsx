@@ -12,7 +12,6 @@ import type { BookingService } from '@/services/ops/bookings';
 import type { OpsEmailDeliveryFeedResponse, OpsEmailDeliverySummary } from '@/types/emailDelivery';
 import type { OpsMembership, OpsUser } from '@/types/ops';
 
-const replaceMock = vi.fn();
 const pathnameMock = vi.fn();
 const searchParamsMock = vi.fn();
 
@@ -21,7 +20,6 @@ vi.mock('next/navigation', async () => {
   return {
     ...actual,
     usePathname: () => pathnameMock(),
-    useRouter: () => ({ replace: replaceMock }),
     useSearchParams: () => searchParamsMock(),
   };
 });
@@ -128,7 +126,6 @@ function renderClient(getRestaurantEmailDeliveryFeed: BookingService['getRestaur
 
 describe('OpsEmailDeliveryClient', () => {
   beforeEach(() => {
-    replaceMock.mockReset();
     pathnameMock.mockReset();
     pathnameMock.mockReturnValue('/app/email-delivery');
     searchParamsMock.mockReset();
@@ -479,10 +476,6 @@ describe('OpsEmailDeliveryClient', () => {
       '',
       '/app/email-delivery?restaurantId=rest-1&tab=queue&range=24h&page=2',
     );
-    expect(replaceMock).toHaveBeenCalledWith(
-      '/app/email-delivery?restaurantId=rest-1&tab=queue&range=24h&page=2',
-      { scroll: false },
-    );
   });
 
   it('opens analytics deep links from the URL without rewriting restaurant context', async () => {
@@ -511,13 +504,5 @@ describe('OpsEmailDeliveryClient', () => {
 
     expect(await screen.findByRole('tab', { name: /analytics/i, selected: true })).toBeInTheDocument();
     expect(screen.getByLabelText('Email delivery metrics')).toBeInTheDocument();
-    expect(replaceMock).not.toHaveBeenCalledWith(
-      expect.stringContaining('_rsc'),
-      expect.anything(),
-    );
-    expect(replaceMock).not.toHaveBeenCalledWith(
-      '/app/email-delivery?restaurantId=rest-1&range=30d&page=2&pageSize=25',
-      { scroll: false },
-    );
   });
 });
