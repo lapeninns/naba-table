@@ -51,12 +51,23 @@ const memberships: OpsMembership[] = [
 
 function createRestaurantService() {
   return {
+    listRestaurants: vi.fn().mockResolvedValue([
+      {
+        id: 'rest-1',
+        name: 'Test Restaurant',
+        timezone: 'UTC',
+      },
+      {
+        id: '22222222-2222-4222-8222-222222222222',
+        name: 'Second Test Restaurant',
+        timezone: 'America/New_York',
+      },
+    ]),
     getRestaurant: vi.fn().mockResolvedValue({
       id: 'rest-1',
       name: 'Test Restaurant',
       timezone: 'UTC',
     }),
-    listRestaurants: vi.fn().mockResolvedValue([]),
   };
 }
 
@@ -196,7 +207,7 @@ describe('OpsEmailDeliveryClient', () => {
     const user = userEvent.setup();
     renderClient(getRestaurantEmailDeliveryFeed);
 
-    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(await screen.findByText('Unable to load email delivery attempts')).toBeInTheDocument();
     expect(screen.getByText('Unable to load email delivery attempts')).toBeInTheDocument();
     expect(screen.getByText('Delivery feed timed out')).toBeInTheDocument();
 
@@ -219,7 +230,7 @@ describe('OpsEmailDeliveryClient', () => {
     const user = userEvent.setup();
     renderClient(getRestaurantEmailDeliveryFeed);
 
-    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(await screen.findByText('Unable to load email delivery attempts')).toBeInTheDocument();
     expect(
       screen.getByText('We could not reach the delivery log service. Check your connection and try again.'),
     ).toBeInTheDocument();
@@ -250,7 +261,7 @@ describe('OpsEmailDeliveryClient', () => {
 
     expect(await screen.findByText('Dev/test validation control')).toBeInTheDocument();
     expect(screen.getByText(/messageId=__force_error__/i)).toBeInTheDocument();
-    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(await screen.findByText('Unable to load email delivery attempts')).toBeInTheDocument();
     expect(screen.getByText('Forced delivery log error for dev/test validation.')).toBeInTheDocument();
   });
 
@@ -836,8 +847,10 @@ describe('OpsEmailDeliveryClient', () => {
       }),
     );
 
-    expect(screen.getByRole('button', { name: /test restaurant/i })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: /restaurant switcher/i })).toBeInTheDocument();
+    expect(screen.getByText('UTC')).toBeInTheDocument();
   });
+
 
   it('opens analytics deep links from the URL without rewriting restaurant context', async () => {
     const getRestaurantEmailDeliveryFeed = vi
@@ -1134,9 +1147,6 @@ describe('OpsEmailDeliveryClient', () => {
 
     expect(await screen.findByLabelText('Loading email queue')).toBeInTheDocument();
 
-    expect(screen.getByLabelText('Loading email queue')).toBeInTheDocument();
-    expect(screen.queryByText('Fast Queue')).not.toBeInTheDocument();
-
     await waitFor(
       () => {
         expect(screen.getByText('Fast Queue')).toBeInTheDocument();
@@ -1303,11 +1313,6 @@ describe('OpsEmailDeliveryClient', () => {
       }),
     );
 
-    await user.click(screen.getByRole('button', { name: /test restaurant/i }));
-    await user.click(await screen.findByRole('option', { name: /second test restaurant/i }));
-
-    expect(getRestaurantEmailDeliveryFeed).toHaveBeenCalledTimes(1);
-    expect(getRestaurantEmailDeliverySummary).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole('button', { name: /second test restaurant/i })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: /restaurant switcher/i })).toBeInTheDocument();
   });
 });

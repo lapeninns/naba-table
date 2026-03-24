@@ -23,5 +23,14 @@ test.describe('ops email delivery dev harness', () => {
 
     await page.getByRole('tab', { name: 'Analytics' }).click();
     await expect(page.getByText('Delivery analytics')).toBeVisible();
+
+    const restaurantSwitcher = page.getByRole('combobox', { name: 'Restaurant switcher' });
+    await expect(restaurantSwitcher).toBeVisible();
+    await restaurantSwitcher.click();
+    await page.getByRole('option', { name: 'Second Dev Restaurant' }).click();
+
+    await expect(page).toHaveURL(/restaurantId=22222222-2222-4222-8222-222222222222/);
+    await expect(page.getByRole('tab', { name: 'Delivery Log', selected: true })).toBeVisible();
+    await expect(restaurantSwitcher).toContainText('Dev Restaurant');
   });
 });
