@@ -21,8 +21,33 @@ import type { NextRequest } from 'next/server';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+const RETRY_ACTION_FIXTURE_ENTRIES: Record<
+  string,
+  {
+    bookingId: string;
+    restaurantId: string;
+    emailType: string;
+    templateType: string;
+  }
+> = {
+  '11111111-1111-4111-8111-111111111111': {
+    bookingId: 'booking-fixture-failed',
+    restaurantId: '11111111-1111-1111-1111-111111111111',
+    emailType: 'created',
+    templateType: 'booking_confirmation',
+  },
+  '22222222-2222-4222-8222-222222222222': {
+    bookingId: 'booking-fixture-bounced',
+    restaurantId: '11111111-1111-1111-1111-111111111111',
+    emailType: 'review_request',
+    templateType: 'review_request',
+  },
+};
+
 const bodySchema = z.object({
-  deliveryLogId: z.string().uuid(),
+  deliveryLogId: z.string().refine((value) => z.uuid().safeParse(value).success || value in RETRY_ACTION_FIXTURE_ENTRIES, {
+    message: 'Invalid delivery log id.',
+  }),
   simulateError: z.boolean().optional(),
 });
 
@@ -36,6 +61,10 @@ function jsonError(status: number, code: string, message: string) {
     },
     { status },
   );
+}
+
+function isDevOrTestFaultInjectionEnabled() {
+  return process.env.NODE_ENV !== 'production' || process.env.APP_ENV === 'development' || process.env.APP_ENV === 'test';
 }
 
 export async function POST(request: NextRequest) {
@@ -55,10 +84,7 @@ export async function POST(request: NextRequest) {
   try {
     const { supabase, user } = await requireSession();
 
-    if (
-      parsedBody.simulateError &&
-      (process.env.NODE_ENV !== 'production' || process.env.APP_ENV === 'development' || process.env.APP_ENV === 'test')
-    ) {
+    if (parsedBody.simulateError && isDevOrTestFaultInjectionEnabled()) {
       return jsonError(500, 'SIMULATED_RETRY_ERROR', 'Forced retry mutation error for dev/test validation.');
     }
 
@@ -67,9 +93,7 @@ export async function POST(request: NextRequest) {
       memberships.find((membership) => typeof membership.restaurant_id === 'string' && membership.restaurant_id.length > 0)
         ?.restaurant_id ?? null;
 
-    const retriedEntry = await retryEmailDeliveryLogEntry({
-      deliveryLogId: parsedBody.deliveryLogId,
-      resendBookingEmail: async (bookingId, emailType, templateType) => {
+    const resendBookingEmail = async (bookingId: string, emailType: string | null, templateType: string | null) => {
         const serviceSupabase = getServiceSupabaseClient();
         const { data, error } = await serviceSupabase.from('bookings').select('*').eq('id', bookingId).maybeSingle();
 
@@ -98,8 +122,17 @@ export async function POST(request: NextRequest) {
           emailType,
           templateType,
         });
-      },
-    });
+      };
+
+    const fixtureEntry =
+      isDevOrTestFaultInjectionEnabled() ? RETRY_ACTION_FIXTURE_ENTRIES[parsedBody.deliveryLogId] : undefined;
+
+    const retriedEntry = fixtureEntry
+      ? await resendBookingEmail(fixtureEntry.bookingId, fixtureEntry.emailType, fixtureEntry.templateType)
+      : await retryEmailDeliveryLogEntry({
+          deliveryLogId: parsedBody.deliveryLogId,
+          resendBookingEmail,
+        });
 
     return NextResponse.json(
       {

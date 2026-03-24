@@ -53,6 +53,8 @@ function buildRequest(body: unknown) {
   });
 }
 
+const FIXTURE_DELIVERY_LOG_ID = '11111111-1111-4111-8111-111111111111';
+
 describe('POST /api/ops/email-delivery/retry', () => {
   beforeEach(() => {
     requireSessionMock.mockReset();
@@ -218,5 +220,58 @@ describe('POST /api/ops/email-delivery/retry', () => {
       error: 'Forced retry mutation error for dev/test validation.',
     });
     expect(retryEmailDeliveryLogEntryMock).not.toHaveBeenCalled();
+  });
+
+  it('allows retry-actions fixture delivery log ids to succeed without querying the backing table', async () => {
+    process.env.APP_ENV = 'test';
+    getServiceSupabaseClientMock.mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: {
+                id: 'booking-fixture-failed',
+                restaurant_id: '11111111-1111-1111-1111-111111111111',
+              },
+              error: null,
+            }),
+          }),
+        }),
+      }),
+    });
+    resendBookingEmailFromDeliveryLogMock.mockResolvedValue({
+      id: 'log-fixture-success',
+      bookingId: 'booking-fixture-failed',
+      restaurantId: '11111111-1111-1111-1111-111111111111',
+      emailType: 'created',
+      templateType: 'booking_confirmation',
+      recipientEmail: 'retry.failed@example.com',
+      messageId: 'message-fixture-success',
+      status: 'sent',
+      provider: 'mock',
+      occurredAt: '2026-03-24T10:03:00.000Z',
+      error: null,
+      metadata: { subject: 'Fixture failed retry candidate' },
+    });
+
+    const response = await POST(
+      buildRequest({ deliveryLogId: FIXTURE_DELIVERY_LOG_ID }),
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload).toMatchObject({
+      ok: true,
+      deliveryLogEntry: expect.objectContaining({
+        id: 'log-fixture-success',
+        bookingId: 'booking-fixture-failed',
+      }),
+    });
+    expect(retryEmailDeliveryLogEntryMock).not.toHaveBeenCalled();
+    expect(resendBookingEmailFromDeliveryLogMock).toHaveBeenCalledWith({
+      booking: expect.objectContaining({ id: 'booking-fixture-failed' }),
+      emailType: 'created',
+      templateType: 'booking_confirmation',
+    });
   });
 });
