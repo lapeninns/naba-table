@@ -28,7 +28,23 @@ const querySchema = z.object({
   restaurantId: z.string().uuid().optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(25),
+  fixture: z.string().trim().min(1).optional(),
+  queueFixture: z.string().trim().min(1).optional(),
 });
+
+function normalizeFixture(rawFixture: string | undefined, rawQueueFixture: string | undefined): string | null {
+  const fixture = rawQueueFixture?.trim() || rawFixture?.trim();
+  return fixture ? fixture : null;
+}
+
+async function applyQueueFixtureDelay(fixture: string | null) {
+  if (fixture !== 'loading') return;
+  if (process.env.NODE_ENV === 'production' && process.env.APP_ENV !== 'development' && process.env.APP_ENV !== 'test') {
+    return;
+  }
+
+  await new Promise((resolve) => setTimeout(resolve, 1200));
+}
 
 function jsonError(
   status: number,
@@ -161,6 +177,8 @@ export async function GET(request: NextRequest) {
     return jsonError(400, { code: 'INTERNAL', error: 'Invalid queue status filter' });
   }
 
+  const queueFixture = normalizeFixture(parsedQuery.data.fixture, parsedQuery.data.queueFixture);
+
   try {
     const { supabase, user } = await requireSession();
 
@@ -179,6 +197,8 @@ export async function GET(request: NextRequest) {
       userId: user.id,
       restaurantId,
     });
+
+    await applyQueueFixtureDelay(queueFixture);
 
     const snapshot = await getEmailQueueStatus(true, { jobLimit: 'all' });
     const queueJobs = snapshot.queue.jobs ? flattenQueueJobs(snapshot.queue.jobs) : [];
