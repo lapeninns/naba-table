@@ -111,6 +111,7 @@ export function OpsEmailQueuePanel({
 }: OpsEmailQueuePanelProps) {
   const [status, setStatus] = useState<OpsEmailQueueJobStatus | 'all'>('all');
   const [page, setPage] = useState(1);
+  const shouldForceFixtureLoadingMarker = fixture === 'loading' && enabled;
 
   useEffect(() => {
     setPage(1);
@@ -133,7 +134,7 @@ export function OpsEmailQueuePanel({
     delayMs: 0,
     minDurationMs: 400,
   });
-  const showRefetchIndicator = showLoadingState && jobs.length > 0;
+  const showRefetchIndicator = (showLoadingState || shouldForceFixtureLoadingMarker) && jobs.length > 0;
   const queueMetrics = [
     { label: 'Total in queue', value: summary?.total ?? 0, tone: 'slate' },
     { label: 'Scheduled for later', value: summary?.delayed ?? 0, tone: 'amber' },
@@ -241,7 +242,7 @@ export function OpsEmailQueuePanel({
             <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
               {query.error.message}
             </div>
-          ) : showLoadingState && jobs.length === 0 ? (
+          ) : (showLoadingState || shouldForceFixtureLoadingMarker) && jobs.length === 0 ? (
             <div
               aria-label="Loading email queue"
               className="overflow-hidden rounded-xl border border-slate-200/70 bg-white"

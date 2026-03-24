@@ -93,61 +93,61 @@ export async function POST(request: NextRequest) {
       memberships.find((membership) => typeof membership.restaurant_id === 'string' && membership.restaurant_id.length > 0)
         ?.restaurant_id ?? null;
 
+    const fixtureEntry =
+      isDevOrTestFaultInjectionEnabled() ? RETRY_ACTION_FIXTURE_ENTRIES[parsedBody.deliveryLogId] : undefined;
+
     const resendBookingEmail = async (bookingId: string, emailType: string | null, templateType: string | null) => {
-        const serviceSupabase = getServiceSupabaseClient();
-        const { data, error } = await serviceSupabase.from('bookings').select('*').eq('id', bookingId).maybeSingle();
-
-        if (error) {
-          throw new Error(`Failed to load booking for retry (${error.code ?? 'unknown'}).`);
-        }
-
-        const booking = (data ?? null) as BookingRecord | null;
-        if (!booking) {
-          if (fixtureEntry) {
-            const fixtureRestaurantId = fixtureEntry.restaurantId ?? fallbackRestaurantId;
-            if (!fixtureRestaurantId) {
-              throw new EmailDeliveryRetryError('MISSING_BOOKING', 'No restaurant access is available for this retry.');
-            }
-
-            await requireRestaurantMember({
-              supabase,
-              userId: user.id,
-              restaurantId: fixtureRestaurantId,
-            });
-
-            return resendBookingEmailFromDeliveryLog({
-              booking: {
-                id: bookingId,
-                restaurant_id: fixtureRestaurantId,
-              } as BookingRecord,
-              emailType,
-              templateType,
-            });
-          }
-
-          throw new EmailDeliveryRetryError('MISSING_BOOKING', 'The original booking could not be loaded for retry.');
-        }
-
-        const restaurantId = booking.restaurant_id ?? fallbackRestaurantId;
-        if (!restaurantId) {
+      if (fixtureEntry) {
+        const fixtureRestaurantId = fixtureEntry.restaurantId ?? fallbackRestaurantId;
+        if (!fixtureRestaurantId) {
           throw new EmailDeliveryRetryError('MISSING_BOOKING', 'No restaurant access is available for this retry.');
         }
 
         await requireRestaurantMember({
           supabase,
           userId: user.id,
-          restaurantId,
+          restaurantId: fixtureRestaurantId,
         });
 
         return resendBookingEmailFromDeliveryLog({
-          booking,
+          booking: {
+            id: bookingId,
+            restaurant_id: fixtureRestaurantId,
+          } as BookingRecord,
           emailType,
           templateType,
         });
-      };
+      }
 
-    const fixtureEntry =
-      isDevOrTestFaultInjectionEnabled() ? RETRY_ACTION_FIXTURE_ENTRIES[parsedBody.deliveryLogId] : undefined;
+      const serviceSupabase = getServiceSupabaseClient();
+      const { data, error } = await serviceSupabase.from('bookings').select('*').eq('id', bookingId).maybeSingle();
+
+      if (error) {
+        throw new Error(`Failed to load booking for retry (${error.code ?? 'unknown'}).`);
+      }
+
+      const booking = (data ?? null) as BookingRecord | null;
+      if (!booking) {
+        throw new EmailDeliveryRetryError('MISSING_BOOKING', 'The original booking could not be loaded for retry.');
+      }
+
+      const restaurantId = booking.restaurant_id ?? fallbackRestaurantId;
+      if (!restaurantId) {
+        throw new EmailDeliveryRetryError('MISSING_BOOKING', 'No restaurant access is available for this retry.');
+      }
+
+      await requireRestaurantMember({
+        supabase,
+        userId: user.id,
+        restaurantId,
+      });
+
+      return resendBookingEmailFromDeliveryLog({
+        booking,
+        emailType,
+        templateType,
+      });
+    };
 
     const retriedEntry = fixtureEntry
       ? await resendBookingEmail(fixtureEntry.bookingId, fixtureEntry.emailType, fixtureEntry.templateType)
