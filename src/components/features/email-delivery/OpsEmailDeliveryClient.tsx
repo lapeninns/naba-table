@@ -448,8 +448,9 @@ export function OpsEmailDeliveryClient({
   const hasPrevPage = currentPage > 1;
   const hasNextPage = Boolean(pageInfo?.hasNext);
   const rawStartResult = totalResults > 0 ? (currentPage - 1) * currentPageSize + 1 : 0;
-  const startResult = totalResults > 0 ? Math.min(rawStartResult, totalResults) : 0;
-  const endResult = totalResults > 0 ? Math.min(totalResults, rawStartResult + attempts.length - 1) : 0;
+  const hasVisibleRows = attempts.length > 0 && totalResults > 0;
+  const startResult = hasVisibleRows ? Math.min(rawStartResult, totalResults) : 0;
+  const endResult = hasVisibleRows ? Math.min(totalResults, rawStartResult + attempts.length - 1) : 0;
   const deliveryLogErrorMessage = query.apiError
     ? getDeliveryFeedErrorMessage(query.apiError)
     : query.error

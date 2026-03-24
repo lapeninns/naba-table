@@ -283,10 +283,97 @@ describe('OpsEmailDeliveryClient', () => {
     renderClient(getRestaurantEmailDeliveryFeed);
 
     expect(await screen.findByText('No email deliveries found')).toBeInTheDocument();
-    expect(screen.getByText('Showing 70-70 of 70 results')).toBeInTheDocument();
+    expect(screen.getByText('Showing 0-0 of 70 results')).toBeInTheDocument();
     expect(screen.getAllByText('Page 3').length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'Prev' })).not.toBeDisabled();
     expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
     expect(screen.getByRole('combobox', { name: /rows per page/i })).toBeInTheDocument();
+  });
+
+  it('shows the actual visible range for non-empty pages', async () => {
+    const getRestaurantEmailDeliveryFeed = vi
+      .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
+      .mockResolvedValue(
+        makeSuccessResponse({
+          pageInfo: { page: 2, pageSize: 50, hasNext: false },
+          attempts: [
+            {
+              messageId: 'msg-51',
+              recipientEmail: 'alex@example.com',
+              bookingId: 'booking-51',
+              emailType: 'created',
+              templateType: 'booking_confirmation',
+              provider: 'resend',
+              currentStatus: 'delivered',
+              currentOccurredAt: '2026-03-20T14:30:00Z',
+              events: [
+                {
+                  id: 'evt-51',
+                  bookingId: 'booking-51',
+                  restaurantId: 'rest-1',
+                  emailType: 'created',
+                  templateType: 'booking_confirmation',
+                  recipientEmail: 'alex@example.com',
+                  messageId: 'msg-51',
+                  status: 'delivered',
+                  provider: 'resend',
+                  occurredAt: '2026-03-20T14:30:00Z',
+                  error: null,
+                  metadata: { subject: 'Booking confirmed' },
+                },
+              ],
+              booking: {
+                id: 'booking-51',
+                reference: 'REF051',
+                bookingDate: '2026-03-20',
+                startTime: '19:00',
+                endTime: '20:30',
+                customerName: 'Alex Johnson',
+                partySize: 4,
+              },
+            },
+            {
+              messageId: 'msg-52',
+              recipientEmail: 'jamie@example.com',
+              bookingId: 'booking-52',
+              emailType: 'updated',
+              templateType: 'booking_update',
+              provider: 'resend',
+              currentStatus: 'sent',
+              currentOccurredAt: '2026-03-20T15:00:00Z',
+              events: [
+                {
+                  id: 'evt-52',
+                  bookingId: 'booking-52',
+                  restaurantId: 'rest-1',
+                  emailType: 'updated',
+                  templateType: 'booking_update',
+                  recipientEmail: 'jamie@example.com',
+                  messageId: 'msg-52',
+                  status: 'sent',
+                  provider: 'resend',
+                  occurredAt: '2026-03-20T15:00:00Z',
+                  error: null,
+                  metadata: { subject: 'Booking updated' },
+                },
+              ],
+              booking: {
+                id: 'booking-52',
+                reference: 'REF052',
+                bookingDate: '2026-03-20',
+                startTime: '20:00',
+                endTime: '21:30',
+                customerName: 'Jamie Lee',
+                partySize: 2,
+              },
+            },
+          ],
+          summary: makeSummary(70),
+        }),
+      );
+
+    renderClient(getRestaurantEmailDeliveryFeed);
+
+    expect(await screen.findByText('Showing 51-52 of 70 results')).toBeInTheDocument();
   });
 });
