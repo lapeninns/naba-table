@@ -15,6 +15,13 @@ import { OpsPageToolbar } from '@/components/features/ops-shell/patterns/OpsPage
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useOpsSession } from '@/contexts/ops-session';
 import { useOpsEmailDeliveryFeed } from '@/hooks/ops/useOpsEmailDeliveryFeed';
@@ -28,6 +35,7 @@ import type {
 } from '@/types/emailDelivery';
 
 const EMPTY_STATUSES: EmailDeliveryStatus[] = [];
+const PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
 
 const EMAIL_DELIVERY_TABS = ['delivery-log', 'queue', 'analytics'] as const;
 export type EmailDeliveryTab = (typeof EMAIL_DELIVERY_TABS)[number];
@@ -209,7 +217,7 @@ export function OpsEmailDeliveryClient({
   const [range, setRange] = useState<OpsEmailDeliveryRange>(parsedFromQuery.range);
   const [statuses, setStatuses] = useState<EmailDeliveryStatus[]>(parsedFromQuery.statuses);
   const [page, setPage] = useState<number>(parsedFromQuery.page);
-  const [pageSize] = useState<number>(parsedFromQuery.pageSize);
+  const [pageSize, setPageSize] = useState<number>(parsedFromQuery.pageSize);
   const [recipientEmail, setRecipientEmail] = useState<string | null>(parsedFromQuery.recipientEmail);
   const [messageId, setMessageId] = useState<string | null>(parsedFromQuery.messageId);
   const [bookingRef, setBookingRef] = useState<string | null>(parsedFromQuery.bookingRef);
@@ -228,6 +236,7 @@ export function OpsEmailDeliveryClient({
     setRange(parsedFromQuery.range);
     setStatuses(parsedFromQuery.statuses);
     setPage(parsedFromQuery.page);
+    setPageSize(parsedFromQuery.pageSize);
     setRecipientEmail(parsedFromQuery.recipientEmail);
     setMessageId(parsedFromQuery.messageId);
     setBookingRef(parsedFromQuery.bookingRef);
@@ -409,6 +418,16 @@ export function OpsEmailDeliveryClient({
     syncQueryParams({ page: next });
   }, [page, query.response, syncQueryParams]);
 
+  const pageInfo = query.response && query.response.ok ? query.response.pageInfo : null;
+  const totalResults = summary?.total ?? 0;
+  const hasResults = attempts.length > 0;
+  const hasPrevPage = page > 1;
+  const hasNextPage = Boolean(pageInfo?.hasNext);
+  const currentPage = pageInfo?.page ?? page;
+  const currentPageSize = pageInfo?.pageSize ?? pageSize;
+  const startResult = totalResults > 0 ? (currentPage - 1) * currentPageSize + 1 : 0;
+  const endResult = totalResults > 0 ? Math.min(totalResults, startResult + attempts.length - 1) : 0;
+
   if (memberships.length === 0) {
     return (
       <section className="mx-auto flex min-h-[60vh] max-w-2xl items-center justify-center p-8">
@@ -547,17 +566,55 @@ export function OpsEmailDeliveryClient({
             )}
 
             {/* Pagination */}
-            {attempts.length > 0 && (
-              <div className="flex items-center justify-end gap-2">
-                <Button variant="outline" size="sm" onClick={handlePrev} disabled={page <= 1}>
-                  <ChevronLeft className="h-4 w-4" aria-hidden />
-                  Prev
-                </Button>
-                <span className="text-xs text-muted-foreground">Page {page}</span>
-                <Button variant="outline" size="sm" onClick={handleNext} disabled={!query.response || query.response.ok === false || !query.response.pageInfo.hasNext}>
-                  Next
-                  <ChevronRight className="h-4 w-4" aria-hidden />
-                </Button>
+            {hasResults && (
+              <div className="flex flex-col gap-3 rounded-lg border border-slate-200/60 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-1">
+                  <p className="text-sm font-medium text-slate-900">
+                    Showing {startResult}-{endResult} of {totalResults} results
+                  </p>
+                  <p className="text-xs text-muted-foreground">Page {currentPage}</p>
+                </div>
+
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Rows per page</span>
+                    <Select
+                      value={String(currentPageSize)}
+                      onValueChange={(value) => {
+                        const nextPageSize = Number.parseInt(value, 10);
+                        if (!Number.isFinite(nextPageSize) || nextPageSize === pageSize) return;
+                        setPageSize(nextPageSize);
+                        setPage(1);
+                        syncQueryParams({ page: 1, pageSize: nextPageSize });
+                      }}
+                    >
+                      <SelectTrigger className="h-9 w-[88px]" aria-label="Rows per page">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PAGE_SIZE_OPTIONS.map((option) => (
+                          <SelectItem key={option} value={String(option)}>
+                            {option}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={handlePrev} disabled={!hasPrevPage}>
+                      <ChevronLeft className="h-4 w-4" aria-hidden />
+                      Prev
+                    </Button>
+                    <span className="min-w-16 text-center text-xs text-muted-foreground">
+                      Page {currentPage}
+                    </span>
+                    <Button variant="outline" size="sm" onClick={handleNext} disabled={!hasNextPage}>
+                      Next
+                      <ChevronRight className="h-4 w-4" aria-hidden />
+                    </Button>
+                  </div>
+                </div>
               </div>
             )}
           </section>
