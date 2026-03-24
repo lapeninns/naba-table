@@ -348,8 +348,20 @@ export function OpsEmailDeliveryClient({
   const handleTabChange = useCallback(
     (value: string) => {
       const params = new URLSearchParams(searchParams?.toString() ?? '');
-      params.set('tab', value);
-      router.replace(`${targetPath}?${params.toString()}`, { scroll: false });
+      if (value === 'delivery-log') {
+        params.delete('tab');
+      } else {
+        params.set('tab', value);
+      }
+
+      const nextQuery = params.toString();
+      const nextUrl = `${targetPath}${nextQuery ? `?${nextQuery}` : ''}`;
+
+      if (typeof window !== 'undefined') {
+        window.history.replaceState(window.history.state, '', nextUrl);
+      }
+
+      router.replace(nextUrl, { scroll: false });
     },
     [router, searchParams, targetPath],
   );

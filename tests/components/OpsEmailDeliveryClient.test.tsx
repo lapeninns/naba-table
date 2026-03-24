@@ -427,13 +427,55 @@ describe('OpsEmailDeliveryClient', () => {
       new URLSearchParams('restaurantId=rest-1&tab=delivery-log&range=24h&page=2'),
     );
 
+    const replaceStateSpy = vi.spyOn(window.history, 'replaceState');
     const user = userEvent.setup();
     renderClient(getRestaurantEmailDeliveryFeed);
 
     await user.click(await screen.findByRole('tab', { name: /queue/i }));
 
+    expect(replaceStateSpy).toHaveBeenCalledWith(
+      window.history.state,
+      '',
+      '/app/email-delivery?restaurantId=rest-1&tab=queue&range=24h&page=2',
+    );
     expect(replaceMock).toHaveBeenCalledWith(
       '/app/email-delivery?restaurantId=rest-1&tab=queue&range=24h&page=2',
+      { scroll: false },
+    );
+  });
+
+  it('opens analytics deep links from the URL without rewriting restaurant context', async () => {
+    const getRestaurantEmailDeliveryFeed = vi
+      .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
+      .mockResolvedValue(
+        makeSuccessResponse({
+          summary: {
+            ...makeSummary(12),
+            delivered: 10,
+            deliveryDelayed: 1,
+            failed: 1,
+            deliveredRate: 83.3,
+            failureRate: 8.3,
+            uniqueRecipients: 8,
+            uniqueBookings: 6,
+          },
+        }),
+      );
+
+    searchParamsMock.mockReturnValue(
+      new URLSearchParams('restaurantId=rest-1&tab=analytics&range=30d&page=2&pageSize=25'),
+    );
+
+    renderClient(getRestaurantEmailDeliveryFeed);
+
+    expect(await screen.findByRole('tab', { name: /analytics/i, selected: true })).toBeInTheDocument();
+    expect(screen.getByLabelText('Email delivery metrics')).toBeInTheDocument();
+    expect(replaceMock).not.toHaveBeenCalledWith(
+      expect.stringContaining('_rsc'),
+      expect.anything(),
+    );
+    expect(replaceMock).not.toHaveBeenCalledWith(
+      '/app/email-delivery?restaurantId=rest-1&range=30d&page=2&pageSize=25',
       { scroll: false },
     );
   });
