@@ -2,7 +2,7 @@
 
 import { AlertCircle, ChevronLeft, ChevronRight, MailWarning, RotateCcw } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { OpsEmailDeliveryFilterBar } from '@/components/features/email-delivery/components/OpsEmailDeliveryFilterBar';
@@ -145,7 +145,6 @@ export function OpsEmailDeliveryClient({
   initialTemplateType = null,
   initialEmailType = null,
 }: OpsEmailDeliveryClientProps) {
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const opsBasePath = pathname?.startsWith('/app') ? '/app' : '';
@@ -317,7 +316,10 @@ export function OpsEmailDeliveryClient({
       const nextString = params.toString();
       if (current === nextString) return;
 
-      router.replace(`${targetPath}${nextString ? `?${nextString}` : ''}`, { scroll: false });
+      const nextUrl = `${targetPath}${nextString ? `?${nextString}` : ''}`;
+      if (typeof window !== 'undefined') {
+        window.history.replaceState(window.history.state, '', nextUrl);
+      }
     },
     [
       bookingRef,
@@ -328,7 +330,6 @@ export function OpsEmailDeliveryClient({
       pageSize,
       range,
       recipientEmail,
-      router,
       searchParams,
       targetPath,
       templateType,
@@ -342,9 +343,9 @@ export function OpsEmailDeliveryClient({
     const existing = current.get('restaurantId');
     if (existing !== effectiveRestaurantId) {
       current.set('restaurantId', effectiveRestaurantId);
-      router.replace(`${targetPath}?${current.toString()}`, { scroll: false });
+      window.history.replaceState(window.history.state, '', `${targetPath}?${current.toString()}`);
     }
-  }, [effectiveRestaurantId, router, searchParams, targetPath]);
+  }, [effectiveRestaurantId, searchParams, targetPath]);
 
   const handleTabChange = useCallback(
     (value: string) => {
@@ -362,9 +363,8 @@ export function OpsEmailDeliveryClient({
         window.history.replaceState(window.history.state, '', nextUrl);
       }
 
-      router.replace(nextUrl, { scroll: false });
     },
-    [router, searchParams, targetPath],
+    [searchParams, targetPath],
   );
 
   const query = useOpsEmailDeliveryFeed({
