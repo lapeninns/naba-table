@@ -458,6 +458,7 @@ export interface BookingService {
     pageSize?: number;
     status?: EmailDeliveryStatus[];
     simulateEmailDeliveryError?: boolean;
+    fixture?: string;
     recipientEmail?: string;
     messageId?: string;
     bookingRef?: string;
@@ -479,9 +480,11 @@ export interface BookingService {
     page?: number;
     pageSize?: number;
     status?: OpsEmailQueueJobStatus;
+    fixture?: string;
   }): Promise<OpsEmailQueueFeedResponse>;
   retryEmailDelivery(input: {
     deliveryLogId: string;
+    simulateError?: boolean;
   }): Promise<{
     ok: true;
     deliveryLogEntry: unknown;
@@ -721,6 +724,7 @@ export function createBrowserBookingService(): BookingService {
         search.set('status', params.status.join(','));
       }
       if (params.simulateEmailDeliveryError) search.set('simulateEmailDeliveryError', '1');
+      if (params.fixture) search.set('fixture', params.fixture.trim());
       if (params.recipientEmail) search.set('recipientEmail', params.recipientEmail.trim());
       if (params.messageId) search.set('messageId', params.messageId.trim());
       if (params.bookingRef) search.set('bookingRef', params.bookingRef.trim().toUpperCase());
@@ -786,12 +790,12 @@ export function createBrowserBookingService(): BookingService {
         throw error;
       }
     },
-    async retryEmailDelivery({ deliveryLogId }) {
+    async retryEmailDelivery({ deliveryLogId, simulateError }) {
       try {
         const response = await fetch('/api/ops/email-delivery/retry', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ deliveryLogId }),
+          body: JSON.stringify({ deliveryLogId, ...(simulateError ? { simulateError: true } : {}) }),
           credentials: 'include',
         });
 
@@ -835,6 +839,7 @@ export function createBrowserBookingService(): BookingService {
       search.set('page', String(page));
       search.set('pageSize', String(pageSize));
       if (params.status) search.set('status', params.status);
+      if (params.fixture) search.set('fixture', params.fixture.trim());
 
       try {
         return await fetchJson<OpsEmailQueueFeedResponse>(`/api/ops/email-queue?${search.toString()}`);

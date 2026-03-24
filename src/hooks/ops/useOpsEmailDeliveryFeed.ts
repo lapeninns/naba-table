@@ -32,6 +32,7 @@ export type OpsEmailDeliveryFeedParams = {
   status?: EmailDeliveryStatus[];
   refetchIntervalMs?: number | false;
   simulateEmailDeliveryError?: boolean;
+  fixture?: string;
   recipientEmail?: string;
   messageId?: string;
   bookingRef?: string;
@@ -71,6 +72,7 @@ export function useOpsEmailDeliveryFeed(
       pageSize,
       statusKey,
       params.simulateEmailDeliveryError ? 'forced-error' : '',
+      params.fixture?.trim() ?? '',
       params.recipientEmail?.trim() ?? '',
       params.messageId?.trim() ?? '',
       params.bookingRef?.trim().toUpperCase() ?? '',
@@ -88,6 +90,7 @@ export function useOpsEmailDeliveryFeed(
         pageSize,
         status: params.status,
         simulateEmailDeliveryError: params.simulateEmailDeliveryError,
+        fixture: params.fixture,
         recipientEmail: params.recipientEmail,
         messageId: params.messageId,
         bookingRef: params.bookingRef,

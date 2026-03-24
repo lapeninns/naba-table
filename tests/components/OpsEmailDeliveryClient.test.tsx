@@ -445,6 +445,56 @@ describe('OpsEmailDeliveryClient', () => {
     expect(screen.getByText('Retry email delivery?')).toBeInTheDocument();
   });
 
+  it('passes simulate retry mutation error through the retry action flow when requested by URL', async () => {
+    searchParamsMock.mockReturnValue(
+      new URLSearchParams(
+        'restaurantId=rest-1&tab=delivery-log&fixture=retry-actions&simulateRetryMutationError=1',
+      ),
+    );
+
+    const user = userEvent.setup();
+    const retryEmailDelivery = vi
+      .fn<BookingService['retryEmailDelivery']>()
+      .mockRejectedValue(new Error('Forced retry mutation error for dev/test validation.'));
+    const getRestaurantEmailDeliveryFeed = vi
+      .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
+      .mockResolvedValue(
+        makeSuccessResponse({
+          attempts: [
+            {
+              id: '11111111-1111-4111-8111-111111111111',
+              messageId: 'fixture-provider-message-failed',
+              recipientEmail: 'retry.failed@example.com',
+              bookingId: 'booking-fixture-failed',
+              emailType: 'created',
+              templateType: 'booking_confirmation',
+              provider: 'mock',
+              currentStatus: 'failed',
+              currentOccurredAt: '2026-03-24T10:02:00.000Z',
+              events: [],
+              booking: null,
+            },
+          ],
+          summary: makeSummary(1),
+        }),
+      );
+
+    renderClient(getRestaurantEmailDeliveryFeed, { retryEmailDelivery });
+
+    await user.click(await screen.findByRole('button', { name: /retry email for retry.failed@example.com/i }));
+    await user.click(screen.getByRole('button', { name: /confirm retry/i }));
+
+    await waitFor(() => {
+      expect(retryEmailDelivery).toHaveBeenCalledWith({
+        deliveryLogId: '11111111-1111-4111-8111-111111111111',
+        simulateError: true,
+      });
+    });
+    expect(toastErrorMock).toHaveBeenCalledWith('Retry failed', {
+      description: 'Forced retry mutation error for dev/test validation.',
+    });
+  });
+
   it('cancels retry without calling the service', async () => {
     const user = userEvent.setup();
     const retryEmailDelivery = vi.fn<BookingService['retryEmailDelivery']>();
@@ -1630,6 +1680,37 @@ describe('OpsEmailDeliveryClient', () => {
     expect(await screen.findByText('Filtered Queue Guest')).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.queryByLabelText('Refreshing email queue')).not.toBeInTheDocument();
+    });
+  });
+
+  it('forwards queueFixture=loading to queue data requests for deterministic loading validation', async () => {
+    const getRestaurantEmailDeliveryFeed = vi
+      .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
+      .mockResolvedValue(makeSuccessResponse());
+    const getRestaurantEmailQueue = vi
+      .fn<BookingService['getRestaurantEmailQueue']>()
+      .mockResolvedValue({
+        ok: true,
+        restaurantId: 'rest-1',
+        pageInfo: { page: 1, pageSize: 25, hasNext: false, total: 0 },
+        summary: { total: 0, waiting: 0, active: 0, delayed: 0, dlq: 0 },
+        jobs: [],
+        timestamp: '2026-03-20T14:35:00Z',
+      });
+
+    searchParamsMock.mockReturnValue(
+      new URLSearchParams('restaurantId=rest-1&tab=queue&queueFixture=loading'),
+    );
+
+    renderClient(getRestaurantEmailDeliveryFeed, { getRestaurantEmailQueue });
+
+    await waitFor(() => {
+      expect(getRestaurantEmailQueue).toHaveBeenCalledWith(
+        expect.objectContaining({
+          restaurantId: 'rest-1',
+          fixture: 'loading',
+        }),
+      );
     });
   });
 

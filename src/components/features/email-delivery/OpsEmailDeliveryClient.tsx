@@ -65,6 +65,9 @@ export type OpsEmailDeliveryClientProps = {
   initialPageSize?: number;
   initialStatuses?: EmailDeliveryStatus[];
   initialSimulateEmailDeliveryError?: boolean;
+  initialFixture?: string | null;
+  initialQueueFixture?: string | null;
+  initialSimulateRetryMutationError?: boolean;
   initialRecipientEmail?: string | null;
   initialMessageId?: string | null;
   initialBookingRef?: string | null;
@@ -182,6 +185,9 @@ export function OpsEmailDeliveryClient({
   initialPageSize = 50,
   initialStatuses = EMPTY_STATUSES,
   initialSimulateEmailDeliveryError = false,
+  initialFixture = null,
+  initialQueueFixture = null,
+  initialSimulateRetryMutationError = false,
   initialRecipientEmail = null,
   initialMessageId = null,
   initialBookingRef = null,
@@ -220,6 +226,10 @@ export function OpsEmailDeliveryClient({
     const refresh = parseRefreshOption(sp.get('refresh'));
     const simulateEmailDeliveryError =
       sp.get('simulateEmailDeliveryError') === '1' || initialSimulateEmailDeliveryError;
+    const simulateRetryMutationError =
+      sp.get('simulateRetryMutationError') === '1' || initialSimulateRetryMutationError;
+    const fixture = sp.get('fixture')?.trim() || initialFixture;
+    const queueFixture = sp.get('queueFixture')?.trim() || initialQueueFixture;
 
     const recipientEmail = sp.get('recipientEmail')?.trim() || initialRecipientEmail;
     const messageId = sp.get('messageId')?.trim() || initialMessageId;
@@ -235,6 +245,9 @@ export function OpsEmailDeliveryClient({
       statuses,
       refresh,
       simulateEmailDeliveryError,
+      simulateRetryMutationError,
+      fixture: fixture ? fixture.trim() : null,
+      queueFixture: queueFixture ? queueFixture.trim() : null,
       recipientEmail: recipientEmail ? recipientEmail.trim() : null,
       messageId: messageId ? messageId.trim() : null,
       bookingRef: bookingRef ? bookingRef.trim().toUpperCase() : null,
@@ -249,6 +262,9 @@ export function OpsEmailDeliveryClient({
     initialPageSize,
     initialStatuses,
     initialSimulateEmailDeliveryError,
+    initialSimulateRetryMutationError,
+    initialFixture,
+    initialQueueFixture,
     initialRecipientEmail,
     initialMessageId,
     initialBookingRef,
@@ -331,6 +347,11 @@ export function OpsEmailDeliveryClient({
   const [simulateEmailDeliveryError, setSimulateEmailDeliveryError] = useState<boolean>(
     parsedFromQuery.simulateEmailDeliveryError,
   );
+  const [simulateRetryMutationError, setSimulateRetryMutationError] = useState<boolean>(
+    parsedFromQuery.simulateRetryMutationError,
+  );
+  const [fixture, setFixture] = useState<string | null>(parsedFromQuery.fixture);
+  const [queueFixture, setQueueFixture] = useState<string | null>(parsedFromQuery.queueFixture);
   const [recipientEmail, setRecipientEmail] = useState<string | null>(parsedFromQuery.recipientEmail);
   const [messageId, setMessageId] = useState<string | null>(parsedFromQuery.messageId);
   const [bookingRef, setBookingRef] = useState<string | null>(parsedFromQuery.bookingRef);
@@ -354,6 +375,9 @@ export function OpsEmailDeliveryClient({
     setPageSize(parsedFromQuery.pageSize);
     setRefresh(parsedFromQuery.refresh);
     setSimulateEmailDeliveryError(parsedFromQuery.simulateEmailDeliveryError);
+    setSimulateRetryMutationError(parsedFromQuery.simulateRetryMutationError);
+    setFixture(parsedFromQuery.fixture);
+    setQueueFixture(parsedFromQuery.queueFixture);
     setRecipientEmail(parsedFromQuery.recipientEmail);
     setMessageId(parsedFromQuery.messageId);
     setBookingRef(parsedFromQuery.bookingRef);
@@ -380,6 +404,9 @@ export function OpsEmailDeliveryClient({
       refresh?: RefreshOption;
       statuses?: EmailDeliveryStatus[];
       simulateEmailDeliveryError?: boolean;
+      simulateRetryMutationError?: boolean;
+      fixture?: string | null;
+      queueFixture?: string | null;
       recipientEmail?: string | null;
       messageId?: string | null;
       bookingRef?: string | null;
@@ -406,6 +433,12 @@ export function OpsEmailDeliveryClient({
         'simulateEmailDeliveryError',
         next.simulateEmailDeliveryError ?? simulateEmailDeliveryError ? '1' : null,
       );
+      applyParam(
+        'simulateRetryMutationError',
+        next.simulateRetryMutationError ?? simulateRetryMutationError ? '1' : null,
+      );
+      applyParam('fixture', next.fixture !== undefined ? next.fixture : fixture);
+      applyParam('queueFixture', next.queueFixture !== undefined ? next.queueFixture : queueFixture);
 
       const statusValue = next.statuses && next.statuses.length > 0 ? next.statuses.join(',') : null;
       applyParam('status', statusValue);
@@ -440,7 +473,10 @@ export function OpsEmailDeliveryClient({
       pageSize,
       refresh,
       range,
+      fixture,
+      queueFixture,
       simulateEmailDeliveryError,
+      simulateRetryMutationError,
       recipientEmail,
       searchParams,
       tab,
@@ -470,6 +506,9 @@ export function OpsEmailDeliveryClient({
       setPageSize(initialPageSize);
       setRefresh('off');
       setSimulateEmailDeliveryError(initialSimulateEmailDeliveryError);
+      setSimulateRetryMutationError(initialSimulateRetryMutationError);
+      setFixture(initialFixture);
+      setQueueFixture(initialQueueFixture);
       setRecipientEmail(initialRecipientEmail);
       setMessageId(initialMessageId);
       setBookingRef(initialBookingRef);
@@ -498,6 +537,9 @@ export function OpsEmailDeliveryClient({
         refresh: 'off',
         statuses: initialStatuses,
         simulateEmailDeliveryError: initialSimulateEmailDeliveryError,
+        simulateRetryMutationError: initialSimulateRetryMutationError,
+        fixture: initialFixture,
+        queueFixture: initialQueueFixture,
         recipientEmail: initialRecipientEmail,
         messageId: initialMessageId,
         bookingRef: initialBookingRef,
@@ -515,9 +557,12 @@ export function OpsEmailDeliveryClient({
       initialRange,
       initialRecipientEmail,
       initialSimulateEmailDeliveryError,
+      initialSimulateRetryMutationError,
       initialStatuses,
       initialTab,
       initialTemplateType,
+      initialFixture,
+      initialQueueFixture,
       membershipIds,
       setActiveRestaurantId,
       syncQueryParams,
@@ -536,6 +581,9 @@ export function OpsEmailDeliveryClient({
     setPageSize(initialPageSize);
     setRefresh('off');
     setSimulateEmailDeliveryError(initialSimulateEmailDeliveryError);
+    setSimulateRetryMutationError(initialSimulateRetryMutationError);
+    setFixture(initialFixture);
+    setQueueFixture(initialQueueFixture);
     setRecipientEmail(initialRecipientEmail);
     setMessageId(initialMessageId);
     setBookingRef(initialBookingRef);
@@ -564,6 +612,9 @@ export function OpsEmailDeliveryClient({
       refresh: 'off',
       statuses: initialStatuses,
       simulateEmailDeliveryError: initialSimulateEmailDeliveryError,
+      simulateRetryMutationError: initialSimulateRetryMutationError,
+      fixture: initialFixture,
+      queueFixture: initialQueueFixture,
       recipientEmail: initialRecipientEmail,
       messageId: initialMessageId,
       bookingRef: initialBookingRef,
@@ -582,9 +633,12 @@ export function OpsEmailDeliveryClient({
     initialRange,
     initialRecipientEmail,
     initialSimulateEmailDeliveryError,
+    initialSimulateRetryMutationError,
     initialStatuses,
     initialTab,
     initialTemplateType,
+    initialFixture,
+    initialQueueFixture,
     syncQueryParams,
   ]);
 
@@ -607,6 +661,7 @@ export function OpsEmailDeliveryClient({
     status: statuses.length > 0 ? statuses : undefined,
     refetchIntervalMs: deliveryLogPollingEnabled,
     simulateEmailDeliveryError,
+    fixture: fixture ?? undefined,
     recipientEmail: recipientEmail ?? undefined,
     messageId: messageId ?? undefined,
     bookingRef: bookingRef ?? undefined,
@@ -714,6 +769,7 @@ export function OpsEmailDeliveryClient({
     try {
       await bookingService.retryEmailDelivery({
         deliveryLogId: pendingRetryAttempt.id ?? pendingRetryAttempt.messageId,
+        ...(simulateRetryMutationError ? { simulateError: true } : {}),
       });
       toast.success('Retry queued', {
         description: `Resending ${pendingRetryAttempt.emailType ?? 'email'} to ${pendingRetryAttempt.recipientEmail}.`,
@@ -731,7 +787,7 @@ export function OpsEmailDeliveryClient({
     } finally {
       setRetryingAttemptKey(null);
     }
-  }, [bookingService, getAttemptKey, pendingRetryAttempt, query]);
+  }, [bookingService, getAttemptKey, pendingRetryAttempt, query, simulateRetryMutationError]);
 
   const toggleStatus = useCallback(
     (status: EmailDeliveryStatus, enabled: boolean) => {
@@ -1017,11 +1073,17 @@ export function OpsEmailDeliveryClient({
                 setRange('7d');
                 setPage(1);
                 setSimulateEmailDeliveryError(false);
+                setSimulateRetryMutationError(false);
+                setFixture(null);
+                setQueueFixture(null);
                 syncQueryParams({
                   range: '7d',
                   page: 1,
                   statuses: [],
                   simulateEmailDeliveryError: false,
+                  simulateRetryMutationError: false,
+                  fixture: null,
+                  queueFixture: null,
                   recipientEmail: null,
                   messageId: null,
                   bookingRef: null,
@@ -1146,6 +1208,7 @@ export function OpsEmailDeliveryClient({
             enabled={tab === 'queue'}
             refetchIntervalMs={tab === 'queue' ? refreshIntervalMs : false}
             refreshKey={tab === 'queue' ? manualRefreshNonce : 0}
+            fixture={queueFixture}
             onRefreshStateChange={setQueueRefreshState}
           />
         </TabsContent>

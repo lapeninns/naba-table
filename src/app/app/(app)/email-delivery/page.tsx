@@ -23,7 +23,10 @@ type EmailDeliverySearchParams = {
   page?: string;
   pageSize?: string;
   status?: string;
+  fixture?: string;
+  queueFixture?: string;
   simulateEmailDeliveryError?: string;
+  simulateRetryMutationError?: string;
   recipientEmail?: string;
   messageId?: string;
   bookingRef?: string;
@@ -111,8 +114,11 @@ export default async function OpsEmailDeliveryPage({
       initialPage={initialPage}
       initialPageSize={initialPageSize}
       initialStatuses={initialStatuses}
+      initialFixture={parseOptionalString(resolved.fixture)}
+      initialQueueFixture={parseOptionalString(resolved.queueFixture)}
       initialRecipientEmail={parseOptionalString(resolved.recipientEmail)}
       initialSimulateEmailDeliveryError={resolved.simulateEmailDeliveryError === '1'}
+      initialSimulateRetryMutationError={resolved.simulateRetryMutationError === '1'}
       initialMessageId={parseOptionalString(resolved.messageId)}
       initialBookingRef={parseOptionalString(resolved.bookingRef)}
       initialTemplateType={parseOptionalString(resolved.templateType)}

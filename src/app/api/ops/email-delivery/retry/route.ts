@@ -23,6 +23,7 @@ export const runtime = 'nodejs';
 
 const bodySchema = z.object({
   deliveryLogId: z.string().uuid(),
+  simulateError: z.boolean().optional(),
 });
 
 function jsonError(status: number, code: string, message: string) {
@@ -53,6 +54,13 @@ export async function POST(request: NextRequest) {
 
   try {
     const { supabase, user } = await requireSession();
+
+    if (
+      parsedBody.simulateError &&
+      (process.env.NODE_ENV !== 'production' || process.env.APP_ENV === 'development' || process.env.APP_ENV === 'test')
+    ) {
+      return jsonError(500, 'SIMULATED_RETRY_ERROR', 'Forced retry mutation error for dev/test validation.');
+    }
 
     const memberships = await listUserRestaurantMemberships(supabase, user.id);
     const fallbackRestaurantId =

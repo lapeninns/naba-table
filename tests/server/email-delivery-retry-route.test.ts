@@ -201,4 +201,22 @@ describe('POST /api/ops/email-delivery/retry', () => {
     expect(response.status).toBe(503);
     expect(payload).toMatchObject({ ok: false, code: 'DELIVERY_LOG_UNAVAILABLE' });
   });
+
+  it('returns a deterministic simulated error when requested in dev/test validation flows', async () => {
+    const response = await POST(
+      buildRequest({
+        deliveryLogId: '66666666-6666-4666-8666-666666666666',
+        simulateError: true,
+      }),
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(payload).toMatchObject({
+      ok: false,
+      code: 'SIMULATED_RETRY_ERROR',
+      error: 'Forced retry mutation error for dev/test validation.',
+    });
+    expect(retryEmailDeliveryLogEntryMock).not.toHaveBeenCalled();
+  });
 });
