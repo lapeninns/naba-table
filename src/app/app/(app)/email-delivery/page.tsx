@@ -23,6 +23,7 @@ type EmailDeliverySearchParams = {
   page?: string;
   pageSize?: string;
   status?: string;
+  simulateEmailDeliveryError?: string;
   recipientEmail?: string;
   messageId?: string;
   bookingRef?: string;
@@ -111,6 +112,7 @@ export default async function OpsEmailDeliveryPage({
       initialPageSize={initialPageSize}
       initialStatuses={initialStatuses}
       initialRecipientEmail={parseOptionalString(resolved.recipientEmail)}
+      initialSimulateEmailDeliveryError={resolved.simulateEmailDeliveryError === '1'}
       initialMessageId={parseOptionalString(resolved.messageId)}
       initialBookingRef={parseOptionalString(resolved.bookingRef)}
       initialTemplateType={parseOptionalString(resolved.templateType)}
