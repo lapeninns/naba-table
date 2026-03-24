@@ -11,7 +11,7 @@ Testing surface, required testing skills/tools, resource cost classification per
 - **Authentication**: Password login at `http://app.localhost:3000/auth/signin`
   - Email: `oldcrown@lapeninns.com`
   - Password: `OldCrown@2025`
-- **Dev harness**: `http://localhost:3000/dev/ops-email-delivery` (no auth required, uses mock data)
+- **Dev harness**: `http://localhost:3000/dev/ops-email-delivery` (intended no-auth mock surface), but in this mission's local env it may return `404` when `APP_ENV=staging` causes `enforceDevOnly()` to block public dev routes. If that happens, use the authenticated primary surface above instead.
 - **Dev server**: Already running on port 3000 (`pnpm dev`)
 
 ## Validation Concurrency

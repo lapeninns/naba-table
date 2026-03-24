@@ -1,0 +1,34 @@
+{
+  "featureId": "delivery-log-data-table",
+  "reviewedAt": "2026-03-24T13:45:00Z",
+  "commitId": "fa81cae0",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The table replacement largely matches the requested UX, but it fails one required behavior: status sorting is not based on the status value operators see in the UI. The implementation uses a custom severity order instead of alphabetical/value ordering, so the row order does not match the feature contract for sorting by Status.",
+    "issues": [
+      {
+        "file": "src/components/features/email-delivery/components/OpsEmailDeliveryTable.tsx",
+        "line": 38,
+        "severity": "blocking",
+        "description": "Status sorting uses a hard-coded severity ranking (`delivered`, `sent`, `delivery_delayed`, `bounced`, `complained`, `failed`) rather than sorting by the status value/label shown in the column. This does not satisfy VAL-DL-003's requirement to sort rows by Status; e.g. ascending order places `failed` after `sent` instead of alongside/before it as a true value sort would."
+      },
+      {
+        "file": "tests/components/OpsEmailDeliveryTable.test.tsx",
+        "line": 225,
+        "severity": "non_blocking",
+        "description": "The status-sort test only asserts the row count after clicking the Status header, so it would not catch incorrect ordering. This leaves the blocking sort defect unprotected by tests."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The fullstack-worker skill says to write tests first in RED, but the transcript shows the worker created both the new test file and the new component before running the first focused test. The skill procedure and expected enforcement are therefore not being followed consistently.",
+      "evidence": "worker-transcripts.jsonl entry for session d9005317-e53d-42df-8650-7ab26c92a312 shows Create tests/components/OpsEmailDeliveryTable.test.tsx immediately followed by Create src/components/features/email-delivery/components/OpsEmailDeliveryTable.tsx before the first `npx vitest run tests/components/OpsEmailDeliveryTable.test.tsx --reporter=verbose`."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Review failed: the data table implementation and expansion behavior are mostly correct, but Status sorting does not actually sort by status value as required, and the tests would not detect that mismatch."
+}
