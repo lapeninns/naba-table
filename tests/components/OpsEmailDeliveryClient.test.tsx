@@ -192,6 +192,7 @@ describe('OpsEmailDeliveryClient', () => {
         ...makeSuccessResponse(),
       });
 
+    const replaceStateSpy = vi.spyOn(window.history, 'replaceState');
     const user = userEvent.setup();
     renderClient(getRestaurantEmailDeliveryFeed);
 
@@ -791,6 +792,51 @@ describe('OpsEmailDeliveryClient', () => {
     );
     expect(screen.getByRole('tab', { name: /queue/i, selected: true })).toBeInTheDocument();
     expect(screen.getByText(/scheduled email queue/i)).toBeInTheDocument();
+  });
+
+  it('renders the restaurant switch control with the secondary restaurant option available', async () => {
+    searchParamsMock.mockReturnValue(
+      new URLSearchParams(
+        'restaurantId=rest-1&tab=analytics&range=24h&page=2&pageSize=25&recipientEmail=ops%40example.com&status=failed',
+      ),
+    );
+
+    const firstRestaurantFeed = makeSuccessResponse({
+      restaurantId: 'rest-1',
+      range: '24h',
+      pageInfo: { page: 2, pageSize: 25, hasNext: false },
+      summary: makeSummary(0),
+      attempts: [],
+    });
+
+    const getRestaurantEmailDeliveryFeed = vi
+      .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
+      .mockResolvedValue(firstRestaurantFeed);
+
+    const getRestaurantEmailDeliverySummary = vi
+      .fn<BookingService['getRestaurantEmailDeliverySummary']>()
+      .mockImplementation(async ({ restaurantId, range }) => ({
+        ok: true,
+        restaurantId: restaurantId ?? 'rest-1',
+        range: range ?? '7d',
+        summary: makeSummary(1),
+      }));
+
+
+    renderClient(getRestaurantEmailDeliveryFeed, { getRestaurantEmailDeliverySummary });
+
+    expect(await screen.findByRole('tab', { name: /analytics/i })).toHaveAttribute('aria-selected', 'true');
+    expect(getRestaurantEmailDeliveryFeed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        restaurantId: 'rest-1',
+        page: 2,
+        pageSize: 25,
+        recipientEmail: 'ops@example.com',
+        status: ['failed'],
+      }),
+    );
+
+    expect(screen.getByRole('button', { name: /test restaurant/i })).toBeInTheDocument();
   });
 
   it('opens analytics deep links from the URL without rewriting restaurant context', async () => {
