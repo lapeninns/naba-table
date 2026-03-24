@@ -1,9 +1,19 @@
 'use client';
 
-import { ArrowDown, ArrowUp, ArrowUpDown, Check, ChevronDown, Copy } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, Check, ChevronDown, Copy, RotateCcw } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useMemo, useState } from 'react';
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -217,6 +227,12 @@ export type OpsEmailDeliveryTableProps = {
   timezone: string;
   restaurantId: string;
   isLoading: boolean;
+  retryingAttemptKey?: string | null;
+  pendingRetryAttempt?: OpsEmailDeliveryAttemptDTO | null;
+  isRetryDialogOpen?: boolean;
+  onRetryAttempt?: (attempt: OpsEmailDeliveryAttemptDTO) => void;
+  onRetryDialogOpenChange?: (open: boolean) => void;
+  onConfirmRetry?: () => void;
 };
 
 export function OpsEmailDeliveryTable({
@@ -224,6 +240,12 @@ export function OpsEmailDeliveryTable({
   timezone,
   restaurantId: _restaurantId,
   isLoading,
+  retryingAttemptKey = null,
+  pendingRetryAttempt = null,
+  isRetryDialogOpen = false,
+  onRetryAttempt,
+  onRetryDialogOpenChange,
+  onConfirmRetry,
 }: OpsEmailDeliveryTableProps) {
   const [sortState, setSortState] = useState<SortState>({
     column: 'sentAt',
@@ -309,6 +331,7 @@ export function OpsEmailDeliveryTable({
             const isExpanded = expandedKey === key;
             const subject = resolveSubject(attempt);
             const when = formatEmailDeliveryOccurredAt(attempt.currentOccurredAt, timezone);
+            const canRetry = attempt.currentStatus === 'failed' || attempt.currentStatus === 'bounced';
 
             const rows = [
               <TableRow
@@ -349,17 +372,35 @@ export function OpsEmailDeliveryTable({
                   </span>
                 </TableCell>
                 <TableCell>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center justify-between gap-2">
                     <span className="whitespace-nowrap text-xs text-muted-foreground">
                       {when ?? '—'}
                     </span>
-                    <ChevronDown
-                      className={cn(
-                        'h-3 w-3 text-muted-foreground transition-transform',
-                        isExpanded && 'rotate-180',
-                      )}
-                      aria-hidden
-                    />
+                    <div className="flex items-center gap-1">
+                      {canRetry ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          aria-label={`Retry email for ${attempt.recipientEmail}`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onRetryAttempt?.(attempt);
+                          }}
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+                          Retry
+                        </Button>
+                      ) : null}
+                      <ChevronDown
+                        className={cn(
+                          'h-3 w-3 text-muted-foreground transition-transform',
+                          isExpanded && 'rotate-180',
+                        )}
+                        aria-hidden
+                      />
+                    </div>
                   </div>
                 </TableCell>
               </TableRow>,
@@ -379,6 +420,50 @@ export function OpsEmailDeliveryTable({
           })}
         </TableBody>
       </Table>
+
+      <AlertDialog open={isRetryDialogOpen} onOpenChange={onRetryDialogOpenChange}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Retry email delivery?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will resend the original email to the recipient. Use retry only for failed or bounced emails.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          {pendingRetryAttempt ? (
+            <div className="space-y-3 rounded-lg border border-slate-200/70 bg-slate-50/70 p-4 text-sm">
+              <div>
+                <p className="font-medium text-slate-900">Recipient</p>
+                <p className="text-slate-600">{pendingRetryAttempt.recipientEmail}</p>
+              </div>
+              <div>
+                <p className="font-medium text-slate-900">Subject</p>
+                <p className="text-slate-600">{resolveSubject(pendingRetryAttempt)}</p>
+              </div>
+              <div>
+                <p className="font-medium text-slate-900">Email type</p>
+                <p className="text-slate-600">{pendingRetryAttempt.emailType ?? '—'}</p>
+              </div>
+              <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900">
+                Warning: retrying will create a new delivery attempt and may send a duplicate email if the original eventually succeeds.
+              </p>
+            </div>
+          ) : null}
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={Boolean(retryingAttemptKey)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                void onConfirmRetry?.();
+              }}
+              disabled={!pendingRetryAttempt || Boolean(retryingAttemptKey)}
+            >
+              {retryingAttemptKey ? 'Retrying…' : 'Confirm Retry'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

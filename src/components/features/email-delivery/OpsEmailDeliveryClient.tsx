@@ -4,6 +4,7 @@ import { AlertCircle, ChevronLeft, ChevronRight, MailWarning, RotateCcw } from '
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 
 import { OpsEmailDeliveryAnalytics } from '@/components/features/email-delivery/components/OpsEmailDeliveryAnalytics';
 import { OpsEmailDeliveryFilterBar } from '@/components/features/email-delivery/components/OpsEmailDeliveryFilterBar';
@@ -27,10 +28,12 @@ import { useOpsServices } from '@/contexts/ops-services';
 import { useOpsSession } from '@/contexts/ops-session';
 import { useOpsEmailDeliveryFeed } from '@/hooks/ops/useOpsEmailDeliveryFeed';
 import { useOpsRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
+import { HttpError } from '@/lib/http/errors';
 import { EMAIL_DELIVERY_STATUS_VALUES } from '@/types/emailDelivery';
 import { useOpsEmailDeliverySummary } from '@src/hooks/ops/useOpsEmailDeliverySummary';
 
 import type { SearchField } from '@/components/features/email-delivery/components/OpsEmailDeliveryFilterBar';
+import type { OpsEmailDeliveryAttemptDTO } from '@/types/emailDelivery';
 import type {
   EmailDeliveryStatus,
   OpsEmailDeliveryRange,
@@ -167,7 +170,7 @@ export function OpsEmailDeliveryClient({
   }, [opsBasePath, pathname]);
 
   const { memberships, activeRestaurantId, setActiveRestaurantId } = useOpsSession();
-  const { restaurantService } = useOpsServices();
+  const { bookingService, restaurantService } = useOpsServices();
   const membershipIds = useMemo(() => new Set(memberships.map((m) => m.restaurantId)), [memberships]);
 
   const searchKey = useMemo(() => searchParams?.toString() ?? '', [searchParams]);
@@ -295,6 +298,8 @@ export function OpsEmailDeliveryClient({
   const [bookingRef, setBookingRef] = useState<string | null>(parsedFromQuery.bookingRef);
   const [templateType, setTemplateType] = useState<string | null>(parsedFromQuery.templateType);
   const [emailType, setEmailType] = useState<string | null>(parsedFromQuery.emailType);
+  const [pendingRetryAttempt, setPendingRetryAttempt] = useState<OpsEmailDeliveryAttemptDTO | null>(null);
+  const [retryingAttemptKey, setRetryingAttemptKey] = useState<string | null>(null);
 
   const [searchField, setSearchField] = useState<SearchField>(() =>
     resolveSearchField({ recipientEmail, messageId, bookingRef }),
@@ -596,6 +601,47 @@ export function OpsEmailDeliveryClient({
     });
   }, [searchField, searchValue, syncQueryParams]);
 
+  const getAttemptKey = useCallback(
+    (attempt: OpsEmailDeliveryAttemptDTO) => `${attempt.messageId}__${attempt.recipientEmail.toLowerCase()}`,
+    [],
+  );
+
+  const handleRetryAttempt = useCallback((attempt: OpsEmailDeliveryAttemptDTO) => {
+    setPendingRetryAttempt(attempt);
+  }, []);
+
+  const handleRetryDialogOpenChange = useCallback((open: boolean) => {
+    if (!open && !retryingAttemptKey) {
+      setPendingRetryAttempt(null);
+    }
+  }, [retryingAttemptKey]);
+
+  const handleConfirmRetry = useCallback(async () => {
+    if (!pendingRetryAttempt) return;
+
+    const attemptKey = getAttemptKey(pendingRetryAttempt);
+    setRetryingAttemptKey(attemptKey);
+
+    try {
+      await bookingService.retryEmailDelivery({ deliveryLogId: pendingRetryAttempt.messageId });
+      toast.success('Retry queued', {
+        description: `Resending ${pendingRetryAttempt.emailType ?? 'email'} to ${pendingRetryAttempt.recipientEmail}.`,
+      });
+      setPendingRetryAttempt(null);
+      await query.refetch();
+    } catch (error) {
+      const message =
+        error instanceof HttpError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : 'Failed to retry email delivery';
+      toast.error('Retry failed', { description: message });
+    } finally {
+      setRetryingAttemptKey(null);
+    }
+  }, [bookingService, getAttemptKey, pendingRetryAttempt, query]);
+
   const toggleStatus = useCallback(
     (status: EmailDeliveryStatus, enabled: boolean) => {
       setPage(1);
@@ -851,6 +897,12 @@ export function OpsEmailDeliveryClient({
                 timezone={timezone}
                 restaurantId={effectiveRestaurantId ?? ''}
                 isLoading={query.isLoading}
+                retryingAttemptKey={retryingAttemptKey}
+                pendingRetryAttempt={pendingRetryAttempt}
+                isRetryDialogOpen={pendingRetryAttempt !== null}
+                onRetryAttempt={handleRetryAttempt}
+                onRetryDialogOpenChange={handleRetryDialogOpenChange}
+                onConfirmRetry={handleConfirmRetry}
               />
             )}
 
