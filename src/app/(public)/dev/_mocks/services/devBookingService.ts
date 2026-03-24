@@ -435,6 +435,7 @@ export class DevBookingService implements BookingService {
     pageSize?: number;
     status?: EmailDeliveryStatus[];
     simulateEmailDeliveryError?: boolean;
+    fixture?: string;
     recipientEmail?: string;
     messageId?: string;
     bookingRef?: string;
@@ -530,6 +531,7 @@ export class DevBookingService implements BookingService {
     page?: number;
     pageSize?: number;
     status?: OpsEmailQueueJobStatus;
+    fixture?: string;
   }): Promise<OpsEmailQueueFeedResponse> {
     if (!params.restaurantId) {
       throw new Error('[dev][bookingService] restaurantId is required');

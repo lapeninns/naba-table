@@ -27,6 +27,7 @@ export type OpsEmailQueueFeedParams = {
   status?: OpsEmailQueueJobStatus;
   enabled?: boolean;
   refetchIntervalMs?: number | false;
+  fixture?: string;
 };
 
 function normalizePage(raw: unknown): number {
@@ -56,6 +57,7 @@ export function useOpsEmailQueueFeed(
       page,
       pageSize,
       params.status ?? 'all',
+      params.fixture?.trim() ?? '',
     ] as const,
     queryFn: () => {
       if (!params.restaurantId) {
@@ -66,6 +68,7 @@ export function useOpsEmailQueueFeed(
         page,
         pageSize,
         status: params.status,
+        fixture: params.fixture,
       });
     },
     enabled: Boolean(params.restaurantId) && enabled,

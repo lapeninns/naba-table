@@ -96,6 +96,7 @@ export type OpsEmailQueuePanelProps = {
   enabled?: boolean;
   refetchIntervalMs?: number | false;
   refreshKey?: number;
+  fixture?: string | null;
   onRefreshStateChange?: (state: { isRefreshing: boolean; lastUpdatedAt: number | null }) => void;
 };
 
@@ -105,6 +106,7 @@ export function OpsEmailQueuePanel({
   enabled = true,
   refetchIntervalMs = false,
   refreshKey = 0,
+  fixture = null,
   onRefreshStateChange,
 }: OpsEmailQueuePanelProps) {
   const [status, setStatus] = useState<OpsEmailQueueJobStatus | 'all'>('all');
@@ -121,6 +123,7 @@ export function OpsEmailQueuePanel({
     status: status === 'all' ? undefined : status,
     enabled,
     refetchIntervalMs: enabled ? refetchIntervalMs : false,
+    fixture: fixture ?? undefined,
   });
 
   const jobs = query.jobs ?? [];
