@@ -441,14 +441,15 @@ export function OpsEmailDeliveryClient({
   }, [page, query.response, syncQueryParams]);
 
   const pageInfo = query.response && query.response.ok ? query.response.pageInfo : null;
-  const totalResults = summary?.total ?? 0;
-  const hasResults = attempts.length > 0;
-  const hasPrevPage = page > 1;
-  const hasNextPage = Boolean(pageInfo?.hasNext);
   const currentPage = pageInfo?.page ?? page;
   const currentPageSize = pageInfo?.pageSize ?? pageSize;
-  const startResult = totalResults > 0 ? (currentPage - 1) * currentPageSize + 1 : 0;
-  const endResult = totalResults > 0 ? Math.min(totalResults, startResult + attempts.length - 1) : 0;
+  const totalResults = summary?.total ?? 0;
+  const shouldShowPagination = currentPage > 1 || totalResults > 0 || currentPageSize !== 50;
+  const hasPrevPage = currentPage > 1;
+  const hasNextPage = Boolean(pageInfo?.hasNext);
+  const rawStartResult = totalResults > 0 ? (currentPage - 1) * currentPageSize + 1 : 0;
+  const startResult = totalResults > 0 ? Math.min(rawStartResult, totalResults) : 0;
+  const endResult = totalResults > 0 ? Math.min(totalResults, rawStartResult + attempts.length - 1) : 0;
   const deliveryLogErrorMessage = query.apiError
     ? getDeliveryFeedErrorMessage(query.apiError)
     : query.error
@@ -602,7 +603,7 @@ export function OpsEmailDeliveryClient({
             )}
 
             {/* Pagination */}
-            {hasResults && (
+            {shouldShowPagination && (
               <div className="flex flex-col gap-3 rounded-lg border border-slate-200/60 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex flex-col gap-1">
                   <p className="text-sm font-medium text-slate-900">

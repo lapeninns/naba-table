@@ -268,4 +268,25 @@ describe('OpsEmailDeliveryClient', () => {
     expect(screen.queryByText(/delivery health/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/showing latest delivery activity/i)).not.toBeInTheDocument();
   });
+
+  it('keeps pagination controls visible on empty out-of-range pages so operators can recover', async () => {
+    const getRestaurantEmailDeliveryFeed = vi
+      .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
+      .mockResolvedValue(
+        makeSuccessResponse({
+          pageInfo: { page: 3, pageSize: 50, hasNext: false },
+          attempts: [],
+          summary: makeSummary(70),
+        }),
+      );
+
+    renderClient(getRestaurantEmailDeliveryFeed);
+
+    expect(await screen.findByText('No email deliveries found')).toBeInTheDocument();
+    expect(screen.getByText('Showing 70-70 of 70 results')).toBeInTheDocument();
+    expect(screen.getAllByText('Page 3').length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: 'Prev' })).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
+    expect(screen.getByRole('combobox', { name: /rows per page/i })).toBeInTheDocument();
+  });
 });
