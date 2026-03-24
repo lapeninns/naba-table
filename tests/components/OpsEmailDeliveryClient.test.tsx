@@ -1106,6 +1106,56 @@ describe('OpsEmailDeliveryClient', () => {
     expect(await screen.findByText('No booking emails are currently queued for this restaurant.')).toBeInTheDocument();
   });
 
+  it('does not fetch queue data until the queue tab is activated', async () => {
+    const getRestaurantEmailDeliveryFeed = vi
+      .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
+      .mockResolvedValue(makeSuccessResponse());
+
+    let resolveQueue!: (value: OpsEmailQueueFeedResponse) => void;
+    const queuePromise = new Promise<OpsEmailQueueFeedResponse>((resolve) => {
+      resolveQueue = resolve;
+    });
+
+    const getRestaurantEmailQueue = vi
+      .fn<BookingService['getRestaurantEmailQueue']>()
+      .mockReturnValue(queuePromise);
+
+    searchParamsMock.mockReturnValue(new URLSearchParams('restaurantId=rest-1&tab=delivery-log'));
+
+    const user = userEvent.setup();
+    renderClient(getRestaurantEmailDeliveryFeed, { getRestaurantEmailQueue });
+
+    expect(await screen.findByRole('tab', { name: /delivery log/i, selected: true })).toBeInTheDocument();
+    expect(getRestaurantEmailQueue).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('tab', { name: /queue/i }));
+
+    expect(await screen.findByLabelText(/loading email queue|refreshing email queue/i)).toBeInTheDocument();
+    expect(getRestaurantEmailQueue).toHaveBeenCalledTimes(1);
+    expect(getRestaurantEmailQueue).toHaveBeenCalledWith(
+      expect.objectContaining({
+        restaurantId: 'rest-1',
+        page: 1,
+        pageSize: 25,
+        status: undefined,
+      }),
+    );
+
+    await act(async () => {
+      resolveQueue({
+        ok: true,
+        restaurantId: 'rest-1',
+        pageInfo: { page: 1, pageSize: 25, hasNext: false, total: 0 },
+        summary: { total: 0, waiting: 0, active: 0, delayed: 0, dlq: 0 },
+        jobs: [],
+        timestamp: '2026-03-20T14:35:00Z',
+      });
+      await queuePromise;
+    });
+
+    expect(await screen.findByText('No queued emails right now')).toBeInTheDocument();
+  });
+
   it('keeps the queue loading skeleton visible briefly after a fast queue response settles', async () => {
     const getRestaurantEmailDeliveryFeed = vi
       .fn<BookingService['getRestaurantEmailDeliveryFeed']>()

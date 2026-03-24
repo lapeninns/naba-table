@@ -93,9 +93,14 @@ function typeLabel(type: string): string {
 export type OpsEmailQueuePanelProps = {
   restaurantId: string | null;
   timezone: string;
+  enabled?: boolean;
 };
 
-export function OpsEmailQueuePanel({ restaurantId, timezone }: OpsEmailQueuePanelProps) {
+export function OpsEmailQueuePanel({
+  restaurantId,
+  timezone,
+  enabled = true,
+}: OpsEmailQueuePanelProps) {
   const [status, setStatus] = useState<OpsEmailQueueJobStatus | 'all'>('all');
   const [page, setPage] = useState(1);
 
@@ -108,6 +113,7 @@ export function OpsEmailQueuePanel({ restaurantId, timezone }: OpsEmailQueuePane
     page,
     pageSize: 25,
     status: status === 'all' ? undefined : status,
+    enabled,
   });
 
   const jobs = query.jobs ?? [];
