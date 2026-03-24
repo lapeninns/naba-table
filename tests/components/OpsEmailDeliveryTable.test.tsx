@@ -351,7 +351,7 @@ describe('OpsEmailDeliveryTable', () => {
     expect(timelines).toHaveLength(1);
   });
 
-  it('shows empty state when no results', () => {
+  it('renders an empty table shell when no results', () => {
     render(
       <OpsEmailDeliveryTable
         attempts={[]}
@@ -361,8 +361,9 @@ describe('OpsEmailDeliveryTable', () => {
       />,
     );
 
-    expect(screen.getByText(/no email deliveries found/i)).toBeInTheDocument();
-    expect(screen.getByText(/adjust the filters or try a wider date range/i)).toBeInTheDocument();
+    expect(screen.getByRole('table')).toBeInTheDocument();
+    expect(screen.getByText('Status')).toBeInTheDocument();
+    expect(screen.queryByText(/no email deliveries found/i)).not.toBeInTheDocument();
   });
 
   it('shows loading skeleton while data fetches', () => {
