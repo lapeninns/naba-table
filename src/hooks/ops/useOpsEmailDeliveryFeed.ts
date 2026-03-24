@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery, type UseQueryResult } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
 import { useBookingService } from '@/contexts/ops-services';
@@ -95,6 +95,7 @@ export function useOpsEmailDeliveryFeed(
     },
     enabled: Boolean(restaurantId),
     staleTime: 30_000,
+    placeholderData: keepPreviousData,
   });
 
   const derived = useMemo<OpsEmailDeliveryFeedState>(() => {

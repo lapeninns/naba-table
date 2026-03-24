@@ -256,6 +256,101 @@ describe('OpsEmailDeliveryClient', () => {
     });
   });
 
+  it('resolves filtered zero-result responses to visible empty guidance once loading settles', async () => {
+    searchParamsMock.mockReturnValue(
+      new URLSearchParams('restaurantId=rest-1&tab=delivery-log&recipientEmail=zzzz-no-match-empty-state'),
+    );
+
+    const responses = [
+      makeSuccessResponse({
+        attempts: [
+          {
+            messageId: 'msg-loading',
+            recipientEmail: 'prior@example.com',
+            bookingId: 'booking-loading',
+            emailType: 'created',
+            templateType: 'booking_confirmation',
+            provider: 'resend',
+            currentStatus: 'delivered',
+            currentOccurredAt: '2026-03-20T14:30:00Z',
+            events: [
+              {
+                id: 'evt-loading',
+                bookingId: 'booking-loading',
+                restaurantId: 'rest-1',
+                emailType: 'created',
+                templateType: 'booking_confirmation',
+                recipientEmail: 'prior@example.com',
+                messageId: 'msg-loading',
+                status: 'delivered',
+                provider: 'resend',
+                occurredAt: '2026-03-20T14:30:00Z',
+                error: null,
+                metadata: { subject: 'Previous result' },
+              },
+            ],
+            booking: {
+              id: 'booking-loading',
+              reference: 'PREV01',
+              bookingDate: '2026-03-20',
+              startTime: '19:00',
+              endTime: '20:30',
+              customerName: 'Prior Result',
+              partySize: 2,
+            },
+          },
+        ],
+        summary: makeSummary(1),
+      }),
+      makeSuccessResponse({
+        attempts: [],
+        summary: makeSummary(0),
+        pageInfo: { page: 1, pageSize: 50, hasNext: false },
+      }),
+    ];
+
+    const getRestaurantEmailDeliveryFeed = vi
+      .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
+      .mockImplementation(async () => responses.shift() ?? makeSuccessResponse());
+
+    const { rerender } = renderClient(getRestaurantEmailDeliveryFeed);
+
+    expect(await screen.findByText('Previous result')).toBeInTheDocument();
+
+    searchParamsMock.mockReturnValue(
+      new URLSearchParams('restaurantId=rest-1&tab=delivery-log&recipientEmail=zzzz-no-match-empty-state&page=2'),
+    );
+
+    rerender(
+      <QueryClientProvider
+        client={new QueryClient({
+          defaultOptions: {
+            queries: { retry: false, refetchOnWindowFocus: false },
+          },
+        })}
+      >
+        <OpsServicesProvider
+          factories={{
+            bookingService: () => createBookingServiceMock(getRestaurantEmailDeliveryFeed),
+            restaurantService: () => createRestaurantService() as never,
+          }}
+        >
+          <OpsSessionProvider user={user} memberships={memberships} initialRestaurantId="rest-1">
+            <OpsSidebarLayout>
+              <OpsEmailDeliveryClient initialRestaurantId="rest-1" initialRange="7d" />
+            </OpsSidebarLayout>
+          </OpsSessionProvider>
+        </OpsServicesProvider>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText('No email deliveries found')).toBeInTheDocument();
+    expect(screen.getByText('Adjust the filters or try a wider date range to see more results.')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Loading email delivery attempts')).not.toBeInTheDocument();
+    expect(screen.queryByText('Previous result')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
   it('prefers an API error response over stale loading placeholders during a forced-error transition', async () => {
     searchParamsMock.mockReturnValue(
       new URLSearchParams('restaurantId=rest-1&tab=delivery-log&simulateEmailDeliveryError=1'),
