@@ -25,6 +25,7 @@ export type OpsEmailQueueFeedParams = {
   page?: number;
   pageSize?: number;
   status?: OpsEmailQueueJobStatus;
+  enabled?: boolean;
 };
 
 function normalizePage(raw: unknown): number {
@@ -43,6 +44,7 @@ export function useOpsEmailQueueFeed(
   const bookingService = useBookingService();
   const page = normalizePage(params.page);
   const pageSize = normalizePageSize(params.pageSize);
+  const enabled = params.enabled ?? true;
 
   const query = useQuery<OpsEmailQueueFeedResponse, HttpError>({
     queryKey: [
@@ -64,7 +66,7 @@ export function useOpsEmailQueueFeed(
         status: params.status,
       });
     },
-    enabled: Boolean(params.restaurantId),
+    enabled: Boolean(params.restaurantId) && enabled,
     staleTime: 30_000,
     placeholderData: (previous) => previous,
   });

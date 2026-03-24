@@ -919,7 +919,11 @@ export function OpsEmailDeliveryClient({
         </TabsContent>
 
         <TabsContent value="queue">
-          <OpsEmailQueuePanel restaurantId={effectiveRestaurantId} timezone={timezone} />
+          <OpsEmailQueuePanel
+            restaurantId={effectiveRestaurantId}
+            timezone={timezone}
+            enabled={tab === 'queue'}
+          />
         </TabsContent>
 
         <TabsContent value="analytics">
