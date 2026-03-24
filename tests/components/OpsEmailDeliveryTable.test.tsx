@@ -143,6 +143,17 @@ const defaultAttempts: OpsEmailDeliveryAttemptDTO[] = [
   }),
 ];
 
+function getRecipientOrder() {
+  return screen
+    .getAllByRole('row')
+    .slice(1)
+    .map((row) => {
+      const emailCell = within(row).queryByText(/@example\.com$/);
+      return emailCell?.textContent ?? '';
+    })
+    .filter(Boolean);
+}
+
 describe('OpsEmailDeliveryTable', () => {
   it('renders table with correct column headers', () => {
     render(
@@ -222,7 +233,7 @@ describe('OpsEmailDeliveryTable', () => {
     expect(within(rowsAfterSort[1]!).getByText('jane@example.com')).toBeInTheDocument();
   });
 
-  it('sorts by Status on header click', async () => {
+  it('sorts by Status on header click using displayed status ordering ascending and descending', async () => {
     const user = userEvent.setup();
 
     render(
@@ -235,11 +246,18 @@ describe('OpsEmailDeliveryTable', () => {
     );
 
     await user.click(screen.getByText('Status'));
+    expect(getRecipientOrder()).toEqual([
+      'jane@example.com',
+      'alex@example.com',
+      'sam@example.com',
+    ]);
 
-    // After sorting by status ascending, rows should be reordered by status value
-    const rows = screen.getAllByRole('row');
-    // Verify rows are reordered (at least that sorting happened)
-    expect(rows.length).toBe(4); // 1 header + 3 data rows
+    await user.click(screen.getByText('Status'));
+    expect(getRecipientOrder()).toEqual([
+      'sam@example.com',
+      'alex@example.com',
+      'jane@example.com',
+    ]);
   });
 
   it('expands a row on click to show event timeline', async () => {
