@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertCircle, ChevronLeft, ChevronRight, MailWarning, RotateCcw } from 'lucide-react';
+import { AlertCircle, ChevronLeft, ChevronRight, MailWarning, RefreshCw, RotateCcw } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -24,13 +24,16 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useOpsServices } from '@/contexts/ops-services';
 import { useOpsSession } from '@/contexts/ops-session';
 import { useOpsEmailDeliveryFeed } from '@/hooks/ops/useOpsEmailDeliveryFeed';
 import { useOpsRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
 import { HttpError } from '@/lib/http/errors';
+import { cn } from '@/lib/utils';
 import { EMAIL_DELIVERY_STATUS_VALUES } from '@/types/emailDelivery';
 import { useOpsEmailDeliverySummary } from '@src/hooks/ops/useOpsEmailDeliverySummary';
+import { useMinimumDelay } from '@src/hooks/use-minimum-delay';
 
 import type { SearchField } from '@/components/features/email-delivery/components/OpsEmailDeliveryFilterBar';
 import type { OpsEmailDeliveryAttemptDTO } from '@/types/emailDelivery';
@@ -43,6 +46,13 @@ const EMPTY_STATUSES: EmailDeliveryStatus[] = [];
 const PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
 const DELIVERY_LOG_FAULT_INJECTION_MESSAGE_ID = '__force_error__';
 const DELIVERY_LOG_STUCK_LOADING_FALLBACK_MS = 1500;
+const REFRESH_OPTIONS = ['off', '30s', '1m', '5m'] as const;
+type RefreshOption = (typeof REFRESH_OPTIONS)[number];
+const REFRESH_INTERVALS_MS: Record<Exclude<RefreshOption, 'off'>, number> = {
+  '30s': 30_000,
+  '1m': 60_000,
+  '5m': 300_000,
+};
 
 const EMAIL_DELIVERY_TABS = ['delivery-log', 'queue', 'analytics'] as const;
 export type EmailDeliveryTab = (typeof EMAIL_DELIVERY_TABS)[number];
@@ -94,6 +104,31 @@ function parseStatuses(raw: string | null, fallback: EmailDeliveryStatus[]): Ema
     if (allowed.has(part)) out.push(part as EmailDeliveryStatus);
   }
   return out;
+}
+
+function parseRefreshOption(raw: string | null): RefreshOption {
+  if (raw === '30s' || raw === '1m' || raw === '5m') return raw;
+  return 'off';
+}
+
+function getRefreshIntervalMs(option: RefreshOption): number | false {
+  if (option === 'off') return false;
+  return REFRESH_INTERVALS_MS[option];
+}
+
+function formatRefreshLabel(option: RefreshOption): string {
+  if (option === 'off') return 'Off';
+  if (option === '30s') return '30s';
+  if (option === '1m') return '1m';
+  return '5m';
+}
+
+function formatRelativeSeconds(lastUpdatedAt: number | null, now: number): string {
+  if (!lastUpdatedAt) return 'Waiting for first refresh…';
+  const diffSeconds = Math.max(0, Math.floor((now - lastUpdatedAt) / 1000));
+  if (diffSeconds === 0) return 'Last updated just now';
+  if (diffSeconds === 1) return 'Last updated 1 second ago';
+  return `Last updated ${diffSeconds} seconds ago`;
 }
 
 function resolveSearchField(filters: {
@@ -182,6 +217,7 @@ export function OpsEmailDeliveryClient({
     const pageParam = Math.max(1, parseIntParam(sp.get('page'), initialPage));
     const pageSizeParam = Math.max(1, Math.min(200, parseIntParam(sp.get('pageSize'), initialPageSize)));
     const statuses = parseStatuses(sp.get('status'), initialStatuses);
+    const refresh = parseRefreshOption(sp.get('refresh'));
     const simulateEmailDeliveryError =
       sp.get('simulateEmailDeliveryError') === '1' || initialSimulateEmailDeliveryError;
 
@@ -197,6 +233,7 @@ export function OpsEmailDeliveryClient({
       page: pageParam,
       pageSize: pageSizeParam,
       statuses,
+      refresh,
       simulateEmailDeliveryError,
       recipientEmail: recipientEmail ? recipientEmail.trim() : null,
       messageId: messageId ? messageId.trim() : null,
@@ -290,6 +327,7 @@ export function OpsEmailDeliveryClient({
   const [statuses, setStatuses] = useState<EmailDeliveryStatus[]>(parsedFromQuery.statuses);
   const [page, setPage] = useState<number>(parsedFromQuery.page);
   const [pageSize, setPageSize] = useState<number>(parsedFromQuery.pageSize);
+  const [refresh, setRefresh] = useState<RefreshOption>(parsedFromQuery.refresh);
   const [simulateEmailDeliveryError, setSimulateEmailDeliveryError] = useState<boolean>(
     parsedFromQuery.simulateEmailDeliveryError,
   );
@@ -314,6 +352,7 @@ export function OpsEmailDeliveryClient({
     setStatuses(parsedFromQuery.statuses);
     setPage(parsedFromQuery.page);
     setPageSize(parsedFromQuery.pageSize);
+    setRefresh(parsedFromQuery.refresh);
     setSimulateEmailDeliveryError(parsedFromQuery.simulateEmailDeliveryError);
     setRecipientEmail(parsedFromQuery.recipientEmail);
     setMessageId(parsedFromQuery.messageId);
@@ -338,6 +377,7 @@ export function OpsEmailDeliveryClient({
       range?: OpsEmailDeliveryRange;
       page?: number;
       pageSize?: number;
+      refresh?: RefreshOption;
       statuses?: EmailDeliveryStatus[];
       simulateEmailDeliveryError?: boolean;
       recipientEmail?: string | null;
@@ -361,6 +401,7 @@ export function OpsEmailDeliveryClient({
       applyParam('range', next.range ?? range, '7d');
       applyParam('page', next.page ?? page, 1);
       applyParam('pageSize', next.pageSize ?? pageSize, 50);
+      applyParam('refresh', next.refresh ?? refresh, 'off');
       applyParam(
         'simulateEmailDeliveryError',
         next.simulateEmailDeliveryError ?? simulateEmailDeliveryError ? '1' : null,
@@ -397,6 +438,7 @@ export function OpsEmailDeliveryClient({
       messageId,
       page,
       pageSize,
+      refresh,
       range,
       simulateEmailDeliveryError,
       recipientEmail,
@@ -426,6 +468,7 @@ export function OpsEmailDeliveryClient({
       setStatuses(initialStatuses);
       setPage(initialPage);
       setPageSize(initialPageSize);
+      setRefresh('off');
       setSimulateEmailDeliveryError(initialSimulateEmailDeliveryError);
       setRecipientEmail(initialRecipientEmail);
       setMessageId(initialMessageId);
@@ -452,6 +495,7 @@ export function OpsEmailDeliveryClient({
         range: initialRange,
         page: initialPage,
         pageSize: initialPageSize,
+        refresh: 'off',
         statuses: initialStatuses,
         simulateEmailDeliveryError: initialSimulateEmailDeliveryError,
         recipientEmail: initialRecipientEmail,
@@ -490,6 +534,7 @@ export function OpsEmailDeliveryClient({
     setStatuses(initialStatuses);
     setPage(initialPage);
     setPageSize(initialPageSize);
+    setRefresh('off');
     setSimulateEmailDeliveryError(initialSimulateEmailDeliveryError);
     setRecipientEmail(initialRecipientEmail);
     setMessageId(initialMessageId);
@@ -516,6 +561,7 @@ export function OpsEmailDeliveryClient({
       range: initialRange,
       page: initialPage,
       pageSize: initialPageSize,
+      refresh: 'off',
       statuses: initialStatuses,
       simulateEmailDeliveryError: initialSimulateEmailDeliveryError,
       recipientEmail: initialRecipientEmail,
@@ -543,6 +589,15 @@ export function OpsEmailDeliveryClient({
   ]);
 
 
+  const refreshIntervalMs = useMemo(() => getRefreshIntervalMs(refresh), [refresh]);
+  const deliveryLogPollingEnabled = tab === 'delivery-log' ? refreshIntervalMs : false;
+  const analyticsPollingEnabled = tab === 'analytics' ? refreshIntervalMs : false;
+  const [manualRefreshNonce, setManualRefreshNonce] = useState(0);
+  const [queueRefreshState, setQueueRefreshState] = useState<{
+    isRefreshing: boolean;
+    lastUpdatedAt: number | null;
+  }>({ isRefreshing: false, lastUpdatedAt: null });
+  const [relativeRefreshNow, setRelativeRefreshNow] = useState(() => Date.now());
 
   const query = useOpsEmailDeliveryFeed({
     restaurantId: effectiveRestaurantId,
@@ -550,6 +605,7 @@ export function OpsEmailDeliveryClient({
     page,
     pageSize,
     status: statuses.length > 0 ? statuses : undefined,
+    refetchIntervalMs: deliveryLogPollingEnabled,
     simulateEmailDeliveryError,
     recipientEmail: recipientEmail ?? undefined,
     messageId: messageId ?? undefined,
@@ -560,6 +616,7 @@ export function OpsEmailDeliveryClient({
   const analyticsQuery = useOpsEmailDeliverySummary({
     restaurantId: effectiveRestaurantId,
     range,
+    refetchIntervalMs: analyticsPollingEnabled,
     simulateEmailDeliveryError,
     recipientEmail: recipientEmail ?? undefined,
     messageId: messageId ?? undefined,
@@ -571,6 +628,27 @@ export function OpsEmailDeliveryClient({
   const attempts = query.attempts ?? [];
   const summary = query.summary ?? null;
   const analyticsSummary = analyticsQuery.summary ?? null;
+  const activeLastUpdatedAt =
+    tab === 'delivery-log'
+      ? query.dataUpdatedAt > 0
+        ? query.dataUpdatedAt
+        : null
+      : tab === 'queue'
+        ? queueRefreshState.lastUpdatedAt
+        : analyticsQuery.dataUpdatedAt > 0
+          ? analyticsQuery.dataUpdatedAt
+          : null;
+  const activeIsRefreshing =
+    tab === 'delivery-log'
+      ? query.isFetching
+      : tab === 'queue'
+        ? queueRefreshState.isRefreshing
+        : analyticsQuery.isFetching;
+  const manualRefreshBusy = useMinimumDelay(activeIsRefreshing, {
+    delayMs: 0,
+    minDurationMs: 450,
+  });
+  const autoRefreshActive = refresh !== 'off';
   const statusCounts = summary
     ? ({
         sent: summary.sent,
@@ -581,6 +659,17 @@ export function OpsEmailDeliveryClient({
         failed: summary.failed,
       } satisfies Partial<Record<EmailDeliveryStatus, number>>)
     : null;
+
+  useEffect(() => {
+    if (!autoRefreshActive) return;
+    setRelativeRefreshNow(Date.now());
+    const intervalId = window.setInterval(() => {
+      setRelativeRefreshNow(Date.now());
+    }, 1000);
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [autoRefreshActive, activeLastUpdatedAt]);
 
   const handleSubmitSearch = useCallback(() => {
     const trimmed = searchValue.trim();
@@ -722,6 +811,21 @@ export function OpsEmailDeliveryClient({
       process.env.NEXT_PUBLIC_APP_ENV === 'development' ||
       process.env.NEXT_PUBLIC_APP_ENV === 'test');
 
+  const handleManualRefresh = useCallback(() => {
+    setManualRefreshNonce((value) => value + 1);
+    if (tab === 'delivery-log') {
+      void query.refetch();
+      return;
+    }
+    if (tab === 'analytics') {
+      void analyticsQuery.refetch();
+    }
+  }, [analyticsQuery, query, tab]);
+
+  const refreshIndicatorText = autoRefreshActive
+    ? formatRelativeSeconds(activeLastUpdatedAt, relativeRefreshNow)
+    : null;
+
   if (memberships.length === 0) {
     return (
       <section className="mx-auto flex min-h-[60vh] max-w-2xl items-center justify-center p-8">
@@ -783,6 +887,66 @@ export function OpsEmailDeliveryClient({
       />
 
       <Tabs value={tab} onValueChange={handleTabChange} className="mt-6">
+        <div className="mb-4 rounded-xl border border-slate-200/70 bg-slate-50/70 p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-2">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Auto-refresh
+              </div>
+              <ToggleGroup
+                type="single"
+                value={refresh}
+                onValueChange={(value) => {
+                  if (!REFRESH_OPTIONS.includes(value as RefreshOption)) return;
+                  const nextRefresh = value as RefreshOption;
+                  setRefresh(nextRefresh);
+                  syncQueryParams({ refresh: nextRefresh });
+                }}
+                className="justify-start rounded-full border border-slate-200 bg-white p-1"
+                aria-label="Auto-refresh interval"
+              >
+                {REFRESH_OPTIONS.map((option) => (
+                  <ToggleGroupItem
+                    key={option}
+                    value={option}
+                    className="rounded-full px-4 text-xs font-semibold data-[state=on]:bg-slate-900 data-[state=on]:text-white"
+                    aria-label={`Refresh every ${formatRefreshLabel(option)}`}
+                  >
+                    {option === 'off' ? 'Off' : formatRefreshLabel(option)}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+            </div>
+
+            <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
+              {autoRefreshActive ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700">
+                    Auto-refresh {formatRefreshLabel(refresh)}
+                  </Badge>
+                  <span className="text-sm text-slate-600">{refreshIndicatorText}</span>
+                </div>
+              ) : (
+                <span className="text-sm text-slate-500">Auto-refresh is off.</span>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+                onClick={handleManualRefresh}
+                disabled={manualRefreshBusy}
+                aria-label="Refresh current tab"
+              >
+                <RefreshCw
+                  className={cn('mr-2 h-4 w-4', manualRefreshBusy && 'animate-spin')}
+                  aria-hidden
+                />
+                Refresh
+              </Button>
+            </div>
+          </div>
+        </div>
         <TabsList>
           <TabsTrigger value="delivery-log">Delivery Log</TabsTrigger>
           <TabsTrigger value="queue">Queue</TabsTrigger>
@@ -975,6 +1139,9 @@ export function OpsEmailDeliveryClient({
             restaurantId={effectiveRestaurantId}
             timezone={timezone}
             enabled={tab === 'queue'}
+            refetchIntervalMs={tab === 'queue' ? refreshIntervalMs : false}
+            refreshKey={tab === 'queue' ? manualRefreshNonce : 0}
+            onRefreshStateChange={setQueueRefreshState}
           />
         </TabsContent>
 
@@ -996,6 +1163,7 @@ export function OpsEmailDeliveryClient({
                   ? getDeliveryFeedErrorMessage(analyticsQuery.error)
                   : null
             }
+            lastUpdatedAt={analyticsQuery.dataUpdatedAt > 0 ? analyticsQuery.dataUpdatedAt : null}
           />
         </TabsContent>
       </Tabs>

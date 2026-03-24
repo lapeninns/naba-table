@@ -22,6 +22,7 @@ export type OpsEmailDeliverySummaryState = {
 export type OpsEmailDeliverySummaryParams = {
   restaurantId: string | null;
   range?: OpsEmailDeliveryRange;
+  refetchIntervalMs?: number | false;
   simulateEmailDeliveryError?: boolean;
   recipientEmail?: string;
   messageId?: string;
@@ -37,6 +38,7 @@ export function useOpsEmailDeliverySummary(
 
   const restaurantId = params.restaurantId;
   const range: OpsEmailDeliveryRange = params.range ?? '7d';
+  const refetchInterval = typeof params.refetchIntervalMs === 'number' ? params.refetchIntervalMs : false;
 
   const query = useQuery<OpsEmailDeliverySummaryResponse, HttpError>({
     queryKey: [
@@ -68,6 +70,8 @@ export function useOpsEmailDeliverySummary(
     },
     enabled: Boolean(restaurantId),
     staleTime: 30_000,
+    refetchInterval,
+    refetchIntervalInBackground: false,
     placeholderData: keepPreviousData,
   });
 

@@ -30,6 +30,7 @@ export type OpsEmailDeliveryFeedParams = {
   page?: number;
   pageSize?: number;
   status?: EmailDeliveryStatus[];
+  refetchIntervalMs?: number | false;
   simulateEmailDeliveryError?: boolean;
   recipientEmail?: string;
   messageId?: string;
@@ -58,6 +59,7 @@ export function useOpsEmailDeliveryFeed(
   const page = normalizePage(params.page);
   const pageSize = normalizePageSize(params.pageSize);
   const statusKey = params.status?.length ? params.status.slice().sort().join(',') : 'all';
+  const refetchInterval = typeof params.refetchIntervalMs === 'number' ? params.refetchIntervalMs : false;
 
   const query = useQuery<OpsEmailDeliveryFeedResponse, HttpError>({
     queryKey: [
@@ -95,6 +97,8 @@ export function useOpsEmailDeliveryFeed(
     },
     enabled: Boolean(restaurantId),
     staleTime: 30_000,
+    refetchInterval,
+    refetchIntervalInBackground: false,
     placeholderData: keepPreviousData,
   });
 
