@@ -113,7 +113,12 @@ export type OpsEmailDeliveryFeedResponse =
     }
   | {
       ok: false;
-      code: "UNAUTHENTICATED" | "FORBIDDEN" | "DELIVERY_LOG_UNAVAILABLE" | "INTERNAL";
+      code:
+        | "UNAUTHENTICATED"
+        | "FORBIDDEN"
+        | "DELIVERY_LOG_UNAVAILABLE"
+        | "FORCED_ERROR"
+        | "INTERNAL";
       error: string;
       message?: string;
     };

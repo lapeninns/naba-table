@@ -36,6 +36,7 @@ import type {
 
 const EMPTY_STATUSES: EmailDeliveryStatus[] = [];
 const PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
+const DELIVERY_LOG_FAULT_INJECTION_MESSAGE_ID = '__force_error__';
 
 const EMAIL_DELIVERY_TABS = ['delivery-log', 'queue', 'analytics'] as const;
 export type EmailDeliveryTab = (typeof EMAIL_DELIVERY_TABS)[number];
@@ -468,6 +469,12 @@ export function OpsEmailDeliveryClient({
     : query.error
       ? getDeliveryFeedErrorMessage(query.error)
       : null;
+  const canInjectDeliveryLogError =
+    typeof window !== 'undefined' &&
+    pathname?.includes('/dev/') &&
+    (process.env.NODE_ENV !== 'production' ||
+      process.env.NEXT_PUBLIC_APP_ENV === 'development' ||
+      process.env.NEXT_PUBLIC_APP_ENV === 'test');
 
   if (memberships.length === 0) {
     return (
@@ -526,6 +533,24 @@ export function OpsEmailDeliveryClient({
 
         <TabsContent value="delivery-log">
           <OpsPageToolbar className="space-y-4">
+            {canInjectDeliveryLogError ? (
+              <Alert className="border-dashed border-slate-300/80 bg-slate-50/80">
+                <AlertCircle className="h-4 w-4" aria-hidden />
+                <AlertTitle>Dev/test validation control</AlertTitle>
+                <AlertDescription className="space-y-3">
+                  <p>
+                    To surface the Delivery Log error alert for validation, append
+                    {' '}
+                    <code>messageId={DELIVERY_LOG_FAULT_INJECTION_MESSAGE_ID}</code>
+                    {' '}
+                    to this dev harness URL or choose Message ID in the search field and submit that exact value.
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    This fault injection path is only enabled for dev/test contexts and is ignored on production surfaces.
+                  </p>
+                </AlertDescription>
+              </Alert>
+            ) : null}
             <OpsEmailDeliveryFilterBar
               searchField={searchField}
               searchValue={searchValue}

@@ -199,6 +199,29 @@ describe('OpsEmailDeliveryClient', () => {
     });
   });
 
+  it('shows dev-harness fault-injection guidance and can force the delivery log error state', async () => {
+    pathnameMock.mockReturnValue('/dev/ops-email-delivery');
+    searchParamsMock.mockReturnValue(
+      new URLSearchParams('restaurantId=rest-1&tab=delivery-log&messageId=__force_error__'),
+    );
+
+    const getRestaurantEmailDeliveryFeed = vi
+      .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
+      .mockResolvedValue({
+        ok: false,
+        code: 'FORCED_ERROR',
+        error: 'Forced delivery log error for dev/test validation.',
+        message: 'Forced delivery log error for dev/test validation.',
+      });
+
+    renderClient(getRestaurantEmailDeliveryFeed);
+
+    expect(await screen.findByText('Dev/test validation control')).toBeInTheDocument();
+    expect(screen.getByText(/messageId=__force_error__/i)).toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(screen.getByText('Forced delivery log error for dev/test validation.')).toBeInTheDocument();
+  });
+
   it('marks the Email Delivery sidebar item as active on this page', async () => {
     const getRestaurantEmailDeliveryFeed = vi
       .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
