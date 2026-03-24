@@ -1,5 +1,6 @@
 import { HttpError } from '@/lib/http/errors';
 
+import { DEV_BOOKING_ID, DEV_BOOKING_OTHER_ID } from '../devIds';
 import { createDevBookings, createDevTables, type DevOpsBookingRecord } from './devBookingServiceFixtures';
 import { createDevEmailDeliveryFeed } from './devEmailDelivery';
 
@@ -11,6 +12,7 @@ import type {
   OpsEmailDeliveryFeedResponse,
   OpsEmailDeliveryRange,
 } from '@/types/emailDelivery';
+import type { OpsEmailQueueFeedResponse, OpsEmailQueueJobStatus } from '@/types/emailQueue';
 import type { OpsBookingListItem, OpsBookingsFilters, OpsBookingsPage, OpsBookingStatus } from '@/types/ops';
 
 function parseIso(value: Date | string | null | undefined): Date | null {
@@ -431,6 +433,7 @@ export class DevBookingService implements BookingService {
     page?: number;
     pageSize?: number;
     status?: EmailDeliveryStatus[];
+    simulateEmailDeliveryError?: boolean;
     recipientEmail?: string;
     messageId?: string;
     bookingRef?: string;
@@ -439,6 +442,14 @@ export class DevBookingService implements BookingService {
   }): Promise<OpsEmailDeliveryFeedResponse> {
     if (!params.restaurantId) {
       throw new Error('[dev][bookingService] restaurantId is required');
+    }
+    if (params.messageId?.trim() === '__force_error__' || params.simulateEmailDeliveryError) {
+      return {
+        ok: false,
+        code: 'FORCED_ERROR',
+        error: 'Forced delivery log error for dev/test validation.',
+        message: 'Forced delivery log error for dev/test validation.',
+      };
     }
     const range = params.range ?? '7d';
     const page = Math.max(1, params.page ?? 1);
@@ -456,6 +467,86 @@ export class DevBookingService implements BookingService {
       templateType: params.templateType,
       emailType: params.emailType,
     });
+  }
+
+  async getRestaurantEmailQueue(params: {
+    restaurantId?: string;
+    page?: number;
+    pageSize?: number;
+    status?: OpsEmailQueueJobStatus;
+  }): Promise<OpsEmailQueueFeedResponse> {
+    if (!params.restaurantId) {
+      throw new Error('[dev][bookingService] restaurantId is required');
+    }
+
+    const jobs: Extract<OpsEmailQueueFeedResponse, { ok: true }>['jobs'] = [
+      {
+        id: 'email__reminder_short__dev-booking-1',
+        status: 'delayed',
+        type: 'reminder_short',
+        bookingId: DEV_BOOKING_ID,
+        restaurantId: params.restaurantId,
+        scheduledFor: new Date(Date.now() + 45 * 60 * 1000).toISOString(),
+        failedReason: null,
+        failedAt: null,
+        attemptsMade: 0,
+        booking: {
+          id: DEV_BOOKING_ID,
+          reference: 'DEV123',
+          customerName: 'Alex Johnson',
+          customerEmail: 'alex@example.com',
+          startAt: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+          endAt: new Date(Date.now() + 3.5 * 60 * 60 * 1000).toISOString(),
+          status: 'confirmed',
+        },
+      },
+      {
+        id: 'email__review_request__dev-booking-2',
+        status: 'dlq',
+        type: 'review_request',
+        bookingId: DEV_BOOKING_OTHER_ID,
+        restaurantId: params.restaurantId,
+        scheduledFor: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+        failedReason: 'Simulated downstream error',
+        failedAt: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+        attemptsMade: 3,
+        booking: {
+          id: DEV_BOOKING_OTHER_ID,
+          reference: 'DEV456',
+          customerName: 'Sam Patel',
+          customerEmail: 'sam.patel@example.com',
+          startAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+          endAt: new Date(Date.now() - 2.5 * 60 * 60 * 1000).toISOString(),
+          status: 'completed',
+        },
+      },
+    ];
+
+    const filtered = params.status ? jobs.filter((job) => job.status === params.status) : jobs;
+    const page = Math.max(1, params.page ?? 1);
+    const pageSize = Math.max(1, Math.min(100, params.pageSize ?? 25));
+    const offset = (page - 1) * pageSize;
+    const paginated = filtered.slice(offset, offset + pageSize);
+
+    return {
+      ok: true,
+      restaurantId: params.restaurantId,
+      pageInfo: {
+        page,
+        pageSize,
+        hasNext: offset + pageSize < filtered.length,
+        total: filtered.length,
+      },
+      summary: {
+        total: jobs.length,
+        waiting: jobs.filter((job) => job.status === 'waiting').length,
+        active: jobs.filter((job) => job.status === 'active').length,
+        delayed: jobs.filter((job) => job.status === 'delayed').length,
+        dlq: jobs.filter((job) => job.status === 'dlq').length,
+      },
+      jobs: paginated,
+      timestamp: new Date().toISOString(),
+    };
   }
 }
 

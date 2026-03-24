@@ -381,6 +381,7 @@ export function OpsEmailDeliveryClient({
     page,
     pageSize,
     status: statuses.length > 0 ? statuses : undefined,
+    simulateEmailDeliveryError: searchParams?.get('simulateEmailDeliveryError') === '1',
     recipientEmail: recipientEmail ?? undefined,
     messageId: messageId ?? undefined,
     bookingRef: bookingRef ?? undefined,

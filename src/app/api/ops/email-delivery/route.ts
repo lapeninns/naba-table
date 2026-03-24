@@ -32,6 +32,7 @@ const querySchema = z.object({
   range: z.enum(RANGE_VALUES).default('7d'),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(200).default(50),
+  simulateEmailDeliveryError: z.enum(['1']).optional(),
   recipientEmail: z.string().trim().min(1).optional(),
   messageId: z.string().trim().min(1).optional(),
   bookingRef: z.string().trim().min(1).optional(),
@@ -90,7 +91,10 @@ export async function GET(request: NextRequest) {
     return jsonError(400, { code: 'INTERNAL', error: 'Invalid status filter' });
   }
 
-  if (parsedQuery.data.messageId === '__force_error__' && isDevOrTestFaultInjectionEnabled()) {
+  if (
+    isDevOrTestFaultInjectionEnabled() &&
+    (parsedQuery.data.messageId === '__force_error__' || parsedQuery.data.simulateEmailDeliveryError === '1')
+  ) {
     return jsonError(418, {
       code: 'FORCED_ERROR',
       error: 'Forced delivery log error for dev/test validation.',
