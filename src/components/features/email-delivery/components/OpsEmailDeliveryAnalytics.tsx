@@ -82,6 +82,7 @@ export type OpsEmailDeliveryAnalyticsProps = {
   range: OpsEmailDeliveryRange;
   onRangeChange: (range: OpsEmailDeliveryRange) => void;
   errorMessage?: string | null;
+  lastUpdatedAt?: number | null;
 };
 
 export function OpsEmailDeliveryAnalytics({
@@ -91,6 +92,7 @@ export function OpsEmailDeliveryAnalytics({
   range,
   onRangeChange,
   errorMessage,
+  lastUpdatedAt,
 }: OpsEmailDeliveryAnalyticsProps) {
   const total = summary?.total ?? 0;
   const failureCount = (summary?.bounced ?? 0) + (summary?.complained ?? 0) + (summary?.failed ?? 0);
@@ -136,6 +138,11 @@ export function OpsEmailDeliveryAnalytics({
             <div className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4 text-slate-500" aria-hidden />
               <CardTitle className="text-base font-semibold text-slate-900">Delivery analytics</CardTitle>
+              {lastUpdatedAt ? (
+                <Badge variant="outline" className="border-slate-200 bg-slate-50 text-xs text-slate-600">
+                  Updated {new Date(lastUpdatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                </Badge>
+              ) : null}
               {isUpdating && !isLoading ? (
                 <Badge variant="outline" className="border-slate-200 bg-slate-50 text-xs text-slate-600">
                   Updating…

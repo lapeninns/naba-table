@@ -26,6 +26,7 @@ export type OpsEmailQueueFeedParams = {
   pageSize?: number;
   status?: OpsEmailQueueJobStatus;
   enabled?: boolean;
+  refetchIntervalMs?: number | false;
 };
 
 function normalizePage(raw: unknown): number {
@@ -45,6 +46,7 @@ export function useOpsEmailQueueFeed(
   const page = normalizePage(params.page);
   const pageSize = normalizePageSize(params.pageSize);
   const enabled = params.enabled ?? true;
+  const refetchInterval = typeof params.refetchIntervalMs === 'number' ? params.refetchIntervalMs : false;
 
   const query = useQuery<OpsEmailQueueFeedResponse, HttpError>({
     queryKey: [
@@ -68,6 +70,8 @@ export function useOpsEmailQueueFeed(
     },
     enabled: Boolean(params.restaurantId) && enabled,
     staleTime: 30_000,
+    refetchInterval,
+    refetchIntervalInBackground: false,
     placeholderData: (previous) => previous,
   });
 

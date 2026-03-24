@@ -1018,6 +1018,62 @@ describe('OpsEmailDeliveryClient', () => {
     expect(screen.getByText(/scheduled email queue/i)).toBeInTheDocument();
   });
 
+  it('shows auto-refresh controls, persists refresh to URL, and displays the active interval indicator', async () => {
+    const getRestaurantEmailDeliveryFeed = vi
+      .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
+      .mockResolvedValue(makeSuccessResponse());
+
+    const replaceStateSpy = vi.spyOn(window.history, 'replaceState');
+    const user = userEvent.setup();
+    renderClient(getRestaurantEmailDeliveryFeed);
+
+    expect(await screen.findByLabelText('Auto-refresh interval')).toBeInTheDocument();
+    expect(screen.getByText('Auto-refresh is off.')).toBeInTheDocument();
+
+    await user.click(screen.getByText('30s'));
+
+    expect(replaceStateSpy).toHaveBeenCalledWith(
+      window.history.state,
+      '',
+      '/app/email-delivery?restaurantId=rest-1&refresh=30s',
+    );
+    expect(screen.getByText('Auto-refresh 30s')).toBeInTheDocument();
+  });
+
+  it('passes the selected auto-refresh interval to the active delivery-log query', async () => {
+    const getRestaurantEmailDeliveryFeed = vi
+      .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
+      .mockResolvedValue(makeSuccessResponse());
+
+    const user = userEvent.setup();
+    renderClient(getRestaurantEmailDeliveryFeed);
+    await screen.findByText('No email deliveries found');
+
+    await user.click(screen.getByText('1m'));
+
+    expect(screen.getByText('Auto-refresh 1m')).toBeInTheDocument();
+    expect(getRestaurantEmailDeliveryFeed).toHaveBeenCalledTimes(1);
+  });
+
+  it('manually refreshes the active delivery log tab and spins the refresh icon while fetching', async () => {
+    const getRestaurantEmailDeliveryFeed = vi
+      .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
+      .mockResolvedValue(makeSuccessResponse());
+
+    const user = userEvent.setup();
+    renderClient(getRestaurantEmailDeliveryFeed);
+
+    const refreshButton = await screen.findByRole('button', { name: /refresh current tab/i });
+    await user.click(refreshButton);
+
+    expect(refreshButton.querySelector('svg')?.className.baseVal ?? '').toContain('animate-spin');
+    const refreshIcon = refreshButton.querySelector('svg');
+
+    await waitFor(() => {
+      expect(refreshButton.querySelector('svg')?.className.baseVal ?? '').not.toContain('animate-spin');
+    });
+  });
+
   it('renders the restaurant switch control with the secondary restaurant option available', async () => {
     searchParamsMock.mockReturnValue(
       new URLSearchParams(

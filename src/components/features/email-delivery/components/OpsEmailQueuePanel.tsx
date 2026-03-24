@@ -94,12 +94,18 @@ export type OpsEmailQueuePanelProps = {
   restaurantId: string | null;
   timezone: string;
   enabled?: boolean;
+  refetchIntervalMs?: number | false;
+  refreshKey?: number;
+  onRefreshStateChange?: (state: { isRefreshing: boolean; lastUpdatedAt: number | null }) => void;
 };
 
 export function OpsEmailQueuePanel({
   restaurantId,
   timezone,
   enabled = true,
+  refetchIntervalMs = false,
+  refreshKey = 0,
+  onRefreshStateChange,
 }: OpsEmailQueuePanelProps) {
   const [status, setStatus] = useState<OpsEmailQueueJobStatus | 'all'>('all');
   const [page, setPage] = useState(1);
@@ -114,6 +120,7 @@ export function OpsEmailQueuePanel({
     pageSize: 25,
     status: status === 'all' ? undefined : status,
     enabled,
+    refetchIntervalMs: enabled ? refetchIntervalMs : false,
   });
 
   const jobs = query.jobs ?? [];
@@ -131,6 +138,18 @@ export function OpsEmailQueuePanel({
     { label: 'Sending now', value: summary?.active ?? 0, tone: 'emerald' },
     { label: 'Needs attention', value: summary?.dlq ?? 0, tone: 'rose' },
   ] as const;
+
+  useEffect(() => {
+    onRefreshStateChange?.({
+      isRefreshing: query.isFetching,
+      lastUpdatedAt: query.dataUpdatedAt > 0 ? query.dataUpdatedAt : null,
+    });
+  }, [onRefreshStateChange, query.dataUpdatedAt, query.isFetching]);
+
+  useEffect(() => {
+    if (!enabled || refreshKey === 0) return;
+    void query.refetch();
+  }, [enabled, query, refreshKey]);
 
   return (
     <section aria-label="Queue monitor" className="space-y-6">
