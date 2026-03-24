@@ -771,10 +771,11 @@ export function OpsEmailDeliveryClient({
         deliveryLogId: pendingRetryAttempt.id ?? pendingRetryAttempt.messageId,
         ...(simulateRetryMutationError ? { simulateError: true } : {}),
       });
+
+      setPendingRetryAttempt(null);
       toast.success('Retry queued', {
         description: `Resending ${pendingRetryAttempt.emailType ?? 'email'} to ${pendingRetryAttempt.recipientEmail}.`,
       });
-      setPendingRetryAttempt(null);
       await query.refetch();
     } catch (error) {
       const message =
@@ -783,6 +784,8 @@ export function OpsEmailDeliveryClient({
           : error instanceof Error
             ? error.message
             : 'Failed to retry email delivery';
+
+      setPendingRetryAttempt(null);
       toast.error('Retry failed', { description: message });
     } finally {
       setRetryingAttemptKey(null);
