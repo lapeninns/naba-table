@@ -469,6 +469,11 @@ export function OpsEmailDeliveryClient({
     : query.error
       ? getDeliveryFeedErrorMessage(query.error)
       : null;
+  const shouldShowEmptyGuidance =
+    !query.unavailable &&
+    !deliveryLogErrorMessage &&
+    !query.isLoading &&
+    attempts.length === 0;
   const canInjectDeliveryLogError =
     typeof window !== 'undefined' &&
     pathname?.includes('/dev/') &&
@@ -639,6 +644,15 @@ export function OpsEmailDeliveryClient({
                 isLoading={query.isLoading}
               />
             )}
+
+            {shouldShowEmptyGuidance ? (
+              <div className="rounded-lg border border-slate-200/60 bg-white p-8 text-center">
+                <p className="text-base font-semibold text-slate-900">No email deliveries found</p>
+                <p className="mt-2 text-sm text-slate-600">
+                  Adjust the filters or try a wider date range to see more results.
+                </p>
+              </div>
+            ) : null}
 
             {/* Pagination */}
             {shouldShowPagination && (

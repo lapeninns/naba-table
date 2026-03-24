@@ -335,11 +335,29 @@ describe('OpsEmailDeliveryClient', () => {
     expect(await screen.findByText('No email deliveries found')).toBeInTheDocument();
     expect(
       screen.getByText(
-        'There are no delivery attempts for the current filters yet. Adjust the filters or try a wider date range to see more results.',
+        'Adjust the filters or try a wider date range to see more results.',
       ),
     ).toBeInTheDocument();
     expect(screen.getByText('Showing 0-0 of 70 results')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Prev' })).not.toBeDisabled();
+  });
+
+  it('shows empty guidance when zero results are returned on the first filtered page', async () => {
+    const getRestaurantEmailDeliveryFeed = vi
+      .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
+      .mockResolvedValue(
+        makeSuccessResponse({
+          pageInfo: { page: 1, pageSize: 50, hasNext: false },
+          attempts: [],
+          summary: makeSummary(0),
+        }),
+      );
+
+    renderClient(getRestaurantEmailDeliveryFeed);
+
+    expect(await screen.findByText('No email deliveries found')).toBeInTheDocument();
+    expect(screen.getByText('Adjust the filters or try a wider date range to see more results.')).toBeInTheDocument();
+    expect(screen.queryByText(/^Showing 0-0 of 0 results$/)).not.toBeInTheDocument();
   });
 
   it('shows the actual visible range for non-empty pages', async () => {
