@@ -235,6 +235,7 @@ export function OpsEmailDeliveryClient({
     }
     return initialTab;
   }, [searchKey, initialTab]);
+  const [tab, setTab] = useState<EmailDeliveryTab>(activeTab);
 
   const [range, setRange] = useState<OpsEmailDeliveryRange>(parsedFromQuery.range);
   const [statuses, setStatuses] = useState<EmailDeliveryStatus[]>(parsedFromQuery.statuses);
@@ -275,6 +276,10 @@ export function OpsEmailDeliveryClient({
       bookingRef: parsedFromQuery.bookingRef,
     }));
   }, [parsedFromQuery]);
+
+  useEffect(() => {
+    setTab(activeTab);
+  }, [activeTab]);
 
   const syncQueryParams = useCallback(
     (next: {
@@ -349,6 +354,9 @@ export function OpsEmailDeliveryClient({
 
   const handleTabChange = useCallback(
     (value: string) => {
+      if (!(EMAIL_DELIVERY_TABS as readonly string[]).includes(value)) return;
+      setTab(value as EmailDeliveryTab);
+
       const params = new URLSearchParams(searchParams?.toString() ?? '');
       if (value === 'delivery-log') {
         params.delete('tab');
@@ -529,7 +537,7 @@ export function OpsEmailDeliveryClient({
         }
       />
 
-      <Tabs value={activeTab} onValueChange={handleTabChange} className="mt-6">
+      <Tabs value={tab} onValueChange={handleTabChange} className="mt-6">
         <TabsList>
           <TabsTrigger value="delivery-log">Delivery Log</TabsTrigger>
           <TabsTrigger value="queue">Queue</TabsTrigger>
