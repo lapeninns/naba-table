@@ -122,3 +122,22 @@ export type OpsEmailDeliveryFeedResponse =
       error: string;
       message?: string;
     };
+
+export type OpsEmailDeliverySummaryResponse =
+  | {
+      ok: true;
+      restaurantId: string;
+      range: OpsEmailDeliveryRange;
+      summary: OpsEmailDeliverySummary;
+    }
+  | {
+      ok: false;
+      code:
+        | "UNAUTHENTICATED"
+        | "FORBIDDEN"
+        | "DELIVERY_LOG_UNAVAILABLE"
+        | "FORCED_ERROR"
+        | "INTERNAL";
+      error: string;
+      message?: string;
+    };

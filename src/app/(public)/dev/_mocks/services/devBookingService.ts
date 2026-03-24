@@ -11,6 +11,7 @@ import type {
   EmailDeliveryStatus,
   OpsEmailDeliveryFeedResponse,
   OpsEmailDeliveryRange,
+  OpsEmailDeliverySummaryResponse,
 } from '@/types/emailDelivery';
 import type { OpsEmailQueueFeedResponse, OpsEmailQueueJobStatus } from '@/types/emailQueue';
 import type { OpsBookingListItem, OpsBookingsFilters, OpsBookingsPage, OpsBookingStatus } from '@/types/ops';
@@ -467,6 +468,57 @@ export class DevBookingService implements BookingService {
       templateType: params.templateType,
       emailType: params.emailType,
     });
+  }
+
+  async getRestaurantEmailDeliverySummary(params: {
+    restaurantId?: string;
+    range?: OpsEmailDeliveryRange;
+    simulateEmailDeliveryError?: boolean;
+    recipientEmail?: string;
+    messageId?: string;
+    bookingRef?: string;
+    templateType?: string;
+    emailType?: string;
+  }): Promise<OpsEmailDeliverySummaryResponse> {
+    const feed = await this.getRestaurantEmailDeliveryFeed({
+      restaurantId: params.restaurantId,
+      range: params.range,
+      page: 1,
+      pageSize: 1,
+      simulateEmailDeliveryError: params.simulateEmailDeliveryError,
+      recipientEmail: params.recipientEmail,
+      messageId: params.messageId,
+      bookingRef: params.bookingRef,
+      templateType: params.templateType,
+      emailType: params.emailType,
+    });
+
+    if (!feed.ok) {
+      return feed;
+    }
+
+    return {
+      ok: true,
+      restaurantId: feed.restaurantId,
+      range: feed.range,
+      summary: feed.summary ?? {
+        total: 0,
+        sent: 0,
+        delivered: 0,
+        deliveryDelayed: 0,
+        bounced: 0,
+        complained: 0,
+        failed: 0,
+        deliveredRate: 0,
+        failureRate: 0,
+        uniqueRecipients: 0,
+        uniqueBookings: 0,
+        p50DeliverySeconds: null,
+        p95DeliverySeconds: null,
+        topFailedTemplates: [],
+        topFailedEmailTypes: [],
+      },
+    };
   }
 
   async getRestaurantEmailQueue(params: {

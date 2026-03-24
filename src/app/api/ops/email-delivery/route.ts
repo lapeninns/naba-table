@@ -17,6 +17,7 @@ import {
   OPS_EMAIL_DELIVERY_RANGE_VALUES,
   type EmailDeliveryStatus,
   type OpsEmailDeliveryFeedResponse,
+  type OpsEmailDeliverySummaryResponse,
 } from '@/types/emailDelivery';
 
 import type { NextRequest } from 'next/server';
@@ -38,6 +39,7 @@ const querySchema = z.object({
   bookingRef: z.string().trim().min(1).optional(),
   templateType: z.string().trim().min(1).optional(),
   emailType: z.string().trim().min(1).optional(),
+  summaryOnly: z.enum(['1']).optional(),
 });
 
 function isDevOrTestFaultInjectionEnabled() {
@@ -136,7 +138,7 @@ export async function GET(request: NextRequest) {
     });
 
     let summary: Extract<OpsEmailDeliveryFeedResponse, { ok: true }>['summary'] = undefined;
-    if (listResult.page === 1) {
+    if (listResult.page === 1 || parsedQuery.data.summaryOnly === '1') {
       try {
         summary = await getEmailDeliveryAttemptsSummary({
           restaurantId,
@@ -154,6 +156,35 @@ export async function GET(request: NextRequest) {
           error: error instanceof Error ? error.message : String(error),
         });
       }
+    }
+
+    if (parsedQuery.data.summaryOnly === '1') {
+      return NextResponse.json(
+        {
+          ok: true,
+          restaurantId,
+          range: parsedQuery.data.range,
+          summary:
+            summary ?? {
+              total: 0,
+              sent: 0,
+              delivered: 0,
+              deliveryDelayed: 0,
+              bounced: 0,
+              complained: 0,
+              failed: 0,
+              deliveredRate: 0,
+              failureRate: 0,
+              uniqueRecipients: 0,
+              uniqueBookings: 0,
+              p50DeliverySeconds: null,
+              p95DeliverySeconds: null,
+              topFailedTemplates: [],
+              topFailedEmailTypes: [],
+            },
+        } satisfies Extract<OpsEmailDeliverySummaryResponse, { ok: true }>,
+        { status: 200 },
+      );
     }
 
     return NextResponse.json(
