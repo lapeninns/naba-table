@@ -1,4 +1,5 @@
 import { defineConfig } from '@playwright/test';
+import path from 'node:path';
 
 const reservePort = 5174;
 const appPort = 5180;
@@ -6,6 +7,13 @@ const reserveBaseUrl = `http://localhost:${reservePort}`;
 const appBaseUrl = `http://localhost:${appPort}`;
 const harnessBaseUrl = 'http://localhost:3000';
 const runDevHarnessSpecOnly = process.env.PLAYWRIGHT_DEV_HARNESS === '1';
+const invokedTestPaths = process.argv
+  .slice(2)
+  .filter((arg) => !arg.startsWith('-'))
+  .map((arg) => path.normalize(arg));
+const shouldReuseHarnessServerByDefault =
+  runDevHarnessSpecOnly ||
+  invokedTestPaths.some((arg) => arg.endsWith(path.normalize('tests/e2e/ops-email-delivery-dev-harness.spec.ts')));
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -13,12 +21,12 @@ export default defineConfig({
   timeout: 60_000,
   expect: { timeout: 10_000 },
   use: {
-    baseURL: runDevHarnessSpecOnly ? harnessBaseUrl : reserveBaseUrl,
+    baseURL: shouldReuseHarnessServerByDefault ? harnessBaseUrl : reserveBaseUrl,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
-  webServer: runDevHarnessSpecOnly
+  webServer: shouldReuseHarnessServerByDefault
     ? undefined
     : [
         {
