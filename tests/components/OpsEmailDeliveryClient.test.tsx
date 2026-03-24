@@ -404,6 +404,100 @@ describe('OpsEmailDeliveryClient', () => {
     });
   });
 
+
+  it('closes the retry dialog before showing success feedback', async () => {
+    const user = userEvent.setup();
+    const retryEmailDelivery = vi.fn<BookingService['retryEmailDelivery']>().mockResolvedValue({
+      ok: true,
+      deliveryLogEntry: {},
+    });
+    const getRestaurantEmailDeliveryFeed = vi
+      .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
+      .mockResolvedValue(
+        makeSuccessResponse({
+          attempts: [
+            {
+              id: 'delivery-log-id-failed',
+              messageId: 'provider-message-id-failed',
+              recipientEmail: 'failed@example.com',
+              bookingId: 'booking-failed',
+              emailType: 'created',
+              templateType: 'booking_confirmation',
+              provider: 'resend',
+              currentStatus: 'failed',
+              currentOccurredAt: '2026-03-20T15:00:00Z',
+              events: [],
+              booking: null,
+            },
+          ],
+          summary: makeSummary(1),
+        }),
+      );
+
+    renderClient(getRestaurantEmailDeliveryFeed, { retryEmailDelivery });
+
+    await user.click(await screen.findByRole('button', { name: /retry email for failed@example.com/i }));
+    expect(await screen.findByRole('alertdialog')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /confirm retry/i }));
+
+    await waitFor(() => {
+      expect(retryEmailDelivery).toHaveBeenCalledWith({ deliveryLogId: 'delivery-log-id-failed' });
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    });
+    expect(toastSuccessMock).toHaveBeenCalledWith('Retry queued', {
+      description: 'Resending created to failed@example.com.',
+    });
+  });
+
+  it('closes the retry dialog before showing error feedback', async () => {
+    const user = userEvent.setup();
+    const retryEmailDelivery = vi
+      .fn<BookingService['retryEmailDelivery']>()
+      .mockRejectedValue(new Error('Fixture forced failure for retry validation.'));
+    const getRestaurantEmailDeliveryFeed = vi
+      .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
+      .mockResolvedValue(
+        makeSuccessResponse({
+          attempts: [
+            {
+              id: 'delivery-log-id-failed',
+              messageId: 'provider-message-id-failed',
+              recipientEmail: 'failed@example.com',
+              bookingId: 'booking-failed',
+              emailType: 'created',
+              templateType: 'booking_confirmation',
+              provider: 'resend',
+              currentStatus: 'failed',
+              currentOccurredAt: '2026-03-20T15:00:00Z',
+              events: [],
+              booking: null,
+            },
+          ],
+          summary: makeSummary(1),
+        }),
+      );
+
+    renderClient(getRestaurantEmailDeliveryFeed, { retryEmailDelivery });
+
+    await user.click(await screen.findByRole('button', { name: /retry email for failed@example.com/i }));
+    expect(await screen.findByRole('alertdialog')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /confirm retry/i }));
+
+    await waitFor(() => {
+      expect(retryEmailDelivery).toHaveBeenCalledWith({ deliveryLogId: 'delivery-log-id-failed' });
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    });
+    expect(toastErrorMock).toHaveBeenCalledWith('Retry failed', {
+      description: 'Fixture forced failure for retry validation.',
+    });
+  });
+
   it('shows an error toast and keeps the row unchanged when retry fails', async () => {
     const user = userEvent.setup();
     const retryEmailDelivery = vi
@@ -442,7 +536,10 @@ describe('OpsEmailDeliveryClient', () => {
     expect(toastErrorMock).toHaveBeenCalledWith('Retry failed', {
       description: 'Retry service unavailable',
     });
-    expect(screen.getByText('Retry email delivery?')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: /retry email for failed@example.com/i })).toBeInTheDocument();
   });
 
   it('passes simulate retry mutation error through the retry action flow when requested by URL', async () => {
