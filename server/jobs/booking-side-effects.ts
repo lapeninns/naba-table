@@ -369,10 +369,11 @@ async function scheduleReminderJob(
   // Fallback (dev-only / queue disabled): attempt a best-effort inline send.
   await sendEmailInlineWithDelay(
     optimizedDelayMs,
-    () =>
-      sendBookingReminderEmail(booking, {
+    async () => {
+      await sendBookingReminderEmail(booking, {
         variant: variant === 'reminder_short' ? 'short' : 'standard',
-      }),
+      });
+    },
     `booking.${variant}`,
   );
 }
@@ -431,7 +432,9 @@ async function scheduleReviewJob(
   if (optimizedDelayMs >= 0) {
     await sendEmailInlineWithDelay(
       optimizedDelayMs,
-      () => sendBookingReviewRequestEmail(booking),
+      async () => {
+        await sendBookingReviewRequestEmail(booking);
+      },
       'booking.review_request',
     );
   }
