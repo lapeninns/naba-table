@@ -256,6 +256,48 @@ describe('OpsEmailDeliveryClient', () => {
     });
   });
 
+  it('prefers an API error response over stale loading placeholders during a forced-error transition', async () => {
+    searchParamsMock.mockReturnValue(
+      new URLSearchParams('restaurantId=rest-1&tab=delivery-log&simulateEmailDeliveryError=1'),
+    );
+
+    let gateResolved = false;
+    let releaseGate!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      releaseGate = () => {
+        gateResolved = true;
+        resolve();
+      };
+    });
+
+    const getRestaurantEmailDeliveryFeed = vi
+      .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
+      .mockImplementation(async () => {
+        if (!gateResolved) {
+          await gate;
+        }
+
+        return {
+          ok: false,
+          code: 'FORCED_ERROR',
+          error: 'Forced delivery log error for dev/test validation.',
+          message: 'Forced delivery log error for dev/test validation.',
+        };
+      });
+
+    renderClient(getRestaurantEmailDeliveryFeed);
+
+    expect(await screen.findByLabelText('Loading email delivery attempts')).toBeInTheDocument();
+
+    releaseGate();
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(screen.getByText('Forced delivery log error for dev/test validation.')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Loading email delivery attempts')).not.toBeInTheDocument();
+    });
+  });
+
   it('marks the Email Delivery sidebar item as active on this page', async () => {
     const getRestaurantEmailDeliveryFeed = vi
       .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
