@@ -1,7 +1,7 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
 import { OpsEmailDeliveryClient } from '@/components/features/email-delivery/OpsEmailDeliveryClient';
 import { OpsSidebarLayout } from '@/components/features/ops-shell/OpsSidebarLayout';
@@ -10,6 +10,7 @@ import { OpsSessionProvider } from '@/contexts/ops-session';
 
 import type { BookingService } from '@/services/ops/bookings';
 import type { OpsEmailDeliveryFeedResponse, OpsEmailDeliverySummary } from '@/types/emailDelivery';
+import type { OpsEmailQueueFeedResponse } from '@/types/emailQueue';
 import type { OpsMembership, OpsUser } from '@/types/ops';
 
 const pathnameMock = vi.fn();
@@ -85,21 +86,27 @@ function makeSuccessResponse(
 
 function createBookingServiceMock(
   getRestaurantEmailDeliveryFeed: BookingService['getRestaurantEmailDeliveryFeed'],
+  getRestaurantEmailQueue: BookingService['getRestaurantEmailQueue'] = vi.fn().mockResolvedValue({
+    ok: true,
+    restaurantId: 'rest-1',
+    pageInfo: { page: 1, pageSize: 25, hasNext: false, total: 0 },
+    summary: { total: 0, waiting: 0, active: 0, delayed: 0, dlq: 0 },
+    jobs: [],
+    timestamp: new Date().toISOString(),
+  }),
 ) {
   return {
     getRestaurantEmailDeliveryFeed,
-    getRestaurantEmailQueue: vi.fn().mockResolvedValue({
-      ok: true,
-      restaurantId: 'rest-1',
-      pageInfo: { page: 1, pageSize: 25, hasNext: false, total: 0 },
-      summary: { total: 0, waiting: 0, active: 0, delayed: 0, dlq: 0 },
-      jobs: [],
-      timestamp: new Date().toISOString(),
-    }),
+    getRestaurantEmailQueue,
   } as unknown as BookingService;
 }
 
-function renderClient(getRestaurantEmailDeliveryFeed: BookingService['getRestaurantEmailDeliveryFeed']) {
+function renderClient(
+  getRestaurantEmailDeliveryFeed: BookingService['getRestaurantEmailDeliveryFeed'],
+  options?: {
+    getRestaurantEmailQueue?: BookingService['getRestaurantEmailQueue'];
+  },
+) {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false, refetchOnWindowFocus: false },
@@ -110,7 +117,11 @@ function renderClient(getRestaurantEmailDeliveryFeed: BookingService['getRestaur
     <QueryClientProvider client={queryClient}>
       <OpsServicesProvider
         factories={{
-          bookingService: () => createBookingServiceMock(getRestaurantEmailDeliveryFeed),
+          bookingService: () =>
+            createBookingServiceMock(
+              getRestaurantEmailDeliveryFeed,
+              options?.getRestaurantEmailQueue,
+            ),
           restaurantService: () => createRestaurantService() as never,
         }}
       >
@@ -143,6 +154,10 @@ describe('OpsEmailDeliveryClient', () => {
         dispatchEvent: vi.fn(),
       })),
     });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('shows a retryable alert when the API returns an error response', async () => {
@@ -497,6 +512,7 @@ describe('OpsEmailDeliveryClient', () => {
     });
   });
 
+
   it('marks the Email Delivery sidebar item as active on this page', async () => {
     const getRestaurantEmailDeliveryFeed = vi
       .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
@@ -784,5 +800,102 @@ describe('OpsEmailDeliveryClient', () => {
 
     expect(await screen.findByRole('tab', { name: /analytics/i, selected: true })).toBeInTheDocument();
     expect(screen.getByLabelText('Email delivery metrics')).toBeInTheDocument();
+  });
+
+  it('renders polished queue KPI tiles, filters, table rows, and pagination within the queue tab', async () => {
+    const getRestaurantEmailDeliveryFeed = vi
+      .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
+      .mockResolvedValue(makeSuccessResponse());
+    const getRestaurantEmailQueue = vi
+      .fn<BookingService['getRestaurantEmailQueue']>()
+      .mockResolvedValue({
+        ok: true,
+        restaurantId: 'rest-1',
+        pageInfo: { page: 1, pageSize: 25, hasNext: true, total: 3 },
+        summary: { total: 3, waiting: 1, active: 1, delayed: 1, dlq: 0 },
+        jobs: [
+          {
+            id: 'job-1',
+            status: 'waiting',
+            type: 'review_request',
+            bookingId: 'booking-1',
+            restaurantId: 'rest-1',
+            scheduledFor: '2026-03-20T14:30:00Z',
+            failedReason: null,
+            failedAt: null,
+            attemptsMade: 0,
+            booking: {
+              id: 'booking-1',
+              reference: 'REF001',
+              customerName: 'Alex Johnson',
+              customerEmail: 'alex@example.com',
+              startAt: '2026-03-21T19:00:00Z',
+              endAt: '2026-03-21T20:30:00Z',
+              status: 'confirmed',
+            },
+          },
+        ],
+        timestamp: '2026-03-20T14:35:00Z',
+      } satisfies Extract<OpsEmailQueueFeedResponse, { ok: true }>);
+
+    searchParamsMock.mockReturnValue(new URLSearchParams('restaurantId=rest-1&tab=queue'));
+
+    renderClient(getRestaurantEmailDeliveryFeed, { getRestaurantEmailQueue });
+
+    expect(await screen.findByRole('tab', { name: /queue/i, selected: true })).toBeInTheDocument();
+    expect(screen.getByText('Scheduled email queue')).toBeInTheDocument();
+    expect(screen.getByText('Total in queue')).toBeInTheDocument();
+    expect(screen.getByText('Scheduled for later')).toBeInTheDocument();
+    expect(screen.getByText('Ready to send')).toBeInTheDocument();
+    expect(screen.getAllByText(/^Sending now$/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/^Needs attention$/).length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: 'All' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Scheduled' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ready now' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sending now' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Needs attention' })).toBeInTheDocument();
+    expect(getRestaurantEmailQueue).toHaveBeenCalledWith(
+      expect.objectContaining({
+        restaurantId: 'rest-1',
+        page: 1,
+        pageSize: 25,
+        status: undefined,
+      }),
+    );
+  });
+
+  it('shows queue loading skeletons before queue jobs resolve', async () => {
+    const getRestaurantEmailDeliveryFeed = vi
+      .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
+      .mockResolvedValue(makeSuccessResponse());
+
+    let resolveQueue!: (value: OpsEmailQueueFeedResponse) => void;
+    const queuePromise = new Promise<OpsEmailQueueFeedResponse>((resolve) => {
+      resolveQueue = resolve;
+    });
+
+    const getRestaurantEmailQueue = vi
+      .fn<BookingService['getRestaurantEmailQueue']>()
+      .mockReturnValue(queuePromise);
+
+    searchParamsMock.mockReturnValue(new URLSearchParams('restaurantId=rest-1&tab=queue'));
+
+    renderClient(getRestaurantEmailDeliveryFeed, { getRestaurantEmailQueue });
+
+    expect(await screen.findByLabelText('Loading email queue')).toBeInTheDocument();
+
+    await act(async () => {
+      resolveQueue({
+        ok: true,
+        restaurantId: 'rest-1',
+        pageInfo: { page: 1, pageSize: 25, hasNext: false, total: 0 },
+        summary: { total: 0, waiting: 0, active: 0, delayed: 0, dlq: 0 },
+        jobs: [],
+        timestamp: '2026-03-20T14:35:00Z',
+      });
+      await queuePromise;
+    });
+
+    expect(await screen.findByText('No booking emails are currently queued for this restaurant.')).toBeInTheDocument();
   });
 });
