@@ -1,337 +1,46 @@
 # Continuity Ledger
 
-Last updated: 2026-03-23T18:31:00Z
+Last updated: 2026-03-24T14:08:30Z
 
 ## Goal (incl. success criteria)
 
-- Standardize calendar usage onto one shared base implementation.
+- Fix delivery log pagination range math so empty out-of-range pages report a truthful visible range while keeping recovery controls visible.
 - Success:
-  - `@/components/ui/calendar` resolves to a canonical source in `src/components/ui/calendar.tsx`.
-  - Legacy and reserve calendar access paths still resolve to the same implementation.
-  - Existing calendar consumers behave the same after the change.
+  - Empty out-of-range pages show `0-0 of total results` instead of inventing a visible row.
+  - Non-empty pages still show the actual visible row range.
+  - Regression coverage protects both empty and non-empty pagination summaries.
 
 ## Constraints/Assumptions
 
-- Follow root AGENTS SDLC artifact flow and closest nested policies.
-- Manual UI QA via Chrome DevTools MCP is required because this changes a shared UI primitive.
-- Keep the change narrow; no schema or API changes.
-- Do not broadly migrate all UI primitives in this task.
+- Follow root AGENTS + mission AGENTS guidance for the email delivery milestone.
+- Stay within existing email-delivery client/test scope; no schema or API changes.
+- Manual browser validation must use authenticated `/app/email-delivery` because dev harness may be unavailable in staging APP_ENV.
 
 ## Key decisions
 
-- Treat the legacy issue as ownership and resolution drift, not a multi-library problem.
-- Canonicalize the calendar in `src/components/ui/calendar.tsx`.
-- Preserve compatibility by routing the old legacy file to the canonical source instead of changing every consumer path.
-- Use an exact `tsconfig.json` alias entry for the calendar only, so other primitive resolution stays unchanged.
+- Kept pagination controls visible based on existing metadata logic from the prior empty-page fix.
+- Adjusted summary math in `OpsEmailDeliveryClient` to compute `start/end` only when rows are actually visible.
+- Added client regression coverage for both empty out-of-range and non-empty page summaries.
 
 ## State
 
-- Patch and verification completed locally; ready for review.
+- Code and tests updated; validators passed locally. Browser verification still pending before final handoff.
 
 ## Done
 
-- Reviewed root, `components/AGENTS.md`, `src/components/AGENTS.md`, and `src/app/AGENTS.md`.
-- Read the continuity, style-principles, and MCP-integration skill instructions.
-- Confirmed the active calendar surface:
-  - `components/ui/calendar.tsx` is the only implementation.
-  - `reserve/shared/ui/calendar.tsx` is already a re-export.
-  - Current consumers use `@/components/ui/calendar` or `@shared/ui/calendar`.
-- Confirmed `tsconfig.json` currently resolves `@/components/*` to `./components/*` before `./src/components/*`.
-- Created task folder `tasks/standardize-calendar-base-20260323-1814/` with SDLC docs.
-- Verified the project's Shadcn registry is configured and includes the `calendar` primitive.
-- Added canonical calendar implementation:
-  - `src/components/ui/calendar.tsx`
-- Updated compatibility wiring:
-  - `components/ui/calendar.tsx`
-  - `tsconfig.json`
-- Verification completed:
-  - Focused eslint passed.
-  - `tsc --noEmit` passed.
-  - Chrome DevTools QA completed on bookings, dashboard, and floor-plan harnesses.
+- Updated pagination range math in `src/components/features/email-delivery/OpsEmailDeliveryClient.tsx`.
+- Updated `tests/components/OpsEmailDeliveryClient.test.tsx` to expect `Showing 0-0 of 70 results` for an empty out-of-range page.
+- Added a regression test asserting `Showing 51-52 of 70 results` for a partially filled non-empty page.
+- Ran targeted vitest, full vitest, `pnpm typecheck`, and `pnpm lint` successfully (lint has pre-existing warnings only).
 
 ## Now
 
-- Preparing final summary and handoff notes.
+- Perform manual browser verification on authenticated `/app/email-delivery` and then commit the scoped changes.
 
 ## Next
 
-- Review or commit the calendar standardization change.
-- Consider a follow-up task to improve dashboard heatmap day-button accessibility labels.
-
-## Open questions (UNCONFIRMED if needed)
-
-- Whether the broader UI primitive set should eventually migrate out of `components/ui` as a separate follow-up task. (UNCONFIRMED)
-
-## Working set (files/ids/commands)
-
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/CONTINUITY.md`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tsconfig.json`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/components/ui/calendar.tsx`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/ui/calendar.tsx`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/reserve/shared/ui/calendar.tsx`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/features/bookings/components/OpsBookingsDatePicker.tsx`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/features/dashboard/HeatmapCalendar.tsx`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/features/seating/FloorPlanPage.tsx`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/reserve/features/reservations/wizard/ui/steps/plan-step/components/Calendar24Field.tsx`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/standardize-calendar-base-20260323-1814/research.md`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/standardize-calendar-base-20260323-1814/plan.md`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/standardize-calendar-base-20260323-1814/todo.md`
-- `/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/standardize-calendar-base-20260323-1814/verification.md`
-
----
-
-## Previous entry
-
-Last updated: 2026-02-19T14:47:00Z
-
-## Goal (incl. success criteria)
-
-- Triage suspected production magic-link abuse and identify why many requestors have no bookings.
-- Success:
-  - Quantify recent magic-link send/request volume with concrete windows.
-  - Correlate recipients with bookings/customers.
-  - Determine whether traffic pattern indicates attack vs normal behavior.
-
-## Constraints/Assumptions
-
-- Follow root AGENTS SDLC artifacts flow.
-- Read-only production investigation only (no schema or behavior changes in this task).
-- Keep secrets out of artifacts.
-
-## Key decisions
-
-- Magic-link subject `Your Nab a Table magic sign-in link` remains route-driven (`POST /api/auth/signin`), not cron-driven.
-- 24h/7d Resend audit indicates low absolute volume but high no-booking/no-customer ratio.
-- Vercel logs show mixed `401/202/500` on `/api/auth/signin`; all 500s are `Unexpected verification type from Supabase generateLink: signup`.
-- The 500 vs 202 split creates a likely account-enumeration signal and should be normalized.
-
-## State
-
-- Investigation complete with artifacts captured.
-
-## Done
-
-- Created task folder `tasks/magic-link-incident-audit-20260219-1434/` with SDLC docs.
-- Produced artifacts:
-  - `tasks/magic-link-incident-audit-20260219-1434/artifacts/magic-link-production-audit.json`
-  - `tasks/magic-link-incident-audit-20260219-1434/artifacts/vercel-logsv2-auth-signin-7d.jsonl`
-  - `tasks/magic-link-incident-audit-20260219-1434/artifacts/vercel-logsv2-auth-signin-7d-summary.json`
-- Confirmed current codepath:
-  - `src/app/api/auth/signin/route.ts`
-  - `server/auth/magic-link-email.ts`
-
-## Now
-
-- Ready to apply hardening changes if approved.
-
-## Next
-
-1. Normalize `/api/auth/signin` responses for unknown-user magic-link attempts (prevent 202/500 enumeration leak).
-2. Add request fingerprint audit logging (hashed email/IP/UA + outcome + mode).
-3. Tighten anti-automation controls (IP/global limiter and CAPTCHA on public sign-in).
-
-## Open questions (UNCONFIRMED if needed)
-
-- Should the sign-in endpoint silently return success for unknown emails (anti-enumeration) or preserve explicit hard failure semantics?
-
-## Working set (files/ids/commands)
-
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/src/app/api/auth/signin/route.ts`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/auth/magic-link-email.ts`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/magic-link-incident-audit-20260219-1434/research.md`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/magic-link-incident-audit-20260219-1434/plan.md`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/magic-link-incident-audit-20260219-1434/todo.md`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/magic-link-incident-audit-20260219-1434/verification.md`
-
----
-
-## Previous entry
-
-Last updated: 2026-02-16T18:58:00Z
-
-## Goal (incl. success criteria)
-
-- Improve auto-assign reliability for ambiguous `hard.no_tables` outcomes.
-- Success:
-  - Async auto-assign does not hard-stop on the first `hard.no_tables`/`hard.no_suitable_tables` result.
-  - A follow-up attempt is guaranteed even when computed max attempts would otherwise be 1.
-  - Failed quote responses carry planner stats in production so observability includes filter-stage evidence.
-
-## Constraints/Assumptions
-
-- Follow root AGENTS SDLC artifacts flow.
-- Keep retry behavior bounded and deterministic.
-- No schema changes and no UI changes in this patch.
-
-## Key decisions
-
-- Added explicit retry policy helper in `server/jobs/auto-assign-retry-policy.ts`.
-- Deferred hard-stop exactly once (attempt index 0) for:
-  - `hard.no_tables`
-  - `hard.no_suitable_tables`
-- Kept immediate hard-stop for all other hard failure codes.
-- Added `auto_assign.hard_stop_deferred` observability event for transparent runtime decisions.
-- Updated quote behavior to always attach planner stats for failure results (success remains debug-flag gated).
-
-## State
-
-- Patch + tests completed locally.
-
-## Done
-
-- Created task folder `tasks/auto-assign-no-tables-retry-guard-20260216-1854/` with SDLC docs.
-- Implemented retry policy helper and integrated it in:
-  - `server/jobs/auto-assign.ts`
-  - `server/jobs/auto-assign-retry-policy.ts`
-- Updated planner stats attachment behavior in:
-  - `server/capacity/table-assignment/quote.ts`
-- Added tests:
-  - `tests/server/jobs/auto-assign-retry-policy.test.ts`
-- Verification:
-  - `pnpm vitest tests/server/jobs/auto-assign-retry-policy.test.ts tests/server/capacity/planner-reason.test.ts` passed.
-  - `pnpm exec eslint server/jobs/auto-assign.ts server/jobs/auto-assign-retry-policy.ts server/capacity/table-assignment/quote.ts tests/server/jobs/auto-assign-retry-policy.test.ts` passed.
-  - `pnpm run typecheck` passed.
-
-## Now
-
-- Ready for runtime validation in production telemetry.
-
-## Next
-
-- Monitor `auto_assign.hard_stop_deferred` events for frequency and outcomes.
-- Validate whether deferred retries reduce pending bookings caused by one-shot `hard.no_tables` outcomes.
-
-## Open questions (UNCONFIRMED if needed)
-
-- Should inline auto-assign also adopt the same defer-once policy, or remain single-shot by design?
-
-## Working set (files/ids/commands)
-
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/jobs/auto-assign.ts`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/jobs/auto-assign-retry-policy.ts`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/capacity/table-assignment/quote.ts`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tests/server/jobs/auto-assign-retry-policy.test.ts`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/auto-assign-no-tables-retry-guard-20260216-1854/research.md`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/auto-assign-no-tables-retry-guard-20260216-1854/plan.md`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/auto-assign-no-tables-retry-guard-20260216-1854/todo.md`
-- `/Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/auto-assign-no-tables-retry-guard-20260216-1854/verification.md`
-
----
-
-## Previous entry
-
-Last updated: 2026-02-12T16:02:00Z
-
-## Goal (incl. success criteria) (previous)
-
-- Reduce perceived and actual load time for ops floor plan and ops app hard reloads.
-- Success:
-  - `/app/floor-plan` does not block UI rendering on timeline status (tables render as soon as inventory is available).
-  - `/api/ops/tables` and `/api/ops/tables/timeline` can skip summary work via `includeSummary=0`.
-  - `/app/*` hard reload avoids repeated membership lookups via a bounded TTL cache.
-
-## Constraints/Assumptions
-
-- Follow root AGENTS policies.
-- Supabase access is remote-only; do not run local migrations.
-- Manual UI QA via Chrome DevTools MCP is required for UI changes.
-- Secrets must stay in env/secret stores; nothing should be committed.
-
-## Key decisions
-
-- Keep `includeSummary=0` as an opt-in toggle to preserve default API behavior for existing consumers.
-- Use a small in-memory TTL cache for ops memberships keyed by `userId` (best-effort across requests within the same Node process).
-
-## State
-
-- Implemented performance improvements; remaining manual QA requires an authenticated ops session to measure real `/app/*` TTFB and API latencies against remote Supabase.
-
-## Done
-
-- Floor plan timeline drag no longer pans the canvas.
-- Floor plan modularization/refactor completed (file size + a11y improvements).
-- Fixed broken floor plan “New booking” / “Browse bookings” links to `/app/*`.
-- Perf: added `includeSummary=0` fast-paths for tables + timeline and parallelized timeline builder awaits.
-- Perf: updated floor plan to render once table layout is available (timeline loads in background).
-- Perf: added ops membership TTL cache and switched ops layout + dashboard prefetch to use cached memberships.
-
-## Now
-
-- Awaiting authenticated manual QA on `/app/floor-plan` to confirm:
-  - Reduced document TTFB on repeat reloads (membership cache hit).
-  - Faster `/api/ops/tables?includeSummary=0` and `/api/ops/tables/timeline?includeSummary=0`.
-
-## Next
-
-- If TTFB remains high: optimize layout auth/membership resolution further (instrument timings; consider caching/column trimming elsewhere).
-- If timeline endpoints remain slow: DB-level improvements (indexes, projection trimming, query consolidation) as a separate Supabase remote-only task.
-
-## Open questions (UNCONFIRMED if needed)
-
-- What deployment model is used for ops (serverless vs long-lived Node)? In-memory caches help most on long-lived instances.
-
-## Working set (files/ids/commands)
-
-- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/src/components/features/seating/FloorPlanPage.tsx
-- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/ops/table-timeline.ts
-- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/ops/tables.ts
-- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/server/team/access.ts
-- /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/src/app/app/(app)/layout.tsx
-- Task folders:
-  - /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/perf-floor-plan-load-20260212-1533/
-  - /Users/amankumarshrestha/LapenInns Project/SajiloReserveX/tasks/perf-app-layout-memberships-20260212-1555/
-
----
-
-## Previous entry
-
-Last updated: 2026-02-11T23:59:00Z
-
-## Goal (incl. success criteria)
-
-- Incorporate OpenAI shell tooling guidance into root policy with concrete runtime/security controls.
-- Success: add canonical shell runtime section + checklist gates in `AGENTS.md`, with SDLC artifacts captured.
-
-## Constraints/Assumptions
-
-- Follow root AGENTS policies and any closer AGENTS.md files for touched paths.
-- Supabase operations must be remote-only.
-- No secrets in logs or code.
-- Keep changes documentation-only and scoped to workflow policy.
-
-## Key decisions
-
-- Added `8.6 Skills + Shell Execution Practices` to root `AGENTS.md`.
-- Added a `Skills + Shell Execution` checklist block in Quick Reference.
-- Kept `tmux` guidance optional (recommended when available), not mandatory.
-- Added `8.7 Shell Tool Runtime & Security Policy` to root `AGENTS.md`.
-- Added `Shell Tool Runtime` checklist block in Quick Reference.
-- Adopted explicit policy for hosted/local runtime selection, `/mnt/data`, `network_policy`, `domain_secrets`, and multi-turn shell continuity.
-
-## State
-
-- Documentation policy update complete; no runtime code paths changed.
-
-## Done
-
-- Created task folder `tasks/skills-shell-workflow-20260211-2347/` with required SDLC artifacts.
-- Extracted 10 recommendations from the OpenAI article and evaluated repo fit in `research.md`.
-- Updated root `AGENTS.md` with a new section `8.6 Skills + Shell Execution Practices`.
-- Updated root `AGENTS.md` Quick Reference with `Skills + Shell Execution` checklist.
-- Updated task verification/todo artifacts to reflect completed policy changes.
-- Created task folder `tasks/shell-tool-runtime-policy-20260211-2356/` with required SDLC artifacts.
-- Verified OpenAI Shell guide controls and mapped policy gaps.
-- Updated root `AGENTS.md` with `8.7 Shell Tool Runtime & Security Policy`.
-- Updated root `AGENTS.md` Quick Reference with `Shell Tool Runtime` checklist.
-- Updated task verification/todo artifacts for `shell-tool-runtime-policy`.
-
-## Now
-
-- Final review and user handoff.
-
-## Next
-
-- Use `8.6` + `8.7` as baseline for all future shell-heavy workflows.
+- Stage only the email-delivery pagination files for this feature commit.
+- Commit with a conventional message after browser verification.
 
 ## Open questions (UNCONFIRMED if needed)
 
@@ -339,13 +48,10 @@ Last updated: 2026-02-11T23:59:00Z
 
 ## Working set (files/ids/commands)
 
-- `AGENTS.md`
-- `CONTINUITY.md`
-- `tasks/skills-shell-workflow-20260211-2347/research.md`
-- `tasks/skills-shell-workflow-20260211-2347/plan.md`
-- `tasks/skills-shell-workflow-20260211-2347/todo.md`
-- `tasks/skills-shell-workflow-20260211-2347/verification.md`
-- `tasks/shell-tool-runtime-policy-20260211-2356/research.md`
-- `tasks/shell-tool-runtime-policy-20260211-2356/plan.md`
-- `tasks/shell-tool-runtime-policy-20260211-2356/todo.md`
-- `tasks/shell-tool-runtime-policy-20260211-2356/verification.md`
+- `src/components/features/email-delivery/OpsEmailDeliveryClient.tsx`
+- `tests/components/OpsEmailDeliveryClient.test.tsx`
+- `tests/components/OpsEmailDeliveryPaginationBar.test.tsx`
+- `"/Users/amankumarshrestha/LapenInns Project/nabatableLP/node_modules/.bin/vitest" run tests/components/OpsEmailDeliveryClient.test.tsx tests/components/OpsEmailDeliveryPaginationBar.test.tsx --reporter=verbose`
+- `"/Users/amankumarshrestha/LapenInns Project/nabatableLP/node_modules/.bin/vitest" run`
+- `pnpm --dir "/Users/amankumarshrestha/LapenInns Project/nabatableLP" typecheck`
+- `pnpm --dir "/Users/amankumarshrestha/LapenInns Project/nabatableLP" lint`

@@ -83,6 +83,22 @@ describe('Ops email delivery pagination bar', () => {
     expect(screen.getAllByText('Page 2').length).toBeGreaterThan(0);
   });
 
+  it('documents the old pagination math for empty out-of-range pages', () => {
+    render(
+      <PaginationBar
+        page={3}
+        pageSize={50}
+        total={70}
+        pageCount={3}
+        onPrev={vi.fn()}
+        onNext={vi.fn()}
+        onPageSizeChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Showing 101-70 of 70 results')).toBeInTheDocument();
+  });
+
   it('disables prev on the first page and next on the last page', () => {
     const { rerender } = render(
       <PaginationBar
