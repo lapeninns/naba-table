@@ -38,19 +38,28 @@ export const SEARCH_FIELD_PLACEHOLDERS: Record<SearchField, string> = {
 
 export const TEMPLATE_TYPE_OPTIONS = [
   'booking_confirmation',
+  'request_received',
+  'confirmation',
   'booking_update',
   'booking_cancellation',
+  'booking_rejected',
+  'restaurant_cancellation',
   'review_request',
   'reminder_24h',
   'reminder_short',
 ] as const;
 
 export const EMAIL_TYPE_OPTIONS = [
+  'booking_confirmation',
+  'request_received',
+  'confirmation',
   'created',
   'updated',
   'cancelled',
   'review_request',
   'reminder',
+  'booking_rejected',
+  'restaurant_cancellation',
 ] as const;
 
 export type OpsEmailDeliveryFilterBarProps = {

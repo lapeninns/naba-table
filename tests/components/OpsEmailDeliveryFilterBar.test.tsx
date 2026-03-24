@@ -103,8 +103,12 @@ describe('OpsEmailDeliveryFilterBar', () => {
   it('exports TEMPLATE_TYPE_OPTIONS with expected values', () => {
     expect(TEMPLATE_TYPE_OPTIONS).toEqual([
       'booking_confirmation',
+      'request_received',
+      'confirmation',
       'booking_update',
       'booking_cancellation',
+      'booking_rejected',
+      'restaurant_cancellation',
       'review_request',
       'reminder_24h',
       'reminder_short',
@@ -113,11 +117,16 @@ describe('OpsEmailDeliveryFilterBar', () => {
 
   it('exports EMAIL_TYPE_OPTIONS with expected values', () => {
     expect(EMAIL_TYPE_OPTIONS).toEqual([
+      'booking_confirmation',
+      'request_received',
+      'confirmation',
       'created',
       'updated',
       'cancelled',
       'review_request',
       'reminder',
+      'booking_rejected',
+      'restaurant_cancellation',
     ]);
   });
 
