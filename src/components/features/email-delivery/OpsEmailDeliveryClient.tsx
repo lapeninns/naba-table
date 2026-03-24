@@ -712,7 +712,9 @@ export function OpsEmailDeliveryClient({
     setRetryingAttemptKey(attemptKey);
 
     try {
-      await bookingService.retryEmailDelivery({ deliveryLogId: pendingRetryAttempt.messageId });
+      await bookingService.retryEmailDelivery({
+        deliveryLogId: pendingRetryAttempt.id ?? pendingRetryAttempt.messageId,
+      });
       toast.success('Retry queued', {
         description: `Resending ${pendingRetryAttempt.emailType ?? 'email'} to ${pendingRetryAttempt.recipientEmail}.`,
       });
@@ -812,13 +814,16 @@ export function OpsEmailDeliveryClient({
       process.env.NEXT_PUBLIC_APP_ENV === 'test');
 
   const handleManualRefresh = useCallback(() => {
-    setManualRefreshNonce((value) => value + 1);
     if (tab === 'delivery-log') {
       void query.refetch();
       return;
     }
     if (tab === 'analytics') {
       void analyticsQuery.refetch();
+      return;
+    }
+    if (tab === 'queue') {
+      setManualRefreshNonce((value) => value + 1);
     }
   }, [analyticsQuery, query, tab]);
 
