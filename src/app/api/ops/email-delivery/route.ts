@@ -39,6 +39,10 @@ const querySchema = z.object({
   emailType: z.string().trim().min(1).optional(),
 });
 
+function isDevOrTestFaultInjectionEnabled() {
+  return process.env.NODE_ENV !== 'production' || process.env.APP_ENV === 'development' || process.env.APP_ENV === 'test';
+}
+
 function jsonError(
   status: number,
   payload: Omit<Extract<OpsEmailDeliveryFeedResponse, { ok: false }>, 'ok'> & { message?: string },
@@ -84,6 +88,14 @@ export async function GET(request: NextRequest) {
   const statuses = parseStatuses(rawStatus);
   if (!statuses.ok) {
     return jsonError(400, { code: 'INTERNAL', error: 'Invalid status filter' });
+  }
+
+  if (parsedQuery.data.messageId === '__force_error__' && isDevOrTestFaultInjectionEnabled()) {
+    return jsonError(418, {
+      code: 'FORCED_ERROR',
+      error: 'Forced delivery log error for dev/test validation.',
+      message: 'Forced delivery log error for dev/test validation.',
+    });
   }
 
   try {
