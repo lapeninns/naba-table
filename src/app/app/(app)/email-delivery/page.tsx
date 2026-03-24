@@ -1,4 +1,7 @@
-import { OpsEmailDeliveryClient } from '@/components/features/email-delivery/OpsEmailDeliveryClient';
+import {
+  OpsEmailDeliveryClient,
+  type EmailDeliveryTab,
+} from '@/components/features/email-delivery/OpsEmailDeliveryClient';
 import {
   EMAIL_DELIVERY_STATUS_VALUES,
   OPS_EMAIL_DELIVERY_RANGE_VALUES,
@@ -14,6 +17,7 @@ export const metadata: Metadata = {
 };
 
 type EmailDeliverySearchParams = {
+  tab?: string;
   restaurantId?: string;
   range?: string;
   page?: string;
@@ -75,6 +79,15 @@ function parseOptionalString(raw: string | undefined): string | null {
   return value.length > 0 ? value : null;
 }
 
+const VALID_TABS: readonly string[] = ['delivery-log', 'queue', 'analytics'];
+
+function parseTab(raw: string | undefined): EmailDeliveryTab {
+  if (raw && VALID_TABS.includes(raw)) {
+    return raw as EmailDeliveryTab;
+  }
+  return 'delivery-log';
+}
+
 export default async function OpsEmailDeliveryPage({
   searchParams,
 }: {
@@ -82,6 +95,7 @@ export default async function OpsEmailDeliveryPage({
 }) {
   const resolved = (await searchParams) ?? {};
 
+  const initialTab = parseTab(resolved.tab);
   const initialRestaurantId = parseUuid(resolved.restaurantId);
   const initialRange = parseRange(resolved.range);
   const initialPage = Math.max(1, parseIntParam(resolved.page) ?? 1);
@@ -90,6 +104,7 @@ export default async function OpsEmailDeliveryPage({
 
   return (
     <OpsEmailDeliveryClient
+      initialTab={initialTab}
       initialRestaurantId={initialRestaurantId}
       initialRange={initialRange}
       initialPage={initialPage}
