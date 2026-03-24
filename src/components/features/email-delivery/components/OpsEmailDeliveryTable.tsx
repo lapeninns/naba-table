@@ -1,6 +1,7 @@
 'use client';
 
 import { ArrowDown, ArrowUp, ArrowUpDown, Check, ChevronDown, Copy } from 'lucide-react';
+import Link from 'next/link';
 import { useCallback, useMemo, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
@@ -76,17 +77,15 @@ function StatusBadge({ status }: { status: EmailDeliveryStatus }) {
 }
 
 function CopyMessageIdButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-
   const handleCopy = useCallback(
-    async (e: React.MouseEvent) => {
+    async (e: React.MouseEvent<HTMLButtonElement>) => {
       e.stopPropagation();
+      const target = e.currentTarget;
       try {
         await navigator.clipboard.writeText(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
+        target.setAttribute('aria-label', 'Message ID copied');
       } catch {
-        // Fallback: ignore copy failures silently
+        target.setAttribute('aria-label', 'Copy message id');
       }
     },
     [text],
@@ -97,15 +96,11 @@ function CopyMessageIdButton({ text }: { text: string }) {
       variant="outline"
       size="sm"
       onClick={handleCopy}
-      className={cn('transition-all', copied && 'text-green-600')}
       aria-label="Copy message id"
     >
-      {copied ? (
-        <Check className="h-4 w-4" aria-hidden />
-      ) : (
-        <Copy className="h-4 w-4" aria-hidden />
-      )}
-      <span className="sr-only">{copied ? 'Copied!' : 'Copy message id'}</span>
+      <Copy className="h-4 w-4" aria-hidden />
+      <Check className="sr-only" aria-hidden />
+      <span className="sr-only">Copy message id</span>
     </Button>
   );
 }
@@ -124,9 +119,11 @@ function SortIndicator({ column, sortState }: { column: SortColumn; sortState: S
 function ExpandedRowDetail({
   attempt,
   timezone,
+  restaurantId,
 }: {
   attempt: OpsEmailDeliveryAttemptDTO;
   timezone: string;
+  restaurantId: string;
 }) {
   const errorEvent = attempt.events.find((e) => e.error);
 
@@ -144,6 +141,20 @@ function ExpandedRowDetail({
         </div>
         <CopyMessageIdButton text={attempt.messageId} />
       </div>
+
+      {attempt.bookingId ? (
+        <div className="flex justify-end">
+          <Button asChild variant="outline" size="sm">
+            <Link
+              href={`/app/bookings?restaurantId=${restaurantId}&focus=${attempt.bookingId}`}
+              prefetch={false}
+              onClick={(event) => event.stopPropagation()}
+            >
+              Open booking
+            </Link>
+          </Button>
+        </div>
+      ) : null}
 
       {/* Error message */}
       {errorEvent?.error ? (
@@ -358,7 +369,7 @@ export function OpsEmailDeliveryTable({
               rows.push(
                 <TableRow key={`${key}__detail`} className="hover:bg-transparent">
                   <TableCell colSpan={7} className="p-0">
-                    <ExpandedRowDetail attempt={attempt} timezone={timezone} />
+                    <ExpandedRowDetail attempt={attempt} timezone={timezone} restaurantId={_restaurantId} />
                   </TableCell>
                 </TableRow>,
               );

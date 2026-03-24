@@ -305,6 +305,36 @@ describe('OpsEmailDeliveryTable', () => {
     expect(errorTexts.length).toBeGreaterThanOrEqual(1);
   });
 
+
+  it('shows an open booking link and copies the message id from expanded rows', async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(window.navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+
+    render(
+      <OpsEmailDeliveryTable
+        attempts={defaultAttempts}
+        timezone="UTC"
+        restaurantId="rest-1"
+        isLoading={false}
+      />,
+    );
+
+    const rows = screen.getAllByRole('row');
+    await user.click(rows[1]!);
+
+    const openBookingLink = screen.getByRole('link', { name: /open booking/i });
+    expect(openBookingLink).toHaveAttribute('href', '/app/bookings?restaurantId=rest-1&focus=booking-1');
+
+    await user.click(screen.getByRole('button', { name: /copy message id/i }));
+
+    expect(writeText).toHaveBeenCalledWith('msg-test-2');
+    expect(screen.getByRole('button', { name: /message id copied/i })).toBeInTheDocument();
+  });
+
   it('collapses expanded row on second click', async () => {
     const user = userEvent.setup();
 

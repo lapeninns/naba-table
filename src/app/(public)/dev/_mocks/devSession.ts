@@ -15,6 +15,13 @@ export const DEV_MEMBERSHIPS: OpsMembership[] = [
     role: 'owner',
     createdAt: new Date().toISOString(),
   },
+  {
+    restaurantId: '22222222-2222-4222-8222-222222222222',
+    restaurantName: 'Second Dev Restaurant',
+    restaurantSlug: 'second-dev-restaurant',
+    role: 'manager',
+    createdAt: new Date().toISOString(),
+  },
 ];
 
 export const DEV_FEATURE_FLAGS: OpsFeatureFlags = {
