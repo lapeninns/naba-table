@@ -1091,6 +1091,61 @@ describe('OpsEmailDeliveryClient', () => {
     expect(await screen.findByText('No booking emails are currently queued for this restaurant.')).toBeInTheDocument();
   });
 
+  it('keeps the queue loading skeleton visible briefly after a fast queue response settles', async () => {
+    const getRestaurantEmailDeliveryFeed = vi
+      .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
+      .mockResolvedValue(makeSuccessResponse());
+
+    const getRestaurantEmailQueue = vi
+      .fn<BookingService['getRestaurantEmailQueue']>()
+      .mockResolvedValue({
+        ok: true,
+        restaurantId: 'rest-1',
+        pageInfo: { page: 1, pageSize: 25, hasNext: false, total: 1 },
+        summary: { total: 1, waiting: 1, active: 0, delayed: 0, dlq: 0 },
+        jobs: [
+          {
+            id: 'job-fast',
+            status: 'waiting',
+            type: 'review_request',
+            bookingId: 'booking-fast',
+            restaurantId: 'rest-1',
+            scheduledFor: '2026-03-20T14:30:00Z',
+            failedReason: null,
+            failedAt: null,
+            attemptsMade: 0,
+            booking: {
+              id: 'booking-fast',
+              reference: 'FAST01',
+              customerName: 'Fast Queue',
+              customerEmail: 'fast@example.com',
+              startAt: '2026-03-21T19:00:00Z',
+              endAt: '2026-03-21T20:30:00Z',
+              status: 'confirmed',
+            },
+          },
+        ],
+        timestamp: '2026-03-20T14:35:00Z',
+      } satisfies Extract<OpsEmailQueueFeedResponse, { ok: true }>);
+
+    searchParamsMock.mockReturnValue(new URLSearchParams('restaurantId=rest-1&tab=queue'));
+
+    renderClient(getRestaurantEmailDeliveryFeed, { getRestaurantEmailQueue });
+
+    expect(await screen.findByLabelText('Loading email queue')).toBeInTheDocument();
+
+    expect(screen.getByLabelText('Loading email queue')).toBeInTheDocument();
+    expect(screen.queryByText('Fast Queue')).not.toBeInTheDocument();
+
+    await waitFor(
+      () => {
+        expect(screen.getByText('Fast Queue')).toBeInTheDocument();
+      },
+      { timeout: 1500 },
+    );
+    expect(screen.queryByLabelText('Loading email queue')).not.toBeInTheDocument();
+  });
+
   it('resets queue pagination to page 1 when the queue status filter changes', async () => {
     const getRestaurantEmailDeliveryFeed = vi
       .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
