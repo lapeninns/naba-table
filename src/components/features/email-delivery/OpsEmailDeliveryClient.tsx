@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useOpsServices } from '@/contexts/ops-services';
 import { useOpsSession } from '@/contexts/ops-session';
 import { useOpsEmailDeliveryFeed } from '@/hooks/ops/useOpsEmailDeliveryFeed';
 import { useOpsRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
@@ -166,6 +167,7 @@ export function OpsEmailDeliveryClient({
   }, [opsBasePath, pathname]);
 
   const { memberships, activeRestaurantId, setActiveRestaurantId } = useOpsSession();
+  const { restaurantService } = useOpsServices();
   const membershipIds = useMemo(() => new Set(memberships.map((m) => m.restaurantId)), [memberships]);
 
   const searchKey = useMemo(() => searchParams?.toString() ?? '', [searchParams]);
@@ -233,7 +235,43 @@ export function OpsEmailDeliveryClient({
   }, [parsedFromQuery.restaurantId]);
 
   const restaurantDetails = useOpsRestaurantDetails(effectiveRestaurantId);
+  const [availableRestaurants, setAvailableRestaurants] = useState<
+    Array<{ id: string; name: string; timezone?: string | null }>
+  >([]);
   const timezone = restaurantDetails.data?.timezone ?? 'UTC';
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void restaurantService
+      .listRestaurants()
+      .then((restaurants) => {
+        if (cancelled) return;
+        setAvailableRestaurants(
+          restaurants
+            .filter((restaurant) => membershipIds.has(restaurant.id))
+            .map((restaurant) => ({
+              id: restaurant.id,
+              name: restaurant.name,
+              timezone: restaurant.timezone,
+            })),
+        );
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setAvailableRestaurants(
+          memberships.map((membership) => ({
+            id: membership.restaurantId,
+            name: membership.restaurantName,
+            timezone: null,
+          })),
+        );
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [membershipIds, memberships, restaurantService]);
 
   const activeTab = useMemo<EmailDeliveryTab>(() => {
     const sp = new URLSearchParams(searchKey);
@@ -372,6 +410,69 @@ export function OpsEmailDeliveryClient({
       syncQueryParams({ tab: nextTab });
     },
     [syncQueryParams],
+  );
+
+  const handleRestaurantChange = useCallback(
+    (nextRestaurantId: string) => {
+      if (!membershipIds.has(nextRestaurantId)) return;
+      setActiveRestaurantId(nextRestaurantId);
+      setTab(initialTab);
+      setRange(initialRange);
+      setStatuses(initialStatuses);
+      setPage(initialPage);
+      setPageSize(initialPageSize);
+      setSimulateEmailDeliveryError(initialSimulateEmailDeliveryError);
+      setRecipientEmail(initialRecipientEmail);
+      setMessageId(initialMessageId);
+      setBookingRef(initialBookingRef);
+      setTemplateType(initialTemplateType);
+      setEmailType(initialEmailType);
+      setSearchField(
+        resolveSearchField({
+          recipientEmail: initialRecipientEmail,
+          messageId: initialMessageId,
+          bookingRef: initialBookingRef,
+        }),
+      );
+      setSearchValue(
+        resolveSearchValue({
+          recipientEmail: initialRecipientEmail,
+          messageId: initialMessageId,
+          bookingRef: initialBookingRef,
+        }),
+      );
+
+      syncQueryParams({
+        restaurantId: nextRestaurantId,
+        range: initialRange,
+        page: initialPage,
+        pageSize: initialPageSize,
+        statuses: initialStatuses,
+        simulateEmailDeliveryError: initialSimulateEmailDeliveryError,
+        recipientEmail: initialRecipientEmail,
+        messageId: initialMessageId,
+        bookingRef: initialBookingRef,
+        templateType: initialTemplateType,
+        emailType: initialEmailType,
+        tab: initialTab,
+      });
+    },
+    [
+      initialBookingRef,
+      initialEmailType,
+      initialMessageId,
+      initialPage,
+      initialPageSize,
+      initialRange,
+      initialRecipientEmail,
+      initialSimulateEmailDeliveryError,
+      initialStatuses,
+      initialTab,
+      initialTemplateType,
+      membershipIds,
+      setActiveRestaurantId,
+      syncQueryParams,
+    ],
   );
 
   useEffect(() => {
@@ -599,20 +700,32 @@ export function OpsEmailDeliveryClient({
         title="Email Delivery"
         subtitle="Deliverability dashboard for booking emails (Resend)."
         meta={
-          restaurantDetails.data ? (
-            <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {availableRestaurants.length > 1 ? (
+              <Select value={effectiveRestaurantId ?? ''} onValueChange={handleRestaurantChange}>
+                <SelectTrigger
+                  className="h-8 w-[240px]"
+                  aria-label="Restaurant switcher"
+                >
+                  <SelectValue placeholder="Select restaurant" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableRestaurants.map((restaurant) => (
+                    <SelectItem key={restaurant.id} value={restaurant.id}>
+                      {restaurant.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : restaurantDetails.data ? (
               <Badge variant="outline" className="text-xs">
                 {restaurantDetails.data.name}
               </Badge>
-              <Badge variant="outline" className="font-mono text-xs text-muted-foreground">
-                {timezone}
-              </Badge>
-            </div>
-          ) : (
+            ) : null}
             <Badge variant="outline" className="font-mono text-xs text-muted-foreground">
               {timezone}
             </Badge>
-          )
+          </div>
         }
         secondaryActions={
           <Button asChild variant="outline" size="sm">
