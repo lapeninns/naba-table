@@ -222,6 +222,64 @@ describe('POST /api/ops/email-delivery/retry', () => {
     expect(retryEmailDeliveryLogEntryMock).not.toHaveBeenCalled();
   });
 
+  it('returns 200 for retry-actions fixture ids even when the booking lookup falls back to fixture metadata', async () => {
+    process.env.APP_ENV = 'test';
+    getServiceSupabaseClientMock.mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: null,
+              error: null,
+            }),
+          }),
+        }),
+      }),
+    });
+    resendBookingEmailFromDeliveryLogMock.mockResolvedValue({
+      id: 'log-fixture-success-fallback',
+      bookingId: 'booking-fixture-failed',
+      restaurantId: '11111111-1111-1111-1111-111111111111',
+      emailType: 'created',
+      templateType: 'booking_confirmation',
+      recipientEmail: 'retry.failed@example.com',
+      messageId: 'message-fixture-success-fallback',
+      status: 'sent',
+      provider: 'mock',
+      occurredAt: '2026-03-24T10:03:00.000Z',
+      error: null,
+      metadata: { subject: 'Fixture failed retry candidate' },
+    });
+
+    const response = await POST(
+      buildRequest({ deliveryLogId: FIXTURE_DELIVERY_LOG_ID }),
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload).toMatchObject({
+      ok: true,
+      deliveryLogEntry: expect.objectContaining({
+        id: 'log-fixture-success-fallback',
+        bookingId: 'booking-fixture-failed',
+      }),
+    });
+    expect(retryEmailDeliveryLogEntryMock).not.toHaveBeenCalled();
+    expect(requireRestaurantMemberMock).toHaveBeenCalledWith({
+      supabase: { mock: true },
+      userId: 'user-1',
+      restaurantId: '11111111-1111-1111-1111-111111111111',
+    });
+    expect(resendBookingEmailFromDeliveryLogMock).toHaveBeenCalledWith({
+      booking: expect.objectContaining({
+        id: 'booking-fixture-failed',
+        restaurant_id: '11111111-1111-1111-1111-111111111111',
+      }),
+      emailType: 'created',
+      templateType: 'booking_confirmation',
+    });
+  });
+
   it('allows retry-actions fixture delivery log ids to succeed without querying the backing table', async () => {
     process.env.APP_ENV = 'test';
     getServiceSupabaseClientMock.mockReturnValue({

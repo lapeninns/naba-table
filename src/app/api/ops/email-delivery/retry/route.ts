@@ -103,6 +103,28 @@ export async function POST(request: NextRequest) {
 
         const booking = (data ?? null) as BookingRecord | null;
         if (!booking) {
+          if (fixtureEntry) {
+            const fixtureRestaurantId = fixtureEntry.restaurantId ?? fallbackRestaurantId;
+            if (!fixtureRestaurantId) {
+              throw new EmailDeliveryRetryError('MISSING_BOOKING', 'No restaurant access is available for this retry.');
+            }
+
+            await requireRestaurantMember({
+              supabase,
+              userId: user.id,
+              restaurantId: fixtureRestaurantId,
+            });
+
+            return resendBookingEmailFromDeliveryLog({
+              booking: {
+                id: bookingId,
+                restaurant_id: fixtureRestaurantId,
+              } as BookingRecord,
+              emailType,
+              templateType,
+            });
+          }
+
           throw new EmailDeliveryRetryError('MISSING_BOOKING', 'The original booking could not be loaded for retry.');
         }
 
