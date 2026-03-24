@@ -13,14 +13,16 @@ import type { OpsEmailDeliveryFeedResponse, OpsEmailDeliverySummary } from '@/ty
 import type { OpsMembership, OpsUser } from '@/types/ops';
 
 const replaceMock = vi.fn();
+const pathnameMock = vi.fn();
+const searchParamsMock = vi.fn();
 
 vi.mock('next/navigation', async () => {
   const actual = await vi.importActual<typeof import('next/navigation')>('next/navigation');
   return {
     ...actual,
-    usePathname: () => '/app/email-delivery',
+    usePathname: () => pathnameMock(),
     useRouter: () => ({ replace: replaceMock }),
-    useSearchParams: () => new URLSearchParams('restaurantId=rest-1&tab=delivery-log'),
+    useSearchParams: () => searchParamsMock(),
   };
 });
 
@@ -127,6 +129,10 @@ function renderClient(getRestaurantEmailDeliveryFeed: BookingService['getRestaur
 describe('OpsEmailDeliveryClient', () => {
   beforeEach(() => {
     replaceMock.mockReset();
+    pathnameMock.mockReset();
+    pathnameMock.mockReturnValue('/app/email-delivery');
+    searchParamsMock.mockReset();
+    searchParamsMock.mockReturnValue(new URLSearchParams('restaurantId=rest-1&tab=delivery-log'));
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
       value: vi.fn().mockImplementation((query: string) => ({
@@ -398,5 +404,37 @@ describe('OpsEmailDeliveryClient', () => {
     renderClient(getRestaurantEmailDeliveryFeed);
 
     expect(await screen.findByText('Showing 51-52 of 70 results')).toBeInTheDocument();
+  });
+
+  it('renders the restaurant badge in the shared page header metadata', async () => {
+    const getRestaurantEmailDeliveryFeed = vi
+      .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
+      .mockResolvedValue(makeSuccessResponse());
+
+    renderClient(getRestaurantEmailDeliveryFeed);
+
+    expect(await screen.findByText('Test Restaurant')).toBeInTheDocument();
+    expect(screen.getByText('UTC')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /go to bookings/i })).toHaveAttribute('href', '/app/bookings');
+  });
+
+  it('updates the active tab via client-side URL replacement while preserving other query params', async () => {
+    const getRestaurantEmailDeliveryFeed = vi
+      .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
+      .mockResolvedValue(makeSuccessResponse());
+
+    searchParamsMock.mockReturnValue(
+      new URLSearchParams('restaurantId=rest-1&tab=delivery-log&range=24h&page=2'),
+    );
+
+    const user = userEvent.setup();
+    renderClient(getRestaurantEmailDeliveryFeed);
+
+    await user.click(await screen.findByRole('tab', { name: /queue/i }));
+
+    expect(replaceMock).toHaveBeenCalledWith(
+      '/app/email-delivery?restaurantId=rest-1&tab=queue&range=24h&page=2',
+      { scroll: false },
+    );
   });
 });
