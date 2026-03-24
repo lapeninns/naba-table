@@ -95,8 +95,6 @@ export function useOpsEmailDeliveryFeed(
     },
     enabled: Boolean(restaurantId),
     staleTime: 30_000,
-    // Keep previous data visible while fetching new filters/range/page - enables smooth stale-while-revalidate UX.
-    placeholderData: (previous) => previous,
   });
 
   const derived = useMemo<OpsEmailDeliveryFeedState>(() => {
