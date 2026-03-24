@@ -1087,7 +1087,9 @@ describe('OpsEmailDeliveryClient', () => {
 
     renderClient(getRestaurantEmailDeliveryFeed, { getRestaurantEmailQueue });
 
-    expect(await screen.findByLabelText('Loading email queue')).toBeInTheDocument();
+    expect(
+      await screen.findByLabelText(/loading email queue|refreshing email queue/i),
+    ).toBeInTheDocument();
 
     await act(async () => {
       resolveQueue({
@@ -1145,15 +1147,87 @@ describe('OpsEmailDeliveryClient', () => {
 
     renderClient(getRestaurantEmailDeliveryFeed, { getRestaurantEmailQueue });
 
-    expect(await screen.findByLabelText('Loading email queue')).toBeInTheDocument();
-
     await waitFor(
       () => {
         expect(screen.getByText('Fast Queue')).toBeInTheDocument();
       },
       { timeout: 1500 },
     );
-    expect(screen.queryByLabelText('Loading email queue')).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByLabelText(/loading email queue|refreshing email queue/i)).not.toBeInTheDocument();
+    });
+  });
+
+  it('shows a visible queue refetch indicator while stale queue rows remain rendered', async () => {
+    const getRestaurantEmailDeliveryFeed = vi
+      .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
+      .mockResolvedValue(makeSuccessResponse());
+
+    let releaseFilteredQueue!: () => void;
+    const filteredQueueGate = new Promise<void>((resolve) => {
+      releaseFilteredQueue = resolve;
+    });
+
+    const getRestaurantEmailQueue = vi
+      .fn<BookingService['getRestaurantEmailQueue']>()
+      .mockImplementation(async ({ status }) => {
+        if (status === 'waiting') {
+          await filteredQueueGate;
+        }
+
+        return {
+          ok: true,
+          restaurantId: 'rest-1',
+          pageInfo: { page: 1, pageSize: 25, hasNext: false, total: 1 },
+          summary: { total: 1, waiting: 1, active: 0, delayed: 0, dlq: 0 },
+          jobs: [
+            {
+              id: status === 'waiting' ? 'job-filtered' : 'job-stale',
+              status: 'waiting',
+              type: 'review_request',
+              bookingId: 'booking-queue',
+              restaurantId: 'rest-1',
+              scheduledFor: '2026-03-20T14:30:00Z',
+              failedReason: null,
+              failedAt: null,
+              attemptsMade: 0,
+              booking: {
+                id: 'booking-queue',
+                reference: 'QUEUE01',
+                customerName: status === 'waiting' ? 'Filtered Queue Guest' : 'Stale Queue Guest',
+                customerEmail: 'queue@example.com',
+                startAt: '2026-03-21T19:00:00Z',
+                endAt: '2026-03-21T20:30:00Z',
+                status: 'confirmed',
+              },
+            },
+          ],
+          timestamp: '2026-03-20T14:35:00Z',
+        } satisfies Extract<OpsEmailQueueFeedResponse, { ok: true }>;
+      });
+
+    searchParamsMock.mockReturnValue(new URLSearchParams('restaurantId=rest-1&tab=queue'));
+
+    const user = userEvent.setup();
+    renderClient(getRestaurantEmailDeliveryFeed, { getRestaurantEmailQueue });
+
+    expect(await screen.findByText('Stale Queue Guest')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Ready now' }));
+
+    expect(await screen.findByLabelText('Refreshing email queue')).toBeInTheDocument();
+    expect(screen.getByText('Stale Queue Guest')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Refreshing email queue' })).toHaveAttribute('aria-busy', 'true');
+
+    await act(async () => {
+      releaseFilteredQueue();
+      await filteredQueueGate;
+    });
+
+    expect(await screen.findByText('Filtered Queue Guest')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Refreshing email queue')).not.toBeInTheDocument();
+    });
   });
 
   it('resets queue pagination to page 1 when the queue status filter changes', async () => {

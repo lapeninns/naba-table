@@ -117,6 +117,7 @@ export function OpsEmailQueuePanel({ restaurantId, timezone }: OpsEmailQueuePane
     delayMs: 0,
     minDurationMs: 400,
   });
+  const showRefetchIndicator = showLoadingState && jobs.length > 0;
   const queueMetrics = [
     { label: 'Total in queue', value: summary?.total ?? 0, tone: 'slate' },
     { label: 'Scheduled for later', value: summary?.delayed ?? 0, tone: 'amber' },
@@ -193,6 +194,17 @@ export function OpsEmailQueuePanel({ restaurantId, timezone }: OpsEmailQueuePane
         </CardHeader>
 
         <CardContent className="space-y-4 pt-5">
+          {showRefetchIndicator ? (
+            <div
+              role="region"
+              aria-label="Refreshing email queue"
+              aria-busy="true"
+              className="flex items-center gap-3 rounded-lg border border-sky-200/70 bg-sky-50/80 px-3 py-2 text-sm text-sky-900"
+            >
+              <Skeleton className="h-2.5 w-2.5 rounded-full" />
+              <span className="font-medium">Refreshing queued jobs…</span>
+            </div>
+          ) : null}
           {query.apiError ? (
             <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
               {query.apiError.error}
