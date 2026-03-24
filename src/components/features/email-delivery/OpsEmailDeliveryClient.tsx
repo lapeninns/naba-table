@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { OpsEmailDeliveryAnalytics } from '@/components/features/email-delivery/components/OpsEmailDeliveryAnalytics';
 import { OpsEmailDeliveryFilterBar } from '@/components/features/email-delivery/components/OpsEmailDeliveryFilterBar';
-import { OpsEmailDeliverySummaryMetrics } from '@/components/features/email-delivery/components/OpsEmailDeliverySummaryMetrics';
 import { OpsEmailDeliveryTable } from '@/components/features/email-delivery/components/OpsEmailDeliveryTable';
 import { OpsEmailQueuePanel } from '@/components/features/email-delivery/components/OpsEmailQueuePanel';
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
@@ -27,6 +27,7 @@ import { useOpsSession } from '@/contexts/ops-session';
 import { useOpsEmailDeliveryFeed } from '@/hooks/ops/useOpsEmailDeliveryFeed';
 import { useOpsRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
 import { EMAIL_DELIVERY_STATUS_VALUES } from '@/types/emailDelivery';
+import { useOpsEmailDeliverySummary } from '@src/hooks/ops/useOpsEmailDeliverySummary';
 
 import type { SearchField } from '@/components/features/email-delivery/components/OpsEmailDeliveryFilterBar';
 import type {
@@ -37,6 +38,7 @@ import type {
 const EMPTY_STATUSES: EmailDeliveryStatus[] = [];
 const PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
 const DELIVERY_LOG_FAULT_INJECTION_MESSAGE_ID = '__force_error__';
+const DELIVERY_LOG_STUCK_LOADING_FALLBACK_MS = 1500;
 
 const EMAIL_DELIVERY_TABS = ['delivery-log', 'queue', 'analytics'] as const;
 export type EmailDeliveryTab = (typeof EMAIL_DELIVERY_TABS)[number];
@@ -404,9 +406,20 @@ export function OpsEmailDeliveryClient({
     templateType: templateType ?? undefined,
     emailType: emailType ?? undefined,
   });
+  const analyticsQuery = useOpsEmailDeliverySummary({
+    restaurantId: effectiveRestaurantId,
+    range,
+    simulateEmailDeliveryError,
+    recipientEmail: recipientEmail ?? undefined,
+    messageId: messageId ?? undefined,
+    bookingRef: bookingRef ?? undefined,
+    templateType: templateType ?? undefined,
+    emailType: emailType ?? undefined,
+  });
 
   const attempts = query.attempts ?? [];
   const summary = query.summary ?? null;
+  const analyticsSummary = analyticsQuery.summary ?? null;
   const statusCounts = summary
     ? ({
         sent: summary.sent,
@@ -449,20 +462,6 @@ export function OpsEmailDeliveryClient({
     [statuses, syncQueryParams],
   );
 
-  const filterStatusFromMetrics = useCallback(
-    (status: EmailDeliveryStatus | null) => {
-      setPage(1);
-      const next = status
-        ? statuses.length === 1 && statuses[0] === status
-          ? []
-          : [status]
-        : [];
-      setStatuses(next);
-      syncQueryParams({ statuses: next, page: 1 });
-    },
-    [statuses, syncQueryParams],
-  );
-
   const handlePrev = useCallback(() => {
     const next = Math.max(1, page - 1);
     if (next === page) return;
@@ -494,10 +493,35 @@ export function OpsEmailDeliveryClient({
     : query.error
       ? getDeliveryFeedErrorMessage(query.error)
       : null;
+  const [stuckLoadingFallbackActive, setStuckLoadingFallbackActive] = useState(false);
+
+  useEffect(() => {
+    if (!query.isLoading) {
+      setStuckLoadingFallbackActive(false);
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setStuckLoadingFallbackActive(true);
+    }, DELIVERY_LOG_STUCK_LOADING_FALLBACK_MS);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [query.isLoading]);
+
+  const shouldShowStuckLoadingAlert =
+    stuckLoadingFallbackActive &&
+    (simulateEmailDeliveryError || messageId === DELIVERY_LOG_FAULT_INJECTION_MESSAGE_ID);
+  const stuckLoadingFallbackMessage = shouldShowStuckLoadingAlert
+    ? 'The delivery log is taking longer than expected to settle after the forced error response. Retry to request the latest state again.'
+    : 'The delivery log is taking longer than expected to settle. Try again or adjust the filters to recover the latest results.';
+  const effectiveDeliveryLogErrorMessage =
+    deliveryLogErrorMessage ?? (shouldShowStuckLoadingAlert ? stuckLoadingFallbackMessage : null);
   const shouldShowEmptyGuidance =
     !query.unavailable &&
-    !deliveryLogErrorMessage &&
-    !query.isLoading &&
+    !effectiveDeliveryLogErrorMessage &&
+    (!query.isLoading || stuckLoadingFallbackActive) &&
     attempts.length === 0;
   const canInjectDeliveryLogError =
     typeof window !== 'undefined' &&
@@ -644,12 +668,12 @@ export function OpsEmailDeliveryClient({
                   This environment is not currently recording or exposing delivery events. Email sending can still work normally.
                 </AlertDescription>
               </Alert>
-            ) : deliveryLogErrorMessage ? (
+            ) : effectiveDeliveryLogErrorMessage ? (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" aria-hidden />
                 <AlertTitle>Unable to load email delivery attempts</AlertTitle>
                 <AlertDescription className="space-y-3">
-                  <p>{deliveryLogErrorMessage}</p>
+                  <p>{effectiveDeliveryLogErrorMessage}</p>
                   <Button
                     type="button"
                     variant="link"
@@ -741,11 +765,23 @@ export function OpsEmailDeliveryClient({
         </TabsContent>
 
         <TabsContent value="analytics">
-          <OpsEmailDeliverySummaryMetrics
-            summary={summary}
-            isLoading={query.isSummaryLoading}
-            isUpdating={query.isSummaryUpdating}
-            onFilterStatus={filterStatusFromMetrics}
+          <OpsEmailDeliveryAnalytics
+            summary={analyticsSummary}
+            isLoading={analyticsQuery.isLoading}
+            isUpdating={analyticsQuery.isFetching && !analyticsQuery.isLoading}
+            range={range}
+            onRangeChange={(next) => {
+              setRange(next);
+              setPage(1);
+              syncQueryParams({ range: next, page: 1 });
+            }}
+            errorMessage={
+              analyticsQuery.apiError
+                ? getDeliveryFeedErrorMessage(analyticsQuery.apiError)
+                : analyticsQuery.error
+                  ? getDeliveryFeedErrorMessage(analyticsQuery.error)
+                  : null
+            }
           />
         </TabsContent>
       </Tabs>

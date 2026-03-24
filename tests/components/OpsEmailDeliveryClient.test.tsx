@@ -9,7 +9,11 @@ import { OpsServicesProvider } from '@/contexts/ops-services';
 import { OpsSessionProvider } from '@/contexts/ops-session';
 
 import type { BookingService } from '@/services/ops/bookings';
-import type { OpsEmailDeliveryFeedResponse, OpsEmailDeliverySummary } from '@/types/emailDelivery';
+import type {
+  OpsEmailDeliveryFeedResponse,
+  OpsEmailDeliverySummary,
+  OpsEmailDeliverySummaryResponse,
+} from '@/types/emailDelivery';
 import type { OpsEmailQueueFeedResponse } from '@/types/emailQueue';
 import type { OpsMembership, OpsUser } from '@/types/ops';
 
@@ -86,6 +90,12 @@ function makeSuccessResponse(
 
 function createBookingServiceMock(
   getRestaurantEmailDeliveryFeed: BookingService['getRestaurantEmailDeliveryFeed'],
+  getRestaurantEmailDeliverySummary: BookingService['getRestaurantEmailDeliverySummary'] = vi.fn().mockResolvedValue({
+    ok: true,
+    restaurantId: 'rest-1',
+    range: '7d',
+    summary: makeSummary(),
+  }),
   getRestaurantEmailQueue: BookingService['getRestaurantEmailQueue'] = vi.fn().mockResolvedValue({
     ok: true,
     restaurantId: 'rest-1',
@@ -97,6 +107,7 @@ function createBookingServiceMock(
 ) {
   return {
     getRestaurantEmailDeliveryFeed,
+    getRestaurantEmailDeliverySummary,
     getRestaurantEmailQueue,
   } as unknown as BookingService;
 }
@@ -104,6 +115,7 @@ function createBookingServiceMock(
 function renderClient(
   getRestaurantEmailDeliveryFeed: BookingService['getRestaurantEmailDeliveryFeed'],
   options?: {
+    getRestaurantEmailDeliverySummary?: BookingService['getRestaurantEmailDeliverySummary'];
     getRestaurantEmailQueue?: BookingService['getRestaurantEmailQueue'];
   },
 ) {
@@ -120,6 +132,7 @@ function renderClient(
           bookingService: () =>
             createBookingServiceMock(
               getRestaurantEmailDeliveryFeed,
+              options?.getRestaurantEmailDeliverySummary,
               options?.getRestaurantEmailQueue,
             ),
           restaurantService: () => createRestaurantService() as never,
@@ -791,15 +804,139 @@ describe('OpsEmailDeliveryClient', () => {
           },
         }),
       );
+    const getRestaurantEmailDeliverySummary = vi
+      .fn<BookingService['getRestaurantEmailDeliverySummary']>()
+      .mockResolvedValue({
+        ok: true,
+        restaurantId: 'rest-1',
+        range: '30d',
+        summary: {
+          ...makeSummary(12),
+          delivered: 10,
+          deliveryDelayed: 1,
+          bounced: 0,
+          complained: 0,
+          failed: 1,
+          deliveredRate: 0.833,
+          failureRate: 0.083,
+          uniqueRecipients: 8,
+          uniqueBookings: 6,
+          p50DeliverySeconds: 34,
+          p95DeliverySeconds: 155,
+          topFailedTemplates: [{ templateType: 'booking_confirmation', count: 1 }],
+          topFailedEmailTypes: [{ emailType: 'confirmation', count: 1 }],
+        },
+      } satisfies Extract<OpsEmailDeliverySummaryResponse, { ok: true }>);
 
     searchParamsMock.mockReturnValue(
       new URLSearchParams('restaurantId=rest-1&tab=analytics&range=30d&page=2&pageSize=25'),
     );
 
-    renderClient(getRestaurantEmailDeliveryFeed);
+    renderClient(getRestaurantEmailDeliveryFeed, { getRestaurantEmailDeliverySummary });
 
     expect(await screen.findByRole('tab', { name: /analytics/i, selected: true })).toBeInTheDocument();
-    expect(screen.getByLabelText('Email delivery metrics')).toBeInTheDocument();
+    expect(getRestaurantEmailDeliverySummary).toHaveBeenCalledWith(
+      expect.objectContaining({
+        restaurantId: 'rest-1',
+        range: '30d',
+        recipientEmail: undefined,
+        messageId: undefined,
+      }),
+    );
+    expect(getRestaurantEmailDeliveryFeed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        page: 2,
+        pageSize: 25,
+      }),
+    );
+  });
+
+  it('keeps analytics populated independently from delivery-log pagination state and updates range from the analytics toggle', async () => {
+    const getRestaurantEmailDeliveryFeed = vi
+      .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
+      .mockResolvedValue(
+        makeSuccessResponse({
+          pageInfo: { page: 2, pageSize: 50, hasNext: false },
+          attempts: [],
+          summary: undefined,
+        }),
+      );
+    const getRestaurantEmailDeliverySummary = vi
+      .fn<BookingService['getRestaurantEmailDeliverySummary']>()
+      .mockResolvedValueOnce({
+        ok: true,
+        restaurantId: 'rest-1',
+        range: '7d',
+        summary: {
+          ...makeSummary(18),
+          delivered: 12,
+          deliveryDelayed: 2,
+          bounced: 1,
+          complained: 1,
+          failed: 1,
+          sent: 1,
+          deliveredRate: 0.667,
+          failureRate: 0.167,
+          uniqueRecipients: 12,
+          uniqueBookings: 9,
+          p50DeliverySeconds: 40,
+          p95DeliverySeconds: 180,
+          topFailedTemplates: [{ templateType: 'booking_update', count: 2 }],
+          topFailedEmailTypes: [{ emailType: 'updated', count: 2 }],
+        },
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        restaurantId: 'rest-1',
+        range: '24h',
+        summary: {
+          ...makeSummary(5),
+          delivered: 3,
+          deliveryDelayed: 1,
+          failed: 1,
+          deliveredRate: 0.6,
+          failureRate: 0.2,
+          uniqueRecipients: 5,
+          uniqueBookings: 4,
+          p50DeliverySeconds: 28,
+          p95DeliverySeconds: 90,
+          topFailedTemplates: [{ templateType: 'review_request', count: 1 }],
+          topFailedEmailTypes: [{ emailType: 'review_request', count: 1 }],
+        },
+      });
+
+    searchParamsMock.mockReturnValue(
+      new URLSearchParams('restaurantId=rest-1&tab=analytics&page=2'),
+    );
+
+    const replaceStateSpy = vi.spyOn(window.history, 'replaceState');
+    const user = userEvent.setup();
+    renderClient(getRestaurantEmailDeliveryFeed, { getRestaurantEmailDeliverySummary });
+
+    await waitFor(() => {
+      expect(getRestaurantEmailDeliverySummary).toHaveBeenCalledWith(
+        expect.objectContaining({
+          restaurantId: 'rest-1',
+          range: '7d',
+        }),
+      );
+    });
+
+    await user.click(screen.getByText('24h'));
+
+    await waitFor(() => {
+      expect(getRestaurantEmailDeliverySummary).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          restaurantId: 'rest-1',
+          range: '24h',
+        }),
+      );
+    });
+    expect(replaceStateSpy).toHaveBeenCalledWith(
+      window.history.state,
+      '',
+      '/app/email-delivery?restaurantId=rest-1&tab=analytics&range=24h',
+    );
   });
 
   it('renders polished queue KPI tiles, filters, table rows, and pagination within the queue tab', async () => {
