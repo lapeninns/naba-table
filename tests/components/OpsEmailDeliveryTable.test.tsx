@@ -408,4 +408,51 @@ describe('OpsEmailDeliveryTable', () => {
 
     expect(screen.getByLabelText('Loading email delivery attempts')).toBeInTheDocument();
   });
+
+  it('shows retry buttons only for failed and bounced rows', () => {
+    render(
+      <OpsEmailDeliveryTable
+        attempts={[
+          ...defaultAttempts,
+          makeAttempt({
+            messageId: 'msg-test-4',
+            recipientEmail: 'bounce@example.com',
+            currentStatus: 'bounced',
+            currentOccurredAt: '2026-03-20T16:00:00Z',
+          }),
+        ]}
+        timezone="UTC"
+        restaurantId="rest-1"
+        isLoading={false}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /retry email for sam@example.com/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /retry email for bounce@example.com/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /retry email for alex@example.com/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /retry email for jane@example.com/i })).not.toBeInTheDocument();
+  });
+
+  it('opens a retry confirmation dialog with delivery details', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <OpsEmailDeliveryTable
+        attempts={defaultAttempts}
+        timezone="UTC"
+        restaurantId="rest-1"
+        isLoading={false}
+        pendingRetryAttempt={defaultAttempts[1]}
+        isRetryDialogOpen
+      />,
+    );
+
+    expect(screen.getByText('Retry email delivery?')).toBeInTheDocument();
+    expect(screen.getAllByText('sam@example.com').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('review_request').length).toBeGreaterThan(0);
+    expect(screen.getByText(/Warning: retrying will create a new delivery attempt/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /confirm retry/i })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /cancel/i }));
+  });
 });
