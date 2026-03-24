@@ -11,35 +11,44 @@ import type {
 } from '@/services/ops/restaurants';
 
 
-type MutableState = {
+const SECOND_DEV_RESTAURANT_ID = '22222222-2222-4222-8222-222222222222';
+
+type RestaurantSnapshot = {
   profile: RestaurantProfile;
   hours: OperatingHoursSnapshot;
   servicePeriods: ServicePeriodRow[];
   turnBands: TurnBandsSnapshot;
 };
 
-function buildInitialState(): MutableState {
+type MutableState = {
+  restaurants: Record<string, RestaurantSnapshot>;
+};
+
+function buildRestaurantSnapshot(
+  overrides: Partial<RestaurantProfile> & Pick<RestaurantProfile, 'id' | 'name' | 'slug' | 'timezone'>,
+): RestaurantSnapshot {
   const profile: RestaurantProfile = {
-    id: DEV_RESTAURANT_ID,
-    name: 'Dev Restaurant (Ops Harness)',
-    slug: 'dev-restaurant',
-    timezone: 'Europe/London',
-    capacity: 90,
-    contactEmail: 'ops@example.com',
-    contactPhone: '+44 7700 900123',
-    address: '1 Example Street, London',
-    googleMapUrl: null,
-    googleReviewUrl: null,
+    id: overrides.id,
+    name: overrides.name,
+    slug: overrides.slug,
+    timezone: overrides.timezone,
+    capacity: overrides.capacity ?? 90,
+    contactEmail: overrides.contactEmail ?? 'ops@example.com',
+    contactPhone: overrides.contactPhone ?? '+44 7700 900123',
+    address: overrides.address ?? '1 Example Street, London',
+    googleMapUrl: overrides.googleMapUrl ?? null,
+    googleReviewUrl: overrides.googleReviewUrl ?? null,
     bookingPolicy:
+      overrides.bookingPolicy ??
       'Please arrive on time. Late arrivals may lose their table after a short grace period.',
-    logoUrl: null,
-    emailSendReminder24h: true,
-    emailSendReminderShort: true,
-    emailSendReviewRequest: true,
-    reservationIntervalMinutes: 15,
-    reservationDefaultDurationMinutes: 90,
-    reservationLastSeatingBufferMinutes: 15,
-    reservationLifecycleGraceMinutes: 15,
+    logoUrl: overrides.logoUrl ?? null,
+    emailSendReminder24h: overrides.emailSendReminder24h ?? true,
+    emailSendReminderShort: overrides.emailSendReminderShort ?? true,
+    emailSendReviewRequest: overrides.emailSendReviewRequest ?? true,
+    reservationIntervalMinutes: overrides.reservationIntervalMinutes ?? 15,
+    reservationDefaultDurationMinutes: overrides.reservationDefaultDurationMinutes ?? 90,
+    reservationLastSeatingBufferMinutes: overrides.reservationLastSeatingBufferMinutes ?? 15,
+    reservationLifecycleGraceMinutes: overrides.reservationLifecycleGraceMinutes ?? 15,
   };
 
   const hours: OperatingHoursSnapshot = {
@@ -79,12 +88,45 @@ function buildInitialState(): MutableState {
   };
 
   const turnBands: TurnBandsSnapshot = {
-    restaurantId: DEV_RESTAURANT_ID,
+    restaurantId: profile.id,
     bands: payload,
     defaults: payload,
   };
 
   return { profile, hours, servicePeriods, turnBands };
+}
+
+function buildInitialState(): MutableState {
+  const primaryRestaurant = buildRestaurantSnapshot({
+    id: DEV_RESTAURANT_ID,
+    name: 'Dev Restaurant (Ops Harness)',
+    slug: 'dev-restaurant',
+    timezone: 'Europe/London',
+  });
+
+  const secondaryRestaurant = buildRestaurantSnapshot({
+    id: SECOND_DEV_RESTAURANT_ID,
+    name: 'Second Dev Restaurant',
+    slug: 'second-dev-restaurant',
+    timezone: 'America/New_York',
+    address: '2 Example Street, New York',
+    contactEmail: 'second.ops@example.com',
+  });
+
+  return {
+    restaurants: {
+      [primaryRestaurant.profile.id]: primaryRestaurant,
+      [secondaryRestaurant.profile.id]: secondaryRestaurant,
+    },
+  };
+}
+
+function getRestaurantSnapshot(state: MutableState, restaurantId: string): RestaurantSnapshot {
+  const snapshot = state.restaurants[restaurantId];
+  if (!snapshot) {
+    throw new Error('[dev][restaurantService] unknown restaurant');
+  }
+  return snapshot;
 }
 
 export class DevRestaurantService implements RestaurantService {
@@ -94,79 +136,58 @@ export class DevRestaurantService implements RestaurantService {
     this.state = buildInitialState();
   }
 
-  listRestaurants: RestaurantService['listRestaurants'] = async () => [
-    {
-      id: this.state.profile.id,
-      name: this.state.profile.name,
-      slug: this.state.profile.slug,
-      timezone: this.state.profile.timezone,
-      address: this.state.profile.address,
-      role: 'owner',
-    },
-  ];
+  listRestaurants: RestaurantService['listRestaurants'] = async () =>
+    Object.values(this.state.restaurants).map(({ profile }, index) => ({
+      id: profile.id,
+      name: profile.name,
+      slug: profile.slug,
+      timezone: profile.timezone,
+      address: profile.address,
+      role: index === 0 ? ('owner' as const) : ('manager' as const),
+    }));
 
   async getProfile(restaurantId: string) {
-    if (restaurantId !== this.state.profile.id) {
-      throw new Error('[dev][restaurantService] unknown restaurant');
-    }
-    return this.state.profile;
+    return getRestaurantSnapshot(this.state, restaurantId).profile;
   }
 
   async updateProfile(restaurantId: string, profile: Partial<RestaurantProfile>) {
-    if (restaurantId !== this.state.profile.id) {
-      throw new Error('[dev][restaurantService] unknown restaurant');
-    }
-    this.state.profile = { ...this.state.profile, ...profile };
-    return this.state.profile;
+    const snapshot = getRestaurantSnapshot(this.state, restaurantId);
+    snapshot.profile = { ...snapshot.profile, ...profile };
+    return snapshot.profile;
   }
 
   async getOperatingHours(restaurantId: string) {
-    if (restaurantId !== this.state.profile.id) {
-      throw new Error('[dev][restaurantService] unknown restaurant');
-    }
-    return this.state.hours;
+    return getRestaurantSnapshot(this.state, restaurantId).hours;
   }
 
   async updateOperatingHours(restaurantId: string, snapshot: OperatingHoursSnapshot) {
-    if (restaurantId !== this.state.profile.id) {
-      throw new Error('[dev][restaurantService] unknown restaurant');
-    }
-    this.state.hours = snapshot;
-    return this.state.hours;
+    const restaurant = getRestaurantSnapshot(this.state, restaurantId);
+    restaurant.hours = snapshot;
+    return restaurant.hours;
   }
 
   async getServicePeriods(restaurantId: string) {
-    if (restaurantId !== this.state.profile.id) {
-      throw new Error('[dev][restaurantService] unknown restaurant');
-    }
-    return this.state.servicePeriods;
+    return getRestaurantSnapshot(this.state, restaurantId).servicePeriods;
   }
 
   async updateServicePeriods(restaurantId: string, rows: ServicePeriodRow[]) {
-    if (restaurantId !== this.state.profile.id) {
-      throw new Error('[dev][restaurantService] unknown restaurant');
-    }
-    this.state.servicePeriods = rows;
-    return this.state.servicePeriods;
+    const restaurant = getRestaurantSnapshot(this.state, restaurantId);
+    restaurant.servicePeriods = rows;
+    return restaurant.servicePeriods;
   }
 
   async getTurnBands(restaurantId: string) {
-    if (restaurantId !== this.state.profile.id) {
-      throw new Error('[dev][restaurantService] unknown restaurant');
-    }
-    return this.state.turnBands;
+    return getRestaurantSnapshot(this.state, restaurantId).turnBands;
   }
 
   async updateTurnBands(restaurantId: string, payload: TurnBandsPayload) {
-    if (restaurantId !== this.state.profile.id) {
-      throw new Error('[dev][restaurantService] unknown restaurant');
-    }
-    this.state.turnBands = {
+    const restaurant = getRestaurantSnapshot(this.state, restaurantId);
+    restaurant.turnBands = {
       restaurantId,
       bands: payload,
-      defaults: this.state.turnBands.defaults,
+      defaults: restaurant.turnBands.defaults,
     };
-    return this.state.turnBands;
+    return restaurant.turnBands;
   }
 }
 
