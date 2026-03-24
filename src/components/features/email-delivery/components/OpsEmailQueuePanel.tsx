@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/table';
 import { useOpsEmailQueueFeed } from '@/hooks/ops/useOpsEmailQueueFeed';
 import { cn } from '@/lib/utils';
+import { useMinimumDelay } from '@src/hooks/use-minimum-delay';
 
 import type { OpsEmailQueueJobStatus } from '@/types/emailQueue';
 
@@ -112,6 +113,10 @@ export function OpsEmailQueuePanel({ restaurantId, timezone }: OpsEmailQueuePane
   const jobs = query.jobs ?? [];
   const summary = query.summary;
   const total = query.response && query.response.ok ? query.response.pageInfo.total : 0;
+  const showLoadingState = useMinimumDelay(query.isLoading || query.isFetching, {
+    delayMs: 0,
+    minDurationMs: 400,
+  });
   const queueMetrics = [
     { label: 'Total in queue', value: summary?.total ?? 0, tone: 'slate' },
     { label: 'Scheduled for later', value: summary?.delayed ?? 0, tone: 'amber' },
@@ -196,7 +201,7 @@ export function OpsEmailQueuePanel({ restaurantId, timezone }: OpsEmailQueuePane
             <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
               {query.error.message}
             </div>
-          ) : query.isLoading && jobs.length === 0 ? (
+          ) : showLoadingState && jobs.length === 0 ? (
             <div
               aria-label="Loading email queue"
               className="overflow-hidden rounded-xl border border-slate-200/70 bg-white"
