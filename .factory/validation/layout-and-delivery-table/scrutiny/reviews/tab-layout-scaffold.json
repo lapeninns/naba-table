@@ -1,0 +1,28 @@
+{
+  "featureId": "tab-layout-scaffold",
+  "reviewedAt": "2026-03-24T12:44:30Z",
+  "commitId": "8ea99697",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The tab scaffold mostly matches the requested layout and URL deep-linking, but it does not actually preserve existing functionality: the committed diff regressed the Delivery Log tab to the old filter/results card UI instead of keeping the current table/filter/pagination implementation already present on main, so the feature fails the no-regressions requirement.",
+    "issues": [
+      {
+        "file": "src/components/features/email-delivery/OpsEmailDeliveryClient.tsx",
+        "line": 10,
+        "severity": "blocking",
+        "description": "The feature imports and renders the legacy `OpsEmailDeliveryFiltersCard`/`OpsEmailDeliveryResultsCard` flow in the Delivery Log tab rather than preserving the current table-based delivery log implementation. In the reviewed repository state, `tab-layout-scaffold` is supposed to scaffold tabs without regressing existing functionality, but commit `8ea99697` replaces the newer `OpsEmailDeliveryFilterBar` + `OpsEmailDeliveryTable` + rich pagination/error handling path with the older card UI, violating the feature requirement that existing functionality be preserved and failing VAL-CROSS-005's cross-tab header/content expectations for the current page."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "knowledge",
+      "observation": "Mission shared state says the dev harness is available at `http://localhost:3000/dev/ops-email-delivery`, but mission AGENTS and the worker handoff both note a pre-existing `APP_ENV=staging` setup that causes `enforceDevOnly()` to return 404 locally. The current shared-state docs do not reconcile that contradiction.",
+      "evidence": ".factory/library/user-testing.md declares the dev harness as no-auth primary surface, while mission AGENTS.md `Known Pre-Existing Issues` says `/dev/ops-email-delivery` returns 404 because `APP_ENV=staging` is set in `.env.local`; handoff.discoveredIssues repeats the same blocker."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Review failed: tab switching and URL parsing were added, but the committed scaffold regresses the Delivery Log tab back to legacy cards instead of preserving the current table/filter/pagination implementation, so the feature does not safely satisfy its no-regression requirement. Shared-state docs also conflict on whether the dev harness is usable in the present environment."
+}
