@@ -223,8 +223,18 @@ export async function removeEmailJob(jobId: string): Promise<boolean> {
 
 export async function getEmailQueueStatus(
   includeJobs = false,
+  options?: {
+    jobLimit?: number | 'all';
+  },
 ): Promise<EmailQueueStatusSnapshot> {
-  const query = includeJobs ? '?includeJobs=1' : '';
+  const queryParams = new URLSearchParams();
+  if (includeJobs) {
+    queryParams.set('includeJobs', '1');
+  }
+  if (includeJobs && options?.jobLimit !== undefined) {
+    queryParams.set('jobLimit', String(options.jobLimit));
+  }
+  const query = queryParams.size > 0 ? `?${queryParams.toString()}` : '';
   const { response, body } = await requestCloudflareGateway<EmailQueueStatusSnapshot>(`/status${query}`, {
     method: 'GET',
   });
