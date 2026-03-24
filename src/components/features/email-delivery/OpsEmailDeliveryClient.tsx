@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { OpsEmailDeliveryFiltersCard } from '@/components/features/email-delivery/components/OpsEmailDeliveryFiltersCard';
+import { OpsEmailDeliveryFilterBar } from '@/components/features/email-delivery/components/OpsEmailDeliveryFilterBar';
 import { OpsEmailDeliverySummaryMetrics } from '@/components/features/email-delivery/components/OpsEmailDeliverySummaryMetrics';
 import { OpsEmailDeliveryTable } from '@/components/features/email-delivery/components/OpsEmailDeliveryTable';
 import { OpsEmailQueuePanel } from '@/components/features/email-delivery/components/OpsEmailQueuePanel';
@@ -20,8 +20,8 @@ import { useOpsSession } from '@/contexts/ops-session';
 import { useOpsEmailDeliveryFeed } from '@/hooks/ops/useOpsEmailDeliveryFeed';
 import { useOpsRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
 import { EMAIL_DELIVERY_STATUS_VALUES } from '@/types/emailDelivery';
-import { parseEmailDeliverySearch } from '@src/lib/email-delivery/search';
 
+import type { SearchField } from '@/components/features/email-delivery/components/OpsEmailDeliveryFilterBar';
 import type {
   EmailDeliveryStatus,
   OpsEmailDeliveryRange,
@@ -78,6 +78,16 @@ function parseStatuses(raw: string | null, fallback: EmailDeliveryStatus[]): Ema
     if (allowed.has(part)) out.push(part as EmailDeliveryStatus);
   }
   return out;
+}
+
+function resolveSearchField(filters: {
+  recipientEmail: string | null;
+  messageId: string | null;
+  bookingRef: string | null;
+}): SearchField {
+  if (filters.messageId) return 'messageId';
+  if (filters.bookingRef) return 'bookingRef';
+  return 'recipientEmail';
 }
 
 function resolveSearchValue(filters: {
@@ -206,6 +216,9 @@ export function OpsEmailDeliveryClient({
   const [templateType, setTemplateType] = useState<string | null>(parsedFromQuery.templateType);
   const [emailType, setEmailType] = useState<string | null>(parsedFromQuery.emailType);
 
+  const [searchField, setSearchField] = useState<SearchField>(() =>
+    resolveSearchField({ recipientEmail, messageId, bookingRef }),
+  );
   const [searchValue, setSearchValue] = useState(() =>
     resolveSearchValue({ recipientEmail, messageId, bookingRef }),
   );
@@ -220,6 +233,11 @@ export function OpsEmailDeliveryClient({
     setBookingRef(parsedFromQuery.bookingRef);
     setTemplateType(parsedFromQuery.templateType);
     setEmailType(parsedFromQuery.emailType);
+    setSearchField(resolveSearchField({
+      recipientEmail: parsedFromQuery.recipientEmail,
+      messageId: parsedFromQuery.messageId,
+      bookingRef: parsedFromQuery.bookingRef,
+    }));
     setSearchValue(resolveSearchValue({
       recipientEmail: parsedFromQuery.recipientEmail,
       messageId: parsedFromQuery.messageId,
@@ -257,11 +275,11 @@ export function OpsEmailDeliveryClient({
 
       const statusValue = next.statuses && next.statuses.length > 0 ? next.statuses.join(',') : null;
       applyParam('status', statusValue);
-      applyParam('recipientEmail', next.recipientEmail ?? recipientEmail);
-      applyParam('messageId', next.messageId ?? messageId);
-      applyParam('bookingRef', next.bookingRef ?? bookingRef);
-      applyParam('templateType', next.templateType ?? templateType);
-      applyParam('emailType', next.emailType ?? emailType);
+      applyParam('recipientEmail', next.recipientEmail !== undefined ? next.recipientEmail : recipientEmail);
+      applyParam('messageId', next.messageId !== undefined ? next.messageId : messageId);
+      applyParam('bookingRef', next.bookingRef !== undefined ? next.bookingRef : bookingRef);
+      applyParam('templateType', next.templateType !== undefined ? next.templateType : templateType);
+      applyParam('emailType', next.emailType !== undefined ? next.emailType : emailType);
 
       const current = searchParams?.toString() ?? '';
       const nextString = params.toString();
@@ -332,10 +350,10 @@ export function OpsEmailDeliveryClient({
     : null;
 
   const handleSubmitSearch = useCallback(() => {
-    const parsed = parseEmailDeliverySearch(searchValue);
-    const nextRecipientEmail = parsed.recipientEmail ?? null;
-    const nextMessageId = parsed.messageId ?? null;
-    const nextBookingRef = parsed.bookingRef ?? null;
+    const trimmed = searchValue.trim();
+    const nextRecipientEmail = searchField === 'recipientEmail' && trimmed ? trimmed.toLowerCase() : null;
+    const nextMessageId = searchField === 'messageId' && trimmed ? trimmed : null;
+    const nextBookingRef = searchField === 'bookingRef' && trimmed ? trimmed.toUpperCase() : null;
 
     setRecipientEmail(nextRecipientEmail);
     setMessageId(nextMessageId);
@@ -348,7 +366,7 @@ export function OpsEmailDeliveryClient({
       bookingRef: nextBookingRef,
       page: 1,
     });
-  }, [searchValue, syncQueryParams]);
+  }, [searchField, searchValue, syncQueryParams]);
 
   const toggleStatus = useCallback(
     (status: EmailDeliveryStatus, enabled: boolean) => {
@@ -448,34 +466,35 @@ export function OpsEmailDeliveryClient({
 
         <TabsContent value="delivery-log">
           <OpsPageToolbar className="space-y-4">
-            <OpsEmailDeliveryFiltersCard
-              range={range}
-              statuses={statuses}
-              statusCounts={statusCounts}
+            <OpsEmailDeliveryFilterBar
+              searchField={searchField}
               searchValue={searchValue}
-              templateType={templateType}
-              emailType={emailType}
+              onSearchFieldChange={setSearchField}
               onSearchValueChange={setSearchValue}
               onSubmitSearch={handleSubmitSearch}
+              range={range}
               onRangeChange={(next) => {
                 setRange(next);
                 setPage(1);
                 syncQueryParams({ range: next, page: 1 });
               }}
-              onToggleStatus={toggleStatus}
-              onTemplateTypeChange={setTemplateType}
-              onTemplateTypeCommit={(next) => {
+              templateType={templateType}
+              onTemplateTypeChange={(next) => {
                 setTemplateType(next);
                 setPage(1);
                 syncQueryParams({ templateType: next, page: 1 });
               }}
-              onEmailTypeChange={setEmailType}
-              onEmailTypeCommit={(next) => {
+              emailType={emailType}
+              onEmailTypeChange={(next) => {
                 setEmailType(next);
                 setPage(1);
                 syncQueryParams({ emailType: next, page: 1 });
               }}
+              statuses={statuses}
+              statusCounts={statusCounts}
+              onToggleStatus={toggleStatus}
               onClear={() => {
+                setSearchField('recipientEmail');
                 setSearchValue('');
                 setRecipientEmail(null);
                 setMessageId(null);
