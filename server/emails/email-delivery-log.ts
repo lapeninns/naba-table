@@ -20,6 +20,31 @@ export class EmailDeliveryLogUnavailableError extends Error {
   }
 }
 
+export type EmailDeliveryLogEntry = {
+  id: string;
+  bookingId: string | null;
+  restaurantId: string | null;
+  emailType: string | null;
+  templateType: string | null;
+  recipientEmail: string;
+  messageId: string;
+  status: EmailDeliveryStatus;
+  provider: EmailDeliveryProvider | null;
+  occurredAt: string;
+  error: string | null;
+  metadata: Json | null;
+};
+
+export class EmailDeliveryRetryError extends Error {
+  readonly code: 'NOT_FOUND' | 'NOT_RETRYABLE' | 'MISSING_BOOKING';
+
+  constructor(code: 'NOT_FOUND' | 'NOT_RETRYABLE' | 'MISSING_BOOKING', message: string) {
+    super(message);
+    this.name = 'EmailDeliveryRetryError';
+    this.code = code;
+  }
+}
+
 type InsertParams = {
   bookingId?: string | null;
   restaurantId?: string | null;
@@ -55,27 +80,33 @@ function isDeliveryLogUnavailable(error: unknown): boolean {
   );
 }
 
-export async function recordEmailDeliveryLog(params: InsertParams): Promise<void> {
+export async function recordEmailDeliveryLog(params: InsertParams): Promise<EmailDeliveryLogEntry | null> {
   try {
     const supabase = getServiceSupabaseClient();
-    const { error } = await supabase.from('email_delivery_log').insert({
-      booking_id: params.bookingId ?? null,
-      restaurant_id: params.restaurantId ?? null,
-      email_type: params.emailType ?? null,
-      template_type: params.templateType ?? null,
-      recipient_email: params.recipientEmail,
-      message_id: params.messageId,
-      status: params.status,
-      provider: params.provider,
-      provider_event_id: params.providerEventId ?? null,
-      occurred_at: params.occurredAt ?? undefined,
-      error: params.error ?? null,
-      metadata: params.metadata ?? null,
-    });
+    const { data, error } = await supabase
+      .from('email_delivery_log')
+      .insert({
+        booking_id: params.bookingId ?? null,
+        restaurant_id: params.restaurantId ?? null,
+        email_type: params.emailType ?? null,
+        template_type: params.templateType ?? null,
+        recipient_email: params.recipientEmail,
+        message_id: params.messageId,
+        status: params.status,
+        provider: params.provider,
+        provider_event_id: params.providerEventId ?? null,
+        occurred_at: params.occurredAt ?? undefined,
+        error: params.error ?? null,
+        metadata: params.metadata ?? null,
+      })
+      .select('id, booking_id, restaurant_id, email_type, template_type, recipient_email, message_id, status, provider, occurred_at, error, metadata')
+      .single();
 
     if (error) {
       throw new Error(error.message);
     }
+
+    return toEntryDto(data as EmailDeliveryLogRow);
   } catch (error) {
     await recordObservabilityEvent({
       source: 'email.delivery_log',
@@ -93,6 +124,8 @@ export async function recordEmailDeliveryLog(params: InsertParams): Promise<void
       restaurantId: params.restaurantId ?? undefined,
       bookingId: params.bookingId ?? undefined,
     });
+
+    return null;
   }
 }
 
@@ -208,6 +241,23 @@ type AttemptAggregate = {
 
 const FALLBACK_BATCH_SIZE = 500;
 const FALLBACK_MAX_SCANNED_EVENTS = 10_000;
+
+function toEntryDto(row: EmailDeliveryLogRow): EmailDeliveryLogEntry {
+  return {
+    id: row.id,
+    bookingId: row.booking_id ?? null,
+    restaurantId: row.restaurant_id ?? null,
+    emailType: row.email_type ?? null,
+    templateType: row.template_type ?? null,
+    recipientEmail: row.recipient_email,
+    messageId: row.message_id,
+    status: row.status as EmailDeliveryStatus,
+    provider: (row.provider as EmailDeliveryProvider | null) ?? null,
+    occurredAt: row.occurred_at,
+    error: row.error ?? null,
+    metadata: row.metadata ?? null,
+  };
+}
 
 function toEventDto(row: EmailDeliveryLogRow): EmailDeliveryEventDTO {
   return {
@@ -561,6 +611,53 @@ export async function listEmailDeliveryAttemptsForRestaurant(params: {
   }));
 
   return { attempts, hasNext, page, pageSize };
+}
+
+export async function getEmailDeliveryLogEntryById(deliveryLogId: string): Promise<EmailDeliveryLogEntry | null> {
+  const normalizedId = normalizeOptionalString(deliveryLogId);
+  if (!normalizedId) return null;
+
+  const supabase = getServiceSupabaseClient();
+  const { data, error } = await supabase
+    .from('email_delivery_log')
+    .select('id, booking_id, restaurant_id, email_type, template_type, recipient_email, message_id, status, provider, occurred_at, error, metadata')
+    .eq('id', normalizedId)
+    .maybeSingle();
+
+  if (error) {
+    if (isDeliveryLogUnavailable(error)) {
+      throw new EmailDeliveryLogUnavailableError();
+    }
+    throw new Error(`Failed to load email delivery entry (${error.code ?? 'unknown'}).`);
+  }
+
+  return data ? toEntryDto(data as EmailDeliveryLogRow) : null;
+}
+
+export async function retryEmailDeliveryLogEntry(params: {
+  deliveryLogId: string;
+  resendBookingEmail: (bookingId: string, emailType: string | null, templateType: string | null) => Promise<EmailDeliveryLogEntry | null>;
+}): Promise<EmailDeliveryLogEntry> {
+  const entry = await getEmailDeliveryLogEntryById(params.deliveryLogId);
+
+  if (!entry) {
+    throw new EmailDeliveryRetryError('NOT_FOUND', 'Email delivery log entry not found.');
+  }
+
+  if (entry.status !== 'failed' && entry.status !== 'bounced') {
+    throw new EmailDeliveryRetryError('NOT_RETRYABLE', 'Only failed or bounced emails can be retried.');
+  }
+
+  if (!entry.bookingId) {
+    throw new EmailDeliveryRetryError('MISSING_BOOKING', 'The original booking could not be determined for this delivery log entry.');
+  }
+
+  const resent = await params.resendBookingEmail(entry.bookingId, entry.emailType, entry.templateType);
+  if (!resent) {
+    throw new Error('Retry email send did not create a delivery log entry.');
+  }
+
+  return resent;
 }
 
 export async function getEmailDeliveryAttemptsSummary(params: {

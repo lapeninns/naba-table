@@ -521,6 +521,10 @@ export class DevBookingService implements BookingService {
     };
   }
 
+  async retryEmailDelivery(): Promise<{ ok: true; deliveryLogEntry: unknown }> {
+    throw new Error('[dev][bookingService] retryEmailDelivery is not implemented');
+  }
+
   async getRestaurantEmailQueue(params: {
     restaurantId?: string;
     page?: number;

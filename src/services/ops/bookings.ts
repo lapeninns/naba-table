@@ -1,4 +1,4 @@
-import { HttpError } from '@/lib/http/errors';
+import { HttpError, normalizeError } from '@/lib/http/errors';
 import { fetchJson } from '@/lib/http/fetchJson';
 
 import type {
@@ -480,6 +480,12 @@ export interface BookingService {
     pageSize?: number;
     status?: OpsEmailQueueJobStatus;
   }): Promise<OpsEmailQueueFeedResponse>;
+  retryEmailDelivery(input: {
+    deliveryLogId: string;
+  }): Promise<{
+    ok: true;
+    deliveryLogEntry: unknown;
+  }>;
   cancelBooking(input: CancelBookingInput): Promise<{ id: string; status: string }>;
   createWalkInBooking(input: WalkInInput): Promise<WalkInResponse>;
   assignTable(input: AssignTableInput): Promise<TableAssignmentsResponse>;
@@ -780,6 +786,43 @@ export function createBrowserBookingService(): BookingService {
         throw error;
       }
     },
+    async retryEmailDelivery({ deliveryLogId }) {
+      try {
+        const response = await fetch('/api/ops/email-delivery/retry', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deliveryLogId }),
+          credentials: 'include',
+        });
+
+        const text = await response.text();
+        const parsed = text ? (JSON.parse(text) as unknown) : undefined;
+
+        if (!response.ok) {
+          const errorBody = typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : undefined;
+          throw normalizeError({
+            status: response.status,
+            statusText: response.statusText,
+            body: errorBody,
+          });
+        }
+
+        return (parsed as { ok: true; deliveryLogEntry: unknown }) ?? {
+          ok: true,
+          deliveryLogEntry: null,
+        };
+      } catch (error) {
+        if (error instanceof HttpError) {
+          throw error;
+        }
+        throw new HttpError({
+          message: error instanceof Error ? error.message : 'Failed to retry email delivery',
+          status: 500,
+          code: 'INTERNAL',
+          cause: error,
+        });
+      }
+    },
     async getRestaurantEmailQueue(params) {
       const rawPage = typeof params.page === 'number' && Number.isFinite(params.page) ? params.page : 1;
       const rawPageSize =
@@ -1003,6 +1046,10 @@ export class NotImplementedBookingService implements BookingService {
 
   getRestaurantEmailQueue(): Promise<OpsEmailQueueFeedResponse> {
     this.error('getRestaurantEmailQueue not implemented');
+  }
+
+  retryEmailDelivery(): Promise<{ ok: true; deliveryLogEntry: unknown }> {
+    this.error('retryEmailDelivery not implemented');
   }
 
   cancelBooking(): Promise<{ id: string; status: string }> {
