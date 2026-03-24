@@ -41,6 +41,12 @@ const memberships: OpsMembership[] = [
     restaurantName: 'Test Restaurant',
     role: 'owner',
   },
+  {
+    id: 'membership-2',
+    restaurantId: '22222222-2222-4222-8222-222222222222',
+    restaurantName: 'Second Test Restaurant',
+    role: 'manager',
+  },
 ];
 
 function createRestaurantService() {
@@ -938,6 +944,9 @@ describe('OpsEmailDeliveryClient', () => {
       '/app/email-delivery?restaurantId=rest-1&tab=analytics&range=24h',
     );
   });
+
+
+
 
   it('renders polished queue KPI tiles, filters, table rows, and pagination within the queue tab', async () => {
     const getRestaurantEmailDeliveryFeed = vi

@@ -289,10 +289,6 @@ export function OpsEmailDeliveryClient({
     }));
   }, [parsedFromQuery]);
 
-  useEffect(() => {
-    setTab(activeTab);
-  }, [activeTab]);
-
   const syncQueryParams = useCallback(
     (next: {
       restaurantId?: string | null;
@@ -306,6 +302,7 @@ export function OpsEmailDeliveryClient({
       bookingRef?: string | null;
       templateType?: string | null;
       emailType?: string | null;
+      tab?: EmailDeliveryTab;
     }) => {
       const params = new URLSearchParams(searchParams?.toString() ?? '');
 
@@ -334,6 +331,13 @@ export function OpsEmailDeliveryClient({
       applyParam('templateType', next.templateType !== undefined ? next.templateType : templateType);
       applyParam('emailType', next.emailType !== undefined ? next.emailType : emailType);
 
+      const nextTab = next.tab ?? tab;
+      if (nextTab === 'delivery-log') {
+        params.delete('tab');
+      } else {
+        params.set('tab', nextTab);
+      }
+
       const current = searchParams?.toString() ?? '';
       const nextString = params.toString();
       if (current === nextString) return;
@@ -354,44 +358,85 @@ export function OpsEmailDeliveryClient({
       simulateEmailDeliveryError,
       recipientEmail,
       searchParams,
+      tab,
       targetPath,
       templateType,
     ],
   );
 
-  // Ensure the URL is always shareable once we know the effective restaurant id.
-  useEffect(() => {
-    if (!effectiveRestaurantId) return;
-    const current = new URLSearchParams(searchParams?.toString() ?? '');
-    const existing = current.get('restaurantId');
-    if (existing !== effectiveRestaurantId) {
-      current.set('restaurantId', effectiveRestaurantId);
-      window.history.replaceState(window.history.state, '', `${targetPath}?${current.toString()}`);
-    }
-  }, [effectiveRestaurantId, searchParams, targetPath]);
-
   const handleTabChange = useCallback(
     (value: string) => {
       if (!(EMAIL_DELIVERY_TABS as readonly string[]).includes(value)) return;
-      setTab(value as EmailDeliveryTab);
-
-      const params = new URLSearchParams(searchParams?.toString() ?? '');
-      if (value === 'delivery-log') {
-        params.delete('tab');
-      } else {
-        params.set('tab', value);
-      }
-
-      const nextQuery = params.toString();
-      const nextUrl = `${targetPath}${nextQuery ? `?${nextQuery}` : ''}`;
-
-      if (typeof window !== 'undefined') {
-        window.history.replaceState(window.history.state, '', nextUrl);
-      }
-
+      const nextTab = value as EmailDeliveryTab;
+      setTab(nextTab);
+      syncQueryParams({ tab: nextTab });
     },
-    [searchParams, targetPath],
+    [syncQueryParams],
   );
+
+  useEffect(() => {
+    if (!effectiveRestaurantId) return;
+    const currentRestaurantId = parsedFromQuery.restaurantId;
+    if (!currentRestaurantId || currentRestaurantId === effectiveRestaurantId) return;
+
+    setTab(initialTab);
+    setRange(initialRange);
+    setStatuses(initialStatuses);
+    setPage(initialPage);
+    setPageSize(initialPageSize);
+    setSimulateEmailDeliveryError(initialSimulateEmailDeliveryError);
+    setRecipientEmail(initialRecipientEmail);
+    setMessageId(initialMessageId);
+    setBookingRef(initialBookingRef);
+    setTemplateType(initialTemplateType);
+    setEmailType(initialEmailType);
+    setSearchField(
+      resolveSearchField({
+        recipientEmail: initialRecipientEmail,
+        messageId: initialMessageId,
+        bookingRef: initialBookingRef,
+      }),
+    );
+    setSearchValue(
+      resolveSearchValue({
+        recipientEmail: initialRecipientEmail,
+        messageId: initialMessageId,
+        bookingRef: initialBookingRef,
+      }),
+    );
+
+    syncQueryParams({
+      restaurantId: effectiveRestaurantId,
+      range: initialRange,
+      page: initialPage,
+      pageSize: initialPageSize,
+      statuses: initialStatuses,
+      simulateEmailDeliveryError: initialSimulateEmailDeliveryError,
+      recipientEmail: initialRecipientEmail,
+      messageId: initialMessageId,
+      bookingRef: initialBookingRef,
+      templateType: initialTemplateType,
+      emailType: initialEmailType,
+      tab: initialTab,
+    });
+  }, [
+    effectiveRestaurantId,
+    parsedFromQuery.restaurantId,
+    initialBookingRef,
+    initialEmailType,
+    initialMessageId,
+    initialPage,
+    initialPageSize,
+    initialRange,
+    initialRecipientEmail,
+    initialSimulateEmailDeliveryError,
+    initialStatuses,
+    initialTab,
+    initialTemplateType,
+    syncQueryParams,
+  ]);
+
+
 
   const query = useOpsEmailDeliveryFeed({
     restaurantId: effectiveRestaurantId,
