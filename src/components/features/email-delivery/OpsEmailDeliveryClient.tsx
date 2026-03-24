@@ -48,6 +48,7 @@ export type OpsEmailDeliveryClientProps = {
   initialPage?: number;
   initialPageSize?: number;
   initialStatuses?: EmailDeliveryStatus[];
+  initialSimulateEmailDeliveryError?: boolean;
   initialRecipientEmail?: string | null;
   initialMessageId?: string | null;
   initialBookingRef?: string | null;
@@ -139,6 +140,7 @@ export function OpsEmailDeliveryClient({
   initialPage = 1,
   initialPageSize = 50,
   initialStatuses = EMPTY_STATUSES,
+  initialSimulateEmailDeliveryError = false,
   initialRecipientEmail = null,
   initialMessageId = null,
   initialBookingRef = null,
@@ -173,6 +175,8 @@ export function OpsEmailDeliveryClient({
     const pageParam = Math.max(1, parseIntParam(sp.get('page'), initialPage));
     const pageSizeParam = Math.max(1, Math.min(200, parseIntParam(sp.get('pageSize'), initialPageSize)));
     const statuses = parseStatuses(sp.get('status'), initialStatuses);
+    const simulateEmailDeliveryError =
+      sp.get('simulateEmailDeliveryError') === '1' || initialSimulateEmailDeliveryError;
 
     const recipientEmail = sp.get('recipientEmail')?.trim() || initialRecipientEmail;
     const messageId = sp.get('messageId')?.trim() || initialMessageId;
@@ -186,6 +190,7 @@ export function OpsEmailDeliveryClient({
       page: pageParam,
       pageSize: pageSizeParam,
       statuses,
+      simulateEmailDeliveryError,
       recipientEmail: recipientEmail ? recipientEmail.trim() : null,
       messageId: messageId ? messageId.trim() : null,
       bookingRef: bookingRef ? bookingRef.trim().toUpperCase() : null,
@@ -199,6 +204,7 @@ export function OpsEmailDeliveryClient({
     initialPage,
     initialPageSize,
     initialStatuses,
+    initialSimulateEmailDeliveryError,
     initialRecipientEmail,
     initialMessageId,
     initialBookingRef,
@@ -241,6 +247,9 @@ export function OpsEmailDeliveryClient({
   const [statuses, setStatuses] = useState<EmailDeliveryStatus[]>(parsedFromQuery.statuses);
   const [page, setPage] = useState<number>(parsedFromQuery.page);
   const [pageSize, setPageSize] = useState<number>(parsedFromQuery.pageSize);
+  const [simulateEmailDeliveryError, setSimulateEmailDeliveryError] = useState<boolean>(
+    parsedFromQuery.simulateEmailDeliveryError,
+  );
   const [recipientEmail, setRecipientEmail] = useState<string | null>(parsedFromQuery.recipientEmail);
   const [messageId, setMessageId] = useState<string | null>(parsedFromQuery.messageId);
   const [bookingRef, setBookingRef] = useState<string | null>(parsedFromQuery.bookingRef);
@@ -260,6 +269,7 @@ export function OpsEmailDeliveryClient({
     setStatuses(parsedFromQuery.statuses);
     setPage(parsedFromQuery.page);
     setPageSize(parsedFromQuery.pageSize);
+    setSimulateEmailDeliveryError(parsedFromQuery.simulateEmailDeliveryError);
     setRecipientEmail(parsedFromQuery.recipientEmail);
     setMessageId(parsedFromQuery.messageId);
     setBookingRef(parsedFromQuery.bookingRef);
@@ -288,6 +298,7 @@ export function OpsEmailDeliveryClient({
       page?: number;
       pageSize?: number;
       statuses?: EmailDeliveryStatus[];
+      simulateEmailDeliveryError?: boolean;
       recipientEmail?: string | null;
       messageId?: string | null;
       bookingRef?: string | null;
@@ -308,6 +319,10 @@ export function OpsEmailDeliveryClient({
       applyParam('range', next.range ?? range, '7d');
       applyParam('page', next.page ?? page, 1);
       applyParam('pageSize', next.pageSize ?? pageSize, 50);
+      applyParam(
+        'simulateEmailDeliveryError',
+        next.simulateEmailDeliveryError ?? simulateEmailDeliveryError ? '1' : null,
+      );
 
       const statusValue = next.statuses && next.statuses.length > 0 ? next.statuses.join(',') : null;
       applyParam('status', statusValue);
@@ -334,6 +349,7 @@ export function OpsEmailDeliveryClient({
       page,
       pageSize,
       range,
+      simulateEmailDeliveryError,
       recipientEmail,
       searchParams,
       targetPath,
@@ -381,7 +397,7 @@ export function OpsEmailDeliveryClient({
     page,
     pageSize,
     status: statuses.length > 0 ? statuses : undefined,
-    simulateEmailDeliveryError: searchParams?.get('simulateEmailDeliveryError') === '1',
+    simulateEmailDeliveryError,
     recipientEmail: recipientEmail ?? undefined,
     messageId: messageId ?? undefined,
     bookingRef: bookingRef ?? undefined,
@@ -603,10 +619,12 @@ export function OpsEmailDeliveryClient({
                 setStatuses([]);
                 setRange('7d');
                 setPage(1);
+                setSimulateEmailDeliveryError(false);
                 syncQueryParams({
                   range: '7d',
                   page: 1,
                   statuses: [],
+                  simulateEmailDeliveryError: false,
                   recipientEmail: null,
                   messageId: null,
                   bookingRef: null,
