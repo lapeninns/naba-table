@@ -62,6 +62,7 @@ export type OpsEmailDeliveryBookingDTO = {
 };
 
 export type OpsEmailDeliveryAttemptDTO = {
+  id?: string;
   messageId: string;
   recipientEmail: string;
   bookingId: string | null;

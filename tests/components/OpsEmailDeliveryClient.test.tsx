@@ -2,6 +2,7 @@ import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { OpsEmailQueuePanel } from '@/components/features/email-delivery/components/OpsEmailQueuePanel';
 
 import { OpsEmailDeliveryClient } from '@/components/features/email-delivery/OpsEmailDeliveryClient';
 import { OpsSidebarLayout } from '@/components/features/ops-shell/OpsSidebarLayout';
@@ -245,7 +246,8 @@ describe('OpsEmailDeliveryClient', () => {
       makeSuccessResponse({
         attempts: [
           {
-            messageId: 'delivery-log-id-failed',
+            id: 'delivery-log-id-failed',
+            messageId: 'provider-message-id-failed',
             recipientEmail: 'failed@example.com',
             bookingId: 'booking-failed',
             emailType: 'created',
@@ -257,7 +259,8 @@ describe('OpsEmailDeliveryClient', () => {
             booking: null,
           },
           {
-            messageId: 'delivery-log-id-delivered',
+            id: 'delivery-log-id-delivered',
+            messageId: 'provider-message-id-delivered',
             recipientEmail: 'delivered@example.com',
             bookingId: 'booking-delivered',
             emailType: 'updated',
@@ -269,7 +272,8 @@ describe('OpsEmailDeliveryClient', () => {
             booking: null,
           },
           {
-            messageId: 'delivery-log-id-bounced',
+            id: 'delivery-log-id-bounced',
+            messageId: 'provider-message-id-bounced',
             recipientEmail: 'bounced@example.com',
             bookingId: 'booking-bounced',
             emailType: 'review_request',
@@ -290,6 +294,51 @@ describe('OpsEmailDeliveryClient', () => {
     expect(await screen.findByRole('button', { name: /retry email for failed@example.com/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /retry email for bounced@example.com/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /retry email for delivered@example.com/i })).not.toBeInTheDocument();
+  });
+
+
+  it('uses the delivery-log UUID instead of the provider message id when retrying a failed row', async () => {
+    const user = userEvent.setup();
+    const retryEmailDelivery = vi.fn<BookingService['retryEmailDelivery']>().mockResolvedValue({
+      ok: true,
+      deliveryLogEntry: {},
+    });
+    const getRestaurantEmailDeliveryFeed = vi
+      .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
+      .mockResolvedValue(
+        makeSuccessResponse({
+          attempts: [
+            {
+              id: '11111111-1111-4111-8111-111111111111',
+              messageId: 'provider-message-id-failed',
+              recipientEmail: 'failed@example.com',
+              bookingId: 'booking-failed',
+              emailType: 'created',
+              templateType: 'booking_confirmation',
+              provider: 'resend',
+              currentStatus: 'failed',
+              currentOccurredAt: '2026-03-20T15:00:00Z',
+              events: [],
+              booking: null,
+            },
+          ],
+          summary: makeSummary(1),
+        }),
+      );
+
+    renderClient(getRestaurantEmailDeliveryFeed, { retryEmailDelivery });
+
+    await user.click(await screen.findByRole('button', { name: /retry email for failed@example.com/i }));
+    await user.click(screen.getByRole('button', { name: /confirm retry/i }));
+
+    await waitFor(() => {
+      expect(retryEmailDelivery).toHaveBeenCalledWith({
+        deliveryLogId: '11111111-1111-4111-8111-111111111111',
+      });
+    });
+    expect(retryEmailDelivery).not.toHaveBeenCalledWith({
+      deliveryLogId: 'provider-message-id-failed',
+    });
   });
 
   it('confirms retry, calls service, shows success toast, and refetches delivery log', async () => {
@@ -1071,6 +1120,41 @@ describe('OpsEmailDeliveryClient', () => {
 
     await waitFor(() => {
       expect(refreshButton.querySelector('svg')?.className.baseVal ?? '').not.toContain('animate-spin');
+    });
+  });
+
+
+  it('repeated manual refresh clicks on the analytics tab eventually restore the refresh button for another click', async () => {
+    const getRestaurantEmailDeliveryFeed = vi
+      .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
+      .mockResolvedValue(makeSuccessResponse());
+    const getRestaurantEmailDeliverySummary = vi
+      .fn<BookingService['getRestaurantEmailDeliverySummary']>()
+      .mockResolvedValue({
+        ok: true,
+        restaurantId: 'rest-1',
+        range: '7d',
+        summary: makeSummary(3),
+      });
+
+    searchParamsMock.mockReturnValue(new URLSearchParams('restaurantId=rest-1&tab=analytics'));
+
+    const user = userEvent.setup();
+    renderClient(getRestaurantEmailDeliveryFeed, { getRestaurantEmailDeliverySummary });
+
+    const refreshButton = await screen.findByRole('button', { name: /refresh current tab/i });
+    await waitFor(() => {
+      expect(refreshButton).not.toBeDisabled();
+    });
+
+    await user.click(refreshButton);
+    await waitFor(() => {
+      expect(refreshButton).not.toBeDisabled();
+    });
+
+    await user.click(refreshButton);
+    await waitFor(() => {
+      expect(refreshButton).not.toBeDisabled();
     });
   });
 
