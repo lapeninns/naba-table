@@ -393,6 +393,110 @@ describe('OpsEmailDeliveryClient', () => {
     });
   });
 
+  it('keeps a visible terminal panel mounted when a settled fetch returns no rows after placeholder data existed', async () => {
+    searchParamsMock.mockReturnValue(
+      new URLSearchParams('restaurantId=rest-1&tab=delivery-log&recipientEmail=zzzz-no-match-empty-state'),
+    );
+
+    let resolveSettled!: () => void;
+    const settledGate = new Promise<void>((resolve) => {
+      resolveSettled = resolve;
+    });
+
+    const getRestaurantEmailDeliveryFeed = vi
+      .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
+      .mockResolvedValueOnce(
+        makeSuccessResponse({
+          attempts: [
+            {
+              messageId: 'msg-existing',
+              recipientEmail: 'before@example.com',
+              bookingId: 'booking-existing',
+              emailType: 'created',
+              templateType: 'booking_confirmation',
+              provider: 'resend',
+              currentStatus: 'delivered',
+              currentOccurredAt: '2026-03-20T14:30:00Z',
+              events: [
+                {
+                  id: 'evt-existing',
+                  bookingId: 'booking-existing',
+                  restaurantId: 'rest-1',
+                  emailType: 'created',
+                  templateType: 'booking_confirmation',
+                  recipientEmail: 'before@example.com',
+                  messageId: 'msg-existing',
+                  status: 'delivered',
+                  provider: 'resend',
+                  occurredAt: '2026-03-20T14:30:00Z',
+                  error: null,
+                  metadata: { subject: 'Existing row' },
+                },
+              ],
+              booking: {
+                id: 'booking-existing',
+                reference: 'EXIST1',
+                bookingDate: '2026-03-20',
+                startTime: '19:00',
+                endTime: '20:30',
+                customerName: 'Existing Guest',
+                partySize: 2,
+              },
+            },
+          ],
+          summary: makeSummary(1),
+        }),
+      )
+      .mockImplementationOnce(async () => {
+        await settledGate;
+        return makeSuccessResponse({
+          attempts: [],
+          summary: makeSummary(0),
+          pageInfo: { page: 1, pageSize: 50, hasNext: false },
+        });
+      });
+
+    const { rerender } = renderClient(getRestaurantEmailDeliveryFeed);
+    expect(await screen.findByText('Existing row')).toBeInTheDocument();
+
+    searchParamsMock.mockReturnValue(
+      new URLSearchParams('restaurantId=rest-1&tab=delivery-log&recipientEmail=zzzz-no-match-empty-state&page=2'),
+    );
+
+    rerender(
+      <QueryClientProvider
+        client={new QueryClient({
+          defaultOptions: {
+            queries: { retry: false, refetchOnWindowFocus: false },
+          },
+        })}
+      >
+        <OpsServicesProvider
+          factories={{
+            bookingService: () => createBookingServiceMock(getRestaurantEmailDeliveryFeed),
+            restaurantService: () => createRestaurantService() as never,
+          }}
+        >
+          <OpsSessionProvider user={user} memberships={memberships} initialRestaurantId="rest-1">
+            <OpsSidebarLayout>
+              <OpsEmailDeliveryClient initialRestaurantId="rest-1" initialRange="7d" />
+            </OpsSidebarLayout>
+          </OpsSessionProvider>
+        </OpsServicesProvider>
+      </QueryClientProvider>,
+    );
+
+    resolveSettled();
+
+    expect(await screen.findByText('No email deliveries found')).toBeInTheDocument();
+    expect(screen.getByText('Adjust the filters or try a wider date range to see more results.')).toBeInTheDocument();
+    expect(screen.queryByText('Existing row')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Loading email delivery attempts')).not.toBeInTheDocument();
+    });
+  });
+
   it('marks the Email Delivery sidebar item as active on this page', async () => {
     const getRestaurantEmailDeliveryFeed = vi
       .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
