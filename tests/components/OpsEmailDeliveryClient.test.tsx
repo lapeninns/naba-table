@@ -476,6 +476,8 @@ describe('OpsEmailDeliveryClient', () => {
       '',
       '/app/email-delivery?restaurantId=rest-1&tab=queue&range=24h&page=2',
     );
+    expect(screen.getByRole('tab', { name: /queue/i, selected: true })).toBeInTheDocument();
+    expect(screen.getByText(/scheduled email queue/i)).toBeInTheDocument();
   });
 
   it('opens analytics deep links from the URL without rewriting restaurant context', async () => {
