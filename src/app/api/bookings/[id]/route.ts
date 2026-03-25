@@ -54,6 +54,10 @@ import {
   getServiceSupabaseClient,
   MissingRestaurantContextError,
 } from '@/server/supabase';
+import {
+  getBookingLifecycleFixture,
+  type BookingLifecycleFixtureKey,
+} from '@/src/app/(public)/dev/_mocks/bookingLifecycleFixtures';
 import { formatDateForInput } from '@reserve/shared/formatting/booking';
 import { CUSTOMER_PHONE_LENGTH_MAX, CUSTOMER_PHONE_LENGTH_MIN } from '@reserve/shared/validation';
 
@@ -324,6 +328,69 @@ function extractSessionRecoveryAccessToken(req: NextRequest): string | null {
     req.cookies.get('sr_access')?.value ??
     null
   );
+}
+
+function resolveDevBookingLifecycleFixture(req: NextRequest, bookingId: string) {
+  if (env.node.env === 'production') {
+    return null;
+  }
+
+  const fixtureParam = req.nextUrl.searchParams.get('fixture');
+  const fixture = fixtureParam
+    ? getBookingLifecycleFixture(fixtureParam as BookingLifecycleFixtureKey)
+    : null;
+
+  if (fixture && fixture.reservation.id === bookingId) {
+    return fixture;
+  }
+
+  const fallbackKeys: BookingLifecycleFixtureKey[] = ['active', 'pending', 'cancelled'];
+
+  for (const key of fallbackKeys) {
+    const candidate = getBookingLifecycleFixture(key);
+    if (candidate?.reservation.id === bookingId) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+function buildDevFixtureBookingPayload(
+  fixture: NonNullable<ReturnType<typeof resolveDevBookingLifecycleFixture>>,
+) {
+  const reservation = fixture.reservation;
+
+  return {
+    id: reservation.id,
+    restaurant_id: reservation.restaurantId,
+    booking_date: reservation.bookingDate,
+    start_time: reservation.startTime,
+    end_time: reservation.endTime ?? null,
+    start_at: reservation.startAt,
+    end_at: reservation.endAt ?? reservation.startAt,
+    booking_type: reservation.bookingType ?? null,
+    seating_preference: reservation.seatingPreference ?? null,
+    status: reservation.status,
+    party_size: reservation.partySize,
+    customer_name: reservation.customerName,
+    customer_email: reservation.customerEmail,
+    customer_phone: reservation.customerPhone,
+    marketing_opt_in: reservation.marketingOptIn ?? false,
+    notes: reservation.notes ?? null,
+    reference: reservation.reference ?? null,
+    client_request_id: reservation.clientRequestId ?? null,
+    idempotency_key: reservation.idempotencyKey ?? null,
+    pending_ref: reservation.pendingRef ?? null,
+    details: reservation.metadata ?? null,
+    created_at: reservation.createdAt ?? null,
+    updated_at: reservation.createdAt ?? null,
+    restaurants: {
+      name: reservation.restaurantName ?? null,
+      slug: reservation.restaurantSlug ?? null,
+      timezone: reservation.restaurantTimezone ?? null,
+    },
+  };
 }
 
 function handleZodError(error: z.ZodError) {
@@ -823,6 +890,8 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     );
   }
 
+  const devFixture = resolveDevBookingLifecycleFixture(req, bookingId);
+
   const legacyToken = req.nextUrl.searchParams.get('token');
   if (legacyToken) {
     return NextResponse.json(
@@ -867,6 +936,34 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         { error: 'Unable to load booking', code: 'BOOKING_LOOKUP_FAILED' },
         { status: 500 },
       );
+    }
+
+    if (!existing && devFixture) {
+      const bookingRecord = buildDevFixtureBookingPayload(devFixture);
+      const bookingEmail = bookingRecord.customer_email
+        ? normalizeEmail(bookingRecord.customer_email)
+        : null;
+      const bookingPhone = bookingRecord.customer_phone
+        ? normalizePhone(bookingRecord.customer_phone)
+        : null;
+
+      const tokenEmail = normalizeEmail(result.payload.email);
+      const tokenPhone = normalizePhone(result.payload.phone);
+
+      if (
+        bookingRecord.restaurant_id !== result.payload.restaurantId ||
+        !bookingEmail ||
+        !bookingPhone ||
+        bookingEmail !== tokenEmail ||
+        bookingPhone !== tokenPhone
+      ) {
+        return NextResponse.json(
+          { error: 'You do not have permission to view this booking', code: 'FORBIDDEN' },
+          { status: 403 },
+        );
+      }
+
+      return NextResponse.json({ booking: bookingRecord });
     }
 
     if (!existing) {

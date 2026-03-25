@@ -10,6 +10,7 @@ import GuestBookingDetailPage from '@src/app/guest/bookings/[bookingId]/page';
 import DevBookingRecoveryPage from '@src/app/(public)/dev/booking-recovery/page';
 import DevBookingDetailComparisonPage from '@src/app/(public)/dev/booking-detail-comparison/page';
 import { BookingDetailPage } from '@src/app/(public)/bookings/booking-page';
+import { GET as GetBookingDetail } from '@src/app/api/bookings/[id]/route';
 import ReservationDetailClient from '@/components/features/booking/detail/ReservationDetailClient';
 
 import type { ReactNode } from 'react';
@@ -23,6 +24,7 @@ const redirect = vi.hoisted(() =>
 const cookiesMock = vi.hoisted(() => vi.fn());
 const getUserMock = vi.hoisted(() => vi.fn());
 const getServerComponentSupabaseClientMock = vi.hoisted(() => vi.fn());
+const getServiceSupabaseClientMock = vi.hoisted(() => vi.fn());
 const validateSessionRecoveryAccessTokenMock = vi.hoisted(() => vi.fn());
 const createSessionRecoveryAccessTokenMock = vi.hoisted(() => vi.fn());
 const pushMock = vi.hoisted(() => vi.fn());
@@ -43,6 +45,7 @@ vi.mock('next/link', () => ({
 vi.mock('next/headers', () => ({ cookies: cookiesMock }));
 vi.mock('@/server/supabase', () => ({
   getServerComponentSupabaseClient: getServerComponentSupabaseClientMock,
+  getServiceSupabaseClient: getServiceSupabaseClientMock,
 }));
 vi.mock('@/server/security/session-recovery-access-token', () => ({
   validateSessionRecoveryAccessToken: validateSessionRecoveryAccessTokenMock,
@@ -53,8 +56,33 @@ vi.mock('@/lib/site-url', () => ({
 }));
 vi.mock('@/lib/env', () => ({
   env: {
+    raw: {
+      NEXT_PUBLIC_SITE_URL: 'http://localhost:3000',
+      SITE_URL: 'http://localhost:3000',
+    },
+    node: {
+      env: 'development',
+      appEnv: 'development',
+    },
     security: {
       sessionRecoveryAccessTokenSecret: 'test-secret',
+    },
+    featureFlags: {
+      holds: {
+        enabled: true,
+        strictConflicts: true,
+      },
+      allocator: {
+        mergesEnabled: false,
+      },
+      selectorLookahead: {
+        enabled: false,
+      },
+    },
+    resend: {
+      apiKey: null,
+      from: 'test@example.com',
+      useMock: true,
     },
   },
   resetEnvCache: vi.fn(),
@@ -134,6 +162,15 @@ describe('public booking pages', () => {
       auth: {
         getUser: getUserMock,
       },
+    });
+    getServiceSupabaseClientMock.mockReturnValue({
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+          }),
+        }),
+      }),
     });
     validateSessionRecoveryAccessTokenMock.mockReturnValue({ ok: false, reason: 'invalid' });
     createSessionRecoveryAccessTokenMock.mockReturnValue('continuation-token');
@@ -448,6 +485,60 @@ describe('public booking pages', () => {
     expect(screen.getByRole('heading', { name: 'Public booking detail fixture' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Guest booking detail fixture' })).toBeInTheDocument();
     expect(screen.getAllByText('Pending Confirmation').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('serves booking lifecycle fixture payloads through GET /api/bookings/[id] in dev when recovery authorization matches', async () => {
+    validateSessionRecoveryAccessTokenMock.mockReturnValue({
+      ok: true,
+      payload: {
+        restaurantId: '11111111-1111-4111-8111-111111111111',
+        email: 'guest+cancelled@example.com',
+        phone: '+443333333333',
+      },
+    });
+    getServiceSupabaseClientMock.mockReturnValue({
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+          }),
+        }),
+      }),
+    });
+
+    const request = {
+      headers: {
+        get: (name: string) => (name.toLowerCase() === 'x-session-recovery-token' ? null : null),
+      },
+      nextUrl: new URL(
+        'http://localhost:3000/api/bookings/55555555-5555-4555-8555-555555555555?fixture=cancelled',
+      ),
+      cookies: {
+        get: (name: string) =>
+          name === 'sr_access' ? { name: 'sr_access', value: 'session-token' } : undefined,
+      },
+    } as unknown as Parameters<typeof GetBookingDetail>[0];
+
+    const response = await GetBookingDetail(
+      request,
+      {
+        params: Promise.resolve({ id: '55555555-5555-4555-8555-555555555555' }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      booking: {
+        id: '55555555-5555-4555-8555-555555555555',
+        status: 'cancelled',
+        reference: 'NB3456',
+        customer_email: 'guest+cancelled@example.com',
+        restaurants: {
+          slug: 'the-fox',
+          timezone: 'Europe/London',
+        },
+      },
+    });
   });
 
   it('shows deterministic setup guidance when the recovery secret is unavailable', async () => {
