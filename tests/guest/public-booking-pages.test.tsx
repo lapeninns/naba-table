@@ -306,6 +306,22 @@ describe('public booking pages', () => {
     );
   });
 
+  it('treats invalid recovery cookies as unauthenticated and rebuilds sign-in recovery intent', async () => {
+    cookiesMock.mockResolvedValue(createCookieStore([{ name: 'sr_access', value: 'invalid-cookie-token' }]));
+    validateSessionRecoveryAccessTokenMock.mockReturnValue({ ok: false, reason: 'invalid_format' });
+
+    await expect(
+      BookingDetailPage({
+        params: Promise.resolve({ bookingId: 'booking-1' }),
+        searchParams: Promise.resolve({}),
+      }),
+    ).rejects.toThrow(
+      'NEXT_REDIRECT:/auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252Fbooking-1',
+    );
+
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
   it('renders the mocked booking-detail comparison harness without shared auth state', async () => {
     createSessionRecoveryAccessTokenMock.mockReturnValue('comparison-token');
     useReservationMock.mockImplementation((reservationId: string) => {

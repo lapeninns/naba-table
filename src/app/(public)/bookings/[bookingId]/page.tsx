@@ -6,7 +6,10 @@ import ReservationDetailClient from '@/components/features/booking/detail/Reserv
 import { env } from '@/lib/env';
 import { getTrustedSiteOrigin } from '@/lib/site-url';
 import { withRedirectedFrom } from '@/lib/url/withRedirectedFrom';
-import { createSessionRecoveryAccessToken } from '@/server/security/session-recovery-access-token';
+import {
+  createSessionRecoveryAccessToken,
+  validateSessionRecoveryAccessToken,
+} from '@/server/security/session-recovery-access-token';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
 import { reservationAdapter } from '@entities/reservation/adapter';
 import { reservationKeys } from '@shared/api/queryKeys';
@@ -184,9 +187,17 @@ export default async function BookingDetailPage({
   const [userResponse, cookieStore] = await Promise.all([supabase.auth.getUser(), cookies()]);
   const user = userResponse.data.user;
   const recoveryCookie = cookieStore.get(RECOVERY_COOKIE_NAME)?.value ?? null;
-  const hasRecoveryCookie = Boolean(recoveryCookie);
+  let hasValidRecoveryCookie = false;
 
-  if (!user && hasRecoveryCookie) {
+  if (recoveryCookie) {
+    const secret = env.security.sessionRecoveryAccessTokenSecret?.trim();
+    if (secret) {
+      const validationResult = validateSessionRecoveryAccessToken(recoveryCookie, { secret });
+      hasValidRecoveryCookie = validationResult.ok;
+    }
+  }
+
+  if (!user && hasValidRecoveryCookie) {
     const response = await fetch(`${resolveOrigin()}/api/bookings/${normalized}`, {
       headers: {
         accept: 'application/json',
@@ -218,13 +229,13 @@ export default async function BookingDetailPage({
     }
   }
 
-  if (!user && !hasRecoveryCookie) {
+  if (!user && !hasValidRecoveryCookie) {
     redirect(withRedirectedFrom('/auth/signin', buildRecoveryPath(canonicalBookingPath)));
   }
 
   const queryClient = new QueryClient();
   // Prefetch only when authenticated or recovery cookie provided
-  if (user || hasRecoveryCookie) {
+  if (user || hasValidRecoveryCookie) {
     await prefetchReservation(queryClient, normalized);
   }
   const dehydratedState = dehydrate(queryClient);
@@ -236,7 +247,7 @@ export default async function BookingDetailPage({
         reservationId={normalized}
         restaurantName={null}
         initialNow={initialNow}
-        canManage={Boolean(user) || hasRecoveryCookie}
+        canManage={Boolean(user) || hasValidRecoveryCookie}
         signInReturnPath={canonicalBookingPath}
       />
     </HydrationBoundary>
