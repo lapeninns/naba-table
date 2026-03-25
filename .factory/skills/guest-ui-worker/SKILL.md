@@ -39,6 +39,7 @@ Use this skill when the feature’s main job is to make guest surfaces feel warm
    - `npx vitest run --maxWorkers=9`
    - `pnpm typecheck`
    - `pnpm lint`
+   - If a broader Playwright suite contains documented pre-existing failures outside your route scope, isolate the directly relevant guest spec or refresh that stale spec as part of the feature instead of claiming unrelated failures as blockers.
 7. Invoke `agent-browser` for manual verification:
    - use `http://localhost:3000` for public/auth/booking surfaces
    - use mocked portal validation for `/guest/dashboard`, `/guest/bookings`, and `/guest/profile` when real authenticated bootstrap is unavailable
