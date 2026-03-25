@@ -1,21 +1,15 @@
 {
   "featureId": "fix-booking-recovery-final-destination",
-  "reviewedAt": "2026-03-25T13:26:00Z",
+  "reviewedAt": "2026-03-25T14:03:51Z",
   "commitId": "9a101996f248ead089ee74606780d6a08034e5dc",
   "transcriptSkeletonReviewed": true,
   "diffReviewed": true,
   "status": "pass",
   "codeReview": {
-    "summary": "The change correctly reroutes unauthenticated public booking-detail fallbacks through the canonical /bookings/recover continuation before sign-in, while preserving token stripping on the eventual final destination. I did not find contract-visible regressions in the reviewed diff.",
+    "summary": "The fix closes the recovery-continuation gap: unauthenticated public booking detail requests now preserve the canonical `/bookings/recover` entrypoint before sign-in, and the shared detail CTA mirrors that path for recovered/token-stripped revisits. I did not find blocking or non-blocking implementation defects in the reviewed diff.",
     "issues": []
   },
-  "sharedStateObservations": [
-    {
-      "area": "services",
-      "observation": "The feature commit included Playwright state output in `test-results/.last-run.json`, which is not product code and does not appear to be covered by the shared services/process guidance.",
-      "evidence": "git show --stat 9a101996f248ead089ee74606780d6a08034e5dc lists `test-results/.last-run.json` as part of the commit alongside the real source/test changes."
-    }
-  ],
+  "sharedStateObservations": [],
   "addressesFailureFrom": null,
-  "summary": "Reviewed commit 9a101996 for fix-booking-recovery-final-destination. The implementation matches the feature contract: unauthenticated fallback now preserves the canonical recovery entrypoint, successful recovery still lands on the intended token-free booking URL, and I found no blocking or non-blocking product issues in the scoped diff."
+  "summary": "Pass: reviewed the feature handoff, transcript skeleton, skill file, commit diff, and affected route/test files. The implementation satisfies the final-destination contract by routing unauthenticated fallbacks back through `/bookings/recover`, preserving destination continuity, and keeping the final authorized booking URL token-free."
 }

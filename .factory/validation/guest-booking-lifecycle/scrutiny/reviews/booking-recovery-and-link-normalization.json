@@ -1,33 +1,15 @@
 {
   "featureId": "booking-recovery-and-link-normalization",
-  "reviewedAt": "2026-03-25T13:26:30Z",
+  "reviewedAt": "2026-03-25T14:05:00Z",
   "commitId": "3c92421da7a0133b923854c3d83812eebbc0df21",
   "transcriptSkeletonReviewed": true,
   "diffReviewed": true,
-  "status": "fail",
+  "status": "pass",
   "codeReview": {
-    "summary": "The feature fixes the broken dialog imports, rejects legacy token access, normalizes tokenized booking links through `/bookings/recover`, and adds deterministic recovery error coverage plus a dev-only harness. However, the committed harness does not actually provide a deterministic entitled public booking-detail validation path in the configured local environment when the recovery secret is absent, so one of the feature contract's promised outcomes is still unmet.",
-    "issues": [
-      {
-        "file": "src/app/(public)/dev/booking-recovery/page.tsx",
-        "line": 35,
-        "severity": "blocking",
-        "description": "The new validation harness only generates a usable recovery link when `SESSION_RECOVERY_ACCESS_TOKEN_SECRET` is configured. Without that env var it renders a 'Missing secret configuration' message and no actionable recovery URL, which means it does not leave behind the deterministic entitled public booking-validation path/harness the feature contract requires for later validators. The worker transcript also shows browser use of the harness falling through to `/auth/signin?redirectedFrom=%2Fbookings%2Frecover...`, confirming the harness was not self-sufficient for live entitled detail coverage in this environment."
-      }
-    ]
+    "summary": "The commit fixes the ReservationDetailClient import blocker, preserves canonical redirect behavior for tokenized booking links, keeps legacy token access on the deterministic recovery error surface, and leaves behind a documented dev recovery harness for later entitled booking-detail validation. I did not find any contract gaps or code defects in the reviewed feature diff.",
+    "issues": []
   },
-  "sharedStateObservations": [
-    {
-      "area": "services",
-      "observation": "The mission instructions told reviewers to inspect `.factory/services.yaml` at the repo root, but the actual file lives under the project worktree (`<repo>/.factory/services.yaml`). The direct mission-path lookup failed during review setup.",
-      "evidence": "Reading `/Users/amankumarshrestha/.factory/services.yaml` returned ENOENT, while `/Users/amankumarshrestha/LapenInns Project/nabatableLP-guest-design-system-20260325-0745/.factory/services.yaml` exists and contains the service manifest."
-    },
-    {
-      "area": "knowledge",
-      "observation": "Library guidance documents the dev auth-validation harness but not the new booking-recovery harness or its dependency on `SESSION_RECOVERY_ACCESS_TOKEN_SECRET`, so future validators still need to rediscover how the booking-recovery path is supposed to be exercised.",
-      "evidence": "`.factory/library/user-testing.md` documents `/dev/auth-validation` scenarios but has no mention of `/dev/booking-recovery` or `SESSION_RECOVERY_ACCESS_TOKEN_SECRET`; the only repo/library reference to the booking-recovery harness is the implementation file `src/app/(public)/dev/booking-recovery/page.tsx`."
-    }
-  ],
+  "sharedStateObservations": [],
   "addressesFailureFrom": null,
-  "summary": "Reviewed commit `3c92421da7a0133b923854c3d83812eebbc0df21` plus the worker transcript skeleton and handoff. The recovery normalization and deterministic error handling work looks sound, but the feature still misses its required deterministic entitled public booking validation path because the new dev harness depends on missing local secret configuration and did not produce a usable end-to-end entitled booking-detail flow in the recorded session."
+  "summary": "Pass: reviewed the handoff, transcript skeleton, commit diff, and related booking recovery/runtime files; the feature covers the requested recovery normalization contract and deterministic validation path without introducing reviewable defects."
 }

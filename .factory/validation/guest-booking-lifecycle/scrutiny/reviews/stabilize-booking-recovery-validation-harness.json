@@ -1,0 +1,21 @@
+{
+  "featureId": "stabilize-booking-recovery-validation-harness",
+  "reviewedAt": "2026-03-25T14:03:24.516775+00:00",
+  "commitId": "2a746a60362728b88c98ec80c05b4e2527fd5ae0",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The harness change now reads the canonical env accessor, exposes deterministic missing-secret guidance, and keeps the generated CTA on the canonical `/bookings/recover` path that strips tokens before landing on the booking detail URL. Added tests cover both configured-secret and missing-secret harness states, and the reviewed implementation matches the assigned feature scope.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "The recovery-secret dependency is still accessed inconsistently across the booking recovery flow: the dev harness now uses `env.security.sessionRecoveryAccessTokenSecret`, but public booking detail revisit continuity still reads `process.env.SESSION_RECOVERY_ACCESS_TOKEN_SECRET` directly instead of the same canonical env accessor.",
+      "evidence": "`src/app/(public)/dev/booking-recovery/page.tsx:32` uses `env.security.sessionRecoveryAccessTokenSecret`, while `src/app/(public)/bookings/[bookingId]/page.tsx:49-64` still reads `process.env.SESSION_RECOVERY_ACCESS_TOKEN_SECRET?.trim()` before creating continuation tokens."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Pass. The reviewed change makes `/dev/booking-recovery` deterministic in the standard local mission setup, preserves canonical `/bookings/recover` recovery behavior, and maintains a token-free final booking URL. No blocking code issues found."
+}

@@ -1,0 +1,21 @@
+{
+  "featureId": "remove-deprecated-guest-thank-you-from-sitemap",
+  "reviewedAt": "2026-03-25T14:03:37.947673Z",
+  "commitId": "d8bb8f4e",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The implementation satisfies the feature contract: `src/app/sitemap.ts` no longer emits the deprecated `/guest/thank-you` alias, while canonical guest booking/auth URLs remain listed and existing runtime redirect behavior for the deprecated route stays intact.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The `guest-routing-worker` skill currently requires `agent-browser` verification for route work, but this sitemap-only metadata cleanup had no browser-visible surface. The worker reasonably used deterministic sitemap inspection plus tests instead.",
+      "evidence": "`.factory/skills/guest-routing-worker/SKILL.md` step 7 requires browser verification; handoff `2026-03-25T13-52-07-569Z__remove-deprecated-guest-thank-you-from-sitemap__db5d1d7d-ae31-41fb-9c9f-f2ce644eef48.json` records a justified deviation because the feature only changed `src/app/sitemap.ts` and added `tests/app/sitemap.test.ts`."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Pass. Reviewed the feature metadata, transcript skeleton, handoff, and commit `d8bb8f4e`. The deprecated `/guest/thank-you` alias was removed from sitemap output, canonical guest booking/auth URLs remain present, and no fix-scope code issues were found."
+}

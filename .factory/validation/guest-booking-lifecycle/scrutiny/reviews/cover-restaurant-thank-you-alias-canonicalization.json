@@ -1,0 +1,26 @@
+{
+  "featureId": "cover-restaurant-thank-you-alias-canonicalization",
+  "reviewedAt": "2026-03-25T14:03:46Z",
+  "commitId": "d8bb8f4e19c791853239e132f781ab0e8b013ab5",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The fix adequately closes the prior restaurant thank-you alias gap without new code changes. The reviewed commit itself is unrelated, but the worker correctly proved that the existing `/restaurants/[slug]/thank-you` redirect already canonicalizes to `/restaurants/[slug]/book/thank-you` through the route implementation, existing Playwright coverage, and live-browser evidence.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "knowledge",
+      "observation": "Shared route documentation remains inconsistent about which restaurant thank-you URL is canonical. Current runtime/tests/library treat `/restaurants/[slug]/book/thank-you` as canonical, while the ADR still says `/restaurants/:slug/thank-you` is canonical.",
+      "evidence": ".factory/library/guest-routes.md:20 says `/restaurants/[slug]/thank-you` canonicalizes to `/restaurants/[slug]/book/thank-you`; docs/adr/2025-12-03-guest-route-naming.md:17 says `/restaurants/:slug/thank-you` is canonical and `/restaurants/:slug/book/thank-you` is legacy; src/app/(public)/(marketing)/restaurants/[slug]/thank-you/page.tsx:8-13 and tests/e2e/guest-public-marketing.spec.ts:27-35 confirm the implemented canonical destination is `/restaurants/[slug]/book/thank-you`."
+    },
+    {
+      "area": "skills",
+      "observation": "The guest-routing-worker skill does not clearly say that a proof-only feature may be completed by validating existing route and browser coverage without adding a new RED test first, even though this mission used that path successfully.",
+      "evidence": "The feature handoff marks skillFeedback.followedProcedure=false because the worker validated pre-existing coverage instead of writing a new failing test; .factory/skills/guest-routing-worker/SKILL.md step 9 allows validated test-only coverage when behavior already satisfies the contract, but step 4 still reads as mandatory RED-first without this proof-only exception."
+    }
+  ],
+  "addressesFailureFrom": ".factory/validation/guest-booking-lifecycle/scrutiny/reviews/guest-receipt-and-thank-you-canonicalization.json",
+  "summary": "Pass: the prior failure was specifically the missing proof for restaurant thank-you alias canonicalization, and this fix supplies that proof. I reviewed the original failing diff, the fix transcript/handoff, and both commits; the canonical redirect already exists in `src/app/(public)/(marketing)/restaurants/[slug]/thank-you/page.tsx`, Playwright already asserts the final canonical URL in `tests/e2e/guest-public-marketing.spec.ts`, and the worker also captured live-browser evidence showing `/restaurants/seed-perf-r001/thank-you` lands on `/restaurants/seed-perf-r001/book/thank-you` with the confirmation UI."
+}

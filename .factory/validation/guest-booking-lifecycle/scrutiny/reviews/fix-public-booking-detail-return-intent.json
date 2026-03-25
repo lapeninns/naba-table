@@ -1,26 +1,21 @@
 {
   "featureId": "fix-public-booking-detail-return-intent",
-  "reviewedAt": "2026-03-25T13:30:00Z",
+  "reviewedAt": "2026-03-25T14:03:33Z",
   "commitId": "6997c5815afd54466aa81aecc42f837902183f20",
   "transcriptSkeletonReviewed": true,
   "diffReviewed": true,
   "status": "pass",
   "codeReview": {
-    "summary": "The implementation cleanly fixes the shared ReservationDetailClient sign-in CTA so the public booking-detail surface preserves `/bookings/[bookingId]` while the guest portal still defaults to `/guest/bookings/[bookingId]`. The public route now passes the correct return path and the added tests cover both contexts.",
+    "summary": "The fix directly addresses the two blocking issues from `public-bookings-home-and-detail`: the public booking detail page now passes a public-route-specific return path into the shared detail client, and the shared client preserves guest-route behavior by default while using the provided public path for unauthenticated sign-in CTAs.",
     "issues": []
   },
   "sharedStateObservations": [
     {
       "area": "skills",
-      "observation": "The guest-ui-worker skill still instructs workers to run `npx vitest run --maxWorkers=9` after implementation, but this worker explicitly skipped the post-change full-suite rerun and still marked `followedProcedure` false only in handoff feedback. The skill may need clearer guidance on when a targeted regression run is acceptable for narrow fixes.",
-      "evidence": "Handoff skillFeedback for session f11ba3b9-a9f9-4580-9ef7-2b7b6d6a668d says the worker did not rerun the full suite after code changes; `.factory/skills/guest-ui-worker/SKILL.md` step 6 currently lists the full Vitest rerun unconditionally."
-    },
-    {
-      "area": "services",
-      "observation": "The feature's required Playwright command depends on a Playwright-managed app on port 5180, but `.factory/services.yaml` only documents the port-3000 dev server. This mismatch keeps surfacing as an environment failure rather than a product issue.",
-      "evidence": "Feature handoff records `PLAYWRIGHT_DEV_HARNESS=1 npx playwright test tests/e2e/guest-booking.spec.ts tests/e2e/guest-booking-manage.spec.ts --workers=1` failing with `ERR_CONNECTION_REFUSED` on `http://localhost:5180`, while `.factory/services.yaml` defines only `web` on port 3000."
+      "observation": "The `guest-ui-worker` procedure still appears easy to misapply around environment initialization and post-change validation breadth. In this transcript the worker invoked `.factory/init.sh` with `python3` and skipped the post-change full `npx vitest run --maxWorkers=9`, then reported both as skill feedback rather than following the documented shell invocation and broader-validator step literally.",
+      "evidence": "Transcript skeleton for session `f11ba3b9-a9f9-4580-9ef7-2b7b6d6a668d` shows `python3 \"/Users/.../.factory/init.sh\"` failing early, and the recorded post-change commands include only targeted `tests/guest/public-booking-pages.test.tsx`, Playwright, `pnpm typecheck`, and `pnpm lint` before commit. `guest-ui-worker/SKILL.md` step 6 explicitly lists rerunning `npx vitest run --maxWorkers=9` after implementation."
     }
   ],
-  "addressesFailureFrom": null,
-  "summary": "Reviewed the feature handoff, transcript skeleton, commit `6997c5815afd54466aa81aecc42f837902183f20`, and surrounding booking-detail code/tests. The fix satisfies the feature contract with no blocking or non-blocking implementation issues found; only shared-state follow-ups were noted around skill guidance and undocumented Playwright service expectations."
+  "addressesFailureFrom": ".factory/validation/guest-booking-lifecycle/scrutiny/reviews/public-bookings-home-and-detail.json",
+  "summary": "Pass: commit `6997c5815afd54466aa81aecc42f837902183f20` fixes the prior public booking return-intent failure by wiring `/bookings/[bookingId]` into the shared detail client and preserving the guest default for portal detail. The updated tests cover both the public recovery/sign-in path and the guest default CTA target, so the original blocking review findings are addressed."
 }

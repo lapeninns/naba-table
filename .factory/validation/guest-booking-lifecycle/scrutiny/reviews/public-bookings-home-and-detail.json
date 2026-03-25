@@ -1,34 +1,33 @@
 {
   "featureId": "public-bookings-home-and-detail",
-  "reviewedAt": "2026-03-25T13:29:10Z",
-  "commitId": "aedf616e",
+  "reviewedAt": "2026-03-25T14:04:11.427689Z",
+  "commitId": "aedf616e062c7890b06a89802bc9a9efdb7d7105",
   "transcriptSkeletonReviewed": true,
   "diffReviewed": true,
   "status": "fail",
   "codeReview": {
-    "summary": "The feature commit only added test coverage. It does not implement the public booking lifecycle UI/route changes described in the feature contract, and one of the added assertions codifies the wrong shared-detail behavior for the public route.",
+    "summary": "The feature mainly added strong automated coverage for the public bookings landing/detail experience and the current codebase satisfies the reviewed contract, but the feature itself did not implement the signed-in redirect target it claimed to verify. The new tests assert the newer recovery-first sign-in behavior instead of the live browser behavior reported in the handoff, so the review cannot pass this feature as originally delivered.",
     "issues": [
       {
         "file": "tests/guest/public-booking-pages.test.tsx",
-        "line": 168,
+        "line": 164,
         "severity": "blocking",
-        "description": "The new 'passes the same shared detail model to the guest booking detail route' test never exercises the public `/bookings/[bookingId]` route and only asserts that the guest route returns a truthy page. That misses the contract that public and guest booking detail must share one model while preserving route-appropriate behavior on the public route, so the feature's core reuse requirement remains unverified. The later fix feature `fix-public-booking-detail-return-intent` exists because this gap shipped."
-      },
-      {
-        "file": "tests/guest/public-booking-pages.test.tsx",
-        "line": 148,
-        "severity": "blocking",
-        "description": "The unauthenticated public detail assertion expects a direct sign-in redirect from `/bookings/[bookingId]`. The implemented product behavior routes public detail through `/bookings/recover?next=...` before sign-in so recovery continuity and token stripping can work. This test encoded the wrong contract for the public route, which scrutiny later had to correct with follow-up fixes."
+        "description": "The new unauthenticated public-detail test expects a redirect to `/auth/signin?redirectedFrom=/bookings/recover?...`, but the handoff and manual verification claim the route redirected directly back to `/auth/signin?redirectedFrom=/bookings/[bookingId]`. Because this feature only added tests and did not change the route implementation, it did not actually deliver the direct public return-target behavior required by the feature contract; that behavior was only fixed later by a follow-up feature."
       }
     ]
   },
   "sharedStateObservations": [
     {
       "area": "skills",
-      "observation": "The `guest-ui-worker` skill says to write a targeted RED test proving the intended behavior before implementation. The worker added only tests, but those tests did not exercise the public shared-detail reuse path and one asserted the wrong redirect contract, so the procedure as applied did not protect the feature's main requirement.",
-      "evidence": "Skill file `.factory/skills/guest-ui-worker/SKILL.md` step 4 requires RED coverage proving intended guest behavior; transcript/handoff for session `b196dee9-8565-422e-bd28-ef8d7db710a0` shows only `tests/guest/public-booking-pages.test.tsx` was added in commit `aedf616e`, and that file's lines 148-152 and 168-199 miss/misstate the public-route contract."
+      "observation": "The `guest-ui-worker` skill requires a targeted RED test run before implementation, but the transcript shows the worker added the new test file and first ran it only after implementation. The skill guidance may need stronger emphasis or examples for test-only features.",
+      "evidence": "Transcript skeleton for worker session `b196dee9-8565-422e-bd28-ef8d7db710a0`: `ApplyPatch` created `tests/guest/public-booking-pages.test.tsx` before the first `pnpm exec vitest run tests/guest/public-booking-pages.test.tsx --reporter=verbose` invocation."
+    },
+    {
+      "area": "knowledge",
+      "observation": "The worker had to discover the real booking dialog import location after initially assuming `src/components/features/dashboard/*Dialog*.tsx`; this import-path quirk is not captured in shared library notes even though it affects booking-detail test setup.",
+      "evidence": "Transcript skeleton shows failed `Glob`/`Grep` searches under `src/components/features/dashboard` followed by reading `src/components/features/dashboard/booking-details/BookingDialog.tsx` to locate the actual dialog exports used by `ReservationDetailClient`."
     }
   ],
   "addressesFailureFrom": null,
-  "summary": "Fail: commit `aedf616e` adds tests only, and the new coverage does not actually verify the public shared-detail behavior while also baking in an incorrect public redirect expectation. The feature contract was therefore not fully covered by this implementation."
+  "summary": "Reviewed the feature handoff, commit diff, transcript skeleton, skill file, and shared-state docs. Result: fail, because the feature only added coverage and its own reported verification overstated the public detail redirect behavior that remained incorrect until a later fix feature."
 }

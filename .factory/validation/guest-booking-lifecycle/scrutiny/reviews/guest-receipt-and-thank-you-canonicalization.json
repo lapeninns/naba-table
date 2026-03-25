@@ -1,21 +1,28 @@
 {
   "featureId": "guest-receipt-and-thank-you-canonicalization",
-  "reviewedAt": "2026-03-25T13:29:27Z",
-  "commitId": "f0176083",
+  "reviewedAt": "2026-03-25T14:04:01.932066Z",
+  "commitId": "98fc48a7",
   "transcriptSkeletonReviewed": true,
   "diffReviewed": true,
-  "status": "pass",
+  "status": "fail",
   "codeReview": {
-    "summary": "The reviewed changes now satisfy the previously missing guest thank-you alias scope and preserve the receipt lifecycle behavior: deprecated /guest/thank-you is covered and redirects into the canonical booking flow, public thank-you aliases still canonicalize to receipt, and receipt entitlement plus lifecycle messaging remain in place.",
-    "issues": []
+    "summary": "Receipt entitlement and lifecycle-specific messaging are covered, and deprecated guest/public thank-you aliases are exercised. However, this feature did not add deterministic coverage for the restaurant thank-you alias even though the contract requires restaurant thank-you aliases to stay on one canonical route.",
+    "issues": [
+      {
+        "file": "src/app/(public)/(marketing)/restaurants/[slug]/thank-you/page.tsx",
+        "line": 1,
+        "severity": "blocking",
+        "description": "The feature contract includes keeping restaurant thank-you aliases on one canonical route, but this feature's diff and added tests only cover public booking and guest thank-you redirects plus receipt messaging. The restaurant alias implementation existed already and remained unverified here, so the feature does not fully satisfy its assigned contract on its own."
+      }
+    ]
   },
   "sharedStateObservations": [
     {
       "area": "knowledge",
-      "observation": "Shared route knowledge is now split between `.factory/library/guest-routes.md` and the newer scrutiny findings. The library still documents `/guest/thank-you` only as deprecated, without recording that the canonical destination is `/bookings` rather than `/guest/dashboard`.",
-      "evidence": "`.factory/library/guest-routes.md` says only '/guest/thank-you is deprecated and should not remain a primary destination', while `src/app/guest/thank-you/page.tsx:6-9` now redirects to `/bookings` and `tests/e2e/guest-receipt-pages.spec.ts:103-109` verifies that destination."
+      "observation": "The mission library documents `/restaurants/[slug]/thank-you` canonicalization, but there was no dedicated scrutiny evidence tied to this feature until a later follow-up feature covered it. That gap made it easy for this worker to mark the feature complete without proving the restaurant alias behavior required by the contract.",
+      "evidence": ".factory/library/guest-routes.md lists `/restaurants/[slug]/thank-you` as canonicalizing to `/restaurants/[slug]/book/thank-you`, while commit `98fc48a7` only changed `ReceiptClient.tsx`, `tests/guest/guest-receipt-pages.test.tsx`, and `tests/e2e/guest-receipt-pages.spec.ts`."
     }
   ],
   "addressesFailureFrom": null,
-  "summary": "Pass: commit f0176083 closes the prior scrutiny gap by canonicalizing `/guest/thank-you` into `/bookings`, updating deterministic and browser coverage for that deprecated alias, and preserving the receipt entitlement/lifecycle behavior required by the feature contract."
+  "summary": "Reviewed handoff, commit `98fc48a7`, transcript skeleton, mission guidance, and shared-state docs. Receipt gating and lifecycle copy changes look correct, but the feature missed contract coverage for restaurant thank-you alias canonicalization, so the review fails with one blocking issue."
 }
