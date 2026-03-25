@@ -1,26 +1,11 @@
 'use client';
 
-import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 
-import { PlanStepSkeleton } from "@features/reservations/wizard/ui/WizardSkeletons";
+import { ReservationWizard } from "@features/reservations/wizard/ui/ReservationWizard";
 
 import type { RestaurantSummary } from "@/lib/restaurants/types";
-
-
-const ReservationWizard = dynamic(
-  () => import("@features/reservations/wizard/ui/ReservationWizard").then((m) => m.ReservationWizard),
-  {
-    loading: () => (
-      <div className="flex min-h-[40vh] items-center justify-center bg-muted/30 p-6" role="status" aria-busy>
-        <div className="w-full max-w-[80vw] space-y-6 rounded-xl border border-dashed border-border/70 bg-background/80 p-6">
-          <PlanStepSkeleton />
-        </div>
-      </div>
-    ),
-  },
-);
 
 type ReservationWizardClientProps = {
   restaurant?: Pick<RestaurantSummary, "id" | "slug" | "name" | "timezone" | "address"> | null;

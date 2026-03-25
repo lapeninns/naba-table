@@ -175,15 +175,11 @@ test('mocked guest APIs are exercised', async ({ page }) => {
     });
   });
 
-  await page.goto(`/r/${restaurantSlug}`);
-
-  await page.getByRole('button', { name: 'Date' }).click();
-  await page.getByRole('button', { name: 'Tuesday, February 10th, 2026' }).click();
-  await page.getByRole('combobox', { name: 'Time' }).click();
-  await page.getByRole('option', { name: '7:00 PM' }).click();
+  await page.goto(`/restaurants/${restaurantSlug}/book`);
+  await expect(page.getByRole('heading', { name: 'Finish booking with calm, guided steps.' })).toBeVisible();
 
   await page.evaluate(
-    ({ bookingId, restaurantId }) => {
+    ({ bookingId, restaurantId, restaurantSlug, bookingDate }) => {
       const params = new URLSearchParams({
         email: 'guest@example.com',
         phone: '+441234567890',
@@ -191,11 +187,14 @@ test('mocked guest APIs are exercised', async ({ page }) => {
       });
       return Promise.all([
         fetch('/api/restaurants'),
+        fetch(`/api/restaurants/${restaurantSlug}`),
+        fetch(`/api/restaurants/${restaurantSlug}/calendar-mask?from=2026-02-01&to=2026-02-28`),
+        fetch(`/api/restaurants/${restaurantSlug}/schedule?date=${bookingDate}`),
         fetch(`/api/bookings?${params.toString()}`),
         fetch(`/api/bookings/${bookingId}/history`),
       ]);
     },
-    { bookingId, restaurantId },
+    { bookingId, restaurantId, restaurantSlug, bookingDate },
   );
 
   expect(counts.restaurantDetail).toBeGreaterThan(0);
@@ -204,4 +203,46 @@ test('mocked guest APIs are exercised', async ({ page }) => {
   expect(counts.restaurantList).toBeGreaterThan(0);
   expect(counts.bookingLookup).toBeGreaterThan(0);
   expect(counts.bookingHistory).toBeGreaterThan(0);
+});
+
+test('dev guest dashboard and bookings harnesses expose canonical mocked portal states', async ({ page }) => {
+  await page.goto('/dev/guest-dashboard?fixture=default');
+  await expect(page.getByRole('heading', { name: /dashboard harness/i })).toBeVisible();
+  await expect(page.getByText('Guest dashboard', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'The Fox' })).toBeVisible();
+
+  await page.goto('/dev/guest-bookings?fixture=default&tab=history');
+  await expect(page).toHaveURL(/tab=past/);
+  await expect(page.getByRole('heading', { name: /your reservations/i })).toBeVisible();
+  await expect(page.getByText('Orchard House')).toBeVisible();
+
+  await page.goto('/dev/guest-bookings?fixture=empty');
+  await expect(page.getByText('No bookings yet')).toBeVisible();
+
+  await page.goto('/dev/guest-dashboard?fixture=error');
+  await expect(page.getByText("We couldn't fetch your reservations. Please try again.")).toBeVisible();
+});
+
+test('dev guest profile harness supports inline validation and deterministic save feedback', async ({
+  page,
+}) => {
+  await page.goto('/dev/guest-profile?fixture=default&mutation=success');
+
+  await expect(page.getByRole('heading', { name: /profile harness/i })).toBeVisible();
+  await expect(page.getByLabel('Email Address')).toHaveValue('ada@example.com');
+  await expect(page.getByLabel('Email Address')).toBeDisabled();
+
+  await page.getByLabel('Full Name').fill('A');
+  await page.getByRole('button', { name: /save changes/i }).click();
+  await expect(page.getByText('Name must be at least 2 characters')).toBeVisible();
+
+  await page.getByLabel('Full Name').fill('Ada Byron');
+  await page.getByLabel('Phone Number').fill('+447700900555');
+  await page.getByRole('button', { name: /save changes/i }).click();
+  await expect(page.getByText('Profile updated successfully.')).toBeVisible();
+
+  await page.goto('/dev/guest-profile?fixture=default&mutation=error');
+  await page.getByLabel('Full Name').fill('Ada Error');
+  await page.getByRole('button', { name: /save changes/i }).click();
+  await expect(page.getByText('Failed to save changes. Please try again.')).toBeVisible();
 });

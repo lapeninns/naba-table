@@ -15,6 +15,7 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
+import { GuestPortalPage } from '@/components/features/guest/shared/GuestPortalPage';
 import { GuestEmpty, GuestError } from '@/components/guest/ui';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -31,6 +32,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useGuestBookings } from '@/guest/hooks';
 import { normalizeBookingsTab, type BookingsTab } from '@/guest/lib/validation';
 import { StatusRegion } from '@/guest/routes/shared/StatusRegion';
+import { GUEST_PORTAL_BOOKINGS_FILTERS } from '@/guest/services/bookings-params';
 import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils';
 import { formatReservationTime } from '@reserve/shared/formatting/booking';
@@ -42,14 +44,28 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
-  const { data: bookings, isLoading, isError } = useGuestBookings({ pageSize: 50 });
+  const searchParamsString = searchParams.toString();
+  const { data: bookings, isLoading, isError } = useGuestBookings(GUEST_PORTAL_BOOKINGS_FILTERS);
   const [activeTab, setActiveTab] = useState<BookingsTab>(normalizeBookingsTab(initialTab));
 
-  // Sync state with URL for back/forward/share
+  const replaceTabParam = (next: BookingsTab) => {
+    const params = new URLSearchParams(searchParamsString);
+    params.set('tab', next);
+    const search = params.toString();
+    router.replace(search ? `${pathname}?${search}` : pathname, { scroll: false });
+  };
+
   useEffect(() => {
-    const normalized = normalizeBookingsTab(searchParams.get('tab'));
+    const rawTab = searchParams.get('tab');
+    const normalized = normalizeBookingsTab(rawTab);
     setActiveTab((prev) => (prev === normalized ? prev : normalized));
-  }, [searchParams]);
+    if (rawTab && rawTab.toLowerCase() !== normalized) {
+      const params = new URLSearchParams(searchParamsString);
+      params.set('tab', normalized);
+      const search = params.toString();
+      router.replace(search ? `${pathname}?${search}` : pathname, { scroll: false });
+    }
+  }, [pathname, router, searchParams, searchParamsString]);
 
   const { upcoming, past } = useMemo(() => {
     const items = bookings?.items ?? [];
@@ -77,17 +93,16 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-surface-warm pb-20">
-        {/* Hero skeleton */}
-        <section className="border-b border-border/50 bg-gradient-hero py-12 px-6">
-          <div className="mx-auto max-w-6xl space-y-4">
+      <GuestPortalPage
+        eyebrow="My reservations"
+        title="Your Reservations"
+        description="Manage your upcoming and past reservations."
+      >
+        <div className="space-y-8">
+          <div className="space-y-4">
             <Skeleton className="h-8 w-48" />
             <Skeleton className="h-5 w-96" />
           </div>
-        </section>
-
-        {/* Tabs skeleton */}
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8">
           <Skeleton className="h-12 w-80 mb-8" />
           <div className="grid gap-6 md:grid-cols-2">
             <Skeleton className="h-56 rounded-xl" />
@@ -96,55 +111,18 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
             <Skeleton className="h-56 rounded-xl" />
           </div>
         </div>
-      </div>
+      </GuestPortalPage>
     );
   }
 
   if (isError) {
     return (
-      <StatusRegion focus live="assertive" className="min-h-screen bg-surface-warm pb-20">
-        <div className="flex min-h-[60vh] items-center justify-center">
-          <GuestError
-            description="We couldn't load your bookings. Please try again."
-            onRetry={() => queryClient.invalidateQueries({ queryKey: queryKeys.bookings.all })}
-          />
-        </div>
-      </StatusRegion>
-    );
-  }
-
-  const hasAnyBookings = (bookings?.items?.length ?? 0) > 0;
-
-  if (!hasAnyBookings) {
-    return (
-      <StatusRegion live="polite" className="min-h-screen bg-surface-warm pb-20">
-        <GuestEmpty
-          icon={Search}
-          title="No bookings yet"
-          description="Discover amazing restaurants and book your first table."
-          actionLabel="Find a restaurant"
-          actionHref="/restaurants"
-        />
-      </StatusRegion>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-surface-warm pb-20">
-      {/* Hero Section */}
-      <section className="border-b border-border/50 bg-gradient-hero">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 py-12 px-5 sm:gap-6 sm:px-8 sm:py-16 lg:px-10 lg:py-20">
-          <div className="space-y-2 sm:space-y-3 animate-fade-in-up">
-            <p className="text-xs uppercase tracking-[0.2em] text-subtle">My Reservations</p>
-            <h1 className="heading-hero">
-              Your Reservations
-            </h1>
-            <p className="text-body-warm max-w-2xl">
-              Manage your upcoming and past reservations
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
+      <StatusRegion focus live="assertive">
+        <GuestPortalPage
+          eyebrow="My reservations"
+          title="Your Reservations"
+          description="Manage your upcoming and past reservations."
+          actions={
             <Button
               asChild
               size="lg"
@@ -155,21 +133,78 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
                 New Booking
               </Link>
             </Button>
+          }
+        >
+          <div className="flex min-h-[50vh] items-center justify-center">
+            <GuestError
+              description="We couldn't load your bookings. Please try again."
+              onRetry={() => queryClient.invalidateQueries({ queryKey: queryKeys.bookings.all })}
+            />
           </div>
-        </div>
-      </section>
+        </GuestPortalPage>
+      </StatusRegion>
+    );
+  }
 
-      {/* Main Content */}
-      <div className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 sm:py-12 lg:px-10">
+  const hasAnyBookings = (bookings?.items?.length ?? 0) > 0;
+
+  if (!hasAnyBookings) {
+    return (
+      <StatusRegion live="polite">
+        <GuestPortalPage
+          eyebrow="My reservations"
+          title="Your Reservations"
+          description="Manage your upcoming and past reservations."
+          actions={
+            <Button
+              asChild
+              size="lg"
+              className="rounded-full bg-primary text-white hover:bg-primary/90 min-h-[48px] w-full sm:w-auto btn-tactile focus-ring touch-feedback"
+            >
+              <Link href="/restaurants">
+                <Plus className="mr-2 h-5 w-5" />
+                New Booking
+              </Link>
+            </Button>
+          }
+        >
+          <GuestEmpty
+            icon={Search}
+            title="No bookings yet"
+            description="Discover amazing restaurants and book your first table."
+            actionLabel="Find a restaurant"
+            actionHref="/restaurants"
+          />
+        </GuestPortalPage>
+      </StatusRegion>
+    );
+  }
+
+  return (
+    <GuestPortalPage
+      eyebrow="My reservations"
+      title="Your Reservations"
+      description="Manage your upcoming and past reservations."
+      actions={
+        <Button
+          asChild
+          size="lg"
+          className="rounded-full bg-primary text-white hover:bg-primary/90 min-h-[48px] w-full sm:w-auto btn-tactile focus-ring touch-feedback"
+        >
+          <Link href="/restaurants">
+            <Plus className="mr-2 h-5 w-5" />
+            New Booking
+          </Link>
+        </Button>
+      }
+    >
+      <div className="w-full">
         <Tabs
           value={activeTab}
           onValueChange={(v) => {
             const next = normalizeBookingsTab(v);
             setActiveTab(next);
-            const params = new URLSearchParams(searchParams.toString());
-            params.set('tab', next === 'past' ? 'history' : 'upcoming');
-            const search = params.toString();
-            router.replace(`${pathname}?${search}`);
+            replaceTabParam(next);
           }}
           className="w-full"
         >
@@ -253,7 +288,7 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
           </TabsContent>
         </Tabs>
       </div>
-    </div>
+    </GuestPortalPage>
   );
 }
 

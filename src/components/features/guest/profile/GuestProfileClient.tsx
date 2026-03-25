@@ -1,46 +1,77 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
 import { Shield, Settings, Save } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { ZodError } from 'zod';
 
-import { GuestStatus, MetricTile } from '@/components/guest/ui';
+import { GuestPortalPage } from '@/components/features/guest/shared/GuestPortalPage';
+import { GuestError, GuestStatus, MetricTile } from '@/components/guest/ui';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useGuestProfile } from '@/guest/hooks';
+import { StatusRegion } from '@/guest/routes/shared/StatusRegion';
 import { coerceProfileUpdatePayload, useUpdateProfile } from '@/hooks/useProfile';
+import { queryKeys } from '@/lib/query/keys';
 
 import type { GuestProfileViewModel } from '@/guest/routes/profile/view-model';
+import type { ProfileResponse, ProfileUpdatePayload } from '@/lib/profile/schema';
 
 type ProfileFormValues = {
   full_name: string;
   phone_number: string;
 };
 
-export function GuestProfileClient({ viewModel }: { viewModel: GuestProfileViewModel }) {
-  const { data: liveProfile } = useGuestProfile();
+type ProfileMutationResult = {
+  profile: ProfileResponse;
+  idempotent?: boolean;
+};
+
+export type GuestProfileMutationController = {
+  isPending: boolean;
+  mutate: (
+    payload: ProfileUpdatePayload,
+    options?: {
+      onSuccess?: (result: ProfileMutationResult) => void;
+      onError?: (error: unknown) => void;
+    },
+  ) => void;
+};
+
+export function GuestProfileClient({
+  viewModel,
+  profileMutationOverride,
+}: {
+  viewModel: GuestProfileViewModel;
+  profileMutationOverride?: GuestProfileMutationController;
+}) {
+  const queryClient = useQueryClient();
+  const { data: liveProfile, isLoading, isError } = useGuestProfile();
   const profile = liveProfile ?? viewModel.profile;
 
   const form = useForm<ProfileFormValues>({
     defaultValues: {
-      full_name: profile.name || '',
-      phone_number: profile.phone || '',
+      full_name: profile?.name || '',
+      phone_number: profile?.phone || '',
     },
   });
 
-  const updateProfile = useUpdateProfile();
+  const liveUpdateProfile = useUpdateProfile();
+  const updateProfile = profileMutationOverride ?? liveUpdateProfile;
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   useEffect(() => {
+    if (!profile) return;
     form.reset({
       full_name: profile.name || '',
       phone_number: profile.phone || '',
     });
-  }, [profile.name, profile.phone, form]);
+  }, [profile, form]);
 
   const onSubmit = (data: ProfileFormValues) => {
     form.clearErrors();
@@ -91,24 +122,65 @@ export function GuestProfileClient({ viewModel }: { viewModel: GuestProfileViewM
   const isSubmitting = updateProfile.isPending;
   const isPristine = !form.formState.isDirty;
 
-  return (
-    <div className="min-h-screen bg-surface-warm pb-20">
-      {/* Hero Section */}
-      <section className="border-b border-border/50 bg-gradient-hero">
-        <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 sm:gap-4 py-8 sm:py-12 lg:py-16 px-4 sm:px-6">
-          <div className="space-y-2 sm:space-y-3 animate-fade-in-up">
-            <p className="text-xs uppercase tracking-[0.2em] text-subtle">Settings</p>
-            <h1 className="heading-hero">
-              Your Profile
-            </h1>
-            <p className="text-body-warm max-w-2xl">
-              Manage your personal information, preferences, and security settings.
-            </p>
+  if (isLoading && !profile) {
+    return (
+      <GuestPortalPage
+        eyebrow="Settings"
+        title="Your Profile"
+        description="Manage your personal information, preferences, and security settings."
+        contentClassName="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 sm:py-8 lg:py-10"
+      >
+        <div className="space-y-6 sm:space-y-8">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+            <Skeleton className="h-32 rounded-2xl" />
+            <Skeleton className="h-32 rounded-2xl" />
           </div>
+          <Card className="space-y-6 p-6 sm:p-8">
+            <Skeleton className="h-7 w-48 rounded-lg" />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Skeleton className="h-20 rounded-xl" />
+              <Skeleton className="h-20 rounded-xl" />
+              <Skeleton className="h-20 rounded-xl" />
+            </div>
+            <Skeleton className="ml-auto h-12 w-40 rounded-full" />
+          </Card>
         </div>
-      </section>
+      </GuestPortalPage>
+    );
+  }
 
-      <div className="mx-auto w-full max-w-4xl px-4 sm:px-6 py-6 sm:py-8 lg:py-10 space-y-6 sm:space-y-8">
+  if (isError && !profile) {
+    return (
+      <StatusRegion focus live="assertive">
+        <GuestPortalPage
+          eyebrow="Settings"
+          title="Your Profile"
+          description="Manage your personal information, preferences, and security settings."
+          contentClassName="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 sm:py-8 lg:py-10"
+        >
+          <div className="flex min-h-[50vh] items-center justify-center">
+            <GuestError
+              description="We couldn't load your profile right now. Please try again."
+              onRetry={() => queryClient.invalidateQueries({ queryKey: queryKeys.profile.self() })}
+            />
+          </div>
+        </GuestPortalPage>
+      </StatusRegion>
+    );
+  }
+
+  if (!profile) {
+    return null;
+  }
+
+  return (
+    <GuestPortalPage
+      eyebrow="Settings"
+      title="Your Profile"
+      description="Manage your personal information, preferences, and security settings."
+      contentClassName="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 sm:py-8 lg:py-10"
+    >
+      <div className="space-y-6 sm:space-y-8">
         {/* Stats Overview */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 animate-fade-in-up stagger-container">
           <MetricTile label="Account Status" value="Active" icon={Settings} detail="Standard" />
@@ -207,6 +279,6 @@ export function GuestProfileClient({ viewModel }: { viewModel: GuestProfileViewM
           </div>
         </Card>
       </div>
-    </div>
+    </GuestPortalPage>
   );
 }

@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import { normalizeBookingsTab } from '@src/guest/lib/validation';
-import { buildBookingsQueryKeyParams, buildBookingsSearchParams } from '@src/guest/services/bookings-params';
+import {
+  GUEST_PORTAL_BOOKINGS_FILTERS,
+  buildBookingsQueryKeyParams,
+  buildBookingsSearchParams,
+} from '@src/guest/services/bookings-params';
 
 describe('guest booking params helpers', () => {
   it('builds default booking search params', () => {
@@ -10,6 +14,10 @@ describe('guest booking params helpers', () => {
     expect(params.get('me')).toBe('1');
     expect(params.get('page')).toBe('1');
     expect(params.get('pageSize')).toBe('10');
+  });
+
+  it('exports the canonical guest portal bookings filter contract', () => {
+    expect(GUEST_PORTAL_BOOKINGS_FILTERS).toEqual({ page: 1, pageSize: 50 });
   });
 
   it('includes provided filters when building search params', () => {

@@ -1,5 +1,5 @@
 "use client";
 
-import { useSupabaseSession } from "@/hooks/useSupabaseSession";
+import { useGuestSessionState } from "@/guest/services/di";
 
-export const useGuestSession = () => useSupabaseSession();
+export const useGuestSession = () => useGuestSessionState();

@@ -9,16 +9,24 @@ import { createClientBookingsPort } from "./adapters/bookings.client";
 import { createClientProfilePort } from "./adapters/profile.client";
 
 import type { GuestServices } from "./ports";
+import type { SupabaseSessionState } from "@/hooks/useSupabaseSession";
 
 type GuestServicesProviderProps = {
   children: ReactNode;
   services?: Partial<GuestServices>;
+  sessionStateOverride?: SupabaseSessionState;
 };
 
 const GuestServicesContext = createContext<GuestServices | null>(null);
+const GuestSessionContext = createContext<SupabaseSessionState | null>(null);
 
-export function GuestServicesProvider({ children, services }: GuestServicesProviderProps) {
+export function GuestServicesProvider({
+  children,
+  services,
+  sessionStateOverride,
+}: GuestServicesProviderProps) {
   const sessionState = useSupabaseSession();
+  const resolvedSessionState = sessionStateOverride ?? sessionState;
 
   const bookingsPort = useMemo(() => services?.bookings ?? createClientBookingsPort(), [services?.bookings]);
   const profilePort = useMemo(() => services?.profile ?? createClientProfilePort(), [services?.profile]);
@@ -27,10 +35,10 @@ export function GuestServicesProvider({ children, services }: GuestServicesProvi
     if (services?.auth) return services.auth;
 
     return {
-      getUser: async () => sessionState.user ?? null,
+      getUser: async () => resolvedSessionState.user ?? null,
       requireUser: async ({ redirectTo = "/auth/signin", redirectedFrom }) => {
-        if (sessionState.user) {
-          return sessionState.user;
+        if (resolvedSessionState.user) {
+          return resolvedSessionState.user;
         }
 
         const target = withRedirectedFrom(redirectTo, redirectedFrom ?? redirectTo);
@@ -40,7 +48,7 @@ export function GuestServicesProvider({ children, services }: GuestServicesProvi
         throw new Error("Redirecting to sign-in");
       },
     } satisfies GuestServices["auth"];
-  }, [services?.auth, sessionState.user]);
+  }, [resolvedSessionState.user, services?.auth]);
 
   const value = useMemo<GuestServices>(
     () => ({
@@ -51,13 +59,25 @@ export function GuestServicesProvider({ children, services }: GuestServicesProvi
     [authPort, bookingsPort, profilePort],
   );
 
-  return <GuestServicesContext.Provider value={value}>{children}</GuestServicesContext.Provider>;
+  return (
+    <GuestSessionContext.Provider value={resolvedSessionState}>
+      <GuestServicesContext.Provider value={value}>{children}</GuestServicesContext.Provider>
+    </GuestSessionContext.Provider>
+  );
 }
 
 export const useGuestServices = (): GuestServices => {
   const ctx = useContext(GuestServicesContext);
   if (!ctx) {
     throw new Error("GuestServicesProvider is missing in the component tree");
+  }
+  return ctx;
+};
+
+export const useGuestSessionState = (): SupabaseSessionState => {
+  const ctx = useContext(GuestSessionContext);
+  if (!ctx) {
+    return { user: null, session: null, status: "loading" };
   }
   return ctx;
 };

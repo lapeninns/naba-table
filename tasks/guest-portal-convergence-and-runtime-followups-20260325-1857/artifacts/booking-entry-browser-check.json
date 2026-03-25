@@ -1,0 +1,87 @@
+{
+  "url": "http://localhost:3000/restaurants/the-fox/book",
+  "headingVisible": true,
+  "badResponses": [],
+  "consoleMessages": [
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+    },
+    {
+      "type": "log",
+      "text": "[HMR] connected"
+    },
+    {
+      "type": "log",
+      "text": "You're now in debug mode. All calls to PostHog will be logged in your console.\nYou can disable this with `posthog.debug(false)`."
+    },
+    {
+      "type": "log",
+      "text": "[PostHog.js] set_config {config: Object, oldConfig: Object, newConfig: Object}"
+    },
+    {
+      "type": "log",
+      "text": "[PostHog.js] reset"
+    },
+    {
+      "type": "log",
+      "text": "[PostHog.js] reset"
+    },
+    {
+      "type": "log",
+      "text": "[PostHog.js] [RemoteConfig] __preview_remote_config is disabled. Logging config instead {analytics: Object, autocaptureExceptions: true, autocapture_opt_out: false, captureDeadClicks: false, capturePerformance: Object}"
+    },
+    {
+      "type": "log",
+      "text": "[PostHog.js] Persistence loaded sessionStorage {}"
+    },
+    {
+      "type": "log",
+      "text": "[PostHog.js] set_config {config: Object, oldConfig: Object, newConfig: Object}"
+    },
+    {
+      "type": "log",
+      "text": "[PostHog.js] [SessionRecording] starting"
+    },
+    {
+      "type": "log",
+      "text": "[PostHog.js] [Heatmaps] starting..."
+    },
+    {
+      "type": "log",
+      "text": "[PostHog.js] [Surveys] flags response received, isSurveysEnabled: false"
+    },
+    {
+      "type": "log",
+      "text": "[PostHog.js] [Web Vitals] enabled, starting..."
+    },
+    {
+      "type": "log",
+      "text": "[PostHog.js] [ExceptionAutocapture] enabled"
+    },
+    {
+      "type": "log",
+      "text": "[PostHog.js] [WebExperiments] Refusing to render web experiment since the viewer is a likely bot []"
+    },
+    {
+      "type": "log",
+      "text": "[PostHog.js] [SessionId] new session ID generated {sessionId: 019d268a-d357-71bd-b4fe-192cb61a1bac, windowId: 019d268a-d357-71bd-b4fe-192d9e82708b, changeReason: Object}"
+    },
+    {
+      "type": "log",
+      "text": "[PostHog.js] [Surveys] Surveys loaded successfully"
+    },
+    {
+      "type": "log",
+      "text": "[PostHog.js] [Dead Clicks] starting..."
+    },
+    {
+      "type": "log",
+      "text": "[Fast Refresh] rebuilding"
+    },
+    {
+      "type": "log",
+      "text": "[Fast Refresh] done in 104ms"
+    }
+  ]
+}

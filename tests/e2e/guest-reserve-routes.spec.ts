@@ -197,7 +197,7 @@ test.describe('reserve routes', () => {
     await page.goto(`/restaurants/${restaurantSlug}/book`);
 
     await expect(page).toHaveURL(`http://localhost:3000/restaurants/${restaurantSlug}/book`);
-    await expect(page.getByText('Guest booking flow')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Back to restaurant details' })).toBeVisible();
     await expect(page.locator('body')).not.toContainText('Build Error');
     await expect(page.locator('body')).not.toContainText('globals.css');
   });

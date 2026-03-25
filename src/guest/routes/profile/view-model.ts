@@ -7,7 +7,7 @@ import type { ProfileResponse } from "@/lib/profile/schema";
 
 export type GuestProfileViewModel = {
   dehydratedState: DehydratedState;
-  profile: ProfileResponse;
+  profile: ProfileResponse | null;
 };
 
 export const buildGuestProfileViewModel = async (

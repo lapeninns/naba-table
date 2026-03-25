@@ -5,6 +5,7 @@ import { Calendar, Clock, Heart, MapPin, User, ChevronRight, Sparkles } from 'lu
 import Link from 'next/link';
 import { useMemo } from 'react';
 
+import { GuestPortalPage } from '@/components/features/guest/shared/GuestPortalPage';
 import { GuestError } from '@/components/guest/ui';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useGuestBookings, useGuestProfile, useGuestSession } from '@/guest/hooks';
 import { getGreeting } from '@/guest/lib/formatters';
 import { StatusRegion } from '@/guest/routes/shared/StatusRegion';
+import { GUEST_PORTAL_BOOKINGS_FILTERS } from '@/guest/services/bookings-params';
 import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils';
 import {
@@ -26,7 +28,7 @@ import type { BookingDTO } from '@/guest/services/ports';
 
 export function GuestDashboardClient() {
   const queryClient = useQueryClient();
-  const { data, isLoading, isError } = useGuestBookings();
+  const { data, isLoading, isError } = useGuestBookings(GUEST_PORTAL_BOOKINGS_FILTERS);
   const { data: profile } = useGuestProfile();
   const { user } = useGuestSession();
 
@@ -62,73 +64,79 @@ export function GuestDashboardClient() {
   const stats = useMemo(
     () => ({
       total: derived.total,
-      upcoming: upcomingList.length,
+      upcoming: upcomingList.length + (primaryBooking ? 1 : 0),
       favorites: derived.favorites.length,
     }),
-    [derived.total, upcomingList.length, derived.favorites.length],
+    [derived.total, upcomingList.length, derived.favorites.length, primaryBooking],
+  );
+
+  const portalActions = (
+    <>
+      <Button
+        asChild
+        size="lg"
+        className="rounded-full bg-primary text-white hover:bg-primary/90 min-h-[48px] btn-tactile focus-ring touch-feedback"
+      >
+        <Link href="/restaurants">Book a table</Link>
+      </Button>
+      <Button
+        asChild
+        size="lg"
+        variant="outline"
+        className="rounded-full border-border bg-background text-primary hover:border-primary/40 min-h-[48px] btn-tactile focus-ring touch-feedback"
+      >
+        <Link href="/guest/bookings">My bookings</Link>
+      </Button>
+      <Button
+        asChild
+        size="lg"
+        variant="ghost"
+        className="text-primary hover:text-primary min-h-[48px] btn-tactile focus-ring touch-feedback"
+      >
+        <Link href="/guest/profile">Profile</Link>
+      </Button>
+    </>
   );
 
   if (isError) {
     return (
-      <StatusRegion focus live="assertive" className="min-h-screen pb-20">
-        <div className="flex min-h-[60vh] items-center justify-center">
-          <GuestError
-            description="We couldn't fetch your reservations. Please try again."
-            onRetry={() => {
-              queryClient.invalidateQueries({ queryKey: queryKeys.bookings.all });
-              queryClient.invalidateQueries({ queryKey: queryKeys.profile.self() });
-            }}
-          />
-        </div>
+      <StatusRegion focus live="assertive">
+        <GuestPortalPage
+          eyebrow="Guest dashboard"
+          title={
+            <>
+              {greeting}, {heroName.split(' ')[0]}
+            </>
+          }
+          description="Manage your upcoming tables, receipts, and favorites in one place."
+          actions={portalActions}
+        >
+          <div className="flex min-h-[50vh] items-center justify-center">
+            <GuestError
+              description="We couldn't fetch your reservations. Please try again."
+              onRetry={() => {
+                queryClient.invalidateQueries({ queryKey: queryKeys.bookings.all });
+                queryClient.invalidateQueries({ queryKey: queryKeys.profile.self() });
+              }}
+            />
+          </div>
+        </GuestPortalPage>
       </StatusRegion>
     );
   }
 
   return (
-    <div className="min-h-screen bg-surface-warm pb-20">
-      {/* Hero */}
-      <section className="border-b border-border/50 bg-gradient-hero">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 sm:gap-8 py-10 sm:py-16 lg:py-20 px-4 sm:px-6">
-          <div className="space-y-3 sm:space-y-4 animate-fade-in-up">
-            <p className="text-xs uppercase tracking-[0.2em] text-subtle">Guest dashboard</p>
-            <h1 className="heading-hero">
-              {greeting}, {heroName.split(' ')[0]}
-            </h1>
-            <p className="text-body-warm max-w-2xl">
-              Manage your upcoming tables, receipts, and favorites in one place.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-2 sm:gap-3">
-            <Button
-              asChild
-              size="lg"
-              className="rounded-full bg-primary text-white hover:bg-primary/90 min-h-[48px] btn-tactile focus-ring touch-feedback"
-            >
-              <Link href="/restaurants">Book a table</Link>
-            </Button>
-            <Button
-              asChild
-              size="lg"
-              variant="outline"
-              className="rounded-full border-border bg-background text-primary hover:border-primary/40 min-h-[48px] btn-tactile focus-ring touch-feedback"
-            >
-              <Link href="/guest/bookings">My bookings</Link>
-            </Button>
-            <Button
-              asChild
-              size="lg"
-              variant="ghost"
-              className="text-primary hover:text-primary min-h-[48px] btn-tactile focus-ring touch-feedback"
-            >
-              <Link href="/guest/profile">Profile</Link>
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      {/* Main content */}
-      <div className="mx-auto grid w-full max-w-6xl gap-6 sm:gap-8 py-6 sm:py-8 lg:py-10 lg:grid-cols-[1.6fr_1fr] px-4 sm:px-6">
+    <GuestPortalPage
+      eyebrow="Guest dashboard"
+      title={
+        <>
+          {greeting}, {heroName.split(' ')[0]}
+        </>
+      }
+      description="Manage your upcoming tables, receipts, and favorites in one place."
+      actions={portalActions}
+    >
+      <div className="grid w-full gap-6 sm:gap-8 lg:grid-cols-[1.6fr_1fr]">
         <div className="space-y-6 sm:space-y-8 stagger-container">
           {/* Next booking / empty state */}
           <section className="space-y-4">
@@ -263,7 +271,7 @@ export function GuestDashboardClient() {
           </Card>
         </div>
       </div>
-    </div>
+    </GuestPortalPage>
   );
 }
 

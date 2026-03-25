@@ -255,7 +255,7 @@ export function Calendar24Time({
 
   const showSuggestions = hasHydrated && !isTimeDisabled && enabledSuggestions.length > 0;
   const inputValue = time.value ?? '';
-  const selectValue = inputValue ? inputValue : undefined;
+  const selectValue = inputValue;
   const resolvedUnavailableMessage =
     unavailableMessage ?? 'No available times for the selected date.';
 

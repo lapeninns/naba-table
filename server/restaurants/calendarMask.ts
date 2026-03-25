@@ -1,5 +1,6 @@
 import { DateTime } from 'luxon';
 
+import { buildDevBookingFixtureCalendarMask, isDevBookingFixtureRestaurant } from '@/server/restaurants/devBookingFixture';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { CalendarMask } from '@reserve/features/reservations/wizard/services/schedule';
@@ -36,6 +37,10 @@ export async function getRestaurantCalendarMask({
   from,
   to,
 }: CalendarMaskArgs): Promise<CalendarMask> {
+  if (isDevBookingFixtureRestaurant(restaurantId)) {
+    return buildDevBookingFixtureCalendarMask({ from, to });
+  }
+
   const zone = timezone?.trim() || 'UTC';
   const supabase = getServiceSupabaseClient();
 

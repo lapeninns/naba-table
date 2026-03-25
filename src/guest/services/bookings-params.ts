@@ -1,5 +1,10 @@
 import type { BookingsFilters } from "./ports";
 
+export const GUEST_PORTAL_BOOKINGS_FILTERS = {
+  page: 1,
+  pageSize: 50,
+} as const;
+
 const toIsoString = (value?: Date | string | null): string | undefined => {
   if (!value) return undefined;
 

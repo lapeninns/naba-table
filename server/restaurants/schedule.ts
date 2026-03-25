@@ -1,5 +1,6 @@
 import { getTodayInTimezone } from '@/lib/utils/datetime';
 import { getOccasionCatalog } from '@/server/occasions/catalog';
+import { buildDevBookingFixtureSchedule, isDevBookingFixtureRestaurant } from '@/server/restaurants/devBookingFixture';
 import { getServiceSupabaseClient } from '@/server/supabase';
 import { DEFAULT_RESERVATION_INTERVAL_MINUTES } from '@reserve/shared/config/reservations';
 import { formatReservationTime } from '@reserve/shared/formatting/booking';
@@ -430,6 +431,10 @@ export async function getRestaurantSchedule(
   restaurantId: string,
   options: ScheduleOptions = {},
 ): Promise<RestaurantSchedule> {
+  if (isDevBookingFixtureRestaurant(restaurantId)) {
+    return buildDevBookingFixtureSchedule(options.date);
+  }
+
   const client = options.client ?? getServiceSupabaseClient();
 
   const { data: restaurant, error: restaurantError } = await client

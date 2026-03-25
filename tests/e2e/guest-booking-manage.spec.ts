@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-const appBaseUrl = 'http://localhost:5180';
+const appBaseUrl = 'http://localhost:3000';
 const restaurantSlug = 'the-fox';
 const restaurantId = '11111111-1111-4111-8111-111111111111';
 const bookingId = '22222222-2222-4222-8222-222222222222';
@@ -63,20 +63,12 @@ const buildBookingDto = (state: BookingState) => ({
 test.describe('guest booking management', () => {
   test.use({ baseURL: appBaseUrl });
 
-  test.beforeEach(async ({ page, context }) => {
+  test.beforeEach(async ({ page }) => {
     const bookingState: BookingState = {
       notes: 'Window please',
       partySize: 2,
       status: 'confirmed',
     };
-
-    await context.addCookies([
-      {
-        name: 'sr_access',
-        value: 'test-session',
-        url: appBaseUrl,
-      },
-    ]);
 
     await page.route('**/api/restaurants/**', async (route) => {
       const url = new URL(route.request().url());
@@ -214,32 +206,33 @@ test.describe('guest booking management', () => {
     });
   });
 
-  test('guest can view booking details', async ({ page }) => {
-    await page.goto(`/bookings/${bookingId}`);
+  test('recovery-authorized booking detail is readable', async ({ page }) => {
+    await page.goto('/dev/booking-recovery?fixture=active&autoStart=1');
 
+    await expect(page).toHaveURL(`${appBaseUrl}/bookings/${bookingId}`);
     await expect(page.getByRole('heading', { name: 'The Fox' })).toBeVisible();
     await expect(page.getByText(bookingReference)).toBeVisible();
     await expect(page.getByText('Party Size')).toBeVisible();
   });
 
-  test('guest can update and cancel a booking', async ({ page }) => {
-    await page.goto(`/bookings/${bookingId}`);
+  test('recovery-authorized detail keeps manage actions read-only and preserves rebook', async ({ page }) => {
+    await page.goto('/dev/booking-recovery?fixture=active&autoStart=1');
 
-    await page.getByRole('button', { name: 'Modify Details' }).click();
-    await page.getByLabel('Notes (optional)').fill('Updated note for the team');
-    await page.getByRole('button', { name: 'Save changes' }).click();
-    await expect(page.getByText('Booking updated')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Modify Details' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Cancel Booking' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Book Again' })).toBeEnabled();
 
-    await page.getByRole('button', { name: 'Cancel Booking' }).click();
-    await expect(page.getByRole('heading', { name: 'Cancel this booking?' })).toBeVisible();
-    await page.getByRole('button', { name: 'Cancel booking' }).click();
-    await expect(page.getByText('Booking cancelled')).toBeVisible();
+    await page.getByRole('button', { name: 'Book Again' }).click();
+    await expect(page).toHaveURL(
+      `${appBaseUrl}/restaurants/${restaurantSlug}/book?source=rebook&reservationId=${bookingId}`,
+    );
   });
 
-  test('legacy manage route redirects to booking detail', async ({ page }) => {
+  test('legacy manage route redirects to sign-in handoff without recovery session', async ({ page }) => {
     await page.goto(`/bookings/${bookingId}/manage?view=manage`);
 
-    await expect(page).toHaveURL(`${appBaseUrl}/bookings/${bookingId}?view=manage`);
-    await expect(page.getByRole('heading', { name: 'The Fox' })).toBeVisible();
+    await expect(page).toHaveURL(
+      `${appBaseUrl}/auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252F${bookingId}%253Fview%253Dmanage`,
+    );
   });
 });

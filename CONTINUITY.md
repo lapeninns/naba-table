@@ -1,49 +1,54 @@
 # Continuity Ledger
 
-Last updated: 2026-03-25T18:28:00Z
+Last updated: 2026-03-25T19:53:00Z
 
 ## Goal (incl. success criteria)
 
-- Continue the paused `guest-booking-lifecycle` mission validator pass in the dedicated worktree.
-- Success means the stale assertions `VAL-BOOKING-002`, `VAL-BOOKING-004`, `VAL-BOOKING-005`, `VAL-BOOKING-008`, `VAL-BOOKING-009`, `VAL-BOOKING-010`, and `VAL-BOOKING-011` have fresh truthful validation evidence and the live runtime behavior matches that evidence.
+- Complete the remaining guest portal convergence features in the dedicated guest worktree.
+- Success means dashboard, bookings, and profile share the canonical guest shell family, dev-browser harnesses exist for the auth-gated portal routes, stale guest Playwright coverage is updated to current port-3000 flows, and the public booking-entry route is clean of the app-owned runtime noise found during validation.
 
 ## Constraints/Assumptions
 
 - Work only in the isolated mission worktree and validate against the live Next.js server on port `3000`.
-- Follow existing booking detail/recovery intent helpers and dev harness patterns; do not widen allowed redirect targets beyond approved internal guest/public/app paths.
-- Required validation includes targeted Vitest/Playwright coverage, `pnpm typecheck`, `pnpm lint`, and manual live browser verification on `http://localhost:3000`.
+- Use the dev browser as the default validation surface for portal and booking-entry checks.
+- Dev-only portal harnesses are the truthful local validation path for auth-gated `/guest/*` routes.
+- `validate-live-apphost-guest-route-canonicalization` remains environment-bound unless a trustworthy local multi-host route becomes available.
 
 ## Key decisions
 
-- Keep receipt token continuity in the shared reservation-fetch path instead of creating a receipt-only API client.
-- Treat `GET /api/bookings/:id?token=...` as booking-scoped confirmation-token access for receipt reads while keeping public booking detail pages on the recovery-token path.
-- Preserve rebook continuity with a safe canonical fallback instead of letting fixture slugs dead-end on a not-found route.
-- Expose booking-detail loading/error validation and guest receipt lifecycle validation through dev-only harnesses that reuse the canonical UI.
+- Reuse the canonical guest-shell primitives through a shared `GuestPortalPage` wrapper instead of building a parallel portal shell.
+- Inject mocked guest services/session state inside client-side dev harness components to avoid passing function-bearing service objects across a server/client boundary.
+- Update stale Playwright coverage to the flows the app actually supports now: canonical `/restaurants/[slug]/book`, recovery-authorized read-only booking detail, and `PLAYWRIGHT_DEV_HARNESS=1` on the live port-3000 server.
+- Add a dev-only public schedule/calendar fallback for the local fixture restaurant instead of letting the booking-entry route render from the fixture page shell and then fail its live schedule requests.
+- Remove the public booking page’s `next/dynamic` wrapper around `ReservationWizard` so the route no longer bails out to client rendering and preloads an orphaned chunk in local dev.
+- Keep the plan-step time select controlled even before a time is chosen so the browser stays free of the uncontrolled-to-controlled warning once suggestions hydrate.
 
 ## State
 
-- The resumed validator pass is functionally complete: booking-detail rebook continuity is fixed, booking-detail loading/error states are browser-visible, and the receipt client/API now preserve tokenized entitlement through hydration/refetch.
-- The old local example `/guest/bookings/333.../receipt?token=abc123` still fails in the live browser, but the failure is now a truthful missing-data case: the connected remote dataset does not contain bookings `333...`, `444...`, or `555...`.
-- A dev-only guest receipt harness now provides deterministic browser validation for confirmed, pending, and cancelled receipt states when the local runtime lacks those seeded records.
+- The guest portal convergence pass is functionally complete in the worktree: dashboard, bookings, and profile now share the canonical guest shell, mocked dev harnesses exist for all three, booking-entry runtime noise has been cleaned up, and focused Vitest/Playwright/typecheck/lint are green.
+- Manual Chrome DevTools validation confirms the new harness routes render correctly on `localhost:3000`, with screenshots and a Lighthouse snapshot stored in `tasks/guest-portal-convergence-and-runtime-followups-20260325-1857/artifacts/`.
+- A follow-up real-browser capture in `artifacts/booking-entry-browser-check.json` confirms `/restaurants/the-fox/book` now loads without the earlier `schedule` `500`s, stale wizard chunk `404`, or uncontrolled select warning.
+- One mission item remains genuinely open: live apphost canonicalization is still environment-bound.
 
 ## Done
 
-- Loaded the paused mission state, recent handoffs, validation contract, and current synthesis/state artifacts.
-- Confirmed the port-3000 Next.js server is running from the mission worktree.
-- Reproduced the live outcomes for unauthenticated public booking detail, authorized recovery-backed public booking detail, tokenized guest receipt, and rebook navigation.
-- Created `tasks/guest-booking-lifecycle-validation-rerun-20260325-1800/`.
-- Added the shared booking-detail loading/error harness and the new dev-only guest receipt harness.
-- Fixed the booking API/token/client path so receipt token access no longer trips the deprecated-token branch and remains stable through client refetches.
-- Verified with focused Vitest, focused Playwright, full Vitest, `pnpm typecheck`, `pnpm lint`, and Chrome DevTools screenshots.
-- Confirmed via read-only Supabase query that the local remote dataset lacks the historical receipt fixture bookings used by the old `abc123` browser example.
+- Created `tasks/guest-portal-convergence-and-runtime-followups-20260325-1857/`.
+- Added `GuestPortalPage` and converged dashboard/bookings/profile onto the shared guest shell family.
+- Added deterministic dev portal harness routes and mocked guest portal services for dashboard, bookings, and profile.
+- Extended `GuestServicesProvider` / guest page-view contracts to support injected mocked session state and service ports.
+- Removed the stray profile page debug log.
+- Added server-side dev fixture fallbacks for the public fixture restaurant schedule/calendar APIs used by the booking-entry route.
+- Removed the `next/dynamic` wrapper from the public `ReservationWizardClient` and fixed the plan-step time select to stay controlled.
+- Refreshed stale Playwright coverage to current supported flows and validated it with `PLAYWRIGHT_DEV_HARNESS=1`.
+- Verified with focused Vitest, focused Playwright, targeted booking-entry browser capture, `pnpm typecheck`, `pnpm lint`, and Chrome DevTools screenshots plus Lighthouse snapshot.
 
 ## Now
 
-- Update task artifacts and final handoff notes with the fixed contract plus the remaining missing-seed limitation.
+- Update mission metadata so the completed portal-convergence/runtime-cleanup features and still-pending apphost follow-up match the new evidence.
 
 ## Next
 
-- Share the final mission/worktree summary with the user.
+- Share the completion summary plus the one still-open follow-up (`validate-live-apphost-guest-route-canonicalization`).
 
 ## Open questions (UNCONFIRMED if needed)
 
@@ -52,14 +57,28 @@ Last updated: 2026-03-25T18:28:00Z
 ## Working set (files/ids/commands)
 
 - `CONTINUITY.md`
-- `tasks/guest-booking-lifecycle-validation-rerun-20260325-1800/`
-- `reserve/features/reservations/wizard/api/useReservation.ts`
-- `src/app/api/bookings/[id]/route.ts`
-- `src/app/guest/bookings/[bookingId]/receipt/*`
-- `src/app/(public)/dev/guest-receipt/page.tsx`
-- `src/components/features/booking/detail/*`
-- `server/restaurants/getRestaurantBySlug.ts`
-- `tests/guest/public-booking-pages.test.tsx`
-- `tests/guest/guest-receipt-pages.test.tsx`
-- `tests/e2e/guest-public-pages.spec.ts`
-- `tests/e2e/guest-receipt-pages.spec.ts`
+- `tasks/guest-portal-convergence-and-runtime-followups-20260325-1857/`
+- `src/components/features/guest/shared/GuestPortalPage.tsx`
+- `src/components/features/guest/dashboard/GuestDashboardClient.tsx`
+- `src/components/features/booking/list/BookingListClient.tsx`
+- `src/components/features/guest/profile/GuestProfileClient.tsx`
+- `src/app/(public)/dev/guest-dashboard/**`
+- `src/app/(public)/dev/guest-bookings/**`
+- `src/app/(public)/dev/guest-profile/**`
+- `src/guest/services/di.tsx`
+- `server/restaurants/devBookingFixture.ts`
+- `server/restaurants/schedule.ts`
+- `server/restaurants/calendarMask.ts`
+- `src/components/features/booking/wizard/ReservationWizardClient.tsx`
+- `reserve/features/reservations/wizard/ui/steps/plan-step/components/Calendar24Field.tsx`
+- `tests/e2e/guest-booking.spec.ts`
+- `tests/e2e/guest-booking-manage.spec.ts`
+- `tests/e2e/guest-mocked-api-coverage.spec.ts`
+- `tests/e2e/guest-reserve-routes.spec.ts`
+- `tests/server/restaurants/devBookingFixture.test.ts`
+- `npx vitest run tests/guest/guest-view-models.test.ts tests/guest/guest-bookings-params.test.ts --reporter=verbose`
+- `npx vitest run tests/server/restaurants/devBookingFixture.test.ts --reporter=verbose`
+- `PLAYWRIGHT_DEV_HARNESS=1 npx playwright test tests/e2e/guest-mocked-api-coverage.spec.ts tests/e2e/guest-booking.spec.ts tests/e2e/guest-booking-manage.spec.ts --reporter=list`
+- `PLAYWRIGHT_DEV_HARNESS=1 npx playwright test tests/e2e/guest-reserve-routes.spec.ts tests/e2e/guest-booking.spec.ts --reporter=list`
+- `pnpm typecheck`
+- `pnpm lint`

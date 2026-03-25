@@ -1,7 +1,10 @@
 import { QueryClient, dehydrate, type DehydratedState } from "@tanstack/react-query";
 
 import { normalizeBookingsTab, type BookingsTab } from "@/guest/lib/validation";
-import { buildBookingsQueryKeyParams } from "@/guest/services/bookings-params";
+import {
+  GUEST_PORTAL_BOOKINGS_FILTERS,
+  buildBookingsQueryKeyParams,
+} from "@/guest/services/bookings-params";
 import { queryKeys } from "@/lib/query/keys";
 
 import type { GuestServerServices } from "@/guest/services/server";
@@ -21,7 +24,7 @@ export const buildGuestBookingsViewModel = async (
   });
 
   const queryClient = new QueryClient();
-  const bookingsFilters = { page: 1, pageSize: 10 } as const;
+  const bookingsFilters = GUEST_PORTAL_BOOKINGS_FILTERS;
 
   try {
     const bookings = await services.bookings.list(bookingsFilters);

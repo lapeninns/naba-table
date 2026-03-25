@@ -4,7 +4,10 @@ import { queryKeys } from '@/lib/query/keys';
 import { buildGuestBookingsViewModel } from '@src/guest/routes/bookings/view-model';
 import { buildGuestDashboardViewModel } from '@src/guest/routes/dashboard/view-model';
 import { buildGuestProfileViewModel } from '@src/guest/routes/profile/view-model';
-import { buildBookingsQueryKeyParams } from '@src/guest/services/bookings-params';
+import {
+  GUEST_PORTAL_BOOKINGS_FILTERS,
+  buildBookingsQueryKeyParams,
+} from '@src/guest/services/bookings-params';
 
 import type { ProfileResponse } from '@/lib/profile/schema';
 import type { BookingsPage } from '@src/guest/services/ports';
@@ -36,7 +39,7 @@ const mockBookings: BookingsPage = {
   ],
   pageInfo: {
     page: 1,
-    pageSize: 10,
+    pageSize: GUEST_PORTAL_BOOKINGS_FILTERS.pageSize,
     total: 1,
     hasNext: false,
   },
@@ -79,10 +82,10 @@ describe('guest view models', () => {
       redirectTo: '/auth/signin',
       redirectedFrom: '/guest/dashboard',
     });
-    expect(services.bookings.list).toHaveBeenCalledWith({ page: 1, pageSize: 10 });
+    expect(services.bookings.list).toHaveBeenCalledWith(GUEST_PORTAL_BOOKINGS_FILTERS);
 
     const queryKey = queryKeys.bookings.list(
-      buildBookingsQueryKeyParams({ page: 1, pageSize: 10 }),
+      buildBookingsQueryKeyParams(GUEST_PORTAL_BOOKINGS_FILTERS),
     );
     expect(viewModel.dehydratedState.queries.map((query) => query.queryKey)).toContainEqual(
       queryKey,
@@ -98,7 +101,7 @@ describe('guest view models', () => {
       redirectTo: '/auth/signin',
       redirectedFrom: '/guest/bookings',
     });
-    expect(services.bookings.list).toHaveBeenCalledWith({ page: 1, pageSize: 10 });
+    expect(services.bookings.list).toHaveBeenCalledWith(GUEST_PORTAL_BOOKINGS_FILTERS);
     expect(viewModel.initialTab).toBe('past');
   });
 

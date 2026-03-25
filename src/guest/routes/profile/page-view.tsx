@@ -4,14 +4,26 @@ import { GuestProfileClient } from "@/components/features/guest/profile/GuestPro
 import { GuestServicesProvider } from "@/guest/services/di";
 
 import type { GuestProfileViewModel } from "./view-model";
+import type { GuestProfileMutationController } from "@/components/features/guest/profile/GuestProfileClient";
+import type { GuestServices } from "@/guest/services/ports";
+import type { SupabaseSessionState } from "@/hooks/useSupabaseSession";
 
-export function GuestProfilePageView({ viewModel }: { viewModel: GuestProfileViewModel }) {
+export function GuestProfilePageView({
+  viewModel,
+  services,
+  sessionStateOverride,
+  profileMutationOverride,
+}: {
+  viewModel: GuestProfileViewModel;
+  services?: Partial<GuestServices>;
+  sessionStateOverride?: SupabaseSessionState;
+  profileMutationOverride?: GuestProfileMutationController;
+}) {
   return (
-    <GuestServicesProvider>
+    <GuestServicesProvider services={services} sessionStateOverride={sessionStateOverride}>
       <HydrationBoundary state={viewModel.dehydratedState}>
-        <GuestProfileClient viewModel={viewModel} />
+        <GuestProfileClient viewModel={viewModel} profileMutationOverride={profileMutationOverride} />
       </HydrationBoundary>
     </GuestServicesProvider>
   );
 }
-

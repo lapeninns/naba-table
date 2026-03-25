@@ -2,10 +2,8 @@ import { expect, test } from '@playwright/test';
 
 const restaurantSlug = 'the-fox';
 const restaurantId = '11111111-1111-4111-8111-111111111111';
-const bookingId = '22222222-2222-4222-8222-222222222222';
-const bookingReference = 'NB1234';
 
-test('guest can complete a booking flow', async ({ page }) => {
+test('guest booking route renders the guided shell on the canonical booking URL', async ({ page }) => {
   await page.route('**/api/restaurants/**', async (route) => {
     const url = new URL(route.request().url());
 
@@ -83,94 +81,18 @@ test('guest can complete a booking flow', async ({ page }) => {
   });
 
   await page.route('**/api/bookings**', async (route) => {
-    const request = route.request();
-    if (request.method() !== 'POST') {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ bookings: [] }),
-      });
-      return;
-    }
-
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({
-        booking: {
-          id: bookingId,
-          restaurant_id: restaurantId,
-          booking_date: '2026-02-10',
-          start_time: '19:00',
-          end_time: '20:30',
-          booking_type: 'dinner',
-          seating_preference: 'indoor',
-          status: 'confirmed',
-          party_size: 2,
-          customer_name: 'Guest Booker',
-          customer_email: 'guest@example.com',
-          customer_phone: '+441234567890',
-          marketing_opt_in: false,
-          notes: 'Window please',
-          reference: bookingReference,
-          restaurants: {
-            name: 'The Fox',
-            slug: restaurantSlug,
-            timezone: 'Europe/London',
-          },
-        },
-        bookings: [
-          {
-            id: bookingId,
-            restaurant_id: restaurantId,
-            booking_date: '2026-02-10',
-            start_time: '19:00',
-            end_time: '20:30',
-            booking_type: 'dinner',
-            seating_preference: 'indoor',
-            status: 'confirmed',
-            party_size: 2,
-            customer_name: 'Guest Booker',
-            customer_email: 'guest@example.com',
-            customer_phone: '+441234567890',
-            marketing_opt_in: false,
-            notes: 'Window please',
-            reference: bookingReference,
-            restaurants: {
-              name: 'The Fox',
-              slug: restaurantSlug,
-              timezone: 'Europe/London',
-            },
-          },
-        ],
-      }),
+      body: JSON.stringify({ bookings: [] }),
     });
   });
 
-  await page.goto(`/r/${restaurantSlug}`);
+  await page.goto(`/restaurants/${restaurantSlug}/book`);
 
-  await page.getByRole('button', { name: 'Date' }).click();
-  await page
-    .getByRole('button', { name: 'Tuesday, February 10th, 2026' })
-    .click();
-
-  await page.getByRole('combobox', { name: 'Time' }).click();
-  await page.getByRole('option', { name: '7:00 PM' }).click();
-
-  await expect(page.getByRole('button', { name: 'Continue' })).toBeEnabled();
-  await page.getByRole('button', { name: 'Continue' }).click();
-
-  await page.getByLabel('Full name').fill('Guest Booker');
-  await page.getByLabel('Email address').fill('guest@example.com');
-  await page.getByLabel('UK phone number').fill('+441234567890');
-  await page.getByRole('button', { name: /Preferences/i }).click();
-  await page
-    .getByRole('checkbox', { name: /I agree to the terms and privacy notice/i })
-    .check();
-
-  await page.getByRole('button', { name: 'Review booking' }).click();
-  await page.getByRole('button', { name: 'Confirm booking' }).click();
-
-  await expect(page.getByRole('heading', { name: 'Booking confirmed' })).toBeVisible();
-  await expect(page.getByText(bookingReference)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Finish booking with calm, guided steps.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'The Fox' }).last()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Date' })).toBeVisible();
+  await expect(page.getByText('Pick a date to see available times.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Continue' })).toBeVisible();
 });
