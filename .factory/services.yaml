@@ -4,8 +4,8 @@ commands:
   build: pnpm build
   typecheck: pnpm typecheck
   lint: pnpm lint
-  test: npx vitest run
-  test:e2e: npx playwright test tests/e2e/ops-email-delivery-dev-harness.spec.ts
+  test: npx vitest run --maxWorkers=9
+  test:e2e:guest: npx playwright test tests/e2e/guest-public-marketing.spec.ts tests/e2e/guest-public-pages.spec.ts tests/e2e/guest-auth-pages.spec.ts tests/e2e/guest-booking.spec.ts tests/e2e/guest-booking-manage.spec.ts tests/e2e/guest-receipt-pages.spec.ts tests/e2e/guest-portal-redirects.spec.ts tests/e2e/guest-reserve-routes.spec.ts tests/e2e/guest-mocked-api-coverage.spec.ts --workers=6
 
 services:
   web:

@@ -1,64 +1,63 @@
 # Architecture
 
-Architectural decisions, patterns discovered, and conventions.
+Architectural decisions, guest-route ownership notes, and shared implementation patterns for this mission.
 
 ---
 
-## Email Delivery Page Architecture
+## Guest Surface Groups
 
-### Component Hierarchy (Target)
+- **Marketing / discovery**
+  - `src/app/(public)/page.tsx`
+  - `src/app/(public)/(marketing)/restaurants/**`
+- **Guest auth**
+  - `src/app/(public)/auth/**`
+- **Public booking lifecycle**
+  - `src/app/(public)/bookings/**`
+  - `src/app/(public)/(marketing)/restaurants/[slug]/book/**`
+- **Guest portal**
+  - `src/app/guest/**`
 
-```
-page.tsx (Server Component — parses URL search params)
-└── OpsEmailDeliveryClient (Client Component — orchestrator)
-    ├── OpsPageHeader (title, restaurant badge, timezone, actions)
-    ├── Auto-refresh controls + manual refresh button
-    ├── Tabs (Delivery Log | Queue | Analytics)
-    │   ├── Delivery Log Tab
-    │   │   ├── Filter bar (field-select search, status multi-select, range toggle, template/email type dropdowns)
-    │   │   ├── Data table (sortable columns, expandable rows)
-    │   │   └── Pagination bar (total count, page size, prev/next)
-    │   ├── Queue Tab
-    │   │   ├── KPI tiles
-    │   │   ├── Status filter buttons
-    │   │   ├── Queue table
-    │   │   └── Pagination
-    │   └── Analytics Tab
-    │       ├── KPI tiles (Total, Delivered %, Delayed, Failures %)
-    │       ├── Status distribution bar
-    │       └── Secondary metrics (p50/p95, top failures, unique counts)
-    └── Retry confirmation dialog
-```
+## Shared Shell Ownership
 
-### Data Flow
+- `src/components/layouts/MarketingLayout.tsx` governs public marketing/discovery surfaces.
+- `src/components/layouts/GuestLayout.tsx` governs `/guest/**` and public booking routes.
+- `src/components/layouts/EnhancedAuthLayout.tsx` and `RoleSelectionLayout.tsx` are guest-facing auth entry shells that should converge toward the same guest system.
+- `src/components/layouts/GuestNavbar.tsx` is the primary guest navigation primitive.
 
-- API routes in `src/app/api/ops/email-delivery/` → server functions in `server/emails/email-delivery-log.ts`
-- Server uses Supabase RPCs (`ops_email_delivery_attempts_feed`, `ops_email_delivery_attempts_summary`) with fallback to direct queries
-- Client uses TanStack React Query hooks (`useOpsEmailDeliveryFeed`)
-- Service layer accessed via `OpsServicesProvider` context with factory functions
+## Shared Guest Primitives
 
-### Key Files
+- `src/components/guest/ui/GuestPrimitives.tsx` is the canonical guest primitive layer for:
+  - sections
+  - cards
+  - empty states
+  - status messaging
+  - guest-oriented action affordances
 
-- Page: `src/app/app/(app)/email-delivery/page.tsx`
-- Client: `src/components/features/email-delivery/OpsEmailDeliveryClient.tsx`
-- Components: `src/components/features/email-delivery/components/`
-- Hooks: `src/hooks/ops/useOpsEmailDeliveryFeed.ts`
-- API: `src/app/api/ops/email-delivery/route.ts`
-- Server: `server/emails/email-delivery-log.ts`
-- Types: `types/emailDelivery.ts`
-- Dev harness: `src/app/(public)/dev/ops-email-delivery/`
+When a guest-facing page needs a new pattern, extend the canonical guest primitives first instead of creating a separate page-local pattern.
 
-### Canonical Filter Option Sources
+## Route Ownership Pattern
 
-- Delivery Log template/email dropdowns must stay aligned with known values used across:
-  - `src/app/(public)/dev/_mocks/services/devEmailDelivery.ts`
-  - `src/components/features/email-delivery/components/OpsEmailQueuePanel.tsx`
-  - `server/queue/email.ts`
-- When adding/removing queue email types or delivery templates, update filter options and filter-bar tests together.
+- Guest/public/auth route ownership is enforced through:
+  - App Router route files in `src/app/**`
+  - guest auth helpers under `src/guest/services/**`
+  - redirect helpers under `lib/auth/**` and `lib/url/**`
+  - host/path canonicalization in `src/proxy.ts`
 
-### Validation Surface Caveat
+Route canonicalization should stay centralized. Do not duplicate redirect logic across unrelated page components.
 
-- Prefer `/dev/ops-email-delivery` when it renders full UI.
-- If dev harness is unavailable or shell-only under current `APP_ENV`, use authenticated `http://app.localhost:3000/email-delivery`.
+## Booking Lifecycle Reuse
 
-- Email Delivery retry flow currently exposes `messageId` in UI DTOs separately from delivery-log row `id`; any retry API keyed by `deliveryLogId` must surface the row id through feed DTOs instead of reusing provider message identifiers.
+- Public and guest booking detail flows reuse `src/app/(public)/bookings/booking-page.tsx` and `src/components/features/booking/detail/ReservationDetailClient.tsx`.
+- Receipt flows live under `src/app/guest/bookings/[bookingId]/receipt/**`.
+- Recovery flow and token normalization live under `src/app/(public)/bookings/recover/**`.
+
+When adjusting booking lifecycle UX, keep public detail, guest detail, recovery, and receipt behavior aligned.
+
+## Portal Data Coherence
+
+- Guest dashboard, guest bookings, and guest profile consume the guest route/view-model layer under `src/guest/routes/**` and hooks under `src/guest/hooks/**`.
+- Mocked portal validation is accepted for this mission, so fixture coherence across dashboard/bookings/profile matters.
+
+## Canonical Migration Rule
+
+Do not “polish” individual guest pages in isolation if they still depend on competing shell/layout primitives. First move them onto the canonical guest shell/primitives, then refine the page-level experience.

@@ -6,42 +6,54 @@ Testing surface, required testing skills/tools, resource cost classification per
 
 ## Validation Surface
 
-- **Primary surface**: Browser at `http://app.localhost:3000/email-delivery`
-- **Tool**: agent-browser (headless Chromium)
-- **Authentication**: Password login at `http://app.localhost:3000/auth/signin`
-  - Email: `oldcrown@lapeninns.com`
-  - Password: `OldCrown@2025`
-- **Dev harness**: `http://localhost:3000/dev/ops-email-delivery` (intended no-auth mock surface), but in this mission's local env it may return `404` when `APP_ENV=staging` causes `enforceDevOnly()` to block public dev routes. If that happens, use the authenticated primary surface above instead.
-- **Dev server**: Already running on port 3000 (`pnpm dev`)
+- **Primary tool**: `agent-browser`
+- **Live browser surface**: `http://localhost:3000`
+- **Live routes confirmed in dry run**:
+  - `/`
+  - `/auth`
+  - `/auth/signin`
+  - `/bookings`
+  - unauthenticated redirects from `/guest/*`
+- **Accepted limitation**: authenticated guest-portal validation will use mocked portal validation for this mission unless a stable real guest fixture is later introduced
+- **Real guest auth/bootstrap**: not currently assumed available for validator work
+- **Use live smoke checks for**:
+  - public landing/discovery
+  - guest auth entry
+  - booking/recovery/receipt redirects and canonicalization
+- **Use mocked authenticated fixtures for**:
+  - `/guest/dashboard`
+  - `/guest/bookings`
+  - `/guest/profile`
 
 ## Validation Concurrency
 
-- Machine: 64GB RAM, 18 CPU cores, ~30GB free headroom
-- Per agent-browser instance: ~300MB RAM
-- Dev server: ~200MB RAM (shared, already running)
-- Max concurrent validators: **5** (5 × 300MB = 1.5GB, well within 70% of 30GB = 21GB budget)
+- Machine: 64GB RAM, 18 CPU cores
+- Dry-run observation: browser validation is CPU-bound before RAM-bound on this machine
+- Conservative max concurrent browser validators: **6**
+- Do not exceed **6** concurrent guest-surface validators unless the orchestrator explicitly updates this file
 
-## Flow Validator Guidance: browser
+## Flow Validator Guidance
 
-- Use authenticated `http://app.localhost:3000/email-delivery` for this milestone because the public dev harness may be unavailable under `APP_ENV=staging`.
-- Always log in through `http://app.localhost:3000/auth/signin` with the documented validator credentials, then navigate directly back to `/email-delivery` because successful sign-in currently redirects to `/dashboard`.
-- Keep each validator within its assigned browser session and assertion set; do not mutate unrelated tabs or restaurant context outside the assigned flow.
-- For Delivery Log error-state validation, use the canonical forced-error triggers supported in this milestone: `messageId=__force_error__` and `simulateEmailDeliveryError=1`.
+- Prefer live browser validation on `http://localhost:3000` for guest/public/auth/redirect flows.
+- Prefer mocked authenticated validation for portal dashboard/bookings/profile flows.
+- When validating route canonicalization, capture:
+  - starting URL
+  - final URL
+  - visible destination state
+  - any redirect chain evidence available
+- When validating guest-system consistency, capture representative screenshots across:
+  - marketing/discovery
+  - auth
+  - booking lifecycle
+  - portal (mocked if necessary)
+- If multi-host guest/app canonicalization cannot be exercised in the current runtime, record the blocker and rely on deterministic automated coverage rather than silently skipping the assertion.
 
-## Queue-and-Analytics Assertion Routing (Reruns)
+## Mocked Portal Guidance
 
-- For `VAL-Q-006`, `VAL-AN-004`, and `VAL-CROSS-006`, use the restored dev harness at `http://localhost:3000/dev/ops-email-delivery` as the primary validation surface (it exposes deterministic queue/analytics controls and multi-restaurant switcher options).
-- `VAL-AN-004` precondition: a direct URL with `tab=delivery-log&page=2` is an acceptable page-2+ starting state for independence validation, even if live dataset pagination controls are disabled.
-- `VAL-CROSS-006`: validate restaurant switch reset/reload using the harness switcher (`Dev Restaurant` → `Second Dev Restaurant`) and capture before/after screenshots plus URL/query evidence.
-
-## Actions-and-Realtime Deterministic Fixtures
-
-- For `VAL-ACT-001` through `VAL-ACT-005`, use the authenticated surface at `http://app.localhost:3000/email-delivery?restaurantId=<active-membership-restaurant-id>&fixture=retry-actions`.
-- The `fixture=retry-actions` query param is dev/test-safe and only affects authenticated email-delivery validation flows. It injects deterministic delivery-log rows so validators always get:
-  - one `failed` row with a visible row-level **Retry** button,
-  - one `bounced` row with a visible row-level **Retry** button,
-  - one non-retryable `delivered` row without a Retry button.
-- The fixture rows use real delivery-log UUIDs so the confirmation dialog and `POST /api/ops/email-delivery/retry` mutation path can be exercised end-to-end from the table UI.
-- For retry success validation, keep `fixture=retry-actions` and click a failed/bounced row Retry button, confirm the dialog, and verify the success toast plus delivery-log refetch.
-- For retry error validation, use `fixture=retry-actions&simulateRetryMutationError=1`; this keeps the retryable rows visible but forces the row-level retry mutation to fail so the error toast can be observed without changing live data.
-- For `VAL-Q-006`, use `http://app.localhost:3000/email-delivery?restaurantId=<active-membership-restaurant-id>&tab=queue&queueFixture=loading` and switch away/back to Queue or click Refresh. The fixture holds the queue request long enough for the visible `Loading email queue` skeleton / `Refreshing queued jobs…` indicator to appear deterministically.
+- Keep mocked fixtures coherent across dashboard, bookings, and profile for the same guest identity.
+- Prefer assertions that are stable under mocked portal validation:
+  - shell consistency
+  - primary actions
+  - upcoming/past tab behavior
+  - empty/loading/error states
+  - non-editable email and profile form feedback

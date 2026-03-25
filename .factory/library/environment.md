@@ -9,8 +9,14 @@ Environment variables, external dependencies, and setup notes.
 
 - Next.js 16 with App Router and Turbopack
 - pnpm 10.12.1, Node >=20.11.1
-- Supabase for database (remote, cloud-hosted)
-- Resend for email delivery
-- `.env.local` contains all required env vars (already configured)
-- Local env may run with `APP_ENV=staging` in this repository state.
-- When `APP_ENV=staging`, `/dev/ops-email-delivery` may be unavailable or shell-only; use authenticated `http://app.localhost:3000/email-delivery` for validation.
+- Supabase/Auth-backed environment is reused from the developer machine; no schema work is in scope
+- Mission execution happens in the isolated worktree:
+  - `/Users/amankumarshrestha/LapenInns Project/nabatableLP-guest-design-system-20260325-0745`
+- The original checkout remains available at:
+  - `/Users/amankumarshrestha/LapenInns Project/nabatableLP`
+- `.env.local` is not tracked in git; `.factory/init.sh` symlinks the original checkout’s `.env.local` into the worktree when needed
+- Existing local app server runs on port `3000`
+- Off-limits ports/processes:
+  - `3001` (another local project)
+  - `3100` (another local service)
+  - `5000` and `7000` (macOS system services)
