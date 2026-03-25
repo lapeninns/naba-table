@@ -1,0 +1,86 @@
+{
+  "surface": "live browser guest redirects on http://localhost:3000 using agent-browser session ce4b2fe22b7f__u1",
+  "assertions": [
+    {
+      "id": "VAL-FOUNDATION-004",
+      "status": "pass",
+      "reason": "Unauthenticated access to /guest/bookings?tab=upcoming redirected to sign-in with preserved safe return intent.",
+      "evidence": {
+        "urls": {
+          "start": "http://localhost:3000/guest/bookings?tab=upcoming",
+          "final": "http://localhost:3000/auth/signin?redirectedFrom=%2Fguest%2Fbookings"
+        },
+        "screenshots": [
+          "guest-foundation-and-route-ownership/live-guest-redirects/VAL-FOUNDATION-004-guest-bookings-entry.png",
+          "guest-foundation-and-route-ownership/live-guest-redirects/VAL-FOUNDATION-004-signin.png"
+        ],
+        "observations": [
+          "Browser landed on Sign in \u00b7 Nab a Table.",
+          "redirectedFrom preserved the original protected route path as /guest/bookings.",
+          "No browser page errors were reported by agent-browser errors.",
+          "Network capture on the redirected page showed the signin document request."
+        ]
+      }
+    },
+    {
+      "id": "VAL-FOUNDATION-006",
+      "status": "pass",
+      "reason": "Entering /guest canonicalized to the guest dashboard experience, which in the unauthenticated case redirects to sign-in using /guest/dashboard as the preserved return target.",
+      "evidence": {
+        "urls": {
+          "start": "http://localhost:3000/guest",
+          "comparison": "http://localhost:3000/guest/dashboard",
+          "final": "http://localhost:3000/auth/signin?redirectedFrom=%2Fguest%2Fdashboard"
+        },
+        "screenshots": [
+          "guest-foundation-and-route-ownership/live-guest-redirects/VAL-FOUNDATION-006-guest-root.png",
+          "guest-foundation-and-route-ownership/live-guest-redirects/VAL-FOUNDATION-006-guest-dashboard.png"
+        ],
+        "observations": [
+          "Opening /guest reported the Dashboard page title before redirect completion and ultimately resolved to the sign-in page.",
+          "Directly opening /guest/dashboard produced the same final sign-in URL with redirectedFrom=%2Fguest%2Fdashboard.",
+          "This indicates /guest resolves through the dashboard destination rather than a separate competing guest home.",
+          "No browser page errors were reported by agent-browser errors."
+        ]
+      }
+    },
+    {
+      "id": "VAL-FOUNDATION-013",
+      "status": "blocked",
+      "reason": "The known local app.localhost runtime limitation reproduced: app-host guest route access entered a redirect loop instead of canonicalizing cleanly back to the root host in the live browser.",
+      "evidence": {
+        "urls": {
+          "start": "http://app.localhost:3000/guest/bookings?tab=upcoming",
+          "expected": "http://localhost:3000/guest/bookings?tab=upcoming",
+          "rootHostReference": "http://localhost:3000/auth/signin?redirectedFrom=%2Fguest%2Fbookings"
+        },
+        "screenshots": [
+          "guest-foundation-and-route-ownership/live-guest-redirects/VAL-FOUNDATION-013-root-host-reference.png"
+        ],
+        "observations": [
+          "curl -I http://app.localhost:3000/guest/bookings?tab=upcoming returned HTTP 308 with location: /guest/bookings?tab=upcoming, i.e. a relative redirect rather than an absolute root-host canonical URL.",
+          "agent-browser open on the app-host URL failed with net::ERR_TOO_MANY_REDIRECTS.",
+          "As a control, the same path on the root host loaded and redirected unauthenticated users to sign-in with preserved return intent."
+        ]
+      }
+    }
+  ],
+  "summary": {
+    "passed": 2,
+    "failed": 0,
+    "blocked": 1,
+    "testedAssertionIds": ["VAL-FOUNDATION-004", "VAL-FOUNDATION-006", "VAL-FOUNDATION-013"]
+  },
+  "blockers": [
+    {
+      "assertionId": "VAL-FOUNDATION-013",
+      "description": "Live local validation on app.localhost loops with too many redirects.",
+      "evidence": [
+        "curl -I returned 308 location: /guest/bookings?tab=upcoming",
+        "agent-browser reported net::ERR_TOO_MANY_REDIRECTS"
+      ]
+    }
+  ],
+  "frictions": [],
+  "toolsUsed": ["agent-browser", "curl"]
+}

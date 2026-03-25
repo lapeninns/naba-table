@@ -1,0 +1,33 @@
+{
+  "surface": "root-host app canonicalization via curl against local runtime",
+  "assertions": [
+    {
+      "id": "VAL-CROSS-006",
+      "status": "pass",
+      "beforeUrl": "http://localhost:3000/app/dashboard?date=2026-03-25&view=day",
+      "afterUrl": "http://app.localhost:3000/dashboard?date=2026-03-25&view=day",
+      "headers": {
+        "status": 308,
+        "location": "http://app.localhost:3000/dashboard?date=2026-03-25&view=day",
+        "refresh": "0;url=http://app.localhost:3000/dashboard?date=2026-03-25&view=day"
+      },
+      "pathAndQueryContinuity": "preserved; /app prefix canonicalized to app-host root path while retaining date=2026-03-25&view=day",
+      "evidenceSource": "both",
+      "evidence": {
+        "liveRuntime": "evidence/guest-foundation-and-route-ownership/root-host-app-canonicalization/VAL-CROSS-006-live-headers.json",
+        "deterministicTest": "evidence/guest-foundation-and-route-ownership/root-host-app-canonicalization/VAL-CROSS-006-deterministic-test-reference.json",
+        "testFile": "/Users/amankumarshrestha/LapenInns Project/nabatableLP-guest-design-system-20260325-0745/tests/guest/public-booking-redirects.test.ts"
+      }
+    }
+  ],
+  "summary": "VAL-CROSS-006 passed: live curl against localhost:3000 returned a 308 redirect from the root-host /app/dashboard URL to http://app.localhost:3000/dashboard with query continuity preserved, matching deterministic coverage in tests/guest/public-booking-redirects.test.ts.",
+  "blockers": [],
+  "frictions": [
+    {
+      "description": "The curl header capture printed duplicate header lines because -I and -D - were combined; the redirect values were still deterministic and unambiguous.",
+      "resolved": true,
+      "affectedAssertions": ["VAL-CROSS-006"]
+    }
+  ],
+  "toolsUsed": ["curl"]
+}

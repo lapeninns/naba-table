@@ -67,3 +67,11 @@ Testing surface, required testing skills/tools, resource cost classification per
   - upcoming/past tab behavior
   - empty/loading/error states
   - non-editable email and profile form feedback
+
+## Flow Validator Guidance: browser
+
+- Use `agent-browser` for live browser validation against `http://localhost:3000` unless a Playwright-only mocked surface is explicitly required.
+- Stay within assigned guest/public/auth/portal routes and do not navigate into unrelated ops/admin flows except when capturing evidence that guest routes avoid ops chrome.
+- Treat `app.localhost` guest-route validation as isolated redirect-only coverage: capture start URL, final URL, and visible result, then stop.
+- For mocked portal checks, keep one coherent fixture identity across `/guest/dashboard`, `/guest/bookings`, and `/guest/profile`.
+- Do not mutate shared authenticated state or reusable fixtures outside the assigned assertion group.

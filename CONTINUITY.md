@@ -1,56 +1,56 @@
 # Continuity Ledger
 
-Last updated: 2026-03-25T07:15:00Z
+Last updated: 2026-03-25T09:33:55Z
 
 ## Goal (incl. success criteria)
 
-- Complete scrutiny validation for milestone `guest-foundation-and-route-ownership` by running required validators, spawning feature review subagents, synthesizing findings into `.factory/validation/guest-foundation-and-route-ownership/scrutiny/synthesis.json`, and handing results back to the orchestrator.
-- Success means test/typecheck/lint results are captured, all completed milestone features have scrutiny review reports, synthesis accurately reflects pass/fail state, and the worker returns control to the orchestrator.
+- Complete user testing validation for milestone `guest-foundation-and-route-ownership` by determining testable assertions, running flow validators, synthesizing results into `.factory/validation/guest-foundation-and-route-ownership/user-testing/synthesis.json`, updating mission validation state, and handing results back to the orchestrator.
+- Success means all milestone assertions selected from completed implementation features are tested or explicitly blocked with evidence, synthesis and validation-state are updated accurately, supporting validator evidence is captured, and the worker returns control to the orchestrator.
 
 ## Constraints/Assumptions
 
-- Must follow the active `scrutiny-validator` skill and always return control to the orchestrator.
-- Scope is limited to milestone scrutiny validation; do not change product code unless required for factual validation artifacts or low-risk shared-state documentation.
-- Use `.factory/services.yaml` as the source of truth for validator commands.
-- If any validator fails, stop review flow and report failure immediately.
+- Must follow the active `user-testing-validator` skill and always return control to the orchestrator.
+- Scope is limited to milestone user-testing validation; do not change product code unless required for factual validation artifacts or low-risk shared-state documentation.
+- Use `.factory/services.yaml` plus `.factory/library/user-testing.md` as the source of truth for services, routes, and validation guidance.
+- Portal validation may use mocked fixtures for this mission; public/auth/redirect checks should use the live browser surface on port 3000.
 
 ## Key decisions
 
-- Treat this as a first-run scrutiny pass because no prior synthesis existed under `.factory/validation/guest-foundation-and-route-ownership/scrutiny/`.
-- Review all completed implementation features in the milestone via `scrutiny-feature-reviewer` subagents in parallel.
-- Run the full milestone validators from `.factory/services.yaml`: `npx vitest run --maxWorkers=9`, `pnpm typecheck`, and `pnpm lint`.
+- Treat this as a first-run user-testing pass because no prior synthesis existed under `.factory/validation/guest-foundation-and-route-ownership/user-testing/`.
+- Test only the pending assertions fulfilled by completed milestone implementation features: `VAL-FOUNDATION-004`, `VAL-FOUNDATION-006`, `VAL-FOUNDATION-013`, and `VAL-CROSS-006`.
+- Use `user-testing-flow-validator` subagents to gather live browser/curl evidence in parallel, then run targeted deterministic validation with `npx vitest run tests/guest/public-booking-redirects.test.ts --reporter=verbose`.
 
 ## State
 
-- Mission context, validation contract, repo docs, and services manifest loaded.
-- Four scrutiny review subagents completed and wrote per-feature JSON reports.
-- Validators still need to be run and synthesis still needs to be written.
+- Mission context, validation contract, repo docs, services manifest, and user-testing guidance loaded.
+- Flow validator reports were collected for live guest redirects and root-host app canonicalization.
+- Validation state and user-testing synthesis were written; targeted deterministic verification completed.
 
 ## Done
 
-- Activated `scrutiny-validator` skill.
-- Read `CONTINUITY.md`, mission files, `package.json`, `README.md`, and `.factory/services.yaml`.
-- Confirmed completed milestone features: `guest-shell-primitives-and-layout-governance`, `host-and-route-canonicalization`, `stabilize-live-apphost-guest-route-canonicalization`, and `refresh-worktree-runtime-for-foundation-validation`.
-- Spawned and collected scrutiny reviews for all completed milestone features.
+- Activated `user-testing-validator` skill.
+- Read `CONTINUITY.md`, mission files, `README.md`, `.factory/services.yaml`, `.factory/library/user-testing.md`, and relevant redirect tests.
+- Confirmed pending milestone assertions from completed features: `VAL-FOUNDATION-004`, `VAL-FOUNDATION-006`, `VAL-FOUNDATION-013`, and `VAL-CROSS-006`.
+- Spawned and collected two `user-testing-flow-validator` reports covering live guest redirects and root/app host canonicalization.
+- Updated `.factory/library/user-testing.md`, mission `validation-state.json`, and `.factory/validation/guest-foundation-and-route-ownership/user-testing/synthesis.json`.
 
 ## Now
 
-- Run the configured validators and capture exact outcomes.
+- Finalize command outcomes and report the blocked local-runtime assertion back to the orchestrator.
 
 ## Next
 
-- Read review reports, triage shared-state observations, write synthesis JSON, commit any synthesis/library updates, and call `EndFeatureRun`.
+- Call `EndFeatureRun` with the completed assertion summary and targeted verification evidence.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- Whether any validator failures will require early termination before synthesis.
-- Whether the shared-state observations warrant additive `.factory/library/` updates or only orchestrator recommendations.
+- Whether the orchestrator will request a follow-up fix for the blocked local `app.localhost` redirect-loop behavior behind `VAL-FOUNDATION-013`.
 
 ## Working set (files/ids/commands)
 
 - `.factory/services.yaml`
-- `.factory/validation/guest-foundation-and-route-ownership/scrutiny/reviews/*.json`
-- `.factory/validation/guest-foundation-and-route-ownership/scrutiny/synthesis.json`
-- `npx vitest run --maxWorkers=9`
-- `pnpm typecheck`
-- `pnpm lint`
+- `.factory/library/user-testing.md`
+- `.factory/validation/guest-foundation-and-route-ownership/user-testing/flows/*.json`
+- `.factory/validation/guest-foundation-and-route-ownership/user-testing/synthesis.json`
+- `/Users/amankumarshrestha/.factory/missions/7b467445-b8da-4b80-8252-ffa00b1ed7eb/validation-state.json`
+- `npx vitest run tests/guest/public-booking-redirects.test.ts --reporter=verbose`
