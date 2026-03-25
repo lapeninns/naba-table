@@ -1,58 +1,30 @@
 {
   "milestone": "guest-discovery-and-auth",
-  "round": 1,
-  "status": "fail",
+  "round": 3,
+  "status": "pass",
   "assertionsSummary": {
-    "total": 18,
-    "passed": 11,
-    "failed": 3,
-    "blocked": 4
+    "total": 7,
+    "passed": 7,
+    "failed": 0,
+    "blocked": 0
   },
   "passedAssertions": [
-    "VAL-CROSS-001",
-    "VAL-CROSS-008",
-    "VAL-DISCOVERY-001",
-    "VAL-DISCOVERY-003",
-    "VAL-DISCOVERY-004",
-    "VAL-DISCOVERY-006",
-    "VAL-DISCOVERY-007",
-    "VAL-DISCOVERY-008",
-    "VAL-DISCOVERY-010",
-    "VAL-DISCOVERY-012",
-    "VAL-FOUNDATION-003"
+    "VAL-CROSS-002",
+    "VAL-CROSS-007",
+    "VAL-DISCOVERY-002",
+    "VAL-DISCOVERY-005",
+    "VAL-DISCOVERY-009",
+    "VAL-DISCOVERY-011",
+    "VAL-FOUNDATION-005"
   ],
-  "failedAssertions": [
+  "failedAssertions": [],
+  "blockedAssertions": [],
+  "appliedUpdates": [
     {
-      "id": "VAL-DISCOVERY-009",
-      "reason": "Live sign-in surface did not show inline validation or visible submission/success/cooldown feedback."
-    },
-    {
-      "id": "VAL-DISCOVERY-011",
-      "reason": "Callback failure query did not produce a visible guest-safe error message."
-    },
-    {
-      "id": "VAL-FOUNDATION-005",
-      "reason": "Unsafe external redirectedFrom query was not sanitized on the rendered guest sign-in URL."
+      "target": "user-testing.md",
+      "description": "Confirmed deterministic discovery empty-state fixture path /restaurants?fixture=empty-state for guest discovery validation.",
+      "source": "flow-report"
     }
   ],
-  "blockedAssertions": [
-    {
-      "id": "VAL-CROSS-002",
-      "blockedBy": "Blocked from safely proving post-auth return behavior because this validator was not allowed to mutate shared authenticated state and no dedicated mocked auth completion surface was provided."
-    },
-    {
-      "id": "VAL-CROSS-007",
-      "blockedBy": "Blocked because the assignment disallowed mutating shared authenticated state and no authenticated guest/owner browser fixture was available."
-    },
-    {
-      "id": "VAL-DISCOVERY-002",
-      "blockedBy": "Blocked because a signed-in guest session was not available in the assigned live browser surface."
-    },
-    {
-      "id": "VAL-DISCOVERY-005",
-      "blockedBy": "Blocked because the current local discovery surface did not expose an empty-state fixture or filter path that produced zero restaurants."
-    }
-  ],
-  "appliedUpdates": [],
-  "previousRound": null
+  "previousRound": "/Users/amankumarshrestha/LapenInns Project/nabatableLP-guest-design-system-20260325-0745/.factory/validation/guest-discovery-and-auth/user-testing/synthesis.json"
 }

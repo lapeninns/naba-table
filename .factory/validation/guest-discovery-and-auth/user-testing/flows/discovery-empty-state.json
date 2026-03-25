@@ -1,0 +1,45 @@
+{
+  "groupId": "discovery-empty-state",
+  "testedAt": "2026-03-25T12:01:53Z",
+  "isolation": {
+    "appUrl": "http://localhost:3000",
+    "route": "/restaurants?fixture=empty-state",
+    "boundary": "public discovery route only; deterministic empty-state fixture query; no shared data changes"
+  },
+  "toolsUsed": ["agent-browser"],
+  "assertions": [
+    {
+      "id": "VAL-DISCOVERY-005",
+      "title": "Discovery empty states are explicit and calm",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Open /restaurants?fixture=empty-state on the public discovery surface",
+          "expected": "A deterministic empty discovery state renders without leaving the guest shell",
+          "observed": "The restaurants page loaded on the fixture URL and stayed inside the guest discovery shell."
+        },
+        {
+          "action": "Inspect the page content and visual state",
+          "expected": "Guests see clear empty-state guidance and next steps instead of a blank or broken layout",
+          "observed": "The page showed the calm empty-state message \u201cNo tables are open to book just yet\u201d with follow-up actions for home, full list, and bookings."
+        },
+        {
+          "action": "Check browser errors and request log after the empty state rendered",
+          "expected": "No console/page errors block the empty state",
+          "observed": "agent-browser errors returned no page errors; the network request log did not capture entries beyond the already-loaded document."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "guest-discovery-and-auth/discovery-empty-state/VAL-DISCOVERY-005-empty-state.png"
+        ],
+        "consoleErrors": "none",
+        "network": "document GET /restaurants?fixture=empty-state -> 200 page load; agent-browser request log reported no additional captured requests"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 1 assertion on the public discovery surface: VAL-DISCOVERY-005 passed via the deterministic empty-state fixture and showed explicit calm guest guidance."
+}

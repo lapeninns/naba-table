@@ -1,0 +1,34 @@
+{
+  "featureId": "guest-receipt-and-thank-you-canonicalization",
+  "reviewedAt": "2026-03-25T12:46:00Z",
+  "commitId": "98fc48a73c6e3942577b6ab9ca32406b0da3a55e",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The receipt lifecycle copy and thank-you canonicalization updates are implemented, but the new unit coverage weakens the entitlement-path contract by using non-UUID booking identifiers against a route that normally validates UUIDs, so the test does not prove the real tokenized receipt flow and still emits the adapter warning noted in the handoff.",
+    "issues": [
+      {
+        "file": "tests/guest/guest-receipt-pages.test.tsx",
+        "line": 45,
+        "severity": "blocking",
+        "description": "The added entitlement tests use `booking-1` / `restaurant-1` ids even though reservation inputs are UUID-validated in the real receipt data path. That means the tokenized-access test bypasses the same schema expectations production requests hit, so it does not fully cover the required authenticated-or-tokenized receipt entitlement behavior for real booking IDs."
+      },
+      {
+        "file": "tests/guest/guest-receipt-pages.test.tsx",
+        "line": 108,
+        "severity": "non_blocking",
+        "description": "The mocked tokenized receipt payload still uses non-UUID ids, which is why the full Vitest run logs the receipt prefetch adapter warning called out in the handoff. The behavior passes, but the fixture is inconsistent with the reservation schema and leaves noisy test output behind."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "knowledge",
+      "observation": "The worker handoff discovered that receipt test fixtures must use UUID-shaped ids to stay aligned with the reservation adapter/schema and avoid the `[receipt][prefetch]` warning during the full suite, but `.factory/library/user-testing.md` does not capture this receipt-fixture requirement for future workers.",
+      "evidence": "tests/guest/guest-receipt-pages.test.tsx:45 and :108 use `booking-1` / `restaurant-1`; handoff.discoveredIssues explicitly notes the mocked receipt prefetch adapter warning and suggests switching to valid UUID strings."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Review failed: the feature code updates the receipt messaging correctly, but the new unit entitlement coverage uses unrealistic non-UUID booking fixtures, so the required receipt-access contract is not fully proven and still leaves a known warning in the suite."
+}

@@ -1,0 +1,174 @@
+{
+  "groupId": "auth-and-redirects",
+  "testedAt": "2026-03-25T12:03:35.405970Z",
+  "isolation": {
+    "appUrl": "http://localhost:3000",
+    "missionDir": "/Users/amankumarshrestha/.factory/missions/7b467445-b8da-4b80-8252-ffa00b1ed7eb",
+    "routes": ["/", "/auth", "/auth/signin"],
+    "boundary": "guest/public/auth routes only; no shared authenticated state mutation; single browser context"
+  },
+  "toolsUsed": ["agent-browser"],
+  "assertions": [
+    {
+      "id": "VAL-FOUNDATION-005",
+      "title": "Redirect targets are sanitized to validated internal paths",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Open /auth/signin with redirectedFrom=/guest/dashboard",
+          "expected": "Safe guest redirect intent remains on the sign-in URL",
+          "observed": "URL stayed http://localhost:3000/auth/signin?redirectedFrom=%2Fguest%2Fdashboard"
+        },
+        {
+          "action": "Open /auth/signin with redirectedFrom=https://evil.example/steal",
+          "expected": "Unsafe external redirect target is stripped and sign-in falls back to the default destination intent",
+          "observed": "URL normalized to http://localhost:3000/auth/signin with no external redirectedFrom value"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "guest-discovery-and-auth/auth-and-redirects/VAL-FOUNDATION-005-valid-redirect.png",
+          "guest-discovery-and-auth/auth-and-redirects/VAL-FOUNDATION-005-invalid-redirect-fallback.png"
+        ],
+        "consoleErrors": "none observed during both sign-in route loads",
+        "network": "Document navigations to /auth/signin completed with client-visible URL normalization; no separate API call required"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-DISCOVERY-009",
+      "title": "Guest sign-in surfaces inline validation, submission status, and cooldown feedback",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Open /auth/signin and enter not-an-email",
+          "expected": "Inline validation message should appear before or after submit",
+          "observed": "Only the email textbox and submit button remained visible; no inline validation text was surfaced in the visible guest UI"
+        },
+        {
+          "action": "Submit invalid email through Send magic link",
+          "expected": "The form should show validation/submission feedback and prevent ambiguous duplicate submission",
+          "observed": "The page remained visually unchanged after submit, with no visible loading, success, or cooldown feedback captured in the UI screenshots"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "guest-discovery-and-auth/auth-and-redirects/VAL-DISCOVERY-009-validation-state.png",
+          "guest-discovery-and-auth/auth-and-redirects/VAL-DISCOVERY-009-post-submit-invalid-email.png"
+        ],
+        "consoleErrors": "none observed",
+        "network": "No explicit network evidence captured because the guest surface provided no visible request/result feedback for the invalid submission"
+      },
+      "issues": "Live sign-in surface did not visibly present inline validation, submission status, or cooldown feedback for the tested invalid-email flow."
+    },
+    {
+      "id": "VAL-DISCOVERY-011",
+      "title": "Magic-link callback failures are translated into guest-safe messages",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Open /auth/signin with error=access_denied and an expired-link error_description",
+          "expected": "Guest should see understandable expired/invalid-link messaging on sign-in",
+          "observed": "URL preserved the raw auth error query, but the rendered page showed only the standard sign-in content with no visible guest-safe error message"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "guest-discovery-and-auth/auth-and-redirects/VAL-DISCOVERY-011-callback-error-state.png"
+        ],
+        "consoleErrors": "none observed",
+        "network": "Direct document navigation to /auth/signin?error=access_denied&error_description=... with no visible translated error state"
+      },
+      "issues": "Callback failure query did not render guest-safe expired/invalid-link messaging on the sign-in surface."
+    },
+    {
+      "id": "VAL-DISCOVERY-002",
+      "title": "Authenticated guests entering home are sent to the guest dashboard",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Open / on the live guest surface",
+          "expected": "An authenticated guest session would redirect to /guest/dashboard",
+          "observed": "Without an isolated authenticated guest fixture, the browser remained on the public landing page at http://localhost:3000/"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "guest-discovery-and-auth/auth-and-redirects/VAL-DISCOVERY-002-home-unauthenticated.png"
+        ],
+        "consoleErrors": "none observed",
+        "network": "Document request loaded / with no redirect in an unauthenticated browser context"
+      },
+      "issues": "No dedicated authenticated guest browser fixture was available within the assigned isolation boundary, so the authenticated-home redirect could not be proven safely."
+    },
+    {
+      "id": "VAL-CROSS-002",
+      "title": "Sign-in returns guests to the intended destination",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Review live guest sign-in redirect sanitization behavior",
+          "expected": "After successful auth completion, a safe redirectedFrom target should return the guest to the intended destination",
+          "observed": "Pre-auth URL sanitization could be observed, but no isolated post-auth completion fixture or safe authenticated callback harness was available to complete the flow without mutating shared auth state"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "guest-discovery-and-auth/auth-and-redirects/VAL-FOUNDATION-005-valid-redirect.png"
+        ],
+        "consoleErrors": "none observed during pre-auth checks",
+        "network": "Only pre-auth document navigations were exercised; post-auth redirect completion was not available in the isolated browser context"
+      },
+      "issues": "Blocked from safely proving post-auth return behavior because no dedicated auth-completion fixture was available and the assignment prohibited mutating shared authenticated state."
+    },
+    {
+      "id": "VAL-CROSS-007",
+      "title": "Authenticated visits to /auth canonicalize to the correct signed-in destination",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Open /auth in the assigned live browser context",
+          "expected": "An authenticated guest should redirect to /guest/dashboard and an authenticated owner/admin should redirect to /app",
+          "observed": "In the unauthenticated browser context, /auth rendered the guest role-selection page and no authenticated redirect could be exercised"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "guest-discovery-and-auth/auth-and-redirects/VAL-CROSS-007-auth-root-unauthenticated.png"
+        ],
+        "consoleErrors": "none observed",
+        "network": "Document request loaded /auth with no redirect in the available unauthenticated context"
+      },
+      "issues": "No authenticated guest or owner/admin browser fixture was available within the assigned isolation boundary, so the signed-in canonicalization behavior could not be validated safely."
+    }
+  ],
+  "frictions": [
+    {
+      "description": "The shared guidance file was located at repo-root .factory/library/user-testing.md rather than under the mission directory path referenced in the generic subagent instructions.",
+      "resolved": true,
+      "resolution": "Read the repo-root guidance file and followed its browser validation section.",
+      "affectedAssertions": [
+        "VAL-FOUNDATION-005",
+        "VAL-DISCOVERY-009",
+        "VAL-DISCOVERY-011",
+        "VAL-DISCOVERY-002",
+        "VAL-CROSS-002",
+        "VAL-CROSS-007"
+      ]
+    },
+    {
+      "description": "No isolated authenticated browser fixture or auth-completion harness was available for guest/owner sign-in redirect assertions within the allowed boundary.",
+      "resolved": false,
+      "resolution": "Recorded affected assertions as blocked instead of mutating shared authenticated state.",
+      "affectedAssertions": ["VAL-DISCOVERY-002", "VAL-CROSS-002", "VAL-CROSS-007"]
+    }
+  ],
+  "blockers": [
+    {
+      "description": "Authenticated redirect assertions could not be completed because the assignment prohibited shared authenticated-state mutation and no dedicated isolated signed-in fixture was available.",
+      "affectedAssertions": ["VAL-DISCOVERY-002", "VAL-CROSS-002", "VAL-CROSS-007"],
+      "quickFixAttempted": "Validated the available unauthenticated routes and looked for a dedicated public/auth fixture in the allowed surface, but none was exposed."
+    }
+  ],
+  "summary": "Tested 6 assigned assertions via one browser session: 1 passed (VAL-FOUNDATION-005), 2 failed (VAL-DISCOVERY-009, VAL-DISCOVERY-011), and 3 were blocked by the lack of an isolated authenticated fixture (VAL-DISCOVERY-002, VAL-CROSS-002, VAL-CROSS-007)."
+}

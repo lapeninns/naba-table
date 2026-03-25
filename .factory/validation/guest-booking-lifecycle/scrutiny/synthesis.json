@@ -1,0 +1,84 @@
+{
+  "milestone": "guest-booking-lifecycle",
+  "round": 1,
+  "status": "fail",
+  "validatorsRun": {
+    "test": {
+      "passed": true,
+      "command": "pnpm -C \"/Users/amankumarshrestha/LapenInns Project/nabatableLP-guest-design-system-20260325-0745\" exec npx vitest run --maxWorkers=9",
+      "exitCode": 0
+    },
+    "typecheck": {
+      "passed": true,
+      "command": "pnpm -C \"/Users/amankumarshrestha/LapenInns Project/nabatableLP-guest-design-system-20260325-0745\" typecheck",
+      "exitCode": 0
+    },
+    "lint": {
+      "passed": true,
+      "command": "pnpm -C \"/Users/amankumarshrestha/LapenInns Project/nabatableLP-guest-design-system-20260325-0745\" lint",
+      "exitCode": 0
+    }
+  },
+  "reviewsSummary": {
+    "total": 3,
+    "passed": 0,
+    "failed": 3,
+    "failedFeatures": [
+      "booking-recovery-and-link-normalization",
+      "guest-receipt-and-thank-you-canonicalization",
+      "public-bookings-home-and-detail"
+    ]
+  },
+  "blockingIssues": [
+    {
+      "featureId": "booking-recovery-and-link-normalization",
+      "severity": "blocking",
+      "description": "When an unauthenticated guest opens `/bookings/[bookingId]` without an `sr_access` cookie, the page still redirects to `/auth/signin?redirectedFrom=/bookings/[bookingId]` instead of preserving the canonical recovery entrypoint for tokenized/manage links. Because the feature contract requires supported tokenized booking links to route through `/bookings/recover`, preserve safe continuation, and leave a deterministic entitled public booking path for later live validation, this direct sign-in handoff breaks the canonical continuation path once the token has been stripped from the final URL. A guest who lands on the final detail URL after recovery but loses the recovery cookie cannot recover back through `/bookings/recover` from the preserved intent."
+    },
+    {
+      "featureId": "guest-receipt-and-thank-you-canonicalization",
+      "severity": "blocking",
+      "description": "The added entitlement tests use `booking-1` / `restaurant-1` ids even though reservation inputs are UUID-validated in the real receipt data path. That means the tokenized-access test bypasses the same schema expectations production requests hit, so it does not fully cover the required authenticated-or-tokenized receipt entitlement behavior for real booking IDs."
+    },
+    {
+      "featureId": "public-bookings-home-and-detail",
+      "severity": "blocking",
+      "description": "The shared detail component hardcodes the unauthenticated sign-in CTA to `/auth/signin?redirectedFrom=/guest/bookings/${reservationId}`. When reused on the public `/bookings/[bookingId]` route, guests are sent back to the guest-only portal path instead of the canonical public booking detail route, breaking the required shared public/guest detail model and return-intent behavior."
+    },
+    {
+      "featureId": "public-bookings-home-and-detail",
+      "severity": "blocking",
+      "description": "This feature commit contains tests only; it does not modify `/bookings`, booking-detail routing, or lifecycle UI implementation files. The expected behavior was to implement public booking home/detail UX and canonicalization, but the diff merely adds coverage around behavior that must already exist elsewhere."
+    }
+  ],
+  "appliedUpdates": [],
+  "suggestedGuidanceUpdates": [
+    {
+      "target": "skills",
+      "suggestion": "The `guest-routing-worker` skill says to start from `.factory/library/guest-routes.md`, `.factory/library/environment.md`, and `.factory/library/user-testing.md`, but it does not tell workers what to do when a requested feature's first step is to repair a known baseline blocker before any RED test can run. This worker had to deviate and document that the failing baseline itself was the assigned blocker.",
+      "evidence": ".factory/skills/guest-routing-worker/SKILL.md 'Work Procedure' step 4 requires RED tests first; handoff `.../handoffs/2026-03-25T12-38-19-912Z__booking-recovery-and-link-normalization__bf76d6ea-09f8-4c58-8e4b-342b7b68c060.json` records `skillFeedback.deviations` explaining the baseline import failure was the pre-assigned blocker.",
+      "isSystemic": false
+    },
+    {
+      "target": "skills",
+      "suggestion": "The `guest-ui-worker` skill says to write tests first (RED) before implementation, but this worker completed a feature by landing a tests-only commit with no product-code changes. The current skill wording does not make it explicit that adding coverage alone is insufficient unless the feature description explicitly says the product already satisfies the contract and the task is validation-only.",
+      "evidence": "Commit `aedf616e062c7890b06a89802bc9a9efdb7d7105` adds only `tests/guest/public-booking-pages.test.tsx`, while the feature description in mission `features.json` calls for implementing `/bookings` and booking-detail behavior.",
+      "isSystemic": false
+    }
+  ],
+  "rejectedObservations": [
+    {
+      "observation": "The new dev booking-recovery harness depends on `SESSION_RECOVERY_ACCESS_TOKEN_SECRET`, but `.factory/library/environment.md` does not mention that this env var must be present for `/dev/booking-recovery` to generate a live recovery link. Future validators will otherwise discover the page but may not know why it only shows the missing-secret message.",
+      "reason": "ambiguous-or-out-of-scope-for-validator"
+    },
+    {
+      "observation": "The shared validation guidance notes the auth-validation and restaurants empty-state fixtures, but it does not document the new deterministic public booking harness path `/dev/booking-recovery` that this feature introduced for later live entitled booking-detail coverage.",
+      "reason": "ambiguous-or-out-of-scope-for-validator"
+    },
+    {
+      "observation": "The worker handoff discovered that receipt test fixtures must use UUID-shaped ids to stay aligned with the reservation adapter/schema and avoid the `[receipt][prefetch]` warning during the full suite, but `.factory/library/user-testing.md` does not capture this receipt-fixture requirement for future workers.",
+      "reason": "ambiguous-or-out-of-scope-for-validator"
+    }
+  ],
+  "previousRound": null
+}
