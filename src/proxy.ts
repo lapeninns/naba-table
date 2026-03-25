@@ -89,6 +89,10 @@ function buildHostWithPort(hostname: string, port?: string) {
   return `${hostname}:${port}`;
 }
 
+function shouldUseAbsoluteRedirect(req: NextRequest, targetHost: string) {
+  return targetHost !== req.nextUrl.host;
+}
+
 function buildRedirect(
   req: NextRequest,
   targetHost: string,
@@ -100,8 +104,10 @@ function buildRedirect(
   const suffix = searchParams ? `?${searchParams}` : '';
   const url = new URL(`${pathname}${suffix}`, base);
   const response = NextResponse.redirect(url, status);
-  // Ensure cross-host redirects are absolute for clarity and correctness.
-  response.headers.set('location', url.toString());
+  if (shouldUseAbsoluteRedirect(req, targetHost)) {
+    // Cross-host redirects must stay absolute so the browser changes hosts.
+    response.headers.set('location', url.toString());
+  }
   return response;
 }
 
