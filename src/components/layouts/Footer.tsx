@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 
 import { BrandLogo } from '@/components/shared/BrandLogo';
 import { useSupabaseSession } from '@/hooks/useSupabaseSession';
@@ -10,6 +11,11 @@ type FooterVariant = 'marketing' | 'guest' | 'app' | 'auth' | 'compact';
 export function Footer({ variant: _variant = 'marketing' }: { variant?: FooterVariant }) {
   const { status } = useSupabaseSession();
   const isAuthenticated = status === 'authenticated';
+  const [currentYear, setCurrentYear] = useState<number | null>(null);
+
+  useEffect(() => {
+    setCurrentYear(new Date().getFullYear());
+  }, []);
 
   return (
     <footer className="border-t border-border/70 bg-background/80 text-foreground backdrop-blur supports-[backdrop-filter]:saturate-150">
@@ -51,7 +57,7 @@ export function Footer({ variant: _variant = 'marketing' }: { variant?: FooterVa
 
       {/* Bottom row */}
       <div className="guest-boundary flex flex-col gap-2 py-4 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-        <p>&copy; {new Date().getFullYear()} Nab a Table. All rights reserved.</p>
+        <p>&copy; {currentYear ?? '2026'} Nab a Table. All rights reserved.</p>
         <nav aria-label="Legal links" className="flex gap-4">
           <Link href="/privacy" className="transition-colors hover:text-primary">
             Privacy Policy
