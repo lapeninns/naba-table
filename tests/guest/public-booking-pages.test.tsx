@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import BookingsLandingPage from '@src/app/(public)/bookings/page';
 import BookingDetailPage from '@src/app/(public)/bookings/[bookingId]/page';
 import GuestBookingDetailPage from '@src/app/guest/bookings/[bookingId]/page';
+import DevBookingRecoveryPage from '@src/app/(public)/dev/booking-recovery/page';
 import ReservationDetailClient from '@/components/features/booking/detail/ReservationDetailClient';
 
 import type { ReactNode } from 'react';
@@ -54,6 +55,7 @@ vi.mock('@/lib/env', () => ({
       sessionRecoveryAccessTokenSecret: 'test-secret',
     },
   },
+  resetEnvCache: vi.fn(),
 }));
 vi.mock('@/components/features/booking/detail/ReservationHistory', () => ({
   ReservationHistory: () => <div>Reservation history</div>,
@@ -122,6 +124,7 @@ function renderWithQuery(ui: ReactNode) {
 describe('public booking pages', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.resetModules();
     redirect.mockClear();
     cookiesMock.mockResolvedValue(createCookieStore());
     getUserMock.mockResolvedValue({ data: { user: null } });
@@ -241,6 +244,47 @@ describe('public booking pages', () => {
     });
 
     expect(page).toBeTruthy();
+  });
+
+  it('renders a usable dev booking recovery link when the recovery secret is configured', async () => {
+    process.env.SESSION_RECOVERY_ACCESS_TOKEN_SECRET = 'test-secret';
+    createSessionRecoveryAccessTokenMock.mockReturnValue('dev-recovery-token');
+
+    render(
+      await DevBookingRecoveryPage({
+        searchParams: Promise.resolve({}),
+      }),
+    );
+
+    expect(screen.getByText('Generated from configured secret')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open recovery link' })).toHaveAttribute(
+      'href',
+      '/bookings/recover?access_token=dev-recovery-token&next=%2Fbookings%2F22222222-2222-4222-8222-222222222222',
+    );
+  });
+
+  it('shows deterministic setup guidance when the recovery secret is unavailable', async () => {
+    vi.doMock('@/lib/env', () => ({
+      env: {
+        security: {
+          sessionRecoveryAccessTokenSecret: null,
+        },
+      },
+    }));
+    const { default: DevBookingRecoveryPageWithoutSecret } = await import(
+      '@src/app/(public)/dev/booking-recovery/page'
+    );
+
+    render(
+      await DevBookingRecoveryPageWithoutSecret({
+        searchParams: Promise.resolve({}),
+      }),
+    );
+
+    expect(screen.getByText('Missing secret configuration')).toBeInTheDocument();
+    expect(screen.getByText(/standard mission setup provisions that secret/i)).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Open recovery link' })).not.toBeInTheDocument();
+    vi.doUnmock('@/lib/env');
   });
 });
 

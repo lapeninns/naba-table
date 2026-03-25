@@ -1,5 +1,6 @@
 import Link from 'next/link';
 
+import { env } from '@/lib/env';
 import { createSessionRecoveryAccessToken } from '@/server/security/session-recovery-access-token';
 import { enforceDevOnly } from '@/src/app/(public)/dev/_shared/enforceDevOnly';
 
@@ -31,7 +32,7 @@ export default async function DevBookingRecoveryPage({
   const restaurantId = firstValue(params.restaurantId) ?? DEFAULTS.restaurantId;
   const email = firstValue(params.email) ?? DEFAULTS.email;
   const phone = firstValue(params.phone) ?? DEFAULTS.phone;
-  const secret = process.env.SESSION_RECOVERY_ACCESS_TOKEN_SECRET?.trim();
+  const secret = env.security.sessionRecoveryAccessTokenSecret?.trim() ?? null;
 
   const accessToken = secret
     ? createSessionRecoveryAccessToken({
@@ -90,10 +91,18 @@ export default async function DevBookingRecoveryPage({
               <p className="break-all text-sm text-muted-foreground">{recoverHref}</p>
             </>
           ) : (
-            <p className="text-sm text-destructive">
-              Set <code>SESSION_RECOVERY_ACCESS_TOKEN_SECRET</code> in local env to generate a live
-              recovery link.
-            </p>
+            <div className="space-y-3 text-sm">
+              <p className="text-destructive">
+                This harness needs <code>SESSION_RECOVERY_ACCESS_TOKEN_SECRET</code> to mint the
+                same recovery token used by the canonical <code>/bookings/recover</code> flow.
+              </p>
+              <p className="text-muted-foreground">
+                The standard mission setup provisions that secret from the original checkout&apos;s
+                <code>.env.local</code>. If you still see this message, rerun
+                <code>.factory/init.sh</code> or add the secret to your local env before validating
+                recovery.
+              </p>
+            </div>
           )}
           <Link
             className="w-fit text-sm font-medium text-primary underline-offset-4 hover:underline"
