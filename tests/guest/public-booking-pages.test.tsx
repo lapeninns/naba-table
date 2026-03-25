@@ -104,8 +104,8 @@ function createReservation(overrides: Record<string, unknown> = {}) {
     notes: 'Window table please',
     reference: 'NB1234',
     customerName: 'Guest Booker',
-    customerEmail: 'guest@example.com',
-    customerPhone: '+441234567890',
+    customerEmail: 'guest+active@example.com',
+    customerPhone: '+441111111111',
     createdAt: '2026-02-01T10:00:00.000Z',
     checkedInAt: null,
     ...overrides,
@@ -287,6 +287,12 @@ describe('public booking pages', () => {
     expect(screen.getByRole('link', { name: 'Open recovery link' })).toHaveAttribute(
       'href',
       '/bookings/recover?access_token=dev-recovery-token&next=%2Fbookings%2F22222222-2222-4222-8222-222222222222',
+    );
+    expect(createSessionRecoveryAccessTokenMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: 'guest+active@example.com',
+        phone: '+441111111111',
+      }),
     );
     expect(screen.getByRole('link', { name: 'Auto-start recovery flow' })).toHaveAttribute(
       'href',

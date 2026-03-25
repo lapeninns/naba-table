@@ -22,8 +22,8 @@ const baseReservation: Reservation = {
   seatingPreference: 'window',
   status: 'confirmed',
   customerName: 'Guest Booker',
-  customerEmail: 'guest@example.com',
-  customerPhone: '+441234567890',
+  customerEmail: 'guest+active@example.com',
+  customerPhone: '+441111111111',
   marketingOptIn: true,
   notes: 'Window table please',
   reference: 'NB1234',
@@ -44,6 +44,8 @@ const fixtures: Record<BookingLifecycleFixtureKey, FixtureDefinition> = {
     reservation: {
       ...baseReservation,
       id: '44444444-4444-4444-8444-444444444444',
+      customerEmail: 'guest+pending@example.com',
+      customerPhone: '+442222222222',
       reference: 'NB9012',
       status: 'pending',
       bookingDate: '2026-02-12',
@@ -57,6 +59,8 @@ const fixtures: Record<BookingLifecycleFixtureKey, FixtureDefinition> = {
     reservation: {
       ...baseReservation,
       id: '55555555-5555-4555-8555-555555555555',
+      customerEmail: 'guest+cancelled@example.com',
+      customerPhone: '+443333333333',
       reference: 'NB3456',
       status: 'cancelled',
       bookingDate: '2026-02-12',
