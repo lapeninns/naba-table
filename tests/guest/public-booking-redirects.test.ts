@@ -6,8 +6,12 @@ const redirect = vi.hoisted(() =>
     throw new Error(`NEXT_REDIRECT${target ? `:${target}` : ''}`);
   }),
 );
+const cookiesMock = vi.hoisted(() => vi.fn());
 
 vi.mock('next/navigation', () => ({ redirect }));
+vi.mock('next/headers', () => ({
+  cookies: () => cookiesMock(),
+}));
 
 import LegacyBookingThankYouRedirect from '@src/app/(public)/bookings/[bookingId]/thank-you/page';
 import ManageBookingRedirect from '@src/app/(public)/bookings/[bookingId]/manage/page';
@@ -18,6 +22,10 @@ import { handleRouting } from '@src/proxy';
 describe('public booking redirects', () => {
   beforeEach(() => {
     redirect.mockClear();
+    cookiesMock.mockReset();
+    cookiesMock.mockResolvedValue({
+      getAll: () => [],
+    });
     process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'localhost';
     process.env.NEXT_PUBLIC_LOCAL_APP_HOSTS = '';
   });
@@ -35,6 +43,35 @@ describe('public booking redirects', () => {
     expect(url.pathname).toBe('/guest/bookings/booking-1/receipt');
     expect(url.searchParams.get('token')).toBe('abc');
     expect(url.searchParams.get('source')).toBe('email');
+  });
+
+  it('preserves all query params through legacy thank-you receipt canonicalization and sign-in continuity', async () => {
+    await expect(
+      LegacyBookingThankYouRedirect({
+        params: Promise.resolve({ bookingId: 'booking-1' }),
+        searchParams: Promise.resolve({ token: 'abc', source: 'email', party: '4' }),
+      }),
+    ).rejects.toThrow('NEXT_REDIRECT');
+
+    const [legacyTarget] = redirect.mock.calls.at(-1) ?? [];
+    expect(legacyTarget).toBe('/guest/bookings/booking-1/receipt?token=abc&source=email&party=4');
+
+    redirect.mockClear();
+
+    const { default: GuestBookingReceiptPage } = await import(
+      '@src/app/guest/bookings/[bookingId]/receipt/page'
+    );
+    await expect(
+      GuestBookingReceiptPage({
+        params: Promise.resolve({ bookingId: 'booking-1' }),
+        searchParams: Promise.resolve({ source: 'email', party: '4' }),
+      }),
+    ).rejects.toThrow('NEXT_REDIRECT');
+
+    const [signInTarget] = redirect.mock.calls.at(-1) ?? [];
+    expect(signInTarget).toBe(
+      '/auth/signin?redirectedFrom=%2Fguest%2Fbookings%2Fbooking-1%2Freceipt%3Fsource%3Demail%26party%3D4',
+    );
   });
 
   it('redirects deprecated guest thank-you links into the canonical booking flow', async () => {

@@ -15,7 +15,11 @@ import type { Metadata } from 'next';
 export const dynamic = 'force-dynamic';
 
 type RouteParams = Promise<{ bookingId: string }>;
-type SearchParams = Promise<{ token?: string }>;
+type SearchParamValue = string | string[] | undefined;
+type SearchParams = Promise<{
+  token?: SearchParamValue;
+  [key: string]: SearchParamValue;
+}>;
 
 const shortenId = (value: string): string => (value.length > 8 ? value.slice(0, 8) : value);
 
@@ -27,6 +31,38 @@ const cookieHeaderFromStore = (cookieStore: Awaited<ReturnType<typeof cookies>>)
 };
 
 const resolveOrigin = (): string => getTrustedSiteOrigin();
+
+const firstSearchValue = (value: SearchParamValue): string | null => {
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value)) return typeof value[0] === 'string' ? value[0] : null;
+  return null;
+};
+
+const buildReceiptPathWithSearch = (
+  bookingId: string,
+  searchParams: Record<string, SearchParamValue>,
+): string => {
+  const query = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(searchParams)) {
+    if (key === 'token' || value == null) continue;
+
+    if (Array.isArray(value)) {
+      for (const entry of value) {
+        if (typeof entry === 'string') {
+          query.append(key, entry);
+        }
+      }
+      continue;
+    }
+
+    query.append(key, value);
+  }
+
+  const basePath = `/guest/bookings/${bookingId}/receipt`;
+  const search = query.toString();
+  return search ? `${basePath}?${search}` : basePath;
+};
 
 async function prefetchReservation(
   queryClient: QueryClient,
@@ -88,7 +124,8 @@ export default async function GuestBookingReceiptPage({
   const { bookingId } = await params;
   const normalized = bookingId?.trim();
   const resolvedSearchParams = (await searchParams) ?? {};
-  const token = resolvedSearchParams.token ?? null;
+  const token = firstSearchValue(resolvedSearchParams.token);
+  const canonicalReceiptPath = buildReceiptPathWithSearch(normalized, resolvedSearchParams);
 
   if (!normalized) {
     redirect('/guest/bookings');
@@ -100,7 +137,7 @@ export default async function GuestBookingReceiptPage({
 
   // Require either auth or token for receipt access
   if (!user && !token) {
-    redirect(withRedirectedFrom('/auth/signin', `/guest/bookings/${normalized}/receipt`));
+    redirect(withRedirectedFrom('/auth/signin', canonicalReceiptPath));
   }
 
   const queryClient = new QueryClient();
