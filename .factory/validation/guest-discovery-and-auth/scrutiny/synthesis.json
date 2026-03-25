@@ -1,0 +1,87 @@
+{
+  "milestone": "guest-discovery-and-auth",
+  "round": 1,
+  "status": "fail",
+  "validatorsRun": {
+    "test": {
+      "passed": true,
+      "command": "npx vitest run --maxWorkers=9",
+      "exitCode": 0
+    },
+    "typecheck": {
+      "passed": true,
+      "command": "pnpm typecheck",
+      "exitCode": 0
+    },
+    "lint": {
+      "passed": true,
+      "command": "pnpm lint",
+      "exitCode": 0
+    }
+  },
+  "reviewsSummary": {
+    "total": 5,
+    "passed": 1,
+    "failed": 4,
+    "failedFeatures": [
+      "guest-auth-entry-and-callback-errors",
+      "landing-and-discovery-surfaces",
+      "restaurant-booking-entry-and-not-found",
+      "stabilize-valid-public-restaurant-booking-runtime"
+    ]
+  },
+  "blockingIssues": [
+    {
+      "featureId": "guest-auth-entry-and-callback-errors",
+      "severity": "blocking",
+      "description": "The guest auth feature only asserts a pre-seeded /auth/signin error banner and never exercises the real /api/auth/callback failure path, so callback/magic-link failure translation remains unproven."
+    },
+    {
+      "featureId": "landing-and-discovery-surfaces",
+      "severity": "blocking",
+      "description": "Discovery validation hard-codes the-fox as a live restaurant slug even though the worker evidence shows /restaurants/the-fox did not resolve to a real detail page, leaving the /restaurants/[slug] requirement unproven."
+    },
+    {
+      "featureId": "restaurant-booking-entry-and-not-found",
+      "severity": "blocking",
+      "description": "The feature fixed invalid-slug not-found behavior but never established a stable valid public restaurant slug for live detail/booking-entry validation, so its expected behavior remained incomplete."
+    },
+    {
+      "featureId": "stabilize-valid-public-restaurant-booking-runtime",
+      "severity": "blocking",
+      "description": "The runtime-stabilization feature only refreshed Playwright assertions around a still-broken /restaurants/[slug]/book path and did not actually fix the HTTP 500/global error-surface regression."
+    }
+  ],
+  "appliedUpdates": [
+    {
+      "target": "library",
+      "description": "Documented PLAYWRIGHT_DEV_HARNESS=1 usage, lack of a stable local public restaurant slug, Playwright .last-run.json dirtiness, and the RSC Lucide icon serialization pitfall in .factory/library/user-testing.md.",
+      "sourceFeature": "landing-and-discovery-surfaces"
+    }
+  ],
+  "suggestedGuidanceUpdates": [
+    {
+      "target": "skill:guest-ui-worker",
+      "suggestion": "Explicitly document where and when to use PLAYWRIGHT_DEV_HARNESS=1 for live-surface Playwright runs that must reuse the existing port-3000 dev server.",
+      "evidence": "Both landing-and-discovery-surfaces and related guest discovery validation had to discover the env var ad hoc before specs could run against the live app.",
+      "isSystemic": true
+    },
+    {
+      "target": "skill:guest-ui-worker",
+      "suggestion": "Clarify that live-only runtime regressions may be diagnosed with browser/curl reproduction before RED test updates, and that runtime-stabilization features must not close with test-only changes when the product behavior remains broken.",
+      "evidence": "fix-valid-public-restaurant-booking-entry-500 needed a live-only diagnosis, while stabilize-valid-public-restaurant-booking-runtime followed RED-first process but still committed only stale-spec changes around a broken flow.",
+      "isSystemic": true
+    }
+  ],
+  "rejectedObservations": [
+    {
+      "observation": "Make supported Playwright reporter guidance more prominent everywhere feature verification commands are templated.",
+      "reason": "already-documented in .factory/skills/guest-ui-worker/SKILL.md and too procedural/normative for direct library updates from this validator."
+    },
+    {
+      "observation": "Record that f337bc90 was effectively a stale-spec refresh rather than a runtime fix.",
+      "reason": "superseded by the synthesis blocking issue for stabilize-valid-public-restaurant-booking-runtime; duplicating it in library guidance would memorialize a transient feature-specific failure rather than durable repo knowledge."
+    }
+  ],
+  "previousRound": null
+}

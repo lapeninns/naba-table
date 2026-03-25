@@ -42,6 +42,7 @@ Testing surface, required testing skills/tools, resource cost classification per
   - visible destination state
   - any redirect chain evidence available
 - If proxy or middleware behavior changed, restart or hot-reload the port `3000` app from the worktree before relying on live browser validation; stale dev servers may continue serving old redirect headers even when tests and source are correct.
+- When Playwright must reuse the already-running dev server on port `3000`, set `PLAYWRIGHT_DEV_HARNESS=1` before invoking the spec. The guest mission's live-surface specs rely on that env var to avoid booting a second app instance.
 - When validating guest-system consistency, capture representative screenshots across:
   - marketing/discovery
   - auth
@@ -75,3 +76,13 @@ Testing surface, required testing skills/tools, resource cost classification per
 - Treat `app.localhost` guest-route validation as isolated redirect-only coverage: capture start URL, final URL, and visible result, then stop.
 - For mocked portal checks, keep one coherent fixture identity across `/guest/dashboard`, `/guest/bookings`, and `/guest/profile`.
 - Do not mutate shared authenticated state or reusable fixtures outside the assigned assertion group.
+
+## Local Discovery / Booking Validation Notes
+
+- There is currently **no documented stable public restaurant slug** that can be assumed valid across local guest discovery/browser validation. Workers have probed `the-fox`, `seed-perf-r001`, and `white-horse-pub-waterbeach`, and each was unavailable or unstable in at least one local run.
+- Treat live restaurant slug selection as runtime-dependent until a future worker records a reproducible public slug/fixture here.
+- Playwright updates `test-results/.last-run.json` during local runs; this file may appear dirty after validation and should not be mistaken for a product change.
+
+## Guest UI Runtime Pitfalls
+
+- Do not pass Lucide component constructors across React Server Component → client guest loading boundaries (for example `icon={LoaderCircle}` from a server `loading.tsx` into a client component). Inline the icon element or keep the boundary fully client-side; otherwise the route can crash with a serialization/runtime failure.

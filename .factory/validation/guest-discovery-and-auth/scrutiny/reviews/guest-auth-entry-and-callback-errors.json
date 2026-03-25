@@ -1,0 +1,28 @@
+{
+  "featureId": "guest-auth-entry-and-callback-errors",
+  "reviewedAt": "2026-03-25T11:10:00Z",
+  "commitId": "2f6a79e80a194e1731684e0c6507fe07a9cd0cc9",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The committed coverage updates correctly exercise guest auth validation, redirect sanitization, and live auth-page behavior, but the feature report over-claims callback failure coverage: the new Playwright assertion only verifies a query-param driven sign-in error banner and never exercises the actual /api/auth/callback failure translation path required by the feature contract.",
+    "issues": [
+      {
+        "file": "tests/e2e/guest-auth-pages.spec.ts",
+        "line": 25,
+        "severity": "blocking",
+        "description": "The new browser test injects `error=link_expired` directly into `/auth/signin` instead of navigating through `/api/auth/callback` with a failing magic-link scenario, so it does not verify that callback or magic-link failures are translated into guest-safe copy by the real callback flow. This leaves the feature's required callback-error behavior unproven despite the handoff claiming coverage."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "knowledge",
+      "observation": "Playwright writes `test-results/.last-run.json` during validation and leaves it uncommitted; this behavior is only mentioned in the worker handoff and does not appear to be documented in shared mission/library guidance.",
+      "evidence": "Handoff `discoveredIssues` notes the generated file, and the transcript shows `git status --short` returning `M test-results/.last-run.json` after validation."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Reviewed the handoff, transcript skeleton, skill procedure, and commit `2f6a79e8`. The implementation is limited to test/coverage updates, and while most assertions match existing product behavior, the callback-error requirement is still not actually covered because the added E2E test bypasses `/api/auth/callback` and asserts only a pre-seeded sign-in error state."
+}

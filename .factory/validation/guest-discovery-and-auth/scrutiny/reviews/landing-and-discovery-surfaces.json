@@ -1,0 +1,33 @@
+{
+  "featureId": "landing-and-discovery-surfaces",
+  "reviewedAt": "2026-03-25T11:05:00Z",
+  "commitId": "95297b2e",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The landing page and restaurant list migration align with the guest design system, but the feature does not fully satisfy the restaurant detail requirement because the reviewed commit still lacks a deterministic live detail surface for the slug used in browser and Playwright validation.",
+    "issues": [
+      {
+        "file": "tests/e2e/guest-public-marketing.spec.ts",
+        "line": 4,
+        "severity": "blocking",
+        "description": "The feature hard-codes `the-fox` as the canonical public restaurant slug for browser validation, but the worker handoff explicitly reports that `http://localhost:3000/restaurants/the-fox` resolves to a not-found/dashboard handoff instead of a live restaurant detail page. Because the feature contract requires `/restaurants/[slug]` to align with the guest system, shipping with the validated slug missing means the detail-page requirement is not actually proven in the reviewed runtime."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The `guest-ui-worker` skill tells workers to use a documented harness mode when Playwright must reuse the live port-3000 app, but it does not say where that harness is defined. This worker had to discover and apply `PLAYWRIGHT_DEV_HARNESS=1` ad hoc before the spec could run.",
+      "evidence": "Worker transcript skeleton shows a failed `npx playwright test tests/e2e/guest-public-marketing.spec.ts --workers=1`, then a separate successful `PLAYWRIGHT_DEV_HARNESS=1 npx playwright test ...`; the skill only mentions harness mode generically in step 4 and the suggestedChanges asks to document it."
+    },
+    {
+      "area": "knowledge",
+      "observation": "Shared state does not document any stable public restaurant slug/fixture for live guest discovery validation, even though multiple discovery features rely on one. That gap forced this worker to validate against `the-fox`, which was not actually available in the live runtime.",
+      "evidence": "`server/restaurants/listRestaurants.ts` and `server/restaurants/getRestaurantBySlug.ts` read live Supabase data, `.factory/library/guest-routes.md` contains no seeded public-slug guidance, grep of `.factory` found no stable slug note, and the handoff records `http://localhost:3000/restaurants/the-fox` falling into a guest handoff/not-found state."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Reviewed handoff, diff, transcript skeleton, and guest-ui skill for `landing-and-discovery-surfaces`. The landing/list UX work is solid, but the feature should fail scrutiny because the reviewed runtime evidence still lacks a deterministic live restaurant detail page for the slug used in validation, so the `/restaurants/[slug]` portion of the requirement is not fully covered."
+}

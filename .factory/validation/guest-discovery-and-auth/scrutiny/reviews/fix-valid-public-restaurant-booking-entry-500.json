@@ -1,0 +1,26 @@
+{
+  "featureId": "fix-valid-public-restaurant-booking-entry-500",
+  "reviewedAt": "2026-03-25T11:05:02Z",
+  "commitId": "33b35172",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The fix correctly addresses the live booking-entry crash by removing the server-to-client Lucide component serialization from the loading boundary. The updated loading surface remains guest-owned and accessible, and the widened GuestStatus icon typing matches current usage without introducing an obvious regression in the reviewed scope.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The guest-ui-worker skill requires a RED test-first step, but this runtime-only regression was diagnosed primarily through live browser/curl reproduction because existing targeted tests were already green. The skill should clarify that reproducing a live-only failure before adjusting coverage is acceptable when automated tests do not expose the bug.",
+      "evidence": "handoffs/2026-03-25T11-00-45-729Z__fix-valid-public-restaurant-booking-entry-500__e8650835-8138-40dc-b9c3-6eea2d05e72a.json -> handoff.skillFeedback.followedProcedure=false with deviation on \"Write tests first (RED)\"; .factory/skills/guest-ui-worker/SKILL.md step 4 currently requires RED tests first."
+    },
+    {
+      "area": "knowledge",
+      "observation": "The mission library documents canonical guest routes and shell primitives, but it does not currently capture the React Server Component limitation that passing Lucide component constructors through server/client guest loading boundaries can trigger serialization crashes. This runtime quirk was central to the fix and would be useful shared knowledge for later guest UI workers.",
+      "evidence": "Commit 33b35172 changed src/app/(public)/(marketing)/restaurants/[slug]/book/loading.tsx to inline <LoaderCircle /> instead of passing icon={LoaderCircle}, and narrowed src/components/guest/ui/GuestPrimitives.tsx icon typing to LucideIcon to match supported usage."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Reviewed commit 33b35172, the worker handoff, transcript skeleton, mission guidance, and shared-state files. I found no blocking or non-blocking code defects in the implemented fix; the only notable follow-up is shared-state guidance around live-only RSC icon serialization failures and the skill wording for RED-first expectations."
+}
