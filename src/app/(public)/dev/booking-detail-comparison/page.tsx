@@ -1,5 +1,3 @@
-import 'server-only';
-
 import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query';
 import Link from 'next/link';
 
