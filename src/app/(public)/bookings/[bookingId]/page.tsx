@@ -209,24 +209,6 @@ export default async function BookingDetailPage({
     if (!response.ok) {
       redirect(withRedirectedFrom('/auth/signin', buildRecoveryPath(canonicalBookingPath)));
     }
-
-    const payload = await response.json().catch(() => null);
-    const booking = payload?.booking;
-
-    const continuationAccessToken = await createRecoveryContinuationAccessToken({
-      userEmail: booking?.customer_email,
-      userPhone: booking?.customer_phone,
-      restaurantId: booking?.restaurant_id,
-    });
-
-    if (continuationAccessToken) {
-      redirect(
-        withRedirectedFrom(
-          '/auth/signin',
-          buildRecoveryPath(canonicalBookingPath, continuationAccessToken),
-        ),
-      );
-    }
   }
 
   if (!user && !hasValidRecoveryCookie) {

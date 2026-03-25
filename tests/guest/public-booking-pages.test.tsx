@@ -172,10 +172,9 @@ describe('public booking pages', () => {
     ).rejects.toThrow('NEXT_REDIRECT:/auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252Fbooking-1');
   });
 
-  it('reconstructs the recovery entrypoint for unauthenticated revisits after token stripping', async () => {
+  it('keeps valid recovery-cookie revisits entitled after token stripping', async () => {
     cookiesMock.mockResolvedValue(createCookieStore([{ name: 'sr_access', value: 'session-token' }]));
     getUserMock.mockResolvedValue({ data: { user: null } });
-    process.env.SESSION_RECOVERY_ACCESS_TOKEN_SECRET = 'test-secret';
     global.fetch = vi
       .fn()
       .mockResolvedValueOnce({
@@ -189,16 +188,20 @@ describe('public booking pages', () => {
           },
         }),
       } as unknown as Response);
-    createSessionRecoveryAccessTokenMock.mockReturnValueOnce('continuation-token');
+    validateSessionRecoveryAccessTokenMock.mockReturnValueOnce({ ok: true });
+    const page = await BookingDetailPage({
+      params: Promise.resolve({ bookingId: 'booking-1' }),
+      searchParams: Promise.resolve({}),
+    });
 
-    await expect(
-      BookingDetailPage({
-        params: Promise.resolve({ bookingId: 'booking-1' }),
-        searchParams: Promise.resolve({}),
-      }),
-    ).rejects.toThrow(
-      'NEXT_REDIRECT:/auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252Fbooking-1',
-    );
+    expect(page).toBeTruthy();
+    expect(global.fetch).toHaveBeenCalledWith('http://localhost:3000/api/bookings/booking-1', {
+      headers: {
+        accept: 'application/json',
+        cookie: 'sr_access=session-token',
+      },
+      cache: 'no-store',
+    });
   });
 
   it('preserves canonical detail query state in unauthenticated manage-route continuity', async () => {
@@ -264,10 +267,9 @@ describe('public booking pages', () => {
       BookingDetailPage({
         params: Promise.resolve({ bookingId: 'booking-1' }),
         searchParams: Promise.resolve({ fixture: 'cancelled' }),
-        pathPrefix: '/guest/bookings',
       }),
     ).rejects.toThrow(
-      'NEXT_REDIRECT:/auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fguest%252Fbookings%252Fbooking-1%253Ffixture%253Dcancelled',
+      'NEXT_REDIRECT:/auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252Fbooking-1%253Ffixture%253Dcancelled',
     );
   });
 
