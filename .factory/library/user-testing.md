@@ -49,6 +49,15 @@ Testing surface, required testing skills/tools, resource cost classification per
   - portal (mocked if necessary)
 - If multi-host guest/app canonicalization cannot be exercised in the current runtime, record the blocker and rely on deterministic automated coverage rather than silently skipping the assertion.
 
+## Known Local Runtime Limitation
+
+- For `VAL-FOUNDATION-013`, the local Next.js dev runtime may still surface a relative redirect / browser loop on `app.localhost` guest paths even when the canonical middleware contract is correct in deterministic coverage.
+- If this happens:
+  - capture the live browser/curl symptom,
+  - confirm the canonical redirect contract with `tests/guest/public-booking-redirects.test.ts`,
+  - confirm the root-host guest flow works once on `http://localhost:3000/guest/...`,
+  - treat the remaining `app.localhost` loop as a local-dev runtime limitation unless it reproduces outside the local Next dev environment.
+
 ## Mocked Portal Guidance
 
 - Keep mocked fixtures coherent across dashboard, bookings, and profile for the same guest identity.
