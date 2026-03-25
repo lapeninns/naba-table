@@ -41,6 +41,7 @@ Testing surface, required testing skills/tools, resource cost classification per
   - final URL
   - visible destination state
   - any redirect chain evidence available
+- If proxy or middleware behavior changed, restart or hot-reload the port `3000` app from the worktree before relying on live browser validation; stale dev servers may continue serving old redirect headers even when tests and source are correct.
 - When validating guest-system consistency, capture representative screenshots across:
   - marketing/discovery
   - auth
