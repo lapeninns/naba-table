@@ -4,55 +4,53 @@ Last updated: 2026-03-25T06:53:30Z
 
 ## Goal (incl. success criteria)
 
-- Fix the missing `review_request` email queueing for completed bookings, validated against production booking ref `LPTZDB8DCA`.
-- Success means the root cause is identified, the canonical completion path is patched, regression coverage is added, and the expected enqueue timing is verifiable.
+- Refresh the worktree-backed Next.js runtime on port 3000 and fix the remaining live app-host guest-route canonicalization failure for `http://app.localhost:3000/guest/bookings?tab=upcoming`.
+- Success means the live runtime serves current worktree middleware/proxy code, guest-owned app-host URLs redirect exactly once to the guest/root host before auth gating, and the required validators plus live checks pass.
 
 ## Constraints/Assumptions
 
-- Follow SDLC phases and maintain task artifacts before code edits.
-- Keep changes focused to the review-email enqueue path; avoid unrelated refactors.
-- No UI changes are expected, so Chrome DevTools QA should not be required unless the scope expands.
-- Production queue visibility is partial: Cloudflare status counts exceed the visible job list.
+- Follow mission/worker AGENTS guidance and stay within the isolated worktree.
+- Reuse the existing Next.js app on port 3000 via `.factory/services.yaml`; do not touch off-limits ports.
+- Scope is limited to guest route ownership/runtime refresh behavior; do not expand into unrelated guest UI work.
+- `pnpm lint` may still emit the known pre-existing warnings documented by the mission AGENTS file.
 
 ## Key decisions
 
-- Investigate the canonical completion path first (`check-out` / `status completed` / auto-complete) before considering any backfill or manual repair.
-- Use production data only for diagnosis; implement the fix against the shared codepath rather than booking-specific workarounds.
+- Inspect the live runtime path through `src/proxy.ts` and compare it against the pure redirect helper/test behavior before editing.
+- Favor a single central canonicalization rule over any app-host/auth-surface workaround.
+- Verify both automated redirect coverage and the real runtime/browser behavior against port 3000.
 
 ## State
 
-- Phase 4 verification: production Cloudflare gateway redeployed, queue visibility restored, target review-request job confirmed in queue.
+- Startup context loaded; initialization completed.
+- Baseline validation passed. Live inspection shows port 3000 is serving the current worktree dev runtime, but curl still reports a relative redirect for app-host guest routes.
 
 ## Done
 
-- Confirmed booking `LPTZDB8DCA` exists in production, is `completed`, and has a valid guest email.
-- Confirmed no `review_request` delivery exists yet for that booking in production `email_delivery_log`.
-- Confirmed the expected review-send time should be 2026-03-25T10:55:00Z based on current scheduling logic.
-- Identified live Cloudflare gateway drift: detailed delayed jobs were capped at 10 while summary reported 32.
-- Deployed current Cloudflare email queue gateway version `27a52635-248c-483a-b9bd-c5450ae5bfc9`.
-- Verified the gateway now returns all 32 delayed jobs and includes `review_request__e93fbe2c-2d3c-427f-9c2d-a0407dc0daad` scheduled for `2026-03-25T10:55:00Z`.
+- Activated required `mission-worker-base` and `guest-routing-worker` skills.
+- Read root and mission `AGENTS.md`, mission docs, `.factory/services.yaml`, feature list, guest-route guidance, and current continuity state.
+- Confirmed the feature belongs to the `guest-foundation-and-route-ownership` milestone and that the service manifest points `web` to `pnpm dev` on port 3000.
+- Confirmed the full Vitest baseline passes.
+- Verified via process inspection and dev trace evidence that port 3000 is serving the current worktree, not another checkout.
 
 ## Now
 
-- Finalize task artifacts and summarize the production fix plus the confirmed queue state for the user.
+- Compare the live curl/browser behavior against Next dev runtime logs to determine whether host canonicalization is being normalized after proxy execution.
 
 ## Next
 
-- Re-check the delivery log after `2026-03-25T10:55:00Z` if the user wants confirmation that the queued review email was actually sent.
+- Verify the real browser destination on the current runtime and decide whether any code change is still necessary versus documenting a dev-runtime header quirk.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- Whether the root cause is missing side-effect invocation, swallowed enqueue failure, or incorrect scheduling state for completed bookings.
-- Whether a one-off production backfill will be needed for already-missed review requests after the code fix. (UNCONFIRMED)
+- Whether the remaining failure is caused by stale dev runtime output, host normalization in Next dev, or a proxy/auth handoff path bypassing the intended canonical redirect.
+- Whether no code change is needed beyond ensuring the worktree runtime is actually serving current middleware logic. (UNCONFIRMED)
 
 ## Working set (files/ids/commands)
 
 - `CONTINUITY.md`
-- `server/jobs/booking-side-effects.ts`
-- `src/app/api/ops/bookings/[id]/check-out/route.ts`
-- `src/app/api/ops/bookings/[id]/status/route.ts`
-- `server/queue/email.ts`
-- `server/queue/email-processing.ts`
-- Booking ref `LPTZDB8DCA`
-- `pnpm exec dotenv -e .env.vercel-production -- tsx --eval ...`
-- `pnpm exec dotenv -e .env.local -- node -e ...`
+- `src/proxy.ts`
+- `tests/guest/public-booking-redirects.test.ts`
+- `.factory/services.yaml`
+- `npx vitest run --maxWorkers=9`
+- `curl -I -H 'Host: app.localhost:3000' 'http://127.0.0.1:3000/guest/bookings?tab=upcoming'`

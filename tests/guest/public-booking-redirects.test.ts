@@ -47,6 +47,19 @@ describe('public booking redirects', () => {
     );
   });
 
+  it('emits an absolute location header for cross-host guest redirects', async () => {
+    const request = new NextRequest('http://app.localhost:3000/guest/profile?tab=settings', {
+      headers: { host: 'app.localhost:3000' },
+    });
+
+    const response = await handleRouting(request);
+
+    expect(response.headers.get('location')).toBe(
+      'http://localhost:3000/guest/profile?tab=settings',
+    );
+    expect(response.headers.get('refresh')).toBeNull();
+  });
+
   it('canonicalizes root-host app routes onto the app host while preserving query state', async () => {
     const request = new NextRequest(
       'http://localhost:3000/app/dashboard?date=2026-03-25&view=day',
