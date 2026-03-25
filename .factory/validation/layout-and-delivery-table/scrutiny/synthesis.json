@@ -1,0 +1,106 @@
+{
+  "milestone": "layout-and-delivery-table",
+  "round": 2,
+  "status": "fail",
+  "orchestratorOverride": {
+    "applied": true,
+    "reason": "Round-2 blocking findings are historical on original feature snapshots and are already remediated by completed follow-up fixes: fix-delivery-log-tab-regression, fix-delivery-log-filter-option-coverage, fix-delivery-log-pagination-on-empty-pages, and fix-delivery-log-pagination-range-math. Proceeding to user-testing validation of current behavior."
+  },
+  "validatorsRun": {
+    "test": {
+      "passed": true,
+      "command": "pnpm --dir \"/Users/amankumarshrestha/LapenInns Project/nabatableLP\" exec vitest run",
+      "exitCode": 0
+    },
+    "typecheck": {
+      "passed": true,
+      "command": "pnpm --dir \"/Users/amankumarshrestha/LapenInns Project/nabatableLP\" typecheck",
+      "exitCode": 0
+    },
+    "lint": {
+      "passed": true,
+      "command": "pnpm --dir \"/Users/amankumarshrestha/LapenInns Project/nabatableLP\" lint",
+      "exitCode": 0,
+      "notes": "Completed with 13 pre-existing warnings and no errors."
+    }
+  },
+  "reviewsSummary": {
+    "total": 10,
+    "passed": 6,
+    "failed": 4,
+    "failedFeatures": [
+      "tab-layout-scaffold",
+      "delivery-log-data-table",
+      "delivery-log-filters-redesign",
+      "delivery-log-pagination"
+    ]
+  },
+  "blockingIssues": [
+    {
+      "featureId": "tab-layout-scaffold",
+      "severity": "blocking",
+      "description": "The reviewed scaffold commit wired the Delivery Log tab back to legacy `OpsEmailDeliveryFiltersCard`/`OpsEmailDeliveryResultsCard` content instead of preserving the new table/filter/pagination path, introducing a regression against the feature's \u201cExisting functionality preserved \u2014 no regressions\u201d requirement."
+    },
+    {
+      "featureId": "delivery-log-data-table",
+      "severity": "blocking",
+      "description": "The feature commit replaced the Delivery Log tab composition with the legacy filter/results card path, so the shipped tab no longer matched the intended redesigned implementation and later required `fix-delivery-log-tab-regression`."
+    },
+    {
+      "featureId": "delivery-log-data-table",
+      "severity": "blocking",
+      "description": "Pagination rendering was gated on `attempts.length > 0`, which stranded users on out-of-range or filtered-empty pages with no recovery controls until `fix-delivery-log-pagination-on-empty-pages` landed."
+    },
+    {
+      "featureId": "delivery-log-filters-redesign",
+      "severity": "blocking",
+      "description": "The redesigned template/email dropdowns shipped with incomplete hardcoded option lists and omitted known in-product values such as `request_received`, `confirmation`, `booking_rejected`, and `restaurant_cancellation`, preventing operators from selecting some existing records until `fix-delivery-log-filter-option-coverage`."
+    },
+    {
+      "featureId": "delivery-log-pagination",
+      "severity": "blocking",
+      "description": "The initial pagination implementation hid the controls on empty or out-of-range pages by gating them on visible rows, breaking recovery and URL-synced navigation; this later required `fix-delivery-log-pagination-on-empty-pages`, and its range math also required `fix-delivery-log-pagination-range-math`."
+    }
+  ],
+  "appliedUpdates": [],
+  "suggestedGuidanceUpdates": [
+    {
+      "target": "skill:fullstack-worker",
+      "suggestion": "Adjust the RED-test procedure so regression-only or verification-first fixes may confirm current behavior before adding guard tests, and require workers to document that deviation explicitly instead of marking `followedProcedure: true`.",
+      "evidence": "Multiple reviews (tab-layout-scaffold, delivery-log-data-table, fix-delivery-log-tab-regression, fix-delivery-log-status-sort-order) observed workers skipping or reframing the mandatory RED-first step from `.factory/skills/fullstack-worker/SKILL.md` step 3.",
+      "isSystemic": true
+    },
+    {
+      "target": "skill:fullstack-worker",
+      "suggestion": "Clarify that tests should exercise the production component/client path rather than duplicated helper markup when validating embedded UI behaviors such as pagination summaries.",
+      "evidence": "The `delivery-log-pagination` review found the added test used a local helper replica and even codified impossible summary text, so the shipped bug escaped despite added coverage.",
+      "isSystemic": true
+    },
+    {
+      "target": "skill:fullstack-worker",
+      "suggestion": "Update manual verification guidance to explicitly prefer the authenticated `app.localhost` Email Delivery route when mission docs note `/dev/ops-email-delivery` can 404 or render shell-only content under `APP_ENV=staging`.",
+      "evidence": "Reviews for delivery-log-error-state and fix-delivery-log-pagination-range-math both noted that mission AGENTS documented the dev harness limitation while the skill still prioritizes the dev harness.",
+      "isSystemic": true
+    },
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Align mission/library environment guidance so the documented local `APP_ENV` and email-delivery validation surface match reality, including when the dev harness is unavailable and auth fallback is required.",
+      "evidence": "Reviews for delivery-log-data-table and delivery-log-error-state noted `.factory/library/environment.md` says `APP_ENV=development`, while mission AGENTS and user-testing guidance observed `APP_ENV=staging` and authenticated-route fallback.",
+      "isSystemic": true
+    },
+    {
+      "target": "library",
+      "suggestion": "Document the canonical source for known Email Delivery template/email filter values so dropdown option lists stay aligned with queue and mock delivery flows.",
+      "evidence": "The `delivery-log-filters-redesign` review found missing known values because `.factory/library/architecture.md` described the filter bar but not the shared option source.",
+      "isSystemic": false
+    },
+    {
+      "target": "skill:fullstack-worker",
+      "suggestion": "Document how to reuse shared UI helpers like `CopyButton` in tests when they depend on hook/path alias chains, so workers do not inline one-off replacements without clear justification.",
+      "evidence": "The `delivery-log-data-table` review recorded that the worker avoided the shared `CopyButton` because of Vitest alias/import issues, indicating a missing testing pattern in shared guidance.",
+      "isSystemic": false
+    }
+  ],
+  "rejectedObservations": [],
+  "previousRound": ".factory/validation/layout-and-delivery-table/scrutiny/synthesis.json"
+}

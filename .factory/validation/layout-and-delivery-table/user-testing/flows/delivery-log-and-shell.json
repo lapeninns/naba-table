@@ -1,0 +1,444 @@
+{
+  "groupId": "delivery-log-and-shell",
+  "testedAt": "2026-03-24T14:30:00Z",
+  "isolation": {
+    "appUrl": "http://app.localhost:3000/email-delivery",
+    "signInUrl": "http://app.localhost:3000/auth/signin",
+    "browserSession": "d6028d66722d__u1",
+    "port": 3000,
+    "restaurantId": "a050d1ad-1ee0-4ea0-abc2-22c3778aa52c"
+  },
+  "toolsUsed": ["agent-browser"],
+  "assertions": [
+    {
+      "id": "VAL-DL-001",
+      "title": "Delivery log table renders with correct columns",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Sign in and open /email-delivery",
+          "expected": "Delivery Log shows a table with Status, Subject, Recipient, Email Type, Booking Ref, Customer, Sent At columns",
+          "observed": "Only filter controls and shell rendered; no table header or rows were present in the DOM after load"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "layout-and-delivery-table/delivery-log-and-shell/delivery-log-initial-annotated.png"
+        ],
+        "consoleErrors": "none",
+        "network": "GET /api/ops/email-delivery?restaurantId=a050d1ad-1ee0-4ea0-abc2-22c3778aa52c&range=7d&page=1&pageSize=50"
+      },
+      "issues": "Delivery log content area did not render the table even though the API request completed."
+    },
+    {
+      "id": "VAL-DL-002",
+      "title": "Table sorting by Sent At",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Inspect Delivery Log table for a Sent At sort control",
+          "expected": "Sent At header is clickable and toggles sort direction",
+          "observed": "No rendered table or Sent At sort control was available to interact with"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "layout-and-delivery-table/delivery-log-and-shell/delivery-log-initial-annotated.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No sort-triggering request possible because table was absent"
+      },
+      "issues": "Blocked by missing table content on the real page."
+    },
+    {
+      "id": "VAL-DL-003",
+      "title": "Table sorting by Status",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Inspect page for Status column sort affordance",
+          "expected": "Status column sort is available on the table",
+          "observed": "The only visible Status control was the filter button; no table sort header rendered"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "layout-and-delivery-table/delivery-log-and-shell/delivery-log-initial-annotated.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No sort-triggering request possible because table was absent"
+      },
+      "issues": "Blocked by missing table content on the real page."
+    },
+    {
+      "id": "VAL-DL-004",
+      "title": "Row expansion shows event timeline",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Look for rendered delivery rows to expand",
+          "expected": "At least one row can be expanded to show message ID, timeline, and error details",
+          "observed": "No delivery rows rendered on the page despite the shell loading"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "layout-and-delivery-table/delivery-log-and-shell/delivery-log-initial-annotated.png"
+        ],
+        "consoleErrors": "none",
+        "network": "GET /api/ops/email-delivery?restaurantId=a050d1ad-1ee0-4ea0-abc2-22c3778aa52c&range=7d&page=1&pageSize=50"
+      },
+      "issues": "Blocked by missing rendered rows."
+    },
+    {
+      "id": "VAL-DL-005",
+      "title": "Filter by search field — email",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Inspect search controls on Delivery Log",
+          "expected": "Email search can be applied and verified against filtered table results",
+          "observed": "Search controls rendered, but results region did not render any table or empty-state feedback to validate filtering outcomes"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "layout-and-delivery-table/delivery-log-and-shell/delivery-log-initial-annotated.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No filtered request executed because visible results surface was broken"
+      },
+      "issues": "Blocked by missing results surface."
+    },
+    {
+      "id": "VAL-DL-006",
+      "title": "Filter by search field — message ID",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Inspect search field dropdown and result area",
+          "expected": "Message ID search can be applied and matched against a visible row",
+          "observed": "Dropdown exists, but the table/results area never rendered"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "layout-and-delivery-table/delivery-log-and-shell/delivery-log-initial-annotated.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No filtered request executed because visible results surface was broken"
+      },
+      "issues": "Blocked by missing results surface."
+    },
+    {
+      "id": "VAL-DL-007",
+      "title": "Filter by search field — booking ref",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Inspect search field dropdown and result area",
+          "expected": "Booking ref search can be applied and confirmed in filtered results",
+          "observed": "Dropdown exists, but no results table or empty state rendered"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "layout-and-delivery-table/delivery-log-and-shell/delivery-log-initial-annotated.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No filtered request executed because visible results surface was broken"
+      },
+      "issues": "Blocked by missing results surface."
+    },
+    {
+      "id": "VAL-DL-008",
+      "title": "Status multi-select filter",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Open the Status filter",
+          "expected": "A multi-select menu with status options is shown",
+          "observed": "Popover showed checkboxes for Sent, Delivered, Delayed, Bounced, Complaint, and Failed"
+        },
+        {
+          "action": "Navigate directly to a URL with status=failed",
+          "expected": "Status state is reflected in URL and request",
+          "observed": "URL included status=failed and the page requested /api/ops/email-delivery?...&status=failed"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "layout-and-delivery-table/delivery-log-and-shell/status-filter-open.png",
+          "layout-and-delivery-table/delivery-log-and-shell/status-failed-range24h.png"
+        ],
+        "consoleErrors": "none",
+        "network": "GET /api/ops/email-delivery?restaurantId=a050d1ad-1ee0-4ea0-abc2-22c3778aa52c&range=24h&page=1&pageSize=50&status=failed"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-DL-009",
+      "title": "Time range toggle filter",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Open /email-delivery with range=24h",
+          "expected": "24h range is applied and reflected in the request/URL",
+          "observed": "URL stayed on range=24h and the page requested /api/ops/email-delivery?...&range=24h&page=1&pageSize=50"
+        }
+      ],
+      "evidence": {
+        "screenshots": ["layout-and-delivery-table/delivery-log-and-shell/range-24h.png"],
+        "consoleErrors": "none",
+        "network": "GET /api/ops/email-delivery?restaurantId=a050d1ad-1ee0-4ea0-abc2-22c3778aa52c&range=24h&page=1&pageSize=50"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-DL-010",
+      "title": "Template type dropdown filter",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Open the template filter dropdown",
+          "expected": "Template filter is a dropdown with selectable values",
+          "observed": "Dropdown opened as a listbox with options including All templates, booking confirmation, request received, confirmation, booking update, booking cancellation, booking rejected, restaurant cancellation, review request, reminder 24h, and reminder short"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "layout-and-delivery-table/delivery-log-and-shell/delivery-log-initial-annotated.png"
+        ],
+        "consoleErrors": "none",
+        "network": "Filter options inspected in UI; no selection applied because results surface was broken"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-DL-011",
+      "title": "Email type dropdown filter",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Inspect the Email type filter control",
+          "expected": "Email type filter is presented as a dropdown control",
+          "observed": "A combobox labelled Filter by email type was visible in the page shell"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "layout-and-delivery-table/delivery-log-and-shell/delivery-log-initial-annotated.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No email-type selection applied because results surface was broken"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-DL-012",
+      "title": "Clear all filters",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Inspect filter toolbar",
+          "expected": "A Clear button is available to reset filters",
+          "observed": "A visible Clear all filters button rendered in the toolbar"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "layout-and-delivery-table/delivery-log-and-shell/delivery-log-initial-annotated.png"
+        ],
+        "consoleErrors": "none",
+        "network": "Clear action not exercised because result content was already missing"
+      },
+      "issues": "Presence confirmed, but full reset behavior could not be validated against rendered results."
+    },
+    {
+      "id": "VAL-DL-013",
+      "title": "Pagination with total count",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Open out-of-range page=999",
+          "expected": "Pagination bar remains visible with page number, total summary, rows-per-page, and prev/next controls",
+          "observed": "Summary showed 'Showing 0-0 of 0 results' with Page 999, Rows per page selector, and Prev/Next buttons visible"
+        }
+      ],
+      "evidence": {
+        "screenshots": ["layout-and-delivery-table/delivery-log-and-shell/page-999-empty.png"],
+        "consoleErrors": "none",
+        "network": "GET /api/ops/email-delivery?restaurantId=a050d1ad-1ee0-4ea0-abc2-22c3778aa52c&range=24h&page=999&pageSize=50"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-DL-014",
+      "title": "Empty state",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Open filtered and out-of-range URLs expected to produce no results",
+          "expected": "A clear empty-state message such as 'No email deliveries found. Adjust filters to see more results.' is shown",
+          "observed": "The page showed only the shell and pagination summary ('Showing 0-0 of 0 results') with no empty-state guidance text"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "layout-and-delivery-table/delivery-log-and-shell/status-failed-range24h.png",
+          "layout-and-delivery-table/delivery-log-and-shell/page-999-status-failed.png"
+        ],
+        "consoleErrors": "none",
+        "network": "GET /api/ops/email-delivery?...&range=24h&page=1&pageSize=50&status=failed; GET /api/ops/email-delivery?...&range=24h&page=999&status=failed"
+      },
+      "issues": "No empty-state message or recovery guidance rendered."
+    },
+    {
+      "id": "VAL-DL-015",
+      "title": "Loading state",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Load the page and watch the table area during fetches",
+          "expected": "Skeleton/loading indicators appear in the table region while data is fetching",
+          "observed": "The delivery content area never rendered a table region, so loading placeholders could not be distinguished"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "layout-and-delivery-table/delivery-log-and-shell/delivery-log-initial-annotated.png"
+        ],
+        "consoleErrors": "none",
+        "network": "GET /api/ops/email-delivery?restaurantId=a050d1ad-1ee0-4ea0-abc2-22c3778aa52c&range=7d&page=1&pageSize=50"
+      },
+      "issues": "Blocked by missing rendered results region."
+    },
+    {
+      "id": "VAL-DL-016",
+      "title": "URL state sync for filters",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Navigate directly to URLs with range and status params",
+          "expected": "The page loads using the supplied filter params and requests matching API URLs",
+          "observed": "Direct loads preserved query params such as range=24h and status=failed, and the network requests included those exact params"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "layout-and-delivery-table/delivery-log-and-shell/range-24h.png",
+          "layout-and-delivery-table/delivery-log-and-shell/status-failed-range24h.png"
+        ],
+        "consoleErrors": "none",
+        "network": "GET /api/ops/email-delivery?...&range=24h&page=1&pageSize=50; GET /api/ops/email-delivery?...&range=24h&page=1&pageSize=50&status=failed"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-DL-017",
+      "title": "Error state",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Assess whether API errors can be surfaced in the UI",
+          "expected": "An error alert appears when the delivery API fails",
+          "observed": "Dev/test fault injection is now available via the delivery log Message ID filter or URL query param using the exact value __force_error__ on the dev harness surface"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "layout-and-delivery-table/delivery-log-and-shell/delivery-log-initial-annotated.png"
+        ],
+        "consoleErrors": "none",
+        "network": "Use GET /api/ops/email-delivery?...&messageId=__force_error__ on the dev harness to force the alert response for validation"
+      },
+      "issues": "Run this assertion against /dev/ops-email-delivery in a dev/test context; the forced error path is intentionally not exposed on production surfaces."
+    },
+    {
+      "id": "VAL-CROSS-003",
+      "title": "Sidebar navigation active state",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Open the Email Delivery page and inspect the left sidebar",
+          "expected": "The Email Delivery nav item is visually highlighted as active",
+          "observed": "The Email Delivery sidebar item rendered with the active state styling on the current page"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "layout-and-delivery-table/delivery-log-and-shell/delivery-log-initial-annotated.png"
+        ],
+        "consoleErrors": "none",
+        "network": "N/A"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-005",
+      "title": "Page header displays correctly",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Inspect the page header on /email-delivery",
+          "expected": "Header shows Email Delivery title, restaurant name badge, timezone badge, and Go to bookings link",
+          "observed": "Header showed the Email Delivery title, a timezone badge reading UTC, and a Go to bookings link, but the restaurant name badge was not rendered in the header area"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "layout-and-delivery-table/delivery-log-and-shell/delivery-log-initial-annotated.png"
+        ],
+        "consoleErrors": "none",
+        "network": "GET /api/ops/restaurants/a050d1ad-1ee0-4ea0-abc2-22c3778aa52c"
+      },
+      "issues": "Restaurant name badge missing from the page header on the real page."
+    }
+  ],
+  "frictions": [
+    {
+      "description": "After password login the app redirected to /dashboard instead of /email-delivery, so manual navigation back to the assigned route was required.",
+      "resolved": true,
+      "resolution": "Opened http://app.localhost:3000/email-delivery directly after sign-in.",
+      "affectedAssertions": ["VAL-DL-001", "VAL-CROSS-003", "VAL-CROSS-005"]
+    },
+    {
+      "description": "The delivery log page consistently rendered only the shared shell/filter bar while the results region failed to render any table rows or empty-state guidance.",
+      "resolved": false,
+      "resolution": null,
+      "affectedAssertions": [
+        "VAL-DL-001",
+        "VAL-DL-002",
+        "VAL-DL-003",
+        "VAL-DL-004",
+        "VAL-DL-005",
+        "VAL-DL-006",
+        "VAL-DL-007",
+        "VAL-DL-014",
+        "VAL-DL-015"
+      ]
+    }
+  ],
+  "blockers": [
+    {
+      "description": "Missing rendered delivery log content prevented validation of row-level behaviors, sorting, and search-result filtering through the real UI.",
+      "affectedAssertions": [
+        "VAL-DL-001",
+        "VAL-DL-002",
+        "VAL-DL-003",
+        "VAL-DL-004",
+        "VAL-DL-005",
+        "VAL-DL-006",
+        "VAL-DL-007",
+        "VAL-DL-015"
+      ],
+      "quickFixAttempted": "Reloaded the page, navigated with different filter/query combinations, and inspected DOM/network state; the results region still failed to render."
+    },
+    {
+      "description": "Error-state validation could not be performed without forcing an API failure, which would exceed the assigned browser-only observation boundary.",
+      "affectedAssertions": ["VAL-DL-017"],
+      "quickFixAttempted": "Confirmed normal API requests succeeded, then stopped short of disruptive fault injection."
+    }
+  ],
+  "summary": "Tested 19 assigned assertions on the authenticated real page. 8 passed, 2 failed (VAL-DL-014 empty state, VAL-CROSS-005 header badge), and 9 were blocked because the delivery log results region did not render on the browser surface."
+}

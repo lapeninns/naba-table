@@ -62,6 +62,7 @@ export type OpsEmailDeliveryBookingDTO = {
 };
 
 export type OpsEmailDeliveryAttemptDTO = {
+  id?: string;
   messageId: string;
   recipientEmail: string;
   bookingId: string | null;
@@ -113,7 +114,31 @@ export type OpsEmailDeliveryFeedResponse =
     }
   | {
       ok: false;
-      code: "UNAUTHENTICATED" | "FORBIDDEN" | "DELIVERY_LOG_UNAVAILABLE" | "INTERNAL";
+      code:
+        | "UNAUTHENTICATED"
+        | "FORBIDDEN"
+        | "DELIVERY_LOG_UNAVAILABLE"
+        | "FORCED_ERROR"
+        | "INTERNAL";
+      error: string;
+      message?: string;
+    };
+
+export type OpsEmailDeliverySummaryResponse =
+  | {
+      ok: true;
+      restaurantId: string;
+      range: OpsEmailDeliveryRange;
+      summary: OpsEmailDeliverySummary;
+    }
+  | {
+      ok: false;
+      code:
+        | "UNAUTHENTICATED"
+        | "FORBIDDEN"
+        | "DELIVERY_LOG_UNAVAILABLE"
+        | "FORCED_ERROR"
+        | "INTERNAL";
       error: string;
       message?: string;
     };

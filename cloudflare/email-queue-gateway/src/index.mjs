@@ -3,6 +3,7 @@ import { DurableObject } from 'cloudflare:workers';
 const DEFAULT_MAX_JOBS = 25;
 const MAX_SCAN = 200;
 const JOB_HISTORY_LIMIT = 10;
+const JOB_HISTORY_LIMIT_ALL = 'all';
 
 function json(data, init = {}) {
   const headers = new Headers(init.headers);
@@ -66,6 +67,19 @@ function normalizeMaxJobs(value) {
   return Math.max(1, Math.min(100, Math.floor(value)));
 }
 
+function normalizeJobHistoryLimit(value) {
+  if (typeof value === 'string' && value.trim().toLowerCase() === JOB_HISTORY_LIMIT_ALL) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  const parsed = typeof value === 'string' ? Number.parseInt(value, 10) : Number.NaN;
+  if (!Number.isFinite(parsed)) {
+    return JOB_HISTORY_LIMIT;
+  }
+
+  return Math.max(1, Math.min(5_000, Math.floor(parsed)));
+}
+
 function toJobSummary(job) {
   return {
     id: job.id,
@@ -114,7 +128,12 @@ export class EmailQueueState extends DurableObject {
     }
 
     if (url.pathname === '/status' && request.method === 'GET') {
-      return withCorsHeaders(await this.handleStatus(url.searchParams.get('includeJobs')));
+      return withCorsHeaders(
+        await this.handleStatus(
+          url.searchParams.get('includeJobs'),
+          url.searchParams.get('jobLimit'),
+        ),
+      );
     }
 
     if (url.pathname === '/drain' && request.method === 'POST') {
@@ -215,8 +234,9 @@ export class EmailQueueState extends DurableObject {
     return json({ removed: true });
   }
 
-  async handleStatus(includeJobsParam) {
+  async handleStatus(includeJobsParam, jobLimitParam) {
     const includeJobs = ['1', 'true', 'yes'].includes(String(includeJobsParam ?? '').toLowerCase());
+    const jobHistoryLimit = normalizeJobHistoryLimit(jobLimitParam);
     const meta = await this.getMeta();
     const jobEntries = await this.ctx.storage.list({ prefix: 'job:' });
     const dlqEntries = await this.ctx.storage.list({ prefix: 'dlq:' });
@@ -243,6 +263,9 @@ export class EmailQueueState extends DurableObject {
       dlq: dlq.length,
     };
 
+    const sliceJobs = (jobs) =>
+      Number.isFinite(jobHistoryLimit) ? jobs.slice(0, jobHistoryLimit) : jobs;
+
     return json({
       status: 'ok',
       provider: 'cloudflare',
@@ -252,11 +275,11 @@ export class EmailQueueState extends DurableObject {
         counts,
         jobs: includeJobs
           ? {
-              waiting: waiting.slice(0, JOB_HISTORY_LIMIT).map(toJobSummary),
-              active: active.slice(0, JOB_HISTORY_LIMIT).map(toJobSummary),
-              failed: dlq.slice(0, JOB_HISTORY_LIMIT).map(toJobSummary),
-              delayed: delayed.slice(0, JOB_HISTORY_LIMIT).map(toJobSummary),
-              dlq: dlq.slice(0, JOB_HISTORY_LIMIT).map(toJobSummary),
+              waiting: sliceJobs(waiting).map(toJobSummary),
+              active: sliceJobs(active).map(toJobSummary),
+              failed: sliceJobs(dlq).map(toJobSummary),
+              delayed: sliceJobs(delayed).map(toJobSummary),
+              dlq: sliceJobs(dlq).map(toJobSummary),
             }
           : null,
       },
