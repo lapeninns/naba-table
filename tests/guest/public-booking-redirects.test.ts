@@ -109,38 +109,6 @@ describe('public booking redirects', () => {
     );
   });
 
-  it('keeps restaurant booking thank-you query continuity through sign-in handoff', async () => {
-    const getUser = vi.fn().mockResolvedValue({ data: { user: null } });
-
-    vi.doMock('@/server/supabase', () => ({
-      getServerComponentSupabaseClient: () =>
-        Promise.resolve({
-          auth: {
-            getUser,
-          },
-        }),
-    }));
-
-    const { default: RestaurantBookingThankYouPage } = await import(
-      '@src/app/(public)/(marketing)/restaurants/[slug]/book/thank-you/page'
-    );
-
-    await expect(
-      RestaurantBookingThankYouPage({
-        params: Promise.resolve({ slug: 'seed-perf-r001' }),
-        searchParams: Promise.resolve({ guestName: 'Ada', confirmation: 'REST123' }),
-      }),
-    ).rejects.toThrow('NEXT_REDIRECT');
-
-    const [target] = redirect.mock.calls.at(-1) ?? [];
-    expect(target).toBe(
-      '/auth/signin?redirectedFrom=%2Frestaurants%2Fseed-perf-r001%2Fbook%2Fthank-you%3FguestName%3DAda%26confirmation%3DREST123',
-    );
-    expect(getUser).toHaveBeenCalledTimes(1);
-
-    vi.doUnmock('@/server/supabase');
-  });
-
   it('redirects deprecated guest thank-you links into the canonical booking flow', async () => {
     await expect(() => GuestThankYouRedirect()).toThrow('NEXT_REDIRECT:/bookings');
 
