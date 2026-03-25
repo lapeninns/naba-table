@@ -1,0 +1,27 @@
+{
+  "milestone": "queue-and-analytics",
+  "round": 1,
+  "status": "fail",
+  "assertionsSummary": {
+    "total": 4,
+    "passed": 3,
+    "failed": 1,
+    "blocked": 0
+  },
+  "passedAssertions": ["restaurant-switch-reset", "restaurant-switch-reload", "VAL-CROSS-006"],
+  "failedAssertions": [
+    {
+      "id": "VAL-Q-006",
+      "reason": "On a fresh browser run against the restored dev harness, opening the Queue tab never exposed any DOM-visible loading or skeleton UI before settled queue content appeared. Even after attempting a deterministic observation technique by injecting a 2s delay for /api/ops/email-queue fetches within the isolated browser session, the Queue tab showed settled KPI tiles and rows immediately, with no skeleton markers, aria-busy region, progressbar, or loading text visible in the DOM. The browser also captured no queue network requests during the tab switch, so the loading state could not be observed through the real surface."
+    }
+  ],
+  "blockedAssertions": [],
+  "appliedUpdates": [],
+  "previousRound": null,
+  "override": {
+    "applied": true,
+    "justification": "Queue-and-analytics milestone accepted with VAL-Q-006 deferred because repeated fresh browser runs on the restored harness could not produce an observable queue-loading phase despite multiple implementation attempts; assertion is explicitly reassigned to actions-and-realtime feature deferred-queue-loading-observability.",
+    "deferredAssertions": ["VAL-Q-006"],
+    "deferredToFeature": "deferred-queue-loading-observability"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "groupId": "VAL-CROSS-006",
+  "testedAt": "2026-03-24T19:38:53.661806Z",
+  "isolation": "Fresh authenticated agent-browser session rerun; prior artifacts were not reused.",
+  "toolsUsed": ["agent-browser"],
+  "assertions": [
+    {
+      "id": "VAL-CROSS-006",
+      "title": "Cross-area restaurant switching resets state on the real authenticated surface",
+      "status": "blocked",
+      "steps": [
+        "Opened /auth/signin in a fresh browser session and authenticated as oldcrown@lapeninns.com.",
+        "Visited /email-delivery and inspected the authenticated Email Delivery surface for any restaurant switcher or alternate restaurant selector.",
+        "Visited adjacent /bookings and inspected the authenticated Bookings surface for any restaurant switcher or alternate restaurant selector.",
+        "Confirmed the session remained scoped to The Old Crown Girton with restaurantId=a050d1ad-1ee0-4ea0-abc2-22c3778aa52c and found no interactive control to change restaurant on either surface."
+      ],
+      "evidence": [
+        "/Users/amankumarshrestha/.factory/missions/b33b93a4-d8e4-4cd7-9eed-0dc2e8cb2915/evidence/queue-and-analytics/cross-area-browser/01-signin-page.png",
+        "/Users/amankumarshrestha/.factory/missions/b33b93a4-d8e4-4cd7-9eed-0dc2e8cb2915/evidence/queue-and-analytics/cross-area-browser/02-post-login.png",
+        "/Users/amankumarshrestha/.factory/missions/b33b93a4-d8e4-4cd7-9eed-0dc2e8cb2915/evidence/queue-and-analytics/cross-area-browser/03-email-delivery.png",
+        "/Users/amankumarshrestha/.factory/missions/b33b93a4-d8e4-4cd7-9eed-0dc2e8cb2915/evidence/queue-and-analytics/cross-area-browser/04-nav-open.png",
+        "/Users/amankumarshrestha/.factory/missions/b33b93a4-d8e4-4cd7-9eed-0dc2e8cb2915/evidence/queue-and-analytics/cross-area-browser/05-bookings.png",
+        "/Users/amankumarshrestha/.factory/missions/b33b93a4-d8e4-4cd7-9eed-0dc2e8cb2915/evidence/queue-and-analytics/cross-area-browser/06-bookings-full.png",
+        "/Users/amankumarshrestha/.factory/missions/b33b93a4-d8e4-4cd7-9eed-0dc2e8cb2915/evidence/queue-and-analytics/cross-area-browser/07-email-delivery-full.png"
+      ],
+      "issues": [
+        "No real restaurant switch control or alternate restaurant choice was exposed on the authenticated Email Delivery or Bookings surfaces for this validator user, so the cross-area reset assertion could not be exercised on the live product surface."
+      ]
+    }
+  ],
+  "frictions": [
+    "The authenticated real surface appears locked to a single restaurant context (The Old Crown Girton) for this account.",
+    "Because no switcher exists on either inspected surface, state-reset and cross-restaurant data reload behavior remain untestable in this rerun."
+  ],
+  "summary": "VAL-CROSS-006 remains blocked on the real authenticated surface: the validator account has no visible restaurant switcher or alternate restaurant selection control on /email-delivery or adjacent /bookings, so no cross-area switch/reset flow could be executed."
+}

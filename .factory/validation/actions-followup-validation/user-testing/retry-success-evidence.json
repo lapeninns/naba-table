@@ -1,0 +1,10 @@
+{
+  "status": "captured",
+  "source": "agent-browser",
+  "note": "The original capture contained terminal-colored text instead of JSON. The retry validation evidence is preserved in the rerun flow record and supporting network/body artifacts.",
+  "artifacts": [
+    "actions-followup-validation/user-testing/network-after-confirm.txt",
+    "actions-followup-validation/user-testing/retry-success-body.txt",
+    "actions-followup-validation/user-testing/flows/retry-success-rerun.json"
+  ]
+}

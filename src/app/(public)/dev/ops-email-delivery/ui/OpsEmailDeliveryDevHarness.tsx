@@ -13,7 +13,13 @@ export function OpsEmailDeliveryDevHarness() {
 
   return (
     <OpsDevProviders factories={factories} initialRestaurantId={DEV_RESTAURANT_ID}>
-      <OpsEmailDeliveryClient initialRestaurantId={DEV_RESTAURANT_ID} initialRange="7d" />
+      <OpsEmailDeliveryClient
+        initialRestaurantId={DEV_RESTAURANT_ID}
+        initialRange="7d"
+        initialPage={1}
+        initialPageSize={50}
+        initialTab="delivery-log"
+      />
     </OpsDevProviders>
   );
 }

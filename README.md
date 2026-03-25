@@ -79,4 +79,8 @@ Destructive scripts are guarded by `scripts/db/safe-run.ts`.
 ## Docs index
 
 - `docs/environments.md` — environment profiles and safety flags.
+- Email Delivery dev/test validation fixtures:
+  - Retry flow fixture: `/email-delivery?fixture=retry-actions`
+  - Forced retry failure: `/email-delivery?fixture=retry-actions&simulateRetryMutationError=1`
+  - Queue loading fixture: `/email-delivery?tab=queue&queueFixture=loading`
 - Legacy docs were removed during cleanup; add new runbooks in `docs/` as they are produced.

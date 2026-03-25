@@ -16,7 +16,11 @@ import {
   EMAIL_FONT_STACK,
   type EmailAnnotation,
 } from '@/server/emails/base';
-import { hasRecentEmailDelivery, recordEmailDeliveryLog } from '@/server/emails/email-delivery-log';
+import {
+  hasRecentEmailDelivery,
+  recordEmailDeliveryLog,
+  type EmailDeliveryLogEntry,
+} from '@/server/emails/email-delivery-log';
 import {
   ensureLogoColumnOnRow,
   isLogoUrlColumnMissing,
@@ -501,8 +505,9 @@ async function dispatchEmail(
   options?: {
     reminderVariant?: 'short' | 'standard';
     reason?: string;
+    skipRecentDeliveryCheck?: boolean;
   },
-) {
+): Promise<EmailDeliveryLogEntry | null> {
   const venue = await resolveVenueDetails(booking.restaurant_id);
   const manageUrl = buildManageUrl(booking);
   const summary = buildSummary(booking, venue);
@@ -511,6 +516,7 @@ async function dispatchEmail(
   const calendarPayload = buildCalendarPayload(booking, venue);
   const calendarEventContent = buildCalendarEvent(calendarPayload);
   const attachments: EmailAttachment[] = [];
+  const skipRecentDeliveryCheck = options?.skipRecentDeliveryCheck === true;
   const deliveryTemplateType =
     type === 'reminder'
       ? options?.reminderVariant === 'short'
@@ -686,10 +692,10 @@ async function dispatchEmail(
     console.warn(
       `[emails][bookings] No recipient email found for type ${type} (booking ${booking.id})`,
     );
-    return;
+    return null;
   }
 
-  if (deliveryTemplateType === 'review_request') {
+  if (!skipRecentDeliveryCheck && deliveryTemplateType === 'review_request') {
     const alreadySent = await hasRecentEmailDelivery({
       bookingId: booking.id,
       templateType: deliveryTemplateType,
@@ -699,11 +705,11 @@ async function dispatchEmail(
       console.warn('[emails][bookings] review_request already sent recently; skipping', {
         bookingId: booking.id,
       });
-      return;
+      return null;
     }
   }
 
-  if (deliveryTemplateType === 'reminder_24h' || deliveryTemplateType === 'reminder_short') {
+  if (!skipRecentDeliveryCheck && (deliveryTemplateType === 'reminder_24h' || deliveryTemplateType === 'reminder_short')) {
     const withinMs =
       deliveryTemplateType === 'reminder_24h' ? 3 * 24 * 60 * 60 * 1000 : 12 * 60 * 60 * 1000;
     const alreadySent = await hasRecentEmailDelivery({
@@ -716,7 +722,7 @@ async function dispatchEmail(
         bookingId: booking.id,
         templateType: deliveryTemplateType,
       });
-      return;
+      return null;
     }
   }
 
@@ -729,7 +735,7 @@ async function dispatchEmail(
     fromName: venue.name,
   });
 
-  await recordEmailDeliveryLog({
+  return recordEmailDeliveryLog({
     bookingId: booking.id,
     restaurantId: booking.restaurant_id,
     emailType: deliveryEmailType,
@@ -744,6 +750,64 @@ async function dispatchEmail(
   });
 }
 
+
+async function resendBookingEmailByDeliveryType(
+  booking: BookingRecord,
+  emailType: string | null,
+  templateType: string | null,
+): Promise<EmailDeliveryLogEntry | null> {
+  const normalizedEmailType = emailType?.trim() ?? null;
+  const normalizedTemplateType = templateType?.trim() ?? null;
+
+  if (normalizedTemplateType === 'reminder_short' || normalizedTemplateType === 'reminder_24h') {
+    return dispatchEmail('reminder', booking, {
+      reminderVariant: normalizedTemplateType === 'reminder_short' ? 'short' : 'standard',
+      skipRecentDeliveryCheck: true,
+    });
+  }
+
+  switch (normalizedEmailType) {
+    case 'created':
+      return dispatchEmail('created', booking, { skipRecentDeliveryCheck: true });
+    case 'updated':
+    case 'modification_confirmed':
+      return dispatchEmail('modification_confirmed', booking, { skipRecentDeliveryCheck: true });
+    case 'cancelled':
+      return dispatchEmail('cancelled', booking, { skipRecentDeliveryCheck: true });
+    case 'modification_pending':
+      return dispatchEmail('modification_pending', booking, { skipRecentDeliveryCheck: true });
+    case 'booking_rejected':
+      return dispatchEmail('booking_rejected', booking, { skipRecentDeliveryCheck: true });
+    case 'restaurant_cancellation':
+      return dispatchEmail('restaurant_cancellation', booking, { skipRecentDeliveryCheck: true });
+    case 'review_request':
+      return dispatchEmail('review_request', booking, { skipRecentDeliveryCheck: true });
+    case 'reminder':
+      return dispatchEmail('reminder', booking, {
+        reminderVariant: normalizedTemplateType === 'reminder_short' ? 'short' : 'standard',
+        skipRecentDeliveryCheck: true,
+      });
+    case 'pending_attention':
+      return dispatchEmail('pending_attention', booking, {
+        reason: 'Retry requested from delivery log',
+        skipRecentDeliveryCheck: true,
+      });
+    default:
+      if (normalizedTemplateType === 'review_request') {
+        return dispatchEmail('review_request', booking, { skipRecentDeliveryCheck: true });
+      }
+
+      return dispatchEmail('created', booking, { skipRecentDeliveryCheck: true });
+  }
+}
+
+export async function resendBookingEmailFromDeliveryLog(params: {
+  booking: BookingRecord;
+  emailType: string | null;
+  templateType: string | null;
+}): Promise<EmailDeliveryLogEntry | null> {
+  return resendBookingEmailByDeliveryType(params.booking, params.emailType, params.templateType);
+}
 export const sendBookingConfirmationEmail = (booking: BookingRecord) =>
   dispatchEmail('created', booking);
 export const sendBookingUpdateEmail = (booking: BookingRecord) =>

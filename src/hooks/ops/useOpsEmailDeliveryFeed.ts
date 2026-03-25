@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery, type UseQueryResult } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
 import { useBookingService } from '@/contexts/ops-services';
@@ -30,6 +30,9 @@ export type OpsEmailDeliveryFeedParams = {
   page?: number;
   pageSize?: number;
   status?: EmailDeliveryStatus[];
+  refetchIntervalMs?: number | false;
+  simulateEmailDeliveryError?: boolean;
+  fixture?: string;
   recipientEmail?: string;
   messageId?: string;
   bookingRef?: string;
@@ -57,6 +60,7 @@ export function useOpsEmailDeliveryFeed(
   const page = normalizePage(params.page);
   const pageSize = normalizePageSize(params.pageSize);
   const statusKey = params.status?.length ? params.status.slice().sort().join(',') : 'all';
+  const refetchInterval = typeof params.refetchIntervalMs === 'number' ? params.refetchIntervalMs : false;
 
   const query = useQuery<OpsEmailDeliveryFeedResponse, HttpError>({
     queryKey: [
@@ -67,6 +71,8 @@ export function useOpsEmailDeliveryFeed(
       page,
       pageSize,
       statusKey,
+      params.simulateEmailDeliveryError ? 'forced-error' : '',
+      params.fixture?.trim() ?? '',
       params.recipientEmail?.trim() ?? '',
       params.messageId?.trim() ?? '',
       params.bookingRef?.trim().toUpperCase() ?? '',
@@ -83,6 +89,8 @@ export function useOpsEmailDeliveryFeed(
         page,
         pageSize,
         status: params.status,
+        simulateEmailDeliveryError: params.simulateEmailDeliveryError,
+        fixture: params.fixture,
         recipientEmail: params.recipientEmail,
         messageId: params.messageId,
         bookingRef: params.bookingRef,
@@ -92,8 +100,9 @@ export function useOpsEmailDeliveryFeed(
     },
     enabled: Boolean(restaurantId),
     staleTime: 30_000,
-    // Keep previous data visible while fetching new filters/range/page - enables smooth stale-while-revalidate UX.
-    placeholderData: (previous) => previous,
+    refetchInterval,
+    refetchIntervalInBackground: false,
+    placeholderData: keepPreviousData,
   });
 
   const derived = useMemo<OpsEmailDeliveryFeedState>(() => {
