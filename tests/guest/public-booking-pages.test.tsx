@@ -9,6 +9,7 @@ import BookingDetailPage from '@src/app/(public)/bookings/[bookingId]/page';
 import GuestBookingDetailPage from '@src/app/guest/bookings/[bookingId]/page';
 import DevBookingRecoveryPage from '@src/app/(public)/dev/booking-recovery/page';
 import DevBookingDetailComparisonPage from '@src/app/(public)/dev/booking-detail-comparison/page';
+import { BookingDetailPage } from '@src/app/(public)/bookings/booking-page';
 import ReservationDetailClient from '@/components/features/booking/detail/ReservationDetailClient';
 
 import type { ReactNode } from 'react';
@@ -196,7 +197,7 @@ describe('public booking pages', () => {
         searchParams: Promise.resolve({}),
       }),
     ).rejects.toThrow(
-      'NEXT_REDIRECT:/auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Faccess_token%3Dcontinuation-token%26next%3D%252Fbookings%252Fbooking-1',
+      'NEXT_REDIRECT:/auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252Fbooking-1',
     );
   });
 
@@ -256,6 +257,18 @@ describe('public booking pages', () => {
     });
 
     expect(page).toBeTruthy();
+  });
+
+  it('preserves guest-route continuity for unauthenticated guest booking detail visits', async () => {
+    await expect(async () =>
+      BookingDetailPage({
+        params: Promise.resolve({ bookingId: 'booking-1' }),
+        searchParams: Promise.resolve({ fixture: 'cancelled' }),
+        pathPrefix: '/guest/bookings',
+      }),
+    ).rejects.toThrow(
+      'NEXT_REDIRECT:/auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fguest%252Fbookings%252Fbooking-1%253Ffixture%253Dcancelled',
+    );
   });
 
   it('renders a usable dev booking recovery link when the recovery secret is configured', async () => {

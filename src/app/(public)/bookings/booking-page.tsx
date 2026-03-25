@@ -6,7 +6,10 @@ import ReservationDetailClient from "@/components/features/booking/detail/Reserv
 import { env } from "@/lib/env";
 import { getTrustedSiteOrigin } from "@/lib/site-url";
 import { withRedirectedFrom } from "@/lib/url/withRedirectedFrom";
-import { validateSessionRecoveryAccessToken } from "@/server/security/session-recovery-access-token";
+import {
+  createSessionRecoveryAccessToken,
+  validateSessionRecoveryAccessToken,
+} from "@/server/security/session-recovery-access-token";
 import { getServerComponentSupabaseClient } from "@/server/supabase";
 import { reservationAdapter } from "@entities/reservation/adapter";
 import { reservationKeys } from "@shared/api/queryKeys";
@@ -16,7 +19,13 @@ import type { Metadata } from "next";
 export const dynamic = "force-dynamic";
 
 export type RouteParams = Promise<{ bookingId: string }>;
-export type SearchParams = Promise<{ token?: string }>;
+type SearchParamValue = string | string[] | undefined;
+export type SearchParams = Promise<{
+  token?: SearchParamValue;
+  access_token?: SearchParamValue;
+  accessToken?: SearchParamValue;
+  [key: string]: SearchParamValue;
+}>;
 
 const shortenId = (value: string): string => (value.length > 8 ? value.slice(0, 8) : value);
 
@@ -29,16 +38,81 @@ const cookieHeaderFromStore = (cookieStore: Awaited<ReturnType<typeof cookies>>)
 
 const resolveOrigin = (): string => getTrustedSiteOrigin();
 
-async function prefetchReservation(queryClient: QueryClient, reservationId: string, token?: string | null) {
+const RECOVERY_COOKIE_NAME = "sr_access";
+
+const buildCanonicalBookingPath = (bookingId: string, pathPrefix: string): string =>
+  `${pathPrefix}/${bookingId}`;
+
+const firstSearchValue = (value: SearchParamValue): string | null => {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return typeof value[0] === "string" ? value[0] : null;
+  return null;
+};
+
+const buildCanonicalBookingPathWithSearch = (
+  bookingId: string,
+  pathPrefix: string,
+  searchParams: Record<string, SearchParamValue>,
+): string => {
+  const query = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(searchParams)) {
+    if (value == null) continue;
+
+    if (Array.isArray(value)) {
+      for (const entry of value) {
+        if (typeof entry === "string") {
+          query.append(key, entry);
+        }
+      }
+      continue;
+    }
+
+    query.append(key, value);
+  }
+
+  const basePath = buildCanonicalBookingPath(bookingId, pathPrefix);
+  const search = query.toString();
+  return search ? `${basePath}?${search}` : basePath;
+};
+
+const buildRecoveryPath = (nextPath: string, accessToken?: string | null): string => {
+  const next = encodeURIComponent(nextPath);
+
+  if (accessToken) {
+    return `/bookings/recover?access_token=${encodeURIComponent(accessToken)}&next=${next}`;
+  }
+
+  return `/bookings/recover?next=${next}`;
+};
+
+async function createRecoveryContinuationAccessToken(params: {
+  userEmail: string | null | undefined;
+  userPhone: string | null | undefined;
+  restaurantId: string | null | undefined;
+}): Promise<string | null> {
+  const secret = env.security.sessionRecoveryAccessTokenSecret?.trim();
+  if (!secret) return null;
+
+  const { userEmail, userPhone, restaurantId } = params;
+  if (!restaurantId || !userEmail || !userPhone) {
+    return null;
+  }
+
+  return createSessionRecoveryAccessToken({
+    restaurantId,
+    email: userEmail,
+    phone: userPhone,
+    secret,
+  });
+}
+
+async function prefetchReservation(queryClient: QueryClient, reservationId: string) {
   const cookieStore = await cookies();
   const cookieHeader = cookieHeaderFromStore(cookieStore);
   const origin = resolveOrigin();
 
   const url = new URL(`${origin}/api/bookings/${reservationId}`);
-  if (token) {
-    url.searchParams.set("token", token);
-  }
-
   try {
     const response = await fetch(url.toString(), {
       headers: {
@@ -85,15 +159,39 @@ export async function BookingDetailPage({
   const { bookingId } = await params;
   const normalized = bookingId?.trim();
   const resolvedSearchParams = (await searchParams) ?? {};
-  const token = resolvedSearchParams.token ?? null;
 
   if (!normalized) {
     redirect(`${pathPrefix}`);
   }
 
-  // Check for session recovery token from cookie
-  const cookieStore = await cookies();
-  const sessionRecoveryToken = cookieStore.get("sr_access")?.value ?? null;
+  const legacyToken = firstSearchValue(resolvedSearchParams.token) ?? null;
+  const accessToken =
+    firstSearchValue(resolvedSearchParams.access_token) ??
+    firstSearchValue(resolvedSearchParams.accessToken) ??
+    null;
+  const canonicalQuerySearchParams = Object.fromEntries(
+    Object.entries(resolvedSearchParams).filter(
+      ([key]) => key !== "token" && key !== "access_token" && key !== "accessToken",
+    ),
+  );
+  const canonicalBookingPath = buildCanonicalBookingPathWithSearch(
+    normalized,
+    pathPrefix,
+    canonicalQuerySearchParams,
+  );
+
+  if (accessToken) {
+    redirect(buildRecoveryPath(canonicalBookingPath, accessToken));
+  }
+
+  if (legacyToken) {
+    redirect("/bookings/recover/error?code=LEGACY_TOKEN_DEPRECATED");
+  }
+
+  const supabase = await getServerComponentSupabaseClient();
+  const [userResponse, cookieStore] = await Promise.all([supabase.auth.getUser(), cookies()]);
+  const user = userResponse.data.user;
+  const sessionRecoveryToken = cookieStore.get(RECOVERY_COOKIE_NAME)?.value ?? null;
   let hasValidSessionRecovery = false;
 
   if (sessionRecoveryToken) {
@@ -104,19 +202,45 @@ export async function BookingDetailPage({
     }
   }
 
-  const supabase = await getServerComponentSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  if (!user && hasValidSessionRecovery) {
+    const response = await fetch(`${resolveOrigin()}/api/bookings/${normalized}`, {
+      headers: {
+        accept: "application/json",
+        cookie: cookieHeaderFromStore(cookieStore),
+      },
+      cache: "no-store",
+    });
 
-  // Allow access if user is authenticated, has legacy token, or has valid session recovery token
-  if (!user && !token && !hasValidSessionRecovery) {
-    redirect(withRedirectedFrom("/auth/signin", `${pathPrefix}/${normalized}`));
+    if (!response.ok) {
+      redirect(withRedirectedFrom("/auth/signin", buildRecoveryPath(canonicalBookingPath)));
+    }
+
+    const payload = await response.json().catch(() => null);
+    const booking = payload?.booking;
+
+    const continuationAccessToken = await createRecoveryContinuationAccessToken({
+      userEmail: booking?.customer_email,
+      userPhone: booking?.customer_phone,
+      restaurantId: booking?.restaurant_id,
+    });
+
+    if (continuationAccessToken) {
+      redirect(
+        withRedirectedFrom(
+          "/auth/signin",
+          buildRecoveryPath(canonicalBookingPath, continuationAccessToken),
+        ),
+      );
+    }
+  }
+
+  if (!user && !hasValidSessionRecovery) {
+    redirect(withRedirectedFrom("/auth/signin", buildRecoveryPath(canonicalBookingPath)));
   }
 
   const queryClient = new QueryClient();
-  if (user || token || hasValidSessionRecovery) {
-    await prefetchReservation(queryClient, normalized, token);
+  if (user || hasValidSessionRecovery) {
+    await prefetchReservation(queryClient, normalized);
   }
   const dehydratedState = dehydrate(queryClient);
   const initialNow = Date.now();
@@ -131,6 +255,7 @@ export async function BookingDetailPage({
         restaurantName={null}
         initialNow={initialNow}
         canManage={canManage}
+        signInReturnPath={canonicalBookingPath}
       />
     </HydrationBoundary>
   );
