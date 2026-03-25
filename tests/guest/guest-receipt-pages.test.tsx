@@ -42,8 +42,8 @@ vi.mock('@/lib/reservations/share', () => ({
 
 function createReservation(overrides: Record<string, unknown> = {}) {
   return {
-    id: 'booking-1',
-    restaurantId: 'restaurant-1',
+    id: '11111111-1111-4111-8111-111111111111',
+    restaurantId: '22222222-2222-4222-8222-222222222222',
     restaurantName: 'The Fox',
     restaurantSlug: 'the-fox',
     restaurantTimezone: 'Europe/London',
@@ -94,10 +94,10 @@ describe('guest receipt pages', () => {
   it('redirects unauthenticated receipt requests without a token to sign-in', async () => {
     await expect(
       GuestBookingReceiptPage({
-        params: Promise.resolve({ bookingId: 'booking-1' }),
+        params: Promise.resolve({ bookingId: '11111111-1111-4111-8111-111111111111' }),
         searchParams: Promise.resolve({}),
       }),
-    ).rejects.toThrow('NEXT_REDIRECT:/auth/signin?redirectedFrom=%2Fguest%2Fbookings%2Fbooking-1%2Freceipt');
+    ).rejects.toThrow('NEXT_REDIRECT:/auth/signin?redirectedFrom=%2Fguest%2Fbookings%2F11111111-1111-4111-8111-111111111111%2Freceipt');
   });
 
   it('allows tokenized receipt requests without a session', async () => {
@@ -105,8 +105,8 @@ describe('guest receipt pages', () => {
       ok: true,
       json: vi.fn().mockResolvedValue({
         booking: {
-          id: 'booking-1',
-          restaurant_id: 'restaurant-1',
+          id: '11111111-1111-4111-8111-111111111111',
+          restaurant_id: '22222222-2222-4222-8222-222222222222',
           booking_date: '2026-02-12',
           start_time: '18:30',
           end_time: '20:00',
@@ -130,13 +130,13 @@ describe('guest receipt pages', () => {
     } as unknown as Response);
 
     const page = await GuestBookingReceiptPage({
-      params: Promise.resolve({ bookingId: 'booking-1' }),
+      params: Promise.resolve({ bookingId: '11111111-1111-4111-8111-111111111111' }),
       searchParams: Promise.resolve({ token: 'receipt-token' }),
     });
 
     expect(page).toBeTruthy();
     expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringContaining('/api/bookings/booking-1?token=receipt-token'),
+      expect.stringContaining('/api/bookings/11111111-1111-4111-8111-111111111111?token=receipt-token'),
       expect.objectContaining({ cache: 'no-store' }),
     );
   });
@@ -155,7 +155,7 @@ describe('ReceiptClient', () => {
       isLoading: false,
     });
 
-    renderWithQuery(<ReceiptClient reservationId="booking-1" hasSession={false} prefetchedStatus="confirmed" />);
+    renderWithQuery(<ReceiptClient reservationId="11111111-1111-4111-8111-111111111111" hasSession={false} prefetchedStatus="confirmed" />);
 
     expect(screen.getByText('Save this receipt for easier check-in when you arrive.')).toBeInTheDocument();
     expect(screen.getByText('Confirmed')).toBeInTheDocument();
@@ -171,7 +171,7 @@ describe('ReceiptClient', () => {
       isLoading: false,
     });
 
-    renderWithQuery(<ReceiptClient reservationId="booking-1" hasSession={true} prefetchedStatus="pending" />);
+    renderWithQuery(<ReceiptClient reservationId="11111111-1111-4111-8111-111111111111" hasSession={true} prefetchedStatus="pending" />);
 
     expect(screen.getByText('Pending Confirmation')).toBeInTheDocument();
     expect(
@@ -190,7 +190,7 @@ describe('ReceiptClient', () => {
       isLoading: false,
     });
 
-    renderWithQuery(<ReceiptClient reservationId="booking-1" hasSession={true} prefetchedStatus="cancelled" />);
+    renderWithQuery(<ReceiptClient reservationId="11111111-1111-4111-8111-111111111111" hasSession={true} prefetchedStatus="cancelled" />);
 
     expect(screen.getByText('Cancelled')).toBeInTheDocument();
     expect(screen.getByText('This reservation has been cancelled.')).toBeInTheDocument();
