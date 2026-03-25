@@ -138,6 +138,7 @@ export type ReservationDetailClientProps = {
   _structuredData?: string | null;
   venue?: ReservationVenue | null;
   canManage?: boolean;
+  signInReturnPath?: string;
 };
 
 export function ReservationDetailClient({
@@ -147,6 +148,7 @@ export function ReservationDetailClient({
   _structuredData,
   venue: providedVenue,
   canManage = false,
+  signInReturnPath,
 }: ReservationDetailClientProps) {
   const router = useRouter();
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -316,6 +318,7 @@ export function ReservationDetailClient({
   const actionDisabled = reservation
     ? reservation.status === 'cancelled' || pendingLock.locked || isPastReservation || !canManage
     : true;
+  const resolvedSignInReturnPath = signInReturnPath ?? `/guest/bookings/${reservationId}`;
 
   // Loading State
   if (isLoading && !reservation) {
@@ -499,7 +502,7 @@ export function ReservationDetailClient({
               <div className="flex flex-col gap-1">
                 <p className="font-semibold">Sign in to modify this reservation.</p>
                 <Link
-                  href={`/auth/signin?redirectedFrom=/guest/bookings/${reservationId}`}
+                  href={`/auth/signin?redirectedFrom=${encodeURIComponent(resolvedSignInReturnPath)}`}
                   className="font-semibold text-primary underline"
                 >
                   Sign In →

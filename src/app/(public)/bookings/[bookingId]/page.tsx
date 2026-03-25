@@ -118,6 +118,7 @@ export default async function BookingDetailPage({
         restaurantName={null}
         initialNow={initialNow}
         canManage={Boolean(user) || hasRecoveryCookie}
+        signInReturnPath={`/bookings/${normalized}`}
       />
     </HydrationBoundary>
   );

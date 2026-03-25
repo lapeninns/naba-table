@@ -344,4 +344,55 @@ describe('ReservationDetailClient', () => {
     expect(screen.getAllByRole('button', { name: /PDF/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('button', { name: /Share/i }).length).toBeGreaterThan(0);
   });
+
+  it('preserves the public booking return path for the sign-in CTA when rendered on the public route', () => {
+    useReservationMock.mockReturnValue({
+      data: createReservation({ status: 'confirmed' }),
+      error: null,
+      isError: false,
+      isLoading: false,
+      refetch: vi.fn(),
+      isFetching: false,
+    });
+
+    renderWithQuery(
+      <ReservationDetailClient
+        reservationId="booking-1"
+        restaurantName="The Fox"
+        initialNow={Date.parse('2026-02-10T12:00:00.000Z')}
+        canManage={false}
+        signInReturnPath="/bookings/booking-1"
+      />,
+    );
+
+    expect(screen.getByRole('link', { name: 'Sign In →' })).toHaveAttribute(
+      'href',
+      '/auth/signin?redirectedFrom=%2Fbookings%2Fbooking-1',
+    );
+  });
+
+  it('keeps the guest booking return path as the default sign-in CTA target', () => {
+    useReservationMock.mockReturnValue({
+      data: createReservation({ status: 'confirmed' }),
+      error: null,
+      isError: false,
+      isLoading: false,
+      refetch: vi.fn(),
+      isFetching: false,
+    });
+
+    renderWithQuery(
+      <ReservationDetailClient
+        reservationId="booking-1"
+        restaurantName="The Fox"
+        initialNow={Date.parse('2026-02-10T12:00:00.000Z')}
+        canManage={false}
+      />,
+    );
+
+    expect(screen.getByRole('link', { name: 'Sign In →' })).toHaveAttribute(
+      'href',
+      '/auth/signin?redirectedFrom=%2Fguest%2Fbookings%2Fbooking-1',
+    );
+  });
 });
