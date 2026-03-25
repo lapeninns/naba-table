@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-const appBaseUrl = 'http://localhost:5180';
+const appBaseUrl = 'http://localhost:3000';
 const restaurantSlug = 'the-fox';
 
 test.describe('guest marketing pages', () => {
@@ -9,10 +9,15 @@ test.describe('guest marketing pages', () => {
   test('landing page hero renders', async ({ page }) => {
     await page.goto('/');
 
-    await expect(page.getByRole('heading', { name: /Zero-Risk No-Show/i })).toBeVisible();
     await expect(
-      page.locator('#hero').getByRole('link', { name: 'Contact Sales' }),
+      page.getByRole('heading', {
+        name: 'Book a table without second-guessing what happens next.',
+      }),
     ).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: 'Browse restaurants ready to book' }),
+    ).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Manage an existing booking' })).toBeVisible();
   });
 
   test('privacy policy page loads', async ({ page }) => {

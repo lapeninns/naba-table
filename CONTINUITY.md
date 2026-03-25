@@ -1,56 +1,59 @@
 # Continuity Ledger
 
-Last updated: 2026-03-25T09:33:55Z
+Last updated: 2026-03-25T09:40:27Z
 
 ## Goal (incl. success criteria)
 
-- Complete user testing validation for milestone `guest-foundation-and-route-ownership` by determining testable assertions, running flow validators, synthesizing results into `.factory/validation/guest-foundation-and-route-ownership/user-testing/synthesis.json`, updating mission validation state, and handing results back to the orchestrator.
-- Success means all milestone assertions selected from completed implementation features are tested or explicitly blocked with evidence, synthesis and validation-state are updated accurately, supporting validator evidence is captured, and the worker returns control to the orchestrator.
+- Implement feature `landing-and-discovery-surfaces` for milestone `guest-discovery-and-auth`.
+- Success means `/` presents a warm guest-first hierarchy with explicit discovery/booking entry points, authenticated visits to `/` still redirect to `/guest/dashboard`, and `/restaurants` plus `/restaurants/[slug]` share the canonical guest system with deterministic CTA and empty-state behavior.
 
 ## Constraints/Assumptions
 
-- Must follow the active `user-testing-validator` skill and always return control to the orchestrator.
-- Scope is limited to milestone user-testing validation; do not change product code unless required for factual validation artifacts or low-risk shared-state documentation.
-- Use `.factory/services.yaml` plus `.factory/library/user-testing.md` as the source of truth for services, routes, and validation guidance.
-- Portal validation may use mocked fixtures for this mission; public/auth/redirect checks should use the live browser surface on port 3000.
+- Work only in the isolated mission worktree and keep scope limited to landing and public restaurant discovery surfaces.
+- Reuse canonical guest foundations (`MarketingLayout`, `GuestPrimitives`) rather than adding a competing shell.
+- Required validation for handoff: `npx vitest run --maxWorkers=9`, `pnpm typecheck`, `pnpm lint`, plus manual browser checks on `http://localhost:3000`.
+- Existing unrelated lint warnings in `lib/*` and `server/*` are pre-existing per mission AGENTS guidance.
 
 ## Key decisions
 
-- Treat this as a first-run user-testing pass because no prior synthesis existed under `.factory/validation/guest-foundation-and-route-ownership/user-testing/`.
-- Test only the pending assertions fulfilled by completed milestone implementation features: `VAL-FOUNDATION-004`, `VAL-FOUNDATION-006`, `VAL-FOUNDATION-013`, and `VAL-CROSS-006`.
-- Use `user-testing-flow-validator` subagents to gather live browser/curl evidence in parallel, then run targeted deterministic validation with `npx vitest run tests/guest/public-booking-redirects.test.ts --reporter=verbose`.
+- Treat the current landing implementation as legacy/competing guest language and replace it with a guest-system-first hierarchy.
+- Migrate `src/components/restaurants/PublicSections.tsx` onto canonical guest primitives so list/detail routes align with the shared shell.
+- Update guest public tests first to capture the new landing/discovery expectations before implementation.
 
 ## State
 
-- Mission context, validation contract, repo docs, services manifest, and user-testing guidance loaded.
-- Flow validator reports were collected for live guest redirects and root-host app canonicalization.
-- Validation state and user-testing synthesis were written; targeted deterministic verification completed.
+- Mission docs, services manifest, guest-system library notes, README, and current landing/discovery source files have been reviewed.
+- Baseline validation passed via `npx vitest run --maxWorkers=9`.
+- Feature task artifacts were created at `tasks/landing-and-discovery-surfaces-20260325-0939/`.
 
 ## Done
 
-- Activated `user-testing-validator` skill.
-- Read `CONTINUITY.md`, mission files, `README.md`, `.factory/services.yaml`, `.factory/library/user-testing.md`, and relevant redirect tests.
-- Confirmed pending milestone assertions from completed features: `VAL-FOUNDATION-004`, `VAL-FOUNDATION-006`, `VAL-FOUNDATION-013`, and `VAL-CROSS-006`.
-- Spawned and collected two `user-testing-flow-validator` reports covering live guest redirects and root/app host canonicalization.
-- Updated `.factory/library/user-testing.md`, mission `validation-state.json`, and `.factory/validation/guest-foundation-and-route-ownership/user-testing/synthesis.json`.
+- Invoked required startup and worker skills.
+- Ran `.factory/init.sh` successfully.
+- Reviewed assigned validation assertions: `VAL-DISCOVERY-001` through `VAL-DISCOVERY-005`.
+- Captured research/plan/todo task artifacts for this feature.
 
 ## Now
 
-- Finalize command outcomes and report the blocked local-runtime assertion back to the orchestrator.
+- Update landing/discovery tests to RED, then implement canonical guest-shell landing and restaurant discovery surfaces.
 
 ## Next
 
-- Call `EndFeatureRun` with the completed assertion summary and targeted verification evidence.
+- Run targeted tests, full validators, and live browser verification.
+- Commit only feature-related changes before handoff.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- Whether the orchestrator will request a follow-up fix for the blocked local `app.localhost` redirect-loop behavior behind `VAL-FOUNDATION-013`.
+- Whether any existing Playwright guest marketing assertions still target legacy localhost:5180 content and need route-specific updates for this feature.
 
 ## Working set (files/ids/commands)
 
-- `.factory/services.yaml`
-- `.factory/library/user-testing.md`
-- `.factory/validation/guest-foundation-and-route-ownership/user-testing/flows/*.json`
-- `.factory/validation/guest-foundation-and-route-ownership/user-testing/synthesis.json`
-- `/Users/amankumarshrestha/.factory/missions/7b467445-b8da-4b80-8252-ffa00b1ed7eb/validation-state.json`
-- `npx vitest run tests/guest/public-booking-redirects.test.ts --reporter=verbose`
+- `src/app/(public)/page.tsx`
+- `src/app/(public)/(marketing)/restaurants/page.tsx`
+- `src/app/(public)/(marketing)/restaurants/[slug]/page.tsx`
+- `src/components/landing/LandingPage.tsx`
+- `src/components/restaurants/PublicSections.tsx`
+- `tests/guest/public-restaurants-pages.test.tsx`
+- `tests/e2e/guest-public-marketing.spec.ts`
+- `tests/e2e/guest-public-pages.spec.ts`
+- `tasks/landing-and-discovery-surfaces-20260325-0939/*`

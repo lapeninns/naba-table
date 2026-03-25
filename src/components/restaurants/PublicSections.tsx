@@ -1,5 +1,3 @@
- 
-
 import {
   ArrowRight,
   BookOpenCheck,
@@ -15,6 +13,13 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 
+import {
+  GuestEmpty,
+  GuestPageSection,
+  GuestSurfaceCard,
+  HeadingXL,
+  TextBody,
+} from '@/components/guest/ui/GuestPrimitives';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -39,22 +44,19 @@ const TAGS = ['Chef-led', 'Terrace', 'Live fire'];
 export function RestaurantsHeroSection({ totalRestaurants }: { totalRestaurants: number }) {
   return (
     <section className="px-4 py-12 sm:px-6 lg:py-16" aria-labelledby="restaurants-hero-heading">
-      <div className="mx-auto flex max-w-6xl flex-col gap-10 rounded-[var(--guest-radius-2xl)] border border-slate-100 bg-white/90 p-6 shadow-[var(--guest-shadow-xl)] md:flex-row md:items-center md:justify-between">
-        <div className="flex-1 space-y-4">
-          <Badge variant="secondary" className="rounded-full px-4 py-1 text-blue-900">
+      <div className="mx-auto flex max-w-6xl flex-col gap-10 rounded-[var(--guest-radius-2xl)] border border-border/70 bg-background/95 p-6 shadow-[var(--guest-shadow-xl)] md:flex-row md:items-center md:justify-between">
+        <div className="flex-1 space-y-5">
+          <Badge variant="secondary" className="rounded-full px-4 py-1 text-primary">
             Curated guest picks
           </Badge>
           <div className="space-y-3">
-            <h1
-              id="restaurants-hero-heading"
-              className="guest-heading-hero text-[clamp(2rem,4vw,3rem)] font-bold text-slate-900"
-            >
-              Find the right table fast.
+            <h1 id="restaurants-hero-heading" className="heading-hero text-[clamp(2rem,4vw,3.25rem)] text-foreground">
+              Find somewhere that feels right for tonight.
             </h1>
-            <p className="text-base text-slate-600 sm:text-lg">
-              Live-ready venues with the same flow guests see at checkout—no surprises between
-              browsing and booking.
-            </p>
+            <TextBody className="max-w-2xl text-base sm:text-lg">
+              Browse warm, guest-ready restaurant pages with clear detail and booking actions before
+              you commit to a table.
+            </TextBody>
           </div>
           <div className="flex flex-col gap-3 md:flex-row">
             <div className="relative flex-1">
@@ -70,48 +72,54 @@ export function RestaurantsHeroSection({ totalRestaurants }: { totalRestaurants:
                 name="restaurant-discovery"
                 type="search"
                 placeholder="Search by neighborhood, cuisine, or vibe"
-                className="h-12 rounded-[var(--guest-radius-lg)] border-slate-200 bg-slate-50 pl-11"
+                className="h-12 rounded-[var(--guest-radius-lg)] border-border bg-surface-warm pl-11"
               />
             </div>
-            <Button size="lg" className="h-12 rounded-[var(--guest-radius-lg)] text-base" asChild>
+            <Button size="lg" className="h-12 rounded-[var(--guest-radius-lg)] px-5 text-base" asChild>
+              <Link href="/restaurants">
+                <Compass className="mr-2 h-5 w-5" aria-hidden />
+                Browse restaurants ready to book
+              </Link>
+            </Button>
+            <Button variant="outline" size="lg" className="h-12 rounded-[var(--guest-radius-lg)] px-5 text-base" asChild>
               <Link href="/auth/signin">
                 <ShieldCheck className="mr-2 h-5 w-5" aria-hidden />
-                Save favorites
+                Save my guest shortlist
               </Link>
             </Button>
           </div>
-          <ul className="flex flex-wrap gap-3 text-sm text-slate-600" aria-label="Popular filters">
+          <ul className="flex flex-wrap gap-3 text-sm text-muted-foreground" aria-label="Popular filters">
             {TAGS.map((tag) => (
-              <li key={tag} className="rounded-full border border-slate-200 px-3 py-1">
+              <li key={tag} className="rounded-full border border-border px-3 py-1">
                 {tag}
               </li>
             ))}
           </ul>
         </div>
-        <Card className="flex flex-1 flex-col gap-4 rounded-[var(--guest-radius-xl)] border-blue-100 bg-gradient-to-br from-blue-600/90 via-blue-500/90 to-blue-700/90 p-6 text-white shadow-[var(--guest-shadow-lg)]">
+        <GuestSurfaceCard className="flex flex-1 flex-col gap-4 rounded-[var(--guest-radius-xl)] bg-gradient-to-br from-primary via-primary/90 to-primary/80 p-6 text-primary-foreground shadow-[var(--guest-shadow-lg)]">
           <div className="space-y-1">
-            <p className="text-sm uppercase tracking-[0.28em] text-blue-100">Live venues</p>
+            <p className="text-sm uppercase tracking-[0.28em] text-primary-foreground/80">Live venues</p>
             <p className="text-4xl font-semibold">{totalRestaurants}</p>
-            <p className="text-sm text-blue-100">Ready to book right now.</p>
+            <p className="text-sm text-primary-foreground/80">Ready to book right now.</p>
           </div>
-          <div className="rounded-[var(--guest-radius-lg)] bg-white/10 p-4">
+          <div className="rounded-[var(--guest-radius-lg)] bg-background/10 p-4">
             <p className="text-sm font-medium">Built for clarity</p>
-            <p className="text-sm text-blue-100">
-              Same cards and spacing you’ll see in the booking flow.
+            <p className="text-sm text-primary-foreground/80">
+              Same cards, trust cues, and clear CTAs you&apos;ll see when you start booking.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-3 text-sm text-blue-100">
-            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1">
+          <div className="flex flex-wrap items-center gap-3 text-sm text-primary-foreground/80">
+            <span className="inline-flex items-center gap-2 rounded-full bg-background/10 px-3 py-1">
               <Compass className="h-4 w-4" aria-hidden />
               Guided discovery
             </span>
-            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1">
+            <span className="inline-flex items-center gap-2 rounded-full bg-background/10 px-3 py-1">
               <Sparkles className="h-4 w-4" aria-hidden />
               Instant confirm
             </span>
             <ListingIllustration />
           </div>
-        </Card>
+        </GuestSurfaceCard>
       </div>
     </section>
   );
@@ -120,24 +128,17 @@ export function RestaurantsHeroSection({ totalRestaurants }: { totalRestaurants:
 export function RestaurantsGridSection({ restaurants }: { restaurants: RestaurantListItem[] }) {
   return (
     <section className="px-4 pb-14 pt-4 sm:px-6" aria-labelledby="restaurants-grid-heading">
-      <div className="mx-auto max-w-6xl space-y-4">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm text-blue-700">Carefully selected venues</p>
-            <h2
-              id="restaurants-grid-heading"
-              className="guest-heading-page text-[length:var(--guest-text-page)] font-semibold text-slate-900"
-            >
-              Pick a spot
-            </h2>
-          </div>
-          <p className="text-sm text-slate-500">Tap a card for details and booking.</p>
-        </div>
+      <GuestPageSection
+        title="Pick a restaurant with the next step in plain view."
+        description="Compare venues, open the details page, or head straight into booking without leaving the guest system."
+        eyebrow="Carefully selected venues"
+        className="mx-auto max-w-6xl"
+      >
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {restaurants.map((restaurant) => (
-            <article
+            <GuestSurfaceCard
               key={restaurant.id}
-              className="group flex h-full flex-col gap-4 rounded-[var(--guest-radius-xl)] border border-slate-100 bg-white p-4 shadow-[var(--guest-shadow-md)]"
+              className="group flex h-full flex-col gap-4 rounded-[var(--guest-radius-xl)] p-4"
             >
               <Link
                 href={`/restaurants/${restaurant.slug}`}
@@ -166,42 +167,52 @@ export function RestaurantsGridSection({ restaurants }: { restaurants: Restauran
                 <div>
                   <Link
                     href={`/restaurants/${restaurant.slug}`}
-                    className="inline-flex items-center gap-2 text-lg font-semibold text-slate-900 hover:text-blue-700"
+                    className="inline-flex items-center gap-2 text-lg font-semibold text-foreground hover:text-primary"
                   >
                     {restaurant.name}
                     <ArrowRight className="h-4 w-4" aria-hidden />
                   </Link>
                   {restaurant.address ? (
-                    <p className="mt-1 flex items-start gap-2 text-sm text-slate-600">
-                      <MapPin className="mt-0.5 h-4 w-4 text-slate-400" aria-hidden />
+                    <p className="mt-1 flex items-start gap-2 text-sm text-muted-foreground">
+                      <MapPin className="mt-0.5 h-4 w-4 text-muted-foreground/70" aria-hidden />
                       <span className="line-clamp-2">{restaurant.address}</span>
                     </p>
                   ) : null}
                 </div>
-                <div className="flex items-center justify-between text-sm text-slate-600">
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
                   <span className="inline-flex items-center gap-1">
                     <Users className="h-4 w-4" aria-hidden />
                     {restaurant.capacity
                       ? `Up to ${restaurant.capacity} guests`
                       : 'Flexible seating'}
                   </span>
-                  <Button variant="secondary" size="sm" className="rounded-full px-4" asChild>
-                    <Link href={`/restaurants/${restaurant.slug}`}>View</Link>
+                </div>
+                <div className="mt-auto flex flex-col gap-2 sm:flex-row">
+                  <Button variant="outline" size="sm" className="rounded-full px-4" asChild>
+                    <Link href={`/restaurants/${restaurant.slug}`}>View details</Link>
+                  </Button>
+                  <Button size="sm" className="rounded-full px-4" asChild>
+                    <Link href={`/restaurants/${restaurant.slug}/book`}>Book now</Link>
                   </Button>
                 </div>
               </div>
-            </article>
+            </GuestSurfaceCard>
           ))}
         </div>
         {restaurants.length === 0 ? (
-          <div className="rounded-[var(--guest-radius-xl)] border border-dashed border-slate-200 bg-white p-10 text-center text-slate-500">
-            <p className="text-lg font-semibold">No restaurants found</p>
-            <p className="text-sm">
-              Check back soon—we publish new venues as they pass our onboarding review.
-            </p>
-          </div>
+          <GuestEmpty
+            title="No tables are open to book just yet"
+            description="We’re refreshing the list of guest-ready venues. Head back home for the main booking paths and check again soon."
+            actionLabel="Back to guest home"
+            actionHref="/"
+            secondaryAction={
+              <Button variant="outline" className="rounded-full px-6" asChild>
+                <Link href="/bookings">View my bookings</Link>
+              </Button>
+            }
+          />
         ) : null}
-      </div>
+      </GuestPageSection>
     </section>
   );
 }
@@ -225,9 +236,7 @@ export function RestaurantDetailHero({ restaurant }: { restaurant: RestaurantDet
       <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-10">
         <div className="mx-auto flex max-w-5xl flex-col gap-3 text-white">
           <Badge className="w-fit rounded-full bg-amber-400 text-amber-950">Featured partner</Badge>
-          <h1 className="guest-heading-hero text-[clamp(2.5rem,4vw,3.5rem)] font-semibold">
-            {restaurant.name}
-          </h1>
+          <HeadingXL className="text-[clamp(2.5rem,4vw,3.5rem)] text-white">{restaurant.name}</HeadingXL>
           {restaurant.address ? (
             <p className="flex items-center gap-2 text-base text-slate-100">
               <MapPin className="h-5 w-5 text-amber-300" aria-hidden />
@@ -309,7 +318,10 @@ export function RestaurantDetailsSection({
               </p>
             </div>
             <Button size="lg" className="w-full rounded-full text-base" asChild>
-              <Link href={`/restaurants/${restaurant.slug}/book`}>Book a table</Link>
+              <Link href={`/restaurants/${restaurant.slug}/book`}>Book a table at {restaurant.name}</Link>
+            </Button>
+            <Button variant="outline" size="lg" className="w-full rounded-full text-base" asChild>
+              <Link href="/restaurants">See all restaurants</Link>
             </Button>
             <div className="rounded-[var(--guest-radius-lg)] border border-slate-100 bg-slate-50 p-4 text-xs text-slate-600">
               <p className="flex items-center gap-2">

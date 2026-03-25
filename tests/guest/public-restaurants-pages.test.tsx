@@ -65,9 +65,16 @@ describe('public restaurant marketing pages', () => {
 
     render(await RestaurantsPage());
 
-    expect(screen.getByRole('heading', { name: 'Find the right table fast.' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Find somewhere that feels right for tonight.' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Browse restaurants ready to book' }),
+    ).toBeInTheDocument();
     expect(screen.getByText('The Fox')).toBeInTheDocument();
     expect(screen.getByText('The Owl')).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'View details' })).toHaveLength(2);
+    expect(screen.getAllByRole('link', { name: 'Book now' })).toHaveLength(2);
   });
 
   it('shows empty state when no restaurants are available', async () => {
@@ -75,7 +82,8 @@ describe('public restaurant marketing pages', () => {
 
     render(await RestaurantsPage());
 
-    expect(screen.getByText('No restaurants found')).toBeInTheDocument();
+    expect(screen.getByText('No tables are open to book just yet')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Back to guest home' })).toBeInTheDocument();
   });
 
   it('renders restaurant detail hero and contact info', async () => {
@@ -93,6 +101,8 @@ describe('public restaurant marketing pages', () => {
 
     expect(screen.getByRole('heading', { name: 'The Fox' })).toBeInTheDocument();
     expect(screen.getByText('+44 1234 567890')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Book a table at The Fox' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'See all restaurants' })).toBeInTheDocument();
   });
 
   it('returns notFound when restaurant detail is missing', async () => {
