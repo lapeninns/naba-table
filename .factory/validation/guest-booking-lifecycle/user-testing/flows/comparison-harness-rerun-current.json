@@ -1,0 +1,96 @@
+{
+  "groupId": "comparison-harness-rerun-current",
+  "testedAt": "2026-03-25T15:13:34.609487+00:00",
+  "isolation": {
+    "appUrl": "http://localhost:3000",
+    "route": "/dev/booking-detail-comparison?fixture=cancelled",
+    "missionDir": "/Users/amankumarshrestha/.factory/missions/7b467445-b8da-4b80-8252-ffa00b1ed7eb",
+    "mode": "browser-only validation on live dev harness route",
+    "boundary": "Stayed on assigned route and immediate canonical destination only; no auth mutation"
+  },
+  "toolsUsed": ["agent-browser"],
+  "assertions": [
+    {
+      "id": "VAL-CROSS-003",
+      "title": "Public booking detail and guest booking detail reuse one booking-detail model",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Open /dev/booking-detail-comparison?fixture=cancelled",
+          "expected": "Comparison harness renders public and guest booking-detail experiences for cross-checking the shared model",
+          "observed": "Route immediately canonicalized away from the harness to /auth/signin"
+        },
+        {
+          "action": "Capture final URL and page state after redirect",
+          "expected": "Harness comparison content remains visible and can be inspected",
+          "observed": "Only the guest sign-in surface rendered; no comparison harness content was available"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "guest-booking-lifecycle/comparison-harness-rerun-current/VAL-CROSS-003-comparison-harness-annotated.png",
+          "guest-booking-lifecycle/comparison-harness-rerun-current/VAL-CROSS-003-comparison-harness-second-check.png"
+        ],
+        "consoleErrors": "PostHog fetch failures and 401 Unauthorized errors were present on the redirected sign-in page",
+        "network": "No redirect-chain or booking comparison requests were captured by agent-browser; final URL resolved to http://localhost:3000/auth/signin"
+      },
+      "issues": "Blocked because the assigned comparison harness route did not render and instead redirected to sign-in, preventing verification of shared booking-detail model content."
+    },
+    {
+      "id": "VAL-BOOKING-006",
+      "title": "Booking detail disables management actions when lifecycle rules disallow them",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Inspect the cancelled comparison harness fixture for non-manageable controls",
+          "expected": "Cancelled booking detail shows modify/cancel actions as unavailable",
+          "observed": "Harness never rendered; only sign-in page was visible after redirect"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "guest-booking-lifecycle/comparison-harness-rerun-current/VAL-CROSS-003-comparison-harness-annotated.png"
+        ],
+        "consoleErrors": "Same redirected sign-in page console errors as above",
+        "network": "No booking-detail content request could be confirmed from the harness"
+      },
+      "issues": "Blocked by the harness redirect to /auth/signin, so cancelled/non-manageable action availability could not be observed."
+    },
+    {
+      "id": "VAL-BOOKING-007",
+      "title": "Non-manageable booking states explain how the guest can regain control",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Inspect the cancelled comparison harness fixture for non-manageable guidance",
+          "expected": "Cancelled booking detail shows guidance explaining what the guest can do next",
+          "observed": "Harness content was unavailable because the route redirected to sign-in"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "guest-booking-lifecycle/comparison-harness-rerun-current/VAL-CROSS-003-comparison-harness-second-check.png"
+        ],
+        "consoleErrors": "Same redirected sign-in page console errors as above",
+        "network": "No comparison or booking-detail network activity captured before redirect completed"
+      },
+      "issues": "Blocked by the harness redirect; could not confirm whether cancelled/non-manageable guidance is visible."
+    }
+  ],
+  "frictions": [
+    {
+      "description": "The assigned dev comparison harness unexpectedly canonicalized to /auth/signin instead of rendering the comparison surface, so the requested content could not be inspected.",
+      "resolved": false,
+      "resolution": null,
+      "affectedAssertions": ["VAL-CROSS-003", "VAL-BOOKING-006", "VAL-BOOKING-007"]
+    }
+  ],
+  "blockers": [
+    {
+      "description": "Live browser access to /dev/booking-detail-comparison?fixture=cancelled consistently redirected to the guest sign-in page.",
+      "affectedAssertions": ["VAL-CROSS-003", "VAL-BOOKING-006", "VAL-BOOKING-007"],
+      "quickFixAttempted": "Retried opening the route, waited for load completion, re-captured screenshots, and re-checked the final URL; result remained /auth/signin."
+    }
+  ],
+  "summary": "Tested the assigned harness route twice in a fresh browser session. Final URL was http://localhost:3000/auth/signin, comparison content did not render, and cancelled/non-manageable guidance was not visible because the harness redirected before the booking-detail comparison surface loaded."
+}

@@ -33,10 +33,8 @@ import {
   SecondaryButton,
   GhostButton,
 } from '@/components/features/booking/ui/BookingComponents';
-import { GuestError } from '@/components/guest/ui';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { emit } from '@/lib/analytics/emit';
 import {
@@ -52,6 +50,10 @@ import {
 } from '@reserve/shared/formatting/booking';
 import { DEFAULT_VENUE } from '@shared/config/venue';
 
+import {
+  ReservationDetailErrorState,
+  ReservationDetailLoadingState,
+} from './ReservationDetailStates';
 import { ReservationHistory } from './ReservationHistory';
 
 import type { BookingDTO } from '@/hooks/useBookings';
@@ -139,6 +141,9 @@ export type ReservationDetailClientProps = {
   venue?: ReservationVenue | null;
   canManage?: boolean;
   signInReturnPath?: string;
+  rebookHref?: string;
+  accessToken?: string | null;
+  showHistory?: boolean;
 };
 
 export function ReservationDetailClient({
@@ -149,6 +154,9 @@ export function ReservationDetailClient({
   venue: providedVenue,
   canManage = false,
   signInReturnPath,
+  rebookHref,
+  accessToken = null,
+  showHistory = true,
 }: ReservationDetailClientProps) {
   const router = useRouter();
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -173,7 +181,7 @@ export function ReservationDetailClient({
     isLoading,
     refetch,
     isFetching,
-  } = useReservation(reservationId);
+  } = useReservation(reservationId, { token: accessToken });
 
   const venue = useMemo<ReservationVenue>(() => {
     if (providedVenue) {
@@ -286,12 +294,16 @@ export function ReservationDetailClient({
   const handleRebook = useCallback(() => {
     if (!reservation) return;
     void emit('reservation_detail_rebook_clicked', { reservationId, party: reservation.partySize });
+    if (rebookHref) {
+      router.push(rebookHref);
+      return;
+    }
     const slug = [reservation.restaurantSlug, venue.slug]
       .map((value) => value?.trim())
       .find((value) => value && value.toLowerCase() !== 'default');
     const path = slug ? `/restaurants/${slug}/book` : '/restaurants';
     router.push(`${path}?source=rebook&reservationId=${reservation.id}`);
-  }, [reservation, reservationId, router, venue.slug]);
+  }, [rebookHref, reservation, reservationId, router, venue.slug]);
 
   const handleShare = useCallback(() => {
     if (!sharePayload) return;
@@ -322,45 +334,16 @@ export function ReservationDetailClient({
 
   // Loading State
   if (isLoading && !reservation) {
-    return (
-      <section className="min-h-screen bg-surface-warm py-8 sm:py-10 pb-20">
-        <div className="mx-auto w-full max-w-5xl space-y-6 sm:space-y-8 px-4 sm:px-6">
-          {/* Summary card skeleton */}
-          <div className="rounded-2xl border border-border bg-background p-6 sm:p-8 space-y-6 animate-fade-in-up">
-            <div className="flex items-center gap-3">
-              <Skeleton className="h-11 w-11 rounded-full" />
-              <Skeleton className="h-6 w-24 rounded-full" />
-            </div>
-            <div className="space-y-2">
-              <Skeleton className="h-10 w-2/3" />
-              <Skeleton className="h-5 w-96 max-w-full" />
-            </div>
-            <Skeleton className="h-4 w-32" />
-          </div>
-          {/* Stat cards skeleton */}
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Skeleton className="h-28 rounded-2xl" />
-            <Skeleton className="h-28 rounded-2xl" />
-            <Skeleton className="h-28 rounded-2xl" />
-          </div>
-          {/* Info panel skeleton */}
-          <Skeleton className="h-48 rounded-2xl" />
-        </div>
-      </section>
-    );
+    return <ReservationDetailLoadingState />;
   }
 
   // Error State
   if (isError && !reservation) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center bg-surface-warm">
-        <GuestError
-          description={error?.message ?? 'We encountered an error loading your reservation.'}
-          onRetry={() => refetch()}
-          redirectHref="/guest/dashboard"
-          redirectLabel="Return to dashboard"
-        />
-      </div>
+      <ReservationDetailErrorState
+        description={error?.message ?? 'We encountered an error loading your reservation.'}
+        onRetry={() => refetch()}
+      />
     );
   }
 
@@ -513,7 +496,7 @@ export function ReservationDetailClient({
         </div>
       </div>
 
-      {canManage && (
+      {canManage && showHistory && (
         <Card className="bg-surface-elevated p-4">
           <ReservationHistory reservationId={reservationId} timezone={venue.timezone} />
         </Card>

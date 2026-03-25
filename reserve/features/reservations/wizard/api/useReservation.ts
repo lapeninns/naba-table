@@ -8,10 +8,13 @@ import { reservationKeys } from '@shared/api/queryKeys';
 
 import type { Reservation } from '@entities/reservation/reservation.schema';
 
-export function useReservation(reservationId: string | undefined) {
+export function useReservation(
+  reservationId: string | undefined,
+  options?: { token?: string | null; enabled?: boolean },
+) {
   return useQuery<Reservation, ApiError>({
     queryKey: reservationKeys.detail(reservationId),
-    enabled: Boolean(reservationId),
+    enabled: Boolean(reservationId) && (options?.enabled ?? true),
     queryFn: async ({ signal }) => {
       if (!reservationId) {
         throw {
@@ -19,9 +22,15 @@ export function useReservation(reservationId: string | undefined) {
           message: 'Reservation id is required',
         } satisfies ApiError;
       }
-      const response = await apiClient.get<{ booking: unknown }>(`/bookings/${reservationId}`, {
-        signal,
-      });
+      const search = new URLSearchParams();
+      if (options?.token) {
+        search.set('token', options.token);
+      }
+
+      const path = search.size
+        ? `/bookings/${reservationId}?${search.toString()}`
+        : `/bookings/${reservationId}`;
+      const response = await apiClient.get<{ booking: unknown }>(path, { signal });
       if (!response?.booking) {
         throw {
           code: 'NOT_FOUND',

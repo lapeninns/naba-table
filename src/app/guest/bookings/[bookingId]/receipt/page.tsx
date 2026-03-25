@@ -150,6 +150,7 @@ export default async function GuestBookingReceiptPage({
         reservationId={normalized}
         hasSession={Boolean(user)}
         prefetchedStatus={reservation?.status ?? null}
+        token={token}
       />
     </HydrationBoundary>
   );

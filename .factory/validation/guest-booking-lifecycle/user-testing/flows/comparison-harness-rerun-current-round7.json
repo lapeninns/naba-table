@@ -1,0 +1,80 @@
+{
+  "groupId": "comparison-harness-rerun-current-round7",
+  "testedAt": "2026-03-25T16:12:00Z",
+  "isolation": {
+    "appUrl": "http://localhost:3000",
+    "missionDir": "/Users/amankumarshrestha/.factory/missions/7b467445-b8da-4b80-8252-ffa00b1ed7eb",
+    "route": "/dev/booking-detail-comparison?fixture=cancelled",
+    "assignedAssertions": ["VAL-CROSS-003", "VAL-CROSS-004"]
+  },
+  "toolsUsed": ["agent-browser"],
+  "assertions": [
+    {
+      "id": "VAL-CROSS-003",
+      "title": "Public booking detail and guest booking detail reuse one booking-detail model",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Open /dev/booking-detail-comparison?fixture=cancelled",
+          "expected": "Comparison harness shows public and guest booking-detail fixtures side by side for the same cancelled booking state",
+          "observed": "Harness rendered both public and guest booking-detail fixtures with matching cancelled status, The Fox venue, REF NB3456, identical guest info, and disabled modify/cancel/book-again actions."
+        },
+        {
+          "action": "Follow the public panel Sign In target",
+          "expected": "Public panel preserves route-appropriate access by targeting sign-in with recovery flow returning to /bookings/[bookingId]",
+          "observed": "Navigated to /auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Faccess_token%3D...%26next%3D%252Fbookings%252F55555555-5555-4555-8555-555555555555."
+        },
+        {
+          "action": "Reopen harness and follow the guest panel Sign In target",
+          "expected": "Guest panel preserves route-appropriate access by targeting sign-in with recovery flow returning to /guest/bookings/[bookingId]",
+          "observed": "Navigated to /auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Faccess_token%3D...%26next%3D%252Fguest%252Fbookings%252F55555555-5555-4555-8555-555555555555."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "guest-booking-lifecycle/comparison-harness-rerun-current-round7/VAL-CROSS-initial-comparison-harness.png",
+          "guest-booking-lifecycle/comparison-harness-rerun-current-round7/VAL-CROSS-003-public-signin-target.png",
+          "guest-booking-lifecycle/comparison-harness-rerun-current-round7/VAL-CROSS-003-guest-signin-target.png"
+        ],
+        "consoleErrors": "none; console showed expected dev/info logs plus a pre-existing Next.js smooth-scroll warning.",
+        "network": "Harness page loaded successfully. Public target final URL encoded next=/bookings/55555555-5555-4555-8555-555555555555; guest target final URL encoded next=/guest/bookings/55555555-5555-4555-8555-555555555555."
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-004",
+      "title": "Recovery flow preserves destination continuity end to end",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Inspect the sign-in targets exposed by the cancelled comparison harness",
+          "expected": "Recovery flow should target booking recovery and preserve different final destinations for public and guest booking-detail routes without exposing the token after continuation",
+          "observed": "Harness exposed distinct redirectedFrom values that wrapped /bookings/recover with next=/bookings/... for the public panel and next=/guest/bookings/... for the guest panel."
+        },
+        {
+          "action": "Open a direct recovery URL on the live surface using the harness-shaped path",
+          "expected": "Recovery should route through recovery and land on the intended internal booking surface while stripping the token from the final URL",
+          "observed": "Direct navigation to /bookings/recover?access_token=sr1.test-token&next=%2Fbookings%2F55555555-5555-4555-8555-555555555555 redirected to /bookings/recover/error?code=INVALID_ACCESS_TOKEN&reason=invalid_format instead of reaching a final booking-detail destination."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "guest-booking-lifecycle/comparison-harness-rerun-current-round7/VAL-CROSS-004-recovery-direct-attempt.png"
+        ],
+        "consoleErrors": "none; browser errors stayed empty during the direct recovery attempt.",
+        "network": "Document chain observed: GET /bookings/recover?access_token=***&next=%2Fbookings%2F55555555-5555-4555-8555-555555555555 -> GET /bookings/recover/error?code=INVALID_ACCESS_TOKEN&reason=invalid_format."
+      },
+      "issues": "Fresh live validation could confirm the distinct public vs guest recovery targets, but not a successful end-to-end recovery continuation because the available direct recovery attempt resolved to the invalid-token error surface instead of a final internal booking route."
+    }
+  ],
+  "frictions": [
+    {
+      "description": "agent-browser refs from the initial annotated screenshot could not be reused after a reopen command until a fresh snapshot was taken.",
+      "resolved": true,
+      "resolution": "Ran agent-browser snapshot -i on the reopened harness and then clicked the refreshed guest-panel Sign In ref.",
+      "affectedAssertions": ["VAL-CROSS-003"]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 2 assertions: 1 passed (VAL-CROSS-003) and 1 failed (VAL-CROSS-004). The comparison harness currently shows shared booking-detail parity plus distinct public/guest sign-in continuity targets, but the live direct recovery attempt ended on the invalid-token error route rather than a token-stripped final booking-detail destination."
+}

@@ -147,6 +147,8 @@ export default async function DevBookingDetailComparisonPage({
               initialNow={Date.parse('2026-02-10T12:00:00.000Z')}
               canManage
               signInReturnPath={publicReturnPath}
+              accessToken={accessToken}
+              showHistory={false}
             />
           </div>
 
@@ -163,6 +165,8 @@ export default async function DevBookingDetailComparisonPage({
               initialNow={Date.parse('2026-02-10T12:00:00.000Z')}
               canManage
               signInReturnPath={guestReturnPath}
+              accessToken={accessToken}
+              showHistory={false}
             />
           </div>
         </section>

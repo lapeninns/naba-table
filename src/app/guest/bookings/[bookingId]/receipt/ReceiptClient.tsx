@@ -21,6 +21,8 @@ import { shareReservationDetails } from '@/lib/reservations/share';
 import { useReservation } from '@features/reservations/wizard/api/useReservation';
 import { DEFAULT_VENUE } from '@shared/config/venue';
 
+import type { Reservation } from '@entities/reservation/reservation.schema';
+
 const formatDateFull = (iso: string | null | undefined) => {
   if (!iso) return '—';
   const parsed = new Date(iso);
@@ -47,10 +49,27 @@ type ReceiptClientProps = {
   reservationId: string;
   hasSession: boolean;
   prefetchedStatus: string | null;
+  token?: string | null;
+  initialReservation?: Reservation | null;
 };
 
-export function ReceiptClient({ reservationId, hasSession }: ReceiptClientProps) {
-  const { data: reservation, isLoading, isError } = useReservation(reservationId);
+export function ReceiptClient({
+  reservationId,
+  hasSession,
+  token = null,
+  initialReservation = null,
+}: ReceiptClientProps) {
+  const {
+    data: queriedReservation,
+    isLoading: queryIsLoading,
+    isError: queryIsError,
+  } = useReservation(reservationId, {
+    token,
+    enabled: !initialReservation,
+  });
+  const reservation = initialReservation ?? queriedReservation;
+  const isLoading = !initialReservation && queryIsLoading;
+  const isError = !initialReservation && queryIsError;
 
   const venue = useMemo(() => {
     if (!reservation) return DEFAULT_VENUE;

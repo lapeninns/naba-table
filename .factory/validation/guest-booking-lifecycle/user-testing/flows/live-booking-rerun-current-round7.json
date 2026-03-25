@@ -1,0 +1,85 @@
+{
+  "groupId": "live-booking-rerun-current-round7",
+  "testedAt": "2026-03-25T16:10:56.856440+00:00",
+  "isolation": {
+    "missionDir": "/Users/amankumarshrestha/.factory/missions/7b467445-b8da-4b80-8252-ffa00b1ed7eb",
+    "appUrl": "http://localhost:3000",
+    "routes": [
+      "/restaurants/seed-perf-r001/bookings/booking-1/thank-you?guestName=Ada&confirmation=REST123",
+      "/dev/booking-recovery?fixture=active&autoStart=1"
+    ]
+  },
+  "toolsUsed": ["agent-browser"],
+  "assertions": [
+    {
+      "id": "VAL-FOUNDATION-010",
+      "title": "Restaurant thank-you aliases canonicalize to one public confirmation route",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Open the legacy restaurant thank-you URL on localhost",
+          "expected": "The alias redirects to a single canonical public thank-you route",
+          "observed": "Opened /restaurants/seed-perf-r001/bookings/booking-1/thank-you?guestName=Ada&confirmation=REST123 and landed on /restaurants/seed-perf-r001/book/thank-you?guestName=Ada&confirmation=REST123"
+        },
+        {
+          "action": "Inspect the final destination and visible page state",
+          "expected": "The canonical route remains guest-facing and preserves required confirmation query params",
+          "observed": "Final page title was 'Reservation Confirmed \u00b7 Nab a Table' and the thank-you screen rendered at the canonical /book/thank-you route with guestName and confirmation still present in the URL"
+        },
+        {
+          "action": "Check browser console and network capture",
+          "expected": "No blocking console/runtime issues during canonicalization",
+          "observed": "No page errors were reported. agent-browser did not retain the initial document redirect in the request log for this navigation, so redirect evidence is based on start URL versus final URL plus the rendered destination"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "guest-booking-lifecycle/live-booking-rerun-current-round7/VAL-FOUNDATION-010-thank-you-final.png"
+        ],
+        "consoleErrors": "none",
+        "network": "Start URL: http://localhost:3000/restaurants/seed-perf-r001/bookings/booking-1/thank-you?guestName=Ada&confirmation=REST123 -> Final URL: http://localhost:3000/restaurants/seed-perf-r001/book/thank-you?guestName=Ada&confirmation=REST123"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-BOOKING-013",
+      "title": "Recovery success strips the token from the final destination URL",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Open the deterministic recovery harness with active fixture and autoStart enabled",
+          "expected": "The harness should drive a successful recovery into an entitled internal booking destination",
+          "observed": "The harness triggered /bookings/recover?access_token=<redacted>&next=%2Fbookings%2F22222222-2222-4222-8222-222222222222 and then navigated to /bookings/22222222-2222-4222-8222-222222222222"
+        },
+        {
+          "action": "Observe the final destination after recovery",
+          "expected": "Recovery should finish on the entitled booking destination with no token remaining in the final URL",
+          "observed": "The flow did not remain on booking detail. It redirected onward to /auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252F22222222-2222-4222-8222-222222222222"
+        },
+        {
+          "action": "Check visible result, console, and request chain",
+          "expected": "The guest sees the authorized booking surface without token exposure or auth bounce",
+          "observed": "Visible result was the guest sign-in page ('Sign in to your account'). No page errors were reported. Network captured the chain /dev/booking-recovery -> /bookings/recover?access_token=<redacted>&next=... -> /bookings/22222222-2222-4222-8222-222222222222 -> /auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D..."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "guest-booking-lifecycle/live-booking-rerun-current-round7/VAL-BOOKING-013-recovery-final.png"
+        ],
+        "consoleErrors": "none",
+        "network": "GET /dev/booking-recovery?fixture=active&autoStart=1 -> GET /bookings/recover?access_token=<redacted>&next=%2Fbookings%2F22222222-2222-4222-8222-222222222222 -> GET /bookings/22222222-2222-4222-8222-222222222222 -> GET /auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252F22222222-2222-4222-8222-222222222222"
+      },
+      "issues": "Recovery token was stripped before the final URL, but the flow failed the assertion because success did not reach a token-free entitled destination; it bounced to sign-in instead."
+    }
+  ],
+  "frictions": [
+    {
+      "description": "agent-browser's network log did not preserve the initial redirect request details for the thank-you canonicalization check after the first navigation completed.",
+      "resolved": true,
+      "resolution": "Used the required captured start URL, final URL, and rendered confirmation destination as redirect continuity evidence for VAL-FOUNDATION-010.",
+      "affectedAssertions": ["VAL-FOUNDATION-010"]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 2 assertions on the live localhost guest surface: VAL-FOUNDATION-010 passed; VAL-BOOKING-013 failed because recovery redirected to sign-in instead of remaining on an entitled token-free booking detail destination."
+}

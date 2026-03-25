@@ -1,0 +1,78 @@
+{
+  "groupId": "mock-portal-booking-rerun",
+  "testedAt": "2026-03-25T00:00:00Z",
+  "isolation": {
+    "missionDir": "/Users/amankumarshrestha/.factory/missions/7b467445-b8da-4b80-8252-ffa00b1ed7eb",
+    "repoRoot": "/Users/amankumarshrestha/LapenInns Project/nabatableLP-guest-design-system-20260325-0745",
+    "appUrl": "http://localhost:3000",
+    "browserSession": "dccee17888c2__u2"
+  },
+  "toolsUsed": ["agent-browser"],
+  "assertionResults": [
+    {
+      "id": "VAL-CROSS-003",
+      "title": "Public booking detail and guest booking detail reuse one booking-detail model",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Open /dev/booking-detail-comparison to look for a mocked authenticated comparison harness for the shared booking-detail model.",
+          "expected": "A deterministic side-by-side public/guest booking-detail comparison harness renders for one coherent fixture.",
+          "observed": "The route redirected to /auth/signin instead of rendering a comparison harness."
+        },
+        {
+          "action": "Open /bookings/booking-1 on the live public surface.",
+          "expected": "Either an entitled public booking-detail surface renders or the route redirects with route-appropriate access behavior.",
+          "observed": "The route redirected to /auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252Fbooking-1."
+        },
+        {
+          "action": "Open /guest/bookings/booking-1 on the guest portal surface.",
+          "expected": "Either a mocked authenticated guest booking-detail surface renders for the same fixture or the guest route shows distinct route-appropriate access behavior.",
+          "observed": "The route redirected to the same sign-in URL as the public route, so no guest booking-detail surface was available for comparison."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "guest-booking-lifecycle/mock-portal-booking-rerun/VAL-CROSS-003-booking-detail-comparison.png",
+          "guest-booking-lifecycle/mock-portal-booking-rerun/VAL-CROSS-003-public-booking-detail.png",
+          "guest-booking-lifecycle/mock-portal-booking-rerun/VAL-CROSS-003-guest-booking-detail.png"
+        ],
+        "consoleErrors": [
+          "Failed to execute 'measure' on 'Performance': 'SignInPage' cannot have a negative time stamp."
+        ],
+        "network": [
+          "GET /dev/booking-detail-comparison -> browser landed on /auth/signin",
+          "GET /bookings/booking-1 -> browser landed on /auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252Fbooking-1",
+          "GET /guest/bookings/booking-1 -> browser landed on /auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252Fbooking-1"
+        ]
+      },
+      "issues": "Blocked: the required user-surface comparison was not executable in this isolation boundary. The available dev comparison route redirected to sign-in, and both the public and guest booking-detail routes resolved to the same sign-in recovery target instead of exposing one coherent entitled fixture for side-by-side model comparison. Deterministic repo evidence exists at src/app/(public)/dev/booking-detail-comparison/page.tsx, but the actual user surface could not render it in the assigned session."
+    }
+  ],
+  "frictions": [
+    {
+      "description": "The documented dev comparison harness existed in the repo but was not reachable in the assigned browser session because it redirected to sign-in.",
+      "resolved": false,
+      "resolution": "None within scope; captured redirect outcome and fell back to direct public/guest route comparison attempts.",
+      "affectedAssertions": ["VAL-CROSS-003"]
+    },
+    {
+      "description": "All visited routes emitted the same SignInPage performance-measure console error, which added noise while checking for clean console output.",
+      "resolved": false,
+      "resolution": "Recorded the recurring console error alongside screenshots and route outcomes.",
+      "affectedAssertions": ["VAL-CROSS-003"]
+    }
+  ],
+  "blockers": [
+    {
+      "description": "No mocked authenticated portal harness was reachable for /guest/bookings/[bookingId], and the live public/guest detail routes both redirected to sign-in for booking-1, preventing the required public-vs-guest booking-detail model comparison for one coherent fixture.",
+      "affectedAssertions": ["VAL-CROSS-003"],
+      "quickFixAttempted": "Tried the repo-discovered /dev/booking-detail-comparison harness first, then direct /bookings/booking-1 and /guest/bookings/booking-1 navigation in the assigned browser session; all paths still redirected to sign-in."
+    }
+  ],
+  "summary": "VAL-CROSS-003 is blocked in the real user surface: the intended comparison harness and both direct booking-detail routes redirected to sign-in, so shared booking-detail model reuse could not be visually confirmed for one coherent fixture.",
+  "evidenceFiles": [
+    "/Users/amankumarshrestha/.factory/missions/7b467445-b8da-4b80-8252-ffa00b1ed7eb/evidence/guest-booking-lifecycle/mock-portal-booking-rerun/VAL-CROSS-003-booking-detail-comparison.png",
+    "/Users/amankumarshrestha/.factory/missions/7b467445-b8da-4b80-8252-ffa00b1ed7eb/evidence/guest-booking-lifecycle/mock-portal-booking-rerun/VAL-CROSS-003-public-booking-detail.png",
+    "/Users/amankumarshrestha/.factory/missions/7b467445-b8da-4b80-8252-ffa00b1ed7eb/evidence/guest-booking-lifecycle/mock-portal-booking-rerun/VAL-CROSS-003-guest-booking-detail.png"
+  ]
+}

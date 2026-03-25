@@ -1,0 +1,105 @@
+{
+  "groupId": "comparison-harness-rerun-current-round6",
+  "testedAt": "2026-03-25T13:45:00Z",
+  "isolation": {
+    "baseUrl": "http://localhost:3000",
+    "missionDir": "/Users/amankumarshrestha/.factory/missions/7b467445-b8da-4b80-8252-ffa00b1ed7eb",
+    "routeBoundary": "/dev/booking-detail-comparison?fixture=cancelled and immediate canonical destinations only",
+    "authState": "not mutated"
+  },
+  "toolsUsed": ["agent-browser"],
+  "assertions": [
+    {
+      "id": "VAL-CROSS-003",
+      "title": "Public booking detail and guest booking detail reuse one booking-detail model",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Open /dev/booking-detail-comparison?fixture=cancelled",
+          "expected": "Comparison harness shows public and guest booking-detail experiences side by side for the cancelled fixture",
+          "observed": "Harness rendered two comparison panels with matching action sets (PDF, Share, disabled Modify Details, disabled Cancel Booking, disabled Book Again) and identical Sign In CTAs."
+        },
+        {
+          "action": "Inspect harness destination links for the public and guest panels",
+          "expected": "Public panel links to /bookings/[id] flow and guest panel links to /guest/bookings/[id] flow while preserving route-appropriate access",
+          "observed": "Harness linked to two distinct sign-in URLs, one recovering to /bookings/55555555-5555-4555-8555-555555555555 and one recovering to /guest/bookings/55555555-5555-4555-8555-555555555555."
+        },
+        {
+          "action": "Navigate to the guest booking detail canonical destination",
+          "expected": "Guest route should resolve to the guest booking detail experience or a guest-route-specific redirect outcome",
+          "observed": "Opening /guest/bookings/55555555-5555-4555-8555-555555555555?fixture=cancelled redirected through /bookings/55555555-5555-4555-8555-555555555555?fixture=cancelled to /auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252F55555555-5555-4555-8555-555555555555%253Ffixture%253Dcancelled, collapsing the guest route onto the public recovery path."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "guest-booking-lifecycle/comparison-harness-rerun-current-round6/VAL-CROSS-003-public-comparison.png",
+          "guest-booking-lifecycle/comparison-harness-rerun-current-round6/VAL-CROSS-003-guest-detail.png"
+        ],
+        "consoleErrors": "none",
+        "network": "GET /guest/bookings/55555555-5555-4555-8555-555555555555?fixture=cancelled -> GET /bookings/55555555-5555-4555-8555-555555555555?fixture=cancelled -> GET /auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252F55555555-5555-4555-8555-555555555555%253Ffixture%253Dcancelled"
+      },
+      "issues": "Guest booking detail currently canonicalizes through the public booking detail recovery path instead of preserving a distinct guest detail route outcome, so the real-surface route behavior does not match the comparison harness's separate guest/public model."
+    },
+    {
+      "id": "VAL-BOOKING-006",
+      "title": "Booking detail disables management actions when lifecycle rules disallow them",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Open /dev/booking-detail-comparison?fixture=cancelled",
+          "expected": "Cancelled fixture should expose non-manageable booking detail state",
+          "observed": "Cancelled fixture loaded successfully in the comparison harness."
+        },
+        {
+          "action": "Review action affordances in the cancelled booking detail panels",
+          "expected": "Modify/cancel actions are visibly unavailable for the cancelled lifecycle",
+          "observed": "Both comparison panels showed Modify Details, Cancel Booking, and Book Again buttons in disabled state while PDF and Share remained available."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "guest-booking-lifecycle/comparison-harness-rerun-current-round6/VAL-CROSS-003-public-comparison.png"
+        ],
+        "consoleErrors": "none",
+        "network": "Harness page loaded without additional network requests captured after initial document render."
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-BOOKING-007",
+      "title": "Non-manageable booking states explain how the guest can regain control",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Open /dev/booking-detail-comparison?fixture=cancelled",
+          "expected": "Cancelled booking detail should present guidance for regaining control when management is unavailable",
+          "observed": "Both comparison panels included a visible Sign In CTA beneath the disabled management actions."
+        },
+        {
+          "action": "Follow the public guidance destination",
+          "expected": "Guidance should direct the guest into a recovery/sign-in flow rather than silently hiding next steps",
+          "observed": "Opening /bookings/55555555-5555-4555-8555-555555555555?fixture=cancelled redirected to /auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252F55555555-5555-4555-8555-555555555555%253Ffixture%253Dcancelled, showing the sign-in form as the next-step guidance."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "guest-booking-lifecycle/comparison-harness-rerun-current-round6/VAL-CROSS-003-public-comparison.png",
+          "guest-booking-lifecycle/comparison-harness-rerun-current-round6/VAL-BOOKING-006-public-guidance.png"
+        ],
+        "consoleErrors": "none",
+        "network": "GET /bookings/55555555-5555-4555-8555-555555555555?fixture=cancelled -> GET /auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252F55555555-5555-4555-8555-555555555555%253Ffixture%253Dcancelled"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [
+    {
+      "description": "The comparison harness renders two identical \"Sign In \u2192\" links, so clicking by visible text alone is ambiguous in agent-browser strict mode.",
+      "resolved": true,
+      "resolution": "Inspected the rendered href values with browser eval and navigated directly to the relevant canonical destinations for evidence.",
+      "affectedAssertions": ["VAL-CROSS-003", "VAL-BOOKING-007"]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 3 assertions on the cancelled comparison harness: VAL-BOOKING-006 and VAL-BOOKING-007 passed on the live surface, while VAL-CROSS-003 failed because the guest booking detail route collapses into the public recovery/sign-in path instead of preserving a distinct guest-route outcome."
+}

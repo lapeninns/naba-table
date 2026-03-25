@@ -892,15 +892,66 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
   const devFixture = resolveDevBookingLifecycleFixture(req, bookingId);
 
-  const legacyToken = req.nextUrl.searchParams.get('token');
-  if (legacyToken) {
-    return NextResponse.json(
-      {
-        error: 'Legacy booking tokens are no longer supported. Request a new link.',
-        code: 'LEGACY_TOKEN_DEPRECATED',
+  const confirmationToken = req.nextUrl.searchParams.get('token');
+  if (confirmationToken) {
+    const serviceSupabase = getServiceSupabaseClient();
+    const { data: existing, error } = await serviceSupabase
+      .from('bookings')
+      .select('*')
+      .eq('id', bookingId)
+      .eq('confirmation_token', confirmationToken)
+      .maybeSingle();
+
+    if (error) {
+      console.error('[bookings][GET:id][confirmation-token] booking lookup failed', stringifyError(error));
+      return NextResponse.json(
+        { error: 'Unable to load booking', code: 'BOOKING_LOOKUP_FAILED' },
+        { status: 500 },
+      );
+    }
+
+    if (!existing) {
+      return NextResponse.json(
+        { error: 'Invalid receipt token', code: 'INVALID_CONFIRMATION_TOKEN' },
+        { status: 401 },
+      );
+    }
+
+    const bookingRecord = existing as Tables<'bookings'>;
+
+    if (bookingRecord.confirmation_token_expires_at) {
+      const expiry = new Date(bookingRecord.confirmation_token_expires_at);
+      if (!Number.isNaN(expiry.getTime()) && expiry < new Date()) {
+        return NextResponse.json(
+          { error: 'Receipt token has expired', code: 'CONFIRMATION_TOKEN_EXPIRED' },
+          { status: 410 },
+        );
+      }
+    }
+
+    const { data: restaurant, error: restaurantError } = await serviceSupabase
+      .from('restaurants')
+      .select('name, slug, timezone')
+      .eq('id', bookingRecord.restaurant_id)
+      .maybeSingle();
+
+    if (restaurantError) {
+      console.error(
+        '[bookings][GET:id][confirmation-token] restaurant lookup failed',
+        stringifyError(restaurantError),
+      );
+    }
+
+    return NextResponse.json({
+      booking: {
+        ...bookingRecord,
+        restaurants: {
+          name: restaurant?.name ?? null,
+          slug: restaurant?.slug ?? null,
+          timezone: restaurant?.timezone ?? null,
+        },
       },
-      { status: 410 },
-    );
+    });
   }
 
   const recoveryToken = extractSessionRecoveryAccessToken(req);

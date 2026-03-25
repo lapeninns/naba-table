@@ -1,0 +1,47 @@
+{
+  "surface": "mocked portal validation vs live public booking detail on http://localhost:3000",
+  "assertions": ["VAL-CROSS-003"],
+  "assertionResults": [
+    {
+      "id": "VAL-CROSS-003",
+      "status": "blocked",
+      "reason": "The shared booking-detail model is confirmed in deterministic code/test coverage, but the required user-surface comparison is not executable from the available mocked portal/live harnesses: both /bookings/booking-1 and /guest/bookings/booking-1 redirect to sign-in on the live surface, and no mocked authenticated portal harness exists for /guest/bookings/[bookingId] to render the guest booking-detail page for the same fixture identity.",
+      "evidence": {
+        "screenshots": [
+          "guest-booking-lifecycle/mock-portal-booking/VAL-CROSS-003-public-booking-detail.png",
+          "guest-booking-lifecycle/mock-portal-booking/VAL-CROSS-003-guest-booking-detail.png"
+        ],
+        "urls": {
+          "publicAttempt": "http://localhost:3000/auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252Fbooking-1",
+          "guestAttempt": "http://localhost:3000/auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252Fbooking-1"
+        },
+        "deterministicCoverage": [
+          "tests/guest/public-booking-pages.test.tsx confirms the guest route reuses the shared booking-detail page model.",
+          "src/app/(public)/bookings/booking-page.tsx and src/app/guest/bookings/[bookingId]/page.tsx show the shared ReservationDetailClient/BookingDetailPage implementation."
+        ],
+        "consoleErrors": "none"
+      }
+    }
+  ],
+  "toolsUsed": ["agent-browser"],
+  "frictions": [
+    {
+      "description": "The mission guidance allows mocked portal validation for /guest/dashboard, /guest/bookings, and /guest/profile, but it does not provide an equivalent mocked authenticated harness for /guest/bookings/[bookingId].",
+      "resolved": false,
+      "resolution": null,
+      "affectedAssertions": ["VAL-CROSS-003"]
+    }
+  ],
+  "blockers": [
+    {
+      "description": "No executable user-surface path is available to open public and guest booking-detail pages for one coherent mocked portal fixture without relying on real shared auth state.",
+      "affectedAssertions": ["VAL-CROSS-003"],
+      "quickFixAttempted": "Compared the live public and guest booking-detail routes in agent-browser and reviewed deterministic shared-model coverage in the route/test files; both live routes redirected to sign-in and no detail-specific mocked harness was available."
+    }
+  ],
+  "summary": "VAL-CROSS-003 is blocked for user-surface validation: deterministic code/tests confirm public and guest routes share one booking-detail model, but the available mocked portal surface does not expose /guest/bookings/[bookingId] and the live public/guest routes both redirect to sign-in instead of rendering comparable detail views.",
+  "evidenceFiles": [
+    "/Users/amankumarshrestha/.factory/missions/7b467445-b8da-4b80-8252-ffa00b1ed7eb/evidence/guest-booking-lifecycle/mock-portal-booking/VAL-CROSS-003-public-booking-detail.png",
+    "/Users/amankumarshrestha/.factory/missions/7b467445-b8da-4b80-8252-ffa00b1ed7eb/evidence/guest-booking-lifecycle/mock-portal-booking/VAL-CROSS-003-guest-booking-detail.png"
+  ]
+}

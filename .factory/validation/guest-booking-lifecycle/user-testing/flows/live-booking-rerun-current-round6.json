@@ -1,0 +1,101 @@
+{
+  "groupId": "live-booking-rerun-current-round6",
+  "testedAt": "2026-03-25T15:54:00Z",
+  "isolation": {
+    "baseUrl": "http://localhost:3000",
+    "routes": [
+      "/restaurants/seed-perf-r001/bookings/booking-1/thank-you?guestName=Ada&confirmation=REST123",
+      "/dev/booking-recovery?fixture=active",
+      "/dev/booking-detail-comparison?fixture=cancelled"
+    ],
+    "boundary": "guest/public/dev routes only; no auth mutation"
+  },
+  "toolsUsed": ["agent-browser"],
+  "assertions": [
+    {
+      "id": "VAL-FOUNDATION-010",
+      "title": "Restaurant thank-you aliases canonicalize to one public confirmation route",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Navigate to /restaurants/seed-perf-r001/bookings/booking-1/thank-you?guestName=Ada&confirmation=REST123",
+          "expected": "Legacy restaurant thank-you alias redirects to the canonical public thank-you route",
+          "observed": "Browser landed on /restaurants/seed-perf-r001/book/thank-you?guestName=Ada&confirmation=REST123"
+        },
+        {
+          "action": "Inspect the rendered destination",
+          "expected": "Visible confirmation state appears on the canonical thank-you page",
+          "observed": "Rendered confirmation page titled 'Reservation Confirmed \u00b7 Nab a Table'"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "guest-booking-lifecycle/live-booking-rerun-current-round6/VAL-FOUNDATION-010-final.png"
+        ],
+        "consoleErrors": "none",
+        "network": "Document ended at GET /restaurants/seed-perf-r001/book/thank-you?guestName=Ada&confirmation=REST123 -> 200; agent-browser request log did not expose a separate redirect hop, but final URL/browser state confirmed canonicalization"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-BOOKING-013",
+      "title": "Recovery success strips the token from the final destination URL",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Navigate to /dev/booking-recovery?fixture=active",
+          "expected": "Recovery harness should route through recovery and land on an entitled booking destination without an exposed token",
+          "observed": "Browser remained on /dev/booking-recovery?fixture=active"
+        },
+        {
+          "action": "Inspect visible destination state",
+          "expected": "Final authorized booking surface is shown token-free",
+          "observed": "Page text indicated redirect intent to sign-in with next=/bookings/22222222-2222-4222-8222-222222222222 rather than an authorized booking destination"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "guest-booking-lifecycle/live-booking-rerun-current-round6/VAL-BOOKING-013-final.png"
+        ],
+        "consoleErrors": "none",
+        "network": "Request log showed GET /dev/booking-recovery?fixture=active -> 200 with no visible document redirect chain to a token-free booking destination"
+      },
+      "issues": "Recovery success did not complete on the live surface; the harness stayed on the dev recovery URL and exposed sign-in redirect intent instead of landing on the entitled booking destination."
+    },
+    {
+      "id": "VAL-CROSS-004",
+      "title": "Recovery flow preserves destination continuity end to end",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Navigate to /dev/booking-detail-comparison?fixture=cancelled",
+          "expected": "Recovery/detail continuity harness should land on the intended internal booking surface",
+          "observed": "Browser remained on /dev/booking-detail-comparison?fixture=cancelled"
+        },
+        {
+          "action": "Inspect the visible destination state",
+          "expected": "Entitled booking/detail continuity is visible without exposing recovery tokens",
+          "observed": "Page text surfaced sign-in redirect intent with next=/guest/bookings/55555555-5555-4555-8555-555555555555 instead of an entitled destination"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "guest-booking-lifecycle/live-booking-rerun-current-round6/VAL-CROSS-004-final.png"
+        ],
+        "consoleErrors": "none",
+        "network": "Request log showed GET /dev/booking-detail-comparison?fixture=cancelled -> 200 and no redirect chain to the expected internal booking surface"
+      },
+      "issues": "End-to-end destination continuity was broken on the live surface; the comparison harness stayed on the dev URL and showed sign-in redirect intent instead of the intended entitled booking view."
+    }
+  ],
+  "frictions": [
+    {
+      "description": "agent-browser network logs only exposed the final successful document request for the restaurant thank-you alias, so canonicalization evidence relied on final URL and visible browser state rather than an explicit redirect-chain entry.",
+      "resolved": true,
+      "resolution": "Recorded final URL plus visible destination title and noted the network limitation in the assertion evidence.",
+      "affectedAssertions": ["VAL-FOUNDATION-010"]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 3 assertions: 1 passed, 2 failed. The restaurant thank-you alias canonicalized correctly, but both live recovery harness routes stayed on their dev URLs and surfaced sign-in redirect intent instead of reaching entitled token-free booking destinations."
+}

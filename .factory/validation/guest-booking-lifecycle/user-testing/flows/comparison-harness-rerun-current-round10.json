@@ -1,0 +1,65 @@
+{
+  "groupId": "comparison-harness-rerun-current-round10",
+  "testedAt": "2026-03-25T17:30:00Z",
+  "isolation": {
+    "appUrl": "http://localhost:3000",
+    "missionDir": "/Users/amankumarshrestha/.factory/missions/7b467445-b8da-4b80-8252-ffa00b1ed7eb",
+    "route": "/dev/booking-detail-comparison?fixture=cancelled",
+    "assignedAssertions": ["VAL-CROSS-003", "VAL-CROSS-004"]
+  },
+  "toolsUsed": ["agent-browser"],
+  "assertions": [
+    {
+      "id": "VAL-CROSS-003",
+      "title": "Public booking detail and guest booking detail reuse one booking-detail model",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Open /dev/booking-detail-comparison?fixture=cancelled",
+          "expected": "Comparison harness shows public and guest booking-detail fixtures side by side for the same cancelled booking state",
+          "observed": "Harness rendered public and guest booking-detail fixtures side by side with matching cancelled status, The Fox venue, REF NB3456, identical guest info, and the same disabled management affordances."
+        },
+        {
+          "action": "Inspect the exposed recovery continuity targets",
+          "expected": "Public and guest booking paths should preserve distinct destinations while reusing the same booking-detail model",
+          "observed": "The harness exposed a Public recovery URL ending in next=%2Fbookings%2F55555555-5555-4555-8555-555555555555 and a Guest recovery URL ending in next=%2Fguest%2Fbookings%2F55555555-5555-4555-8555-555555555555, confirming route-appropriate continuity targets from the shared detail model."
+        }
+      ],
+      "evidence": {
+        "screenshots": ["booking-detail-comparison-round10-annotated.png"],
+        "consoleErrors": "No console errors attributable to the harness flow; only existing Next/PostHog dev noise and unrelated 404 resource logs appeared after navigation.",
+        "network": "Harness loaded successfully on http://localhost:3000/dev/booking-detail-comparison?fixture=cancelled and exposed direct public/guest recovery URLs with real current-runtime tokens."
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-004",
+      "title": "Recovery flow preserves destination continuity end to end",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Read the Public recovery URL directly from the comparison harness",
+          "expected": "The harness should expose a replayable current-runtime recovery URL rather than a placeholder token",
+          "observed": "The annotated screenshot and DOM text exposed the full /bookings/recover?access_token=sr1...&next=%2Fbookings%2F55555555-5555-4555-8555-555555555555 URL from the current runtime."
+        },
+        {
+          "action": "Open the exposed Public recovery URL from the comparison harness",
+          "expected": "Recovery should route through /bookings/recover and land on the intended token-free public booking detail destination without INVALID_ACCESS_TOKEN",
+          "observed": "Following the harness Public recovery URL landed on http://localhost:3000/bookings/55555555-5555-4555-8555-555555555555 with page title \"Booking 55555555 \u00b7 Nab a Table\" and visible cancelled booking detail for The Fox; no INVALID_ACCESS_TOKEN screen appeared."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "booking-detail-comparison-round10-annotated.png",
+          "booking-recovery-round10.png"
+        ],
+        "consoleErrors": "No INVALID_ACCESS_TOKEN or application exception surfaced while replaying the harness recovery URL; only existing dev console noise remained.",
+        "network": "Comparison harness exposed direct recovery URL -> opening that URL resolved to token-free /bookings/55555555-5555-4555-8555-555555555555."
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Fresh comparison-harness replay passed: the current runtime exposes a real public recovery URL and replaying it lands on the token-free public booking detail destination, so both VAL-CROSS-003 and VAL-CROSS-004 now pass."
+}

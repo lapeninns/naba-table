@@ -1,0 +1,64 @@
+{
+  "groupId": "live-booking-rerun-current-round9",
+  "testedAt": "2026-03-25T16:35:00Z",
+  "isolation": {
+    "missionDir": "/Users/amankumarshrestha/.factory/missions/7b467445-b8da-4b80-8252-ffa00b1ed7eb",
+    "appUrl": "http://localhost:3000",
+    "routes": [
+      "/restaurants/seed-perf-r001/bookings/booking-1/thank-you?guestName=Ada&confirmation=REST123",
+      "/dev/booking-recovery?fixture=active&autoStart=1"
+    ]
+  },
+  "toolsUsed": ["agent-browser"],
+  "assertions": [
+    {
+      "id": "VAL-FOUNDATION-010",
+      "title": "Restaurant thank-you aliases canonicalize to one public confirmation route",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Open the legacy restaurant thank-you URL on localhost",
+          "expected": "The alias redirects to a single canonical public thank-you route",
+          "observed": "Opened /restaurants/seed-perf-r001/bookings/booking-1/thank-you?guestName=Ada&confirmation=REST123 and landed on /restaurants/seed-perf-r001/book/thank-you?guestName=Ada&confirmation=REST123."
+        },
+        {
+          "action": "Inspect the final destination and visible page state",
+          "expected": "The canonical route remains guest-facing and preserves required confirmation query params",
+          "observed": "Final page title was 'Reservation Confirmed \u00b7 Nab a Table' and the thank-you screen rendered at the canonical /book/thank-you route with guestName and confirmation still present in the URL."
+        }
+      ],
+      "evidence": {
+        "screenshots": ["restaurant-thank-you-round9.png"],
+        "consoleErrors": "none",
+        "network": "Start URL: http://localhost:3000/restaurants/seed-perf-r001/bookings/booking-1/thank-you?guestName=Ada&confirmation=REST123 -> Final URL: http://localhost:3000/restaurants/seed-perf-r001/book/thank-you?guestName=Ada&confirmation=REST123"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-BOOKING-013",
+      "title": "Recovery success strips the token from the final destination URL",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Open the deterministic recovery harness with active fixture and autoStart enabled",
+          "expected": "The harness should drive a successful recovery into an entitled internal booking destination",
+          "observed": "Opened /dev/booking-recovery?fixture=active&autoStart=1 and the flow completed on /bookings/22222222-2222-4222-8222-222222222222."
+        },
+        {
+          "action": "Observe the final destination after recovery",
+          "expected": "Recovery should finish on the entitled booking destination with no token remaining in the final URL",
+          "observed": "The final page title was 'Booking 22222222 \u00b7 Nab a Table'. The visible booking detail remained loaded on token-free /bookings/22222222-2222-4222-8222-222222222222 with no redirect onward to sign-in."
+        }
+      ],
+      "evidence": {
+        "screenshots": ["booking-recovery-round9.png"],
+        "consoleErrors": "none",
+        "network": "Start URL: http://localhost:3000/dev/booking-recovery?fixture=active&autoStart=1 -> Final URL: http://localhost:3000/bookings/22222222-2222-4222-8222-222222222222"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 2 assertions on the live localhost guest surface: VAL-FOUNDATION-010 passed, and VAL-BOOKING-013 now passes because recovery lands on a token-free entitled booking detail destination."
+}

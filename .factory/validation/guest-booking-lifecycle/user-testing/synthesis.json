@@ -1,0 +1,26 @@
+{
+  "milestone": "guest-booking-lifecycle",
+  "round": 10,
+  "status": "pass",
+  "assertionsSummary": {
+    "total": 4,
+    "passed": 4,
+    "failed": 0,
+    "blocked": 0
+  },
+  "passedAssertions": ["VAL-FOUNDATION-010", "VAL-BOOKING-013", "VAL-CROSS-003", "VAL-CROSS-004"],
+  "failedAssertions": [],
+  "blockedAssertions": [],
+  "appliedUpdates": [],
+  "previousRound": "/Users/amankumarshrestha/LapenInns Project/nabatableLP-guest-design-system-20260325-0745/.factory/validation/guest-booking-lifecycle/user-testing/synthesis.json",
+  "flowReports": [
+    "/Users/amankumarshrestha/LapenInns Project/nabatableLP-guest-design-system-20260325-0745/.factory/validation/guest-booking-lifecycle/user-testing/flows/live-booking-rerun-current-round9.json",
+    "/Users/amankumarshrestha/LapenInns Project/nabatableLP-guest-design-system-20260325-0745/.factory/validation/guest-booking-lifecycle/user-testing/flows/comparison-harness-rerun-current-round10.json"
+  ],
+  "notes": [
+    "Per orchestrator guidance, this round reran the live booking routes against the current runtime rather than relying on stale round-7 synthesis.",
+    "VAL-FOUNDATION-013 remained deferred and was not included in this rerun.",
+    "The recovery harness at /dev/booking-recovery?fixture=active&autoStart=1 still lands on token-free /bookings/22222222-2222-4222-8222-222222222222 with booking detail visible.",
+    "The comparison harness now exposes a replayable real Public recovery URL, and opening that URL lands on token-free /bookings/55555555-5555-4555-8555-555555555555 without INVALID_ACCESS_TOKEN."
+  ]
+}

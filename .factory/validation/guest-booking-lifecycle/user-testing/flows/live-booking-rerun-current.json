@@ -1,0 +1,103 @@
+{
+  "groupId": "live-booking-rerun-current",
+  "testedAt": "2026-03-25T15:14:00.259256+00:00",
+  "isolation": {
+    "surface": "browser",
+    "baseUrl": "http://localhost:3000",
+    "missionDir": "/Users/amankumarshrestha/.factory/missions/7b467445-b8da-4b80-8252-ffa00b1ed7eb",
+    "routes": [
+      "/restaurants/seed-perf-r001/bookings/booking-1/thank-you?guestName=Ada&confirmation=REST123",
+      "/dev/booking-recovery?fixture=active",
+      "/dev/booking-detail-comparison?fixture=cancelled"
+    ],
+    "boundary": "guest/public/dev routes only"
+  },
+  "toolsUsed": ["agent-browser"],
+  "assertions": [
+    {
+      "id": "VAL-FOUNDATION-010",
+      "title": "Restaurant thank-you aliases canonicalize to one public confirmation route",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Open the legacy restaurant thank-you alias route",
+          "expected": "The alias should canonicalize to a single public confirmation route",
+          "observed": "Browser initially loaded http://localhost:3000/restaurants/seed-perf-r001/book/thank-you?guestName=Ada&confirmation=REST123"
+        },
+        {
+          "action": "Observe redirect result on the live surface",
+          "expected": "Final URL remains on the canonical public confirmation route with no unrelated handoff",
+          "observed": "Final browser URL was http://localhost:3000/auth/signin instead of a thank-you confirmation route"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "guest-booking-lifecycle/live-booking-rerun-current/VAL-FOUNDATION-010-thank-you-route.png"
+        ],
+        "consoleErrors": "none",
+        "network": "agent-browser request log did not capture the redirect; observed URL transition from /restaurants/seed-perf-r001/book/thank-you?guestName=Ada&confirmation=REST123 to /auth/signin"
+      },
+      "issues": "The live route no longer settled on a canonical public confirmation URL and instead ended on sign-in."
+    },
+    {
+      "id": "VAL-BOOKING-013",
+      "title": "Recovery success strips the token from the final destination URL",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Open the dev booking recovery harness with fixture=active",
+          "expected": "Recovery flow should continue the guest to the intended internal booking destination",
+          "observed": "Page remained at http://localhost:3000/dev/booking-recovery?fixture=active and exposed a rendered sign-in continuation payload in the page output"
+        },
+        {
+          "action": "Inspect the destination state",
+          "expected": "Final destination URL should be token-free and authorized",
+          "observed": "No token-free entitled booking destination was reached on the live surface"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "guest-booking-lifecycle/live-booking-rerun-current/VAL-BOOKING-013-recovery-result.png"
+        ],
+        "consoleErrors": "none",
+        "network": "agent-browser request log did not capture additional navigation; visible page content included a sign-in next target for /bookings/22222222-2222-4222-8222-222222222222"
+      },
+      "issues": "The current live recovery harness did not complete into an entitled token-free booking destination."
+    },
+    {
+      "id": "VAL-CROSS-004",
+      "title": "Recovery flow preserves destination continuity end to end",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Open the dev booking detail comparison harness with fixture=cancelled",
+          "expected": "Recovery-related continuity should land on the intended internal booking surface",
+          "observed": "Initial request to /dev/booking-detail-comparison?fixture=cancelled fetched booking data then redirected to /auth/signin?redirectedFrom=%2Fdev%2Fbooking-detail-comparison%3Ffixture%3Dcancelled"
+        },
+        {
+          "action": "Observe final page destination and continuity",
+          "expected": "Guest should remain on the intended internal booking surface without losing continuity",
+          "observed": "Final URL settled on http://localhost:3000/auth/signin and displayed the sign-in page rather than a booking destination"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "guest-booking-lifecycle/live-booking-rerun-current/VAL-CROSS-004-detail-comparison.png"
+        ],
+        "consoleErrors": "none",
+        "network": "GET /dev/booking-detail-comparison?fixture=cancelled -> GET /api/bookings/55555555-5555-4555-8555-555555555555 -> GET /auth/signin?redirectedFrom=%2Fdev%2Fbooking-detail-comparison%3Ffixture%3Dcancelled -> GET /auth/signin"
+      },
+      "issues": "End-to-end continuity broke on the live surface because the flow redirected into sign-in instead of an entitled booking detail destination."
+    }
+  ],
+  "frictions": [
+    {
+      "description": "agent-browser network requests did not capture the redirect chain for the thank-you alias or booking-recovery harness, so URL observations had to be recorded from the browser state and visible content.",
+      "resolved": true,
+      "resolution": "Captured final URLs, page titles/text, and screenshots to document the observed result.",
+      "affectedAssertions": ["VAL-FOUNDATION-010", "VAL-BOOKING-013"]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 3 assertions on the current live localhost:3000 surface; all 3 failed because the thank-you alias ended on sign-in, the recovery harness did not reach a token-free entitled destination, and the comparison harness redirected to sign-in instead of preserving booking continuity."
+}

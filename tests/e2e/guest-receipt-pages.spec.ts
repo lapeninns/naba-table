@@ -139,6 +139,15 @@ test.describe('guest receipt pages', () => {
     ).toBeVisible();
   });
 
+  test('dev receipt harness renders deterministic lifecycle fixtures', async ({ page }) => {
+    await page.goto('/dev/guest-receipt?fixture=cancelled');
+
+    await expect(page.getByRole('heading', { name: 'Guest receipt fixture preview' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Cancelled fixture' })).toBeVisible();
+    await expect(page.getByText('Cancelled', { exact: true })).toBeVisible();
+    await expect(page.getByText('This reservation has been cancelled.')).toBeVisible();
+  });
+
   test('dev comparison harness can switch between pending and cancelled receipt-adjacent fixtures', async ({
     page,
   }) => {

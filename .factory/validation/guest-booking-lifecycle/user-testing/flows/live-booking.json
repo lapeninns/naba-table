@@ -1,0 +1,357 @@
+{
+  "surface": "live/public booking lifecycle on localhost:3000 via agent-browser",
+  "assertions": [
+    "VAL-FOUNDATION-007",
+    "VAL-FOUNDATION-008",
+    "VAL-FOUNDATION-009",
+    "VAL-FOUNDATION-010",
+    "VAL-FOUNDATION-011",
+    "VAL-FOUNDATION-012",
+    "VAL-BOOKING-001",
+    "VAL-BOOKING-002",
+    "VAL-BOOKING-003",
+    "VAL-BOOKING-004",
+    "VAL-BOOKING-005",
+    "VAL-BOOKING-006",
+    "VAL-BOOKING-007",
+    "VAL-BOOKING-008",
+    "VAL-BOOKING-009",
+    "VAL-BOOKING-010",
+    "VAL-BOOKING-011",
+    "VAL-BOOKING-012",
+    "VAL-BOOKING-013",
+    "VAL-CROSS-003",
+    "VAL-CROSS-004"
+  ],
+  "assertionResults": [
+    {
+      "id": "VAL-FOUNDATION-007",
+      "status": "pass",
+      "reason": "/guest/thank-you redirected to the canonical /bookings surface instead of rendering a standalone thank-you page.",
+      "evidence": {
+        "startUrl": "http://localhost:3000/guest/thank-you",
+        "finalUrl": "http://localhost:3000/bookings",
+        "screenshots": ["guest-booking-lifecycle/live-booking/VAL-FOUNDATION-007-result.png"],
+        "network": "Document navigation resolved from /guest/thank-you to /bookings.",
+        "consoleErrors": "none"
+      }
+    },
+    {
+      "id": "VAL-FOUNDATION-008",
+      "status": "fail",
+      "reason": "Legacy /bookings/[bookingId]/manage dropped query state and then redirected unauthenticated users into sign-in with a recovery wrapper instead of preserving the original query params on the canonical detail route.",
+      "evidence": {
+        "startUrl": "http://localhost:3000/bookings/test-booking/manage?foo=bar&tab=details",
+        "finalUrl": "http://localhost:3000/auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252Ftest-booking",
+        "screenshots": ["guest-booking-lifecycle/live-booking/VAL-FOUNDATION-008-result.png"],
+        "network": "/bookings/test-booking/manage?foo=bar&tab=details -> /bookings/test-booking?foo=bar&tab=details -> /auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252Ftest-booking",
+        "consoleErrors": "none"
+      }
+    },
+    {
+      "id": "VAL-FOUNDATION-009",
+      "status": "fail",
+      "reason": "Legacy /bookings/[bookingId]/thank-you reached the guest receipt path but required query parameters were not preserved in the sign-in redirect target; only the bare receipt path remained in redirectedFrom.",
+      "evidence": {
+        "startUrl": "http://localhost:3000/bookings/test-booking/thank-you?email=test%40example.com&source=legacy",
+        "finalUrl": "http://localhost:3000/auth/signin?redirectedFrom=%2Fguest%2Fbookings%2Ftest-booking%2Freceipt",
+        "screenshots": ["guest-booking-lifecycle/live-booking/VAL-FOUNDATION-009-result.png"],
+        "network": "/bookings/test-booking/thank-you?... -> /guest/bookings/test-booking/receipt?email=test%40example.com&source=legacy -> /auth/signin?redirectedFrom=%2Fguest%2Fbookings%2Ftest-booking%2Freceipt",
+        "consoleErrors": "none"
+      }
+    },
+    {
+      "id": "VAL-FOUNDATION-010",
+      "status": "fail",
+      "reason": "The restaurant thank-you alias also lost confirmation query data before landing on sign-in, so the canonical public confirmation route continuity was not preserved end-to-end.",
+      "evidence": {
+        "startUrl": "http://localhost:3000/thank-you?bookingId=test-booking&email=test%40example.com",
+        "finalUrl": "http://localhost:3000/auth/signin?redirectedFrom=%2Fguest%2Fbookings%2Ftest-booking%2Freceipt",
+        "screenshots": ["guest-booking-lifecycle/live-booking/VAL-FOUNDATION-010-result.png"],
+        "network": "/thank-you?... -> /guest/bookings/test-booking/receipt?bookingId=test-booking&email=test%40example.com -> /auth/signin?redirectedFrom=%2Fguest%2Fbookings%2Ftest-booking%2Freceipt",
+        "consoleErrors": "none"
+      }
+    },
+    {
+      "id": "VAL-FOUNDATION-011",
+      "status": "pass",
+      "reason": "A tokenized legacy booking detail link normalized through the recovery error flow rather than leaving the token on booking detail routes.",
+      "evidence": {
+        "startUrl": "http://localhost:3000/bookings/test-booking?token=legacy-token",
+        "finalUrl": "http://localhost:3000/bookings/recover/error?code=LEGACY_TOKEN_DEPRECATED",
+        "screenshots": ["guest-booking-lifecycle/live-booking/VAL-FOUNDATION-011-result.png"],
+        "network": "/bookings/test-booking?token=legacy-token -> /bookings/recover/error?code=LEGACY_TOKEN_DEPRECATED",
+        "consoleErrors": "none"
+      }
+    },
+    {
+      "id": "VAL-FOUNDATION-012",
+      "status": "pass",
+      "reason": "The recovery error route rendered a stable guest-visible error page for an expired code without console errors.",
+      "evidence": {
+        "startUrl": "http://localhost:3000/bookings/recover/error?code=EXPIRED",
+        "finalUrl": "http://localhost:3000/bookings/recover/error?code=EXPIRED",
+        "screenshots": ["guest-booking-lifecycle/live-booking/VAL-FOUNDATION-012-result.png"],
+        "network": "Direct navigation to the deterministic recovery error surface.",
+        "consoleErrors": "none"
+      }
+    },
+    {
+      "id": "VAL-BOOKING-001",
+      "status": "pass",
+      "reason": "/bookings visibly separates starting a new booking from managing an existing one.",
+      "evidence": {
+        "startUrl": "http://localhost:3000/bookings",
+        "finalUrl": "http://localhost:3000/bookings",
+        "screenshots": ["guest-booking-lifecycle/live-booking/VAL-BOOKING-001-result.png"],
+        "network": "Direct page load only.",
+        "consoleErrors": "none"
+      }
+    },
+    {
+      "id": "VAL-BOOKING-002",
+      "status": "blocked",
+      "reason": "Unauthenticated access redirected correctly to sign-in, but the provided dev harness did not automatically produce an authorized booking-detail surface for the same booking ID, so the authenticated/recovered success case could not be confirmed from the real browser surface.",
+      "evidence": {
+        "startUrl": "http://localhost:3000/bookings/test-booking",
+        "finalUrl": "http://localhost:3000/auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252Ftest-booking",
+        "screenshots": [
+          "guest-booking-lifecycle/live-booking/VAL-BOOKING-002-redirect.png",
+          "guest-booking-lifecycle/live-booking/VAL-BOOKING-002-harness.png"
+        ],
+        "network": "Unauthenticated document redirect to sign-in was observed; dev harness remained on /dev/booking-recovery?bookingId=test-booking.",
+        "consoleErrors": "none"
+      }
+    },
+    {
+      "id": "VAL-BOOKING-003",
+      "status": "pass",
+      "reason": "Legacy token query access was rejected and sent to the supported recovery error path instead of opening booking detail directly.",
+      "evidence": {
+        "startUrl": "http://localhost:3000/bookings/test-booking?token=legacy-token",
+        "finalUrl": "http://localhost:3000/bookings/recover/error?code=LEGACY_TOKEN_DEPRECATED",
+        "screenshots": ["guest-booking-lifecycle/live-booking/VAL-BOOKING-003-result.png"],
+        "network": "/bookings/test-booking?token=legacy-token -> /bookings/recover/error?code=LEGACY_TOKEN_DEPRECATED",
+        "consoleErrors": "none"
+      }
+    },
+    {
+      "id": "VAL-BOOKING-004",
+      "status": "blocked",
+      "reason": "The live browser surface available in this isolation only exposed the booking recovery harness links, not a real loading/error/detail state fixture for booking detail, so blank/loading/error behavior could not be exercised directly.",
+      "evidence": {
+        "startUrl": "http://localhost:3000/dev/booking-recovery?bookingId=test-booking",
+        "finalUrl": "http://localhost:3000/dev/booking-recovery?bookingId=test-booking",
+        "screenshots": ["guest-booking-lifecycle/live-booking/VAL-BOOKING-004-harness-state.png"],
+        "network": "Harness page loaded with links but no booking-detail state transitions.",
+        "consoleErrors": "none"
+      }
+    },
+    {
+      "id": "VAL-BOOKING-005",
+      "status": "blocked",
+      "reason": "No entitled booking-detail fixture was available from the assigned live guest/public surface, so lifecycle status and next actions could not be inspected.",
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "not applicable"
+      }
+    },
+    {
+      "id": "VAL-BOOKING-006",
+      "status": "blocked",
+      "reason": "No non-manageable entitled booking detail view was reachable within the assigned live/public isolation context.",
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "not applicable"
+      }
+    },
+    {
+      "id": "VAL-BOOKING-007",
+      "status": "blocked",
+      "reason": "No entitled non-manageable booking detail fixture was reachable to verify explanatory guidance.",
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "not applicable"
+      }
+    },
+    {
+      "id": "VAL-BOOKING-008",
+      "status": "blocked",
+      "reason": "No entitled booking detail or rebook CTA was reachable from the assigned live/public surface.",
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "not applicable"
+      }
+    },
+    {
+      "id": "VAL-BOOKING-009",
+      "status": "blocked",
+      "reason": "The unauthenticated receipt redirect case was observed, but no valid tokenized or authenticated receipt success state was available in the assigned isolation boundary.",
+      "evidence": {
+        "startUrl": "http://localhost:3000/guest/bookings/test-booking/receipt",
+        "finalUrl": "http://localhost:3000/auth/signin?redirectedFrom=%2Fguest%2Fbookings%2Ftest-booking%2Freceipt",
+        "screenshots": ["guest-booking-lifecycle/live-booking/VAL-BOOKING-009-redirect.png"],
+        "network": "Document redirect to sign-in with preserved receipt path.",
+        "consoleErrors": "none"
+      }
+    },
+    {
+      "id": "VAL-BOOKING-010",
+      "status": "blocked",
+      "reason": "No entitled receipt view was reachable from the assigned live/public routes, so confirmation-oriented receipt content could not be verified.",
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "not applicable"
+      }
+    },
+    {
+      "id": "VAL-BOOKING-011",
+      "status": "blocked",
+      "reason": "No active, pending, or cancelled receipt fixtures were reachable in the assigned isolation boundary.",
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "not applicable"
+      }
+    },
+    {
+      "id": "VAL-BOOKING-012",
+      "status": "pass",
+      "reason": "Recovery error messaging provided a stable guest-visible error screen with actionable next steps.",
+      "evidence": {
+        "startUrl": "http://localhost:3000/bookings/recover/error?code=EXPIRED",
+        "finalUrl": "http://localhost:3000/bookings/recover/error?code=EXPIRED",
+        "screenshots": ["guest-booking-lifecycle/live-booking/VAL-BOOKING-012-result.png"],
+        "network": "Direct load of recovery error screen.",
+        "consoleErrors": "none"
+      }
+    },
+    {
+      "id": "VAL-BOOKING-013",
+      "status": "blocked",
+      "reason": "The documented dev harness remained on /dev/booking-recovery after activating the recovery link, so a successful recovery redirect chain with token stripping could not be confirmed from the real browser surface.",
+      "evidence": {
+        "startUrl": "http://localhost:3000/dev/booking-recovery?bookingId=test-booking",
+        "finalUrl": "http://localhost:3000/dev/booking-recovery?bookingId=test-booking",
+        "screenshots": ["guest-booking-lifecycle/live-booking/VAL-BOOKING-013-success.png"],
+        "network": "Harness click did not yield a visible recovered destination URL chain.",
+        "consoleErrors": "none"
+      }
+    },
+    {
+      "id": "VAL-CROSS-003",
+      "status": "blocked",
+      "reason": "Public and guest booking-detail routes both resolved to the unauthenticated sign-in recovery handoff, so the shared booking-detail model itself could not be inspected side-by-side.",
+      "evidence": {
+        "startUrl": "http://localhost:3000/guest/bookings/test-booking",
+        "finalUrl": "http://localhost:3000/auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252Ftest-booking",
+        "screenshots": [
+          "guest-booking-lifecycle/live-booking/VAL-BOOKING-002-redirect.png",
+          "guest-booking-lifecycle/live-booking/VAL-CROSS-003-guest-route.png"
+        ],
+        "network": "Both route families converged into unauthenticated sign-in/recovery handling.",
+        "consoleErrors": "none"
+      }
+    },
+    {
+      "id": "VAL-CROSS-004",
+      "status": "blocked",
+      "reason": "A full successful recovery destination-continuity chain could not be observed because the available dev harness did not transition into an entitled final destination.",
+      "evidence": {
+        "startUrl": "http://localhost:3000/dev/booking-recovery?bookingId=test-booking",
+        "finalUrl": "http://localhost:3000/dev/booking-recovery?bookingId=test-booking",
+        "screenshots": ["guest-booking-lifecycle/live-booking/VAL-BOOKING-013-success.png"],
+        "network": "No end-to-end recovery redirect chain to a final booking destination was exposed.",
+        "consoleErrors": "none"
+      }
+    }
+  ],
+  "toolsUsed": ["agent-browser"],
+  "frictions": [
+    {
+      "description": "Mission guidance referenced /Users/amankumarshrestha/.factory/library/user-testing.md, but that file was absent in this environment.",
+      "resolved": false,
+      "resolution": "Proceeded with mission AGENTS guidance and validation-contract requirements only.",
+      "affectedAssertions": [
+        "VAL-FOUNDATION-007",
+        "VAL-FOUNDATION-008",
+        "VAL-FOUNDATION-009",
+        "VAL-FOUNDATION-010",
+        "VAL-FOUNDATION-011",
+        "VAL-FOUNDATION-012",
+        "VAL-BOOKING-001",
+        "VAL-BOOKING-002",
+        "VAL-BOOKING-003",
+        "VAL-BOOKING-004",
+        "VAL-BOOKING-005",
+        "VAL-BOOKING-006",
+        "VAL-BOOKING-007",
+        "VAL-BOOKING-008",
+        "VAL-BOOKING-009",
+        "VAL-BOOKING-010",
+        "VAL-BOOKING-011",
+        "VAL-BOOKING-012",
+        "VAL-BOOKING-013",
+        "VAL-CROSS-003",
+        "VAL-CROSS-004"
+      ]
+    },
+    {
+      "description": "The available /dev/booking-recovery harness exposed only static links and did not transition into an entitled booking or receipt destination during testing.",
+      "resolved": false,
+      "resolution": "Marked the affected success-path assertions blocked with precise runtime limitations.",
+      "affectedAssertions": [
+        "VAL-BOOKING-002",
+        "VAL-BOOKING-004",
+        "VAL-BOOKING-005",
+        "VAL-BOOKING-006",
+        "VAL-BOOKING-007",
+        "VAL-BOOKING-008",
+        "VAL-BOOKING-009",
+        "VAL-BOOKING-010",
+        "VAL-BOOKING-011",
+        "VAL-BOOKING-013",
+        "VAL-CROSS-003",
+        "VAL-CROSS-004"
+      ]
+    }
+  ],
+  "blockers": [
+    {
+      "description": "No reachable entitled booking-detail or receipt fixture was available on localhost:3000 within the assigned guest/public isolation boundary.",
+      "affectedAssertions": [
+        "VAL-BOOKING-002",
+        "VAL-BOOKING-004",
+        "VAL-BOOKING-005",
+        "VAL-BOOKING-006",
+        "VAL-BOOKING-007",
+        "VAL-BOOKING-008",
+        "VAL-BOOKING-009",
+        "VAL-BOOKING-010",
+        "VAL-BOOKING-011",
+        "VAL-BOOKING-013",
+        "VAL-CROSS-003",
+        "VAL-CROSS-004"
+      ],
+      "quickFixAttempted": "Tried the documented /dev/booking-recovery harness and its recovery link, but it remained on the harness page and did not expose a usable authenticated destination."
+    }
+  ],
+  "summary": "Validated 21 live booking lifecycle assertions on localhost:3000: 7 passed, 3 failed, and 11 were blocked by missing entitled live fixtures/harness transitions.",
+  "evidenceFiles": [
+    "guest-booking-lifecycle/live-booking/home-annotated.png",
+    "guest-booking-lifecycle/live-booking/VAL-FOUNDATION-007-result.png",
+    "guest-booking-lifecycle/live-booking/VAL-FOUNDATION-008-result.png",
+    "guest-booking-lifecycle/live-booking/VAL-FOUNDATION-009-result.png",
+    "guest-booking-lifecycle/live-booking/VAL-FOUNDATION-010-result.png",
+    "guest-booking-lifecycle/live-booking/VAL-FOUNDATION-011-result.png",
+    "guest-booking-lifecycle/live-booking/VAL-FOUNDATION-012-result.png",
+    "guest-booking-lifecycle/live-booking/VAL-BOOKING-001-result.png",
+    "guest-booking-lifecycle/live-booking/VAL-BOOKING-002-redirect.png",
+    "guest-booking-lifecycle/live-booking/VAL-BOOKING-002-harness.png",
+    "guest-booking-lifecycle/live-booking/VAL-BOOKING-003-result.png",
+    "guest-booking-lifecycle/live-booking/VAL-BOOKING-004-harness-state.png",
+    "guest-booking-lifecycle/live-booking/VAL-BOOKING-009-redirect.png",
+    "guest-booking-lifecycle/live-booking/VAL-BOOKING-012-result.png",
+    "guest-booking-lifecycle/live-booking/VAL-BOOKING-013-success.png",
+    "guest-booking-lifecycle/live-booking/VAL-CROSS-003-guest-route.png"
+  ]
+}

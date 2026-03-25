@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import GuestBookingReceiptPage from '@src/app/guest/bookings/[bookingId]/receipt/page';
 import { ReceiptClient } from '@src/app/guest/bookings/[bookingId]/receipt/ReceiptClient';
+import DevGuestReceiptPage from '@src/app/(public)/dev/guest-receipt/page';
 
 import type { ReactNode } from 'react';
 
@@ -29,7 +30,8 @@ vi.mock('next/headers', () => ({
 }));
 
 vi.mock('@features/reservations/wizard/api/useReservation', () => ({
-  useReservation: (reservationId: string | undefined) => useReservationMock(reservationId),
+  useReservation: (reservationId: string | undefined, options?: { token?: string | null }) =>
+    useReservationMock(reservationId, options),
 }));
 
 vi.mock('@/lib/analytics/emit', () => ({
@@ -75,6 +77,12 @@ function renderWithQuery(ui: ReactNode) {
 describe('guest receipt pages', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useReservationMock.mockReturnValue({
+      data: undefined,
+      error: null,
+      isError: false,
+      isLoading: false,
+    });
     cookiesMock.mockResolvedValue({
       getAll: () => [],
       get: () => undefined,
@@ -140,6 +148,19 @@ describe('guest receipt pages', () => {
       expect.objectContaining({ cache: 'no-store' }),
     );
   });
+
+  it('renders the dev guest receipt harness with deterministic fixture data', async () => {
+    renderWithQuery(
+      await DevGuestReceiptPage({ searchParams: Promise.resolve({ fixture: 'pending' }) }),
+    );
+
+    expect(screen.getByRole('heading', { name: 'Guest receipt fixture preview' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Pending fixture' })).toBeInTheDocument();
+    expect(screen.getByText('Pending Confirmation')).toBeInTheDocument();
+    expect(
+      screen.getByText('Your request has been received. We’ll confirm the reservation as soon as the venue reviews it.'),
+    ).toBeInTheDocument();
+  });
 });
 
 describe('ReceiptClient', () => {
@@ -161,6 +182,29 @@ describe('ReceiptClient', () => {
     expect(screen.getByText('Confirmed')).toBeInTheDocument();
     expect(screen.getByText('NB5678')).toBeInTheDocument();
     expect(screen.getByText('A confirmation email has been sent to your inbox.')).toBeInTheDocument();
+  });
+
+  it('forwards tokenized receipt access through the shared reservation hook', () => {
+    useReservationMock.mockReturnValue({
+      data: createReservation(),
+      error: null,
+      isError: false,
+      isLoading: false,
+    });
+
+    renderWithQuery(
+      <ReceiptClient
+        reservationId="11111111-1111-4111-8111-111111111111"
+        hasSession={false}
+        prefetchedStatus="confirmed"
+        token="receipt-token"
+      />,
+    );
+
+    expect(useReservationMock).toHaveBeenCalledWith(
+      '11111111-1111-4111-8111-111111111111',
+      { token: 'receipt-token', enabled: true },
+    );
   });
 
   it('changes receipt copy for pending bookings', () => {

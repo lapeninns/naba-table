@@ -1,6 +1,7 @@
 import { ensureLogoColumnOnRow, isLogoUrlColumnMissing, logLogoColumnFallback } from '@/server/restaurants/logo-url-compat';
 import { restaurantSelectColumns } from '@/server/restaurants/select-fields';
 import { getServiceSupabaseClient } from '@/server/supabase';
+import { getDefaultBookingLifecycleFixture } from '@/src/app/(public)/dev/_mocks/bookingLifecycleFixtures';
 
 import type { RestaurantSummary } from '@/lib/restaurants/types';
 import type { Database } from '@/types/supabase';
@@ -51,7 +52,33 @@ export async function getRestaurantBySlug(slug: string): Promise<RestaurantDetai
 
     const restaurant = ensureLogoColumnOnRow(data);
     if (!restaurant) {
-      return null;
+      const fallbackFixture = getDefaultBookingLifecycleFixture();
+      const isDevFixtureEnabled =
+        process.env.NODE_ENV !== 'production' &&
+        normalized === fallbackFixture.reservation.restaurantSlug;
+
+      if (!isDevFixtureEnabled) {
+        return null;
+      }
+
+      return {
+        id: fallbackFixture.reservation.restaurantId,
+        name: fallbackFixture.reservation.restaurantName ?? 'Fixture Restaurant',
+        slug: fallbackFixture.reservation.restaurantSlug ?? normalized,
+        timezone: fallbackFixture.reservation.restaurantTimezone ?? 'Europe/London',
+        capacity: null,
+        address: 'Fixture booking route for local guest validation',
+        bookingPolicy:
+          'Local validation fixture route. Use it to confirm guest booking continuity without hitting a not-found page.',
+        contactEmail: fallbackFixture.reservation.customerEmail ?? null,
+        contactPhone: fallbackFixture.reservation.customerPhone ?? null,
+        googleMapUrl: null,
+        logoUrl: null,
+        reservationIntervalMinutes: null,
+        reservationDefaultDurationMinutes: null,
+        reservationLastSeatingBufferMinutes: null,
+        reservationLifecycleGraceMinutes: null,
+      } satisfies RestaurantDetail;
     }
 
     return {

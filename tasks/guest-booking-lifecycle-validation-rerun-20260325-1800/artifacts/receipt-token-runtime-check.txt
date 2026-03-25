@@ -1,0 +1,21 @@
+2026-03-25T18:21:40Z
+
+Context
+- Goal: distinguish code regressions from local runtime data gaps for tokenized guest receipt validation.
+
+Observed API behavior after route fix
+- `curl -i -s 'http://localhost:3000/api/bookings/33333333-3333-4333-8333-333333333333?token=abc123'`
+- Result: `401 Unauthorized`
+- Body: `{"error":"Invalid receipt token","code":"INVALID_CONFIRMATION_TOKEN"}`
+
+Observed browser behavior after route fix
+- `http://localhost:3000/guest/bookings/33333333-3333-4333-8333-333333333333/receipt?token=abc123`
+- Result: receipt error UI (`We couldn't load your receipt. Please try the link again.`)
+
+Read-only remote data check
+- Queried bookings `33333333-3333-4333-8333-333333333333`, `44444444-4444-4444-8444-444444444444`, and `55555555-5555-4555-8555-555555555555` through the service client with `.env.local` credentials.
+- Result: all three bookings were absent from the connected dataset.
+
+Conclusion
+- The old `abc123` local receipt example is now blocked by missing seeded booking rows, not by the deprecated-token branch.
+- Deterministic browser receipt validation is covered by `/dev/guest-receipt?fixture=<active|pending|cancelled>`.

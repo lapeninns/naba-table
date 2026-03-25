@@ -1,0 +1,325 @@
+{
+  "groupId": "live-booking-rerun",
+  "testedAt": "2026-03-25T00:00:00Z",
+  "isolation": {
+    "appUrl": "http://localhost:3000",
+    "browserSession": "dccee17888c2__u1",
+    "missionDir": "/Users/amankumarshrestha/.factory/missions/7b467445-b8da-4b80-8252-ffa00b1ed7eb",
+    "routesBoundary": ["guest", "public", "auth", "recovery"],
+    "preferredHarness": "/dev/booking-recovery"
+  },
+  "toolsUsed": ["agent-browser"],
+  "assertionResults": [
+    {
+      "id": "VAL-FOUNDATION-008",
+      "title": "Legacy manage-booking routes canonicalize to one booking detail route",
+      "status": "pass",
+      "startUrl": "http://localhost:3000/bookings/booking-1/manage?from=legacy&source=validator",
+      "finalUrl": "http://localhost:3000/auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252Fbooking-1%253Ffrom%253Dlegacy%2526source%253Dvalidator",
+      "visibleResult": "Guest sign-in page shown with preserved legacy query state nested inside redirectedFrom.",
+      "redirectChain": [
+        "/bookings/booking-1/manage?from=legacy&source=validator",
+        "/auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252Fbooking-1%253Ffrom%253Dlegacy%2526source%253Dvalidator"
+      ],
+      "consoleErrors": "none",
+      "issues": null,
+      "evidence": {
+        "screenshots": ["guest-booking-lifecycle/live-booking-rerun/VAL-FOUNDATION-008-final.png"],
+        "network": "No requests captured by agent-browser for this navigation; final URL preserved query continuity in redirectedFrom."
+      }
+    },
+    {
+      "id": "VAL-FOUNDATION-009",
+      "title": "Legacy booking thank-you routes canonicalize to guest receipt",
+      "status": "pass",
+      "startUrl": "http://localhost:3000/bookings/booking-1/thank-you?guestName=Ada&confirmation=ABC123",
+      "finalUrl": "http://localhost:3000/auth/signin?redirectedFrom=%2Fguest%2Fbookings%2Fbooking-1%2Freceipt%3FguestName%3DAda%26confirmation%3DABC123",
+      "visibleResult": "Legacy thank-you route normalized through guest receipt and then to guest sign-in with receipt query preserved.",
+      "redirectChain": [
+        "/bookings/booking-1/thank-you?guestName=Ada&confirmation=ABC123",
+        "/guest/bookings/booking-1/receipt?guestName=Ada&confirmation=ABC123",
+        "/auth/signin?redirectedFrom=%2Fguest%2Fbookings%2Fbooking-1%2Freceipt%3FguestName%3DAda%26confirmation%3DABC123"
+      ],
+      "consoleErrors": "none",
+      "issues": null,
+      "evidence": {
+        "screenshots": ["guest-booking-lifecycle/live-booking-rerun/VAL-FOUNDATION-009-final.png"],
+        "network": "GET /bookings/booking-1/thank-you?guestName=Ada&confirmation=ABC123 -> GET /guest/bookings/booking-1/receipt?guestName=Ada&confirmation=ABC123 -> GET /auth/signin?redirectedFrom=%2Fguest%2Fbookings%2Fbooking-1%2Freceipt%3FguestName%3DAda%26confirmation%3DABC123"
+      }
+    },
+    {
+      "id": "VAL-FOUNDATION-010",
+      "title": "Restaurant thank-you aliases canonicalize to one public confirmation route",
+      "status": "blocked",
+      "startUrl": "http://localhost:3000/restaurants/seed-perf-r001/bookings/booking-1/thank-you?guestName=Ada&confirmation=REST123",
+      "finalUrl": "http://localhost:3000/restaurants/seed-perf-r001/bookings/booking-1/thank-you?guestName=Ada&confirmation=REST123",
+      "visibleResult": "Route remained on the restaurant thank-you alias instead of demonstrating canonical normalization.",
+      "redirectChain": [
+        "/restaurants/seed-perf-r001/bookings/booking-1/thank-you?guestName=Ada&confirmation=REST123"
+      ],
+      "consoleErrors": "none",
+      "issues": "No canonical redirect was observed from the restaurant-scoped alias on the live local surface.",
+      "evidence": {
+        "screenshots": ["guest-booking-lifecycle/live-booking-rerun/VAL-FOUNDATION-010-final.png"],
+        "network": "GET /restaurants/seed-perf-r001/bookings/booking-1/thank-you?guestName=Ada&confirmation=REST123 only"
+      }
+    },
+    {
+      "id": "VAL-FOUNDATION-013",
+      "title": "Guest routes opened on the app host canonicalize back to the guest host",
+      "status": "fail",
+      "startUrl": "http://app.localhost:3000/guest/bookings/booking-1?from=apphost",
+      "finalUrl": "http://app.localhost:3000/auth/signin?redirectedFrom=%2Fbookings%2Fbooking-1%3Ffrom%3Dapphost",
+      "visibleResult": "App-host guest route stayed on app.localhost and rendered operations sign-in instead of canonicalizing to the guest host.",
+      "redirectChain": [
+        "http://app.localhost:3000/guest/bookings/booking-1?from=apphost",
+        "http://app.localhost:3000/auth/signin?redirectedFrom=%2Fbookings%2Fbooking-1%3Ffrom%3Dapphost"
+      ],
+      "consoleErrors": "none",
+      "issues": "Local runtime still redirected to app-host operations sign-in rather than back to the root guest host.",
+      "evidence": {
+        "screenshots": [
+          "guest-booking-lifecycle/live-booking-rerun/VAL-FOUNDATION-013-app-host.png"
+        ],
+        "network": "Final URL and visible result captured; no cross-host canonical redirect observed."
+      }
+    },
+    {
+      "id": "VAL-BOOKING-002",
+      "title": "Public booking detail requires authenticated or recovered access",
+      "status": "blocked",
+      "startUrl": "http://localhost:3000/bookings/booking-1",
+      "finalUrl": "http://localhost:3000/auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252Fbooking-1",
+      "visibleResult": "Unauthenticated booking detail redirected cleanly to guest sign-in.",
+      "redirectChain": [
+        "/bookings/booking-1",
+        "/auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252Fbooking-1"
+      ],
+      "consoleErrors": "none",
+      "issues": "Authorized detail case could not be reached from the assigned live/public surface without mutating shared auth state.",
+      "evidence": {
+        "screenshots": ["guest-booking-lifecycle/live-booking-rerun/VAL-BOOKING-002-redirect.png"],
+        "network": "Redirect target preserved recovery wrapper for /bookings/booking-1."
+      }
+    },
+    {
+      "id": "VAL-BOOKING-004",
+      "title": "Booking detail loading, empty, and error states are explicit",
+      "status": "blocked",
+      "startUrl": "http://localhost:3000/bookings/booking-1",
+      "finalUrl": "http://localhost:3000/auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252Fbooking-1",
+      "visibleResult": "Only unauthenticated sign-in redirect was reachable.",
+      "redirectChain": [
+        "/bookings/booking-1",
+        "/auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252Fbooking-1"
+      ],
+      "consoleErrors": "none",
+      "issues": "No entitled booking-detail loading/error fixture was exposed on the live browser surface or dev harness.",
+      "evidence": {
+        "screenshots": ["guest-booking-lifecycle/live-booking-rerun/VAL-BOOKING-002-redirect.png"],
+        "network": "Same redirect evidence as VAL-BOOKING-002."
+      }
+    },
+    {
+      "id": "VAL-BOOKING-005",
+      "title": "Booking detail presents clear lifecycle status and next actions",
+      "status": "blocked",
+      "startUrl": "http://localhost:3000/bookings/booking-1",
+      "finalUrl": "http://localhost:3000/auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252Fbooking-1",
+      "visibleResult": "No entitled booking detail content was visible.",
+      "redirectChain": [
+        "/bookings/booking-1",
+        "/auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252Fbooking-1"
+      ],
+      "consoleErrors": "none",
+      "issues": "No reachable authorized booking-detail fixture to inspect lifecycle status or actions.",
+      "evidence": {
+        "screenshots": ["guest-booking-lifecycle/live-booking-rerun/VAL-BOOKING-002-redirect.png"],
+        "network": "Same redirect evidence as VAL-BOOKING-002."
+      }
+    },
+    {
+      "id": "VAL-BOOKING-006",
+      "title": "Booking detail disables management actions when lifecycle rules disallow them",
+      "status": "blocked",
+      "startUrl": "http://localhost:3000/bookings/booking-1",
+      "finalUrl": "http://localhost:3000/auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252Fbooking-1",
+      "visibleResult": "Non-manageable entitled booking state was not reachable.",
+      "redirectChain": [
+        "/bookings/booking-1",
+        "/auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252Fbooking-1"
+      ],
+      "consoleErrors": "none",
+      "issues": "Could not reach a cancelled/locked/past booking detail state within the isolation boundary.",
+      "evidence": {
+        "screenshots": ["guest-booking-lifecycle/live-booking-rerun/VAL-BOOKING-002-redirect.png"],
+        "network": "Same redirect evidence as VAL-BOOKING-002."
+      }
+    },
+    {
+      "id": "VAL-BOOKING-007",
+      "title": "Non-manageable booking states explain how the guest can regain control",
+      "status": "blocked",
+      "startUrl": "http://localhost:3000/bookings/booking-1",
+      "finalUrl": "http://localhost:3000/auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252Fbooking-1",
+      "visibleResult": "No non-manageable guidance state was reachable.",
+      "redirectChain": [
+        "/bookings/booking-1",
+        "/auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252Fbooking-1"
+      ],
+      "consoleErrors": "none",
+      "issues": "Assigned live/public routes did not expose an entitled non-manageable booking detail fixture.",
+      "evidence": {
+        "screenshots": ["guest-booking-lifecycle/live-booking-rerun/VAL-BOOKING-002-redirect.png"],
+        "network": "Same redirect evidence as VAL-BOOKING-002."
+      }
+    },
+    {
+      "id": "VAL-BOOKING-008",
+      "title": "Rebook sends guests back into a canonical booking-entry flow",
+      "status": "blocked",
+      "startUrl": "http://localhost:3000/bookings/booking-1",
+      "finalUrl": "http://localhost:3000/auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252Fbooking-1",
+      "visibleResult": "No rebook CTA was reachable because entitled detail never rendered.",
+      "redirectChain": [
+        "/bookings/booking-1",
+        "/auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252Fbooking-1"
+      ],
+      "consoleErrors": "none",
+      "issues": "Could not reach an authorized booking detail containing a rebook action.",
+      "evidence": {
+        "screenshots": ["guest-booking-lifecycle/live-booking-rerun/VAL-BOOKING-002-redirect.png"],
+        "network": "Same redirect evidence as VAL-BOOKING-002."
+      }
+    },
+    {
+      "id": "VAL-BOOKING-009",
+      "title": "Guest receipt requires authenticated or token-based entitlement",
+      "status": "blocked",
+      "startUrl": "http://localhost:3000/guest/bookings/booking-1/receipt?token=valid-token",
+      "finalUrl": "http://localhost:3000/guest/bookings/booking-1/receipt?token=valid-token",
+      "visibleResult": "Receipt route rendered but the live surface did not provide a deterministic way to confirm whether the token granted entitlement versus a fallback/error path.",
+      "redirectChain": ["/guest/bookings/booking-1/receipt?token=valid-token"],
+      "consoleErrors": "none",
+      "issues": "No known valid receipt token or authenticated guest fixture was provided, so the success entitlement case could not be conclusively validated.",
+      "evidence": {
+        "screenshots": ["guest-booking-lifecycle/live-booking-rerun/VAL-BOOKING-009-redirect.png"],
+        "network": "Direct load of /guest/bookings/booking-1/receipt?token=valid-token without a documented valid token fixture."
+      }
+    },
+    {
+      "id": "VAL-BOOKING-010",
+      "title": "Guest receipt summarizes the reservation in a confirmation-oriented format",
+      "status": "blocked",
+      "startUrl": "http://localhost:3000/guest/bookings/booking-1/receipt?token=valid-token",
+      "finalUrl": "http://localhost:3000/guest/bookings/booking-1/receipt?token=valid-token",
+      "visibleResult": "A conclusive entitled receipt confirmation view was not available for inspection.",
+      "redirectChain": ["/guest/bookings/booking-1/receipt?token=valid-token"],
+      "consoleErrors": "none",
+      "issues": "Without a confirmed entitled receipt fixture, confirmation-oriented content could not be verified reliably.",
+      "evidence": {
+        "screenshots": ["guest-booking-lifecycle/live-booking-rerun/VAL-BOOKING-009-redirect.png"],
+        "network": "Same direct receipt load as VAL-BOOKING-009."
+      }
+    },
+    {
+      "id": "VAL-BOOKING-011",
+      "title": "Receipt messaging changes appropriately for active, pending, and cancelled bookings",
+      "status": "blocked",
+      "startUrl": "http://localhost:3000/guest/bookings/booking-1/receipt?token=valid-token",
+      "finalUrl": "http://localhost:3000/guest/bookings/booking-1/receipt?token=valid-token",
+      "visibleResult": "Lifecycle-specific receipt variants were not available.",
+      "redirectChain": ["/guest/bookings/booking-1/receipt?token=valid-token"],
+      "consoleErrors": "none",
+      "issues": "No active/pending/cancelled receipt fixtures were exposed in the assigned isolation boundary.",
+      "evidence": {
+        "screenshots": ["guest-booking-lifecycle/live-booking-rerun/VAL-BOOKING-009-redirect.png"],
+        "network": "Same direct receipt load as VAL-BOOKING-009."
+      }
+    },
+    {
+      "id": "VAL-BOOKING-013",
+      "title": "Recovery success strips the token from the final destination URL",
+      "status": "fail",
+      "startUrl": "http://localhost:3000/dev/booking-recovery",
+      "finalUrl": "http://localhost:3000/dev/booking-recovery",
+      "visibleResult": "Clicking the recovery harness link returned to the same harness page rather than landing on a final entitled booking destination.",
+      "redirectChain": [
+        "/dev/booking-recovery",
+        "/bookings/recover?access_token=<redacted>&next=%2Fbookings%2F22222222-2222-4222-8222-222222222222",
+        "/bookings/22222222-2222-4222-8222-222222222222",
+        "/auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252F22222222-2222-4222-8222-222222222222",
+        "/dev/booking-recovery"
+      ],
+      "consoleErrors": "none",
+      "issues": "The documented recovery harness did not produce a stable successful final destination with token stripped from the browser URL.",
+      "evidence": {
+        "screenshots": [
+          "guest-booking-lifecycle/live-booking-rerun/dev-booking-recovery-annotated.png",
+          "guest-booking-lifecycle/live-booking-rerun/VAL-BOOKING-013-recovery-result.png"
+        ],
+        "network": "GET /bookings/recover?access_token=<redacted>&next=%2Fbookings%2F22222222-2222-4222-8222-222222222222 -> GET /bookings/22222222-2222-4222-8222-222222222222 -> GET /auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252F22222222-2222-4222-8222-222222222222"
+      }
+    },
+    {
+      "id": "VAL-CROSS-004",
+      "title": "Recovery flow preserves destination continuity end to end",
+      "status": "fail",
+      "startUrl": "http://localhost:3000/dev/booking-recovery",
+      "finalUrl": "http://localhost:3000/dev/booking-recovery",
+      "visibleResult": "Recovery harness did not complete into an entitled internal booking surface, so end-to-end continuity failed on the live surface.",
+      "redirectChain": [
+        "/dev/booking-recovery",
+        "/bookings/recover?access_token=<redacted>&next=%2Fbookings%2F22222222-2222-4222-8222-222222222222",
+        "/bookings/22222222-2222-4222-8222-222222222222",
+        "/auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252F22222222-2222-4222-8222-222222222222",
+        "/dev/booking-recovery"
+      ],
+      "consoleErrors": "none",
+      "issues": "Live recovery chain bounced into sign-in instead of preserving continuity to the intended internal booking destination.",
+      "evidence": {
+        "screenshots": [
+          "guest-booking-lifecycle/live-booking-rerun/dev-booking-recovery-annotated.png",
+          "guest-booking-lifecycle/live-booking-rerun/VAL-BOOKING-013-recovery-result.png"
+        ],
+        "network": "Same recovery redirect chain as VAL-BOOKING-013."
+      }
+    }
+  ],
+  "frictions": [
+    {
+      "description": "agent-browser get text body returned streamed Next.js payload text before visible content, so visible results were inferred primarily from final URLs and screenshots.",
+      "resolved": true,
+      "resolution": "Used screenshots plus final URLs as primary evidence and treated body-text output as secondary.",
+      "affectedAssertions": ["VAL-BOOKING-002", "VAL-BOOKING-009", "VAL-FOUNDATION-013"]
+    }
+  ],
+  "blockers": [
+    {
+      "description": "No deterministic authorized booking-detail or receipt fixture was exposed on the allowed live/public surface without mutating shared auth state.",
+      "affectedAssertions": [
+        "VAL-BOOKING-002",
+        "VAL-BOOKING-004",
+        "VAL-BOOKING-005",
+        "VAL-BOOKING-006",
+        "VAL-BOOKING-007",
+        "VAL-BOOKING-008",
+        "VAL-BOOKING-009",
+        "VAL-BOOKING-010",
+        "VAL-BOOKING-011"
+      ],
+      "quickFixAttempted": "Used /dev/booking-recovery and direct tokenized receipt URLs, but neither supplied a reliable entitled success fixture."
+    }
+  ],
+  "evidenceFiles": [
+    "/Users/amankumarshrestha/.factory/missions/7b467445-b8da-4b80-8252-ffa00b1ed7eb/evidence/guest-booking-lifecycle/live-booking-rerun/dev-booking-recovery-annotated.png",
+    "/Users/amankumarshrestha/.factory/missions/7b467445-b8da-4b80-8252-ffa00b1ed7eb/evidence/guest-booking-lifecycle/live-booking-rerun/VAL-FOUNDATION-008-final.png",
+    "/Users/amankumarshrestha/.factory/missions/7b467445-b8da-4b80-8252-ffa00b1ed7eb/evidence/guest-booking-lifecycle/live-booking-rerun/VAL-FOUNDATION-009-final.png",
+    "/Users/amankumarshrestha/.factory/missions/7b467445-b8da-4b80-8252-ffa00b1ed7eb/evidence/guest-booking-lifecycle/live-booking-rerun/VAL-FOUNDATION-010-final.png",
+    "/Users/amankumarshrestha/.factory/missions/7b467445-b8da-4b80-8252-ffa00b1ed7eb/evidence/guest-booking-lifecycle/live-booking-rerun/VAL-FOUNDATION-013-app-host.png",
+    "/Users/amankumarshrestha/.factory/missions/7b467445-b8da-4b80-8252-ffa00b1ed7eb/evidence/guest-booking-lifecycle/live-booking-rerun/VAL-BOOKING-002-redirect.png",
+    "/Users/amankumarshrestha/.factory/missions/7b467445-b8da-4b80-8252-ffa00b1ed7eb/evidence/guest-booking-lifecycle/live-booking-rerun/VAL-BOOKING-009-redirect.png",
+    "/Users/amankumarshrestha/.factory/missions/7b467445-b8da-4b80-8252-ffa00b1ed7eb/evidence/guest-booking-lifecycle/live-booking-rerun/VAL-BOOKING-013-recovery-result.png"
+  ],
+  "summary": "Validated 14 assigned assertions on the live browser surface: 2 passed, 3 failed, and 9 were blocked by missing entitled fixtures or incomplete live recovery behavior."
+}

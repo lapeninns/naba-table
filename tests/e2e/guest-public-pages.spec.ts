@@ -82,6 +82,33 @@ test.describe('public booking pages', () => {
     await expect(page.getByRole('button', { name: 'Book Again' }).first()).toBeEnabled();
   });
 
+  test('booking detail states harness exposes deterministic loading and error surfaces', async ({
+    page,
+  }) => {
+    await page.goto('/dev/booking-detail-states');
+
+    await expect(page.getByRole('heading', { name: 'Booking detail loading and error states' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Loading state' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Error state', exact: true })).toBeVisible();
+    await expect(page.getByText('Unable to load reservation')).toBeVisible();
+  });
+
+  test('rebook from authorized public booking detail returns to a live booking-entry route', async ({
+    page,
+  }) => {
+    await page.goto('/dev/booking-recovery?fixture=active&autoStart=1');
+
+    await expect(page).toHaveURL(
+      /\/bookings\/22222222-2222-4222-8222-222222222222$/,
+    );
+    await page.getByRole('button', { name: 'Book Again' }).click();
+
+    await expect(page).toHaveURL(
+      /\/restaurants\/the-fox\/book\?source=rebook&reservationId=22222222-2222-4222-8222-222222222222$/,
+    );
+    await expect(page.getByRole('heading', { name: 'Finish booking with calm, guided steps.' })).toBeVisible();
+  });
+
   test('invalid restaurant detail and book routes resolve to the guest not-found experience', async ({
     page,
   }) => {

@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -9,6 +9,7 @@ import BookingDetailPage from '@src/app/(public)/bookings/[bookingId]/page';
 import GuestBookingDetailPage from '@src/app/guest/bookings/[bookingId]/page';
 import DevBookingRecoveryPage from '@src/app/(public)/dev/booking-recovery/page';
 import DevBookingDetailComparisonPage from '@src/app/(public)/dev/booking-detail-comparison/page';
+import DevBookingDetailStatesPage from '@src/app/(public)/dev/booking-detail-states/page';
 import { BookingDetailPage } from '@src/app/(public)/bookings/booking-page';
 import { GET as GetBookingDetail } from '@src/app/api/bookings/[id]/route';
 import ReservationDetailClient from '@/components/features/booking/detail/ReservationDetailClient';
@@ -163,14 +164,18 @@ describe('public booking pages', () => {
         getUser: getUserMock,
       },
     });
-    getServiceSupabaseClientMock.mockReturnValue({
-      from: () => ({
-        select: () => ({
-          eq: () => ({
-            maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-          }),
+    getServiceSupabaseClientMock.mockImplementation(() => {
+      const maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
+      const query = {
+        eq: vi.fn(() => query),
+        maybeSingle,
+      };
+
+      return {
+        from: () => ({
+          select: () => query,
         }),
-      }),
+      };
     });
     validateSessionRecoveryAccessTokenMock.mockReturnValue({ ok: false, reason: 'invalid' });
     createSessionRecoveryAccessTokenMock.mockReturnValue('continuation-token');
@@ -337,6 +342,101 @@ describe('public booking pages', () => {
     ).rejects.toThrow('NEXT_REDIRECT:/bookings/recover/error?code=LEGACY_TOKEN_DEPRECATED');
   });
 
+  it('serves tokenized receipt access through GET /api/bookings/[id] when the confirmation token matches the booking', async () => {
+    const maybeSingle = vi
+      .fn()
+      .mockResolvedValueOnce({
+        data: {
+          id: 'booking-1',
+          restaurant_id: 'restaurant-1',
+          confirmation_token_expires_at: '2099-01-01T00:00:00.000Z',
+          status: 'confirmed',
+          reference: 'NB1234',
+          customer_email: 'guest@example.com',
+        },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: {
+          name: 'The Fox',
+          slug: 'the-fox',
+          timezone: 'Europe/London',
+        },
+        error: null,
+      });
+    const query = {
+      eq: vi.fn(() => query),
+      maybeSingle,
+    };
+
+    getServiceSupabaseClientMock.mockReturnValue({
+      from: () => ({
+        select: () => query,
+      }),
+    });
+
+    const request = {
+      headers: {
+        get: () => null,
+      },
+      nextUrl: new URL('http://localhost:3000/api/bookings/booking-1?token=receipt-token'),
+      cookies: {
+        get: () => undefined,
+      },
+    } as unknown as Parameters<typeof GetBookingDetail>[0];
+
+    const response = await GetBookingDetail(request, {
+      params: Promise.resolve({ id: 'booking-1' }),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      booking: {
+        id: 'booking-1',
+        reference: 'NB1234',
+        status: 'confirmed',
+        restaurants: {
+          slug: 'the-fox',
+          timezone: 'Europe/London',
+        },
+      },
+    });
+  });
+
+  it('rejects invalid tokenized receipt access through GET /api/bookings/[id]', async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
+    const query = {
+      eq: vi.fn(() => query),
+      maybeSingle,
+    };
+
+    getServiceSupabaseClientMock.mockReturnValue({
+      from: () => ({
+        select: () => query,
+      }),
+    });
+
+    const request = {
+      headers: {
+        get: () => null,
+      },
+      nextUrl: new URL('http://localhost:3000/api/bookings/booking-1?token=receipt-token'),
+      cookies: {
+        get: () => undefined,
+      },
+    } as unknown as Parameters<typeof GetBookingDetail>[0];
+
+    const response = await GetBookingDetail(request, {
+      params: Promise.resolve({ id: 'booking-1' }),
+    });
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toMatchObject({
+      error: 'Invalid receipt token',
+      code: 'INVALID_CONFIRMATION_TOKEN',
+    });
+  });
+
   it('passes the same shared detail model to the guest booking detail route', async () => {
     cookiesMock.mockResolvedValue(createCookieStore([{ name: 'sr_access', value: 'session-token' }]));
     validateSessionRecoveryAccessTokenMock.mockReturnValue({ ok: true });
@@ -488,6 +588,15 @@ describe('public booking pages', () => {
     expect(screen.getAllByRole('button', { name: 'Modify Details' }).every((button) => button.hasAttribute('disabled'))).toBe(true);
     expect(screen.getAllByRole('button', { name: 'Cancel Booking' }).every((button) => button.hasAttribute('disabled'))).toBe(true);
     expect(screen.getAllByRole('button', { name: 'Book Again' }).every((button) => !button.hasAttribute('disabled'))).toBe(true);
+  });
+
+  it('renders dev-only booking-detail loading and error states for browser validation', async () => {
+    render(await DevBookingDetailStatesPage());
+
+    expect(screen.getByRole('heading', { name: 'Booking detail loading and error states' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Loading state' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Error state' })).toBeInTheDocument();
+    expect(screen.getByText('Unable to load reservation')).toBeInTheDocument();
   });
 
   it('serves booking lifecycle fixture payloads through GET /api/bookings/[id] in dev when recovery authorization matches', async () => {
@@ -700,6 +809,31 @@ describe('ReservationDetailClient', () => {
     expect(screen.getByRole('button', { name: 'Book Again' })).toBeEnabled();
     expect(screen.getAllByRole('button', { name: /PDF/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('button', { name: /Share/i }).length).toBeGreaterThan(0);
+  });
+
+  it('lets callers override the rebook destination with a safe booking-entry fallback', () => {
+    useReservationMock.mockReturnValue({
+      data: createReservation({ status: 'confirmed', startAt: '2026-02-10T19:00:00.000Z' }),
+      error: null,
+      isError: false,
+      isLoading: false,
+      refetch: vi.fn(),
+      isFetching: false,
+    });
+
+    renderWithQuery(
+      <ReservationDetailClient
+        reservationId="booking-1"
+        restaurantName="The Fox"
+        initialNow={Date.parse('2026-02-10T12:00:00.000Z')}
+        canManage
+        rebookHref="/restaurants?source=rebook&reservationId=booking-1"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Book Again' }));
+
+    expect(pushMock).toHaveBeenCalledWith('/restaurants?source=rebook&reservationId=booking-1');
   });
 
   it('preserves the public booking return path for the sign-in CTA when rendered on the public route', () => {
