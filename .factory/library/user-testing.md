@@ -79,8 +79,8 @@ Testing surface, required testing skills/tools, resource cost classification per
 
 ## Local Discovery / Booking Validation Notes
 
-- There is currently **no documented stable public restaurant slug** that can be assumed valid across local guest discovery/browser validation. Workers have probed `the-fox`, `seed-perf-r001`, and `white-horse-pub-waterbeach`, and each was unavailable or unstable in at least one local run.
-- Treat live restaurant slug selection as runtime-dependent until a future worker records a reproducible public slug/fixture here.
+- Use `seed-perf-r001` as the current stable local public restaurant slug for live guest discovery/detail/booking validation on port `3000`.
+- Earlier probes (`the-fox`, `white-horse-pub-waterbeach`) were unavailable or unstable in prior local runs; prefer `seed-perf-r001` unless a later worker updates this note with a newer verified fixture.
 - Playwright updates `test-results/.last-run.json` during local runs; this file may appear dirty after validation and should not be mistaken for a product change.
 
 ## Guest UI Runtime Pitfalls

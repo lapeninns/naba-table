@@ -1,0 +1,15 @@
+{
+  "featureId": "cover-auth-callback-failure-path",
+  "reviewedAt": "2026-03-25T11:16:30Z",
+  "commitId": "6a4def19ea46a47604fc5d14493bea9ed7675e7c",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The feature closes the prior callback-coverage gap with test-only changes that now drive the real `/api/auth/callback` failure path in both server and browser coverage. The assertions match the current product behavior: callback failures redirect to the guest-owned `/auth` surface, preserve guest sign-in affordances, and scrub raw Supabase/provider error strings from the resulting UI state.",
+    "issues": []
+  },
+  "sharedStateObservations": [],
+  "addressesFailureFrom": null,
+  "summary": "Reviewed mission metadata, the worker transcript skeleton, handoff, guest-routing-worker skill, shared mission docs, and commit `6a4def19`. The added Vitest cases exercise expired-code and already-used token-hash failures through `/api/auth/callback`, and the refreshed Playwright scenario follows the live callback route to `/auth` while confirming only guest-safe error state is preserved. I found no blocking or non-blocking defects in this scoped feature review."
+}

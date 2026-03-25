@@ -33,6 +33,7 @@ Use this skill when the feature’s main job is to make guest surfaces feel warm
    - component tests in `tests/components/**`
    - guest route/view-model or page tests in `tests/guest/**`
    - Playwright guest-flow tests when visible behavior or route flow changes; if the mission reuses the live port-3000 app, use the documented harness mode and a supported reporter instead of assuming `--reporter=verbose`
+   - If the live runtime is broken while existing automated coverage is still green, first reproduce and isolate the live failure, then update/add tests so the final assertions prove the intended guest behavior rather than codifying the broken state
    - Run a targeted RED command and confirm failure before implementation
 5. Implement by extending or adopting canonical guest primitives first. Do not add another guest shell, typography system, or one-off auth/account pattern unless the feature explicitly updates the canonical primitive layer.
 6. Run targeted tests until green, then run:

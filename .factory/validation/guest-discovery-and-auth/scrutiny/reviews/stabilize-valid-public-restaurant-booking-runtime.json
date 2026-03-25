@@ -1,33 +1,28 @@
 {
   "featureId": "stabilize-valid-public-restaurant-booking-runtime",
-  "reviewedAt": "2026-03-25T11:05:00Z",
+  "reviewedAt": "2026-03-25T11:17:40.271905Z",
   "commitId": "f337bc90",
   "transcriptSkeletonReviewed": true,
   "diffReviewed": true,
   "status": "fail",
   "codeReview": {
-    "summary": "The commit only refreshes Playwright expectations and documents that the live booking-entry route still fails with HTTP 500 and the global guest error screen. That does not satisfy the feature contract, which required stabilizing at least one valid public restaurant detail-to-booking runtime so the booking-entry page renders successfully in the guest system.",
+    "summary": "The feature commit only refreshes Playwright assertions and does not actually stabilize the valid public restaurant booking runtime. It codifies the still-broken booking-entry error surface as a passing condition even though the handoff confirms the route continues to return HTTP 500.",
     "issues": [
       {
         "file": "tests/e2e/guest-reserve-routes.spec.ts",
-        "line": 192,
+        "line": 180,
         "severity": "blocking",
-        "description": "The updated test now treats the broken `/restaurants/seed-perf-r001/book` runtime as success by only asserting the page contains `Guest booking flow` and does not show the old build-overlay text. The feature description and expected behavior require a stable live booking-entry page, but the worker's own handoff records that the route still returns HTTP 500 and falls into the global guest error surface. This change masks the unresolved product failure instead of verifying the required behavior."
+        "description": "The updated test now treats the broken `/restaurants/seed-perf-r001/book` runtime as success by only asserting the page contains `Guest booking flow` and lacks the old build-overlay text. The feature contract requires a stable live booking-entry page, but the worker's own handoff records that the route still returns HTTP 500 and falls into the generic guest error screen. This change masks the unresolved product failure instead of verifying the required behavior."
       }
     ]
   },
   "sharedStateObservations": [
     {
       "area": "skills",
-      "observation": "The `guest-ui-worker` skill still mandates writing tests first (RED) and then implementing the UI fix, but this worker followed that procedure and still ended with a commit that only refreshed stale Playwright assertions around a broken runtime. The skill does not clearly guard against closing a runtime-stabilization feature with test-only changes when the product behavior remains broken.",
-      "evidence": "Skill: `.factory/skills/guest-ui-worker/SKILL.md` step 4/6; handoff `.../handoffs/2026-03-25T10-51-19-387Z__stabilize-valid-public-restaurant-booking-runtime__3f51dee2-e215-419b-a763-3b71b5699da6.json` says `/restaurants/seed-perf-r001/book` still returned HTTP 500 and hit the generic guest error screen, while commit `f337bc90` only changed `tests/e2e/guest-reserve-routes.spec.ts`."
-    },
-    {
-      "area": "knowledge",
-      "observation": "The mission's shared testing guidance does not document that `stabilize-valid-public-restaurant-booking-runtime` was effectively converted into a stale-spec refresh and left the booking-entry 500 for a follow-up feature. This gap makes it easy for later reviewers to misread `f337bc90` as a runtime fix rather than a narrowed test refresh around a still-broken flow.",
-      "evidence": "`.factory/library/user-testing.md` explains stale-runtime handling for proxy redirects but has no note about the restaurant booking-entry route remaining HTTP 500 after `f337bc90`; the handoff explicitly states the route still failed and the next feature `fix-valid-public-restaurant-booking-entry-500` was needed to actually restore the runtime."
+      "observation": "The `guest-ui-worker` skill tells workers to do RED\u2192implementation\u2192green and to refresh stale route-specific Playwright coverage only when needed, but this feature ended with a test-only commit that knowingly encoded an unresolved runtime failure as passing coverage. The skill/procedure may need a stronger guard that refreshed tests still must assert the feature's required behavior rather than the current broken fallback.",
+      "evidence": "Skill: `.factory/skills/guest-ui-worker/SKILL.md` step 4/6; handoff `/Users/amankumarshrestha/.factory/missions/7b467445-b8da-4b80-8252-ffa00b1ed7eb/handoffs/2026-03-25T10-51-19-387Z__stabilize-valid-public-restaurant-booking-runtime__3f51dee2-e215-419b-a763-3b71b5699da6.json` says `/restaurants/seed-perf-r001/book` still returned HTTP 500 and hit the generic guest error screen, while commit `f337bc90` only changed `tests/e2e/guest-reserve-routes.spec.ts`."
     }
   ],
   "addressesFailureFrom": null,
-  "summary": "Review failed: commit `f337bc90` does not implement the feature's required runtime stabilization. It only narrows Playwright coverage to avoid stale assertions while the valid booking-entry route still returned HTTP 500 and the global guest error screen."
+  "summary": "Review failed: commit `f337bc90` updates Playwright coverage but does not stabilize the valid public restaurant booking-entry runtime. The reviewed handoff explicitly confirms `/restaurants/seed-perf-r001/book` still returns HTTP 500 and lands on the generic guest error screen, so the new passing test is validating the broken behavior rather than the feature's expected stable booking page."
 }

@@ -1,28 +1,28 @@
 {
   "featureId": "guest-auth-entry-and-callback-errors",
-  "reviewedAt": "2026-03-25T11:10:00Z",
+  "reviewedAt": "2026-03-25T11:17:45Z",
   "commitId": "2f6a79e80a194e1731684e0c6507fe07a9cd0cc9",
   "transcriptSkeletonReviewed": true,
   "diffReviewed": true,
   "status": "fail",
   "codeReview": {
-    "summary": "The committed coverage updates correctly exercise guest auth validation, redirect sanitization, and live auth-page behavior, but the feature report over-claims callback failure coverage: the new Playwright assertion only verifies a query-param driven sign-in error banner and never exercises the actual /api/auth/callback failure translation path required by the feature contract.",
+    "summary": "The commit improves auth test coverage, but the new browser assertion does not actually exercise the real failing /api/auth/callback path required by the feature contract and follow-up validation scope.",
     "issues": [
       {
         "file": "tests/e2e/guest-auth-pages.spec.ts",
-        "line": 25,
+        "line": 39,
         "severity": "blocking",
-        "description": "The new browser test injects `error=link_expired` directly into `/auth/signin` instead of navigating through `/api/auth/callback` with a failing magic-link scenario, so it does not verify that callback or magic-link failures are translated into guest-safe copy by the real callback flow. This leaves the feature's required callback-error behavior unproven despite the handoff claiming coverage."
+        "description": "The new Playwright test visits `/api/auth/callback?token_hash=already-used-test-token&redirectedFrom=%2Fguest%2Fdashboard` without a real/invalid auth token fixture, then only asserts that the browser ends up on `/auth` and that the guest link href contains an error query. This can pass on the route's generic missing/invalid-token fallback (`auth_failed`) without proving the required expired/invalid/already-used callback failure handling, so it does not satisfy the feature contract or the follow-up `cover-auth-callback-failure-path` expectation to exercise the real failing callback path."
       }
     ]
   },
   "sharedStateObservations": [
     {
       "area": "knowledge",
-      "observation": "Playwright writes `test-results/.last-run.json` during validation and leaves it uncommitted; this behavior is only mentioned in the worker handoff and does not appear to be documented in shared mission/library guidance.",
-      "evidence": "Handoff `discoveredIssues` notes the generated file, and the transcript shows `git status --short` returning `M test-results/.last-run.json` after validation."
+      "observation": "The worker noted that Playwright leaves `test-results/.last-run.json` dirty after local runs. This is reusable validator knowledge and is already documented in `.factory/library/user-testing.md`, so no additional shared-state update is needed.",
+      "evidence": "Handoff discoveredIssues mentions `test-results/.last-run.json`; `.factory/library/user-testing.md` already says 'Playwright updates test-results/.last-run.json during local runs'."
     }
   ],
   "addressesFailureFrom": null,
-  "summary": "Reviewed the handoff, transcript skeleton, skill procedure, and commit `2f6a79e8`. The implementation is limited to test/coverage updates, and while most assertions match existing product behavior, the callback-error requirement is still not actually covered because the added E2E test bypasses `/api/auth/callback` and asserts only a pre-seeded sign-in error state."
+  "summary": "Failed review: coverage additions are mostly sound, but the browser-level callback test does not verify a genuine callback failure mode and can pass without proving guest-safe handling for expired/invalid/already-used links."
 }

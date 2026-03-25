@@ -1,33 +1,33 @@
 {
   "featureId": "restaurant-booking-entry-and-not-found",
-  "reviewedAt": "2026-03-25T11:05:00Z",
+  "reviewedAt": "2026-03-25T11:20:00Z",
   "commitId": "04e09fea49e9b941304415dc47f5ff18e7becb5d",
   "transcriptSkeletonReviewed": true,
   "diffReviewed": true,
   "status": "fail",
   "codeReview": {
-    "summary": "The reviewed commit correctly fixes invalid booking-entry slugs by preserving slug casing and letting `notFound()` render the route-local guest 404, but it does not complete the feature contract because the promised live valid public-slug validation remains unresolved and the worker explicitly handed off that the valid booking-entry path still fell into a generic error fallback.",
+    "summary": "The fix correctly preserves the booking slug and restores the route-local not-found behavior for invalid booking-entry slugs, but the feature contract is still not fully met because it does not stabilize any valid public restaurant slug for live browser detail/booking validation.",
     "issues": [
       {
-        "file": ".factory/missions/7b467445-b8da-4b80-8252-ffa00b1ed7eb/handoffs/2026-03-25T10-23-38-603Z__restaurant-booking-entry-and-not-found__c40bebd2-fb0e-49e7-a8d3-85030eb2c4af.json",
-        "line": 1,
+        "file": "src/app/(public)/(marketing)/restaurants/[slug]/book/page.tsx",
+        "line": 30,
         "severity": "blocking",
-        "description": "The feature requirement included establishing at least one stable locally browser-valid public restaurant slug for detail/booking-entry validation, but the reviewed handoff states the chosen live slug `white-horse-pub-waterbeach` still rendered a generic try-again/dashboard fallback on `/restaurants/white-horse-pub-waterbeach/book`. The commit only changes invalid-slug lookup handling and does not address or close that remaining valid-slug runtime gap, so the feature is incomplete against its expected behavior."
+        "description": "The updated page only fixes invalid-slug handling. The feature description explicitly required finishing live validation by establishing at least one stable locally browser-valid public restaurant slug, yet the handoff still reports that the discovered slug (`white-horse-pub-waterbeach`) falls through to the generic try-again/dashboard fallback on the live booking page. Because no code or test coverage was added to make a valid public slug reliably render through detail and booking entry, the implementation does not fully satisfy the assigned expected behavior."
       }
     ]
   },
   "sharedStateObservations": [
     {
-      "area": "skills",
-      "observation": "The `guest-ui-worker` skill still instructs workers to run Playwright with a supported reporter instead of assuming `--reporter=verbose`, but the original partial run for this same feature tried `npx playwright test ... --reporter=verbose` and failed immediately because this repo's Playwright setup does not support that reporter. The later fix run avoided repeating that exact mistake, but the mission shared state would benefit from making the supported reporter guidance more prominent anywhere feature verification commands are templated.",
-      "evidence": "Mission handoff `2026-03-25T10-13-34-555Z__restaurant-booking-entry-and-not-found__ed0af208-b0a5-4e92-bf03-dd2e86035872.json` records `npx playwright test ... --reporter=verbose` failing because Playwright could not resolve a `verbose` reporter; `.factory/skills/guest-ui-worker/SKILL.md` already warns against assuming `--reporter=verbose`."
+      "area": "knowledge",
+      "observation": "The repo library already records that no stable public restaurant slug is currently documented for local validation, and this worker confirmed `white-horse-pub-waterbeach` still is not stable. That means the mission still lacks reusable knowledge for a reproducible valid discovery\u2192booking browser path, which is central to this feature's contract.",
+      "evidence": ".factory/library/user-testing.md:55 states there is no documented stable public restaurant slug; the handoff for `restaurant-booking-entry-and-not-found` says `white-horse-pub-waterbeach` still lands on the generic try-again/dashboard fallback in live validation."
     },
     {
-      "area": "knowledge",
-      "observation": "Mission shared knowledge does not yet record a deterministic locally valid guest restaurant slug for booking validation, even though this feature spent effort probing `the-fox`, `seed-perf-r001`, and `white-horse-pub-waterbeach` and still could not satisfy the valid-slug browser requirement. Recording the current known candidates and their failure modes would make later scrutiny/user-testing work more actionable.",
-      "evidence": "The reviewed handoff documents `white-horse-pub-waterbeach` as the live slug used for browser validation but says `/restaurants/white-horse-pub-waterbeach/book` still lands on a generic fallback; `tests/e2e/guest-reserve-routes.spec.ts` hard-codes `seed-perf-r001`; `.factory/library/user-testing.md` contains no note about any currently usable public restaurant slug or known invalid candidates."
+      "area": "skills",
+      "observation": "The worker followed the skill's allowance to isolate a directly relevant Playwright spec when the broader assigned spec was stale, but the feature brief itself still bundled `guest-reserve-routes.spec.ts` even though user-testing knowledge already documented runtime instability around local restaurant slugs. The shared guidance could more clearly distinguish route-local invalid-slug verification from broader valid-slug live-runtime stabilization work.",
+      "evidence": "guest-ui-worker/SKILL.md step 6 allows isolating directly relevant guest specs when broader Playwright coverage has pre-existing failures; `.factory/library/user-testing.md:55-57` documents unstable public slugs; the handoff records the combined Playwright command failing for unrelated stale expectations while only `guest-public-pages.spec.ts` passed."
     }
   ],
   "addressesFailureFrom": null,
-  "summary": "Fail: commit `04e09fea` fixes the invalid booking-entry not-found regression, but the assigned feature also required proving at least one stable valid public restaurant slug in the live browser, and that remained broken per the worker's own evidence."
+  "summary": "Review failed: the commit fixes route-local not-found handling for invalid booking-entry slugs, but it does not complete the feature's remaining requirement to establish and validate at least one stable valid public restaurant slug in the live browser. Report saved for scrutiny triage."
 }

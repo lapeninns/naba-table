@@ -1,26 +1,21 @@
 {
   "featureId": "fix-valid-public-restaurant-booking-entry-500",
-  "reviewedAt": "2026-03-25T11:05:02Z",
+  "reviewedAt": "2026-03-25T11:15:00Z",
   "commitId": "33b35172",
   "transcriptSkeletonReviewed": true,
   "diffReviewed": true,
   "status": "pass",
   "codeReview": {
-    "summary": "The fix correctly addresses the live booking-entry crash by removing the server-to-client Lucide component serialization from the loading boundary. The updated loading surface remains guest-owned and accessible, and the widened GuestStatus icon typing matches current usage without introducing an obvious regression in the reviewed scope.",
+    "summary": "The fix addresses the reviewed runtime failure by removing the server-to-client Lucide component handoff from the booking loading boundary, which aligns with the observed 500/error-screen symptom and preserves the guest-owned loading experience. The related GuestStatus icon typing update is consistent with intended supported usage, and I found no blocking or non-blocking defects in the scoped implementation.",
     "issues": []
   },
   "sharedStateObservations": [
     {
       "area": "skills",
-      "observation": "The guest-ui-worker skill requires a RED test-first step, but this runtime-only regression was diagnosed primarily through live browser/curl reproduction because existing targeted tests were already green. The skill should clarify that reproducing a live-only failure before adjusting coverage is acceptable when automated tests do not expose the bug.",
-      "evidence": "handoffs/2026-03-25T11-00-45-729Z__fix-valid-public-restaurant-booking-entry-500__e8650835-8138-40dc-b9c3-6eea2d05e72a.json -> handoff.skillFeedback.followedProcedure=false with deviation on \"Write tests first (RED)\"; .factory/skills/guest-ui-worker/SKILL.md step 4 currently requires RED tests first."
-    },
-    {
-      "area": "knowledge",
-      "observation": "The mission library documents canonical guest routes and shell primitives, but it does not currently capture the React Server Component limitation that passing Lucide component constructors through server/client guest loading boundaries can trigger serialization crashes. This runtime quirk was central to the fix and would be useful shared knowledge for later guest UI workers.",
-      "evidence": "Commit 33b35172 changed src/app/(public)/(marketing)/restaurants/[slug]/book/loading.tsx to inline <LoaderCircle /> instead of passing icon={LoaderCircle}, and narrowed src/components/guest/ui/GuestPrimitives.tsx icon typing to LucideIcon to match supported usage."
+      "observation": "The guest-ui-worker skill still states a strict RED-test-first workflow, but this feature's failure was a live runtime regression that existing targeted tests did not expose. The transcript and handoff show the worker had to reproduce the problem through live runtime inspection before fixing it, so the skill should explicitly allow runtime-first diagnosis in that situation.",
+      "evidence": "handoffs/2026-03-25T11-00-45-729Z__fix-valid-public-restaurant-booking-entry-500__e8650835-8138-40dc-b9c3-6eea2d05e72a.json -> handoff.skillFeedback.followedProcedure=false and deviation for step 'Write tests first (RED)'; .factory/skills/guest-ui-worker/SKILL.md step 4 requires RED tests first."
     }
   ],
   "addressesFailureFrom": null,
-  "summary": "Reviewed commit 33b35172, the worker handoff, transcript skeleton, mission guidance, and shared-state files. I found no blocking or non-blocking code defects in the implemented fix; the only notable follow-up is shared-state guidance around live-only RSC icon serialization failures and the skill wording for RED-first expectations."
+  "summary": "Reviewed the feature metadata, worker handoff, transcript skeleton, guest-ui skill, mission/library guidance, and commit 33b35172. The scoped code fix is sound and restores the guest booking-entry runtime for valid public restaurant slugs without introducing reviewable defects; the only follow-up I noted is a skill-guidance gap for live-runtime regressions that are not initially caught by automated coverage."
 }
