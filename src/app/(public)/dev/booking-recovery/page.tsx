@@ -1,4 +1,6 @@
+import { cookies } from 'next/headers';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 
 import { env } from '@/lib/env';
 import { createSessionRecoveryAccessToken } from '@/server/security/session-recovery-access-token';
@@ -51,6 +53,13 @@ export default async function DevBookingRecoveryPage({
   const recoverHref = accessToken
     ? `/bookings/recover?access_token=${encodeURIComponent(accessToken)}&next=${encodeURIComponent(nextPath)}`
     : null;
+  const autoStart = firstValue(params.autoStart);
+  const cookieStore = await cookies();
+  const hasRecoverySession = Boolean(cookieStore.get('sr_access')?.value);
+
+  if (recoverHref && autoStart === '1' && !hasRecoverySession) {
+    redirect(recoverHref);
+  }
 
   return (
     <main className="mx-auto flex min-h-screen max-w-4xl flex-col gap-8 px-6 py-12">
@@ -92,6 +101,12 @@ export default async function DevBookingRecoveryPage({
                 href={recoverHref}
               >
                 Open recovery link
+              </Link>
+              <Link
+                className="w-fit rounded-full bg-secondary px-5 py-3 text-sm font-medium text-secondary-foreground hover:bg-secondary/90"
+                href={`/dev/booking-recovery?fixture=${encodeURIComponent(firstValue(params.fixture) ?? 'active')}&autoStart=1`}
+              >
+                Auto-start recovery flow
               </Link>
               <Link
                 className="w-fit rounded-full border border-border px-5 py-3 text-sm font-medium text-foreground hover:bg-accent"

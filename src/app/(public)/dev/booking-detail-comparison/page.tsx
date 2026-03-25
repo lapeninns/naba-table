@@ -1,6 +1,8 @@
 import Link from 'next/link';
 
 import ReservationDetailClient from '@/components/features/booking/detail/ReservationDetailClient';
+import { env } from '@/lib/env';
+import { createSessionRecoveryAccessToken } from '@/server/security/session-recovery-access-token';
 import {
   getBookingLifecycleFixture,
   getDefaultBookingLifecycleFixture,
@@ -26,7 +28,21 @@ export default async function DevBookingDetailComparisonPage({
   const params = await searchParams;
   const fixture = getBookingLifecycleFixture(firstValue(params.fixture)) ?? getDefaultBookingLifecycleFixture();
   const reservation = fixture.reservation;
-  const signInReturnPath = `/bookings/recover?next=${encodeURIComponent(`/bookings/${reservation.id}`)}`;
+  const secret = env.security.sessionRecoveryAccessTokenSecret?.trim() ?? null;
+  const accessToken = secret
+    ? createSessionRecoveryAccessToken({
+        restaurantId: reservation.restaurantId,
+        email: reservation.customerEmail,
+        phone: reservation.customerPhone,
+        secret,
+      })
+    : null;
+  const publicReturnPath = accessToken
+    ? `/bookings/recover?access_token=${encodeURIComponent(accessToken)}&next=${encodeURIComponent(`/bookings/${reservation.id}`)}`
+    : `/bookings/recover?next=${encodeURIComponent(`/bookings/${reservation.id}`)}`;
+  const guestReturnPath = accessToken
+    ? `/bookings/recover?access_token=${encodeURIComponent(accessToken)}&next=${encodeURIComponent(`/guest/bookings/${reservation.id}`)}`
+    : `/bookings/recover?next=${encodeURIComponent(`/guest/bookings/${reservation.id}`)}`;
 
   return (
     <main className="mx-auto flex min-h-screen max-w-7xl flex-col gap-8 px-6 py-12">
@@ -69,7 +85,7 @@ export default async function DevBookingDetailComparisonPage({
             restaurantName={reservation.restaurantName ?? null}
             initialNow={Date.parse('2026-02-10T12:00:00.000Z')}
             canManage
-            signInReturnPath={signInReturnPath}
+            signInReturnPath={publicReturnPath}
           />
         </div>
 
@@ -85,6 +101,7 @@ export default async function DevBookingDetailComparisonPage({
             restaurantName={reservation.restaurantName ?? null}
             initialNow={Date.parse('2026-02-10T12:00:00.000Z')}
             canManage
+            signInReturnPath={guestReturnPath}
           />
         </div>
       </section>

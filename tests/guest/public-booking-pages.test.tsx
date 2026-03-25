@@ -273,10 +273,28 @@ describe('public booking pages', () => {
       'href',
       '/bookings/recover?access_token=dev-recovery-token&next=%2Fbookings%2F22222222-2222-4222-8222-222222222222',
     );
+    expect(screen.getByRole('link', { name: 'Auto-start recovery flow' })).toHaveAttribute(
+      'href',
+      '/dev/booking-recovery?fixture=active&autoStart=1',
+    );
     expect(screen.getByText('Active booking detail + receipt')).toBeInTheDocument();
   });
 
+  it('auto-starts the recovery flow when requested and no recovery session exists yet', async () => {
+    createSessionRecoveryAccessTokenMock.mockReturnValue('dev-recovery-token');
+    cookiesMock.mockResolvedValue(createCookieStore());
+
+    await expect(
+      DevBookingRecoveryPage({
+        searchParams: Promise.resolve({ fixture: 'active', autoStart: '1' }),
+      }),
+    ).rejects.toThrow(
+      'NEXT_REDIRECT:/bookings/recover?access_token=dev-recovery-token&next=%2Fbookings%2F22222222-2222-4222-8222-222222222222',
+    );
+  });
+
   it('renders the mocked booking-detail comparison harness without shared auth state', async () => {
+    createSessionRecoveryAccessTokenMock.mockReturnValue('comparison-token');
     useReservationMock.mockImplementation((reservationId: string) => {
       if (reservationId === '44444444-4444-4444-8444-444444444444') {
         return {
