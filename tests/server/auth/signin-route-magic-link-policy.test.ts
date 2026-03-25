@@ -322,4 +322,13 @@ describe('auth callback failure redirects', () => {
     expect(decodedLocation).not.toContain('otp_disabled');
     expect(decodedLocation).not.toContain('Token has already been used');
   });
+
+  it('preserves guest-safe provider descriptions passed via error_description on sign-in', async () => {
+    const response = await fetch('http://localhost:3000/auth/signin?error=access_denied&error_description=This%20magic%20link%20has%20expired%20or%20has%20already%20been%20used.');
+    const html = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(html).toContain('Unable to sign in');
+    expect(html).toContain('This magic link has expired or has already been used.');
+  });
 });

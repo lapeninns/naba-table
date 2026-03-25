@@ -135,4 +135,19 @@ describe('GuestSignInForm CAPTCHA policy', () => {
       expect(screen.getByRole('button', { name: /resend in 60s/i })).toBeDisabled();
     });
   });
+
+  it('shows the inline valid-email error when the browser rejects the email format', async () => {
+    const user = userEvent.setup();
+    installTurnstileMock({ token: 'captcha-token-123' });
+
+    await renderGuestSignInForm();
+
+    const emailInput = screen.getByPlaceholderText('you@example.com');
+    await user.type(emailInput, 'not-an-email');
+
+    emailInput.dispatchEvent(new Event('invalid', { bubbles: true, cancelable: true }));
+
+    expect(await screen.findByText('Enter a valid email address')).toBeInTheDocument();
+    expect(fetchJsonMock).not.toHaveBeenCalled();
+  });
 });

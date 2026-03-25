@@ -18,6 +18,7 @@ type SignInPageSearchParams = {
   error?: string | string[];
   authError?: string | string[];
   message?: string | string[];
+  error_description?: string | string[];
 };
 
 type SignInPageProps = {
@@ -205,9 +206,12 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   }
 
   // Extract error info from URL params
-  const errorType = firstParamValue(resolvedParams?.error) ?? firstParamValue(resolvedParams?.authError);
+  const errorType =
+    firstParamValue(resolvedParams?.error) ?? firstParamValue(resolvedParams?.authError);
+  const forwardedErrorDescription = firstParamValue(resolvedParams?.error_description);
   const errorMessage =
     normalizeAuthMessage(firstParamValue(resolvedParams?.message)) ??
+    normalizeAuthMessage(forwardedErrorDescription) ??
     (errorType === 'link_expired'
       ? 'Your magic link has expired. Please request a new one.'
       : errorType === 'link_used'
@@ -221,7 +225,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
               : errorType === 'auth_failed'
                 ? 'Authentication link has expired or is invalid. Please try again.'
                 : undefined);
-  const hasError = !!errorType;
+  const hasError = !!errorType || !!errorMessage;
 
   // Only redirect authenticated users if there's no error
   // Using getUser() which validates the JWT with the server, not just reads cached session

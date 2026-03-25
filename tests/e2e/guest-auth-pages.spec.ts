@@ -55,6 +55,32 @@ test.describe('guest auth pages', () => {
     );
   });
 
+  test('error_description callback failures reuse the guest-safe sign-in error banner', async ({
+    page,
+  }) => {
+    await page.goto(
+      '/auth/signin?error=access_denied&error_description=This%20magic%20link%20has%20expired%20or%20has%20already%20been%20used.',
+    );
+
+    const errorAlert = page
+      .getByRole('alert')
+      .filter({ has: page.getByText('Unable to sign in') });
+
+    await expect(errorAlert).toContainText('Unable to sign in');
+    await expect(errorAlert).toContainText(
+      'This magic link has expired or has already been used.',
+    );
+  });
+
+  test('invalid-format email submission shows visible inline validation', async ({ page }) => {
+    await page.goto('/auth/signin');
+
+    await page.getByPlaceholder('you@example.com').fill('not-an-email');
+    await page.getByRole('button', { name: 'Send magic link' }).click();
+
+    await expect(page.getByText('Enter a valid email address')).toBeVisible();
+  });
+
   test('failing callback route redirects used links into the guest auth surface', async ({ page }) => {
     await page.goto(
       '/api/auth/callback?token_hash=already-used-test-token&redirectedFrom=%2Fguest%2Fdashboard',

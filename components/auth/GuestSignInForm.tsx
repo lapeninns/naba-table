@@ -215,6 +215,10 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
     }
   };
 
+  const onInvalidSubmit = () => {
+    setStatus(null);
+  };
+
   const onSubmit = form.handleSubmit(async (values) => {
     if (magicCooldown > 0) {
       return;
@@ -319,6 +323,14 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
                       inputMode="email"
                       autoComplete="email"
                       placeholder="you@example.com"
+                      onBlur={(event) => {
+                        field.onBlur();
+                        void form.trigger('email');
+                      }}
+                      onInvalid={(event) => {
+                        event.preventDefault();
+                        void form.handleSubmit(async () => undefined, onInvalidSubmit)();
+                      }}
                       className="h-12 rounded-xl border-slate-300 bg-white pl-12 text-base transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 touch-manipulation"
                       style={{ fontSize: '16px' }}
                     />
