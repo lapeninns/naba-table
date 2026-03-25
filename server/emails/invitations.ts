@@ -1,8 +1,13 @@
 import { format } from "date-fns";
+import { createHash } from "node:crypto";
 
 import config from "@/config";
 import { buildInviteUrl } from "@/lib/owner/team/invite-links";
-import { sendEmail } from "@/libs/resend";
+import {
+  createEmailIdempotencyKey,
+  isEmailRecipientSuppressedError,
+  sendEmail,
+} from "@/libs/resend";
 import {
   COLORS,
   renderButton,
@@ -22,6 +27,18 @@ function formatExpiry(timestamp: string): { date: string; time: string } {
     date: format(date, "EEEE, MMMM d, yyyy"),
     time: format(date, "HH:mm xxx"),
   };
+}
+
+function buildTeamInviteIdempotencyKey(params: { inviteId: string; email: string; updatedAt: string | null }) {
+  const digest = createHash("sha256")
+    .update([params.inviteId, params.email, params.updatedAt ?? ""].join("|"))
+    .digest("hex")
+    .slice(0, 16);
+
+  return createEmailIdempotencyKey({
+    scope: "team-invite",
+    parts: [params.inviteId, digest],
+  });
 }
 
 export async function sendTeamInviteEmail(params: { invite: RestaurantInvite; token: string }): Promise<void> {
@@ -81,13 +98,36 @@ export async function sendTeamInviteEmail(params: { invite: RestaurantInvite; to
     "If you were not expecting this invitation, you can ignore this email.",
   ].join("\n");
 
-  const result = await sendEmail({
-    to: invite.email,
-    subject,
-    html,
-    text,
-    fromName: config.email.fromSupport ?? "Nab a Table",
-  });
+  let result;
+
+  try {
+    result = await sendEmail({
+      to: invite.email,
+      subject,
+      html,
+      text,
+      fromName: `${config.appName} Support`,
+      tags: [
+        { name: "email_type", value: "team_invite" },
+        { name: "template_type", value: "team_invite" },
+        { name: "restaurant_id", value: invite.restaurant_id ?? "unknown" },
+      ],
+      idempotencyKey: buildTeamInviteIdempotencyKey({
+        inviteId: invite.id,
+        email: invite.email,
+        updatedAt: invite.updated_at,
+      }),
+    });
+  } catch (error) {
+    if (isEmailRecipientSuppressedError(error)) {
+      console.warn("[emails][invitations] recipient suppressed; skipping invite email", {
+        inviteId: invite.id,
+      });
+      return;
+    }
+
+    throw error;
+  }
 
   await recordEmailDeliveryLog({
     restaurantId: invite.restaurant_id ?? null,

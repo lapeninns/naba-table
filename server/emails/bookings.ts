@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import config from '@/config';
 import { env } from '@/lib/env';
 import {
@@ -5,7 +7,12 @@ import {
   type ReservationCalendarPayload,
 } from '@/lib/reservations/calendar-event';
 import { type VenueDetails } from '@/lib/venue';
-import { sendEmail, type EmailAttachment } from '@/libs/resend';
+import {
+  createEmailIdempotencyKey,
+  sendEmail,
+  type EmailAttachment,
+  isEmailRecipientSuppressedError,
+} from '@/libs/resend';
 import {
   COLORS,
   renderButton,
@@ -244,6 +251,31 @@ function buildSummary(booking: BookingRecord, venue: VenueDetails): BookingSumma
   const party = `${booking.party_size} ${booking.party_size === 1 ? 'Person' : 'People'}`;
 
   return { date, startTime, endTime, party };
+}
+
+function buildBookingEmailIdempotencyKey(params: {
+  booking: BookingRecord;
+  templateType: string;
+  recipientEmail: string;
+}) {
+  const digest = createHash('sha256')
+    .update(
+      [
+        params.booking.id,
+        params.templateType,
+        params.recipientEmail,
+        params.booking.updated_at ?? '',
+        params.booking.start_at ?? '',
+        params.booking.status ?? '',
+      ].join('|'),
+    )
+    .digest('hex')
+    .slice(0, 16);
+
+  return createEmailIdempotencyKey({
+    scope: 'booking-email',
+    parts: [params.booking.id, params.templateType, digest],
+  });
 }
 
 
@@ -726,14 +758,39 @@ async function dispatchEmail(
     }
   }
 
-  const result = await sendEmail({
-    to: toEmail,
-    subject: `${headline} - ${venue.name}`,
-    html,
-    text,
-    attachments,
-    fromName: venue.name,
-  });
+  const subject = `${headline} - ${venue.name}`;
+  let result;
+
+  try {
+    result = await sendEmail({
+      to: toEmail,
+      subject,
+      html,
+      text,
+      attachments,
+      fromName: venue.name,
+      tags: [
+        { name: 'email_type', value: deliveryEmailType },
+        { name: 'template_type', value: deliveryTemplateType },
+        { name: 'restaurant_id', value: booking.restaurant_id },
+      ],
+      idempotencyKey: buildBookingEmailIdempotencyKey({
+        booking,
+        templateType: deliveryTemplateType,
+        recipientEmail: toEmail,
+      }),
+    });
+  } catch (error) {
+    if (isEmailRecipientSuppressedError(error)) {
+      console.warn('[emails][bookings] recipient suppressed; skipping send', {
+        bookingId: booking.id,
+        templateType: deliveryTemplateType,
+      });
+      return null;
+    }
+
+    throw error;
+  }
 
   return recordEmailDeliveryLog({
     bookingId: booking.id,
@@ -745,7 +802,7 @@ async function dispatchEmail(
     status: 'sent',
     provider: result.provider,
     metadata: {
-      subject: `${headline} - ${venue.name}`,
+      subject,
     },
   });
 }

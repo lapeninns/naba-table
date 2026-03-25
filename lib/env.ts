@@ -2,7 +2,7 @@ import { envSchemas, resolveEnvSchemaTarget, type Env } from '@/config/env.schem
 import { getCanonicalSiteUrl } from '@/lib/site-url';
 import { DEFAULT_RESERVATION_INTERVAL_MINUTES } from '@reserve/shared/config/reservations';
 
-const DEFAULT_RESEND_DOMAIN = 'no-reply-notifications.nabatable.com';
+const DEFAULT_RESEND_DOMAIN = 'notifications.nabatable.com';
 const DEFAULT_RESEND_FROM = `no-reply@${DEFAULT_RESEND_DOMAIN}`;
 
 let cachedEnv: Env | null = null;
