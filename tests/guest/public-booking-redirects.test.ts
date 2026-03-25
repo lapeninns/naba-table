@@ -7,10 +7,12 @@ const redirect = vi.hoisted(() =>
   }),
 );
 const cookiesMock = vi.hoisted(() => vi.fn());
+const headersMock = vi.hoisted(() => vi.fn());
 
 vi.mock('next/navigation', () => ({ redirect }));
 vi.mock('next/headers', () => ({
   cookies: () => cookiesMock(),
+  headers: () => headersMock(),
 }));
 
 import LegacyBookingThankYouRedirect from '@src/app/(public)/bookings/[bookingId]/thank-you/page';
@@ -27,6 +29,9 @@ describe('public booking redirects', () => {
     cookiesMock.mockReset();
     cookiesMock.mockResolvedValue({
       getAll: () => [],
+    });
+    headersMock.mockResolvedValue({
+      get: (name: string) => (name === 'host' ? 'localhost:3000' : null),
     });
     process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'localhost';
     process.env.NEXT_PUBLIC_LOCAL_APP_HOSTS = '';
@@ -102,6 +107,38 @@ describe('public booking redirects', () => {
     expect(target).toBe(
       '/restaurants/seed-perf-r001/book/thank-you?source=email&confirmation=REST123&guestName=Ada',
     );
+  });
+
+  it('keeps restaurant booking thank-you query continuity through sign-in handoff', async () => {
+    const getUser = vi.fn().mockResolvedValue({ data: { user: null } });
+
+    vi.doMock('@/server/supabase', () => ({
+      getServerComponentSupabaseClient: () =>
+        Promise.resolve({
+          auth: {
+            getUser,
+          },
+        }),
+    }));
+
+    const { default: RestaurantBookingThankYouPage } = await import(
+      '@src/app/(public)/(marketing)/restaurants/[slug]/book/thank-you/page'
+    );
+
+    await expect(
+      RestaurantBookingThankYouPage({
+        params: Promise.resolve({ slug: 'seed-perf-r001' }),
+        searchParams: Promise.resolve({ guestName: 'Ada', confirmation: 'REST123' }),
+      }),
+    ).rejects.toThrow('NEXT_REDIRECT');
+
+    const [target] = redirect.mock.calls.at(-1) ?? [];
+    expect(target).toBe(
+      '/auth/signin?redirectedFrom=%2Frestaurants%2Fseed-perf-r001%2Fbook%2Fthank-you%3FguestName%3DAda%26confirmation%3DREST123',
+    );
+    expect(getUser).toHaveBeenCalledTimes(1);
+
+    vi.doUnmock('@/server/supabase');
   });
 
   it('redirects deprecated guest thank-you links into the canonical booking flow', async () => {
