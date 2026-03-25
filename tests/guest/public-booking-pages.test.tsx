@@ -199,6 +199,17 @@ describe('public booking pages', () => {
     );
   });
 
+  it('preserves canonical detail query state in unauthenticated manage-route continuity', async () => {
+    await expect(
+      BookingDetailPage({
+        params: Promise.resolve({ bookingId: 'booking-1' }),
+        searchParams: Promise.resolve({ tab: 'details', source: 'email' }),
+      }),
+    ).rejects.toThrow(
+      'NEXT_REDIRECT:/auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252Fbooking-1%253Ftab%253Ddetails%2526source%253Demail',
+    );
+  });
+
   it('redirects legacy token query access through the recovery error path', async () => {
     await expect(
       BookingDetailPage({

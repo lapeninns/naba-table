@@ -10,6 +10,7 @@ const redirect = vi.hoisted(() =>
 vi.mock('next/navigation', () => ({ redirect }));
 
 import LegacyBookingThankYouRedirect from '@src/app/(public)/bookings/[bookingId]/thank-you/page';
+import ManageBookingRedirect from '@src/app/(public)/bookings/[bookingId]/manage/page';
 import BookingDetailPage from '@src/app/(public)/bookings/[bookingId]/page';
 import GuestThankYouRedirect from '@src/app/guest/thank-you/page';
 import { handleRouting } from '@src/proxy';
@@ -172,5 +173,17 @@ describe('public booking redirects', () => {
     ).rejects.toThrow(
       'NEXT_REDIRECT:/bookings/recover?access_token=recover-token-2&next=%2Fbookings%2Fbooking-2',
     );
+  });
+
+  it('preserves manage-route query params when canonicalizing to the detail route', async () => {
+    await expect(
+      ManageBookingRedirect({
+        params: Promise.resolve({ bookingId: 'booking-1' }),
+        searchParams: Promise.resolve({ tab: 'details', source: 'email' }),
+      }),
+    ).rejects.toThrow('NEXT_REDIRECT');
+
+    const [canonicalTarget] = redirect.mock.calls.at(-1) ?? [];
+    expect(canonicalTarget).toBe('/bookings/booking-1?tab=details&source=email');
   });
 });

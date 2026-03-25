@@ -15,7 +15,13 @@ import type { Metadata } from 'next';
 export const dynamic = 'force-dynamic';
 
 type RouteParams = Promise<{ bookingId: string }>;
-type SearchParams = Promise<{ token?: string; access_token?: string; accessToken?: string }>;
+type SearchParamValue = string | string[] | undefined;
+type SearchParams = Promise<{
+  token?: SearchParamValue;
+  access_token?: SearchParamValue;
+  accessToken?: SearchParamValue;
+  [key: string]: SearchParamValue;
+}>;
 
 const shortenId = (value: string): string => (value.length > 8 ? value.slice(0, 8) : value);
 
@@ -32,8 +38,40 @@ const RECOVERY_COOKIE_NAME = 'sr_access';
 
 const buildCanonicalBookingPath = (bookingId: string): string => `/bookings/${bookingId}`;
 
-const buildRecoveryPath = (bookingId: string, accessToken?: string | null): string => {
-  const next = encodeURIComponent(buildCanonicalBookingPath(bookingId));
+const firstSearchValue = (value: SearchParamValue): string | null => {
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value)) return typeof value[0] === 'string' ? value[0] : null;
+  return null;
+};
+
+const buildCanonicalBookingPathWithSearch = (
+  bookingId: string,
+  searchParams: Record<string, SearchParamValue>,
+): string => {
+  const query = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(searchParams)) {
+    if (value == null) continue;
+
+    if (Array.isArray(value)) {
+      for (const entry of value) {
+        if (typeof entry === 'string') {
+          query.append(key, entry);
+        }
+      }
+      continue;
+    }
+
+    query.append(key, value);
+  }
+
+  const basePath = buildCanonicalBookingPath(bookingId);
+  const search = query.toString();
+  return search ? `${basePath}?${search}` : basePath;
+};
+
+const buildRecoveryPath = (nextPath: string, accessToken?: string | null): string => {
+  const next = encodeURIComponent(nextPath);
 
   if (accessToken) {
     return `/bookings/recover?access_token=${encodeURIComponent(accessToken)}&next=${next}`;
@@ -41,9 +79,6 @@ const buildRecoveryPath = (bookingId: string, accessToken?: string | null): stri
 
   return `/bookings/recover?next=${next}`;
 };
-
-const buildRecoveryRedirectPath = (bookingId: string, accessToken?: string | null): string =>
-  withRedirectedFrom('/auth/signin', buildRecoveryPath(bookingId, accessToken));
 
 async function createRecoveryContinuationAccessToken(params: {
   userEmail: string | null | undefined;
@@ -116,16 +151,28 @@ export default async function BookingDetailPage({
 }) {
   const { bookingId } = await params;
   const normalized = bookingId?.trim();
-  const resolvedSearchParams = (await searchParams) ?? {};
-  const legacyToken = resolvedSearchParams.token ?? null;
-  const accessToken = resolvedSearchParams.access_token ?? resolvedSearchParams.accessToken ?? null;
-
   if (!normalized) {
     redirect('/bookings');
   }
 
+  const resolvedSearchParams = (await searchParams) ?? {};
+  const legacyToken = firstSearchValue(resolvedSearchParams.token) ?? null;
+  const accessToken =
+    firstSearchValue(resolvedSearchParams.access_token) ??
+    firstSearchValue(resolvedSearchParams.accessToken) ??
+    null;
+  const canonicalQuerySearchParams = Object.fromEntries(
+    Object.entries(resolvedSearchParams).filter(
+      ([key]) => key !== 'token' && key !== 'access_token' && key !== 'accessToken',
+    ),
+  );
+  const canonicalBookingPath = buildCanonicalBookingPathWithSearch(
+    normalized,
+    canonicalQuerySearchParams,
+  );
+
   if (accessToken) {
-    redirect(buildRecoveryPath(normalized, accessToken));
+    redirect(buildRecoveryPath(canonicalBookingPath, accessToken));
   }
 
   if (legacyToken) {
@@ -148,7 +195,7 @@ export default async function BookingDetailPage({
     });
 
     if (!response.ok) {
-      redirect(buildRecoveryRedirectPath(normalized));
+      redirect(withRedirectedFrom('/auth/signin', buildRecoveryPath(canonicalBookingPath)));
     }
 
     const payload = await response.json().catch(() => null);
@@ -161,12 +208,17 @@ export default async function BookingDetailPage({
     });
 
     if (continuationAccessToken) {
-      redirect(buildRecoveryRedirectPath(normalized, continuationAccessToken));
+      redirect(
+        withRedirectedFrom(
+          '/auth/signin',
+          buildRecoveryPath(canonicalBookingPath, continuationAccessToken),
+        ),
+      );
     }
   }
 
   if (!user && !hasRecoveryCookie) {
-    redirect(buildRecoveryRedirectPath(normalized));
+    redirect(withRedirectedFrom('/auth/signin', buildRecoveryPath(canonicalBookingPath)));
   }
 
   const queryClient = new QueryClient();
@@ -184,7 +236,7 @@ export default async function BookingDetailPage({
         restaurantName={null}
         initialNow={initialNow}
         canManage={Boolean(user) || hasRecoveryCookie}
-        signInReturnPath={buildCanonicalBookingPath(normalized)}
+        signInReturnPath={canonicalBookingPath}
       />
     </HydrationBoundary>
   );
