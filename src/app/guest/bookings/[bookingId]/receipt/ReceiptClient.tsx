@@ -122,6 +122,35 @@ export function ReceiptClient({ reservationId, hasSession }: ReceiptClientProps)
     return { label: reservation.status, tone: 'default' as const };
   }, [reservation]);
 
+  const receiptMessaging = useMemo(() => {
+    if (!reservation) {
+      return {
+        summary: 'Save this receipt for easier check-in when you arrive.',
+        email: 'A confirmation email has been sent to your inbox.',
+      };
+    }
+
+    if (['pending', 'pending_allocation'].includes(reservation.status)) {
+      return {
+        summary:
+          'Your request has been received. We’ll confirm the reservation as soon as the venue reviews it.',
+        email: 'We’ll email you as soon as the venue confirms or updates this reservation.',
+      };
+    }
+
+    if (reservation.status === 'cancelled') {
+      return {
+        summary: 'This reservation has been cancelled.',
+        email: 'Need another table? You can start a fresh booking whenever you’re ready.',
+      };
+    }
+
+    return {
+      summary: 'Save this receipt for easier check-in when you arrive.',
+      email: 'A confirmation email has been sent to your inbox.',
+    };
+  }, [reservation]);
+
   if (isLoading && !reservation) {
     return (
       <BookingDetailShell>
@@ -183,11 +212,7 @@ export function ReceiptClient({ reservationId, hasSession }: ReceiptClientProps)
     <BookingDetailShell>
       <BookingSummaryCard
         title={venue.name}
-        description={
-          reservation.status === 'cancelled'
-            ? 'This reservation has been cancelled.'
-            : 'Save this receipt for easier check-in when you arrive.'
-        }
+        description={receiptMessaging.summary}
         reference={reservation.reference ?? reservation.id.slice(0, 8).toUpperCase()}
         status={{ icon: Calendar, label: statusTone.label, tone: statusTone.tone }}
         actions={
@@ -230,7 +255,7 @@ export function ReceiptClient({ reservationId, hasSession }: ReceiptClientProps)
         <div className="flex items-center gap-2">
           <Mail className="h-4 w-4" />
           <p className="text-[length:var(--font-size-sm)]">
-            A confirmation email has been sent to your inbox.
+            {receiptMessaging.email}
           </p>
         </div>
       </InlineAlert>

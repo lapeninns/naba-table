@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-const appBaseUrl = 'http://localhost:5180';
+const appBaseUrl = 'http://localhost:3000';
 const bookingId = '33333333-3333-4333-8333-333333333333';
 const bookingReference = 'NB5678';
 const restaurantId = '11111111-1111-4111-8111-111111111111';
@@ -32,6 +32,20 @@ const bookingPayload = {
   },
 };
 
+const pendingBookingPayload = {
+  ...bookingPayload,
+  id: '44444444-4444-4444-8444-444444444444',
+  reference: 'NB9012',
+  status: 'pending',
+};
+
+const cancelledBookingPayload = {
+  ...bookingPayload,
+  id: '55555555-5555-4555-8555-555555555555',
+  reference: 'NB3456',
+  status: 'cancelled',
+};
+
 test.describe('guest receipt pages', () => {
   test.use({ baseURL: appBaseUrl });
 
@@ -44,6 +58,24 @@ test.describe('guest receipt pages', () => {
           status: 200,
           contentType: 'application/json',
           body: JSON.stringify({ booking: bookingPayload }),
+        });
+        return;
+      }
+
+      if (url.pathname.endsWith(`/bookings/${pendingBookingPayload.id}`)) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ booking: pendingBookingPayload }),
+        });
+        return;
+      }
+
+      if (url.pathname.endsWith(`/bookings/${cancelledBookingPayload.id}`)) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ booking: cancelledBookingPayload }),
         });
         return;
       }
@@ -74,5 +106,27 @@ test.describe('guest receipt pages', () => {
     await expect(page.getByRole('heading', { name: 'The Fox' })).toBeVisible();
     await expect(page.getByText(bookingReference)).toBeVisible();
     await expect(page.getByText('Party')).toBeVisible();
+  });
+
+  test('pending receipts avoid confirmed language', async ({ page }) => {
+    await page.goto(`/guest/bookings/${pendingBookingPayload.id}/receipt?token=abc123`);
+
+    await expect(page.getByText('Pending Confirmation')).toBeVisible();
+    await expect(
+      page.getByText('Your request has been received. We’ll confirm the reservation as soon as the venue reviews it.'),
+    ).toBeVisible();
+    await expect(
+      page.getByText('We’ll email you as soon as the venue confirms or updates this reservation.'),
+    ).toBeVisible();
+  });
+
+  test('cancelled receipts use cancelled messaging', async ({ page }) => {
+    await page.goto(`/guest/bookings/${cancelledBookingPayload.id}/receipt?token=abc123`);
+
+    await expect(page.getByText('Cancelled', { exact: true })).toBeVisible();
+    await expect(page.getByText('This reservation has been cancelled.')).toBeVisible();
+    await expect(
+      page.getByText('Need another table? You can start a fresh booking whenever you’re ready.'),
+    ).toBeVisible();
   });
 });
