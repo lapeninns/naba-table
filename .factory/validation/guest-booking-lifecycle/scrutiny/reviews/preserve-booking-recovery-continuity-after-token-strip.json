@@ -1,0 +1,21 @@
+{
+  "featureId": "preserve-booking-recovery-continuity-after-token-strip",
+  "reviewedAt": "2026-03-25T13:29:06Z",
+  "commitId": "2b399135b6ceee1cb50053dc041c6876c98237d1",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The implementation matches the feature contract: signed-out revisits to token-stripped public booking detail URLs now reconstruct the canonical /bookings/recover entrypoint when a valid recovery cookie still exists, and they fall back to the canonical recovery sign-in handoff when booking lookup or token minting cannot proceed.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "knowledge",
+      "observation": "The recovery continuity flow and dev harness both depend on SESSION_RECOVERY_ACCESS_TOKEN_SECRET, but the shared environment notes still do not document that prerequisite for future reviewers/validators exercising booking recovery continuity.",
+      "evidence": "src/app/(public)/bookings/[bookingId]/page.tsx:53-64 gates continuation token minting on SESSION_RECOVERY_ACCESS_TOKEN_SECRET and src/app/(public)/dev/booking-recovery/page.tsx:34-48 only generates a live recovery link when that secret is present, while .factory/library/environment.md omits this recovery-specific env requirement."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Reviewed handoff, transcript skeleton, commit 2b399135, and related recovery routes/helpers. The feature satisfies the continuity contract with no blocking or non-blocking code issues found; only the previously noted shared environment-documentation gap remains."
+}

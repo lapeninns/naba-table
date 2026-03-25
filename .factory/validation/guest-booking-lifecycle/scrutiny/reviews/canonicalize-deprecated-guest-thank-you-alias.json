@@ -1,0 +1,15 @@
+{
+  "featureId": "canonicalize-deprecated-guest-thank-you-alias",
+  "reviewedAt": "2026-03-25T13:29:07Z",
+  "commitId": "f0176083",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The feature correctly removes `/guest/thank-you` as a first-class guest portal destination by redirecting it to `/bookings`, aligns the reservation wizard\u2019s tokenless fallback with the same canonical booking flow, and updates deterministic plus browser coverage accordingly.",
+    "issues": []
+  },
+  "sharedStateObservations": [],
+  "addressesFailureFrom": null,
+  "summary": "Reviewed handoff, transcript skeleton, and commit f0176083. The implementation matches the feature contract: `/guest/thank-you` now canonicalizes into the booking lifecycle, stale portal-auth coverage was removed, and replacement unit/browser evidence covers the new destination. No blocking or non-blocking feature issues found."
+}

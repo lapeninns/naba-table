@@ -1,21 +1,21 @@
 {
   "featureId": "fix-booking-recovery-final-destination",
-  "reviewedAt": "2026-03-25T13:08:35Z",
+  "reviewedAt": "2026-03-25T13:26:00Z",
   "commitId": "9a101996f248ead089ee74606780d6a08034e5dc",
   "transcriptSkeletonReviewed": true,
   "diffReviewed": true,
   "status": "pass",
   "codeReview": {
-    "summary": "The fix closes the prior scrutiny gap by routing unauthenticated public booking-detail fallbacks back through the canonical `/bookings/recover` entrypoint, while keeping the final recovery destination token-free and tightening the deprecated-link browser assertion without altering the underlying recovery contract.",
+    "summary": "The change correctly reroutes unauthenticated public booking-detail fallbacks through the canonical /bookings/recover continuation before sign-in, while preserving token stripping on the eventual final destination. I did not find contract-visible regressions in the reviewed diff.",
     "issues": []
   },
   "sharedStateObservations": [
     {
       "area": "services",
-      "observation": "The feature verification step re-ran `PLAYWRIGHT_DEV_HARNESS=1 npx playwright test tests/e2e/guest-public-pages.spec.ts tests/e2e/guest-booking.spec.ts --workers=1`, but `.factory/services.yaml` only documents a broad `test:e2e:guest` aggregate command. The narrower booking-lifecycle Playwright command is now part of the feature contract and may be worth recording if scrutiny/user-testing workflows need a stable per-milestone command reference.",
-      "evidence": "Mission features.json for `fix-booking-recovery-final-destination` lists `PLAYWRIGHT_DEV_HARNESS=1 npx playwright test tests/e2e/guest-public-pages.spec.ts tests/e2e/guest-booking.spec.ts --workers=1` in `verificationSteps`; `.factory/services.yaml` defines `test:e2e:guest` only."
+      "observation": "The feature commit included Playwright state output in `test-results/.last-run.json`, which is not product code and does not appear to be covered by the shared services/process guidance.",
+      "evidence": "git show --stat 9a101996f248ead089ee74606780d6a08034e5dc lists `test-results/.last-run.json` as part of the commit alongside the real source/test changes."
     }
   ],
-  "addressesFailureFrom": "/Users/amankumarshrestha/LapenInns Project/nabatableLP-guest-design-system-20260325-0745/.factory/validation/guest-booking-lifecycle/scrutiny/reviews/booking-recovery-and-link-normalization.json",
-  "summary": "Review passed. The implementation updates the public booking-detail auth fallback to preserve `/bookings/recover?next=...` as the sign-in continuation target, which directly fixes the earlier blocking recovery-entrypoint mismatch and aligns the route behavior with the feature\u2019s expected end-to-end canonical recovery flow."
+  "addressesFailureFrom": null,
+  "summary": "Reviewed commit 9a101996 for fix-booking-recovery-final-destination. The implementation matches the feature contract: unauthenticated fallback now preserves the canonical recovery entrypoint, successful recovery still lands on the intended token-free booking URL, and I found no blocking or non-blocking product issues in the scoped diff."
 }

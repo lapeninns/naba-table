@@ -15,6 +15,7 @@ Environment variables, external dependencies, and setup notes.
 - The original checkout remains available at:
   - `/Users/amankumarshrestha/LapenInns Project/nabatableLP`
 - `.env.local` is not tracked in git; `.factory/init.sh` symlinks the original checkout’s `.env.local` into the worktree when needed
+- `SESSION_RECOVERY_ACCESS_TOKEN_SECRET` is required for the dev booking-recovery harness and for rebuilding canonical entitled recovery continuity on public booking-detail revisits
 - Existing local app server runs on port `3000`
 - Off-limits ports/processes:
   - `3001` (another local project)

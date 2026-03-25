@@ -1,21 +1,26 @@
 {
   "featureId": "fix-public-booking-detail-return-intent",
-  "reviewedAt": "2026-03-25T13:06:30Z",
+  "reviewedAt": "2026-03-25T13:30:00Z",
   "commitId": "6997c5815afd54466aa81aecc42f837902183f20",
   "transcriptSkeletonReviewed": true,
   "diffReviewed": true,
   "status": "pass",
   "codeReview": {
-    "summary": "The fix correctly closes the prior public booking-detail return-intent gap. The shared ReservationDetailClient now accepts a route-specific sign-in return path, the public /bookings/[bookingId] page supplies the public route value, and guest-route reuse keeps the existing /guest/bookings default. Focused tests cover both contexts.",
+    "summary": "The implementation cleanly fixes the shared ReservationDetailClient sign-in CTA so the public booking-detail surface preserves `/bookings/[bookingId]` while the guest portal still defaults to `/guest/bookings/[bookingId]`. The public route now passes the correct return path and the added tests cover both contexts.",
     "issues": []
   },
   "sharedStateObservations": [
     {
       "area": "skills",
-      "observation": "The guest-ui-worker skill still says to run Playwright guest-flow tests as part of route-flow changes, but this worker's required Playwright command failed against an unavailable localhost:5180 server and the handoff fell back to agent-browser on localhost:3000. The shared skill/procedure does not clearly call out this known split between the live port-3000 validation surface and some Playwright configs that still expect a managed secondary server.",
-      "evidence": "Handoff verification for worker session f11ba3b9-a9f9-4580-9ef7-2b7b6d6a668d records `PLAYWRIGHT_DEV_HARNESS=1 npx playwright test tests/e2e/guest-booking.spec.ts tests/e2e/guest-booking-manage.spec.ts --workers=1` failing with `net::ERR_CONNECTION_REFUSED` on http://localhost:5180, while `.factory/library/user-testing.md` says live guest/public/auth/redirect validation should prefer http://localhost:3000."
+      "observation": "The guest-ui-worker skill still instructs workers to run `npx vitest run --maxWorkers=9` after implementation, but this worker explicitly skipped the post-change full-suite rerun and still marked `followedProcedure` false only in handoff feedback. The skill may need clearer guidance on when a targeted regression run is acceptable for narrow fixes.",
+      "evidence": "Handoff skillFeedback for session f11ba3b9-a9f9-4580-9ef7-2b7b6d6a668d says the worker did not rerun the full suite after code changes; `.factory/skills/guest-ui-worker/SKILL.md` step 6 currently lists the full Vitest rerun unconditionally."
+    },
+    {
+      "area": "services",
+      "observation": "The feature's required Playwright command depends on a Playwright-managed app on port 5180, but `.factory/services.yaml` only documents the port-3000 dev server. This mismatch keeps surfacing as an environment failure rather than a product issue.",
+      "evidence": "Feature handoff records `PLAYWRIGHT_DEV_HARNESS=1 npx playwright test tests/e2e/guest-booking.spec.ts tests/e2e/guest-booking-manage.spec.ts --workers=1` failing with `ERR_CONNECTION_REFUSED` on `http://localhost:5180`, while `.factory/services.yaml` defines only `web` on port 3000."
     }
   ],
   "addressesFailureFrom": null,
-  "summary": "Reviewed the feature handoff, transcript skeleton, commit diff, and surrounding booking-route code. Commit 6997c581 resolves the previously flagged bug by preserving the public booking return target on the shared detail surface without regressing guest-route reuse, so this review passes."
+  "summary": "Reviewed the feature handoff, transcript skeleton, commit `6997c5815afd54466aa81aecc42f837902183f20`, and surrounding booking-detail code/tests. The fix satisfies the feature contract with no blocking or non-blocking implementation issues found; only shared-state follow-ups were noted around skill guidance and undocumented Playwright service expectations."
 }

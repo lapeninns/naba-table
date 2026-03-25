@@ -1,34 +1,34 @@
 {
   "featureId": "public-bookings-home-and-detail",
-  "reviewedAt": "2026-03-25T13:08:28Z",
+  "reviewedAt": "2026-03-25T13:29:10Z",
   "commitId": "aedf616e",
   "transcriptSkeletonReviewed": true,
   "diffReviewed": true,
   "status": "fail",
   "codeReview": {
-    "summary": "The reviewed commit adds valuable regression tests for the public booking home/detail experience, but the coverage does not fully prove the feature contract and one assertion codifies behavior that conflicts with the canonical recovery redirect path implemented in the route.",
+    "summary": "The feature commit only added test coverage. It does not implement the public booking lifecycle UI/route changes described in the feature contract, and one of the added assertions codifies the wrong shared-detail behavior for the public route.",
     "issues": [
       {
         "file": "tests/guest/public-booking-pages.test.tsx",
-        "line": 176,
+        "line": 168,
         "severity": "blocking",
-        "description": "The unauthenticated public booking-detail test expects `/auth/signin?redirectedFrom=/bookings/:id`, but the actual route redirects through the canonical recovery entrypoint (`withRedirectedFrom('/auth/signin', '/bookings/recover?next=...')`). This locks in behavior that contradicts the route's token/recovery normalization contract and the feature's requirement to preserve manage-route canonicalization via recovery before the final destination."
+        "description": "The new 'passes the same shared detail model to the guest booking detail route' test never exercises the public `/bookings/[bookingId]` route and only asserts that the guest route returns a truthy page. That misses the contract that public and guest booking detail must share one model while preserving route-appropriate behavior on the public route, so the feature's core reuse requirement remains unverified. The later fix feature `fix-public-booking-detail-return-intent` exists because this gap shipped."
       },
       {
         "file": "tests/guest/public-booking-pages.test.tsx",
-        "line": 223,
+        "line": 148,
         "severity": "blocking",
-        "description": "The shared-detail reuse test only asserts that rendering the guest booking detail page returns a truthy React node. It never verifies that the page actually reuses the shared public/guest booking detail model or forwards the correct route-specific props, so the central requirement to keep public and guest booking detail on one shared detail model remains effectively unreviewed."
+        "description": "The unauthenticated public detail assertion expects a direct sign-in redirect from `/bookings/[bookingId]`. The implemented product behavior routes public detail through `/bookings/recover?next=...` before sign-in so recovery continuity and token stripping can work. This test encoded the wrong contract for the public route, which scrutiny later had to correct with follow-up fixes."
       }
     ]
   },
   "sharedStateObservations": [
     {
       "area": "skills",
-      "observation": "The `guest-ui-worker` skill requires a RED step before implementation, but this worker's transcript skeleton shows no failing targeted test run before the new assertions were added; only the baseline suite and then green targeted validators are recorded.",
-      "evidence": "`.factory/skills/guest-ui-worker/SKILL.md` step 4 requires 'Run a targeted RED command and confirm failure before implementation', while the handoff for `b196dee9-8565-422e-bd28-ef8d7db710a0` lists `npx vitest run --maxWorkers=9` and then a passing targeted Vitest command with no RED failure recorded."
+      "observation": "The `guest-ui-worker` skill says to write a targeted RED test proving the intended behavior before implementation. The worker added only tests, but those tests did not exercise the public shared-detail reuse path and one asserted the wrong redirect contract, so the procedure as applied did not protect the feature's main requirement.",
+      "evidence": "Skill file `.factory/skills/guest-ui-worker/SKILL.md` step 4 requires RED coverage proving intended guest behavior; transcript/handoff for session `b196dee9-8565-422e-bd28-ef8d7db710a0` shows only `tests/guest/public-booking-pages.test.tsx` was added in commit `aedf616e`, and that file's lines 148-152 and 168-199 miss/misstate the public-route contract."
     }
   ],
   "addressesFailureFrom": null,
-  "summary": "Fail: the commit is test-only and adds useful coverage, but one test asserts the wrong unauthenticated redirect target and the shared-model requirement is not actually verified."
+  "summary": "Fail: commit `aedf616e` adds tests only, and the new coverage does not actually verify the public shared-detail behavior while also baking in an incorrect public redirect expectation. The feature contract was therefore not fully covered by this implementation."
 }

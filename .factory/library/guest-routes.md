@@ -14,7 +14,7 @@ Canonical guest/public/auth route ownership and redirect notes for this mission.
 ## Canonicalization Rules
 
 - `/guest` resolves to the dashboard experience.
-- `/guest/thank-you` is deprecated and should not remain a primary destination.
+- `/guest/thank-you` is deprecated and canonicalizes to `/bookings` rather than remaining a primary destination or guest-portal landing page.
 - `/bookings/[bookingId]/manage` canonicalizes to `/bookings/[bookingId]`.
 - `/bookings/[bookingId]/thank-you` canonicalizes to `/guest/bookings/[bookingId]/receipt`.
 - `/restaurants/[slug]/thank-you` canonicalizes to `/restaurants/[slug]/book/thank-you`.

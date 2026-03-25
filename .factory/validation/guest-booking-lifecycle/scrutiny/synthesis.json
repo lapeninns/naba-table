@@ -1,11 +1,11 @@
 {
   "milestone": "guest-booking-lifecycle",
-  "round": 1,
+  "round": 2,
   "status": "fail",
   "validatorsRun": {
     "test": {
       "passed": true,
-      "command": "npx vitest run --maxWorkers=9",
+      "command": "pnpm exec vitest run --maxWorkers=9",
       "exitCode": 0
     },
     "typecheck": {
@@ -20,88 +20,85 @@
     }
   },
   "reviewsSummary": {
-    "total": 6,
-    "passed": 3,
-    "failed": 3,
-    "failedFeatures": [
-      "booking-recovery-and-link-normalization",
-      "guest-receipt-and-thank-you-canonicalization",
-      "public-bookings-home-and-detail"
-    ]
+    "total": 8,
+    "passed": 6,
+    "failed": 2,
+    "failedFeatures": ["booking-recovery-and-link-normalization", "public-bookings-home-and-detail"]
   },
   "blockingIssues": [
     {
       "featureId": "booking-recovery-and-link-normalization",
       "severity": "blocking",
-      "description": "When the final public booking-detail URL is opened without an authenticated session or `sr_access` cookie, the page redirects to `/auth/signin?redirectedFrom=/bookings/recover?next=...` rather than preserving the original recovery entrypoint with the tokenized/manage-link context. After successful recovery strips the token from the final URL, any later revisit to `/bookings/[bookingId]` cannot re-enter the canonical `/bookings/recover` flow, which breaks the required cookie-backed continuation and deterministic entitled public booking path contract."
-    },
-    {
-      "featureId": "guest-receipt-and-thank-you-canonicalization",
-      "severity": "blocking",
-      "description": "The feature requires deprecated guest/public thank-you aliases to resolve to the right canonical destinations, but this feature only changed receipt messaging/tests and left the generic /guest/thank-you alias redirecting to /guest/dashboard without any new coverage or evidence tying that destination to a completed booking/receipt flow. The handoff claims the thank-you aliases already routed correctly, yet the reviewed commit 98fc48a7 contains no validation of /guest/thank-you, so the feature is incomplete against its alias-canonicalization requirement."
+      "description": "The new validation harness only generates a usable recovery link when `SESSION_RECOVERY_ACCESS_TOKEN_SECRET` is configured. Without that env var it renders a 'Missing secret configuration' message and no actionable recovery URL, which means it does not leave behind the deterministic entitled public booking-validation path/harness the feature contract requires for later validators. The worker transcript also shows browser use of the harness falling through to `/auth/signin?redirectedFrom=%2Fbookings%2Frecover...`, confirming the harness was not self-sufficient for live entitled detail coverage in this environment."
     },
     {
       "featureId": "public-bookings-home-and-detail",
       "severity": "blocking",
-      "description": "The unauthenticated public booking-detail test expects `/auth/signin?redirectedFrom=/bookings/:id`, but the actual route redirects through the canonical recovery entrypoint (`withRedirectedFrom('/auth/signin', '/bookings/recover?next=...')`). This locks in behavior that contradicts the route's token/recovery normalization contract and the feature's requirement to preserve manage-route canonicalization via recovery before the final destination."
+      "description": "The new 'passes the same shared detail model to the guest booking detail route' test never exercises the public `/bookings/[bookingId]` route and only asserts that the guest route returns a truthy page. That misses the contract that public and guest booking detail must share one model while preserving route-appropriate behavior on the public route, so the feature's core reuse requirement remains unverified. The later fix feature `fix-public-booking-detail-return-intent` exists because this gap shipped."
     },
     {
       "featureId": "public-bookings-home-and-detail",
       "severity": "blocking",
-      "description": "The shared-detail reuse test only asserts that rendering the guest booking detail page returns a truthy React node. It never verifies that the page actually reuses the shared public/guest booking detail model or forwards the correct route-specific props, so the central requirement to keep public and guest booking detail on one shared detail model remains effectively unreviewed."
+      "description": "The unauthenticated public detail assertion expects a direct sign-in redirect from `/bookings/[bookingId]`. The implemented product behavior routes public detail through `/bookings/recover?next=...` before sign-in so recovery continuity and token stripping can work. This test encoded the wrong contract for the public route, which scrutiny later had to correct with follow-up fixes."
     }
   ],
   "appliedUpdates": [],
   "suggestedGuidanceUpdates": [
     {
-      "target": "skills",
-      "suggestion": "The worker deviated from the guest-routing-worker baseline-validation stop behavior because the assigned feature explicitly required repairing a known baseline blocker first. The skill should allow this documented exception instead of forcing an early return.",
-      "evidence": "Observed in booking-recovery-and-link-normalization: `worker-transcripts.jsonl` entry for `bf76d6ea-09f8-4c58-8e4b-342b7b68c060` records `skillFeedback.followedProcedure=false` with a deviation for baseline validation, and the handoff explains the failing baseline was the exact pre-assigned `ReservationDetailClient` import blocker.",
+      "target": ".factory/services.yaml",
+      "suggestion": "The mission instructions told reviewers to inspect `.factory/services.yaml` at the repo root, but the actual file lives under the project worktree (`<repo>/.factory/services.yaml`). The direct mission-path lookup failed during review setup.",
+      "evidence": "Reading `/Users/amankumarshrestha/.factory/services.yaml` returned ENOENT, while `/Users/amankumarshrestha/LapenInns Project/nabatableLP-guest-design-system-20260325-0745/.factory/services.yaml` exists and contains the service manifest.",
       "isSystemic": false
     },
     {
       "target": "library",
-      "suggestion": "The new dev booking-recovery harness depends on `SESSION_RECOVERY_ACCESS_TOKEN_SECRET`, but the shared environment notes do not document that requirement for future validators using `/dev/booking-recovery`.",
-      "evidence": "Observed in booking-recovery-and-link-normalization: `src/app/(public)/dev/booking-recovery/page.tsx:34-48` generates the live recovery link only when `SESSION_RECOVERY_ACCESS_TOKEN_SECRET` is present, while `.factory/library/environment.md` currently lists general worktree/env notes only and omits this recovery-specific prerequisite.",
+      "suggestion": "Library guidance documents the dev auth-validation harness but not the new booking-recovery harness or its dependency on `SESSION_RECOVERY_ACCESS_TOKEN_SECRET`, so future validators still need to rediscover how the booking-recovery path is supposed to be exercised.",
+      "evidence": "`.factory/library/user-testing.md` documents `/dev/auth-validation` scenarios but has no mention of `/dev/booking-recovery` or `SESSION_RECOVERY_ACCESS_TOKEN_SECRET`; the only repo/library reference to the booking-recovery harness is the implementation file `src/app/(public)/dev/booking-recovery/page.tsx`.",
       "isSystemic": false
     },
     {
       "target": ".factory/services.yaml",
-      "suggestion": "The feature verification step re-ran `PLAYWRIGHT_DEV_HARNESS=1 npx playwright test tests/e2e/guest-public-pages.spec.ts tests/e2e/guest-booking.spec.ts --workers=1`, but `.factory/services.yaml` only documents a broad `test:e2e:guest` aggregate command. The narrower booking-lifecycle Playwright command is now part of the feature contract and may be worth recording if scrutiny/user-testing workflows need a stable per-milestone command reference.",
-      "evidence": "Observed in fix-booking-recovery-final-destination: Mission features.json for `fix-booking-recovery-final-destination` lists `PLAYWRIGHT_DEV_HARNESS=1 npx playwright test tests/e2e/guest-public-pages.spec.ts tests/e2e/guest-booking.spec.ts --workers=1` in `verificationSteps`; `.factory/services.yaml` defines `test:e2e:guest` only.",
+      "suggestion": "The feature commit included Playwright state output in `test-results/.last-run.json`, which is not product code and does not appear to be covered by the shared services/process guidance.",
+      "evidence": "git show --stat 9a101996f248ead089ee74606780d6a08034e5dc lists `test-results/.last-run.json` as part of the commit alongside the real source/test changes.",
       "isSystemic": false
     },
     {
       "target": "skills",
-      "suggestion": "The guest-ui-worker skill still says to run Playwright guest-flow tests as part of route-flow changes, but this worker's required Playwright command failed against an unavailable localhost:5180 server and the handoff fell back to agent-browser on localhost:3000. The shared skill/procedure does not clearly call out this known split between the live port-3000 validation surface and some Playwright configs that still expect a managed secondary server.",
-      "evidence": "Observed in fix-public-booking-detail-return-intent: Handoff verification for worker session f11ba3b9-a9f9-4580-9ef7-2b7b6d6a668d records `PLAYWRIGHT_DEV_HARNESS=1 npx playwright test tests/e2e/guest-booking.spec.ts tests/e2e/guest-booking-manage.spec.ts --workers=1` failing with `net::ERR_CONNECTION_REFUSED` on http://localhost:5180, while `.factory/library/user-testing.md` says live guest/public/auth/redirect validation should prefer http://localhost:3000.",
+      "suggestion": "The guest-ui-worker skill still instructs workers to run `npx vitest run --maxWorkers=9` after implementation, but this worker explicitly skipped the post-change full-suite rerun and still marked `followedProcedure` false only in handoff feedback. The skill may need clearer guidance on when a targeted regression run is acceptable for narrow fixes.",
+      "evidence": "Handoff skillFeedback for session f11ba3b9-a9f9-4580-9ef7-2b7b6d6a668d says the worker did not rerun the full suite after code changes; `.factory/skills/guest-ui-worker/SKILL.md` step 6 currently lists the full Vitest rerun unconditionally.",
+      "isSystemic": false
+    },
+    {
+      "target": ".factory/services.yaml",
+      "suggestion": "The feature's required Playwright command depends on a Playwright-managed app on port 5180, but `.factory/services.yaml` only documents the port-3000 dev server. This mismatch keeps surfacing as an environment failure rather than a product issue.",
+      "evidence": "Feature handoff records `PLAYWRIGHT_DEV_HARNESS=1 npx playwright test tests/e2e/guest-booking.spec.ts tests/e2e/guest-booking-manage.spec.ts --workers=1` failing with `ERR_CONNECTION_REFUSED` on `http://localhost:5180`, while `.factory/services.yaml` defines only `web` on port 3000.",
       "isSystemic": false
     },
     {
       "target": "library",
-      "suggestion": "The reviewed feature relied on an existing canonical rule for the deprecated generic /guest/thank-you alias, but mission shared-state docs only say that /guest/thank-you is deprecated; they do not document why redirecting it to /guest/dashboard is the correct canonical destination for booking-lifecycle validation.",
-      "evidence": "Observed in guest-receipt-and-thank-you-canonicalization: src/app/guest/thank-you/page.tsx:6-8 redirects to /guest/dashboard, while .factory/library/guest-routes.md says only \u201c/guest/thank-you is deprecated and should not remain a primary destination.\u201d",
-      "isSystemic": false
-    },
-    {
-      "target": "AGENTS.md",
-      "suggestion": "Receipt page props include prefetchedStatus from the server page, but the client component ignores it and re-derives everything from the client hook. If this is intentional, the guest-routing/guest-booking shared guidance should note that dehydrated reservation data is the source of truth and this prop is vestigial; otherwise future workers may repeat unused-prop patterns.",
-      "evidence": "Observed in guest-receipt-and-thank-you-canonicalization: src/app/guest/bookings/[bookingId]/receipt/page.tsx:112-115 passes prefetchedStatus, but src/app/guest/bookings/[bookingId]/receipt/ReceiptClient.tsx:52 destructures only reservationId and hasSession.",
+      "suggestion": "Shared route knowledge is now split between `.factory/library/guest-routes.md` and the newer scrutiny findings. The library still documents `/guest/thank-you` only as deprecated, without recording that the canonical destination is `/bookings` rather than `/guest/dashboard`.",
+      "evidence": "`.factory/library/guest-routes.md` says only '/guest/thank-you is deprecated and should not remain a primary destination', while `src/app/guest/thank-you/page.tsx:6-9` now redirects to `/bookings` and `tests/e2e/guest-receipt-pages.spec.ts:103-109` verifies that destination.",
       "isSystemic": false
     },
     {
       "target": "skills",
-      "suggestion": "The guest-ui-worker skill currently mandates full guest UI workflow steps including RED-first tests, a full Vitest rerun, and agent-browser verification, but this feature was a non-UI test-fixture cleanup where the existing receipt test already reproduced the warning and no runtime surface changed.",
-      "evidence": "Observed in misc-clean-receipt-test-fixture-warnings: guest-ui-worker SKILL.md Work Procedure steps 4, 6, and 7 require RED/full-suite/browser validation; handoff.skillFeedback in /Users/amankumarshrestha/.factory/missions/7b467445-b8da-4b80-8252-ffa00b1ed7eb/handoffs/2026-03-25T13-05-39-120Z__misc-clean-receipt-test-fixture-warnings__3b930d10-4861-4f03-9df8-504f1e3fd4ac.json records justified deviations for this test-only cleanup.",
+      "suggestion": "The guest-ui-worker skill currently requires agent-browser validation and a full Vitest rerun for all guest-ui tasks, but this feature only changed a unit-test fixture and had no runtime UI surface to verify. The worker deviated by using targeted automated verification only, and that deviation appears justified for this class of test-only cleanup work.",
+      "evidence": "Handoff skillFeedback marks followedProcedure=false and explains skipping agent-browser/full-suite rerun for this non-UI fixture cleanup; the commit diff only touches tests/guest/guest-receipt-pages.test.tsx.",
+      "isSystemic": false
+    },
+    {
+      "target": "library",
+      "suggestion": "The recovery continuity flow and dev harness both depend on SESSION_RECOVERY_ACCESS_TOKEN_SECRET, but the shared environment notes still do not document that prerequisite for future reviewers/validators exercising booking recovery continuity.",
+      "evidence": "src/app/(public)/bookings/[bookingId]/page.tsx:53-64 gates continuation token minting on SESSION_RECOVERY_ACCESS_TOKEN_SECRET and src/app/(public)/dev/booking-recovery/page.tsx:34-48 only generates a live recovery link when that secret is present, while .factory/library/environment.md omits this recovery-specific env requirement.",
       "isSystemic": false
     },
     {
       "target": "skills",
-      "suggestion": "The `guest-ui-worker` skill requires a RED step before implementation, but this worker's transcript skeleton shows no failing targeted test run before the new assertions were added; only the baseline suite and then green targeted validators are recorded.",
-      "evidence": "Observed in public-bookings-home-and-detail: `.factory/skills/guest-ui-worker/SKILL.md` step 4 requires 'Run a targeted RED command and confirm failure before implementation', while the handoff for `b196dee9-8565-422e-bd28-ef8d7db710a0` lists `npx vitest run --maxWorkers=9` and then a passing targeted Vitest command with no RED failure recorded.",
+      "suggestion": "The `guest-ui-worker` skill says to write a targeted RED test proving the intended behavior before implementation. The worker added only tests, but those tests did not exercise the public shared-detail reuse path and one asserted the wrong redirect contract, so the procedure as applied did not protect the feature's main requirement.",
+      "evidence": "Skill file `.factory/skills/guest-ui-worker/SKILL.md` step 4 requires RED coverage proving intended guest behavior; transcript/handoff for session `b196dee9-8565-422e-bd28-ef8d7db710a0` shows only `tests/guest/public-booking-pages.test.tsx` was added in commit `aedf616e`, and that file's lines 148-152 and 168-199 miss/misstate the public-route contract.",
       "isSystemic": false
     }
   ],
   "rejectedObservations": [],
-  "previousRound": null
+  "previousRound": ".factory/validation/guest-booking-lifecycle/scrutiny/synthesis.json"
 }

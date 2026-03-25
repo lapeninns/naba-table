@@ -87,6 +87,8 @@ Testing surface, required testing skills/tools, resource cost classification per
   - `?scenario=signin&role=owner&redirectedFrom=/app/dashboard` → owner/app-intent return-to-intent
   - `?scenario=auth&role=guest|owner` → authenticated `/auth` canonicalization target
 - The auth validation harness is dev-only and query-driven specifically to avoid mutating shared local auth cookies/session state during validator runs.
+- Deterministic booking-recovery validation is available at `/dev/booking-recovery`; use it when validating canonical recovery entry, token stripping, and entitled public booking-detail continuity.
+- If `/dev/booking-recovery` shows a missing-secret message instead of a usable recovery link, check `SESSION_RECOVERY_ACCESS_TOKEN_SECRET` first; later booking-lifecycle validators depend on that secret being present to exercise the entitled recovery path in local runs.
 - Earlier probes (`the-fox`, `white-horse-pub-waterbeach`) were unavailable or unstable in prior local runs; prefer `seed-perf-r001` unless a later worker updates this note with a newer verified fixture.
 - Playwright updates `test-results/.last-run.json` during local runs; this file may appear dirty after validation and should not be mistaken for a product change.
 
