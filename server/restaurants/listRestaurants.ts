@@ -14,7 +14,33 @@ export class ListRestaurantsError extends Error {
   }
 }
 
+type RestaurantFixture = 'empty-state';
+
+function normalizeRestaurantFixture(
+  fixture: string | null | undefined,
+): RestaurantFixture | null {
+  if (!fixture) return null;
+
+  return fixture.trim() === 'empty-state' ? 'empty-state' : null;
+}
+
+function isDevOrTestRestaurantFixtureEnabled() {
+  return (
+    process.env.NODE_ENV !== 'production' ||
+    process.env.APP_ENV === 'development' ||
+    process.env.APP_ENV === 'test'
+  );
+}
+
 export async function listRestaurants(filters: RestaurantFilters = {}): Promise<RestaurantSummary[]> {
+  const fixture = normalizeRestaurantFixture(
+    'fixture' in filters && typeof filters.fixture === 'string' ? filters.fixture : null,
+  );
+
+  if (fixture === 'empty-state' && isDevOrTestRestaurantFixtureEnabled()) {
+    return [];
+  }
+
   const supabase = getServiceSupabaseClient();
 
   try {

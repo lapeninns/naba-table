@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
         const searchParams = request.nextUrl.searchParams;
         const search = searchParams.get('search') || undefined;
         const timezone = searchParams.get('timezone') || undefined;
+        const fixture = searchParams.get('fixture') || undefined;
         const minCapacity = searchParams.get('minCapacity')
             ? Number.parseInt(searchParams.get('minCapacity')!, 10)
             : undefined;
@@ -20,6 +21,7 @@ export async function GET(request: NextRequest) {
             search,
             timezone,
             minCapacity,
+            fixture,
         };
 
         const restaurants = await listRestaurants(filters);

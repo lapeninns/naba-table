@@ -37,4 +37,17 @@ test.describe('public booking pages', () => {
     await expect(page.getByRole('heading', { name: 'We couldn’t find that restaurant page.' })).toBeVisible();
     await expect(page.locator('#main-content').getByRole('link', { name: 'Go to bookings' })).toBeVisible();
   });
+
+  test('restaurants empty-state fixture renders calm guest guidance and next steps', async ({
+    page,
+  }) => {
+    await page.goto('/restaurants?fixture=empty-state');
+
+    await expect(
+      page.getByRole('heading', { name: 'No tables are open to book just yet' }),
+    ).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Back to guest home' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Try the full restaurant list' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'View my bookings' })).toBeVisible();
+  });
 });

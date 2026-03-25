@@ -23,4 +23,5 @@ export interface RestaurantFilters {
   search?: string;
   timezone?: string;
   minCapacity?: number;
+  fixture?: string;
 }

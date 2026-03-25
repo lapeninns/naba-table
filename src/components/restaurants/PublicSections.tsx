@@ -206,9 +206,14 @@ export function RestaurantsGridSection({ restaurants }: { restaurants: Restauran
             actionLabel="Back to guest home"
             actionHref="/"
             secondaryAction={
-              <Button variant="outline" className="rounded-full px-6" asChild>
-                <Link href="/bookings">View my bookings</Link>
-              </Button>
+              <>
+                <Button variant="outline" className="rounded-full px-6" asChild>
+                  <Link href="/restaurants">Try the full restaurant list</Link>
+                </Button>
+                <Button variant="outline" className="rounded-full px-6" asChild>
+                  <Link href="/bookings">View my bookings</Link>
+                </Button>
+              </>
             }
           />
         ) : null}

@@ -85,6 +85,16 @@ describe('public restaurant marketing pages', () => {
 
     expect(screen.getByText('No tables are open to book just yet')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Back to guest home' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Try the full restaurant list' })).toBeInTheDocument();
+  });
+
+  it('forwards the empty-state fixture query so validation can deterministically reach zero results', async () => {
+    listRestaurantsMock.mockResolvedValueOnce([]);
+
+    render(await RestaurantsPage({ searchParams: Promise.resolve({ fixture: 'empty-state' }) }));
+
+    expect(listRestaurantsMock).toHaveBeenCalledWith({ fixture: 'empty-state' });
+    expect(screen.getByText('No tables are open to book just yet')).toBeInTheDocument();
   });
 
   it('renders restaurant detail hero and contact info', async () => {

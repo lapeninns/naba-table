@@ -1,57 +1,57 @@
 # Continuity Ledger
 
-Last updated: 2026-03-25T09:40:27Z
+Last updated: 2026-03-25T11:52:34Z
 
 ## Goal (incl. success criteria)
 
-- Implement feature `fix-live-guest-auth-surface-validation` for milestone `guest-discovery-and-auth`.
-- Success means `/auth/signin` strips or replaces unsafe `redirectedFrom` values before render, the live guest magic-link form shows inline validation plus pending/success/cooldown feedback, and callback errors including the `authError` alias render guest-safe messaging.
+- Implement feature `add-public-restaurants-empty-state-fixture` for milestone `guest-discovery-and-auth`.
+- Success means `/restaurants` exposes a deterministic local validation path for the public empty state, the empty-state view stays inside the guest design system with clear next steps, and `VAL-DISCOVERY-005` is provable via automated and manual validation.
 
 ## Constraints/Assumptions
 
-- Work only in the isolated mission worktree and keep scope limited to live guest auth surface validation, callback error handling, and redirect sanitization.
-- Reuse existing guest auth helpers/layout primitives rather than inventing a parallel auth shell.
-- Required validation for handoff: baseline `npx vitest run --maxWorkers=9`, feature-targeted vitest + Playwright commands from the assigned feature, `pnpm typecheck`, `pnpm lint`, plus live browser checks on `http://localhost:3000/auth/signin`.
+- Work only in the isolated mission worktree and keep scope limited to the public restaurants discovery surface.
+- Reuse existing guest discovery primitives (`RestaurantsHeroSection`, `RestaurantsGridSection`, `GuestEmpty`) instead of adding a competing guest pattern.
+- Required validation for handoff: baseline `npx vitest run --maxWorkers=9`, feature-targeted Vitest and Playwright commands from the assigned feature, `pnpm typecheck`, `pnpm lint`, plus manual browser verification of the deterministic empty-state route/query on `http://localhost:3000`.
 - Known pre-existing lint warnings in unrelated `lib/*` and `server/*` files should be noted, not fixed.
 
 ## Key decisions
 
-- Follow the guest-routing single-source-of-truth approach: keep redirect sanitization and callback error translation centralized rather than scattering conditions.
-- Existing auth page, API, component, and browser coverage appear already updated; verify whether the feature is already satisfied before making code changes.
+- Keep the fixture query-driven and local/dev-oriented so validators can reach the state without relying on ad-hoc live data conditions.
+- Preserve the existing restaurants page shell and empty-state copy pattern rather than creating a separate validation-only surface.
+- Use the existing task folder `tasks/add-public-restaurants-empty-state-fixture-20260325-1151/` for required artifacts.
 
 ## State
 
-- Mission docs, services manifest, guest-route library notes, README, and package scripts have been reviewed.
+- Mission docs, services manifest, guest-design-system library notes, README, and package scripts have been reviewed.
 - `.factory/init.sh` completed successfully.
-- Style Principles skill is active for implementation.
+- Baseline `npx vitest run --maxWorkers=9` passed before implementation.
+- Frontend Aesthetics skill is active for UI decisions.
 
 ## Done
 
 - Invoked required startup and worker skills.
-- Reviewed assigned validation assertions: `VAL-FOUNDATION-005`, `VAL-DISCOVERY-009`, and `VAL-DISCOVERY-011`.
-- Confirmed service manifest commands and mission boundaries.
+- Reviewed assigned validation assertion `VAL-DISCOVERY-005`.
+- Inspected current `/restaurants` page, shared guest primitives, target tests, and public restaurants sections.
+- Created task artifacts under `tasks/add-public-restaurants-empty-state-fixture-20260325-1151/`.
 
 ## Now
 
-- Finalize verification and handoff for the authError alias + sanitized redirect follow-up.
+- Implement a deterministic `/restaurants` empty-state fixture path and add focused automated coverage.
 
 ## Next
 
-- Clean test artifacts, commit the focused auth validation follow-up, and report the manual/browser findings.
+- Run targeted validators, manual browser verification, commit the feature, and report handoff details.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- Whether the live dev runtime suppresses validation/success states when bot protection is active without a bypass fixture.
+- Whether the best fixture path is a query param handled directly by the page/server loader or a forwarded filter via the restaurants API route.
 
 ## Working set (files/ids/commands)
 
-- `src/app/(public)/auth/signin/page.tsx`
-- `components/auth/GuestSignInForm.tsx`
-- `src/app/api/auth/signin/route.ts`
-- `src/app/api/auth/callback/route.ts`
-- `lib/auth/redirects.ts`
-- `tests/components/auth/GuestSignInForm.test.tsx`
-- `tests/server/auth/signin-route-magic-link-policy.test.ts`
-- `tests/e2e/guest-auth-pages.spec.ts`
-- `/tmp/b4ca38df70eb-signin.png`
-- `/tmp/b4ca38df70eb-signin-success.png`
+- `src/app/(public)/(marketing)/restaurants/page.tsx`
+- `src/components/restaurants/PublicSections.tsx`
+- `server/restaurants/listRestaurants.ts`
+- `src/app/api/restaurants/route.ts`
+- `tests/guest/public-restaurants-pages.test.tsx`
+- `tests/e2e/guest-public-pages.spec.ts`
+- `tasks/add-public-restaurants-empty-state-fixture-20260325-1151/*`
