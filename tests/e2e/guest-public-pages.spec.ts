@@ -58,6 +58,24 @@ test.describe('public booking pages', () => {
     await expect(page.getByRole('heading', { name: 'Public and guest booking detail comparison' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Public booking detail fixture' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Guest booking detail fixture' })).toBeVisible();
+    const publicRecoveryText = page.getByText('/bookings/recover?access_token=', { exact: false }).first();
+    const guestRecoveryText = page
+      .locator('section')
+      .filter({ has: page.getByRole('heading', { name: 'Guest recovery URL' }) })
+      .getByText('/bookings/recover?access_token=', { exact: false })
+      .first();
+    await expect(page.getByRole('heading', { name: 'Public recovery URL' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Guest recovery URL' })).toBeVisible();
+    await expect(publicRecoveryText).toBeVisible();
+    await expect(guestRecoveryText).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Open recovery URL' }).first()).toHaveAttribute(
+      'href',
+      /\/bookings\/recover\?access_token=.*next=%2Fbookings%2F55555555-5555-4555-8555-555555555555/,
+    );
+    await expect(page.getByRole('link', { name: 'Open sign-in handoff' }).first()).toHaveAttribute(
+      'href',
+      /\/auth\/signin\?redirectedFrom=%2Fbookings%2Frecover%3Faccess_token%3D.*next%3D%252Fbookings%252F55555555-5555-4555-8555-555555555555/,
+    );
     await expect(page.locator('h2').filter({ hasText: 'Guest booking detail fixture' })).toBeVisible();
   });
 

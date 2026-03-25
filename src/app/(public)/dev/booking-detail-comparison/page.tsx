@@ -48,6 +48,15 @@ function buildFixtureBookingPayload(reservation: ReturnType<typeof getDefaultBoo
   };
 }
 
+function buildRecoveryHref(accessToken: string | null, nextPath: string) {
+  const encodedNext = encodeURIComponent(nextPath);
+  if (!accessToken) {
+    return `/bookings/recover?next=${encodedNext}`;
+  }
+
+  return `/bookings/recover?access_token=${encodeURIComponent(accessToken)}&next=${encodedNext}`;
+}
+
 export default async function DevBookingDetailComparisonPage({
   searchParams,
 }: {
@@ -67,12 +76,10 @@ export default async function DevBookingDetailComparisonPage({
         secret,
       })
     : null;
-  const publicReturnPath = accessToken
-    ? `/bookings/recover?access_token=${encodeURIComponent(accessToken)}&next=${encodeURIComponent(`/bookings/${reservation.id}`)}`
-    : `/bookings/recover?next=${encodeURIComponent(`/bookings/${reservation.id}`)}`;
-  const guestReturnPath = accessToken
-    ? `/bookings/recover?access_token=${encodeURIComponent(accessToken)}&next=${encodeURIComponent(`/guest/bookings/${reservation.id}`)}`
-    : `/bookings/recover?next=${encodeURIComponent(`/guest/bookings/${reservation.id}`)}`;
+  const publicNextPath = `/bookings/${reservation.id}`;
+  const guestNextPath = `/guest/bookings/${reservation.id}`;
+  const publicReturnPath = buildRecoveryHref(accessToken, publicNextPath);
+  const guestReturnPath = buildRecoveryHref(accessToken, guestNextPath);
   const queryClient = new QueryClient();
   queryClient.setQueryData(
     reservationKeys.detail(reservation.id),
@@ -109,6 +116,23 @@ export default async function DevBookingDetailComparisonPage({
           </Link>
         </div>
 
+        <section className="grid gap-4 rounded-2xl border border-border bg-card p-6 shadow-sm lg:grid-cols-2">
+          <RecoveryLinkCard
+            title="Public recovery URL"
+            description="Replay the live public-booking recovery path with the current-runtime token, then confirm it settles on the token-free public booking URL."
+            recoveryHref={publicReturnPath}
+            finalDestination={publicNextPath}
+            accessToken={accessToken}
+          />
+          <RecoveryLinkCard
+            title="Guest recovery URL"
+            description="Replay the guest-panel continuity path with the same current-runtime token while preserving the distinct guest destination."
+            recoveryHref={guestReturnPath}
+            finalDestination={guestNextPath}
+            accessToken={accessToken}
+          />
+        </section>
+
         <section className="grid gap-6 lg:grid-cols-2">
           <div className="space-y-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
             <div className="space-y-1">
@@ -144,5 +168,51 @@ export default async function DevBookingDetailComparisonPage({
         </section>
       </main>
     </HydrationBoundary>
+  );
+}
+
+function RecoveryLinkCard({
+  title,
+  description,
+  recoveryHref,
+  finalDestination,
+  accessToken,
+}: {
+  title: string;
+  description: string;
+  recoveryHref: string;
+  finalDestination: string;
+  accessToken: string | null;
+}) {
+  return (
+    <section className="space-y-4 rounded-2xl border border-border/70 bg-background p-5">
+      <div className="space-y-1">
+        <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </div>
+      <div className="space-y-3 text-sm">
+        <div className="rounded-xl border border-border/70 bg-card p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Final destination</p>
+          <p className="mt-2 break-all font-medium text-foreground">{finalDestination}</p>
+        </div>
+        <div className="rounded-xl border border-border/70 bg-card p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Recovery URL</p>
+          <p className="mt-2 break-all font-medium text-foreground">{recoveryHref}</p>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {accessToken
+            ? 'This dev-only recovery URL includes the real current-runtime access token so validators can replay the exact flow without inventing or substituting token values.'
+            : 'Recovery token generation is unavailable because SESSION_RECOVERY_ACCESS_TOKEN_SECRET is missing in the current runtime.'}
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-3">
+        <Link className="rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90" href={recoveryHref}>
+          Open recovery URL
+        </Link>
+        <Link className="rounded-full border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent" href={`/auth/signin?redirectedFrom=${encodeURIComponent(recoveryHref)}`}>
+          Open sign-in handoff
+        </Link>
+      </div>
+    </section>
   );
 }
