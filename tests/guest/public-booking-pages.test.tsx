@@ -161,7 +161,7 @@ describe('public booking pages', () => {
         params: Promise.resolve({ bookingId: 'booking-1' }),
         searchParams: Promise.resolve({}),
       }),
-    ).rejects.toThrow('NEXT_REDIRECT:/auth/signin?redirectedFrom=%2Fbookings%2Fbooking-1');
+    ).rejects.toThrow('NEXT_REDIRECT:/auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252Fbooking-1');
   });
 
   it('redirects legacy token query access through the recovery error path', async () => {
@@ -361,13 +361,13 @@ describe('ReservationDetailClient', () => {
         restaurantName="The Fox"
         initialNow={Date.parse('2026-02-10T12:00:00.000Z')}
         canManage={false}
-        signInReturnPath="/bookings/booking-1"
+        signInReturnPath="/bookings/recover?next=%2Fbookings%2Fbooking-1"
       />,
     );
 
     expect(screen.getByRole('link', { name: 'Sign In →' })).toHaveAttribute(
       'href',
-      '/auth/signin?redirectedFrom=%2Fbookings%2Fbooking-1',
+      '/auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252Fbooking-1',
     );
   });
 

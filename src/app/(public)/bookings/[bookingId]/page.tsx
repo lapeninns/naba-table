@@ -100,7 +100,8 @@ export default async function BookingDetailPage({
   const hasRecoveryCookie = Boolean(cookieStore.get('sr_access')?.value);
 
   if (!user && !hasRecoveryCookie) {
-    redirect(withRedirectedFrom('/auth/signin', `/bookings/${normalized}`));
+    const recoveryReturnPath = `/bookings/recover?next=${encodeURIComponent(`/bookings/${normalized}`)}`;
+    redirect(withRedirectedFrom('/auth/signin', recoveryReturnPath));
   }
 
   const queryClient = new QueryClient();

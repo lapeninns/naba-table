@@ -31,7 +31,7 @@ test.describe('public booking pages', () => {
     await expect(
       page.getByText('Please use the latest link from your email or sign in', { exact: false }),
     ).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible();
+    await expect(page.locator('#main-content').getByRole('link', { name: 'Sign in' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Return home' })).toBeVisible();
   });
 
