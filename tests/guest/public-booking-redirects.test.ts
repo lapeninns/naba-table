@@ -17,6 +17,7 @@ import LegacyBookingThankYouRedirect from '@src/app/(public)/bookings/[bookingId
 import ManageBookingRedirect from '@src/app/(public)/bookings/[bookingId]/manage/page';
 import BookingDetailPage from '@src/app/(public)/bookings/[bookingId]/page';
 import GuestThankYouRedirect from '@src/app/guest/thank-you/page';
+import RestaurantThankYouRedirect from '@src/app/(public)/(marketing)/restaurants/[slug]/thank-you/page';
 import { handleRouting } from '@src/proxy';
 
 describe('public booking redirects', () => {
@@ -71,6 +72,20 @@ describe('public booking redirects', () => {
     const [signInTarget] = redirect.mock.calls.at(-1) ?? [];
     expect(signInTarget).toBe(
       '/auth/signin?redirectedFrom=%2Fguest%2Fbookings%2Fbooking-1%2Freceipt%3Fsource%3Demail%26party%3D4',
+    );
+  });
+
+  it('preserves all query params through restaurant thank-you canonicalization', async () => {
+    await expect(
+      RestaurantThankYouRedirect({
+        params: Promise.resolve({ slug: 'seed-perf-r001' }),
+        searchParams: Promise.resolve({ source: 'email', party: '4', confirmation: 'approved' }),
+      }),
+    ).rejects.toThrow('NEXT_REDIRECT');
+
+    const [target] = redirect.mock.calls.at(-1) ?? [];
+    expect(target).toBe(
+      '/restaurants/seed-perf-r001/book/thank-you?source=email&party=4&confirmation=approved',
     );
   });
 

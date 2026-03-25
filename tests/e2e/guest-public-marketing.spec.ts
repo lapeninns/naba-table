@@ -27,11 +27,15 @@ test.describe('guest marketing pages', () => {
     await expect(page.getByText('Effective date:', { exact: false })).toBeVisible();
   });
 
-  test('restaurant thank-you redirect lands on canonical page', async ({ page }) => {
-    await page.goto(`/restaurants/${restaurantSlug}/thank-you`);
+  test('restaurant thank-you redirect lands on canonical page with query continuity', async ({
+    page,
+  }) => {
+    await page.goto(
+      `/restaurants/${restaurantSlug}/thank-you?confirmation=approved&source=email&party=4`,
+    );
 
     await expect(page).toHaveURL(
-      `${appBaseUrl}/restaurants/${restaurantSlug}/book/thank-you`,
+      `${appBaseUrl}/restaurants/${restaurantSlug}/book/thank-you?confirmation=approved&source=email&party=4`,
     );
     await expect(page.getByRole('heading', { name: 'Reservation confirmed!' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'View my bookings' })).toBeVisible();
