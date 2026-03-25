@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 const appBaseUrl = 'http://localhost:3000';
+const authFixtureBase = '/dev/auth-validation';
 
 test.describe('guest auth pages', () => {
   test.use({ baseURL: appBaseUrl });
@@ -95,5 +96,43 @@ test.describe('guest auth pages', () => {
       /error=link_expired|error=link_used|error=auth_failed/,
     );
     await expect(guestSignInLink).not.toHaveAttribute('href', /otp_disabled|already%20been%20used/);
+  });
+
+  test('dev auth fixture proves authenticated guest home redirect target', async ({ page }) => {
+    await page.goto(`${authFixtureBase}?scenario=home&role=guest`);
+
+    await expect(page.getByRole('heading', { name: 'Authenticated redirect fixture' })).toBeVisible();
+    await expect(page.getByText('/guest/dashboard')).toBeVisible();
+    await expect(page.getByText('Authenticated visits to / should skip the public landing page.')).toBeVisible();
+  });
+
+  test('dev auth fixture proves guest sign-in return-to-intent sanitization', async ({ page }) => {
+    await page.goto(`${authFixtureBase}?scenario=signin&role=guest&redirectedFrom=%2Fbookings`);
+
+    await expect(page.getByText('Sanitized redirectedFrom')).toBeVisible();
+    await expect(page.getByText('/bookings').first()).toBeVisible();
+    await expect(page.getByText('Guest sign-in returns to validated guest/public intent or falls back to dashboard.')).toBeVisible();
+  });
+
+  test('dev auth fixture proves authenticated /auth canonicalization for guest and owner flows', async ({
+    page,
+  }) => {
+    await page.goto(`${authFixtureBase}?scenario=auth&role=guest`);
+    await expect(page.getByText('/guest/dashboard')).toBeVisible();
+
+    await page.goto(`${authFixtureBase}?scenario=auth&role=owner`);
+    await expect(page.getByText('/app')).toBeVisible();
+    await expect(page.getByText('Authenticated visits to /auth should canonicalize to the signed-in destination.')).toBeVisible();
+  });
+
+  test('dev auth fixture proves owner app-intent sign-in return without shared auth state', async ({
+    page,
+  }) => {
+    await page.goto(
+      `${authFixtureBase}?scenario=signin&role=owner&redirectedFrom=%2Fapp%2Fdashboard`,
+    );
+
+    await expect(page.getByText('/app/dashboard')).toBeVisible();
+    await expect(page.getByText('Owner/admin sign-in returns to validated app intent or falls back to /app.')).toBeVisible();
   });
 });

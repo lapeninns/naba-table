@@ -80,6 +80,13 @@ Testing surface, required testing skills/tools, resource cost classification per
 ## Local Discovery / Booking Validation Notes
 
 - Use `seed-perf-r001` as the current stable local public restaurant slug for live guest discovery/detail/booking validation on port `3000`.
+- Deterministic empty-state discovery validation is available at `/restaurants?fixture=empty-state`; use this route for `VAL-DISCOVERY-005` instead of relying on live data depletion.
+- Deterministic authenticated auth validation is available at `/dev/auth-validation` with query-driven scenarios:
+  - `?scenario=home&role=guest` → authenticated guest entering `/` resolves to `/guest/dashboard`
+  - `?scenario=signin&role=guest&redirectedFrom=/bookings` → guest sign-in return-to-intent
+  - `?scenario=signin&role=owner&redirectedFrom=/app/dashboard` → owner/app-intent return-to-intent
+  - `?scenario=auth&role=guest|owner` → authenticated `/auth` canonicalization target
+- The auth validation harness is dev-only and query-driven specifically to avoid mutating shared local auth cookies/session state during validator runs.
 - Earlier probes (`the-fox`, `white-horse-pub-waterbeach`) were unavailable or unstable in prior local runs; prefer `seed-perf-r001` unless a later worker updates this note with a newer verified fixture.
 - Playwright updates `test-results/.last-run.json` during local runs; this file may appear dirty after validation and should not be mistaken for a product change.
 
