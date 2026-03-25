@@ -485,6 +485,9 @@ describe('public booking pages', () => {
     expect(screen.getByRole('heading', { name: 'Public booking detail fixture' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Guest booking detail fixture' })).toBeInTheDocument();
     expect(screen.getAllByText('Pending Confirmation').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByRole('button', { name: 'Modify Details' }).every((button) => button.hasAttribute('disabled'))).toBe(true);
+    expect(screen.getAllByRole('button', { name: 'Cancel Booking' }).every((button) => button.hasAttribute('disabled'))).toBe(true);
+    expect(screen.getAllByRole('button', { name: 'Book Again' }).every((button) => !button.hasAttribute('disabled'))).toBe(true);
   });
 
   it('serves booking lifecycle fixture payloads through GET /api/bookings/[id] in dev when recovery authorization matches', async () => {

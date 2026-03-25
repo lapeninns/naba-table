@@ -77,6 +77,9 @@ test.describe('public booking pages', () => {
       /\/auth\/signin\?redirectedFrom=%2Fbookings%2Frecover%3Faccess_token%3D.*next%3D%252Fbookings%252F55555555-5555-4555-8555-555555555555/,
     );
     await expect(page.locator('h2').filter({ hasText: 'Guest booking detail fixture' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Modify Details' }).first()).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Cancel Booking' }).first()).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Book Again' }).first()).toBeEnabled();
   });
 
   test('invalid restaurant detail and book routes resolve to the guest not-found experience', async ({

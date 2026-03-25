@@ -1,3 +1,5 @@
+import 'server-only';
+
 import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query';
 import Link from 'next/link';
 
@@ -145,7 +147,7 @@ export default async function DevBookingDetailComparisonPage({
               reservationId={reservation.id}
               restaurantName={reservation.restaurantName ?? null}
               initialNow={Date.parse('2026-02-10T12:00:00.000Z')}
-              canManage={false}
+              canManage
               signInReturnPath={publicReturnPath}
             />
           </div>
@@ -161,7 +163,7 @@ export default async function DevBookingDetailComparisonPage({
               reservationId={reservation.id}
               restaurantName={reservation.restaurantName ?? null}
               initialNow={Date.parse('2026-02-10T12:00:00.000Z')}
-              canManage={false}
+              canManage
               signInReturnPath={guestReturnPath}
             />
           </div>
