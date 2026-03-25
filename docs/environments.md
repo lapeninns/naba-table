@@ -17,7 +17,7 @@
   - SMTP host/port/user: `smtp.resend.com` / `465` / `resend`
   - SMTP password: use the generated secret from Resend; inject only in Supabase dashboard (not committed).
 - In Supabase: go to **Settings → Email** and paste the above values; confirm the integration from the Supabase dashboard as prompted.
-- App-side Resend usage remains via `RESEND_API_KEY` + `RESEND_FROM` in `.env.example`; keep those populated for API-based emails (including auth magic links).
+- App-side Resend usage remains via `RESEND_API_KEY` + `RESEND_FROM` in `.env.example`; keep `RESEND_FROM` aligned with the verified sender domain (`no-reply@notifications.nabatable.com`) for API-based emails, including auth magic links.
 
 ## Guardrails
 

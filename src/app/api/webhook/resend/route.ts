@@ -1,5 +1,6 @@
 // src/app/api/webhook/resend/route.ts
 import { NextResponse } from "next/server";
+import { Resend, type WebhookEvent } from "resend";
 
 import {
   recordEmailDeliveryLog,
@@ -14,19 +15,20 @@ import type { NextRequest } from "next/server";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-// This is a simplified representation. In a real app, you'd use the Resend SDK or a more robust verification method.
-// For this example, we'll assume a simple shared secret check.
 const RESEND_WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET;
+const resendWebhookVerifier = new Resend();
 
 type ResendWebhookEvent = {
   type:
-  | "email.sent"
-  | "email.delivered"
-  | "email.delivery_delayed"
-  | "email.complaint"
-  | "email.bounced"
-  | "email.opened"
-  | "email.clicked";
+    | Extract<WebhookEvent, "email.sent">
+    | Extract<WebhookEvent, "email.delivered">
+    | Extract<WebhookEvent, "email.delivery_delayed">
+    | Extract<WebhookEvent, "email.complained">
+    | Extract<WebhookEvent, "email.bounced">
+    | Extract<WebhookEvent, "email.opened">
+    | Extract<WebhookEvent, "email.clicked">
+    | Extract<WebhookEvent, "email.failed">
+    | "email.complaint";
   created_at: string;
   data: {
     email_id: string;
@@ -51,14 +53,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Webhook not configured" }, { status: 503 });
   }
 
-  const signature = req.headers.get("authorization");
-  if (`Bearer ${RESEND_WEBHOOK_SECRET}` !== signature) {
-    console.warn("[webhook][resend] Invalid signature received");
+  const payload = await req.text();
+  const svixId = req.headers.get("svix-id")?.trim();
+  const svixTimestamp = req.headers.get("svix-timestamp")?.trim();
+  const svixSignature = req.headers.get("svix-signature")?.trim();
+
+  if (!svixId || !svixTimestamp || !svixSignature) {
+    console.warn("[webhook][resend] Missing svix verification headers");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const event = (await req.json()) as ResendWebhookEvent;
+    const event = resendWebhookVerifier.webhooks.verify({
+      payload,
+      headers: {
+        id: svixId,
+        timestamp: svixTimestamp,
+        signature: svixSignature,
+      },
+      webhookSecret: RESEND_WEBHOOK_SECRET,
+    }) as ResendWebhookEvent;
+
     const recipients = event.data.to ?? [];
     const primaryRecipient = recipients[0] ?? null;
 
@@ -70,8 +85,10 @@ export async function POST(req: NextRequest) {
       "email.sent": "sent",
       "email.delivered": "delivered",
       "email.delivery_delayed": "delivery_delayed",
+      "email.complained": "complained",
       "email.complaint": "complained",
       "email.bounced": "bounced",
+      "email.failed": "failed",
     };
 
     const mappedStatus = statusMap[event.type] ?? null;
@@ -108,6 +125,7 @@ export async function POST(req: NextRequest) {
     // 2. --- Handle Relevant Events ---
     switch (event.type) {
       case "email.bounced":
+      case "email.complained":
       case "email.complaint": {
         const supabase = getServiceSupabaseClient();
 
@@ -158,6 +176,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
+    if (error instanceof Error && error.name === "WebhookVerificationError") {
+      console.warn("[webhook][resend] Invalid signature received");
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     console.error("[webhook][resend] Error processing webhook:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     await recordObservabilityEvent({

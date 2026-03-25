@@ -1,6 +1,8 @@
+import { createHash } from "node:crypto";
+
 import config from "@/config";
 import { env } from "@/lib/env";
-import { sendEmail } from "@/libs/resend";
+import { createEmailIdempotencyKey, sendEmail } from "@/libs/resend";
 import { escapeHtml, renderButton, renderEmailBase } from "@/server/emails/base";
 import { getServiceSupabaseClient } from "@/server/supabase";
 
@@ -125,6 +127,23 @@ function buildMagicLinkContent(params: {
   };
 }
 
+function buildMagicLinkIdempotencyKey(params: {
+  email: string;
+  intent: MagicLinkIntent;
+  actionLink: string;
+  redirectTo: string;
+}) {
+  const digest = createHash("sha256")
+    .update([params.email, params.intent, params.actionLink, params.redirectTo].join("|"))
+    .digest("hex")
+    .slice(0, 16);
+
+  return createEmailIdempotencyKey({
+    scope: "auth-magic-link",
+    parts: [params.email, params.intent, digest],
+  });
+}
+
 export class MagicLinkDeliveryError extends Error {
   readonly status: number;
   readonly reason: MagicLinkDeliveryReason;
@@ -187,6 +206,16 @@ export async function sendAuthMagicLink(params: SendAuthMagicLinkParams): Promis
       html: message.html,
       text: message.text,
       fromName: config.appName,
+      tags: [
+        { name: "email_type", value: "auth_magic_link" },
+        { name: "template_type", value: intent },
+      ],
+      idempotencyKey: buildMagicLinkIdempotencyKey({
+        email,
+        intent,
+        actionLink,
+        redirectTo: emailRedirectTo,
+      }),
     });
   } catch (error) {
     throw new MagicLinkDeliveryError(

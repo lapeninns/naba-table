@@ -1,8 +1,10 @@
+import { Resolver } from "node:dns/promises";
 import { execFileSync } from "node:child_process";
 
 import { Resend, type DomainRecords } from "resend";
 
 type DnsType = "TXT" | "CNAME" | "MX";
+type DnsProvider = "vercel" | "cloudflare" | "unknown";
 
 type DnsRecord = {
   name: string;
@@ -23,6 +25,7 @@ const BASE_DOMAIN = "nabatable.com";
 const SENDING_DOMAIN = "notifications.nabatable.com";
 const SUBDOMAIN_LABEL = "notifications";
 const BIMI_LOGO_FILENAME = "nabatable-bimi.svg";
+const PUBLIC_RESOLVERS = ["1.1.1.1", "8.8.8.8"];
 
 function getRequiredEnv(name: string): string {
   const value = process.env[name]?.trim();
@@ -63,6 +66,34 @@ function assertDomainRelationship(): void {
   }
 }
 
+function normalizeFqdn(value: string): string {
+  return value.trim().replace(/\.+$/, "").toLowerCase();
+}
+
+function createResolver(servers?: string[]): Resolver {
+  const resolver = new Resolver();
+  if (servers?.length) {
+    resolver.setServers(servers);
+  }
+  return resolver;
+}
+
+async function resolveAuthoritativeNameservers(domain: string): Promise<string[]> {
+  try {
+    const resolver = createResolver(PUBLIC_RESOLVERS);
+    const records = await resolver.resolveNs(domain);
+    return records.map((value) => normalizeFqdn(value)).sort();
+  } catch {
+    return [];
+  }
+}
+
+function inferDnsProvider(nameservers: string[]): DnsProvider {
+  if (nameservers.some((value) => value.includes("vercel-dns.com"))) return "vercel";
+  if (nameservers.some((value) => value.includes("cloudflare.com"))) return "cloudflare";
+  return "unknown";
+}
+
 function recordNameToFqdn(recordName: string): string {
   const normalized = recordName.trim();
   if (!normalized || normalized === "@") {
@@ -82,6 +113,14 @@ function recordNameToFqdn(recordName: string): string {
   }
 
   return `${normalized}.${SENDING_DOMAIN}`;
+}
+
+function dnsRecordTargetFqdn(record: DnsRecord): string {
+  if (record.source === "dmarc" && record.name === "_dmarc") {
+    return `_dmarc.${BASE_DOMAIN}`;
+  }
+
+  return recordNameToFqdn(record.name);
 }
 
 function fqdnToBaseSubdomain(fqdn: string): string {
@@ -177,6 +216,13 @@ function formatVercelDnsAdd(command: CliCommand): string {
   )}`;
 }
 
+function describeDnsTarget(record: DnsRecord): string {
+  const value = record.type === "MX" && typeof record.priority === "number"
+    ? `${record.priority} ${record.value}`
+    : record.value;
+  return `${record.source.toUpperCase()}\t${record.type}\t${dnsRecordTargetFqdn(record)}\t${value}`;
+}
+
 function shouldApplyDns(): boolean {
   return process.env.APPLY_DNS === "1";
 }
@@ -240,10 +286,34 @@ async function main(): Promise<void> {
 
   const allRecords = [...resendRecords, ...dmarcRecords, bimiRecord];
   const cliCommands = allRecords.map(toVercelCliCommand);
+  const authoritativeNameservers = await resolveAuthoritativeNameservers(BASE_DOMAIN);
+  const dnsProvider = inferDnsProvider(authoritativeNameservers);
 
-  console.log("\n=== DNS records to add in Vercel ===");
+  console.log(
+    `\n[dns] Authoritative nameservers for ${BASE_DOMAIN}: ${authoritativeNameservers.join(", ") || "(unresolved)"}`,
+  );
+  console.log(`[dns] Provider guess: ${dnsProvider}`);
+
+  console.log("\n=== DNS records to publish on the authoritative DNS provider ===");
   for (const record of allRecords) {
-    console.log(`${record.source.toUpperCase()}\t${record.type}\t${record.name}\t${record.value}`);
+    console.log(describeDnsTarget(record));
+  }
+
+  if (dnsProvider !== "vercel") {
+    console.log(
+      `\n[dns] ${BASE_DOMAIN} is not delegated to Vercel nameservers, so Vercel DNS changes will not affect live email authentication.`,
+    );
+    console.log(
+      `[dns] Publish the records above in ${dnsProvider === "cloudflare" ? "Cloudflare DNS" : "your authoritative DNS provider"} instead.`,
+    );
+
+    if (shouldApplyDns()) {
+      throw new Error(
+        "APPLY_DNS=1 only supports Vercel-authoritative zones. Publish these records in the live authoritative DNS provider first.",
+      );
+    }
+
+    return;
   }
 
   console.log("\n=== Vercel CLI commands (copy/paste safe) ===");

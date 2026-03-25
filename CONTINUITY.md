@@ -1,58 +1,71 @@
 # Continuity Ledger
 
-Last updated: 2026-03-25T06:53:30Z
+Last updated: 2026-03-25T08:15:00Z
 
 ## Goal (incl. success criteria)
 
-- Fix the missing `review_request` email queueing for completed bookings, validated against production booking ref `LPTZDB8DCA`.
-- Success means the root cause is identified, the canonical completion path is patched, regression coverage is added, and the expected enqueue timing is verifiable.
+- Push the production Resend integration from “DNS-correct” to “fully hardened” in the canonical codepath.
+- Success means sender defaults, send semantics, suppression handling, and webhook verification all align with the installed Resend SDK and production delivery needs.
 
 ## Constraints/Assumptions
 
 - Follow SDLC phases and maintain task artifacts before code edits.
-- Keep changes focused to the review-email enqueue path; avoid unrelated refactors.
+- Keep changes focused on deliverability and sender-domain health; avoid unrelated refactors.
 - No UI changes are expected, so Chrome DevTools QA should not be required unless the scope expands.
-- Production queue visibility is partial: Cloudflare status counts exceed the visible job list.
+- Live DNS changes require the authoritative provider, not just repo code changes.
 
 ## Key decisions
 
-- Investigate the canonical completion path first (`check-out` / `status completed` / auto-complete) before considering any backfill or manual repair.
-- Use production data only for diagnosis; implement the fix against the shared codepath rather than booking-specific workarounds.
+- Keep hardening in the existing shared helper and webhook route instead of introducing a new email abstraction.
+- Enforce suppression at the send boundary so all current/future Resend callers inherit the protection automatically.
+- Use native Resend SDK support for webhook verification, idempotency, headers, tags, and topics.
 
 ## State
 
-- Phase 4 verification: production Cloudflare gateway redeployed, queue visibility restored, target review-request job confirmed in queue.
+- Phase 4 verification complete for `tasks/resend-integration-hardening-20260325-0754/`; targeted lint, typecheck, and the deliverability audit all pass.
 
 ## Done
 
-- Confirmed booking `LPTZDB8DCA` exists in production, is `completed`, and has a valid guest email.
-- Confirmed no `review_request` delivery exists yet for that booking in production `email_delivery_log`.
-- Confirmed the expected review-send time should be 2026-03-25T10:55:00Z based on current scheduling logic.
-- Identified live Cloudflare gateway drift: detailed delayed jobs were capped at 10 while summary reported 32.
-- Deployed current Cloudflare email queue gateway version `27a52635-248c-483a-b9bd-c5450ae5bfc9`.
-- Verified the gateway now returns all 32 delayed jobs and includes `review_request__e93fbe2c-2d3c-427f-9c2d-a0407dc0daad` scheduled for `2026-03-25T10:55:00Z`.
+- Completed the earlier sender-domain/DNS remediation in `tasks/email-deliverability-20260325-0723/`.
+- Created `tasks/resend-integration-hardening-20260325-0754/`.
+- Confirmed local `resend@^6.5.2` exposes:
+  - `webhooks.verify(...)`
+  - send request idempotency
+  - `headers`, `tags`, and `topicId`
+- Patched `lib/env.ts` to default Resend sender normalization to `notifications.nabatable.com`.
+- Patched `libs/resend.ts` to:
+  - support native Resend send options
+  - map attachment `contentType` correctly
+  - enforce suppressed-recipient checks before provider send
+- Patched `src/app/api/webhook/resend/route.ts` to verify Svix signatures with the official Resend SDK.
+- Patched booking, invite, and magic-link senders to attach stable tags/idempotency keys.
+- Confirmed targeted ESLint passes on all changed email files.
+- Confirmed `pnpm exec tsc --noEmit --pretty false` passes.
+- Confirmed `pnpm exec dotenv -e .env.local -- tsx scripts/email/check-resend-status.ts` still passes.
 
 ## Now
 
-- Finalize task artifacts and summarize the production fix plus the confirmed queue state for the user.
+- Prepare the final handoff summarizing the Resend hardening changes and remaining operational follow-up.
 
 ## Next
 
-- Re-check the delivery log after `2026-03-25T10:55:00Z` if the user wants confirmation that the queued review email was actually sent.
+- Monitor Resend event ingestion and suppression behavior after deployment.
+- Recommend rotating the Cloudflare API token because it was shared directly in chat for the earlier DNS fix.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- Whether the root cause is missing side-effect invocation, swallowed enqueue failure, or incorrect scheduling state for completed bookings.
-- Whether a one-off production backfill will be needed for already-missed review requests after the code fix. (UNCONFIRMED)
+- Whether Resend Topics should be introduced later for non-auth preference segmentation. (UNCONFIRMED)
 
 ## Working set (files/ids/commands)
 
 - `CONTINUITY.md`
-- `server/jobs/booking-side-effects.ts`
-- `src/app/api/ops/bookings/[id]/check-out/route.ts`
-- `src/app/api/ops/bookings/[id]/status/route.ts`
-- `server/queue/email.ts`
-- `server/queue/email-processing.ts`
-- Booking ref `LPTZDB8DCA`
-- `pnpm exec dotenv -e .env.vercel-production -- tsx --eval ...`
-- `pnpm exec dotenv -e .env.local -- node -e ...`
+- `lib/env.ts`
+- `libs/resend.ts`
+- `src/app/api/webhook/resend/route.ts`
+- `server/emails/bookings.ts`
+- `server/emails/invitations.ts`
+- `server/auth/magic-link-email.ts`
+- `tasks/resend-integration-hardening-20260325-0754/`
+- `pnpm exec eslint lib/env.ts libs/resend.ts src/app/api/webhook/resend/route.ts server/emails/bookings.ts server/emails/invitations.ts server/auth/magic-link-email.ts`
+- `pnpm exec tsc --noEmit`
+- `pnpm exec dotenv -e .env.local -- tsx scripts/email/check-resend-status.ts`
