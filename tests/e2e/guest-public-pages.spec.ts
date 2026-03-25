@@ -35,6 +35,32 @@ test.describe('public booking pages', () => {
     await expect(page.getByRole('link', { name: 'Return home' })).toBeVisible();
   });
 
+  test('dev booking recovery harness links into a token-free entitled final destination', async ({
+    page,
+  }) => {
+    await page.goto('/dev/booking-recovery?fixture=active');
+
+    await expect(page.getByRole('heading', { name: 'Tokenized booking recovery fixture' })).toBeVisible();
+    await expect(page.getByText('Active booking detail + receipt')).toBeVisible();
+
+    const recoveryHref = await page
+      .getByRole('link', { name: 'Open recovery link', exact: true })
+      .getAttribute('href');
+    expect(recoveryHref).toContain('/bookings/recover?access_token=');
+    expect(recoveryHref).toContain('next=%2Fbookings%2F22222222-2222-4222-8222-222222222222');
+  });
+
+  test('mocked booking-detail comparison harness exposes public and guest detail surfaces side by side', async ({
+    page,
+  }) => {
+    await page.goto('/dev/booking-detail-comparison?fixture=cancelled');
+
+    await expect(page.getByRole('heading', { name: 'Public and guest booking detail comparison' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Public booking detail fixture' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Guest booking detail fixture' })).toBeVisible();
+    await expect(page.locator('h2').filter({ hasText: 'Guest booking detail fixture' })).toBeVisible();
+  });
+
   test('invalid restaurant detail and book routes resolve to the guest not-found experience', async ({
     page,
   }) => {

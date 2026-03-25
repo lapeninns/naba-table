@@ -8,6 +8,7 @@ import BookingsLandingPage from '@src/app/(public)/bookings/page';
 import BookingDetailPage from '@src/app/(public)/bookings/[bookingId]/page';
 import GuestBookingDetailPage from '@src/app/guest/bookings/[bookingId]/page';
 import DevBookingRecoveryPage from '@src/app/(public)/dev/booking-recovery/page';
+import DevBookingDetailComparisonPage from '@src/app/(public)/dev/booking-detail-comparison/page';
 import ReservationDetailClient from '@/components/features/booking/detail/ReservationDetailClient';
 
 import type { ReactNode } from 'react';
@@ -272,6 +273,48 @@ describe('public booking pages', () => {
       'href',
       '/bookings/recover?access_token=dev-recovery-token&next=%2Fbookings%2F22222222-2222-4222-8222-222222222222',
     );
+    expect(screen.getByText('Active booking detail + receipt')).toBeInTheDocument();
+  });
+
+  it('renders the mocked booking-detail comparison harness without shared auth state', async () => {
+    useReservationMock.mockImplementation((reservationId: string) => {
+      if (reservationId === '44444444-4444-4444-8444-444444444444') {
+        return {
+          data: createReservation({
+            id: '44444444-4444-4444-8444-444444444444',
+            reference: 'NB9012',
+            status: 'pending',
+            startAt: '2026-02-12T18:30:00.000Z',
+            endAt: '2026-02-12T20:00:00.000Z',
+          }),
+          error: null,
+          isError: false,
+          isLoading: false,
+          refetch: vi.fn(),
+          isFetching: false,
+        };
+      }
+
+      return {
+        data: createReservation(),
+        error: null,
+        isError: false,
+        isLoading: false,
+        refetch: vi.fn(),
+        isFetching: false,
+      };
+    });
+
+    renderWithQuery(
+      await DevBookingDetailComparisonPage({
+        searchParams: Promise.resolve({ fixture: 'pending' }),
+      }),
+    );
+
+    expect(screen.getByRole('heading', { name: 'Public and guest booking detail comparison' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Public booking detail fixture' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Guest booking detail fixture' })).toBeInTheDocument();
+    expect(screen.getAllByText('Pending Confirmation').length).toBeGreaterThanOrEqual(2);
   });
 
   it('shows deterministic setup guidance when the recovery secret is unavailable', async () => {

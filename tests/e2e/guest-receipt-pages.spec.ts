@@ -138,4 +138,16 @@ test.describe('guest receipt pages', () => {
       page.getByText('Need another table? You can start a fresh booking whenever you’re ready.'),
     ).toBeVisible();
   });
+
+  test('dev comparison harness can switch between pending and cancelled receipt-adjacent fixtures', async ({
+    page,
+  }) => {
+    await page.goto('/dev/booking-detail-comparison?fixture=pending');
+
+    await expect(page.getByText('Pending Confirmation').first()).toBeVisible();
+
+    await page.goto('/dev/booking-detail-comparison?fixture=cancelled');
+
+    await expect(page.getByText('Cancelled', { exact: true }).first()).toBeVisible();
+  });
 });

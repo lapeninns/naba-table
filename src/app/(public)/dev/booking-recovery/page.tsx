@@ -2,6 +2,10 @@ import Link from 'next/link';
 
 import { env } from '@/lib/env';
 import { createSessionRecoveryAccessToken } from '@/server/security/session-recovery-access-token';
+import {
+  getBookingLifecycleFixture,
+  getDefaultBookingLifecycleFixture,
+} from '@/src/app/(public)/dev/_mocks/bookingLifecycleFixtures';
 import { enforceDevOnly } from '@/src/app/(public)/dev/_shared/enforceDevOnly';
 
 export const dynamic = 'force-dynamic';
@@ -14,7 +18,6 @@ function firstValue(value: string | string[] | undefined): string | undefined {
 }
 
 const DEFAULTS = {
-  bookingId: '22222222-2222-4222-8222-222222222222',
   restaurantId: '11111111-1111-4111-8111-111111111111',
   email: 'guest@example.com',
   phone: '+441234567890',
@@ -28,10 +31,11 @@ export default async function DevBookingRecoveryPage({
   enforceDevOnly();
 
   const params = await searchParams;
-  const bookingId = firstValue(params.bookingId) ?? DEFAULTS.bookingId;
-  const restaurantId = firstValue(params.restaurantId) ?? DEFAULTS.restaurantId;
-  const email = firstValue(params.email) ?? DEFAULTS.email;
-  const phone = firstValue(params.phone) ?? DEFAULTS.phone;
+  const fixture = getBookingLifecycleFixture(firstValue(params.fixture)) ?? getDefaultBookingLifecycleFixture();
+  const bookingId = firstValue(params.bookingId) ?? fixture.reservation.id;
+  const restaurantId = firstValue(params.restaurantId) ?? fixture.reservation.restaurantId ?? DEFAULTS.restaurantId;
+  const email = firstValue(params.email) ?? fixture.reservation.customerEmail ?? DEFAULTS.email;
+  const phone = firstValue(params.phone) ?? fixture.reservation.customerPhone ?? DEFAULTS.phone;
   const secret = env.security.sessionRecoveryAccessTokenSecret?.trim() ?? null;
 
   const accessToken = secret
@@ -66,6 +70,7 @@ export default async function DevBookingRecoveryPage({
       </header>
 
       <section className="grid gap-4 rounded-2xl border border-border bg-card p-6 shadow-sm md:grid-cols-2">
+        <FixtureField label="Fixture" value={fixture.label} />
         <FixtureField label="Booking ID" value={bookingId} />
         <FixtureField label="Restaurant ID" value={restaurantId} />
         <FixtureField label="Guest email" value={email} />
@@ -87,6 +92,12 @@ export default async function DevBookingRecoveryPage({
                 href={recoverHref}
               >
                 Open recovery link
+              </Link>
+              <Link
+                className="w-fit rounded-full border border-border px-5 py-3 text-sm font-medium text-foreground hover:bg-accent"
+                href={`${recoverHref}&fixture=${encodeURIComponent(firstValue(params.fixture) ?? 'active')}`}
+              >
+                Open recovery link with fixture
               </Link>
               <p className="break-all text-sm text-muted-foreground">{recoverHref}</p>
             </>
