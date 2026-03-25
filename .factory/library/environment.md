@@ -12,4 +12,5 @@ Environment variables, external dependencies, and setup notes.
 - Supabase for database (remote, cloud-hosted)
 - Resend for email delivery
 - `.env.local` contains all required env vars (already configured)
-- `APP_ENV=development` for local dev
+- Local env may run with `APP_ENV=staging` in this repository state.
+- When `APP_ENV=staging`, `/dev/ops-email-delivery` may be unavailable or shell-only; use authenticated `http://app.localhost:3000/email-delivery` for validation.

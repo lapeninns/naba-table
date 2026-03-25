@@ -1,0 +1,65 @@
+{
+  "groupId": "queue-analytics-browser",
+  "testedAt": "2026-03-24T19:39:54Z",
+  "isolation": {
+    "type": "fresh-authenticated-browser-flow",
+    "session": "queue-analytics-fresh",
+    "surface": "http://app.localhost:3000/email-delivery",
+    "credentials": "oldcrown@lapeninns.com",
+    "notes": [
+      "Fresh browser session created and closed/reopened before the run.",
+      "Only VAL-Q-006 and VAL-AN-004 were exercised in this rerun.",
+      "Evidence path was reused only as a destination; screenshots were captured fresh for this run."
+    ]
+  },
+  "toolsUsed": ["agent-browser"],
+  "assertions": [
+    {
+      "id": "VAL-Q-006",
+      "title": "Queue loading skeleton is visibly rendered on reload or tab switch",
+      "status": "failed",
+      "steps": [
+        "Signed into http://app.localhost:3000/auth/signin with the provided Old Crown credentials and navigated to /email-delivery.",
+        "Opened the Queue tab, then captured immediate and settled screenshots after a full page reload on ?tab=queue.",
+        "Switched Delivery Log -> Queue again and captured immediate and settled screenshots to look for a visible loading skeleton.",
+        "Observed queue summary and filter controls but no visible skeleton placeholders in either immediate or settled captures; only a Supabase auth fetch was visible in tracked network requests after reload."
+      ],
+      "evidence": [
+        "/Users/amankumarshrestha/.factory/missions/b33b93a4-d8e4-4cd7-9eed-0dc2e8cb2915/evidence/queue-and-analytics/queue-analytics-browser/VAL-Q-006-queue-tab.png",
+        "/Users/amankumarshrestha/.factory/missions/b33b93a4-d8e4-4cd7-9eed-0dc2e8cb2915/evidence/queue-and-analytics/queue-analytics-browser/VAL-Q-006-queue-reload-immediate.png",
+        "/Users/amankumarshrestha/.factory/missions/b33b93a4-d8e4-4cd7-9eed-0dc2e8cb2915/evidence/queue-and-analytics/queue-analytics-browser/VAL-Q-006-queue-reload-settled.png",
+        "/Users/amankumarshrestha/.factory/missions/b33b93a4-d8e4-4cd7-9eed-0dc2e8cb2915/evidence/queue-and-analytics/queue-analytics-browser/VAL-Q-006-tab-switch-immediate.png",
+        "/Users/amankumarshrestha/.factory/missions/b33b93a4-d8e4-4cd7-9eed-0dc2e8cb2915/evidence/queue-and-analytics/queue-analytics-browser/VAL-Q-006-tab-switch-settled.png"
+      ],
+      "issues": [
+        "No visible loading skeleton rendered during fresh reload or Delivery Log -> Queue tab switch in this run.",
+        "Tracked network observability after reload only showed a Supabase auth request, so queue fetch timing could not be directly observed from the browser tool output."
+      ]
+    },
+    {
+      "id": "VAL-AN-004",
+      "title": "Analytics loads independently after switching from a page-2+ delivery log state",
+      "status": "failed",
+      "steps": [
+        "Returned to Delivery Log and verified the live dataset showed 'Showing 1-1 of 1 results' with disabled Prev and Next controls.",
+        "Attempted to satisfy the page-2+ precondition on the real authenticated surface, but the UI exposed only a single result and no enabled pagination path beyond page 1.",
+        "Captured a fresh Delivery Log screenshot, then switched to Analytics and captured immediate and settled screenshots after the tab change.",
+        "Confirmed the Analytics view rendered its range controls after the switch, but the required page-2+ Delivery Log precondition could not be met on the live dataset in this rerun."
+      ],
+      "evidence": [
+        "/Users/amankumarshrestha/.factory/missions/b33b93a4-d8e4-4cd7-9eed-0dc2e8cb2915/evidence/queue-and-analytics/queue-analytics-browser/VAL-AN-004-delivery-log-before-analytics.png",
+        "/Users/amankumarshrestha/.factory/missions/b33b93a4-d8e4-4cd7-9eed-0dc2e8cb2915/evidence/queue-and-analytics/queue-analytics-browser/VAL-AN-004-analytics-immediate.png",
+        "/Users/amankumarshrestha/.factory/missions/b33b93a4-d8e4-4cd7-9eed-0dc2e8cb2915/evidence/queue-and-analytics/queue-analytics-browser/VAL-AN-004-analytics-after-switch.png"
+      ],
+      "issues": [
+        "Page-2+ precondition was impossible to satisfy on the real surface because the Delivery Log had only one result and disabled pagination controls.",
+        "Analytics did render after switching tabs, but this rerun cannot fully pass the contract because the required starting state was unavailable."
+      ]
+    }
+  ],
+  "frictions": [
+    "Post-login redirected to /dashboard rather than directly to /email-delivery, so the flow had to navigate manually to the Email Delivery page.",
+    "The agent-browser network request log provided limited request history for app data, which constrained direct timing evidence beyond the observed UI states."
+  ],
+  "summary": "Fresh authenticated rerun completed for VAL-Q-006 and VAL-AN-004 only. VAL-Q-006 failed because no visible queue loading skeleton appeared on reload or tab switch. VAL-AN-004 failed because the live Delivery Log dataset exposed only page 1 with disabled pagination, although Analytics still rendered after tab switching."
+}

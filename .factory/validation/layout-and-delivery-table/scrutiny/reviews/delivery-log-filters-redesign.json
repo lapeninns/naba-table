@@ -1,21 +1,28 @@
 {
   "featureId": "delivery-log-filters-redesign",
-  "reviewedAt": "2026-03-24T13:37:43Z",
-  "commitId": "77811e29",
+  "reviewedAt": "2026-03-24T14:15:00Z",
+  "commitId": "77811e293c8ca3243e08fe5ce083c9490b9f1ff9",
   "transcriptSkeletonReviewed": true,
   "diffReviewed": true,
-  "status": "pass",
+  "status": "fail",
   "codeReview": {
-    "summary": "Implementation covers the redesigned delivery-log filter bar requirements: field-specific search, range toggle, template/email type selects, status multi-select, clear behavior, and URL synchronization are all wired through the shared feed params without introducing regressions in the reviewed code paths.",
-    "issues": []
+    "summary": "The redesign replaced the legacy filters card with a cleaner filter bar, added field-specific search submission, status popover selection, dropdowns, and URL synchronization. However, the delivered dropdown option lists did not actually cover the known in-product template/email values already present elsewhere in the email-delivery and queue flows, so the feature did not fully satisfy the requirement that operators can filter by known values without regressions.",
+    "issues": [
+      {
+        "file": "src/components/features/email-delivery/components/OpsEmailDeliveryFilterBar.tsx",
+        "line": 35,
+        "severity": "blocking",
+        "description": "The hardcoded template and email type dropdown options omit known values already used by the product, including `request_received`, `confirmation`, `booking_rejected`, and `restaurant_cancellation`. Those values are referenced in the queue panel and dev/mock delivery flows, so operators could not select existing records by these values from the redesigned filter UI even though the backend and URL params support them."
+      }
+    ]
   },
   "sharedStateObservations": [
     {
-      "area": "skills",
-      "observation": "The fullstack-worker skill still prioritizes the dev harness path first, but this mission's AGENTS note and the worker handoff both show `/dev/ops-email-delivery` can be unavailable under staging-flavored local envs. The skill should call out the authenticated `/email-delivery` route as the normal fallback sooner.",
-      "evidence": "Mission AGENTS.md: 'Dev harness at `/dev/ops-email-delivery` returns 404 because `APP_ENV=staging` is set in `.env.local`'. Handoff skillFeedback.suggestedChanges repeats the same gap."
+      "area": "library",
+      "observation": "The repo already had known email/template values in queue and mock delivery flows, but `.factory/library/architecture.md` did not capture that the delivery-log filter dropdowns should stay aligned with those shared enums/labels. This omission likely contributed to the worker hardcoding an incomplete subset.",
+      "evidence": "`src/components/features/email-delivery/components/OpsEmailQueuePanel.tsx` includes `request_received`, `confirmation`, `booking_rejected`, and `restaurant_cancellation`; `src/app/(public)/dev/_mocks/services/devEmailDelivery.ts` and `src/app/(public)/dev/_mocks/services/devBookingService.ts` also emit `booking_confirmation`. `.factory/library/architecture.md` mentions the filter bar but not the canonical option source or required value coverage."
     }
   ],
   "addressesFailureFrom": null,
-  "summary": "Reviewed commit `77811e29` and the worker handoff/transcript for `delivery-log-filters-redesign`; the feature satisfies VAL-DL-005 through VAL-DL-012 and VAL-DL-016 with no blocking or non-blocking code issues identified."
+  "summary": "Fail: the redesigned filter bar UI works structurally, but its hardcoded template/email dropdown options were incomplete versus known in-product values, so operators could not filter some real records until a later follow-up fix expanded coverage."
 }

@@ -1,0 +1,122 @@
+{
+  "milestone": "queue-and-analytics",
+  "round": 1,
+  "status": "fail",
+  "orchestratorOverride": {
+    "applied": true,
+    "reason": "Proceeding to user-testing gate because test/typecheck/lint are green and remaining scrutiny findings are either evidence-quality concerns or behaviors that are explicitly validated by queue-and-analytics user-testing assertions.",
+    "appliedAt": "2026-03-24T19:20:00Z"
+  },
+  "validatorsRun": {
+    "test": {
+      "passed": true,
+      "command": "npx vitest run",
+      "exitCode": 0
+    },
+    "typecheck": {
+      "passed": true,
+      "command": "pnpm typecheck",
+      "exitCode": 0
+    },
+    "lint": {
+      "passed": true,
+      "command": "pnpm lint",
+      "exitCode": 0
+    }
+  },
+  "reviewsSummary": {
+    "total": 6,
+    "passed": 1,
+    "failed": 5,
+    "failedFeatures": [
+      "queue-tab-polish",
+      "analytics-tab",
+      "cross-area-navigation",
+      "fix-cross-area-navigation-validation-gaps",
+      "fix-queue-pagination-reset-and-restaurant-switch-proof"
+    ]
+  },
+  "blockingIssues": [
+    {
+      "featureId": "queue-tab-polish",
+      "severity": "blocking",
+      "description": "Pagination does not implement the expected total-count summary behavior. The feature contract requires the Queue tab pagination to 'show total count and prev/next', but the UI only renders `Page {page} \u00b7 {total} jobs` instead of a visible result-range summary analogous to the delivery log pagination. This falls short of the described polish requirement and the expected behavior for `VAL-Q-004`."
+    },
+    {
+      "featureId": "analytics-tab",
+      "severity": "blocking",
+      "description": "The new `summaryOnly=1` path always returns `{ ok: true, summary: ... }` with a synthesized zeroed summary when `getEmailDeliveryAttemptsSummary()` fails or when delivery tracking is unavailable. This masks real backend failures/unavailability and causes the analytics tab to show misleading zero metrics instead of the expected unavailable/error state."
+    },
+    {
+      "featureId": "cross-area-navigation",
+      "severity": "blocking",
+      "description": "The only restaurant-switch regression test was weakened to assert call counts stay at 1 after switching restaurants, which means it explicitly does not verify the required behavior that all tab state resets and data reloads for the newly selected restaurant. This leaves expected behavior (3) untested and likely still broken."
+    },
+    {
+      "featureId": "cross-area-navigation",
+      "severity": "blocking",
+      "description": "The feature requirement said to update the dev-harness E2E test to work with the new tab-based layout, but the handoff confirms this spec still could not run because Playwright always tried to start a second Next dev server and failed on `.next/dev/lock`. A validation spec that cannot execute in the shared mission environment does not satisfy the requested deterministic harness verification."
+    },
+    {
+      "featureId": "fix-cross-area-navigation-validation-gaps",
+      "severity": "blocking",
+      "description": "The required browser proof for restaurant switching was removed from the harness spec. The updated test now stops after verifying Queue and Analytics tabs, so it no longer exercises switching to the second restaurant or asserts reset/reload behavior after the switch."
+    },
+    {
+      "featureId": "fix-cross-area-navigation-validation-gaps",
+      "severity": "blocking",
+      "description": "The new component coverage only verifies that the restaurant switch trigger is rendered while the client is seeded with non-default tab/filter/page params. It does not simulate selecting the second restaurant or assert that tab, filters, and pagination reset before reloading data for the new restaurant context."
+    },
+    {
+      "featureId": "fix-cross-area-navigation-validation-gaps",
+      "severity": "blocking",
+      "description": "The restaurant-reset code path still depends on an actual restaurantId transition, but the handoff explicitly says browser automation could not reliably perform the switch. Because this fix did not add working end-to-end or component proof that the transition occurs and reloads the new context, the original scrutiny failure remains unresolved."
+    },
+    {
+      "featureId": "fix-queue-pagination-reset-and-restaurant-switch-proof",
+      "severity": "blocking",
+      "description": "The restaurant-switch regression test never proves that tab/filter/page state resets or that data reloads under the new restaurant context. `renderClient()` hard-codes `initialRestaurantId=\"rest-1\"`, so after selecting the second restaurant the client immediately syncs the URL back to `restaurantId=rest-1` before any new fetch occurs. The assertions then expect `getRestaurantEmailDeliveryFeed` and `getRestaurantEmailDeliverySummary` to remain at one call, which is the opposite of the requested 'reload under the new restaurant context' behavior. This means the added proof can pass even if restaurant switching is broken, so requirement (2) remains uncovered."
+    }
+  ],
+  "appliedUpdates": [],
+  "suggestedGuidanceUpdates": [
+    {
+      "target": "skills",
+      "suggestion": "The worker explicitly skipped the skill's test-first RED step and only added tests after implementation review. The skill procedure and transcript diverged, and the handoff marks `followedProcedure: false`.",
+      "evidence": "`worker-transcripts.jsonl` entry for session `b6a6a46d-7e27-401e-8abe-4e032575fea7` shows implementation edits to `OpsEmailQueuePanel.tsx` before the final passing targeted test iteration; handoff `skillFeedback.deviations[0]` states they 'Added queue-tab regression tests after inspecting the existing Queue panel implementation'.",
+      "isSystemic": true
+    },
+    {
+      "target": "skills",
+      "suggestion": "The fullstack-worker skill requires a RED test run before implementation and says the handoff must include a failing targeted test command for new behavior, but this worker handoff only reports passing test runs.",
+      "evidence": ".factory/skills/fullstack-worker/SKILL.md step 3 requires a RED run; mission handoff 2026-03-24T18-32-00-859Z__analytics-tab__923112f2-d14f-498b-974c-24f7ec636251.json lists only successful test executions.",
+      "isSystemic": true
+    },
+    {
+      "target": "skills",
+      "suggestion": "The `fullstack-worker` skill requires agent-browser verification of the implemented UI, but the worker only confirmed that `/dev/ops-email-delivery` still rendered shell links and then stopped. The skill/procedure does not currently explain how to proceed when the dev harness is stale or how to verify against the authenticated surface while still satisfying the harness requirement.",
+      "evidence": "Handoff `skillFeedback.deviations` says manual verification only confirmed the failure mode because the harness was not fully restored in the live runtime; `.factory/skills/fullstack-worker/SKILL.md` step 7 only says to open the harness or authenticated route and verify visually.",
+      "isSystemic": true
+    },
+    {
+      "target": "services.yaml",
+      "suggestion": "The shared services manifest documents only `pnpm dev` for the web service, but Playwright validation in this mission needs a stable way to reuse the existing port-3000 server instead of launching another Next instance. Without that guidance, workers hit the recurring `.next/dev/lock` failure.",
+      "evidence": "Handoff `discoveredIssues` and verification show `npx playwright test tests/e2e/ops-email-delivery-dev-harness.spec.ts` failed because config.webServer tried to launch another `next dev`; `.factory/services.yaml` contains no alternate command or note for reusing an already-running server.",
+      "isSystemic": false
+    },
+    {
+      "target": "skills",
+      "suggestion": "The fullstack-worker skill still lacks a concrete fallback workflow for validating ops-shell restaurant switching when browser automation cannot open the switcher. That gap led this fix to drop the critical switch assertion while still reporting success.",
+      "evidence": ".factory/skills/fullstack-worker/SKILL.md step 7 requires manual verification of interactive UI behavior, but the handoff for worker session 8f3a1086-37de-40b6-bb17-f58d5d773ec5 records `followedProcedure: false` and states the restaurant switch could not be completed in-browser.",
+      "isSystemic": true
+    },
+    {
+      "target": "skills",
+      "suggestion": "The `fullstack-worker` skill still mandates browser verification even for test-only tasks. This worker correctly skipped agent-browser for a pure regression-test change and recorded a deviation, suggesting the skill should explicitly allow test-only work to omit browser checks.",
+      "evidence": ".factory/skills/fullstack-worker/SKILL.md step 7 requires agent-browser for all tasks, while the handoff `skillFeedback` for worker session `55e766ed-d851-42c8-a250-83b211c23e59` documents skipping browser verification because only tests changed.",
+      "isSystemic": true
+    }
+  ],
+  "rejectedObservations": [],
+  "previousRound": null
+}

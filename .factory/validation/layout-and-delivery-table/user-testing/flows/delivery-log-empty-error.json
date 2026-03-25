@@ -1,0 +1,33 @@
+{
+  "surface": "browser",
+  "assertions": [
+    {
+      "id": "VAL-DL-014",
+      "status": "fail",
+      "summary": "Navigating to /email-delivery?recipientEmail=zzzz-no-match-empty-state on the authenticated surface did not render the expected empty-state message or any delivery-log results; only the page shell and filters remained visible after waiting for settlement.",
+      "evidence": [
+        "/Users/amankumarshrestha/.factory/missions/b33b93a4-d8e4-4cd7-9eed-0dc2e8cb2915/evidence/layout-and-delivery-table/delivery-log-empty-error/VAL-DL-014-empty-state.png",
+        "/Users/amankumarshrestha/.factory/missions/b33b93a4-d8e4-4cd7-9eed-0dc2e8cb2915/evidence/layout-and-delivery-table/delivery-log-empty-error/VAL-DL-014-empty-state-waited.png"
+      ],
+      "frictions": [
+        "No email-delivery network requests were captured by agent-browser for the deterministic empty-state URL, making the UI appear stuck on the shell without a rendered empty-state panel."
+      ]
+    },
+    {
+      "id": "VAL-DL-017",
+      "status": "fail",
+      "summary": "Navigating to /email-delivery?messageId=__force_error__&simulateEmailDeliveryError=1 on the authenticated surface did not display an error alert or message after waiting for settlement; the page remained on the shell and filter controls only.",
+      "evidence": [
+        "/Users/amankumarshrestha/.factory/missions/b33b93a4-d8e4-4cd7-9eed-0dc2e8cb2915/evidence/layout-and-delivery-table/delivery-log-empty-error/VAL-DL-017-error-state.png"
+      ],
+      "frictions": [
+        "The canonical forced-error query params were applied, but no visible error-state UI or captured delivery-log request appeared in the browser session."
+      ]
+    }
+  ],
+  "toolsUsed": ["agent-browser"],
+  "blockers": [],
+  "frictions": [
+    "Authenticated sign-in succeeded, but both deterministic validation URLs settled on the page shell without rendering the expected empty/error content."
+  ]
+}

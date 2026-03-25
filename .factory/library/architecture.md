@@ -47,3 +47,18 @@ page.tsx (Server Component — parses URL search params)
 - Server: `server/emails/email-delivery-log.ts`
 - Types: `types/emailDelivery.ts`
 - Dev harness: `src/app/(public)/dev/ops-email-delivery/`
+
+### Canonical Filter Option Sources
+
+- Delivery Log template/email dropdowns must stay aligned with known values used across:
+  - `src/app/(public)/dev/_mocks/services/devEmailDelivery.ts`
+  - `src/components/features/email-delivery/components/OpsEmailQueuePanel.tsx`
+  - `server/queue/email.ts`
+- When adding/removing queue email types or delivery templates, update filter options and filter-bar tests together.
+
+### Validation Surface Caveat
+
+- Prefer `/dev/ops-email-delivery` when it renders full UI.
+- If dev harness is unavailable or shell-only under current `APP_ENV`, use authenticated `http://app.localhost:3000/email-delivery`.
+
+- Email Delivery retry flow currently exposes `messageId` in UI DTOs separately from delivery-log row `id`; any retry API keyed by `deliveryLogId` must surface the row id through feed DTOs instead of reusing provider message identifiers.

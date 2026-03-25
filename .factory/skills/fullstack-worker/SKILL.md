@@ -25,7 +25,8 @@ For features that involve Next.js frontend components (React/Tailwind/shadcn), A
    - For utility functions: Write Vitest tests in `tests/lib/email-delivery/` or `tests/components/`
    - For components: Write @testing-library/react tests in `tests/components/`
    - Tests must fail before implementation (TDD)
-   - Run tests with `npx vitest run --reporter=verbose` to confirm they fail
+   - Run targeted tests with `npx vitest run <targeted-test-file> --reporter=verbose` to confirm RED failure before editing implementation
+   - Handoff MUST include this RED test command with non-zero exit code observation when new behavior is implemented
 
 4. **Implement (GREEN)**:
    - Follow existing patterns exactly (see AGENTS.md conventions)
@@ -40,6 +41,7 @@ For features that involve Next.js frontend components (React/Tailwind/shadcn), A
    - Fix any failures
 
 6. **Run validators**:
+   - `npx vitest run` — full suite must pass before handoff
    - `pnpm typecheck` — must pass with zero errors in changed files
    - `pnpm lint` — must pass
 

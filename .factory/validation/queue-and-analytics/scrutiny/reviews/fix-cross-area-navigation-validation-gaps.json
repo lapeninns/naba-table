@@ -1,0 +1,40 @@
+{
+  "featureId": "fix-cross-area-navigation-validation-gaps",
+  "reviewedAt": "2026-03-24T19:17:32Z",
+  "commitId": "e243889008f9295cbd2d87c67eb10960f2a8c6bd",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The fix repaired local dev-harness reachability and Playwright lock conflicts, but it still does not satisfy the original scrutiny blocker requiring explicit proof that restaurant switching resets tab/filter/page state and reloads the new restaurant context.",
+    "issues": [
+      {
+        "file": "tests/e2e/ops-email-delivery-dev-harness.spec.ts",
+        "line": 21,
+        "severity": "blocking",
+        "description": "The required browser proof for restaurant switching was removed from the harness spec. The updated test now stops after verifying Queue and Analytics tabs, so it no longer exercises switching to the second restaurant or asserts reset/reload behavior after the switch."
+      },
+      {
+        "file": "tests/components/OpsEmailDeliveryClient.test.tsx",
+        "line": 797,
+        "severity": "blocking",
+        "description": "The new component coverage only verifies that the restaurant switch trigger is rendered while the client is seeded with non-default tab/filter/page params. It does not simulate selecting the second restaurant or assert that tab, filters, and pagination reset before reloading data for the new restaurant context."
+      },
+      {
+        "file": "src/components/features/email-delivery/OpsEmailDeliveryClient.tsx",
+        "line": 352,
+        "severity": "blocking",
+        "description": "The restaurant-reset code path still depends on an actual restaurantId transition, but the handoff explicitly says browser automation could not reliably perform the switch. Because this fix did not add working end-to-end or component proof that the transition occurs and reloads the new context, the original scrutiny failure remains unresolved."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The fullstack-worker skill still lacks a concrete fallback workflow for validating ops-shell restaurant switching when browser automation cannot open the switcher. That gap led this fix to drop the critical switch assertion while still reporting success.",
+      "evidence": ".factory/skills/fullstack-worker/SKILL.md step 7 requires manual verification of interactive UI behavior, but the handoff for worker session 8f3a1086-37de-40b6-bb17-f58d5d773ec5 records `followedProcedure: false` and states the restaurant switch could not be completed in-browser."
+    }
+  ],
+  "addressesFailureFrom": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.factory/validation/queue-and-analytics/scrutiny/reviews/cross-area-navigation.json",
+  "summary": "Fail: the fix solved harness access and Playwright startup conflicts, but it still does not provide the required proof that restaurant switching resets email-delivery state and reloads data for the new restaurant context."
+}

@@ -1,0 +1,24 @@
+{
+  "featureId": "fix-followup-retry-and-queue-fixture-backend-wiring",
+  "reviewedAt": "2026-03-24T22:38:14Z",
+  "commitId": "8f44ce8e",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The fix closes both prior blocking gaps. The authenticated retry mutation now recognizes the deterministic `retry-actions` fixture IDs and routes them through the normal resend flow with membership checks, while the authenticated queue API now parses `queueFixture`/`fixture` and applies the deterministic loading delay needed for validation.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The fullstack-worker skill still assumes direct agent-browser availability in the worker session, but this worker had to delegate browser verification to another worker because agent-browser commands were not exposed here.",
+      "evidence": "Handoff `skillFeedback.deviations` notes step 7 was completed via delegated worker verification; `.factory/skills/fullstack-worker/SKILL.md` step 7 still requires the worker to run agent-browser directly."
+    }
+  ],
+  "addressesFailureFrom": [
+    "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.factory/validation/actions-followup-validation/scrutiny/reviews/actions-followup-fixture-validation-closure.json",
+    "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.factory/validation/actions-followup-validation/scrutiny/reviews/harden-followup-fixture-runtime-observability.json"
+  ],
+  "summary": "Review passed: commit `8f44ce8e` fixes the authenticated backend wiring that previously blocked follow-up validation by making retry fixture rows retryable end-to-end and by honoring queue fixture params on `/api/ops/email-queue`. The remaining browser-surface visibility notes in the handoff are non-blocking UI observability gaps, not regressions in the backend routes under review."
+}

@@ -1,0 +1,82 @@
+{
+  "groupId": "tab-navigation",
+  "testedAt": "2026-03-24T14:23:32.580933+00:00",
+  "isolation": {
+    "appUrl": "http://app.localhost:3000/email-delivery",
+    "signinUrl": "http://app.localhost:3000/auth/signin",
+    "browserSession": "d6028d66722d__u2",
+    "port": 3000
+  },
+  "toolsUsed": ["agent-browser"],
+  "assertions": [
+    {
+      "id": "VAL-CROSS-001",
+      "title": "Tab navigation preserves restaurant context",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Open /app/email-delivery after signing in",
+          "expected": "Email Delivery route loads with restaurant context and tab UI",
+          "observed": "Route resolved to /email-delivery?restaurantId=a050d1ad-1ee0-4ea0-abc2-22c3778aa52c with Delivery Log tab visible."
+        },
+        {
+          "action": "Switch from Delivery Log to Queue",
+          "expected": "Queue tab opens, restaurant context remains selected, and no full page reload occurs",
+          "observed": "Queue tab opened and URL kept restaurantId, but the browser recorded a fetch to /email-delivery?...&tab=queue&_rsc=... indicating a route-level server component refresh rather than pure client-side tab content swap."
+        },
+        {
+          "action": "Switch from Queue to Analytics and back to Delivery Log",
+          "expected": "Restaurant context remains stable across tabs with no full page reload behavior",
+          "observed": "restaurantId remained stable across tab changes, but Analytics triggered repeated GET requests to /email-delivery?...&tab=analytics&_rsc=..., so the no-full-page-reload expectation was not met."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "layout-and-delivery-table/tab-navigation/delivery-log-initial.png",
+          "layout-and-delivery-table/tab-navigation/queue-tab.png",
+          "layout-and-delivery-table/tab-navigation/analytics-tab.png",
+          "layout-and-delivery-table/tab-navigation/delivery-log-return.png"
+        ],
+        "consoleErrors": "none",
+        "network": "GET /api/ops/email-queue?restaurantId=a050d1ad-1ee0-4ea0-abc2-22c3778aa52c&page=1&pageSize=25 on Queue tab; repeated GET /email-delivery?restaurantId=a050d1ad-1ee0-4ea0-abc2-22c3778aa52c&tab=analytics&_rsc=l0zkx on Analytics tab"
+      },
+      "issues": "Restaurant context was preserved, but tab changes triggered route-level _rsc fetches, so the flow did not satisfy the contract's no full-page reload behavior."
+    },
+    {
+      "id": "VAL-CROSS-002",
+      "title": "URL deep-link to specific tab",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Navigate directly to /app/email-delivery?tab=queue",
+          "expected": "Queue tab opens from the URL",
+          "observed": "Route resolved to /email-delivery?tab=queue&restaurantId=a050d1ad-1ee0-4ea0-abc2-22c3778aa52c and Queue tab content was displayed."
+        },
+        {
+          "action": "Navigate directly to /app/email-delivery?tab=analytics",
+          "expected": "Analytics tab opens from the URL",
+          "observed": "Route resolved to /email-delivery?tab=analytics&restaurantId=a050d1ad-1ee0-4ea0-abc2-22c3778aa52c and Analytics tab was selected."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "layout-and-delivery-table/tab-navigation/queue-via-url.png",
+          "layout-and-delivery-table/tab-navigation/analytics-via-url.png"
+        ],
+        "consoleErrors": "none",
+        "network": "Direct URL navigation resolved correctly for queue and analytics tabs"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [
+    {
+      "description": "The authenticated route is mounted at /email-delivery; opening /app/email-delivery redirects there while preserving query params and restaurantId.",
+      "resolved": true,
+      "resolution": "Validated assertions against the resolved authenticated route URLs after redirect.",
+      "affectedAssertions": ["VAL-CROSS-001", "VAL-CROSS-002"]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 2 assertions: 1 passed, 1 failed. Deep-linking to queue/analytics works, but tab switching preserved restaurant context while still issuing route-level _rsc fetches, so the no-full-page-reload requirement failed."
+}

@@ -1,0 +1,59 @@
+{
+  "groupId": "tab-switching",
+  "testedAt": "2026-03-24T17:09:52Z",
+  "isolation": {
+    "browserSurface": "http://app.localhost:3000/email-delivery",
+    "loginUrl": "http://app.localhost:3000/auth/signin",
+    "browserSessionId": "a4a895b93f8d__u2",
+    "credentials": "oldcrown@lapeninns.com / OldCrown@2025"
+  },
+  "toolsUsed": ["agent-browser"],
+  "assertionResults": [
+    {
+      "id": "VAL-CROSS-001",
+      "title": "Tab navigation preserves restaurant context",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Open the authenticated Email Delivery page",
+          "expected": "Delivery Log tab loads for the selected restaurant context",
+          "observed": "Opened /email-delivery with URL http://app.localhost:3000/email-delivery?restaurantId=a050d1ad-1ee0-4ea0-abc2-22c3778aa52c and page text included the restaurant context 'Old Crown'."
+        },
+        {
+          "action": "Switch from Delivery Log to Queue",
+          "expected": "Queue content appears client-side while preserving restaurant context and avoiding a full page reload",
+          "observed": "Queue tab rendered queue controls/content such as 'Scheduled', 'Ready now', 'Sending now', and 'Needs attention'. URL changed to ?tab=queue, request log showed GET /api/ops/email-queue?restaurantId=a050d1ad-1ee0-4ea0-abc2-22c3778aa52c&page=1&pageSize=25, and the browser PerformanceNavigationTiming remained a single initial 'navigate' entry, indicating no full page reload. Restaurant context remained visible as 'Old Crown'."
+        },
+        {
+          "action": "Switch from Queue to Analytics",
+          "expected": "Analytics content appears client-side while preserving restaurant context and avoiding a full page reload",
+          "observed": "Analytics tab rendered metrics content including 'Total attempts 1', 'Delivered 0 0% delivered', and 'More metrics'. URL became http://app.localhost:3000/email-delivery?tab=analytics, PerformanceNavigationTiming still showed only the original navigation entry, and restaurant context 'Old Crown' remained present."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "/Users/amankumarshrestha/.factory/missions/b33b93a4-d8e4-4cd7-9eed-0dc2e8cb2915/evidence/layout-and-delivery-table/tab-switching/VAL-CROSS-001-delivery-log.png",
+          "/Users/amankumarshrestha/.factory/missions/b33b93a4-d8e4-4cd7-9eed-0dc2e8cb2915/evidence/layout-and-delivery-table/tab-switching/VAL-CROSS-001-queue.png",
+          "/Users/amankumarshrestha/.factory/missions/b33b93a4-d8e4-4cd7-9eed-0dc2e8cb2915/evidence/layout-and-delivery-table/tab-switching/VAL-CROSS-001-analytics.png"
+        ],
+        "consoleErrors": "none",
+        "network": [
+          "GET /api/ops/email-delivery?restaurantId=a050d1ad-1ee0-4ea0-abc2-22c3778aa52c&range=7d&page=1&pageSize=50",
+          "GET /api/ops/email-queue?restaurantId=a050d1ad-1ee0-4ea0-abc2-22c3778aa52c&page=1&pageSize=25"
+        ],
+        "clientSideTransition": "Observed URL param updates (?tab=queue, ?tab=analytics) with only one PerformanceNavigationTiming entry of type 'navigate' for the initial page load; no route-level full page reload observed during tab switches."
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [
+    {
+      "description": "Password login redirected to /dashboard instead of /email-delivery after sign-in, so the test needed a direct navigation back to the assigned page before tab validation.",
+      "resolved": true,
+      "resolution": "Navigated directly to http://app.localhost:3000/email-delivery after successful authentication and continued validation in the same browser session.",
+      "affectedAssertions": ["VAL-CROSS-001"]
+    }
+  ],
+  "blockers": [],
+  "summary": "VAL-CROSS-001 passed. Delivery Log, Queue, and Analytics each rendered tab-specific content, preserved the Old Crown restaurant context, and switched client-side without evidence of a full page reload."
+}
