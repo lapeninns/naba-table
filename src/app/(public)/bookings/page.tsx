@@ -1,6 +1,7 @@
 import { CalendarCheck, UtensilsCrossed } from 'lucide-react';
 import Link from 'next/link';
 
+import { GuestPageShell, GuestSurfaceCard } from '@/components/guest/ui/GuestPrimitives';
 import { Button } from '@/components/ui/button';
 
 import type { Metadata } from 'next';
@@ -12,9 +13,8 @@ export const metadata: Metadata = {
 
 export default function BookingsLandingPage() {
   return (
-    <div className="min-h-screen bg-surface-warm pb-20">
-      {/* Hero Section */}
-      <section className="border-b border-slate-100 bg-gradient-hero">
+    <GuestPageShell
+      hero={
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-12 sm:gap-6 sm:px-6 sm:py-16 lg:py-20">
           <div className="animate-fade-in-up space-y-2 sm:space-y-3">
             <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Bookings</p>
@@ -24,16 +24,12 @@ export default function BookingsLandingPage() {
             </p>
           </div>
         </div>
-      </section>
-
-      {/* Cards */}
-      <main id="main-content" className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
-        <section
-          className="stagger-container grid gap-6 sm:grid-cols-2"
-          aria-label="Booking actions"
-        >
+      }
+      contentClassName="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14"
+    >
+      <section className="stagger-container grid gap-6 sm:grid-cols-2" aria-label="Booking actions">
           {/* Book a table */}
-          <div className="animate-fade-in-up rounded-2xl border border-border bg-background p-6 shadow-sm sm:p-8">
+          <GuestSurfaceCard className="animate-fade-in-up rounded-2xl p-6 sm:p-8">
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
               <UtensilsCrossed className="h-5 w-5" />
             </div>
@@ -50,10 +46,10 @@ export default function BookingsLandingPage() {
                 <Link href="/restaurants">Browse restaurants</Link>
               </Button>
             </div>
-          </div>
+          </GuestSurfaceCard>
 
           {/* Manage bookings */}
-          <div className="animate-fade-in-up rounded-2xl border border-border bg-background p-6 shadow-sm sm:p-8">
+          <GuestSurfaceCard className="animate-fade-in-up rounded-2xl p-6 sm:p-8">
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
               <CalendarCheck className="h-5 w-5" />
             </div>
@@ -78,9 +74,8 @@ export default function BookingsLandingPage() {
                 <Link href="/auth/signin?redirectedFrom=/bookings">Sign in</Link>
               </Button>
             </div>
-          </div>
-        </section>
-      </main>
-    </div>
+          </GuestSurfaceCard>
+      </section>
+    </GuestPageShell>
   );
 }

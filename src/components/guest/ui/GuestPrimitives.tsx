@@ -56,6 +56,55 @@ export function TextBody({
   return <p className={cn('text-body-warm', className)}>{children}</p>;
 }
 
+type GuestPageShellProps = {
+  hero?: ReactNode;
+  children: ReactNode;
+  className?: string;
+  contentClassName?: string;
+};
+
+export function GuestPageShell({
+  hero,
+  children,
+  className,
+  contentClassName,
+}: GuestPageShellProps) {
+  return (
+    <div className={cn('guest-page-shell min-h-full bg-surface-warm pb-20', className)}>
+      {hero ? <section className="guest-shell-hero border-b border-border/50 bg-gradient-hero">{hero}</section> : null}
+      <div className={cn('guest-shell-content guest-page', contentClassName)}>{children}</div>
+    </div>
+  );
+}
+
+type GuestPageSectionProps = SectionProps;
+
+export function GuestPageSection(props: GuestPageSectionProps) {
+  return <GuestSection {...props} className={cn('guest-section', props.className)} />;
+}
+
+type GuestSurfaceCardProps = ComponentPropsWithoutRef<'div'> & {
+  children: ReactNode;
+};
+
+export function GuestSurfaceCard({
+  className,
+  children,
+  ...rest
+}: GuestSurfaceCardProps) {
+  return (
+    <div
+      className={cn(
+        'guest-surface-card rounded-3xl border border-border bg-background shadow-[0_1px_2px_rgba(0,0,0,0.05)]',
+        className,
+      )}
+      {...rest}
+    >
+      {children}
+    </div>
+  );
+}
+
 /* ============================================================================
    LAYOUT PRIMITIVES
    ============================================================================ */
