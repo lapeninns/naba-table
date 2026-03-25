@@ -1,0 +1,21 @@
+{
+  "restaurantId": "a120da71-ba6d-446f-a33a-2e78787abcb0",
+  "restaurantSlug": "the-old-school-house",
+  "user": {
+    "id": "073c7a02-b935-48fc-b4d7-1f85b6d649ff",
+    "email": "oldschoolhouse@lapeninns.com"
+  },
+  "role": "manager",
+  "beforeMemberships": [],
+  "afterMemberships": [
+    {
+      "restaurantId": "a120da71-ba6d-446f-a33a-2e78787abcb0",
+      "role": "manager"
+    }
+  ],
+  "reviewUrl": "https://www.google.com/maps/place/The+Old+School+House/@52.0557627,-0.8504611,17z/data=!3m1!4b1!4m6!3m5!1s0x487701c45888b76d:0xaeebe77da7ae4e4e!8m2!3d52.0557627!4d-0.8504611!16s%2Fg%2F11sn_2wv7s?hl=en-GB&entry=ttu",
+  "notes": [
+    "The auth user already existed and did not need to be created.",
+    "The stored review URL was re-verified and left unchanged because it already points to the canonical Google Maps place page for the venue."
+  ]
+}

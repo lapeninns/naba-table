@@ -1,0 +1,24 @@
+{
+  "applied": true,
+  "verification": {
+    "restaurant": {
+      "id": "a120da71-ba6d-446f-a33a-2e78787abcb0",
+      "name": "The Old School House",
+      "slug": "the-old-school-house-stony-stratford",
+      "address": "London Rd, Stony Stratford, Milton Keynes MK11 1JA",
+      "contact_email": "oldschoolhouse@lapeninns.com",
+      "google_map_url": "https://www.google.com/maps/dir/?api=1&destination=London%20Rd%2C%20Stony%20Stratford%2C%20Milton%20Keynes%20MK11%201JA&travelmode=driving"
+    },
+    "weeklyHours": 7,
+    "servicePeriods": 14,
+    "zones": 4,
+    "tables": 18,
+    "memberships": [
+      {
+        "user_id": "b9afc366-0b44-48cc-af91-3a9062df9fd0",
+        "role": "manager"
+      }
+    ],
+    "adjacencyRowsWhereTableAInTarget": 36
+  }
+}

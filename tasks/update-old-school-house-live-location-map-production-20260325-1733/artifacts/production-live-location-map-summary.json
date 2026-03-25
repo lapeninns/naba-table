@@ -1,0 +1,18 @@
+{
+  "restaurantId": "a120da71-ba6d-446f-a33a-2e78787abcb0",
+  "appliedAtUtc": "2026-03-25T17:34:36.074923+00:00",
+  "before": {
+    "slug": "the-old-school-house",
+    "googleReviewUrl": "https://search.google.com/local/writereview?placeid=ChIJbbeIWMQBd0gRTk6up33n664",
+    "googleMapUrl": "https://www.google.com/maps/dir/52.2425722,0.0814095/The+Old+School+House,+London+Rd,+Stony+Stratford,+Milton+Keynes+MK11+1JA/@52.1793596,-0.7110939,10z/data=!3m1!4b1!4m10!4m9!1m1!4e1!1m5!1m1!1s0x487701c45888b76d:0xaeebe77da7ae4e4e!2m2!1d-0.8504611!2d52.0557627!3e0?entry=ttu&g_ep=EgoyMDI2MDMyMy4xIKXMDSoASAFQAw%3D%3D"
+  },
+  "after": {
+    "slug": "the-old-school-house",
+    "googleReviewUrl": "https://search.google.com/local/writereview?placeid=ChIJbbeIWMQBd0gRTk6up33n664",
+    "googleMapUrl": "https://www.google.com/maps/dir/?api=1&destination=The+Old+School+House,+London+Rd,+Stony+Stratford,+Milton+Keynes+MK11+1JA&travelmode=driving"
+  },
+  "notes": [
+    "The review URL was intentionally left unchanged.",
+    "The map URL now omits a fixed origin so Google Maps can use the customer's current location when available."
+  ]
+}
