@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getRestaurantBySlug } from '@/server/restaurants/getRestaurantBySlug';
 import { listRestaurants } from '@/server/restaurants/listRestaurants';
+import BookingLoadingPage from '@src/app/(public)/(marketing)/restaurants/[slug]/book/loading';
 import BookingPage from '@src/app/(public)/(marketing)/restaurants/[slug]/book/page';
 import RestaurantPage from '@src/app/(public)/(marketing)/restaurants/[slug]/page';
 import RestaurantsPage from '@src/app/(public)/(marketing)/restaurants/page';
@@ -126,6 +127,12 @@ describe('public restaurant marketing pages', () => {
     render(await BookingPage({ params: Promise.resolve({ slug: 'the-fox' }) }));
 
     expect(screen.getByText('Wizard for The Fox')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Finish booking with calm, guided steps.' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Review live availability for The Fox and complete your reservation/i),
+    ).toBeInTheDocument();
   });
 
   it('returns notFound when booking restaurant is missing', async () => {
@@ -135,5 +142,17 @@ describe('public restaurant marketing pages', () => {
       BookingPage({ params: Promise.resolve({ slug: 'missing' }) }),
     ).rejects.toThrow('NEXT_NOT_FOUND');
     expect(notFound).toHaveBeenCalled();
+  });
+
+  it('renders deterministic loading feedback for restaurant booking entry', () => {
+    render(<BookingLoadingPage />);
+
+    expect(
+      screen.getByRole('heading', { name: 'Preparing your booking experience…' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('We’re confirming the restaurant details and the next available booking steps.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('status')).toBeInTheDocument();
   });
 });

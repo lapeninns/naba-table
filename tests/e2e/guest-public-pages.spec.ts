@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-const appBaseUrl = 'http://localhost:5180';
+const appBaseUrl = 'http://localhost:3000';
 
 test.describe('public booking pages', () => {
   test.use({ baseURL: appBaseUrl });
@@ -10,7 +10,7 @@ test.describe('public booking pages', () => {
 
     const actions = page.getByRole('region', { name: 'Booking actions' });
 
-    await expect(page.getByRole('heading', { name: 'Bookings', level: 1 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Your Reservations', level: 1 })).toBeVisible();
     await expect(actions.getByRole('link', { name: 'Browse restaurants' })).toBeVisible();
     await expect(actions.getByRole('link', { name: 'View my bookings' })).toBeVisible();
   });
@@ -22,5 +22,19 @@ test.describe('public booking pages', () => {
     await expect(
       page.getByText('missing recovery information', { exact: false }),
     ).toBeVisible();
+  });
+
+  test('invalid restaurant detail and book routes resolve to the guest not-found experience', async ({
+    page,
+  }) => {
+    await page.goto('/restaurants/not-a-real-restaurant');
+
+    await expect(page.getByRole('heading', { name: 'We couldn’t find that restaurant page.' })).toBeVisible();
+    await expect(page.locator('#main-content').getByRole('link', { name: 'Browse restaurants' })).toBeVisible();
+
+    await page.goto('/restaurants/not-a-real-restaurant/book');
+
+    await expect(page.getByRole('heading', { name: 'We couldn’t find that restaurant page.' })).toBeVisible();
+    await expect(page.locator('#main-content').getByRole('link', { name: 'Go to bookings' })).toBeVisible();
   });
 });

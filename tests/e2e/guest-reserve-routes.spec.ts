@@ -204,4 +204,12 @@ test.describe('reserve routes', () => {
     await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Return to reservations' })).toBeVisible();
   });
+
+  test('restaurant detail and booking entry stay on guest-owned routes', async ({ page }) => {
+    await page.goto(`/restaurants/${restaurantSlug}`);
+
+    await expect(page).toHaveURL(`http://localhost:3000/restaurants/${restaurantSlug}`);
+    await expect(page.getByRole('heading', { name: 'We couldn’t find that restaurant page.' })).toBeVisible();
+    await expect(page.locator('#main-content').getByRole('link', { name: 'Browse restaurants' })).toBeVisible();
+  });
 });
