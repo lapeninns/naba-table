@@ -11,6 +11,7 @@ vi.mock('next/navigation', () => ({ redirect }));
 
 import LegacyBookingThankYouRedirect from '@src/app/(public)/bookings/[bookingId]/thank-you/page';
 import BookingDetailPage from '@src/app/(public)/bookings/[bookingId]/page';
+import GuestThankYouRedirect from '@src/app/guest/thank-you/page';
 import { handleRouting } from '@src/proxy';
 
 describe('public booking redirects', () => {
@@ -33,6 +34,13 @@ describe('public booking redirects', () => {
     expect(url.pathname).toBe('/guest/bookings/booking-1/receipt');
     expect(url.searchParams.get('token')).toBe('abc');
     expect(url.searchParams.get('source')).toBe('email');
+  });
+
+  it('redirects deprecated guest thank-you links into the canonical booking flow', async () => {
+    await expect(() => GuestThankYouRedirect()).toThrow('NEXT_REDIRECT:/bookings');
+
+    const [target] = redirect.mock.calls[0] ?? [];
+    expect(target).toBe('/bookings');
   });
 
   it('canonicalizes app-host guest routes back to the guest host', async () => {

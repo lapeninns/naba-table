@@ -4,8 +4,9 @@ export const dynamic = "force-dynamic";
 
 /**
  * Generic /guest/thank-you is deprecated.
- * Redirect to dashboard. Specific receipts should use /guest/bookings/[id]/receipt.
+ * Redirect to the canonical guest booking flow. Specific receipts should use
+ * /guest/bookings/[id]/receipt.
  */
 export default function GuestThankYouRedirect() {
-  redirect("/guest/dashboard");
+  redirect("/bookings");
 }

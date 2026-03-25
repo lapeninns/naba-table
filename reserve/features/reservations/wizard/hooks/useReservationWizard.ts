@@ -64,8 +64,8 @@ export const buildSafeReturnPath = (params: {
       url.searchParams.set('token', bookingReference);
       return `${url.pathname}${url.search}`;
     }
-    // Without a token, avoid the auth-gated receipt redirect
-    return '/guest/thank-you';
+    // Without a token, return to the canonical public booking entry/manage split.
+    return '/bookings';
   }
 
   if (restaurantSlug) {

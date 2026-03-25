@@ -100,6 +100,15 @@ test.describe('guest receipt pages', () => {
     ).toBeVisible();
   });
 
+  test('deprecated generic guest thank-you redirects into the canonical booking flow', async ({ page }) => {
+    await page.goto('/guest/thank-you');
+
+    await expect(page).toHaveURL(`${appBaseUrl}/bookings`);
+    await expect(
+      page.getByRole('heading', { name: /bookings/i }),
+    ).toBeVisible();
+  });
+
   test('receipt page renders booking summary with token access', async ({ page }) => {
     await page.goto(`/guest/bookings/${bookingId}/receipt?token=abc123`);
 
