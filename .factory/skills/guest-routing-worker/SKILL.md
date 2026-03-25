@@ -43,7 +43,7 @@ Use this skill when the primary risk is broken navigation, wrong destination own
    - `pnpm typecheck`
    - `pnpm lint`
 7. Use `agent-browser` to verify final URL, visible destination, and redirect continuity on the real browser surface when the runtime supports it.
-8. If a multi-host behavior cannot be exercised live, add deterministic automated coverage and call that out in the handoff rather than claiming live verification.
+8. For `VAL-FOUNDATION-013` and other multi-host guest/app canonicalization checks, treat the mission-documented local Next.js dev `app.localhost` redirect loop as a possible runtime limitation, not automatic proof of a product bug. If the live check remains blocked after confirming the worktree runtime is current, capture the browser/curl symptom, verify the canonical contract with deterministic automated coverage, and return the limitation in the handoff instead of claiming a live-runtime fix.
 9. Commit only your feature changes in the isolated worktree.
 
 ## Example Handoff
