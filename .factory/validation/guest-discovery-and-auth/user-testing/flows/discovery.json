@@ -1,0 +1,232 @@
+{
+  "groupId": "discovery",
+  "testedAt": "2026-03-25T11:26:00Z",
+  "isolation": {
+    "appUrl": "http://localhost:3000",
+    "missionDir": "/Users/amankumarshrestha/.factory/missions/7b467445-b8da-4b80-8252-ffa00b1ed7eb",
+    "browserSession": "892af0aa8e93__u2",
+    "routes": [
+      "/",
+      "/restaurants",
+      "/restaurants/seed-perf-r001",
+      "/restaurants/seed-perf-r001/book"
+    ],
+    "slug": "seed-perf-r001"
+  },
+  "toolsUsed": ["agent-browser"],
+  "assertions": [
+    {
+      "id": "VAL-DISCOVERY-001",
+      "title": "The landing page presents a warm guest-first hierarchy",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Open /",
+          "expected": "Guest landing page renders with visible primary CTA above the fold",
+          "observed": "Landing page rendered with guest shell and visible CTAs including 'Browse restaurants ready to book' and 'Manage an existing booking'."
+        }
+      ],
+      "evidence": {
+        "screenshots": ["guest-discovery-and-auth/discovery/VAL-DISCOVERY-001-home.png"],
+        "consoleErrors": "none on initial landing capture",
+        "network": "document GET / -> 200 (page loaded in browser)"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-DISCOVERY-002",
+      "title": "Authenticated guests entering home are sent to the guest dashboard",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Assess ability to validate signed-in home redirect",
+          "expected": "Signed-in guest session available or supported mocked auth entry",
+          "observed": "No guest credentials or authenticated fixture were provided for live browser validation, and assignment scope restricted work to guest/public discovery routes only."
+        }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "not applicable",
+        "network": "not exercised"
+      },
+      "issues": "Blocked because a signed-in guest session was not available in the assigned live browser surface."
+    },
+    {
+      "id": "VAL-DISCOVERY-003",
+      "title": "Restaurant discovery pages share the guest system\u2019s shell and component language",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Open /restaurants",
+          "expected": "Restaurants listing uses guest shell and guest card language",
+          "observed": "Listing rendered with guest header/footer shell and consistent restaurant cards."
+        },
+        {
+          "action": "Open /restaurants/seed-perf-r001",
+          "expected": "Restaurant detail preserves guest shell and CTA styling",
+          "observed": "Detail page retained guest shell and a primary booking CTA."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "guest-discovery-and-auth/discovery/VAL-DISCOVERY-003-restaurants-list.png",
+          "guest-discovery-and-auth/discovery/VAL-DISCOVERY-003-restaurant-detail.png"
+        ],
+        "consoleErrors": "none observed on listing/detail captures",
+        "network": "document GET /restaurants -> 200; document GET /restaurants/seed-perf-r001 -> 200"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-DISCOVERY-004",
+      "title": "Restaurant discovery pages provide explicit booking entry points",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Inspect /restaurants list cards",
+          "expected": "Explicit booking and detail actions visible",
+          "observed": "Each visible restaurant card exposed 'View details' and 'Book now'."
+        },
+        {
+          "action": "Inspect /restaurants/seed-perf-r001",
+          "expected": "Detail page exposes a clear booking action",
+          "observed": "Detail page exposed 'Book a table at Seed Perf Restaurant 001'."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "guest-discovery-and-auth/discovery/VAL-DISCOVERY-003-restaurants-list.png",
+          "guest-discovery-and-auth/discovery/VAL-DISCOVERY-003-restaurant-detail.png"
+        ],
+        "consoleErrors": "none observed on listing/detail captures",
+        "network": "not separately captured beyond page loads"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-DISCOVERY-005",
+      "title": "Discovery empty states are explicit and calm",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Attempt empty-state validation with /restaurants?location=nowhere-impossible-query",
+          "expected": "Filtered discovery state with no matches should render explicit empty state",
+          "observed": "The listing still rendered restaurants, so no empty-state variant was reachable from the assigned live surface."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "guest-discovery-and-auth/discovery/VAL-DISCOVERY-005-empty-state-attempt.png"
+        ],
+        "consoleErrors": "none captured during empty-state attempt",
+        "network": "document GET /restaurants?location=nowhere-impossible-query -> 200"
+      },
+      "issues": "Blocked because the current local discovery surface did not expose an empty-state fixture or filter path that produced zero restaurants."
+    },
+    {
+      "id": "VAL-DISCOVERY-006",
+      "title": "Restaurant booking entry pages retain the guest system and deterministic initialization feedback",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Open /restaurants/seed-perf-r001/book via detail CTA",
+          "expected": "Booking entry keeps guest shell and shows loading/initialization feedback",
+          "observed": "Booking entry rendered inside the guest shell; an initial capture and loaded capture were both recorded on the route."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "guest-discovery-and-auth/discovery/VAL-DISCOVERY-006-book-route.png",
+          "guest-discovery-and-auth/discovery/VAL-DISCOVERY-006-book-route-loaded.png"
+        ],
+        "consoleErrors": "none observed on booking-entry route",
+        "network": "document GET /restaurants/seed-perf-r001/book -> 200; browser request log did not surface tracked API entries"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-DISCOVERY-012",
+      "title": "Invalid restaurant slugs resolve to stable guest-visible not-found states",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Open /restaurants/does-not-exist",
+          "expected": "Stable not-found experience",
+          "observed": "Page title and screenshot showed a guest-visible restaurant not-found state."
+        },
+        {
+          "action": "Open /restaurants/does-not-exist/book",
+          "expected": "Stable not-found booking-entry experience",
+          "observed": "Book route showed a guest-visible not-found state rather than broken content."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "guest-discovery-and-auth/discovery/VAL-DISCOVERY-012-invalid-detail.png",
+          "guest-discovery-and-auth/discovery/VAL-DISCOVERY-012-invalid-book.png"
+        ],
+        "consoleErrors": "none observed on invalid-slug pages",
+        "network": "document GET /restaurants/does-not-exist -> rendered not-found page; document GET /restaurants/does-not-exist/book -> rendered not-found page"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-001",
+      "title": "Public discovery flows into booking entry without leaving the guest system",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Open / and capture starting state",
+          "expected": "Guest landing page remains guest-owned",
+          "observed": "Landing page rendered with guest shell and guest CTAs."
+        },
+        {
+          "action": "Navigate from / to /restaurants and choose Book now for seed-perf-r001",
+          "expected": "Flow lands on /restaurants/seed-perf-r001/book without entering /app or ops/admin chrome",
+          "observed": "Navigation ended at http://localhost:3000/restaurants/seed-perf-r001/book and remained within guest routes."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "guest-discovery-and-auth/discovery/VAL-CROSS-001-home-start.png",
+          "guest-discovery-and-auth/discovery/VAL-CROSS-001-book-route.png"
+        ],
+        "consoleErrors": "Landing capture logged a hydration mismatch console error after returning from prior route navigation; booking route itself showed no route-ownership break or app-shell crossover.",
+        "network": "document GET / -> 200; document navigation to /restaurants/seed-perf-r001/book completed on root host"
+      },
+      "issues": "Non-blocking hydration mismatch console error appeared on a later landing-page revisit during evidence capture."
+    }
+  ],
+  "frictions": [
+    {
+      "description": "The home page CTA 'Explore restaurants' did not navigate away from /. I used the visible 'Browse restaurants ready to book' CTA and direct /restaurants navigation to continue validation.",
+      "resolved": true,
+      "resolution": "Validated the discovery flow through the alternate primary CTA and direct route open.",
+      "affectedAssertions": ["VAL-DISCOVERY-001", "VAL-CROSS-001"]
+    },
+    {
+      "description": "A landing-page revisit produced a React hydration mismatch console error while capturing cross-flow evidence.",
+      "resolved": false,
+      "resolution": "Recorded the console error in assertion evidence; did not investigate beyond assigned validation scope.",
+      "affectedAssertions": ["VAL-CROSS-001"]
+    }
+  ],
+  "blockers": [
+    {
+      "description": "No authenticated guest session or supported auth fixture was available for live validation of the signed-in home redirect.",
+      "affectedAssertions": ["VAL-DISCOVERY-002"],
+      "quickFixAttempted": "Reviewed assignment guidance and available live routes; no safe authenticated setup was provided within scope."
+    },
+    {
+      "description": "The local discovery surface did not expose an empty-result state for restaurants, including a filtered query attempt.",
+      "affectedAssertions": ["VAL-DISCOVERY-005"],
+      "quickFixAttempted": "Tried /restaurants?location=nowhere-impossible-query, but results still rendered normally."
+    }
+  ],
+  "knowledge": [
+    "Stable local public restaurant slug for this runtime is seed-perf-r001.",
+    "The public restaurants listing currently renders many seeded restaurants with explicit 'View details' and 'Book now' links.",
+    "Invalid restaurant detail and booking-entry slugs return stable guest-visible not-found pages on localhost:3000."
+  ],
+  "summary": "Tested 8 assigned assertions: 5 passed and 3 were blocked (authenticated-home redirect unavailable; discovery empty-state fixture unavailable). Evidence was captured for all exercised UI routes, and one non-blocking hydration mismatch console error was observed during the cross-flow landing-page revisit."
+}
