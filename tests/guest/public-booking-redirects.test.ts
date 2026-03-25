@@ -103,4 +103,43 @@ describe('public booking redirects', () => {
 
     expect(rootResponse.status).toBe(200);
   });
+
+  it('redirects root-host protected guest routes to sign-in with a safe redirectedFrom after canonicalization', async () => {
+    const appHostRequest = new NextRequest('http://app.localhost:3000/guest/bookings?tab=upcoming', {
+      headers: { host: 'app.localhost:3000' },
+    });
+    const appHostResponse = await handleRouting(appHostRequest);
+
+    expect(appHostResponse.status).toBe(308);
+    expect(appHostResponse.headers.get('location')).toBe(
+      'http://localhost:3000/guest/bookings?tab=upcoming',
+    );
+  });
+
+  it('protects root-host guest routes with a sign-in redirect that preserves safe redirectedFrom', async () => {
+    const getUser = vi.fn().mockResolvedValue({ data: { user: null } });
+
+    vi.doMock('@/server/supabase', () => ({
+      getServerComponentSupabaseClient: () =>
+        Promise.resolve({
+          auth: {
+            getUser,
+          },
+        }),
+    }));
+
+    const { default: GuestBookingsPage } = await import('@src/app/guest/bookings/page');
+
+    await expect(
+      GuestBookingsPage({
+        searchParams: Promise.resolve({ tab: 'upcoming' }),
+      }),
+    ).rejects.toThrow('NEXT_REDIRECT');
+
+    const [target] = redirect.mock.calls.at(-1) ?? [];
+    expect(target).toBe('/auth/signin?redirectedFrom=%2Fguest%2Fbookings');
+    expect(getUser).toHaveBeenCalledTimes(1);
+
+    vi.doUnmock('@/server/supabase');
+  });
 });
