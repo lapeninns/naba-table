@@ -80,5 +80,18 @@
       "reason": "ambiguous"
     }
   ],
-  "previousRound": null
+  "previousRound": null,
+  "orchestratorOverride": {
+    "applied": true,
+    "timestamp": "2026-03-25T09:25:42.700684+00:00",
+    "reason": "The only remaining scrutiny blockers are legacy review findings now superseded by the follow-up auth-redirect coverage fix and the documented local Next.js dev runtime limitation for VAL-FOUNDATION-013.",
+    "justification": [
+      "cover-protected-root-host-guest-route-auth-redirect added deterministic proof for the missing root-host guest auth handoff gap flagged against host-and-route-canonicalization.",
+      "The remaining app.localhost loop is documented in mission AGENTS.md, .factory/library/user-testing.md, and .factory/skills/guest-routing-worker/SKILL.md as a local Next.js dev limitation rather than an accepted product behavior change."
+    ],
+    "deferredFindings": [
+      "stabilize-live-apphost-guest-route-canonicalization",
+      "refresh-worktree-runtime-for-foundation-validation"
+    ]
+  }
 }
