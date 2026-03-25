@@ -58,14 +58,14 @@ import type { BookingDTO } from '@/hooks/useBookings';
 import type { Reservation } from '@entities/reservation/reservation.schema';
 
 const CancelBookingDialog = dynamic(
-  () => import('@/components/dashboard/CancelBookingDialog').then((m) => m.CancelBookingDialog),
+  () => import('../../../../../components/dashboard/CancelBookingDialog').then((m) => m.CancelBookingDialog),
   {
     loading: () => <div className="h-10" />, // lightweight placeholder
   },
 );
 
 const EditBookingDialog = dynamic(
-  () => import('@/components/dashboard/EditBookingDialog').then((m) => m.EditBookingDialog),
+  () => import('../../../../../components/dashboard/EditBookingDialog').then((m) => m.EditBookingDialog),
   {
     loading: () => <div className="h-10" />,
   },

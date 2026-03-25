@@ -24,6 +24,17 @@ test.describe('public booking pages', () => {
     ).toBeVisible();
   });
 
+  test('booking recovery error shows deprecated legacy-link next steps', async ({ page }) => {
+    await page.goto('/bookings/recover/error?code=LEGACY_TOKEN_DEPRECATED');
+
+    await expect(page.getByRole('heading', { name: 'Link is outdated' })).toBeVisible();
+    await expect(
+      page.getByText('Please use the latest link from your email or sign in', { exact: false }),
+    ).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Return home' })).toBeVisible();
+  });
+
   test('invalid restaurant detail and book routes resolve to the guest not-found experience', async ({
     page,
   }) => {

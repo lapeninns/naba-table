@@ -2,14 +2,15 @@ import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const redirect = vi.hoisted(() =>
-  vi.fn(() => {
-    throw new Error('NEXT_REDIRECT');
+  vi.fn((target?: string) => {
+    throw new Error(`NEXT_REDIRECT${target ? `:${target}` : ''}`);
   }),
 );
 
 vi.mock('next/navigation', () => ({ redirect }));
 
 import LegacyBookingThankYouRedirect from '@src/app/(public)/bookings/[bookingId]/thank-you/page';
+import BookingDetailPage from '@src/app/(public)/bookings/[bookingId]/page';
 import { handleRouting } from '@src/proxy';
 
 describe('public booking redirects', () => {
@@ -141,5 +142,27 @@ describe('public booking redirects', () => {
     expect(getUser).toHaveBeenCalledTimes(1);
 
     vi.doUnmock('@/server/supabase');
+  });
+
+  it('routes supported access_token booking links through recovery before the final destination', async () => {
+    await expect(
+      BookingDetailPage({
+        params: Promise.resolve({ bookingId: 'booking-1' }),
+        searchParams: Promise.resolve({ access_token: 'recover-token' }),
+      }),
+    ).rejects.toThrow(
+      'NEXT_REDIRECT:/bookings/recover?access_token=recover-token&next=%2Fbookings%2Fbooking-1',
+    );
+  });
+
+  it('also normalizes accessToken booking links through recovery', async () => {
+    await expect(
+      BookingDetailPage({
+        params: Promise.resolve({ bookingId: 'booking-2' }),
+        searchParams: Promise.resolve({ accessToken: 'recover-token-2' }),
+      }),
+    ).rejects.toThrow(
+      'NEXT_REDIRECT:/bookings/recover?access_token=recover-token-2&next=%2Fbookings%2Fbooking-2',
+    );
   });
 });
