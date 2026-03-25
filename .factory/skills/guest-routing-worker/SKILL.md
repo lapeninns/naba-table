@@ -35,7 +35,7 @@ Use this skill when the primary risk is broken navigation, wrong destination own
 3. Invoke `Style Principles` and simplify the route logic plan before coding. Prefer one central rule over multiple duplicated conditions.
 4. Write tests first (RED):
    - route/unit tests in `tests/guest/**` or `tests/server/**`
-   - Playwright guest-flow tests when the user-visible redirect/canonical path changes
+   - Playwright guest-flow tests when the user-visible redirect/canonical path changes; if the mission reuses the live port-3000 app, use the documented harness mode instead of starting a separate default test server
    - confirm the new or updated test fails before implementation
 5. Implement the route/canonicalization change. Preserve safe query parameters only; never widen redirect acceptance beyond the approved guest/public/app paths.
 6. Run targeted tests until green, then run:
@@ -44,7 +44,7 @@ Use this skill when the primary risk is broken navigation, wrong destination own
    - `pnpm lint`
 7. Use `agent-browser` to verify final URL, visible destination, and redirect continuity on the real browser surface when the runtime supports it.
 8. For `VAL-FOUNDATION-013` and other multi-host guest/app canonicalization checks, treat the mission-documented local Next.js dev `app.localhost` redirect loop as a possible runtime limitation, not automatic proof of a product bug. If the live check remains blocked after confirming the worktree runtime is current, capture the browser/curl symptom, verify the canonical contract with deterministic automated coverage, and return the limitation in the handoff instead of claiming a live-runtime fix.
-9. Commit only your feature changes in the isolated worktree.
+9. Commit only your feature changes in the isolated worktree. If the existing product code already satisfies the assigned behavior, validated test-only or harness/config coverage updates are still acceptable feature output and should be committed rather than returned as partial work.
 
 ## Example Handoff
 
