@@ -201,4 +201,31 @@ describe('signin route magic-link policy', () => {
       ),
     ).toBe(true);
   });
+
+  it('sanitizes unsafe redirect targets and falls back to the guest dashboard', async () => {
+    getServiceSupabaseClientMock.mockReturnValue(
+      buildLookupClient({
+        data: { id: '2db9dc1f-2bf0-4d49-ad66-f345d4ecc7c8' },
+        error: null,
+      }),
+    );
+    sendAuthMagicLinkMock.mockResolvedValue(undefined);
+
+    const response = await POST(
+      buildRequest({
+        mode: 'magic_link',
+        email: 'known@example.com',
+        redirectedFrom: 'https://evil.example/steal',
+      }),
+    );
+
+    expect(response.status).toBe(202);
+    expect(sendAuthMagicLinkMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailRedirectTo: expect.stringContaining(
+          'redirectedFrom=https%3A%2F%2Fwww.localhost%2Fguest%2Fdashboard',
+        ),
+      }),
+    );
+  });
 });

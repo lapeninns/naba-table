@@ -112,4 +112,27 @@ describe('GuestSignInForm CAPTCHA policy', () => {
     ).toBeInTheDocument();
     expect(turnstile.reset).toHaveBeenCalledTimes(1);
   });
+
+  it('shows validation, success, and cooldown feedback for guest magic-link sign-in', async () => {
+    const user = userEvent.setup();
+    installTurnstileMock({ token: 'captcha-token-123' });
+    fetchJsonMock.mockResolvedValueOnce({
+      status: 'magic_link_sent',
+      redirectTo: '/bookings/demo-booking',
+    });
+
+    await renderGuestSignInForm();
+
+    await user.click(screen.getByRole('button', { name: /send magic link/i }));
+    expect(await screen.findByText('Enter your email address')).toBeInTheDocument();
+
+    await user.type(screen.getByPlaceholderText('you@example.com'), 'guest@example.com');
+    await user.click(screen.getByRole('button', { name: /send magic link/i }));
+
+    expect(await screen.findByText('Magic link sent! Check your inbox to finish signing in.')).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /resend in 60s/i })).toBeDisabled();
+    });
+  });
 });
