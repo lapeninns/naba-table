@@ -92,8 +92,8 @@ function createCookieStore(cookies: Array<{ name: string; value: string }> = [])
 
 function createReservation(overrides: Record<string, unknown> = {}) {
   return {
-    id: 'booking-1',
-    restaurantId: 'restaurant-1',
+    id: '11111111-1111-4111-8111-111111111111',
+    restaurantId: '22222222-2222-4222-8222-222222222222',
     restaurantName: 'The Fox',
     restaurantSlug: 'the-fox',
     restaurantTimezone: 'Europe/London',
@@ -181,10 +181,37 @@ describe('public booking pages', () => {
         ok: true,
         json: vi.fn().mockResolvedValue({
           booking: {
-            id: 'booking-1',
-            restaurant_id: 'restaurant-1',
+            id: '11111111-1111-4111-8111-111111111111',
+            restaurant_id: '22222222-2222-4222-8222-222222222222',
             customer_email: 'guest@example.com',
             customer_phone: '+441234567890',
+          },
+        }),
+      } as unknown as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          booking: {
+            id: '11111111-1111-4111-8111-111111111111',
+            restaurant_id: '22222222-2222-4222-8222-222222222222',
+            booking_date: '2026-02-10',
+            start_time: '19:00',
+            end_time: '20:30',
+            start_at: '2026-02-10T19:00:00.000Z',
+            end_at: '2026-02-10T20:30:00.000Z',
+            status: 'confirmed',
+            party_size: 2,
+            customer_name: 'Guest Booker',
+            customer_email: 'guest@example.com',
+            customer_phone: '+441234567890',
+            reference: 'NB1234',
+            booking_type: 'dinner',
+            seating_preference: 'window',
+            restaurants: {
+              name: 'The Fox',
+              slug: 'the-fox',
+              timezone: 'Europe/London',
+            },
           },
         }),
       } as unknown as Response);
@@ -195,13 +222,62 @@ describe('public booking pages', () => {
     });
 
     expect(page).toBeTruthy();
-    expect(global.fetch).toHaveBeenCalledWith('http://localhost:3000/api/bookings/booking-1', {
+    expect(global.fetch).toHaveBeenNthCalledWith(1, 'http://localhost:3000/api/bookings/booking-1', {
       headers: {
         accept: 'application/json',
         cookie: 'sr_access=session-token',
       },
       cache: 'no-store',
     });
+    expect(global.fetch).toHaveBeenNthCalledWith(2, 'http://localhost:3000/api/bookings/booking-1', {
+      headers: {
+        accept: 'application/json',
+        cookie: 'sr_access=session-token',
+      },
+      cache: 'no-store',
+    });
+  });
+
+  it('keeps the first token-stripped landing request on booking detail while recovery entitlement becomes readable', async () => {
+    cookiesMock.mockResolvedValue(createCookieStore([{ name: 'sr_access', value: 'session-token' }]));
+    getUserMock.mockResolvedValue({ data: { user: null } });
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        booking: {
+          id: '11111111-1111-4111-8111-111111111111',
+          restaurant_id: '22222222-2222-4222-8222-222222222222',
+          booking_date: '2026-02-10',
+          start_time: '19:00',
+          end_time: '20:30',
+          start_at: '2026-02-10T19:00:00.000Z',
+          end_at: '2026-02-10T20:30:00.000Z',
+          status: 'confirmed',
+          party_size: 2,
+          customer_name: 'Guest Booker',
+          customer_email: 'guest@example.com',
+          customer_phone: '+441234567890',
+          reference: 'NB1234',
+          booking_type: 'dinner',
+          seating_preference: 'window',
+          restaurants: {
+            name: 'The Fox',
+            slug: 'the-fox',
+            timezone: 'Europe/London',
+          },
+        },
+      }),
+    } as unknown as Response);
+    validateSessionRecoveryAccessTokenMock.mockReturnValueOnce({ ok: true });
+
+    const page = await BookingDetailPage({
+      params: Promise.resolve({ bookingId: 'booking-1' }),
+      searchParams: Promise.resolve({ fixture: 'active' }),
+    });
+
+    expect(page).toBeTruthy();
+    expect(redirect).not.toHaveBeenCalled();
+    expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 
   it('preserves canonical detail query state in unauthenticated manage-route continuity', async () => {
@@ -232,8 +308,8 @@ describe('public booking pages', () => {
       ok: true,
       json: vi.fn().mockResolvedValue({
         booking: {
-          id: 'booking-1',
-          restaurant_id: 'restaurant-1',
+          id: '11111111-1111-4111-8111-111111111111',
+          restaurant_id: '22222222-2222-4222-8222-222222222222',
           booking_date: '2026-02-10',
           start_time: '19:00',
           end_time: '20:30',
@@ -245,6 +321,8 @@ describe('public booking pages', () => {
           customer_email: 'guest@example.com',
           customer_phone: '+441234567890',
           reference: 'NB1234',
+          booking_type: 'dinner',
+          seating_preference: 'window',
           restaurants: {
             name: 'The Fox',
             slug: 'the-fox',
