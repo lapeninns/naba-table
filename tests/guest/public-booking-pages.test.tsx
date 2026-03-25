@@ -21,6 +21,7 @@ const cookiesMock = vi.hoisted(() => vi.fn());
 const getUserMock = vi.hoisted(() => vi.fn());
 const getServerComponentSupabaseClientMock = vi.hoisted(() => vi.fn());
 const validateSessionRecoveryAccessTokenMock = vi.hoisted(() => vi.fn());
+const createSessionRecoveryAccessTokenMock = vi.hoisted(() => vi.fn());
 const pushMock = vi.hoisted(() => vi.fn());
 
 vi.mock('next/navigation', () => ({
@@ -42,6 +43,7 @@ vi.mock('@/server/supabase', () => ({
 }));
 vi.mock('@/server/security/session-recovery-access-token', () => ({
   validateSessionRecoveryAccessToken: validateSessionRecoveryAccessTokenMock,
+  createSessionRecoveryAccessToken: createSessionRecoveryAccessTokenMock,
 }));
 vi.mock('@/lib/site-url', () => ({
   getTrustedSiteOrigin: () => 'http://localhost:3000',
@@ -129,6 +131,7 @@ describe('public booking pages', () => {
       },
     });
     validateSessionRecoveryAccessTokenMock.mockReturnValue({ ok: false, reason: 'invalid' });
+    createSessionRecoveryAccessTokenMock.mockReturnValue('continuation-token');
     global.fetch = vi.fn().mockResolvedValue({
       ok: false,
       json: vi.fn(),
@@ -162,6 +165,35 @@ describe('public booking pages', () => {
         searchParams: Promise.resolve({}),
       }),
     ).rejects.toThrow('NEXT_REDIRECT:/auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Fnext%3D%252Fbookings%252Fbooking-1');
+  });
+
+  it('reconstructs the recovery entrypoint for unauthenticated revisits after token stripping', async () => {
+    cookiesMock.mockResolvedValue(createCookieStore([{ name: 'sr_access', value: 'session-token' }]));
+    getUserMock.mockResolvedValue({ data: { user: null } });
+    process.env.SESSION_RECOVERY_ACCESS_TOKEN_SECRET = 'test-secret';
+    global.fetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          booking: {
+            id: 'booking-1',
+            restaurant_id: 'restaurant-1',
+            customer_email: 'guest@example.com',
+            customer_phone: '+441234567890',
+          },
+        }),
+      } as unknown as Response);
+    createSessionRecoveryAccessTokenMock.mockReturnValueOnce('continuation-token');
+
+    await expect(
+      BookingDetailPage({
+        params: Promise.resolve({ bookingId: 'booking-1' }),
+        searchParams: Promise.resolve({}),
+      }),
+    ).rejects.toThrow(
+      'NEXT_REDIRECT:/auth/signin?redirectedFrom=%2Fbookings%2Frecover%3Faccess_token%3Dcontinuation-token%26next%3D%252Fbookings%252Fbooking-1',
+    );
   });
 
   it('redirects legacy token query access through the recovery error path', async () => {

@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import ReservationDetailClient from '@/components/features/booking/detail/ReservationDetailClient';
 import { getTrustedSiteOrigin } from '@/lib/site-url';
 import { withRedirectedFrom } from '@/lib/url/withRedirectedFrom';
+import { createSessionRecoveryAccessToken } from '@/server/security/session-recovery-access-token';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
 import { reservationAdapter } from '@entities/reservation/adapter';
 import { reservationKeys } from '@shared/api/queryKeys';
@@ -26,6 +27,44 @@ const cookieHeaderFromStore = (cookieStore: Awaited<ReturnType<typeof cookies>>)
 };
 
 const resolveOrigin = (): string => getTrustedSiteOrigin();
+
+const RECOVERY_COOKIE_NAME = 'sr_access';
+
+const buildCanonicalBookingPath = (bookingId: string): string => `/bookings/${bookingId}`;
+
+const buildRecoveryPath = (bookingId: string, accessToken?: string | null): string => {
+  const next = encodeURIComponent(buildCanonicalBookingPath(bookingId));
+
+  if (accessToken) {
+    return `/bookings/recover?access_token=${encodeURIComponent(accessToken)}&next=${next}`;
+  }
+
+  return `/bookings/recover?next=${next}`;
+};
+
+const buildRecoveryRedirectPath = (bookingId: string, accessToken?: string | null): string =>
+  withRedirectedFrom('/auth/signin', buildRecoveryPath(bookingId, accessToken));
+
+async function createRecoveryContinuationAccessToken(params: {
+  userEmail: string | null | undefined;
+  userPhone: string | null | undefined;
+  restaurantId: string | null | undefined;
+}): Promise<string | null> {
+  const secret = process.env.SESSION_RECOVERY_ACCESS_TOKEN_SECRET?.trim();
+  if (!secret) return null;
+
+  const { userEmail, userPhone, restaurantId } = params;
+  if (!restaurantId || !userEmail || !userPhone) {
+    return null;
+  }
+
+  return createSessionRecoveryAccessToken({
+    restaurantId,
+    email: userEmail,
+    phone: userPhone,
+    secret,
+  });
+}
 
 async function prefetchReservation(queryClient: QueryClient, reservationId: string) {
   const cookieStore = await cookies();
@@ -86,8 +125,7 @@ export default async function BookingDetailPage({
   }
 
   if (accessToken) {
-    const next = encodeURIComponent(`/bookings/${normalized}`);
-    redirect(`/bookings/recover?access_token=${encodeURIComponent(accessToken)}&next=${next}`);
+    redirect(buildRecoveryPath(normalized, accessToken));
   }
 
   if (legacyToken) {
@@ -97,11 +135,38 @@ export default async function BookingDetailPage({
   const supabase = await getServerComponentSupabaseClient();
   const [userResponse, cookieStore] = await Promise.all([supabase.auth.getUser(), cookies()]);
   const user = userResponse.data.user;
-  const hasRecoveryCookie = Boolean(cookieStore.get('sr_access')?.value);
+  const recoveryCookie = cookieStore.get(RECOVERY_COOKIE_NAME)?.value ?? null;
+  const hasRecoveryCookie = Boolean(recoveryCookie);
+
+  if (!user && hasRecoveryCookie) {
+    const response = await fetch(`${resolveOrigin()}/api/bookings/${normalized}`, {
+      headers: {
+        accept: 'application/json',
+        cookie: cookieHeaderFromStore(cookieStore),
+      },
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      redirect(buildRecoveryRedirectPath(normalized));
+    }
+
+    const payload = await response.json().catch(() => null);
+    const booking = payload?.booking;
+
+    const continuationAccessToken = await createRecoveryContinuationAccessToken({
+      userEmail: booking?.customer_email,
+      userPhone: booking?.customer_phone,
+      restaurantId: booking?.restaurant_id,
+    });
+
+    if (continuationAccessToken) {
+      redirect(buildRecoveryRedirectPath(normalized, continuationAccessToken));
+    }
+  }
 
   if (!user && !hasRecoveryCookie) {
-    const recoveryReturnPath = `/bookings/recover?next=${encodeURIComponent(`/bookings/${normalized}`)}`;
-    redirect(withRedirectedFrom('/auth/signin', recoveryReturnPath));
+    redirect(buildRecoveryRedirectPath(normalized));
   }
 
   const queryClient = new QueryClient();
@@ -119,7 +184,7 @@ export default async function BookingDetailPage({
         restaurantName={null}
         initialNow={initialNow}
         canManage={Boolean(user) || hasRecoveryCookie}
-        signInReturnPath={`/bookings/${normalized}`}
+        signInReturnPath={buildCanonicalBookingPath(normalized)}
       />
     </HydrationBoundary>
   );
