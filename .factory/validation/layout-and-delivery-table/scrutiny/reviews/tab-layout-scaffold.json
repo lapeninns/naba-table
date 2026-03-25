@@ -1,28 +1,28 @@
 {
   "featureId": "tab-layout-scaffold",
-  "reviewedAt": "2026-03-24T12:44:30Z",
+  "reviewedAt": "2026-03-24T14:12:42Z",
   "commitId": "8ea99697",
   "transcriptSkeletonReviewed": true,
   "diffReviewed": true,
   "status": "fail",
   "codeReview": {
-    "summary": "The tab scaffold mostly matches the requested layout and URL deep-linking, but it does not actually preserve existing functionality: the committed diff regressed the Delivery Log tab to the old filter/results card UI instead of keeping the current table/filter/pagination implementation already present on main, so the feature fails the no-regressions requirement.",
+    "summary": "The commit adds tab parsing on the server and a tabbed client shell, but the Delivery Log tab still renders the legacy filter/results card path instead of the current table-based Delivery Log implementation, so it regresses previously delivered milestone behavior.",
     "issues": [
       {
         "file": "src/components/features/email-delivery/OpsEmailDeliveryClient.tsx",
-        "line": 10,
+        "line": 516,
         "severity": "blocking",
-        "description": "The feature imports and renders the legacy `OpsEmailDeliveryFiltersCard`/`OpsEmailDeliveryResultsCard` flow in the Delivery Log tab rather than preserving the current table-based delivery log implementation. In the reviewed repository state, `tab-layout-scaffold` is supposed to scaffold tabs without regressing existing functionality, but commit `8ea99697` replaces the newer `OpsEmailDeliveryFilterBar` + `OpsEmailDeliveryTable` + rich pagination/error handling path with the older card UI, violating the feature requirement that existing functionality be preserved and failing VAL-CROSS-005's cross-tab header/content expectations for the current page."
+        "description": "The Delivery Log tab renders `OpsEmailDeliveryFilterBar` + `OpsEmailDeliveryTable` now, but in the reviewed commit it rendered the legacy `OpsEmailDeliveryFiltersCard` and `OpsEmailDeliveryResultsCard` path. That regressed the new table, sorting, expanded rows, redesigned filters, and richer pagination expected to remain preserved under 'Existing functionality preserved \u2014 no regressions'."
       }
     ]
   },
   "sharedStateObservations": [
     {
-      "area": "knowledge",
-      "observation": "Mission shared state says the dev harness is available at `http://localhost:3000/dev/ops-email-delivery`, but mission AGENTS and the worker handoff both note a pre-existing `APP_ENV=staging` setup that causes `enforceDevOnly()` to return 404 locally. The current shared-state docs do not reconcile that contradiction.",
-      "evidence": ".factory/library/user-testing.md declares the dev harness as no-auth primary surface, while mission AGENTS.md `Known Pre-Existing Issues` says `/dev/ops-email-delivery` returns 404 because `APP_ENV=staging` is set in `.env.local`; handoff.discoveredIssues repeats the same blocker."
+      "area": "skills",
+      "observation": "The worker skipped the skill's required RED test step and still marked `followedProcedure` true. For layout work this may be reasonable, but the skill/handoff expectations are inconsistent with actual practice.",
+      "evidence": "Transcript skeleton shows no failing targeted test run before implementation, while handoff.skillFeedback.deviations explicitly says step 3 'Write tests first (RED)' was skipped. `.factory/skills/fullstack-worker/SKILL.md` still requires tests-first with a failing pre-implementation run."
     }
   ],
   "addressesFailureFrom": null,
-  "summary": "Review failed: tab switching and URL parsing were added, but the committed scaffold regresses the Delivery Log tab back to legacy cards instead of preserving the current table/filter/pagination implementation, so the feature does not safely satisfy its no-regression requirement. Shared-state docs also conflict on whether the dev harness is usable in the present environment."
+  "summary": "Review failed: the tab scaffold introduced the requested tabs and URL sync, but it wired the Delivery Log tab back to the legacy cards instead of preserving the current table/filter/pagination implementation, causing a blocking regression. Report written for scrutiny synthesis."
 }

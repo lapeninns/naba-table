@@ -1,0 +1,38 @@
+{
+  "projectRef": "vrdiqfudmwydclqpydee",
+  "emailMask": "am…@gmail.com",
+  "matchedBookingCount": 15,
+  "matchedBookingIds": [
+    "79941316-2ab4-48b5-84cc-c5af951b182c",
+    "a4283399-a0e7-4a90-a853-bb28a9865030",
+    "e3851cea-9247-4d84-a539-3e5c3fdd1ab2",
+    "8584d121-7fb4-4c11-b1ba-1d4501441591",
+    "75ca2ac9-cbd0-4c49-b190-f084a0d503e6",
+    "cb894555-6941-4587-abbf-e7f38efc580a",
+    "d84e9457-877a-47b7-831c-e58877daa6b2",
+    "f04b7b63-9ee3-4430-9cb4-16522018b0d7",
+    "d8266543-a9f2-4d71-a047-4b0ec140aea7",
+    "414adfd4-071e-4420-9b82-a16bf6ec0112",
+    "20d8ab52-d732-41bd-8652-229554ac8d66",
+    "7a3e609d-ec6e-45ad-8102-fa01fc1a337a",
+    "0bdca695-dea5-4d80-84e1-d781624744af",
+    "211e32d2-839d-4fd8-a348-f32aaf8bfd8c",
+    "d0a621fb-00f3-4976-9331-8dc4703c0804"
+  ],
+  "deletedCounts": {
+    "booking_table_assignments": 7,
+    "booking_state_history": 20,
+    "booking_assignment_attempts": 0,
+    "booking_assignment_idempotency": 4,
+    "booking_confirmation_results": 16,
+    "booking_versions": 0,
+    "analytics_events": 17,
+    "table_holds": 0,
+    "table_soft_holds": 0,
+    "email_delivery_log": 33,
+    "allocations": 17,
+    "capacity_outbox": 48,
+    "bookings": 15
+  },
+  "appliedAtUtc": "2026-03-24T12:42:38.680Z"
+}

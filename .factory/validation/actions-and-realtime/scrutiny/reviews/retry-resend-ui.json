@@ -1,0 +1,28 @@
+{
+  "featureId": "retry-resend-ui",
+  "reviewedAt": "2026-03-24T21:23:32Z",
+  "commitId": "4478dff1",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The retry/resend UI mostly matches the requested flow, but the client wires the retry mutation to `messageId` instead of the required delivery-log entry ID. This breaks the service/API contract established by the retry endpoint and can fail whenever `messageId` differs from the delivery log row identifier.",
+    "issues": [
+      {
+        "file": "src/components/features/email-delivery/OpsEmailDeliveryClient.tsx",
+        "line": 624,
+        "severity": "blocking",
+        "description": "`bookingService.retryEmailDelivery` is invoked with `{ deliveryLogId: pendingRetryAttempt.messageId }`, but the feature contract and service method both expect a delivery-log entry ID, not the provider message ID. The same mismatch is baked into the new tests. Because `OpsEmailDeliveryAttemptDTO.messageId` is a provider message ID, retries can target the wrong record or be rejected entirely when the API validates against the actual delivery-log row id."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The `fullstack-worker` skill requires a RED test step before implementation, but this worker added implementation and tests first, then used a failing focused test run only afterward. The skill may need clearer guidance for UI flows where new props/state wiring is needed, or stricter examples of what qualifies as an acceptable RED step.",
+      "evidence": "worker-transcripts.jsonl entry for session `f526dd06-7de8-4206-aded-060f3c9e2b9b` shows ApplyPatch edits before the first focused failing test run; handoff.skillFeedback.followedProcedure is false for step 3."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Fail: retry UI is present and tested, but it sends the wrong identifier to the retry service/API, so the feature does not reliably satisfy the required resend behavior."
+}

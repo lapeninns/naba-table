@@ -1,0 +1,160 @@
+{
+  "groupId": "retry-actions",
+  "testedAt": "2026-03-24T21:42:17Z",
+  "isolation": {
+    "browserSession": "e6718c816e9e__u1",
+    "appUrl": "http://app.localhost:3000/email-delivery",
+    "signinUrl": "http://app.localhost:3000/auth/signin",
+    "email": "oldcrown@lapeninns.com"
+  },
+  "toolsUsed": ["agent-browser"],
+  "assertions": [
+    {
+      "id": "VAL-ACT-001",
+      "title": "Retry button shown on failed emails",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Sign in and open /email-delivery with default 7d range",
+          "expected": "A failed/bounced row and a non-failed row are both available for comparison",
+          "observed": "Only one sent row was present in the default dataset."
+        },
+        {
+          "action": "Open /email-delivery?status=failed and /email-delivery?status=bounced",
+          "expected": "Failed/bounced rows appear with retry action",
+          "observed": "Both filtered states showed the empty-state message with zero rows."
+        },
+        {
+          "action": "Use the documented forced error trigger /email-delivery?messageId=__force_error__",
+          "expected": "Could not be used for visibility comparison because it is an error-state fixture, not a normal delivery-log row",
+          "observed": "An error alert rendered with a standalone Retry button outside the table context."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "actions-and-realtime/retry-actions/email-delivery-initial.png",
+          "actions-and-realtime/retry-actions/failed-row-with-retry-candidate.png",
+          "actions-and-realtime/retry-actions/status-failed-filter.png",
+          "actions-and-realtime/retry-actions/status-bounced-filter.png"
+        ],
+        "consoleErrors": "500 and 418 resource errors were present during forced-error validation; no deterministic failed/bounced table row was available on the authenticated surface.",
+        "network": "GET /api/ops/email-delivery?...status=failed and ...status=bounced executed, both resulting in empty-state UI with no rows to inspect."
+      },
+      "issues": "Blocked by unavailable deterministic failed/bounced delivery-log data on the authenticated surface; could not compare retry visibility on failed/bounced vs non-failed rows."
+    },
+    {
+      "id": "VAL-ACT-002",
+      "title": "Retry confirmation dialog",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Open the documented forced-error trigger with messageId=__force_error__ and inspect the visible Retry button",
+          "expected": "Clicking Retry opens a confirmation dialog with recipient, subject, Confirm, and Cancel controls",
+          "observed": "Clicking Retry left the page in the same error-alert state; DOM inspection showed no role=dialog and no confirm/cancel controls."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "actions-and-realtime/retry-actions/forced-error-state.png",
+          "actions-and-realtime/retry-actions/retry-confirmation-dialog.png"
+        ],
+        "consoleErrors": "Hydration mismatch warnings plus repeated 418 errors were present in the forced-error fixture.",
+        "network": "No POST retry request was issued when clicking the standalone Retry button in the forced-error state."
+      },
+      "issues": "Blocked because the only visible Retry control came from the forced error fixture and did not open a confirmation dialog; no failed/bounced row with table retry action was available."
+    },
+    {
+      "id": "VAL-ACT-003",
+      "title": "Retry API endpoint",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Attempt to reach a retry flow from available authenticated delivery-log data",
+          "expected": "Confirming retry sends POST /api/ops/email-delivery/retry",
+          "observed": "No confirmable retry flow was reachable because no failed/bounced row existed and the forced-error Retry button did not submit a POST."
+        }
+      ],
+      "evidence": {
+        "screenshots": ["actions-and-realtime/retry-actions/forced-error-state.png"],
+        "consoleErrors": "Forced-error route generated visible client console errors (418 responses) but no retry submission.",
+        "network": "Tracked network requests only showed GET /api/ops/email-delivery and summary queries; no POST /api/ops/email-delivery/retry was observed."
+      },
+      "issues": "Blocked by absence of a deterministic retryable delivery-log row and lack of a working confirm flow from the forced-error fixture."
+    },
+    {
+      "id": "VAL-ACT-004",
+      "title": "Retry success feedback",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Look for a successful retry path from a retryable delivery-log row",
+          "expected": "Success toast appears and delivery log refetches",
+          "observed": "Could not exercise a successful retry because no retryable row was available and no POST retry request could be triggered."
+        }
+      ],
+      "evidence": {
+        "screenshots": ["actions-and-realtime/retry-actions/status-failed-filter.png"],
+        "consoleErrors": "No success-toast scenario reachable; available retry control was tied to an error fixture.",
+        "network": "No POST /api/ops/email-delivery/retry or follow-up refetch attributable to a successful retry was observed."
+      },
+      "issues": "Blocked by unavailable deterministic success path for retry/resend behavior on the authenticated surface."
+    },
+    {
+      "id": "VAL-ACT-005",
+      "title": "Retry error feedback",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Open /email-delivery?messageId=__force_error__&simulateEmailDeliveryError=1 and inspect visible feedback",
+          "expected": "A retry action can be triggered and results in an error toast while the row remains failed",
+          "observed": "The page loaded directly into an error alert ('Unable to load email delivery attempts \u2026 Retry'); no row-level retry submission or toast event was available."
+        }
+      ],
+      "evidence": {
+        "screenshots": ["actions-and-realtime/retry-actions/forced-error-state-simulated.png"],
+        "consoleErrors": "Forced-error route produced 418 network failures and existing hydration mismatch warnings.",
+        "network": "Only GET /api/ops/email-delivery?messageId=__force_error__... requests were observed; no POST retry call or toast-generating mutation occurred."
+      },
+      "issues": "Blocked because the available error fixture validates delivery-log load failure, not retry mutation failure; no row-level retry request could be triggered to observe error-toast behavior."
+    }
+  ],
+  "frictions": [
+    {
+      "description": "The authenticated surface had only a single sent row in the 7d dataset, so the assigned assertions could not be exercised against real failed/bounced rows.",
+      "resolved": false,
+      "resolution": null,
+      "affectedAssertions": [
+        "VAL-ACT-001",
+        "VAL-ACT-002",
+        "VAL-ACT-003",
+        "VAL-ACT-004",
+        "VAL-ACT-005"
+      ]
+    },
+    {
+      "description": "The documented forced-error trigger exposed a standalone Retry button inside an error alert rather than a row-level retry flow, preventing confirmation-dialog and mutation testing.",
+      "resolved": false,
+      "resolution": null,
+      "affectedAssertions": ["VAL-ACT-002", "VAL-ACT-003", "VAL-ACT-004", "VAL-ACT-005"]
+    }
+  ],
+  "blockers": [
+    {
+      "description": "No deterministic failed or bounced delivery-log row existed on the authenticated surface during validation. status=failed and status=bounced filters both returned empty states.",
+      "affectedAssertions": [
+        "VAL-ACT-001",
+        "VAL-ACT-002",
+        "VAL-ACT-003",
+        "VAL-ACT-004",
+        "VAL-ACT-005"
+      ],
+      "quickFixAttempted": "Checked default dataset, filtered failed and bounced URLs directly, and inspected the forced-error fixtures documented in user-testing guidance."
+    },
+    {
+      "description": "Forced-error fixtures returned delivery-log load errors (HTTP 418) and did not surface a confirmable retry mutation path.",
+      "affectedAssertions": ["VAL-ACT-002", "VAL-ACT-003", "VAL-ACT-004", "VAL-ACT-005"],
+      "quickFixAttempted": "Clicked the visible Retry button and inspected DOM/network activity; no dialog or POST retry call occurred."
+    }
+  ],
+  "summary": "Tested retry/resend assertions on the authenticated surface in session e6718c816e9e__u1. Login and navigation succeeded, but all five assigned assertions were blocked because no failed/bounced delivery rows were available and the documented forced-error fixtures only produced delivery-log load-error alerts rather than a working row-level retry flow."
+}

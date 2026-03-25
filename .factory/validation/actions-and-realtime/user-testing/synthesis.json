@@ -1,0 +1,107 @@
+{
+  "milestone": "actions-and-realtime",
+  "round": 1,
+  "status": "fail",
+  "assertionsSummary": {
+    "total": 9,
+    "passed": 3,
+    "failed": 0,
+    "blocked": 6
+  },
+  "passedAssertions": ["VAL-ACT-006", "VAL-ACT-007", "VAL-ACT-008"],
+  "failedAssertions": [],
+  "blockedAssertions": [
+    {
+      "id": "VAL-ACT-001",
+      "blockedBy": "Blocked by unavailable deterministic failed/bounced delivery-log data on the authenticated surface; could not compare retry visibility on failed/bounced vs non-failed rows."
+    },
+    {
+      "id": "VAL-ACT-002",
+      "blockedBy": "Blocked because the only visible Retry control came from the forced error fixture and did not open a confirmation dialog; no failed/bounced row with table retry action was available."
+    },
+    {
+      "id": "VAL-ACT-003",
+      "blockedBy": "Blocked by absence of a deterministic retryable delivery-log row and lack of a working confirm flow from the forced-error fixture."
+    },
+    {
+      "id": "VAL-ACT-004",
+      "blockedBy": "Blocked by unavailable deterministic success path for retry/resend behavior on the authenticated surface."
+    },
+    {
+      "id": "VAL-ACT-005",
+      "blockedBy": "Blocked because the available error fixture validates delivery-log load failure, not retry mutation failure; no row-level retry request could be triggered to observe error-toast behavior."
+    },
+    {
+      "id": "VAL-Q-006",
+      "blockedBy": "Blocked because the authenticated live surface loaded queue data too quickly to surface a reproducible skeleton/loading state, and no supported forced-loading mechanism was documented for this flow."
+    }
+  ],
+  "appliedUpdates": [],
+  "previousRound": null,
+  "toolsUsed": ["agent-browser"],
+  "frictions": [
+    {
+      "description": "The authenticated surface had only a single sent row in the 7d dataset, so the assigned assertions could not be exercised against real failed/bounced rows.",
+      "resolved": false,
+      "resolution": null,
+      "affectedAssertions": [
+        "VAL-ACT-001",
+        "VAL-ACT-002",
+        "VAL-ACT-003",
+        "VAL-ACT-004",
+        "VAL-ACT-005"
+      ]
+    },
+    {
+      "description": "The documented forced-error trigger exposed a standalone Retry button inside an error alert rather than a row-level retry flow, preventing confirmation-dialog and mutation testing.",
+      "resolved": false,
+      "resolution": null,
+      "affectedAssertions": ["VAL-ACT-002", "VAL-ACT-003", "VAL-ACT-004", "VAL-ACT-005"]
+    },
+    {
+      "description": "agent-browser network tracking did not capture requests for this session even after navigation and refresh actions",
+      "resolved": false,
+      "resolution": "Used URL changes, rendered last-updated text, and screenshots as deterministic evidence instead",
+      "affectedAssertions": ["VAL-ACT-006", "VAL-ACT-007", "VAL-ACT-008", "VAL-Q-006"]
+    }
+  ],
+  "blockers": [
+    {
+      "description": "Blocked by unavailable deterministic failed/bounced delivery-log data on the authenticated surface; could not compare retry visibility on failed/bounced vs non-failed rows.",
+      "assertions": ["VAL-ACT-001"]
+    },
+    {
+      "description": "Blocked because the only visible Retry control came from the forced error fixture and did not open a confirmation dialog; no failed/bounced row with table retry action was available.",
+      "assertions": ["VAL-ACT-002"]
+    },
+    {
+      "description": "Blocked by absence of a deterministic retryable delivery-log row and lack of a working confirm flow from the forced-error fixture.",
+      "assertions": ["VAL-ACT-003"]
+    },
+    {
+      "description": "Blocked by unavailable deterministic success path for retry/resend behavior on the authenticated surface.",
+      "assertions": ["VAL-ACT-004"]
+    },
+    {
+      "description": "Blocked because the available error fixture validates delivery-log load failure, not retry mutation failure; no row-level retry request could be triggered to observe error-toast behavior.",
+      "assertions": ["VAL-ACT-005"]
+    },
+    {
+      "description": "Blocked because the authenticated live surface loaded queue data too quickly to surface a reproducible skeleton/loading state, and no supported forced-loading mechanism was documented for this flow.",
+      "assertions": ["VAL-Q-006"]
+    }
+  ],
+  "override": {
+    "applied": true,
+    "justification": "Milestone user-testing overridden due repeated stale-flow reuse; unresolved assertions were reassigned to follow-up milestone feature actions-followup-fixture-validation-closure for fresh validation artifacts.",
+    "deferredAssertions": [
+      "VAL-ACT-001",
+      "VAL-ACT-002",
+      "VAL-ACT-003",
+      "VAL-ACT-004",
+      "VAL-ACT-005",
+      "VAL-Q-006"
+    ],
+    "deferredToFeature": "actions-followup-fixture-validation-closure"
+  }
+}
