@@ -1,57 +1,50 @@
 # Continuity Ledger
 
-Last updated: 2026-03-24T14:08:30Z
+Last updated: 2026-03-25T00:00:00Z
 
 ## Goal (incl. success criteria)
 
-- Fix delivery log pagination range math so empty out-of-range pages report a truthful visible range while keeping recovery controls visible.
-- Success:
-  - Empty out-of-range pages show `0-0 of total results` instead of inventing a visible row.
-  - Non-empty pages still show the actual visible row range.
-  - Regression coverage protects both empty and non-empty pagination summaries.
+- Fix mission feature `fix-last-act004-success-fixture-path` so authenticated `fixture=retry-actions` confirm flow shows success feedback and refetched updated state instead of `Retry failed`.
+- Success means retry success path passes in automated tests and on the authenticated browser surface, while existing retry error behavior still works.
 
 ## Constraints/Assumptions
 
-- Follow root AGENTS + mission AGENTS guidance for the email delivery milestone.
-- Stay within existing email-delivery client/test scope; no schema or API changes.
-- Manual browser validation must use authenticated `/app/email-delivery` because dev harness may be unavailable in staging APP_ENV.
+- Stay within mission boundary: only use existing port 3000 service and do not touch off-limits files or schema.
+- Preserve unrelated working tree changes already present in the repo.
+- Must run mission-required validators: `npx vitest run`, `pnpm typecheck`, `pnpm lint`, plus browser verification on authenticated surface.
 
 ## Key decisions
 
-- Kept pagination controls visible based on existing metadata logic from the prior empty-page fix.
-- Adjusted summary math in `OpsEmailDeliveryClient` to compute `start/end` only when rows are actually visible.
-- Added client regression coverage for both empty out-of-range and non-empty page summaries.
+- Root-cause likely sits in authenticated retry route/fixture handling because unit tests already cover nominal success but live fixture still falls into failure branch.
+- Investigate server retry route plus fixture booking lookup/resend path before changing client toast logic.
 
 ## State
 
-- Code and tests updated; validators passed locally. Browser verification still pending before final handoff.
+- In progress: tracing authenticated retry-actions success-path failure after baseline tests passed.
 
 ## Done
 
-- Updated pagination range math in `src/components/features/email-delivery/OpsEmailDeliveryClient.tsx`.
-- Updated `tests/components/OpsEmailDeliveryClient.test.tsx` to expect `Showing 0-0 of 70 results` for an empty out-of-range page.
-- Added a regression test asserting `Showing 51-52 of 70 results` for a partially filled non-empty page.
-- Ran targeted vitest, full vitest, `pnpm typecheck`, and `pnpm lint` successfully (lint has pre-existing warnings only).
+- Read README, root/mission AGENTS, mission validation contract, services manifest, architecture doc, and current continuity ledger.
+- Ran `.factory/init.sh` successfully.
+- Ran baseline `npx vitest run`; suite passed (57 files, 227 tests).
+- Located relevant retry fixture, client retry action, booking service, and authenticated retry route code paths.
 
 ## Now
 
-- Perform manual browser verification on authenticated `/app/email-delivery` and then commit the scoped changes.
+- Inspect retry route behavior against live authenticated fixture and implement a focused fix with RED/GREEN coverage.
 
 ## Next
 
-- Stage only the email-delivery pagination files for this feature commit.
-- Commit with a conventional message after browser verification.
+- Run full validators, verify via browser, commit, and hand off.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- None.
+- Whether the live failure is caused by stale runtime vs a remaining server-side fixture branch bug.
 
 ## Working set (files/ids/commands)
 
+- `src/app/api/ops/email-delivery/retry/route.ts`
 - `src/components/features/email-delivery/OpsEmailDeliveryClient.tsx`
+- `src/services/ops/bookings.ts`
+- `tests/server/email-delivery-retry-route.test.ts`
 - `tests/components/OpsEmailDeliveryClient.test.tsx`
-- `tests/components/OpsEmailDeliveryPaginationBar.test.tsx`
-- `"/Users/amankumarshrestha/LapenInns Project/nabatableLP/node_modules/.bin/vitest" run tests/components/OpsEmailDeliveryClient.test.tsx tests/components/OpsEmailDeliveryPaginationBar.test.tsx --reporter=verbose`
-- `"/Users/amankumarshrestha/LapenInns Project/nabatableLP/node_modules/.bin/vitest" run`
-- `pnpm --dir "/Users/amankumarshrestha/LapenInns Project/nabatableLP" typecheck`
-- `pnpm --dir "/Users/amankumarshrestha/LapenInns Project/nabatableLP" lint`

@@ -260,8 +260,9 @@ describe('POST /api/ops/email-delivery/retry', () => {
     expect(payload).toMatchObject({
       ok: true,
       deliveryLogEntry: expect.objectContaining({
-        id: 'log-fixture-success-fallback',
+        id: FIXTURE_DELIVERY_LOG_ID,
         bookingId: 'booking-fixture-failed',
+        status: 'sent',
       }),
     });
     expect(retryEmailDeliveryLogEntryMock).not.toHaveBeenCalled();
@@ -321,8 +322,9 @@ describe('POST /api/ops/email-delivery/retry', () => {
     expect(payload).toMatchObject({
       ok: true,
       deliveryLogEntry: expect.objectContaining({
-        id: 'log-fixture-success',
+        id: FIXTURE_DELIVERY_LOG_ID,
         bookingId: 'booking-fixture-failed',
+        status: 'sent',
       }),
     });
     expect(retryEmailDeliveryLogEntryMock).not.toHaveBeenCalled();
@@ -330,6 +332,38 @@ describe('POST /api/ops/email-delivery/retry', () => {
       booking: expect.objectContaining({ id: 'booking-fixture-failed' }),
       emailType: 'created',
       templateType: 'booking_confirmation',
+    });
+  });
+
+  it('maps retry-actions fixture retries to a deterministic sent delivery-log entry for live refetches', async () => {
+    process.env.APP_ENV = 'test';
+    resendBookingEmailFromDeliveryLogMock.mockResolvedValue({
+      id: 'log-fixture-success',
+      bookingId: 'booking-fixture-failed',
+      restaurantId: '11111111-1111-1111-1111-111111111111',
+      emailType: 'created',
+      templateType: 'booking_confirmation',
+      recipientEmail: 'retry.failed@example.com',
+      messageId: 'message-fixture-success',
+      status: 'sent',
+      provider: 'mock',
+      occurredAt: '2026-03-24T10:03:00.000Z',
+      error: null,
+      metadata: { subject: 'Fixture failed retry candidate' },
+    });
+
+    const response = await POST(buildRequest({ deliveryLogId: FIXTURE_DELIVERY_LOG_ID }));
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload).toMatchObject({
+      ok: true,
+      deliveryLogEntry: expect.objectContaining({
+        id: FIXTURE_DELIVERY_LOG_ID,
+        status: 'sent',
+        recipientEmail: 'retry.failed@example.com',
+        messageId: 'message-fixture-success',
+      }),
     });
   });
 });
