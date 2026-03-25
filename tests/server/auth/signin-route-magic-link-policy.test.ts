@@ -10,6 +10,11 @@ const sendAuthMagicLinkMock = vi.hoisted(() => vi.fn());
 const getServiceSupabaseClientMock = vi.hoisted(() => vi.fn());
 const getRouteHandlerSupabaseClientMock = vi.hoisted(() => vi.fn());
 const consumeRateLimitMock = vi.hoisted(() => vi.fn());
+const cookiesMock = vi.hoisted(() => vi.fn());
+
+vi.mock('next/headers', () => ({
+  cookies: cookiesMock,
+}));
 
 vi.mock('@/server/security/csrf', () => ({
   validateCsrfToken: validateCsrfTokenMock,
@@ -95,6 +100,15 @@ function buildRequest(payload: Record<string, unknown>): NextRequest {
   });
 }
 
+function buildCallbackRequest(url: string): NextRequest {
+  return new NextRequest(url, {
+    method: 'GET',
+    headers: {
+      host: 'www.nabatable.com',
+    },
+  });
+}
+
 describe('signin route magic-link policy', () => {
   beforeEach(() => {
     validateCsrfTokenMock.mockReset();
@@ -106,6 +120,7 @@ describe('signin route magic-link policy', () => {
     getServiceSupabaseClientMock.mockReset();
     getRouteHandlerSupabaseClientMock.mockReset();
     consumeRateLimitMock.mockReset();
+    cookiesMock.mockReset();
 
     validateCsrfTokenMock.mockReturnValue(true);
     classifySigninSurfaceMock.mockReturnValue('app_ops');
@@ -127,6 +142,9 @@ describe('signin route magic-link policy', () => {
       remaining: 4,
       resetAt: Date.now() + 60_000,
       source: 'memory',
+    });
+    cookiesMock.mockResolvedValue({
+      getAll: vi.fn().mockReturnValue([]),
     });
   });
 
@@ -227,5 +245,81 @@ describe('signin route magic-link policy', () => {
         ),
       }),
     );
+  });
+});
+
+describe('auth callback failure redirects', () => {
+  beforeEach(() => {
+    getRouteHandlerSupabaseClientMock.mockReset();
+    getServiceSupabaseClientMock.mockReset();
+  });
+
+  it('redirects expired code failures to guest sign-in with guest-safe copy', async () => {
+    const exchangeCodeForSession = vi.fn().mockResolvedValue({
+      data: { user: null },
+      error: { message: 'otp expired', code: 'otp_expired', status: 400, name: 'AuthApiError' },
+    });
+    cookiesMock.mockResolvedValue({
+      getAll: vi.fn().mockReturnValue([]),
+    });
+    getRouteHandlerSupabaseClientMock.mockResolvedValue({
+      auth: {
+        exchangeCodeForSession,
+        getUser: vi.fn(),
+      },
+    });
+
+    const { GET } = await import('@/src/app/api/auth/callback/route');
+    const response = await GET(
+      buildCallbackRequest(
+        'https://www.nabatable.com/api/auth/callback?code=expired-code&redirectedFrom=%2Fguest%2Fbookings',
+      ),
+    );
+
+    expect(response.status).toBe(307);
+    const location = response.headers.get('location');
+    const decodedLocation = decodeURIComponent((location ?? '').replace(/\+/g, ' '));
+    expect(location).toContain('/auth?');
+    expect(location).toContain('error=link_expired');
+    expect(decodedLocation).toContain('Your magic link has expired. Please request a new one.');
+    expect(decodedLocation).not.toContain('otp_expired');
+  });
+
+  it('redirects already-used token_hash failures to guest sign-in with guest-safe copy', async () => {
+    const verifyOtp = vi.fn().mockResolvedValue({
+      data: { session: null },
+      error: {
+        message: 'Token has already been used',
+        code: 'otp_disabled',
+        status: 400,
+        name: 'AuthApiError',
+      },
+    });
+    cookiesMock.mockResolvedValue({
+      getAll: vi.fn().mockReturnValue([]),
+    });
+    getRouteHandlerSupabaseClientMock.mockResolvedValue({
+      auth: {
+        verifyOtp,
+      },
+    });
+
+    const { GET } = await import('@/src/app/api/auth/callback/route');
+    const response = await GET(
+      buildCallbackRequest(
+        'https://www.nabatable.com/api/auth/callback?token_hash=used-token&redirectedFrom=%2Fguest%2Fdashboard',
+      ),
+    );
+
+    expect(response.status).toBe(307);
+    const location = response.headers.get('location');
+    const decodedLocation = decodeURIComponent((location ?? '').replace(/\+/g, ' '));
+    expect(location).toContain('/auth?');
+    expect(location).toContain('error=link_used');
+    expect(decodedLocation).toContain(
+      'This magic link has already been used. Please request a new one.',
+    );
+    expect(decodedLocation).not.toContain('otp_disabled');
+    expect(decodedLocation).not.toContain('Token has already been used');
   });
 });

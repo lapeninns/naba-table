@@ -38,4 +38,20 @@ test.describe('guest auth pages', () => {
       'Your magic link has expired. Please request a new one.',
     );
   });
+
+  test('failing callback route redirects used links into the guest auth surface', async ({ page }) => {
+    await page.goto(
+      '/api/auth/callback?token_hash=already-used-test-token&redirectedFrom=%2Fguest%2Fdashboard',
+    );
+
+    await expect(page).toHaveURL(/\/auth(\?|$)/);
+    await expect(page.getByRole('heading', { name: 'Choose your path' })).toBeVisible();
+
+    const guestSignInLink = page.getByRole('link', { name: 'Sign in as Guest' });
+    await expect(guestSignInLink).toHaveAttribute(
+      'href',
+      /error=link_expired|error=link_used|error=auth_failed/,
+    );
+    await expect(guestSignInLink).not.toHaveAttribute('href', /otp_disabled|already%20been%20used/);
+  });
 });
