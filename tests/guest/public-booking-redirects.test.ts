@@ -18,6 +18,7 @@ import ManageBookingRedirect from '@src/app/(public)/bookings/[bookingId]/manage
 import BookingDetailPage from '@src/app/(public)/bookings/[bookingId]/page';
 import GuestThankYouRedirect from '@src/app/guest/thank-you/page';
 import RestaurantThankYouRedirect from '@src/app/(public)/(marketing)/restaurants/[slug]/thank-you/page';
+import RestaurantBookingThankYouRedirect from '@src/app/(public)/(marketing)/restaurants/[slug]/bookings/[bookingId]/thank-you/page';
 import { handleRouting } from '@src/proxy';
 
 describe('public booking redirects', () => {
@@ -86,6 +87,20 @@ describe('public booking redirects', () => {
     const [target] = redirect.mock.calls.at(-1) ?? [];
     expect(target).toBe(
       '/restaurants/seed-perf-r001/book/thank-you?source=email&party=4&confirmation=approved',
+    );
+  });
+
+  it('preserves all query params through restaurant booking thank-you canonicalization', async () => {
+    await expect(
+      RestaurantBookingThankYouRedirect({
+        params: Promise.resolve({ slug: 'seed-perf-r001', bookingId: 'booking-1' }),
+        searchParams: Promise.resolve({ source: 'email', confirmation: 'REST123', guestName: 'Ada' }),
+      }),
+    ).rejects.toThrow('NEXT_REDIRECT');
+
+    const [target] = redirect.mock.calls.at(-1) ?? [];
+    expect(target).toBe(
+      '/restaurants/seed-perf-r001/book/thank-you?source=email&confirmation=REST123&guestName=Ada',
     );
   });
 
