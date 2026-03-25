@@ -32,7 +32,7 @@ Use this skill when the feature’s main job is to make guest surfaces feel warm
 4. Write tests first (RED):
    - component tests in `tests/components/**`
    - guest route/view-model or page tests in `tests/guest/**`
-   - Playwright guest-flow tests when visible behavior or route flow changes
+   - Playwright guest-flow tests when visible behavior or route flow changes; if the mission reuses the live port-3000 app, use the documented harness mode and a supported reporter instead of assuming `--reporter=verbose`
    - Run a targeted RED command and confirm failure before implementation
 5. Implement by extending or adopting canonical guest primitives first. Do not add another guest shell, typography system, or one-off auth/account pattern unless the feature explicitly updates the canonical primitive layer.
 6. Run targeted tests until green, then run:
@@ -46,7 +46,7 @@ Use this skill when the feature’s main job is to make guest surfaces feel warm
    - which route was opened
    - what changed visually
    - what CTA/tab/form/status behavior was observed
-9. Commit only your feature changes in the isolated worktree.
+9. Commit only your feature changes in the isolated worktree, and clean any generated `test-results/` artifacts before handing back control.
 
 ## Example Handoff
 
