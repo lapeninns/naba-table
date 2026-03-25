@@ -1,6 +1,14 @@
 'use client';
 
-import { AlertCircle, CheckCircle2, Info, Sparkles, Search, ChevronRight } from 'lucide-react';
+import {
+  AlertCircle,
+  CheckCircle2,
+  Info,
+  Sparkles,
+  Search,
+  ChevronRight,
+  type LucideIcon,
+} from 'lucide-react';
 import Link from 'next/link';
 import React, {
   forwardRef,
@@ -344,7 +352,7 @@ type GuestStatusProps = {
   title: string;
   description?: string;
   tone?: 'info' | 'success' | 'warning' | 'danger';
-  icon?: React.ElementType;
+  icon?: LucideIcon;
   actions?: ReactNode;
   className?: string;
   'aria-live'?: 'polite' | 'assertive';
@@ -352,7 +360,7 @@ type GuestStatusProps = {
 
 const toneMap: Record<
   NonNullable<GuestStatusProps['tone']>,
-  { bg: string; text: string; icon: React.ElementType }
+  { bg: string; text: string; icon: LucideIcon }
 > = {
   info: { bg: 'bg-blue-50', text: 'text-blue-700', icon: Info },
   success: { bg: 'bg-green-50', text: 'text-green-700', icon: CheckCircle2 },

@@ -1,7 +1,7 @@
 import { Compass, LoaderCircle } from 'lucide-react';
 import Link from 'next/link';
 
-import { GuestPageShell, GuestSurfaceCard, GuestStatus } from '@/components/guest/ui/GuestPrimitives';
+import { GuestPageShell, GuestSurfaceCard } from '@/components/guest/ui/GuestPrimitives';
 import { Button } from '@/components/ui/button';
 
 export default function RestaurantBookingLoadingPage() {
@@ -19,13 +19,20 @@ export default function RestaurantBookingLoadingPage() {
       contentClassName="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-10 sm:px-6 sm:py-14"
     >
       <GuestSurfaceCard className="p-6 sm:p-8">
-        <GuestStatus
-          title="Loading live availability"
-          description="You’ll stay in the guest booking flow while we ready the reservation form."
-          icon={LoaderCircle}
-          className="border-border/70 bg-primary/5 text-foreground [&_svg]:animate-spin"
+        <div
+          role="status"
           aria-live="polite"
-        />
+          tabIndex={-1}
+          className="flex items-start gap-4 rounded-2xl border border-border/70 bg-primary/5 px-4 py-3 text-foreground"
+        >
+          <LoaderCircle aria-hidden className="mt-0.5 h-5 w-5 animate-spin text-primary" />
+          <div className="flex-1 space-y-1">
+            <p className="font-semibold">Loading live availability</p>
+            <p className="text-sm text-muted-foreground">
+              You’ll stay in the guest booking flow while we ready the reservation form.
+            </p>
+          </div>
+        </div>
         <div className="mt-6 grid gap-4 md:grid-cols-[1.4fr_1fr]">
           <div className="space-y-4">
             <div className="space-y-3 rounded-[var(--guest-radius-xl)] border border-border/70 bg-surface-warm p-5">
