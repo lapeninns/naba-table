@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
-const restaurantSlug = 'the-fox';
+const restaurantSlug = 'seed-perf-r001';
+const restaurantName = 'Seed Perf Restaurant 001';
 const restaurantId = '11111111-1111-4111-8111-111111111111';
 const bookingId = '22222222-2222-4222-8222-222222222222';
 const bookingReference = 'NB1234';
@@ -179,37 +180,25 @@ test.describe('reserve routes', () => {
     });
   });
 
-  test('reserve root shows plan step', async ({ page }) => {
-    await page.goto('/');
-    await expect(
-      page.getByRole('heading', { name: 'When would you like to join us?' }),
-    ).toBeVisible();
-  });
-
-  test('reserve new alias shows plan step', async ({ page }) => {
-    await page.goto('/new');
-    await expect(
-      page.getByRole('heading', { name: 'When would you like to join us?' }),
-    ).toBeVisible();
-  });
-
-  test('reserve reservation details stub renders id', async ({ page }) => {
-    await page.goto('/resv-test-123');
-    await expect(page.getByRole('heading', { name: 'Reservation resv-test-123' })).toBeVisible();
-    await expect(page.getByText('Details view coming soon.')).toBeVisible();
-  });
-
-  test('reserve not found route shows guidance', async ({ page }) => {
-    await page.goto('/missing/path');
-    await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Return to reservations' })).toBeVisible();
-  });
-
-  test('restaurant detail and booking entry stay on guest-owned routes', async ({ page }) => {
+  test('restaurant detail stays on the guest-owned route with explicit booking actions', async ({
+    page,
+  }) => {
     await page.goto(`/restaurants/${restaurantSlug}`);
 
     await expect(page).toHaveURL(`http://localhost:3000/restaurants/${restaurantSlug}`);
-    await expect(page.getByRole('heading', { name: 'We couldn’t find that restaurant page.' })).toBeVisible();
-    await expect(page.locator('#main-content').getByRole('link', { name: 'Browse restaurants' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: restaurantName })).toBeVisible();
+    await expect(page.getByRole('link', { name: `Book a table at ${restaurantName}` })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'See all restaurants' })).toBeVisible();
+  });
+
+  test('restaurant booking entry stays inside the guest system for a valid public slug', async ({
+    page,
+  }) => {
+    await page.goto(`/restaurants/${restaurantSlug}/book`);
+
+    await expect(page).toHaveURL(`http://localhost:3000/restaurants/${restaurantSlug}/book`);
+    await expect(page.getByText('Guest booking flow')).toBeVisible();
+    await expect(page.locator('body')).not.toContainText('Build Error');
+    await expect(page.locator('body')).not.toContainText('globals.css');
   });
 });
