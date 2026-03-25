@@ -24,6 +24,22 @@ test.describe('guest auth pages', () => {
     await expect(page.getByRole('link', { name: 'Terms of Service' })).toBeVisible();
   });
 
+  test('sign-in sanitizes unsafe redirect params and supports authError alias messaging', async ({ page }) => {
+    await page.goto(
+      '/auth/signin?redirectedFrom=https%3A%2F%2Fevil.example%2Fsteal&authError=link_used',
+    );
+
+    await expect(page).toHaveURL(/\/auth\/signin(\?|$)/);
+
+    const restaurantSignInLink = page.getByRole('link', { name: /sign in to operations console/i });
+    await expect(restaurantSignInLink).toHaveAttribute('href', /\/auth\/signin$/);
+
+    const errorAlert = page.getByRole('alert').filter({ has: page.getByText('Unable to sign in') });
+    await expect(errorAlert).toContainText(
+      'This magic link has already been used. Please request a new one.',
+    );
+  });
+
   test('invalid callback errors render guest-safe copy on sign-in', async ({ page }) => {
     await page.goto(
       '/auth/signin?error=link_expired&message=Your%20magic%20link%20has%20expired.%20Please%20request%20a%20new%20one.',

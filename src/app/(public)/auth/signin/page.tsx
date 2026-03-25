@@ -15,8 +15,9 @@ export const metadata: Metadata = {
 
 type SignInPageSearchParams = {
   redirectedFrom?: string | string[];
-  error?: string;
-  message?: string;
+  error?: string | string[];
+  authError?: string | string[];
+  message?: string | string[];
 };
 
 type SignInPageProps = {
@@ -96,6 +97,13 @@ function safeDecodeURIComponent(value: string): string {
   }
 }
 
+function firstParamValue(raw: string | string[] | undefined): string | undefined {
+  if (Array.isArray(raw)) {
+    return raw[0];
+  }
+  return typeof raw === 'string' ? raw : undefined;
+}
+
 function normalizeAuthMessage(raw: string | undefined): string | undefined {
   if (!raw) return undefined;
   const decoded = safeDecodeURIComponent(raw).trim();
@@ -145,11 +153,8 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
       : `https://app.${rootDomain.toLowerCase().replace(/^www\./, '')}/auth/signin`;
 
   const restaurantSignInUrlObj = new URL(restaurantSignInUrlBase);
-  if (resolvedParams?.redirectedFrom) {
-    const rawParam = Array.isArray(resolvedParams.redirectedFrom)
-      ? resolvedParams.redirectedFrom[0]
-      : resolvedParams.redirectedFrom;
-    restaurantSignInUrlObj.searchParams.set('redirectedFrom', rawParam);
+  if (opsRedirectedFromParam) {
+    restaurantSignInUrlObj.searchParams.set('redirectedFrom', opsRedirectedFromParam);
   }
   const restaurantSignInUrl = restaurantSignInUrlObj.toString();
 
@@ -165,18 +170,34 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
     if (opsRedirectedFromParam) {
       targetUrl.searchParams.set('redirectedFrom', opsRedirectedFromParam);
     }
-    if (resolvedParams?.error) {
-      targetUrl.searchParams.set('error', resolvedParams.error);
+    const forwardedError = firstParamValue(resolvedParams?.error) ?? firstParamValue(resolvedParams?.authError);
+    const forwardedMessage = firstParamValue(resolvedParams?.message);
+    if (forwardedError) {
+      targetUrl.searchParams.set('error', forwardedError);
     }
-    if (resolvedParams?.message) {
-      targetUrl.searchParams.set('message', resolvedParams.message);
+    if (forwardedMessage) {
+      targetUrl.searchParams.set('message', forwardedMessage);
     }
     redirect(targetUrl.toString());
   }
 
   // Extract error info from URL params
-  const errorType = resolvedParams?.error;
-  const errorMessage = normalizeAuthMessage(resolvedParams?.message);
+  const errorType = firstParamValue(resolvedParams?.error) ?? firstParamValue(resolvedParams?.authError);
+  const errorMessage =
+    normalizeAuthMessage(firstParamValue(resolvedParams?.message)) ??
+    (errorType === 'link_expired'
+      ? 'Your magic link has expired. Please request a new one.'
+      : errorType === 'link_used'
+        ? 'This magic link has already been used. Please request a new one.'
+        : errorType === 'missing_auth_parameters'
+          ? 'Authentication callback was missing required parameters. Please try signing in again.'
+          : errorType === 'pkce_mismatch'
+            ? 'Authentication failed. Please use the same browser where you requested the magic link.'
+            : errorType === 'invalid_client_id'
+              ? INVALID_CLIENT_ID_SAFE_MESSAGE
+              : errorType === 'auth_failed'
+                ? 'Authentication link has expired or is invalid. Please try again.'
+                : undefined);
   const hasError = !!errorType;
 
   // Only redirect authenticated users if there's no error
