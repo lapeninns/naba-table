@@ -145,6 +145,11 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   const resolvedParams = await searchParams;
   const redirectedFromParam = resolveRedirectTarget(resolvedParams?.redirectedFrom);
   const opsRedirectedFromParam = resolveOpsRedirectTarget(resolvedParams?.redirectedFrom);
+  const incomingRedirectedFrom = firstParamValue(resolvedParams?.redirectedFrom);
+  const shouldStripUnsafeRedirectParam =
+    typeof incomingRedirectedFrom === 'string' &&
+    !redirectedFromParam &&
+    !opsRedirectedFromParam;
 
   // Build restaurant sign-in URL for cross-subdomain navigation
   const restaurantSignInUrlBase =
@@ -179,6 +184,24 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
       targetUrl.searchParams.set('message', forwardedMessage);
     }
     redirect(targetUrl.toString());
+  }
+
+  if (shouldStripUnsafeRedirectParam) {
+    const safeCurrentUrl = new URL('/auth/signin', `http://${hostHeader || 'localhost'}`);
+    if (rootDomain !== 'localhost') {
+      safeCurrentUrl.protocol = 'https:';
+    }
+
+    const forwardedError = firstParamValue(resolvedParams?.error) ?? firstParamValue(resolvedParams?.authError);
+    const forwardedMessage = firstParamValue(resolvedParams?.message);
+    if (forwardedError) {
+      safeCurrentUrl.searchParams.set('error', forwardedError);
+    }
+    if (forwardedMessage) {
+      safeCurrentUrl.searchParams.set('message', forwardedMessage);
+    }
+
+    redirect(safeCurrentUrl.toString());
   }
 
   // Extract error info from URL params

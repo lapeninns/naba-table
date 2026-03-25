@@ -29,7 +29,7 @@ test.describe('guest auth pages', () => {
       '/auth/signin?redirectedFrom=https%3A%2F%2Fevil.example%2Fsteal&authError=link_used',
     );
 
-    await expect(page).toHaveURL(/\/auth\/signin(\?|$)/);
+    await expect(page).toHaveURL(/\/auth\/signin\?error=link_used$/);
 
     const restaurantSignInLink = page.getByRole('link', { name: /sign in to operations console/i });
     await expect(restaurantSignInLink).toHaveAttribute('href', /\/auth\/signin$/);
