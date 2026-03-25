@@ -1,0 +1,84 @@
+{
+  "milestone": "guest-foundation-and-route-ownership",
+  "round": 1,
+  "status": "fail",
+  "validatorsRun": {
+    "test": {
+      "passed": true,
+      "command": "pnpm exec vitest run --maxWorkers=9",
+      "exitCode": 0
+    },
+    "typecheck": {
+      "passed": true,
+      "command": "pnpm typecheck",
+      "exitCode": 0
+    },
+    "lint": {
+      "passed": true,
+      "command": "pnpm lint",
+      "exitCode": 0
+    }
+  },
+  "reviewsSummary": {
+    "total": 4,
+    "passed": 1,
+    "failed": 3,
+    "failedFeatures": [
+      "host-and-route-canonicalization",
+      "refresh-worktree-runtime-for-foundation-validation",
+      "stabilize-live-apphost-guest-route-canonicalization"
+    ]
+  },
+  "blockingIssues": [
+    {
+      "featureId": "host-and-route-canonicalization",
+      "severity": "blocking",
+      "description": "This feature commit contains no production code changes, so the required canonicalization behavior is not actually implemented here. The feature description requires protecting guest routes, canonicalizing /guest, bouncing guest-owned app-host routes, and root-host /app/* handoff. This commit only broadens tests around existing behavior."
+    },
+    {
+      "featureId": "host-and-route-canonicalization",
+      "severity": "blocking",
+      "description": "The test named 'bounces guest routes from the app host before preserving safe sign-in intent on root-host auth' stops after asserting a 200 response from handleRouting on the root-host guest URL. That does not verify VAL-FOUNDATION-004's required redirect to /auth/signin with a safe redirectedFrom value, so a key expected behavior remains uncovered by this feature's added tests."
+    },
+    {
+      "featureId": "refresh-worktree-runtime-for-foundation-validation",
+      "severity": "blocking",
+      "description": "The only functional change is a new unit assertion for `handleRouting`; no production/runtime code was changed to make the live `app.localhost` request redirect correctly. The feature description and expected behavior require fixing the real runtime path on port 3000, but the handoff itself confirms the browser still hits `ERR_TOO_MANY_REDIRECTS` and curl still returns a relative `location: /guest/...` header."
+    },
+    {
+      "featureId": "stabilize-live-apphost-guest-route-canonicalization",
+      "severity": "blocking",
+      "description": "The change only suppresses the absolute `Location` override for same-host redirects. It does not resolve the feature's required live symptom: the worker's browser check still hit `ERR_TOO_MANY_REDIRECTS`, so the feature was marked complete without evidence that `http://app.localhost:3000/guest/bookings?tab=upcoming` now canonicalizes to the guest/root host in a real browser."
+    }
+  ],
+  "appliedUpdates": [
+    {
+      "target": "library",
+      "description": "Documented the canonical guest foundation primitives (`GuestPageShell`, `GuestPageSection`, `GuestSurfaceCard`) in `.factory/library/guest-design-system.md`.",
+      "sourceFeature": "guest-shell-primitives-and-layout-governance"
+    }
+  ],
+  "suggestedGuidanceUpdates": [
+    {
+      "target": "skill",
+      "suggestion": "Update `guest-routing-worker` guidance to explicitly acknowledge the mission-documented local Next.js dev limitation for `VAL-FOUNDATION-013`, so workers distinguish between a runtime diagnostic dead-end and a true implementation fix.",
+      "evidence": ".factory/skills/guest-routing-worker/SKILL.md step 7 expects final browser verification, while the handoff's skillFeedback explains the runtime remained blocked and only deterministic coverage was updated.",
+      "isSystemic": false
+    }
+  ],
+  "rejectedObservations": [
+    {
+      "observation": "The mission library already documents a local-dev limitation for multi-host guest-route validation, but the feature still had to discover and record that app.localhost guest-route browser checks loop in the local runtime. This environment quirk should remain clearly surfaced wherever feature reviewers/validators look first for route-host expectations.",
+      "reason": "ambiguous"
+    },
+    {
+      "observation": "The repo already documents the exact local runtime limitation and required fallback for VAL-FOUNDATION-013, but the worker still spent significant effort re-proving it. This knowledge should be treated as canonical mission state during review and triage.",
+      "reason": "ambiguous"
+    },
+    {
+      "observation": "The repo already documents the stale-dev-server / local runtime limitation and the need to hot-reload or restart port 3000 before trusting live canonicalization checks, but this feature still concluded success while browser validation remained blocked by that exact condition.",
+      "reason": "ambiguous"
+    }
+  ],
+  "previousRound": null
+}

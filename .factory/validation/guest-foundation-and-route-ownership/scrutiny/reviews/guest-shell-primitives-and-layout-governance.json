@@ -1,0 +1,21 @@
+{
+  "featureId": "guest-shell-primitives-and-layout-governance",
+  "reviewedAt": "2026-03-25T09:10:45Z",
+  "commitId": "ee9fcfa8",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The feature successfully introduced canonical guest shell primitives and routed auth, role-selection, and bookings surfaces through the shared guest navbar/background/footer stack. I did not find any blocking or non-blocking implementation defects in the committed scope.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "knowledge",
+      "observation": "The canonical guest foundation primitives added by this feature are not yet reflected in the shared library docs, even though later guest features are expected to build on them.",
+      "evidence": "Commit ee9fcfa8 adds `GuestPageShell`, `GuestPageSection`, and `GuestSurfaceCard` in `src/components/guest/ui/GuestPrimitives.tsx`, while `.factory/library/guest-design-system.md` still only describes `GuestSection`, typography helpers, and generic card/touch patterns."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Reviewed handoff, transcript skeleton, skill procedure, and commit `ee9fcfa8` for `guest-shell-primitives-and-layout-governance`. The implementation matches the feature contract for establishing a shared guest shell foundation, and I found no code-review issues that should block or follow up on within this feature; the only shared-state gap is that the library docs do not yet mention the new canonical primitives."
+}

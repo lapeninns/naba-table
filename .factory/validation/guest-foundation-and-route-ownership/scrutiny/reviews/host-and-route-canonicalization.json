@@ -1,0 +1,34 @@
+{
+  "featureId": "host-and-route-canonicalization",
+  "reviewedAt": "2026-03-25T09:10:00Z",
+  "commitId": "c4f1a8ee",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The commit only adds tests and does not implement the host/path canonicalization behavior required by the feature. The tests cover middleware helper responses for some host ownership cases, but they do not verify the protected guest-route sign-in redirect contract and the feature handoff itself records the live app-host guest-route flow still failing with ERR_TOO_MANY_REDIRECTS.",
+    "issues": [
+      {
+        "file": "tests/guest/public-booking-redirects.test.ts",
+        "line": 35,
+        "severity": "blocking",
+        "description": "This feature commit contains no production code changes, so the required canonicalization behavior is not actually implemented here. The feature description requires protecting guest routes, canonicalizing /guest, bouncing guest-owned app-host routes, and root-host /app/* handoff. This commit only broadens tests around existing behavior."
+      },
+      {
+        "file": "tests/guest/public-booking-redirects.test.ts",
+        "line": 83,
+        "severity": "blocking",
+        "description": "The test named 'bounces guest routes from the app host before preserving safe sign-in intent on root-host auth' stops after asserting a 200 response from handleRouting on the root-host guest URL. That does not verify VAL-FOUNDATION-004's required redirect to /auth/signin with a safe redirectedFrom value, so a key expected behavior remains uncovered by this feature's added tests."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "knowledge",
+      "observation": "The mission library already documents a local-dev limitation for multi-host guest-route validation, but the feature still had to discover and record that app.localhost guest-route browser checks loop in the local runtime. This environment quirk should remain clearly surfaced wherever feature reviewers/validators look first for route-host expectations.",
+      "evidence": ".factory/library/guest-routes.md notes multi-host live validation may require deterministic coverage, and mission AGENTS.md explicitly calls out VAL-FOUNDATION-013 as a known local-dev limitation; the host-and-route-canonicalization handoff still reports app.localhost/guest/bookings hitting ERR_TOO_MANY_REDIRECTS live."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Review failed: commit c4f1a8ee adds useful redirect tests but does not itself implement the requested host/path canonicalization behavior, and it leaves a required protected guest-route sign-in redirect insufficiently covered while the handoff documents the live app-host guest-route flow still broken."
+}

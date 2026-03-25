@@ -1,0 +1,34 @@
+{
+  "featureId": "stabilize-live-apphost-guest-route-canonicalization",
+  "reviewedAt": "2026-03-25T09:10:00Z",
+  "commitId": "bfafe4c5",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The commit only changes `src/proxy.ts` so same-host redirects keep Next's relative `Location` header, but the feature requirement was to fix the live `app.localhost` browser loop. The worker's own handoff shows browser validation still failed with `ERR_TOO_MANY_REDIRECTS`, and the targeted verification command claimed to cover a Playwright spec that Vitest does not execute. The implementation therefore does not demonstrate the required live behavior for this feature milestone.",
+    "issues": [
+      {
+        "file": "src/proxy.ts",
+        "line": 107,
+        "severity": "blocking",
+        "description": "The change only suppresses the absolute `Location` override for same-host redirects. It does not resolve the feature's required live symptom: the worker's browser check still hit `ERR_TOO_MANY_REDIRECTS`, so the feature was marked complete without evidence that `http://app.localhost:3000/guest/bookings?tab=upcoming` now canonicalizes to the guest/root host in a real browser."
+      },
+      {
+        "file": "tests/e2e/guest-portal-redirects.spec.ts",
+        "line": 1,
+        "severity": "non_blocking",
+        "description": "The feature's verification step says `npx vitest run tests/guest/public-booking-redirects.test.ts tests/e2e/guest-portal-redirects.spec.ts --reporter=verbose`, but `tests/e2e/guest-portal-redirects.spec.ts` is a Playwright test file on a different base URL (`http://localhost:5180`) and is not actually exercised by Vitest. The worker noticed this in the handoff, which means the documented validator did not cover the intended browser redirect surface for this feature."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "knowledge",
+      "observation": "The repo already documents the stale-dev-server / local runtime limitation and the need to hot-reload or restart port 3000 before trusting live canonicalization checks, but this feature still concluded success while browser validation remained blocked by that exact condition.",
+      "evidence": ".factory/library/user-testing.md states 'If proxy or middleware behavior changed, restart or hot-reload the port 3000 app from the worktree before relying on live browser validation'; handoff for bfafe4c5 records `ERR_TOO_MANY_REDIRECTS` and a stale server on port 3000."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Review failed: the code change is small and plausible, but the feature requirement was a live browser fix and the worker's own evidence shows the loop still reproduced in-browser. Automated verification also overstated coverage by including a Playwright spec in a Vitest command that did not execute that browser test."
+}

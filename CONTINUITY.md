@@ -1,56 +1,56 @@
 # Continuity Ledger
 
-Last updated: 2026-03-25T06:53:30Z
+Last updated: 2026-03-25T07:15:00Z
 
 ## Goal (incl. success criteria)
 
-- Refresh the worktree-backed Next.js runtime on port 3000 and fix the remaining live app-host guest-route canonicalization failure for `http://app.localhost:3000/guest/bookings?tab=upcoming`.
-- Success means the live runtime serves current worktree middleware/proxy code, guest-owned app-host URLs redirect exactly once to the guest/root host before auth gating, and the required validators plus live checks pass.
+- Complete scrutiny validation for milestone `guest-foundation-and-route-ownership` by running required validators, spawning feature review subagents, synthesizing findings into `.factory/validation/guest-foundation-and-route-ownership/scrutiny/synthesis.json`, and handing results back to the orchestrator.
+- Success means test/typecheck/lint results are captured, all completed milestone features have scrutiny review reports, synthesis accurately reflects pass/fail state, and the worker returns control to the orchestrator.
 
 ## Constraints/Assumptions
 
-- Follow mission/worker AGENTS guidance and stay within the isolated worktree.
-- Reuse the existing Next.js app on port 3000 via `.factory/services.yaml`; do not touch off-limits ports.
-- Scope is limited to guest route ownership/runtime refresh behavior; do not expand into unrelated guest UI work.
-- `pnpm lint` may still emit the known pre-existing warnings documented by the mission AGENTS file.
+- Must follow the active `scrutiny-validator` skill and always return control to the orchestrator.
+- Scope is limited to milestone scrutiny validation; do not change product code unless required for factual validation artifacts or low-risk shared-state documentation.
+- Use `.factory/services.yaml` as the source of truth for validator commands.
+- If any validator fails, stop review flow and report failure immediately.
 
 ## Key decisions
 
-- Inspect the live runtime path through `src/proxy.ts` and compare it against the pure redirect helper/test behavior before editing.
-- Favor a single central canonicalization rule over any app-host/auth-surface workaround.
-- Verify both automated redirect coverage and the real runtime/browser behavior against port 3000.
+- Treat this as a first-run scrutiny pass because no prior synthesis existed under `.factory/validation/guest-foundation-and-route-ownership/scrutiny/`.
+- Review all completed implementation features in the milestone via `scrutiny-feature-reviewer` subagents in parallel.
+- Run the full milestone validators from `.factory/services.yaml`: `npx vitest run --maxWorkers=9`, `pnpm typecheck`, and `pnpm lint`.
 
 ## State
 
-- Startup context loaded; initialization completed.
-- Baseline validation passed. Live inspection shows port 3000 is serving the current worktree dev runtime, but curl still reports a relative redirect for app-host guest routes.
+- Mission context, validation contract, repo docs, and services manifest loaded.
+- Four scrutiny review subagents completed and wrote per-feature JSON reports.
+- Validators still need to be run and synthesis still needs to be written.
 
 ## Done
 
-- Activated required `mission-worker-base` and `guest-routing-worker` skills.
-- Read root and mission `AGENTS.md`, mission docs, `.factory/services.yaml`, feature list, guest-route guidance, and current continuity state.
-- Confirmed the feature belongs to the `guest-foundation-and-route-ownership` milestone and that the service manifest points `web` to `pnpm dev` on port 3000.
-- Confirmed the full Vitest baseline passes.
-- Verified via process inspection and dev trace evidence that port 3000 is serving the current worktree, not another checkout.
+- Activated `scrutiny-validator` skill.
+- Read `CONTINUITY.md`, mission files, `package.json`, `README.md`, and `.factory/services.yaml`.
+- Confirmed completed milestone features: `guest-shell-primitives-and-layout-governance`, `host-and-route-canonicalization`, `stabilize-live-apphost-guest-route-canonicalization`, and `refresh-worktree-runtime-for-foundation-validation`.
+- Spawned and collected scrutiny reviews for all completed milestone features.
 
 ## Now
 
-- Compare the live curl/browser behavior against Next dev runtime logs to determine whether host canonicalization is being normalized after proxy execution.
+- Run the configured validators and capture exact outcomes.
 
 ## Next
 
-- Verify the real browser destination on the current runtime and decide whether any code change is still necessary versus documenting a dev-runtime header quirk.
+- Read review reports, triage shared-state observations, write synthesis JSON, commit any synthesis/library updates, and call `EndFeatureRun`.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- Whether the remaining failure is caused by stale dev runtime output, host normalization in Next dev, or a proxy/auth handoff path bypassing the intended canonical redirect.
-- Whether no code change is needed beyond ensuring the worktree runtime is actually serving current middleware logic. (UNCONFIRMED)
+- Whether any validator failures will require early termination before synthesis.
+- Whether the shared-state observations warrant additive `.factory/library/` updates or only orchestrator recommendations.
 
 ## Working set (files/ids/commands)
 
-- `CONTINUITY.md`
-- `src/proxy.ts`
-- `tests/guest/public-booking-redirects.test.ts`
 - `.factory/services.yaml`
+- `.factory/validation/guest-foundation-and-route-ownership/scrutiny/reviews/*.json`
+- `.factory/validation/guest-foundation-and-route-ownership/scrutiny/synthesis.json`
 - `npx vitest run --maxWorkers=9`
-- `curl -I -H 'Host: app.localhost:3000' 'http://127.0.0.1:3000/guest/bookings?tab=upcoming'`
+- `pnpm typecheck`
+- `pnpm lint`

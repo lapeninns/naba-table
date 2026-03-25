@@ -51,3 +51,9 @@ Warm, clear, trustworthy, and consistent across every guest touchpoint.
 - duplicated typography utilities
 - competing guest page shells
 - ad hoc text/color classes when canonical guest primitives exist
+
+## Canonical Guest Foundation Primitives
+
+- `GuestPageShell`: canonical guest page frame for navbar, background treatment, and footer continuity.
+- `GuestPageSection`: bounded section wrapper for consistent guest page spacing and section rhythm.
+- `GuestSurfaceCard`: canonical guest surface container for cards/panels that should match the shared guest shell family.

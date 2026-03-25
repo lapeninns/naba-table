@@ -1,0 +1,39 @@
+{
+  "featureId": "refresh-worktree-runtime-for-foundation-validation",
+  "reviewedAt": "2026-03-25T09:10:00Z",
+  "commitId": "80a18ea5",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The feature only added deterministic test coverage and continuity updates; it did not fix the live Next.js dev runtime behavior required by the feature. The committed code leaves the known app-host guest-route failure unresolved, so the implementation does not satisfy the feature's expectedBehavior.",
+    "issues": [
+      {
+        "file": "tests/guest/public-booking-redirects.test.ts",
+        "line": 50,
+        "severity": "blocking",
+        "description": "The only functional change is a new unit assertion for `handleRouting`; no production/runtime code was changed to make the live `app.localhost` request redirect correctly. The feature description and expected behavior require fixing the real runtime path on port 3000, but the handoff itself confirms the browser still hits `ERR_TOO_MANY_REDIRECTS` and curl still returns a relative `location: /guest/...` header."
+      },
+      {
+        "file": "CONTINUITY.md",
+        "line": 1,
+        "severity": "non_blocking",
+        "description": "The commit includes a mission continuity-ledger rewrite unrelated to runtime behavior. It does not help deliver the feature and adds review noise to an otherwise test-only change."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "knowledge",
+      "observation": "The repo already documents the exact local runtime limitation and required fallback for VAL-FOUNDATION-013, but the worker still spent significant effort re-proving it. This knowledge should be treated as canonical mission state during review and triage.",
+      "evidence": ".factory/library/user-testing.md:33-39 documents that local Next.js dev may still loop on `app.localhost` guest paths even when deterministic coverage is correct; mission AGENTS.md also calls out the same limitation under Testing & Validation Guidance."
+    },
+    {
+      "area": "skills",
+      "observation": "The guest-routing-worker skill assumes successful live browser verification when the runtime supports it, but this mission has a documented local-dev exception. The worker deviation notes show the skill wording does not clearly acknowledge that a diagnostic-only outcome may still leave the assigned feature incomplete.",
+      "evidence": ".factory/skills/guest-routing-worker/SKILL.md step 7 expects final browser verification, while the handoff's skillFeedback explains the runtime remained blocked and only deterministic coverage was updated."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Review failed: commit `80a18ea5` adds a regression test but does not fix the live app-host guest-route canonicalization behavior required by the feature. The handoff and existing mission docs both confirm the runtime still loops on `app.localhost`, so the feature remains unresolved."
+}
