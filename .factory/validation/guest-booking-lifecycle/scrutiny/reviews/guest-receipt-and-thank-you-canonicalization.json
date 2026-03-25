@@ -1,34 +1,33 @@
 {
   "featureId": "guest-receipt-and-thank-you-canonicalization",
-  "reviewedAt": "2026-03-25T12:46:00Z",
-  "commitId": "98fc48a73c6e3942577b6ab9ca32406b0da3a55e",
+  "reviewedAt": "2026-03-25T13:10:00Z",
+  "commitId": "98fc48a7",
   "transcriptSkeletonReviewed": true,
   "diffReviewed": true,
   "status": "fail",
   "codeReview": {
-    "summary": "The receipt lifecycle copy and thank-you canonicalization updates are implemented, but the new unit coverage weakens the entitlement-path contract by using non-UUID booking identifiers against a route that normally validates UUIDs, so the test does not prove the real tokenized receipt flow and still emits the adapter warning noted in the handoff.",
+    "summary": "The receipt lifecycle copy and entitlement coverage are solid, but the implementation does not fully satisfy the feature scope because no code change covered the deprecated generic /guest/thank-you alias or validated its intended canonical destination.",
     "issues": [
       {
-        "file": "tests/guest/guest-receipt-pages.test.tsx",
-        "line": 45,
+        "file": "src/app/guest/thank-you/page.tsx",
+        "line": 8,
         "severity": "blocking",
-        "description": "The added entitlement tests use `booking-1` / `restaurant-1` ids even though reservation inputs are UUID-validated in the real receipt data path. That means the tokenized-access test bypasses the same schema expectations production requests hit, so it does not fully cover the required authenticated-or-tokenized receipt entitlement behavior for real booking IDs."
-      },
-      {
-        "file": "tests/guest/guest-receipt-pages.test.tsx",
-        "line": 108,
-        "severity": "non_blocking",
-        "description": "The mocked tokenized receipt payload still uses non-UUID ids, which is why the full Vitest run logs the receipt prefetch adapter warning called out in the handoff. The behavior passes, but the fixture is inconsistent with the reservation schema and leaves noisy test output behind."
+        "description": "The feature requires deprecated guest/public thank-you aliases to resolve to the right canonical destinations, but this feature only changed receipt messaging/tests and left the generic /guest/thank-you alias redirecting to /guest/dashboard without any new coverage or evidence tying that destination to a completed booking/receipt flow. The handoff claims the thank-you aliases already routed correctly, yet the reviewed commit 98fc48a7 contains no validation of /guest/thank-you, so the feature is incomplete against its alias-canonicalization requirement."
       }
     ]
   },
   "sharedStateObservations": [
     {
       "area": "knowledge",
-      "observation": "The worker handoff discovered that receipt test fixtures must use UUID-shaped ids to stay aligned with the reservation adapter/schema and avoid the `[receipt][prefetch]` warning during the full suite, but `.factory/library/user-testing.md` does not capture this receipt-fixture requirement for future workers.",
-      "evidence": "tests/guest/guest-receipt-pages.test.tsx:45 and :108 use `booking-1` / `restaurant-1`; handoff.discoveredIssues explicitly notes the mocked receipt prefetch adapter warning and suggests switching to valid UUID strings."
+      "observation": "The reviewed feature relied on an existing canonical rule for the deprecated generic /guest/thank-you alias, but mission shared-state docs only say that /guest/thank-you is deprecated; they do not document why redirecting it to /guest/dashboard is the correct canonical destination for booking-lifecycle validation.",
+      "evidence": "src/app/guest/thank-you/page.tsx:6-8 redirects to /guest/dashboard, while .factory/library/guest-routes.md says only \u201c/guest/thank-you is deprecated and should not remain a primary destination.\u201d"
+    },
+    {
+      "area": "conventions",
+      "observation": "Receipt page props include prefetchedStatus from the server page, but the client component ignores it and re-derives everything from the client hook. If this is intentional, the guest-routing/guest-booking shared guidance should note that dehydrated reservation data is the source of truth and this prop is vestigial; otherwise future workers may repeat unused-prop patterns.",
+      "evidence": "src/app/guest/bookings/[bookingId]/receipt/page.tsx:112-115 passes prefetchedStatus, but src/app/guest/bookings/[bookingId]/receipt/ReceiptClient.tsx:52 destructures only reservationId and hasSession."
     }
   ],
   "addressesFailureFrom": null,
-  "summary": "Review failed: the feature code updates the receipt messaging correctly, but the new unit entitlement coverage uses unrealistic non-UUID booking fixtures, so the required receipt-access contract is not fully proven and still leaves a known warning in the suite."
+  "summary": "Fail: commit 98fc48a7 improves receipt entitlement and lifecycle-specific confirmed/pending/cancelled messaging, but it does not implement or verify the full thank-you alias canonicalization scope because the deprecated /guest/thank-you alias remains unreviewed and unsupported by feature-specific evidence."
 }

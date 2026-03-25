@@ -1,44 +1,33 @@
 {
   "featureId": "booking-recovery-and-link-normalization",
-  "reviewedAt": "2026-03-25T13:00:00Z",
+  "reviewedAt": "2026-03-25T13:06:00Z",
   "commitId": "3c92421da7a0133b923854c3d83812eebbc0df21",
   "transcriptSkeletonReviewed": true,
   "diffReviewed": true,
   "status": "fail",
   "codeReview": {
-    "summary": "The feature fixes the immediate import blocker and adds recovery normalization coverage plus a dev harness, but it leaves a blocking mismatch in the booking-detail sign-in continuation path: unauthenticated detail pages still preserve `/bookings/[id]` directly instead of the canonical `/bookings/recover` entrypoint required for supported tokenized flows and later live entitled validation.",
+    "summary": "The feature fixes the ReservationDetailClient dialog import blocker, adds canonical recovery normalization coverage for tokenized booking links, and provides a dev-only recovery harness. However, it does not fully preserve canonical recovery continuation once the user reaches the final booking-detail URL without an sr_access cookie, so the recovery contract is not fully implemented.",
     "issues": [
       {
-        "file": "src/components/features/booking/detail/ReservationDetailClient.tsx",
-        "line": 61,
-        "severity": "non_blocking",
-        "description": "The fix swaps alias imports for a deep relative path to `components/dashboard/*`. It unblocks the build, but it bypasses the repo's established alias convention and hard-codes a fragile five-level traversal that is easy to break on future moves."
-      },
-      {
         "file": "src/app/(public)/bookings/[bookingId]/page.tsx",
-        "line": 101,
+        "line": 103,
         "severity": "blocking",
-        "description": "When an unauthenticated guest opens `/bookings/[bookingId]` without an `sr_access` cookie, the page still redirects to `/auth/signin?redirectedFrom=/bookings/[bookingId]` instead of preserving the canonical recovery entrypoint for tokenized/manage links. Because the feature contract requires supported tokenized booking links to route through `/bookings/recover`, preserve safe continuation, and leave a deterministic entitled public booking path for later live validation, this direct sign-in handoff breaks the canonical continuation path once the token has been stripped from the final URL. A guest who lands on the final detail URL after recovery but loses the recovery cookie cannot recover back through `/bookings/recover` from the preserved intent."
+        "description": "When the final public booking-detail URL is opened without an authenticated session or `sr_access` cookie, the page redirects to `/auth/signin?redirectedFrom=/bookings/recover?next=...` rather than preserving the original recovery entrypoint with the tokenized/manage-link context. After successful recovery strips the token from the final URL, any later revisit to `/bookings/[bookingId]` cannot re-enter the canonical `/bookings/recover` flow, which breaks the required cookie-backed continuation and deterministic entitled public booking path contract."
       }
     ]
   },
   "sharedStateObservations": [
     {
       "area": "skills",
-      "observation": "The `guest-routing-worker` skill says to start from `.factory/library/guest-routes.md`, `.factory/library/environment.md`, and `.factory/library/user-testing.md`, but it does not tell workers what to do when a requested feature's first step is to repair a known baseline blocker before any RED test can run. This worker had to deviate and document that the failing baseline itself was the assigned blocker.",
-      "evidence": ".factory/skills/guest-routing-worker/SKILL.md 'Work Procedure' step 4 requires RED tests first; handoff `.../handoffs/2026-03-25T12-38-19-912Z__booking-recovery-and-link-normalization__bf76d6ea-09f8-4c58-8e4b-342b7b68c060.json` records `skillFeedback.deviations` explaining the baseline import failure was the pre-assigned blocker."
+      "observation": "The worker deviated from the guest-routing-worker baseline-validation stop behavior because the assigned feature explicitly required repairing a known baseline blocker first. The skill should allow this documented exception instead of forcing an early return.",
+      "evidence": "`worker-transcripts.jsonl` entry for `bf76d6ea-09f8-4c58-8e4b-342b7b68c060` records `skillFeedback.followedProcedure=false` with a deviation for baseline validation, and the handoff explains the failing baseline was the exact pre-assigned `ReservationDetailClient` import blocker."
     },
     {
       "area": "knowledge",
-      "observation": "The new dev booking-recovery harness depends on `SESSION_RECOVERY_ACCESS_TOKEN_SECRET`, but `.factory/library/environment.md` does not mention that this env var must be present for `/dev/booking-recovery` to generate a live recovery link. Future validators will otherwise discover the page but may not know why it only shows the missing-secret message.",
-      "evidence": "`src/app/(public)/dev/booking-recovery/page.tsx:34-48` gates the harness on `SESSION_RECOVERY_ACCESS_TOKEN_SECRET`; `.factory/library/environment.md` currently lists general worktree/env notes only and omits this recovery-specific requirement."
-    },
-    {
-      "area": "knowledge",
-      "observation": "The shared validation guidance notes the auth-validation and restaurants empty-state fixtures, but it does not document the new deterministic public booking harness path `/dev/booking-recovery` that this feature introduced for later live entitled booking-detail coverage.",
-      "evidence": "`.factory/library/user-testing.md` has Local Discovery / Booking Validation Notes for `/restaurants?fixture=empty-state` and `/dev/auth-validation`, but no entry for `/dev/booking-recovery`; the feature adds `src/app/(public)/dev/booking-recovery/page.tsx` specifically for later validators."
+      "observation": "The new dev booking-recovery harness depends on `SESSION_RECOVERY_ACCESS_TOKEN_SECRET`, but the shared environment notes do not document that requirement for future validators using `/dev/booking-recovery`.",
+      "evidence": "`src/app/(public)/dev/booking-recovery/page.tsx:34-48` generates the live recovery link only when `SESSION_RECOVERY_ACCESS_TOKEN_SECRET` is present, while `.factory/library/environment.md` currently lists general worktree/env notes only and omits this recovery-specific prerequisite."
     }
   ],
   "addressesFailureFrom": null,
-  "summary": "Review failed. The feature mostly implements the recovery normalization contract, but it leaves a blocking gap in continuation behavior: once a guest reaches the final token-free booking detail URL, the unauthenticated fallback still preserves `/bookings/[id]` directly instead of a canonical recovery route, so the recovery-based continuation contract is not fully maintained."
+  "summary": "Review failed: the commit fixes import resolution and adds recovery normalization/harness coverage, but unauthenticated revisits to the stripped final booking-detail URL still bypass canonical recovery continuity, leaving the booking-recovery contract incomplete."
 }
