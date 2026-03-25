@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 import ReservationDetailClient from '@/components/features/booking/detail/ReservationDetailClient';
+import { env } from '@/lib/env';
 import { getTrustedSiteOrigin } from '@/lib/site-url';
 import { withRedirectedFrom } from '@/lib/url/withRedirectedFrom';
 import { createSessionRecoveryAccessToken } from '@/server/security/session-recovery-access-token';
@@ -80,12 +81,12 @@ const buildRecoveryPath = (nextPath: string, accessToken?: string | null): strin
   return `/bookings/recover?next=${next}`;
 };
 
-async function createRecoveryContinuationAccessToken(params: {
+export async function createRecoveryContinuationAccessToken(params: {
   userEmail: string | null | undefined;
   userPhone: string | null | undefined;
   restaurantId: string | null | undefined;
 }): Promise<string | null> {
-  const secret = process.env.SESSION_RECOVERY_ACCESS_TOKEN_SECRET?.trim();
+  const secret = env.security.sessionRecoveryAccessTokenSecret?.trim();
   if (!secret) return null;
 
   const { userEmail, userPhone, restaurantId } = params;

@@ -253,4 +253,11 @@ describe('public booking redirects', () => {
     const [canonicalTarget] = redirect.mock.calls.at(-1) ?? [];
     expect(canonicalTarget).toBe('/bookings/booking-1?tab=details&source=email');
   });
+
+  it('reuses the canonical env accessor when rebuilding recovery continuity for token-stripped revisits', async () => {
+    const pageSource = await import('@src/app/(public)/bookings/[bookingId]/page');
+    expect(pageSource.createRecoveryContinuationAccessToken.toString()).toContain(
+      'env.security.sessionRecoveryAccessTokenSecret',
+    );
+  });
 });
