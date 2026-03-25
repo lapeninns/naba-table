@@ -25,22 +25,26 @@ const RETRY_ACTION_FIXTURE_ENTRIES: Record<
   string,
   {
     bookingId: string;
-    restaurantId: string;
+    restaurantId?: string;
     emailType: string;
     templateType: string;
+    recipientEmail: string;
+    subject: string;
   }
 > = {
   '11111111-1111-4111-8111-111111111111': {
     bookingId: 'booking-fixture-failed',
-    restaurantId: '11111111-1111-1111-1111-111111111111',
     emailType: 'created',
     templateType: 'booking_confirmation',
+    recipientEmail: 'retry.failed@example.com',
+    subject: 'Fixture failed retry candidate',
   },
   '22222222-2222-4222-8222-222222222222': {
     bookingId: 'booking-fixture-bounced',
-    restaurantId: '11111111-1111-1111-1111-111111111111',
     emailType: 'review_request',
     templateType: 'review_request',
+    recipientEmail: 'retry.bounced@example.com',
+    subject: 'Fixture bounced retry candidate',
   },
 };
 
@@ -150,7 +154,35 @@ export async function POST(request: NextRequest) {
     };
 
     const retriedEntry = fixtureEntry
-      ? await resendBookingEmail(fixtureEntry.bookingId, fixtureEntry.emailType, fixtureEntry.templateType)
+      ? await resendBookingEmail(fixtureEntry.bookingId, fixtureEntry.emailType, fixtureEntry.templateType).then(
+          (entry) => {
+            const occurredAt =
+              typeof (entry as { occurredAt?: unknown })?.occurredAt === 'string'
+                ? (entry as { occurredAt: string }).occurredAt
+                : new Date().toISOString();
+
+            return {
+              ...((typeof entry === 'object' && entry !== null ? entry : {}) as Record<string, unknown>),
+              id: parsedBody.deliveryLogId,
+              bookingId: fixtureEntry.bookingId,
+              restaurantId: fixtureEntry.restaurantId ?? fallbackRestaurantId,
+              emailType: fixtureEntry.emailType,
+              templateType: fixtureEntry.templateType,
+              recipientEmail:
+                typeof (entry as { recipientEmail?: unknown })?.recipientEmail === 'string'
+                  ? (entry as { recipientEmail: string }).recipientEmail
+                  : fixtureEntry.recipientEmail,
+              status: 'sent',
+              error: null,
+              occurredAt,
+              metadata: {
+                ...(((entry as { metadata?: unknown })?.metadata as Record<string, unknown> | undefined) ?? {}),
+                subject: fixtureEntry.subject,
+                fixtureRetryRefetched: true,
+              },
+            };
+          },
+        )
       : await retryEmailDeliveryLogEntry({
           deliveryLogId: parsedBody.deliveryLogId,
           resendBookingEmail,
