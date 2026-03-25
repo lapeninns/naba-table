@@ -394,7 +394,7 @@ export function HomeTrustedSection() {
           {LOCAL_VENUES.slice(0, 6).map((venue) => (
             <div
               key={venue}
-              className="flex items-start gap-3 rounded-[var(--guest-radius-lg)] border-sem bg-white/90 p-4 shadow-card"
+              className="flex items-start gap-3 rounded-[var(--guest-radius-xl)] border-sem bg-white/90 p-4 shadow-card"
             >
               <ShieldCheck className="mt-0.5 h-5 w-5 text-blue-700" aria-hidden />
               <p className="text-sm text-slate-800">{venue}</p>
@@ -430,7 +430,7 @@ export function HomeJourneySection() {
             {STEPS.map((step, index) => (
               <article
                 key={step.title}
-                className="rounded-[var(--guest-radius-lg)] border-sem bg-white/90 p-4 shadow-card"
+                className="rounded-[var(--guest-radius-xl)] border-sem bg-white/90 p-4 shadow-card"
               >
                 <div className="flex items-center gap-3">
                   <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-700">
@@ -454,7 +454,7 @@ export function HomeJourneySection() {
             {ASSURANCES.map((item) => (
               <article
                 key={item.title}
-                className="flex items-start gap-3 rounded-[var(--guest-radius-lg)] border border-white/60 bg-white/90 p-3 shadow-card"
+                className="flex items-start gap-3 rounded-[var(--guest-radius-xl)] border border-white/60 bg-white/90 p-3 shadow-card"
               >
                 <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-700">
                   <item.icon className="h-5 w-5" aria-hidden />
@@ -540,7 +540,7 @@ export function HomeReceiptsSection() {
             </p>
           </div>
           <div className="space-y-3">
-            <div className="flex items-start gap-3 rounded-[var(--guest-radius-lg)] border-sem bg-white/90 p-3 shadow-card">
+            <div className="flex items-start gap-3 rounded-[var(--guest-radius-xl)] border-sem bg-white/90 p-3 shadow-card">
               <CalendarCheck className="mt-0.5 h-5 w-5 text-blue-700" aria-hidden />
               <div className="space-y-1">
                 <p className="text-sm font-semibold text-slate-900">Calendar-ready receipts</p>
@@ -549,7 +549,7 @@ export function HomeReceiptsSection() {
                 </p>
               </div>
             </div>
-            <div className="flex items-start gap-3 rounded-[var(--guest-radius-lg)] border-sem bg-white/90 p-3 shadow-card">
+            <div className="flex items-start gap-3 rounded-[var(--guest-radius-xl)] border-sem bg-white/90 p-3 shadow-card">
               <ShieldCheck className="mt-0.5 h-5 w-5 text-blue-700" aria-hidden />
               <div className="space-y-1">
                 <p className="text-sm font-semibold text-slate-900">Secure share links</p>
@@ -558,7 +558,7 @@ export function HomeReceiptsSection() {
                 </p>
               </div>
             </div>
-            <div className="flex items-start gap-3 rounded-[var(--guest-radius-lg)] border-sem bg-white/90 p-3 shadow-card">
+            <div className="flex items-start gap-3 rounded-[var(--guest-radius-xl)] border-sem bg-white/90 p-3 shadow-card">
               <Clock3 className="mt-0.5 h-5 w-5 text-blue-700" aria-hidden />
               <div className="space-y-1">
                 <p className="text-sm font-semibold text-slate-900">Always-on access</p>
@@ -575,7 +575,7 @@ export function HomeReceiptsSection() {
             <h3 className="text-2xl font-semibold">Reservation confirmed</h3>
             <p className="text-sm text-blue-100">Calendar file • Share link • Live status</p>
           </div>
-          <div className="rounded-[var(--guest-radius-lg)] border border-white/15 bg-white/10 p-3">
+          <div className="rounded-[var(--guest-radius-xl)] border border-white/15 bg-white/10 p-3">
             <div className="flex items-center justify-between text-sm">
               <span className="text-blue-100">Status</span>
               <Badge className="rounded-full bg-white text-blue-700">Confirmed</Badge>

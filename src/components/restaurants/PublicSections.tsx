@@ -72,16 +72,16 @@ export function RestaurantsHeroSection({ totalRestaurants }: { totalRestaurants:
                 name="restaurant-discovery"
                 type="search"
                 placeholder="Search by neighborhood, cuisine, or vibe"
-                className="h-12 rounded-[var(--guest-radius-lg)] border-border bg-surface-warm pl-11"
+                className="h-12 rounded-[var(--guest-radius-xl)] border-border bg-surface-warm pl-11"
               />
             </div>
-            <Button size="lg" className="h-12 rounded-[var(--guest-radius-lg)] px-5 text-base" asChild>
+            <Button size="lg" className="h-12 rounded-[var(--guest-radius-xl)] px-5 text-base" asChild>
               <Link href="/restaurants">
                 <Compass className="mr-2 h-5 w-5" aria-hidden />
                 Browse restaurants ready to book
               </Link>
             </Button>
-            <Button variant="outline" size="lg" className="h-12 rounded-[var(--guest-radius-lg)] px-5 text-base" asChild>
+            <Button variant="outline" size="lg" className="h-12 rounded-[var(--guest-radius-xl)] px-5 text-base" asChild>
               <Link href="/auth/signin">
                 <ShieldCheck className="mr-2 h-5 w-5" aria-hidden />
                 Save my guest shortlist
@@ -102,7 +102,7 @@ export function RestaurantsHeroSection({ totalRestaurants }: { totalRestaurants:
             <p className="text-4xl font-semibold">{totalRestaurants}</p>
             <p className="text-sm text-primary-foreground/80">Ready to book right now.</p>
           </div>
-          <div className="rounded-[var(--guest-radius-lg)] bg-background/10 p-4">
+          <div className="rounded-[var(--guest-radius-xl)] bg-background/10 p-4">
             <p className="text-sm font-medium">Built for clarity</p>
             <p className="text-sm text-primary-foreground/80">
               Same cards, trust cues, and clear CTAs you&apos;ll see when you start booking.
@@ -142,7 +142,7 @@ export function RestaurantsGridSection({ restaurants }: { restaurants: Restauran
             >
               <Link
                 href={`/restaurants/${restaurant.slug}`}
-                className="relative block h-48 w-full overflow-hidden rounded-[var(--guest-radius-lg)]"
+                className="relative block h-48 w-full overflow-hidden rounded-[var(--guest-radius-xl)]"
               >
                 {restaurant.logoUrl ? (
                   <Image
@@ -294,7 +294,7 @@ export function RestaurantDetailsSection({
             {insights.map((insight) => (
               <Card
                 key={insight.title}
-                className="space-y-2 rounded-[var(--guest-radius-lg)] border-slate-100 bg-white p-4 shadow-[var(--guest-shadow-sm)]"
+                className="space-y-2 rounded-[var(--guest-radius-xl)] border-slate-100 bg-white p-4 shadow-[var(--guest-shadow-sm)]"
               >
                 <div className="flex items-center gap-3">
                   <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-700">
@@ -323,7 +323,7 @@ export function RestaurantDetailsSection({
             <Button variant="outline" size="lg" className="w-full rounded-full text-base" asChild>
               <Link href="/restaurants">See all restaurants</Link>
             </Button>
-            <div className="rounded-[var(--guest-radius-lg)] border border-slate-100 bg-slate-50 p-4 text-xs text-slate-600">
+            <div className="rounded-[var(--guest-radius-xl)] border border-slate-100 bg-slate-50 p-4 text-xs text-slate-600">
               <p className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-amber-500" aria-hidden />
                 Instant confirmation, synced everywhere.

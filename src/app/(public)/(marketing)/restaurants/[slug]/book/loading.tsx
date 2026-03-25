@@ -38,7 +38,7 @@ export default function RestaurantBookingLoadingPage() {
               {Array.from({ length: 3 }).map((_, index) => (
                 <div
                   key={index}
-                  className="h-24 rounded-[var(--guest-radius-lg)] border border-dashed border-border/70 bg-background/70"
+                  className="h-24 rounded-[var(--guest-radius-xl)] border border-dashed border-border/70 bg-background/70"
                 />
               ))}
             </div>
