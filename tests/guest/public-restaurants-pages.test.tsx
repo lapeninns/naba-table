@@ -144,6 +144,21 @@ describe('public restaurant marketing pages', () => {
     expect(notFound).toHaveBeenCalled();
   });
 
+  it('passes the original slug through to booking lookup without lowercasing it first', async () => {
+    getRestaurantBySlugMock.mockResolvedValueOnce({
+      id: 'rest-1',
+      slug: 'The-Fox',
+      name: 'The Fox',
+      timezone: 'Europe/London',
+      address: '1 High Street',
+    });
+
+    render(await BookingPage({ params: Promise.resolve({ slug: 'The-Fox' }) }));
+
+    expect(getRestaurantBySlugMock).toHaveBeenCalledWith('The-Fox');
+    expect(screen.getByText('Wizard for The Fox')).toBeInTheDocument();
+  });
+
   it('renders deterministic loading feedback for restaurant booking entry', () => {
     render(<BookingLoadingPage />);
 

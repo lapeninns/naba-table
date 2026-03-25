@@ -24,15 +24,15 @@ export async function generateMetadata({ params }: { params: RouteParams }): Pro
 
 export default async function BookingPage({ params }: { params: RouteParams }) {
   const { slug } = await params;
-  const normalized = slug?.trim().toLowerCase() ?? '';
+  const normalized = slug?.trim() ?? '';
 
   if (!normalized) {
-    return notFound();
+    notFound();
   }
 
   const restaurant = await getRestaurantBySlug(normalized);
   if (!restaurant) {
-    return notFound();
+    notFound();
   }
 
   return (
