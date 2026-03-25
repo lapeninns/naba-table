@@ -271,14 +271,7 @@ describe('POST /api/ops/email-delivery/retry', () => {
       userId: 'user-1',
       restaurantId: '11111111-1111-1111-1111-111111111111',
     });
-    expect(resendBookingEmailFromDeliveryLogMock).toHaveBeenCalledWith({
-      booking: expect.objectContaining({
-        id: 'booking-fixture-failed',
-        restaurant_id: '11111111-1111-1111-1111-111111111111',
-      }),
-      emailType: 'created',
-      templateType: 'booking_confirmation',
-    });
+    expect(resendBookingEmailFromDeliveryLogMock).not.toHaveBeenCalled();
   });
 
   it('allows retry-actions fixture delivery log ids to succeed without querying the backing table', async () => {
@@ -328,30 +321,11 @@ describe('POST /api/ops/email-delivery/retry', () => {
       }),
     });
     expect(retryEmailDeliveryLogEntryMock).not.toHaveBeenCalled();
-    expect(resendBookingEmailFromDeliveryLogMock).toHaveBeenCalledWith({
-      booking: expect.objectContaining({ id: 'booking-fixture-failed' }),
-      emailType: 'created',
-      templateType: 'booking_confirmation',
-    });
+    expect(resendBookingEmailFromDeliveryLogMock).not.toHaveBeenCalled();
   });
 
   it('maps retry-actions fixture retries to a deterministic sent delivery-log entry for live refetches', async () => {
     process.env.APP_ENV = 'test';
-    resendBookingEmailFromDeliveryLogMock.mockResolvedValue({
-      id: 'log-fixture-success',
-      bookingId: 'booking-fixture-failed',
-      restaurantId: '11111111-1111-1111-1111-111111111111',
-      emailType: 'created',
-      templateType: 'booking_confirmation',
-      recipientEmail: 'retry.failed@example.com',
-      messageId: 'message-fixture-success',
-      status: 'sent',
-      provider: 'mock',
-      occurredAt: '2026-03-24T10:03:00.000Z',
-      error: null,
-      metadata: { subject: 'Fixture failed retry candidate' },
-    });
-
     const response = await POST(buildRequest({ deliveryLogId: FIXTURE_DELIVERY_LOG_ID }));
     const payload = await response.json();
 
@@ -362,8 +336,14 @@ describe('POST /api/ops/email-delivery/retry', () => {
         id: FIXTURE_DELIVERY_LOG_ID,
         status: 'sent',
         recipientEmail: 'retry.failed@example.com',
-        messageId: 'message-fixture-success',
+        messageId: `${FIXTURE_DELIVERY_LOG_ID}:fixture-retry-success`,
+        provider: 'fixture',
+        metadata: expect.objectContaining({
+          fixtureRetryRefetched: true,
+          fixtureSyntheticSuccess: true,
+        }),
       }),
     });
+    expect(resendBookingEmailFromDeliveryLogMock).not.toHaveBeenCalled();
   });
 });

@@ -48,6 +48,37 @@ const RETRY_ACTION_FIXTURE_ENTRIES: Record<
   },
 };
 
+function buildFixtureRetrySuccessEntry({
+  deliveryLogId,
+  fixtureEntry,
+  restaurantId,
+}: {
+  deliveryLogId: string;
+  fixtureEntry: (typeof RETRY_ACTION_FIXTURE_ENTRIES)[string];
+  restaurantId: string | null;
+}) {
+  const occurredAt = new Date().toISOString();
+
+  return {
+    id: deliveryLogId,
+    bookingId: fixtureEntry.bookingId,
+    restaurantId,
+    emailType: fixtureEntry.emailType,
+    templateType: fixtureEntry.templateType,
+    recipientEmail: fixtureEntry.recipientEmail,
+    messageId: `${deliveryLogId}:fixture-retry-success`,
+    status: 'sent',
+    provider: 'fixture',
+    error: null,
+    occurredAt,
+    metadata: {
+      subject: fixtureEntry.subject,
+      fixtureRetryRefetched: true,
+      fixtureSyntheticSuccess: true,
+    },
+  };
+}
+
 const bodySchema = z.object({
   deliveryLogId: z.string().refine((value) => z.uuid().safeParse(value).success || value in RETRY_ACTION_FIXTURE_ENTRIES, {
     message: 'Invalid delivery log id.',
@@ -154,35 +185,24 @@ export async function POST(request: NextRequest) {
     };
 
     const retriedEntry = fixtureEntry
-      ? await resendBookingEmail(fixtureEntry.bookingId, fixtureEntry.emailType, fixtureEntry.templateType).then(
-          (entry) => {
-            const occurredAt =
-              typeof (entry as { occurredAt?: unknown })?.occurredAt === 'string'
-                ? (entry as { occurredAt: string }).occurredAt
-                : new Date().toISOString();
+      ? await (async () => {
+          const fixtureRestaurantId = fixtureEntry.restaurantId ?? fallbackRestaurantId;
+          if (!fixtureRestaurantId) {
+            throw new EmailDeliveryRetryError('MISSING_BOOKING', 'No restaurant access is available for this retry.');
+          }
 
-            return {
-              ...((typeof entry === 'object' && entry !== null ? entry : {}) as Record<string, unknown>),
-              id: parsedBody.deliveryLogId,
-              bookingId: fixtureEntry.bookingId,
-              restaurantId: fixtureEntry.restaurantId ?? fallbackRestaurantId,
-              emailType: fixtureEntry.emailType,
-              templateType: fixtureEntry.templateType,
-              recipientEmail:
-                typeof (entry as { recipientEmail?: unknown })?.recipientEmail === 'string'
-                  ? (entry as { recipientEmail: string }).recipientEmail
-                  : fixtureEntry.recipientEmail,
-              status: 'sent',
-              error: null,
-              occurredAt,
-              metadata: {
-                ...(((entry as { metadata?: unknown })?.metadata as Record<string, unknown> | undefined) ?? {}),
-                subject: fixtureEntry.subject,
-                fixtureRetryRefetched: true,
-              },
-            };
-          },
-        )
+          await requireRestaurantMember({
+            supabase,
+            userId: user.id,
+            restaurantId: fixtureRestaurantId,
+          });
+
+          return buildFixtureRetrySuccessEntry({
+            deliveryLogId: parsedBody.deliveryLogId,
+            fixtureEntry,
+            restaurantId: fixtureRestaurantId,
+          });
+        })()
       : await retryEmailDeliveryLogEntry({
           deliveryLogId: parsedBody.deliveryLogId,
           resendBookingEmail,
