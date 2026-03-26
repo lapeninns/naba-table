@@ -90,7 +90,8 @@ function buildHostWithPort(hostname: string, port?: string) {
 }
 
 function shouldUseAbsoluteRedirect(req: NextRequest, targetHost: string) {
-  return targetHost !== req.nextUrl.host;
+  const { host: reqHost } = parseHost(req);
+  return targetHost !== reqHost;
 }
 
 function buildRedirect(
