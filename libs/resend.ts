@@ -11,8 +11,8 @@ import {
 import config from "@/config";
 import { env } from "@/lib/env";
 import { normalizeEmail } from "@/server/customers";
+import { getSuppressedRecipientEmails } from "@/server/emails/recipient-suppression";
 import { recordObservabilityEvent } from "@/server/observability";
-import { getServiceSupabaseClient } from "@/server/supabase";
 
 const resendApiKey = env.resend.apiKey;
 const resendFrom = env.resend.from;
@@ -184,28 +184,7 @@ async function assertRecipientsAreDeliverable(recipients: string[]): Promise<voi
     return;
   }
 
-  const supabase = getServiceSupabaseClient();
-  const suppressionChecks = await Promise.all(
-    normalizedRecipients.map(async (recipientEmail) => {
-      const { data, error } = await supabase
-        .from("user_profiles")
-        .select("id")
-        .eq("email", recipientEmail)
-        .eq("is_email_suppressed", true)
-        .limit(1)
-        .maybeSingle();
-
-      if (error) {
-        throw new Error(`Failed to verify email suppression state: ${error.message}`);
-      }
-
-      return data?.id ? recipientEmail : null;
-    }),
-  );
-
-  const suppressedRecipients = suppressionChecks.filter(
-    (value): value is string => typeof value === "string" && value.length > 0,
-  );
+  const suppressedRecipients = await getSuppressedRecipientEmails(normalizedRecipients);
 
   if (suppressedRecipients.length === 0) {
     return;
