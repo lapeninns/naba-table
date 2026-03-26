@@ -7,8 +7,8 @@ import {
   findLatestEmailDeliveryByMessageId,
   type EmailDeliveryStatus,
 } from "@/server/emails/email-delivery-log";
+import { suppressProfilesByEmail } from "@/server/emails/recipient-suppression";
 import { recordObservabilityEvent } from "@/server/observability";
-import { getServiceSupabaseClient } from "@/server/supabase";
 
 import type { NextRequest } from "next/server";
 
@@ -39,11 +39,6 @@ type ResendWebhookEvent = {
       message: string;
     };
   };
-};
-
-type UserProfileRow = {
-  id: string;
-  is_email_suppressed: boolean | null;
 };
 
 export async function POST(req: NextRequest) {
@@ -127,38 +122,17 @@ export async function POST(req: NextRequest) {
       case "email.bounced":
       case "email.complained":
       case "email.complaint": {
-        const supabase = getServiceSupabaseClient();
+        const result = await suppressProfilesByEmail(primaryRecipient);
 
-        // Find the user profile by email (case-insensitive due to citext)
-        const { data: profileData, error } = await supabase
-          .from("user_profiles")
-          .select("id, is_email_suppressed")
-          .eq("email", primaryRecipient)
-          .maybeSingle();
-
-        const profile = profileData as UserProfileRow | null;
-
-        if (error) {
-          throw new Error(`Failed to query user_profiles: ${error.message}`);
-        }
-
-        if (profile && !profile.is_email_suppressed) {
-          // 3. --- Update Suppression Flag ---
-          const { error: updateError } = await supabase
-            .from("user_profiles")
-            .update({ is_email_suppressed: true, updated_at: new Date().toISOString() })
-            .eq("id", profile.id);
-
-          if (updateError) {
-            throw new Error(`Failed to update suppression flag: ${updateError.message}`);
-          }
-
+        if (result.updatedProfiles > 0) {
           await recordObservabilityEvent({
             source: "webhook.resend",
             eventType: "email_suppression.added",
             severity: "warning",
             context: {
               reason: event.type,
+              matchedProfiles: result.matchedProfiles,
+              updatedProfiles: result.updatedProfiles,
             },
           });
         }
