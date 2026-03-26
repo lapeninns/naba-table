@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/cron/process-emails",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/auto-complete-bookings",
       "schedule": "*/15 * * * *"
     }
