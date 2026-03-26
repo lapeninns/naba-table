@@ -30,9 +30,9 @@ related_tickets: []
 
 ## Rollout
 
-- [ ] Deploy the fix
-- [ ] Retry/drain failed jobs
-- [ ] Send validation email to `amanshresthaaaaa@gmail.com`
+- [x] Deploy the fix
+- [x] Retry/drain failed jobs
+- [x] Send validation email to `amanshresthaaaaa@gmail.com`
 
 ## Notes
 
