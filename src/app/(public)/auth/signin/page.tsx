@@ -13,6 +13,8 @@ export const metadata: Metadata = {
   description: 'Access your Nab a Table guest account to manage bookings and settings.',
 };
 
+export const dynamic = 'force-dynamic';
+
 type SignInPageSearchParams = {
   redirectedFrom?: string | string[];
   error?: string;

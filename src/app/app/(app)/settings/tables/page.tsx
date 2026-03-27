@@ -18,6 +18,8 @@ export const metadata: Metadata = {
   description: "Manage restaurant table inventory and floor plan",
 };
 
+export const dynamic = 'force-dynamic';
+
 export default async function TablesPage() {
   const supabase = await getServerComponentSupabaseClient();
   const {

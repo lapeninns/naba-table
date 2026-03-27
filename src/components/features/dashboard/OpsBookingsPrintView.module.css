@@ -148,21 +148,6 @@
 }
 
 @media print {
-  :global(body *) {
-    visibility: hidden;
-  }
-
-  :global(#ops-print-root),
-  :global(#ops-print-root *) {
-    visibility: visible;
-  }
-
-  :global(#ops-print-root) {
-    position: absolute;
-    inset: 0;
-    padding: 0;
-  }
-
   .page {
     max-width: none;
     padding: 0;
@@ -170,19 +155,6 @@
 
   .printControls {
     display: none;
-  }
-
-  :global(#ops-print-root thead) {
-    display: table-header-group;
-  }
-
-  :global(#ops-print-root tr) {
-    break-inside: avoid;
-  }
-
-  :global(#ops-print-root th),
-  :global(#ops-print-root td) {
-    color: #111111;
   }
 
   @page {

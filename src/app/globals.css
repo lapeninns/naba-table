@@ -510,6 +510,36 @@
     cursor: pointer;
   }
 
+  @media print {
+    body * {
+      visibility: hidden;
+    }
+
+    #ops-print-root,
+    #ops-print-root * {
+      visibility: visible;
+    }
+
+    #ops-print-root {
+      position: absolute;
+      inset: 0;
+      padding: 0;
+    }
+
+    #ops-print-root thead {
+      display: table-header-group;
+    }
+
+    #ops-print-root tr {
+      break-inside: avoid;
+    }
+
+    #ops-print-root th,
+    #ops-print-root td {
+      color: #111111;
+    }
+  }
+
   /* Smooth progress bars */
   progress::-webkit-progress-value {
     transition: width 0.6s ease-out;

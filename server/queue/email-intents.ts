@@ -1,19 +1,18 @@
+import { DateTime } from 'luxon';
+
 import { recordObservabilityEvent } from '@/server/observability';
 import {
   processEmailJobs,
   type ProcessEmailJobResult,
 } from '@/server/queue/email-processing';
 import { getServiceSupabaseClient } from '@/server/supabase';
-import type {
-  Json,
-  Tables,
-  TablesInsert,
-} from '@/types/supabase';
+
 
 import {
   EMAIL_DLQ_NAME,
   EMAIL_QUEUE_NAME,
 } from './email-contract';
+
 import type {
   EmailJobPayload,
   EmailJobType,
@@ -21,6 +20,11 @@ import type {
   EmailQueueStatusSnapshot,
   QueueJobSummary,
 } from './email-contract';
+import type {
+  Json,
+  Tables,
+  TablesInsert,
+} from '@/types/supabase';
 
 const DEFAULT_ATTEMPTS = 5;
 const DEFAULT_BACKOFF = { type: 'exponential', delay: 60_000 } as const;
@@ -127,6 +131,19 @@ function asRecord(value: Json | null): Record<string, Json | undefined> {
   return value as Record<string, Json | undefined>;
 }
 
+function toIsoDateTime(value: string | null | undefined): string | null {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed.toISOString();
+}
+
 function toPayload(row: EmailDispatchIntentRow): EmailJobPayload {
   const payload = asRecord(row.payload);
 
@@ -143,11 +160,14 @@ function toPayload(row: EmailDispatchIntentRow): EmailJobPayload {
       typeof payload.type === 'string' && payload.type.length > 0
         ? (payload.type as EmailJobType)
         : (row.email_type as EmailJobType),
-    scheduledFor: row.scheduled_for,
+    scheduledFor:
+      typeof payload.scheduledFor === 'string' && payload.scheduledFor.length > 0
+        ? payload.scheduledFor
+        : toIsoDateTime(row.scheduled_for) ?? undefined,
     failedReason: row.last_error,
     failedAt:
       row.status === 'failed' || row.status === 'processing'
-        ? row.last_attempt_at
+        ? toIsoDateTime(row.last_attempt_at)
         : null,
     cronAttemptsMade: row.attempts_made,
   };
@@ -161,12 +181,12 @@ function toQueueStatus(
   if (row.status === 'failed') return 'dlq';
   if (row.status !== 'pending') return null;
 
-  const scheduledForMs = Date.parse(row.scheduled_for);
-  if (Number.isNaN(scheduledForMs)) {
+  const scheduledFor = DateTime.fromISO(row.scheduled_for, { setZone: true });
+  if (!scheduledFor.isValid) {
     return 'waiting';
   }
 
-  return scheduledForMs > nowMs ? 'delayed' : 'waiting';
+  return scheduledFor.toMillis() > nowMs ? 'delayed' : 'waiting';
 }
 
 function toQueueJobSummary(row: EmailDispatchIntentRow): QueueJobSummary {
@@ -180,12 +200,15 @@ function toQueueJobSummary(row: EmailDispatchIntentRow): QueueJobSummary {
 
 async function countPendingRows(nowIso: string, mode: 'due' | 'future'): Promise<number> {
   const supabase = getServiceSupabaseClient();
-  const query = supabase.from('email_dispatch_intents').eq('status', 'pending');
+  const query = supabase
+    .from('email_dispatch_intents')
+    .select('id', { head: true, count: 'exact' })
+    .eq('status', 'pending');
   const filtered =
     mode === 'due'
       ? query.lte('scheduled_for', nowIso)
       : query.gt('scheduled_for', nowIso);
-  const { count, error } = await filtered.select('id', { head: true, count: 'exact' });
+  const { count, error } = await filtered;
 
   if (error) {
     throw new Error(error.message);
@@ -199,9 +222,15 @@ async function countStatusRows(
 ): Promise<number> {
   const supabase = getServiceSupabaseClient();
   const query = Array.isArray(status)
-    ? supabase.from('email_dispatch_intents').in('status', [...status])
-    : supabase.from('email_dispatch_intents').eq('status', status);
-  const { count, error } = await query.select('id', { head: true, count: 'exact' });
+    ? supabase
+        .from('email_dispatch_intents')
+        .select('id', { head: true, count: 'exact' })
+        .in('status', [...status])
+    : supabase
+        .from('email_dispatch_intents')
+        .select('id', { head: true, count: 'exact' })
+        .eq('status', status as EmailDispatchIntentStatus);
+  const { count, error } = await query;
 
   if (error) {
     throw new Error(error.message);
@@ -216,13 +245,15 @@ async function listPendingRows(
   limit: number,
 ): Promise<EmailDispatchIntentRow[]> {
   const supabase = getServiceSupabaseClient();
-  const query = supabase.from('email_dispatch_intents').eq('status', 'pending');
+  const query = supabase
+    .from('email_dispatch_intents')
+    .select('*')
+    .eq('status', 'pending');
   const filtered =
     mode === 'due'
       ? query.lte('scheduled_for', nowIso)
       : query.gt('scheduled_for', nowIso);
   const { data, error } = await filtered
-    .select('*')
     .order('scheduled_for', { ascending: true })
     .order('created_at', { ascending: true })
     .limit(limit);
@@ -369,7 +400,10 @@ export async function scheduleEmailIntent(
     options.jobId ?? buildEmailJobId(payload.type, payload.bookingId),
   );
   const scheduledFor = normalizeScheduledFor(payload);
-  const delayMs = Math.max(0, Date.parse(scheduledFor) - Date.now());
+  const scheduledForDateTime = DateTime.fromISO(scheduledFor, { setZone: true });
+  const delayMs = scheduledForDateTime.isValid
+    ? Math.max(0, scheduledForDateTime.toMillis() - Date.now())
+    : 0;
   const attempts =
     typeof options.attempts === 'number' && Number.isFinite(options.attempts) && options.attempts > 0
       ? Math.floor(options.attempts)
