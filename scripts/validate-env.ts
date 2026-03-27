@@ -48,14 +48,9 @@ const treatAsProdTarget = appEnv === "production" || vercelEnv === "production";
 if (treatAsProdTarget) {
   const emailQueueEnabled = env.FEATURE_EMAIL_QUEUE_ENABLED === true;
   if (emailQueueEnabled) {
-    if (!env.CLOUDFLARE_EMAIL_QUEUE_GATEWAY_URL || !env.CLOUDFLARE_EMAIL_QUEUE_GATEWAY_TOKEN) {
-      blockers.push(
-        "FEATURE_EMAIL_QUEUE_ENABLED=true requires CLOUDFLARE_EMAIL_QUEUE_GATEWAY_URL and CLOUDFLARE_EMAIL_QUEUE_GATEWAY_TOKEN to be set. Without them, delayed emails cannot reach the Cloudflare queue bridge.",
-      );
-    }
     if (!env.CRON_SECRET) {
       blockers.push(
-        "FEATURE_EMAIL_QUEUE_ENABLED=true requires CRON_SECRET to be set so trusted queue consumers can call /api/cron/process-emails.",
+        "FEATURE_EMAIL_QUEUE_ENABLED=true requires CRON_SECRET to be set so trusted cron invocations can call /api/cron/process-emails.",
       );
     }
   }
