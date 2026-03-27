@@ -13,6 +13,7 @@ import {
   isEmailQueueEnabled,
 } from '@/server/feature-flags';
 import { enqueueEmailJob } from '@/server/queue/email';
+import { cancelEmailIntents } from '@/server/queue/email-intents';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { BookingRecord } from '@/server/bookings';
@@ -537,6 +538,22 @@ async function processBookingUpdatedSideEffects(
 
   const confirmedFromPending =
     (prevStatus === 'pending' || prevStatus === 'pending_allocation') && currStatus === 'confirmed';
+  const leftConfirmed = prevStatus === 'confirmed' && currStatus !== 'confirmed';
+  const leftCompleted = prevStatus === 'completed' && currStatus !== 'completed';
+
+  if (leftConfirmed) {
+    await cancelEmailIntents({
+      bookingId: current.id,
+      types: ['reminder_24h', 'reminder_short'],
+    });
+  }
+
+  if (leftCompleted) {
+    await cancelEmailIntents({
+      bookingId: current.id,
+      types: ['review_request'],
+    });
+  }
 
   if (confirmedFromPending && !SUPPRESS_EMAILS && isValidEmail(current.customer_email)) {
     try {
@@ -601,6 +618,20 @@ async function processBookingCancelledSideEffects(
     });
   } catch (error) {
     console.error('[jobs][booking.cancelled][analytics]', error);
+  }
+
+  if (isEmailQueueEnabled()) {
+    try {
+      await cancelEmailIntents({
+        bookingId: cancelled.id,
+        types: ['reminder_24h', 'reminder_short', 'review_request'],
+      });
+    } catch (error) {
+      console.warn('[jobs][booking.cancelled] failed to cancel pending email intents', {
+        bookingId: cancelled.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   if (!SUPPRESS_EMAILS && cancelled.customer_email && cancelled.customer_email.trim().length > 0) {

@@ -12,19 +12,11 @@ import {
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { BookingRecord } from '@/server/bookings';
-import type { EmailJobPayload, EmailJobType } from '@/server/queue/email';
+import { EMAIL_JOB_TYPE_VALUES } from '@/server/queue/email-contract';
 
-const emailJobTypeSchema = z.enum([
-  'request_received',
-  'confirmation',
-  'updated',
-  'cancelled',
-  'reminder_24h',
-  'reminder_short',
-  'review_request',
-  'booking_rejected',
-  'restaurant_cancellation',
-]);
+import type { EmailJobPayload, EmailJobType } from '@/server/queue/email-contract';
+
+const emailJobTypeSchema = z.enum(EMAIL_JOB_TYPE_VALUES);
 
 export const emailJobPayloadSchema = z.object({
   bookingId: z.string().min(1),

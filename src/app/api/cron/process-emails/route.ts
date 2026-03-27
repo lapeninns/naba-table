@@ -3,8 +3,8 @@ import { NextResponse } from 'next/server';
 import { isEmailQueueEnabled } from '@/server/feature-flags';
 import { recordObservabilityEvent } from '@/server/observability';
 import {
+  EMAIL_JOB_TYPE_VALUES,
   type EmailJobType,
-  isEmailQueueGatewayConfigured,
   triggerEmailQueueDrain,
 } from '@/server/queue/email';
 import {
@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 const CRON_SECRET = process.env.CRON_SECRET;
-const REVIEW_ONLY_TYPES: ReadonlySet<EmailJobType> = new Set(['review_request']);
+const ALLOWED_TYPES: ReadonlySet<EmailJobType> = new Set(EMAIL_JOB_TYPE_VALUES);
 
 function parseTypeFilter(typesParam: string | null): { types: Set<EmailJobType> | null; error?: string } {
   if (!typesParam) {
@@ -32,11 +32,11 @@ function parseTypeFilter(typesParam: string | null): { types: Set<EmailJobType> 
     return { types: null };
   }
 
-  const invalidTypes = rawTypes.filter((value) => !REVIEW_ONLY_TYPES.has(value as EmailJobType));
+  const invalidTypes = rawTypes.filter((value) => !ALLOWED_TYPES.has(value as EmailJobType));
   if (invalidTypes.length > 0) {
     return {
       types: null,
-      error: `Unsupported email types: ${invalidTypes.join(', ')}. Only review_request is allowed.`,
+      error: `Unsupported email types: ${invalidTypes.join(', ')}.`,
     };
   }
 
@@ -86,17 +86,6 @@ export async function GET(request: Request) {
       processed: 0,
       filterTypes: allowedTypes ? Array.from(allowedTypes) : null,
     });
-  }
-
-  if (!isEmailQueueGatewayConfigured()) {
-    return NextResponse.json(
-      {
-        success: false,
-        error:
-          'Cloudflare email queue gateway is not configured. Set CLOUDFLARE_EMAIL_QUEUE_GATEWAY_URL and CLOUDFLARE_EMAIL_QUEUE_GATEWAY_TOKEN.',
-      },
-      { status: 503 },
-    );
   }
 
   try {

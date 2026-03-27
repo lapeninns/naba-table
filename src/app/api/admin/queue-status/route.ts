@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { isEmailQueueEnabled } from '@/server/feature-flags';
-import { getEmailQueueStatus, isEmailQueueGatewayConfigured } from '@/server/queue/email';
+import { getEmailQueueStatus } from '@/server/queue/email';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -37,17 +37,6 @@ export async function GET(request: Request) {
       },
       timestamp: new Date().toISOString(),
     });
-  }
-
-  if (!isEmailQueueGatewayConfigured()) {
-    return NextResponse.json(
-      {
-        status: 'error',
-        error:
-          'Cloudflare email queue gateway is not configured. Set CLOUDFLARE_EMAIL_QUEUE_GATEWAY_URL and CLOUDFLARE_EMAIL_QUEUE_GATEWAY_TOKEN.',
-      },
-      { status: 503 },
-    );
   }
 
   try {

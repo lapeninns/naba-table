@@ -1,4 +1,4 @@
-import type { EmailJobType } from '@/server/queue/email';
+import type { EmailJobType } from '@/server/queue/email-contract';
 
 export type OpsEmailQueueJobStatus = 'waiting' | 'active' | 'delayed' | 'dlq';
 

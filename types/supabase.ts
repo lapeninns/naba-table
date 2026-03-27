@@ -2071,6 +2071,87 @@ export type Database = {
           },
         ]
       }
+      email_dispatch_intents: {
+        Row: {
+          attempts_made: number
+          backoff_delay_ms: number
+          backoff_type: string
+          booking_id: string
+          cancelled_at: string | null
+          claimed_at: string | null
+          created_at: string
+          dedupe_key: string
+          email_type: string
+          id: string
+          last_attempt_at: string | null
+          last_error: string | null
+          max_attempts: number
+          payload: Json
+          processed_at: string | null
+          restaurant_id: string | null
+          scheduled_for: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts_made?: number
+          backoff_delay_ms?: number
+          backoff_type?: string
+          booking_id: string
+          cancelled_at?: string | null
+          claimed_at?: string | null
+          created_at?: string
+          dedupe_key: string
+          email_type: string
+          id?: string
+          last_attempt_at?: string | null
+          last_error?: string | null
+          max_attempts?: number
+          payload?: Json
+          processed_at?: string | null
+          restaurant_id?: string | null
+          scheduled_for: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts_made?: number
+          backoff_delay_ms?: number
+          backoff_type?: string
+          booking_id?: string
+          cancelled_at?: string | null
+          claimed_at?: string | null
+          created_at?: string
+          dedupe_key?: string
+          email_type?: string
+          id?: string
+          last_attempt_at?: string | null
+          last_error?: string | null
+          max_attempts?: number
+          payload?: Json
+          processed_at?: string | null
+          restaurant_id?: string | null
+          scheduled_for?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_dispatch_intents_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_dispatch_intents_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feature_flag_overrides: {
         Row: {
           environment: string
@@ -3413,6 +3494,30 @@ export type Database = {
         Returns: {
           assignment_id: string
           table_id: string
+        }[]
+      }
+      claim_due_email_dispatch_intents: {
+        Args: { p_email_types?: string[] | null; p_max_count?: number | null }
+        Returns: {
+          attempts_made: number
+          backoff_delay_ms: number
+          backoff_type: string
+          booking_id: string
+          cancelled_at: string | null
+          claimed_at: string | null
+          created_at: string
+          dedupe_key: string
+          email_type: string
+          id: string
+          last_attempt_at: string | null
+          last_error: string | null
+          max_attempts: number
+          payload: Json
+          processed_at: string | null
+          restaurant_id: string | null
+          scheduled_for: string
+          status: string
+          updated_at: string
         }[]
       }
       assign_tables_atomic_v2:
