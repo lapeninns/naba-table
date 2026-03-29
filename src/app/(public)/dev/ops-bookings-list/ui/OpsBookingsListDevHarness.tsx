@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { BookingsTable } from '@/components/dashboard/BookingsTable';
 import { BookingOfflineBanner, type BookingAction } from '@/components/features/booking-state-machine';
 import { OpsBookingsSearchInput } from '@/components/features/bookings/components/OpsBookingsSearchInput';
+import { buildOpsBookingsCardRows } from '@/components/features/bookings/opsBookingsSelectors';
 import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
 import { OpsPageToolbar } from '@/components/features/ops-shell/patterns/OpsPageToolbar';
 import { Badge } from '@/components/ui/badge';
@@ -232,6 +233,16 @@ export function OpsBookingsListDevHarness() {
     if (!q) return bookings;
     return bookings.filter((b) => (b.customerName ?? '').toLowerCase().includes(q));
   }, [bookings, searchTerm]);
+  const rows = useMemo(
+    () =>
+      buildOpsBookingsCardRows({
+        bookings: filteredBookings,
+        timezone: 'UTC',
+        now: new Date(),
+        pendingActionsByBookingId,
+      }),
+    [filteredBookings, pendingActionsByBookingId],
+  );
 
   return (
     <BookingStateMachineProvider initialBookings={[]}>
@@ -271,8 +282,8 @@ export function OpsBookingsListDevHarness() {
 
           <BookingsTable
             variant="ops"
-            bookings={filteredBookings}
-            total={filteredBookings.length}
+            rows={rows}
+            total={rows.length}
             statusFilter={statusFilter}
             isLoading={false}
             isFetching={false}
@@ -289,7 +300,6 @@ export function OpsBookingsListDevHarness() {
             showHeaderTitle={false}
             timezone="UTC"
             opsLifecycle={{
-              pendingActionsByBookingId,
               onCheckIn: handleCheckIn,
               onCheckOut: handleCheckOut,
               onMarkNoShow: handleMarkNoShow,

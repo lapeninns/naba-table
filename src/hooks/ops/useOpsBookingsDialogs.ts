@@ -5,27 +5,27 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useOpsBooking } from '@/hooks/ops/useOpsBooking';
 import { useOpsCancelBooking } from '@/hooks/ops/useOpsCancelBooking';
 import { getDateInTimezone, getTodayInTimezone } from '@/lib/utils/datetime';
+import { mapOpsBookingListItemToBookingDTO } from '@/utils/ops/mapOpsBookingListItemToBookingDTO';
 
 import type { BookingDTO } from '@/hooks/useBookings';
-import type { OpsBookingListItem } from '@/types/ops';
 
 export type UseOpsBookingsDialogsParams = {
-  bookings: BookingDTO[];
+  bookingById: Map<string, BookingDTO>;
   focusBookingId: string | null;
   activeRestaurantId: string | null;
   restaurantTimezone: string | null;
   appliedDate: string | null;
-  mapToBookingDTO: (booking: OpsBookingListItem) => BookingDTO;
+  fallbackRestaurantSlug: string | null;
   clearFocusParam: () => void;
 };
 
 export function useOpsBookingsDialogs({
-  bookings,
+  bookingById,
   focusBookingId,
   activeRestaurantId,
   restaurantTimezone,
   appliedDate,
-  mapToBookingDTO,
+  fallbackRestaurantSlug,
   clearFocusParam,
 }: UseOpsBookingsDialogsParams) {
   const [detailsBooking, setDetailsBooking] = useState<BookingDTO | null>(null);
@@ -37,12 +37,21 @@ export function useOpsBookingsDialogs({
   const [isFocusAutoOpenReady, setIsFocusAutoOpenReady] = useState(false);
 
   const cancelBookingMutation = useOpsCancelBooking();
-
-  // Fetch focused booking if it exists (in case it's not in the current list)
-  const { data: focusedBookingData } = useOpsBooking(focusBookingId);
+  const focusedBookingFromList = useMemo(
+    () => (focusBookingId ? bookingById.get(focusBookingId) ?? null : null),
+    [bookingById, focusBookingId],
+  );
+  const { data: focusedBookingData } = useOpsBooking(focusedBookingFromList ? null : focusBookingId);
   const focusedBooking = useMemo(
-    () => (focusedBookingData ? mapToBookingDTO(focusedBookingData) : null),
-    [focusedBookingData, mapToBookingDTO],
+    () =>
+      focusedBookingData
+        ? mapOpsBookingListItemToBookingDTO(focusedBookingData, fallbackRestaurantSlug)
+        : null,
+    [fallbackRestaurantSlug, focusedBookingData],
+  );
+  const focusAutoOpenTarget = useMemo(
+    () => focusedBookingFromList || focusedBooking,
+    [focusedBooking, focusedBookingFromList],
   );
 
   useEffect(() => {
@@ -53,8 +62,7 @@ export function useOpsBookingsDialogs({
     if (!isFocusAutoOpenReady) return;
     if (!focusBookingId) return;
 
-    const foundInList = bookings.find((booking) => booking.id === focusBookingId);
-    const target = foundInList || focusedBooking;
+    const target = focusAutoOpenTarget;
     if (!target) return;
 
     setDetailsBooking(target);
@@ -67,7 +75,7 @@ export function useOpsBookingsDialogs({
         row.scrollIntoView({ block: 'center', behavior: 'smooth' });
       }
     }, 100);
-  }, [bookings, focusBookingId, focusedBooking, isFocusAutoOpenReady]);
+  }, [focusAutoOpenTarget, focusBookingId, isFocusAutoOpenReady]);
 
   const onDetails = useCallback((booking: BookingDTO) => {
     setIsEditOpen(false);

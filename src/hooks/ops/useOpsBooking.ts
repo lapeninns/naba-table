@@ -13,6 +13,7 @@ import type { OpsBookingListItem } from '@/types/ops';
 
 export function useOpsBooking(
   bookingId: string | null,
+  options?: { enabled?: boolean },
 ): UseQueryResult<OpsBookingListItem, HttpError> {
   const bookingService = useBookingService();
   const queryClient = useQueryClient();
@@ -24,7 +25,7 @@ export function useOpsBooking(
         : (['ops', 'bookings', 'detail', 'disabled'] as const),
     [bookingId],
   );
-  const isEnabled = Boolean(bookingId);
+  const isEnabled = Boolean(bookingId) && (options?.enabled ?? true);
 
   const query = useQuery<OpsBookingListItem, HttpError>({
     queryKey,
@@ -86,17 +87,13 @@ export function useOpsBooking(
       handleChange,
     );
 
-    channel.subscribe((status) => {
-      if (status === 'SUBSCRIBED') {
-        console.log(`[realtime] Booking detail subscribed for ${bookingId}`);
-      }
-    });
+    channel.subscribe();
 
     return () => {
       channel.unsubscribe();
       client.removeChannel(channel);
     };
-  }, [isEnabled, bookingId, queryClient, queryKey]);
+  }, [bookingId, isEnabled, queryClient, queryKey]);
 
   return query;
 }
