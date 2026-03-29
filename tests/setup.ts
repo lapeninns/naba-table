@@ -41,9 +41,7 @@ if (!window.matchMedia) {
   });
 }
 
-if (!window.scrollTo) {
-  window.scrollTo = vi.fn();
-}
+window.scrollTo = vi.fn();
 
 if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = vi.fn();

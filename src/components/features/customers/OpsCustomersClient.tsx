@@ -2,8 +2,8 @@
 
 import { Loader2, RefreshCcw, Search, X } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { useEffect } from 'react';
 
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
@@ -20,84 +20,21 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
-import { useDebouncedValue } from '@/hooks/use-debounced-value';
-import useOnlineStatus from '@/hooks/useOnlineStatus';
-import { useOpsCustomers } from '@/hooks/useOpsCustomers';
 
 import { CustomersTable } from './CustomersTable';
 import { ExportCustomersButton } from './ExportCustomersButton';
 import { GuestsSummaryMetrics } from './GuestsSummaryMetrics';
-
-type MarketingFilter = 'all' | 'opted_in' | 'opted_out';
-type LastVisitFilter = 'any' | '30d' | '90d' | '365d' | 'never';
-type SortDirection = 'asc' | 'desc';
-type SortBy = 'last_visit' | 'bookings';
-type SortOption = `${SortBy}_${SortDirection}`;
-
-const LAST_VISIT_OPTIONS: { value: LastVisitFilter; label: string }[] = [
-  { value: 'any', label: 'Any time' },
-  { value: '30d', label: 'Last 30 days' },
-  { value: '90d', label: 'Last 90 days' },
-  { value: '365d', label: 'Last year' },
-  { value: 'never', label: 'Never visited' },
-];
-
-const MARKETING_OPTIONS: { value: MarketingFilter; label: string }[] = [
-  { value: 'all', label: 'All marketing' },
-  { value: 'opted_in', label: 'Opted in' },
-  { value: 'opted_out', label: 'Opted out' },
-];
-
-const MIN_BOOKINGS_OPTIONS = [0, 1, 3, 5, 10];
-
-const SORT_OPTIONS: { value: SortOption; label: string }[] = [
-  { value: 'last_visit_desc', label: 'Most recent visit' },
-  { value: 'last_visit_asc', label: 'Oldest visit' },
-  { value: 'bookings_desc', label: 'Most bookings' },
-  { value: 'bookings_asc', label: 'Fewest bookings' },
-];
-
-const INFINITE_PAGE_SIZE = 50;
-
-function isMarketingFilter(value: string | null): value is MarketingFilter {
-  return value === 'all' || value === 'opted_in' || value === 'opted_out';
-}
-
-function isLastVisitFilter(value: string | null): value is LastVisitFilter {
-  return (
-    value === 'any' || value === '30d' || value === '90d' || value === '365d' || value === 'never'
-  );
-}
-
-function isSort(value: string | null): value is SortDirection {
-  return value === 'asc' || value === 'desc';
-}
-
-function isSortBy(value: string | null): value is SortBy {
-  return value === 'last_visit' || value === 'bookings';
-}
-
-function encodeSortOption(sortBy: SortBy, sort: SortDirection): SortOption {
-  return `${sortBy}_${sort}`;
-}
-
-function decodeSortOption(option: SortOption): { sortBy: SortBy; sort: SortDirection } {
-  const [sortBy, sort] = option.split('_');
-  return {
-    sortBy: isSortBy(sortBy) ? sortBy : 'last_visit',
-    sort: isSort(sort) ? sort : 'desc',
-  };
-}
-
-function describeMarketing(value: MarketingFilter): string {
-  const option = MARKETING_OPTIONS.find((item) => item.value === value);
-  return option?.label ?? 'All marketing';
-}
-
-function describeLastVisit(value: LastVisitFilter): string {
-  const option = LAST_VISIT_OPTIONS.find((item) => item.value === value);
-  return option?.label ?? 'Any time';
-}
+import {
+  LAST_VISIT_OPTIONS,
+  MARKETING_OPTIONS,
+  MIN_BOOKINGS_OPTIONS,
+  SORT_OPTIONS,
+  type LastVisitFilter,
+  type MarketingFilter,
+  type SortOption,
+} from './opsCustomersTypes';
+import { useOpsCustomersDataState } from './useOpsCustomersDataState';
+import { useOpsCustomersQueryState } from './useOpsCustomersQueryState';
 
 export type OpsCustomersClientProps = {
   defaultRestaurantId?: string | null;
@@ -108,279 +45,82 @@ export function OpsCustomersClient({
   defaultRestaurantId,
   focusCustomer,
 }: OpsCustomersClientProps) {
-  const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const opsBasePath = pathname?.startsWith('/app') ? '/app' : '';
   const opsPath = (path: string) => `${opsBasePath}${path}`;
-  const targetPath = useMemo(() => {
-    // When mounted under `/app/...`, keep the canonical Ops routes.
-    if (pathname?.startsWith('/app')) {
-      return '/app/customers';
-    }
-    // When mounted in a dev harness route (e.g. `/dev/ops-customers`), keep query sync on
-    // the current route instead of navigating to non-existent root aliases.
-    if (pathname) {
-      return pathname;
-    }
-    return '/customers';
-  }, [pathname]);
-  const searchParamsKey = useMemo(() => searchParams?.toString() ?? '', [searchParams]);
   const { memberships, activeRestaurantId, setActiveRestaurantId, accountSnapshot } =
     useOpsSession();
   const activeMembership = useOpsActiveMembership();
-  const isOnline = useOnlineStatus();
 
-  const parsedFromQuery = useMemo(() => {
-    const sp = new URLSearchParams(searchParamsKey);
-    const marketingParam = sp.get('marketingOptIn');
-    const lastVisitParam = sp.get('lastVisit');
-    const sortParam = sp.get('sort');
-    const sortByParam = sp.get('sortBy');
-    const searchQuery = sp.get('search') ?? '';
-    const minBookingsParam = Number.parseInt(sp.get('minBookings') ?? '0', 10);
-    return {
-      search: searchQuery,
-      marketingOptIn: isMarketingFilter(marketingParam) ? marketingParam : 'all',
-      lastVisit: isLastVisitFilter(lastVisitParam) ? lastVisitParam : 'any',
-      minBookings: Number.isFinite(minBookingsParam) ? Math.max(0, minBookingsParam) : 0,
-      sort: isSort(sortParam) ? sortParam : 'desc',
-      sortBy: isSortBy(sortByParam) ? sortByParam : 'last_visit',
-    };
-  }, [searchParamsKey]);
-
-  const [searchTerm, setSearchTerm] = useState(parsedFromQuery.search);
-  const [marketingOptIn, setMarketingOptIn] = useState<MarketingFilter>(
-    parsedFromQuery.marketingOptIn,
-  );
-  const [lastVisit, setLastVisit] = useState<LastVisitFilter>(parsedFromQuery.lastVisit);
-  const [minBookings, setMinBookings] = useState<number>(parsedFromQuery.minBookings);
-  const [sort, setSort] = useState<SortDirection>(parsedFromQuery.sort);
-  const [sortBy, setSortBy] = useState<SortBy>(parsedFromQuery.sortBy);
-
-  useEffect(() => {
-    setSearchTerm(parsedFromQuery.search);
-    setMarketingOptIn(parsedFromQuery.marketingOptIn);
-    setLastVisit(parsedFromQuery.lastVisit);
-    setMinBookings(parsedFromQuery.minBookings);
-    setSort(parsedFromQuery.sort);
-    setSortBy(parsedFromQuery.sortBy);
-  }, [parsedFromQuery]);
-
-  const debouncedSearch = useDebouncedValue(searchTerm, 250);
-  const normalizedSearch = debouncedSearch?.trim();
-  const displaySearch = searchTerm.trim();
+  const {
+    isOnline,
+    searchTerm,
+    marketingOptIn,
+    lastVisit,
+    minBookings,
+    sort,
+    sortBy,
+    normalizedSearch,
+    sortOption,
+    activeFilterBadges,
+    hasActiveFilters,
+    setSearchTerm,
+    setMarketingOptIn,
+    setLastVisit,
+    handleMinBookingsChange,
+    handleSortChange,
+    handleClearFilters,
+  } = useOpsCustomersQueryState();
 
   useEffect(() => {
     if (defaultRestaurantId && defaultRestaurantId !== activeRestaurantId) {
       setActiveRestaurantId(defaultRestaurantId);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [defaultRestaurantId]);
-
-  const syncQueryParams = useCallback(
-    (next: {
-      search?: string | null;
-      marketingOptIn?: MarketingFilter;
-      lastVisit?: LastVisitFilter;
-      minBookings?: number;
-      sort?: SortDirection;
-      sortBy?: SortBy;
-    }) => {
-      if (!isOnline) {
-        return;
-      }
-
-      const params = new URLSearchParams(searchParams?.toString() ?? '');
-      params.delete('page');
-
-      const applyParam = (
-        key: string,
-        value: string | number | null | undefined,
-        defaultValue?: string | number,
-      ) => {
-        if (
-          value === undefined ||
-          value === null ||
-          value === '' ||
-          (defaultValue !== undefined && value === defaultValue)
-        ) {
-          params.delete(key);
-          return;
-        }
-        params.set(key, String(value));
-      };
-
-      applyParam('search', next.search ?? '', '');
-      applyParam('marketingOptIn', next.marketingOptIn, 'all');
-      applyParam('lastVisit', next.lastVisit, 'any');
-      applyParam('minBookings', next.minBookings ?? 0, 0);
-      applyParam('sortBy', next.sortBy, 'last_visit');
-      applyParam('sort', next.sort, 'desc');
-      const current = searchParams?.toString() ?? '';
-      const nextString = params.toString();
-
-      if (current === nextString) {
-        return;
-      }
-
-      router.replace(`${targetPath}${nextString ? `?${nextString}` : ''}`, {
-        scroll: false,
-      });
-    },
-    [isOnline, router, searchParams, targetPath],
-  );
-
-  useEffect(() => {
-    syncQueryParams({
-      search: normalizedSearch,
-      marketingOptIn,
-      lastVisit,
-      minBookings,
-      sort,
-      sortBy,
-    });
-  }, [
-    normalizedSearch,
-    marketingOptIn,
-    lastVisit,
-    minBookings,
-    sort,
-    sortBy,
-    syncQueryParams,
-  ]);
-
-  const filters = useMemo(() => {
-    if (!activeRestaurantId) {
-      return null;
-    }
-    return {
-      restaurantId: activeRestaurantId,
-      pageSize: INFINITE_PAGE_SIZE,
-      sort,
-      sortBy,
-      search: normalizedSearch || undefined,
-      marketingOptIn,
-      lastVisit,
-      minBookings,
-    };
-  }, [
-    activeRestaurantId,
-    lastVisit,
-    marketingOptIn,
-    minBookings,
-    normalizedSearch,
-    sort,
-    sortBy,
-  ]);
+  }, [activeRestaurantId, defaultRestaurantId, setActiveRestaurantId]);
 
   const {
-    data,
     error,
     isLoading,
-    isFetching,
+    guestRows,
     isFetchingNextPage,
     hasNextPage,
-    fetchNextPage,
+    isSummaryLoading,
+    isSummaryUpdating,
+    isRefreshing,
+    summary,
+    exportFilters,
+    handleLoadMore,
     refetch,
-  } = useOpsCustomers(filters);
-
-  const customerPages = useMemo(() => data?.pages ?? [], [data?.pages]);
-  const customers = useMemo(
-    () => customerPages.flatMap((page) => page.items),
-    [customerPages],
-  );
-  const summary = customerPages[0]?.summary ?? null;
-  const isSummaryLoading = isLoading && !summary;
-  const isSummaryUpdating = isFetching && !!summary && !isFetchingNextPage;
-
-  const isRefreshing = isFetching && !isFetchingNextPage;
-
-  const handleLoadMore = useCallback(() => {
-    if (!isOnline) return;
-    if (hasNextPage && !isFetchingNextPage) {
-      void fetchNextPage();
-    }
-  }, [fetchNextPage, hasNextPage, isFetchingNextPage, isOnline]);
-
-  const handleSortChange = useCallback((value: SortOption) => {
-    const decoded = decodeSortOption(value);
-    setSort(decoded.sort);
-    setSortBy(decoded.sortBy);
-  }, []);
-
-  const handleMinBookingsChange = useCallback((value: string) => {
-    const parsed = Number.parseInt(value, 10);
-    setMinBookings(Number.isFinite(parsed) ? parsed : 0);
-  }, []);
-
-  const handleMarketingChange = useCallback((value: MarketingFilter) => {
-    setMarketingOptIn(value);
-  }, []);
-
-  const handleLastVisitChange = useCallback((value: LastVisitFilter) => {
-    setLastVisit(value);
-  }, []);
-
-  const handleClearFilters = useCallback(() => {
-    setSearchTerm('');
-    setMarketingOptIn('all');
-    setLastVisit('any');
-    setMinBookings(0);
-    setSort('desc');
-    setSortBy('last_visit');
-  }, []);
-
-  const sortOption = useMemo(() => encodeSortOption(sortBy, sort), [sortBy, sort]);
+  } = useOpsCustomersDataState({
+    activeRestaurantId,
+    isOnline,
+    normalizedSearch,
+    marketingOptIn,
+    lastVisit,
+    minBookings,
+    sort,
+    sortBy,
+  });
 
   const currentRestaurantName =
     activeMembership?.restaurantName ?? accountSnapshot.restaurantName ?? 'Restaurant';
 
-  const activeFilterBadges = [
-    displaySearch
-      ? {
-          key: 'search',
-          label: `Search: "${displaySearch}"`,
-          onClear: () => setSearchTerm(''),
-        }
-      : null,
-    marketingOptIn !== 'all'
-      ? {
-          key: 'marketing',
-          label: describeMarketing(marketingOptIn),
-          onClear: () => setMarketingOptIn('all'),
-        }
-      : null,
-    lastVisit !== 'any'
-      ? {
-          key: 'lastVisit',
-          label: describeLastVisit(lastVisit),
-          onClear: () => setLastVisit('any'),
-        }
-      : null,
-    minBookings > 0
-      ? {
-          key: 'minBookings',
-          label: `Min bookings ${minBookings}`,
-          onClear: () => setMinBookings(0),
-        }
-      : null,
-  ].filter(Boolean) as { key: string; label: string; onClear: () => void }[];
-
-  const exportFilters = useMemo(
-    () => ({
-      sort,
-      sortBy,
-      search: normalizedSearch || undefined,
-      marketingOptIn,
-      lastVisit,
-      minBookings,
-    }),
-    [lastVisit, marketingOptIn, minBookings, normalizedSearch, sort, sortBy],
-  );
-
-  const hasActiveFilters =
-    activeFilterBadges.length > 0 || sortBy !== 'last_visit' || sort !== 'desc';
+  const clearFilterBadge = (key: (typeof activeFilterBadges)[number]['key']) => {
+    switch (key) {
+      case 'search':
+        setSearchTerm('');
+        return;
+      case 'marketing':
+        setMarketingOptIn('all');
+        return;
+      case 'lastVisit':
+        setLastVisit('any');
+        return;
+      case 'minBookings':
+        handleMinBookingsChange('0');
+        return;
+    }
+  };
 
   if (memberships.length === 0) {
     return (
@@ -461,7 +201,11 @@ export function OpsCustomersClient({
           filters={
             <div className="flex-1 overflow-x-auto scrollbar-hide">
               <div className="flex flex-wrap items-center gap-2">
-                <Select value={lastVisit} onValueChange={handleLastVisitChange}>
+                <Select
+                  name="lastVisit"
+                  value={lastVisit}
+                  onValueChange={(value) => setLastVisit(value as LastVisitFilter)}
+                >
                   <SelectTrigger className="h-9 w-[150px]">
                     <SelectValue placeholder="Last visit" />
                   </SelectTrigger>
@@ -474,7 +218,11 @@ export function OpsCustomersClient({
                   </SelectContent>
                 </Select>
 
-                <Select value={marketingOptIn} onValueChange={handleMarketingChange}>
+                <Select
+                  name="marketingOptIn"
+                  value={marketingOptIn}
+                  onValueChange={(value) => setMarketingOptIn(value as MarketingFilter)}
+                >
                   <SelectTrigger className="h-9 w-[140px]">
                     <SelectValue placeholder="Marketing" />
                   </SelectTrigger>
@@ -487,7 +235,11 @@ export function OpsCustomersClient({
                   </SelectContent>
                 </Select>
 
-                <Select value={String(minBookings)} onValueChange={handleMinBookingsChange}>
+                <Select
+                  name="minBookings"
+                  value={String(minBookings)}
+                  onValueChange={handleMinBookingsChange}
+                >
                   <SelectTrigger className="h-9 w-[145px]">
                     <SelectValue placeholder="Min bookings" />
                   </SelectTrigger>
@@ -501,6 +253,7 @@ export function OpsCustomersClient({
                 </Select>
 
                 <Select
+                  name="sort"
                   value={sortOption}
                   onValueChange={(value) => handleSortChange(value as SortOption)}
                 >
@@ -558,9 +311,7 @@ export function OpsCustomersClient({
                   <button
                     type="button"
                     className="rounded-full p-0.5 text-muted-foreground transition hover:bg-background/60"
-                    onClick={() => {
-                      badge.onClear();
-                    }}
+                    onClick={() => clearFilterBadge(badge.key)}
                     aria-label={`Remove ${badge.label} filter`}
                   >
                     <X className="h-3 w-3" aria-hidden />
@@ -601,12 +352,12 @@ export function OpsCustomersClient({
 
         <section className="space-y-3">
           <CustomersTable
-            customers={customers}
+            rows={guestRows}
             isLoading={isLoading}
             hasActiveFilters={hasActiveFilters}
             onLoadMore={handleLoadMore}
-            hasNextPage={hasNextPage ?? false}
-            isFetchingNextPage={isFetchingNextPage ?? false}
+            hasNextPage={hasNextPage}
+            isFetchingNextPage={isFetchingNextPage}
             focusCustomerId={focusCustomer}
           />
         </section>

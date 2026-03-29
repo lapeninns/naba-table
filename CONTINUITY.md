@@ -1,6 +1,11 @@
 # Continuity Ledger
 
-Last updated: 2026-03-29T10:36:30Z
+Last updated: 2026-03-29T18:58:00Z
+
+## Active mission
+
+- Continue the ops performance optimization work with the dashboard/bookings/email refactor pattern.
+- Customers page correctness rebuild is complete and no longer depends on `customer_profiles` snapshot rollups for guest history.
 
 ## Goal (incl. success criteria)
 
@@ -33,6 +38,7 @@ Last updated: 2026-03-29T10:36:30Z
 - The Old School House to Old Crown booking move has been executed and verified.
 - Task artifacts exist for `tasks/move-old-school-house-bookings-to-old-crown-20260329-0720/`.
 - Old School House now has zero bookings; Old Crown has the moved booking.
+- Customers guest history now derives from live `bookings` data through `lib/ops/customer-history.ts` and `server/ops/customers.ts`.
 
 ## Done
 
@@ -60,6 +66,7 @@ Last updated: 2026-03-29T10:36:30Z
 - Read the root AGENTS instructions and the MCP/Continuity skills relevant to remote Supabase work.
 - Located existing repo scripts for Supabase inspection and SQL execution.
 - Created `tasks/move-old-school-house-bookings-to-old-crown-20260329-0720/` with research, plan, todo, and verification stubs.
+- Created `tasks/customers-rebuild-20260329-1745/`.
 - Verified live production restaurant IDs:
   - Old School House `a120da71-ba6d-446f-a33a-2e78787abcb0`
   - Old Crown `a050d1ad-1ee0-4ea0-abc2-22c3778aa52c`
@@ -69,19 +76,20 @@ Last updated: 2026-03-29T10:36:30Z
 - Cleared stale table assignment, allocation, assignment idempotency, zone lock, and confirmation cache state for the moved booking.
 - Updated the related analytics event restaurant ID to Old Crown.
 - Captured execution and postflight evidence in `artifacts/execution.txt` and `artifacts/postflight.txt`.
+- Added `lib/ops/customer-history.ts` as the canonical guest rollup helper.
+- Rebuilt `server/ops/customers.ts` to derive guest history from live bookings instead of `customer_profiles`.
+- Aligned `/api/ops/customers` and `/api/ops/customers/export` to the new history rollup.
+- Added `tests/lib/customerHistory.test.ts` covering last-visit, cancellations, waitlist exclusion, filtering, sorting, and summary semantics.
 
 ## Now
 
-- Resolve the current merge cleanly and push the verified production-safe state to both remotes.
+- Prepare the next performance pass from the remaining high-value targets.
 
 ## Next
 
-- Confirm a naturally created post-deploy delayed email writes a row to `public.email_dispatch_intents`.
-- Decide whether to add a native Cloudflare Queue consumer as a second-stage transport, or keep cron+ledger processing as the canonical mechanism.
-- Clean up the older duplicate migration version prefixes in `supabase/migrations/` so CLI-based migration flows are safe again.
-- Remove or repurpose the legacy Cloudflare email gateway smoke/docs once the production cutover is confirmed.
-- Verify the assignment-conflict retry fix on a fresh production inline auto-assign booking.
-- No immediate follow-up is required for the completed Old School House to Old Crown move unless a new booking needs the same treatment.
+- Next recommended target: floor plan / seating, then the walk-in wizard.
+- Keep production email/Cloudflare behavior untouched while app-surface performance work continues.
+- If customers needs a follow-up pass, align the dev harness fixture service with the new canonical guest-history helper so UI QA mirrors production semantics more closely.
 
 ## Open questions (UNCONFIRMED if needed)
 
