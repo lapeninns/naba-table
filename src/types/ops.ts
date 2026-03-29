@@ -43,7 +43,7 @@ export type OpsBookingStatus =
   | 'no_show'
   | 'PRIORITY_WAITLIST';
 
-export type OpsTodayBooking = {
+export type OpsDashboardBookingItem = {
   id: string;
   customerId?: string | null;
   status: OpsBookingStatus;
@@ -75,9 +75,18 @@ export type OpsTodayBooking = {
   requiresTableAssignment: boolean;
   checkedInAt: string | null;
   checkedOutAt: string | null;
+  startIso?: string;
+  endIso?: string;
+  searchText?: string;
+  sortTimeMs?: number;
+  sortTimelineTimeMs?: number;
+  displayTimeRangeLabel?: string;
+  displayCustomerLabel?: string;
+  displayInitials?: string;
+  tableLabel?: string | null;
 };
 
-export type OpsTodayTotals = {
+export type OpsDashboardTotals = {
   total: number;
   confirmed: number;
   completed: number;
@@ -88,13 +97,25 @@ export type OpsTodayTotals = {
   covers: number;
 };
 
-export type OpsTodayBookingsSummary = {
+export type OpsDashboardMeta = {
   date: string;
   timezone: string;
   restaurantId: string;
-  totals: OpsTodayTotals;
-  bookings: OpsTodayBooking[];
 };
+
+export type OpsDashboardData = {
+  meta: OpsDashboardMeta;
+  date: string;
+  timezone: string;
+  restaurantId: string;
+  totals: OpsDashboardTotals;
+  bookings: OpsDashboardBookingItem[];
+  heatmap?: OpsBookingHeatmap;
+};
+
+export type OpsTodayBooking = OpsDashboardBookingItem;
+export type OpsTodayTotals = OpsDashboardTotals;
+export type OpsTodayBookingsSummary = OpsDashboardData;
 
 export type OpsBookingHeatmap = Record<
   string,

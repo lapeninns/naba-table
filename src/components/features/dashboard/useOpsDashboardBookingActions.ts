@@ -18,7 +18,6 @@ type UseOpsDashboardBookingActionsParams = {
   summary: OpsTodayBookingsSummary | null;
   restaurantId: string | null;
   selectedDate: string | null;
-  refetchSummary: () => Promise<unknown>;
   bookingLifecycleMutations: ReturnType<typeof useOpsBookingLifecycleActions>;
   tableAssignmentActions: ReturnType<typeof useOpsTableAssignmentActions>;
 };
@@ -27,7 +26,6 @@ export function useOpsDashboardBookingActions({
   summary,
   restaurantId,
   selectedDate,
-  refetchSummary,
   bookingLifecycleMutations,
   tableAssignmentActions,
 }: UseOpsDashboardBookingActionsParams) {
@@ -137,18 +135,11 @@ export function useOpsDashboardBookingActions({
           bookingId,
           targetDate: selectedDate,
         });
-        void refetchSummary();
       } finally {
         setPendingBookingAction(null);
       }
     },
-    [
-      bookingLifecycleMutations.checkIn,
-      getPendingSnapshot,
-      refetchSummary,
-      restaurantId,
-      selectedDate,
-    ],
+    [bookingLifecycleMutations.checkIn, getPendingSnapshot, restaurantId, selectedDate],
   );
 
   const handleCheckOut = useCallback(
@@ -165,18 +156,11 @@ export function useOpsDashboardBookingActions({
           bookingId,
           targetDate: selectedDate,
         });
-        void refetchSummary();
       } finally {
         setPendingBookingAction(null);
       }
     },
-    [
-      bookingLifecycleMutations.checkOut,
-      getPendingSnapshot,
-      refetchSummary,
-      restaurantId,
-      selectedDate,
-    ],
+    [bookingLifecycleMutations.checkOut, getPendingSnapshot, restaurantId, selectedDate],
   );
 
   const handleAssignTable = useCallback(

@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { OpsBookingCard } from '@/components/features/dashboard/cards/OpsBookingCard';
 import { OpsBookingCardSkeleton } from '@/components/features/dashboard/cards/OpsBookingCardSkeleton';
+import { buildOpsBookingCardViewModel } from '@/components/features/dashboard/cards/opsBookingCardUtils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 
@@ -96,6 +97,7 @@ export function BookingsTable({
   const showEmpty = !showSkeleton && !error && bookings.length === 0;
   const trimmedSearch = searchTerm.trim();
   const isOpsVariant = variant === 'ops';
+  const effectiveTimezone = timezone || 'UTC';
   const prefersReducedMotion = useReducedMotion();
   const hasAnimatedRef = useRef(false);
   const measureFrameRef = useRef<number | null>(null);
@@ -252,6 +254,39 @@ export function BookingsTable({
     }
   }, [bookings.length]);
 
+  const renderOpsBookingCard = useCallback(
+    (booking: BookingDTO, pendingAction: BookingAction | null) => {
+      const viewModel = buildOpsBookingCardViewModel({
+        booking,
+        timezone: effectiveTimezone,
+        now: new Date(),
+        pendingAction,
+        actionsDisabled: false,
+      });
+
+      return (
+        <OpsBookingCard
+          viewModel={viewModel}
+          onEdit={onEdit ? () => onEdit(booking) : undefined}
+          onCancel={onCancel ? () => onCancel(booking) : undefined}
+          onDetails={onDetails ? () => onDetails(booking) : undefined}
+          onCheckIn={opsLifecycle?.onCheckIn}
+          onCheckOut={opsLifecycle?.onCheckOut}
+          onMarkNoShow={opsLifecycle?.onMarkNoShow}
+        />
+      );
+    },
+    [
+      effectiveTimezone,
+      onCancel,
+      onDetails,
+      onEdit,
+      opsLifecycle?.onCheckIn,
+      opsLifecycle?.onCheckOut,
+      opsLifecycle?.onMarkNoShow,
+    ],
+  );
+
   useEffect(() => {
     if (!shouldVirtualize) return;
     if (!onLoadMore || !hasNextPage || isFetchingNextPage) {
@@ -390,20 +425,7 @@ export function BookingsTable({
                     className="absolute left-0 top-0 w-full pb-3 will-change-transform"
                     style={{ transform: `translate3d(0, ${virtualRow.start}px, 0)` }}
                   >
-                    <OpsBookingCard
-                      booking={booking}
-                      timezone={timezone || 'UTC'}
-                      onEdit={onEdit}
-                      onCancel={onCancel}
-                      onDetails={onDetails}
-                      onCheckIn={opsLifecycle?.onCheckIn}
-                      onCheckOut={opsLifecycle?.onCheckOut}
-                      onMarkNoShow={opsLifecycle?.onMarkNoShow}
-                      onUndoNoShow={opsLifecycle?.onUndoNoShow}
-                      pendingAction={pendingAction}
-                      actionsDisabled={false}
-                      allowTableAssignments={true}
-                    />
+                    {renderOpsBookingCard(booking, pendingAction)}
                   </div>
                 );
               })}
@@ -425,20 +447,7 @@ export function BookingsTable({
                   data-booking-id={booking.id}
                   className="pb-3"
                 >
-                  <OpsBookingCard
-                    booking={booking}
-                    timezone={timezone || 'UTC'}
-                    onEdit={onEdit}
-                    onCancel={onCancel}
-                    onDetails={onDetails}
-                    onCheckIn={opsLifecycle?.onCheckIn}
-                    onCheckOut={opsLifecycle?.onCheckOut}
-                    onMarkNoShow={opsLifecycle?.onMarkNoShow}
-                    onUndoNoShow={opsLifecycle?.onUndoNoShow}
-                    pendingAction={pendingAction}
-                    actionsDisabled={false}
-                    allowTableAssignments={true}
-                  />
+                  {renderOpsBookingCard(booking, pendingAction)}
                 </div>
               );
             })}

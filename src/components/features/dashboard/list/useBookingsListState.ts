@@ -84,22 +84,16 @@ export function useBookingsListState({
     });
     return replaced ? next : bookings;
   }, [bookings, pendingLifecycleAction]);
-  const searchIndex = useMemo(() => {
-    if (!normalizedSearch) return null;
-    const index = new Map<string, string>();
-    for (const booking of bookingsForSort) {
-      const haystack = `${booking.customerName ?? ''} ${booking.reference ?? ''}`.toLowerCase();
-      index.set(booking.id, haystack);
-    }
-    return index;
-  }, [bookingsForSort, normalizedSearch]);
+  const hasSearch = useMemo(() => normalizedSearch.length > 0, [normalizedSearch]);
 
   const filtered = useMemo(() => {
     let result = bookingsForSort;
 
-    if (normalizedSearch && searchIndex) {
+    if (normalizedSearch && hasSearch) {
       const q = normalizedSearch;
-      result = result.filter((b) => (searchIndex.get(b.id) ?? '').includes(q));
+      result = result.filter((booking) =>
+        (booking.searchText ?? `${booking.customerName ?? ''} ${booking.reference ?? ''}`.toLowerCase()).includes(q),
+      );
     }
 
     if (filter === 'all') return result;
@@ -121,7 +115,7 @@ export function useBookingsListState({
     hasAssignmentHandlers,
     now,
     normalizedSearch,
-    searchIndex,
+    hasSearch,
     summary,
   ]);
 

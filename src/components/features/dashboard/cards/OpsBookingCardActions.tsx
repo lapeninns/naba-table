@@ -30,25 +30,40 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
-import type { BookingMeta } from './opsBookingCardUtils';
-import type { BookingDTO } from '@/hooks/useBookings';
+import type { OpsBookingStatus } from '@/types/ops';
 
 export type OpsBookingCardActionsProps = {
-  booking: BookingDTO;
-  meta: BookingMeta;
+  bookingId: string;
+  status: OpsBookingStatus;
+  partySize: number;
+  customerLabel: string;
+  dateLabel: string;
+  timeRangeLabel: string;
+  isDone: boolean;
+  isToday: boolean;
+  isPastDay: boolean;
+  isSeated: boolean;
   disableActions: boolean;
   pendingAction?: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show' | null;
-  onDetails?: (booking: BookingDTO) => void;
-  onEdit?: (booking: BookingDTO) => void;
-  onCancel?: (booking: BookingDTO) => void;
+  onDetails?: () => void;
+  onEdit?: () => void;
+  onCancel?: () => void;
   onMarkNoShow?: (bookingId: string) => Promise<void>;
   onCheckIn?: (bookingId: string) => Promise<void>;
   onCheckOut?: (bookingId: string) => Promise<void>;
 };
 
 export const OpsBookingCardActions = memo(function OpsBookingCardActions({
-  booking,
-  meta,
+  bookingId,
+  status,
+  partySize,
+  customerLabel,
+  dateLabel,
+  timeRangeLabel,
+  isDone,
+  isToday,
+  isPastDay,
+  isSeated,
   disableActions,
   pendingAction = null,
   onDetails,
@@ -64,11 +79,11 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
 
   const handleConfirmNoShow = useCallback(async () => {
     try {
-      await onMarkNoShow?.(booking.id);
+      await onMarkNoShow?.(bookingId);
     } finally {
       setIsNoShowOpen(false);
     }
-  }, [booking.id, onMarkNoShow]);
+  }, [bookingId, onMarkNoShow]);
 
   return (
     <div className="px-4 pb-4">
@@ -78,7 +93,7 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
             variant="outline"
             size="sm"
             className="h-11 px-4 text-xs font-medium focus-visible:ring-2 focus-visible:ring-ring sm:h-8"
-            onClick={() => onDetails?.(booking)}
+            onClick={onDetails}
             disabled={disableActions}
           >
             Details
@@ -102,22 +117,22 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onClick={() => onEdit?.(booking)}
-                disabled={disableActions || meta.isPastDay}
+                onClick={onEdit}
+                disabled={disableActions || isPastDay}
               >
                 Edit Booking
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => setIsNoShowOpen(true)}
-                disabled={disableActions || !meta.isToday || meta.isSeated}
+                disabled={disableActions || !isToday || isSeated}
                 variant="destructive"
               >
                 Mark No Show
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onClick={() => onCancel?.(booking)}
-                disabled={disableActions || meta.isPastDay}
+                onClick={onCancel}
+                disabled={disableActions || isPastDay}
                 variant="destructive"
               >
                 Cancel Booking
@@ -127,23 +142,21 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
         </div>
 
         <div>
-          {!meta.isDone ? (
+          {!isDone ? (
             <Button
               size="sm"
-              disabled={!meta.isToday || disableActions || isLifecyclePending}
+              disabled={!isToday || disableActions || isLifecyclePending}
               className={cn(
                 'h-11 min-w-[120px] px-6 font-semibold text-white shadow-sm transition-[box-shadow,background-color] duration-150 ease-out hover:shadow-sm motion-reduce:transition-none sm:h-9',
-                meta.isSeated ? 'bg-slate-700 hover:bg-slate-800' : 'bg-emerald-600 hover:bg-emerald-700',
+                isSeated ? 'bg-slate-700 hover:bg-slate-800' : 'bg-emerald-600 hover:bg-emerald-700',
               )}
-              onClick={() =>
-                meta.isSeated ? onCheckOut?.(booking.id) : onCheckIn?.(booking.id)
-              }
+              onClick={() => (isSeated ? onCheckOut?.(bookingId) : onCheckIn?.(bookingId))}
             >
               {isLifecyclePending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> Updating…
                 </>
-              ) : meta.isSeated ? (
+              ) : isSeated ? (
                 <>
                   <LogOut className="mr-2 h-4 w-4" aria-hidden /> Finish
                 </>
@@ -159,7 +172,7 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
               role="status"
             >
               <Check className="h-4 w-4 text-emerald-500" aria-hidden />
-              {booking.status === 'completed' ? 'Completed' : 'Closed'}
+              {status === 'completed' ? 'Completed' : 'Closed'}
             </div>
           )}
         </div>
@@ -171,11 +184,11 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
             <AlertDialogTitle>Mark as no-show?</AlertDialogTitle>
             <AlertDialogDescription>
               You’re about to mark{' '}
-              <span className="font-semibold text-foreground">{meta.customerLabel}</span> as a no-show
-              for <span className="font-semibold text-foreground">{booking.partySize}</span>{' '}
-              cover{booking.partySize === 1 ? '' : 's'} on{' '}
+              <span className="font-semibold text-foreground">{customerLabel}</span> as a no-show
+              for <span className="font-semibold text-foreground">{partySize}</span>{' '}
+              cover{partySize === 1 ? '' : 's'} on{' '}
               <span className="font-semibold text-foreground">
-                {meta.dateLabel} · {meta.timeRangeLabel}
+                {dateLabel} · {timeRangeLabel}
               </span>
               . You can undo this shortly after confirming.
             </AlertDialogDescription>

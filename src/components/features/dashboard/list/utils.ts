@@ -27,12 +27,8 @@ function compareBookings(
   let comparison = 0;
 
   if (sortKey === 'time') {
-    const tA = a.startTime
-      ? new Date(`1970-01-01T${a.startTime}`).getTime()
-      : Number.MAX_SAFE_INTEGER;
-    const tB = b.startTime
-      ? new Date(`1970-01-01T${b.startTime}`).getTime()
-      : Number.MAX_SAFE_INTEGER;
+    const tA = a.sortTimeMs ?? (a.startTime ? new Date(`1970-01-01T${a.startTime}`).getTime() : Number.MAX_SAFE_INTEGER);
+    const tB = b.sortTimeMs ?? (b.startTime ? new Date(`1970-01-01T${b.startTime}`).getTime() : Number.MAX_SAFE_INTEGER);
     comparison = tA - tB;
   } else if (sortKey === 'party') {
     comparison = a.partySize - b.partySize;
@@ -64,6 +60,9 @@ function getStatusGroup(status: OpsTodayBooking['status']) {
  * - For upcoming: startTime (when they arrive)
  */
 function getTimelineTime(booking: OpsTodayBooking): number {
+  if (typeof booking.sortTimelineTimeMs === 'number') {
+    return booking.sortTimelineTimeMs;
+  }
   const timeStr = booking.status === 'checked_in' ? booking.endTime : booking.startTime;
   if (!timeStr) return Number.MAX_SAFE_INTEGER;
   return new Date(`1970-01-01T${timeStr}`).getTime();

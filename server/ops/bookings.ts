@@ -1,3 +1,4 @@
+import { DateTime } from "luxon";
 
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
@@ -6,6 +7,7 @@ import { LruCache } from "@/server/capacity/lru-cache";
 import { getCustomerProfilesForCustomers } from "@/server/ops/customer-profiles";
 import { getServiceSupabaseClient } from "@/server/supabase";
 import { getDashboardDayBoundsUtc } from "@/utils/ops/dashboard";
+import { computeDashboardTotals } from "@/utils/ops/dashboardSummary";
 
 import type { OpsTodayBooking, OpsTodayBookingsSummary } from "@/types/ops";
 import type { Database, Tables } from "@/types/supabase";
@@ -82,6 +84,71 @@ function normalizeDetails(details: Tables<"bookings">["details"] | null | undefi
     return null;
   }
   return details as Record<string, unknown>;
+}
+
+function toUtcIso(date: string, time: string | null, timezone: string): string {
+  const normalizedTime = (() => {
+    if (!time) return "00:00:00";
+    const match = time.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    if (!match) return time;
+    const hours = match[1]?.padStart(2, "0") ?? "00";
+    const minutes = match[2] ?? "00";
+    const seconds = match[3] ?? "00";
+    return `${hours}:${minutes}:${seconds}`;
+  })();
+
+  const zoned = DateTime.fromISO(`${date}T${normalizedTime}`, { zone: timezone });
+  if (zoned.isValid) {
+    const iso = zoned.toUTC().toISO();
+    if (iso) return iso;
+  }
+
+  return `${date}T${normalizedTime.endsWith("Z") ? normalizedTime : `${normalizedTime}Z`}`;
+}
+
+function toSortTimeMs(time: string | null): number {
+  if (!time) return Number.MAX_SAFE_INTEGER;
+  const normalizedTime = time.length === 5 ? `${time}:00` : time;
+  const parsed = DateTime.fromISO(`1970-01-01T${normalizedTime}`, { zone: "UTC" });
+  return parsed.isValid ? parsed.toMillis() : Number.MAX_SAFE_INTEGER;
+}
+
+function formatTimeRangeLabel(startIso: string, endIso: string, timezone: string): string {
+  const start = DateTime.fromISO(startIso, { zone: "utc" }).setZone(timezone);
+  const end = DateTime.fromISO(endIso, { zone: "utc" }).setZone(timezone);
+
+  if (!start.isValid) {
+    return "Time TBD";
+  }
+
+  const startLabel = start.toFormat("h:mm a");
+  if (!end.isValid || end.toMillis() === start.toMillis()) {
+    return startLabel;
+  }
+
+  return `${startLabel} – ${end.toFormat("h:mm a")}`;
+}
+
+function buildDisplayInitials(name: string | null | undefined): string {
+  return (name || "Guest")
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+function buildTableLabel(assignments: OpsTodayBooking["tableAssignments"]): string | null {
+  if (!assignments || assignments.length === 0) {
+    return null;
+  }
+
+  const labels = assignments.map((group) =>
+    (group.members ?? []).map((member) => member.tableNumber || "—").join(" + "),
+  );
+  const combined = labels.filter(Boolean).join(", ");
+  return combined.length > 0 ? combined : null;
 }
 
 export type TodayBooking = OpsTodayBooking;
@@ -383,6 +450,16 @@ export async function getTodayBookingsSummary(
       });
 
       const requiresTableAssignment = tableAssignments.length === 0;
+      const startIso = toUtcIso(reportDate, booking.start_time, timezone);
+      const endIso = toUtcIso(reportDate, booking.end_time ?? booking.start_time, timezone);
+      const displayCustomerLabel = booking.customer_name?.trim() || "Walk-in Guest";
+      const searchText = `${booking.customer_name ?? ""} ${booking.reference ?? ""}`.trim().toLowerCase();
+      const sortTimeMs = toSortTimeMs(booking.start_time);
+      const sortTimelineTimeMs =
+        booking.status === "checked_in" ? toSortTimeMs(booking.end_time) : sortTimeMs;
+      const displayTimeRangeLabel = booking.start_time
+        ? formatTimeRangeLabel(startIso, endIso, timezone)
+        : "Time TBD";
 
       return {
         id: booking.id,
@@ -407,60 +484,26 @@ export async function getTodayBookingsSummary(
         requiresTableAssignment,
         checkedInAt: booking.checked_in_at ?? null,
         checkedOutAt: booking.checked_out_at ?? null,
+        startIso,
+        endIso,
+        searchText,
+        sortTimeMs,
+        sortTimelineTimeMs,
+        displayTimeRangeLabel,
+        displayCustomerLabel,
+        displayInitials: buildDisplayInitials(booking.customer_name),
+        tableLabel: buildTableLabel(tableAssignments) ?? undefined,
       };
     });
 
-    const totals = summaryBookings.reduce(
-      (acc, booking) => {
-        acc.total += 1;
-
-        switch (booking.status) {
-          case "pending":
-          case "pending_allocation":
-            acc.pending += 1;
-            acc.upcoming += 1;
-            break;
-          case "confirmed":
-            acc.confirmed += 1;
-            acc.upcoming += 1;
-            break;
-          case "checked_in":
-            acc.confirmed += 1;
-            acc.completed += 1;
-            break;
-          case "completed":
-            acc.confirmed += 1;
-            acc.completed += 1;
-            break;
-          case "cancelled":
-            acc.cancelled += 1;
-            break;
-          case "no_show":
-            acc.noShow += 1;
-            break;
-          default:
-            break;
-        }
-
-        if (!CANCELLED_STATUSES.includes(booking.status)) {
-          acc.covers += booking.partySize;
-        }
-
-        return acc;
-      },
-      {
-        total: 0,
-        confirmed: 0,
-        completed: 0,
-        pending: 0,
-        cancelled: 0,
-        noShow: 0,
-        upcoming: 0,
-        covers: 0,
-      },
-    );
+    const totals = computeDashboardTotals(summaryBookings);
 
     const result = {
+      meta: {
+        date: reportDate,
+        timezone,
+        restaurantId,
+      },
       date: reportDate,
       timezone,
       restaurantId,

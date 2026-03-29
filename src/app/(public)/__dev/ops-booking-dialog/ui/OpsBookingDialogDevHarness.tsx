@@ -232,6 +232,11 @@ export function OpsBookingDialogDevHarness() {
 
   const summary: OpsTodayBookingsSummary = useMemo(
     () => ({
+      meta: {
+        date: '2026-02-10',
+        timezone: 'Europe/London',
+        restaurantId: 'rest-dev',
+      },
       date: '2026-02-10',
       timezone: 'Europe/London',
       restaurantId: 'rest-dev',
