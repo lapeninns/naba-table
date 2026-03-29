@@ -1,11 +1,12 @@
 # Continuity Ledger
 
-Last updated: 2026-03-29T18:58:00Z
+Last updated: 2026-03-29T18:59:17Z
 
 ## Active mission
 
 - Continue the ops performance optimization work with the dashboard/bookings/email refactor pattern.
 - Customers page correctness rebuild is complete and no longer depends on `customer_profiles` snapshot rollups for guest history.
+- Customers DB-pagination follow-up is implemented in code with migration-backed RPCs plus a temporary rollout fallback.
 
 ## Goal (incl. success criteria)
 
@@ -39,6 +40,7 @@ Last updated: 2026-03-29T18:58:00Z
 - Task artifacts exist for `tasks/move-old-school-house-bookings-to-old-crown-20260329-0720/`.
 - Old School House now has zero bookings; Old Crown has the moved booking.
 - Customers guest history now derives from live `bookings` data through `lib/ops/customer-history.ts` and `server/ops/customers.ts`.
+- Ops customers now have a DB-backed primary path via `ops_customers_history_feed` and `ops_customers_history_summary`, with the old in-memory path retained only when the RPC migration is unavailable during rollout.
 
 ## Done
 
@@ -80,16 +82,20 @@ Last updated: 2026-03-29T18:58:00Z
 - Rebuilt `server/ops/customers.ts` to derive guest history from live bookings instead of `customer_profiles`.
 - Aligned `/api/ops/customers` and `/api/ops/customers/export` to the new history rollup.
 - Added `tests/lib/customerHistory.test.ts` covering last-visit, cancellations, waitlist exclusion, filtering, sorting, and summary semantics.
+- Created `tasks/customers-db-pagination-20260329-1849/`.
+- Added `supabase/migrations/20260329190000_add_ops_customers_history_rpc.sql`.
+- Reworked `server/ops/customers.ts` so paginated list/summary use Supabase RPCs first and fall back only if the migration is not yet available.
+- Added `tests/server/ops/customers.test.ts` covering RPC row mapping and export pagination.
 
 ## Now
 
-- Prepare the next performance pass from the remaining high-value targets.
+- Prepare the customers RPC migration for remote staging apply and PR close-out.
 
 ## Next
 
-- Next recommended target: floor plan / seating, then the walk-in wizard.
+- Next recommended product optimization target after customers: floor plan / seating, then the walk-in wizard.
 - Keep production email/Cloudflare behavior untouched while app-surface performance work continues.
-- If customers needs a follow-up pass, align the dev harness fixture service with the new canonical guest-history helper so UI QA mirrors production semantics more closely.
+- After the remote migration is applied and verified, remove the temporary in-memory fallback from `server/ops/customers.ts`.
 
 ## Open questions (UNCONFIRMED if needed)
 
