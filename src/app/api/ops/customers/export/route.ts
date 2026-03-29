@@ -42,7 +42,7 @@ const CUSTOMER_EXPORT_COLUMNS: {
   { header: "Total Covers", accessor: (row: CustomerGuestRecord) => row.totalCovers },
   { header: "Total Cancellations", accessor: (row: CustomerGuestRecord) => row.totalCancellations },
   { header: "First Booking", accessor: (row: CustomerGuestRecord) => formatDate(row.firstBookingAt) },
-  { header: "Last Visit", accessor: (row: CustomerGuestRecord) => formatDate(row.lastVisitAt) },
+  { header: "Last Booking", accessor: (row: CustomerGuestRecord) => formatDate(row.lastVisitAt) },
   { header: "Marketing Opt-in", accessor: (row: CustomerGuestRecord) => formatBoolean(row.marketingOptIn) },
 ];
 

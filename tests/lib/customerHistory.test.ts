@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   buildCustomerHistoryRecords,
   filterCustomerHistoryRecords,
+  isCustomerHistoryBookingStatus,
   sortCustomerHistoryRecords,
   summarizeCustomerHistoryRecords,
   type CustomerBookingRecord,
@@ -242,5 +243,11 @@ describe('customer-history helpers', () => {
     expect(record.lastVisitAt).toBe('2026-03-18T10:00:00.000Z');
 
     vi.useRealTimers();
+  });
+
+  it('accepts only supported booking history statuses', () => {
+    expect(isCustomerHistoryBookingStatus('completed')).toBe(true);
+    expect(isCustomerHistoryBookingStatus('cancelled')).toBe(true);
+    expect(isCustomerHistoryBookingStatus('archived')).toBe(false);
   });
 });

@@ -1,6 +1,7 @@
 import {
   buildCustomerHistoryRecords,
   filterCustomerHistoryRecords,
+  isCustomerHistoryBookingStatus,
   sortCustomerHistoryRecords,
   summarizeCustomerHistoryRecords,
   type CustomerBookingRecord,
@@ -58,7 +59,9 @@ type BookingHistoryRow = Pick<
   'id' | 'customer_id' | 'restaurant_id' | 'status' | 'party_size' | 'created_at' | 'start_at'
 >;
 
-const CUSTOMER_BOOKINGS_CHUNK_SIZE = 500;
+const CUSTOMER_ID_CHUNK_SIZE = 500;
+const CUSTOMER_FETCH_BATCH_SIZE = 1000;
+const BOOKING_FETCH_BATCH_SIZE = 1000;
 
 function escapeIlikeTerm(term: string): string | null {
   const trimmed = term.trim();
@@ -101,6 +104,34 @@ function buildCustomerIdentityQuery(
   return query;
 }
 
+async function fetchQueryPages<TRow>(
+  queryFactory: () => {
+    range(from: number, to: number): PromiseLike<{ data: TRow[] | null; error: unknown }>;
+  },
+  batchSize: number,
+): Promise<TRow[]> {
+  const rows: TRow[] = [];
+  let offset = 0;
+
+  while (true) {
+    const { data, error } = await queryFactory().range(offset, offset + batchSize - 1);
+    if (error) {
+      throw error;
+    }
+
+    const page = data ?? [];
+    rows.push(...page);
+
+    if (page.length < batchSize) {
+      break;
+    }
+
+    offset += batchSize;
+  }
+
+  return rows;
+}
+
 function mapCustomerIdentityRows(rows: CustomerIdentityRow[]): CustomerIdentityRecord[] {
   return rows.map((row) => ({
     id: row.id,
@@ -115,15 +146,25 @@ function mapCustomerIdentityRows(rows: CustomerIdentityRow[]): CustomerIdentityR
 }
 
 function mapBookingHistoryRows(rows: BookingHistoryRow[]): CustomerBookingRecord[] {
-  return rows.map((row) => ({
-    id: row.id,
-    customerId: row.customer_id,
-    restaurantId: row.restaurant_id,
-    status: row.status,
-    partySize: row.party_size,
-    createdAt: row.created_at,
-    startAt: row.start_at ?? null,
-  }));
+  const records: CustomerBookingRecord[] = [];
+
+  for (const row of rows) {
+    if (!isCustomerHistoryBookingStatus(row.status)) {
+      continue;
+    }
+
+    records.push({
+      id: row.id,
+      customerId: row.customer_id,
+      restaurantId: row.restaurant_id,
+      status: row.status,
+      partySize: row.party_size,
+      createdAt: row.created_at,
+      startAt: row.start_at ?? null,
+    });
+  }
+
+  return records;
 }
 
 async function fetchCustomerIdentities(
@@ -134,13 +175,15 @@ async function fetchCustomerIdentities(
     marketingOptIn: CustomerHistoryMarketingFilter;
   },
 ): Promise<CustomerIdentityRecord[]> {
-  const { data, error } = await buildCustomerIdentityQuery(client, restaurantId, options);
+  const rows = await fetchQueryPages<CustomerIdentityRow>(
+    () =>
+      buildCustomerIdentityQuery(client, restaurantId, options).order('id', {
+        ascending: true,
+      }),
+    CUSTOMER_FETCH_BATCH_SIZE,
+  );
 
-  if (error) {
-    throw error;
-  }
-
-  return mapCustomerIdentityRows((data ?? []) as CustomerIdentityRow[]);
+  return mapCustomerIdentityRows(rows);
 }
 
 async function fetchBookingsForCustomerIds(
@@ -154,20 +197,20 @@ async function fetchBookingsForCustomerIds(
 
   const bookingRows: CustomerBookingRecord[] = [];
 
-  for (let index = 0; index < customerIds.length; index += CUSTOMER_BOOKINGS_CHUNK_SIZE) {
-    const chunk = customerIds.slice(index, index + CUSTOMER_BOOKINGS_CHUNK_SIZE);
-    const { data, error } = await client
-      .from('bookings')
-      .select('id, customer_id, restaurant_id, status, party_size, created_at, start_at')
-      .eq('restaurant_id', restaurantId)
-      .in('customer_id', chunk)
-      .neq('status', 'PRIORITY_WAITLIST');
+  for (let index = 0; index < customerIds.length; index += CUSTOMER_ID_CHUNK_SIZE) {
+    const chunk = customerIds.slice(index, index + CUSTOMER_ID_CHUNK_SIZE);
+    const rows = await fetchQueryPages<BookingHistoryRow>(
+      () =>
+        client
+          .from('bookings')
+          .select('id, customer_id, restaurant_id, status, party_size, created_at, start_at')
+          .eq('restaurant_id', restaurantId)
+          .in('customer_id', chunk)
+          .order('id', { ascending: true }),
+      BOOKING_FETCH_BATCH_SIZE,
+    );
 
-    if (error) {
-      throw error;
-    }
-
-    bookingRows.push(...mapBookingHistoryRows((data ?? []) as BookingHistoryRow[]));
+    bookingRows.push(...mapBookingHistoryRows(rows));
   }
 
   return bookingRows;
