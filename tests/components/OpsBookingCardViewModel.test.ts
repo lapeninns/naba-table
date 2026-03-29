@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildOpsBookingCardViewModel } from '@/components/features/dashboard/cards/opsBookingCardUtils';
+import {
+  buildOpsBookingCardViewModel,
+  getTableLabel,
+} from '@/components/features/dashboard/cards/opsBookingCardUtils';
 
 import type { BookingDTO } from '@/hooks/useBookings';
 
@@ -36,21 +39,17 @@ function createBooking(overrides: Partial<BookingDTO> = {}): BookingDTO {
 }
 
 describe('buildOpsBookingCardViewModel', () => {
-  it('reuses normalized display fields and assignment labels in the row model', () => {
+  it('normalizes the booking contract and derives initials from the normalized label', () => {
     const booking = createBooking({
-      customerName: 'Pat Original',
-      displayCustomerLabel: 'VIP Pat',
-      displayTimeRangeLabel: '6:00 PM - 7:30 PM',
-      tableAssignments: [
-        {
-          groupId: 'group-1',
-          capacitySum: 4,
-          members: [
-            { tableId: 't-1', tableNumber: '12', capacity: 2, section: 'Main' },
-            { tableId: 't-2', tableNumber: '14', capacity: 2, section: 'Main' },
-          ],
-        },
-      ],
+      customerName: '  Pat Original  ',
+      customerEmail: '  vip@example.com  ',
+      customerPhone: '  +447700900000  ',
+      notes: '  Anniversary table please  ',
+      reference: '  VIP-42  ',
+      displayCustomerLabel: '  VIP Pat  ',
+      displayInitials: '   ',
+      displayTimeRangeLabel: '  6:00 PM - 7:30 PM  ',
+      tableLabel: '  Patio 7  ',
     });
 
     const viewModel = buildOpsBookingCardViewModel({
@@ -66,40 +65,99 @@ describe('buildOpsBookingCardViewModel', () => {
       isWalkInGuest: false,
     });
     expect(viewModel.meta.timeRangeLabel).toBe('6:00 PM - 7:30 PM');
-    expect(viewModel.tableLabel).toBe('12 + 14');
-    expect(viewModel.header.partySizeLabel).toBe('2 Guests');
-    expect(viewModel.header.hasNotes).toBe(false);
-    expect(viewModel.details.table).toEqual({
-      state: 'assigned',
-      label: 'Table 12 + 14',
-    });
-    expect(viewModel.details.contact.emptyLabel).toBe('No contact');
-    expect(viewModel.actions.details).toMatchObject({
-      id: 'details',
-      disabled: false,
-      valid: true,
-    });
-    expect(viewModel.actions.menuItems.map((item) => item.valid)).toEqual([true, true, true]);
-    expect(viewModel.actions.primary).toMatchObject({
-      kind: 'button',
-      id: 'check-in',
-      label: 'Seat Guest',
-      disabled: false,
-      valid: true,
-      pending: false,
-    });
-    expect(viewModel.disableActions).toBe(false);
-    expect(viewModel.pendingAction).toBeNull();
+    expect(viewModel.booking.customerName).toBe('Pat Original');
+    expect(viewModel.booking.customerEmail).toBe('vip@example.com');
+    expect(viewModel.booking.customerPhone).toBe('+447700900000');
+    expect(viewModel.booking.notes).toBe('Anniversary table please');
+    expect(viewModel.booking.reference).toBe('VIP-42');
+    expect(viewModel.tableLabel).toBe('Patio 7');
   });
 
-  it('precomputes urgency and pending action state for overdue bookings', () => {
+  it('falls back to walk-in defaults and strips blank optional fields', () => {
     const booking = createBooking({
-      startIso: '2026-03-29T18:00:00.000Z',
-      endIso: '2026-03-29T19:30:00.000Z',
+      customerName: '   ',
+      customerEmail: '   ',
+      customerPhone: '\n',
+      notes: '  ',
+      reference: '\t',
+      displayCustomerLabel: '   ',
+      displayInitials: ' ',
+      displayTimeRangeLabel: ' ',
+      endIso: '',
     });
 
     const viewModel = buildOpsBookingCardViewModel({
       booking,
+      timezone: 'UTC',
+      now: new Date('2026-03-29T17:30:00.000Z'),
+      actionsDisabled: false,
+    });
+
+    expect(viewModel.meta.customerLabel).toBe('Walk-in Guest');
+    expect(viewModel.meta.initials).toBe('WG');
+    expect(viewModel.meta.timeRangeLabel).toBe('6:00 PM');
+    expect(viewModel.booking.customerName).toBeNull();
+    expect(viewModel.booking.customerEmail).toBeNull();
+    expect(viewModel.booking.customerPhone).toBeNull();
+    expect(viewModel.booking.notes).toBeNull();
+    expect(viewModel.booking.reference).toBeNull();
+  });
+
+  it('builds canonical grouped table labels', () => {
+    expect(
+      getTableLabel([
+        {
+          groupId: 'group-1',
+          capacitySum: 4,
+          members: [
+            { tableId: 't-1', tableNumber: '12', capacity: 2, section: 'Main' },
+            { tableId: 't-2', tableNumber: '14', capacity: 2, section: 'Main' },
+          ],
+        },
+        {
+          groupId: 'group-2',
+          capacitySum: 2,
+          members: [{ tableId: 't-3', tableNumber: '7', capacity: 2, section: 'Bar' }],
+        },
+      ]),
+    ).toBe('12 + 14, 7');
+    expect(getTableLabel([])).toBeNull();
+  });
+
+  it('suppresses urgency when highlighting is disabled or the booking is not actionable', () => {
+    const overdueBooking = createBooking();
+    const completedBooking = createBooking({ status: 'completed' });
+
+    const highlightOff = buildOpsBookingCardViewModel({
+      booking: overdueBooking,
+      timezone: 'UTC',
+      now: new Date('2026-03-29T18:20:00.000Z'),
+      actionsDisabled: false,
+      highlightUrgency: false,
+    });
+
+    const doneBooking = buildOpsBookingCardViewModel({
+      booking: completedBooking,
+      timezone: 'UTC',
+      now: new Date('2026-03-29T18:20:00.000Z'),
+      actionsDisabled: false,
+    });
+
+    const futureDayBooking = buildOpsBookingCardViewModel({
+      booking: createBooking({ startIso: '2026-03-30T18:00:00.000Z' }),
+      timezone: 'UTC',
+      now: new Date('2026-03-29T18:20:00.000Z'),
+      actionsDisabled: false,
+    });
+
+    expect(highlightOff.urgency).toBeNull();
+    expect(doneBooking.urgency).toBeNull();
+    expect(futureDayBooking.urgency).toBeNull();
+  });
+
+  it('precomputes overdue urgency and pending action state', () => {
+    const viewModel = buildOpsBookingCardViewModel({
+      booking: createBooking(),
       timezone: 'UTC',
       now: new Date('2026-03-29T18:20:00.000Z'),
       pendingAction: 'check-in',

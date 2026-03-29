@@ -146,6 +146,23 @@ function getDateKey(date: Date, timeZone: string): string {
   return `${year}-${month}-${day}`;
 }
 
+function normalizeText(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+function getInitialsFromLabel(label: string): string {
+  const initials = label
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+
+  return initials || 'G';
+}
+
 export function getTableLabel(assignments: BookingDTO['tableAssignments']) {
   if (!assignments || assignments.length === 0) {
     return null;
@@ -224,7 +241,14 @@ export function buildBookingMeta(
 
   const isDone = ['completed', 'cancelled', 'no_show'].includes(booking.status);
   const isSeated = booking.status === 'checked_in';
-  const guest = getGuestIdentity(booking);
+  const customerLabel =
+    normalizeText(booking.displayCustomerLabel) ??
+    normalizeText(booking.customerName) ??
+    'Walk-in Guest';
+  const timeRangeLabel =
+    normalizeText(timeLabelOverride ?? null) ??
+    normalizeText(booking.displayTimeRangeLabel) ??
+    (endTimeStr ? `${startTimeStr} – ${endTimeStr}` : startTimeStr);
 
   return {
     startDate,
@@ -234,10 +258,9 @@ export function buildBookingMeta(
     isSeated,
     guest,
     dateLabel: dateFormatter.format(startDate),
-    timeRangeLabel:
-      timeLabelOverride ??
-      booking.displayTimeRangeLabel ??
-      (endTimeStr ? `${startTimeStr} – ${endTimeStr}` : startTimeStr),
+    timeRangeLabel,
+    customerLabel,
+    initials: normalizeText(booking.displayInitials) ?? getInitialsFromLabel(customerLabel),
   };
 }
 
@@ -381,7 +404,20 @@ export function buildOpsBookingCardViewModel(params: {
     timeLabelOverride,
   } = params;
 
-  const meta = buildBookingMeta(booking, timezone, now, timeLabelOverride);
+  const normalizedBooking: BookingDTO = {
+    ...booking,
+    customerName: normalizeText(booking.customerName),
+    customerEmail: normalizeText(booking.customerEmail),
+    customerPhone: normalizeText(booking.customerPhone),
+    notes: normalizeText(booking.notes),
+    reference: normalizeText(booking.reference),
+    displayTimeRangeLabel: normalizeText(booking.displayTimeRangeLabel),
+    displayCustomerLabel: normalizeText(booking.displayCustomerLabel),
+    displayInitials: normalizeText(booking.displayInitials),
+    tableLabel: normalizeText(booking.tableLabel),
+  };
+
+  const meta = buildBookingMeta(normalizedBooking, timezone, now, timeLabelOverride);
   const urgency = getUrgencyBadge(meta, now, highlightUrgency);
   const tableLabel = getTableLabel(booking.tableAssignments);
   const header: OpsBookingCardHeaderViewModel = {
@@ -418,10 +454,10 @@ export function buildOpsBookingCardViewModel(params: {
   });
 
   return {
-    booking,
+    booking: normalizedBooking,
     meta,
     urgency,
-    tableLabel,
+    tableLabel: normalizedBooking.tableLabel ?? getTableLabel(normalizedBooking.tableAssignments),
     pendingAction,
     disableActions: actionsDisabled,
     header,

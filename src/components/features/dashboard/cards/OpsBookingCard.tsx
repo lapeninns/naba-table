@@ -4,10 +4,10 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Card } from '@/components/ui/card';
 import { Collapsible } from '@/components/ui/collapsible';
-import { useMinimumDelay } from '@/hooks/use-minimum-delay';
-import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { getOpsBookingStatusUi } from '@/lib/ops/booking-status';
 import { cn } from '@/lib/utils';
+import { useMinimumDelay } from '@src/hooks/use-minimum-delay';
+import { useMediaQuery } from '@src/hooks/useMediaQuery';
 
 import { OpsBookingCardActions } from './OpsBookingCardActions';
 import { OpsBookingCardDetails } from './OpsBookingCardDetails';
@@ -60,7 +60,8 @@ export const OpsBookingCard = memo(function OpsBookingCard({
 
   const isLoading = Boolean(actions.pendingAction);
   const showLoading = useMinimumDelay(isLoading, { delayMs: 200, minDurationMs: 400 });
-  const isVisuallyDisabled = Boolean(viewDisabled) && pendingAction === null;
+  const isLocked = Boolean(viewDisabled);
+  const disableMutations = isLoading || isLocked;
 
   const railClass = useMemo(() => {
     const ui = getOpsBookingStatusUi(booking.status);
@@ -89,13 +90,26 @@ export const OpsBookingCard = memo(function OpsBookingCard({
       <OpsBookingCardHeader
         header={header}
         isOpen={isOpen}
+        disableActions={disableMutations}
         showCollapseToggle={isMobile}
       />
 
       <OpsBookingCardDetails details={details} />
 
       <OpsBookingCardActions
-        actions={actions}
+        bookingId={booking.id}
+        status={booking.status}
+        partySize={booking.partySize}
+        customerLabel={meta.customerLabel}
+        dateLabel={meta.dateLabel}
+        timeRangeLabel={meta.timeRangeLabel}
+        isDone={meta.isDone}
+        isToday={meta.isToday}
+        isPastDay={meta.isPastDay}
+        isSeated={meta.isSeated}
+        disableActions={disableMutations}
+        detailsDisabled={isLocked}
+        pendingAction={pendingAction ?? null}
         onDetails={handleDetails}
         onEdit={handleEdit}
         onCancel={handleCancel}

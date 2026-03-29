@@ -33,7 +33,19 @@ import { cn } from '@/lib/utils';
 import type { OpsBookingCardActionsViewModel } from './opsBookingCardUtils';
 
 export type OpsBookingCardActionsProps = {
-  actions: OpsBookingCardActionsViewModel;
+  bookingId: string;
+  status: OpsBookingStatus;
+  partySize: number;
+  customerLabel: string;
+  dateLabel: string;
+  timeRangeLabel: string;
+  isDone: boolean;
+  isToday: boolean;
+  isPastDay: boolean;
+  isSeated: boolean;
+  disableActions: boolean;
+  detailsDisabled?: boolean;
+  pendingAction?: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show' | null;
   onDetails?: () => void;
   onEdit?: () => void;
   onCancel?: () => void;
@@ -43,7 +55,18 @@ export type OpsBookingCardActionsProps = {
 };
 
 export const OpsBookingCardActions = memo(function OpsBookingCardActions({
-  actions,
+  bookingId,
+  status,
+  partySize,
+  customerLabel,
+  dateLabel,
+  timeRangeLabel,
+  isToday,
+  isPastDay,
+  isSeated,
+  disableActions,
+  detailsDisabled = false,
+  pendingAction = null,
   onDetails,
   onEdit,
   onCancel,
@@ -52,9 +75,22 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
   onCheckOut,
 }: OpsBookingCardActionsProps) {
   const [isNoShowOpen, setIsNoShowOpen] = useState(false);
-  const isNoShowPending = actions.noShowConfirmation.pending;
-  const partySize = actions.noShowConfirmation.description.partySize;
-  const primaryButton = actions.primary.kind === 'button' ? actions.primary : null;
+  const canManageMutations = status === 'confirmed';
+  const canOpenManageMenu = canManageMutations && !disableActions;
+  const canEdit = canManageMutations && !disableActions && !isPastDay;
+  const canMarkNoShow = canManageMutations && !disableActions && isToday;
+  const canCancel = canManageMutations && !disableActions && !isPastDay;
+  const canCheckIn = status === 'confirmed';
+  const canCheckOut = status === 'checked_in';
+  const showsPrimaryAction = canCheckIn || canCheckOut;
+  const closedLabel =
+    status === 'completed'
+      ? 'Completed'
+      : status === 'cancelled'
+        ? 'Cancelled'
+        : status === 'no_show'
+          ? 'No show'
+          : 'Unavailable';
 
   const handleConfirmNoShow = useCallback(async () => {
     try {
@@ -73,7 +109,7 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
             size="sm"
             className="h-11 px-4 text-xs font-medium focus-visible:ring-2 focus-visible:ring-ring sm:h-8"
             onClick={onDetails}
-            disabled={actions.details.disabled}
+            disabled={detailsDisabled}
           >
             {actions.details.label}
           </Button>
@@ -85,6 +121,7 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
                 size="sm"
                 className="h-11 w-11 p-0 focus-visible:ring-2 focus-visible:ring-ring sm:h-8 sm:w-8"
                 aria-label="More actions"
+                disabled={!canOpenManageMenu}
               >
                 <MoreHorizontal className="h-4 w-4" aria-hidden />
               </Button>
@@ -94,12 +131,15 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
                 Manage
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={onEdit} disabled={actions.menuItems[0].disabled}>
-                {actions.menuItems[0].label}
+              <DropdownMenuItem
+                onClick={onEdit}
+                disabled={!canEdit}
+              >
+                Edit Booking
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => setIsNoShowOpen(true)}
-                disabled={actions.menuItems[1].disabled}
+                disabled={!canMarkNoShow || isSeated}
                 variant="destructive"
               >
                 {actions.menuItems[1].label}
@@ -107,7 +147,7 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={onCancel}
-                disabled={actions.menuItems[2].disabled}
+                disabled={!canCancel}
                 variant="destructive"
               >
                 {actions.menuItems[2].label}
@@ -117,27 +157,21 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
         </div>
 
         <div>
-          {primaryButton ? (
+          {showsPrimaryAction ? (
             <Button
               size="sm"
               disabled={primaryButton.disabled}
               className={cn(
                 'h-11 min-w-[120px] px-6 font-semibold text-white shadow-sm transition-[box-shadow,background-color] duration-150 ease-out hover:shadow-sm motion-reduce:transition-none sm:h-9',
-                primaryButton.id === 'check-out'
-                  ? 'bg-slate-700 hover:bg-slate-800'
-                  : 'bg-emerald-600 hover:bg-emerald-700',
+                canCheckOut ? 'bg-slate-700 hover:bg-slate-800' : 'bg-emerald-600 hover:bg-emerald-700',
               )}
-              onClick={() =>
-                primaryButton.id === 'check-out'
-                  ? onCheckOut?.(actions.bookingId)
-                  : onCheckIn?.(actions.bookingId)
-              }
+              onClick={() => (canCheckOut ? onCheckOut?.(bookingId) : onCheckIn?.(bookingId))}
             >
               {primaryButton.pending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> Updating…
                 </>
-              ) : primaryButton.id === 'check-out' ? (
+              ) : canCheckOut ? (
                 <>
                   <LogOut className="mr-2 h-4 w-4" aria-hidden /> Finish
                 </>
@@ -153,7 +187,7 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
               role="status"
             >
               <Check className="h-4 w-4 text-emerald-500" aria-hidden />
-              {actions.primary.label}
+              {closedLabel}
             </div>
           )}
         </div>
