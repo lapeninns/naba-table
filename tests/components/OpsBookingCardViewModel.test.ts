@@ -40,7 +40,6 @@ describe('buildOpsBookingCardViewModel', () => {
     const booking = createBooking({
       customerName: 'Pat Original',
       displayCustomerLabel: 'VIP Pat',
-      displayInitials: 'VP',
       displayTimeRangeLabel: '6:00 PM - 7:30 PM',
       tableAssignments: [
         {
@@ -61,12 +60,21 @@ describe('buildOpsBookingCardViewModel', () => {
       actionsDisabled: false,
     });
 
-    expect(viewModel.meta.customerLabel).toBe('VIP Pat');
-    expect(viewModel.meta.initials).toBe('VP');
+    expect(viewModel.meta.guest).toEqual({
+      label: 'VIP Pat',
+      initials: 'VP',
+      isWalkInGuest: false,
+    });
     expect(viewModel.meta.timeRangeLabel).toBe('6:00 PM - 7:30 PM');
-    expect(viewModel.tableLabel).toBe('12 + 14');
-    expect(viewModel.disableActions).toBe(false);
-    expect(viewModel.pendingAction).toBeNull();
+    expect(viewModel.header.guest.label).toBe('VIP Pat');
+    expect(viewModel.details.table).toEqual({
+      label: 'Table',
+      state: 'assigned',
+      tableLabel: '12 + 14',
+      valueLabel: 'Table 12 + 14',
+    });
+    expect(viewModel.actions.disableActions).toBe(false);
+    expect(viewModel.actions.pendingAction).toBeNull();
   });
 
   it('precomputes urgency and pending action state for overdue bookings', () => {
@@ -83,11 +91,52 @@ describe('buildOpsBookingCardViewModel', () => {
       actionsDisabled: true,
     });
 
-    expect(viewModel.urgency).toEqual({
+    expect(viewModel.header.urgency).toEqual({
       variant: 'destructive',
       label: '20m late',
     });
-    expect(viewModel.pendingAction).toBe('check-in');
-    expect(viewModel.disableActions).toBe(true);
+    expect(viewModel.actions.pendingAction).toBe('check-in');
+    expect(viewModel.actions.disableActions).toBe(true);
+    expect(viewModel.actions.policy.primary.pending).toBe(true);
+  });
+
+  it('falls back to Walk-in Guest and suppresses urgency for checked-in bookings', () => {
+    const booking = createBooking({
+      customerName: '   ',
+      status: 'checked_in',
+    });
+
+    const viewModel = buildOpsBookingCardViewModel({
+      booking,
+      timezone: 'UTC',
+      now: new Date('2026-03-29T18:20:00.000Z'),
+      actionsDisabled: false,
+    });
+
+    expect(viewModel.meta.guest).toEqual({
+      label: 'Walk-in Guest',
+      initials: 'WG',
+      isWalkInGuest: true,
+    });
+    expect(viewModel.header.urgency).toBeNull();
+  });
+
+  it('uses canonical table state and footer completion label', () => {
+    const booking = createBooking({
+      status: 'completed',
+      tableAssignments: [],
+      requiresTableAssignment: true,
+    });
+
+    const viewModel = buildOpsBookingCardViewModel({
+      booking,
+      timezone: 'UTC',
+      now: new Date('2026-03-29T20:00:00.000Z'),
+      actionsDisabled: false,
+    });
+
+    expect(viewModel.details.table.state).toBe('not_applicable');
+    expect(viewModel.details.table.valueLabel).toBe('N/A');
+    expect(viewModel.actions.footerCompletionLabel).toBe('Completed');
   });
 });

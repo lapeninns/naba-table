@@ -34,8 +34,7 @@ export const OpsBookingCard = memo(function OpsBookingCard({
   onCheckOut,
   onMarkNoShow,
 }: OpsBookingCardProps) {
-  const { booking, meta, urgency, tableLabel, pendingAction, disableActions: viewDisabled } =
-    viewModel;
+  const { booking, meta, header, details, actions } = viewModel;
   const [isOpen, setIsOpen] = useState(false);
   const isMobile = useMediaQuery('(max-width: 639px)');
 
@@ -50,18 +49,18 @@ export const OpsBookingCard = memo(function OpsBookingCard({
     setIsOpen(open);
   };
 
-  const isLoading = Boolean(pendingAction);
+  const isLoading = Boolean(actions.pendingAction);
   const showLoading = useMinimumDelay(isLoading, { delayMs: 200, minDurationMs: 400 });
-  const isLocked = Boolean(viewDisabled);
+  const isLocked = Boolean(actions.disableActions);
   const disableActions = isLoading || isLocked;
 
   const railClass = useMemo(() => {
     const ui = getOpsBookingStatusUi(booking.status);
     // Urgency is a contextual override on top of status rails.
-    if (urgency?.variant === 'destructive') return 'border-l-rose-400';
-    if (urgency?.variant === 'warning') return 'border-l-amber-400/70';
+    if (header.urgency?.variant === 'destructive') return 'border-l-rose-400';
+    if (header.urgency?.variant === 'warning') return 'border-l-amber-400/70';
     return ui.railClass;
-  }, [booking.status, urgency?.variant]);
+  }, [booking.status, header.urgency?.variant]);
 
   const handleDetails = useCallback(() => {
     onDetails?.(booking.id);
@@ -80,44 +79,19 @@ export const OpsBookingCard = memo(function OpsBookingCard({
       {/* Keep content visible while actions are pending; pending state is communicated via disabled controls + button-level spinners. */}
 
       <OpsBookingCardHeader
-        bookingId={booking.id}
-        status={booking.status}
-        partySize={booking.partySize}
-        customerLabel={meta.customerLabel}
-        initials={meta.initials}
-        dateLabel={meta.dateLabel}
-        timeRangeLabel={meta.timeRangeLabel}
+        header={header}
         isDone={meta.isDone}
-        hasNotes={Boolean(booking.notes)}
-        urgency={urgency}
         isOpen={isOpen}
         disableActions={disableActions}
         showCollapseToggle={isMobile}
       />
 
-      <OpsBookingCardDetails
-        bookingId={booking.id}
-        referenceLabel={`Ref ${booking.reference || booking.id.slice(0, 8)}`}
-        tableLabel={tableLabel}
-        isDone={meta.isDone}
-        notes={booking.notes}
-        customerPhone={booking.customerPhone}
-        customerEmail={booking.customerEmail}
-      />
+      <OpsBookingCardDetails details={details} />
 
       <OpsBookingCardActions
-        bookingId={booking.id}
-        status={booking.status}
-        partySize={booking.partySize}
-        customerLabel={meta.customerLabel}
-        dateLabel={meta.dateLabel}
-        timeRangeLabel={meta.timeRangeLabel}
-        isDone={meta.isDone}
-        isToday={meta.isToday}
-        isPastDay={meta.isPastDay}
-        isSeated={meta.isSeated}
-        disableActions={disableActions}
-        pendingAction={pendingAction ?? null}
+        booking={booking}
+        meta={meta}
+        actions={actions}
         onDetails={handleDetails}
         onEdit={handleEdit}
         onCancel={handleCancel}

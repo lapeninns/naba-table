@@ -16,40 +16,27 @@ import { Button } from '@/components/ui/button';
 import { CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 
-import type { UrgencyBadge } from './opsBookingCardUtils';
+import type { OpsBookingCardHeaderModel } from './opsBookingCardUtils';
 import type { OpsBookingStatus } from '@/types/ops';
 
 export type OpsBookingCardHeaderProps = {
-  bookingId: string;
-  status: OpsBookingStatus;
-  partySize: number;
-  customerLabel: string;
-  initials: string;
-  dateLabel: string;
-  timeRangeLabel: string;
   isDone: boolean;
-  hasNotes: boolean;
-  urgency: UrgencyBadge | null;
   isOpen: boolean;
   disableActions: boolean;
+  header: OpsBookingCardHeaderModel;
   showCollapseToggle?: boolean;
 };
 
 export const OpsBookingCardHeader = memo(function OpsBookingCardHeader({
-  bookingId,
-  status,
-  partySize,
-  customerLabel,
-  initials,
-  dateLabel,
-  timeRangeLabel,
   isDone,
-  hasNotes,
-  urgency,
   isOpen,
   disableActions,
+  header,
   showCollapseToggle = true,
 }: OpsBookingCardHeaderProps) {
+  const { bookingId, status, partySize, guest, dateLabel, timeRangeLabel, hasNotes, urgency } =
+    header;
+
   return (
     <div className="p-3 pb-2 sm:p-4 sm:pb-4">
       <div className="mb-2 flex items-start justify-between gap-4 sm:mb-4">
@@ -61,7 +48,7 @@ export const OpsBookingCardHeader = memo(function OpsBookingCardHeader({
                 isDone ? 'bg-muted/50 text-muted-foreground' : 'bg-muted/60 text-foreground/80',
               )}
             >
-              {initials}
+              {guest.initials}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0">
@@ -74,9 +61,9 @@ export const OpsBookingCardHeader = memo(function OpsBookingCardHeader({
                     ? 'text-muted-foreground line-through decoration-border/60'
                     : 'text-foreground',
                 )}
-                title={customerLabel}
+                title={guest.label}
               >
-                {customerLabel}
+                {guest.label}
               </p>
             </div>
             <div className="mt-1 flex flex-col gap-1 text-xs font-medium text-muted-foreground sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-1.5 sm:text-sm">

@@ -81,8 +81,8 @@ describe('buildOpsBookingsCardRows', () => {
 
     expect(rows).toHaveLength(1);
     expect(rows[0]?.booking.id).toBe('booking-1');
-    expect(rows[0]?.pendingAction).toBe('check-in');
-    expect(rows[0]?.disableActions).toBe(true);
-    expect(rows[0]?.meta.customerLabel).toBe('Alex Johnson');
+    expect(rows[0]?.actions.pendingAction).toBe('check-in');
+    expect(rows[0]?.actions.disableActions).toBe(true);
+    expect(rows[0]?.meta.guest.label).toBe('Alex Johnson');
   });
 });

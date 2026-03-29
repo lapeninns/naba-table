@@ -30,21 +30,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
-import type { OpsBookingStatus } from '@/types/ops';
+import type { BookingMeta, OpsBookingCardActionsModel } from './opsBookingCardUtils';
+import type { BookingDTO } from '@/hooks/useBookings';
 
 export type OpsBookingCardActionsProps = {
-  bookingId: string;
-  status: OpsBookingStatus;
-  partySize: number;
-  customerLabel: string;
-  dateLabel: string;
-  timeRangeLabel: string;
-  isDone: boolean;
-  isToday: boolean;
-  isPastDay: boolean;
-  isSeated: boolean;
-  disableActions: boolean;
-  pendingAction?: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show' | null;
+  booking: BookingDTO;
+  meta: BookingMeta;
+  actions: OpsBookingCardActionsModel;
   onDetails?: () => void;
   onEdit?: () => void;
   onCancel?: () => void;
@@ -54,18 +46,9 @@ export type OpsBookingCardActionsProps = {
 };
 
 export const OpsBookingCardActions = memo(function OpsBookingCardActions({
-  bookingId,
-  status,
-  partySize,
-  customerLabel,
-  dateLabel,
-  timeRangeLabel,
-  isDone,
-  isToday,
-  isPastDay,
-  isSeated,
-  disableActions,
-  pendingAction = null,
+  booking,
+  meta,
+  actions,
   onDetails,
   onEdit,
   onCancel,
@@ -73,17 +56,17 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
   onCheckIn,
   onCheckOut,
 }: OpsBookingCardActionsProps) {
-  const isLifecyclePending = pendingAction === 'check-in' || pendingAction === 'check-out';
+  const { dialog, disableActions, footerCompletionLabel, pendingAction, policy } = actions;
   const isNoShowPending = pendingAction === 'no-show';
   const [isNoShowOpen, setIsNoShowOpen] = useState(false);
 
   const handleConfirmNoShow = useCallback(async () => {
     try {
-      await onMarkNoShow?.(bookingId);
+      await onMarkNoShow?.(booking.id);
     } finally {
       setIsNoShowOpen(false);
     }
-  }, [bookingId, onMarkNoShow]);
+  }, [booking.id, onMarkNoShow]);
 
   return (
     <div className="px-4 pb-4">
@@ -94,7 +77,7 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
             size="sm"
             className="h-11 px-4 text-xs font-medium focus-visible:ring-2 focus-visible:ring-ring sm:h-8"
             onClick={onDetails}
-            disabled={disableActions}
+            disabled={policy.details.disabled}
           >
             Details
           </Button>
@@ -118,21 +101,23 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={onEdit}
-                disabled={disableActions || isPastDay}
+                disabled={policy.menu.edit.disabled}
               >
                 Edit Booking
               </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => setIsNoShowOpen(true)}
-                disabled={disableActions || !isToday || isSeated}
-                variant="destructive"
-              >
-                Mark No Show
-              </DropdownMenuItem>
+              {!policy.menu.noShow.hidden ? (
+                <DropdownMenuItem
+                  onClick={() => setIsNoShowOpen(true)}
+                  disabled={policy.menu.noShow.disabled}
+                  variant="destructive"
+                >
+                  Mark No Show
+                </DropdownMenuItem>
+              ) : null}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={onCancel}
-                disabled={disableActions || isPastDay}
+                disabled={policy.menu.cancel.disabled}
                 variant="destructive"
               >
                 Cancel Booking
@@ -142,21 +127,27 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
         </div>
 
         <div>
-          {!isDone ? (
+          {!policy.primary.hidden && policy.primary.action ? (
             <Button
               size="sm"
-              disabled={!isToday || disableActions || isLifecyclePending}
+              disabled={policy.primary.disabled}
               className={cn(
                 'h-11 min-w-[120px] px-6 font-semibold text-white shadow-sm transition-[box-shadow,background-color] duration-150 ease-out hover:shadow-sm motion-reduce:transition-none sm:h-9',
-                isSeated ? 'bg-slate-700 hover:bg-slate-800' : 'bg-emerald-600 hover:bg-emerald-700',
+                meta.isSeated
+                  ? 'bg-slate-700 hover:bg-slate-800'
+                  : 'bg-emerald-600 hover:bg-emerald-700',
               )}
-              onClick={() => (isSeated ? onCheckOut?.(bookingId) : onCheckIn?.(bookingId))}
+              onClick={() =>
+                policy.primary.action === 'check-out'
+                  ? onCheckOut?.(booking.id)
+                  : onCheckIn?.(booking.id)
+              }
             >
-              {isLifecyclePending ? (
+              {policy.primary.pending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> Updating…
                 </>
-              ) : isSeated ? (
+              ) : policy.primary.action === 'check-out' ? (
                 <>
                   <LogOut className="mr-2 h-4 w-4" aria-hidden /> Finish
                 </>
@@ -172,7 +163,7 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
               role="status"
             >
               <Check className="h-4 w-4 text-emerald-500" aria-hidden />
-              {status === 'completed' ? 'Completed' : 'Closed'}
+              {footerCompletionLabel ?? 'Closed'}
             </div>
           )}
         </div>
@@ -184,11 +175,11 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
             <AlertDialogTitle>Mark as no-show?</AlertDialogTitle>
             <AlertDialogDescription>
               You’re about to mark{' '}
-              <span className="font-semibold text-foreground">{customerLabel}</span> as a no-show
-              for <span className="font-semibold text-foreground">{partySize}</span>{' '}
-              cover{partySize === 1 ? '' : 's'} on{' '}
+              <span className="font-semibold text-foreground">{dialog.customerLabel}</span> as a
+              no-show for <span className="font-semibold text-foreground">{dialog.partySize}</span>{' '}
+              cover{dialog.partySize === 1 ? '' : 's'} on{' '}
               <span className="font-semibold text-foreground">
-                {dateLabel} · {timeRangeLabel}
+                {dialog.dateLabel} · {dialog.timeRangeLabel}
               </span>
               . You can undo this shortly after confirming.
             </AlertDialogDescription>
