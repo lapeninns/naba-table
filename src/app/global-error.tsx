@@ -1,16 +1,46 @@
 'use client';
 
-import NextError from 'next/error';
+import Link from 'next/link';
 
-export default function GlobalError({ error: _error }: { error: Error & { digest?: string } }) {
+export const dynamic = 'force-dynamic';
+
+export default function GlobalError({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
   return (
     <html lang="en">
       <body>
-        {/* `NextError` is the default Next.js error page component. Its type
-        definition requires a `statusCode` prop. However, since the App Router
-        does not expose status codes for errors, we simply pass 0 to render a
-        generic error message. */}
-        <NextError statusCode={0} />
+        <main className="flex min-h-screen min-h-[100svh] flex-col items-center justify-center bg-slate-50 px-6 py-24 text-center">
+          <div className="mx-auto max-w-md space-y-4">
+            <h1 className="text-3xl font-bold tracking-tight text-slate-800">
+              Something went wrong
+            </h1>
+            <p className="text-slate-600">
+              We couldn’t load this page. Please try again.
+            </p>
+            <div className="flex items-center justify-center gap-3">
+              <button
+                onClick={() => reset()}
+                className="inline-flex items-center justify-center rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700"
+              >
+                Try again
+              </button>
+              <Link
+                href="/"
+                className="inline-flex items-center justify-center rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+              >
+                Go Home
+              </Link>
+            </div>
+            {process.env.NODE_ENV !== 'production' && error?.digest ? (
+              <p className="text-xs text-slate-400">Error ID: {error.digest}</p>
+            ) : null}
+          </div>
+        </main>
       </body>
     </html>
   );
