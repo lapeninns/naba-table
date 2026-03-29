@@ -73,7 +73,7 @@ export function OpsCustomersClient({
   } = useOpsCustomersQueryState();
 
   useEffect(() => {
-    if (defaultRestaurantId && defaultRestaurantId !== activeRestaurantId) {
+    if (defaultRestaurantId && !activeRestaurantId) {
       setActiveRestaurantId(defaultRestaurantId);
     }
   }, [activeRestaurantId, defaultRestaurantId, setActiveRestaurantId]);

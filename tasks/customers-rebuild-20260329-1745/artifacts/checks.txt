@@ -7,6 +7,8 @@ Automated checks
   result: pass
 - pnpm exec eslint --max-warnings=0 lib/ops/customer-history.ts server/ops/customers.ts src/app/api/ops/customers/route.ts src/app/api/ops/customers/export/route.ts tests/lib/customerHistory.test.ts
   result: pass
+- pnpm exec eslint --max-warnings=0 lib/ops/customer-history.ts server/ops/customers.ts src/app/api/ops/customers/route.ts src/app/api/ops/customers/export/route.ts src/components/features/customers/OpsCustomersClient.tsx tests/lib/customerHistory.test.ts
+  result: pass
 - git diff --check
   result: pass
 
@@ -19,3 +21,9 @@ Manual QA
 - navigated to http://localhost:3000/dev/ops-customers?focus=sam.patel@example.com
 - verified Sam Patel card received focus with data-customer-id=cust-2
 - console remained clean aside from baseline PostHog env warning
+
+Follow-up review fixes
+- restored export compatibility by keeping the CSV column header as Last Booking
+- validated booking statuses before history rollup mapping
+- made getAllCustomersWithHistory return all rows regardless of caller maxPageSize
+- limited defaultRestaurantId seeding to the initial no-active-restaurant state

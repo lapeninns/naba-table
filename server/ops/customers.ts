@@ -302,7 +302,7 @@ export async function getAllCustomersWithHistory(
   const result = await getCustomersWithHistory({
     ...options,
     page: 1,
-    pageSize: options.maxPageSize ?? Number.MAX_SAFE_INTEGER,
+    pageSize: Number.MAX_SAFE_INTEGER,
     maxPageSize: Number.MAX_SAFE_INTEGER,
   });
 

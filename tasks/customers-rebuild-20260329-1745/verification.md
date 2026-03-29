@@ -74,6 +74,9 @@ Notes:
 - Customers page server contract now derives guest history from live booking data instead of `customer_profiles` snapshot fields.
 - Export uses the same canonical rollup source.
 - Client behavior remains intact.
+- Follow-up review fixes applied:
+  - `getAllCustomersWithHistory` now ignores caller-provided `maxPageSize` and always returns the full result set.
+  - `OpsCustomersClient` only seeds `defaultRestaurantId` when there is no active restaurant, so future callers cannot accidentally override an in-session restaurant switch.
 - Remaining tradeoff:
   - paginated API requests still compute booking-derived history in memory after batched DB reads, because sort/filter semantics depend on the full live rollup.
   - restoring true DB-level pagination would require moving the rollup into SQL or a dedicated server-side aggregate, which is a follow-up architecture change rather than a correctness patch.
