@@ -47,3 +47,4 @@ related_tickets: []
   - Current `customer_profiles` fields are not reliable enough to remain the source of truth for guest history.
 - Deviations:
   - The dev harness still uses in-memory guest fixtures for UI QA; production correctness is verified through the rebuilt shared rollup tests rather than the harness network path.
+  - The paginated API still builds booking-derived history in memory after batched reads; true DB-level pagination would require a SQL-backed aggregate path and is left as a follow-up architecture task.

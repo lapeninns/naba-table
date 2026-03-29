@@ -9,15 +9,19 @@ export type CustomerHistoryMarketingFilter = 'all' | 'opted_in' | 'opted_out';
 export type CustomerHistoryLastVisitFilter = 'any' | '30d' | '90d' | '365d' | 'never';
 export type CustomerHistorySortBy = 'last_visit' | 'bookings';
 export type CustomerHistorySortOrder = 'asc' | 'desc';
+export const CUSTOMER_HISTORY_BOOKING_STATUS_VALUES = [
+  'confirmed',
+  'pending',
+  'cancelled',
+  'completed',
+  'PRIORITY_WAITLIST',
+  'no_show',
+  'pending_allocation',
+  'checked_in',
+] as const;
+
 export type CustomerHistoryBookingStatus =
-  | 'confirmed'
-  | 'pending'
-  | 'cancelled'
-  | 'completed'
-  | 'PRIORITY_WAITLIST'
-  | 'no_show'
-  | 'pending_allocation'
-  | 'checked_in';
+  (typeof CUSTOMER_HISTORY_BOOKING_STATUS_VALUES)[number];
 
 export type CustomerIdentityRecord = {
   id: string;
@@ -64,6 +68,12 @@ const LAST_VISIT_FILTER_DAYS: Record<
   '90d': 90,
   '365d': 365,
 };
+
+export function isCustomerHistoryBookingStatus(
+  value: string,
+): value is CustomerHistoryBookingStatus {
+  return (CUSTOMER_HISTORY_BOOKING_STATUS_VALUES as readonly string[]).includes(value);
+}
 
 function parseIsoTimestamp(value: string | null | undefined): number | null {
   if (!value) {
