@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
 import { OpsEmailDeliveryTable } from '@/components/features/email-delivery/components/OpsEmailDeliveryTable';
+import { buildOpsEmailDeliveryTableRows } from '@/components/features/email-delivery/opsEmailDeliverySelectors';
 
 import type { OpsEmailDeliveryAttemptDTO } from '@/types/emailDelivery';
 
@@ -143,6 +144,10 @@ const defaultAttempts: OpsEmailDeliveryAttemptDTO[] = [
   }),
 ];
 
+function buildRows(attempts: OpsEmailDeliveryAttemptDTO[] = defaultAttempts, timezone = 'UTC') {
+  return buildOpsEmailDeliveryTableRows({ attempts, timezone });
+}
+
 function getRecipientOrder() {
   return screen
     .getAllByRole('row')
@@ -158,7 +163,7 @@ describe('OpsEmailDeliveryTable', () => {
   it('renders table with correct column headers', () => {
     render(
       <OpsEmailDeliveryTable
-        attempts={defaultAttempts}
+        rows={buildRows(defaultAttempts, 'Europe/London')}
         timezone="Europe/London"
         restaurantId="rest-1"
         isLoading={false}
@@ -177,7 +182,7 @@ describe('OpsEmailDeliveryTable', () => {
   it('renders data rows with correct content', () => {
     render(
       <OpsEmailDeliveryTable
-        attempts={defaultAttempts}
+        rows={buildRows(defaultAttempts)}
         timezone="UTC"
         restaurantId="rest-1"
         isLoading={false}
@@ -196,7 +201,7 @@ describe('OpsEmailDeliveryTable', () => {
   it('shows status badges with correct labels', () => {
     render(
       <OpsEmailDeliveryTable
-        attempts={defaultAttempts}
+        rows={buildRows(defaultAttempts)}
         timezone="UTC"
         restaurantId="rest-1"
         isLoading={false}
@@ -213,7 +218,7 @@ describe('OpsEmailDeliveryTable', () => {
 
     render(
       <OpsEmailDeliveryTable
-        attempts={defaultAttempts}
+        rows={buildRows(defaultAttempts)}
         timezone="UTC"
         restaurantId="rest-1"
         isLoading={false}
@@ -238,7 +243,7 @@ describe('OpsEmailDeliveryTable', () => {
 
     render(
       <OpsEmailDeliveryTable
-        attempts={defaultAttempts}
+        rows={buildRows(defaultAttempts)}
         timezone="UTC"
         restaurantId="rest-1"
         isLoading={false}
@@ -265,7 +270,7 @@ describe('OpsEmailDeliveryTable', () => {
 
     render(
       <OpsEmailDeliveryTable
-        attempts={defaultAttempts}
+        rows={buildRows(defaultAttempts)}
         timezone="UTC"
         restaurantId="rest-1"
         isLoading={false}
@@ -289,7 +294,7 @@ describe('OpsEmailDeliveryTable', () => {
 
     render(
       <OpsEmailDeliveryTable
-        attempts={defaultAttempts}
+        rows={buildRows(defaultAttempts)}
         timezone="UTC"
         restaurantId="rest-1"
         isLoading={false}
@@ -316,7 +321,7 @@ describe('OpsEmailDeliveryTable', () => {
 
     render(
       <OpsEmailDeliveryTable
-        attempts={defaultAttempts}
+        rows={buildRows(defaultAttempts)}
         timezone="UTC"
         restaurantId="rest-1"
         isLoading={false}
@@ -340,7 +345,7 @@ describe('OpsEmailDeliveryTable', () => {
 
     render(
       <OpsEmailDeliveryTable
-        attempts={defaultAttempts}
+        rows={buildRows(defaultAttempts)}
         timezone="UTC"
         restaurantId="rest-1"
         isLoading={false}
@@ -362,7 +367,7 @@ describe('OpsEmailDeliveryTable', () => {
 
     render(
       <OpsEmailDeliveryTable
-        attempts={defaultAttempts}
+        rows={buildRows(defaultAttempts)}
         timezone="UTC"
         restaurantId="rest-1"
         isLoading={false}
@@ -384,7 +389,7 @@ describe('OpsEmailDeliveryTable', () => {
   it('renders an empty table shell when no results', () => {
     render(
       <OpsEmailDeliveryTable
-        attempts={[]}
+        rows={[]}
         timezone="UTC"
         restaurantId="rest-1"
         isLoading={false}
@@ -399,7 +404,7 @@ describe('OpsEmailDeliveryTable', () => {
   it('shows loading skeleton while data fetches', () => {
     render(
       <OpsEmailDeliveryTable
-        attempts={[]}
+        rows={[]}
         timezone="UTC"
         restaurantId="rest-1"
         isLoading={true}
@@ -412,7 +417,7 @@ describe('OpsEmailDeliveryTable', () => {
   it('shows retry buttons only for failed and bounced rows', () => {
     render(
       <OpsEmailDeliveryTable
-        attempts={[
+        rows={buildRows([
           ...defaultAttempts,
           makeAttempt({
             messageId: 'msg-test-4',
@@ -420,7 +425,7 @@ describe('OpsEmailDeliveryTable', () => {
             currentStatus: 'bounced',
             currentOccurredAt: '2026-03-20T16:00:00Z',
           }),
-        ]}
+        ])}
         timezone="UTC"
         restaurantId="rest-1"
         isLoading={false}
@@ -438,11 +443,11 @@ describe('OpsEmailDeliveryTable', () => {
 
     render(
       <OpsEmailDeliveryTable
-        attempts={defaultAttempts}
+        rows={buildRows(defaultAttempts)}
         timezone="UTC"
         restaurantId="rest-1"
         isLoading={false}
-        pendingRetryAttempt={defaultAttempts[1]}
+        pendingRetryRow={buildRows(defaultAttempts)[1]}
         isRetryDialogOpen
       />,
     );

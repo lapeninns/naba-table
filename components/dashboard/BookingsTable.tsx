@@ -7,20 +7,19 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { OpsBookingCard } from '@/components/features/dashboard/cards/OpsBookingCard';
 import { OpsBookingCardSkeleton } from '@/components/features/dashboard/cards/OpsBookingCardSkeleton';
-import { buildOpsBookingCardViewModel } from '@/components/features/dashboard/cards/opsBookingCardUtils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 
 import { BookingsHeader } from './BookingsHeader';
 import { EmptyState, type EmptyStateProps } from './EmptyState';
 
-import type { BookingAction } from '@/components/features/booking-state-machine';
-import type { BookingDTO, BookingsPage } from '@/hooks/useBookings';
+import type { OpsBookingCardViewModel } from '@/components/features/dashboard/cards/opsBookingCardUtils';
+import type { BookingsPage } from '@/hooks/useBookings';
 import type { StatusFilter } from '@/hooks/useBookingsTableState';
 import type { HttpError } from '@/lib/http/errors';
 
 export type BookingsTableProps = {
-  bookings: BookingDTO[];
+  rows: OpsBookingCardViewModel[];
   total: BookingsPage['pageInfo']['total'];
   statusFilter: StatusFilter;
   isLoading: boolean;
@@ -33,14 +32,13 @@ export type BookingsTableProps = {
   onStatusFilterChange: (status: StatusFilter) => void;
   onLoadMore?: () => void;
   onRetry: () => void;
-  onEdit?: (booking: BookingDTO) => void;
-  onCancel?: (booking: BookingDTO) => void;
-  onDetails?: (booking: BookingDTO) => void;
+  onEdit?: (bookingId: string) => void;
+  onCancel?: (bookingId: string) => void;
+  onDetails?: (bookingId: string) => void;
   variant?: 'guest' | 'ops';
   statusOptions?: { value: StatusFilter; label: string }[];
   opsActionMode?: 'full' | 'details-only';
   opsLifecycle?: {
-    pendingActionsByBookingId: Record<string, BookingAction | null>;
     onCheckIn: (bookingId: string) => Promise<void>;
     onCheckOut: (bookingId: string) => Promise<void>;
     onMarkNoShow: (bookingId: string, options?: { performedAt?: string | null; reason?: string | null }) => Promise<void>;
@@ -65,7 +63,7 @@ const DEFAULT_STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
 ];
 
 export function BookingsTable({
-  bookings,
+  rows,
   total,
   statusFilter,
   isLoading,
@@ -87,17 +85,16 @@ export function BookingsTable({
   opsLifecycle,
   showHeaderTitle = true,
   hideHeader = false,
-  timezone,
+  timezone: _timezone,
   opsBasePath = '',
 }: BookingsTableProps) {
   const VIRTUALIZE_MIN_ITEMS = 20;
-  const hasBookings = bookings.length > 0;
+  const hasBookings = rows.length > 0;
   const showSkeleton = isLoading && !hasBookings;
   const showUpdating = isFetching && !showSkeleton && !error;
-  const showEmpty = !showSkeleton && !error && bookings.length === 0;
+  const showEmpty = !showSkeleton && !error && rows.length === 0;
   const trimmedSearch = searchTerm.trim();
   const isOpsVariant = variant === 'ops';
-  const effectiveTimezone = timezone || 'UTC';
   const prefersReducedMotion = useReducedMotion();
   const hasAnimatedRef = useRef(false);
   const measureFrameRef = useRef<number | null>(null);
@@ -166,7 +163,7 @@ export function BookingsTable({
   const totalLabel =
     typeof total === 'number'
       ? `${total} booking${total === 1 ? '' : 's'}`
-      : `${bookings.length} booking${bookings.length === 1 ? '' : 's'}`;
+      : `${rows.length} booking${rows.length === 1 ? '' : 's'}`;
 
   const mobileEmptyState: EmptyStateProps | undefined = emptyState
     ? {
@@ -183,16 +180,16 @@ export function BookingsTable({
     : undefined;
 
   const rowMeasureCacheRef = useRef(new Map<string, number>());
-  const rowStatusCacheRef = useRef(new Map<string, BookingDTO['status']>());
-  const totalItems = hasNextPage ? bookings.length + 1 : bookings.length;
-  const shouldVirtualize = bookings.length >= VIRTUALIZE_MIN_ITEMS || hasNextPage;
+  const rowStatusCacheRef = useRef(new Map<string, OpsBookingCardViewModel['booking']['status']>());
+  const totalItems = hasNextPage ? rows.length + 1 : rows.length;
+  const shouldVirtualize = rows.length >= VIRTUALIZE_MIN_ITEMS || hasNextPage;
   const rowVirtualizer = useWindowVirtualizer({
     count: shouldVirtualize ? totalItems : 0,
     estimateSize: (index) => {
-      if (index >= bookings.length) {
+      if (index >= rows.length) {
         return 72;
       }
-      const id = bookings[index]?.id;
+      const id = rows[index]?.booking.id;
       if (!id) return 140;
       return rowMeasureCacheRef.current.get(id) ?? 140;
     },
@@ -223,14 +220,15 @@ export function BookingsTable({
     const seen = new Set<string>();
     let invalidated = false;
 
-    for (const booking of bookings) {
-      seen.add(booking.id);
-      const previousStatus = statusCache.get(booking.id);
-      if (previousStatus && previousStatus !== booking.status) {
-        measureCache.delete(booking.id);
+    for (const row of rows) {
+      const bookingId = row.booking.id;
+      seen.add(bookingId);
+      const previousStatus = statusCache.get(bookingId);
+      if (previousStatus && previousStatus !== row.booking.status) {
+        measureCache.delete(bookingId);
         invalidated = true;
       }
-      statusCache.set(booking.id, booking.status);
+      statusCache.set(bookingId, row.booking.status);
     }
 
     for (const id of statusCache.keys()) {
@@ -244,32 +242,24 @@ export function BookingsTable({
     if (invalidated) {
       scheduleMeasure();
     }
-  }, [bookings, scheduleMeasure, shouldVirtualize]);
+  }, [rows, scheduleMeasure, shouldVirtualize]);
 
-  const shouldAnimate = !prefersReducedMotion && !hasAnimatedRef.current && bookings.length > 0;
+  const shouldAnimate = !prefersReducedMotion && !hasAnimatedRef.current && rows.length > 0;
 
   useEffect(() => {
-    if (bookings.length > 0) {
+    if (rows.length > 0) {
       hasAnimatedRef.current = true;
     }
-  }, [bookings.length]);
+  }, [rows.length]);
 
   const renderOpsBookingCard = useCallback(
-    (booking: BookingDTO, pendingAction: BookingAction | null) => {
-      const viewModel = buildOpsBookingCardViewModel({
-        booking,
-        timezone: effectiveTimezone,
-        now: new Date(),
-        pendingAction,
-        actionsDisabled: false,
-      });
-
+    (row: OpsBookingCardViewModel) => {
       return (
         <OpsBookingCard
-          viewModel={viewModel}
-          onEdit={onEdit ? () => onEdit(booking) : undefined}
-          onCancel={onCancel ? () => onCancel(booking) : undefined}
-          onDetails={onDetails ? () => onDetails(booking) : undefined}
+          viewModel={row}
+          onEdit={onEdit}
+          onCancel={onCancel}
+          onDetails={onDetails}
           onCheckIn={opsLifecycle?.onCheckIn}
           onCheckOut={opsLifecycle?.onCheckOut}
           onMarkNoShow={opsLifecycle?.onMarkNoShow}
@@ -277,7 +267,6 @@ export function BookingsTable({
       );
     },
     [
-      effectiveTimezone,
       onCancel,
       onDetails,
       onEdit,
@@ -292,13 +281,13 @@ export function BookingsTable({
     if (!onLoadMore || !hasNextPage || isFetchingNextPage) {
       return;
     }
-    if (bookings.length === 0) return;
+    if (rows.length === 0) return;
     const lastItem = virtualRows[virtualRows.length - 1];
     if (!lastItem) return;
-    if (lastItem.index >= bookings.length - 1) {
+    if (lastItem.index >= rows.length - 1) {
       onLoadMore();
     }
-  }, [bookings.length, hasNextPage, isFetchingNextPage, onLoadMore, shouldVirtualize, virtualRows]);
+  }, [hasNextPage, isFetchingNextPage, onLoadMore, rows.length, shouldVirtualize, virtualRows]);
 
   return (
     <div
@@ -384,7 +373,7 @@ export function BookingsTable({
           >
             <div className="relative" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
               {virtualRows.map((virtualRow) => {
-                if (virtualRow.index >= bookings.length) {
+                if (virtualRow.index >= rows.length) {
                   return (
                     <div
                       key={virtualRow.key}
@@ -401,31 +390,28 @@ export function BookingsTable({
                   );
                 }
 
-                const booking = bookings[virtualRow.index];
-                if (!booking) return null;
-
-                const pendingAction =
-                  opsLifecycle?.pendingActionsByBookingId?.[booking.id] ?? null;
+                const row = rows[virtualRow.index];
+                if (!row) return null;
 
                 return (
                   <div
                     key={virtualRow.key}
                     data-index={virtualRow.index}
-                    data-booking-id={booking.id}
+                    data-booking-id={row.booking.id}
                     ref={(node) => {
                       rowVirtualizer.measureElement(node);
                       if (node) {
                         const height = node.getBoundingClientRect().height;
-                        const cached = rowMeasureCacheRef.current.get(booking.id);
+                        const cached = rowMeasureCacheRef.current.get(row.booking.id);
                         if (!cached || Math.abs(cached - height) > 1) {
-                          rowMeasureCacheRef.current.set(booking.id, height);
+                          rowMeasureCacheRef.current.set(row.booking.id, height);
                         }
                       }
                     }}
                     className="absolute left-0 top-0 w-full pb-3 will-change-transform"
                     style={{ transform: `translate3d(0, ${virtualRow.start}px, 0)` }}
                   >
-                    {renderOpsBookingCard(booking, pendingAction)}
+                    {renderOpsBookingCard(row)}
                   </div>
                 );
               })}
@@ -438,16 +424,14 @@ export function BookingsTable({
             animate={{ opacity: 1 }}
             transition={shouldAnimate ? { duration: 0.2, ease: 'easeOut' } : undefined}
           >
-            {bookings.map((booking) => {
-              const pendingAction =
-                opsLifecycle?.pendingActionsByBookingId?.[booking.id] ?? null;
+            {rows.map((row) => {
               return (
                 <div
-                  key={booking.id}
-                  data-booking-id={booking.id}
+                  key={row.booking.id}
+                  data-booking-id={row.booking.id}
                   className="pb-3"
                 >
-                  {renderOpsBookingCard(booking, pendingAction)}
+                  {renderOpsBookingCard(row)}
                 </div>
               );
             })}

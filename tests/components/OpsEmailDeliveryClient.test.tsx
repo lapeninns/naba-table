@@ -1,8 +1,7 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { OpsEmailQueuePanel } from '@/components/features/email-delivery/components/OpsEmailQueuePanel';
 
 import { OpsEmailDeliveryClient } from '@/components/features/email-delivery/OpsEmailDeliveryClient';
 import { OpsSidebarLayout } from '@/components/features/ops-shell/OpsSidebarLayout';
@@ -18,9 +17,10 @@ import type {
 import type { OpsEmailQueueFeedResponse } from '@/types/emailQueue';
 import type { OpsMembership, OpsUser } from '@/types/ops';
 
-const { toastSuccessMock, toastErrorMock } = vi.hoisted(() => ({
+const { toastSuccessMock, toastErrorMock, routerReplaceMock } = vi.hoisted(() => ({
   toastSuccessMock: vi.fn(),
   toastErrorMock: vi.fn(),
+  routerReplaceMock: vi.fn(),
 }));
 
 vi.mock('sonner', () => ({
@@ -34,11 +34,14 @@ const pathnameMock = vi.fn();
 const searchParamsMock = vi.fn();
 
 vi.mock('next/navigation', async () => {
-  const actual = await vi.importActual<typeof import('next/navigation')>('next/navigation');
+  const actual = await vi.importActual('next/navigation');
   return {
     ...actual,
     usePathname: () => pathnameMock(),
     useSearchParams: () => searchParamsMock(),
+    useRouter: () => ({
+      replace: routerReplaceMock,
+    }),
   };
 });
 
@@ -189,6 +192,7 @@ describe('OpsEmailDeliveryClient', () => {
   beforeEach(() => {
     toastSuccessMock.mockReset();
     toastErrorMock.mockReset();
+    routerReplaceMock.mockReset();
     pathnameMock.mockReset();
     pathnameMock.mockReturnValue('/app/email-delivery');
     searchParamsMock.mockReset();
@@ -225,7 +229,6 @@ describe('OpsEmailDeliveryClient', () => {
         ...makeSuccessResponse(),
       });
 
-    const replaceStateSpy = vi.spyOn(window.history, 'replaceState');
     const user = userEvent.setup();
     renderClient(getRestaurantEmailDeliveryFeed);
 
@@ -1199,16 +1202,14 @@ describe('OpsEmailDeliveryClient', () => {
       new URLSearchParams('restaurantId=rest-1&tab=delivery-log&range=24h&page=2'),
     );
 
-    const replaceStateSpy = vi.spyOn(window.history, 'replaceState');
     const user = userEvent.setup();
     renderClient(getRestaurantEmailDeliveryFeed);
 
     await user.click(await screen.findByRole('tab', { name: /queue/i }));
 
-    expect(replaceStateSpy).toHaveBeenCalledWith(
-      window.history.state,
-      '',
+    expect(routerReplaceMock).toHaveBeenCalledWith(
       '/app/email-delivery?restaurantId=rest-1&tab=queue&range=24h&page=2',
+      { scroll: false },
     );
     expect(screen.getByRole('tab', { name: /queue/i, selected: true })).toBeInTheDocument();
     expect(screen.getByText(/scheduled email queue/i)).toBeInTheDocument();
@@ -1219,7 +1220,6 @@ describe('OpsEmailDeliveryClient', () => {
       .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
       .mockResolvedValue(makeSuccessResponse());
 
-    const replaceStateSpy = vi.spyOn(window.history, 'replaceState');
     const user = userEvent.setup();
     renderClient(getRestaurantEmailDeliveryFeed);
 
@@ -1228,10 +1228,9 @@ describe('OpsEmailDeliveryClient', () => {
 
     await user.click(screen.getByText('30s'));
 
-    expect(replaceStateSpy).toHaveBeenCalledWith(
-      window.history.state,
-      '',
+    expect(routerReplaceMock).toHaveBeenCalledWith(
       '/app/email-delivery?restaurantId=rest-1&refresh=30s',
+      { scroll: false },
     );
     expect(screen.getByText('Auto-refresh 30s')).toBeInTheDocument();
   });
@@ -1263,7 +1262,6 @@ describe('OpsEmailDeliveryClient', () => {
     await user.click(refreshButton);
 
     expect(refreshButton.querySelector('svg')?.className.baseVal ?? '').toContain('animate-spin');
-    const refreshIcon = refreshButton.querySelector('svg');
 
     await waitFor(() => {
       expect(refreshButton.querySelector('svg')?.className.baseVal ?? '').not.toContain('animate-spin');
@@ -1474,7 +1472,6 @@ describe('OpsEmailDeliveryClient', () => {
       new URLSearchParams('restaurantId=rest-1&tab=analytics&page=2'),
     );
 
-    const replaceStateSpy = vi.spyOn(window.history, 'replaceState');
     const user = userEvent.setup();
     renderClient(getRestaurantEmailDeliveryFeed, { getRestaurantEmailDeliverySummary });
 
@@ -1497,10 +1494,9 @@ describe('OpsEmailDeliveryClient', () => {
         }),
       );
     });
-    expect(replaceStateSpy).toHaveBeenCalledWith(
-      window.history.state,
-      '',
+    expect(routerReplaceMock).toHaveBeenCalledWith(
       '/app/email-delivery?restaurantId=rest-1&tab=analytics&range=24h',
+      { scroll: false },
     );
   });
 
@@ -1941,7 +1937,6 @@ describe('OpsEmailDeliveryClient', () => {
         timestamp: '2026-03-20T14:35:00Z',
       }));
 
-    const user = userEvent.setup();
     renderClient(getRestaurantEmailDeliveryFeed, {
       getRestaurantEmailDeliverySummary,
       getRestaurantEmailQueue,

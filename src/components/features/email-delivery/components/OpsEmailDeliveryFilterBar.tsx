@@ -139,6 +139,7 @@ export function OpsEmailDeliveryFilterBar({
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" aria-hidden />
             <Input
               type="search"
+              name="emailDeliverySearch"
               value={searchValue}
               onChange={(e) => onSearchValueChange(e.target.value)}
               placeholder={SEARCH_FIELD_PLACEHOLDERS[searchField]}
