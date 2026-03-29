@@ -32,6 +32,7 @@ import {
   getEmailDeliveryStatusBadgeTone,
 } from '@src/lib/email-delivery/presentation';
 
+import type { OpsEmailDeliveryTableRowViewModel } from '@/components/features/email-delivery/opsEmailDeliveryTypes';
 import type { EmailDeliveryStatus, OpsEmailDeliveryAttemptDTO } from '@/types/emailDelivery';
 
 // --- Sorting types ---
@@ -43,34 +44,6 @@ type SortState = {
   column: SortColumn;
   direction: SortDirection;
 };
-
-// --- Status sort order (for deterministic sorting) ---
-
-function parseIsoMs(value: string | null): number {
-  if (!value) return 0;
-  const ms = Date.parse(value);
-  return Number.isFinite(ms) ? ms : 0;
-}
-
-function getStatusSortValue(status: EmailDeliveryStatus): string {
-  return (EMAIL_DELIVERY_STATUS_LABELS[status] ?? status).toLowerCase();
-}
-
-function resolveSubject(attempt: OpsEmailDeliveryAttemptDTO): string {
-  for (const event of attempt.events) {
-    const meta = event.metadata;
-    if (!meta || typeof meta !== 'object') continue;
-    const subject = (meta as { subject?: unknown }).subject;
-    if (typeof subject === 'string' && subject.trim().length > 0) {
-      return subject.trim();
-    }
-  }
-  return attempt.templateType ?? attempt.emailType ?? 'Email';
-}
-
-function attemptKey(attempt: OpsEmailDeliveryAttemptDTO): string {
-  return `${attempt.messageId}__${attempt.recipientEmail.toLowerCase()}`;
-}
 
 // --- Subcomponents ---
 
@@ -223,25 +196,25 @@ function TableLoadingSkeleton() {
 // --- Main component ---
 
 export type OpsEmailDeliveryTableProps = {
-  attempts: OpsEmailDeliveryAttemptDTO[];
+  rows: OpsEmailDeliveryTableRowViewModel[];
   timezone: string;
   restaurantId: string;
   isLoading: boolean;
   retryingAttemptKey?: string | null;
-  pendingRetryAttempt?: OpsEmailDeliveryAttemptDTO | null;
+  pendingRetryRow?: OpsEmailDeliveryTableRowViewModel | null;
   isRetryDialogOpen?: boolean;
-  onRetryAttempt?: (attempt: OpsEmailDeliveryAttemptDTO) => void;
+  onRetryAttempt?: (attemptKey: string) => void;
   onRetryDialogOpenChange?: (open: boolean) => void;
   onConfirmRetry?: () => void;
 };
 
 export function OpsEmailDeliveryTable({
-  attempts,
+  rows,
   timezone,
   restaurantId: _restaurantId,
   isLoading,
   retryingAttemptKey = null,
-  pendingRetryAttempt = null,
+  pendingRetryRow = null,
   isRetryDialogOpen = false,
   onRetryAttempt,
   onRetryDialogOpenChange,
@@ -272,28 +245,24 @@ export function OpsEmailDeliveryTable({
     [],
   );
 
-  const sortedAttempts = useMemo(() => {
-    const sorted = [...attempts];
+  const sortedRows = useMemo(() => {
+    const sorted = [...rows];
     sorted.sort((a, b) => {
       const dir = sortState.direction === 'asc' ? 1 : -1;
       if (sortState.column === 'sentAt') {
-        const aMs = parseIsoMs(a.currentOccurredAt);
-        const bMs = parseIsoMs(b.currentOccurredAt);
-        if (aMs !== bMs) return (aMs - bMs) * dir;
-        return a.messageId.localeCompare(b.messageId) * dir;
+        if (a.sentAtMs !== b.sentAtMs) return (a.sentAtMs - b.sentAtMs) * dir;
+        return a.attempt.messageId.localeCompare(b.attempt.messageId) * dir;
       }
-      const aStatus = getStatusSortValue(a.currentStatus);
-      const bStatus = getStatusSortValue(b.currentStatus);
-      const statusCompare = aStatus.localeCompare(bStatus);
+      const statusCompare = a.statusSortValue.localeCompare(b.statusSortValue);
       if (statusCompare !== 0) return statusCompare * dir;
-      const sentAtCompare = parseIsoMs(b.currentOccurredAt) - parseIsoMs(a.currentOccurredAt);
+      const sentAtCompare = b.sentAtMs - a.sentAtMs;
       if (sentAtCompare !== 0) return sentAtCompare;
-      return a.messageId.localeCompare(b.messageId);
+      return a.attempt.messageId.localeCompare(b.attempt.messageId);
     });
     return sorted;
-  }, [attempts, sortState]);
+  }, [rows, sortState]);
 
-  if (isLoading && attempts.length === 0) {
+  if (isLoading && rows.length === 0) {
     return <TableLoadingSkeleton />;
   }
 
@@ -326,12 +295,10 @@ export function OpsEmailDeliveryTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {sortedAttempts.flatMap((attempt) => {
-            const key = attemptKey(attempt);
+          {sortedRows.flatMap((row) => {
+            const key = row.attemptKey;
+            const attempt = row.attempt;
             const isExpanded = expandedKey === key;
-            const subject = resolveSubject(attempt);
-            const when = formatEmailDeliveryOccurredAt(attempt.currentOccurredAt, timezone);
-            const canRetry = attempt.currentStatus === 'failed' || attempt.currentStatus === 'bounced';
 
             const rows = [
               <TableRow
@@ -347,37 +314,37 @@ export function OpsEmailDeliveryTable({
                   <StatusBadge status={attempt.currentStatus} />
                 </TableCell>
                 <TableCell>
-                  <span className="truncate text-sm font-medium" title={subject}>
-                    {subject}
+                  <span className="truncate text-sm font-medium" title={row.subject}>
+                    {row.subject}
                   </span>
                 </TableCell>
                 <TableCell>
-                  <span className="truncate text-xs" title={attempt.recipientEmail}>
-                    {attempt.recipientEmail}
+                  <span className="truncate text-xs" title={row.recipientEmail}>
+                    {row.recipientEmail}
                   </span>
                 </TableCell>
                 <TableCell>
                   <span className="text-xs text-muted-foreground">
-                    {attempt.emailType ?? '—'}
+                    {row.emailType ?? '—'}
                   </span>
                 </TableCell>
                 <TableCell>
                   <span className="font-mono text-xs">
-                    {attempt.booking?.reference ?? '—'}
+                    {row.bookingReference ?? '—'}
                   </span>
                 </TableCell>
                 <TableCell>
                   <span className="text-xs">
-                    {attempt.booking?.customerName ?? '—'}
+                    {row.customerName ?? '—'}
                   </span>
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center justify-between gap-2">
                     <span className="whitespace-nowrap text-xs text-muted-foreground">
-                      {when ?? '—'}
+                      {row.sentAtLabel ?? '—'}
                     </span>
                     <div className="flex items-center gap-1">
-                      {canRetry ? (
+                      {row.canRetry ? (
                         <Button
                           type="button"
                           variant="outline"
@@ -386,7 +353,7 @@ export function OpsEmailDeliveryTable({
                           aria-label={`Retry email for ${attempt.recipientEmail}`}
                           onClick={(event) => {
                             event.stopPropagation();
-                            onRetryAttempt?.(attempt);
+                            onRetryAttempt?.(key);
                           }}
                         >
                           <RotateCcw className="h-3.5 w-3.5" aria-hidden />
@@ -430,19 +397,19 @@ export function OpsEmailDeliveryTable({
             </AlertDialogDescription>
           </AlertDialogHeader>
 
-          {pendingRetryAttempt ? (
+          {pendingRetryRow ? (
             <div className="space-y-3 rounded-lg border border-slate-200/70 bg-slate-50/70 p-4 text-sm">
               <div>
                 <p className="font-medium text-slate-900">Recipient</p>
-                <p className="text-slate-600">{pendingRetryAttempt.recipientEmail}</p>
+                <p className="text-slate-600">{pendingRetryRow.recipientEmail}</p>
               </div>
               <div>
                 <p className="font-medium text-slate-900">Subject</p>
-                <p className="text-slate-600">{resolveSubject(pendingRetryAttempt)}</p>
+                <p className="text-slate-600">{pendingRetryRow.subject}</p>
               </div>
               <div>
                 <p className="font-medium text-slate-900">Email type</p>
-                <p className="text-slate-600">{pendingRetryAttempt.emailType ?? '—'}</p>
+                <p className="text-slate-600">{pendingRetryRow.emailType ?? '—'}</p>
               </div>
               <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900">
                 Warning: retrying will create a new delivery attempt and may send a duplicate email if the original eventually succeeds.
@@ -457,7 +424,7 @@ export function OpsEmailDeliveryTable({
                 event.preventDefault();
                 void onConfirmRetry?.();
               }}
-              disabled={!pendingRetryAttempt || Boolean(retryingAttemptKey)}
+              disabled={!pendingRetryRow || Boolean(retryingAttemptKey)}
             >
               {retryingAttemptKey ? 'Retrying…' : 'Confirm Retry'}
             </AlertDialogAction>

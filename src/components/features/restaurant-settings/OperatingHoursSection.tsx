@@ -19,12 +19,12 @@ import {
 import { cn } from '@/lib/utils';
 import { normalizeTime } from '@reserve/shared/time';
 
+import { OperatingHoursOverrideDateField } from './OperatingHoursOverrideDateField';
 import { SettingsCard, SettingsSectionHeader } from './shared';
 import { DAYS_OF_WEEK } from './types';
 
 import type { OverrideErrors, OverrideRow, WeeklyErrors, WeeklyRow } from './types';
 import type { OperatingHoursSnapshot } from '@/services/ops/restaurants';
-
 
 type OperatingHoursSectionProps = {
   restaurantId: string | null;
@@ -40,7 +40,8 @@ function mapWeeklyFromResponse(snapshot: OperatingHoursSnapshot['weekly']): Week
       isClosed: found?.isClosed ?? true,
       notes: found?.notes ?? '',
       reservationIntervalMinutes:
-        found?.reservationIntervalMinutes !== undefined && found?.reservationIntervalMinutes !== null
+        found?.reservationIntervalMinutes !== undefined &&
+        found?.reservationIntervalMinutes !== null
           ? String(found.reservationIntervalMinutes)
           : '',
       reservationSlotTimes: Array.isArray(found?.reservationSlotTimes)
@@ -175,7 +176,9 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
   }, [data]);
 
   const handleWeeklyChange = useCallback((index: number, patch: Partial<WeeklyRow>) => {
-    setWeeklyRows((current) => current.map((row, idx) => (idx === index ? { ...row, ...patch } : row)));
+    setWeeklyRows((current) =>
+      current.map((row, idx) => (idx === index ? { ...row, ...patch } : row)),
+    );
     setIsDirty(true);
     setWeeklyErrors((prev) => {
       const next = { ...prev };
@@ -185,7 +188,9 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
   }, []);
 
   const handleOverrideChange = useCallback((index: number, patch: Partial<OverrideRow>) => {
-    setOverrideRows((current) => current.map((row, idx) => (idx === index ? { ...row, ...patch } : row)));
+    setOverrideRows((current) =>
+      current.map((row, idx) => (idx === index ? { ...row, ...patch } : row)),
+    );
     setIsDirty(true);
     setOverrideErrors((prev) => {
       const next = [...prev];
@@ -242,7 +247,13 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
         errors.closesAt = 'Invalid time';
       }
 
-      if (!errors.opensAt && !errors.closesAt && openComparable && closeComparable && openComparable >= closeComparable) {
+      if (
+        !errors.opensAt &&
+        !errors.closesAt &&
+        openComparable &&
+        closeComparable &&
+        openComparable >= closeComparable
+      ) {
         errors.closesAt = 'Must be after open';
       }
 
@@ -292,7 +303,13 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
           errors.closesAt = 'Invalid time';
         }
 
-        if (!errors.opensAt && !errors.closesAt && openComparable && closeComparable && openComparable >= closeComparable) {
+        if (
+          !errors.opensAt &&
+          !errors.closesAt &&
+          openComparable &&
+          closeComparable &&
+          openComparable >= closeComparable
+        ) {
           errors.closesAt = 'Must be after open';
         }
       }
@@ -324,7 +341,11 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
       weekly: weeklyRows.map((row) => ({
         dayOfWeek: row.dayOfWeek,
         opensAt: row.isClosed ? null : row.opensAt ? canonicalizeRequiredTime(row.opensAt) : null,
-        closesAt: row.isClosed ? null : row.closesAt ? canonicalizeRequiredTime(row.closesAt) : null,
+        closesAt: row.isClosed
+          ? null
+          : row.closesAt
+            ? canonicalizeRequiredTime(row.closesAt)
+            : null,
         isClosed: row.isClosed,
         notes: row.notes || null,
         reservationIntervalMinutes: row.isClosed
@@ -338,7 +359,11 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
         id: row.id,
         effectiveDate: row.effectiveDate,
         opensAt: row.isClosed ? null : row.opensAt ? canonicalizeRequiredTime(row.opensAt) : null,
-        closesAt: row.isClosed ? null : row.closesAt ? canonicalizeRequiredTime(row.closesAt) : null,
+        closesAt: row.isClosed
+          ? null
+          : row.closesAt
+            ? canonicalizeRequiredTime(row.closesAt)
+            : null,
         isClosed: row.isClosed,
         notes: row.notes || null,
         reservationIntervalMinutes: row.isClosed
@@ -388,7 +413,9 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
     return (
       <SettingsCard title="Operating Hours">
         <div className="flex min-h-[200px] items-center justify-center py-8">
-          <p className="text-sm text-muted-foreground">Select a restaurant to manage operating hours</p>
+          <p className="text-sm text-muted-foreground">
+            Select a restaurant to manage operating hours
+          </p>
         </div>
       </SettingsCard>
     );
@@ -432,7 +459,12 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
               Changes are saved per restaurant. Remember to keep staff informed about special hours.
             </div>
             <div className="flex items-center gap-2 ml-auto">
-              <Button type="button" variant="outline" onClick={handleReset} disabled={isDisabled || !isDirty}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleReset}
+                disabled={isDisabled || !isDirty}
+              >
                 Reset
               </Button>
               <Button type="button" onClick={handleSave} disabled={isDisabled || !isDirty}>
@@ -468,7 +500,10 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
                       const errors = weeklyErrors[row.dayOfWeek] ?? {};
                       return (
                         <tr key={row.dayOfWeek} className={cn(row.isClosed && 'bg-muted/40')}>
-                          <th scope="row" className="px-4 py-3 font-medium text-foreground whitespace-nowrap">
+                          <th
+                            scope="row"
+                            className="px-4 py-3 font-medium text-foreground whitespace-nowrap"
+                          >
                             {DAYS_OF_WEEK[row.dayOfWeek]}
                           </th>
                           <td className="px-4 py-3">
@@ -476,22 +511,36 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
                               type="time"
                               value={row.opensAt}
                               disabled={isDisabled || row.isClosed}
-                              onChange={(event) => handleWeeklyChange(index, { opensAt: event.target.value })}
+                              onChange={(event) =>
+                                handleWeeklyChange(index, { opensAt: event.target.value })
+                              }
                               aria-invalid={Boolean(errors.opensAt)}
-                              className={cn('h-9 min-w-[100px]', errors.opensAt && 'border-destructive')}
+                              className={cn(
+                                'h-9 min-w-[100px]',
+                                errors.opensAt && 'border-destructive',
+                              )}
                             />
-                            {errors.opensAt && <p className="mt-1 text-xs text-destructive">{errors.opensAt}</p>}
+                            {errors.opensAt && (
+                              <p className="mt-1 text-xs text-destructive">{errors.opensAt}</p>
+                            )}
                           </td>
                           <td className="px-4 py-3">
                             <Input
                               type="time"
                               value={row.closesAt}
                               disabled={isDisabled || row.isClosed}
-                              onChange={(event) => handleWeeklyChange(index, { closesAt: event.target.value })}
+                              onChange={(event) =>
+                                handleWeeklyChange(index, { closesAt: event.target.value })
+                              }
                               aria-invalid={Boolean(errors.closesAt)}
-                              className={cn('h-9 min-w-[100px]', errors.closesAt && 'border-destructive')}
+                              className={cn(
+                                'h-9 min-w-[100px]',
+                                errors.closesAt && 'border-destructive',
+                              )}
                             />
-                            {errors.closesAt && <p className="mt-1 text-xs text-destructive">{errors.closesAt}</p>}
+                            {errors.closesAt && (
+                              <p className="mt-1 text-xs text-destructive">{errors.closesAt}</p>
+                            )}
                           </td>
                           <td className="px-4 py-3">
                             <Input
@@ -508,11 +557,16 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
                                 })
                               }
                               aria-invalid={Boolean(errors.reservationIntervalMinutes)}
-                              className={cn('h-9 min-w-[120px]', errors.reservationIntervalMinutes && 'border-destructive')}
+                              className={cn(
+                                'h-9 min-w-[120px]',
+                                errors.reservationIntervalMinutes && 'border-destructive',
+                              )}
                               placeholder="Default"
                             />
                             {errors.reservationIntervalMinutes && (
-                              <p className="mt-1 text-xs text-destructive">{errors.reservationIntervalMinutes}</p>
+                              <p className="mt-1 text-xs text-destructive">
+                                {errors.reservationIntervalMinutes}
+                              </p>
                             )}
                           </td>
                           <td className="px-4 py-3">
@@ -521,13 +575,20 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
                               placeholder="16:00, 18:00, 20:00"
                               disabled={isDisabled || row.isClosed}
                               onChange={(event) =>
-                                handleWeeklyChange(index, { reservationSlotTimes: event.target.value })
+                                handleWeeklyChange(index, {
+                                  reservationSlotTimes: event.target.value,
+                                })
                               }
                               aria-invalid={Boolean(errors.reservationSlotTimes)}
-                              className={cn('h-9 min-w-[180px]', errors.reservationSlotTimes && 'border-destructive')}
+                              className={cn(
+                                'h-9 min-w-[180px]',
+                                errors.reservationSlotTimes && 'border-destructive',
+                              )}
                             />
                             {errors.reservationSlotTimes && (
-                              <p className="mt-1 text-xs text-destructive">{errors.reservationSlotTimes}</p>
+                              <p className="mt-1 text-xs text-destructive">
+                                {errors.reservationSlotTimes}
+                              </p>
                             )}
                           </td>
                           <td className="px-4 py-3">
@@ -556,7 +617,9 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
                               value={row.notes}
                               placeholder="Optional"
                               disabled={isDisabled}
-                              onChange={(event) => handleWeeklyChange(index, { notes: event.target.value })}
+                              onChange={(event) =>
+                                handleWeeklyChange(index, { notes: event.target.value })
+                              }
                               className="h-9 min-w-[150px]"
                             />
                           </td>
@@ -575,7 +638,13 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
               title="Overrides"
               description="Create one-off changes for holidays or events. Overrides apply on their date only."
               action={
-                <Button type="button" variant="outline" size="sm" onClick={addOverride} disabled={isDisabled}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addOverride}
+                  disabled={isDisabled}
+                >
                   <Plus className="mr-2 h-4 w-4" aria-hidden /> Add override
                 </Button>
               }
@@ -584,7 +653,8 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
             {overrideRows.length === 0 ? (
               <div className="rounded-lg border border-dashed p-8 text-center">
                 <p className="text-sm text-muted-foreground">
-                  No overrides configured. Use overrides to adjust hours for special events or holidays.
+                  No overrides configured. Use overrides to adjust hours for special events or
+                  holidays.
                 </p>
               </div>
             ) : (
@@ -597,40 +667,53 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
                       className="grid gap-3 rounded-lg border border-border/60 p-4 text-sm md:grid-cols-[repeat(7,minmax(0,1fr))_auto]"
                     >
                       <div>
-                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">Date</Label>
-                        <Input
-                          type="date"
+                        <OperatingHoursOverrideDateField
                           value={row.effectiveDate}
-                          onChange={(event) => handleOverrideChange(index, { effectiveDate: event.target.value })}
+                          onChange={(value) =>
+                            handleOverrideChange(index, { effectiveDate: value })
+                          }
                           disabled={isDisabled}
-                          className={cn('mt-1 h-9', errors.effectiveDate && 'border-destructive')}
+                          error={errors.effectiveDate}
                         />
-                        {errors.effectiveDate && <p className="mt-1 text-xs text-destructive">{errors.effectiveDate}</p>}
                       </div>
                       <div>
-                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">Open</Label>
+                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                          Open
+                        </Label>
                         <Input
                           type="time"
                           value={row.opensAt}
                           disabled={isDisabled || row.isClosed}
-                          onChange={(event) => handleOverrideChange(index, { opensAt: event.target.value })}
+                          onChange={(event) =>
+                            handleOverrideChange(index, { opensAt: event.target.value })
+                          }
                           className={cn('mt-1 h-9', errors.opensAt && 'border-destructive')}
                         />
-                        {errors.opensAt && <p className="mt-1 text-xs text-destructive">{errors.opensAt}</p>}
+                        {errors.opensAt && (
+                          <p className="mt-1 text-xs text-destructive">{errors.opensAt}</p>
+                        )}
                       </div>
                       <div>
-                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">Close</Label>
+                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                          Close
+                        </Label>
                         <Input
                           type="time"
                           value={row.closesAt}
                           disabled={isDisabled || row.isClosed}
-                          onChange={(event) => handleOverrideChange(index, { closesAt: event.target.value })}
+                          onChange={(event) =>
+                            handleOverrideChange(index, { closesAt: event.target.value })
+                          }
                           className={cn('mt-1 h-9', errors.closesAt && 'border-destructive')}
                         />
-                        {errors.closesAt && <p className="mt-1 text-xs text-destructive">{errors.closesAt}</p>}
+                        {errors.closesAt && (
+                          <p className="mt-1 text-xs text-destructive">{errors.closesAt}</p>
+                        )}
                       </div>
                       <div>
-                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">Interval (min)</Label>
+                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                          Interval (min)
+                        </Label>
                         <Input
                           type="number"
                           inputMode="numeric"
@@ -640,33 +723,51 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
                           value={row.reservationIntervalMinutes}
                           disabled={isDisabled || row.isClosed}
                           onChange={(event) =>
-                            handleOverrideChange(index, { reservationIntervalMinutes: event.target.value })
+                            handleOverrideChange(index, {
+                              reservationIntervalMinutes: event.target.value,
+                            })
                           }
-                          className={cn('mt-1 h-9', errors.reservationIntervalMinutes && 'border-destructive')}
+                          className={cn(
+                            'mt-1 h-9',
+                            errors.reservationIntervalMinutes && 'border-destructive',
+                          )}
                           placeholder="Default"
                         />
                         {errors.reservationIntervalMinutes && (
-                          <p className="mt-1 text-xs text-destructive">{errors.reservationIntervalMinutes}</p>
+                          <p className="mt-1 text-xs text-destructive">
+                            {errors.reservationIntervalMinutes}
+                          </p>
                         )}
                       </div>
                       <div>
-                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">Slots (HH:MM)</Label>
+                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                          Slots (HH:MM)
+                        </Label>
                         <Input
                           value={row.reservationSlotTimes}
                           placeholder="16:00, 18:00, 20:00"
                           disabled={isDisabled || row.isClosed}
                           onChange={(event) =>
-                            handleOverrideChange(index, { reservationSlotTimes: event.target.value })
+                            handleOverrideChange(index, {
+                              reservationSlotTimes: event.target.value,
+                            })
                           }
-                          className={cn('mt-1 h-9', errors.reservationSlotTimes && 'border-destructive')}
+                          className={cn(
+                            'mt-1 h-9',
+                            errors.reservationSlotTimes && 'border-destructive',
+                          )}
                         />
                         {errors.reservationSlotTimes && (
-                          <p className="mt-1 text-xs text-destructive">{errors.reservationSlotTimes}</p>
+                          <p className="mt-1 text-xs text-destructive">
+                            {errors.reservationSlotTimes}
+                          </p>
                         )}
                       </div>
                       <div className="flex flex-col justify-center gap-2">
                         <div className="flex items-center gap-1">
-                          <Label className="text-xs uppercase tracking-wide text-muted-foreground">Closed</Label>
+                          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                            Closed
+                          </Label>
                           <HelpTooltip
                             description="Enable to close the restaurant for the entire override date. Leave off to set custom hours."
                             ariaLabel="Override closed help"
@@ -694,12 +795,16 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
                         </div>
                       </div>
                       <div>
-                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">Notes</Label>
+                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                          Notes
+                        </Label>
                         <Input
                           value={row.notes}
                           placeholder="Optional"
                           disabled={isDisabled}
-                          onChange={(event) => handleOverrideChange(index, { notes: event.target.value })}
+                          onChange={(event) =>
+                            handleOverrideChange(index, { notes: event.target.value })
+                          }
                           className="mt-1 h-9"
                         />
                       </div>
