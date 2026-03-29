@@ -1,0 +1,16 @@
+Email delivery performance pass checks
+=====================================
+
+Passed:
+- pnpm exec vitest run tests/components/features/email-delivery/opsEmailDeliverySelectors.test.ts tests/components/OpsEmailDeliveryTable.test.tsx
+- pnpm exec vitest run tests/components/OpsEmailDeliveryClient.test.tsx tests/components/OpsEmailDeliveryFilterBar.test.tsx
+- pnpm exec tsc --noEmit
+- pnpm exec eslint --max-warnings=0 src/components/features/email-delivery/OpsEmailDeliveryClient.tsx src/components/features/email-delivery/components/OpsEmailDeliveryTable.tsx src/components/features/email-delivery/components/OpsEmailDeliveryFilterBar.tsx src/components/features/email-delivery/opsEmailDeliveryTypes.ts src/components/features/email-delivery/opsEmailDeliverySelectors.ts src/components/features/email-delivery/useOpsEmailDeliveryDataState.ts src/components/features/email-delivery/useOpsEmailDeliveryQueryState.ts src/components/features/email-delivery/useOpsEmailDeliveryRetryState.ts src/components/features/email-delivery/useOpsEmailDeliveryState.ts tests/components/OpsEmailDeliveryClient.test.tsx tests/components/OpsEmailDeliveryTable.test.tsx tests/components/OpsEmailDeliveryFilterBar.test.tsx tests/components/features/email-delivery/opsEmailDeliverySelectors.test.ts
+- git diff --check
+
+Manual QA:
+- Chrome DevTools MCP on http://localhost:3000/dev/ops-email-delivery
+- Verified delivery log search/clear flow
+- Verified retry dialog opens from failed row
+- Verified queue and analytics tabs still render correctly
+- Confirmed hydration mismatch and missing form-field warning were removed
