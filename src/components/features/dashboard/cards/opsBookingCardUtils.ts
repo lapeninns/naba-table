@@ -2,12 +2,6 @@ import type { BookingAction } from '@/components/features/booking-state-machine'
 import type { BookingDTO } from '@/hooks/useBookings';
 import type { OpsBookingStatus } from '@/types/ops';
 
-export type NormalizedGuestIdentity = {
-  label: string;
-  initials: string;
-  isWalkInGuest: boolean;
-};
-
 export type BookingMeta = {
   startDate: Date;
   isToday: boolean;
@@ -24,89 +18,101 @@ export type UrgencyBadge = {
   label: string;
 };
 
-export type BookingTableState = 'assigned' | 'unassigned' | 'not_applicable';
+export type OpsBookingCardPendingAction =
+  | 'check-in'
+  | 'check-out'
+  | 'no-show'
+  | 'undo-no-show'
+  | null;
 
-export type OpsBookingCardHeaderModel = {
+export type OpsBookingCardHeaderViewModel = {
   bookingId: string;
   status: OpsBookingStatus;
-  partySize: number;
-  guest: NormalizedGuestIdentity;
+  customerLabel: string;
+  initials: string;
+  partySizeLabel: string;
   dateLabel: string;
   timeRangeLabel: string;
+  isDone: boolean;
   hasNotes: boolean;
   urgency: UrgencyBadge | null;
 };
 
-export type OpsBookingCardDetailsModel = {
+export type OpsBookingCardDetailsViewModel = {
   bookingId: string;
+  referenceLabel: string;
   table: {
+    state: 'assigned' | 'done-empty' | 'unassigned';
     label: string;
-    state: BookingTableState;
-    tableLabel: string | null;
-    valueLabel: string;
   };
   contact: {
-    label: string;
-    phoneLabel: string | null;
-    emailLabel: string | null;
-    emptyLabel: string | null;
-  };
-  reference: {
-    label: string;
-    valueLabel: string;
+    phone: string | null;
+    email: string | null;
+    emptyLabel: string;
   };
   notes: {
-    label: string;
-    valueLabel: string;
-    highlight: boolean;
+    value: string;
+    highlighted: boolean;
   };
 };
 
-export type OpsBookingCardActionPolicy = {
-  details: {
-    disabled: boolean;
-  };
-  menu: {
-    edit: {
+export type OpsBookingCardActionPolicyItem = {
+  id: 'details' | 'edit' | 'no-show' | 'cancel';
+  label: string;
+  disabled: boolean;
+  valid: boolean;
+  variant?: 'default' | 'destructive';
+};
+
+export type OpsBookingCardPrimaryActionPolicy =
+  | {
+      kind: 'button';
+      id: 'check-in' | 'check-out';
+      label: string;
       disabled: boolean;
+      valid: boolean;
+      pending: boolean;
+    }
+  | {
+      kind: 'status';
+      label: string;
     };
-    cancel: {
-      disabled: boolean;
+
+export type OpsBookingCardActionsViewModel = {
+  bookingId: string;
+  pendingAction: OpsBookingCardPendingAction;
+  details: OpsBookingCardActionPolicyItem;
+  menuItems: [
+    OpsBookingCardActionPolicyItem,
+    OpsBookingCardActionPolicyItem,
+    OpsBookingCardActionPolicyItem,
+  ];
+  primary: OpsBookingCardPrimaryActionPolicy;
+  noShowConfirmation: {
+    title: string;
+    description: {
+      customerLabel: string;
+      partySize: number;
+      dateLabel: string;
+      timeRangeLabel: string;
     };
-    noShow: {
-      hidden: boolean;
-      disabled: boolean;
-    };
-  };
-  primary: {
-    hidden: boolean;
-    action: Extract<BookingAction, 'check-in' | 'check-out'> | null;
-    label: 'Seat Guest' | 'Finish' | null;
+    confirmLabel: string;
+    cancelLabel: string;
     disabled: boolean;
     pending: boolean;
   };
 };
 
-export type OpsBookingCardActionsModel = {
-  bookingId: string;
-  pendingAction: BookingAction | null;
-  disableActions: boolean;
-  footerCompletionLabel: string | null;
-  dialog: {
-    customerLabel: string;
-    partySize: number;
-    dateLabel: string;
-    timeRangeLabel: string;
-  };
-  policy: OpsBookingCardActionPolicy;
-};
-
 export type OpsBookingCardViewModel = {
   booking: BookingDTO;
   meta: BookingMeta;
-  header: OpsBookingCardHeaderModel;
-  details: OpsBookingCardDetailsModel;
-  actions: OpsBookingCardActionsModel;
+  urgency: UrgencyBadge | null;
+  tableLabel: string | null;
+  pendingAction: OpsBookingCardPendingAction;
+  disableActions: boolean;
+  header: OpsBookingCardHeaderViewModel;
+  details: OpsBookingCardDetailsViewModel;
+  actions: OpsBookingCardActionsViewModel;
 };
 
 const formatterCache = new Map<string, Intl.DateTimeFormat>();
@@ -252,130 +258,106 @@ export function getUrgencyBadge(
   return null;
 }
 
-function getTableState(
-  booking: BookingDTO,
-  meta: BookingMeta,
-): OpsBookingCardDetailsModel['table'] {
-  const tableLabel = getTableLabel(booking.tableAssignments);
+function getTableDetails(tableLabel: string | null, isDone: boolean): OpsBookingCardDetailsViewModel['table'] {
   if (tableLabel) {
     return {
-      label: 'Table',
       state: 'assigned',
-      tableLabel,
-      valueLabel: `Table ${tableLabel}`,
+      label: `Table ${tableLabel}`,
     };
   }
 
-  if (meta.isDone || booking.requiresTableAssignment === false) {
+  if (isDone) {
     return {
-      label: 'Table',
-      state: 'not_applicable',
-      tableLabel: null,
-      valueLabel: 'N/A',
+      state: 'done-empty',
+      label: 'N/A',
     };
   }
 
   return {
-    label: 'Table',
     state: 'unassigned',
-    tableLabel: null,
-    valueLabel: 'Unassigned',
+    label: 'Unassigned',
   };
 }
 
-function buildDetailsModel(
-  booking: BookingDTO,
-  meta: BookingMeta,
-): OpsBookingCardDetailsModel {
-  const reference = getNormalizedLabel(booking.reference) ?? booking.id.slice(0, 8);
-  const phoneLabel = getNormalizedLabel(booking.customerPhone);
-  const emailLabel = getNormalizedLabel(booking.customerEmail);
-  const notes = getNormalizedLabel(booking.notes);
-
-  return {
-    bookingId: booking.id,
-    table: getTableState(booking, meta),
-    contact: {
-      label: 'Contact',
-      phoneLabel,
-      emailLabel,
-      emptyLabel: phoneLabel || emailLabel ? null : 'No contact',
-    },
-    reference: {
-      label: 'Booking',
-      valueLabel: `Ref ${reference}`,
-    },
-    notes: {
-      label: 'Notes',
-      valueLabel: notes ?? 'No special requests.',
-      highlight: Boolean(notes),
-    },
-  };
-}
-
-function buildActionPolicy(params: {
+function buildOpsBookingCardActionPolicy(params: {
   booking: BookingDTO;
   meta: BookingMeta;
-  pendingAction: BookingAction | null;
+  pendingAction: OpsBookingCardPendingAction;
   actionsDisabled: boolean;
-}): OpsBookingCardActionsModel {
+}): OpsBookingCardActionsViewModel {
   const { booking, meta, pendingAction, actionsDisabled } = params;
-  const isLifecyclePending = pendingAction === 'check-in' || pendingAction === 'check-out';
+  const isPendingMutation = pendingAction !== null;
+  const isMutatingDisabled = actionsDisabled || isPendingMutation;
+  const detailsDisabled = actionsDisabled && !isPendingMutation;
+
+  const editValid = !meta.isDone && !meta.isPastDay;
+  const noShowValid = !meta.isDone && meta.isToday && !meta.isSeated;
+  const cancelValid = !meta.isDone && !meta.isPastDay;
+
+  const details: OpsBookingCardActionPolicyItem = {
+    id: 'details',
+    label: 'Details',
+    disabled: detailsDisabled,
+    valid: true,
+    variant: 'default',
+  };
+
+  const menuItems: OpsBookingCardActionsViewModel['menuItems'] = [
+    {
+      id: 'edit',
+      label: 'Edit Booking',
+      disabled: !editValid || isMutatingDisabled,
+      valid: editValid,
+      variant: 'default',
+    },
+    {
+      id: 'no-show',
+      label: 'Mark No Show',
+      disabled: !noShowValid || isMutatingDisabled,
+      valid: noShowValid,
+      variant: 'destructive',
+    },
+    {
+      id: 'cancel',
+      label: 'Cancel Booking',
+      disabled: !cancelValid || isMutatingDisabled,
+      valid: cancelValid,
+      variant: 'destructive',
+    },
+  ];
+
+  const primary: OpsBookingCardPrimaryActionPolicy = meta.isDone
+    ? {
+        kind: 'status',
+        label: booking.status === 'completed' ? 'Completed' : 'Closed',
+      }
+    : {
+        kind: 'button',
+        id: meta.isSeated ? 'check-out' : 'check-in',
+        label: meta.isSeated ? 'Finish' : 'Seat Guest',
+        disabled: !meta.isToday || isMutatingDisabled,
+        valid: meta.isToday,
+        pending: pendingAction === 'check-in' || pendingAction === 'check-out',
+      };
 
   return {
     bookingId: booking.id,
     pendingAction,
-    disableActions: actionsDisabled,
-    footerCompletionLabel: meta.isDone
-      ? booking.status === 'completed'
-        ? 'Completed'
-        : 'Closed'
-      : null,
-    dialog: {
-      customerLabel: meta.guest.label,
-      partySize: booking.partySize,
-      dateLabel: meta.dateLabel,
-      timeRangeLabel: meta.timeRangeLabel,
-    },
-    policy: {
-      details: {
-        disabled: actionsDisabled,
+    details,
+    menuItems,
+    primary,
+    noShowConfirmation: {
+      title: 'Mark as no-show?',
+      description: {
+        customerLabel: meta.customerLabel,
+        partySize: booking.partySize,
+        dateLabel: meta.dateLabel,
+        timeRangeLabel: meta.timeRangeLabel,
       },
-      menu: {
-        edit: {
-          disabled: actionsDisabled || meta.isPastDay,
-        },
-        cancel: {
-          disabled: actionsDisabled || meta.isPastDay,
-        },
-        noShow: {
-          hidden: false,
-          disabled: actionsDisabled || !meta.isToday || meta.isSeated || meta.isDone,
-        },
-      },
-      primary: meta.isDone
-        ? {
-            hidden: true,
-            action: null,
-            label: null,
-            disabled: true,
-            pending: false,
-          }
-        : meta.isSeated
-          ? {
-              hidden: false,
-              action: 'check-out',
-              label: 'Finish',
-              disabled: actionsDisabled || !meta.isToday || isLifecyclePending,
-              pending: isLifecyclePending,
-            }
-          : {
-              hidden: false,
-              action: 'check-in',
-              label: 'Seat Guest',
-              disabled: actionsDisabled || !meta.isToday || isLifecyclePending,
-              pending: isLifecyclePending,
-            },
+      confirmLabel: 'Confirm no-show',
+      cancelLabel: 'Keep booking',
+      disabled: menuItems[1].disabled,
+      pending: pendingAction === 'no-show',
     },
   };
 }
@@ -384,7 +366,7 @@ export function buildOpsBookingCardViewModel(params: {
   booking: BookingDTO;
   timezone: string;
   now: Date;
-  pendingAction?: BookingAction | null;
+  pendingAction?: OpsBookingCardPendingAction;
   actionsDisabled: boolean;
   highlightUrgency?: boolean;
   timeLabelOverride?: string | null;
@@ -401,27 +383,49 @@ export function buildOpsBookingCardViewModel(params: {
 
   const meta = buildBookingMeta(booking, timezone, now, timeLabelOverride);
   const urgency = getUrgencyBadge(meta, now, highlightUrgency);
-  const header: OpsBookingCardHeaderModel = {
+  const tableLabel = getTableLabel(booking.tableAssignments);
+  const header: OpsBookingCardHeaderViewModel = {
     bookingId: booking.id,
-    status: booking.status as OpsBookingStatus,
-    partySize: booking.partySize,
-    guest: meta.guest,
+    status: booking.status,
+    customerLabel: meta.customerLabel,
+    initials: meta.initials,
+    partySizeLabel: `${booking.partySize} Guest${booking.partySize === 1 ? '' : 's'}`,
     dateLabel: meta.dateLabel,
     timeRangeLabel: meta.timeRangeLabel,
-    hasNotes: Boolean(getNormalizedLabel(booking.notes)),
+    isDone: meta.isDone,
+    hasNotes: Boolean(booking.notes),
     urgency,
   };
+  const details: OpsBookingCardDetailsViewModel = {
+    bookingId: booking.id,
+    referenceLabel: `Ref ${booking.reference || booking.id.slice(0, 8)}`,
+    table: getTableDetails(tableLabel, meta.isDone),
+    contact: {
+      phone: booking.customerPhone ?? null,
+      email: booking.customerEmail ?? null,
+      emptyLabel: 'No contact',
+    },
+    notes: {
+      value: booking.notes || 'No special requests.',
+      highlighted: Boolean(booking.notes),
+    },
+  };
+  const actions = buildOpsBookingCardActionPolicy({
+    booking,
+    meta,
+    pendingAction,
+    actionsDisabled,
+  });
 
   return {
     booking,
     meta,
+    urgency,
+    tableLabel,
+    pendingAction,
+    disableActions: actionsDisabled,
     header,
-    details: buildDetailsModel(booking, meta),
-    actions: buildActionPolicy({
-      booking,
-      meta,
-      pendingAction,
-      actionsDisabled,
-    }),
+    details,
+    actions,
   };
 }

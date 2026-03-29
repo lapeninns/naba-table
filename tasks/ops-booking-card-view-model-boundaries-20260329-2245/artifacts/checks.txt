@@ -1,0 +1,5 @@
+pnpm exec vitest run tests/components/OpsBookingCardViewModel.test.ts tests/components/OpsBookingCardActions.noShow.test.tsx
+- PASS: 2 files, 7 tests
+
+pnpm run typecheck
+- PASS
