@@ -10,10 +10,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 import { OpsGuestCard } from './OpsGuestCard';
 
-import type { OpsCustomer } from '@/types/ops';
+import type { OpsGuestRowViewModel } from './opsCustomersTypes';
 
 type CustomersTableProps = {
-  customers: OpsCustomer[];
+  rows: OpsGuestRowViewModel[];
   isLoading: boolean;
   hasActiveFilters?: boolean;
   onLoadMore?: () => void;
@@ -42,7 +42,7 @@ function EmptyState({ hasActiveFilters }: { hasActiveFilters?: boolean }) {
 }
 
 export function CustomersTable({
-  customers,
+  rows,
   isLoading,
   hasActiveFilters,
   onLoadMore,
@@ -51,20 +51,20 @@ export function CustomersTable({
   focusCustomerId,
 }: CustomersTableProps) {
   const VIRTUALIZE_MIN_ITEMS = 24;
-  const showSkeleton = isLoading && customers.length === 0;
-  const showEmpty = !isLoading && customers.length === 0;
+  const showSkeleton = isLoading && rows.length === 0;
+  const showEmpty = !isLoading && rows.length === 0;
   const prefersReducedMotion = useReducedMotion();
   const hasAnimatedRef = useRef(false);
 
   const rowMeasureCacheRef = useRef(new Map<string, number>());
-  const totalItems = hasNextPage ? customers.length + 1 : customers.length;
-  const shouldVirtualize = customers.length >= VIRTUALIZE_MIN_ITEMS || hasNextPage;
+  const totalItems = hasNextPage ? rows.length + 1 : rows.length;
+  const shouldVirtualize = rows.length >= VIRTUALIZE_MIN_ITEMS || hasNextPage;
 
   const rowVirtualizer = useWindowVirtualizer({
     count: shouldVirtualize ? totalItems : 0,
     estimateSize: (index) => {
-      if (index >= customers.length) return 72;
-      const id = customers[index]?.id;
+      if (index >= rows.length) return 72;
+      const id = rows[index]?.id;
       if (!id) return 220;
       return rowMeasureCacheRef.current.get(id) ?? 220;
     },
@@ -80,44 +80,37 @@ export function CustomersTable({
     rowVirtualizer.measure();
   }, [rowVirtualizer, shouldVirtualize]);
 
-  const shouldAnimate = !prefersReducedMotion && !hasAnimatedRef.current && customers.length > 0;
+  const shouldAnimate = !prefersReducedMotion && !hasAnimatedRef.current && rows.length > 0;
 
   useEffect(() => {
-    if (customers.length > 0) {
+    if (rows.length > 0) {
       hasAnimatedRef.current = true;
     }
-  }, [customers.length]);
+  }, [rows.length]);
 
   useEffect(() => {
     if (!shouldVirtualize) return;
     if (!onLoadMore || !hasNextPage || isFetchingNextPage) {
       return;
     }
-    if (customers.length === 0) return;
+    if (rows.length === 0) return;
+
     const lastItem = virtualRows[virtualRows.length - 1];
     if (!lastItem) return;
-    if (lastItem.index >= customers.length - 1) {
+    if (lastItem.index >= rows.length - 1) {
       onLoadMore();
     }
-  }, [
-    customers.length,
-    hasNextPage,
-    isFetchingNextPage,
-    onLoadMore,
-    shouldVirtualize,
-    virtualRows,
-  ]);
+  }, [rows.length, hasNextPage, isFetchingNextPage, onLoadMore, shouldVirtualize, virtualRows]);
 
   useEffect(() => {
-    if (!focusCustomerId || customers.length === 0) return;
+    if (!focusCustomerId || rows.length === 0) return;
     const focusLower = focusCustomerId.toLowerCase();
-    const targetIndex = customers.findIndex(
-      (customer) =>
-        customer.id === focusCustomerId ||
-        (customer.email ?? '').toLowerCase() === focusLower,
+    const targetIndex = rows.findIndex(
+      (row) => row.id === focusCustomerId || row.emailSearchValue === focusLower,
     );
     if (targetIndex < 0) return;
-    const targetId = customers[targetIndex]?.id;
+
+    const targetId = rows[targetIndex]?.id;
     if (!targetId) return;
     pendingFocusIdRef.current = targetId;
 
@@ -131,7 +124,6 @@ export function CustomersTable({
       const target = document.querySelector<HTMLElement>(selector);
       if (!target) return false;
 
-      // Ensure the target is visible in the viewport for context (non-virtualized fallback).
       if (!shouldVirtualize) {
         target.scrollIntoView({ block: 'center' });
       }
@@ -144,12 +136,12 @@ export function CustomersTable({
       return false;
     };
 
-    // `scrollToIndex` in window virtualization is async; retry focus across a few frames.
     if (focusRafRef.current) {
       cancelAnimationFrame(focusRafRef.current);
     }
+
     let attempts = 0;
-    const maxAttempts = 30; // ~500ms on 60fps displays
+    const maxAttempts = 30;
     const tick = () => {
       attempts += 1;
       if (tryFocus() || attempts >= maxAttempts) {
@@ -166,14 +158,17 @@ export function CustomersTable({
         focusRafRef.current = null;
       }
     };
-  }, [customers, focusCustomerId, rowVirtualizer, shouldVirtualize]);
+  }, [rows, focusCustomerId, rowVirtualizer, shouldVirtualize]);
 
   return (
     <div className="space-y-4">
       {showSkeleton ? (
         <div className="grid grid-cols-1 gap-3">
           {skeletonRows.map((row) => (
-            <Card key={`guest-skeleton-${row}`} className="rounded-xl border-border/60 bg-card/40 p-4">
+            <Card
+              key={`guest-skeleton-${row}`}
+              className="rounded-xl border-border/60 bg-card/40 p-4"
+            >
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 flex-1 space-y-2">
                   <Skeleton className="h-4 w-48" />
@@ -202,7 +197,7 @@ export function CustomersTable({
         >
           <div className="relative" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
             {virtualRows.map((virtualRow) => {
-              if (virtualRow.index >= customers.length) {
+              if (virtualRow.index >= rows.length) {
                 return (
                   <div
                     key={virtualRow.key}
@@ -223,8 +218,8 @@ export function CustomersTable({
                 );
               }
 
-              const customer = customers[virtualRow.index];
-              if (!customer) return null;
+              const row = rows[virtualRow.index];
+              if (!row) return null;
 
               return (
                 <div
@@ -234,14 +229,15 @@ export function CustomersTable({
                     rowVirtualizer.measureElement(node);
                     if (node) {
                       const height = node.getBoundingClientRect().height;
-                      const cached = rowMeasureCacheRef.current.get(customer.id);
+                      const cached = rowMeasureCacheRef.current.get(row.id);
                       if (!cached || Math.abs(cached - height) > 1) {
-                        rowMeasureCacheRef.current.set(customer.id, height);
+                        rowMeasureCacheRef.current.set(row.id, height);
                       }
 
-                      // If we're waiting to focus this guest, focus as soon as the row mounts.
-                      if (pendingFocusIdRef.current === customer.id) {
-                        const target = node.querySelector<HTMLElement>(`[data-customer-id="${customer.id}"]`);
+                      if (pendingFocusIdRef.current === row.id) {
+                        const target = node.querySelector<HTMLElement>(
+                          `[data-customer-id="${row.id}"]`,
+                        );
                         if (target) {
                           target.focus({ preventScroll: true });
                           if (document.activeElement === target) {
@@ -254,7 +250,7 @@ export function CustomersTable({
                   className="absolute left-0 top-0 w-full pb-3 will-change-transform"
                   style={{ transform: `translate3d(0, ${virtualRow.start}px, 0)` }}
                 >
-                  <OpsGuestCard customer={customer} />
+                  <OpsGuestCard guest={row} />
                 </div>
               );
             })}
@@ -267,9 +263,9 @@ export function CustomersTable({
           animate={{ opacity: 1 }}
           transition={shouldAnimate ? { duration: 0.2, ease: 'easeOut' } : undefined}
         >
-          {customers.map((customer) => (
-            <div key={customer.id} className="pb-3">
-              <OpsGuestCard customer={customer} />
+          {rows.map((row) => (
+            <div key={row.id} className="pb-3">
+              <OpsGuestCard guest={row} />
             </div>
           ))}
         </motion.div>

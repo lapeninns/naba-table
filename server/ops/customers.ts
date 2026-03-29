@@ -1,55 +1,108 @@
 import {
-  OPS_GUEST_RETURNING_MIN_BOOKINGS,
-  OPS_GUEST_VIP_MIN_BOOKINGS,
-} from "@/lib/ops/customers";
-import { getServiceSupabaseClient } from "@/server/supabase";
+  buildCustomerHistoryRecords,
+  filterCustomerHistoryRecords,
+  sortCustomerHistoryRecords,
+  summarizeCustomerHistoryRecords,
+  type CustomerBookingRecord,
+  type CustomerHistoryLastVisitFilter,
+  type CustomerHistoryMarketingFilter,
+  type CustomerHistoryRecord,
+  type CustomerHistorySortBy,
+  type CustomerHistorySortOrder,
+  type CustomerIdentityRecord,
+} from '@/lib/ops/customer-history';
+import { getServiceSupabaseClient } from '@/server/supabase';
 
-import type { OpsCustomersSummary } from "@/types/ops";
-import type { Database, Tables } from "@/types/supabase";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { OpsCustomersSummary } from '@/types/ops';
+import type { Database, Tables } from '@/types/supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
+type DbClient = SupabaseClient<Database, 'public'>;
 
-type DbClient = SupabaseClient<Database, "public">;
+export type CustomerGuestRecord = CustomerHistoryRecord;
 
-type MarketingOptInFilter = "all" | "opted_in" | "opted_out";
-type LastVisitFilter = "any" | "30d" | "90d" | "365d" | "never";
-type CustomerSortBy = "last_visit" | "bookings";
-
-export type CustomerWithProfile = {
-  id: string;
+type GetCustomersOptions = {
   restaurantId: string;
-  name: string;
-  email: string;
-  phone: string;
-  marketingOptIn: boolean;
-  createdAt: string;
-  updatedAt: string;
-  firstBookingAt: string | null;
-  lastBookingAt: string | null;
-  totalBookings: number;
-  totalCovers: number;
-  totalCancellations: number;
+  page?: number;
+  pageSize?: number;
+  sortOrder?: CustomerHistorySortOrder;
+  sortBy?: CustomerHistorySortBy;
+  search?: string | null;
+  marketingOptIn?: CustomerHistoryMarketingFilter;
+  lastVisit?: CustomerHistoryLastVisitFilter;
+  minBookings?: number;
+  client?: DbClient;
+  maxPageSize?: number;
+  includeSummary?: boolean;
+  now?: Date;
 };
 
-type CustomerRow = Tables<"customers"> & {
-  customer_profiles:
-    | (Tables<"customer_profiles"> | null)
-    | (Tables<"customer_profiles"> | null)[]
-    | null;
+type GetCustomersResult = {
+  customers: CustomerGuestRecord[];
+  total: number;
+  page: number;
+  pageSize: number;
+  hasNext: boolean;
+  summary?: OpsCustomersSummary;
 };
 
-function normalizeCustomerProfile(row: CustomerRow): Tables<"customer_profiles"> | null {
-  const relation = row.customer_profiles;
-  if (Array.isArray(relation)) {
-    return relation[0] ?? null;
+type GetAllCustomersOptions = GetCustomersOptions;
+
+type CustomerIdentityRow = Pick<
+  Tables<'customers'>,
+  'id' | 'restaurant_id' | 'full_name' | 'email' | 'phone' | 'marketing_opt_in' | 'created_at' | 'updated_at'
+>;
+
+type BookingHistoryRow = Pick<
+  Tables<'bookings'>,
+  'id' | 'customer_id' | 'restaurant_id' | 'status' | 'party_size' | 'created_at' | 'start_at'
+>;
+
+const CUSTOMER_BOOKINGS_CHUNK_SIZE = 500;
+
+function escapeIlikeTerm(term: string): string | null {
+  const trimmed = term.trim();
+  if (!trimmed) {
+    return null;
   }
-  return relation ?? null;
+
+  const escaped = trimmed.replace(/[%_]/g, '\\$&');
+  return `%${escaped}%`;
 }
 
-function mapCustomerRow(row: CustomerRow): CustomerWithProfile {
-  const profile = normalizeCustomerProfile(row);
+function buildCustomerIdentityQuery(
+  client: DbClient,
+  restaurantId: string,
+  options: {
+    search?: string | null;
+    marketingOptIn: CustomerHistoryMarketingFilter;
+  },
+) {
+  let query = client
+    .from('customers')
+    .select(
+      'id, restaurant_id, full_name, email, phone, marketing_opt_in, created_at, updated_at',
+    )
+    .eq('restaurant_id', restaurantId);
 
-  return {
+  if (options.marketingOptIn === 'opted_in') {
+    query = query.eq('marketing_opt_in', true);
+  } else if (options.marketingOptIn === 'opted_out') {
+    query = query.eq('marketing_opt_in', false);
+  }
+
+  const searchPattern = escapeIlikeTerm(options.search ?? '');
+  if (searchPattern) {
+    query = query.or(
+      `full_name.ilike.${searchPattern},email.ilike.${searchPattern},phone.ilike.${searchPattern}`,
+    );
+  }
+
+  return query;
+}
+
+function mapCustomerIdentityRows(rows: CustomerIdentityRow[]): CustomerIdentityRecord[] {
+  return rows.map((row) => ({
     id: row.id,
     restaurantId: row.restaurant_id,
     name: row.full_name,
@@ -58,246 +111,90 @@ function mapCustomerRow(row: CustomerRow): CustomerWithProfile {
     marketingOptIn: row.marketing_opt_in,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    firstBookingAt: profile?.first_booking_at ?? null,
-    lastBookingAt: profile?.last_booking_at ?? null,
-    totalBookings: profile?.total_bookings ?? 0,
-    totalCovers: profile?.total_covers ?? 0,
-    totalCancellations: profile?.total_cancellations ?? 0,
-  };
+  }));
 }
 
-function escapeIlikeTerm(term: string): string | null {
-  const trimmed = term.trim();
-  if (!trimmed) return null;
-
-  const escaped = trimmed.replace(/[%_]/g, "\\$&");
-  return `%${escaped}%`;
+function mapBookingHistoryRows(rows: BookingHistoryRow[]): CustomerBookingRecord[] {
+  return rows.map((row) => ({
+    id: row.id,
+    customerId: row.customer_id,
+    restaurantId: row.restaurant_id,
+    status: row.status,
+    partySize: row.party_size,
+    createdAt: row.created_at,
+    startAt: row.start_at ?? null,
+  }));
 }
 
-function resolveLastVisitCutoff(lastVisit: LastVisitFilter): string | null {
-  const daysLookup: Record<Exclude<LastVisitFilter, "any" | "never">, number> = {
-    "30d": 30,
-    "90d": 90,
-    "365d": 365,
-  };
-
-  const days = daysLookup[lastVisit as keyof typeof daysLookup];
-  if (!days) return null;
-
-  const date = new Date();
-  date.setDate(date.getDate() - days);
-  return date.toISOString();
-}
-
-type CustomerQueryFilters = {
-  marketingOptIn: MarketingOptInFilter;
-  lastVisit: LastVisitFilter;
-  minBookings: number;
-  search?: string | null;
-};
-
-type GetCustomersOptions = {
-  restaurantId: string;
-  page?: number;
-  pageSize?: number;
-  sortOrder?: "asc" | "desc";
-  sortBy?: CustomerSortBy;
-  search?: string | null;
-  marketingOptIn?: MarketingOptInFilter;
-  lastVisit?: LastVisitFilter;
-  minBookings?: number;
-  client?: DbClient;
-  maxPageSize?: number;
-  includeSummary?: boolean;
-};
-
-type GetCustomersResult = {
-  customers: CustomerWithProfile[];
-  total: number;
-  page: number;
-  pageSize: number;
-  hasNext: boolean;
-  summary?: OpsCustomersSummary;
-};
-
-type CustomerFiltersQuery<TQuery> = {
-  eq(column: string, value: unknown): TQuery;
-  gte(column: string, value: unknown): TQuery;
-  is(column: string, value: null): TQuery;
-  or(filters: string): TQuery;
-};
-
-function applyCustomerFilters<TQuery extends CustomerFiltersQuery<TQuery>>(
-  // Supabase's PostgREST builders have a complex type surface; keep this helper structural.
-  query: TQuery,
-  restaurantId: string,
-  filters: CustomerQueryFilters,
-) {
-  let q = query.eq("restaurant_id", restaurantId);
-
-  if (filters.marketingOptIn === "opted_in") {
-    q = q.eq("marketing_opt_in", true);
-  } else if (filters.marketingOptIn === "opted_out") {
-    q = q.eq("marketing_opt_in", false);
-  }
-
-  if (filters.minBookings > 0) {
-    q = q.gte("customer_profiles.total_bookings", filters.minBookings);
-  }
-
-  if (filters.lastVisit === "never") {
-    q = q.is("customer_profiles.last_booking_at", null);
-  } else {
-    const cutoff = resolveLastVisitCutoff(filters.lastVisit);
-    if (cutoff) {
-      q = q.gte("customer_profiles.last_booking_at", cutoff);
-    }
-  }
-
-  const searchPattern = escapeIlikeTerm(filters.search ?? "");
-  if (searchPattern) {
-    q = q.or(
-      `full_name.ilike.${searchPattern},email.ilike.${searchPattern},phone.ilike.${searchPattern}`,
-    );
-  }
-
-  return q;
-}
-
-function buildCustomersListQuery(
+async function fetchCustomerIdentities(
   client: DbClient,
   restaurantId: string,
-  filters: CustomerQueryFilters,
-) {
-  const query = client
-    .from("customers")
-    .select(
-      `
-      id,
-      restaurant_id,
-      full_name,
-      email,
-      phone,
-      marketing_opt_in,
-      created_at,
-      updated_at,
-      customer_profiles (
-        first_booking_at,
-        last_booking_at,
-        total_bookings,
-        total_covers,
-        total_cancellations
-      )
-    `,
-      { count: "exact" },
-    );
+  options: {
+    search?: string | null;
+    marketingOptIn: CustomerHistoryMarketingFilter;
+  },
+): Promise<CustomerIdentityRecord[]> {
+  const { data, error } = await buildCustomerIdentityQuery(client, restaurantId, options);
 
-  return applyCustomerFilters(query, restaurantId, filters);
-}
-
-async function countCustomers(
-  client: DbClient,
-  restaurantId: string,
-  filters: CustomerQueryFilters,
-): Promise<number> {
-  const query = client
-    .from("customers")
-    // Keep the relationship embedded so we can filter on `customer_profiles.*` consistently.
-    .select(
-      `
-      id,
-      customer_profiles (
-        last_booking_at,
-        total_bookings
-      )
-    `,
-      { count: "exact", head: true },
-    );
-
-  const { count, error } = await applyCustomerFilters(query, restaurantId, filters);
   if (error) {
     throw error;
   }
-  return count ?? 0;
+
+  return mapCustomerIdentityRows((data ?? []) as CustomerIdentityRow[]);
 }
 
-async function computeCustomersSummary(options: {
-  client: DbClient;
-  restaurantId: string;
+async function fetchBookingsForCustomerIds(
+  client: DbClient,
+  restaurantId: string,
+  customerIds: string[],
+): Promise<CustomerBookingRecord[]> {
+  if (customerIds.length === 0) {
+    return [];
+  }
+
+  const bookingRows: CustomerBookingRecord[] = [];
+
+  for (let index = 0; index < customerIds.length; index += CUSTOMER_BOOKINGS_CHUNK_SIZE) {
+    const chunk = customerIds.slice(index, index + CUSTOMER_BOOKINGS_CHUNK_SIZE);
+    const { data, error } = await client
+      .from('bookings')
+      .select('id, customer_id, restaurant_id, status, party_size, created_at, start_at')
+      .eq('restaurant_id', restaurantId)
+      .in('customer_id', chunk)
+      .neq('status', 'PRIORITY_WAITLIST');
+
+    if (error) {
+      throw error;
+    }
+
+    bookingRows.push(...mapBookingHistoryRows((data ?? []) as BookingHistoryRow[]));
+  }
+
+  return bookingRows;
+}
+
+function paginateCustomerHistory(
+  records: CustomerGuestRecord[],
+  page: number,
+  pageSize: number,
+): {
+  pageItems: CustomerGuestRecord[];
   total: number;
-  marketingOptIn: MarketingOptInFilter;
-  lastVisit: LastVisitFilter;
-  minBookings: number;
-  search?: string | null;
-}): Promise<OpsCustomersSummary> {
-  const base: CustomerQueryFilters = {
-    marketingOptIn: options.marketingOptIn,
-    lastVisit: options.lastVisit,
-    minBookings: options.minBookings,
-    search: options.search ?? null,
-  };
-
-  const total = options.total;
-
-  const optedInPromise: Promise<number> = (() => {
-    if (options.marketingOptIn === "opted_in") return Promise.resolve(total);
-    if (options.marketingOptIn === "opted_out") return Promise.resolve(0);
-    return countCustomers(options.client, options.restaurantId, {
-      ...base,
-      marketingOptIn: "opted_in",
-    });
-  })();
-
-  const vipPromise: Promise<number> = (() => {
-    if (options.minBookings >= OPS_GUEST_VIP_MIN_BOOKINGS) return Promise.resolve(total);
-    return countCustomers(options.client, options.restaurantId, {
-      ...base,
-      minBookings: OPS_GUEST_VIP_MIN_BOOKINGS,
-    });
-  })();
-
-  const returningPromise: Promise<number> = (() => {
-    if (options.minBookings >= OPS_GUEST_RETURNING_MIN_BOOKINGS) return Promise.resolve(total);
-    return countCustomers(options.client, options.restaurantId, {
-      ...base,
-      minBookings: OPS_GUEST_RETURNING_MIN_BOOKINGS,
-    });
-  })();
-
-  const neverVisitedPromise: Promise<number> = (() => {
-    if (options.lastVisit === "never") return Promise.resolve(total);
-    if (options.lastVisit !== "any") return Promise.resolve(0);
-    return countCustomers(options.client, options.restaurantId, {
-      ...base,
-      lastVisit: "never",
-    });
-  })();
-
-  const [optedIn, vip, returning, neverVisited] = await Promise.all([
-    optedInPromise,
-    vipPromise,
-    returningPromise,
-    neverVisitedPromise,
-  ]);
-
-  const optedOut =
-    options.marketingOptIn === "opted_out"
-      ? total
-      : options.marketingOptIn === "opted_in"
-        ? 0
-        : Math.max(0, total - optedIn);
+  hasNext: boolean;
+} {
+  const total = records.length;
+  const offset = (page - 1) * pageSize;
+  const pageItems = records.slice(offset, offset + pageSize);
+  const hasNext = offset + pageItems.length < total;
 
   return {
+    pageItems,
     total,
-    optedIn,
-    optedOut,
-    vip,
-    returning,
-    neverVisited,
+    hasNext,
   };
 }
 
-export async function getCustomersWithProfiles(
+export async function getCustomersWithHistory(
   options: GetCustomersOptions,
 ): Promise<GetCustomersResult> {
   const client = options.client ?? getServiceSupabaseClient();
@@ -305,112 +202,66 @@ export async function getCustomersWithProfiles(
   const requestedPageSize = options.pageSize ?? 10;
   const maxPageSize = options.maxPageSize ?? 50;
   const pageSize = Math.min(requestedPageSize, Math.max(1, maxPageSize));
-  const sortOrder = options.sortOrder ?? "desc";
-  const sortBy = options.sortBy ?? "last_visit";
-  const marketingOptIn = options.marketingOptIn ?? "all";
-  const lastVisit = options.lastVisit ?? "any";
+  const sortOrder = options.sortOrder ?? 'desc';
+  const sortBy = options.sortBy ?? 'last_visit';
+  const marketingOptIn = options.marketingOptIn ?? 'all';
+  const lastVisit = options.lastVisit ?? 'any';
   const minBookings = Math.max(0, options.minBookings ?? 0);
-  const offset = (page - 1) * pageSize;
+  const now = options.now ?? new Date();
 
-  // Query customers with their profiles
-  const baseFilters: CustomerQueryFilters = {
-    marketingOptIn,
-    lastVisit,
-    minBookings,
+  const customerRows = await fetchCustomerIdentities(client, options.restaurantId, {
     search: options.search ?? null,
-  };
-  const query = buildCustomersListQuery(client, options.restaurantId, baseFilters);
+    marketingOptIn,
+  });
 
-  // Apply pagination
-  const orderColumn = sortBy === "bookings" ? "total_bookings" : "last_booking_at";
-  const { data, error, count } = await query
-    .order(orderColumn, {
-      ascending: sortOrder === "asc",
-      nullsFirst: false,
-      foreignTable: "customer_profiles",
-    })
-    .range(offset, offset + pageSize - 1);
-
-  if (error) {
-    throw error;
+  if (customerRows.length === 0) {
+    return {
+      customers: [],
+      total: 0,
+      page,
+      pageSize,
+      hasNext: false,
+      summary: options.includeSummary ? summarizeCustomerHistoryRecords([]) : undefined,
+    };
   }
 
-  const rows = (data ?? []) as CustomerRow[];
-  const total = count ?? 0;
+  const bookingRows = await fetchBookingsForCustomerIds(
+    client,
+    options.restaurantId,
+    customerRows.map((row) => row.id),
+  );
 
-  // Transform to our CustomerWithProfile type
-  const customers: CustomerWithProfile[] = rows.map(mapCustomerRow);
-
-  const hasNext = offset + customers.length < total;
-
-  let summary: OpsCustomersSummary | undefined;
-  if (options.includeSummary && page === 1) {
-    try {
-      summary = await computeCustomersSummary({
-        client,
-        restaurantId: options.restaurantId,
-        total,
-        marketingOptIn,
-        lastVisit,
-        minBookings,
-        search: options.search ?? null,
-      });
-    } catch (summaryError) {
-      // Summary is best-effort; do not fail the list response.
-      console.error("[ops/customers] summary computation failed", summaryError);
-      summary = undefined;
-    }
-  }
+  const historyRecords = buildCustomerHistoryRecords(customerRows, bookingRows, now);
+  const filteredRecords = filterCustomerHistoryRecords(
+    historyRecords,
+    {
+      lastVisit,
+      minBookings,
+    },
+    now,
+  );
+  const sortedRecords = sortCustomerHistoryRecords(filteredRecords, sortBy, sortOrder);
+  const { pageItems, total, hasNext } = paginateCustomerHistory(sortedRecords, page, pageSize);
 
   return {
-    customers,
+    customers: pageItems,
     total,
     page,
     pageSize,
     hasNext,
-    summary,
+    summary: options.includeSummary ? summarizeCustomerHistoryRecords(filteredRecords) : undefined,
   };
 }
 
-type GetAllCustomersOptions = GetCustomersOptions & {
-  batchSize?: number;
-};
-
-export async function getAllCustomersWithProfiles(
+export async function getAllCustomersWithHistory(
   options: GetAllCustomersOptions,
-): Promise<CustomerWithProfile[]> {
-  const client = options.client ?? getServiceSupabaseClient();
-  const sortOrder = options.sortOrder ?? "desc";
-  const batchSize = Math.max(1, Math.min(options.batchSize ?? 500, 1000));
+): Promise<CustomerGuestRecord[]> {
+  const result = await getCustomersWithHistory({
+    ...options,
+    page: 1,
+    pageSize: options.maxPageSize ?? Number.MAX_SAFE_INTEGER,
+    maxPageSize: Number.MAX_SAFE_INTEGER,
+  });
 
-  let page = 1;
-  let hasNext = true;
-  const customers: CustomerWithProfile[] = [];
-
-  while (hasNext) {
-    const result = await getCustomersWithProfiles({
-      restaurantId: options.restaurantId,
-      page,
-      pageSize: batchSize,
-      maxPageSize: batchSize,
-      sortOrder,
-      sortBy: options.sortBy,
-      marketingOptIn: options.marketingOptIn,
-      lastVisit: options.lastVisit,
-      minBookings: options.minBookings,
-      search: options.search,
-      client,
-    });
-
-    customers.push(...result.customers);
-    hasNext = result.hasNext && result.customers.length > 0;
-
-    if (!hasNext) {
-      break;
-    }
-
-    page += 1;
-  }
-
-  return customers;
+  return result.customers;
 }

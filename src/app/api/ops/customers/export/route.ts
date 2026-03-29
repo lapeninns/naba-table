@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { generateCSV } from "@/lib/export/csv";
 import { mapSupabaseAuthError } from "@/server/auth/supabase-auth-errors";
-import { getAllCustomersWithProfiles, type CustomerWithProfile } from "@/server/ops/customers";
+import { getAllCustomersWithHistory, type CustomerGuestRecord } from "@/server/ops/customers";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 import { fetchUserMemberships } from "@/server/team/access";
 
@@ -33,17 +33,17 @@ function formatBoolean(value: boolean): string {
 
 const CUSTOMER_EXPORT_COLUMNS: {
   header: string;
-  accessor: (row: CustomerWithProfile) => unknown;
+  accessor: (row: CustomerGuestRecord) => unknown;
 }[] = [
-  { header: "Name", accessor: (row: CustomerWithProfile) => row.name },
-  { header: "Email", accessor: (row: CustomerWithProfile) => row.email },
-  { header: "Phone", accessor: (row: CustomerWithProfile) => row.phone },
-  { header: "Total Bookings", accessor: (row: CustomerWithProfile) => row.totalBookings },
-  { header: "Total Covers", accessor: (row: CustomerWithProfile) => row.totalCovers },
-  { header: "Total Cancellations", accessor: (row: CustomerWithProfile) => row.totalCancellations },
-  { header: "First Booking", accessor: (row: CustomerWithProfile) => formatDate(row.firstBookingAt) },
-  { header: "Last Booking", accessor: (row: CustomerWithProfile) => formatDate(row.lastBookingAt) },
-  { header: "Marketing Opt-in", accessor: (row: CustomerWithProfile) => formatBoolean(row.marketingOptIn) },
+  { header: "Name", accessor: (row: CustomerGuestRecord) => row.name },
+  { header: "Email", accessor: (row: CustomerGuestRecord) => row.email },
+  { header: "Phone", accessor: (row: CustomerGuestRecord) => row.phone },
+  { header: "Total Bookings", accessor: (row: CustomerGuestRecord) => row.totalBookings },
+  { header: "Total Covers", accessor: (row: CustomerGuestRecord) => row.totalCovers },
+  { header: "Total Cancellations", accessor: (row: CustomerGuestRecord) => row.totalCancellations },
+  { header: "First Booking", accessor: (row: CustomerGuestRecord) => formatDate(row.firstBookingAt) },
+  { header: "Last Visit", accessor: (row: CustomerGuestRecord) => formatDate(row.lastVisitAt) },
+  { header: "Marketing Opt-in", accessor: (row: CustomerGuestRecord) => formatBoolean(row.marketingOptIn) },
 ];
 
 function buildFilename(restaurantName: string | null | undefined): string {
@@ -116,9 +116,9 @@ export async function GET(req: NextRequest) {
   const sortOrder = params.sort;
   const sortBy = params.sortBy ?? "last_visit";
 
-  let customers: CustomerWithProfile[];
+  let customers: CustomerGuestRecord[];
   try {
-    customers = await getAllCustomersWithProfiles({
+    customers = await getAllCustomersWithHistory({
       restaurantId: targetRestaurantId,
       sortOrder,
       sortBy,
