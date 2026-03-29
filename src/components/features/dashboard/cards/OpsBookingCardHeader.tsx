@@ -30,18 +30,7 @@ export const OpsBookingCardHeader = memo(function OpsBookingCardHeader({
   isOpen,
   showCollapseToggle = true,
 }: OpsBookingCardHeaderProps) {
-  const {
-    bookingId,
-    status,
-    customerLabel,
-    initials,
-    partySizeLabel,
-    dateLabel,
-    timeRangeLabel,
-    isDone,
-    hasNotes,
-    urgency,
-  } = header;
+  const guestLabel = `${partySize} Guest${partySize === 1 ? '' : 's'}`;
 
   return (
     <div className="p-3 pb-2 sm:p-4 sm:pb-4">
@@ -76,7 +65,7 @@ export const OpsBookingCardHeader = memo(function OpsBookingCardHeader({
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1 sm:contents">
                 <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                   <Users className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                  <span>{partySizeLabel}</span>
+                  <span>{guestLabel}</span>
                 </span>
                 <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                   <Calendar className="h-3.5 w-3.5 shrink-0" aria-hidden />

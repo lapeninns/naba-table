@@ -5,141 +5,186 @@ import { describe, expect, it, vi } from 'vitest';
 import { OpsBookingCardActions } from '@/components/features/dashboard/cards/OpsBookingCardActions';
 import { buildOpsBookingCardViewModel } from '@/components/features/dashboard/cards/opsBookingCardUtils';
 
-import type { BookingDTO } from '@/hooks/useBookings';
+import type { OpsBookingCardActionsProps } from '@/components/features/dashboard/cards/OpsBookingCardActions';
 
-function makeBooking(overrides: Partial<BookingDTO> & Pick<BookingDTO, 'id'>): BookingDTO {
+function createProps(
+  overrides: Partial<OpsBookingCardActionsProps> = {},
+): OpsBookingCardActionsProps {
   return {
-    id: overrides.id,
-    restaurantName: overrides.restaurantName ?? 'Test Restaurant',
-    partySize: overrides.partySize ?? 2,
-    startIso: overrides.startIso ?? new Date('2026-02-06T18:00:00.000Z').toISOString(),
-    endIso: overrides.endIso ?? new Date('2026-02-06T19:30:00.000Z').toISOString(),
+    bookingId: overrides.bookingId ?? 'booking-1',
     status: overrides.status ?? 'confirmed',
-    customerName: overrides.customerName ?? 'Alice Example',
-    customerEmail: overrides.customerEmail ?? null,
-    customerPhone: overrides.customerPhone ?? null,
-    notes: overrides.notes ?? null,
-    reference: overrides.reference ?? null,
-    source: overrides.source ?? null,
-    seatingPreference: overrides.seatingPreference ?? null,
-    allergies: overrides.allergies ?? null,
-    dietaryRestrictions: overrides.dietaryRestrictions ?? null,
-    reservationIntervalMinutes: overrides.reservationIntervalMinutes ?? null,
-    tableAssignments: overrides.tableAssignments ?? [],
-    requiresTableAssignment: overrides.requiresTableAssignment ?? true,
-    checkedInAt: overrides.checkedInAt ?? null,
-    checkedOutAt: overrides.checkedOutAt ?? null,
-    displayTimeRangeLabel: overrides.displayTimeRangeLabel ?? null,
-    displayCustomerLabel: overrides.displayCustomerLabel ?? null,
-    displayInitials: overrides.displayInitials ?? null,
-    searchText: overrides.searchText ?? null,
-    tableLabel: overrides.tableLabel ?? null,
-    ...overrides,
+    partySize: overrides.partySize ?? 2,
+    customerLabel: overrides.customerLabel ?? 'Alice Example',
+    dateLabel: overrides.dateLabel ?? 'Fri, Feb 6',
+    timeRangeLabel: overrides.timeRangeLabel ?? '6:00 PM – 7:30 PM',
+    isDone: overrides.isDone ?? false,
+    isToday: overrides.isToday ?? true,
+    isPastDay: overrides.isPastDay ?? false,
+    isSeated: overrides.isSeated ?? false,
+    disableActions: overrides.disableActions ?? false,
+    detailsDisabled: overrides.detailsDisabled ?? false,
+    pendingAction: overrides.pendingAction ?? null,
+    onDetails: overrides.onDetails ?? vi.fn(),
+    onEdit: overrides.onEdit ?? vi.fn(),
+    onCancel: overrides.onCancel ?? vi.fn(),
+    onMarkNoShow: overrides.onMarkNoShow ?? vi.fn().mockResolvedValue(undefined),
+    onCheckIn: overrides.onCheckIn ?? vi.fn().mockResolvedValue(undefined),
+    onCheckOut: overrides.onCheckOut ?? vi.fn().mockResolvedValue(undefined),
   };
 }
 
-function makeActions(
-  bookingOverrides: Partial<BookingDTO> & Pick<BookingDTO, 'id'>,
-  options: {
-    pendingAction?: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show' | null;
-    actionsDisabled?: boolean;
-    now?: Date;
-  } = {},
-) {
-  const booking = makeBooking(bookingOverrides);
-  return buildOpsBookingCardViewModel({
-    booking,
-    timezone: 'UTC',
-    now: options.now ?? new Date('2026-02-06T18:00:00.000Z'),
-    pendingAction: options.pendingAction ?? null,
-    actionsDisabled: options.actionsDisabled ?? false,
-  }).actions;
-}
+describe('OpsBookingCardActions', () => {
+  it('keeps Details clickable while lifecycle mutations are pending', async () => {
+    const user = userEvent.setup();
+    const onDetails = vi.fn();
 
-describe('OpsBookingCardActions no-show confirmation', () => {
+    render(
+      <OpsBookingCardActions
+        {...createProps({
+          onDetails,
+          disableActions: true,
+          detailsDisabled: false,
+          pendingAction: 'check-in',
+        })}
+      />,
+    );
+
+    const detailsButton = screen.getByRole('button', { name: 'Details' });
+    expect(detailsButton).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Updating…' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /more actions/i })).toBeDisabled();
+
+    await user.click(detailsButton);
+    expect(onDetails).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses the correct primary button label and disabled state for confirmed and checked-in bookings', () => {
+    const { rerender } = render(<OpsBookingCardActions {...createProps()} />);
+
+    expect(screen.getByRole('button', { name: 'Seat Guest' })).toBeEnabled();
+
+    rerender(
+      <OpsBookingCardActions
+        {...createProps({
+          status: 'checked_in',
+          isSeated: true,
+        })}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Finish' })).toBeEnabled();
+
+    rerender(
+      <OpsBookingCardActions
+        {...createProps({
+          isToday: false,
+        })}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Seat Guest' })).toBeDisabled();
+  });
+
+  it.each([
+    ['confirmed', false, 'Seat Guest'],
+    ['checked_in', true, 'Finish'],
+    ['completed', true, 'Completed'],
+    ['cancelled', true, 'Cancelled'],
+    ['no_show', true, 'No show'],
+  ] as const)(
+    'applies the action policy for %s bookings',
+    (status, manageDisabled, statusText) => {
+      render(
+        <OpsBookingCardActions
+          {...createProps({
+            status,
+            isDone: status === 'completed' || status === 'cancelled' || status === 'no_show',
+            isSeated: status === 'checked_in',
+          })}
+        />,
+      );
+
+      const moreActions = screen.getByRole('button', { name: /more actions/i });
+      if (manageDisabled) {
+        expect(moreActions).toBeDisabled();
+      } else {
+        expect(moreActions).toBeEnabled();
+      }
+
+      if (status === 'confirmed' || status === 'checked_in') {
+        expect(screen.getByRole('button', { name: statusText })).toBeInTheDocument();
+      } else {
+        expect(screen.getByRole('status')).toHaveTextContent(statusText);
+      }
+    },
+  );
+
+  it('disables mutation entry points for done bookings', () => {
+    render(
+      <OpsBookingCardActions
+        {...createProps({
+          status: 'completed',
+          isDone: true,
+        })}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /more actions/i })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Seat Guest' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Finish' })).not.toBeInTheDocument();
+  });
+
   it('does not call onMarkNoShow until confirm is pressed', async () => {
     const user = userEvent.setup();
     const onMarkNoShow = vi.fn().mockResolvedValue(undefined);
 
     render(
       <OpsBookingCardActions
-        actions={makeActions({ id: 'b-1', partySize: 4, customerName: 'Alice Example' })}
-        onMarkNoShow={onMarkNoShow}
+        {...createProps({
+          bookingId: 'b-1',
+          partySize: 4,
+          customerLabel: 'Alice Example',
+          onMarkNoShow,
+        })}
       />,
     );
 
-    // Open menu.
     await user.click(screen.getByRole('button', { name: /more actions/i }));
     await user.click(screen.getByRole('menuitem', { name: /mark no show/i }));
 
     expect(onMarkNoShow).toHaveBeenCalledTimes(0);
 
-    // Confirm in dialog.
     await user.click(screen.getByRole('button', { name: /confirm no-show/i }));
     expect(onMarkNoShow).toHaveBeenCalledTimes(1);
     expect(onMarkNoShow).toHaveBeenCalledWith('b-1');
   });
 
-  it('cancel closes dialog without calling onMarkNoShow', async () => {
+  it('uses singular and plural cover copy in the no-show dialog', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<OpsBookingCardActions {...createProps({ partySize: 1 })} />);
+
+    await user.click(screen.getByRole('button', { name: /more actions/i }));
+    await user.click(screen.getByRole('menuitem', { name: /mark no show/i }));
+    expect(screen.getByRole('alertdialog')).toHaveTextContent('1 cover on');
+    await user.click(screen.getByRole('button', { name: /keep booking/i }));
+
+    rerender(<OpsBookingCardActions {...createProps({ partySize: 3 })} />);
+    await user.click(screen.getByRole('button', { name: /more actions/i }));
+    await user.click(screen.getByRole('menuitem', { name: /mark no show/i }));
+    expect(screen.getByRole('alertdialog')).toHaveTextContent('3 covers on');
+  });
+
+  it('cancel closes the no-show dialog without calling the mutation', async () => {
     const user = userEvent.setup();
     const onMarkNoShow = vi.fn().mockResolvedValue(undefined);
 
-    render(
-      <OpsBookingCardActions
-        actions={makeActions({ id: 'b-2', customerName: 'Bob Example' })}
-        onMarkNoShow={onMarkNoShow}
-      />,
-    );
+    render(<OpsBookingCardActions {...createProps({ onMarkNoShow })} />);
 
     await user.click(screen.getByRole('button', { name: /more actions/i }));
     await user.click(screen.getByRole('menuitem', { name: /mark no show/i }));
     await user.click(screen.getByRole('button', { name: /keep booking/i }));
 
-    expect(onMarkNoShow).toHaveBeenCalledTimes(0);
-  });
-
-  it('keeps Details enabled while a mutation is pending', () => {
-    render(
-      <OpsBookingCardActions
-        actions={makeActions(
-          { id: 'b-3', customerName: 'Casey Example' },
-          { pendingAction: 'check-in', actionsDisabled: true },
-        )}
-      />,
-    );
-
-    expect(screen.getByRole('button', { name: /details/i })).toBeEnabled();
-    expect(screen.getByRole('button', { name: /more actions/i })).toBeEnabled();
-  });
-
-  it('shows invalid done-booking actions as disabled instead of valid mutations', async () => {
-    const user = userEvent.setup();
-
-    render(
-      <OpsBookingCardActions
-        actions={makeActions({
-          id: 'b-4',
-          status: 'completed',
-          customerName: 'Dana Example',
-        })}
-      />,
-    );
-
-    expect(screen.getByRole('status')).toHaveTextContent('Completed');
-
-    await user.click(screen.getByRole('button', { name: /more actions/i }));
-
-    expect(screen.getByRole('menuitem', { name: /edit booking/i })).toHaveAttribute(
-      'data-disabled',
-      '',
-    );
-    expect(screen.getByRole('menuitem', { name: /mark no show/i })).toHaveAttribute(
-      'data-disabled',
-      '',
-    );
-    expect(screen.getByRole('menuitem', { name: /cancel booking/i })).toHaveAttribute(
-      'data-disabled',
-      '',
-    );
+    expect(onMarkNoShow).not.toHaveBeenCalled();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });
