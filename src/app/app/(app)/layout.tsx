@@ -21,6 +21,8 @@ type OpsAppLayoutProps = {
   children: ReactNode;
 };
 
+export const dynamic = 'force-dynamic';
+
 function describeSupabaseError(error: unknown) {
   if (!error || typeof error !== 'object') {
     return { message: String(error) };

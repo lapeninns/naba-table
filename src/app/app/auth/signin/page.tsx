@@ -13,6 +13,8 @@ export const metadata: Metadata = {
   description: 'Access the restaurant operations console to manage bookings and your team.',
 };
 
+export const dynamic = 'force-dynamic';
+
 type OpsLoginSearchParams = {
   redirectedFrom?: string | string[];
   error?: string;

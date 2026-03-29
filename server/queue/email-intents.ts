@@ -7,6 +7,7 @@ import {
 } from '@/server/queue/email-processing';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
+
 import {
   EMAIL_DLQ_NAME,
   EMAIL_QUEUE_NAME,
@@ -19,7 +20,11 @@ import type {
   EmailQueueStatusSnapshot,
   QueueJobSummary,
 } from './email-contract';
-import type { Json, Tables, TablesInsert } from '@/types/supabase';
+import type {
+  Json,
+  Tables,
+  TablesInsert,
+} from '@/types/supabase';
 
 const DEFAULT_ATTEMPTS = 5;
 const DEFAULT_BACKOFF = { type: 'exponential', delay: 60_000 } as const;
@@ -118,21 +123,25 @@ function normalizeJobHistoryLimit(limit: JobHistoryLimit): number {
   return Math.max(1, Math.min(MAX_JOB_HISTORY, Math.floor(limit)));
 }
 
-function parseIsoToMillis(value: string | null | undefined): number | null {
-  if (!value) {
-    return null;
-  }
-
-  const parsed = DateTime.fromISO(value, { setZone: true });
-  return parsed.isValid ? parsed.toMillis() : null;
-}
-
 function asRecord(value: Json | null): Record<string, Json | undefined> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return {};
   }
 
   return value as Record<string, Json | undefined>;
+}
+
+function toIsoDateTime(value: string | null | undefined): string | null {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed.toISOString();
 }
 
 function toPayload(row: EmailDispatchIntentRow): EmailJobPayload {
@@ -151,11 +160,14 @@ function toPayload(row: EmailDispatchIntentRow): EmailJobPayload {
       typeof payload.type === 'string' && payload.type.length > 0
         ? (payload.type as EmailJobType)
         : (row.email_type as EmailJobType),
-    scheduledFor: row.scheduled_for,
+    scheduledFor:
+      typeof payload.scheduledFor === 'string' && payload.scheduledFor.length > 0
+        ? payload.scheduledFor
+        : toIsoDateTime(row.scheduled_for) ?? undefined,
     failedReason: row.last_error,
     failedAt:
       row.status === 'failed' || row.status === 'processing'
-        ? row.last_attempt_at
+        ? toIsoDateTime(row.last_attempt_at)
         : null,
     cronAttemptsMade: row.attempts_made,
   };
@@ -169,12 +181,12 @@ function toQueueStatus(
   if (row.status === 'failed') return 'dlq';
   if (row.status !== 'pending') return null;
 
-  const scheduledForMs = parseIsoToMillis(row.scheduled_for);
-  if (scheduledForMs === null) {
+  const scheduledFor = DateTime.fromISO(row.scheduled_for, { setZone: true });
+  if (!scheduledFor.isValid) {
     return 'waiting';
   }
 
-  return scheduledForMs > nowMs ? 'delayed' : 'waiting';
+  return scheduledFor.toMillis() > nowMs ? 'delayed' : 'waiting';
 }
 
 function toQueueJobSummary(row: EmailDispatchIntentRow): QueueJobSummary {
@@ -209,13 +221,16 @@ async function countStatusRows(
   status: EmailDispatchIntentStatus | ReadonlyArray<EmailDispatchIntentStatus>,
 ): Promise<number> {
   const supabase = getServiceSupabaseClient();
-  const baseQuery = supabase
-    .from('email_dispatch_intents')
-    .select('id', { head: true, count: 'exact' });
-  const result = Array.isArray(status)
-    ? await baseQuery.in('status', [...status])
-    : await baseQuery.eq('status', status as EmailDispatchIntentStatus);
-  const { count, error } = result;
+  const query = Array.isArray(status)
+    ? supabase
+        .from('email_dispatch_intents')
+        .select('id', { head: true, count: 'exact' })
+        .in('status', [...status])
+    : supabase
+        .from('email_dispatch_intents')
+        .select('id', { head: true, count: 'exact' })
+        .eq('status', status as EmailDispatchIntentStatus);
+  const { count, error } = await query;
 
   if (error) {
     throw new Error(error.message);
@@ -385,8 +400,10 @@ export async function scheduleEmailIntent(
     options.jobId ?? buildEmailJobId(payload.type, payload.bookingId),
   );
   const scheduledFor = normalizeScheduledFor(payload);
-  const scheduledForMs = parseIsoToMillis(scheduledFor);
-  const delayMs = Math.max(0, (scheduledForMs ?? Date.now()) - Date.now());
+  const scheduledForDateTime = DateTime.fromISO(scheduledFor, { setZone: true });
+  const delayMs = scheduledForDateTime.isValid
+    ? Math.max(0, scheduledForDateTime.toMillis() - Date.now())
+    : 0;
   const attempts =
     typeof options.attempts === 'number' && Number.isFinite(options.attempts) && options.attempts > 0
       ? Math.floor(options.attempts)

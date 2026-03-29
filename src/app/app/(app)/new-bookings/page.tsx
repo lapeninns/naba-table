@@ -15,6 +15,8 @@ export const metadata: Metadata = {
   description: "Create a new reservation using the standard booking flow with ops controls.",
 };
 
+export const dynamic = 'force-dynamic';
+
 export default async function WalkInPage() {
   const supabase = await getServerComponentSupabaseClient();
   const {

@@ -30,6 +30,24 @@ export type ConfirmWithPolicyRetryParams = {
   confirmFn: (options: ConfirmHoldAssignmentOptions & { client: DbClient }) => Promise<TableAssignmentMember[]>;
 };
 
+function isRetryableAssignmentConflict(error: unknown): error is AssignTablesRpcError {
+  if (!(error instanceof AssignTablesRpcError)) {
+    return false;
+  }
+
+  const code = (error.code ?? "").toUpperCase();
+  const message = error.message.toLowerCase();
+
+  return (
+    code === "ASSIGNMENT_CONFLICT" ||
+    code === "P0001" ||
+    message.includes("assignment duplicate") ||
+    message.includes("duplicate") ||
+    message.includes("overlap") ||
+    message.includes("conflict")
+  );
+}
+
 export async function confirmWithPolicyRetry(
   params: ConfirmWithPolicyRetryParams,
 ): Promise<{ assignments: TableAssignmentMember[]; attempts: number }> {
@@ -51,6 +69,7 @@ export async function confirmWithPolicyRetry(
   let attempt = 0;
   let driftDetected = false;
   let driftNotificationSent = false;
+  let conflictDetected = false;
   let lastError: unknown = null;
   let lastDriftInfo: { kind: PolicyDriftKind; details: PolicyDriftDetails } | null = null;
 
@@ -91,8 +110,70 @@ export async function confirmWithPolicyRetry(
         });
       }
 
+      if (conflictDetected) {
+        await recordObservabilityEvent({
+          source: "capacity.policy",
+          eventType: "assignment_conflict.recovered",
+          restaurantId: restaurantId ?? undefined,
+          bookingId,
+          context: {
+            attempts: attempt + 1,
+            holdId: contextRef.currentHoldId,
+          },
+        });
+      }
+
       return { assignments, attempts: attempt + 1 };
     } catch (error) {
+      if (isRetryableAssignmentConflict(error) && enableRetry && attempt < totalAttempts - 1) {
+        conflictDetected = true;
+
+        await recordObservabilityEvent({
+          source: "capacity.policy",
+          eventType: "assignment_conflict.detected",
+          severity: "warning",
+          restaurantId: restaurantId ?? undefined,
+          bookingId,
+          context: {
+            attempt: attempt + 1,
+            holdId: contextRef.currentHoldId,
+            code: error.code ?? null,
+            details: error.details ?? null,
+          },
+        });
+
+        try {
+          await releaseHoldWithRetry({ holdId: contextRef.currentHoldId, client: supabase });
+        } catch (releaseError) {
+          console.warn("[capacity.policy] failed to release hold during conflict retry", {
+            holdId: contextRef.currentHoldId,
+            error: releaseError instanceof Error ? releaseError.message : String(releaseError),
+          });
+        }
+
+        const quote = await quoteTablesForBooking({
+          bookingId,
+          createdBy: assignedBy ?? "assignment-conflict-retry",
+          holdTtlSeconds: DEFAULT_HOLD_TTL_SECONDS,
+          client: supabase,
+          signal,
+        });
+
+        if (!quote.hold) {
+          lastError = new AssignTablesRpcError({
+            message: "Failed to re-quote tables after assignment conflict",
+            code: "ASSIGNMENT_REQUOTE_FAILED",
+            details: serializeDetails({ reason: quote.reason ?? "NO_HOLD" }),
+            hint: quote.reason ?? null,
+          });
+          break;
+        }
+
+        contextRef.currentHoldId = quote.hold.id;
+        attempt += 1;
+        continue;
+      }
+
       if (error instanceof PolicyDriftError && enableRetry && attempt < totalAttempts - 1) {
         driftDetected = true;
         const details = error.driftDetails;
@@ -174,6 +255,21 @@ export async function confirmWithPolicyRetry(
         holdId: contextRef.currentHoldId,
         error: lastError instanceof Error ? lastError.message : String(lastError),
         kind: lastDriftInfo?.kind ?? null,
+      },
+    });
+  }
+
+  if (conflictDetected) {
+    await recordObservabilityEvent({
+      source: "capacity.policy",
+      eventType: "assignment_conflict.failed",
+      severity: "error",
+      restaurantId: restaurantId ?? undefined,
+      bookingId,
+      context: {
+        attempt: attempt + 1,
+        holdId: contextRef.currentHoldId,
+        error: lastError instanceof Error ? lastError.message : String(lastError),
       },
     });
   }
