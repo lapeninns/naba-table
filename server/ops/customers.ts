@@ -1,55 +1,235 @@
 import {
-  OPS_GUEST_RETURNING_MIN_BOOKINGS,
-  OPS_GUEST_VIP_MIN_BOOKINGS,
-} from "@/lib/ops/customers";
-import { getServiceSupabaseClient } from "@/server/supabase";
+  buildCustomerHistoryRecords,
+  filterCustomerHistoryRecords,
+  isCustomerHistoryBookingStatus,
+  sortCustomerHistoryRecords,
+  summarizeCustomerHistoryRecords,
+  type CustomerBookingRecord,
+  type CustomerHistoryLastVisitFilter,
+  type CustomerHistoryMarketingFilter,
+  type CustomerHistoryRecord,
+  type CustomerHistorySortBy,
+  type CustomerHistorySortOrder,
+  type CustomerIdentityRecord,
+} from '@/lib/ops/customer-history';
+import { getServiceSupabaseClient } from '@/server/supabase';
 
-import type { OpsCustomersSummary } from "@/types/ops";
-import type { Database, Tables } from "@/types/supabase";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { OpsCustomersSummary } from '@/types/ops';
+import type { Database, Tables } from '@/types/supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
+type DbClient = SupabaseClient<Database, 'public'>;
 
-type DbClient = SupabaseClient<Database, "public">;
+export type CustomerGuestRecord = CustomerHistoryRecord;
 
-type MarketingOptInFilter = "all" | "opted_in" | "opted_out";
-type LastVisitFilter = "any" | "30d" | "90d" | "365d" | "never";
-type CustomerSortBy = "last_visit" | "bookings";
-
-export type CustomerWithProfile = {
-  id: string;
+type GetCustomersOptions = {
   restaurantId: string;
-  name: string;
-  email: string;
-  phone: string;
-  marketingOptIn: boolean;
-  createdAt: string;
-  updatedAt: string;
-  firstBookingAt: string | null;
-  lastBookingAt: string | null;
-  totalBookings: number;
-  totalCovers: number;
-  totalCancellations: number;
+  page?: number;
+  pageSize?: number;
+  sortOrder?: CustomerHistorySortOrder;
+  sortBy?: CustomerHistorySortBy;
+  search?: string | null;
+  marketingOptIn?: CustomerHistoryMarketingFilter;
+  lastVisit?: CustomerHistoryLastVisitFilter;
+  minBookings?: number;
+  client?: DbClient;
+  maxPageSize?: number;
+  includeSummary?: boolean;
+  now?: Date;
 };
 
-type CustomerRow = Tables<"customers"> & {
-  customer_profiles:
-    | (Tables<"customer_profiles"> | null)
-    | (Tables<"customer_profiles"> | null)[]
-    | null;
+type GetCustomersResult = {
+  customers: CustomerGuestRecord[];
+  total: number;
+  page: number;
+  pageSize: number;
+  hasNext: boolean;
+  summary?: OpsCustomersSummary;
 };
 
-function normalizeCustomerProfile(row: CustomerRow): Tables<"customer_profiles"> | null {
-  const relation = row.customer_profiles;
-  if (Array.isArray(relation)) {
-    return relation[0] ?? null;
-  }
-  return relation ?? null;
+type GetAllCustomersOptions = GetCustomersOptions;
+
+type CustomerIdentityRow = Pick<
+  Tables<'customers'>,
+  'id' | 'restaurant_id' | 'full_name' | 'email' | 'phone' | 'marketing_opt_in' | 'created_at' | 'updated_at'
+>;
+
+type BookingHistoryRow = Pick<
+  Tables<'bookings'>,
+  'id' | 'customer_id' | 'restaurant_id' | 'status' | 'party_size' | 'created_at' | 'start_at'
+>;
+
+type CustomerHistoryFeedRow =
+  Database['public']['Functions']['ops_customers_history_feed']['Returns'][number];
+type CustomerHistorySummaryRow =
+  Database['public']['Functions']['ops_customers_history_summary']['Returns'][number];
+
+const CUSTOMER_ID_CHUNK_SIZE = 500;
+const CUSTOMER_FETCH_BATCH_SIZE = 1000;
+const BOOKING_FETCH_BATCH_SIZE = 1000;
+const RPC_EXPORT_BATCH_SIZE = 500;
+
+function normalizePage(page: number | undefined): number {
+  return Math.max(1, page ?? 1);
 }
 
-function mapCustomerRow(row: CustomerRow): CustomerWithProfile {
-  const profile = normalizeCustomerProfile(row);
+function normalizePageSize(requestedPageSize: number | undefined, maxPageSize: number | undefined): number {
+  const requested = requestedPageSize ?? 10;
+  const maximum = Math.max(1, maxPageSize ?? 50);
+  return Math.min(requested, maximum);
+}
+
+function normalizeOptionalString(value: string | null | undefined): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function isCustomersHistoryRpcUnavailable(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const anyError = error as {
+    code?: unknown;
+    message?: unknown;
+    details?: unknown;
+    hint?: unknown;
+  };
+  const code = typeof anyError.code === 'string' ? anyError.code : '';
+  const message = typeof anyError.message === 'string' ? anyError.message : '';
+  const details = typeof anyError.details === 'string' ? anyError.details : '';
+  const hint = typeof anyError.hint === 'string' ? anyError.hint : '';
+
+  const haystack = `${code} ${message} ${details} ${hint}`.toLowerCase();
+
+  return (
+    haystack.includes('schema cache') ||
+    haystack.includes('could not find') ||
+    haystack.includes('does not exist') ||
+    haystack.includes('function') ||
+    haystack.includes('42883')
+  );
+}
+
+function mapCustomerHistoryFeedRow(row: CustomerHistoryFeedRow): CustomerGuestRecord {
+  return {
+    id: row.id,
+    restaurantId: row.restaurant_id,
+    name: row.name,
+    email: row.email,
+    phone: row.phone,
+    marketingOptIn: row.marketing_opt_in,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    firstBookingAt: row.first_booking_at,
+    lastVisitAt: row.last_visit_at,
+    totalBookings: row.total_bookings,
+    totalCovers: row.total_covers,
+    totalCancellations: row.total_cancellations,
+  };
+}
+
+function emptyCustomersSummary(): OpsCustomersSummary {
+  return {
+    total: 0,
+    optedIn: 0,
+    optedOut: 0,
+    returning: 0,
+    vip: 0,
+    neverVisited: 0,
+  };
+}
+
+function mapCustomerHistorySummaryRow(row: CustomerHistorySummaryRow | null | undefined): OpsCustomersSummary {
+  if (!row) {
+    return emptyCustomersSummary();
+  }
 
   return {
+    total: row.total,
+    optedIn: row.opted_in,
+    optedOut: row.opted_out,
+    returning: row.returning,
+    vip: row.vip,
+    neverVisited: row.never_visited,
+  };
+}
+
+function escapeIlikeTerm(term: string): string | null {
+  const trimmed = term.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const escaped = trimmed.replace(/[%_]/g, '\\$&');
+  return `%${escaped}%`;
+}
+
+function buildCustomerIdentityQuery(
+  client: DbClient,
+  restaurantId: string,
+  options: {
+    search?: string | null;
+    marketingOptIn: CustomerHistoryMarketingFilter;
+  },
+) {
+  let query = client
+    .from('customers')
+    .select(
+      'id, restaurant_id, full_name, email, phone, marketing_opt_in, created_at, updated_at',
+    )
+    .eq('restaurant_id', restaurantId);
+
+  if (options.marketingOptIn === 'opted_in') {
+    query = query.eq('marketing_opt_in', true);
+  } else if (options.marketingOptIn === 'opted_out') {
+    query = query.eq('marketing_opt_in', false);
+  }
+
+  const searchPattern = escapeIlikeTerm(options.search ?? '');
+  if (searchPattern) {
+    query = query.or(
+      `full_name.ilike.${searchPattern},email.ilike.${searchPattern},phone.ilike.${searchPattern}`,
+    );
+  }
+
+  return query;
+}
+
+async function fetchQueryPages<TRow>(
+  queryFactory: () => {
+    range(from: number, to: number): PromiseLike<{ data: TRow[] | null; error: unknown }>;
+  },
+  batchSize: number,
+): Promise<TRow[]> {
+  const rows: TRow[] = [];
+  let offset = 0;
+
+  while (true) {
+    const { data, error } = await queryFactory().range(offset, offset + batchSize - 1);
+    if (error) {
+      throw error;
+    }
+
+    const page = data ?? [];
+    rows.push(...page);
+
+    if (page.length < batchSize) {
+      break;
+    }
+
+    offset += batchSize;
+  }
+
+  return rows;
+}
+
+function mapCustomerIdentityRows(rows: CustomerIdentityRow[]): CustomerIdentityRecord[] {
+  return rows.map((row) => ({
     id: row.id,
     restaurantId: row.restaurant_id,
     name: row.full_name,
@@ -58,312 +238,216 @@ function mapCustomerRow(row: CustomerRow): CustomerWithProfile {
     marketingOptIn: row.marketing_opt_in,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    firstBookingAt: profile?.first_booking_at ?? null,
-    lastBookingAt: profile?.last_booking_at ?? null,
-    totalBookings: profile?.total_bookings ?? 0,
-    totalCovers: profile?.total_covers ?? 0,
-    totalCancellations: profile?.total_cancellations ?? 0,
-  };
+  }));
 }
 
-function escapeIlikeTerm(term: string): string | null {
-  const trimmed = term.trim();
-  if (!trimmed) return null;
+function mapBookingHistoryRows(rows: BookingHistoryRow[]): CustomerBookingRecord[] {
+  const records: CustomerBookingRecord[] = [];
 
-  const escaped = trimmed.replace(/[%_]/g, "\\$&");
-  return `%${escaped}%`;
-}
-
-function resolveLastVisitCutoff(lastVisit: LastVisitFilter): string | null {
-  const daysLookup: Record<Exclude<LastVisitFilter, "any" | "never">, number> = {
-    "30d": 30,
-    "90d": 90,
-    "365d": 365,
-  };
-
-  const days = daysLookup[lastVisit as keyof typeof daysLookup];
-  if (!days) return null;
-
-  const date = new Date();
-  date.setDate(date.getDate() - days);
-  return date.toISOString();
-}
-
-type CustomerQueryFilters = {
-  marketingOptIn: MarketingOptInFilter;
-  lastVisit: LastVisitFilter;
-  minBookings: number;
-  search?: string | null;
-};
-
-type GetCustomersOptions = {
-  restaurantId: string;
-  page?: number;
-  pageSize?: number;
-  sortOrder?: "asc" | "desc";
-  sortBy?: CustomerSortBy;
-  search?: string | null;
-  marketingOptIn?: MarketingOptInFilter;
-  lastVisit?: LastVisitFilter;
-  minBookings?: number;
-  client?: DbClient;
-  maxPageSize?: number;
-  includeSummary?: boolean;
-};
-
-type GetCustomersResult = {
-  customers: CustomerWithProfile[];
-  total: number;
-  page: number;
-  pageSize: number;
-  hasNext: boolean;
-  summary?: OpsCustomersSummary;
-};
-
-type CustomerFiltersQuery<TQuery> = {
-  eq(column: string, value: unknown): TQuery;
-  gte(column: string, value: unknown): TQuery;
-  is(column: string, value: null): TQuery;
-  or(filters: string): TQuery;
-};
-
-function applyCustomerFilters<TQuery extends CustomerFiltersQuery<TQuery>>(
-  // Supabase's PostgREST builders have a complex type surface; keep this helper structural.
-  query: TQuery,
-  restaurantId: string,
-  filters: CustomerQueryFilters,
-) {
-  let q = query.eq("restaurant_id", restaurantId);
-
-  if (filters.marketingOptIn === "opted_in") {
-    q = q.eq("marketing_opt_in", true);
-  } else if (filters.marketingOptIn === "opted_out") {
-    q = q.eq("marketing_opt_in", false);
-  }
-
-  if (filters.minBookings > 0) {
-    q = q.gte("customer_profiles.total_bookings", filters.minBookings);
-  }
-
-  if (filters.lastVisit === "never") {
-    q = q.is("customer_profiles.last_booking_at", null);
-  } else {
-    const cutoff = resolveLastVisitCutoff(filters.lastVisit);
-    if (cutoff) {
-      q = q.gte("customer_profiles.last_booking_at", cutoff);
+  for (const row of rows) {
+    if (!isCustomerHistoryBookingStatus(row.status)) {
+      continue;
     }
+
+    records.push({
+      id: row.id,
+      customerId: row.customer_id,
+      restaurantId: row.restaurant_id,
+      status: row.status,
+      partySize: row.party_size,
+      createdAt: row.created_at,
+      startAt: row.start_at ?? null,
+    });
   }
 
-  const searchPattern = escapeIlikeTerm(filters.search ?? "");
-  if (searchPattern) {
-    q = q.or(
-      `full_name.ilike.${searchPattern},email.ilike.${searchPattern},phone.ilike.${searchPattern}`,
-    );
-  }
-
-  return q;
+  return records;
 }
 
-function buildCustomersListQuery(
+async function fetchCustomerIdentitiesFallback(
   client: DbClient,
   restaurantId: string,
-  filters: CustomerQueryFilters,
-) {
-  const query = client
-    .from("customers")
-    .select(
-      `
-      id,
-      restaurant_id,
-      full_name,
-      email,
-      phone,
-      marketing_opt_in,
-      created_at,
-      updated_at,
-      customer_profiles (
-        first_booking_at,
-        last_booking_at,
-        total_bookings,
-        total_covers,
-        total_cancellations
-      )
-    `,
-      { count: "exact" },
-    );
+  options: {
+    search?: string | null;
+    marketingOptIn: CustomerHistoryMarketingFilter;
+  },
+): Promise<CustomerIdentityRecord[]> {
+  const rows = await fetchQueryPages<CustomerIdentityRow>(
+    () =>
+      buildCustomerIdentityQuery(client, restaurantId, options).order('id', {
+        ascending: true,
+      }),
+    CUSTOMER_FETCH_BATCH_SIZE,
+  );
 
-  return applyCustomerFilters(query, restaurantId, filters);
+  return mapCustomerIdentityRows(rows);
 }
 
-async function countCustomers(
+async function fetchBookingsForCustomerIdsFallback(
   client: DbClient,
   restaurantId: string,
-  filters: CustomerQueryFilters,
-): Promise<number> {
-  const query = client
-    .from("customers")
-    // Keep the relationship embedded so we can filter on `customer_profiles.*` consistently.
-    .select(
-      `
-      id,
-      customer_profiles (
-        last_booking_at,
-        total_bookings
-      )
-    `,
-      { count: "exact", head: true },
+  customerIds: string[],
+): Promise<CustomerBookingRecord[]> {
+  if (customerIds.length === 0) {
+    return [];
+  }
+
+  const bookingRows: CustomerBookingRecord[] = [];
+
+  for (let index = 0; index < customerIds.length; index += CUSTOMER_ID_CHUNK_SIZE) {
+    const chunk = customerIds.slice(index, index + CUSTOMER_ID_CHUNK_SIZE);
+    const rows = await fetchQueryPages<BookingHistoryRow>(
+      () =>
+        client
+          .from('bookings')
+          .select('id, customer_id, restaurant_id, status, party_size, created_at, start_at')
+          .eq('restaurant_id', restaurantId)
+          .in('customer_id', chunk)
+          .order('id', { ascending: true }),
+      BOOKING_FETCH_BATCH_SIZE,
     );
 
-  const { count, error } = await applyCustomerFilters(query, restaurantId, filters);
-  if (error) {
-    throw error;
+    bookingRows.push(...mapBookingHistoryRows(rows));
   }
-  return count ?? 0;
+
+  return bookingRows;
 }
 
-async function computeCustomersSummary(options: {
-  client: DbClient;
-  restaurantId: string;
+function paginateCustomerHistory(
+  records: CustomerGuestRecord[],
+  page: number,
+  pageSize: number,
+): {
+  pageItems: CustomerGuestRecord[];
   total: number;
-  marketingOptIn: MarketingOptInFilter;
-  lastVisit: LastVisitFilter;
-  minBookings: number;
-  search?: string | null;
-}): Promise<OpsCustomersSummary> {
-  const base: CustomerQueryFilters = {
-    marketingOptIn: options.marketingOptIn,
-    lastVisit: options.lastVisit,
-    minBookings: options.minBookings,
-    search: options.search ?? null,
-  };
-
-  const total = options.total;
-
-  const optedInPromise: Promise<number> = (() => {
-    if (options.marketingOptIn === "opted_in") return Promise.resolve(total);
-    if (options.marketingOptIn === "opted_out") return Promise.resolve(0);
-    return countCustomers(options.client, options.restaurantId, {
-      ...base,
-      marketingOptIn: "opted_in",
-    });
-  })();
-
-  const vipPromise: Promise<number> = (() => {
-    if (options.minBookings >= OPS_GUEST_VIP_MIN_BOOKINGS) return Promise.resolve(total);
-    return countCustomers(options.client, options.restaurantId, {
-      ...base,
-      minBookings: OPS_GUEST_VIP_MIN_BOOKINGS,
-    });
-  })();
-
-  const returningPromise: Promise<number> = (() => {
-    if (options.minBookings >= OPS_GUEST_RETURNING_MIN_BOOKINGS) return Promise.resolve(total);
-    return countCustomers(options.client, options.restaurantId, {
-      ...base,
-      minBookings: OPS_GUEST_RETURNING_MIN_BOOKINGS,
-    });
-  })();
-
-  const neverVisitedPromise: Promise<number> = (() => {
-    if (options.lastVisit === "never") return Promise.resolve(total);
-    if (options.lastVisit !== "any") return Promise.resolve(0);
-    return countCustomers(options.client, options.restaurantId, {
-      ...base,
-      lastVisit: "never",
-    });
-  })();
-
-  const [optedIn, vip, returning, neverVisited] = await Promise.all([
-    optedInPromise,
-    vipPromise,
-    returningPromise,
-    neverVisitedPromise,
-  ]);
-
-  const optedOut =
-    options.marketingOptIn === "opted_out"
-      ? total
-      : options.marketingOptIn === "opted_in"
-        ? 0
-        : Math.max(0, total - optedIn);
+  hasNext: boolean;
+} {
+  const total = records.length;
+  const offset = (page - 1) * pageSize;
+  const pageItems = records.slice(offset, offset + pageSize);
+  const hasNext = offset + pageItems.length < total;
 
   return {
+    pageItems,
     total,
-    optedIn,
-    optedOut,
-    vip,
-    returning,
-    neverVisited,
+    hasNext,
   };
 }
 
-export async function getCustomersWithProfiles(
+async function getCustomersWithHistoryFallback(
   options: GetCustomersOptions,
 ): Promise<GetCustomersResult> {
   const client = options.client ?? getServiceSupabaseClient();
-  const page = options.page ?? 1;
-  const requestedPageSize = options.pageSize ?? 10;
-  const maxPageSize = options.maxPageSize ?? 50;
-  const pageSize = Math.min(requestedPageSize, Math.max(1, maxPageSize));
-  const sortOrder = options.sortOrder ?? "desc";
-  const sortBy = options.sortBy ?? "last_visit";
-  const marketingOptIn = options.marketingOptIn ?? "all";
-  const lastVisit = options.lastVisit ?? "any";
+  const page = normalizePage(options.page);
+  const pageSize = normalizePageSize(options.pageSize, options.maxPageSize);
+  const sortOrder = options.sortOrder ?? 'desc';
+  const sortBy = options.sortBy ?? 'last_visit';
+  const marketingOptIn = options.marketingOptIn ?? 'all';
+  const lastVisit = options.lastVisit ?? 'any';
   const minBookings = Math.max(0, options.minBookings ?? 0);
-  const offset = (page - 1) * pageSize;
+  const now = options.now ?? new Date();
 
-  // Query customers with their profiles
-  const baseFilters: CustomerQueryFilters = {
-    marketingOptIn,
-    lastVisit,
-    minBookings,
+  const customerRows = await fetchCustomerIdentitiesFallback(client, options.restaurantId, {
     search: options.search ?? null,
-  };
-  const query = buildCustomersListQuery(client, options.restaurantId, baseFilters);
+    marketingOptIn,
+  });
 
-  // Apply pagination
-  const orderColumn = sortBy === "bookings" ? "total_bookings" : "last_booking_at";
-  const { data, error, count } = await query
-    .order(orderColumn, {
-      ascending: sortOrder === "asc",
-      nullsFirst: false,
-      foreignTable: "customer_profiles",
-    })
-    .range(offset, offset + pageSize - 1);
-
-  if (error) {
-    throw error;
+  if (customerRows.length === 0) {
+    return {
+      customers: [],
+      total: 0,
+      page,
+      pageSize,
+      hasNext: false,
+      summary: options.includeSummary ? emptyCustomersSummary() : undefined,
+    };
   }
 
-  const rows = (data ?? []) as CustomerRow[];
-  const total = count ?? 0;
+  const bookingRows = await fetchBookingsForCustomerIdsFallback(
+    client,
+    options.restaurantId,
+    customerRows.map((row) => row.id),
+  );
 
-  // Transform to our CustomerWithProfile type
-  const customers: CustomerWithProfile[] = rows.map(mapCustomerRow);
+  const historyRecords = buildCustomerHistoryRecords(customerRows, bookingRows, now);
+  const filteredRecords = filterCustomerHistoryRecords(
+    historyRecords,
+    {
+      lastVisit,
+      minBookings,
+    },
+    now,
+  );
+  const sortedRecords = sortCustomerHistoryRecords(filteredRecords, sortBy, sortOrder);
+  const { pageItems, total, hasNext } = paginateCustomerHistory(sortedRecords, page, pageSize);
 
-  const hasNext = offset + customers.length < total;
+  return {
+    customers: pageItems,
+    total,
+    page,
+    pageSize,
+    hasNext,
+    summary: options.includeSummary ? summarizeCustomerHistoryRecords(filteredRecords) : undefined,
+  };
+}
+
+async function getCustomersWithHistoryFromRpc(
+  options: GetCustomersOptions,
+): Promise<GetCustomersResult> {
+  const client = options.client ?? getServiceSupabaseClient();
+  const page = normalizePage(options.page);
+  const pageSize = normalizePageSize(options.pageSize, options.maxPageSize);
+  const sortOrder = options.sortOrder ?? 'desc';
+  const sortBy = options.sortBy ?? 'last_visit';
+  const marketingOptIn = options.marketingOptIn ?? 'all';
+  const lastVisit = options.lastVisit ?? 'any';
+  const minBookings = Math.max(0, options.minBookings ?? 0);
+
+  const { data: feedData, error: feedError } = await client.rpc('ops_customers_history_feed', {
+    p_restaurant_id: options.restaurantId,
+    p_search: normalizeOptionalString(options.search),
+    p_marketing_opt_in: marketingOptIn,
+    p_last_visit: lastVisit,
+    p_min_bookings: minBookings,
+    p_sort_by: sortBy,
+    p_sort_order: sortOrder,
+    p_page: page,
+    p_page_size: pageSize,
+  });
+
+  if (feedError) {
+    throw feedError;
+  }
+
+  const feedRows = Array.isArray(feedData) ? (feedData as CustomerHistoryFeedRow[]) : [];
+  const hasNext = feedRows.length > pageSize;
+  const pageRows = hasNext ? feedRows.slice(0, pageSize) : feedRows;
+  const total = pageRows[0]?.total_count ?? 0;
 
   let summary: OpsCustomersSummary | undefined;
-  if (options.includeSummary && page === 1) {
-    try {
-      summary = await computeCustomersSummary({
-        client,
-        restaurantId: options.restaurantId,
-        total,
-        marketingOptIn,
-        lastVisit,
-        minBookings,
-        search: options.search ?? null,
-      });
-    } catch (summaryError) {
-      // Summary is best-effort; do not fail the list response.
-      console.error("[ops/customers] summary computation failed", summaryError);
-      summary = undefined;
+  if (options.includeSummary) {
+    const { data: summaryData, error: summaryError } = await client.rpc(
+      'ops_customers_history_summary',
+      {
+        p_restaurant_id: options.restaurantId,
+        p_search: normalizeOptionalString(options.search),
+        p_marketing_opt_in: marketingOptIn,
+        p_last_visit: lastVisit,
+        p_min_bookings: minBookings,
+      },
+    );
+
+    if (summaryError) {
+      throw summaryError;
     }
+
+    const summaryRow = Array.isArray(summaryData)
+      ? (summaryData[0] as CustomerHistorySummaryRow | undefined)
+      : (summaryData as CustomerHistorySummaryRow | null | undefined);
+    summary = mapCustomerHistorySummaryRow(summaryRow);
   }
 
   return {
-    customers,
+    customers: pageRows.map(mapCustomerHistoryFeedRow),
     total,
     page,
     pageSize,
@@ -372,43 +456,38 @@ export async function getCustomersWithProfiles(
   };
 }
 
-type GetAllCustomersOptions = GetCustomersOptions & {
-  batchSize?: number;
-};
+export async function getCustomersWithHistory(
+  options: GetCustomersOptions,
+): Promise<GetCustomersResult> {
+  try {
+    return await getCustomersWithHistoryFromRpc(options);
+  } catch (error) {
+    if (isCustomersHistoryRpcUnavailable(error)) {
+      return getCustomersWithHistoryFallback(options);
+    }
 
-export async function getAllCustomersWithProfiles(
+    throw error;
+  }
+}
+
+export async function getAllCustomersWithHistory(
   options: GetAllCustomersOptions,
-): Promise<CustomerWithProfile[]> {
-  const client = options.client ?? getServiceSupabaseClient();
-  const sortOrder = options.sortOrder ?? "desc";
-  const batchSize = Math.max(1, Math.min(options.batchSize ?? 500, 1000));
-
+): Promise<CustomerGuestRecord[]> {
+  const customers: CustomerGuestRecord[] = [];
   let page = 1;
   let hasNext = true;
-  const customers: CustomerWithProfile[] = [];
 
   while (hasNext) {
-    const result = await getCustomersWithProfiles({
-      restaurantId: options.restaurantId,
+    const result = await getCustomersWithHistory({
+      ...options,
       page,
-      pageSize: batchSize,
-      maxPageSize: batchSize,
-      sortOrder,
-      sortBy: options.sortBy,
-      marketingOptIn: options.marketingOptIn,
-      lastVisit: options.lastVisit,
-      minBookings: options.minBookings,
-      search: options.search,
-      client,
+      pageSize: RPC_EXPORT_BATCH_SIZE,
+      maxPageSize: RPC_EXPORT_BATCH_SIZE,
+      includeSummary: false,
     });
 
     customers.push(...result.customers);
     hasNext = result.hasNext && result.customers.length > 0;
-
-    if (!hasNext) {
-      break;
-    }
-
     page += 1;
   }
 

@@ -1,0 +1,20 @@
+customers-db-pagination-20260329-1849
+
+Automated checks
+- pnpm exec vitest run tests/lib/customerHistory.test.ts tests/server/ops/customers.test.ts tests/components/features/customers/opsCustomersSelectors.test.ts tests/components/CustomersTable.test.tsx
+  result: pass
+- pnpm run typecheck
+  result: pass
+- pnpm exec eslint --max-warnings=0 server/ops/customers.ts lib/ops/customer-history.ts src/app/api/ops/customers/route.ts src/app/api/ops/customers/export/route.ts src/components/features/customers/OpsCustomersClient.tsx src/components/features/customers/OpsGuestCard.tsx tests/lib/customerHistory.test.ts tests/server/ops/customers.test.ts
+  result: pass
+- git diff --check
+  result: pass
+
+Manual QA
+- opened http://localhost:3000/dev/ops-customers
+- confirmed guests page renders in the dev harness
+- entered sam.patel into search
+- verified URL updated to ?search=sam.patel
+- verified list narrowed to Sam Patel and summary updated to 1 total guest
+- confirmed console remained clean with no messages
+- saved screenshot to artifacts/ops-customers-db-pagination-dev-harness.png

@@ -1,0 +1,20 @@
+pnpm exec vitest run tests/components/features/customers/opsCustomersSelectors.test.ts tests/components/CustomersTable.test.tsx
+- PASS
+
+pnpm run typecheck
+- PASS
+
+pnpm exec eslint --max-warnings=0 src/components/features/customers/OpsCustomersClient.tsx src/components/features/customers/CustomersTable.tsx src/components/features/customers/OpsGuestCard.tsx src/components/features/customers/opsCustomersTypes.ts src/components/features/customers/opsCustomersSelectors.ts src/components/features/customers/useOpsCustomersQueryState.ts src/components/features/customers/useOpsCustomersDataState.ts tests/components/CustomersTable.test.tsx tests/components/features/customers/opsCustomersSelectors.test.ts tests/setup.ts
+- PASS
+
+git diff --check
+- PASS
+
+Chrome DevTools MCP
+- Opened http://localhost:3000/dev/ops-customers
+- Verified initial render and metrics load
+- Verified search query sync via `sam.patel` and narrowed results
+- Verified focus deep-link via `?focus=sam.patel@example.com`
+- Verified mobile-width rendering
+- Console clean except baseline React DevTools info and PostHog missing-env warning in the local harness
+- Screenshot saved to artifacts/ops-customers-dev-harness.png

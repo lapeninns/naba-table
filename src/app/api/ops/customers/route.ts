@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { mapSupabaseAuthError } from "@/server/auth/supabase-auth-errors";
-import { getCustomersWithProfiles } from "@/server/ops/customers";
+import { getCustomersWithHistory } from "@/server/ops/customers";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 import { fetchUserMemberships } from "@/server/team/access";
 
@@ -105,7 +105,7 @@ export async function GET(req: NextRequest) {
   const serviceSupabase = getServiceSupabaseClient();
 
   try {
-    const result = await getCustomersWithProfiles({
+    const result = await getCustomersWithHistory({
       restaurantId: targetRestaurantId,
       page: params.page,
       pageSize: params.pageSize,
@@ -127,7 +127,7 @@ export async function GET(req: NextRequest) {
       marketingOptIn: customer.marketingOptIn,
       createdAt: customer.createdAt,
       firstBookingAt: customer.firstBookingAt,
-      lastBookingAt: customer.lastBookingAt,
+      lastBookingAt: customer.lastVisitAt,
       totalBookings: customer.totalBookings,
       totalCovers: customer.totalCovers,
       totalCancellations: customer.totalCancellations,

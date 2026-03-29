@@ -3726,6 +3726,76 @@ export type Database = {
           uniqueRecipients: number
         }[]
       }
+      ops_customers_history_base: {
+        Args: {
+          p_last_visit?: string
+          p_marketing_opt_in?: string
+          p_min_bookings?: number
+          p_restaurant_id: string
+          p_search?: string
+        }
+        Returns: {
+          created_at: string
+          email: string
+          first_booking_at: string | null
+          id: string
+          last_visit_at: string | null
+          marketing_opt_in: boolean
+          name: string
+          phone: string
+          restaurant_id: string
+          total_bookings: number
+          total_cancellations: number
+          total_covers: number
+          updated_at: string
+        }[]
+      }
+      ops_customers_history_feed: {
+        Args: {
+          p_last_visit?: string
+          p_marketing_opt_in?: string
+          p_min_bookings?: number
+          p_page?: number
+          p_page_size?: number
+          p_restaurant_id: string
+          p_search?: string
+          p_sort_by?: string
+          p_sort_order?: string
+        }
+        Returns: {
+          created_at: string
+          email: string
+          first_booking_at: string | null
+          id: string
+          last_visit_at: string | null
+          marketing_opt_in: boolean
+          name: string
+          phone: string
+          restaurant_id: string
+          total_count: number
+          total_bookings: number
+          total_cancellations: number
+          total_covers: number
+          updated_at: string
+        }[]
+      }
+      ops_customers_history_summary: {
+        Args: {
+          p_last_visit?: string
+          p_marketing_opt_in?: string
+          p_min_bookings?: number
+          p_restaurant_id: string
+          p_search?: string
+        }
+        Returns: {
+          never_visited: number
+          opted_in: number
+          opted_out: number
+          returning: number
+          total: number
+          vip: number
+        }[]
+      }
       process_late_arrivals: { Args: never; Returns: undefined }
       prune_allocations_history: {
         Args: { p_cutoff: string; p_limit?: number }
