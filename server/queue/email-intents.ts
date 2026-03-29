@@ -1,19 +1,17 @@
+import { DateTime } from 'luxon';
+
 import { recordObservabilityEvent } from '@/server/observability';
 import {
   processEmailJobs,
   type ProcessEmailJobResult,
 } from '@/server/queue/email-processing';
 import { getServiceSupabaseClient } from '@/server/supabase';
-import type {
-  Json,
-  Tables,
-  TablesInsert,
-} from '@/types/supabase';
 
 import {
   EMAIL_DLQ_NAME,
   EMAIL_QUEUE_NAME,
 } from './email-contract';
+
 import type {
   EmailJobPayload,
   EmailJobType,
@@ -21,6 +19,7 @@ import type {
   EmailQueueStatusSnapshot,
   QueueJobSummary,
 } from './email-contract';
+import type { Json, Tables, TablesInsert } from '@/types/supabase';
 
 const DEFAULT_ATTEMPTS = 5;
 const DEFAULT_BACKOFF = { type: 'exponential', delay: 60_000 } as const;
@@ -119,6 +118,15 @@ function normalizeJobHistoryLimit(limit: JobHistoryLimit): number {
   return Math.max(1, Math.min(MAX_JOB_HISTORY, Math.floor(limit)));
 }
 
+function parseIsoToMillis(value: string | null | undefined): number | null {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = DateTime.fromISO(value, { setZone: true });
+  return parsed.isValid ? parsed.toMillis() : null;
+}
+
 function asRecord(value: Json | null): Record<string, Json | undefined> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return {};
@@ -161,8 +169,8 @@ function toQueueStatus(
   if (row.status === 'failed') return 'dlq';
   if (row.status !== 'pending') return null;
 
-  const scheduledForMs = Date.parse(row.scheduled_for);
-  if (Number.isNaN(scheduledForMs)) {
+  const scheduledForMs = parseIsoToMillis(row.scheduled_for);
+  if (scheduledForMs === null) {
     return 'waiting';
   }
 
@@ -180,12 +188,15 @@ function toQueueJobSummary(row: EmailDispatchIntentRow): QueueJobSummary {
 
 async function countPendingRows(nowIso: string, mode: 'due' | 'future'): Promise<number> {
   const supabase = getServiceSupabaseClient();
-  const query = supabase.from('email_dispatch_intents').eq('status', 'pending');
+  const query = supabase
+    .from('email_dispatch_intents')
+    .select('id', { head: true, count: 'exact' })
+    .eq('status', 'pending');
   const filtered =
     mode === 'due'
       ? query.lte('scheduled_for', nowIso)
       : query.gt('scheduled_for', nowIso);
-  const { count, error } = await filtered.select('id', { head: true, count: 'exact' });
+  const { count, error } = await filtered;
 
   if (error) {
     throw new Error(error.message);
@@ -198,10 +209,13 @@ async function countStatusRows(
   status: EmailDispatchIntentStatus | ReadonlyArray<EmailDispatchIntentStatus>,
 ): Promise<number> {
   const supabase = getServiceSupabaseClient();
-  const query = Array.isArray(status)
-    ? supabase.from('email_dispatch_intents').in('status', [...status])
-    : supabase.from('email_dispatch_intents').eq('status', status);
-  const { count, error } = await query.select('id', { head: true, count: 'exact' });
+  const baseQuery = supabase
+    .from('email_dispatch_intents')
+    .select('id', { head: true, count: 'exact' });
+  const result = Array.isArray(status)
+    ? await baseQuery.in('status', [...status])
+    : await baseQuery.eq('status', status as EmailDispatchIntentStatus);
+  const { count, error } = result;
 
   if (error) {
     throw new Error(error.message);
@@ -216,13 +230,15 @@ async function listPendingRows(
   limit: number,
 ): Promise<EmailDispatchIntentRow[]> {
   const supabase = getServiceSupabaseClient();
-  const query = supabase.from('email_dispatch_intents').eq('status', 'pending');
+  const query = supabase
+    .from('email_dispatch_intents')
+    .select('*')
+    .eq('status', 'pending');
   const filtered =
     mode === 'due'
       ? query.lte('scheduled_for', nowIso)
       : query.gt('scheduled_for', nowIso);
   const { data, error } = await filtered
-    .select('*')
     .order('scheduled_for', { ascending: true })
     .order('created_at', { ascending: true })
     .limit(limit);
@@ -369,7 +385,8 @@ export async function scheduleEmailIntent(
     options.jobId ?? buildEmailJobId(payload.type, payload.bookingId),
   );
   const scheduledFor = normalizeScheduledFor(payload);
-  const delayMs = Math.max(0, Date.parse(scheduledFor) - Date.now());
+  const scheduledForMs = parseIsoToMillis(scheduledFor);
+  const delayMs = Math.max(0, (scheduledForMs ?? Date.now()) - Date.now());
   const attempts =
     typeof options.attempts === 'number' && Number.isFinite(options.attempts) && options.attempts > 0
       ? Math.floor(options.attempts)

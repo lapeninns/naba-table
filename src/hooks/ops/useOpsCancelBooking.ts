@@ -4,9 +4,10 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { useBookingService } from '@/contexts/ops-services';
 import { queryKeys } from '@/lib/query/keys';
+import { patchDashboardSummaryBooking } from '@/utils/ops/dashboardSummary';
 
 import type { HttpError } from '@/lib/http/errors';
-import type { OpsBookingListItem, OpsTodayBookingsSummary } from '@/types/ops';
+import type { OpsBookingListItem, OpsBookingsPage, OpsTodayBookingsSummary } from '@/types/ops';
 
 type CancelInput = {
   bookingId: string;
@@ -18,6 +19,14 @@ type CancelContext = {
   summaryKey?: ReturnType<(typeof queryKeys)['opsDashboard']['summary']>;
   previousSummary?: OpsTodayBookingsSummary;
   previousDetail?: OpsBookingListItem;
+};
+
+const opsBookingsListKey = ['ops', 'bookings', 'list'] as const;
+
+const hasBookingItems = (
+  value: OpsBookingsPage | undefined,
+): value is OpsBookingsPage & { items: OpsBookingListItem[] } => {
+  return Array.isArray(value?.items);
 };
 
 export function useOpsCancelBooking() {
@@ -40,12 +49,13 @@ export function useOpsCancelBooking() {
       );
 
       if (previousSummary) {
-        queryClient.setQueryData<OpsTodayBookingsSummary>(summaryKey, {
-          ...previousSummary,
-          bookings: previousSummary.bookings.map((booking) =>
-            booking.id === bookingId ? { ...booking, status: 'cancelled' } : booking,
-          ),
-        });
+        queryClient.setQueryData<OpsTodayBookingsSummary>(
+          summaryKey,
+          patchDashboardSummaryBooking(previousSummary, bookingId, (booking) => ({
+            ...booking,
+            status: 'cancelled',
+          })),
+        );
       }
 
       if (previousDetail) {
@@ -54,6 +64,20 @@ export function useOpsCancelBooking() {
           status: 'cancelled',
         });
       }
+
+      queryClient.setQueriesData<OpsBookingsPage>(
+        { queryKey: opsBookingsListKey, exact: false },
+        (current) => {
+          if (!hasBookingItems(current)) return current;
+          let didChange = false;
+          const items = current.items.map((item) => {
+            if (item.id !== bookingId) return item;
+            didChange = true;
+            return { ...item, status: 'cancelled' as const };
+          });
+          return didChange ? { ...current, items } : current;
+        },
+      );
 
       return { summaryKey, previousSummary, previousDetail };
     },
@@ -67,16 +91,6 @@ export function useOpsCancelBooking() {
 
     },
     onSettled: (_data, _error, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.opsBookings.detail(variables.bookingId),
-      });
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.opsBookings.list({}),
-        exact: false,
-      });
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.opsDashboard.summary(variables.restaurantId, variables.targetDate ?? null),
-      });
       queryClient.invalidateQueries({
         queryKey: ['ops', 'dashboard', variables.restaurantId, 'heatmap'],
         exact: false,

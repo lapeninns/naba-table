@@ -9,11 +9,10 @@ import {
   sendBookingUpdateEmail,
   sendRestaurantCancellationEmail,
 } from '@/server/emails/bookings';
+import { EMAIL_JOB_TYPE_VALUES } from '@/server/queue/email-contract';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { BookingRecord } from '@/server/bookings';
-import { EMAIL_JOB_TYPE_VALUES } from '@/server/queue/email-contract';
-
 import type { EmailJobPayload, EmailJobType } from '@/server/queue/email-contract';
 
 const emailJobTypeSchema = z.enum(EMAIL_JOB_TYPE_VALUES);

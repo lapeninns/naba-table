@@ -8,10 +8,11 @@ import { getTodayInTimezone } from '@/lib/utils/datetime';
 
 import { OpsDashboardToolbar } from './OpsDashboardToolbar';
 
-import type { BookingFilter, BookingTabCounts } from './BookingsFilterBar';
-import type { BookingDTO } from '@/hooks/useBookings';
-import type { OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
-import type { ChangeEvent } from 'react';
+import type {
+  DashboardBookingActionHandlers,
+  DashboardListControls,
+} from './types';
+import type { OpsTodayBookingsSummary } from '@/types/ops';
 
 const NO_BOOKINGS_TITLE = 'Bookings unavailable';
 const NO_BOOKINGS_BODY =
@@ -20,49 +21,11 @@ const NO_BOOKINGS_BODY =
 type DashboardSummaryCardProps = {
   summary: OpsTodayBookingsSummary;
   restaurantName: string;
-  filter: BookingFilter;
-  tabCounts: BookingTabCounts;
+  controls: DashboardListControls;
+  bookingActions: DashboardBookingActionHandlers;
   initialNowIso: string;
-  onFilterChange: (filter: BookingFilter) => void;
-  searchQuery?: string;
-  deferredSearchQuery?: string;
-  onSearchChange: (event: ChangeEvent<HTMLInputElement>) => void;
-  onPrint: () => void;
-  sortKey: 'time' | 'party' | 'name';
-  sortDir: 'asc' | 'desc';
-  onSortKeyChange: (value: 'time' | 'party' | 'name') => void;
-  onSortDirChange: (value: 'asc' | 'desc') => void;
-  isRefetching?: boolean;
   allowTableAssignments?: boolean;
   restaurantSlug?: string | null;
-  onDetails?: (booking: BookingDTO) => void;
-  onEdit?: (booking: BookingDTO) => void;
-  onCancel?: (booking: BookingDTO) => void;
-  onAssignTable?: (
-    bookingId: string,
-    tableId: string,
-  ) => Promise<OpsTodayBooking['tableAssignments']>;
-  onUnassignTable?: (
-    bookingId: string,
-    tableId: string,
-  ) => Promise<OpsTodayBooking['tableAssignments']>;
-  tableActionState?: {
-    type: 'assign' | 'unassign';
-    bookingId: string | null;
-    tableId?: string | null;
-  } | null;
-  onMarkNoShow: (
-    bookingId: string,
-    options?: { performedAt?: string | null; reason?: string | null },
-  ) => Promise<void>;
-  onUndoNoShow: (bookingId: string, reason?: string | null) => Promise<void>;
-  onCheckIn: (bookingId: string) => Promise<void>;
-  onCheckOut: (bookingId: string) => Promise<void>;
-  pendingLifecycleAction?: {
-    bookingId: string | null;
-    action: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show';
-    snapshot?: Pick<OpsTodayBooking, 'status' | 'startTime' | 'endTime'> | null;
-  } | null;
 };
 
 const BookingsList = dynamic(() => import('./BookingsList').then((mod) => mod.BookingsList), {
@@ -72,32 +35,11 @@ const BookingsList = dynamic(() => import('./BookingsList').then((mod) => mod.Bo
 export function DashboardSummaryCard({
   summary,
   restaurantName,
-  filter,
-  tabCounts,
+  controls,
+  bookingActions,
   initialNowIso,
-  onFilterChange,
-  searchQuery,
-  deferredSearchQuery,
-  onSearchChange,
-  onPrint,
-  sortKey,
-  sortDir,
-  onSortKeyChange,
-  onSortDirChange,
-  isRefetching,
   allowTableAssignments,
   restaurantSlug,
-  onDetails,
-  onEdit,
-  onCancel,
-  onAssignTable,
-  onUnassignTable,
-  tableActionState,
-  onMarkNoShow,
-  onUndoNoShow,
-  onCheckIn,
-  onCheckOut,
-  pendingLifecycleAction,
 }: DashboardSummaryCardProps) {
   const canAssignTables =
     typeof allowTableAssignments === 'boolean'
@@ -128,39 +70,31 @@ export function DashboardSummaryCard({
       </CardHeader>
       <CardContent className="space-y-4 p-4 md:space-y-6 md:p-6">
         <OpsDashboardToolbar
-          filter={filter}
-          tabCounts={tabCounts}
-          searchQuery={searchQuery ?? ''}
-          onFilterChange={onFilterChange}
-          onSearchChange={onSearchChange}
-          onPrint={onPrint}
+          filter={controls.filter}
+          tabCounts={controls.tabCounts}
+          searchQuery={controls.searchQuery ?? ''}
+          onFilterChange={controls.onFilterChange}
+          onSearchChange={controls.onSearchChange}
+          onPrint={controls.onPrint}
           sticky={false}
         />
 
         <BookingsList
           bookings={summary.bookings}
-          filter={filter}
-          searchQuery={deferredSearchQuery ?? searchQuery}
+          controls={{
+            filter: controls.filter,
+            searchQuery: controls.deferredSearchQuery ?? controls.searchQuery,
+            sortKey: controls.sortKey,
+            sortDir: controls.sortDir,
+            onSortKeyChange: controls.onSortKeyChange,
+            onSortDirChange: controls.onSortDirChange,
+            isRefetching: controls.isRefetching,
+          }}
+          bookingActions={bookingActions}
           summary={summary}
           initialNowIso={initialNowIso}
           allowTableAssignments={canAssignTables}
           restaurantSlug={restaurantSlug}
-          sortKey={sortKey}
-          sortDir={sortDir}
-          onSortKeyChange={onSortKeyChange}
-          onSortDirChange={onSortDirChange}
-          isRefetching={isRefetching}
-          onDetails={onDetails}
-          onEdit={onEdit}
-          onCancel={onCancel}
-          onMarkNoShow={onMarkNoShow}
-          onUndoNoShow={onUndoNoShow}
-          onCheckIn={onCheckIn}
-          onCheckOut={onCheckOut}
-          pendingLifecycleAction={pendingLifecycleAction}
-          onAssignTable={onAssignTable}
-          onUnassignTable={onUnassignTable}
-          tableActionState={tableActionState}
         />
       </CardContent>
     </Card>

@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Card } from '@/components/ui/card';
 import { Collapsible } from '@/components/ui/collapsible';
@@ -12,58 +12,32 @@ import { cn } from '@/lib/utils';
 import { OpsBookingCardActions } from './OpsBookingCardActions';
 import { OpsBookingCardDetails } from './OpsBookingCardDetails';
 import { OpsBookingCardHeader } from './OpsBookingCardHeader';
-import { buildBookingMeta, getTableLabel, getUrgencyBadge } from './opsBookingCardUtils';
 
-import type { BookingDTO } from '@/hooks/useBookings';
-import type { OpsBookingStatus } from '@/types/ops';
+import type { OpsBookingCardViewModel } from './opsBookingCardUtils';
 
 export type OpsBookingCardProps = {
-  booking: BookingDTO;
-  timezone: string;
-  now?: Date;
-  onEdit?: (booking: BookingDTO) => void;
-  onCancel?: (booking: BookingDTO) => void;
-  onDetails?: (booking: BookingDTO) => void;
+  viewModel: OpsBookingCardViewModel;
+  onEdit?: (bookingId: string) => void;
+  onCancel?: (bookingId: string) => void;
+  onDetails?: (bookingId: string) => void;
   onCheckIn?: (bookingId: string) => Promise<void>;
   onCheckOut?: (bookingId: string) => Promise<void>;
   onMarkNoShow?: (bookingId: string) => Promise<void>;
-  onUndoNoShow?: (bookingId: string) => Promise<void>;
-  onAssignTable?: (bookingId: string, tableId: string) => Promise<BookingDTO['tableAssignments']>;
-  onUnassignTable?: (bookingId: string, tableId: string) => Promise<BookingDTO['tableAssignments']>;
-  pendingAction?: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show' | null;
-  actionsDisabled?: boolean;
-  allowTableAssignments?: boolean;
-  timeLabelOverride?: string | null;
-  highlightUrgency?: boolean;
 };
 
 export const OpsBookingCard = memo(function OpsBookingCard({
-  booking,
-  timezone,
-  now: propNow,
+  viewModel,
   onEdit,
   onCancel,
   onDetails,
   onCheckIn,
   onCheckOut,
   onMarkNoShow,
-  pendingAction,
-  actionsDisabled,
-  timeLabelOverride,
-  highlightUrgency = true,
 }: OpsBookingCardProps) {
+  const { booking, meta, urgency, tableLabel, pendingAction, disableActions: viewDisabled } =
+    viewModel;
   const [isOpen, setIsOpen] = useState(false);
   const isMobile = useMediaQuery('(max-width: 639px)');
-  const now = useMemo(() => (propNow ? new Date(propNow) : new Date()), [propNow]);
-
-  const meta = useMemo(
-    () => buildBookingMeta(booking, timezone, now, timeLabelOverride),
-    [booking, now, timeLabelOverride, timezone],
-  );
-  const urgency = useMemo(
-    () => getUrgencyBadge(meta, now, highlightUrgency),
-    [highlightUrgency, meta, now],
-  );
 
   useEffect(() => {
     if (!booking.id) return;
@@ -78,41 +52,75 @@ export const OpsBookingCard = memo(function OpsBookingCard({
 
   const isLoading = Boolean(pendingAction);
   const showLoading = useMinimumDelay(isLoading, { delayMs: 200, minDurationMs: 400 });
-  const isLocked = Boolean(actionsDisabled);
+  const isLocked = Boolean(viewDisabled);
   const disableActions = isLoading || isLocked;
-  const tableLabel = getTableLabel(booking.tableAssignments);
 
   const railClass = useMemo(() => {
-    const ui = getOpsBookingStatusUi(booking.status as OpsBookingStatus);
+    const ui = getOpsBookingStatusUi(booking.status);
     // Urgency is a contextual override on top of status rails.
     if (urgency?.variant === 'destructive') return 'border-l-rose-400';
     if (urgency?.variant === 'warning') return 'border-l-amber-400/70';
     return ui.railClass;
   }, [booking.status, urgency?.variant]);
 
+  const handleDetails = useCallback(() => {
+    onDetails?.(booking.id);
+  }, [booking.id, onDetails]);
+
+  const handleEdit = useCallback(() => {
+    onEdit?.(booking.id);
+  }, [booking.id, onEdit]);
+
+  const handleCancel = useCallback(() => {
+    onCancel?.(booking.id);
+  }, [booking.id, onCancel]);
+
   const cardBody = (
     <>
       {/* Keep content visible while actions are pending; pending state is communicated via disabled controls + button-level spinners. */}
 
       <OpsBookingCardHeader
-        booking={booking}
-        meta={meta}
+        bookingId={booking.id}
+        status={booking.status}
+        partySize={booking.partySize}
+        customerLabel={meta.customerLabel}
+        initials={meta.initials}
+        dateLabel={meta.dateLabel}
+        timeRangeLabel={meta.timeRangeLabel}
+        isDone={meta.isDone}
+        hasNotes={Boolean(booking.notes)}
         urgency={urgency}
         isOpen={isOpen}
         disableActions={disableActions}
         showCollapseToggle={isMobile}
       />
 
-      <OpsBookingCardDetails booking={booking} meta={meta} tableLabel={tableLabel} />
+      <OpsBookingCardDetails
+        bookingId={booking.id}
+        referenceLabel={`Ref ${booking.reference || booking.id.slice(0, 8)}`}
+        tableLabel={tableLabel}
+        isDone={meta.isDone}
+        notes={booking.notes}
+        customerPhone={booking.customerPhone}
+        customerEmail={booking.customerEmail}
+      />
 
       <OpsBookingCardActions
-        booking={booking}
-        meta={meta}
+        bookingId={booking.id}
+        status={booking.status}
+        partySize={booking.partySize}
+        customerLabel={meta.customerLabel}
+        dateLabel={meta.dateLabel}
+        timeRangeLabel={meta.timeRangeLabel}
+        isDone={meta.isDone}
+        isToday={meta.isToday}
+        isPastDay={meta.isPastDay}
+        isSeated={meta.isSeated}
         disableActions={disableActions}
         pendingAction={pendingAction ?? null}
-        onDetails={onDetails}
-        onEdit={onEdit}
-        onCancel={onCancel}
+        onDetails={handleDetails}
+        onEdit={handleEdit}
+        onCancel={handleCancel}
         onMarkNoShow={onMarkNoShow}
         onCheckIn={onCheckIn}
         onCheckOut={onCheckOut}

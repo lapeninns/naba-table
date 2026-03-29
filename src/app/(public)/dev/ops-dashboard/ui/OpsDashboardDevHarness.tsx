@@ -12,7 +12,12 @@ import { createOpsDevServiceFactories } from '../../_mocks/services/devFactories
 import { OpsDevProviders } from '../../_shared/OpsDevProviders';
 
 import type { BookingFilter } from '@/components/features/dashboard/BookingsFilterBar';
+import type {
+  DashboardBookingActionHandlers,
+  DashboardListControls,
+} from '@/components/features/dashboard/types';
 import type { OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
+import type { ChangeEvent } from 'react';
 
 function buildSummary(): OpsTodayBookingsSummary {
   const date = '2026-02-10';
@@ -80,6 +85,11 @@ function buildSummary(): OpsTodayBookingsSummary {
   ];
 
   return {
+    meta: {
+      date,
+      timezone,
+      restaurantId: DEV_RESTAURANT_ID,
+    },
     date,
     timezone,
     restaurantId: DEV_RESTAURANT_ID,
@@ -116,6 +126,40 @@ export function OpsDashboardDevHarness() {
   }, [summary]);
 
   const guestStats = useMemo(() => ({ upcoming: tabCounts.upcoming, seated: tabCounts.seated }), [tabCounts]);
+  const controls = useMemo<DashboardListControls>(
+    () => ({
+      filter,
+      tabCounts,
+      searchQuery: search,
+      deferredSearchQuery: search,
+      sortKey,
+      sortDir,
+      isRefetching: false,
+      onFilterChange: setFilter,
+      onSearchChange: (event: ChangeEvent<HTMLInputElement>) => setSearch(event.currentTarget.value),
+      onPrint: () => toast.message('Dev harness: print not implemented'),
+      onSortKeyChange: setSortKey,
+      onSortDirChange: setSortDir,
+    }),
+    [filter, search, sortDir, sortKey, tabCounts],
+  );
+  const bookingActions = useMemo<DashboardBookingActionHandlers>(
+    () => ({
+      onMarkNoShow: async (bookingId: string) => {
+        toast.success(`Marked no-show: ${bookingId}`);
+      },
+      onUndoNoShow: async (bookingId: string) => {
+        toast.success(`Undo no-show: ${bookingId}`);
+      },
+      onCheckIn: async (bookingId: string) => {
+        toast.success(`Checked in: ${bookingId}`);
+      },
+      onCheckOut: async (bookingId: string) => {
+        toast.success(`Checked out: ${bookingId}`);
+      },
+    }),
+    [],
+  );
 
   const noop = useCallback(() => {}, []);
 
@@ -148,32 +192,10 @@ export function OpsDashboardDevHarness() {
             summary={summary}
             restaurantName="Dev Restaurant (Ops Harness)"
             restaurantSlug="dev-restaurant"
-            filter={filter}
-            tabCounts={tabCounts}
+            controls={controls}
+            bookingActions={bookingActions}
             initialNowIso={initialNowIso}
-            searchQuery={search}
-            deferredSearchQuery={search}
-            onSearchChange={(event) => setSearch(event.currentTarget.value)}
-            onPrint={() => toast.message('Dev harness: print not implemented')}
-            sortKey={sortKey}
-            sortDir={sortDir}
-            onSortKeyChange={setSortKey}
-            onSortDirChange={setSortDir}
-            isRefetching={false}
             allowTableAssignments={true}
-            onFilterChange={setFilter}
-            onMarkNoShow={async (bookingId) => {
-              toast.success(`Marked no-show: ${bookingId}`);
-            }}
-            onUndoNoShow={async (bookingId) => {
-              toast.success(`Undo no-show: ${bookingId}`);
-            }}
-            onCheckIn={async (bookingId) => {
-              toast.success(`Checked in: ${bookingId}`);
-            }}
-            onCheckOut={async (bookingId) => {
-              toast.success(`Checked out: ${bookingId}`);
-            }}
           />
         </main>
       </div>

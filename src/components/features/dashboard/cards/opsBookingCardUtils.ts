@@ -17,6 +17,15 @@ export type UrgencyBadge = {
   label: string;
 };
 
+export type OpsBookingCardViewModel = {
+  booking: BookingDTO;
+  meta: BookingMeta;
+  urgency: UrgencyBadge | null;
+  tableLabel: string | null;
+  pendingAction?: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show' | null;
+  disableActions: boolean;
+};
+
 const formatterCache = new Map<string, Intl.DateTimeFormat>();
 
 function getFormatter(
@@ -108,15 +117,20 @@ export function buildBookingMeta(
     isDone,
     isSeated,
     dateLabel: dateFormatter.format(startDate),
-    timeRangeLabel: timeLabelOverride ?? (endTimeStr ? `${startTimeStr} – ${endTimeStr}` : startTimeStr),
-    customerLabel: booking.customerName?.trim() || 'Walk-in Guest',
-    initials: (booking.customerName || 'Guest')
-      .split(' ')
-      .filter(Boolean)
-      .map((n) => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2),
+    timeRangeLabel:
+      timeLabelOverride ??
+      booking.displayTimeRangeLabel ??
+      (endTimeStr ? `${startTimeStr} – ${endTimeStr}` : startTimeStr),
+    customerLabel: booking.displayCustomerLabel ?? booking.customerName?.trim() ?? 'Walk-in Guest',
+    initials:
+      booking.displayInitials ??
+      (booking.customerName || 'Guest')
+        .split(' ')
+        .filter(Boolean)
+        .map((n) => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2),
   };
 }
 
@@ -135,4 +149,36 @@ export function getUrgencyBadge(
     return { variant: 'warning', label: 'Overdue' };
   }
   return null;
+}
+
+export function buildOpsBookingCardViewModel(params: {
+  booking: BookingDTO;
+  timezone: string;
+  now: Date;
+  pendingAction?: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show' | null;
+  actionsDisabled: boolean;
+  highlightUrgency?: boolean;
+  timeLabelOverride?: string | null;
+}): OpsBookingCardViewModel {
+  const {
+    booking,
+    timezone,
+    now,
+    pendingAction = null,
+    actionsDisabled,
+    highlightUrgency = true,
+    timeLabelOverride,
+  } = params;
+
+  const meta = buildBookingMeta(booking, timezone, now, timeLabelOverride);
+  const urgency = getUrgencyBadge(meta, now, highlightUrgency);
+
+  return {
+    booking,
+    meta,
+    urgency,
+    tableLabel: getTableLabel(booking.tableAssignments),
+    pendingAction,
+    disableActions: actionsDisabled,
+  };
 }

@@ -16,13 +16,19 @@ import { Button } from '@/components/ui/button';
 import { CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 
-import type { BookingMeta, UrgencyBadge } from './opsBookingCardUtils';
-import type { BookingDTO } from '@/hooks/useBookings';
+import type { UrgencyBadge } from './opsBookingCardUtils';
 import type { OpsBookingStatus } from '@/types/ops';
 
 export type OpsBookingCardHeaderProps = {
-  booking: BookingDTO;
-  meta: BookingMeta;
+  bookingId: string;
+  status: OpsBookingStatus;
+  partySize: number;
+  customerLabel: string;
+  initials: string;
+  dateLabel: string;
+  timeRangeLabel: string;
+  isDone: boolean;
+  hasNotes: boolean;
   urgency: UrgencyBadge | null;
   isOpen: boolean;
   disableActions: boolean;
@@ -30,8 +36,15 @@ export type OpsBookingCardHeaderProps = {
 };
 
 export const OpsBookingCardHeader = memo(function OpsBookingCardHeader({
-  booking,
-  meta,
+  bookingId,
+  status,
+  partySize,
+  customerLabel,
+  initials,
+  dateLabel,
+  timeRangeLabel,
+  isDone,
+  hasNotes,
   urgency,
   isOpen,
   disableActions,
@@ -45,42 +58,42 @@ export const OpsBookingCardHeader = memo(function OpsBookingCardHeader({
             <AvatarFallback
               className={cn(
                 'text-sm font-semibold',
-                meta.isDone ? 'bg-muted/50 text-muted-foreground' : 'bg-muted/60 text-foreground/80',
+                isDone ? 'bg-muted/50 text-muted-foreground' : 'bg-muted/60 text-foreground/80',
               )}
             >
-              {meta.initials}
+              {initials}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <p
-                id={`guest-name-${booking.id}`}
+                id={`guest-name-${bookingId}`}
                 className={cn(
                   'break-words text-[15px] font-semibold leading-tight',
-                  meta.isDone
+                  isDone
                     ? 'text-muted-foreground line-through decoration-border/60'
                     : 'text-foreground',
                 )}
-                title={meta.customerLabel}
+                title={customerLabel}
               >
-                {meta.customerLabel}
+                {customerLabel}
               </p>
             </div>
             <div className="mt-1 flex flex-col gap-1 text-xs font-medium text-muted-foreground sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-1.5 sm:text-sm">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1 sm:contents">
                 <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                   <Users className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                  <span>{booking.partySize} Guests</span>
+                  <span>{partySize} Guests</span>
                 </span>
                 <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                   <Calendar className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                  <span>{meta.dateLabel}</span>
+                  <span>{dateLabel}</span>
                 </span>
               </div>
               <div className="flex items-center sm:contents">
                 <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded bg-muted/40 px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
                   <Clock className="h-3 w-3" aria-hidden />
-                  {meta.timeRangeLabel}
+                  {timeRangeLabel}
                 </span>
               </div>
             </div>
@@ -90,7 +103,7 @@ export const OpsBookingCardHeader = memo(function OpsBookingCardHeader({
         <div className="flex shrink-0 flex-col items-end gap-1.5">
           <div className="flex items-center gap-2">
             <BookingStatusBadge
-              status={booking.status as OpsBookingStatus}
+              status={status as OpsBookingStatus}
               size="sm"
               showTooltip={false}
             />
@@ -102,7 +115,7 @@ export const OpsBookingCardHeader = memo(function OpsBookingCardHeader({
                   className="h-11 w-11 rounded-full p-0 transition-colors duration-150 hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
                   disabled={disableActions}
                   aria-expanded={isOpen}
-                  aria-controls={`ops-booking-details-${booking.id}`}
+                  aria-controls={`ops-booking-details-${bookingId}`}
                 >
                   <ChevronDown
                     className={cn(
@@ -115,7 +128,7 @@ export const OpsBookingCardHeader = memo(function OpsBookingCardHeader({
               </CollapsibleTrigger>
             ) : null}
           </div>
-          {showCollapseToggle && !isOpen && booking.notes ? (
+          {showCollapseToggle && !isOpen && hasNotes ? (
             <Badge
               variant="secondary"
               className="sm:hidden"

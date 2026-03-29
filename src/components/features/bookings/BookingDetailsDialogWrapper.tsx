@@ -132,6 +132,11 @@ export function BookingDetailsDialogWrapper({
     const date = derivedDate ?? getTodayInTimezone(timezone);
 
     return {
+      meta: {
+        date,
+        timezone,
+        restaurantId,
+      },
       date,
       timezone,
       restaurantId,

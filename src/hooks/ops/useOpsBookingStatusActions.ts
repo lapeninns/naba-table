@@ -8,6 +8,7 @@ import { useOptionalBookingStateMachine } from '@/contexts/booking-state-machine
 import { useBookingService } from '@/contexts/ops-services';
 import { HttpError } from '@/lib/http/errors';
 import { queryKeys } from '@/lib/query/keys';
+import { patchDashboardSummaryBooking } from '@/utils/ops/dashboardSummary';
 
 import type {
   OpsBookingListItem,
@@ -56,24 +57,25 @@ const hasSummaryBookings = (
 };
 
 function useInvalidateLifecycle(queryClient: ReturnType<typeof useQueryClient>) {
+  const opsBookingsListKey = ['ops', 'bookings', 'list'] as const;
   return (
     restaurantId: string,
     targetDate?: string | null,
     options: {
       invalidateSummary?: boolean;
       refetchSummary?: boolean;
+      invalidateBookingsList?: boolean;
     } = { invalidateSummary: true, refetchSummary: true },
   ) => {
-    const { invalidateSummary = true, refetchSummary = true } = options;
+    const {
+      invalidateSummary = true,
+      refetchSummary = true,
+      invalidateBookingsList = false,
+    } = options;
     const summaryKey = queryKeys.opsDashboard.summary(restaurantId, targetDate ?? null);
     if (invalidateSummary) {
-      console.log('[booking-lifecycle] Invalidating summary cache:', {
-        summaryKey,
-        refetchSummary,
-      });
       queryClient.invalidateQueries({
         queryKey: summaryKey,
-        // Ensure active queries are refetched to update the UI immediately
         refetchType: refetchSummary ? 'active' : 'none',
       });
     }
@@ -81,7 +83,9 @@ function useInvalidateLifecycle(queryClient: ReturnType<typeof useQueryClient>) 
       queryKey: ['ops', 'dashboard', restaurantId, 'heatmap'],
       exact: false,
     });
-    queryClient.invalidateQueries({ queryKey: ['ops', 'bookings'], exact: false });
+    if (invalidateBookingsList) {
+      queryClient.invalidateQueries({ queryKey: opsBookingsListKey, exact: false });
+    }
   };
 }
 
@@ -265,12 +269,9 @@ export function useOpsBookingLifecycleActions() {
       const currentSummary = queryClient.getQueryData<OpsTodayBookingsSummary>(summaryKey);
       if (hasSummaryBookings(currentSummary)) {
         previousSummary = currentSummary;
-        const updatedSummary: OpsTodayBookingsSummary = {
-          ...currentSummary,
-          bookings: currentSummary.bookings.map((booking) =>
-            booking.id === bookingId ? patch({ ...booking }) : booking,
-          ),
-        };
+        const updatedSummary = patchDashboardSummaryBooking(currentSummary, bookingId, (booking) =>
+          patch({ ...booking }),
+        );
         queryClient.setQueryData(summaryKey, updatedSummary);
       }
     }
@@ -321,25 +322,19 @@ export function useOpsBookingLifecycleActions() {
     if (context?.summaryKey) {
       queryClient.setQueryData<OpsTodayBookingsSummary>(context.summaryKey, (current) => {
         if (!hasSummaryBookings(current)) return current;
-        return {
-          ...current,
-          bookings: current.bookings.map((booking) => {
-            if (booking.id !== bookingId) {
-              return booking;
-            }
-            const next: OpsTodayBooking = {
-              ...booking,
-              status: snapshot.status,
-            };
-            if (snapshot.checkedInAt !== undefined) {
-              next.checkedInAt = snapshot.checkedInAt;
-            }
-            if (snapshot.checkedOutAt !== undefined) {
-              next.checkedOutAt = snapshot.checkedOutAt;
-            }
-            return next;
-          }),
-        };
+        return patchDashboardSummaryBooking(current, bookingId, (booking) => {
+          const next: OpsTodayBooking = {
+            ...booking,
+            status: snapshot.status,
+          };
+          if (snapshot.checkedInAt !== undefined) {
+            next.checkedInAt = snapshot.checkedInAt;
+          }
+          if (snapshot.checkedOutAt !== undefined) {
+            next.checkedOutAt = snapshot.checkedOutAt;
+          }
+          return next;
+        });
       });
     }
 
@@ -392,7 +387,10 @@ export function useOpsBookingLifecycleActions() {
         checkedInAt: updated.checkedInAt,
         checkedOutAt: updated.checkedOutAt,
       });
-      invalidate(variables.restaurantId, variables.targetDate ?? null);
+      invalidate(variables.restaurantId, variables.targetDate ?? null, {
+        invalidateSummary: false,
+        invalidateBookingsList: false,
+      });
     },
     onError: (error, variables, context) => {
       rollbackOptimisticTransition(variables.bookingId, context);
@@ -444,7 +442,10 @@ export function useOpsBookingLifecycleActions() {
         checkedInAt: updated.checkedInAt,
         checkedOutAt: updated.checkedOutAt,
       });
-      invalidate(variables.restaurantId, variables.targetDate ?? null);
+      invalidate(variables.restaurantId, variables.targetDate ?? null, {
+        invalidateSummary: false,
+        invalidateBookingsList: false,
+      });
     },
     onError: (error, variables, context) => {
       rollbackOptimisticTransition(variables.bookingId, context);
@@ -498,7 +499,10 @@ export function useOpsBookingLifecycleActions() {
         checkedInAt: updated.checkedInAt,
         checkedOutAt: updated.checkedOutAt,
       });
-      invalidate(variables.restaurantId, variables.targetDate ?? null);
+      invalidate(variables.restaurantId, variables.targetDate ?? null, {
+        invalidateSummary: false,
+        invalidateBookingsList: false,
+      });
     },
     onError: (error, variables, context) => {
       rollbackOptimisticTransition(variables.bookingId, context);
@@ -546,7 +550,10 @@ export function useOpsBookingLifecycleActions() {
         checkedInAt: updated.checkedInAt,
         checkedOutAt: updated.checkedOutAt,
       });
-      invalidate(variables.restaurantId, variables.targetDate ?? null);
+      invalidate(variables.restaurantId, variables.targetDate ?? null, {
+        invalidateSummary: false,
+        invalidateBookingsList: false,
+      });
     },
     onError: (error, variables, context) => {
       rollbackOptimisticTransition(variables.bookingId, context);

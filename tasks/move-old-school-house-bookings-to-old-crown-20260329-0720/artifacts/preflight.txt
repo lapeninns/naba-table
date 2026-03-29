@@ -1,0 +1,79 @@
+{
+  "capturedAtUtc": "2026-03-29T10:34:22.574Z",
+  "restaurants": [
+    {
+      "id": "a050d1ad-1ee0-4ea0-abc2-22c3778aa52c",
+      "name": "The Old Crown Girton",
+      "slug": "the-old-crown-girton"
+    },
+    {
+      "id": "a120da71-ba6d-446f-a33a-2e78787abcb0",
+      "name": "The Old School House",
+      "slug": "the-old-school-house"
+    }
+  ],
+  "oldSchoolHouseBookingCount": 1,
+  "oldCrownBookingCountBefore": 674,
+  "bookings": [
+    {
+      "id": "2fd69938-1e03-48c3-a776-34fa4bd3ab36",
+      "customer_id": "c120ec30-295b-4f63-bdca-c8cbaebbcece",
+      "reference": "LYAGFXAT3Y",
+      "booking_date": "2026-04-05",
+      "start_time": "12:30:00",
+      "status": "confirmed",
+      "assigned_zone_id": "0ec78917-f16f-4529-a9f4-6603d81a79dd"
+    }
+  ],
+  "customers": [
+    {
+      "id": "c120ec30-295b-4f63-bdca-c8cbaebbcece",
+      "restaurant_id": "a120da71-ba6d-446f-a33a-2e78787abcb0",
+      "email": "walkin+4062a3a727ed4d25a57629f2@system.local",
+      "full_name": "Stubbings",
+      "phone": "+447774354942",
+      "created_at": "2026-03-29T10:22:50.43968+00:00"
+    }
+  ],
+  "bookingTableAssignments": [
+    {
+      "booking_id": "2fd69938-1e03-48c3-a776-34fa4bd3ab36",
+      "table_id": "bebeac32-fc37-4252-9523-421bb8c4a149"
+    }
+  ],
+  "bookingAssignmentIdempotency": [
+    {
+      "booking_id": "2fd69938-1e03-48c3-a776-34fa4bd3ab36",
+      "idempotency_key": "inline-2fd69938-1e03-48c3-a776-34fa4bd3ab36"
+    }
+  ],
+  "bookingConfirmationResults": [
+    {
+      "booking_id": "2fd69938-1e03-48c3-a776-34fa4bd3ab36",
+      "hold_id": "c3f68a7f-a89f-41f5-b032-a6f6a1b4da4e",
+      "restaurant_id": "a120da71-ba6d-446f-a33a-2e78787abcb0",
+      "table_ids": [
+        "bebeac32-fc37-4252-9523-421bb8c4a149"
+      ]
+    }
+  ],
+  "allocations": [
+    {
+      "booking_id": "2fd69938-1e03-48c3-a776-34fa4bd3ab36",
+      "id": "b021e87c-6800-43ef-923c-a245bd20b1a2",
+      "resource_type": "table",
+      "resource_id": "bebeac32-fc37-4252-9523-421bb8c4a149",
+      "restaurant_id": "a120da71-ba6d-446f-a33a-2e78787abcb0"
+    }
+  ],
+  "analyticsEvents": [
+    {
+      "booking_id": "2fd69938-1e03-48c3-a776-34fa4bd3ab36",
+      "id": "3300a158-056a-413d-af9b-044394624869",
+      "restaurant_id": "a120da71-ba6d-446f-a33a-2e78787abcb0",
+      "event_type": "booking.created"
+    }
+  ],
+  "emailDeliveryLog": [],
+  "bookingVersions": []
+}

@@ -1,58 +1,74 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import type { BookingDTO } from '@/hooks/useBookings';
 
-export function useOpsDashboardDialogs() {
-  const [detailsBooking, setDetailsBooking] = useState<BookingDTO | null>(null);
+export function useOpsDashboardDialogs(params: {
+  resolveBookingById: (bookingId: string | null) => BookingDTO | null;
+}) {
+  const { resolveBookingById } = params;
+  const [detailsBookingId, setDetailsBookingId] = useState<string | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
-  const [editBooking, setEditBooking] = useState<BookingDTO | null>(null);
+  const [editBookingId, setEditBookingId] = useState<string | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [cancelBooking, setCancelBooking] = useState<BookingDTO | null>(null);
+  const [cancelBookingId, setCancelBookingId] = useState<string | null>(null);
   const [isCancelOpen, setIsCancelOpen] = useState(false);
 
-  const handleDetails = useCallback((booking: BookingDTO) => {
+  const detailsBooking = useMemo(
+    () => resolveBookingById(detailsBookingId),
+    [detailsBookingId, resolveBookingById],
+  );
+  const editBooking = useMemo(
+    () => resolveBookingById(editBookingId),
+    [editBookingId, resolveBookingById],
+  );
+  const cancelBooking = useMemo(
+    () => resolveBookingById(cancelBookingId),
+    [cancelBookingId, resolveBookingById],
+  );
+
+  const handleDetails = useCallback((bookingId: string) => {
     setIsEditOpen(false);
-    setEditBooking(null);
-    setDetailsBooking(booking);
+    setEditBookingId(null);
+    setDetailsBookingId(bookingId);
     setIsDetailsOpen(true);
   }, []);
 
-  const handleEdit = useCallback((booking: BookingDTO) => {
+  const handleEdit = useCallback((bookingId: string) => {
     setIsDetailsOpen(false);
-    setDetailsBooking(null);
-    setEditBooking(booking);
+    setDetailsBookingId(null);
+    setEditBookingId(bookingId);
     setIsEditOpen(true);
   }, []);
 
   const handleDetailsOpenChange = useCallback((open: boolean) => {
     setIsDetailsOpen(open);
     if (!open) {
-      setDetailsBooking(null);
+      setDetailsBookingId(null);
     }
   }, []);
 
   const handleEditOpenChange = useCallback((open: boolean) => {
     setIsEditOpen(open);
     if (!open) {
-      setEditBooking(null);
+      setEditBookingId(null);
     }
   }, []);
 
-  const handleCancelRequest = useCallback((booking: BookingDTO) => {
+  const handleCancelRequest = useCallback((bookingId: string) => {
     setIsDetailsOpen(false);
-    setDetailsBooking(null);
+    setDetailsBookingId(null);
     setIsEditOpen(false);
-    setEditBooking(null);
-    setCancelBooking(booking);
+    setEditBookingId(null);
+    setCancelBookingId(bookingId);
     setIsCancelOpen(true);
   }, []);
 
   const handleCancelOpenChange = useCallback((open: boolean) => {
     setIsCancelOpen(open);
     if (!open) {
-      setCancelBooking(null);
+      setCancelBookingId(null);
     }
   }, []);
 

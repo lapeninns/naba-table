@@ -60,6 +60,11 @@ export type BookingDTO = {
   requiresTableAssignment?: boolean;
   checkedInAt?: string | null;
   checkedOutAt?: string | null;
+  displayTimeRangeLabel?: string | null;
+  displayCustomerLabel?: string | null;
+  displayInitials?: string | null;
+  searchText?: string | null;
+  tableLabel?: string | null;
 };
 
 export type PageInfo = {
