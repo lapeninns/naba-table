@@ -30,13 +30,10 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
-import type { BookingMeta, OpsBookingCardActionsModel } from './opsBookingCardUtils';
-import type { BookingDTO } from '@/hooks/useBookings';
+import type { OpsBookingCardActionsViewModel } from './opsBookingCardUtils';
 
 export type OpsBookingCardActionsProps = {
-  booking: BookingDTO;
-  meta: BookingMeta;
-  actions: OpsBookingCardActionsModel;
+  actions: OpsBookingCardActionsViewModel;
   onDetails?: () => void;
   onEdit?: () => void;
   onCancel?: () => void;
@@ -46,8 +43,6 @@ export type OpsBookingCardActionsProps = {
 };
 
 export const OpsBookingCardActions = memo(function OpsBookingCardActions({
-  booking,
-  meta,
   actions,
   onDetails,
   onEdit,
@@ -56,17 +51,18 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
   onCheckIn,
   onCheckOut,
 }: OpsBookingCardActionsProps) {
-  const { dialog, disableActions, footerCompletionLabel, pendingAction, policy } = actions;
-  const isNoShowPending = pendingAction === 'no-show';
   const [isNoShowOpen, setIsNoShowOpen] = useState(false);
+  const isNoShowPending = actions.noShowConfirmation.pending;
+  const partySize = actions.noShowConfirmation.description.partySize;
+  const primaryButton = actions.primary.kind === 'button' ? actions.primary : null;
 
   const handleConfirmNoShow = useCallback(async () => {
     try {
-      await onMarkNoShow?.(booking.id);
+      await onMarkNoShow?.(actions.bookingId);
     } finally {
       setIsNoShowOpen(false);
     }
-  }, [booking.id, onMarkNoShow]);
+  }, [actions.bookingId, onMarkNoShow]);
 
   return (
     <div className="px-4 pb-4">
@@ -77,9 +73,9 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
             size="sm"
             className="h-11 px-4 text-xs font-medium focus-visible:ring-2 focus-visible:ring-ring sm:h-8"
             onClick={onDetails}
-            disabled={policy.details.disabled}
+            disabled={actions.details.disabled}
           >
-            Details
+            {actions.details.label}
           </Button>
 
           <DropdownMenu>
@@ -89,7 +85,6 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
                 size="sm"
                 className="h-11 w-11 p-0 focus-visible:ring-2 focus-visible:ring-ring sm:h-8 sm:w-8"
                 aria-label="More actions"
-                disabled={disableActions}
               >
                 <MoreHorizontal className="h-4 w-4" aria-hidden />
               </Button>
@@ -99,55 +94,50 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
                 Manage
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={onEdit}
-                disabled={policy.menu.edit.disabled}
-              >
-                Edit Booking
+              <DropdownMenuItem onClick={onEdit} disabled={actions.menuItems[0].disabled}>
+                {actions.menuItems[0].label}
               </DropdownMenuItem>
-              {!policy.menu.noShow.hidden ? (
-                <DropdownMenuItem
-                  onClick={() => setIsNoShowOpen(true)}
-                  disabled={policy.menu.noShow.disabled}
-                  variant="destructive"
-                >
-                  Mark No Show
-                </DropdownMenuItem>
-              ) : null}
+              <DropdownMenuItem
+                onClick={() => setIsNoShowOpen(true)}
+                disabled={actions.menuItems[1].disabled}
+                variant="destructive"
+              >
+                {actions.menuItems[1].label}
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={onCancel}
-                disabled={policy.menu.cancel.disabled}
+                disabled={actions.menuItems[2].disabled}
                 variant="destructive"
               >
-                Cancel Booking
+                {actions.menuItems[2].label}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
 
         <div>
-          {!policy.primary.hidden && policy.primary.action ? (
+          {primaryButton ? (
             <Button
               size="sm"
-              disabled={policy.primary.disabled}
+              disabled={primaryButton.disabled}
               className={cn(
                 'h-11 min-w-[120px] px-6 font-semibold text-white shadow-sm transition-[box-shadow,background-color] duration-150 ease-out hover:shadow-sm motion-reduce:transition-none sm:h-9',
-                meta.isSeated
+                primaryButton.id === 'check-out'
                   ? 'bg-slate-700 hover:bg-slate-800'
                   : 'bg-emerald-600 hover:bg-emerald-700',
               )}
               onClick={() =>
-                policy.primary.action === 'check-out'
-                  ? onCheckOut?.(booking.id)
-                  : onCheckIn?.(booking.id)
+                primaryButton.id === 'check-out'
+                  ? onCheckOut?.(actions.bookingId)
+                  : onCheckIn?.(actions.bookingId)
               }
             >
-              {policy.primary.pending ? (
+              {primaryButton.pending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> Updating…
                 </>
-              ) : policy.primary.action === 'check-out' ? (
+              ) : primaryButton.id === 'check-out' ? (
                 <>
                   <LogOut className="mr-2 h-4 w-4" aria-hidden /> Finish
                 </>
@@ -163,7 +153,7 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
               role="status"
             >
               <Check className="h-4 w-4 text-emerald-500" aria-hidden />
-              {footerCompletionLabel ?? 'Closed'}
+              {actions.primary.label}
             </div>
           )}
         </div>
@@ -172,28 +162,32 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
       <AlertDialog open={isNoShowOpen} onOpenChange={setIsNoShowOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Mark as no-show?</AlertDialogTitle>
+            <AlertDialogTitle>{actions.noShowConfirmation.title}</AlertDialogTitle>
             <AlertDialogDescription>
               You’re about to mark{' '}
-              <span className="font-semibold text-foreground">{dialog.customerLabel}</span> as a
-              no-show for <span className="font-semibold text-foreground">{dialog.partySize}</span>{' '}
-              cover{dialog.partySize === 1 ? '' : 's'} on{' '}
               <span className="font-semibold text-foreground">
-                {dialog.dateLabel} · {dialog.timeRangeLabel}
+                {actions.noShowConfirmation.description.customerLabel}
+              </span>{' '}
+              as a no-show
+              for <span className="font-semibold text-foreground">{partySize}</span>{' '}
+              cover{partySize === 1 ? '' : 's'} on{' '}
+              <span className="font-semibold text-foreground">
+                {actions.noShowConfirmation.description.dateLabel} ·{' '}
+                {actions.noShowConfirmation.description.timeRangeLabel}
               </span>
               . You can undo this shortly after confirming.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={disableActions || isNoShowPending}>
-              Keep booking
+            <AlertDialogCancel disabled={actions.noShowConfirmation.disabled || isNoShowPending}>
+              {actions.noShowConfirmation.cancelLabel}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => void handleConfirmNoShow()}
               className="bg-rose-600 hover:bg-rose-700"
-              disabled={disableActions || isNoShowPending}
+              disabled={actions.noShowConfirmation.disabled || isNoShowPending}
             >
-              {isNoShowPending ? 'Marking…' : 'Confirm no-show'}
+              {isNoShowPending ? 'Marking…' : actions.noShowConfirmation.confirmLabel}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

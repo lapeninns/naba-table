@@ -66,15 +66,30 @@ describe('buildOpsBookingCardViewModel', () => {
       isWalkInGuest: false,
     });
     expect(viewModel.meta.timeRangeLabel).toBe('6:00 PM - 7:30 PM');
-    expect(viewModel.header.guest.label).toBe('VIP Pat');
+    expect(viewModel.tableLabel).toBe('12 + 14');
+    expect(viewModel.header.partySizeLabel).toBe('2 Guests');
+    expect(viewModel.header.hasNotes).toBe(false);
     expect(viewModel.details.table).toEqual({
-      label: 'Table',
       state: 'assigned',
-      tableLabel: '12 + 14',
-      valueLabel: 'Table 12 + 14',
+      label: 'Table 12 + 14',
     });
-    expect(viewModel.actions.disableActions).toBe(false);
-    expect(viewModel.actions.pendingAction).toBeNull();
+    expect(viewModel.details.contact.emptyLabel).toBe('No contact');
+    expect(viewModel.actions.details).toMatchObject({
+      id: 'details',
+      disabled: false,
+      valid: true,
+    });
+    expect(viewModel.actions.menuItems.map((item) => item.valid)).toEqual([true, true, true]);
+    expect(viewModel.actions.primary).toMatchObject({
+      kind: 'button',
+      id: 'check-in',
+      label: 'Seat Guest',
+      disabled: false,
+      valid: true,
+      pending: false,
+    });
+    expect(viewModel.disableActions).toBe(false);
+    expect(viewModel.pendingAction).toBeNull();
   });
 
   it('precomputes urgency and pending action state for overdue bookings', () => {
@@ -95,37 +110,22 @@ describe('buildOpsBookingCardViewModel', () => {
       variant: 'destructive',
       label: '20m late',
     });
-    expect(viewModel.actions.pendingAction).toBe('check-in');
-    expect(viewModel.actions.disableActions).toBe(true);
-    expect(viewModel.actions.policy.primary.pending).toBe(true);
+    expect(viewModel.actions.details.disabled).toBe(false);
+    expect(viewModel.actions.menuItems.every((item) => item.disabled)).toBe(true);
+    expect(viewModel.actions.primary).toMatchObject({
+      kind: 'button',
+      id: 'check-in',
+      disabled: true,
+      pending: true,
+    });
+    expect(viewModel.pendingAction).toBe('check-in');
+    expect(viewModel.disableActions).toBe(true);
   });
 
-  it('falls back to Walk-in Guest and suppresses urgency for checked-in bookings', () => {
-    const booking = createBooking({
-      customerName: '   ',
-      status: 'checked_in',
-    });
-
-    const viewModel = buildOpsBookingCardViewModel({
-      booking,
-      timezone: 'UTC',
-      now: new Date('2026-03-29T18:20:00.000Z'),
-      actionsDisabled: false,
-    });
-
-    expect(viewModel.meta.guest).toEqual({
-      label: 'Walk-in Guest',
-      initials: 'WG',
-      isWalkInGuest: true,
-    });
-    expect(viewModel.header.urgency).toBeNull();
-  });
-
-  it('uses canonical table state and footer completion label', () => {
+  it('marks mutating actions invalid for done bookings while keeping them visible in policy', () => {
     const booking = createBooking({
       status: 'completed',
-      tableAssignments: [],
-      requiresTableAssignment: true,
+      notes: 'Window seat',
     });
 
     const viewModel = buildOpsBookingCardViewModel({
@@ -135,8 +135,24 @@ describe('buildOpsBookingCardViewModel', () => {
       actionsDisabled: false,
     });
 
-    expect(viewModel.details.table.state).toBe('not_applicable');
-    expect(viewModel.details.table.valueLabel).toBe('N/A');
-    expect(viewModel.actions.footerCompletionLabel).toBe('Completed');
+    expect(viewModel.header.isDone).toBe(true);
+    expect(viewModel.details.notes).toEqual({
+      value: 'Window seat',
+      highlighted: true,
+    });
+    expect(viewModel.actions.details).toMatchObject({
+      id: 'details',
+      disabled: false,
+      valid: true,
+    });
+    expect(viewModel.actions.menuItems).toEqual([
+      expect.objectContaining({ id: 'edit', valid: false, disabled: true }),
+      expect.objectContaining({ id: 'no-show', valid: false, disabled: true }),
+      expect.objectContaining({ id: 'cancel', valid: false, disabled: true }),
+    ]);
+    expect(viewModel.actions.primary).toEqual({
+      kind: 'status',
+      label: 'Completed',
+    });
   });
 });

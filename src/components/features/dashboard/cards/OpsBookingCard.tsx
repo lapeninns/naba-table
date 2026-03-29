@@ -34,7 +34,16 @@ export const OpsBookingCard = memo(function OpsBookingCard({
   onCheckOut,
   onMarkNoShow,
 }: OpsBookingCardProps) {
-  const { booking, meta, header, details, actions } = viewModel;
+  const {
+    booking,
+    meta,
+    urgency,
+    pendingAction,
+    disableActions: viewDisabled,
+    header,
+    details,
+    actions,
+  } = viewModel;
   const [isOpen, setIsOpen] = useState(false);
   const isMobile = useMediaQuery('(max-width: 639px)');
 
@@ -51,8 +60,7 @@ export const OpsBookingCard = memo(function OpsBookingCard({
 
   const isLoading = Boolean(actions.pendingAction);
   const showLoading = useMinimumDelay(isLoading, { delayMs: 200, minDurationMs: 400 });
-  const isLocked = Boolean(actions.disableActions);
-  const disableActions = isLoading || isLocked;
+  const isVisuallyDisabled = Boolean(viewDisabled) && pendingAction === null;
 
   const railClass = useMemo(() => {
     const ui = getOpsBookingStatusUi(booking.status);
@@ -80,17 +88,13 @@ export const OpsBookingCard = memo(function OpsBookingCard({
 
       <OpsBookingCardHeader
         header={header}
-        isDone={meta.isDone}
         isOpen={isOpen}
-        disableActions={disableActions}
         showCollapseToggle={isMobile}
       />
 
       <OpsBookingCardDetails details={details} />
 
       <OpsBookingCardActions
-        booking={booking}
-        meta={meta}
         actions={actions}
         onDetails={handleDetails}
         onEdit={handleEdit}
@@ -108,8 +112,7 @@ export const OpsBookingCard = memo(function OpsBookingCard({
         'group relative overflow-hidden border-l-[3px] transition-shadow duration-200 ease-out hover:shadow-md motion-reduce:transition-none',
         railClass,
         meta.isDone && 'opacity-60',
-        isLocked && 'pointer-events-none',
-        (showLoading || isLocked) && 'opacity-60',
+        (showLoading || isVisuallyDisabled) && 'opacity-60',
       )}
       role="article"
       aria-labelledby={`guest-name-${booking.id}`}

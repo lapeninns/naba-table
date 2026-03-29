@@ -3,11 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import { OpsBookingCardActions } from '@/components/features/dashboard/cards/OpsBookingCardActions';
+import { buildOpsBookingCardViewModel } from '@/components/features/dashboard/cards/opsBookingCardUtils';
 
-import type {
-  BookingMeta,
-  OpsBookingCardActionsModel,
-} from '@/components/features/dashboard/cards/opsBookingCardUtils';
 import type { BookingDTO } from '@/hooks/useBookings';
 
 function makeBooking(overrides: Partial<BookingDTO> & Pick<BookingDTO, 'id'>): BookingDTO {
@@ -18,55 +15,45 @@ function makeBooking(overrides: Partial<BookingDTO> & Pick<BookingDTO, 'id'>): B
     startIso: overrides.startIso ?? new Date('2026-02-06T18:00:00.000Z').toISOString(),
     endIso: overrides.endIso ?? new Date('2026-02-06T19:30:00.000Z').toISOString(),
     status: overrides.status ?? 'confirmed',
+    customerName: overrides.customerName ?? 'Alice Example',
+    customerEmail: overrides.customerEmail ?? null,
+    customerPhone: overrides.customerPhone ?? null,
+    notes: overrides.notes ?? null,
+    reference: overrides.reference ?? null,
+    source: overrides.source ?? null,
+    seatingPreference: overrides.seatingPreference ?? null,
+    allergies: overrides.allergies ?? null,
+    dietaryRestrictions: overrides.dietaryRestrictions ?? null,
+    reservationIntervalMinutes: overrides.reservationIntervalMinutes ?? null,
+    tableAssignments: overrides.tableAssignments ?? [],
+    requiresTableAssignment: overrides.requiresTableAssignment ?? true,
+    checkedInAt: overrides.checkedInAt ?? null,
+    checkedOutAt: overrides.checkedOutAt ?? null,
+    displayTimeRangeLabel: overrides.displayTimeRangeLabel ?? null,
+    displayCustomerLabel: overrides.displayCustomerLabel ?? null,
+    displayInitials: overrides.displayInitials ?? null,
+    searchText: overrides.searchText ?? null,
+    tableLabel: overrides.tableLabel ?? null,
     ...overrides,
   };
 }
 
-function makeMeta(overrides: Partial<BookingMeta> = {}): BookingMeta {
-  return {
-    startDate: overrides.startDate ?? new Date('2026-02-06T18:00:00.000Z'),
-    isToday: overrides.isToday ?? true,
-    isPastDay: overrides.isPastDay ?? false,
-    isDone: overrides.isDone ?? false,
-    isSeated: overrides.isSeated ?? false,
-    guest: overrides.guest ?? {
-      label: 'Alice Example',
-      initials: 'AE',
-      isWalkInGuest: false,
-    },
-    dateLabel: overrides.dateLabel ?? 'Fri, Feb 6',
-    timeRangeLabel: overrides.timeRangeLabel ?? '6:00 PM – 7:30 PM',
-  };
-}
-
-function makeActions(overrides: Partial<OpsBookingCardActionsModel> = {}): OpsBookingCardActionsModel {
-  return {
-    bookingId: overrides.bookingId ?? 'b-1',
-    pendingAction: overrides.pendingAction ?? null,
-    disableActions: overrides.disableActions ?? false,
-    footerCompletionLabel: overrides.footerCompletionLabel ?? null,
-    dialog: overrides.dialog ?? {
-      customerLabel: 'Alice Example',
-      partySize: 2,
-      dateLabel: 'Fri, Feb 6',
-      timeRangeLabel: '6:00 PM – 7:30 PM',
-    },
-    policy: overrides.policy ?? {
-      details: { disabled: false },
-      menu: {
-        edit: { disabled: false },
-        cancel: { disabled: false },
-        noShow: { hidden: false, disabled: false },
-      },
-      primary: {
-        hidden: false,
-        action: 'check-in',
-        label: 'Seat Guest',
-        disabled: false,
-        pending: false,
-      },
-    },
-  };
+function makeActions(
+  bookingOverrides: Partial<BookingDTO> & Pick<BookingDTO, 'id'>,
+  options: {
+    pendingAction?: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show' | null;
+    actionsDisabled?: boolean;
+    now?: Date;
+  } = {},
+) {
+  const booking = makeBooking(bookingOverrides);
+  return buildOpsBookingCardViewModel({
+    booking,
+    timezone: 'UTC',
+    now: options.now ?? new Date('2026-02-06T18:00:00.000Z'),
+    pendingAction: options.pendingAction ?? null,
+    actionsDisabled: options.actionsDisabled ?? false,
+  }).actions;
 }
 
 describe('OpsBookingCardActions no-show confirmation', () => {
@@ -76,17 +63,7 @@ describe('OpsBookingCardActions no-show confirmation', () => {
 
     render(
       <OpsBookingCardActions
-        booking={makeBooking({ id: 'b-1', partySize: 4, customerName: 'Alice Example' })}
-        meta={makeMeta()}
-        actions={makeActions({
-          bookingId: 'b-1',
-          dialog: {
-            customerLabel: 'Alice Example',
-            partySize: 4,
-            dateLabel: 'Fri, Feb 6',
-            timeRangeLabel: '6:00 PM – 7:30 PM',
-          },
-        })}
+        actions={makeActions({ id: 'b-1', partySize: 4, customerName: 'Alice Example' })}
         onMarkNoShow={onMarkNoShow}
       />,
     );
@@ -109,23 +86,7 @@ describe('OpsBookingCardActions no-show confirmation', () => {
 
     render(
       <OpsBookingCardActions
-        booking={makeBooking({ id: 'b-2', customerName: 'Bob Example' })}
-        meta={makeMeta({
-          guest: {
-            label: 'Bob Example',
-            initials: 'BE',
-            isWalkInGuest: false,
-          },
-        })}
-        actions={makeActions({
-          bookingId: 'b-2',
-          dialog: {
-            customerLabel: 'Bob Example',
-            partySize: 2,
-            dateLabel: 'Fri, Feb 6',
-            timeRangeLabel: '6:00 PM – 7:30 PM',
-          },
-        })}
+        actions={makeActions({ id: 'b-2', customerName: 'Bob Example' })}
         onMarkNoShow={onMarkNoShow}
       />,
     );
@@ -135,5 +96,50 @@ describe('OpsBookingCardActions no-show confirmation', () => {
     await user.click(screen.getByRole('button', { name: /keep booking/i }));
 
     expect(onMarkNoShow).toHaveBeenCalledTimes(0);
+  });
+
+  it('keeps Details enabled while a mutation is pending', () => {
+    render(
+      <OpsBookingCardActions
+        actions={makeActions(
+          { id: 'b-3', customerName: 'Casey Example' },
+          { pendingAction: 'check-in', actionsDisabled: true },
+        )}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /details/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /more actions/i })).toBeEnabled();
+  });
+
+  it('shows invalid done-booking actions as disabled instead of valid mutations', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <OpsBookingCardActions
+        actions={makeActions({
+          id: 'b-4',
+          status: 'completed',
+          customerName: 'Dana Example',
+        })}
+      />,
+    );
+
+    expect(screen.getByRole('status')).toHaveTextContent('Completed');
+
+    await user.click(screen.getByRole('button', { name: /more actions/i }));
+
+    expect(screen.getByRole('menuitem', { name: /edit booking/i })).toHaveAttribute(
+      'data-disabled',
+      '',
+    );
+    expect(screen.getByRole('menuitem', { name: /mark no show/i })).toHaveAttribute(
+      'data-disabled',
+      '',
+    );
+    expect(screen.getByRole('menuitem', { name: /cancel booking/i })).toHaveAttribute(
+      'data-disabled',
+      '',
+    );
   });
 });
