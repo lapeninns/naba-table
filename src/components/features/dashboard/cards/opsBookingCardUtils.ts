@@ -177,16 +177,12 @@ export function getTableLabel(assignments: BookingDTO['tableAssignments']) {
   return labels.join(', ');
 }
 
-function getNormalizedLabel(value: string | null | undefined): string | null {
-  const normalized = value?.trim();
-  return normalized ? normalized : null;
-}
-
 function getGuestIdentity(booking: BookingDTO): NormalizedGuestIdentity {
   const label =
-    getNormalizedLabel(booking.displayCustomerLabel) ??
-    getNormalizedLabel(booking.customerName) ??
+    normalizeText(booking.displayCustomerLabel) ??
+    normalizeText(booking.customerName) ??
     'Walk-in Guest';
+  const displayInitials = normalizeText(booking.displayInitials);
 
   const initials = label
     .split(/\s+/)
@@ -198,7 +194,7 @@ function getGuestIdentity(booking: BookingDTO): NormalizedGuestIdentity {
 
   return {
     label,
-    initials: initials || 'WG',
+    initials: displayInitials ?? (initials || 'WG'),
     isWalkInGuest: label === 'Walk-in Guest',
   };
 }

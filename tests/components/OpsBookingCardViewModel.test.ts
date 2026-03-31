@@ -73,6 +73,26 @@ describe('buildOpsBookingCardViewModel', () => {
     expect(viewModel.tableLabel).toBe('Patio 7');
   });
 
+  it('preserves explicit display initials overrides when present', () => {
+    const viewModel = buildOpsBookingCardViewModel({
+      booking: createBooking({
+        customerName: 'John Doe',
+        displayCustomerLabel: 'Dr. John Doe',
+        displayInitials: ' JD ',
+      }),
+      timezone: 'UTC',
+      now: new Date('2026-03-29T17:30:00.000Z'),
+      actionsDisabled: false,
+    });
+
+    expect(viewModel.meta.guest).toEqual({
+      label: 'Dr. John Doe',
+      initials: 'JD',
+      isWalkInGuest: false,
+    });
+    expect(viewModel.header.initials).toBe('JD');
+  });
+
   it('falls back to walk-in defaults and strips blank optional fields', () => {
     const booking = createBooking({
       customerName: '   ',
