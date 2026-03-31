@@ -30,7 +30,18 @@ export const OpsBookingCardHeader = memo(function OpsBookingCardHeader({
   isOpen,
   showCollapseToggle = true,
 }: OpsBookingCardHeaderProps) {
-  const guestLabel = `${partySize} Guest${partySize === 1 ? '' : 's'}`;
+  const {
+    bookingId,
+    status,
+    customerLabel,
+    initials,
+    partySizeLabel,
+    dateLabel,
+    timeRangeLabel,
+    isDone,
+    hasNotes,
+    urgency,
+  } = header;
 
   return (
     <div className="p-3 pb-2 sm:p-4 sm:pb-4">
@@ -43,7 +54,7 @@ export const OpsBookingCardHeader = memo(function OpsBookingCardHeader({
                 isDone ? 'bg-muted/50 text-muted-foreground' : 'bg-muted/60 text-foreground/80',
               )}
             >
-              {guest.initials}
+              {initials}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0">
@@ -56,16 +67,16 @@ export const OpsBookingCardHeader = memo(function OpsBookingCardHeader({
                     ? 'text-muted-foreground line-through decoration-border/60'
                     : 'text-foreground',
                 )}
-                title={guest.label}
+                title={customerLabel}
               >
-                {guest.label}
+                {customerLabel}
               </p>
             </div>
             <div className="mt-1 flex flex-col gap-1 text-xs font-medium text-muted-foreground sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-1.5 sm:text-sm">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1 sm:contents">
                 <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                   <Users className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                  <span>{guestLabel}</span>
+                  <span>{partySizeLabel}</span>
                 </span>
                 <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                   <Calendar className="h-3.5 w-3.5 shrink-0" aria-hidden />

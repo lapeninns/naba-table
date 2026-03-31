@@ -195,6 +195,7 @@ describe('buildOpsBookingCardViewModel', () => {
 
     expect(viewModel.header.isDone).toBe(true);
     expect(viewModel.details.notes).toEqual({
+      label: 'Notes',
       value: 'Window seat',
       highlighted: true,
     });
