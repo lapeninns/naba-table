@@ -5,32 +5,54 @@ import { describe, expect, it, vi } from 'vitest';
 import { OpsBookingCardActions } from '@/components/features/dashboard/cards/OpsBookingCardActions';
 import { buildOpsBookingCardViewModel } from '@/components/features/dashboard/cards/opsBookingCardUtils';
 
-import type { OpsBookingCardActionsProps } from '@/components/features/dashboard/cards/OpsBookingCardActions';
+import type { BookingDTO } from '@/hooks/useBookings';
 
-function createProps(
-  overrides: Partial<OpsBookingCardActionsProps> = {},
-): OpsBookingCardActionsProps {
+function createBooking(overrides: Partial<BookingDTO> = {}): BookingDTO {
   return {
-    bookingId: overrides.bookingId ?? 'booking-1',
-    status: overrides.status ?? 'confirmed',
+    id: overrides.id ?? 'booking-1',
+    restaurantName: overrides.restaurantName ?? 'Old Crown',
     partySize: overrides.partySize ?? 2,
-    customerLabel: overrides.customerLabel ?? 'Alice Example',
-    dateLabel: overrides.dateLabel ?? 'Fri, Feb 6',
-    timeRangeLabel: overrides.timeRangeLabel ?? '6:00 PM – 7:30 PM',
-    isDone: overrides.isDone ?? false,
-    isToday: overrides.isToday ?? true,
-    isPastDay: overrides.isPastDay ?? false,
-    isSeated: overrides.isSeated ?? false,
-    disableActions: overrides.disableActions ?? false,
-    detailsDisabled: overrides.detailsDisabled ?? false,
-    pendingAction: overrides.pendingAction ?? null,
-    onDetails: overrides.onDetails ?? vi.fn(),
-    onEdit: overrides.onEdit ?? vi.fn(),
-    onCancel: overrides.onCancel ?? vi.fn(),
-    onMarkNoShow: overrides.onMarkNoShow ?? vi.fn().mockResolvedValue(undefined),
-    onCheckIn: overrides.onCheckIn ?? vi.fn().mockResolvedValue(undefined),
-    onCheckOut: overrides.onCheckOut ?? vi.fn().mockResolvedValue(undefined),
+    startIso: overrides.startIso ?? '2026-03-29T18:00:00.000Z',
+    endIso: overrides.endIso ?? '2026-03-29T19:30:00.000Z',
+    status: overrides.status ?? 'confirmed',
+    customerName: overrides.customerName ?? 'Alice Example',
+    customerEmail: overrides.customerEmail ?? null,
+    customerPhone: overrides.customerPhone ?? null,
+    notes: overrides.notes ?? null,
+    reservationIntervalMinutes: overrides.reservationIntervalMinutes ?? null,
+    reference: overrides.reference ?? null,
+    source: overrides.source ?? null,
+    seatingPreference: overrides.seatingPreference ?? null,
+    allergies: overrides.allergies ?? null,
+    dietaryRestrictions: overrides.dietaryRestrictions ?? null,
+    tableAssignments: overrides.tableAssignments ?? [],
+    requiresTableAssignment: overrides.requiresTableAssignment ?? true,
+    checkedInAt: overrides.checkedInAt ?? null,
+    checkedOutAt: overrides.checkedOutAt ?? null,
+    displayTimeRangeLabel: overrides.displayTimeRangeLabel ?? null,
+    displayCustomerLabel: overrides.displayCustomerLabel ?? null,
+    displayInitials: overrides.displayInitials ?? null,
+    searchText: overrides.searchText ?? null,
+    tableLabel: overrides.tableLabel ?? null,
+    ...overrides,
   };
+}
+
+function createActions(
+  bookingOverrides: Partial<BookingDTO> = {},
+  options: {
+    pendingAction?: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show' | null;
+    actionsDisabled?: boolean;
+    now?: Date;
+  } = {},
+) {
+  return buildOpsBookingCardViewModel({
+    booking: createBooking(bookingOverrides),
+    timezone: 'UTC',
+    now: options.now ?? new Date('2026-03-29T18:00:00.000Z'),
+    pendingAction: options.pendingAction ?? null,
+    actionsDisabled: options.actionsDisabled ?? false,
+  }).actions;
 }
 
 describe('OpsBookingCardActions', () => {
@@ -40,35 +62,35 @@ describe('OpsBookingCardActions', () => {
 
     render(
       <OpsBookingCardActions
-        {...createProps({
-          onDetails,
-          disableActions: true,
-          detailsDisabled: false,
-          pendingAction: 'check-in',
-        })}
+        actions={createActions({}, { pendingAction: 'check-in', actionsDisabled: true })}
+        onDetails={onDetails}
       />,
     );
 
     const detailsButton = screen.getByRole('button', { name: 'Details' });
     expect(detailsButton).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Updating…' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /more actions/i })).toBeDisabled();
 
     await user.click(detailsButton);
     expect(onDetails).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByRole('button', { name: /more actions/i }));
+    expect(screen.getByRole('menuitem', { name: /edit booking/i })).toHaveAttribute(
+      'data-disabled',
+      '',
+    );
   });
 
   it('uses the correct primary button label and disabled state for confirmed and checked-in bookings', () => {
-    const { rerender } = render(<OpsBookingCardActions {...createProps()} />);
+    const { rerender } = render(
+      <OpsBookingCardActions actions={createActions()} />,
+    );
 
     expect(screen.getByRole('button', { name: 'Seat Guest' })).toBeEnabled();
 
     rerender(
       <OpsBookingCardActions
-        {...createProps({
-          status: 'checked_in',
-          isSeated: true,
-        })}
+        actions={createActions({ status: 'checked_in' })}
       />,
     );
 
@@ -76,9 +98,12 @@ describe('OpsBookingCardActions', () => {
 
     rerender(
       <OpsBookingCardActions
-        {...createProps({
-          isToday: false,
-        })}
+        actions={createActions(
+          {},
+          {
+            now: new Date('2026-03-30T18:00:00.000Z'),
+          },
+        )}
       />,
     );
 
@@ -86,52 +111,41 @@ describe('OpsBookingCardActions', () => {
   });
 
   it.each([
-    ['confirmed', false, 'Seat Guest'],
-    ['checked_in', true, 'Finish'],
-    ['completed', true, 'Completed'],
-    ['cancelled', true, 'Cancelled'],
-    ['no_show', true, 'No show'],
-  ] as const)(
-    'applies the action policy for %s bookings',
-    (status, manageDisabled, statusText) => {
-      render(
-        <OpsBookingCardActions
-          {...createProps({
-            status,
-            isDone: status === 'completed' || status === 'cancelled' || status === 'no_show',
-            isSeated: status === 'checked_in',
-          })}
-        />,
-      );
-
-      const moreActions = screen.getByRole('button', { name: /more actions/i });
-      if (manageDisabled) {
-        expect(moreActions).toBeDisabled();
-      } else {
-        expect(moreActions).toBeEnabled();
-      }
-
-      if (status === 'confirmed' || status === 'checked_in') {
-        expect(screen.getByRole('button', { name: statusText })).toBeInTheDocument();
-      } else {
-        expect(screen.getByRole('status')).toHaveTextContent(statusText);
-      }
-    },
-  );
-
-  it('disables mutation entry points for done bookings', () => {
+    ['completed', 'Completed'],
+    ['cancelled', 'Cancelled'],
+    ['no_show', 'No show'],
+  ] as const)('shows a closed status label for %s bookings', (status, statusText) => {
     render(
-      <OpsBookingCardActions
-        {...createProps({
-          status: 'completed',
-          isDone: true,
-        })}
-      />,
+      <OpsBookingCardActions actions={createActions({ status })} />,
     );
 
-    expect(screen.getByRole('button', { name: /more actions/i })).toBeDisabled();
+    expect(screen.getByRole('status')).toHaveTextContent(statusText);
+  });
+
+  it('keeps done-booking actions visible but disabled', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <OpsBookingCardActions actions={createActions({ status: 'completed' })} />,
+    );
+
     expect(screen.queryByRole('button', { name: 'Seat Guest' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Finish' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /more actions/i }));
+
+    expect(screen.getByRole('menuitem', { name: /edit booking/i })).toHaveAttribute(
+      'data-disabled',
+      '',
+    );
+    expect(screen.getByRole('menuitem', { name: /mark no show/i })).toHaveAttribute(
+      'data-disabled',
+      '',
+    );
+    expect(screen.getByRole('menuitem', { name: /cancel booking/i })).toHaveAttribute(
+      'data-disabled',
+      '',
+    );
   });
 
   it('does not call onMarkNoShow until confirm is pressed', async () => {
@@ -140,12 +154,8 @@ describe('OpsBookingCardActions', () => {
 
     render(
       <OpsBookingCardActions
-        {...createProps({
-          bookingId: 'b-1',
-          partySize: 4,
-          customerLabel: 'Alice Example',
-          onMarkNoShow,
-        })}
+        actions={createActions({ id: 'b-1', partySize: 4, customerName: 'Alice Example' })}
+        onMarkNoShow={onMarkNoShow}
       />,
     );
 
@@ -161,14 +171,16 @@ describe('OpsBookingCardActions', () => {
 
   it('uses singular and plural cover copy in the no-show dialog', async () => {
     const user = userEvent.setup();
-    const { rerender } = render(<OpsBookingCardActions {...createProps({ partySize: 1 })} />);
+    const { rerender } = render(
+      <OpsBookingCardActions actions={createActions({ partySize: 1 })} />,
+    );
 
     await user.click(screen.getByRole('button', { name: /more actions/i }));
     await user.click(screen.getByRole('menuitem', { name: /mark no show/i }));
     expect(screen.getByRole('alertdialog')).toHaveTextContent('1 cover on');
     await user.click(screen.getByRole('button', { name: /keep booking/i }));
 
-    rerender(<OpsBookingCardActions {...createProps({ partySize: 3 })} />);
+    rerender(<OpsBookingCardActions actions={createActions({ partySize: 3 })} />);
     await user.click(screen.getByRole('button', { name: /more actions/i }));
     await user.click(screen.getByRole('menuitem', { name: /mark no show/i }));
     expect(screen.getByRole('alertdialog')).toHaveTextContent('3 covers on');
@@ -178,7 +190,9 @@ describe('OpsBookingCardActions', () => {
     const user = userEvent.setup();
     const onMarkNoShow = vi.fn().mockResolvedValue(undefined);
 
-    render(<OpsBookingCardActions {...createProps({ onMarkNoShow })} />);
+    render(
+      <OpsBookingCardActions actions={createActions()} onMarkNoShow={onMarkNoShow} />,
+    );
 
     await user.click(screen.getByRole('button', { name: /more actions/i }));
     await user.click(screen.getByRole('menuitem', { name: /mark no show/i }));

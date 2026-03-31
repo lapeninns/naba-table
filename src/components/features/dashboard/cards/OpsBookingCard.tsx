@@ -37,7 +37,6 @@ export const OpsBookingCard = memo(function OpsBookingCard({
   const {
     booking,
     meta,
-    urgency,
     pendingAction,
     disableActions: viewDisabled,
     header,
@@ -60,8 +59,7 @@ export const OpsBookingCard = memo(function OpsBookingCard({
 
   const isLoading = Boolean(actions.pendingAction);
   const showLoading = useMinimumDelay(isLoading, { delayMs: 200, minDurationMs: 400 });
-  const isLocked = Boolean(viewDisabled);
-  const disableMutations = isLoading || isLocked;
+  const isVisuallyDisabled = Boolean(viewDisabled) && pendingAction === null;
 
   const railClass = useMemo(() => {
     const ui = getOpsBookingStatusUi(booking.status);
@@ -90,26 +88,13 @@ export const OpsBookingCard = memo(function OpsBookingCard({
       <OpsBookingCardHeader
         header={header}
         isOpen={isOpen}
-        disableActions={disableMutations}
         showCollapseToggle={isMobile}
       />
 
       <OpsBookingCardDetails details={details} />
 
       <OpsBookingCardActions
-        bookingId={booking.id}
-        status={booking.status}
-        partySize={booking.partySize}
-        customerLabel={meta.customerLabel}
-        dateLabel={meta.dateLabel}
-        timeRangeLabel={meta.timeRangeLabel}
-        isDone={meta.isDone}
-        isToday={meta.isToday}
-        isPastDay={meta.isPastDay}
-        isSeated={meta.isSeated}
-        disableActions={disableMutations}
-        detailsDisabled={isLocked}
-        pendingAction={pendingAction ?? null}
+        actions={actions}
         onDetails={handleDetails}
         onEdit={handleEdit}
         onCancel={handleCancel}
