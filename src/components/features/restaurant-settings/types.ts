@@ -3,6 +3,7 @@ import type { OccasionKey } from '@reserve/shared/occasions';
 export type RestaurantSettingsView =
   | 'profile'
   | 'operating-hours'
+  | 'email-templates'
   | 'occasions'
   | 'service-periods'
   | 'turn-durations'

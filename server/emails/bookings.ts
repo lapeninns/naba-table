@@ -6,6 +6,16 @@ import {
   buildCalendarEvent,
   type ReservationCalendarPayload,
 } from '@/lib/reservations/calendar-event';
+import {
+  buildDeterministicVariantSeed,
+  getEffectiveTemplateVariants,
+  interpolateRestaurantEmailTemplateText,
+  normalizeRestaurantEmailTemplatesDocument,
+  pickDeterministicTemplateVariant,
+  type BookingEmailTemplateVariableMap,
+  type RestaurantBookingEmailTemplateKey,
+  type RestaurantEmailTemplateVariant,
+} from '@/lib/restaurants/email-templates';
 import { type VenueDetails } from '@/lib/venue';
 import {
   createEmailIdempotencyKey,
@@ -122,42 +132,99 @@ async function resolveVenueDetails(restaurantId: string | null | undefined): Pro
     googleMapUrl: restaurant.google_map_url || null,
     googleReviewUrl: restaurant.google_review_url || null,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- email_templates pending type regeneration
-    emailTemplates: (restaurant as any).email_templates || null,
+    emailTemplates: normalizeRestaurantEmailTemplatesDocument((restaurant as any).email_templates),
   };
 }
 
-function resolveTemplate(
-  baseHeadline: string,
-  baseIntro: string,
-  ctx: {
-    type: string;
-    venue: VenueDetails;
-    guestName: string;
-    booking: BookingRecord;
-    summary: BookingSummary;
-  }
-) {
-  const custom = ctx.venue.emailTemplates?.[ctx.type];
-  if (!custom) {
-    return { headline: baseHeadline, intro: baseIntro };
-  }
-
-  const vars: Record<string, string> = {
-    '{{name}}': ctx.guestName,
-    '{{firstName}}': ctx.guestName,
-    '{{venue}}': ctx.venue.name,
-    '{{date}}': ctx.summary.date,
-    '{{time}}': ctx.summary.startTime,
-    '{{party}}': String(ctx.booking.party_size),
-  };
-
-  const traverse = (text: string) => {
-    return text.replace(/\{\{([\w]+)\}\}/g, (_, key) => vars[key] || '');
-  };
+function buildTemplateVariables(
+  booking: BookingRecord,
+  venue: VenueDetails,
+  summary: BookingSummary,
+): BookingEmailTemplateVariableMap {
+  const guestFirstName = booking.customer_name.split(/\s+/)[0] || booking.customer_name;
 
   return {
-    headline: custom.headline ? traverse(custom.headline) : baseHeadline,
-    intro: custom.intro ? traverse(custom.intro) : baseIntro,
+    name: guestFirstName,
+    firstName: guestFirstName,
+    venue: venue.name,
+    date: summary.date,
+    time: summary.startTime,
+    party: booking.party_size === 1 ? '1 Person' : `${booking.party_size} People`,
+  };
+}
+
+function resolveTemplateKey(params: {
+  type: BookingEmailType;
+  booking: BookingRecord;
+  reminderVariant?: 'short' | 'standard';
+}): RestaurantBookingEmailTemplateKey | null {
+  const isPending = params.booking.status === 'pending' || params.booking.status === 'pending_allocation';
+
+  switch (params.type) {
+    case 'created':
+      return isPending ? 'request_received' : 'confirmation';
+    case 'updated':
+    case 'modification_confirmed':
+      return 'modification_confirmed';
+    case 'cancelled':
+      return 'cancelled';
+    case 'modification_pending':
+      return 'modification_pending';
+    case 'booking_rejected':
+      return 'booking_rejected';
+    case 'restaurant_cancellation':
+      return 'restaurant_cancellation';
+    case 'review_request':
+      return 'review_request';
+    case 'reminder':
+      return params.reminderVariant === 'short' ? 'reminder_short' : 'reminder_24h';
+    case 'pending_attention':
+      return null;
+    default:
+      return null;
+  }
+}
+
+function resolveTemplateVariant(params: {
+  booking: BookingRecord;
+  venue: VenueDetails;
+  summary: BookingSummary;
+  templateKey: RestaurantBookingEmailTemplateKey;
+  recipientEmail: string;
+  draftVariants?: RestaurantEmailTemplateVariant[];
+  preferredVariantId?: string;
+}): {
+  templateVariant: RestaurantEmailTemplateVariant;
+  headline: string;
+  intro: string;
+  ctaLabel: string;
+  source: 'default' | 'custom' | 'draft';
+} {
+  const variables = buildTemplateVariables(params.booking, params.venue, params.summary);
+  const effectiveTemplate = params.draftVariants?.length
+    ? { variants: params.draftVariants, source: 'draft' as const }
+    : getEffectiveTemplateVariants(params.templateKey, params.venue.emailTemplates);
+  const preferredVariant =
+    params.preferredVariantId
+      ? effectiveTemplate.variants.find((variant) => variant.id === params.preferredVariantId)
+      : null;
+  const templateVariant =
+    preferredVariant ??
+    pickDeterministicTemplateVariant(
+      effectiveTemplate.variants,
+      buildDeterministicVariantSeed({
+        bookingId: params.booking.id,
+        templateKey: params.templateKey,
+        recipientEmail: params.recipientEmail,
+      }),
+    );
+
+  return {
+    templateVariant,
+    headline: interpolateRestaurantEmailTemplateText(templateVariant.headline, variables),
+    intro: interpolateRestaurantEmailTemplateText(templateVariant.intro, variables),
+    ctaLabel: interpolateRestaurantEmailTemplateText(templateVariant.ctaLabel, variables),
+    source: effectiveTemplate.source,
   };
 }
 
@@ -543,18 +610,17 @@ async function dispatchEmail(
   const venue = await resolveVenueDetails(booking.restaurant_id);
   const manageUrl = buildManageUrl(booking);
   const summary = buildSummary(booking, venue);
-  const guestFirstName = booking.customer_name.split(/\s+/)[0] || booking.customer_name;
   const isPending = booking.status === 'pending' || booking.status === 'pending_allocation';
   const calendarPayload = buildCalendarPayload(booking, venue);
   const calendarEventContent = buildCalendarEvent(calendarPayload);
   const attachments: EmailAttachment[] = [];
   const skipRecentDeliveryCheck = options?.skipRecentDeliveryCheck === true;
-  const deliveryTemplateType =
-    type === 'reminder'
-      ? options?.reminderVariant === 'short'
-        ? 'reminder_short'
-        : 'reminder_24h'
-      : type;
+  const resolvedTemplateKey = resolveTemplateKey({
+    type,
+    booking,
+    reminderVariant: options?.reminderVariant,
+  });
+  const deliveryTemplateType = resolvedTemplateKey ?? type;
   const deliveryEmailType = type === 'reminder' ? 'reminder' : type;
 
   let calendarAttachmentName: string | undefined;
@@ -572,139 +638,72 @@ async function dispatchEmail(
       type: 'text/calendar',
     });
   }
-
-
-
-  // Helper for rotating copy to prevent email fatigue
-  // Use booking ID to ensuring consistent variant for the same booking (deterministic)
-  const copyVariant = (booking.id.charCodeAt(0) + booking.id.charCodeAt(booking.id.length - 1)) % 3;
-
   // Restaurant-specific booking URL (for "Book Again" etc)
   const restaurantBookingUrl = venue.slug
     ? `${bookingSiteUrl}/restaurants/${venue.slug}/book`
     : bookingSiteUrl;
 
   // Initialize email content variables
-  let baseHeadline = '';
-  let baseIntro = '';
-  let ctaLabel = 'Manage Booking';
+  let headline = '';
+  let intro = '';
+  let ctaLabel = '';
   let ctaUrl = manageUrl;
   let toEmail = booking.customer_email;
 
   switch (type) {
     case 'created':
-      if (isPending) {
-        baseHeadline = 'Request Received 🤞';
-        baseIntro = `We've received your request for ${venue.name}. Hang tight while we check availability!`;
-        ctaLabel = 'Check Status';
-      } else {
-        // Rotating copy for Confirmations
-        if (copyVariant === 0) {
-          baseHeadline = 'Booking Confirmed 🎉';
-          baseIntro = `Great news, ${guestFirstName}! Your table at ${venue.name} is secured. We've added this to your upcoming bookings.`;
-        } else if (copyVariant === 1) {
-          baseHeadline = 'You\'re In! 🥂';
-          baseIntro = `${guestFirstName}, your reservation at ${venue.name} is confirmed. We can't wait to host you!`;
-        } else {
-          baseHeadline = 'Table Secured 🍽️';
-          baseIntro = `All set, ${guestFirstName}. We've reserved a spot for you at ${venue.name}. See you soon!`;
-        }
-        ctaLabel = 'Manage Booking';
-      }
       break;
 
     case 'updated':  // Fallthrough - 'updated' uses same template as 'modification_confirmed'
-
     case 'cancelled':
-      baseHeadline = 'Booking Cancelled 😔';
-      baseIntro = `As requested, we have cancelled your reservation at ${venue.name}. We hope to welcome you another time. 👋`;
-      ctaLabel = 'Book Again';
-      ctaUrl = restaurantBookingUrl;
       break;
 
     case 'modification_pending':
-      baseHeadline = 'Change Requested 📝';
-      baseIntro = `We're reviewing your requested changes at ${venue.name}. We'll get back to you and confirm shortly.`;
-      ctaLabel = 'View Request';
       break;
 
     case 'modification_confirmed':
-      baseHeadline = 'Changes Confirmed ✅';
-      baseIntro = `Your updated reservation at ${venue.name} is all set! Here are the new details.`;
-      ctaLabel = 'View Booking';
       break;
 
     case 'booking_rejected':
-      baseHeadline = 'Unavailable 🚫';
-      baseIntro = `We're sorry, ${venue.name} is fully booked for your requested time. Maybe try a different date or time? ⏰`;
-      ctaLabel = 'Try Another Time';
-      ctaUrl = restaurantBookingUrl;
       break;
 
     case 'restaurant_cancellation':
-      baseHeadline = 'Booking Cancelled 😔';
-      baseIntro = `We sincerely apologize. ${venue.name} had to cancel your reservation due to unforeseen circumstances.`;
-      ctaLabel = 'Rebook Now';
-      ctaUrl = restaurantBookingUrl;
       break;
 
     case 'review_request':
-      // Rotating copy for Reviews
-      if (copyVariant === 0) {
-        baseHeadline = 'How was dinner? ⭐';
-        baseIntro = `We hope you enjoyed ${venue.name}! Would you mind taking 10 seconds to rate your experience? ❤️`;
-      } else if (copyVariant === 1) {
-        baseHeadline = 'Rate your experience 📝';
-        baseIntro = `Hi ${guestFirstName}, thanks for dining with us at ${venue.name}! How did we do?`;
-      } else {
-        baseHeadline = 'We\'d love your feedback 💬';
-        baseIntro = `It was a pleasure hosting you at ${venue.name}. Would you share your thoughts with us?`;
-      }
-      ctaLabel = 'Leave a Review';
-      // Prioritize dedicated review URL, then Google Maps, then fallback
-      ctaUrl = venue.googleReviewUrl || venue.googleMapUrl || `${bookingSiteUrl}/reviews/${booking.id}`;
       break;
 
     case 'reminder':
-      if (options?.reminderVariant === 'short') { // Same day / Arrival
-        baseHeadline = 'Table Ready 🍽️';
-        baseIntro = `We've prepped your table at ${venue.name}. Please head to the host stand when you arrive.`;
-        ctaLabel = 'Get Directions';
-        ctaUrl = venue.googleMapUrl || manageUrl;
-      } else {
-        // Rotating copy for 24h Reminders
-        if (copyVariant === 0) {
-          baseHeadline = 'Tomorrow\'s the day 🥂';
-          baseIntro = `Just a quick reminder about your reservation at ${venue.name} tomorrow. We can't wait to host you!`;
-        } else if (copyVariant === 1) {
-          baseHeadline = 'Upcoming Reservation 📅';
-          baseIntro = `Hi ${guestFirstName}, getting excited? Your table at ${venue.name} is ready for tomorrow.`;
-        } else {
-          baseHeadline = 'See you soon! 👋';
-          baseIntro = `This is a quick confirmation that we're ready for your visit to ${venue.name} tomorrow.`;
-        }
-        ctaLabel = 'Get Directions';
-        ctaUrl = venue.googleMapUrl || manageUrl;
-      }
       break;
 
     case 'pending_attention':
-      baseHeadline = 'Action Required';
-      baseIntro = `A booking at ${venue.name} requires immediate attention. Reason: ${options?.reason ?? 'Manual assignment needed'}.`;
+      headline = 'Action Required';
+      intro = `A booking at ${venue.name} requires immediate attention. Reason: ${options?.reason ?? 'Manual assignment needed'}.`;
       ctaLabel = 'Review Now';
       ctaUrl = `${bookingSiteUrl}/dashboard/bookings/${booking.id}`;
       toEmail = venue.email || config.email.supportEmail || '';
       break;
   }
 
-  // Apply custom template if exists
-  const { headline, intro } = resolveTemplate(baseHeadline, baseIntro, {
-    type: type === 'reminder' ? (options?.reminderVariant === 'short' ? 'reminder_short' : 'reminder') : type,
-    venue,
-    guestName: guestFirstName,
-    booking,
-    summary,
-  });
+  if (resolvedTemplateKey) {
+    const resolvedTemplate = resolveTemplateVariant({
+      booking,
+      venue,
+      summary,
+      templateKey: resolvedTemplateKey,
+      recipientEmail: toEmail,
+    });
+    headline = resolvedTemplate.headline;
+    intro = resolvedTemplate.intro;
+    ctaLabel = resolvedTemplate.ctaLabel;
+    ctaUrl = resolveCtaUrlForTemplate({
+      templateKey: resolvedTemplateKey,
+      booking,
+      venue,
+      manageUrl,
+      restaurantBookingUrl,
+    });
+  }
 
   const html = renderHtml({
     booking,
@@ -715,7 +714,12 @@ async function dispatchEmail(
     ctaLabel,
     ctaUrl,
     calendarAttachmentName,
-    emailType: type === 'reminder' ? (options?.reminderVariant === 'short' ? 'arrival' : 'reminder') : type,
+    emailType:
+      resolvedTemplateKey === 'reminder_short'
+        ? 'arrival'
+        : type === 'reminder'
+          ? 'reminder'
+          : type,
   });
 
   const text = renderText(booking, venue, summary, headline, intro, manageUrl);
@@ -807,6 +811,222 @@ async function dispatchEmail(
   });
 }
 
+function resolveCtaUrlForTemplate(params: {
+  templateKey: RestaurantBookingEmailTemplateKey;
+  booking: BookingRecord;
+  venue: VenueDetails;
+  manageUrl: string;
+  restaurantBookingUrl: string;
+}): string {
+  switch (params.templateKey) {
+    case 'cancelled':
+    case 'booking_rejected':
+    case 'restaurant_cancellation':
+      return params.restaurantBookingUrl;
+    case 'review_request':
+      return params.venue.googleReviewUrl || params.venue.googleMapUrl || `${bookingSiteUrl}/reviews/${params.booking.id}`;
+    case 'reminder_24h':
+    case 'reminder_short':
+      return params.venue.googleMapUrl || params.manageUrl;
+    default:
+      return params.manageUrl;
+  }
+}
+
+function resolveRenderEmailType(templateKey: RestaurantBookingEmailTemplateKey): string {
+  switch (templateKey) {
+    case 'request_received':
+    case 'confirmation':
+      return 'created';
+    case 'reminder_short':
+      return 'arrival';
+    case 'reminder_24h':
+      return 'reminder';
+    default:
+      return templateKey;
+  }
+}
+
+function buildPreviewBooking(params: {
+  restaurantId: string;
+  templateKey: RestaurantBookingEmailTemplateKey;
+  recipientEmail: string;
+}): BookingRecord {
+  const startAt = new Date('2026-04-08T19:00:00.000Z');
+  const endAt = new Date('2026-04-08T20:30:00.000Z');
+  const status =
+    params.templateKey === 'request_received'
+      ? 'pending'
+      : params.templateKey === 'cancelled'
+        ? 'cancelled'
+        : 'confirmed';
+
+  return {
+    id: `preview-${params.templateKey}`,
+    restaurant_id: params.restaurantId,
+    assigned_zone_id: null,
+    assignment_state_version: 0,
+    assignment_strategy: null,
+    customer_id: 'preview-customer',
+    booking_date: '2026-04-08',
+    start_time: '19:00',
+    end_time: '20:30',
+    start_at: startAt.toISOString(),
+    end_at: endAt.toISOString(),
+    reference: 'PREVIEW42',
+    party_size: 4,
+    booking_type: 'dining',
+    seating_preference: 'indoor',
+    status,
+    customer_name: 'Alex Johnson',
+    customer_email: params.recipientEmail,
+    customer_phone: '+447700900123',
+    notes: 'Window table if available.',
+    marketing_opt_in: true,
+    source: 'ops-preview',
+    client_request_id: `preview-${params.templateKey}`,
+    pending_ref: null,
+    idempotency_key: null,
+    details: null,
+    loyalty_points_awarded: 0,
+    created_at: startAt.toISOString(),
+    updated_at: startAt.toISOString(),
+    auth_user_id: null,
+    auto_assign_idempotency_key: null,
+    auto_assign_last_result: null,
+    checked_in_at: null,
+    checked_out_at: null,
+    confirmation_token: null,
+    confirmation_token_expires_at: null,
+    confirmation_token_used_at: null,
+  } as BookingRecord;
+}
+
+export type RestaurantBookingEmailPreviewResult = {
+  templateKey: RestaurantBookingEmailTemplateKey;
+  selectedVariantId: string;
+  headline: string;
+  intro: string;
+  ctaLabel: string;
+  ctaUrl: string;
+  subject: string;
+  html: string;
+  text: string;
+  previewBooking: BookingRecord;
+};
+
+export function renderRestaurantBookingEmailPreview(params: {
+  venue: VenueDetails;
+  templateKey: RestaurantBookingEmailTemplateKey;
+  recipientEmail?: string;
+  draftVariants?: RestaurantEmailTemplateVariant[];
+  preferredVariantId?: string;
+}): RestaurantBookingEmailPreviewResult {
+  const recipientEmail = params.recipientEmail?.trim() || 'preview@nabatable.local';
+  const booking = buildPreviewBooking({
+    restaurantId: params.venue.id,
+    templateKey: params.templateKey,
+    recipientEmail,
+  });
+  const summary = buildSummary(booking, params.venue);
+  const manageUrl = buildManageUrl(booking);
+  const restaurantBookingUrl = params.venue.slug
+    ? `${bookingSiteUrl}/restaurants/${params.venue.slug}/book`
+    : bookingSiteUrl;
+  const resolvedTemplate = resolveTemplateVariant({
+    booking,
+    venue: params.venue,
+    summary,
+    templateKey: params.templateKey,
+    recipientEmail,
+    draftVariants: params.draftVariants,
+    preferredVariantId: params.preferredVariantId,
+  });
+  const ctaUrl = resolveCtaUrlForTemplate({
+    templateKey: params.templateKey,
+    booking,
+    venue: params.venue,
+    manageUrl,
+    restaurantBookingUrl,
+  });
+  const subject = `${resolvedTemplate.headline} - ${params.venue.name}`;
+  const html = renderHtml({
+    booking,
+    venue: params.venue,
+    summary,
+    headline: resolvedTemplate.headline,
+    intro: resolvedTemplate.intro,
+    ctaLabel: resolvedTemplate.ctaLabel,
+    ctaUrl,
+    emailType: resolveRenderEmailType(params.templateKey),
+  });
+  const text = renderText(
+    booking,
+    params.venue,
+    summary,
+    resolvedTemplate.headline,
+    resolvedTemplate.intro,
+    manageUrl,
+  );
+
+  return {
+    templateKey: params.templateKey,
+    selectedVariantId: resolvedTemplate.templateVariant.id,
+    headline: resolvedTemplate.headline,
+    intro: resolvedTemplate.intro,
+    ctaLabel: resolvedTemplate.ctaLabel,
+    ctaUrl,
+    subject,
+    html,
+    text,
+    previewBooking: booking,
+  };
+}
+
+export async function sendRestaurantBookingEmailTest(params: {
+  venue: VenueDetails;
+  templateKey: RestaurantBookingEmailTemplateKey;
+  toEmail: string;
+  draftVariants?: RestaurantEmailTemplateVariant[];
+  preferredVariantId?: string;
+}): Promise<{
+  provider: 'resend' | 'mock';
+  messageId: string;
+  preview: RestaurantBookingEmailPreviewResult;
+}> {
+  const preview = renderRestaurantBookingEmailPreview({
+    venue: params.venue,
+    templateKey: params.templateKey,
+    recipientEmail: params.toEmail,
+    draftVariants: params.draftVariants,
+    preferredVariantId: params.preferredVariantId,
+  });
+
+  const result = await sendEmail({
+    to: params.toEmail,
+    subject: `[Test] ${preview.subject}`,
+    html: preview.html,
+    text: preview.text,
+    fromName: params.venue.name,
+    tags: [
+      { name: 'email_type', value: 'booking-template-test' },
+      { name: 'template_type', value: params.templateKey },
+      { name: 'restaurant_id', value: params.venue.id },
+    ],
+    idempotencyKey: buildBookingEmailIdempotencyKey({
+      booking: preview.previewBooking,
+      templateType: `${params.templateKey}:test-send`,
+      recipientEmail: params.toEmail,
+    }),
+  });
+
+  return {
+    provider: result.provider,
+    messageId: result.messageId,
+    preview,
+  };
+}
+
 
 async function resendBookingEmailByDeliveryType(
   booking: BookingRecord,
@@ -821,6 +1041,15 @@ async function resendBookingEmailByDeliveryType(
       reminderVariant: normalizedTemplateType === 'reminder_short' ? 'short' : 'standard',
       skipRecentDeliveryCheck: true,
     });
+  }
+
+  if (normalizedTemplateType === 'request_received') {
+    const pendingBooking = { ...booking, status: 'pending' } as BookingRecord;
+    return dispatchEmail('created', pendingBooking, { skipRecentDeliveryCheck: true });
+  }
+
+  if (normalizedTemplateType === 'confirmation') {
+    return dispatchEmail('created', booking, { skipRecentDeliveryCheck: true });
   }
 
   switch (normalizedEmailType) {
