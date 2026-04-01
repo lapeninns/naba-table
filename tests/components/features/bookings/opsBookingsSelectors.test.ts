@@ -65,7 +65,14 @@ describe('deriveOpsBookingsData', () => {
 describe('buildOpsBookingsCardRows', () => {
   it('precomputes booking card rows with pending actions', () => {
     const { bookings } = deriveOpsBookingsData(
-      [createBookingItem({ id: 'booking-1', customerName: 'Alex Johnson' })],
+      [
+        createBookingItem({
+          id: 'booking-1',
+          customerName: '  Alex Johnson  ',
+          customerPhone: '  +447700900000  ',
+          notes: '  Corner booth  ',
+        }),
+      ],
       'fallback-slug',
     );
     const pendingActionsByBookingId: Record<string, BookingAction | null> = {
@@ -84,5 +91,8 @@ describe('buildOpsBookingsCardRows', () => {
     expect(rows[0]?.pendingAction).toBe('check-in');
     expect(rows[0]?.disableActions).toBe(true);
     expect(rows[0]?.meta.customerLabel).toBe('Alex Johnson');
+    expect(rows[0]?.booking.customerName).toBe('Alex Johnson');
+    expect(rows[0]?.booking.customerPhone).toBe('+447700900000');
+    expect(rows[0]?.booking.notes).toBe('Corner booth');
   });
 });

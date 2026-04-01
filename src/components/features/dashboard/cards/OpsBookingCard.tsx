@@ -4,10 +4,10 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Card } from '@/components/ui/card';
 import { Collapsible } from '@/components/ui/collapsible';
-import { useMinimumDelay } from '@/hooks/use-minimum-delay';
-import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { getOpsBookingStatusUi } from '@/lib/ops/booking-status';
 import { cn } from '@/lib/utils';
+import { useMinimumDelay } from '@src/hooks/use-minimum-delay';
+import { useMediaQuery } from '@src/hooks/useMediaQuery';
 
 import { OpsBookingCardActions } from './OpsBookingCardActions';
 import { OpsBookingCardDetails } from './OpsBookingCardDetails';
@@ -34,8 +34,14 @@ export const OpsBookingCard = memo(function OpsBookingCard({
   onCheckOut,
   onMarkNoShow,
 }: OpsBookingCardProps) {
-  const { booking, meta, urgency, tableLabel, pendingAction, disableActions: viewDisabled } =
-    viewModel;
+  const {
+    booking,
+    meta,
+    disableActions: viewDisabled,
+    header,
+    details,
+    actions,
+  } = viewModel;
   const [isOpen, setIsOpen] = useState(false);
   const isMobile = useMediaQuery('(max-width: 639px)');
 
@@ -50,18 +56,17 @@ export const OpsBookingCard = memo(function OpsBookingCard({
     setIsOpen(open);
   };
 
-  const isLoading = Boolean(pendingAction);
+  const isLoading = Boolean(actions.pendingAction);
   const showLoading = useMinimumDelay(isLoading, { delayMs: 200, minDurationMs: 400 });
-  const isLocked = Boolean(viewDisabled);
-  const disableActions = isLoading || isLocked;
+  const isInteractionLocked = Boolean(viewDisabled);
 
   const railClass = useMemo(() => {
     const ui = getOpsBookingStatusUi(booking.status);
     // Urgency is a contextual override on top of status rails.
-    if (urgency?.variant === 'destructive') return 'border-l-rose-400';
-    if (urgency?.variant === 'warning') return 'border-l-amber-400/70';
+    if (header.urgency?.variant === 'destructive') return 'border-l-rose-400';
+    if (header.urgency?.variant === 'warning') return 'border-l-amber-400/70';
     return ui.railClass;
-  }, [booking.status, urgency?.variant]);
+  }, [booking.status, header.urgency?.variant]);
 
   const handleDetails = useCallback(() => {
     onDetails?.(booking.id);
@@ -80,44 +85,16 @@ export const OpsBookingCard = memo(function OpsBookingCard({
       {/* Keep content visible while actions are pending; pending state is communicated via disabled controls + button-level spinners. */}
 
       <OpsBookingCardHeader
-        bookingId={booking.id}
-        status={booking.status}
-        partySize={booking.partySize}
-        customerLabel={meta.customerLabel}
-        initials={meta.initials}
-        dateLabel={meta.dateLabel}
-        timeRangeLabel={meta.timeRangeLabel}
-        isDone={meta.isDone}
-        hasNotes={Boolean(booking.notes)}
-        urgency={urgency}
+        header={header}
         isOpen={isOpen}
-        disableActions={disableActions}
         showCollapseToggle={isMobile}
+        disableCollapseToggle={isInteractionLocked}
       />
 
-      <OpsBookingCardDetails
-        bookingId={booking.id}
-        referenceLabel={`Ref ${booking.reference || booking.id.slice(0, 8)}`}
-        tableLabel={tableLabel}
-        isDone={meta.isDone}
-        notes={booking.notes}
-        customerPhone={booking.customerPhone}
-        customerEmail={booking.customerEmail}
-      />
+      <OpsBookingCardDetails details={details} />
 
       <OpsBookingCardActions
-        bookingId={booking.id}
-        status={booking.status}
-        partySize={booking.partySize}
-        customerLabel={meta.customerLabel}
-        dateLabel={meta.dateLabel}
-        timeRangeLabel={meta.timeRangeLabel}
-        isDone={meta.isDone}
-        isToday={meta.isToday}
-        isPastDay={meta.isPastDay}
-        isSeated={meta.isSeated}
-        disableActions={disableActions}
-        pendingAction={pendingAction ?? null}
+        actions={actions}
         onDetails={handleDetails}
         onEdit={handleEdit}
         onCancel={handleCancel}
@@ -134,12 +111,12 @@ export const OpsBookingCard = memo(function OpsBookingCard({
         'group relative overflow-hidden border-l-[3px] transition-shadow duration-200 ease-out hover:shadow-md motion-reduce:transition-none',
         railClass,
         meta.isDone && 'opacity-60',
-        isLocked && 'pointer-events-none',
-        (showLoading || isLocked) && 'opacity-60',
+        isInteractionLocked && 'pointer-events-none opacity-60',
+        showLoading && 'opacity-60',
       )}
-      role="article"
       aria-labelledby={`guest-name-${booking.id}`}
       aria-busy={showLoading}
+      aria-disabled={isInteractionLocked || undefined}
     >
       <Collapsible open={isOpen} onOpenChange={handleOpenChange} className="w-full">
         {cardBody}

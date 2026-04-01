@@ -14,6 +14,7 @@ import {
 } from "@/lib/enums";
 import { getCachedOccasionCatalog } from '@/server/occasions/catalog';
 import { assertActiveOccasionKey } from '@/server/occasions/validateBookingType';
+import { formatUKPhoneToE164 } from "@reserve/shared/validation";
 
 import { computeTokenExpiry, generateConfirmationToken } from "./bookings/confirmation-token";
 import {
@@ -297,11 +298,16 @@ export async function addToWaitingList(
 ): Promise<{ id: string; position: number; existing: boolean } | null> {
   const seatingPreference = ensureSeatingPreference(payload.seating_preference);
   const email = normalizeEmail(payload.customer_email);
+  const trimmedPhone = payload.customer_phone.trim();
+  const canonicalUkPhone = formatUKPhoneToE164(trimmedPhone);
   const phoneNormalizedRaw = normalizePhone(payload.customer_phone);
-  const hasPlusPrefix = payload.customer_phone.trim().startsWith("+");
-  const phoneForStorage = hasPlusPrefix && phoneNormalizedRaw
-    ? `+${phoneNormalizedRaw}`
-    : phoneNormalizedRaw || payload.customer_phone.trim();
+  const phoneForStorage = canonicalUkPhone ?? (phoneNormalizedRaw || trimmedPhone);
+  const legacyPhoneForLookup = trimmedPhone.startsWith('+')
+    ? trimmedPhone
+    : (trimmedPhone.replace(/[^0-9]/g, '') || trimmedPhone);
+  const waitlistPhoneCandidates = Array.from(
+    new Set([phoneForStorage, legacyPhoneForLookup].filter((value) => value.length > 0)),
+  );
 
   const {
     data: existing,
@@ -313,7 +319,7 @@ export async function addToWaitingList(
     .eq("booking_date", payload.booking_date)
     .eq("desired_time", payload.desired_time)
     .eq("customer_email", email)
-    .eq("customer_phone", phoneForStorage)
+    .in("customer_phone", waitlistPhoneCandidates)
     .limit(1)
     .maybeSingle();
 
@@ -327,6 +333,7 @@ export async function addToWaitingList(
       .update({
         party_size: payload.party_size,
         seating_preference: seatingPreference,
+        customer_phone: phoneForStorage,
         notes: payload.notes ?? null,
       })
       .eq("id", existing.id);
@@ -382,7 +389,7 @@ export async function addToWaitingList(
     .eq("booking_date", payload.booking_date)
     .eq("desired_time", payload.desired_time)
     .eq("customer_email", email)
-    .eq("customer_phone", phoneForStorage)
+    .in("customer_phone", waitlistPhoneCandidates)
     .maybeSingle();
 
   if (createdError) {

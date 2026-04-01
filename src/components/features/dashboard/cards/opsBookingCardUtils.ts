@@ -1,4 +1,11 @@
 import type { BookingDTO } from '@/hooks/useBookings';
+import type { OpsBookingStatus } from '@/types/ops';
+
+export type NormalizedGuestIdentity = {
+  label: string;
+  initials: string;
+  isWalkInGuest: boolean;
+};
 
 export type BookingMeta = {
   startDate: Date;
@@ -6,10 +13,11 @@ export type BookingMeta = {
   isPastDay: boolean;
   isDone: boolean;
   isSeated: boolean;
-  dateLabel: string;
-  timeRangeLabel: string;
+  guest: NormalizedGuestIdentity;
   customerLabel: string;
   initials: string;
+  dateLabel: string;
+  timeRangeLabel: string;
 };
 
 export type UrgencyBadge = {
@@ -17,13 +25,106 @@ export type UrgencyBadge = {
   label: string;
 };
 
+export type OpsBookingCardPendingAction =
+  | 'check-in'
+  | 'check-out'
+  | 'no-show'
+  | 'undo-no-show'
+  | null;
+
+export type OpsBookingCardHeaderViewModel = {
+  bookingId: string;
+  status: OpsBookingStatus;
+  customerLabel: string;
+  initials: string;
+  partySizeLabel: string;
+  dateLabel: string;
+  timeRangeLabel: string;
+  isDone: boolean;
+  hasNotes: boolean;
+  urgency: UrgencyBadge | null;
+};
+
+export type OpsBookingCardDetailsViewModel = {
+  bookingId: string;
+  reference: {
+    label: string;
+    valueLabel: string;
+  };
+  table: {
+    state: 'assigned' | 'done-empty' | 'unassigned';
+    label: string;
+  };
+  contact: {
+    label: string;
+    phone: string | null;
+    email: string | null;
+    emptyLabel: string;
+  };
+  notes: {
+    label: string;
+    value: string;
+    highlighted: boolean;
+  };
+};
+
+export type OpsBookingCardActionPolicyItem = {
+  id: 'details' | 'edit' | 'no-show' | 'cancel';
+  label: string;
+  disabled: boolean;
+  valid: boolean;
+  variant?: 'default' | 'destructive';
+};
+
+export type OpsBookingCardPrimaryActionPolicy =
+  | {
+      kind: 'button';
+      id: 'check-in' | 'check-out';
+      label: string;
+      disabled: boolean;
+      valid: boolean;
+      pending: boolean;
+    }
+  | {
+      kind: 'status';
+      label: string;
+    };
+
+export type OpsBookingCardActionsViewModel = {
+  bookingId: string;
+  pendingAction: OpsBookingCardPendingAction;
+  details: OpsBookingCardActionPolicyItem;
+  menuItems: [
+    OpsBookingCardActionPolicyItem,
+    OpsBookingCardActionPolicyItem,
+    OpsBookingCardActionPolicyItem,
+  ];
+  primary: OpsBookingCardPrimaryActionPolicy;
+  noShowConfirmation: {
+    title: string;
+    description: {
+      customerLabel: string;
+      partySize: number;
+      dateLabel: string;
+      timeRangeLabel: string;
+    };
+    confirmLabel: string;
+    cancelLabel: string;
+    disabled: boolean;
+    pending: boolean;
+  };
+};
+
 export type OpsBookingCardViewModel = {
   booking: BookingDTO;
   meta: BookingMeta;
   urgency: UrgencyBadge | null;
   tableLabel: string | null;
-  pendingAction?: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show' | null;
+  pendingAction: OpsBookingCardPendingAction;
   disableActions: boolean;
+  header: OpsBookingCardHeaderViewModel;
+  details: OpsBookingCardDetailsViewModel;
+  actions: OpsBookingCardActionsViewModel;
 };
 
 const formatterCache = new Map<string, Intl.DateTimeFormat>();
@@ -57,6 +158,11 @@ function getDateKey(date: Date, timeZone: string): string {
   return `${year}-${month}-${day}`;
 }
 
+function normalizeText(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
 export function getTableLabel(assignments: BookingDTO['tableAssignments']) {
   if (!assignments || assignments.length === 0) {
     return null;
@@ -69,6 +175,28 @@ export function getTableLabel(assignments: BookingDTO['tableAssignments']) {
     labels.push(memberLabels.join(' + '));
   }
   return labels.join(', ');
+}
+
+function getGuestIdentity(booking: BookingDTO): NormalizedGuestIdentity {
+  const label =
+    normalizeText(booking.displayCustomerLabel) ??
+    normalizeText(booking.customerName) ??
+    'Walk-in Guest';
+  const displayInitials = normalizeText(booking.displayInitials);
+
+  const initials = label
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part[0] ?? '')
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+
+  return {
+    label,
+    initials: displayInitials ?? (initials || 'WG'),
+    isWalkInGuest: label === 'Walk-in Guest',
+  };
 }
 
 export function buildBookingMeta(
@@ -109,6 +237,11 @@ export function buildBookingMeta(
 
   const isDone = ['completed', 'cancelled', 'no_show'].includes(booking.status);
   const isSeated = booking.status === 'checked_in';
+  const guest = getGuestIdentity(booking);
+  const timeRangeLabel =
+    normalizeText(timeLabelOverride ?? null) ??
+    normalizeText(booking.displayTimeRangeLabel) ??
+    (endTimeStr ? `${startTimeStr} – ${endTimeStr}` : startTimeStr);
 
   return {
     startDate,
@@ -116,21 +249,11 @@ export function buildBookingMeta(
     isPastDay,
     isDone,
     isSeated,
+    guest,
+    customerLabel: guest.label,
+    initials: guest.initials,
     dateLabel: dateFormatter.format(startDate),
-    timeRangeLabel:
-      timeLabelOverride ??
-      booking.displayTimeRangeLabel ??
-      (endTimeStr ? `${startTimeStr} – ${endTimeStr}` : startTimeStr),
-    customerLabel: booking.displayCustomerLabel ?? booking.customerName?.trim() ?? 'Walk-in Guest',
-    initials:
-      booking.displayInitials ??
-      (booking.customerName || 'Guest')
-        .split(' ')
-        .filter(Boolean)
-        .map((n) => n[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2),
+    timeRangeLabel,
   };
 }
 
@@ -139,7 +262,7 @@ export function getUrgencyBadge(
   now: Date,
   highlightUrgency: boolean,
 ): UrgencyBadge | null {
-  if (!highlightUrgency || meta.isDone || !meta.isToday) return null;
+  if (!highlightUrgency || meta.isDone || meta.isSeated || !meta.isToday) return null;
   const diffMinutes = Math.floor((meta.startDate.getTime() - now.getTime()) / 60000);
 
   if (diffMinutes <= -15) {
@@ -151,11 +274,122 @@ export function getUrgencyBadge(
   return null;
 }
 
+function getTableDetails(tableLabel: string | null, isDone: boolean): OpsBookingCardDetailsViewModel['table'] {
+  if (tableLabel) {
+    return {
+      state: 'assigned',
+      label: `Table ${tableLabel}`,
+    };
+  }
+
+  if (isDone) {
+    return {
+      state: 'done-empty',
+      label: 'N/A',
+    };
+  }
+
+  return {
+    state: 'unassigned',
+    label: 'Unassigned',
+  };
+}
+
+function buildOpsBookingCardActionPolicy(params: {
+  booking: BookingDTO;
+  meta: BookingMeta;
+  pendingAction: OpsBookingCardPendingAction;
+  actionsDisabled: boolean;
+}): OpsBookingCardActionsViewModel {
+  const { booking, meta, pendingAction, actionsDisabled } = params;
+  const isPendingMutation = pendingAction !== null;
+  const isMutatingDisabled = actionsDisabled || isPendingMutation;
+  const detailsDisabled = isMutatingDisabled;
+
+  const editValid = !meta.isDone && !meta.isPastDay;
+  const noShowValid = !meta.isDone && meta.isToday && !meta.isSeated;
+  const cancelValid = !meta.isDone && !meta.isPastDay;
+
+  const details: OpsBookingCardActionPolicyItem = {
+    id: 'details',
+    label: 'Details',
+    disabled: detailsDisabled,
+    valid: true,
+    variant: 'default',
+  };
+
+  const menuItems: OpsBookingCardActionsViewModel['menuItems'] = [
+    {
+      id: 'edit',
+      label: 'Edit Booking',
+      disabled: !editValid || isMutatingDisabled,
+      valid: editValid,
+      variant: 'default',
+    },
+    {
+      id: 'no-show',
+      label: 'Mark No Show',
+      disabled: !noShowValid || isMutatingDisabled,
+      valid: noShowValid,
+      variant: 'destructive',
+    },
+    {
+      id: 'cancel',
+      label: 'Cancel Booking',
+      disabled: !cancelValid || isMutatingDisabled,
+      valid: cancelValid,
+      variant: 'destructive',
+    },
+  ];
+
+  const primary: OpsBookingCardPrimaryActionPolicy = meta.isDone
+    ? {
+        kind: 'status',
+        label:
+          booking.status === 'completed'
+            ? 'Completed'
+            : booking.status === 'cancelled'
+              ? 'Cancelled'
+              : booking.status === 'no_show'
+                ? 'No show'
+                : 'Closed',
+      }
+    : {
+        kind: 'button',
+        id: meta.isSeated ? 'check-out' : 'check-in',
+        label: meta.isSeated ? 'Finish' : 'Seat Guest',
+        disabled: !meta.isToday || isMutatingDisabled,
+        valid: meta.isToday,
+        pending: pendingAction === 'check-in' || pendingAction === 'check-out',
+      };
+
+  return {
+    bookingId: booking.id,
+    pendingAction,
+    details,
+    menuItems,
+    primary,
+    noShowConfirmation: {
+      title: 'Mark as no-show?',
+      description: {
+        customerLabel: meta.customerLabel,
+        partySize: booking.partySize,
+        dateLabel: meta.dateLabel,
+        timeRangeLabel: meta.timeRangeLabel,
+      },
+      confirmLabel: 'Confirm no-show',
+      cancelLabel: 'Keep booking',
+      disabled: menuItems[1].disabled,
+      pending: pendingAction === 'no-show',
+    },
+  };
+}
+
 export function buildOpsBookingCardViewModel(params: {
   booking: BookingDTO;
   timezone: string;
   now: Date;
-  pendingAction?: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show' | null;
+  pendingAction?: OpsBookingCardPendingAction;
   actionsDisabled: boolean;
   highlightUrgency?: boolean;
   timeLabelOverride?: string | null;
@@ -170,15 +404,70 @@ export function buildOpsBookingCardViewModel(params: {
     timeLabelOverride,
   } = params;
 
-  const meta = buildBookingMeta(booking, timezone, now, timeLabelOverride);
+  const normalizedBooking: BookingDTO = {
+    ...booking,
+    customerName: normalizeText(booking.customerName),
+    customerEmail: normalizeText(booking.customerEmail),
+    customerPhone: normalizeText(booking.customerPhone),
+    notes: normalizeText(booking.notes),
+    reference: normalizeText(booking.reference),
+    displayTimeRangeLabel: normalizeText(booking.displayTimeRangeLabel),
+    displayCustomerLabel: normalizeText(booking.displayCustomerLabel),
+    displayInitials: normalizeText(booking.displayInitials),
+    tableLabel: normalizeText(booking.tableLabel),
+  };
+
+  const meta = buildBookingMeta(normalizedBooking, timezone, now, timeLabelOverride);
   const urgency = getUrgencyBadge(meta, now, highlightUrgency);
+  const tableLabel =
+    normalizedBooking.tableLabel ?? getTableLabel(normalizedBooking.tableAssignments);
+  const header: OpsBookingCardHeaderViewModel = {
+    bookingId: normalizedBooking.id,
+    status: normalizedBooking.status,
+    customerLabel: meta.customerLabel,
+    initials: meta.initials,
+    partySizeLabel: `${normalizedBooking.partySize} Guest${normalizedBooking.partySize === 1 ? '' : 's'}`,
+    dateLabel: meta.dateLabel,
+    timeRangeLabel: meta.timeRangeLabel,
+    isDone: meta.isDone,
+    hasNotes: Boolean(normalizedBooking.notes),
+    urgency,
+  };
+  const details: OpsBookingCardDetailsViewModel = {
+    bookingId: normalizedBooking.id,
+    reference: {
+      label: 'Reference',
+      valueLabel: `Ref ${normalizedBooking.reference ?? normalizedBooking.id.slice(0, 8)}`,
+    },
+    table: getTableDetails(tableLabel, meta.isDone),
+    contact: {
+      label: 'Contact',
+      phone: normalizedBooking.customerPhone ?? null,
+      email: normalizedBooking.customerEmail ?? null,
+      emptyLabel: 'No contact',
+    },
+    notes: {
+      label: 'Notes',
+      value: normalizedBooking.notes ?? 'No special requests.',
+      highlighted: Boolean(normalizedBooking.notes),
+    },
+  };
+  const actions = buildOpsBookingCardActionPolicy({
+    booking: normalizedBooking,
+    meta,
+    pendingAction,
+    actionsDisabled,
+  });
 
   return {
-    booking,
+    booking: normalizedBooking,
     meta,
     urgency,
-    tableLabel: getTableLabel(booking.tableAssignments),
+    tableLabel,
     pendingAction,
     disableActions: actionsDisabled,
+    header,
+    details,
+    actions,
   };
 }
