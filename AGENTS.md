@@ -2,7 +2,7 @@
 agents_version: 5.4
 scope: root
 extends: null
-last_updated: 2026-02-11
+last_updated: 2026-03-31
 owner: github:@maintainers
 ---
 
@@ -22,7 +22,7 @@ owner: github:@maintainers
 
 For checklists, see **§11 Quick Reference**.
 
-**Skills Directory**: See `.codex/skills/` (repo, if present) and `~/.codex/skills/` (global) for detailed capability specifications referenced throughout this document.
+**Skills Directory**: See `.codex/skills/` (repo, if present) and `~/.codex/skills/` (global) for detailed capability specifications referenced throughout this document. In this repo, prefer the local foundation skills first: `nabatable-task-harness`, `nabatable-ui-proof`, and `nabatable-fullstack-delivery`.
 
 ---
 
@@ -241,7 +241,7 @@ related_tickets: [<TICKET-123>]
 | **6. Release & Deployment**      | Gradual rollout; metrics & logs                    | Release notes, runbook notes  | **Supabase** (if DB)                                               | **MCP Integration**                                                                               |
 | **7. Operate & Improve**         | Monitor, hotfix, retrospective                     | Post‑release notes            | —                                                                  | **Continuity Ledger**                                                                             |
 
-> **Skills**: See `~/.codex/skills/*/SKILL.md` for detailed capability specifications. **MCP**: See §8 and **MCP Integration** (~/.codex/skills/mcp-integration/SKILL.md).
+> **Skills**: See `.codex/skills/*/SKILL.md` for Nabatable-specific workflows first, then `~/.codex/skills/*/SKILL.md` for global complements. **MCP**: See §8 and **MCP Integration** (~/.codex/skills/mcp-integration/SKILL.md).
 
 ---
 
@@ -251,6 +251,7 @@ related_tickets: [<TICKET-123>]
 
 **Apply Skills**:
 
+- **Nabatable Task Harness** (`.codex/skills/nabatable-task-harness/SKILL.md`) — Initialize the repo task folder, AGENTS traversal, and continuity workflow.
 - **Continuity Ledger** (~/.codex/skills/continuity-ledger/SKILL.md) — Initialize or update `CONTINUITY.md` for the session.
 
 **Inputs**: Ticket or problem statement.
@@ -268,6 +269,7 @@ related_tickets: [<TICKET-123>]
 
 **Apply Skills**:
 
+- **Nabatable Task Harness** (`.codex/skills/nabatable-task-harness/SKILL.md`) — Keep task artifacts and assumptions aligned with the current scope.
 - **Continuity Ledger** (~/.codex/skills/continuity-ledger/SKILL.md) — Track requirements and constraints.
 - **MCP Integration** (~/.codex/skills/mcp-integration/SKILL.md) — Use **Codebase Retrieval** to inventory the repo and find reuse/anti-patterns; use **Context7** for up-to-date library docs/examples; use **DeepWiki** for external/domain research summaries when configured (otherwise use web search and prefer primary sources; prefer 2026+ sources unless an older version is required).
 - **Multi-Agent Collaboration** (~/.codex/skills/multi-agent-collaboration/SKILL.md) — Parallelize research and reconcile findings.
@@ -330,6 +332,7 @@ related_tickets: [<TICKET-123>]
 
 **Apply Skills**:
 
+- **Nabatable Fullstack Delivery** (`.codex/skills/nabatable-fullstack-delivery/SKILL.md`) — Choose the right feature vs regression vs test-only delivery path before implementation.
 - **Frontend Aesthetics** (~/.codex/skills/frontend-aesthetics/SKILL.md) — Define visual direction (typography, color, motion). Avoid "AI slop".
 - **Style Principles** (~/.codex/skills/style-principles/SKILL.md) — Apply DRY/KISS/YAGNI to architecture decisions.
 - **MCP Integration** (~/.codex/skills/mcp-integration/SKILL.md) — Use **Shadcn** for components; **Supabase** for remote migrations (dry‑run → plan → apply).
@@ -409,6 +412,7 @@ Errors: { code, message }
 
 **Apply Skills**:
 
+- **Nabatable Fullstack Delivery** (`.codex/skills/nabatable-fullstack-delivery/SKILL.md`) — Keep changes on the canonical path and align test strategy with the task type.
 - **Style Principles** (~/.codex/skills/style-principles/SKILL.md) — Write simple, focused code. Avoid over-engineering.
 - **MCP Integration** (~/.codex/skills/mcp-integration/SKILL.md) — Use **Shadcn** to scaffold UI; **Supabase** for migrations; use **Codebase Retrieval** to locate existing implementations before adding new paths.
 - **Continuity Ledger** (~/.codex/skills/continuity-ledger/SKILL.md) — Update progress state (Done/Now/Next).
@@ -467,6 +471,7 @@ Errors: { code, message }
 
 **Apply Skills**:
 
+- **Nabatable UI Proof** (`.codex/skills/nabatable-ui-proof/SKILL.md`) — Use the repo's verification fallback rules for stale harnesses, auth-gated routes, and test-only work.
 - **MCP Integration** (~/.codex/skills/mcp-integration/SKILL.md) — **MANDATORY**: Use **Chrome DevTools MCP** for UI QA.
 - **Frontend Aesthetics** (~/.codex/skills/frontend-aesthetics/SKILL.md) — Verify "stop scrolling" quality and brand alignment.
 - **Multi-Agent Collaboration** (~/.codex/skills/multi-agent-collaboration/SKILL.md) — Parallelize QA while keeping a single source of truth for artifacts.
@@ -786,6 +791,7 @@ Use MCP when it provides **repeatability, safety, or scale**. Configure via env/
 ### Skills & Prompts (Codex)
 
 - Skills live in `.codex/skills/` (repo) and `~/.codex/skills/` (global).
+- For Nabatable work, prefer repo-local foundation skills first when they match: `nabatable-task-harness`, `nabatable-ui-proof`, `nabatable-fullstack-delivery`.
 - If a `$SkillName` is referenced and not present locally, load `~/.codex/skills/<skill-name>/SKILL.md` (plus any `references/` and `scripts/` referenced by that skill).
 - Skill triggers: if the user names a skill (e.g. `$SkillName`) or the task matches the skill’s `description`, you must use that skill for that turn.
 - Skill consumption: open the relevant `SKILL.md` and read only enough to follow the workflow (load only the specific `references/` files needed; prefer running/patching `scripts/` over retyping).
@@ -1281,10 +1287,14 @@ Last updated: <ISO-8601 timestamp>
 
 ---
 
-**Last Updated**: 2026‑02-06  
+**Last Updated**: 2026‑03-31  
 **Version**: 5.4
 
-**Skills Directory**: See `~/.codex/skills/` for detailed capability specifications:
+**Skills Directory**: See `.codex/skills/` for repo-local Nabatable capabilities first, then `~/.codex/skills/` for global capabilities:
+
+- **Nabatable Task Harness** (`.codex/skills/nabatable-task-harness/SKILL.md`) — Task setup, AGENTS alignment, continuity, and artifact discipline
+- **Nabatable UI Proof** (`.codex/skills/nabatable-ui-proof/SKILL.md`) — Nabatable UI verification and fallback browser-proof workflow
+- **Nabatable Fullstack Delivery** (`.codex/skills/nabatable-fullstack-delivery/SKILL.md`) — Feature vs regression vs test-only delivery guidance
 
 - **Continuity Ledger** (~/.codex/skills/continuity-ledger/SKILL.md) — Session continuity pattern
 - **Multi-Agent Collaboration** (~/.codex/skills/multi-agent-collaboration/SKILL.md) — Multi-agent coordination and conflict avoidance

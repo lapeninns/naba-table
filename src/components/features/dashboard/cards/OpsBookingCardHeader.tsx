@@ -16,40 +16,35 @@ import { Button } from '@/components/ui/button';
 import { CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 
-import type { UrgencyBadge } from './opsBookingCardUtils';
+import type { OpsBookingCardHeaderViewModel } from './opsBookingCardUtils';
 import type { OpsBookingStatus } from '@/types/ops';
 
 export type OpsBookingCardHeaderProps = {
-  bookingId: string;
-  status: OpsBookingStatus;
-  partySize: number;
-  customerLabel: string;
-  initials: string;
-  dateLabel: string;
-  timeRangeLabel: string;
-  isDone: boolean;
-  hasNotes: boolean;
-  urgency: UrgencyBadge | null;
+  header: OpsBookingCardHeaderViewModel;
   isOpen: boolean;
-  disableActions: boolean;
   showCollapseToggle?: boolean;
+  disableCollapseToggle?: boolean;
 };
 
 export const OpsBookingCardHeader = memo(function OpsBookingCardHeader({
-  bookingId,
-  status,
-  partySize,
-  customerLabel,
-  initials,
-  dateLabel,
-  timeRangeLabel,
-  isDone,
-  hasNotes,
-  urgency,
+  header,
   isOpen,
-  disableActions,
   showCollapseToggle = true,
+  disableCollapseToggle = false,
 }: OpsBookingCardHeaderProps) {
+  const {
+    bookingId,
+    status,
+    customerLabel,
+    initials,
+    partySizeLabel,
+    dateLabel,
+    timeRangeLabel,
+    isDone,
+    hasNotes,
+    urgency,
+  } = header;
+
   return (
     <div className="p-3 pb-2 sm:p-4 sm:pb-4">
       <div className="mb-2 flex items-start justify-between gap-4 sm:mb-4">
@@ -83,7 +78,7 @@ export const OpsBookingCardHeader = memo(function OpsBookingCardHeader({
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1 sm:contents">
                 <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                   <Users className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                  <span>{partySize} Guests</span>
+                  <span>{partySizeLabel}</span>
                 </span>
                 <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                   <Calendar className="h-3.5 w-3.5 shrink-0" aria-hidden />
@@ -113,9 +108,9 @@ export const OpsBookingCardHeader = memo(function OpsBookingCardHeader({
                   variant="ghost"
                   size="sm"
                   className="h-11 w-11 rounded-full p-0 transition-colors duration-150 hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
-                  disabled={disableActions}
                   aria-expanded={isOpen}
                   aria-controls={`ops-booking-details-${bookingId}`}
+                  disabled={disableCollapseToggle}
                 >
                   <ChevronDown
                     className={cn(

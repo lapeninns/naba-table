@@ -1,0 +1,4 @@
+interface:
+  display_name: "Nabatable UI Proof"
+  short_description: "Verify Nabatable UI with real fallback rules"
+  default_prompt: "Use $nabatable-ui-proof to verify a Nabatable UI change with the right browser-proof path, including authenticated-route fallback when the dev harness is stale or unavailable."

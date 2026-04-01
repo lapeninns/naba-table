@@ -58,6 +58,7 @@ import {
 import {
   CUSTOMER_PHONE_LENGTH_MAX,
   CUSTOMER_PHONE_LENGTH_MIN,
+  isUKPhone,
 } from '@reserve/shared/validation';
 
 import type { BookingRecord } from '@/server/bookings';
@@ -70,7 +71,13 @@ const baseQuerySchema = z.object({
 
 const contactQuerySchema = baseQuerySchema.extend({
   email: z.string().email(),
-  phone: z.string().min(CUSTOMER_PHONE_LENGTH_MIN).max(CUSTOMER_PHONE_LENGTH_MAX),
+  phone: z
+    .string()
+    .min(CUSTOMER_PHONE_LENGTH_MIN)
+    .max(CUSTOMER_PHONE_LENGTH_MAX)
+    .refine((value) => isUKPhone(value), {
+      message: 'Please enter a valid UK phone number.',
+    }),
 });
 
 const statusFilterSchema = z.union([
@@ -102,7 +109,13 @@ const bookingSchema = z.object({
   notes: z.string().max(500).optional().nullable(),
   name: z.string().min(2).max(120),
   email: z.string().email(),
-  phone: z.string().min(CUSTOMER_PHONE_LENGTH_MIN).max(CUSTOMER_PHONE_LENGTH_MAX),
+  phone: z
+    .string()
+    .min(CUSTOMER_PHONE_LENGTH_MIN)
+    .max(CUSTOMER_PHONE_LENGTH_MAX)
+    .refine((value) => isUKPhone(value), {
+      message: 'Please enter a valid UK phone number.',
+    }),
   marketingOptIn: z.coerce.boolean().optional().default(false),
 });
 
