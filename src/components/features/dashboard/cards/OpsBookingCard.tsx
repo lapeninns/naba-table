@@ -114,10 +114,9 @@ export const OpsBookingCard = memo(function OpsBookingCard({
         isInteractionLocked && 'pointer-events-none opacity-60',
         showLoading && 'opacity-60',
       )}
-      role="article"
       aria-labelledby={`guest-name-${booking.id}`}
       aria-busy={showLoading}
-      data-disabled={isInteractionLocked ? 'true' : undefined}
+      aria-disabled={isInteractionLocked || undefined}
     >
       <Collapsible open={isOpen} onOpenChange={handleOpenChange} className="w-full">
         {cardBody}
