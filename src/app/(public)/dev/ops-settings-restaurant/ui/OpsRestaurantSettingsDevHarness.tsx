@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 
 import { OpsRestaurantSettingsClient } from '@/components/features/restaurant-settings/OpsRestaurantSettingsClient';
 import { RestaurantSettingsPageShell } from '@/components/features/restaurant-settings/RestaurantSettingsPageShell';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -21,6 +22,7 @@ import type { RestaurantSettingsView } from '@/components/features/restaurant-se
 const VIEW_OPTIONS: Array<{ value: RestaurantSettingsView; label: string }> = [
   { value: 'profile', label: 'Profile' },
   { value: 'operating-hours', label: 'Operating hours' },
+  { value: 'email-templates', label: 'Email templates' },
   { value: 'service-periods', label: 'Service periods' },
   { value: 'turn-durations', label: 'Turn durations' },
   { value: 'occasions', label: 'Occasions' },
@@ -43,9 +45,12 @@ export function OpsRestaurantSettingsDevHarness() {
             View selector is local to this harness; the left subnav is rendered for responsive layout
             verification but links to authenticated routes.
           </p>
-          <div className="w-full sm:w-[260px]">
+          <div className="w-full space-y-2 sm:w-[260px]">
+            <Label htmlFor="ops-restaurant-settings-view" className="sr-only">
+              Select a restaurant settings view
+            </Label>
             <Select value={view} onValueChange={(next) => setView(next as RestaurantSettingsView)}>
-              <SelectTrigger className="h-11 sm:h-9">
+              <SelectTrigger id="ops-restaurant-settings-view" className="h-11 sm:h-9">
                 <SelectValue placeholder="Select view" />
               </SelectTrigger>
               <SelectContent>
@@ -64,4 +69,3 @@ export function OpsRestaurantSettingsDevHarness() {
     </OpsDevProviders>
   );
 }
-

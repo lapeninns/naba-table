@@ -3,6 +3,7 @@ import { DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES } from '@/lib/restaurants/d
 import { DEFAULT_RESERVATION_INTERVAL_MINUTES } from '@reserve/shared/config/reservations';
 
 import type { RestaurantRole } from '@/lib/owner/auth/roles';
+import type { RestaurantBookingEmailTemplateKey, RestaurantEmailTemplateVariant } from '@/lib/restaurants/email-templates';
 import type { OpsRestaurantOption, OpsServiceError } from '@/types/ops';
 import type { OccasionKey } from '@reserve/shared/occasions';
 
@@ -69,6 +70,31 @@ type TurnBandsResponse = {
   restaurantId: string;
   bands: TurnBandsPayload;
   defaults: TurnBandsPayload;
+};
+
+type EmailTemplatesResponse = {
+  restaurantId: string;
+  canEdit: boolean;
+  groups: RestaurantEmailTemplateGroup[];
+};
+
+type EmailTemplateResponse = {
+  restaurantId: string;
+  canEdit: boolean;
+  template: RestaurantEmailTemplate;
+};
+
+type EmailTemplatePreviewResponse = {
+  restaurantId: string;
+  preview: RestaurantEmailTemplatePreview;
+};
+
+export type SendTestEmailTemplateResponse = {
+  ok: true;
+  restaurantId: string;
+  provider: 'resend' | 'mock';
+  messageId: string;
+  preview: RestaurantEmailTemplatePreview;
 };
 
 export type RestaurantProfile = {
@@ -141,6 +167,52 @@ export type TurnBandsSnapshot = {
   defaults: TurnBandsPayload;
 };
 
+export type RestaurantEmailTemplate = {
+  key: RestaurantBookingEmailTemplateKey;
+  title: string;
+  description: string;
+  groupKey: string;
+  supportsCtaLabel: boolean;
+  status: 'default' | 'custom';
+  activeVariantCount: number;
+  variants: RestaurantEmailTemplateVariant[];
+  defaultVariants: RestaurantEmailTemplateVariant[];
+};
+
+export type RestaurantEmailTemplateGroup = {
+  key: string;
+  title: string;
+  description: string;
+  templates: RestaurantEmailTemplate[];
+};
+
+export type RestaurantEmailTemplatesSnapshot = {
+  restaurantId: string;
+  canEdit: boolean;
+  groups: RestaurantEmailTemplateGroup[];
+};
+
+export type RestaurantEmailTemplatePreview = {
+  templateKey: RestaurantBookingEmailTemplateKey;
+  selectedVariantId: string;
+  headline: string;
+  intro: string;
+  ctaLabel: string;
+  ctaUrl: string;
+  subject: string;
+  html: string;
+  text: string;
+};
+
+export type PreviewEmailTemplateInput = {
+  preferredVariantId?: string;
+  variants?: RestaurantEmailTemplateVariant[];
+};
+
+export type SendTestEmailTemplateInput = PreviewEmailTemplateInput & {
+  toEmail: string;
+};
+
 export interface RestaurantService {
   listRestaurants(): Promise<Array<OpsRestaurantOption & { role: RestaurantRole }>>;
   getProfile(restaurantId: string): Promise<RestaurantProfile>;
@@ -151,6 +223,26 @@ export interface RestaurantService {
   updateServicePeriods(restaurantId: string, rows: ServicePeriodRow[]): Promise<ServicePeriodRow[]>;
   getTurnBands(restaurantId: string): Promise<TurnBandsSnapshot>;
   updateTurnBands(restaurantId: string, payload: TurnBandsPayload): Promise<TurnBandsSnapshot>;
+  getEmailTemplates(restaurantId: string): Promise<RestaurantEmailTemplatesSnapshot>;
+  updateEmailTemplate(
+    restaurantId: string,
+    templateKey: RestaurantBookingEmailTemplateKey,
+    payload: { variants: RestaurantEmailTemplateVariant[] },
+  ): Promise<RestaurantEmailTemplate>;
+  resetEmailTemplate(
+    restaurantId: string,
+    templateKey: RestaurantBookingEmailTemplateKey,
+  ): Promise<RestaurantEmailTemplate>;
+  previewEmailTemplate(
+    restaurantId: string,
+    templateKey: RestaurantBookingEmailTemplateKey,
+    payload?: PreviewEmailTemplateInput,
+  ): Promise<RestaurantEmailTemplatePreview>;
+  sendTestEmailTemplate(
+    restaurantId: string,
+    templateKey: RestaurantBookingEmailTemplateKey,
+    payload: SendTestEmailTemplateInput,
+  ): Promise<SendTestEmailTemplateResponse>;
 }
 
 export class NotImplementedRestaurantService implements RestaurantService {
@@ -192,6 +284,26 @@ export class NotImplementedRestaurantService implements RestaurantService {
 
   updateTurnBands(): Promise<TurnBandsSnapshot> {
     this.error('updateTurnBands not implemented');
+  }
+
+  getEmailTemplates(): Promise<RestaurantEmailTemplatesSnapshot> {
+    this.error('getEmailTemplates not implemented');
+  }
+
+  updateEmailTemplate(): Promise<RestaurantEmailTemplate> {
+    this.error('updateEmailTemplate not implemented');
+  }
+
+  resetEmailTemplate(): Promise<RestaurantEmailTemplate> {
+    this.error('resetEmailTemplate not implemented');
+  }
+
+  previewEmailTemplate(): Promise<RestaurantEmailTemplatePreview> {
+    this.error('previewEmailTemplate not implemented');
+  }
+
+  sendTestEmailTemplate(): Promise<SendTestEmailTemplateResponse> {
+    this.error('sendTestEmailTemplate not implemented');
   }
 }
 
@@ -300,6 +412,63 @@ export function createBrowserRestaurantService(): RestaurantService {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
+    },
+
+    async getEmailTemplates(restaurantId: string) {
+      return fetchJson<EmailTemplatesResponse>(`${OPS_RESTAURANTS_BASE}/${restaurantId}/email-templates`);
+    },
+
+    async updateEmailTemplate(restaurantId: string, templateKey: RestaurantBookingEmailTemplateKey, payload: { variants: RestaurantEmailTemplateVariant[] }) {
+      const response = await fetchJson<EmailTemplateResponse>(
+        `${OPS_RESTAURANTS_BASE}/${restaurantId}/email-templates/${templateKey}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        },
+      );
+      return response.template;
+    },
+
+    async resetEmailTemplate(restaurantId: string, templateKey: RestaurantBookingEmailTemplateKey) {
+      const response = await fetchJson<EmailTemplateResponse>(
+        `${OPS_RESTAURANTS_BASE}/${restaurantId}/email-templates/${templateKey}`,
+        {
+          method: 'DELETE',
+        },
+      );
+      return response.template;
+    },
+
+    async previewEmailTemplate(
+      restaurantId: string,
+      templateKey: RestaurantBookingEmailTemplateKey,
+      payload: PreviewEmailTemplateInput = {},
+    ) {
+      const response = await fetchJson<EmailTemplatePreviewResponse>(
+        `${OPS_RESTAURANTS_BASE}/${restaurantId}/email-templates/${templateKey}/preview`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        },
+      );
+      return response.preview;
+    },
+
+    async sendTestEmailTemplate(
+      restaurantId: string,
+      templateKey: RestaurantBookingEmailTemplateKey,
+      payload: SendTestEmailTemplateInput,
+    ) {
+      return fetchJson<SendTestEmailTemplateResponse>(
+        `${OPS_RESTAURANTS_BASE}/${restaurantId}/email-templates/${templateKey}/test-send`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        },
+      );
     },
   } satisfies RestaurantService;
 }

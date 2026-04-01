@@ -27,6 +27,11 @@ function createDevRestaurantService(): RestaurantService {
     updateServicePeriods: unimplemented('updateServicePeriods'),
     getTurnBands: unimplemented('getTurnBands'),
     updateTurnBands: unimplemented('updateTurnBands'),
+    getEmailTemplates: unimplemented('getEmailTemplates'),
+    updateEmailTemplate: unimplemented('updateEmailTemplate'),
+    resetEmailTemplate: unimplemented('resetEmailTemplate'),
+    previewEmailTemplate: unimplemented('previewEmailTemplate'),
+    sendTestEmailTemplate: unimplemented('sendTestEmailTemplate'),
 
     async getProfile(restaurantId: string) {
       return {
