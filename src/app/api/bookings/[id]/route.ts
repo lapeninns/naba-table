@@ -974,7 +974,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     }
 
     // Verify ownership: user email must match booking email (except for seeded test bookings)
-    if (data.customer_email !== normalizedUserEmail) {
+    if (normalizeEmail(data.customer_email) !== normalizedUserEmail) {
       // Log unauthorized access attempt
       void recordObservabilityEvent({
         source: 'api.bookings',
@@ -1229,12 +1229,13 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     const normalizedEmail = normalizeEmail(data.email);
     const normalizedPhone = data.phone.trim();
     const comparablePhone = normalizePhone(data.phone);
+    const existingComparableEmail = normalizeEmail(existingBooking.customer_email);
     const existingComparablePhone = existingBooking.customer_phone
       ? normalizePhone(existingBooking.customer_phone)
       : '';
 
     if (
-      existingBooking.customer_email !== normalizedEmail ||
+      existingComparableEmail !== normalizedEmail ||
       existingComparablePhone !== comparablePhone
     ) {
       return NextResponse.json(
@@ -1628,7 +1629,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     const normalizedEmail = normalizeEmail(userEmail);
 
     // Verify the booking belongs to the authenticated user
-    if (existingBooking.customer_email !== normalizedEmail) {
+    if (normalizeEmail(existingBooking.customer_email) !== normalizedEmail) {
       return NextResponse.json(
         { error: 'You can only cancel your own reservation', code: 'FORBIDDEN' },
         { status: 403 },

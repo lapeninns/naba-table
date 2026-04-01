@@ -37,7 +37,6 @@ export const OpsBookingCard = memo(function OpsBookingCard({
   const {
     booking,
     meta,
-    pendingAction,
     disableActions: viewDisabled,
     header,
     details,
@@ -59,7 +58,7 @@ export const OpsBookingCard = memo(function OpsBookingCard({
 
   const isLoading = Boolean(actions.pendingAction);
   const showLoading = useMinimumDelay(isLoading, { delayMs: 200, minDurationMs: 400 });
-  const isVisuallyDisabled = Boolean(viewDisabled) && pendingAction === null;
+  const isInteractionLocked = Boolean(viewDisabled);
 
   const railClass = useMemo(() => {
     const ui = getOpsBookingStatusUi(booking.status);
@@ -89,6 +88,7 @@ export const OpsBookingCard = memo(function OpsBookingCard({
         header={header}
         isOpen={isOpen}
         showCollapseToggle={isMobile}
+        disableCollapseToggle={isInteractionLocked}
       />
 
       <OpsBookingCardDetails details={details} />
@@ -111,11 +111,13 @@ export const OpsBookingCard = memo(function OpsBookingCard({
         'group relative overflow-hidden border-l-[3px] transition-shadow duration-200 ease-out hover:shadow-md motion-reduce:transition-none',
         railClass,
         meta.isDone && 'opacity-60',
-        (showLoading || isVisuallyDisabled) && 'opacity-60',
+        isInteractionLocked && 'pointer-events-none opacity-60',
+        showLoading && 'opacity-60',
       )}
       role="article"
       aria-labelledby={`guest-name-${booking.id}`}
       aria-busy={showLoading}
+      data-disabled={isInteractionLocked ? 'true' : undefined}
     >
       <Collapsible open={isOpen} onOpenChange={handleOpenChange} className="w-full">
         {cardBody}

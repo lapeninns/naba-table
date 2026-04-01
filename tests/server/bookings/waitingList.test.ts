@@ -11,8 +11,8 @@ function createWaitingListClient() {
   const positionMaybeSingle = vi
     .fn()
     .mockResolvedValue({ data: { id: 'wait-1', created_at: '2026-04-01T17:00:00Z' }, error: null });
-  const positionEqPhone = vi.fn(() => ({ maybeSingle: positionMaybeSingle }));
-  const positionEqEmail = vi.fn(() => ({ eq: positionEqPhone }));
+  const positionInPhone = vi.fn(() => ({ maybeSingle: positionMaybeSingle }));
+  const positionEqEmail = vi.fn(() => ({ in: positionInPhone }));
   const positionEqTime = vi.fn(() => ({ eq: positionEqEmail }));
   const positionEqDate = vi.fn(() => ({ eq: positionEqTime }));
   const positionEqRestaurant = vi.fn(() => ({ eq: positionEqDate }));
@@ -22,8 +22,8 @@ function createWaitingListClient() {
 
   const initialMaybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
   const initialLimit = vi.fn(() => ({ maybeSingle: initialMaybeSingle }));
-  const initialEqPhone = vi.fn(() => ({ limit: initialLimit }));
-  const initialEqEmail = vi.fn(() => ({ eq: initialEqPhone }));
+  const initialInPhone = vi.fn(() => ({ limit: initialLimit }));
+  const initialEqEmail = vi.fn(() => ({ in: initialInPhone }));
   const initialEqTime = vi.fn(() => ({ eq: initialEqEmail }));
   const initialEqDate = vi.fn(() => ({ eq: initialEqTime }));
   const initialEqRestaurant = vi.fn(() => ({ eq: initialEqDate }));
@@ -47,8 +47,8 @@ function createWaitingListClient() {
     spies: {
       from,
       insert,
-      initialEqPhone,
-      positionEqPhone,
+      initialInPhone,
+      positionInPhone,
     },
   };
 }
@@ -69,13 +69,19 @@ describe('server/bookings addToWaitingList', () => {
       notes: null,
     });
 
-    expect(spies.initialEqPhone).toHaveBeenCalledWith('customer_phone', '+447950272147');
+    expect(spies.initialInPhone).toHaveBeenCalledWith('customer_phone', [
+      '+447950272147',
+      '07950272147',
+    ]);
     expect(spies.insert).toHaveBeenCalledWith(
       expect.objectContaining({
         customer_phone: '+447950272147',
       }),
     );
-    expect(spies.positionEqPhone).toHaveBeenCalledWith('customer_phone', '+447950272147');
+    expect(spies.positionInPhone).toHaveBeenCalledWith('customer_phone', [
+      '+447950272147',
+      '07950272147',
+    ]);
     expect(result).toEqual({ id: 'wait-1', position: 1, existing: false });
   });
 });

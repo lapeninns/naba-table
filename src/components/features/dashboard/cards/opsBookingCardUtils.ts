@@ -304,7 +304,7 @@ function buildOpsBookingCardActionPolicy(params: {
   const { booking, meta, pendingAction, actionsDisabled } = params;
   const isPendingMutation = pendingAction !== null;
   const isMutatingDisabled = actionsDisabled || isPendingMutation;
-  const detailsDisabled = actionsDisabled && !isPendingMutation;
+  const detailsDisabled = isMutatingDisabled;
 
   const editValid = !meta.isDone && !meta.isPastDay;
   const noShowValid = !meta.isDone && meta.isToday && !meta.isSeated;

@@ -23,12 +23,14 @@ export type OpsBookingCardHeaderProps = {
   header: OpsBookingCardHeaderViewModel;
   isOpen: boolean;
   showCollapseToggle?: boolean;
+  disableCollapseToggle?: boolean;
 };
 
 export const OpsBookingCardHeader = memo(function OpsBookingCardHeader({
   header,
   isOpen,
   showCollapseToggle = true,
+  disableCollapseToggle = false,
 }: OpsBookingCardHeaderProps) {
   const {
     bookingId,
@@ -108,6 +110,7 @@ export const OpsBookingCardHeader = memo(function OpsBookingCardHeader({
                   className="h-11 w-11 rounded-full p-0 transition-colors duration-150 hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
                   aria-expanded={isOpen}
                   aria-controls={`ops-booking-details-${bookingId}`}
+                  disabled={disableCollapseToggle}
                 >
                   <ChevronDown
                     className={cn(

@@ -1,51 +1,48 @@
 # Continuity Ledger
 
-Last updated: 2026-04-01T16:28:00Z
+Last updated: 2026-04-01T17:24:00Z
 
 ## Goal (incl. success criteria)
 
-- Fix customer phone normalization so equivalent UK formats such as `+44...`, `44...`, and `0...` resolve to the same customer across ops and public booking flows.
-- Success: `upsertCustomer` reuses existing customers for equivalent UK phone formats instead of attempting duplicate inserts.
-- Success: focused automated proof covers normalization, timeout recovery, and duplicate-collision regression paths.
+- Restore a fully locked interaction state for ops booking cards during pending lifecycle actions.
+- Success: locked cards are inert again, including details/menu/toggle interactions.
+- Success: non-locked cards still expose their overflow menu normally.
+- Success: focused component tests pass and browser proof is captured on the ops bookings dev harness.
 
 ## Constraints/Assumptions
 
 - Follow existing AGENTS SDLC flow with task artifacts.
-- Keep the fix on the canonical customer/upsert path in `server/customers.ts`.
-- Reuse a shared comparable-phone helper in `reserve/shared/validation/contact.ts`.
-- Preserve a safe digits-only fallback for non-UK numbers in this pass.
+- Keep the change scoped to the existing ops booking card stack.
+- Use the existing ops bookings dev harness for browser proof when possible.
+- Treat the transient pending state as test-backed if the harness resolves too quickly for stable browser capture.
 
 ## Key decisions
 
-- Treat this as a verification-first regression fix because the production mismatch had to be confirmed first.
-- Normalize valid UK numbers to E.164 digits-without-plus before lookup and comparison.
-- Keep non-UK normalization as a digits-only fallback to avoid widening the scope of phone-policy changes.
-- Apply the same comparable-phone rule to reserve timeout recovery and guest self-serve booking ownership checks.
+- Restore a fully inert locked-card contract instead of the recent partially interactive pending state.
+- Keep done bookings discoverable by leaving their overflow menu accessible when the row is not locked.
+- Express the locked state at both the row level and the individual control level.
 
 ## State
 
-- Phase 4: broader phone-normalization audit and focused verification complete for the current booking-flow pass.
+- Phase 4 complete for the ops booking card disabled-UX follow-up patch.
 
 ## Done
 
-- Confirmed the production error hits the ops host and canonical ops bookings route.
-- Traced the duplicate collision to `server/customers.ts`, where lookup and insert normalize UK phone values differently.
-- Created task folder `tasks/fix-customer-phone-normalization-20260401-1611/` with research, plan, todo, and verification stubs.
-- Updated `server/customers.ts` so valid UK numbers normalize to canonical E.164 digits-without-plus before lookup and comparison.
-- Added `reserve/shared/validation/contact.ts::normalizeComparablePhone` and reused it in reserve timeout recovery.
-- Updated guest self-serve booking update ownership checks to compare normalized phone values.
-- Added `tests/server/customers.test.ts` covering equivalent UK formats and existing-customer reuse.
-- Added `tests/reserve/timeoutRecovery.test.ts` covering equivalent UK phone matching after timeout recovery.
-- Verified with `npx vitest run tests/server/customers.test.ts tests/reserve/timeoutRecovery.test.ts` and `pnpm typecheck`.
+- Traced the current locked-card behavior through callers and action-policy code.
+- Created task folder `tasks/ops-booking-card-disabled-ux-20260401-1709/` with research, plan, todo, and verification notes.
+- Updated `src/components/features/dashboard/cards/OpsBookingCard.tsx` to mark locked cards inert again with row-level disabled semantics.
+- Updated `src/components/features/dashboard/cards/OpsBookingCardHeader.tsx` to disable the mobile collapse toggle while locked.
+- Updated `src/components/features/dashboard/cards/OpsBookingCardActions.tsx` and `src/components/features/dashboard/cards/opsBookingCardUtils.ts` so Details and the overflow trigger lock with pending mutations, while done-booking menus remain discoverable.
+- Updated `tests/components/OpsBookingCard.test.tsx` and `tests/components/OpsBookingCardActions.noShow.test.tsx`.
+- Verified with focused vitest coverage, `pnpm typecheck`, and Chrome DevTools on the existing ops bookings dev harness.
 
 ## Now
 
-- Ready to hand off or expand verification if production logs need follow-up after deploy.
+- Ready to hand off with the ops card UX follow-up complete.
 
 ## Next
 
-- Monitor post-deploy ops booking logs for disappearance of `customers_restaurant_id_phone_normalized_key` errors.
-- Follow up separately on `waiting_list.customer_phone` exact-string storage if waitlist duplicates are in scope.
+- If desired, follow up with a broader dashboard UX pass for alias/style consistency only.
 
 ## Open questions (UNCONFIRMED if needed)
 
@@ -53,19 +50,18 @@ Last updated: 2026-04-01T16:28:00Z
 
 ## Working set (files/ids/commands)
 
-- `tasks/fix-customer-phone-normalization-20260401-1611/research.md`
-- `tasks/fix-customer-phone-normalization-20260401-1611/plan.md`
-- `tasks/fix-customer-phone-normalization-20260401-1611/todo.md`
-- `tasks/fix-customer-phone-normalization-20260401-1611/verification.md`
+- `tasks/ops-booking-card-disabled-ux-20260401-1709/research.md`
+- `tasks/ops-booking-card-disabled-ux-20260401-1709/plan.md`
+- `tasks/ops-booking-card-disabled-ux-20260401-1709/todo.md`
+- `tasks/ops-booking-card-disabled-ux-20260401-1709/verification.md`
+- `tasks/ops-booking-card-disabled-ux-20260401-1709/artifacts/ops-bookings-dev-harness-menu.png`
 - `CONTINUITY.md`
-- `server/customers.ts`
-- `reserve/shared/validation/contact.ts`
-- `reserve/features/reservations/wizard/utils/timeoutRecovery.ts`
-- `src/app/api/bookings/[id]/route.ts`
-- `reserve/shared/validation/contact.ts`
-- `src/app/api/ops/bookings/route.ts`
-- `src/app/api/bookings/route.ts`
-- `tests/server/customers.test.ts`
-- `tests/reserve/timeoutRecovery.test.ts`
-- `npx vitest run tests/server/customers.test.ts tests/reserve/timeoutRecovery.test.ts`
+- `src/components/features/dashboard/cards/OpsBookingCard.tsx`
+- `src/components/features/dashboard/cards/OpsBookingCardHeader.tsx`
+- `src/components/features/dashboard/cards/OpsBookingCardActions.tsx`
+- `src/components/features/dashboard/cards/opsBookingCardUtils.ts`
+- `next-env.d.ts`
+- `tests/components/OpsBookingCard.test.tsx`
+- `tests/components/OpsBookingCardActions.noShow.test.tsx`
+- `npx vitest run tests/components/OpsBookingCard.test.tsx tests/components/OpsBookingCardActions.noShow.test.tsx`
 - `pnpm typecheck`

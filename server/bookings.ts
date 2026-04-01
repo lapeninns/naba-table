@@ -302,6 +302,12 @@ export async function addToWaitingList(
   const canonicalUkPhone = formatUKPhoneToE164(trimmedPhone);
   const phoneNormalizedRaw = normalizePhone(payload.customer_phone);
   const phoneForStorage = canonicalUkPhone ?? (phoneNormalizedRaw || trimmedPhone);
+  const legacyPhoneForLookup = trimmedPhone.startsWith('+')
+    ? trimmedPhone
+    : (trimmedPhone.replace(/[^0-9]/g, '') || trimmedPhone);
+  const waitlistPhoneCandidates = Array.from(
+    new Set([phoneForStorage, legacyPhoneForLookup].filter((value) => value.length > 0)),
+  );
 
   const {
     data: existing,
@@ -313,7 +319,7 @@ export async function addToWaitingList(
     .eq("booking_date", payload.booking_date)
     .eq("desired_time", payload.desired_time)
     .eq("customer_email", email)
-    .eq("customer_phone", phoneForStorage)
+    .in("customer_phone", waitlistPhoneCandidates)
     .limit(1)
     .maybeSingle();
 
@@ -327,6 +333,7 @@ export async function addToWaitingList(
       .update({
         party_size: payload.party_size,
         seating_preference: seatingPreference,
+        customer_phone: phoneForStorage,
         notes: payload.notes ?? null,
       })
       .eq("id", existing.id);
@@ -382,7 +389,7 @@ export async function addToWaitingList(
     .eq("booking_date", payload.booking_date)
     .eq("desired_time", payload.desired_time)
     .eq("customer_email", email)
-    .eq("customer_phone", phoneForStorage)
+    .in("customer_phone", waitlistPhoneCandidates)
     .maybeSingle();
 
   if (createdError) {
