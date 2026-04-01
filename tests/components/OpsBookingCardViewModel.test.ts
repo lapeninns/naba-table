@@ -188,7 +188,7 @@ describe('buildOpsBookingCardViewModel', () => {
       variant: 'destructive',
       label: '20m late',
     });
-    expect(viewModel.actions.details.disabled).toBe(false);
+    expect(viewModel.actions.details.disabled).toBe(true);
     expect(viewModel.actions.menuItems.every((item) => item.disabled)).toBe(true);
     expect(viewModel.actions.primary).toMatchObject({
       kind: 'button',

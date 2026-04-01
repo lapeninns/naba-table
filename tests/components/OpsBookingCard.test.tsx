@@ -198,8 +198,10 @@ describe('OpsBookingCard', () => {
 
     renderLockedCard();
 
-    expect(screen.getByRole('article')).toHaveAttribute('aria-disabled', 'true');
-    expect(screen.getByRole('article')).toHaveClass('pointer-events-none');
+    const lockedCard = screen.getByText('Alex Example').closest('[aria-disabled="true"]');
+
+    expect(lockedCard).not.toBeNull();
+    expect(lockedCard).toHaveClass('pointer-events-none');
     expect(screen.getByRole('button', { name: /toggle details/i })).toBeDisabled();
   });
 });
