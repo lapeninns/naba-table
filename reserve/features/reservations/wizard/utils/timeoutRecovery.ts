@@ -1,4 +1,5 @@
 import { normalizeTime } from '@reserve/shared/time';
+import { normalizeComparablePhone } from '@reserve/shared/validation/contact';
 
 import type { FetchBookingsByContactParams } from '../api/fetchBookingsByContact';
 import type { ReservationDraft } from '../model/reducer';
@@ -117,7 +118,7 @@ export function findMatchingReservation(
 }
 
 function normalizePhone(value: string): string {
-  return value.replace(/[^0-9]/g, '');
+  return normalizeComparablePhone(value);
 }
 
 function isRecent(createdAt?: string | null): boolean {

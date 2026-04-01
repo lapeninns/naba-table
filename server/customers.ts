@@ -2,6 +2,7 @@ import {
   CUSTOMER_PHONE_LENGTH_MAX,
   CUSTOMER_PHONE_LENGTH_MIN,
   formatUKPhoneToE164,
+  normalizeComparablePhone,
 } from "@reserve/shared/validation";
 
 import type { Database, Tables, TablesInsert, TablesUpdate } from "@/types/supabase";
@@ -20,8 +21,25 @@ export function normalizeEmail(email: string | null | undefined): string {
 }
 
 export function normalizePhone(phone: string | null | undefined): string {
-  if (!phone) return '';
-  return phone.replace(/[^0-9]/g, "");
+  return normalizeComparablePhone(phone);
+}
+
+function buildCustomerOrFilter(email: string, phone: string): string {
+  const filters: string[] = [];
+
+  if (email) {
+    filters.push(`email_normalized.eq."${email}"`);
+  }
+
+  if (phone) {
+    filters.push(`phone_normalized.eq."${phone}"`);
+  }
+
+  if (filters.length === 0) {
+    throw new Error('At least one normalized contact method is required');
+  }
+
+  return filters.join(',');
 }
 
 function sanitizePhoneValue(phone: string | null | undefined): string {
@@ -48,13 +66,24 @@ export async function findCustomerByContact(
   const normalizedEmail = normalizeEmail(email);
   const normalizedPhone = normalizePhone(phone);
 
-  const { data, error } = await client
+  if (!normalizedEmail && !normalizedPhone) {
+    return null;
+  }
+
+  let query = client
     .from("customers")
     .select(CUSTOMER_COLUMNS)
-    .eq("restaurant_id", restaurantId)
-    .eq("email_normalized", normalizedEmail)
-    .eq("phone_normalized", normalizedPhone)
-    .maybeSingle();
+    .eq("restaurant_id", restaurantId);
+
+  if (normalizedEmail) {
+    query = query.eq("email_normalized", normalizedEmail);
+  }
+
+  if (normalizedPhone) {
+    query = query.eq("phone_normalized", normalizedPhone);
+  }
+
+  const { data, error } = await query.maybeSingle();
 
   if (error && error.code !== "PGRST116") {
     throw error;
@@ -97,7 +126,7 @@ export async function upsertCustomer(
     .from("customers")
     .select(CUSTOMER_COLUMNS)
     .eq("restaurant_id", params.restaurantId)
-    .or(`email_normalized.eq."${normalizedEmail}",phone_normalized.eq."${normalizedPhone}"`)
+    .or(buildCustomerOrFilter(normalizedEmail, normalizedPhone))
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -170,7 +199,7 @@ export async function upsertCustomer(
           .from("customers")
           .select(CUSTOMER_COLUMNS)
           .eq("restaurant_id", params.restaurantId)
-          .or(`email_normalized.eq."${normalizedEmail}",phone_normalized.eq."${normalizedPhone}"`)
+          .or(buildCustomerOrFilter(normalizedEmail, normalizedPhone))
           .maybeSingle();
 
         if (secondFind) return secondFind as CustomerRow;

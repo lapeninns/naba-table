@@ -14,6 +14,7 @@ import {
 } from "@/lib/enums";
 import { getCachedOccasionCatalog } from '@/server/occasions/catalog';
 import { assertActiveOccasionKey } from '@/server/occasions/validateBookingType';
+import { formatUKPhoneToE164 } from "@reserve/shared/validation";
 
 import { computeTokenExpiry, generateConfirmationToken } from "./bookings/confirmation-token";
 import {
@@ -297,11 +298,10 @@ export async function addToWaitingList(
 ): Promise<{ id: string; position: number; existing: boolean } | null> {
   const seatingPreference = ensureSeatingPreference(payload.seating_preference);
   const email = normalizeEmail(payload.customer_email);
+  const trimmedPhone = payload.customer_phone.trim();
+  const canonicalUkPhone = formatUKPhoneToE164(trimmedPhone);
   const phoneNormalizedRaw = normalizePhone(payload.customer_phone);
-  const hasPlusPrefix = payload.customer_phone.trim().startsWith("+");
-  const phoneForStorage = hasPlusPrefix && phoneNormalizedRaw
-    ? `+${phoneNormalizedRaw}`
-    : phoneNormalizedRaw || payload.customer_phone.trim();
+  const phoneForStorage = canonicalUkPhone ?? (phoneNormalizedRaw || trimmedPhone);
 
   const {
     data: existing,

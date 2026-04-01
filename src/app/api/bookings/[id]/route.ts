@@ -55,7 +55,11 @@ import {
   MissingRestaurantContextError,
 } from '@/server/supabase';
 import { formatDateForInput } from '@reserve/shared/formatting/booking';
-import { CUSTOMER_PHONE_LENGTH_MAX, CUSTOMER_PHONE_LENGTH_MIN } from '@reserve/shared/validation';
+import {
+  CUSTOMER_PHONE_LENGTH_MAX,
+  CUSTOMER_PHONE_LENGTH_MIN,
+  isUKPhone,
+} from '@reserve/shared/validation';
 
 import type { BookingRecord } from '@/server/bookings';
 import type { Json, Tables } from '@/types/supabase';
@@ -73,7 +77,13 @@ const updateSchema = z.object({
   notes: z.string().max(500).optional().nullable(),
   name: z.string().min(2).max(120),
   email: z.string().email(),
-  phone: z.string().min(CUSTOMER_PHONE_LENGTH_MIN).max(CUSTOMER_PHONE_LENGTH_MAX),
+  phone: z
+    .string()
+    .min(CUSTOMER_PHONE_LENGTH_MIN)
+    .max(CUSTOMER_PHONE_LENGTH_MAX)
+    .refine((value) => isUKPhone(value), {
+      message: 'Please enter a valid UK phone number.',
+    }),
   marketingOptIn: z.coerce.boolean().optional().default(false),
 });
 
@@ -1218,10 +1228,14 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 
     const normalizedEmail = normalizeEmail(data.email);
     const normalizedPhone = data.phone.trim();
+    const comparablePhone = normalizePhone(data.phone);
+    const existingComparablePhone = existingBooking.customer_phone
+      ? normalizePhone(existingBooking.customer_phone)
+      : '';
 
     if (
       existingBooking.customer_email !== normalizedEmail ||
-      existingBooking.customer_phone !== normalizedPhone
+      existingComparablePhone !== comparablePhone
     ) {
       return NextResponse.json(
         { error: 'You can only update your own reservation', code: 'FORBIDDEN' },

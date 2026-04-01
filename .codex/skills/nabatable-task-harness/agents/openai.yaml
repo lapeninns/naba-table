@@ -1,0 +1,4 @@
+interface:
+  display_name: "Nabatable Task Harness"
+  short_description: "Run Nabatable work through AGENTS artifacts"
+  default_prompt: "Use $nabatable-task-harness to set up or update the proper Nabatable task folder, AGENTS alignment, continuity ledger, and verification artifacts before or during implementation."
