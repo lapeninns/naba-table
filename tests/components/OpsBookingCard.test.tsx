@@ -62,6 +62,18 @@ function renderCard(overrides: Partial<BookingDTO> = {}) {
   return render(<OpsBookingCard viewModel={viewModel} />);
 }
 
+function renderLockedCard(overrides: Partial<BookingDTO> = {}) {
+  const viewModel = buildOpsBookingCardViewModel({
+    booking: createBooking(overrides),
+    timezone: 'UTC',
+    now: new Date('2026-03-29T17:30:00.000Z'),
+    pendingAction: 'check-in',
+    actionsDisabled: true,
+  });
+
+  return render(<OpsBookingCard viewModel={viewModel} />);
+}
+
 describe('OpsBookingCard', () => {
   beforeEach(() => {
     useMediaQueryMock.mockReturnValue(false);
@@ -179,5 +191,15 @@ describe('OpsBookingCard', () => {
     renderCard({ notes: '   ' });
 
     expect(screen.queryByText(/available\. expand details to read\./i)).not.toBeInTheDocument();
+  });
+
+  it('marks locked cards as inert and disables the mobile collapse toggle', () => {
+    useMediaQueryMock.mockReturnValue(true);
+
+    renderLockedCard();
+
+    expect(screen.getByRole('article')).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('article')).toHaveClass('pointer-events-none');
+    expect(screen.getByRole('button', { name: /toggle details/i })).toBeDisabled();
   });
 });

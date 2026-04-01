@@ -55,6 +55,8 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
   const isNoShowPending = actions.noShowConfirmation.pending;
   const partySize = actions.noShowConfirmation.description.partySize;
   const primaryButton = actions.primary.kind === 'button' ? actions.primary : null;
+  const disableMenuTrigger =
+    actions.details.disabled && actions.menuItems.every((item) => item.disabled);
 
   const handleConfirmNoShow = useCallback(async () => {
     try {
@@ -85,6 +87,7 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
                 size="sm"
                 className="h-11 w-11 p-0 focus-visible:ring-2 focus-visible:ring-ring sm:h-8 sm:w-8"
                 aria-label="More actions"
+                disabled={disableMenuTrigger}
               >
                 <MoreHorizontal className="h-4 w-4" aria-hidden />
               </Button>

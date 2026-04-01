@@ -56,7 +56,7 @@ function createActions(
 }
 
 describe('OpsBookingCardActions', () => {
-  it('keeps Details clickable while lifecycle mutations are pending', async () => {
+  it('locks Details and the overflow trigger while lifecycle mutations are pending', async () => {
     const user = userEvent.setup();
     const onDetails = vi.fn();
 
@@ -68,17 +68,14 @@ describe('OpsBookingCardActions', () => {
     );
 
     const detailsButton = screen.getByRole('button', { name: 'Details' });
-    expect(detailsButton).toBeEnabled();
+    const moreActionsButton = screen.getByRole('button', { name: /more actions/i });
+
+    expect(detailsButton).toBeDisabled();
+    expect(moreActionsButton).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Updating…' })).toBeDisabled();
 
     await user.click(detailsButton);
-    expect(onDetails).toHaveBeenCalledTimes(1);
-
-    await user.click(screen.getByRole('button', { name: /more actions/i }));
-    expect(screen.getByRole('menuitem', { name: /edit booking/i })).toHaveAttribute(
-      'data-disabled',
-      '',
-    );
+    expect(onDetails).not.toHaveBeenCalled();
   });
 
   it('uses the correct primary button label and disabled state for confirmed and checked-in bookings', () => {
