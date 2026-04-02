@@ -1,48 +1,49 @@
 # Continuity Ledger
 
-Last updated: 2026-04-01T18:01:00Z
+Last updated: 2026-04-02T08:02:00Z
 
 ## Goal (incl. success criteria)
 
-- Close the reproducible PR review findings on the ops booking card branch without churning already-correct behavior.
-- Success: locked cards expose `aria-disabled` at the row level during pending actions.
-- Success: `next-env.d.ts` typechecks without `.next/dev` artifacts present.
-- Success: focused tests, typecheck, and browser proof all reflect the current lock policy.
+- Redesign Email Templates into a standalone ops command-center page instead of nesting it under restaurant settings.
+- Success: `/app/email-templates` becomes the canonical editable route.
+- Success: desktop uses the requested three-pane layout, while mobile/tablet use the requested pane-switching behavior.
+- Success: existing template CRUD, preview, and test-send flows continue working on the new page.
 
 ## Constraints/Assumptions
 
 - Follow existing AGENTS SDLC flow with task artifacts.
-- Keep the patch scoped to the reproducible review findings only.
-- Use the existing ops bookings dev harness for browser proof when possible.
-- One reported initials-override issue is already fixed on this branch and should be documented, not reworked.
+- UI change requires Chrome DevTools proof and likely a dedicated dev harness.
+- Keep the current email template API and shared template catalog as the single source of truth.
+- Assumption: standalone page route is `/app/email-templates` and the old settings URL will redirect there.
 
 ## Key decisions
 
-- Fix the locked-row semantics by passing `aria-disabled` from `OpsBookingCard` rather than relying on a data attribute.
-- Restore `next-env.d.ts` to the safe generated baseline instead of adding custom type plumbing.
-- Treat the `displayInitials` review comment as non-actionable on this branch because the canonical helper already preserves explicit overrides.
+- Promote Email Templates to a first-class ops page rather than leaving it inside the restaurant settings shell.
+- Preserve the existing hooks/services/API routes and redirect the old settings route instead of keeping duplicate editable entry points.
+- Split the oversized email-template UI into a dedicated feature surface rather than expanding the current restaurant-settings component further.
 
 ## State
 
-- Phase 4 complete for the review-fix follow-up patch.
+- Standalone email templates command-center implementation and verification are complete in the workspace; final review/cleanup remains.
 
 ## Done
 
-- Verified the four review findings against the current branch and confirmed three were reproducible.
-- Created task folder `tasks/ops-booking-card-review-fixes-20260401-1755/` with research, plan, todo, and verification notes.
-- Updated `src/components/features/dashboard/cards/OpsBookingCard.tsx` to expose `aria-disabled` for locked rows.
-- Removed the `.next/dev/types/routes.d.ts` import from `next-env.d.ts`.
-- Updated `tests/components/OpsBookingCardViewModel.test.ts` to match the current centralized lock policy.
-- Confirmed the `displayInitials` override path was already correct and documented that as a non-reproducible finding.
-- Verified with focused vitest coverage, `pnpm typecheck`, and Chrome DevTools on the ops bookings list dev harness.
+- Created task folder `tasks/email-templates-command-center-20260402-0723/` with research, plan, todo, and verification stubs.
+- Reviewed the root and closest AGENTS files plus the repo-local Nabatable task/UI/fullstack skills.
+- Confirmed the current canonical email-template flow, settings shell, ops sidebar structure, and dev harness patterns.
+- Added the standalone `/app/email-templates` route and extracted the feature into `src/components/features/email-templates/**` plus `src/hooks/ops/useOpsEmailTemplatesPageState.ts`.
+- Redirected the old settings route to `/app/email-templates` and removed Email Templates from the restaurant settings shell/subnav.
+- Added dedicated dev harness routes under `src/app/(public)/dev/ops-email-templates/**` and `src/app/app/dev/ops-email-templates/page.tsx`.
+- Verified the command-center layout in Chrome DevTools across desktop, tablet, and mobile; stored screenshots and Lighthouse artifacts in `tasks/email-templates-command-center-20260402-0723/artifacts/`.
+- Fixed a draft-preview polling loop caused by the preview mutation dependency and closed the page-level Lighthouse accessibility issues.
 
 ## Now
 
-- Ready to hand off with the review-fix follow-up complete.
+- Preparing the change summary and any follow-up notes for handoff.
 
 ## Next
 
-- If desired, update PR #46 with a brief note that the three reproducible review findings were fixed and the initials-override comment was already satisfied on the branch.
+- Optional follow-up: decide whether to delete the now-unused `src/components/features/restaurant-settings/EmailTemplatesSection.tsx` in a separate cleanup once the new route is accepted.
 
 ## Open questions (UNCONFIRMED if needed)
 
@@ -50,15 +51,19 @@ Last updated: 2026-04-01T18:01:00Z
 
 ## Working set (files/ids/commands)
 
-- `tasks/ops-booking-card-review-fixes-20260401-1755/research.md`
-- `tasks/ops-booking-card-review-fixes-20260401-1755/plan.md`
-- `tasks/ops-booking-card-review-fixes-20260401-1755/todo.md`
-- `tasks/ops-booking-card-review-fixes-20260401-1755/verification.md`
-- `tasks/ops-booking-card-review-fixes-20260401-1755/artifacts/ops-bookings-list-locked-card-mobile.png`
+- `tasks/email-templates-command-center-20260402-0723/research.md`
+- `tasks/email-templates-command-center-20260402-0723/plan.md`
+- `tasks/email-templates-command-center-20260402-0723/todo.md`
+- `tasks/email-templates-command-center-20260402-0723/verification.md`
+- `tasks/email-templates-command-center-20260402-0723/artifacts/`
 - `CONTINUITY.md`
-- `src/components/features/dashboard/cards/OpsBookingCard.tsx`
-- `next-env.d.ts`
-- `tests/components/OpsBookingCard.test.tsx`
-- `tests/components/OpsBookingCardViewModel.test.ts`
-- `pnpm exec vitest run tests/components/OpsBookingCard.test.tsx tests/components/OpsBookingCardViewModel.test.ts`
-- `pnpm typecheck`
+- `src/components/features/restaurant-settings/EmailTemplatesSection.tsx`
+- `src/components/features/restaurant-settings/OpsRestaurantSettingsClient.tsx`
+- `src/components/features/restaurant-settings/routes.ts`
+- `src/components/features/restaurant-settings/RestaurantSettingsSubnav.tsx`
+- `src/components/features/ops-shell/navigation.tsx`
+- `src/app/app/(app)/settings/restaurant/email-templates/page.tsx`
+- `src/app/app/(app)/email-templates/page.tsx`
+- `src/components/features/email-templates/**`
+- `src/hooks/ops/useOpsEmailTemplatesPageState.ts`
+- `src/app/(public)/dev/ops-email-templates/**`

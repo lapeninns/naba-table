@@ -21,12 +21,6 @@ export const RESTAURANT_SETTINGS_ROUTES: RestaurantSettingsRoute[] = [
     description: 'Weekly schedule and one-off overrides for open/close times.',
   },
   {
-    view: 'email-templates',
-    href: '/settings/restaurant/email-templates',
-    title: 'Email Templates',
-    description: 'Manage booking confirmation, reminder, cancellation, and review copy.',
-  },
-  {
     view: 'service-periods',
     href: '/settings/restaurant/service-periods',
     title: 'Service Periods',
@@ -63,7 +57,6 @@ const getRoute = (view: RestaurantSettingsView): RestaurantSettingsNavItem => {
 export const RESTAURANT_SETTINGS_NAV_ITEMS: RestaurantSettingsNavItem[] = [
   getRoute('profile'),
   getRoute('operating-hours'),
-  getRoute('email-templates'),
   getRoute('service-periods'),
   getRoute('turn-durations'),
   {

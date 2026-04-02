@@ -31,10 +31,6 @@ const OperatingHoursSection = dynamic(() => import('./OperatingHoursSection').th
   loading: () => <SettingsSectionSkeleton title="Loading operating hours" />,
 });
 
-const EmailTemplatesSection = dynamic(() => import('./EmailTemplatesSection').then((m) => m.EmailTemplatesSection), {
-  loading: () => <SettingsSectionSkeleton title="Loading email templates" />,
-});
-
 const OccasionsSection = dynamic(() => import('./OccasionsSection').then((m) => m.OccasionsSection), {
   loading: () => <SettingsSectionSkeleton title="Loading occasions" />,
 });
@@ -98,9 +94,6 @@ export function OpsRestaurantSettingsClient({ defaultRestaurantId, view }: OpsRe
   const renderByView: Record<RestaurantSettingsView, (context: { restaurantId: string | null; restaurantName: string }) => ReactNode> = {
     profile: ({ restaurantId }) => <RestaurantProfileSection restaurantId={restaurantId} />,
     'operating-hours': ({ restaurantId }) => <OperatingHoursSection restaurantId={restaurantId} />,
-    'email-templates': ({ restaurantId, restaurantName }) => (
-      <EmailTemplatesSection restaurantId={restaurantId} restaurantName={restaurantName} />
-    ),
     occasions: () => <OccasionsSection />,
     'service-periods': ({ restaurantId }) => <ServicePeriodsSection restaurantId={restaurantId} />,
     'turn-durations': ({ restaurantId }) => <TurnDurationsSection restaurantId={restaurantId} />,
