@@ -42,7 +42,7 @@ function path(segment: string): string {
 
 export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
   {
-    label: 'Daily operations',
+    label: 'Service',
     items: [
       {
         title: 'Dashboard',
@@ -57,6 +57,32 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         href: path('/bookings'),
         icon: CalendarDays,
         match: (pathname) => pathname === path('/bookings') || pathname.startsWith(path('/bookings/')),
+      },
+      {
+        title: 'New Bookings',
+        description: 'Log arrivals on the floor',
+        href: path('/new-bookings'),
+        icon: DoorOpen,
+        match: (pathname) => pathname === path('/new-bookings'),
+      },
+      {
+        title: 'Floor Plan',
+        description: 'Visual table management',
+        href: path('/floor-plan'),
+        icon: Map,
+        match: (pathname) => pathname.startsWith(path('/floor-plan')),
+      },
+    ],
+  },
+  {
+    label: 'Guest & Insights',
+    items: [
+      {
+        title: 'Guests',
+        description: 'Review guest history and contact details',
+        href: path('/customers'),
+        icon: Users,
+        match: (pathname) => pathname.startsWith(path('/customers')),
       },
       {
         title: 'Email Delivery',
@@ -80,33 +106,6 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         match: (pathname) => pathname === path('/rejections'),
         requiresFeatureFlag: 'rejectionAnalytics',
       },
-      {
-        title: 'New Bookings',
-        description: 'Log arrivals on the floor',
-        href: path('/new-bookings'),
-        icon: DoorOpen,
-        match: (pathname) => pathname === path('/new-bookings'),
-      },
-      {
-        title: 'Guests',
-        description: 'Review guest history and contact details',
-        href: path('/customers'),
-        icon: Users,
-        match: (pathname) => pathname.startsWith(path('/customers')),
-      },
-      {
-        title: 'Floor Plan',
-        description: 'Visual table management',
-        href: path('/floor-plan'),
-        icon: Map,
-        match: (pathname) => pathname.startsWith(path('/floor-plan')),
-      },
-    ],
-  },
-  {
-    label: 'Seating',
-    items: [
-      
     ],
   },
   {
