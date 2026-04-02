@@ -52,6 +52,8 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       preview: {
         templateKey: result.preview.templateKey,
         selectedVariantId: result.preview.selectedVariantId,
+        selectedVariantName: result.preview.selectedVariantName,
+        preheader: result.preview.preheader,
         headline: result.preview.headline,
         intro: result.preview.intro,
         ctaLabel: result.preview.ctaLabel,

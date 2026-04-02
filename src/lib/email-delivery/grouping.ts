@@ -6,6 +6,7 @@ export type EmailDeliveryGroup = {
   emailType: string | null;
   templateType: string | null;
   subject: string | null;
+  variantName: string | null;
   currentStatus: EmailDeliveryStatus;
   currentOccurredAt: string | null;
   events: EmailDeliveryEventDTO[];
@@ -23,6 +24,24 @@ function resolveSubject(events: EmailDeliveryEventDTO[]): string | null {
     const subject = (meta as { subject?: unknown }).subject;
     if (typeof subject === "string" && subject.trim().length > 0) {
       return subject.trim();
+    }
+  }
+  return null;
+}
+
+function resolveVariantName(events: EmailDeliveryEventDTO[]): string | null {
+  for (const event of events) {
+    const meta = event.metadata;
+    if (!meta || typeof meta !== 'object') continue;
+
+    const variantName = (meta as { variantName?: unknown }).variantName;
+    if (typeof variantName === 'string' && variantName.trim().length > 0) {
+      return variantName.trim();
+    }
+
+    const variantId = (meta as { variantId?: unknown }).variantId;
+    if (typeof variantId === 'string' && variantId.trim().length > 0) {
+      return variantId.trim();
     }
   }
   return null;
@@ -79,6 +98,7 @@ export function groupEmailDeliveryEvents(
       emailType: current.emailType ?? null,
       templateType: current.templateType ?? null,
       subject: resolveSubject(sortedDesc),
+      variantName: resolveVariantName(sortedDesc),
       currentStatus: current.status,
       currentOccurredAt: current.occurredAt ?? null,
       events: sortedAsc,

@@ -26,6 +26,8 @@ const previewVenueSchema = z.object({
 const previewVariantSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
+  subject: z.string().min(1),
+  preheader: z.string().min(1),
   headline: z.string().min(1),
   intro: z.string().min(1),
   ctaLabel: z.string().min(1),
@@ -103,6 +105,8 @@ export async function POST(req: NextRequest) {
       preview: {
         templateKey: preview.templateKey,
         selectedVariantId: preview.selectedVariantId,
+        selectedVariantName: preview.selectedVariantName,
+        preheader: preview.preheader,
         headline: preview.headline,
         intro: preview.intro,
         ctaLabel: preview.ctaLabel,

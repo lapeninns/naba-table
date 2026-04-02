@@ -3,7 +3,14 @@ import { createHash } from "node:crypto";
 import config from "@/config";
 import { env } from "@/lib/env";
 import { createEmailIdempotencyKey, sendEmail } from "@/libs/resend";
-import { escapeHtml, renderButton, renderEmailBase } from "@/server/emails/base";
+import {
+  COLORS,
+  EMAIL_FONT_STACK,
+  escapeHtml,
+  renderButton,
+  renderDivider,
+  renderEmailBase,
+} from "@/server/emails/base";
 import { getServiceSupabaseClient } from "@/server/supabase";
 
 type MagicLinkIntent = "signin" | "signup";
@@ -89,15 +96,31 @@ function buildMagicLinkContent(params: {
     : "Tap the button below to sign in. This link is one-time and expires shortly.";
 
   const contentHtml = `
-    <div style="font-family:Arial,sans-serif;">
-      <p style="margin:0 0 16px;color:#111827;font-size:16px;">Hi,</p>
-      <p style="margin:0 0 20px;color:#4b5563;font-size:15px;line-height:1.6;">${escapeHtml(bodyCopy)}</p>
+    <div style="text-align:center;">
+      <h1 style="margin:0 0 16px;font-family:${EMAIL_FONT_STACK};font-size:24px;font-weight:700;color:${COLORS.brand};line-height:1.3;">
+        ${escapeHtml(title)}
+      </h1>
+      <p style="margin:0 0 24px;font-family:${EMAIL_FONT_STACK};font-size:16px;color:${COLORS.text};line-height:1.6;">
+        ${escapeHtml(bodyCopy)}
+      </p>
+      <div style="background:${COLORS.gridBg};padding:24px;border-radius:12px;margin-bottom:24px;text-align:left;border:1px solid ${COLORS.border};">
+        <p style="margin:0 0 8px;font-family:${EMAIL_FONT_STACK};font-size:14px;color:${COLORS.text};">
+          <strong>Security:</strong> This link is one-time use and expires shortly.
+        </p>
+        <p style="margin:0;font-family:${EMAIL_FONT_STACK};font-size:14px;color:${COLORS.text};">
+          <strong>Destination:</strong> ${isSignup ? "Complete your account setup" : "Return to your account"}
+        </p>
+      </div>
       ${renderButton(actionLabel, magicLink)}
-      <p style="margin:24px 0 0;color:#4b5563;font-size:13px;line-height:1.6;">
+      <p style="margin:24px 0 0;font-family:${EMAIL_FONT_STACK};color:${COLORS.text};font-size:13px;line-height:1.6;">
         If the button does not work, copy this link into your browser:
       </p>
-      <p style="margin:8px 0 0;color:#111827;font-size:13px;word-break:break-all;">
-        <a href="${escapeHtml(magicLink)}" style="color:#111827;text-decoration:underline;">${escapeHtml(magicLink)}</a>
+      <p style="margin:8px 0 0;color:${COLORS.brand};font-family:${EMAIL_FONT_STACK};font-size:13px;word-break:break-all;">
+        <a href="${escapeHtml(magicLink)}" style="color:${COLORS.brand};text-decoration:underline;">${escapeHtml(magicLink)}</a>
+      </p>
+      ${renderDivider()}
+      <p style="margin:0;font-family:${EMAIL_FONT_STACK};font-size:12px;color:${COLORS.text};line-height:1.6;">
+        If you did not request this email, you can ignore it and no changes will be made to your account.
       </p>
     </div>
   `;

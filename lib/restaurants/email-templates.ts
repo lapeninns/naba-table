@@ -22,6 +22,8 @@ type TemplateDefinition = {
   description: string;
   group: RestaurantBookingEmailTemplateGroupKey;
   supportsCtaLabel: boolean;
+  recommendedVariables: readonly BookingEmailTemplateVariableKey[];
+  authoringHints: readonly string[];
   defaultVariants: Array<{
     id: string;
     name: string;
@@ -86,6 +88,8 @@ export type RestaurantBookingEmailTemplateKey =
 export type RestaurantEmailTemplateVariant = {
   id: string;
   name: string;
+  subject: string;
+  preheader: string;
   headline: string;
   intro: string;
   ctaLabel: string;
@@ -111,6 +115,29 @@ export type BookingEmailTemplateVariableMap = {
   party: string;
 };
 
+export const BOOKING_EMAIL_TEMPLATE_VARIABLE_KEYS = [
+  'name',
+  'firstName',
+  'venue',
+  'date',
+  'time',
+  'party',
+] as const;
+
+export type BookingEmailTemplateVariableKey =
+  (typeof BOOKING_EMAIL_TEMPLATE_VARIABLE_KEYS)[number];
+
+export const BOOKING_EMAIL_TEMPLATE_VARIABLE_TOKENS = BOOKING_EMAIL_TEMPLATE_VARIABLE_KEYS.map(
+  (key) => `{{${key}}}` as const,
+);
+
+const BOOKING_EMAIL_TEMPLATE_VARIABLE_KEY_SET = new Set<string>(BOOKING_EMAIL_TEMPLATE_VARIABLE_KEYS);
+const BOOKING_EMAIL_TEMPLATE_TOKEN_PATTERN = /\{\{([\w]+)\}\}/g;
+
+function buildDefaultVariantSubject(headline: string): string {
+  return `${headline} - {{venue}}`;
+}
+
 const TEMPLATE_DEFINITIONS = [
   {
     key: 'request_received',
@@ -118,6 +145,11 @@ const TEMPLATE_DEFINITIONS = [
     description: 'Pending booking requests awaiting review.',
     group: 'request',
     supportsCtaLabel: true,
+    recommendedVariables: ['venue', 'date', 'time', 'party'],
+    authoringHints: [
+      'Set expectations clearly and reassure the guest that the venue is reviewing availability.',
+      'Keep the CTA status-oriented rather than sales-oriented.',
+    ],
     defaultVariants: [
       {
         id: 'request-received-default-1',
@@ -134,6 +166,11 @@ const TEMPLATE_DEFINITIONS = [
     description: 'Confirmed reservations for accepted bookings.',
     group: 'confirmation',
     supportsCtaLabel: true,
+    recommendedVariables: ['firstName', 'venue', 'date', 'time', 'party'],
+    authoringHints: [
+      'Lead with reassurance that the table is secured.',
+      'Use the intro to reinforce the concrete reservation details and next step.',
+    ],
     defaultVariants: [
       {
         id: 'confirmation-default-1',
@@ -164,6 +201,10 @@ const TEMPLATE_DEFINITIONS = [
     description: 'Guest-requested reservation changes awaiting review.',
     group: 'changes',
     supportsCtaLabel: true,
+    recommendedVariables: ['venue', 'date', 'time', 'party'],
+    authoringHints: [
+      'Acknowledge the requested change and set the expectation that confirmation follows separately.',
+    ],
     defaultVariants: [
       {
         id: 'modification-pending-default-1',
@@ -180,6 +221,10 @@ const TEMPLATE_DEFINITIONS = [
     description: 'Confirmed changes for an existing reservation.',
     group: 'changes',
     supportsCtaLabel: true,
+    recommendedVariables: ['firstName', 'venue', 'date', 'time', 'party'],
+    authoringHints: [
+      'Call out that the updated reservation is now final and ready.',
+    ],
     defaultVariants: [
       {
         id: 'modification-confirmed-default-1',
@@ -196,6 +241,11 @@ const TEMPLATE_DEFINITIONS = [
     description: 'Guest-confirmed cancellations.',
     group: 'cancellation',
     supportsCtaLabel: true,
+    recommendedVariables: ['venue', 'date', 'time'],
+    authoringHints: [
+      'Keep the tone calm and empathetic.',
+      'If you include a CTA, make it about rebooking rather than account management.',
+    ],
     defaultVariants: [
       {
         id: 'cancelled-default-1',
@@ -212,6 +262,10 @@ const TEMPLATE_DEFINITIONS = [
     description: 'Requests the venue could not accept.',
     group: 'cancellation',
     supportsCtaLabel: true,
+    recommendedVariables: ['venue', 'date', 'time'],
+    authoringHints: [
+      'Be direct about unavailability and offer a simple alternative next step.',
+    ],
     defaultVariants: [
       {
         id: 'booking-rejected-default-1',
@@ -228,6 +282,10 @@ const TEMPLATE_DEFINITIONS = [
     description: 'Venue-initiated cancellations that prompt a rebook.',
     group: 'cancellation',
     supportsCtaLabel: true,
+    recommendedVariables: ['venue', 'date', 'time'],
+    authoringHints: [
+      'Own the disruption and prioritize apology plus recovery language.',
+    ],
     defaultVariants: [
       {
         id: 'restaurant-cancellation-default-1',
@@ -244,6 +302,11 @@ const TEMPLATE_DEFINITIONS = [
     description: 'Post-visit review prompts.',
     group: 'review',
     supportsCtaLabel: true,
+    recommendedVariables: ['firstName', 'venue'],
+    authoringHints: [
+      'Ask for feedback simply and keep the effort low.',
+      'Variants should differ in tone, not in the destination or ask.',
+    ],
     defaultVariants: [
       {
         id: 'review-request-default-1',
@@ -274,6 +337,10 @@ const TEMPLATE_DEFINITIONS = [
     description: 'Day-before reminder emails.',
     group: 'reminder',
     supportsCtaLabel: true,
+    recommendedVariables: ['firstName', 'venue', 'date', 'time', 'party'],
+    authoringHints: [
+      'Focus on readiness and arrival confidence.',
+    ],
     defaultVariants: [
       {
         id: 'reminder-24h-default-1',
@@ -304,6 +371,10 @@ const TEMPLATE_DEFINITIONS = [
     description: 'Same-day or arrival-time reminders.',
     group: 'reminder',
     supportsCtaLabel: true,
+    recommendedVariables: ['venue', 'time'],
+    authoringHints: [
+      'Keep the copy short and action-oriented because the guest is close to arrival.',
+    ],
     defaultVariants: [
       {
         id: 'reminder-short-default-1',
@@ -359,6 +430,8 @@ function sanitizeVariant(
   return {
     id: toNonEmptyString(variant.id, fallback.id),
     name: toNonEmptyString(variant.name, fallback.name),
+    subject: toNonEmptyString(variant.subject, fallback.subject),
+    preheader: toNonEmptyString(variant.preheader, fallback.preheader),
     headline: toNonEmptyString(variant.headline, fallback.headline),
     intro: toNonEmptyString(variant.intro, fallback.intro),
     ctaLabel: toNonEmptyString(variant.ctaLabel, fallback.ctaLabel),
@@ -381,6 +454,8 @@ function cloneVariants(
 ): RestaurantEmailTemplateVariant[] {
   return variants.map((variant, index) => ({
     ...variant,
+    subject: buildDefaultVariantSubject(variant.headline),
+    preheader: variant.intro,
     isActive: true,
     order: index,
   }));
@@ -404,6 +479,8 @@ function createLegacyVariant(
   return {
     id: `${key}-legacy-1`,
     name: 'Imported custom variant',
+    subject: toNonEmptyString(legacy.subject, fallback?.subject ?? buildDefaultVariantSubject(fallback?.headline ?? 'Update')),
+    preheader: toNonEmptyString(legacy.preheader, fallback?.preheader ?? toNonEmptyString(legacy.intro, fallback?.intro ?? '')),
     headline: toNonEmptyString(legacy.headline, fallback?.headline ?? ''),
     intro: toNonEmptyString(legacy.intro, fallback?.intro ?? ''),
     ctaLabel: toNonEmptyString(legacy.ctaLabel, fallback?.ctaLabel ?? ''),
@@ -597,11 +674,40 @@ export function pickDeterministicTemplateVariant(
   return pool[simpleHash(seed) % pool.length]!;
 }
 
+export function extractRestaurantEmailTemplateTokens(text: string): string[] {
+  const found = new Set<string>();
+
+  for (const match of text.matchAll(BOOKING_EMAIL_TEMPLATE_TOKEN_PATTERN)) {
+    const token = match[1]?.trim();
+    if (token) {
+      found.add(token);
+    }
+  }
+
+  return [...found];
+}
+
+export function getUnknownRestaurantEmailTemplateTokens(text: string): string[] {
+  return extractRestaurantEmailTemplateTokens(text).filter((token) => !BOOKING_EMAIL_TEMPLATE_VARIABLE_KEY_SET.has(token));
+}
+
+export function buildRestaurantEmailTemplateVariantSignature(
+  variant: Pick<RestaurantEmailTemplateVariant, 'subject' | 'preheader' | 'headline' | 'intro' | 'ctaLabel'>,
+): string {
+  return JSON.stringify({
+    subject: variant.subject.trim().toLowerCase(),
+    preheader: variant.preheader.trim().toLowerCase(),
+    headline: variant.headline.trim().toLowerCase(),
+    intro: variant.intro.trim().toLowerCase(),
+    ctaLabel: variant.ctaLabel.trim().toLowerCase(),
+  });
+}
+
 export function interpolateRestaurantEmailTemplateText(
   text: string,
   variables: BookingEmailTemplateVariableMap,
 ): string {
-  return text.replace(/\{\{([\w]+)\}\}/g, (_, rawKey: string) => {
+  return text.replace(BOOKING_EMAIL_TEMPLATE_TOKEN_PATTERN, (_, rawKey: string) => {
     const key = rawKey as keyof BookingEmailTemplateVariableMap;
     return variables[key] ?? '';
   });

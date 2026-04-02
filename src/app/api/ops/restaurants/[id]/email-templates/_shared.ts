@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { isRestaurantAdminRole } from '@/lib/owner/auth/roles';
 import {
+  BOOKING_EMAIL_TEMPLATE_VARIABLE_TOKENS,
   buildEditableTemplateVariants,
   getActiveTemplateVariants,
   getDefaultTemplateVariants,
@@ -128,6 +129,9 @@ export function buildTemplateDto(
     description: definition.description,
     groupKey: definition.group,
     supportsCtaLabel: definition.supportsCtaLabel,
+    availableVariables: [...BOOKING_EMAIL_TEMPLATE_VARIABLE_TOKENS],
+    recommendedVariables: definition.recommendedVariables.map((key) => `{{${key}}}`),
+    authoringHints: [...definition.authoringHints],
     status: effective.source,
     activeVariantCount: getActiveTemplateVariants(variants).length,
     variants,

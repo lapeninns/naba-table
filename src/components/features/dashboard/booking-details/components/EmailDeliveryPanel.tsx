@@ -51,6 +51,11 @@ function GroupHeader({ group, timezone }: { group: EmailDeliveryGroup; timezone:
           {subject}
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+          {group.variantName ? (
+            <Badge variant="secondary" className="h-5 rounded-full px-2 text-[10px]">
+              {group.variantName}
+            </Badge>
+          ) : null}
           <span className="truncate" title={group.recipientEmail}>
             {group.recipientEmail}
           </span>
