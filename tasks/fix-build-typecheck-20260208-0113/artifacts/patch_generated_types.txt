@@ -1,9 +1,0 @@
-
-### 2026-02-08T01:36:26Z
-
-[patch-generated-types] FAILED: Unable to find block start: apply_booking_state_transition: {
-
-### 2026-02-08T01:37:11Z rerun after gen
-
-[patch-generated-types] no-op types/supabase.ts
-[patch-generated-types] no-op types/supabase.ts

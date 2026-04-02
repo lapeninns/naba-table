@@ -7,7 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { formatDateKey, formatDateReadable, getTodayInTimezone } from '@/lib/utils/datetime';
+import {
+  dateKeyToCalendarDate,
+  formatDateKey,
+  formatDateReadable,
+  getTodayInTimezone,
+} from '@/lib/utils/datetime';
 
 export type OpsBookingsDatePickerProps = {
   value: string | null;
@@ -26,11 +31,7 @@ export function OpsBookingsDatePicker({
   onToday,
   className,
 }: OpsBookingsDatePickerProps) {
-  const selectedDateObj = useMemo(() => {
-    if (!value) return undefined;
-    const parsed = new Date(`${value}T00:00:00`);
-    return Number.isNaN(parsed.getTime()) ? undefined : parsed;
-  }, [value]);
+  const selectedDateObj = useMemo(() => dateKeyToCalendarDate(value), [value]);
 
   const label = useMemo(() => {
     if (!value) return 'Date: All';
@@ -105,4 +106,3 @@ export function OpsBookingsDatePicker({
     </Popover>
   );
 }
-

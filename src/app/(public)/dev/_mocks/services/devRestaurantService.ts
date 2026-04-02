@@ -1,10 +1,27 @@
+import { fetchJson } from '@/lib/http/fetchJson';
+import {
+  buildEditableTemplateVariants,
+  getRestaurantBookingEmailTemplateCatalog,
+  getRestaurantBookingEmailTemplateDefinition,
+  getRestaurantBookingEmailTemplateGroups,
+  normalizeRestaurantEmailTemplatesDocument,
+  type RestaurantBookingEmailTemplateKey,
+  type RestaurantEmailTemplateVariant,
+} from '@/lib/restaurants/email-templates';
+
 import { DEV_RESTAURANT_ID } from '../devIds';
 
 
 import type {
   OperatingHoursSnapshot,
+  RestaurantEmailTemplatePreview,
+  PreviewEmailTemplateInput,
+  RestaurantEmailTemplate,
+  RestaurantEmailTemplateGroup,
+  RestaurantEmailTemplatesSnapshot,
   RestaurantProfile,
   RestaurantService,
+  SendTestEmailTemplateInput,
   ServicePeriodRow,
   TurnBandsPayload,
   TurnBandsSnapshot,
@@ -18,6 +35,7 @@ type RestaurantSnapshot = {
   hours: OperatingHoursSnapshot;
   servicePeriods: ServicePeriodRow[];
   turnBands: TurnBandsSnapshot;
+  emailTemplates: ReturnType<typeof normalizeRestaurantEmailTemplatesDocument>;
 };
 
 type MutableState = {
@@ -93,7 +111,7 @@ function buildRestaurantSnapshot(
     defaults: payload,
   };
 
-  return { profile, hours, servicePeriods, turnBands };
+  return { profile, hours, servicePeriods, turnBands, emailTemplates: null };
 }
 
 function buildInitialState(): MutableState {
@@ -115,7 +133,10 @@ function buildInitialState(): MutableState {
 
   return {
     restaurants: {
-      [primaryRestaurant.profile.id]: primaryRestaurant,
+      [primaryRestaurant.profile.id]: {
+        ...primaryRestaurant,
+        emailTemplates: normalizeRestaurantEmailTemplatesDocument(null),
+      },
       [secondaryRestaurant.profile.id]: secondaryRestaurant,
     },
   };
@@ -188,6 +209,155 @@ export class DevRestaurantService implements RestaurantService {
       defaults: restaurant.turnBands.defaults,
     };
     return restaurant.turnBands;
+  }
+
+  async getEmailTemplates(restaurantId: string): Promise<RestaurantEmailTemplatesSnapshot> {
+    const restaurant = getRestaurantSnapshot(this.state, restaurantId);
+
+    return {
+      restaurantId,
+      canEdit: true,
+      groups: getRestaurantBookingEmailTemplateGroups().map<RestaurantEmailTemplateGroup>((group) => ({
+        key: group.key,
+        title: group.title,
+        description: group.description,
+        templates: getRestaurantBookingEmailTemplateCatalog()
+          .filter((definition) => definition.group === group.key)
+          .map<RestaurantEmailTemplate>((definition) => {
+            const variants = buildEditableTemplateVariants(definition.key, restaurant.emailTemplates);
+            const defaultVariants = buildEditableTemplateVariants(definition.key, null);
+            const status = restaurant.emailTemplates?.templates[definition.key] ? 'custom' : 'default';
+            return {
+              key: definition.key,
+              title: definition.title,
+              description: definition.description,
+              groupKey: definition.group,
+              supportsCtaLabel: definition.supportsCtaLabel,
+              availableVariables: ['{{name}}', '{{firstName}}', '{{venue}}', '{{date}}', '{{time}}', '{{party}}'],
+              recommendedVariables: definition.recommendedVariables.map((key) => `{{${key}}}`),
+              authoringHints: [...definition.authoringHints],
+              status,
+              activeVariantCount: variants.filter((variant) => variant.isActive).length,
+              variants,
+              defaultVariants,
+            };
+          }),
+      })),
+    };
+  }
+
+  async updateEmailTemplate(
+    restaurantId: string,
+    templateKey: RestaurantBookingEmailTemplateKey,
+    payload: { variants: RestaurantEmailTemplateVariant[] },
+  ) {
+    const restaurant = getRestaurantSnapshot(this.state, restaurantId);
+    const current = restaurant.emailTemplates ?? { version: 1 as const, templates: {} };
+    restaurant.emailTemplates = {
+      version: 1,
+      templates: {
+        ...current.templates,
+        [templateKey]: {
+          variants: payload.variants,
+        },
+      },
+    };
+
+    const definition = getRestaurantBookingEmailTemplateDefinition(templateKey);
+    return {
+      key: definition.key,
+      title: definition.title,
+      description: definition.description,
+      groupKey: definition.group,
+      supportsCtaLabel: definition.supportsCtaLabel,
+      availableVariables: ['{{name}}', '{{firstName}}', '{{venue}}', '{{date}}', '{{time}}', '{{party}}'],
+      recommendedVariables: definition.recommendedVariables.map((key) => `{{${key}}}`),
+      authoringHints: [...definition.authoringHints],
+      status: 'custom' as const,
+      activeVariantCount: payload.variants.filter((variant) => variant.isActive).length,
+      variants: payload.variants,
+      defaultVariants: buildEditableTemplateVariants(templateKey, null),
+    };
+  }
+
+  async resetEmailTemplate(restaurantId: string, templateKey: RestaurantBookingEmailTemplateKey) {
+    const restaurant = getRestaurantSnapshot(this.state, restaurantId);
+    const current = restaurant.emailTemplates ?? { version: 1 as const, templates: {} };
+    const templates = { ...current.templates };
+    delete templates[templateKey];
+    restaurant.emailTemplates = {
+      version: 1,
+      templates,
+    };
+
+    const definition = getRestaurantBookingEmailTemplateDefinition(templateKey);
+    const variants = buildEditableTemplateVariants(templateKey, null);
+    return {
+      key: definition.key,
+      title: definition.title,
+      description: definition.description,
+      groupKey: definition.group,
+      supportsCtaLabel: definition.supportsCtaLabel,
+      availableVariables: ['{{name}}', '{{firstName}}', '{{venue}}', '{{date}}', '{{time}}', '{{party}}'],
+      recommendedVariables: definition.recommendedVariables.map((key) => `{{${key}}}`),
+      authoringHints: [...definition.authoringHints],
+      status: 'default' as const,
+      activeVariantCount: variants.filter((variant) => variant.isActive).length,
+      variants,
+      defaultVariants: variants,
+    };
+  }
+
+  async previewEmailTemplate(
+    restaurantId: string,
+    templateKey: RestaurantBookingEmailTemplateKey,
+    payload: PreviewEmailTemplateInput = {},
+  ): Promise<RestaurantEmailTemplatePreview> {
+    const restaurant = getRestaurantSnapshot(this.state, restaurantId);
+    const response = await fetchJson<{ restaurantId: string; preview: RestaurantEmailTemplatePreview }>(
+      '/dev/api/restaurant-email-template-preview',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          templateKey,
+          preferredVariantId: payload.preferredVariantId,
+          recipientEmail: 'preview@nabatable.local',
+          variants: payload.variants?.length
+            ? payload.variants
+            : buildEditableTemplateVariants(templateKey, restaurant.emailTemplates),
+          venue: {
+            id: restaurant.profile.id,
+            slug: restaurant.profile.slug,
+            name: restaurant.profile.name,
+            timezone: restaurant.profile.timezone,
+            address: restaurant.profile.address,
+            phone: restaurant.profile.contactPhone,
+            email: restaurant.profile.contactEmail,
+            policy: restaurant.profile.bookingPolicy,
+            logoUrl: restaurant.profile.logoUrl,
+            googleMapUrl: restaurant.profile.googleMapUrl,
+            googleReviewUrl: restaurant.profile.googleReviewUrl,
+          },
+        }),
+      },
+    );
+
+    return response.preview;
+  }
+
+  async sendTestEmailTemplate(
+    restaurantId: string,
+    templateKey: RestaurantBookingEmailTemplateKey,
+    payload: SendTestEmailTemplateInput,
+  ) {
+    return {
+      ok: true as const,
+      restaurantId,
+      provider: 'mock' as const,
+      messageId: `mock-${templateKey}`,
+      preview: await this.previewEmailTemplate(restaurantId, templateKey, payload),
+    };
   }
 }
 

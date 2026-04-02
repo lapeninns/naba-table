@@ -5,6 +5,7 @@ import { inferMealTypeFromTime, calculateDurationMinutes } from "@/server/bookin
 import { PastBookingError, assertBookingNotInPast } from "@/server/bookings/pastTimeValidation";
 import { OperatingHoursError, assertBookingWithinOperatingWindow } from "@/server/bookings/timeValidation";
 import { recordObservabilityEvent } from "@/server/observability";
+import { toBookingUtcIso } from "@reserve/shared/formatting/bookingDateTime";
 
 
 import { mapCapacityErrorCode } from "./types";
@@ -117,7 +118,11 @@ export class BookingValidationService {
       bookingId: existing.id,
       restaurantId: existing.restaurant_id,
       durationMinutes: patch.durationMinutes ?? calculateDurationMinutes(existing.booking_type as BookingType),
-      start: patch.start ?? new Date(existing.start_at ?? `${existing.booking_date}T${existing.start_time}`).toISOString(),
+      start:
+        patch.start ??
+        existing.start_at ??
+        toBookingUtcIso(existing.booking_date, existing.start_time, ctx.tz) ??
+        new Date(`${existing.booking_date}T${existing.start_time}`).toISOString(),
       serviceId: patch.serviceId ?? existing.booking_type,
       bookingType: patch.bookingType ?? (existing.booking_type as BookingType),
     };

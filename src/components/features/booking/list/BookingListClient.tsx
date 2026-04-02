@@ -33,9 +33,34 @@ import { normalizeBookingsTab, type BookingsTab } from '@/guest/lib/validation';
 import { StatusRegion } from '@/guest/routes/shared/StatusRegion';
 import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils';
-import { formatReservationTime } from '@reserve/shared/formatting/booking';
+import { getBookingDateTimeMillis, parseBookingDateTime } from '@reserve/shared/formatting/bookingDateTime';
 
 import type { BookingDTO } from '@/guest/services/ports';
+
+function getBookingStartMillis(booking: BookingDTO): number {
+  return getBookingDateTimeMillis(booking.startIso, booking.restaurantTimezone) ?? Number.NaN;
+}
+
+function getBookingCardDisplay(booking: BookingDTO): {
+  monthLabel: string;
+  dayLabel: string;
+  timeLabel: string;
+} {
+  const parsed = parseBookingDateTime(booking.startIso, booking.restaurantTimezone);
+  if (parsed) {
+    return {
+      monthLabel: parsed.setLocale('en').toFormat('MMM'),
+      dayLabel: parsed.toFormat('d'),
+      timeLabel: parsed.toFormat('HH:mm'),
+    };
+  }
+
+  return {
+    monthLabel: '—',
+    dayLabel: '—',
+    timeLabel: '—',
+  };
+}
 
 export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: BookingsTab }) {
   const router = useRouter();
@@ -56,21 +81,25 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
     const now = Date.now();
 
     const upcomingItems = items.filter((booking) => {
-      const bookingTime = new Date(booking.startIso).getTime();
-      return bookingTime >= now && booking.status !== 'cancelled';
+      const bookingTime = getBookingStartMillis(booking);
+      return Number.isFinite(bookingTime) && bookingTime >= now && booking.status !== 'cancelled';
     });
 
     const pastItems = items.filter((booking) => {
-      const bookingTime = new Date(booking.startIso).getTime();
-      return bookingTime < now || booking.status === 'cancelled' || booking.status === 'completed';
+      const bookingTime = getBookingStartMillis(booking);
+      return (
+        (Number.isFinite(bookingTime) && bookingTime < now) ||
+        booking.status === 'cancelled' ||
+        booking.status === 'completed'
+      );
     });
 
     return {
       upcoming: upcomingItems.sort(
-        (a, b) => new Date(a.startIso).getTime() - new Date(b.startIso).getTime(),
+        (a, b) => getBookingStartMillis(a) - getBookingStartMillis(b),
       ),
       past: pastItems.sort(
-        (a, b) => new Date(b.startIso).getTime() - new Date(a.startIso).getTime(),
+        (a, b) => getBookingStartMillis(b) - getBookingStartMillis(a),
       ),
     };
   }, [bookings?.items]);
@@ -268,9 +297,10 @@ type BookingCardProps = {
 };
 
 function BookingCard({ booking, isPast = false, style }: BookingCardProps) {
-  const bookingDate = new Date(booking.startIso);
-  const timePortion = booking.startIso.split('T')[1]?.substring(0, 5) || '';
-  const formattedTime = formatReservationTime(timePortion);
+  const { monthLabel, dayLabel, timeLabel } = useMemo(
+    () => getBookingCardDisplay(booking),
+    [booking],
+  );
 
   return (
     <Card
@@ -351,18 +381,18 @@ function BookingCard({ booking, isPast = false, style }: BookingCardProps) {
                 ? 'border-border bg-muted text-muted-foreground'
                 : 'border-primary/10 bg-primary/5 text-primary',
             )}
-          >
+            >
             <span className="text-xs font-bold uppercase leading-none mb-1">
-              {bookingDate.toLocaleString('en-US', { month: 'short' })}
+              {monthLabel}
             </span>
-            <span className="text-2xl font-bold leading-none">{bookingDate.getDate()}</span>
+            <span className="text-2xl font-bold leading-none">{dayLabel}</span>
           </div>
 
           {/* Time and Party Details */}
           <div className="flex-1 space-y-1.5">
             <div className="flex items-center gap-2.5 text-foreground/80">
               <Clock className="h-4 w-4 text-muted-foreground/60" />
-              <span className="font-semibold">{formattedTime}</span>
+              <span className="font-semibold">{timeLabel}</span>
             </div>
             <div className="flex items-center gap-2.5 text-foreground/80">
               <Users className="h-4 w-4 text-muted-foreground/60" />

@@ -1,8 +1,0 @@
-schema,table_name,duplicate_index_names,sample_index_def
-public,audit_logs,"{idx_audit_logs_entity,idx_audit_logs_entity_id}","CREATE INDEX idx_audit_logs_entity ON public.audit_logs USING btree (entity, entity_id)"
-public,booking_assignment_idempotency,"{bai_rest_bk_idx,booking_assignment_idempo_bkid_key_idx}","CREATE INDEX bai_rest_bk_idx ON public.booking_assignment_idempotency USING btree (booking_id, idempotency_key)"
-public,booking_assignment_idempotency,"{booking_assignment_idempotency_created_idx,idx_booking_assignment_idempotency_created}",CREATE INDEX booking_assignment_idempotency_created_idx ON public.booking_assignment_idempotency USING btree (created_at DESC)
-public,booking_table_assignments,"{bta_booking_id_idx,idx_booking_table_assignments_booking,idx_booking_table_assignments_booking_id}",CREATE INDEX bta_booking_id_idx ON public.booking_table_assignments USING btree (booking_id)
-public,bookings,"{bookings_restaurant_date_idx,idx_bookings_restaurant_date_start}","CREATE INDEX bookings_restaurant_date_idx ON public.bookings USING btree (restaurant_id, booking_date, start_at)"
-public,table_hold_members,"{idx_table_hold_members_table,table_hold_members_table_active_idx,table_hold_members_table_idx}",CREATE INDEX idx_table_hold_members_table ON public.table_hold_members USING btree (table_id)
-public,table_hold_members,"{table_hold_members_hold_id_table_id_key,thm_unique}","CREATE UNIQUE INDEX table_hold_members_hold_id_table_id_key ON public.table_hold_members USING btree (hold_id, table_id)"

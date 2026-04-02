@@ -50,6 +50,7 @@ import {
   formatReservationDateShortFromDate,
   formatReservationTimeFromDate,
 } from '@reserve/shared/formatting/booking';
+import { getBookingDateTimeMillis, parseBookingDateTime } from '@reserve/shared/formatting/bookingDateTime';
 import { DEFAULT_VENUE } from '@shared/config/venue';
 
 import { ReservationHistory } from './ReservationHistory';
@@ -98,8 +99,8 @@ function buildReservationDisplay(
     return FALLBACK_DISPLAY;
   }
 
-  const parsed = new Date(startIso);
-  if (Number.isNaN(parsed.getTime())) {
+  const parsed = parseBookingDateTime(startIso, timezone)?.toJSDate();
+  if (!parsed) {
     return FALLBACK_DISPLAY;
   }
 
@@ -218,10 +219,13 @@ export function ReservationDetailClient({
 
   const isPastReservation = useMemo(() => {
     if (!reservation?.startAt) return false;
-    const startMs = Date.parse(reservation.startAt);
-    if (!Number.isFinite(startMs)) return false;
+    const startMs = getBookingDateTimeMillis(
+      reservation.startAt,
+      reservation.restaurantTimezone ?? venue.timezone,
+    );
+    if (startMs === null) return false;
     return startMs < clockNow - pastGraceMs;
-  }, [clockNow, pastGraceMs, reservation]);
+  }, [clockNow, pastGraceMs, reservation, venue.timezone]);
 
   const pendingLock = useMemo(() => {
     if (!reservation || reservation.status !== 'pending') {

@@ -1,7 +1,6 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { format } from 'date-fns';
 import {
   Calendar as CalendarIcon,
   ChevronDown,
@@ -31,13 +30,19 @@ import { useOpsTableTimeline } from '@/hooks/ops/useOpsTableTimeline';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
 import { queryKeys } from '@/lib/query/keys';
+import {
+  dateKeyToCalendarDate,
+  formatDateKey,
+  formatDateReadable,
+  getTodayInTimezone,
+} from '@/lib/utils/datetime';
 
 import { FloorCanvas } from './floor-plan/components/FloorCanvas';
 import { TableInspector } from './floor-plan/components/TableInspector';
 import { useFloorPlanTables } from './floor-plan/hooks/useFloorPlanTables';
 import { useFloorPlanTimelineConfig } from './floor-plan/hooks/useFloorPlanTimelineConfig';
 import { usePanZoom } from './floor-plan/hooks/usePanZoom';
-import { parseLocalDateOnly, formatTimeParam } from './floor-plan/lib/date';
+import { formatDisplayTime, formatTimeParam, getDateTimeTimestamp } from './floor-plan/lib/date';
 
 export default function FloorPlanPage() {
   const opsPath = useCallback((segment: string) => `/app${segment}`, []);
@@ -51,17 +56,23 @@ export default function FloorPlanPage() {
 
   const [currentTimeVal, setCurrentTimeVal] = useState(19 * 60 + 30);
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
-  const [date, setDate] = useState<Date | undefined>(() => new Date());
-  const selectedDate = useMemo(
-    () => (date ? format(date, 'yyyy-MM-dd') : new Date().toISOString().split('T')[0]),
-    [date],
-  );
+  const [date, setDate] = useState<Date | undefined>(undefined);
   const [selectedZoneId, setSelectedZoneId] = useState<string>('all');
   const [isLaunchingBooking, setIsLaunchingBooking] = useState(false);
   const [search, setSearch] = useState('');
   const hoursQuery = useOpsOperatingHours(activeRestaurantId);
   const periodsQuery = useOpsServicePeriods(activeRestaurantId);
   const profileQuery = useOpsRestaurantDetails(activeRestaurantId);
+  const restaurantTimezone = profileQuery.data?.timezone ?? 'UTC';
+  const selectedDate = useMemo(
+    () => (date ? formatDateKey(date) : getTodayInTimezone(restaurantTimezone)),
+    [date, restaurantTimezone],
+  );
+  React.useEffect(() => {
+    if (date) return;
+    setDate(dateKeyToCalendarDate(getTodayInTimezone(restaurantTimezone)));
+  }, [date, restaurantTimezone]);
+
   const operatingData = useMemo(() => {
     if (!hoursQuery.data || !periodsQuery.data || !profileQuery.data) return undefined;
     return { hours: hoursQuery.data, periods: periodsQuery.data, profile: profileQuery.data };
@@ -105,14 +116,14 @@ export default function FloorPlanPage() {
   });
 
   const currentTimestampMs = useMemo(() => {
-    return parseLocalDateOnly(selectedDate).getTime() + currentTimeVal * 60_000;
-  }, [currentTimeVal, selectedDate]);
+    return getDateTimeTimestamp(selectedDate, currentTimeVal, restaurantTimezone);
+  }, [currentTimeVal, restaurantTimezone, selectedDate]);
 
   const timeString = useMemo(() => {
-    return new Date(currentTimestampMs).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-  }, [currentTimestampMs]);
+    return formatDisplayTime(selectedDate, currentTimeVal, restaurantTimezone);
+  }, [currentTimeVal, restaurantTimezone, selectedDate]);
 
-  const timeParam = useMemo(() => formatTimeParam(currentTimestampMs), [currentTimestampMs]);
+  const timeParam = useMemo(() => formatTimeParam(currentTimeVal), [currentTimeVal]);
 
   const canStartPan = useCallback((target: HTMLElement | null) => {
     if (!target) return false;
@@ -315,7 +326,7 @@ export default function FloorPlanPage() {
     );
   }
 
-  const formattedDate = date ? format(date, 'MMM d, yyyy') : 'Today';
+  const formattedDate = formatDateReadable(selectedDate, restaurantTimezone) || 'Today';
 
   const inspectorPanel = selectedTable ? (
     <TableInspector

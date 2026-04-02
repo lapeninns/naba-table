@@ -1,3 +1,5 @@
+import { getBookingDateTimeMillis } from '@reserve/shared/formatting/bookingDateTime';
+
 import type { BookingDTO } from '@/hooks/useBookings';
 
 export type FavoriteRestaurant = {
@@ -15,37 +17,37 @@ type DerivedState = {
 
 const INACTIVE_STATUSES = new Set<BookingDTO['status']>(['cancelled', 'no_show', 'completed']);
 
-function parseDate(value: string | null | undefined): Date | null {
-  if (!value) return null;
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return parsed;
+function parseDate(value: string | null | undefined, timezone?: string | null): Date | null {
+  const millis = getBookingDateTimeMillis(value, timezone);
+  return millis === null ? null : new Date(millis);
 }
 
 function isLive(booking: BookingDTO, now: Date): boolean {
   if (booking.status === 'checked_in') return true;
-  const start = parseDate(booking.startIso);
-  const end = parseDate(booking.endIso) ?? parseDate(booking.startIso);
+  const start = parseDate(booking.startIso, booking.restaurantTimezone);
+  const end =
+    parseDate(booking.endIso, booking.restaurantTimezone) ??
+    parseDate(booking.startIso, booking.restaurantTimezone);
   if (!start || !end) return false;
   return start <= now && now <= end;
 }
 
 function isUpcomingActive(booking: BookingDTO, now: Date): boolean {
   if (INACTIVE_STATUSES.has(booking.status)) return false;
-  const start = parseDate(booking.startIso);
+  const start = parseDate(booking.startIso, booking.restaurantTimezone);
   if (!start) return false;
   return start.getTime() >= now.getTime();
 }
 
 function compareByStart(a: BookingDTO, b: BookingDTO): number {
-  const aDate = parseDate(a.startIso)?.getTime() ?? 0;
-  const bDate = parseDate(b.startIso)?.getTime() ?? 0;
+  const aDate = parseDate(a.startIso, a.restaurantTimezone)?.getTime() ?? 0;
+  const bDate = parseDate(b.startIso, b.restaurantTimezone)?.getTime() ?? 0;
   return aDate - bDate;
 }
 
 export function deriveBookingState(bookings: BookingDTO[] = []): DerivedState {
   const now = new Date();
-  const safeBookings = bookings.filter((b) => Boolean(parseDate(b.startIso)));
+  const safeBookings = bookings.filter((b) => Boolean(parseDate(b.startIso, b.restaurantTimezone)));
 
   const liveBooking = safeBookings.find((booking) => isLive(booking, now)) ?? null;
 

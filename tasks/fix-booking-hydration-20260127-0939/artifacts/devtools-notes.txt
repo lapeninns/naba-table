@@ -1,6 +1,0 @@
-Chrome DevTools MCP manual QA notes (2026-01-27T09:50Z)
-
-- Navigated to: http://localhost:3000/bookings/e19914d4-8761-4c38-a380-ff00819c2544
-- Result: redirected to /auth/signin due to missing authenticated session or recovery cookie in local dev.
-- Console: no hydration errors observed on the sign-in page.
-- Limitation: booking detail route could not be verified locally without session data.

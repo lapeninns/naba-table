@@ -1,3 +1,8 @@
+import { DateTime } from 'luxon';
+
+const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const DEFAULT_TIME_ZONE = 'UTC';
+
 export function isoToLocalInput(iso?: string | null): string {
   if (!iso) return "";
   const date = new Date(iso);
@@ -20,20 +25,32 @@ type DateParts = {
   day: string;
 };
 
+function resolveDateTime(value: string | Date, timeZone: string): DateTime | null {
+  if (value instanceof Date) {
+    const parsed = DateTime.fromJSDate(value).setZone(timeZone);
+    return parsed.isValid ? parsed : null;
+  }
+
+  if (DATE_KEY_PATTERN.test(value)) {
+    const parsed = DateTime.fromISO(value, { zone: timeZone });
+    return parsed.isValid ? parsed : null;
+  }
+
+  const parsed = DateTime.fromISO(value, { setZone: true }).setZone(timeZone);
+  return parsed.isValid ? parsed : null;
+}
+
 function extractDateParts(date: Date, timeZone: string): DateParts {
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
+  const parsed = resolveDateTime(date, timeZone);
+  if (!parsed) {
+    return { year: "0000", month: "01", day: "01" };
+  }
 
-  const parts = formatter.formatToParts(date);
-  const year = parts.find((part) => part.type === "year")?.value ?? "0000";
-  const month = parts.find((part) => part.type === "month")?.value ?? "01";
-  const day = parts.find((part) => part.type === "day")?.value ?? "01";
-
-  return { year, month, day };
+  return {
+    year: parsed.toFormat("yyyy"),
+    month: parsed.toFormat("MM"),
+    day: parsed.toFormat("dd"),
+  };
 }
 
 export function getDateInTimezone(date: Date, timeZone: string): string {
@@ -42,57 +59,61 @@ export function getDateInTimezone(date: Date, timeZone: string): string {
 }
 
 export function getTodayInTimezone(timeZone: string): string {
-  return getDateInTimezone(new Date(), timeZone);
+  return DateTime.now().setZone(timeZone || DEFAULT_TIME_ZONE).toISODate() ?? getDateInTimezone(new Date(), timeZone);
 }
 
-function toDateInstance(value: string | Date): Date {
-  if (value instanceof Date) {
-    return new Date(value.getTime());
+export function dateKeyToCalendarDate(value?: string | null): Date | undefined {
+  if (!value) {
+    return undefined;
   }
-  return new Date(`${value}T00:00:00`);
+
+  const parsed = DateTime.fromISO(value, { zone: DEFAULT_TIME_ZONE });
+  if (!parsed.isValid) {
+    return undefined;
+  }
+
+  return new Date(parsed.year, parsed.month - 1, parsed.day, 12);
+}
+
+export function shiftDateKey(value: string, days: number): string | null {
+  const parsed = DateTime.fromISO(value, { zone: DEFAULT_TIME_ZONE });
+  if (!parsed.isValid) {
+    return null;
+  }
+  return parsed.plus({ days }).toISODate();
+}
+
+export function getDayOfWeekFromDateKey(value: string): number | null {
+  const parsed = DateTime.fromISO(value, { zone: DEFAULT_TIME_ZONE });
+  if (!parsed.isValid) {
+    return null;
+  }
+  return parsed.weekday % 7;
 }
 
 export function formatDateKey(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  const parsed = DateTime.fromJSDate(date);
+  return parsed.isValid ? parsed.toFormat("yyyy-MM-dd") : "";
 }
 
 export function formatDateReadable(value: string | Date, timeZone: string): string {
-  const date = toDateInstance(value);
-  const formatter = new Intl.DateTimeFormat("en-GB", {
-    timeZone,
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const parsed = resolveDateTime(value, timeZone || DEFAULT_TIME_ZONE);
+  return parsed ? parsed.setLocale("en-GB").toFormat("cccc d LLLL yyyy") : "";
+}
 
-  const parts = formatter.formatToParts(date);
-  const weekday = parts.find((part) => part.type === "weekday")?.value ?? "";
-  const day = parts.find((part) => part.type === "day")?.value ?? "";
-  const month = parts.find((part) => part.type === "month")?.value ?? "";
-  const year = parts.find((part) => part.type === "year")?.value ?? "";
-
-  return [weekday, day, month, year].filter(Boolean).join(" ").trim();
+export function formatDateReadableShort(value: string | Date, timeZone: string): string {
+  const parsed = resolveDateTime(value, timeZone || DEFAULT_TIME_ZONE);
+  return parsed ? parsed.setLocale("en-GB").toFormat("ccc d LLL yyyy") : "";
 }
 
 export function formatTimeRange(start: string | null, end: string | null, timeZone: string): string {
   if (!start && !end) return "Time TBC";
-
-  const formatter = new Intl.DateTimeFormat("en-GB", {
-    timeZone,
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const zone = timeZone || DEFAULT_TIME_ZONE;
 
   const withTime = (time: string | null) => {
     if (!time) return null;
-    const [hours, minutes] = time.split(":");
-    const date = new Date();
-    date.setHours(Number.parseInt(hours ?? "0", 10), Number.parseInt(minutes ?? "0", 10), 0, 0);
-    return formatter.format(date);
+    const parsed = DateTime.fromISO(`2000-01-01T${time}`, { zone });
+    return parsed.isValid ? parsed.setLocale("en-GB").toFormat("HH:mm") : null;
   };
 
   const startLabel = withTime(start) ?? "Time TBC";

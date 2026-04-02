@@ -1,8 +1,0 @@
-2026-01-22T13:26:01Z
-Restore pending:
-- db.loxrwkeuxesctnrdpksy.supabase.co has no IPv4 A record yet.
-- AAAA present, but host has no IPv6 route.
-Last attempted restore:
-/usr/local/opt/libpq/bin/pg_restore --no-owner --no-acl --clean --if-exists --verbose --dbname="postgresql://postgres:<redacted>@db.loxrwkeuxesctnrdpksy.supabase.co:5432/postgres" /tmp/nabatable-prod-20260122-1245.dump
-Error:
-pg_restore: error: could not translate host name "db.loxrwkeuxesctnrdpksy.supabase.co" to address: nodename nor servname provided, or not known

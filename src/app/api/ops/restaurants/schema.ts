@@ -1,6 +1,13 @@
 import { z } from 'zod';
 
 import {
+  buildRestaurantEmailTemplateVariantSignature,
+  getUnknownRestaurantEmailTemplateTokens,
+  MAX_RESTAURANT_EMAIL_TEMPLATE_VARIANTS,
+  RESTAURANT_BOOKING_EMAIL_TEMPLATE_GROUP_KEYS,
+  RESTAURANT_BOOKING_EMAIL_TEMPLATE_KEYS,
+} from '@/lib/restaurants/email-templates';
+import {
   RESERVATION_INTERVAL_MAX,
   RESERVATION_INTERVAL_MIN,
 } from '@/lib/restaurants/reservation-interval';
@@ -200,4 +207,177 @@ export type RestaurantResponse = {
 
 export type DeleteRestaurantResponse = {
   success: true;
+};
+
+export const restaurantEmailTemplateKeySchema = z.enum(RESTAURANT_BOOKING_EMAIL_TEMPLATE_KEYS);
+export const restaurantEmailTemplateGroupKeySchema = z.enum(RESTAURANT_BOOKING_EMAIL_TEMPLATE_GROUP_KEYS);
+
+const emailTemplateTextSchema = z.string().trim().min(1).max(280);
+const emailTemplateHeadlineSchema = z.string().trim().min(1).max(140);
+const emailTemplateSubjectSchema = z.string().trim().min(1).max(140);
+const emailTemplatePreheaderSchema = z.string().trim().min(1).max(180);
+
+function addUnknownTokenIssues(
+  text: string,
+  fieldLabel: string,
+  ctx: z.RefinementCtx,
+  path: (string | number)[],
+) {
+  const unknownTokens = getUnknownRestaurantEmailTemplateTokens(text);
+  if (unknownTokens.length === 0) {
+    return;
+  }
+
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    message: `${fieldLabel} contains unknown variables: ${unknownTokens.map((token) => `{{${token}}}`).join(', ')}`,
+    path,
+  });
+}
+
+const emailTemplateVariantSchema = z.object({
+  id: z.string().trim().min(1).max(120),
+  name: z.string().trim().min(1).max(80),
+  subject: emailTemplateSubjectSchema,
+  preheader: emailTemplatePreheaderSchema,
+  headline: emailTemplateHeadlineSchema,
+  intro: emailTemplateTextSchema,
+  ctaLabel: z.string().trim().min(1).max(60),
+  isActive: z.boolean(),
+  order: z.number().int().min(0).max(MAX_RESTAURANT_EMAIL_TEMPLATE_VARIANTS - 1),
+});
+
+export const updateRestaurantEmailTemplateSchema = z.object({
+  variants: z
+    .array(emailTemplateVariantSchema)
+    .min(1, 'At least one variant is required')
+    .max(MAX_RESTAURANT_EMAIL_TEMPLATE_VARIANTS, `You can save up to ${MAX_RESTAURANT_EMAIL_TEMPLATE_VARIANTS} variants`)
+    .superRefine((variants, ctx) => {
+      const ids = new Set<string>();
+      const orders = new Set<number>();
+      const activeSignatures = new Map<string, string>();
+      let activeCount = 0;
+
+      for (const [index, variant] of variants.entries()) {
+        if (ids.has(variant.id)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `Variant id "${variant.id}" must be unique`,
+            path: [index, 'id'],
+          });
+        }
+        ids.add(variant.id);
+
+        if (orders.has(variant.order)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `Variant order "${variant.order}" must be unique`,
+            path: [index, 'order'],
+          });
+        }
+        orders.add(variant.order);
+
+        addUnknownTokenIssues(variant.subject, 'Subject', ctx, [index, 'subject']);
+        addUnknownTokenIssues(variant.preheader, 'Preheader', ctx, [index, 'preheader']);
+        addUnknownTokenIssues(variant.headline, 'Headline', ctx, [index, 'headline']);
+        addUnknownTokenIssues(variant.intro, 'Message body', ctx, [index, 'intro']);
+        addUnknownTokenIssues(variant.ctaLabel, 'CTA label', ctx, [index, 'ctaLabel']);
+
+        if (variant.isActive) {
+          activeCount += 1;
+          const signature = buildRestaurantEmailTemplateVariantSignature(variant);
+          const existingVariantName = activeSignatures.get(signature);
+          if (existingVariantName) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `Active variants "${existingVariantName}" and "${variant.name}" have identical delivery copy. Change the content or pause one variant.`,
+              path: [index],
+            });
+          } else {
+            activeSignatures.set(signature, variant.name);
+          }
+        }
+      }
+
+      if (activeCount === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'At least one active variant is required',
+        });
+      }
+    }),
+});
+
+export const previewRestaurantEmailTemplateSchema = z.object({
+  preferredVariantId: z.string().trim().min(1).max(120).optional(),
+  variants: updateRestaurantEmailTemplateSchema.shape.variants.optional(),
+});
+
+export const sendRestaurantEmailTemplateTestSchema = previewRestaurantEmailTemplateSchema.extend({
+  toEmail: z.string().trim().regex(EMAIL_REGEX, 'Invalid email format'),
+});
+
+export type UpdateRestaurantEmailTemplateInput = z.infer<typeof updateRestaurantEmailTemplateSchema>;
+export type PreviewRestaurantEmailTemplateInput = z.infer<typeof previewRestaurantEmailTemplateSchema>;
+export type SendRestaurantEmailTemplateTestInput = z.infer<typeof sendRestaurantEmailTemplateTestSchema>;
+
+export type RestaurantEmailTemplateVariantDTO = z.infer<typeof emailTemplateVariantSchema>;
+
+export type RestaurantEmailTemplateDTO = {
+  key: z.infer<typeof restaurantEmailTemplateKeySchema>;
+  title: string;
+  description: string;
+  groupKey: z.infer<typeof restaurantEmailTemplateGroupKeySchema>;
+  supportsCtaLabel: boolean;
+  availableVariables: string[];
+  recommendedVariables: string[];
+  authoringHints: string[];
+  status: 'default' | 'custom';
+  activeVariantCount: number;
+  variants: RestaurantEmailTemplateVariantDTO[];
+  defaultVariants: RestaurantEmailTemplateVariantDTO[];
+};
+
+export type RestaurantEmailTemplateGroupDTO = {
+  key: z.infer<typeof restaurantEmailTemplateGroupKeySchema>;
+  title: string;
+  description: string;
+  templates: RestaurantEmailTemplateDTO[];
+};
+
+export type RestaurantEmailTemplatesResponse = {
+  restaurantId: string;
+  canEdit: boolean;
+  groups: RestaurantEmailTemplateGroupDTO[];
+};
+
+export type RestaurantEmailTemplateResponse = {
+  restaurantId: string;
+  canEdit: boolean;
+  template: RestaurantEmailTemplateDTO;
+};
+
+export type RestaurantEmailTemplatePreviewResponse = {
+  restaurantId: string;
+  preview: {
+    templateKey: z.infer<typeof restaurantEmailTemplateKeySchema>;
+    selectedVariantId: string;
+    selectedVariantName: string;
+    preheader: string;
+    headline: string;
+    intro: string;
+    ctaLabel: string;
+    ctaUrl: string;
+    subject: string;
+    html: string;
+    text: string;
+  };
+};
+
+export type SendRestaurantEmailTemplateTestResponse = {
+  ok: true;
+  restaurantId: string;
+  provider: 'resend' | 'mock';
+  messageId: string;
+  preview: RestaurantEmailTemplatePreviewResponse['preview'];
 };

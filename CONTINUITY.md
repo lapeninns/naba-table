@@ -1,64 +1,73 @@
 # Continuity Ledger
 
-Last updated: 2026-04-01T18:01:00Z
+Last updated: 2026-04-02T16:18:00Z
 
 ## Goal (incl. success criteria)
 
-- Close the reproducible PR review findings on the ops booking card branch without churning already-correct behavior.
-- Success: locked cards expose `aria-disabled` at the row level during pending actions.
-- Success: `next-env.d.ts` typechecks without `.next/dev` artifacts present.
-- Success: focused tests, typecheck, and browser proof all reflect the current lock policy.
+- Implement the broader email-template upgrade across the canonical ops/editor/server path.
+- Success: booking email variants persist first-class `subject` and `preheader` fields.
+- Success: token validation, richer preview surfaces, and stronger authoring guardrails land in the ops editor.
+- Success: delivery metadata captures variant-level analytics details for later A/B inspection.
+- Success: auth-email rendering is visually aligned with the shared email design system.
 
 ## Constraints/Assumptions
 
 - Follow existing AGENTS SDLC flow with task artifacts.
-- Keep the patch scoped to the reproducible review findings only.
-- Use the existing ops bookings dev harness for browser proof when possible.
-- One reported initials-override issue is already fixed on this branch and should be documented, not reworked.
+- Keep the change scoped to canonical email-template codepaths rather than the legacy settings replica.
+- Prefer compatibility through domain normalization instead of a database migration.
 
 ## Key decisions
 
-- Fix the locked-row semantics by passing `aria-disabled` from `OpsBookingCard` rather than relying on a data attribute.
-- Restore `next-env.d.ts` to the safe generated baseline instead of adding custom type plumbing.
-- Treat the `displayInitials` review comment as non-actionable on this branch because the canonical helper already preserves explicit overrides.
+- Extend the variant model itself with `subject` and `preheader` instead of deriving subject from `headline` alone.
+- Reuse the existing `email_delivery_log.metadata` JSON for variant analytics instead of introducing a new table change.
+- Keep the shared `renderEmailBase` shell as the brand source of truth and align auth-email content onto it.
 
 ## State
 
-- Phase 4 complete for the review-fix follow-up patch.
+- Implementation, targeted verification, and task evidence are complete for the email-template upgrade.
 
 ## Done
 
-- Verified the four review findings against the current branch and confirmed three were reproducible.
-- Created task folder `tasks/ops-booking-card-review-fixes-20260401-1755/` with research, plan, todo, and verification notes.
-- Updated `src/components/features/dashboard/cards/OpsBookingCard.tsx` to expose `aria-disabled` for locked rows.
-- Removed the `.next/dev/types/routes.d.ts` import from `next-env.d.ts`.
-- Updated `tests/components/OpsBookingCardViewModel.test.ts` to match the current centralized lock policy.
-- Confirmed the `displayInitials` override path was already correct and documented that as a non-reproducible finding.
-- Verified with focused vitest coverage, `pnpm typecheck`, and Chrome DevTools on the ops bookings list dev harness.
+- Created task folder `tasks/email-template-upgrades-20260402-1449/` with research/plan/todo/verification stubs.
+- Reviewed the root and closest AGENTS files for `lib/`, `server/`, `src/components/`, and `src/app/`.
+- Confirmed the current gaps in subject/preheader editing, token guidance, preview depth, auth-email brand drift, and variant analytics.
+- Extended restaurant email template variants with persisted `subject` and `preheader` fields plus token/duplicate guardrails.
+- Updated ops template DTOs, preview/test-send routes, and booking-email rendering to expose subject, preheader, selected variant name, and variant analytics metadata.
+- Rebuilt the ops editor and preview panes with field counters, variable chips, authoring hints, plain-text preview, CTA destination display, and variant badges in delivery surfaces.
+- Aligned the auth magic-link email body styling with the shared email shell and refreshed targeted tests.
+- Completed browser QA on the dev harness, captured screenshots/Lighthouse/performance artifacts, and updated task verification records.
 
 ## Now
 
-- Ready to hand off with the review-fix follow-up complete.
+- Prepare the final user summary and any follow-up notes from the completed verification pass.
 
 ## Next
 
-- If desired, update PR #46 with a brief note that the three reproducible review findings were fixed and the initials-override comment was already satisfied on the branch.
+- If requested, stage the diff for review or break the implementation into a PR-ready change summary.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- None.
+- None at the moment.
 
 ## Working set (files/ids/commands)
 
-- `tasks/ops-booking-card-review-fixes-20260401-1755/research.md`
-- `tasks/ops-booking-card-review-fixes-20260401-1755/plan.md`
-- `tasks/ops-booking-card-review-fixes-20260401-1755/todo.md`
-- `tasks/ops-booking-card-review-fixes-20260401-1755/verification.md`
-- `tasks/ops-booking-card-review-fixes-20260401-1755/artifacts/ops-bookings-list-locked-card-mobile.png`
+- `tasks/email-template-upgrades-20260402-1449/research.md`
+- `tasks/email-template-upgrades-20260402-1449/plan.md`
+- `tasks/email-template-upgrades-20260402-1449/todo.md`
+- `tasks/email-template-upgrades-20260402-1449/verification.md`
+- `tasks/email-template-upgrades-20260402-1449/artifacts/`
 - `CONTINUITY.md`
-- `src/components/features/dashboard/cards/OpsBookingCard.tsx`
-- `next-env.d.ts`
-- `tests/components/OpsBookingCard.test.tsx`
-- `tests/components/OpsBookingCardViewModel.test.ts`
-- `pnpm exec vitest run tests/components/OpsBookingCard.test.tsx tests/components/OpsBookingCardViewModel.test.ts`
-- `pnpm typecheck`
+- `lib/restaurants/email-templates.ts`
+- `src/app/api/ops/restaurants/schema.ts`
+- `server/emails/bookings.ts`
+- `server/emails/base.ts`
+- `server/auth/magic-link-email.ts`
+- `src/services/ops/restaurants.ts`
+- `src/hooks/ops/useOpsEmailTemplatesPageState.ts`
+- `src/components/features/email-templates/EmailTemplatesEditorPane.tsx`
+- `src/components/features/email-templates/EmailTemplatesPreviewPane.tsx`
+- `server/emails/bookings.ts`
+- `server/emails/email-delivery-log.ts`
+- `tests/lib/restaurant-email-templates.test.ts`
+- `tests/server/restaurant-email-template-routes.test.ts`
+- `tests/server/restaurant-email-templates.test.ts`

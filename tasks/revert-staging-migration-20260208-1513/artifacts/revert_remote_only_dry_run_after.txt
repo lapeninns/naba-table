@@ -1,5 +1,0 @@
-Connecting to remote database...
-Skipping migration CONSOLIDATED_ALL_MIGRATIONS.sql... (file name must match pattern "<timestamp>_name.sql")
-A new version of Supabase CLI is available: v2.75.0 (currently installed v2.72.7)
-We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
-No remote-only applied migrations found. Nothing to do.

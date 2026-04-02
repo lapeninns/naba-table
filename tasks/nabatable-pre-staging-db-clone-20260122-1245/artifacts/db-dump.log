@@ -1,5 +1,0 @@
-2026-01-22T13:06:20Z
-Source: vrdiqfudmwydclqpydee (nabatable)
-Dump file: /tmp/nabatable-prod-20260122-1245.dump
-Size: 1.6M
-Command: /usr/local/opt/libpq/bin/pg_dump -Fc --no-owner --no-acl --verbose --dbname="postgresql://postgres:<redacted>@db.vrdiqfudmwydclqpydee.supabase.co:5432/postgres" -f /tmp/nabatable-prod-20260122-1245.dump

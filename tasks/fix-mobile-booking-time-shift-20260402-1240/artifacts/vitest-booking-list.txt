@@ -1,0 +1,11 @@
+
+ RUN  v4.0.18 /Users/amankumarshrestha/LapenInns Project/nabatableLP
+
+ ✓ tests/components/BookingListClient.test.tsx > BookingListClient > renders UTC booking times in the restaurant timezone 73ms
+ ✓ tests/components/BookingListClient.test.tsx > BookingListClient > keeps venue-local booking strings stable across devices 9ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  13:48:09
+   Duration  828ms (transform 88ms, setup 58ms, import 277ms, tests 83ms, environment 340ms)
+

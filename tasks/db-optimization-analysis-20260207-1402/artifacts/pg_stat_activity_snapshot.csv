@@ -1,9 +1,0 @@
-pid,usename,application_name,client_addr,state,wait_event_type,wait_event,backend_type,xact_age,query_age,query_sample
-3560,authenticator,postgrest,::1,idle,Client,ClientRead,client backend,,03:26:28.914123,"LISTEN ""pgrst"""
-10407,authenticator,postgrest,::1,idle,Client,ClientRead,client backend,,00:09:20.734846,COMMIT
-10408,authenticator,postgrest,::1,idle,Client,ClientRead,client backend,,00:09:20.521615,COMMIT
-10406,authenticator,postgrest,::1,idle,Client,ClientRead,client backend,,00:09:20.511948,COMMIT
-10395,pgbouncer,Supavisor (auth_query),2a05:d01c:30c:9d00:ede7:9209:9c33:cf57,idle,Client,ClientRead,client backend,,00:00:15.552049,SELECT * FROM pgbouncer.get_auth($1)
-4385,supabase_admin,postgres_exporter,::1,idle,Client,ClientRead,client backend,,00:00:06.332521,set statement_timeout to '20s'
-3557,supabase_admin,pg_net 0.19.5,,,Extension,Extension,pg_net 0.19.5 worker,,,
-3558,supabase_admin,pg_cron scheduler,,,Extension,Extension,pg_cron launcher,,,

@@ -1,4 +1,0 @@
-Supabase MCP execute_sql result: success
-SQL: tasks/seed-staging-bookings-20260205-1624/artifacts/seed-bookings.sql
-Notice: Created 50 bookings for Old Crown Girton on 2026-02-05
-Timezone assumption: UTC for 17:00–21:00 window
