@@ -1,0 +1,10 @@
+Command: `pnpm vitest run tests/server/restaurant-email-templates.test.ts tests/server/restaurant-email-template-routes.test.ts tests/lib/restaurant-email-templates.test.ts`
+
+Result:
+- 3 test files passed
+- 14 tests passed
+
+Notable coverage:
+- Unique nonce-backed idempotency parts for manual template test sends
+- Text/plain CTA parity with resolved template CTA destinations
+- Conflict retry + latest-document merge for template persistence
