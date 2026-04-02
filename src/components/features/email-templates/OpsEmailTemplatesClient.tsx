@@ -130,7 +130,6 @@ export function OpsEmailTemplatesClient() {
                   onSelectVariant={state.setSelectedVariantId}
                   onResetTemplate={state.handleResetTemplate}
                   onSendTest={state.handleSendTest}
-                  onInsertVariable={state.handleInsertVariable}
                   onUpdateVariant={state.updateCurrentVariant}
                 />
 

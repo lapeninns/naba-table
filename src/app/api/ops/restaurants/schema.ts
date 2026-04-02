@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
 import {
+  buildRestaurantEmailTemplateVariantSignature,
+  getUnknownRestaurantEmailTemplateTokens,
   MAX_RESTAURANT_EMAIL_TEMPLATE_VARIANTS,
   RESTAURANT_BOOKING_EMAIL_TEMPLATE_GROUP_KEYS,
   RESTAURANT_BOOKING_EMAIL_TEMPLATE_KEYS,
@@ -212,9 +214,32 @@ export const restaurantEmailTemplateGroupKeySchema = z.enum(RESTAURANT_BOOKING_E
 
 const emailTemplateTextSchema = z.string().trim().min(1).max(280);
 const emailTemplateHeadlineSchema = z.string().trim().min(1).max(140);
+const emailTemplateSubjectSchema = z.string().trim().min(1).max(140);
+const emailTemplatePreheaderSchema = z.string().trim().min(1).max(180);
+
+function addUnknownTokenIssues(
+  text: string,
+  fieldLabel: string,
+  ctx: z.RefinementCtx,
+  path: (string | number)[],
+) {
+  const unknownTokens = getUnknownRestaurantEmailTemplateTokens(text);
+  if (unknownTokens.length === 0) {
+    return;
+  }
+
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    message: `${fieldLabel} contains unknown variables: ${unknownTokens.map((token) => `{{${token}}}`).join(', ')}`,
+    path,
+  });
+}
+
 const emailTemplateVariantSchema = z.object({
   id: z.string().trim().min(1).max(120),
   name: z.string().trim().min(1).max(80),
+  subject: emailTemplateSubjectSchema,
+  preheader: emailTemplatePreheaderSchema,
   headline: emailTemplateHeadlineSchema,
   intro: emailTemplateTextSchema,
   ctaLabel: z.string().trim().min(1).max(60),
@@ -229,18 +254,48 @@ export const updateRestaurantEmailTemplateSchema = z.object({
     .max(MAX_RESTAURANT_EMAIL_TEMPLATE_VARIANTS, `You can save up to ${MAX_RESTAURANT_EMAIL_TEMPLATE_VARIANTS} variants`)
     .superRefine((variants, ctx) => {
       const ids = new Set<string>();
+      const orders = new Set<number>();
+      const activeSignatures = new Map<string, string>();
       let activeCount = 0;
 
-      for (const variant of variants) {
+      for (const [index, variant] of variants.entries()) {
         if (ids.has(variant.id)) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message: `Variant id "${variant.id}" must be unique`,
+            path: [index, 'id'],
           });
         }
         ids.add(variant.id);
+
+        if (orders.has(variant.order)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `Variant order "${variant.order}" must be unique`,
+            path: [index, 'order'],
+          });
+        }
+        orders.add(variant.order);
+
+        addUnknownTokenIssues(variant.subject, 'Subject', ctx, [index, 'subject']);
+        addUnknownTokenIssues(variant.preheader, 'Preheader', ctx, [index, 'preheader']);
+        addUnknownTokenIssues(variant.headline, 'Headline', ctx, [index, 'headline']);
+        addUnknownTokenIssues(variant.intro, 'Message body', ctx, [index, 'intro']);
+        addUnknownTokenIssues(variant.ctaLabel, 'CTA label', ctx, [index, 'ctaLabel']);
+
         if (variant.isActive) {
           activeCount += 1;
+          const signature = buildRestaurantEmailTemplateVariantSignature(variant);
+          const existingVariantName = activeSignatures.get(signature);
+          if (existingVariantName) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `Active variants "${existingVariantName}" and "${variant.name}" have identical delivery copy. Change the content or pause one variant.`,
+              path: [index],
+            });
+          } else {
+            activeSignatures.set(signature, variant.name);
+          }
         }
       }
 
@@ -274,6 +329,9 @@ export type RestaurantEmailTemplateDTO = {
   description: string;
   groupKey: z.infer<typeof restaurantEmailTemplateGroupKeySchema>;
   supportsCtaLabel: boolean;
+  availableVariables: string[];
+  recommendedVariables: string[];
+  authoringHints: string[];
   status: 'default' | 'custom';
   activeVariantCount: number;
   variants: RestaurantEmailTemplateVariantDTO[];
@@ -304,6 +362,8 @@ export type RestaurantEmailTemplatePreviewResponse = {
   preview: {
     templateKey: z.infer<typeof restaurantEmailTemplateKeySchema>;
     selectedVariantId: string;
+    selectedVariantName: string;
+    preheader: string;
     headline: string;
     intro: string;
     ctaLabel: string;

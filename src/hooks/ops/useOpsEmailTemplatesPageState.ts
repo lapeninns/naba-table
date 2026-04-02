@@ -22,14 +22,6 @@ import type { RestaurantEmailTemplatesSnapshot } from '@/services/ops/restaurant
 export type EmailTemplatesActivePane = 'list' | 'editor' | 'preview';
 export type EmailTemplatesPreviewDevice = 'desktop' | 'mobile';
 
-export const EMAIL_TEMPLATE_VARIABLES = [
-  '{{firstName}}',
-  '{{venue}}',
-  '{{date}}',
-  '{{time}}',
-  '{{party}}',
-] as const;
-
 function createVariantId(templateKey: RestaurantBookingEmailTemplateKey) {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return `${templateKey}-${crypto.randomUUID()}`;
@@ -45,6 +37,8 @@ function normalizeVariantsForCompare(variants: RestaurantEmailTemplateVariant[])
       .map((variant) => ({
         id: variant.id,
         name: variant.name,
+        subject: variant.subject,
+        preheader: variant.preheader,
         headline: variant.headline,
         intro: variant.intro,
         ctaLabel: variant.ctaLabel,
@@ -310,15 +304,6 @@ export function useOpsEmailTemplatesPageState() {
     });
   };
 
-  const handleInsertVariable = (token: string) => {
-    if (!currentVariant) return;
-
-    updateCurrentVariant(currentVariant.id, (variant) => ({
-      ...variant,
-      intro: variant.intro ? `${variant.intro}${variant.intro.endsWith(' ') ? '' : ' '}${token}` : token,
-    }));
-  };
-
   const handleSave = async () => {
     if (!selectedTemplateKey) return;
 
@@ -431,7 +416,6 @@ export function useOpsEmailTemplatesPageState() {
     handleMoveVariant,
     handleDeleteVariant,
     handleDiscardCurrent,
-    handleInsertVariable,
     handleSave,
     handleResetTemplate,
     handleSendTest,

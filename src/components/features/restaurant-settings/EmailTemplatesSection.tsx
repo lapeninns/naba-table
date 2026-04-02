@@ -62,6 +62,8 @@ function normalizeVariantsForCompare(variants: RestaurantEmailTemplateVariant[])
       .map((variant) => ({
         id: variant.id,
         name: variant.name,
+        subject: variant.subject,
+        preheader: variant.preheader,
         headline: variant.headline,
         intro: variant.intro,
         ctaLabel: variant.ctaLabel,

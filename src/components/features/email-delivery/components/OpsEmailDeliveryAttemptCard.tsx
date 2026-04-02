@@ -35,6 +35,24 @@ function resolveSubject(events: EmailDeliveryEventDTO[]): string | null {
   return null;
 }
 
+function resolveVariantName(events: EmailDeliveryEventDTO[]): string | null {
+  for (const event of events) {
+    const meta = event.metadata;
+    if (!meta || typeof meta !== 'object') continue;
+
+    const variantName = (meta as { variantName?: unknown }).variantName;
+    if (typeof variantName === 'string' && variantName.trim().length > 0) {
+      return variantName.trim();
+    }
+
+    const variantId = (meta as { variantId?: unknown }).variantId;
+    if (typeof variantId === 'string' && variantId.trim().length > 0) {
+      return variantId.trim();
+    }
+  }
+  return null;
+}
+
 function resolveCurrentEvent(events: EmailDeliveryEventDTO[], fallbackStatus: EmailDeliveryStatus): EmailDeliveryEventDTO | null {
   let current: EmailDeliveryEventDTO | null = null;
   let currentMs: number | null = null;
@@ -99,6 +117,7 @@ export type OpsEmailDeliveryAttemptCardProps = {
 export function OpsEmailDeliveryAttemptCard({ attempt, timezone, restaurantId }: OpsEmailDeliveryAttemptCardProps) {
   const subject =
     resolveSubject(attempt.events) ?? attempt.templateType ?? attempt.emailType ?? 'Email';
+  const variantName = resolveVariantName(attempt.events);
   const when = formatEmailDeliveryOccurredAt(attempt.currentOccurredAt, timezone);
   const booking = attempt.booking;
   const bookingStart = booking ? formatBookingStart(booking, timezone) : null;
@@ -127,6 +146,11 @@ export function OpsEmailDeliveryAttemptCard({ attempt, timezone, restaurantId }:
                   <div className="truncate text-sm font-semibold text-slate-900" title={subject}>
                     {subject}
                   </div>
+                  {variantName ? (
+                    <Badge variant="secondary" className="hidden sm:inline-flex">
+                      {variantName}
+                    </Badge>
+                  ) : null}
                   {attempt.templateType && attempt.templateType !== subject ? (
                     <Badge variant="secondary" className="hidden sm:inline-flex">
                       {attempt.templateType}

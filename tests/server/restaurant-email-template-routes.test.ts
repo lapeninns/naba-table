@@ -123,6 +123,8 @@ describe('restaurant email template routes', () => {
             {
               id: 'variant-1',
               name: 'Only variant',
+              subject: 'Hello - {{venue}}',
+              preheader: 'World',
               headline: 'Hello',
               intro: 'World',
               ctaLabel: 'Open',
@@ -147,6 +149,9 @@ describe('restaurant email template routes', () => {
       description: 'Confirmed reservations',
       groupKey: 'confirmation',
       supportsCtaLabel: true,
+      availableVariables: ['{{firstName}}', '{{venue}}'],
+      recommendedVariables: ['{{firstName}}'],
+      authoringHints: ['Keep it clear.'],
       status: 'custom',
       activeVariantCount: 1,
       variants: [],
@@ -161,6 +166,8 @@ describe('restaurant email template routes', () => {
             {
               id: 'variant-1',
               name: 'Only variant',
+              subject: 'Hello - {{venue}}',
+              preheader: 'World',
               headline: 'Hello',
               intro: 'World',
               ctaLabel: 'Open',
@@ -182,6 +189,8 @@ describe('restaurant email template routes', () => {
         {
           id: 'variant-1',
           name: 'Only variant',
+          subject: 'Hello - {{venue}}',
+          preheader: 'World',
           headline: 'Hello',
           intro: 'World',
           ctaLabel: 'Open',
@@ -201,6 +210,9 @@ describe('restaurant email template routes', () => {
       description: 'Confirmed reservations',
       groupKey: 'confirmation',
       supportsCtaLabel: true,
+      availableVariables: ['{{firstName}}', '{{venue}}'],
+      recommendedVariables: ['{{firstName}}'],
+      authoringHints: ['Keep it clear.'],
       status: 'default',
       activeVariantCount: 3,
       variants: [],
@@ -222,6 +234,8 @@ describe('restaurant email template routes', () => {
     renderRestaurantBookingEmailPreviewMock.mockReturnValue({
       templateKey: 'confirmation',
       selectedVariantId: 'variant-1',
+      selectedVariantName: 'Variant A',
+      preheader: 'Preview preheader',
       headline: 'Preview headline',
       intro: 'Preview intro',
       ctaLabel: 'Manage',
@@ -241,7 +255,11 @@ describe('restaurant email template routes', () => {
     const payload = await response.json();
 
     expect(response.status).toBe(200);
-    expect(payload.preview.selectedVariantId).toBe('variant-1');
+    expect(payload.preview).toMatchObject({
+      selectedVariantId: 'variant-1',
+      selectedVariantName: 'Variant A',
+      preheader: 'Preview preheader',
+    });
   });
 
   it('sends a test email using the rendered preview', async () => {
@@ -251,6 +269,8 @@ describe('restaurant email template routes', () => {
       preview: {
         templateKey: 'confirmation',
         selectedVariantId: 'variant-1',
+        selectedVariantName: 'Variant A',
+        preheader: 'Preview preheader',
         headline: 'Preview headline',
         intro: 'Preview intro',
         ctaLabel: 'Manage',
@@ -280,8 +300,37 @@ describe('restaurant email template routes', () => {
       messageId: 'mock-123',
       preview: {
         selectedVariantId: 'variant-1',
+        selectedVariantName: 'Variant A',
+        preheader: 'Preview preheader',
       },
     });
+  });
+
+  it('rejects unknown template variables before saving', async () => {
+    const response = await patchTemplate(
+      new NextRequest('https://www.nabatable.com/api/ops/restaurants/rest-1/email-templates/confirmation', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          variants: [
+            {
+              id: 'variant-1',
+              name: 'Only variant',
+              subject: 'Hello {{guestName}}',
+              preheader: 'World',
+              headline: 'Hello',
+              intro: 'World',
+              ctaLabel: 'Open',
+              isActive: true,
+              order: 0,
+            },
+          ],
+        }),
+      }),
+      buildRouteParams(),
+    );
+
+    expect(response.status).toBe(400);
+    expect(upsertRestaurantEmailTemplateMock).not.toHaveBeenCalled();
   });
 
   it('returns auth failures from the shared access helper', async () => {

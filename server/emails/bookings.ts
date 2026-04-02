@@ -199,6 +199,8 @@ function resolveTemplateVariant(params: {
   preferredVariantId?: string;
 }): {
   templateVariant: RestaurantEmailTemplateVariant;
+  subject: string;
+  preheader: string;
   headline: string;
   intro: string;
   ctaLabel: string;
@@ -225,6 +227,8 @@ function resolveTemplateVariant(params: {
 
   return {
     templateVariant,
+    subject: interpolateRestaurantEmailTemplateText(templateVariant.subject, variables),
+    preheader: interpolateRestaurantEmailTemplateText(templateVariant.preheader, variables),
     headline: interpolateRestaurantEmailTemplateText(templateVariant.headline, variables),
     intro: interpolateRestaurantEmailTemplateText(templateVariant.intro, variables),
     ctaLabel: interpolateRestaurantEmailTemplateText(templateVariant.ctaLabel, variables),
@@ -416,6 +420,8 @@ export function renderHtml({
   booking,
   venue,
   summary,
+  subject,
+  preheader,
   headline,
   intro,
   ctaLabel,
@@ -427,6 +433,8 @@ export function renderHtml({
   booking: BookingRecord;
   venue: VenueDetails;
   summary: BookingSummary;
+  subject: string;
+  preheader: string;
   headline: string;
   intro: string;
   ctaLabel?: string;
@@ -562,8 +570,8 @@ export function renderHtml({
   `;
 
   return renderEmailBase({
-    title: headline,
-    preheader: intro,
+    title: subject,
+    preheader,
     contentHtml,
     annotation,
     manageUrl,
@@ -629,11 +637,14 @@ async function dispatchEmail(
     : bookingSiteUrl;
 
   // Initialize email content variables
+  let subject = '';
+  let preheader = '';
   let headline = '';
   let intro = '';
   let ctaLabel = '';
   let ctaUrl = manageUrl;
   let toEmail = booking.customer_email;
+  let resolvedVariantMeta: { id: string; name: string; source: 'default' | 'custom' | 'draft' } | null = null;
 
   switch (type) {
     case 'created':
@@ -664,6 +675,8 @@ async function dispatchEmail(
     case 'pending_attention':
       headline = 'Action Required';
       intro = `A booking at ${venue.name} requires immediate attention. Reason: ${options?.reason ?? 'Manual assignment needed'}.`;
+      subject = `${headline} - ${venue.name}`;
+      preheader = intro;
       ctaLabel = 'Review Now';
       ctaUrl = `${bookingSiteUrl}/dashboard/bookings/${booking.id}`;
       toEmail = venue.email || config.email.supportEmail || '';
@@ -678,9 +691,16 @@ async function dispatchEmail(
       templateKey: resolvedTemplateKey,
       recipientEmail: toEmail,
     });
+    subject = resolvedTemplate.subject;
+    preheader = resolvedTemplate.preheader;
     headline = resolvedTemplate.headline;
     intro = resolvedTemplate.intro;
     ctaLabel = resolvedTemplate.ctaLabel;
+    resolvedVariantMeta = {
+      id: resolvedTemplate.templateVariant.id,
+      name: resolvedTemplate.templateVariant.name,
+      source: resolvedTemplate.source,
+    };
     ctaUrl = resolveCtaUrlForTemplate({
       templateKey: resolvedTemplateKey,
       booking,
@@ -694,6 +714,8 @@ async function dispatchEmail(
     booking,
     venue,
     summary,
+    subject,
+    preheader,
     headline,
     intro,
     ctaLabel,
@@ -755,7 +777,6 @@ async function dispatchEmail(
     }
   }
 
-  const subject = `${headline} - ${venue.name}`;
   let result;
 
   try {
@@ -800,6 +821,11 @@ async function dispatchEmail(
     provider: result.provider,
     metadata: {
       subject,
+      preheader,
+      variantId: resolvedVariantMeta?.id ?? null,
+      variantName: resolvedVariantMeta?.name ?? null,
+      variantSource: resolvedVariantMeta?.source ?? null,
+      headline,
     },
   });
 }
@@ -898,6 +924,8 @@ function buildPreviewBooking(params: {
 export type RestaurantBookingEmailPreviewResult = {
   templateKey: RestaurantBookingEmailTemplateKey;
   selectedVariantId: string;
+  selectedVariantName: string;
+  preheader: string;
   headline: string;
   intro: string;
   ctaLabel: string;
@@ -942,11 +970,12 @@ export function renderRestaurantBookingEmailPreview(params: {
     manageUrl,
     restaurantBookingUrl,
   });
-  const subject = `${resolvedTemplate.headline} - ${params.venue.name}`;
   const html = renderHtml({
     booking,
     venue: params.venue,
     summary,
+    subject: resolvedTemplate.subject,
+    preheader: resolvedTemplate.preheader,
     headline: resolvedTemplate.headline,
     intro: resolvedTemplate.intro,
     ctaLabel: resolvedTemplate.ctaLabel,
@@ -966,11 +995,13 @@ export function renderRestaurantBookingEmailPreview(params: {
   return {
     templateKey: params.templateKey,
     selectedVariantId: resolvedTemplate.templateVariant.id,
+    selectedVariantName: resolvedTemplate.templateVariant.name,
+    preheader: resolvedTemplate.preheader,
     headline: resolvedTemplate.headline,
     intro: resolvedTemplate.intro,
     ctaLabel: resolvedTemplate.ctaLabel,
     ctaUrl,
-    subject,
+    subject: resolvedTemplate.subject,
     html,
     text,
     previewBooking: booking,

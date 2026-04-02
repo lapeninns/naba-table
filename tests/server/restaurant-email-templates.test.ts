@@ -76,6 +76,8 @@ function createVariant(
   return {
     id,
     name: overrides.name ?? id,
+    subject: overrides.subject ?? 'Headline - {{venue}}',
+    preheader: overrides.preheader ?? 'Preview text',
     headline: overrides.headline ?? 'Headline',
     intro: overrides.intro ?? 'Intro copy',
     ctaLabel: overrides.ctaLabel ?? 'Open',

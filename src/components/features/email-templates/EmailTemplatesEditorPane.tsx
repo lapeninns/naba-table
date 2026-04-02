@@ -12,6 +12,7 @@ import {
   Sparkles,
   Trash2,
 } from 'lucide-react';
+import { useMemo, useState } from 'react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -20,12 +21,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { EMAIL_TEMPLATE_VARIABLES } from '@/hooks/ops/useOpsEmailTemplatesPageState';
+import {
+  buildRestaurantEmailTemplateVariantSignature,
+  getUnknownRestaurantEmailTemplateTokens,
+} from '@/lib/restaurants/email-templates';
 import { cn } from '@/lib/utils';
 
-import type {
-  EmailTemplatesActivePane,
-} from '@/hooks/ops/useOpsEmailTemplatesPageState';
+import type { EmailTemplatesActivePane } from '@/hooks/ops/useOpsEmailTemplatesPageState';
 import type {
   RestaurantBookingEmailTemplateKey,
   RestaurantEmailTemplateVariant,
@@ -57,12 +59,40 @@ type EmailTemplatesEditorPaneProps = {
   onSelectVariant: (variantId: string) => void;
   onResetTemplate: (templateKey: RestaurantBookingEmailTemplateKey) => void;
   onSendTest: () => void;
-  onInsertVariable: (token: string) => void;
   onUpdateVariant: (
     variantId: string,
     updater: (variant: RestaurantEmailTemplateVariant) => RestaurantEmailTemplateVariant,
   ) => void;
 };
+
+type TemplateCopyField = 'subject' | 'preheader' | 'headline' | 'intro' | 'ctaLabel';
+
+const TEMPLATE_FIELD_LIMITS: Record<TemplateCopyField, number> = {
+  subject: 140,
+  preheader: 180,
+  headline: 140,
+  intro: 280,
+  ctaLabel: 60,
+};
+
+const TEMPLATE_FIELD_LABELS: Record<TemplateCopyField, string> = {
+  subject: 'Subject',
+  preheader: 'Preheader',
+  headline: 'Headline',
+  intro: 'Message body',
+  ctaLabel: 'CTA label',
+};
+
+function appendToken(currentValue: string, token: string) {
+  return currentValue ? `${currentValue}${currentValue.endsWith(' ') ? '' : ' '}${token}` : token;
+}
+
+function getCounterTone(length: number, limit: number) {
+  const remaining = limit - length;
+  if (remaining <= 10) return 'text-red-600';
+  if (remaining <= 25) return 'text-amber-600';
+  return 'text-zinc-500';
+}
 
 export function EmailTemplatesEditorPane({
   restaurantName,
@@ -89,9 +119,50 @@ export function EmailTemplatesEditorPane({
   onSelectVariant,
   onResetTemplate,
   onSendTest,
-  onInsertVariable,
   onUpdateVariant,
 }: EmailTemplatesEditorPaneProps) {
+  const [tokenTarget, setTokenTarget] = useState<TemplateCopyField>('intro');
+
+  const variantWarnings = useMemo(() => {
+    if (!currentVariant) {
+      return {
+        duplicateActiveVariantName: null as string | null,
+        unknownTokensByField: {} as Record<TemplateCopyField, string[]>,
+      };
+    }
+
+    const unknownTokensByField: Record<TemplateCopyField, string[]> = {
+      subject: getUnknownRestaurantEmailTemplateTokens(currentVariant.subject),
+      preheader: getUnknownRestaurantEmailTemplateTokens(currentVariant.preheader),
+      headline: getUnknownRestaurantEmailTemplateTokens(currentVariant.headline),
+      intro: getUnknownRestaurantEmailTemplateTokens(currentVariant.intro),
+      ctaLabel: getUnknownRestaurantEmailTemplateTokens(currentVariant.ctaLabel),
+    };
+
+    const duplicateActiveVariantName = currentVariant.isActive
+      ? currentVariants.find(
+          (variant) =>
+            variant.id !== currentVariant.id &&
+            variant.isActive &&
+            buildRestaurantEmailTemplateVariantSignature(variant) ===
+              buildRestaurantEmailTemplateVariantSignature(currentVariant),
+        )?.name ?? null
+      : null;
+
+    return { duplicateActiveVariantName, unknownTokensByField };
+  }, [currentVariant, currentVariants]);
+
+  const insertVariable = (token: string) => {
+    if (!currentVariant) {
+      return;
+    }
+
+    onUpdateVariant(currentVariant.id, (variant) => ({
+      ...variant,
+      [tokenTarget]: appendToken(variant[tokenTarget], token),
+    }));
+  };
+
   return (
     <main className="min-w-0">
       <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/90 px-4 py-3 backdrop-blur md:px-6">
@@ -185,6 +256,72 @@ export function EmailTemplatesEditorPane({
 
           {baseTemplate && currentVariant ? (
             <>
+              <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr),20rem]">
+                <Alert className="border-indigo-100 bg-indigo-50/60 text-indigo-950">
+                  <Sparkles className="size-4 text-indigo-600" />
+                  <AlertTitle>Template guidance</AlertTitle>
+                  <AlertDescription className="space-y-3">
+                    <p className="text-sm text-indigo-900">
+                      Recommended variables for {baseTemplate.title.toLowerCase()}:
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {baseTemplate.recommendedVariables.map((token) => (
+                        <Badge key={token} variant="secondary" className="rounded-full bg-indigo-100 text-indigo-800">
+                          {token}
+                        </Badge>
+                      ))}
+                    </div>
+                    <div className="space-y-1 text-xs text-indigo-800">
+                      {baseTemplate.authoringHints.map((hint) => (
+                        <p key={hint}>{hint}</p>
+                      ))}
+                    </div>
+                  </AlertDescription>
+                </Alert>
+
+                <div className="rounded-[1.5rem] border border-zinc-200 bg-white px-4 py-4 shadow-sm">
+                  <div className="text-sm font-semibold text-zinc-900">Token insertion</div>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    Click inside a field to change the insertion target, then tap a variable chip.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {baseTemplate.availableVariables.map((token) => {
+                      const recommended = baseTemplate.recommendedVariables.includes(token);
+                      return (
+                        <Button
+                          key={token}
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => insertVariable(token)}
+                          disabled={!canEdit}
+                          className={cn(
+                            'rounded-full font-mono text-[11px]',
+                            recommended && 'border-indigo-200 bg-indigo-50 text-indigo-700',
+                          )}
+                        >
+                          {token}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-3 text-xs text-zinc-500">
+                    Current insertion target:{' '}
+                    <span className="font-medium text-zinc-700">{TEMPLATE_FIELD_LABELS[tokenTarget]}</span>
+                  </p>
+                </div>
+              </section>
+
+              {variantWarnings.duplicateActiveVariantName ? (
+                <Alert variant="destructive">
+                  <AlertTitle>Duplicate live variant copy</AlertTitle>
+                  <AlertDescription>
+                    This active variant matches {variantWarnings.duplicateActiveVariantName}. Change the delivery copy
+                    or pause one version so your A/B rotation stays meaningful.
+                  </AlertDescription>
+                </Alert>
+              ) : null}
+
               <section className="rounded-[1.5rem] border border-zinc-200 bg-white shadow-sm">
                 <div className="border-b border-zinc-200 px-4 py-4 md:px-5">
                   <div className="flex flex-wrap items-center justify-between gap-3">
@@ -303,11 +440,77 @@ export function EmailTemplatesEditorPane({
                     </div>
                   </div>
 
+                  <div className="grid gap-5 lg:grid-cols-2">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <Label htmlFor="email-template-subject">Subject line</Label>
+                        <span className={cn('text-xs', getCounterTone(currentVariant.subject.length, TEMPLATE_FIELD_LIMITS.subject))}>
+                          {currentVariant.subject.length}/{TEMPLATE_FIELD_LIMITS.subject}
+                        </span>
+                      </div>
+                      <Input
+                        id="email-template-subject"
+                        value={currentVariant.subject}
+                        onFocus={() => setTokenTarget('subject')}
+                        onChange={(event) =>
+                          onUpdateVariant(currentVariant.id, (variant) => ({
+                            ...variant,
+                            subject: event.target.value,
+                          }))
+                        }
+                        disabled={!canEdit}
+                        className="h-11 rounded-xl border-zinc-300 text-sm font-medium"
+                      />
+                      {variantWarnings.unknownTokensByField.subject.length > 0 ? (
+                        <p className="text-xs text-red-600">
+                          Unknown variables: {variantWarnings.unknownTokensByField.subject.map((token) => `{{${token}}}`).join(', ')}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-zinc-500">Inbox subject line shown before the email opens.</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <Label htmlFor="email-template-preheader">Preheader</Label>
+                        <span className={cn('text-xs', getCounterTone(currentVariant.preheader.length, TEMPLATE_FIELD_LIMITS.preheader))}>
+                          {currentVariant.preheader.length}/{TEMPLATE_FIELD_LIMITS.preheader}
+                        </span>
+                      </div>
+                      <Input
+                        id="email-template-preheader"
+                        value={currentVariant.preheader}
+                        onFocus={() => setTokenTarget('preheader')}
+                        onChange={(event) =>
+                          onUpdateVariant(currentVariant.id, (variant) => ({
+                            ...variant,
+                            preheader: event.target.value,
+                          }))
+                        }
+                        disabled={!canEdit}
+                        className="h-11 rounded-xl border-zinc-300"
+                      />
+                      {variantWarnings.unknownTokensByField.preheader.length > 0 ? (
+                        <p className="text-xs text-red-600">
+                          Unknown variables: {variantWarnings.unknownTokensByField.preheader.map((token) => `{{${token}}}`).join(', ')}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-zinc-500">Preview text used by inbox clients and notifications.</p>
+                      )}
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
-                    <Label htmlFor="email-template-headline">Subject / headline</Label>
+                    <div className="flex items-center justify-between gap-3">
+                      <Label htmlFor="email-template-headline">Hero headline</Label>
+                      <span className={cn('text-xs', getCounterTone(currentVariant.headline.length, TEMPLATE_FIELD_LIMITS.headline))}>
+                        {currentVariant.headline.length}/{TEMPLATE_FIELD_LIMITS.headline}
+                      </span>
+                    </div>
                     <Input
                       id="email-template-headline"
                       value={currentVariant.headline}
+                      onFocus={() => setTokenTarget('headline')}
                       onChange={(event) =>
                         onUpdateVariant(currentVariant.id, (variant) => ({
                           ...variant,
@@ -317,19 +520,30 @@ export function EmailTemplatesEditorPane({
                       disabled={!canEdit}
                       className="h-11 rounded-xl border-zinc-300 text-sm font-medium"
                     />
+                    {variantWarnings.unknownTokensByField.headline.length > 0 ? (
+                      <p className="text-xs text-red-600">
+                        Unknown variables: {variantWarnings.unknownTokensByField.headline.map((token) => `{{${token}}}`).join(', ')}
+                      </p>
+                    ) : null}
                   </div>
 
                   <div className="space-y-3">
                     <div className="flex items-center justify-between gap-3">
                       <Label htmlFor="email-template-intro">Message body</Label>
-                      <div className="flex items-center gap-1 text-xs text-zinc-500">
-                        <Info className="size-3.5" />
-                        Click to insert variables
+                      <div className="flex items-center gap-3">
+                        <span className={cn('text-xs', getCounterTone(currentVariant.intro.length, TEMPLATE_FIELD_LIMITS.intro))}>
+                          {currentVariant.intro.length}/{TEMPLATE_FIELD_LIMITS.intro}
+                        </span>
+                        <div className="flex items-center gap-1 text-xs text-zinc-500">
+                          <Info className="size-3.5" />
+                          Click a field to change token target
+                        </div>
                       </div>
                     </div>
                     <Textarea
                       id="email-template-intro"
                       value={currentVariant.intro}
+                      onFocus={() => setTokenTarget('intro')}
                       onChange={(event) =>
                         onUpdateVariant(currentVariant.id, (variant) => ({
                           ...variant,
@@ -339,29 +553,25 @@ export function EmailTemplatesEditorPane({
                       disabled={!canEdit}
                       className="min-h-[220px] rounded-2xl border-zinc-300 text-sm leading-6"
                     />
-                    <div className="flex flex-wrap gap-2">
-                      {EMAIL_TEMPLATE_VARIABLES.map((token) => (
-                        <Button
-                          key={token}
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => onInsertVariable(token)}
-                          disabled={!canEdit}
-                          className="rounded-full border-zinc-200 bg-zinc-50 font-mono text-[11px] text-zinc-600"
-                        >
-                          {token}
-                        </Button>
-                      ))}
-                    </div>
+                    {variantWarnings.unknownTokensByField.intro.length > 0 ? (
+                      <p className="text-xs text-red-600">
+                        Unknown variables: {variantWarnings.unknownTokensByField.intro.map((token) => `{{${token}}}`).join(', ')}
+                      </p>
+                    ) : null}
                   </div>
 
                   {baseTemplate.supportsCtaLabel ? (
                     <div className="space-y-2">
-                      <Label htmlFor="email-template-cta-label">Call-to-action label</Label>
+                      <div className="flex items-center justify-between gap-3">
+                        <Label htmlFor="email-template-cta-label">Call-to-action label</Label>
+                        <span className={cn('text-xs', getCounterTone(currentVariant.ctaLabel.length, TEMPLATE_FIELD_LIMITS.ctaLabel))}>
+                          {currentVariant.ctaLabel.length}/{TEMPLATE_FIELD_LIMITS.ctaLabel}
+                        </span>
+                      </div>
                       <Input
                         id="email-template-cta-label"
                         value={currentVariant.ctaLabel}
+                        onFocus={() => setTokenTarget('ctaLabel')}
                         onChange={(event) =>
                           onUpdateVariant(currentVariant.id, (variant) => ({
                             ...variant,
@@ -371,6 +581,15 @@ export function EmailTemplatesEditorPane({
                         disabled={!canEdit}
                         className="h-11 max-w-sm rounded-xl border-zinc-300"
                       />
+                      {variantWarnings.unknownTokensByField.ctaLabel.length > 0 ? (
+                        <p className="text-xs text-red-600">
+                          Unknown variables: {variantWarnings.unknownTokensByField.ctaLabel.map((token) => `{{${token}}}`).join(', ')}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-zinc-500">
+                          The destination URL stays system-controlled. Only the label changes here.
+                        </p>
+                      )}
                     </div>
                   ) : null}
                 </div>
@@ -396,7 +615,7 @@ export function EmailTemplatesEditorPane({
                       </Button>
                     </div>
                     <p className="text-xs text-zinc-500">
-                      System shell, booking facts, and destination URLs stay locked. Only copy variants change here.
+                      System shell, booking facts, and destination URLs stay locked. Delivery copy, subject, and preheader change here.
                     </p>
                   </div>
 

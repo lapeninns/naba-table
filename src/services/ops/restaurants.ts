@@ -173,6 +173,9 @@ export type RestaurantEmailTemplate = {
   description: string;
   groupKey: string;
   supportsCtaLabel: boolean;
+  availableVariables: string[];
+  recommendedVariables: string[];
+  authoringHints: string[];
   status: 'default' | 'custom';
   activeVariantCount: number;
   variants: RestaurantEmailTemplateVariant[];
@@ -195,6 +198,8 @@ export type RestaurantEmailTemplatesSnapshot = {
 export type RestaurantEmailTemplatePreview = {
   templateKey: RestaurantBookingEmailTemplateKey;
   selectedVariantId: string;
+  selectedVariantName: string;
+  preheader: string;
   headline: string;
   intro: string;
   ctaLabel: string;

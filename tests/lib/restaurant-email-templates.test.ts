@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  getUnknownRestaurantEmailTemplateTokens,
   getActiveTemplateVariants,
   getDefaultTemplateVariants,
   getEffectiveTemplateVariants,
@@ -36,6 +37,8 @@ describe('restaurant email template catalog', () => {
             {
               id: 'custom-1',
               name: 'Inactive custom',
+              subject: 'Custom headline - {{venue}}',
+              preheader: 'Custom intro',
               headline: 'Custom headline',
               intro: 'Custom intro',
               ctaLabel: 'Custom CTA',
@@ -58,6 +61,8 @@ describe('restaurant email template catalog', () => {
       {
         id: 'a',
         name: 'A',
+        subject: 'A - {{venue}}',
+        preheader: 'A',
         headline: 'A',
         intro: 'A',
         ctaLabel: 'A',
@@ -67,6 +72,8 @@ describe('restaurant email template catalog', () => {
       {
         id: 'b',
         name: 'B',
+        subject: 'B - {{venue}}',
+        preheader: 'B',
         headline: 'B',
         intro: 'B',
         ctaLabel: 'B',
@@ -76,6 +83,8 @@ describe('restaurant email template catalog', () => {
       {
         id: 'c',
         name: 'C',
+        subject: 'C - {{venue}}',
+        preheader: 'C',
         headline: 'C',
         intro: 'C',
         ctaLabel: 'C',
@@ -97,6 +106,16 @@ describe('restaurant email template catalog', () => {
   it('uses the real hardcoded booking confirmation copy as the default variants', () => {
     const confirmation = getDefaultTemplateVariants('confirmation');
 
+    expect(confirmation.map((variant) => variant.subject)).toEqual([
+      'Booking Confirmed 🎉 - {{venue}}',
+      "You're In! 🥂 - {{venue}}",
+      'Table Secured 🍽️ - {{venue}}',
+    ]);
+    expect(confirmation.map((variant) => variant.preheader)).toEqual([
+      "Great news, {{firstName}}! Your table at {{venue}} is secured. We've added this to your upcoming bookings.",
+      "{{firstName}}, your reservation at {{venue}} is confirmed. We can't wait to host you!",
+      "All set, {{firstName}}. We've reserved a spot for you at {{venue}}. See you soon!",
+    ]);
     expect(confirmation.map((variant) => variant.headline)).toEqual([
       'Booking Confirmed 🎉',
       "You're In! 🥂",
@@ -107,5 +126,10 @@ describe('restaurant email template catalog', () => {
       'Manage Booking',
       'Manage Booking',
     ]);
+  });
+
+  it('flags unknown template variables without rejecting supported ones', () => {
+    expect(getUnknownRestaurantEmailTemplateTokens('Hi {{firstName}}, see you at {{venue}}')).toEqual([]);
+    expect(getUnknownRestaurantEmailTemplateTokens('Hi {{guestName}}, see you at {{venue}}')).toEqual(['guestName']);
   });
 });
