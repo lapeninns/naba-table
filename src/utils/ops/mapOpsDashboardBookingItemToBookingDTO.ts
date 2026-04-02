@@ -1,3 +1,5 @@
+import { toBookingUtcIso } from '@reserve/shared/formatting/bookingDateTime';
+
 import type { BookingDTO } from '@/hooks/useBookings';
 import type { OpsDashboardBookingItem } from '@/types/ops';
 
@@ -11,7 +13,9 @@ export function mapOpsDashboardBookingItemToBookingDTO(
     summaryDate: string;
   },
 ): BookingDTO {
-  const fallbackIso = `${context.summaryDate}T00:00:00Z`;
+  const fallbackIso =
+    toBookingUtcIso(context.summaryDate, '00:00', context.restaurantTimezone) ??
+    `${context.summaryDate}T00:00:00Z`;
 
   return {
     id: booking.id,

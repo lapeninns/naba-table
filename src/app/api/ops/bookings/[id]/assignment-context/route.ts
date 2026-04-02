@@ -34,7 +34,7 @@ export async function GET(
   // 1. Load the target booking to get its restaurant_id and time window
   const bookingQuery = await serviceSupabase
     .from("bookings")
-    .select("id, restaurant_id, start_at, booking_date, start_time, party_size, status")
+    .select("id, restaurant_id, start_at, booking_date, start_time, party_size, status, restaurants(timezone)")
     .eq("id", bookingId)
     .single();
 
@@ -43,12 +43,15 @@ export async function GET(
   }
   const booking = bookingQuery.data;
   const restaurantId = booking.restaurant_id;
+  const restaurantTimezone = Array.isArray(booking.restaurants)
+    ? (booking.restaurants[0]?.timezone ?? null)
+    : (booking.restaurants?.timezone ?? null);
 
   // Create a restaurant-scoped service client for subsequent queries
   const restaurantClient = getTenantServiceSupabaseClient(restaurantId);
 
   // 2. Compute the booking's time window
-  const policy = getVenuePolicy(); // Using default policy
+  const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
   const { window } = computeBookingWindowWithFallback({
     startISO: booking.start_at,
     bookingDate: booking.booking_date,
@@ -163,6 +166,7 @@ export async function GET(
   // 5. Construct the response payload
   const context = {
     booking,
+    timezone: restaurantTimezone,
     tables,
     conflicts,
     bookingAssignments,

@@ -1,69 +1,107 @@
 # Continuity Ledger
 
-Last updated: 2026-04-02T08:02:00Z
+Last updated: 2026-04-02T14:36:00Z
 
 ## Goal (incl. success criteria)
 
-- Redesign Email Templates into a standalone ops command-center page instead of nesting it under restaurant settings.
-- Success: `/app/email-templates` becomes the canonical editable route.
-- Success: desktop uses the requested three-pane layout, while mobile/tablet use the requested pane-switching behavior.
-- Success: existing template CRUD, preview, and test-send flows continue working on the new page.
+- Fix the reported one-hour booking time shift seen on a guest mobile surface after an admin changes a booking time.
+- Success: booking-related guest and ops surfaces show the intended venue-local time after admin edits.
+- Success: timezone parsing is stable for explicit-offset ISO strings, venue-local `YYYY-MM-DDTHH:mm` strings, and date-only calendar selections.
 
 ## Constraints/Assumptions
 
 - Follow existing AGENTS SDLC flow with task artifacts.
-- UI change requires Chrome DevTools proof and likely a dedicated dev harness.
-- Keep the current email template API and shared template catalog as the single source of truth.
-- Assumption: standalone page route is `/app/email-templates` and the old settings URL will redirect there.
+- UI verification via Chrome DevTools MCP is required if the guest list UI changes.
+- Keep the fix on canonical booking/ops codepaths rather than layering one-off patches.
+- Assumption: the original report came from `/guest/bookings`, but the same class of bug can exist across booking-oriented guest/ops surfaces.
 
 ## Key decisions
 
-- Promote Email Templates to a first-class ops page rather than leaving it inside the restaurant settings shell.
-- Preserve the existing hooks/services/API routes and redirect the old settings route instead of keeping duplicate editable entry points.
-- Split the oversized email-template UI into a dedicated feature surface rather than expanding the current restaurant-settings component further.
+- Treat this as a regression fix and verify the actual rendering path before patching.
+- Replace one-off guest/UI fixes with a shared booking datetime normalizer.
+- Normalize guest booking timestamps at the API boundary and the reservation adapter fallback path.
+- Use venue-timezone-aware Luxon parsing so device timezone differences do not affect display, ordering, or synthesized ISO values.
+- Standardize date-only and time-only helpers so calendar selection, date shifting, readable labels, floor-plan timestamps, and table-assignment windows do not drift by device timezone.
 
 ## State
 
-- Standalone email templates command-center implementation and verification are complete in the workspace; final review/cleanup remains.
+- Phase 4 complete: repo-wide booking/ops normalization sweep, regression tests, lint, typecheck, and Chrome DevTools mobile verification are all complete in the workspace.
 
 ## Done
 
-- Created task folder `tasks/email-templates-command-center-20260402-0723/` with research, plan, todo, and verification stubs.
-- Reviewed the root and closest AGENTS files plus the repo-local Nabatable task/UI/fullstack skills.
-- Confirmed the current canonical email-template flow, settings shell, ops sidebar structure, and dev harness patterns.
-- Added the standalone `/app/email-templates` route and extracted the feature into `src/components/features/email-templates/**` plus `src/hooks/ops/useOpsEmailTemplatesPageState.ts`.
-- Redirected the old settings route to `/app/email-templates` and removed Email Templates from the restaurant settings shell/subnav.
-- Added dedicated dev harness routes under `src/app/(public)/dev/ops-email-templates/**` and `src/app/app/dev/ops-email-templates/page.tsx`.
-- Verified the command-center layout in Chrome DevTools across desktop, tablet, and mobile; stored screenshots and Lighthouse artifacts in `tasks/email-templates-command-center-20260402-0723/artifacts/`.
-- Fixed a draft-preview polling loop caused by the preview mutation dependency and closed the page-level Lighthouse accessibility issues.
+- Created task folder `tasks/fix-mobile-booking-time-shift-20260402-1240/` with current-state artifacts.
+- Reviewed the root and closest AGENTS files plus the repo-local Nabatable task/fullstack skills.
+- Traced the admin edit flow through the timezone-aware picker and booking update route.
+- Identified a concrete guest list rendering bug: `BookingListClient` was relying on device-sensitive parsing/string slicing instead of venue-timezone-safe formatting.
+- Added `reserve/shared/formatting/bookingDateTime.ts` as the shared timezone-safe normalizer.
+- Normalized `/api/bookings` guest list responses to emit absolute ISO timestamps consistently.
+- Updated reservation adapter fallback ISO synthesis to use the restaurant timezone.
+- Updated guest bookings list, guest dashboard, guest receipt, and guest reservation detail rendering/derivation paths to use the shared normalizer.
+- Standardized shared date-only/time-only helpers in `lib/utils/datetime.ts`.
+- Updated ops dashboard date shifting, calendar range math, and DTO fallback ISO synthesis to avoid local-midnight/device-timezone drift.
+- Updated `BookingValidationService` fallback ISO synthesis to use the restaurant timezone when `start_at` is missing.
+- Updated assignment-context API computation to use and return the restaurant timezone.
+- Updated table-assignment timeline parsing to interpret service window ISO values in the restaurant timezone.
+- Updated ops floor-plan date selection, current timestamp derivation, and visible time labels to use the restaurant timezone.
+- Added focused regression tests for explicit-offset and venue-local timestamp inputs, adapter fallback behavior, and guest dashboard derivations.
+- Added focused regression tests for shared datetime utilities, ops dashboard date math, ops dashboard DTO fallback normalization, and floor-plan timeline rendering.
+- Added a dev-only guest bookings harness because the real `/guest/bookings` route is auth-gated in local dev.
+- Verified on a mobile viewport that both UTC-backed and venue-local booking inputs render as `19:30`.
+- Verified on a mobile viewport that the ops floor-plan harness shows `Thursday 2 April 2026` and `19:30` consistently after the normalization sweep.
+- Captured proof artifacts: Vitest log, mobile screenshot, and Lighthouse report.
+- Captured additional post-sweep screenshots for guest bookings and ops floor plan.
 
 ## Now
 
-- Preparing the change summary and any follow-up notes for handoff.
+- Preparing the final repo-consistency summary for the user.
 
 ## Next
 
-- Optional follow-up: decide whether to delete the now-unused `src/components/features/restaurant-settings/EmailTemplatesSection.tsx` in a separate cleanup once the new route is accepted.
+- Summarize the broader normalization sweep, remaining scope boundary, and verification evidence.
+- Optional follow-up: audit unrelated non-booking timestamp utilities if the user wants a full repo timestamp-style cleanup beyond booking/ops flows.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- None.
+- Was the original report observed on `/guest/bookings`, `/guest/dashboard`, or an email/receipt surface? (UNCONFIRMED)
+- Are there any still-unseen booking-adjacent surfaces outside the verified guest/ops paths that should be folded into the same helper set? (UNCONFIRMED)
 
 ## Working set (files/ids/commands)
 
-- `tasks/email-templates-command-center-20260402-0723/research.md`
-- `tasks/email-templates-command-center-20260402-0723/plan.md`
-- `tasks/email-templates-command-center-20260402-0723/todo.md`
-- `tasks/email-templates-command-center-20260402-0723/verification.md`
-- `tasks/email-templates-command-center-20260402-0723/artifacts/`
+- `tasks/fix-mobile-booking-time-shift-20260402-1240/research.md`
+- `tasks/fix-mobile-booking-time-shift-20260402-1240/plan.md`
+- `tasks/fix-mobile-booking-time-shift-20260402-1240/todo.md`
+- `tasks/fix-mobile-booking-time-shift-20260402-1240/verification.md`
+- `tasks/fix-mobile-booking-time-shift-20260402-1240/artifacts/`
 - `CONTINUITY.md`
-- `src/components/features/restaurant-settings/EmailTemplatesSection.tsx`
-- `src/components/features/restaurant-settings/OpsRestaurantSettingsClient.tsx`
-- `src/components/features/restaurant-settings/routes.ts`
-- `src/components/features/restaurant-settings/RestaurantSettingsSubnav.tsx`
-- `src/components/features/ops-shell/navigation.tsx`
-- `src/app/app/(app)/settings/restaurant/email-templates/page.tsx`
-- `src/app/app/(app)/email-templates/page.tsx`
-- `src/components/features/email-templates/**`
-- `src/hooks/ops/useOpsEmailTemplatesPageState.ts`
-- `src/app/(public)/dev/ops-email-templates/**`
+- `src/components/features/booking/list/BookingListClient.tsx`
+- `src/components/features/guest/dashboard/GuestDashboardClient.tsx`
+- `src/components/features/guest/dashboard/booking-derivations.ts`
+- `src/app/guest/bookings/[bookingId]/receipt/ReceiptClient.tsx`
+- `src/components/features/booking/detail/ReservationDetailClient.tsx`
+- `src/app/api/bookings/route.ts`
+- `src/app/api/ops/bookings/[id]/assignment-context/route.ts`
+- `reserve/entities/reservation/adapter.ts`
+- `reserve/shared/formatting/bookingDateTime.ts`
+- `lib/utils/datetime.ts`
+- `src/utils/ops/dashboard.ts`
+- `src/utils/ops/mapOpsDashboardBookingItemToBookingDTO.ts`
+- `server/booking/BookingValidationService.ts`
+- `src/components/features/bookings/components/OpsBookingsDatePicker.tsx`
+- `src/components/features/dashboard/HeatmapCalendar.tsx`
+- `src/components/features/dashboard/useOpsDashboardUiActions.ts`
+- `src/components/features/dashboard/booking-details/components/TableAssignmentPanel.tsx`
+- `src/components/features/seating/FloorPlanPage.tsx`
+- `src/components/features/seating/floor-plan/lib/date.ts`
+- `src/components/features/seating/floor-plan/hooks/useFloorPlanTimelineConfig.ts`
+- `src/components/features/seating/floor-plan/hooks/useFloorPlanTables.ts`
+- `tests/components/BookingListClient.test.tsx`
+- `tests/components/OpsDashboardStateUtils.test.ts`
+- `tests/guest/bookingDateTime.test.ts`
+- `tests/guest/reservationAdapter.test.ts`
+- `tests/guest/booking-derivations.test.ts`
+- `tests/utils/datetime.test.ts`
+- `tests/utils/mapOpsDashboardBookingItemToBookingDTO.test.ts`
+- `src/app/api/bookings/[id]/route.ts`
+- `server/bookings/timezoneConversion.ts`
+- `src/app/(public)/dev/guest-bookings/page.tsx`
+- `src/app/(public)/dev/guest-bookings/ui/GuestBookingsDevHarness.tsx`

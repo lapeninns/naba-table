@@ -350,6 +350,7 @@ export class DevBookingService implements BookingService {
         party_size: 4,
         status: 'confirmed',
       },
+      timezone: 'Europe/London',
       tables: this.tables,
       bookingAssignments: assigned,
       conflicts: [

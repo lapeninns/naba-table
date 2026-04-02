@@ -56,6 +56,9 @@ import {
   MissingRestaurantContextError,
 } from '@/server/supabase';
 import {
+  toBookingUtcIso,
+} from '@reserve/shared/formatting/bookingDateTime';
+import {
   CUSTOMER_PHONE_LENGTH_MAX,
   CUSTOMER_PHONE_LENGTH_MIN,
   isUKPhone,
@@ -141,6 +144,14 @@ function buildDeterministicIdempotencyKey(params: {
 }): string {
   const payload = `${params.restaurantId}|${params.customerId}|${params.bookingDate}|${params.startTime}|${params.endTime}`;
   return createHash("sha256").update(payload).digest("hex").slice(0, 32);
+}
+
+function deriveFallbackIso(
+  date: string | null | undefined,
+  time: string | null | undefined,
+  timezone: string | null | undefined,
+): string {
+  return toBookingUtcIso(date, time, timezone) ?? '';
 }
 
 async function tryWithBackoff<T>(
@@ -1305,7 +1316,7 @@ async function handleMyBookings(req: NextRequest) {
   let query = client
     .from('bookings')
     .select(
-      'id, restaurant_id, booking_date, start_time, end_time, party_size, status, notes, restaurants(id, name, slug, timezone, reservation_interval_minutes)',
+      'id, restaurant_id, booking_date, start_time, end_time, start_at, end_at, party_size, status, notes, restaurants(id, name, slug, timezone, reservation_interval_minutes)',
       { count: 'exact' },
     )
     .eq('customer_email', email);
@@ -1340,6 +1351,8 @@ async function handleMyBookings(req: NextRequest) {
     booking_date: string;
     start_time: string;
     end_time: string;
+    start_at?: string | null;
+    end_at?: string | null;
     party_size: number;
     status: BookingDTO['status'];
     notes: string | null;
@@ -1408,16 +1421,23 @@ async function handleMyBookings(req: NextRequest) {
       restaurant && typeof restaurant.reservation_interval_minutes === 'number'
         ? restaurant.reservation_interval_minutes
         : null;
+    const timezone = restaurant?.timezone ?? null;
+    const startIso =
+      (typeof booking.start_at === 'string' && booking.start_at.length > 0 ? booking.start_at : null) ??
+      deriveFallbackIso(booking.booking_date, booking.start_time, timezone);
+    const endIso =
+      (typeof booking.end_at === 'string' && booking.end_at.length > 0 ? booking.end_at : null) ??
+      deriveFallbackIso(booking.booking_date, booking.end_time, timezone);
 
     return {
       id: booking.id,
       restaurantId: booking.restaurant_id ?? null,
       restaurantName: restaurant?.name ?? '',
       restaurantSlug: restaurant?.slug ?? null,
-      restaurantTimezone: restaurant?.timezone ?? null,
+      restaurantTimezone: timezone,
       partySize: booking.party_size,
-      startIso: `${booking.booking_date}T${booking.start_time}`,
-      endIso: `${booking.booking_date}T${booking.end_time}`,
+      startIso,
+      endIso,
       status: booking.status,
       notes: booking.notes,
       customerName: null as BookingDTO['customerName'],

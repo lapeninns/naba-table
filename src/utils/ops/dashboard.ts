@@ -1,7 +1,5 @@
 import { DateTime } from 'luxon';
 
-import { formatDateKey } from '@/lib/utils/datetime';
-
 import type { OpsTodayBookingsSummary } from '@/types/ops';
 
 export function sanitizeDateParam(value: string | undefined | null): string | null {
@@ -78,22 +76,16 @@ export function isDashboardSummaryMismatch(params: {
 }
 
 export function computeCalendarRange(date: string): { start: string; end: string } {
-  const base = new Date(`${date}T00:00:00`);
-  if (Number.isNaN(base.getTime())) {
+  const base = DateTime.fromISO(date, { zone: 'UTC' });
+  if (!base.isValid) {
     return { start: date, end: date };
   }
-
-  const start = new Date(base);
-  start.setDate(1);
-  const startWeekday = start.getDay();
-  start.setDate(start.getDate() - startWeekday);
-
-  const end = new Date(start);
-  end.setDate(end.getDate() + 41);
+  const start = base.startOf('month').minus({ days: base.startOf('month').weekday % 7 });
+  const end = start.plus({ days: 41 });
 
   return {
-    start: formatDateKey(start),
-    end: formatDateKey(end),
+    start: start.toISODate() ?? date,
+    end: end.toISODate() ?? date,
   };
 }
 

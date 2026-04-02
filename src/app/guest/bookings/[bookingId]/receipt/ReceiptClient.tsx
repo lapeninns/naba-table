@@ -19,28 +19,25 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { emit } from '@/lib/analytics/emit';
 import { shareReservationDetails } from '@/lib/reservations/share';
 import { useReservation } from '@features/reservations/wizard/api/useReservation';
+import {
+  formatReservationDateFromDate,
+  formatReservationTimeFromDate,
+} from '@reserve/shared/formatting/booking';
+import { parseBookingDateTime } from '@reserve/shared/formatting/bookingDateTime';
 import { DEFAULT_VENUE } from '@shared/config/venue';
 
-const formatDateFull = (iso: string | null | undefined) => {
+const formatDateFull = (iso: string | null | undefined, timezone?: string | null) => {
   if (!iso) return '—';
-  const parsed = new Date(iso);
-  if (Number.isNaN(parsed.getTime())) return '—';
-  return new Intl.DateTimeFormat(undefined, {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  }).format(parsed);
+  const parsed = parseBookingDateTime(iso, timezone)?.toJSDate();
+  if (!parsed) return '—';
+  return formatReservationDateFromDate(parsed, { timezone: timezone ?? undefined }) || '—';
 };
 
-const formatTime = (iso: string | null | undefined) => {
+const formatTime = (iso: string | null | undefined, timezone?: string | null) => {
   if (!iso) return '—';
-  const parsed = new Date(iso);
-  if (Number.isNaN(parsed.getTime())) return '—';
-  return new Intl.DateTimeFormat(undefined, {
-    hour: 'numeric',
-    minute: 'numeric',
-  }).format(parsed);
+  const parsed = parseBookingDateTime(iso, timezone)?.toJSDate();
+  if (!parsed) return '—';
+  return formatReservationTimeFromDate(parsed, { timezone: timezone ?? undefined }) || '—';
 };
 
 type ReceiptClientProps = {
@@ -96,10 +93,11 @@ export function ReceiptClient({ reservationId, hasSession }: ReceiptClientProps)
   const handleAddToCalendar = useCallback(() => {
     if (!reservation) return;
     void emit('receipt_add_calendar_clicked', { reservationId });
-    const startDate = new Date(reservation.startAt);
-    const endDate = reservation.endAt
-      ? new Date(reservation.endAt)
-      : new Date(startDate.getTime() + 90 * 60000);
+    const startDate = parseBookingDateTime(reservation.startAt, venue.timezone)?.toJSDate();
+    if (!startDate) return;
+    const endDate =
+      parseBookingDateTime(reservation.endAt ?? null, venue.timezone)?.toJSDate() ??
+      new Date(startDate.getTime() + 90 * 60000);
     const formatGCalDate = (d: Date) => d.toISOString().replace(/-|:|\.\d{3}/g, '');
     const url = new URL('https://www.google.com/calendar/render');
     url.searchParams.set('action', 'TEMPLATE');
@@ -110,7 +108,7 @@ export function ReceiptClient({ reservationId, hasSession }: ReceiptClientProps)
       `Party of ${reservation.partySize}. Ref: ${reservation.reference ?? reservation.id.slice(0, 8).toUpperCase()}`,
     );
     window.open(url.toString(), '_blank', 'noopener');
-  }, [reservation, reservationId, venue.name]);
+  }, [reservation, reservationId, venue.name, venue.timezone]);
 
   const statusTone = useMemo(() => {
     if (!reservation) return { label: 'Loading', tone: 'info' as const };
@@ -151,11 +149,15 @@ export function ReceiptClient({ reservationId, hasSession }: ReceiptClientProps)
 
   const statCards = (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-6 lg:gap-8">
-      <DetailStatCard icon={Calendar} label="Date" value={formatDateFull(reservation.startAt)} />
+      <DetailStatCard
+        icon={Calendar}
+        label="Date"
+        value={formatDateFull(reservation.startAt, venue.timezone)}
+      />
       <DetailStatCard
         icon={Clock}
         label="Time"
-        value={formatTime(reservation.startAt)}
+        value={formatTime(reservation.startAt, venue.timezone)}
         subtext={venue.timezone}
       />
       <DetailStatCard
