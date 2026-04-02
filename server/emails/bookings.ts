@@ -34,6 +34,10 @@ import {
   type EmailAnnotation,
 } from '@/server/emails/base';
 import {
+  buildBookingTemplateTestIdempotencyParts,
+  renderBookingEmailText,
+} from '@/server/emails/booking-template-support';
+import {
   hasRecentEmailDelivery,
   recordEmailDeliveryLog,
   type EmailDeliveryLogEntry,
@@ -345,6 +349,16 @@ function buildBookingEmailIdempotencyKey(params: {
   });
 }
 
+function buildBookingTemplateTestIdempotencyKey(params: {
+  templateKey: RestaurantBookingEmailTemplateKey;
+  recipientEmail: string;
+}) {
+  return createEmailIdempotencyKey({
+    scope: 'booking-email-template-test',
+    parts: buildBookingTemplateTestIdempotencyParts(params),
+  });
+}
+
 
 // --- Template Logic ---
 
@@ -557,35 +571,6 @@ export function renderHtml({
   });
 }
 
-function renderText(
-  booking: BookingRecord,
-  venue: VenueDetails,
-  summary: BookingSummary,
-  headline: string,
-  intro: string,
-  manageUrl: string
-) {
-  return `
-${headline.toUpperCase()}
-${'-'.repeat(headline.length)}
-
-${intro}
-
-DETAILS:
-Date: ${summary.date}
-Time: ${summary.startTime}
-Guests: ${summary.party}
-Reference: ${booking.reference || booking.id}
-
-VENUE:
-${venue.name}
-${venue.address}
-${venue.phone}
-
-Manage your booking: ${manageUrl}
-  `.trim();
-}
-
 type BookingEmailType =
   | 'created'
   | 'updated'
@@ -722,7 +707,15 @@ async function dispatchEmail(
           : type,
   });
 
-  const text = renderText(booking, venue, summary, headline, intro, manageUrl);
+  const text = renderBookingEmailText({
+    booking,
+    venue,
+    summary,
+    headline,
+    intro,
+    actionLabel: ctaLabel,
+    actionUrl: ctaUrl,
+  });
 
   if (!toEmail) {
     console.warn(
@@ -960,14 +953,15 @@ export function renderRestaurantBookingEmailPreview(params: {
     ctaUrl,
     emailType: resolveRenderEmailType(params.templateKey),
   });
-  const text = renderText(
+  const text = renderBookingEmailText({
     booking,
-    params.venue,
+    venue: params.venue,
     summary,
-    resolvedTemplate.headline,
-    resolvedTemplate.intro,
-    manageUrl,
-  );
+    headline: resolvedTemplate.headline,
+    intro: resolvedTemplate.intro,
+    actionLabel: resolvedTemplate.ctaLabel,
+    actionUrl: ctaUrl,
+  });
 
   return {
     templateKey: params.templateKey,
@@ -1013,9 +1007,8 @@ export async function sendRestaurantBookingEmailTest(params: {
       { name: 'template_type', value: params.templateKey },
       { name: 'restaurant_id', value: params.venue.id },
     ],
-    idempotencyKey: buildBookingEmailIdempotencyKey({
-      booking: preview.previewBooking,
-      templateType: `${params.templateKey}:test-send`,
+    idempotencyKey: buildBookingTemplateTestIdempotencyKey({
+      templateKey: params.templateKey,
       recipientEmail: params.toEmail,
     }),
   });

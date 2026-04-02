@@ -10,6 +10,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 type DbClient = SupabaseClient<Database>;
 type RestaurantRow = Database['public']['Tables']['restaurants']['Row'];
 type RestaurantUpdate = Database['public']['Tables']['restaurants']['Update'];
+const EMAIL_TEMPLATE_UPDATE_MAX_RETRIES = 3;
 
 async function selectRestaurant(
   client: DbClient,
@@ -62,14 +63,22 @@ async function updateEmailTemplatesDocument(
   client: DbClient,
   restaurantId: string,
   nextDocument: RestaurantEmailTemplatesDocument,
-): Promise<RestaurantRow> {
-  const runUpdate = (includeLogo: boolean, payload: RestaurantUpdate) =>
-    client
+  expectedUpdatedAt: string | null,
+): Promise<{ row: RestaurantRow | null; conflict: boolean }> {
+  const runUpdate = (includeLogo: boolean, payload: RestaurantUpdate) => {
+    const baseQuery = client
       .from('restaurants')
       .update(payload)
-      .eq('id', restaurantId)
+      .eq('id', restaurantId);
+    const matchedQuery =
+      expectedUpdatedAt === null
+        ? baseQuery.is('updated_at', null)
+        : baseQuery.eq('updated_at', expectedUpdatedAt);
+
+    return matchedQuery
       .select(restaurantSelectColumns(includeLogo))
-      .single<RestaurantRow>();
+      .maybeSingle<RestaurantRow>();
+  };
 
   let { data, error } = await runUpdate(true, {
     email_templates: nextDocument as unknown as RestaurantUpdate['email_templates'],
@@ -88,10 +97,24 @@ async function updateEmailTemplatesDocument(
   }
 
   if (!data) {
-    throw new Error('Restaurant not found');
+    return { row: null, conflict: true };
   }
 
-  return ensureLogoColumnOnRow(data);
+  return { row: ensureLogoColumnOnRow(data), conflict: false };
+}
+
+function buildNextEmailTemplatesDocument(
+  current: RestaurantEmailTemplatesDocument | null,
+  updater: (
+    templates: Partial<Record<RestaurantBookingEmailTemplateKey, { variants: RestaurantEmailTemplateVariant[] }>>,
+  ) => Partial<Record<RestaurantBookingEmailTemplateKey, { variants: RestaurantEmailTemplateVariant[] }>>,
+): RestaurantEmailTemplatesDocument {
+  const currentTemplates = current?.templates ?? {};
+
+  return {
+    version: 1,
+    templates: updater({ ...currentTemplates }),
+  };
 }
 
 export async function getRestaurantEmailTemplateVenue(
@@ -117,23 +140,29 @@ export async function upsertRestaurantEmailTemplate(
   },
   client: DbClient = getServiceSupabaseClient(),
 ): Promise<VenueDetails> {
-  const current = (await getRestaurantEmailTemplatesDocument(params.restaurantId, client)) ?? {
-    version: 1 as const,
-    templates: {},
-  };
-
-  const nextDocument: RestaurantEmailTemplatesDocument = {
-    version: 1,
-    templates: {
-      ...current.templates,
+  for (let attempt = 0; attempt < EMAIL_TEMPLATE_UPDATE_MAX_RETRIES; attempt += 1) {
+    const currentRestaurant = await selectRestaurant(client, params.restaurantId);
+    const currentDocument = normalizeRestaurantEmailTemplatesDocument(currentRestaurant.email_templates);
+    const nextDocument = buildNextEmailTemplatesDocument(currentDocument, (templates) => ({
+      ...templates,
       [params.templateKey]: {
         variants: params.variants,
       },
-    },
-  };
+    }));
 
-  const updated = await updateEmailTemplatesDocument(client, params.restaurantId, nextDocument);
-  return mapVenueDetails(updated);
+    const result = await updateEmailTemplatesDocument(
+      client,
+      params.restaurantId,
+      nextDocument,
+      currentRestaurant.updated_at ?? null,
+    );
+
+    if (!result.conflict && result.row) {
+      return mapVenueDetails(result.row);
+    }
+  }
+
+  throw new Error('Failed to update restaurant email templates due to concurrent modifications');
 }
 
 export async function resetRestaurantEmailTemplate(
@@ -141,18 +170,25 @@ export async function resetRestaurantEmailTemplate(
   templateKey: RestaurantBookingEmailTemplateKey,
   client: DbClient = getServiceSupabaseClient(),
 ): Promise<VenueDetails> {
-  const current = (await getRestaurantEmailTemplatesDocument(restaurantId, client)) ?? {
-    version: 1 as const,
-    templates: {},
-  };
+  for (let attempt = 0; attempt < EMAIL_TEMPLATE_UPDATE_MAX_RETRIES; attempt += 1) {
+    const currentRestaurant = await selectRestaurant(client, restaurantId);
+    const currentDocument = normalizeRestaurantEmailTemplatesDocument(currentRestaurant.email_templates);
+    const nextDocument = buildNextEmailTemplatesDocument(currentDocument, (templates) => {
+      delete templates[templateKey];
+      return templates;
+    });
 
-  const nextTemplates = { ...current.templates };
-  delete nextTemplates[templateKey];
+    const result = await updateEmailTemplatesDocument(
+      client,
+      restaurantId,
+      nextDocument,
+      currentRestaurant.updated_at ?? null,
+    );
 
-  const updated = await updateEmailTemplatesDocument(client, restaurantId, {
-    version: 1,
-    templates: nextTemplates,
-  });
+    if (!result.conflict && result.row) {
+      return mapVenueDetails(result.row);
+    }
+  }
 
-  return mapVenueDetails(updated);
+  throw new Error('Failed to reset restaurant email templates due to concurrent modifications');
 }
