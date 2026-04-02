@@ -72,11 +72,11 @@ describe('mapOpsDashboardBookingItemToBookingDTO', () => {
       restaurantId: 'rest-1',
       restaurantName: 'The Old Crown Girton',
       restaurantSlug: null,
-      restaurantTimezone: 'UTC',
+      restaurantTimezone: 'America/New_York',
       summaryDate: '2026-03-29',
     });
 
-    expect(dto.startIso).toBe('2026-03-29T00:00:00Z');
-    expect(dto.endIso).toBe('2026-03-29T00:00:00Z');
+    expect(dto.startIso).toBe('2026-03-29T04:00:00.000Z');
+    expect(dto.endIso).toBe('2026-03-29T04:00:00.000Z');
   });
 });

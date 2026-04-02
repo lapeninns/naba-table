@@ -1,3 +1,5 @@
+import type { RestaurantEmailTemplatesDocument } from '@/lib/restaurants/email-templates';
+
 export type VenueDetails = {
   id: string;
   slug: string;
@@ -10,7 +12,7 @@ export type VenueDetails = {
   logoUrl: string | null;
   googleMapUrl: string | null;
   googleReviewUrl: string | null;
-  emailTemplates: Record<string, { headline?: string; intro?: string }> | null;
+  emailTemplates: RestaurantEmailTemplatesDocument | null;
 };
 
 export const DEFAULT_VENUE: VenueDetails = {

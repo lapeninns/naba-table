@@ -395,6 +395,7 @@ export type AssignmentContext = {
     party_size: number;
     status: OpsBookingStatus | Tables<'bookings'>['status'];
   };
+  timezone: string | null;
   tables: ManualAssignmentTable[];
   bookingAssignments: string[];
   conflicts: ManualAssignmentConflict[];

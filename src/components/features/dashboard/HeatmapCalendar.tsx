@@ -1,14 +1,18 @@
 'use client';
 
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { DateTime } from 'luxon';
 import { useMemo, useState, type ComponentProps } from 'react';
 
 import { Calendar, CalendarDayButton } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useMinimumDelay } from '@/hooks/use-minimum-delay';
 import { cn } from '@/lib/utils';
-import { formatDateKey, formatDateReadable } from '@/lib/utils/datetime';
+import {
+  dateKeyToCalendarDate,
+  formatDateKey,
+  formatDateReadable,
+  formatDateReadableShort,
+} from '@/lib/utils/datetime';
 
 import type { OpsBookingHeatmap, OpsTodayBookingsSummary } from '@/types/ops';
 
@@ -47,12 +51,7 @@ export function HeatmapCalendar({
   isLoading,
   onOpenChange,
 }: HeatmapCalendarProps) {
-  const selectedDateObj = useMemo(() => {
-    const parsed = DateTime.fromISO(selectedDate, { zone: summary.timezone });
-    if (!parsed.isValid) return undefined;
-    // Build a local date from restaurant calendar parts to avoid timezone drift.
-    return new Date(parsed.year, parsed.month - 1, parsed.day, 12);
-  }, [selectedDate, summary.timezone]);
+  const selectedDateObj = useMemo(() => dateKeyToCalendarDate(selectedDate), [selectedDate]);
 
   const heatmapMeta = useMemo(() => deriveHeatmapMeta(heatmap), [heatmap]);
   const showLoading = useMinimumDelay(Boolean(isLoading), { delayMs: 120, minDurationMs: 250 });
@@ -190,23 +189,4 @@ function computeIntensity(covers: number, max: number): HeatIntensity {
   if (ratio < 0.5) return 'low';
   if (ratio < 0.75) return 'medium';
   return 'high';
-}
-
-function formatDateReadableShort(value: string | Date, timeZone: string): string {
-  const date = value instanceof Date ? value : new Date(`${value}T00:00:00`);
-  const formatter = new Intl.DateTimeFormat('en-GB', {
-    timeZone,
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-
-  const parts = formatter.formatToParts(date);
-  const weekday = parts.find((part) => part.type === 'weekday')?.value ?? '';
-  const day = parts.find((part) => part.type === 'day')?.value ?? '';
-  const month = parts.find((part) => part.type === 'month')?.value ?? '';
-  const year = parts.find((part) => part.type === 'year')?.value ?? '';
-
-  return [weekday, day, month, year].filter(Boolean).join(' ').trim();
 }

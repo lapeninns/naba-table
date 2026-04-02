@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  computeCalendarRange,
   getDashboardDayBoundsUtc,
   getRequestedDashboardDate,
   isDashboardSummaryMismatch,
@@ -71,6 +72,13 @@ describe('dashboard state utilities', () => {
     expect(getDashboardDayBoundsUtc('2026-07-14', 'Europe/London')).toEqual({
       startUtcIso: '2026-07-13T23:00:00.000Z',
       endUtcIso: '2026-07-14T23:00:00.000Z',
+    });
+  });
+
+  it('builds a stable six-week calendar range from a date key', () => {
+    expect(computeCalendarRange('2026-03-20')).toEqual({
+      start: '2026-03-01',
+      end: '2026-04-11',
     });
   });
 

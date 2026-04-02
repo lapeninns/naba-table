@@ -4,6 +4,7 @@ import {
   CircleHelp,
   DoorOpen,
   LayoutGrid,
+  Mail,
   Map,
   MailCheck,
   Sparkles,
@@ -63,6 +64,13 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         href: path('/email-delivery'),
         icon: MailCheck,
         match: (pathname) => pathname.startsWith(path('/email-delivery')),
+      },
+      {
+        title: 'Email Templates',
+        description: 'Craft and A/B test guest email copy',
+        href: path('/email-templates'),
+        icon: Mail,
+        match: (pathname) => pathname.startsWith(path('/email-templates')),
       },
       {
         title: 'Rejections',

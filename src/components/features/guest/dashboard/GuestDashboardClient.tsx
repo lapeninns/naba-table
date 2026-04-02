@@ -2,6 +2,7 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import { Calendar, Clock, Heart, MapPin, User, ChevronRight, Sparkles } from 'lucide-react';
+import { DateTime } from 'luxon';
 import Link from 'next/link';
 import { useMemo } from 'react';
 
@@ -19,6 +20,7 @@ import {
   formatReservationDateFromDate,
   formatReservationTimeFromDate,
 } from '@reserve/shared/formatting/booking';
+import { getBookingDateTimeMillis, parseBookingDateTime, resolveBookingTimezone } from '@reserve/shared/formatting/bookingDateTime';
 
 import { deriveBookingState } from './booking-derivations';
 
@@ -40,12 +42,16 @@ export function GuestDashboardClient() {
     return items
       .filter((b) => {
         if (b.id === primaryId) return false;
-        const start = new Date(b.startIso);
-        if (Number.isNaN(start.getTime())) return false;
+        const start = getBookingDateTimeMillis(b.startIso, b.restaurantTimezone);
+        if (start === null) return false;
         if (['cancelled', 'no_show', 'completed'].includes(b.status)) return false;
-        return start.getTime() >= now.getTime();
+        return start >= now.getTime();
       })
-      .sort((a, b) => new Date(a.startIso).getTime() - new Date(b.startIso).getTime());
+      .sort(
+        (a, b) =>
+          (getBookingDateTimeMillis(a.startIso, a.restaurantTimezone) ?? 0) -
+          (getBookingDateTimeMillis(b.startIso, b.restaurantTimezone) ?? 0),
+      );
   }, [data?.items, derived.liveBooking, derived.nextBooking]);
 
   const primaryBooking = derived.liveBooking ?? derived.nextBooking ?? null;
@@ -339,8 +345,14 @@ function FeaturedBooking({
     );
   }
 
-  const bookingDate = new Date(booking.startIso);
-  const isToday = isSameDay(bookingDate, new Date());
+  const bookingDateTime = parseBookingDateTime(booking.startIso, booking.restaurantTimezone);
+  const bookingDate = bookingDateTime?.toJSDate() ?? null;
+  const isToday = bookingDateTime
+    ? bookingDateTime.hasSame(
+        DateTime.now().setZone(resolveBookingTimezone(booking.restaurantTimezone)),
+        'day',
+      )
+    : false;
 
   return (
     <Card variant="featured" className="card-interactive overflow-hidden">
@@ -367,8 +379,26 @@ function FeaturedBooking({
           </div>
 
           <div className="grid grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
-            <Detail label="Date" value={formatReservationDateFromDate(bookingDate)} />
-            <Detail label="Time" value={formatReservationTimeFromDate(bookingDate)} />
+            <Detail
+              label="Date"
+              value={
+                bookingDate
+                  ? formatReservationDateFromDate(bookingDate, {
+                      timezone: booking.restaurantTimezone ?? undefined,
+                    })
+                  : '—'
+              }
+            />
+            <Detail
+              label="Time"
+              value={
+                bookingDate
+                  ? formatReservationTimeFromDate(bookingDate, {
+                      timezone: booking.restaurantTimezone ?? undefined,
+                    })
+                  : '—'
+              }
+            />
             <Detail label="Guests" value={`${booking.partySize} people`} />
           </div>
         </div>
@@ -400,18 +430,19 @@ function FeaturedBooking({
 }
 
 function UpcomingBookingCard({ booking }: { booking: BookingDTO }) {
-  const bookingDate = new Date(booking.startIso);
+  const bookingDateTime = parseBookingDateTime(booking.startIso, booking.restaurantTimezone);
+  const bookingDate = bookingDateTime?.toJSDate() ?? null;
   return (
     <Link href={`/guest/bookings/${booking.id}`} className="block focus-ring rounded-xl">
       <Card
         variant="interactive"
-        className="p-3 sm:p-4 flex items-center gap-3 sm:gap-4 group card-interactive touch-feedback"
+          className="p-3 sm:p-4 flex items-center gap-3 sm:gap-4 group card-interactive touch-feedback"
       >
         <div className="flex-shrink-0 w-14 h-14 sm:w-16 sm:h-16 bg-primary/5 text-primary rounded-lg sm:rounded-xl flex flex-col items-center justify-center leading-none">
           <span className="text-[10px] sm:text-xs font-bold uppercase mb-0.5 sm:mb-1">
-            {bookingDate.toLocaleString('en-US', { month: 'short' })}
+            {bookingDateTime?.setLocale('en').toFormat('MMM') ?? '—'}
           </span>
-          <span className="text-xl sm:text-2xl font-bold">{bookingDate.getDate()}</span>
+          <span className="text-xl sm:text-2xl font-bold">{bookingDateTime?.toFormat('d') ?? '—'}</span>
         </div>
         <div className="flex-1 min-w-0">
           <h4 className="font-bold text-foreground truncate text-sm sm:text-base">
@@ -419,7 +450,11 @@ function UpcomingBookingCard({ booking }: { booking: BookingDTO }) {
           </h4>
           <div className="text-xs sm:text-sm text-muted-foreground flex items-center mt-0.5 sm:mt-1">
             <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 mr-1 sm:mr-1.5 flex-shrink-0" />
-            {formatReservationTimeFromDate(bookingDate)}
+            {bookingDate
+              ? formatReservationTimeFromDate(bookingDate, {
+                  timezone: booking.restaurantTimezone ?? undefined,
+                })
+              : '—'}
           </div>
         </div>
         <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground/40 group-hover:text-foreground transition-colors flex-shrink-0" />
@@ -431,14 +466,6 @@ function UpcomingBookingCard({ booking }: { booking: BookingDTO }) {
 /* ============================================================================
    UTILITY FUNCTIONS
    ============================================================================ */
-
-function isSameDay(d1: Date, d2: Date): boolean {
-  return (
-    d1.getFullYear() === d2.getFullYear() &&
-    d1.getMonth() === d2.getMonth() &&
-    d1.getDate() === d2.getDate()
-  );
-}
 
 function StatPill({ label, value, icon }: { label: string; value: number; icon: React.ReactNode }) {
   return (
