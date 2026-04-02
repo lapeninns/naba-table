@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation';
 import { useCallback } from 'react';
 
 import { useDateSwipe } from '@/hooks/useDateSwipe';
-import { formatDateKey, getDateInTimezone, getTodayInTimezone } from '@/lib/utils/datetime';
+import { getDateInTimezone, getTodayInTimezone, shiftDateKey } from '@/lib/utils/datetime';
 
 import type { BookingFilter } from './BookingsFilterBar';
 import type { DashboardSortDir, DashboardSortKey } from './useOpsDashboardQueryState';
@@ -47,10 +47,9 @@ export function useOpsDashboardUiActions(params: {
     (days: number) => {
       const baseDate = requestedDate;
       if (!baseDate) return;
-      const nextDate = new Date(`${baseDate}T00:00:00`);
-      if (Number.isNaN(nextDate.getTime())) return;
-      nextDate.setDate(nextDate.getDate() + days);
-      onSelectDate(formatDateKey(nextDate));
+      const nextDate = shiftDateKey(baseDate, days);
+      if (!nextDate) return;
+      onSelectDate(nextDate);
     },
     [onSelectDate, requestedDate],
   );

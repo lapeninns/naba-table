@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 
 
-import { parseLocalDateOnly } from '../lib/date';
+import { getDateKeyDayOfWeek } from '../lib/date';
 import { parseTimeToMinutes } from '../lib/timeline';
 
 import type { OperatingHoursSnapshot, RestaurantProfile, ServicePeriodRow } from '@/services/ops/restaurants';
@@ -26,7 +26,7 @@ export function useFloorPlanTimelineConfig(operatingData: FloorPlanOperatingData
       return { min: 11 * 60, max: 23 * 60, periods: [], interval: 15, slotTimes: [] };
     }
 
-    const dayOfWeek = parseLocalDateOnly(selectedDate).getDay(); // 0 = Sunday
+    const dayOfWeek = getDateKeyDayOfWeek(selectedDate); // 0 = Sunday
     const dailyHours = operatingData.hours.weekly.find((h) => h.dayOfWeek === dayOfWeek);
     const overrideHours = operatingData.hours.overrides.find((h) => h.effectiveDate === selectedDate);
     const effectiveHours = overrideHours ?? dailyHours;
@@ -72,4 +72,3 @@ export function useFloorPlanTimelineConfig(operatingData: FloorPlanOperatingData
     return { min, max, periods, interval, slotTimes };
   }, [operatingData, selectedDate]);
 }
-

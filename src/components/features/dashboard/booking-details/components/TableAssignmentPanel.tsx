@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { getBookingClockMinutes } from '@reserve/shared/formatting/bookingDateTime';
 
 import { useTableAssignment } from '../hooks/useTableAssignment';
 import { groupTablesBySection } from '../utils';
@@ -86,36 +87,27 @@ export function TableAssignmentPanel({
   });
 
   const parsedTimes = useMemo(() => {
-    const parse = (value?: string | null) => {
-      if (!value) return null;
-      const timePart = value.includes('T') ? value.split('T')[1] : value;
-      const match = timePart.match(/(\d{2}):(\d{2})/);
-      if (!match) return null;
-      const hours = Number(match[1]);
-      const minutes = Number(match[2]);
-      if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
-      return hours * 60 + minutes;
-    };
-
     const timelineBookingStart = bookingStartTime ?? context?.booking.start_time ?? null;
     const timelineBookingEnd = bookingEndTime ?? null;
     const timelineWindowStart = context?.window?.startAt ?? null;
     const timelineWindowEnd = context?.window?.endAt ?? null;
+    const timezone = context?.timezone ?? 'UTC';
 
     return {
       bookingStart: timelineBookingStart,
       bookingEnd: timelineBookingEnd,
       windowStart: timelineWindowStart,
       windowEnd: timelineWindowEnd,
-      parsedBookingStart: parse(timelineBookingStart),
-      parsedBookingEnd: parse(timelineBookingEnd),
-      parsedWindowStart: parse(timelineWindowStart),
-      parsedWindowEnd: parse(timelineWindowEnd),
+      parsedBookingStart: getBookingClockMinutes(timelineBookingStart, timezone),
+      parsedBookingEnd: getBookingClockMinutes(timelineBookingEnd, timezone),
+      parsedWindowStart: getBookingClockMinutes(timelineWindowStart, timezone),
+      parsedWindowEnd: getBookingClockMinutes(timelineWindowEnd, timezone),
     };
   }, [
     bookingStartTime,
     bookingEndTime,
     context?.booking.start_time,
+    context?.timezone,
     context?.window?.startAt,
     context?.window?.endAt,
   ]);

@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { toBookingUtcIso } from '@reserve/shared/formatting/bookingDateTime';
+
 import {
   reservationListSchema,
   reservationSchema,
@@ -63,19 +65,16 @@ const isRecord = (value: unknown): Record<string, unknown> | null => {
   return null;
 };
 
-const toIsoString = (date: string, time: string | null | undefined): string => {
-  if (!time) {
-    return new Date(date).toISOString();
-  }
-
-  // Combine date and time as UTC-safe ISO string. The server usually provides start_at/end_at,
-  // but this acts as a fallback to avoid returning "Invalid Date".
-  const isoCandidate = `${date}T${time.length === 5 ? `${time}:00` : time}`;
-  const parsed = new Date(isoCandidate);
-  if (Number.isNaN(parsed.getTime())) {
-    return new Date(date).toISOString();
-  }
-  return parsed.toISOString();
+const toIsoString = (
+  date: string,
+  time: string | null | undefined,
+  timezone: string | null | undefined,
+): string => {
+  return (
+    toBookingUtcIso(date, time, timezone) ??
+    toBookingUtcIso(date, '00:00', timezone) ??
+    `${date}T00:00:00.000Z`
+  );
 };
 
 const parseMetadata = (details: unknown): ReservationMetadata => {
@@ -160,15 +159,16 @@ const extractRestaurantTimezone = (input: unknown): string | null => {
 
 const normalizeReservation = (input: z.infer<typeof apiReservationSchema>) => {
   const metadata = parseMetadata(input.details);
+  const restaurantTimezone = extractRestaurantTimezone(input.restaurants);
   const startAt =
     typeof input.start_at === 'string' && input.start_at.length > 0
       ? input.start_at
-      : toIsoString(input.booking_date, input.start_time);
+      : toIsoString(input.booking_date, input.start_time, restaurantTimezone);
   const endAtRaw =
     typeof input.end_at === 'string' && input.end_at.length > 0
       ? input.end_at
       : input.end_time
-        ? toIsoString(input.booking_date, input.end_time)
+        ? toIsoString(input.booking_date, input.end_time, restaurantTimezone)
         : null;
 
   return {
@@ -176,7 +176,7 @@ const normalizeReservation = (input: z.infer<typeof apiReservationSchema>) => {
     restaurantId: input.restaurant_id,
     restaurantName: extractRestaurantName(input.restaurants),
     restaurantSlug: extractRestaurantSlug(input.restaurants),
-    restaurantTimezone: extractRestaurantTimezone(input.restaurants),
+    restaurantTimezone,
     bookingDate: input.booking_date,
     startTime: input.start_time,
     endTime: input.end_time ?? undefined,

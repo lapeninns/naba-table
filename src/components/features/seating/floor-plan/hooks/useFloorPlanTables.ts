@@ -1,4 +1,3 @@
-import { format } from 'date-fns';
 import { useMemo } from 'react';
 
 
@@ -20,6 +19,23 @@ function buildTimelineRowMap(timeline: TableTimelineResponse | null | undefined)
   return map;
 }
 
+function formatTimelineTime(value: string | null | undefined, timezone?: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: timezone?.trim() || 'UTC',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(parsed);
+}
+
 export function useFloorPlanTables({
   tables,
   timeline,
@@ -34,6 +50,7 @@ export function useFloorPlanTables({
   selectedZoneId: string;
 }): FloorPlanTableInspector[] {
   const timelineByTableId = useMemo(() => buildTimelineRowMap(timeline), [timeline]);
+  const timelineTimezone = timeline?.timezone ?? 'UTC';
 
   return useMemo(() => {
     let filteredTables = tables;
@@ -125,7 +142,7 @@ export function useFloorPlanTables({
         table.seatingType === 'booth' ? 'booth' : table.mobility === 'fixed' ? 'round' : 'rect';
 
       const partyName = currentStatus.booking?.customerName ?? null;
-      const timeLabel = currentStatus.start ? format(new Date(currentStatus.start), 'HH:mm') : null;
+      const timeLabel = formatTimelineTime(currentStatus.start, timelineTimezone);
 
       return {
         id: table.id,
@@ -143,5 +160,5 @@ export function useFloorPlanTables({
         currentStatus,
       };
     });
-  }, [currentTimestampMs, selectedZoneId, tables, timelineByTableId, timelineLoading]);
+  }, [currentTimestampMs, selectedZoneId, tables, timelineByTableId, timelineLoading, timelineTimezone]);
 }
