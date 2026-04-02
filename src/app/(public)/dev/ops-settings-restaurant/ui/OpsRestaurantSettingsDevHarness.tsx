@@ -22,7 +22,6 @@ import type { RestaurantSettingsView } from '@/components/features/restaurant-se
 const VIEW_OPTIONS: Array<{ value: RestaurantSettingsView; label: string }> = [
   { value: 'profile', label: 'Profile' },
   { value: 'operating-hours', label: 'Operating hours' },
-  { value: 'email-templates', label: 'Email templates' },
   { value: 'service-periods', label: 'Service periods' },
   { value: 'turn-durations', label: 'Turn durations' },
   { value: 'occasions', label: 'Occasions' },

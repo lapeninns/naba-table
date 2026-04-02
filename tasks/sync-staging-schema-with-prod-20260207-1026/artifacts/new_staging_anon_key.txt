@@ -1,7 +1,0 @@
-REDACTED
-
-This file intentionally does not store Supabase API keys.
-
-Retrieve keys via:
-- Supabase Dashboard: Project Settings -> API
-- Supabase CLI: supabase projects api-keys --project-ref <ref>

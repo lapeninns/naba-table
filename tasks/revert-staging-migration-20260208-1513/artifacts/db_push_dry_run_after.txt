@@ -1,6 +1,0 @@
-DRY RUN: migrations will *not* be pushed to the database.
-Connecting to remote database...
-Skipping migration CONSOLIDATED_ALL_MIGRATIONS.sql... (file name must match pattern "<timestamp>_name.sql")
-Remote database is up to date.
-A new version of Supabase CLI is available: v2.75.0 (currently installed v2.72.7)
-We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

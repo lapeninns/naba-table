@@ -1,1 +1,0 @@
-./backups/auth_data_no_schema_migrations_20260122_143725.sql

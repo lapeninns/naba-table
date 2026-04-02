@@ -1,1 +1,0 @@
-No manage action remnants in useConfirmationStep.ts

@@ -1,8 +1,0 @@
-Updated restaurant (production)
-- id: adf0252b-74f1-407c-9b3d-f03cd6c1f1c5
-- name: The Railway Pub
-- slug: the-railway-pub
-- address: 231 Newmarket Rd, Cambridge CB5 8JE
-- contact_phone: 01223 603907
-- google_map_url: https://www.google.com/maps/dir/?api=1&destination=The+Railway,+139+Station+Road,+Whittlesey,+Peterborough+PE7+1UF&travelmode=driving
-- google_review_url: https://search.google.com/local/writereview?placeid=ChIJJ_hEYYpw2EcRDo5BWTjmvpM

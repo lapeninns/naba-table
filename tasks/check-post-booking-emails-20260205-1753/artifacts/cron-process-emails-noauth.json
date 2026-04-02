@@ -1,8 +1,0 @@
-{
-  "endpoint": "https://app.nabatable.com/api/cron/process-emails",
-  "status": 401,
-  "ok": false,
-  "response": "{\"error\":\"Unauthorized\"}",
-  "timestamp": "2026-02-05T18:03:21.900Z",
-  "note": "Request sent without Authorization header to avoid triggering processing."
-}

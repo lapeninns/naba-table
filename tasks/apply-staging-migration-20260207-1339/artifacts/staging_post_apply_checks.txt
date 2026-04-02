@@ -1,6 +1,0 @@
-email_delivery_log_restaurant_occurred_at_id_idx
-ops_email_delivery_attempts_feed
-ops_email_delivery_attempts_summary
-t
-t
-0

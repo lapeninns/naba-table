@@ -38,13 +38,6 @@ export function RestaurantSettingsSubnav() {
             queryFn: () => restaurantService.getOperatingHours(id),
             enabled: true,
           });
-        case '/settings/restaurant/email-templates':
-          return prefetchIfStale({
-            queryClient,
-            queryKey: queryKeys.opsRestaurants.emailTemplates(id),
-            queryFn: () => restaurantService.getEmailTemplates(id),
-            enabled: true,
-          });
         case '/settings/restaurant/service-periods':
           return prefetchIfStale({
             queryClient,
