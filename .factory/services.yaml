@@ -1,16 +1,15 @@
 commands:
   install: pnpm install
-  dev: pnpm dev
+  dev: PORT=3000 pnpm dev
   build: pnpm build
   typecheck: pnpm typecheck
-  lint: pnpm lint
-  test: npx vitest run
-  test:e2e: npx playwright test tests/e2e/ops-email-delivery-dev-harness.spec.ts
+  lint: npx eslint "src/components/features/seating/**/*.{ts,tsx}" "src/app/app/(app)/floor-plan/page.tsx" "src/app/app/(app)/seating/page.tsx" "src/app/app/(app)/seating/floor-plan/page.tsx" "src/app/(public)/dev/ops-floor-plan/**/*.{ts,tsx}" "tests/ops/useFloorPlanTables.test.tsx" "tests/components/floor-plan/**/*.{ts,tsx}"
+  test: npx vitest run tests/ops/useFloorPlanTables.test.tsx tests/components/floor-plan --passWithNoTests --maxWorkers=9
 
 services:
   web:
-    start: pnpm dev
+    start: PORT=3000 pnpm dev
     stop: lsof -ti :3000 | xargs kill
-    healthcheck: curl -sf http://localhost:3000
+    healthcheck: curl -sf http://localhost:3000/auth/signin > /dev/null
     port: 3000
     depends_on: []

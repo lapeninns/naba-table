@@ -1,0 +1,138 @@
+{
+  "features": [
+    {
+      "id": "floor-plan-readonly-shell-and-routing",
+      "description": "Refactor the canonical floor-plan shell into a strict read-only viewer. Remove `useRouter`, booking-launch state, header CTAs, and action-era shell copy from `FloorPlanPage`, keep the existing route redirects intact, and preserve in-place zone/date/search/time filtering plus empty-search recovery.",
+      "skillName": "seating-ui-worker",
+      "preconditions": [
+        "The canonical authenticated route remains `src/app/app/(app)/floor-plan/page.tsx`.",
+        "Redirect routes `/app/seating` and `/app/seating/floor-plan` already point to `/floor-plan` and must stay that way.",
+        "Existing floor-plan queries, toolbar controls, and empty-search overlay remain the source of truth."
+      ],
+      "expectedBehavior": [
+        "The header and shell show informational-only copy and no booking-related actions or links.",
+        "The header context summary stays synchronized with active zone, date, and time.",
+        "Zone, date, search, and time controls keep updating the viewer in place on `/floor-plan`.",
+        "Search continues to match table number, current party name, and zone name, and clearing an empty search restores the visible tables.",
+        "Visiting `/app/seating` or `/app/seating/floor-plan` still redirects to `/floor-plan`."
+      ],
+      "verificationSteps": [
+        "npx vitest run tests/components/floor-plan/FloorPlanPage.test.tsx --reporter=verbose",
+        "npx eslint \"src/components/features/seating/**/*.{ts,tsx}\" \"src/app/app/(app)/floor-plan/page.tsx\" \"src/app/app/(app)/seating/page.tsx\" \"src/app/app/(app)/seating/floor-plan/page.tsx\" \"src/app/(public)/dev/ops-floor-plan/**/*.{ts,tsx}\" \"tests/ops/useFloorPlanTables.test.tsx\" \"tests/components/floor-plan/**/*.{ts,tsx}\"",
+        "Manual: use agent-browser on authenticated `/floor-plan` and verify no legacy CTA labels or action-oriented shell copy remain."
+      ],
+      "fulfills": [
+        "VAL-FLOOR-SHELL-001",
+        "VAL-FLOOR-SHELL-002",
+        "VAL-FLOOR-SHELL-003",
+        "VAL-FLOOR-SHELL-004",
+        "VAL-FLOOR-CROSS-001"
+      ],
+      "milestone": "floor-plan-readonly-redesign",
+      "status": "in_progress",
+      "workerSessionIds": [
+        "2e6f1174-4c18-40a1-ad56-c3718d5a1283",
+        "ebc87b12-df79-4c7a-83c1-7faf3af5b675"
+      ],
+      "currentWorkerSessionId": "ebc87b12-df79-4c7a-83c1-7faf3af5b675",
+      "completedWorkerSessionId": null
+    },
+    {
+      "id": "floor-plan-canvas-occupancy-board",
+      "description": "Rework `FloorCanvas` into a calmer occupancy board while preserving the current interaction model. Add a clear legend and visible-summary counts, reduce clutter around the map chrome, keep keyboard and pointer pan/zoom behavior, preserve table activation semantics, and keep the time scrubber updating occupancy in place.",
+      "skillName": "seating-ui-worker",
+      "preconditions": [
+        "The floor-plan shell remains the canonical orchestration surface.",
+        "Status semantics continue to come from `useFloorPlanTables` and `floor-plan/lib/status.ts`.",
+        "Pan/zoom behavior in `usePanZoom` and `FloorCanvas` must remain available."
+      ],
+      "expectedBehavior": [
+        "The canvas shows legend and summary buckets for available, reserved, seated, loading, and out-of-service states based on visible tables only.",
+        "The canvas remains focusable and keeps keyboard pan/zoom/reset behavior intact.",
+        "Pointer drag pans only from valid canvas space and does not accidentally trigger table selection.",
+        "Table activation via pointer or keyboard only changes selection state and never launches booking navigation.",
+        "The time scrubber slider and step controls update visible occupancy in place without triggering canvas pan."
+      ],
+      "verificationSteps": [
+        "npx vitest run tests/components/floor-plan/FloorCanvas.test.tsx --reporter=verbose",
+        "npx vitest run tests/ops/useFloorPlanTables.test.tsx --reporter=verbose",
+        "Manual: use agent-browser to verify keyboard pan/zoom/reset, pointer drag, legend/count updates, and scrubber behavior on `/floor-plan`."
+      ],
+      "fulfills": [
+        "VAL-FLOOR-CANVAS-001",
+        "VAL-FLOOR-CANVAS-002",
+        "VAL-FLOOR-CANVAS-003",
+        "VAL-FLOOR-CANVAS-004",
+        "VAL-FLOOR-CANVAS-005"
+      ],
+      "milestone": "floor-plan-readonly-redesign",
+      "status": "pending",
+      "workerSessionIds": [],
+      "currentWorkerSessionId": null,
+      "completedWorkerSessionId": null
+    },
+    {
+      "id": "floor-plan-readonly-details-and-selection",
+      "description": "Convert `TableInspector` and the page-level details surfaces into a fully read-only selection experience. Desktop should use a passive side panel, mobile should use a read-only sheet, selection should persist through non-hiding updates, and only explicit close, same-table toggle, pointer pan start, or hidden-by-filter states should remove the details UI.",
+      "skillName": "seating-ui-worker",
+      "preconditions": [
+        "Table selection remains local state owned by `FloorPlanPage`.",
+        "Desktop and mobile both render the selected-table details through `TableInspector`.",
+        "The mission contract requires no booking, assignment, or navigation actions on any details surface."
+      ],
+      "expectedBehavior": [
+        "Desktop details show table number, status, capacity, zone, seating type, current party when present, and timing when present, with no action buttons or links.",
+        "Mobile selection opens a read-only sheet with the same facts and read-only accessibility copy, and sheet dismissal clears selection.",
+        "Idle and non-active table states use passive explanatory copy.",
+        "Selection persists and refreshes through date/time/filter changes that keep the table visible.",
+        "Explicit close, same-table toggle, pointer-initiated pan, or hiding the table through active zone/search filters removes the details UI without stale data or action surfaces.",
+        "Switching between desktop and mobile while a table is selected keeps the same selected table visible in exactly one details container."
+      ],
+      "verificationSteps": [
+        "npx vitest run tests/components/floor-plan/TableInspector.test.tsx --reporter=verbose",
+        "npx vitest run tests/components/floor-plan/FloorPlanSelection.test.tsx --reporter=verbose",
+        "Manual: use agent-browser on desktop and mobile to verify read-only details, close behavior, selection persistence, and responsive container swapping."
+      ],
+      "fulfills": [
+        "VAL-FLOOR-DETAIL-001",
+        "VAL-FLOOR-DETAIL-002",
+        "VAL-FLOOR-DETAIL-003",
+        "VAL-FLOOR-DETAIL-004",
+        "VAL-FLOOR-CROSS-002",
+        "VAL-FLOOR-CROSS-003",
+        "VAL-FLOOR-CROSS-004",
+        "VAL-FLOOR-CROSS-005"
+      ],
+      "milestone": "floor-plan-readonly-redesign",
+      "status": "pending",
+      "workerSessionIds": [],
+      "currentWorkerSessionId": null,
+      "completedWorkerSessionId": null
+    },
+    {
+      "id": "floor-plan-status-regression-tests",
+      "description": "Strengthen regression coverage for the floor-plan read-only redesign. Extend `useFloorPlanTables` tests for reserved, seated, available, loading, and out-of-service semantics, and add focused page/component tests that lock down empty-search recovery, read-only copy, and the absence of mutation controls.",
+      "skillName": "seating-ui-worker",
+      "preconditions": [
+        "The read-only shell, canvas, and details behaviors are implemented in the canonical floor-plan files.",
+        "Vitest and Testing Library remain the project-standard test stack for this mission."
+      ],
+      "expectedBehavior": [
+        "Automated tests cover the status-mapping semantics used by the redesigned floor plan.",
+        "Automated tests cover removal of mutation controls and action-era copy.",
+        "Automated tests cover selection-driven details and empty-search recovery behavior."
+      ],
+      "verificationSteps": [
+        "npx vitest run tests/ops/useFloorPlanTables.test.tsx tests/components/floor-plan --passWithNoTests --maxWorkers=9",
+        "pnpm typecheck",
+        "npx eslint \"src/components/features/seating/**/*.{ts,tsx}\" \"src/app/app/(app)/floor-plan/page.tsx\" \"src/app/app/(app)/seating/page.tsx\" \"src/app/app/(app)/seating/floor-plan/page.tsx\" \"src/app/(public)/dev/ops-floor-plan/**/*.{ts,tsx}\" \"tests/ops/useFloorPlanTables.test.tsx\" \"tests/components/floor-plan/**/*.{ts,tsx}\""
+      ],
+      "fulfills": [],
+      "milestone": "floor-plan-readonly-redesign",
+      "status": "pending",
+      "workerSessionIds": [],
+      "currentWorkerSessionId": null,
+      "completedWorkerSessionId": null
+    }
+  ]
+}

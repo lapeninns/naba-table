@@ -65,13 +65,15 @@ type EmailTemplatesEditorPaneProps = {
   ) => void;
 };
 
-type TemplateCopyField = 'subject' | 'preheader' | 'headline' | 'intro' | 'ctaLabel';
+type TemplateCopyField = 'subject' | 'preheader' | 'headline' | 'intro' | 'cue' | 'ask' | 'ctaLabel';
 
 const TEMPLATE_FIELD_LIMITS: Record<TemplateCopyField, number> = {
   subject: 140,
   preheader: 180,
   headline: 140,
   intro: 280,
+  cue: 180,
+  ask: 180,
   ctaLabel: 60,
 };
 
@@ -80,8 +82,18 @@ const TEMPLATE_FIELD_LABELS: Record<TemplateCopyField, string> = {
   preheader: 'Preheader',
   headline: 'Headline',
   intro: 'Message body',
+  cue: 'Photo cue',
+  ask: 'Review ask',
   ctaLabel: 'CTA label',
 };
+
+function templateSupportsCueField(templateKey: RestaurantBookingEmailTemplateKey | null | undefined) {
+  return templateKey === 'confirmation' || templateKey === 'reminder_24h';
+}
+
+function templateSupportsAskField(templateKey: RestaurantBookingEmailTemplateKey | null | undefined) {
+  return templateKey === 'review_request';
+}
 
 function appendToken(currentValue: string, token: string) {
   return currentValue ? `${currentValue}${currentValue.endsWith(' ') ? '' : ' '}${token}` : token;
@@ -136,6 +148,8 @@ export function EmailTemplatesEditorPane({
       preheader: getUnknownRestaurantEmailTemplateTokens(currentVariant.preheader),
       headline: getUnknownRestaurantEmailTemplateTokens(currentVariant.headline),
       intro: getUnknownRestaurantEmailTemplateTokens(currentVariant.intro),
+      cue: getUnknownRestaurantEmailTemplateTokens(currentVariant.cue),
+      ask: getUnknownRestaurantEmailTemplateTokens(currentVariant.ask),
       ctaLabel: getUnknownRestaurantEmailTemplateTokens(currentVariant.ctaLabel),
     };
 
@@ -162,6 +176,9 @@ export function EmailTemplatesEditorPane({
       [tokenTarget]: appendToken(variant[tokenTarget], token),
     }));
   };
+
+  const showCueField = templateSupportsCueField(baseTemplate?.key);
+  const showAskField = templateSupportsAskField(baseTemplate?.key);
 
   return (
     <main className="min-w-0">
@@ -559,6 +576,70 @@ export function EmailTemplatesEditorPane({
                       </p>
                     ) : null}
                   </div>
+
+                  {showCueField ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <Label htmlFor="email-template-cue">Photo cue</Label>
+                        <span className={cn('text-xs', getCounterTone(currentVariant.cue.length, TEMPLATE_FIELD_LIMITS.cue))}>
+                          {currentVariant.cue.length}/{TEMPLATE_FIELD_LIMITS.cue}
+                        </span>
+                      </div>
+                      <Textarea
+                        id="email-template-cue"
+                        value={currentVariant.cue}
+                        onFocus={() => setTokenTarget('cue')}
+                        onChange={(event) =>
+                          onUpdateVariant(currentVariant.id, (variant) => ({
+                            ...variant,
+                            cue: event.target.value,
+                          }))
+                        }
+                        disabled={!canEdit}
+                        className="min-h-[120px] rounded-2xl border-zinc-300 text-sm leading-6"
+                      />
+                      <p className="text-xs text-zinc-500">
+                        Gentle pre-visit priming only. Keep this secondary to the operational booking message.
+                      </p>
+                      {variantWarnings.unknownTokensByField.cue.length > 0 ? (
+                        <p className="text-xs text-red-600">
+                          Unknown variables: {variantWarnings.unknownTokensByField.cue.map((token) => `{{${token}}}`).join(', ')}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  {showAskField ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <Label htmlFor="email-template-ask">Review ask</Label>
+                        <span className={cn('text-xs', getCounterTone(currentVariant.ask.length, TEMPLATE_FIELD_LIMITS.ask))}>
+                          {currentVariant.ask.length}/{TEMPLATE_FIELD_LIMITS.ask}
+                        </span>
+                      </div>
+                      <Textarea
+                        id="email-template-ask"
+                        value={currentVariant.ask}
+                        onFocus={() => setTokenTarget('ask')}
+                        onChange={(event) =>
+                          onUpdateVariant(currentVariant.id, (variant) => ({
+                            ...variant,
+                            ask: event.target.value,
+                          }))
+                        }
+                        disabled={!canEdit}
+                        className="min-h-[120px] rounded-2xl border-zinc-300 text-sm leading-6"
+                      />
+                      <p className="text-xs text-zinc-500">
+                        Use this for the direct post-visit ask, like encouraging a photo alongside the guest&apos;s review.
+                      </p>
+                      {variantWarnings.unknownTokensByField.ask.length > 0 ? (
+                        <p className="text-xs text-red-600">
+                          Unknown variables: {variantWarnings.unknownTokensByField.ask.map((token) => `{{${token}}}`).join(', ')}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
 
                   {baseTemplate.supportsCtaLabel ? (
                     <div className="space-y-2">
