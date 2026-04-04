@@ -41,6 +41,8 @@ describe('restaurant email template catalog', () => {
               preheader: 'Custom intro',
               headline: 'Custom headline',
               intro: 'Custom intro',
+              cue: '',
+              ask: '',
               ctaLabel: 'Custom CTA',
               isActive: false,
               order: 0,
@@ -65,6 +67,8 @@ describe('restaurant email template catalog', () => {
         preheader: 'A',
         headline: 'A',
         intro: 'A',
+        cue: '',
+        ask: '',
         ctaLabel: 'A',
         isActive: true,
         order: 0,
@@ -76,6 +80,8 @@ describe('restaurant email template catalog', () => {
         preheader: 'B',
         headline: 'B',
         intro: 'B',
+        cue: '',
+        ask: '',
         ctaLabel: 'B',
         isActive: false,
         order: 1,
@@ -87,6 +93,8 @@ describe('restaurant email template catalog', () => {
         preheader: 'C',
         headline: 'C',
         intro: 'C',
+        cue: '',
+        ask: '',
         ctaLabel: 'C',
         isActive: true,
         order: 2,
@@ -103,28 +111,33 @@ describe('restaurant email template catalog', () => {
     expect(first.id).not.toBe('b');
   });
 
-  it('uses the real hardcoded booking confirmation copy as the default variants', () => {
+  it('uses the configured booking confirmation catalog copy as the default variants', () => {
     const confirmation = getDefaultTemplateVariants('confirmation');
 
     expect(confirmation.map((variant) => variant.subject)).toEqual([
-      'Booking Confirmed 🎉 - {{venue}}',
-      "You're In! 🥂 - {{venue}}",
-      'Table Secured 🍽️ - {{venue}}',
+      'Your table at {{venue}} is confirmed',
+      'Confirmed: {{venue}} on {{date}}',
+      'See you soon at {{venue}}',
     ]);
     expect(confirmation.map((variant) => variant.preheader)).toEqual([
-      "Great news, {{firstName}}! Your table at {{venue}} is secured. We've added this to your upcoming bookings.",
-      "{{firstName}}, your reservation at {{venue}} is confirmed. We can't wait to host you!",
-      "All set, {{firstName}}. We've reserved a spot for you at {{venue}}. See you soon!",
+      '{{date}} at {{time}} for {{party}} is secured.',
+      'Everything is set for {{time}}.',
+      'Your reservation details are ready to go.',
     ]);
     expect(confirmation.map((variant) => variant.headline)).toEqual([
-      'Booking Confirmed 🎉',
-      "You're In! 🥂",
-      'Table Secured 🍽️',
+      'Your reservation is confirmed',
+      'You are all set',
+      'Table secured',
     ]);
     expect(confirmation.map((variant) => variant.ctaLabel)).toEqual([
       'Manage Booking',
       'Manage Booking',
       'Manage Booking',
+    ]);
+    expect(confirmation.map((variant) => variant.cue)).toEqual([
+      'If the meal turns into a favorite, feel free to snap a photo and add it to a quick review afterward.',
+      'A quick photo and short review after your visit can help future guests choose with confidence.',
+      'If you end up taking a favorite photo, you can always add it to a review after your visit.',
     ]);
   });
 

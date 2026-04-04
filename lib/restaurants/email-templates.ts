@@ -1,3 +1,5 @@
+import { TEMPLATE_DEFINITIONS } from '@/lib/restaurants/email-template-defaults';
+
 export const RESTAURANT_BOOKING_EMAIL_TEMPLATE_GROUP_KEYS = [
   'request',
   'confirmation',
@@ -14,23 +16,6 @@ type TemplateGroupDefinition = {
   key: RestaurantBookingEmailTemplateGroupKey;
   title: string;
   description: string;
-};
-
-type TemplateDefinition = {
-  key: RestaurantBookingEmailTemplateKey;
-  title: string;
-  description: string;
-  group: RestaurantBookingEmailTemplateGroupKey;
-  supportsCtaLabel: boolean;
-  recommendedVariables: readonly BookingEmailTemplateVariableKey[];
-  authoringHints: readonly string[];
-  defaultVariants: Array<{
-    id: string;
-    name: string;
-    headline: string;
-    intro: string;
-    ctaLabel: string;
-  }>;
 };
 
 export const MAX_RESTAURANT_EMAIL_TEMPLATE_VARIANTS = 5;
@@ -92,6 +77,8 @@ export type RestaurantEmailTemplateVariant = {
   preheader: string;
   headline: string;
   intro: string;
+  cue: string;
+  ask: string;
   ctaLabel: string;
   isActive: boolean;
   order: number;
@@ -138,254 +125,7 @@ function buildDefaultVariantSubject(headline: string): string {
   return `${headline} - {{venue}}`;
 }
 
-const TEMPLATE_DEFINITIONS = [
-  {
-    key: 'request_received',
-    title: 'Request Received',
-    description: 'Pending booking requests awaiting review.',
-    group: 'request',
-    supportsCtaLabel: true,
-    recommendedVariables: ['venue', 'date', 'time', 'party'],
-    authoringHints: [
-      'Set expectations clearly and reassure the guest that the venue is reviewing availability.',
-      'Keep the CTA status-oriented rather than sales-oriented.',
-    ],
-    defaultVariants: [
-      {
-        id: 'request-received-default-1',
-        name: 'Request Received',
-        headline: 'Request Received 🤞',
-        intro: "We've received your request for {{venue}}. Hang tight while we check availability!",
-        ctaLabel: 'Check Status',
-      },
-    ],
-  },
-  {
-    key: 'confirmation',
-    title: 'Confirmation',
-    description: 'Confirmed reservations for accepted bookings.',
-    group: 'confirmation',
-    supportsCtaLabel: true,
-    recommendedVariables: ['firstName', 'venue', 'date', 'time', 'party'],
-    authoringHints: [
-      'Lead with reassurance that the table is secured.',
-      'Use the intro to reinforce the concrete reservation details and next step.',
-    ],
-    defaultVariants: [
-      {
-        id: 'confirmation-default-1',
-        name: 'Booking Confirmed',
-        headline: 'Booking Confirmed 🎉',
-        intro: "Great news, {{firstName}}! Your table at {{venue}} is secured. We've added this to your upcoming bookings.",
-        ctaLabel: 'Manage Booking',
-      },
-      {
-        id: 'confirmation-default-2',
-        name: "You're In!",
-        headline: "You're In! 🥂",
-        intro: "{{firstName}}, your reservation at {{venue}} is confirmed. We can't wait to host you!",
-        ctaLabel: 'Manage Booking',
-      },
-      {
-        id: 'confirmation-default-3',
-        name: 'Table Secured',
-        headline: 'Table Secured 🍽️',
-        intro: "All set, {{firstName}}. We've reserved a spot for you at {{venue}}. See you soon!",
-        ctaLabel: 'Manage Booking',
-      },
-    ],
-  },
-  {
-    key: 'modification_pending',
-    title: 'Change Requested',
-    description: 'Guest-requested reservation changes awaiting review.',
-    group: 'changes',
-    supportsCtaLabel: true,
-    recommendedVariables: ['venue', 'date', 'time', 'party'],
-    authoringHints: [
-      'Acknowledge the requested change and set the expectation that confirmation follows separately.',
-    ],
-    defaultVariants: [
-      {
-        id: 'modification-pending-default-1',
-        name: 'Change Requested',
-        headline: 'Change Requested 📝',
-        intro: "We're reviewing your requested changes at {{venue}}. We'll get back to you and confirm shortly.",
-        ctaLabel: 'View Request',
-      },
-    ],
-  },
-  {
-    key: 'modification_confirmed',
-    title: 'Changes Confirmed',
-    description: 'Confirmed changes for an existing reservation.',
-    group: 'changes',
-    supportsCtaLabel: true,
-    recommendedVariables: ['firstName', 'venue', 'date', 'time', 'party'],
-    authoringHints: [
-      'Call out that the updated reservation is now final and ready.',
-    ],
-    defaultVariants: [
-      {
-        id: 'modification-confirmed-default-1',
-        name: 'Changes Confirmed',
-        headline: 'Changes Confirmed ✅',
-        intro: 'Your updated reservation at {{venue}} is all set! Here are the new details.',
-        ctaLabel: 'View Booking',
-      },
-    ],
-  },
-  {
-    key: 'cancelled',
-    title: 'Cancelled',
-    description: 'Guest-confirmed cancellations.',
-    group: 'cancellation',
-    supportsCtaLabel: true,
-    recommendedVariables: ['venue', 'date', 'time'],
-    authoringHints: [
-      'Keep the tone calm and empathetic.',
-      'If you include a CTA, make it about rebooking rather than account management.',
-    ],
-    defaultVariants: [
-      {
-        id: 'cancelled-default-1',
-        name: 'Booking Cancelled',
-        headline: 'Booking Cancelled 😔',
-        intro: 'As requested, we have cancelled your reservation at {{venue}}. We hope to welcome you another time. 👋',
-        ctaLabel: 'Book Again',
-      },
-    ],
-  },
-  {
-    key: 'booking_rejected',
-    title: 'Unavailable',
-    description: 'Requests the venue could not accept.',
-    group: 'cancellation',
-    supportsCtaLabel: true,
-    recommendedVariables: ['venue', 'date', 'time'],
-    authoringHints: [
-      'Be direct about unavailability and offer a simple alternative next step.',
-    ],
-    defaultVariants: [
-      {
-        id: 'booking-rejected-default-1',
-        name: 'Unavailable',
-        headline: 'Unavailable 🚫',
-        intro: "We're sorry, {{venue}} is fully booked for your requested time. Maybe try a different date or time? ⏰",
-        ctaLabel: 'Try Another Time',
-      },
-    ],
-  },
-  {
-    key: 'restaurant_cancellation',
-    title: 'Venue Cancellation',
-    description: 'Venue-initiated cancellations that prompt a rebook.',
-    group: 'cancellation',
-    supportsCtaLabel: true,
-    recommendedVariables: ['venue', 'date', 'time'],
-    authoringHints: [
-      'Own the disruption and prioritize apology plus recovery language.',
-    ],
-    defaultVariants: [
-      {
-        id: 'restaurant-cancellation-default-1',
-        name: 'Venue Cancellation',
-        headline: 'Booking Cancelled 😔',
-        intro: 'We sincerely apologize. {{venue}} had to cancel your reservation due to unforeseen circumstances.',
-        ctaLabel: 'Rebook Now',
-      },
-    ],
-  },
-  {
-    key: 'review_request',
-    title: 'Review Request',
-    description: 'Post-visit review prompts.',
-    group: 'review',
-    supportsCtaLabel: true,
-    recommendedVariables: ['firstName', 'venue'],
-    authoringHints: [
-      'Ask for feedback simply and keep the effort low.',
-      'Variants should differ in tone, not in the destination or ask.',
-    ],
-    defaultVariants: [
-      {
-        id: 'review-request-default-1',
-        name: 'How was dinner?',
-        headline: 'How was dinner? ⭐',
-        intro: 'We hope you enjoyed {{venue}}! Would you mind taking 10 seconds to rate your experience? ❤️',
-        ctaLabel: 'Leave a Review',
-      },
-      {
-        id: 'review-request-default-2',
-        name: 'Rate your experience',
-        headline: 'Rate your experience 📝',
-        intro: 'Hi {{firstName}}, thanks for dining with us at {{venue}}! How did we do?',
-        ctaLabel: 'Leave a Review',
-      },
-      {
-        id: 'review-request-default-3',
-        name: "We'd love your feedback",
-        headline: "We'd love your feedback 💬",
-        intro: 'It was a pleasure hosting you at {{venue}}. Would you share your thoughts with us?',
-        ctaLabel: 'Leave a Review',
-      },
-    ],
-  },
-  {
-    key: 'reminder_24h',
-    title: '24 Hour Reminder',
-    description: 'Day-before reminder emails.',
-    group: 'reminder',
-    supportsCtaLabel: true,
-    recommendedVariables: ['firstName', 'venue', 'date', 'time', 'party'],
-    authoringHints: [
-      'Focus on readiness and arrival confidence.',
-    ],
-    defaultVariants: [
-      {
-        id: 'reminder-24h-default-1',
-        name: "Tomorrow's the day",
-        headline: "Tomorrow's the day 🥂",
-        intro: "Just a quick reminder about your reservation at {{venue}} tomorrow. We can't wait to host you!",
-        ctaLabel: 'Get Directions',
-      },
-      {
-        id: 'reminder-24h-default-2',
-        name: 'Upcoming reservation',
-        headline: 'Upcoming Reservation 📅',
-        intro: 'Hi {{firstName}}, getting excited? Your table at {{venue}} is ready for tomorrow.',
-        ctaLabel: 'Get Directions',
-      },
-      {
-        id: 'reminder-24h-default-3',
-        name: 'See you soon',
-        headline: 'See you soon! 👋',
-        intro: "This is a quick confirmation that we're ready for your visit to {{venue}} tomorrow.",
-        ctaLabel: 'Get Directions',
-      },
-    ],
-  },
-  {
-    key: 'reminder_short',
-    title: 'Arrival Reminder',
-    description: 'Same-day or arrival-time reminders.',
-    group: 'reminder',
-    supportsCtaLabel: true,
-    recommendedVariables: ['venue', 'time'],
-    authoringHints: [
-      'Keep the copy short and action-oriented because the guest is close to arrival.',
-    ],
-    defaultVariants: [
-      {
-        id: 'reminder-short-default-1',
-        name: 'Table Ready',
-        headline: 'Table Ready 🍽️',
-        intro: "We've prepared your table at {{venue}}. Please head to the host stand when you arrive.",
-        ctaLabel: "I'm Here",
-      },
-    ],
-  },
-] as const satisfies readonly TemplateDefinition[];
+type TemplateDefinition = (typeof TEMPLATE_DEFINITIONS)[number];
 
 type TemplateDefinitionMap = Record<RestaurantBookingEmailTemplateKey, TemplateDefinition>;
 
@@ -434,6 +174,8 @@ function sanitizeVariant(
     preheader: toNonEmptyString(variant.preheader, fallback.preheader),
     headline: toNonEmptyString(variant.headline, fallback.headline),
     intro: toNonEmptyString(variant.intro, fallback.intro),
+    cue: typeof variant.cue === 'string' ? variant.cue.trim() : fallback.cue,
+    ask: typeof variant.ask === 'string' ? variant.ask.trim() : fallback.ask,
     ctaLabel: toNonEmptyString(variant.ctaLabel, fallback.ctaLabel),
     isActive: typeof variant.isActive === 'boolean' ? variant.isActive : fallback.isActive,
     order:
@@ -447,15 +189,17 @@ function cloneVariants(
   variants: ReadonlyArray<{
     id: string;
     name: string;
+    subject: string;
+    preheader: string;
     headline: string;
     intro: string;
+    cue: string;
+    ask: string;
     ctaLabel: string;
   }>,
 ): RestaurantEmailTemplateVariant[] {
   return variants.map((variant, index) => ({
     ...variant,
-    subject: buildDefaultVariantSubject(variant.headline),
-    preheader: variant.intro,
     isActive: true,
     order: index,
   }));
@@ -483,6 +227,8 @@ function createLegacyVariant(
     preheader: toNonEmptyString(legacy.preheader, fallback?.preheader ?? toNonEmptyString(legacy.intro, fallback?.intro ?? '')),
     headline: toNonEmptyString(legacy.headline, fallback?.headline ?? ''),
     intro: toNonEmptyString(legacy.intro, fallback?.intro ?? ''),
+    cue: fallback?.cue ?? '',
+    ask: fallback?.ask ?? '',
     ctaLabel: toNonEmptyString(legacy.ctaLabel, fallback?.ctaLabel ?? ''),
     isActive: true,
     order: 0,
@@ -692,13 +438,15 @@ export function getUnknownRestaurantEmailTemplateTokens(text: string): string[] 
 }
 
 export function buildRestaurantEmailTemplateVariantSignature(
-  variant: Pick<RestaurantEmailTemplateVariant, 'subject' | 'preheader' | 'headline' | 'intro' | 'ctaLabel'>,
+  variant: Pick<RestaurantEmailTemplateVariant, 'subject' | 'preheader' | 'headline' | 'intro' | 'cue' | 'ask' | 'ctaLabel'>,
 ): string {
   return JSON.stringify({
     subject: variant.subject.trim().toLowerCase(),
     preheader: variant.preheader.trim().toLowerCase(),
     headline: variant.headline.trim().toLowerCase(),
     intro: variant.intro.trim().toLowerCase(),
+    cue: variant.cue.trim().toLowerCase(),
+    ask: variant.ask.trim().toLowerCase(),
     ctaLabel: variant.ctaLabel.trim().toLowerCase(),
   });
 }

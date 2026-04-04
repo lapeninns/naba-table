@@ -202,6 +202,8 @@ export type RestaurantEmailTemplatePreview = {
   preheader: string;
   headline: string;
   intro: string;
+  cue: string;
+  ask: string;
   ctaLabel: string;
   ctaUrl: string;
   subject: string;

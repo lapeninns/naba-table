@@ -8,4 +8,6 @@ if [ ! -d "node_modules" ]; then
   pnpm install
 fi
 
-echo "Environment ready."
+pnpm validate:env >/dev/null
+
+echo "Environment ready for the floor-plan read-only redesign mission."
