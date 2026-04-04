@@ -80,6 +80,8 @@ function createVariant(
     preheader: overrides.preheader ?? 'Preview text',
     headline: overrides.headline ?? 'Headline',
     intro: overrides.intro ?? 'Intro copy',
+    cue: overrides.cue ?? '',
+    ask: overrides.ask ?? '',
     ctaLabel: overrides.ctaLabel ?? 'Open',
     isActive: overrides.isActive ?? true,
     order: overrides.order ?? 0,
@@ -206,11 +208,14 @@ describe('restaurant email template server behavior', () => {
       },
       headline: 'How was dinner?',
       intro: 'We hope you enjoyed your visit.',
+      cue: '',
+      ask: 'If you took any photos, adding one helps others too.',
       actionLabel: 'Leave a Review',
       actionUrl: 'https://reviews.example.com/demo-venue',
     });
 
     expect(text).toContain('Leave a Review: https://reviews.example.com/demo-venue');
+    expect(text).toContain('REVIEW ASK:');
     expect(text).not.toContain('Manage your booking:');
   });
 

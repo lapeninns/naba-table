@@ -203,6 +203,8 @@ function resolveTemplateVariant(params: {
   preheader: string;
   headline: string;
   intro: string;
+  cue: string;
+  ask: string;
   ctaLabel: string;
   source: 'default' | 'custom' | 'draft';
 } {
@@ -231,6 +233,8 @@ function resolveTemplateVariant(params: {
     preheader: interpolateRestaurantEmailTemplateText(templateVariant.preheader, variables),
     headline: interpolateRestaurantEmailTemplateText(templateVariant.headline, variables),
     intro: interpolateRestaurantEmailTemplateText(templateVariant.intro, variables),
+    cue: interpolateRestaurantEmailTemplateText(templateVariant.cue, variables),
+    ask: interpolateRestaurantEmailTemplateText(templateVariant.ask, variables),
     ctaLabel: interpolateRestaurantEmailTemplateText(templateVariant.ctaLabel, variables),
     source: effectiveTemplate.source,
   };
@@ -424,6 +428,8 @@ export function renderHtml({
   preheader,
   headline,
   intro,
+  cue,
+  ask,
   ctaLabel,
   ctaUrl,
   iconOverwrite,
@@ -437,6 +443,8 @@ export function renderHtml({
   preheader: string;
   headline: string;
   intro: string;
+  cue?: string;
+  ask?: string;
   ctaLabel?: string;
   ctaUrl?: string;
   calendarActionUrl?: string;
@@ -532,6 +540,9 @@ export function renderHtml({
               </td>
             </tr>
           </table>
+
+          ${cue?.trim() ? renderNote('📸', cue) : ''}
+          ${ask?.trim() ? renderNote('⭐', ask) : ''}
 
           <!-- Data Grid -->
           ${renderGridBox([
@@ -641,6 +652,8 @@ async function dispatchEmail(
   let preheader = '';
   let headline = '';
   let intro = '';
+  let cue = '';
+  let ask = '';
   let ctaLabel = '';
   let ctaUrl = manageUrl;
   let toEmail = booking.customer_email;
@@ -695,6 +708,8 @@ async function dispatchEmail(
     preheader = resolvedTemplate.preheader;
     headline = resolvedTemplate.headline;
     intro = resolvedTemplate.intro;
+    cue = resolvedTemplate.cue;
+    ask = resolvedTemplate.ask;
     ctaLabel = resolvedTemplate.ctaLabel;
     resolvedVariantMeta = {
       id: resolvedTemplate.templateVariant.id,
@@ -718,6 +733,8 @@ async function dispatchEmail(
     preheader,
     headline,
     intro,
+    cue,
+    ask,
     ctaLabel,
     ctaUrl,
     calendarAttachmentName,
@@ -735,6 +752,8 @@ async function dispatchEmail(
     summary,
     headline,
     intro,
+    cue,
+    ask,
     actionLabel: ctaLabel,
     actionUrl: ctaUrl,
   });
@@ -928,6 +947,8 @@ export type RestaurantBookingEmailPreviewResult = {
   preheader: string;
   headline: string;
   intro: string;
+  cue: string;
+  ask: string;
   ctaLabel: string;
   ctaUrl: string;
   subject: string;
@@ -978,6 +999,8 @@ export function renderRestaurantBookingEmailPreview(params: {
     preheader: resolvedTemplate.preheader,
     headline: resolvedTemplate.headline,
     intro: resolvedTemplate.intro,
+    cue: resolvedTemplate.cue,
+    ask: resolvedTemplate.ask,
     ctaLabel: resolvedTemplate.ctaLabel,
     ctaUrl,
     emailType: resolveRenderEmailType(params.templateKey),
@@ -988,6 +1011,8 @@ export function renderRestaurantBookingEmailPreview(params: {
     summary,
     headline: resolvedTemplate.headline,
     intro: resolvedTemplate.intro,
+    cue: resolvedTemplate.cue,
+    ask: resolvedTemplate.ask,
     actionLabel: resolvedTemplate.ctaLabel,
     actionUrl: ctaUrl,
   });
@@ -999,6 +1024,8 @@ export function renderRestaurantBookingEmailPreview(params: {
     preheader: resolvedTemplate.preheader,
     headline: resolvedTemplate.headline,
     intro: resolvedTemplate.intro,
+    cue: resolvedTemplate.cue,
+    ask: resolvedTemplate.ask,
     ctaLabel: resolvedTemplate.ctaLabel,
     ctaUrl,
     subject: resolvedTemplate.subject,
