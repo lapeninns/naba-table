@@ -107,6 +107,8 @@ export function EmailTemplatesPreviewPane({
                   <div className="mt-4 grid gap-3">
                     <DetailBlock label="Subject" value={preview.subject} />
                     <DetailBlock label="Preheader" value={preview.preheader} />
+                    {preview.cue ? <DetailBlock label="Photo cue" value={preview.cue} /> : null}
+                    {preview.ask ? <DetailBlock label="Review ask" value={preview.ask} /> : null}
                     <DetailBlock label="CTA destination" value={preview.ctaUrl} mono />
                   </div>
                 </div>

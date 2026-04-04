@@ -21,6 +21,8 @@ export function renderBookingEmailText(params: {
   };
   headline: string;
   intro: string;
+  cue?: string;
+  ask?: string;
   actionLabel?: string;
   actionUrl?: string;
 }): string {
@@ -32,6 +34,8 @@ ${params.headline.toUpperCase()}
 ${'-'.repeat(params.headline.length)}
 
 ${params.intro}
+
+${params.cue?.trim() ? `PHOTO CUE:\n${params.cue}\n` : ''}${params.ask?.trim() ? `REVIEW ASK:\n${params.ask}\n` : ''}
 
 DETAILS:
 Date: ${params.summary.date}

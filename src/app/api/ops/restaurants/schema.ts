@@ -213,6 +213,7 @@ export const restaurantEmailTemplateKeySchema = z.enum(RESTAURANT_BOOKING_EMAIL_
 export const restaurantEmailTemplateGroupKeySchema = z.enum(RESTAURANT_BOOKING_EMAIL_TEMPLATE_GROUP_KEYS);
 
 const emailTemplateTextSchema = z.string().trim().min(1).max(280);
+const emailTemplateSupportTextSchema = z.string().trim().max(180);
 const emailTemplateHeadlineSchema = z.string().trim().min(1).max(140);
 const emailTemplateSubjectSchema = z.string().trim().min(1).max(140);
 const emailTemplatePreheaderSchema = z.string().trim().min(1).max(180);
@@ -242,6 +243,8 @@ const emailTemplateVariantSchema = z.object({
   preheader: emailTemplatePreheaderSchema,
   headline: emailTemplateHeadlineSchema,
   intro: emailTemplateTextSchema,
+  cue: emailTemplateSupportTextSchema.optional().transform((val) => val ?? ''),
+  ask: emailTemplateSupportTextSchema.optional().transform((val) => val ?? ''),
   ctaLabel: z.string().trim().min(1).max(60),
   isActive: z.boolean(),
   order: z.number().int().min(0).max(MAX_RESTAURANT_EMAIL_TEMPLATE_VARIANTS - 1),
@@ -281,6 +284,8 @@ export const updateRestaurantEmailTemplateSchema = z.object({
         addUnknownTokenIssues(variant.preheader, 'Preheader', ctx, [index, 'preheader']);
         addUnknownTokenIssues(variant.headline, 'Headline', ctx, [index, 'headline']);
         addUnknownTokenIssues(variant.intro, 'Message body', ctx, [index, 'intro']);
+        addUnknownTokenIssues(variant.cue, 'Cue', ctx, [index, 'cue']);
+        addUnknownTokenIssues(variant.ask, 'Ask', ctx, [index, 'ask']);
         addUnknownTokenIssues(variant.ctaLabel, 'CTA label', ctx, [index, 'ctaLabel']);
 
         if (variant.isActive) {
@@ -366,6 +371,8 @@ export type RestaurantEmailTemplatePreviewResponse = {
     preheader: string;
     headline: string;
     intro: string;
+    cue: string;
+    ask: string;
     ctaLabel: string;
     ctaUrl: string;
     subject: string;

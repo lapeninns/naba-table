@@ -56,6 +56,8 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         preheader: result.preview.preheader,
         headline: result.preview.headline,
         intro: result.preview.intro,
+        cue: result.preview.cue,
+        ask: result.preview.ask,
         ctaLabel: result.preview.ctaLabel,
         ctaUrl: result.preview.ctaUrl,
         subject: result.preview.subject,

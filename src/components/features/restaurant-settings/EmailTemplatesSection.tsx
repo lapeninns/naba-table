@@ -66,6 +66,8 @@ function normalizeVariantsForCompare(variants: RestaurantEmailTemplateVariant[])
         preheader: variant.preheader,
         headline: variant.headline,
         intro: variant.intro,
+        cue: variant.cue,
+        ask: variant.ask,
         ctaLabel: variant.ctaLabel,
         isActive: variant.isActive,
         order: variant.order,
@@ -85,6 +87,14 @@ function getStatusBadgeVariant(status: RestaurantEmailTemplate['status']) {
 
 function getStatusLabel(status: RestaurantEmailTemplate['status']) {
   return status === 'custom' ? 'Customized' : 'Default';
+}
+
+function templateSupportsCueField(templateKey: RestaurantBookingEmailTemplateKey | null) {
+  return templateKey === 'confirmation' || templateKey === 'reminder_24h';
+}
+
+function templateSupportsAskField(templateKey: RestaurantBookingEmailTemplateKey | null) {
+  return templateKey === 'review_request';
 }
 
 function PreviewCanvas({
@@ -248,6 +258,8 @@ export function EmailTemplatesSection({ restaurantId, restaurantName }: EmailTem
   }, [currentVariants, previewMutation, restaurantId, selectedTemplateKey, selectedVariantId]);
 
   const currentVariant = currentVariants.find((variant) => variant.id === selectedVariantId) ?? null;
+  const showCueField = templateSupportsCueField(selectedTemplateKey);
+  const showAskField = templateSupportsAskField(selectedTemplateKey);
 
   const updateCurrentVariants = (
     updater: (variants: RestaurantEmailTemplateVariant[]) => RestaurantEmailTemplateVariant[],
@@ -831,6 +843,48 @@ export function EmailTemplatesSection({ restaurantId, restaurantName }: EmailTem
                       disabled={!templatesQuery.data?.canEdit}
                     />
                   </div>
+
+                  {showCueField ? (
+                    <div className="grid gap-2">
+                      <Label htmlFor="variant-cue">Photo cue</Label>
+                      <Textarea
+                        id="variant-cue"
+                        value={currentVariant.cue}
+                        onChange={(event) =>
+                          updateCurrentVariant(currentVariant.id, (variant) => ({
+                            ...variant,
+                            cue: event.target.value,
+                          }))
+                        }
+                        className="min-h-[110px]"
+                        disabled={!templatesQuery.data?.canEdit}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Use this as a subtle pre-visit priming line. Keep it gentle and never turn it into the main CTA.
+                      </p>
+                    </div>
+                  ) : null}
+
+                  {showAskField ? (
+                    <div className="grid gap-2">
+                      <Label htmlFor="variant-ask">Photo/review ask</Label>
+                      <Textarea
+                        id="variant-ask"
+                        value={currentVariant.ask}
+                        onChange={(event) =>
+                          updateCurrentVariant(currentVariant.id, (variant) => ({
+                            ...variant,
+                            ask: event.target.value,
+                          }))
+                        }
+                        className="min-h-[110px]"
+                        disabled={!templatesQuery.data?.canEdit}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Use this for the direct post-visit ask, like adding a photo alongside the guest&apos;s review.
+                      </p>
+                    </div>
+                  ) : null}
 
                   {baseTemplate.supportsCtaLabel ? (
                     <div className="grid gap-2">

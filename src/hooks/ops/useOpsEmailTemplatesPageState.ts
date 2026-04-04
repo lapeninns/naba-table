@@ -41,6 +41,8 @@ function normalizeVariantsForCompare(variants: RestaurantEmailTemplateVariant[])
         preheader: variant.preheader,
         headline: variant.headline,
         intro: variant.intro,
+        cue: variant.cue,
+        ask: variant.ask,
         ctaLabel: variant.ctaLabel,
         isActive: variant.isActive,
         order: variant.order,
