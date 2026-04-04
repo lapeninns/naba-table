@@ -63,14 +63,18 @@ function QueryLayer({ children }: { children: ReactNode }) {
     const nextKey = buildQueryStorageKey(nextUserId);
     const prevKey = storageKeyRef.current;
     const keyChanged = nextKey !== prevKey;
-    const transitioningFromAnonymousToAuthenticated =
-      prevKey === buildQueryStorageKey(null) && status === 'authenticated' && nextUserId !== null;
+    const hadPersistenceConfigured = persistenceCleanupRef.current !== null;
+    const rehydratingAuthenticatedSessionAfterAnonymousBootstrap =
+      !hadPersistenceConfigured &&
+      prevKey === buildQueryStorageKey(null) &&
+      status === 'authenticated' &&
+      nextUserId !== null;
 
     if (keyChanged || !persistenceCleanupRef.current) {
       persistenceCleanupRef.current?.();
 
       if (keyChanged) {
-        if (!transitioningFromAnonymousToAuthenticated) {
+        if (!rehydratingAuthenticatedSessionAfterAnonymousBootstrap) {
           queryClient.clear();
         }
         clearPersistedQueryCache(prevKey);
