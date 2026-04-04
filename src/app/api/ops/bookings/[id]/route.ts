@@ -26,6 +26,10 @@ import {
   assertBookingNotInPast,
   canOverridePastBooking,
 } from '@/server/bookings/pastTimeValidation';
+import {
+  convertIsoToVenueDateTime,
+  convertOptionalIsoToVenueDateTime,
+} from '@/server/bookings/timezoneConversion';
 import { mapDbErrorToConstraint, isRetryableConstraintError } from '@/server/db-errors';
 import {
   enqueueBookingCancelledSideEffects,
@@ -42,8 +46,6 @@ import {
   getTenantServiceSupabaseClient,
 } from '@/server/supabase';
 import { requireMembershipForRestaurant, fetchUserMemberships } from '@/server/team/access';
-import { formatDateForInput } from '@reserve/shared/formatting/booking';
-import { fromMinutes } from '@reserve/shared/time';
 
 import type { BookingRecord } from '@/server/bookings';
 import type { Json, Tables } from '@/types/supabase';
@@ -460,25 +462,46 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
   }
 
-  const startDate = new Date(parsed.data.startIso);
-  if (Number.isNaN(startDate.getTime())) {
+  const restaurantRelation = Array.isArray(existingBooking.restaurants)
+    ? (existingBooking.restaurants[0] ?? null)
+    : (existingBooking.restaurants ?? null);
+  const restaurantTimezone =
+    typeof restaurantRelation?.timezone === 'string' && restaurantRelation.timezone.trim().length > 0
+      ? restaurantRelation.timezone.trim()
+      : 'Europe/London';
+
+  let startVenue;
+  try {
+    startVenue = convertIsoToVenueDateTime(parsed.data.startIso, restaurantTimezone);
+  } catch {
     return NextResponse.json({ error: 'Invalid date values' }, { status: 400 });
   }
 
+  const startDate = startVenue.dateTime.toUTC().toJSDate();
   const restaurantId = existingBooking.restaurant_id ?? '';
-  const existingStartAt = existingBooking.start_at ? new Date(existingBooking.start_at) : null;
-  const existingEndAt = existingBooking.end_at ? new Date(existingBooking.end_at) : null;
-  const existingDurationMinutes =
-    existingStartAt && existingEndAt
-      ? Math.max(1, Math.round((existingEndAt.getTime() - existingStartAt.getTime()) / 60000))
-      : null;
-  const bookingDate = formatDateForInput(startDate);
-  const startTime = fromMinutes(startDate.getHours() * 60 + startDate.getMinutes());
   const explicitEndIso = typeof parsed.data.endIso === 'string' ? parsed.data.endIso : null;
+  let explicitEndVenue = convertOptionalIsoToVenueDateTime(explicitEndIso, restaurantTimezone);
+  let existingStartVenue = convertOptionalIsoToVenueDateTime(
+    existingBooking.start_at,
+    restaurantTimezone,
+  );
+  let existingEndVenue = convertOptionalIsoToVenueDateTime(existingBooking.end_at, restaurantTimezone);
+
+  let bookingDate = startVenue.date;
+  let startTime = startVenue.time;
+  let existingDurationMinutes =
+    existingStartVenue && existingEndVenue
+      ? Math.max(
+          1,
+          Math.round(
+            existingEndVenue.dateTime.diff(existingStartVenue.dateTime, 'minutes').minutes ?? 0,
+          ),
+        )
+      : null;
 
   // Determine whether we need schedule data.
   // Time changes should respect restaurant-configured duration, and past-time checks may require schedule info.
-  const isTimeChanged =
+  let isTimeChanged =
     bookingDate !== existingBooking.booking_date || startTime !== existingBooking.start_time;
 
   const needsScheduleForDuration = isTimeChanged || !explicitEndIso;
@@ -490,6 +513,47 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       date: bookingDate,
       client: serviceSupabase,
     });
+  }
+
+  const scheduleTimezone =
+    typeof schedule?.timezone === 'string' && schedule.timezone.trim().length > 0
+      ? schedule.timezone.trim()
+      : restaurantTimezone;
+
+  if (scheduleTimezone !== restaurantTimezone) {
+    try {
+      startVenue = convertIsoToVenueDateTime(parsed.data.startIso, scheduleTimezone);
+      explicitEndVenue = convertOptionalIsoToVenueDateTime(explicitEndIso, scheduleTimezone);
+      existingStartVenue = convertOptionalIsoToVenueDateTime(existingBooking.start_at, scheduleTimezone);
+      existingEndVenue = convertOptionalIsoToVenueDateTime(existingBooking.end_at, scheduleTimezone);
+    } catch {
+      return NextResponse.json({ error: 'Invalid date values' }, { status: 400 });
+    }
+
+    bookingDate = startVenue.date;
+    startTime = startVenue.time;
+    existingDurationMinutes =
+      existingStartVenue && existingEndVenue
+        ? Math.max(
+            1,
+            Math.round(
+              existingEndVenue.dateTime.diff(existingStartVenue.dateTime, 'minutes').minutes ?? 0,
+            ),
+          )
+        : null;
+    isTimeChanged =
+      bookingDate !== existingBooking.booking_date || startTime !== existingBooking.start_time;
+
+    if (
+      schedule &&
+      (needsScheduleForDuration || needsScheduleForPastCheck) &&
+      schedule.date !== bookingDate
+    ) {
+      schedule = await getRestaurantSchedule(restaurantId, {
+        date: bookingDate,
+        client: serviceSupabase,
+      });
+    }
   }
 
   const bookingOption =
@@ -520,30 +584,30 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
   let durationMinutes: number;
   let endDate: Date;
+  let endTime: string;
 
   if (isTimeChanged) {
     durationMinutes = computedDuration && computedDuration > 0 ? computedDuration : fallbackDuration;
     endDate = new Date(startDate.getTime() + durationMinutes * 60_000);
-  } else if (explicitEndIso) {
-    const parsedEnd = new Date(explicitEndIso);
-    if (Number.isNaN(parsedEnd.getTime())) {
-      return NextResponse.json({ error: 'Invalid date values' }, { status: 400 });
-    }
-    endDate = parsedEnd;
+    endTime = startVenue.dateTime.plus({ minutes: durationMinutes }).toFormat('HH:mm');
+  } else if (explicitEndVenue) {
+    endDate = explicitEndVenue.dateTime.toUTC().toJSDate();
     durationMinutes = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / 60000));
-  } else if (existingEndAt) {
-    endDate = existingEndAt;
+    endTime = explicitEndVenue.time;
+  } else if (existingEndVenue) {
+    endDate = existingEndVenue.dateTime.toUTC().toJSDate();
     durationMinutes = fallbackDuration > 0 ? fallbackDuration : 90;
+    endTime = existingEndVenue.time;
   } else {
     durationMinutes = computedDuration && computedDuration > 0 ? computedDuration : fallbackDuration;
     endDate = new Date(startDate.getTime() + durationMinutes * 60_000);
+    endTime = startVenue.dateTime.plus({ minutes: durationMinutes }).toFormat('HH:mm');
   }
 
   if (endDate.getTime() <= startDate.getTime()) {
     return NextResponse.json({ error: 'End time must be after start time' }, { status: 400 });
   }
 
-  const endTime = fromMinutes(endDate.getHours() * 60 + endDate.getMinutes());
   const requiresTableRealignment =
     bookingDate !== (existingBooking.booking_date ?? '') ||
     startTime !== (existingBooking.start_time ?? '') ||
