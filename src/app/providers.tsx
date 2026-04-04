@@ -46,7 +46,7 @@ type AppProvidersProps = {
 };
 
 function QueryLayer({ children }: { children: ReactNode }) {
-  const { user } = useSupabaseSession();
+  const { user, status } = useSupabaseSession();
   useClientErrorReporter();
   const [queryClient] = useState(() => new QueryClient({ defaultOptions }));
   const [showDevtools, setShowDevtools] = useState(false);
@@ -55,15 +55,24 @@ function QueryLayer({ children }: { children: ReactNode }) {
 
   // Configure per-user query persistence and clear cache on auth changes
   useEffect(() => {
-    const nextKey = buildQueryStorageKey(user?.id ?? null);
+    if (status === 'loading') {
+      return;
+    }
+
+    const nextUserId = status === 'authenticated' ? (user?.id ?? null) : null;
+    const nextKey = buildQueryStorageKey(nextUserId);
     const prevKey = storageKeyRef.current;
     const keyChanged = nextKey !== prevKey;
+    const transitioningFromAnonymousToAuthenticated =
+      prevKey === buildQueryStorageKey(null) && status === 'authenticated' && nextUserId !== null;
 
     if (keyChanged || !persistenceCleanupRef.current) {
       persistenceCleanupRef.current?.();
 
       if (keyChanged) {
-        queryClient.clear();
+        if (!transitioningFromAnonymousToAuthenticated) {
+          queryClient.clear();
+        }
         clearPersistedQueryCache(prevKey);
       }
 
@@ -74,7 +83,7 @@ function QueryLayer({ children }: { children: ReactNode }) {
     return () => {
       // cleanup happens on unmount via outer effect below
     };
-  }, [queryClient, user?.id]);
+  }, [queryClient, status, user?.id]);
 
   useEffect(
     () => () => {

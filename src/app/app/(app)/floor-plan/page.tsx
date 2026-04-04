@@ -1,5 +1,5 @@
-import FloorPlanPage from '@/components/features/seating/FloorPlanPage';
+import { redirect } from 'next/navigation';
 
 export default function FloorPlanRoute() {
-  return <FloorPlanPage />;
+  redirect('/dashboard');
 }
