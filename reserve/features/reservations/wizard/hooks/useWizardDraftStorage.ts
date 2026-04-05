@@ -219,6 +219,11 @@ const readDraftFromKey = (key: string): LoadedDraft | null => {
   };
 };
 
+const canUseLegacyDraftForSlug = (draft: LoadedDraft, expectedSlug: string): boolean => {
+  const storedSlug = normalizeSlug(draft.details.restaurantSlug);
+  return storedSlug === expectedSlug;
+};
+
 export function loadWizardDraft(expectedSlug?: string | null): LoadedDraft | null {
   if (!isBrowser()) {
     return null;
@@ -241,18 +246,23 @@ export function loadWizardDraft(expectedSlug?: string | null): LoadedDraft | nul
 
   if (normalizedExpectedSlug) {
     const storedSlug = normalizeSlug(legacyDraft.details.restaurantSlug);
-    if (storedSlug && storedSlug !== normalizedExpectedSlug) {
-      return {
-        ...legacyDraft,
-        slugMismatch: {
-          expected: normalizedExpectedSlug,
-          stored: storedSlug,
-        },
-      };
+    if (!canUseLegacyDraftForSlug(legacyDraft, normalizedExpectedSlug)) {
+      if (storedSlug && storedSlug !== normalizedExpectedSlug) {
+        return {
+          ...legacyDraft,
+          slugMismatch: {
+            expected: normalizedExpectedSlug,
+            stored: storedSlug,
+          },
+        };
+      }
+      return null;
     }
+
+    return mergeDraftWithContacts(legacyDraft, normalizedExpectedSlug);
   }
 
-  return mergeDraftWithContacts(legacyDraft, normalizedExpectedSlug);
+  return mergeDraftWithContacts(legacyDraft, null);
 }
 
 export function saveWizardDraft(details: BookingDetails): void {
