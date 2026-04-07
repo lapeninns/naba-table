@@ -43,6 +43,7 @@ export async function listRestaurants(filters: RestaurantFilters = {}): Promise<
     let query = supabase
       .from('restaurants')
       .select(columns)
+      .eq('is_active', true)
       .order('name', { ascending: true });
 
     if (normalizedSearch) {

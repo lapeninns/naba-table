@@ -1,0 +1,10 @@
+Surface: http://localhost:3001/restaurants/three-horseshoes
+Env note: local Next dev server started with production-style Supabase env plus temporary placeholder values for unrelated runtime-required secrets.
+Observed title: Restaurant Not Found · Nab a Table
+Observed UI:
+- Heading: Page not found
+- Body copy: The page you're looking for doesn't exist or has moved.
+Console:
+- No console warnings or errors in Chrome DevTools MCP.
+Network:
+- GET /restaurants/three-horseshoes returned 404 in local dev with patched code.

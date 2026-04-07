@@ -1,55 +1,58 @@
 # Continuity Ledger
 
-Last updated: 2026-04-05T15:55:00Z
+Last updated: 2026-04-07T10:42:00Z
 
 ## Goal (incl. success criteria)
 
-- Fix the reservation wizard so restaurant-scoped flows stop showing false draft-expiry resets.
-- Success: scoped routes only restore matching scoped drafts.
-- Success: generic routes can still restore the legacy draft when no restaurant slug is known.
+- Hide Three Horseshoes from public production surfaces by enforcing the canonical restaurant activation state.
+- Success: inactive restaurants no longer appear in public restaurant lists.
+- Success: inactive restaurant slugs no longer resolve for detail or booking flows.
+- Success: ops restaurant update contracts can persist `isActive`.
 
 ## Constraints/Assumptions
 
-- Follow root and `reserve/AGENTS.md` rules, including task artifacts and focused implementation.
-- This flow uses browser storage (`localStorage` and `sessionStorage`), not cookies.
-- Treat this as a regression fix and document the verification-first investigation path.
+- Follow root, `src/app/AGENTS.md`, `server/AGENTS.md`, and `lib/AGENTS.md` rules.
+- Treat `restaurants.is_active` as the likely source of truth unless deeper inspection reveals a first-class subscription system.
+- Supabase is remote-only; any production row change must happen against the remote environment.
 
 ## Key decisions
 
-- Target the canonical storage loader in `useWizardDraftStorage.ts` instead of adding UI-level guards.
-- Keep the fix narrow: stop wrong-key fallback for scoped flows before considering broader persistence redesign.
+- Target shared restaurant lookup/list code instead of hiding a single page route.
+- Extend existing ops restaurant update contracts instead of adding a one-off hide endpoint.
 
 ## State
 
-- Phase 4 verification complete for the code change; browser proof attempted but partially blocked by the local reserve slug route error boundary.
+- Phase 4 complete for code and local browser proof; production data update has been applied.
 
 ## Done
 
-- Traced the alert source and confirmed it comes from `stored.expired`.
-- Confirmed the reserve app mixes slugged and unscoped wizard routes.
-- Created task artifacts under `tasks/fix-wizard-draft-expiry-20260405-1550/`.
-- Patched `loadWizardDraft` so slugged flows ignore unscoped legacy drafts.
-- Added regression coverage in `tests/reserve/wizardDraftStorage.test.ts`.
-- Ran targeted Vitest coverage and full `pnpm typecheck`.
+- Confirmed the `restaurants` table already carries `is_active`.
+- Confirmed public restaurant readers were ignoring `is_active`.
+- Created task artifacts under `tasks/hide-three-horseshoes-20260407-1028/`.
+- Patched shared public restaurant readers and public booking/availability resolution to require active restaurants.
+- Added ops restaurant contract support for `isActive`.
+- Added focused tests and passed typecheck.
+- Set the production `three-horseshoes` row inactive in Supabase.
 
 ## Now
 
-- Finalize the task summary and share the verification caveat from the blocked browser route.
+- Share the result: production data is inactive, code is ready, but the live site still needs deployment to stop serving the route.
 
 ## Next
 
-- If needed, investigate the local reserve slug-route error boundary separately so browser proof can be completed on the real wizard surface.
+- Deploy the patched build so production public routes start honoring `restaurants.is_active`.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- Browser clock skew may still cause true early expiry on misconfigured devices. (UNCONFIRMED frequency)
-- Whether the reserve local dev harness route error is an existing environment issue or a separate product bug. (UNCONFIRMED)
+- Whether the existing production deployment process can be triggered from this session. (UNCONFIRMED)
+- Whether ops UX should surface inactive-state controls visually in restaurant settings. (UNCONFIRMED)
 
 ## Working set (files/ids/commands)
 
-- /Users/amankumarshrestha/LapenInns Project/nabatableLP/reserve/features/reservations/wizard/hooks/useWizardDraftStorage.ts
-- /Users/amankumarshrestha/LapenInns Project/nabatableLP/reserve/features/reservations/wizard/hooks/useReservationWizard.ts
-- /Users/amankumarshrestha/LapenInns Project/nabatableLP/reserve/app/routes.tsx
-- /Users/amankumarshrestha/LapenInns Project/nabatableLP/reserve/pages/WizardPage.tsx
-- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/reserve/wizardDraftStorage.test.ts
-- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/fix-wizard-draft-expiry-20260405-1550/
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/server/restaurants/getRestaurantBySlug.ts
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/server/restaurants/listRestaurants.ts
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/server/restaurants/update.ts
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/app/api/ops/restaurants/schema.ts
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/app/api/ops/restaurants/[id]/route.ts
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/guest/public-restaurants-pages.test.tsx
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/hide-three-horseshoes-20260407-1028/

@@ -42,6 +42,7 @@ import {
   safeBookingPayload,
 } from '@/server/jobs/booking-side-effects';
 import { recordObservabilityEvent } from '@/server/observability';
+import { getActiveRestaurantId } from '@/server/restaurants/getActiveRestaurantId';
 import { getRestaurantBySlug } from '@/server/restaurants/getRestaurantBySlug';
 import { getRestaurantSchedule } from '@/server/restaurants/schedule';
 import { computeGuestLookupHash } from '@/server/security/guest-lookup';
@@ -210,7 +211,26 @@ async function resolveRestaurantId(options: {
 
   const directId = options.restaurantId?.trim();
   if (directId) {
-    return { ok: true, restaurantId: directId, source: 'payload' };
+    try {
+      const restaurantId = await getActiveRestaurantId(directId);
+      if (restaurantId) {
+        return { ok: true, restaurantId, source: 'payload' };
+      }
+      return {
+        ok: false,
+        status: 404,
+        code: 'RESTAURANT_NOT_FOUND',
+        error: 'Restaurant not found',
+      };
+    } catch (error) {
+      console.error('[bookings][POST][restaurant-id-lookup]', stringifyError(error));
+      return {
+        ok: false,
+        status: 500,
+        code: 'RESTAURANT_LOOKUP_FAILED',
+        error: 'Unable to resolve restaurant',
+      };
+    }
   }
 
   try {
@@ -220,6 +240,7 @@ async function resolveRestaurantId(options: {
       .from('restaurants')
       .select('id')
       .eq('id', fallbackId)
+      .eq('is_active', true)
       .maybeSingle();
 
     if (error) {

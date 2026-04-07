@@ -112,6 +112,7 @@ export const updateRestaurantSchema = z.object({
     .toLowerCase()
     .regex(SLUG_REGEX, 'Slug must contain only lowercase letters, numbers, and hyphens')
     .optional(),
+  isActive: z.boolean().optional(),
   timezone: z.string().trim().min(1, 'Timezone is required').optional(),
   capacity: z.number().int().positive().nullable().optional(),
   contactEmail: z
@@ -170,6 +171,7 @@ export type RestaurantDTO = {
   id: string;
   name: string;
   slug: string;
+  isActive?: boolean;
   timezone: string;
   capacity: number | null;
   contactEmail: string | null;

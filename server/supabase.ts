@@ -202,13 +202,49 @@ export function isStrictHoldEnforcementActive(): boolean | null {
   return strictHoldEnforcementActive;
 }
 
+async function resolveActiveRestaurantId(restaurantId: string): Promise<string | null> {
+  const normalized = restaurantId.trim();
+  if (!normalized) {
+    return null;
+  }
+
+  const service = getServiceSupabaseClient();
+  const { data, error } = await service
+    .from("restaurants")
+    .select("id")
+    .eq("id", normalized)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[supabase][default-restaurant] failed to validate active restaurant", {
+      restaurantId: normalized,
+      code: error.code ?? null,
+      message: error.message ?? String(error),
+    });
+    return null;
+  }
+
+  return data?.id ?? null;
+}
+
 export async function getDefaultRestaurantId(): Promise<string> {
   if (env.misc.bookingDefaultRestaurantId) {
-    return env.misc.bookingDefaultRestaurantId;
+    const configuredId = await resolveActiveRestaurantId(env.misc.bookingDefaultRestaurantId);
+    if (!configuredId) {
+      throw new MissingRestaurantContextError("Configured default restaurant is inactive or missing");
+    }
+    cachedDefaultRestaurantId = configuredId;
+    return configuredId;
   }
 
   if (cachedDefaultRestaurantId) {
-    return cachedDefaultRestaurantId;
+    const activeId = await resolveActiveRestaurantId(cachedDefaultRestaurantId);
+    if (activeId) {
+      cachedDefaultRestaurantId = activeId;
+      return activeId;
+    }
+    cachedDefaultRestaurantId = null;
   }
 
   if (!DEFAULT_RESTAURANT_SLUG) {
@@ -224,6 +260,7 @@ export async function getDefaultRestaurantId(): Promise<string> {
           .from("restaurants")
           .select("id")
           .eq("slug", DEFAULT_RESTAURANT_SLUG)
+          .eq("is_active", true)
           .maybeSingle();
 
         if (!error && data?.id) {
