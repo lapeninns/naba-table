@@ -14,6 +14,7 @@ type RestaurantsListResponse = {
     id: string;
     name: string | null;
     slug: string | null;
+    isActive?: boolean;
     timezone: string | null;
     capacity: number | null;
     contactEmail: string | null;
@@ -39,6 +40,7 @@ type RestaurantResponse = {
     id: string;
     name: string | null;
     slug: string | null;
+    isActive?: boolean;
     timezone: string | null;
     capacity: number | null;
     contactEmail: string | null;
@@ -101,6 +103,7 @@ export type RestaurantProfile = {
   id: string;
   name: string;
   slug: string | null;
+  isActive?: boolean;
   timezone: string | null;
   capacity: number | null;
   contactEmail: string | null;
@@ -334,6 +337,7 @@ function mapRestaurant(dto: RestaurantResponse['restaurant']): RestaurantProfile
     id: dto.id,
     name: dto.name ?? 'Restaurant',
     slug: dto.slug ?? null,
+    isActive: dto.isActive ?? true,
     timezone: dto.timezone ?? 'UTC',
     capacity: dto.capacity ?? null,
     contactEmail: dto.contactEmail ?? null,
@@ -363,6 +367,7 @@ export function createBrowserRestaurantService(): RestaurantService {
         id: restaurant.id,
         name: restaurant.name ?? 'Restaurant',
         slug: restaurant.slug ?? null,
+        isActive: restaurant.isActive ?? true,
         timezone: restaurant.timezone ?? 'UTC',
         address: restaurant.address ?? null,
         role: restaurant.role,

@@ -17,6 +17,7 @@ export type RestaurantListItem = {
   id: string;
   name: string;
   slug: string;
+  isActive?: boolean;
   timezone: string;
   capacity: number | null;
   contactEmail: string | null;
@@ -123,6 +124,7 @@ export async function listRestaurantsForOps(
       id: row.id,
       name: row.name,
       slug: row.slug,
+      isActive: row.is_active ?? true,
       timezone: row.timezone,
       capacity: row.capacity,
       contactEmail: row.contact_email,

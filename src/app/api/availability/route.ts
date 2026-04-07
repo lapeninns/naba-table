@@ -15,6 +15,7 @@ import { z } from "zod";
 import { HttpError } from "@/lib/http/errors";
 import { checkSlotAvailability, findAlternativeSlots } from "@/server/capacity";
 import { recordObservabilityEvent } from "@/server/observability";
+import { getActiveRestaurantId } from "@/server/restaurants/getActiveRestaurantId";
 import { consumeRateLimit } from "@/server/security/rate-limit";
 import { extractClientIp, anonymizeIp } from "@/server/security/request";
 import { getDefaultRestaurantId, MissingRestaurantContextError } from "@/server/supabase";
@@ -68,13 +69,20 @@ export async function GET(req: NextRequest) {
 
     const { restaurantId: rawRestaurantId, date, time, partySize, seating, includeAlternatives } = parsed.data;
 
-    const restaurantId = rawRestaurantId
-      ?? (await getDefaultRestaurantId().catch((error) => {
-        if (error instanceof MissingRestaurantContextError) {
-          throw new HttpError({ message: "restaurantId is required", status: 400, code: "RESTAURANT_REQUIRED" });
-        }
-        throw error;
-      }));
+    const resolvedRestaurantId = rawRestaurantId
+      ? await getActiveRestaurantId(rawRestaurantId)
+      : await getDefaultRestaurantId().catch((error) => {
+          if (error instanceof MissingRestaurantContextError) {
+            throw new HttpError({ message: "restaurantId is required", status: 400, code: "RESTAURANT_REQUIRED" });
+          }
+          throw error;
+        });
+
+    if (!resolvedRestaurantId) {
+      throw new HttpError({ message: "Restaurant not found", status: 404, code: "RESTAURANT_NOT_FOUND" });
+    }
+
+    const restaurantId = resolvedRestaurantId;
 
     // =====================================================
     // Step 2: Rate Limiting

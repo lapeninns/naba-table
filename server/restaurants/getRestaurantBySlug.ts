@@ -33,6 +33,7 @@ export async function getRestaurantBySlug(slug: string): Promise<RestaurantDetai
         .from('restaurants')
         .select(restaurantSelectColumns(includeLogo))
         .eq('slug', normalized)
+        .eq('is_active', true)
         .maybeSingle<RestaurantRow>();
 
     let { data, error } = await execute(true);
@@ -66,6 +67,7 @@ export async function getRestaurantBySlug(slug: string): Promise<RestaurantDetai
       contactPhone: restaurant.contact_phone ?? null,
       googleMapUrl: restaurant.google_map_url ?? null,
       logoUrl: restaurant.logo_url ?? null,
+      isActive: restaurant.is_active ?? true,
       reservationIntervalMinutes: restaurant.reservation_interval_minutes ?? null,
       reservationDefaultDurationMinutes: restaurant.reservation_default_duration_minutes ?? null,
       reservationLastSeatingBufferMinutes: restaurant.reservation_last_seating_buffer_minutes ?? null,

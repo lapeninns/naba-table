@@ -24,6 +24,7 @@ describe('useUpdateRestaurant', () => {
       id: 'rest-1',
       name: 'The Fox',
       slug: 'the-fox',
+      isActive: true,
       timezone: 'Europe/London',
       capacity: 40,
       contactEmail: null,
@@ -57,7 +58,7 @@ describe('useUpdateRestaurant', () => {
 
     await result.current.mutateAsync({
       id: restaurant.id,
-      data: { name: 'The Fox & Hounds' },
+      data: { name: 'The Fox & Hounds', isActive: false },
     });
 
     expect(
@@ -66,6 +67,7 @@ describe('useUpdateRestaurant', () => {
     expect(queryClient.getQueryData(queryKeys.opsRestaurants.detail(restaurant.id))).toEqual({
       ...restaurant,
       name: 'The Fox & Hounds',
+      isActive: false,
     });
   });
 });

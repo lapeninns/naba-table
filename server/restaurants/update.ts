@@ -15,6 +15,7 @@ type DbClient = SupabaseClient<Database, 'public', 'public', PublicSchema>;
 export type UpdateRestaurantInput = {
   name?: string;
   slug?: string;
+  isActive?: boolean;
   timezone?: string;
   capacity?: number | null;
   contactEmail?: string | null;
@@ -37,6 +38,7 @@ export type UpdatedRestaurant = {
   id: string;
   name: string;
   slug: string;
+  isActive?: boolean;
   timezone: string;
   capacity: number | null;
   contactEmail: string | null;
@@ -89,6 +91,10 @@ export async function updateRestaurant(
     }
 
     updateData.slug = input.slug;
+  }
+
+  if (input.isActive !== undefined) {
+    updateData.is_active = input.isActive;
   }
 
   if (input.timezone !== undefined) {
@@ -205,6 +211,7 @@ export async function updateRestaurant(
     id: data.id,
     name: data.name,
     slug: data.slug,
+    isActive: data.is_active ?? true,
     timezone: data.timezone,
     capacity: data.capacity,
     contactEmail: data.contact_email,

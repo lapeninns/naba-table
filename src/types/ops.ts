@@ -212,6 +212,7 @@ export type OpsRestaurantOption = {
   id: string;
   name: string;
   slug?: string | null;
+  isActive?: boolean;
   timezone?: string | null;
   address?: string | null;
 };
