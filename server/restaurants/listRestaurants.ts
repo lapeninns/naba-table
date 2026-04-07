@@ -1,3 +1,4 @@
+import { listRestaurantGoogleBusinessProfileNormalizedSnapshots } from '@/server/google-business-profile/store';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { RestaurantFilters, RestaurantSummary } from '@/lib/restaurants/types';
@@ -82,6 +83,11 @@ export async function listRestaurants(filters: RestaurantFilters = {}): Promise<
 
     const rows = (data ?? []) as RestaurantRow[];
 
+    const googleProfiles = await listRestaurantGoogleBusinessProfileNormalizedSnapshots(
+      rows.map((row) => row.id),
+      supabase,
+    );
+
     const mapped: RestaurantSummary[] = rows.map((row) => ({
       id: row.id,
       name: row.name,
@@ -92,9 +98,10 @@ export async function listRestaurants(filters: RestaurantFilters = {}): Promise<
       bookingPolicy: row.booking_policy,
       contactEmail: row.contact_email,
       contactPhone: row.contact_phone,
-      googleMapUrl: row.google_map_url,
+      googleMapUrl: row.google_map_url ?? googleProfiles[row.id]?.mapsUri ?? null,
       logoUrl: row.logo_url,
       isActive: row.is_active,
+      googleBusinessProfile: googleProfiles[row.id] ?? null,
       reservationIntervalMinutes: row.reservation_interval_minutes,
       reservationDefaultDurationMinutes: row.reservation_default_duration_minutes,
       reservationLastSeatingBufferMinutes: row.reservation_last_seating_buffer_minutes,

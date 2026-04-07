@@ -11,7 +11,7 @@ import {
 
 import { DEV_RESTAURANT_ID } from '../devIds';
 
-
+import type { RestaurantGoogleBusinessProfileConnection } from '@/lib/restaurants/google-business-profile';
 import type {
   OperatingHoursSnapshot,
   RestaurantEmailTemplatePreview,
@@ -32,6 +32,7 @@ const SECOND_DEV_RESTAURANT_ID = '22222222-2222-4222-8222-222222222222';
 
 type RestaurantSnapshot = {
   profile: RestaurantProfile;
+  googleBusinessProfile: RestaurantGoogleBusinessProfileConnection;
   hours: OperatingHoursSnapshot;
   servicePeriods: ServicePeriodRow[];
   turnBands: TurnBandsSnapshot;
@@ -67,6 +68,22 @@ function buildRestaurantSnapshot(
     reservationDefaultDurationMinutes: overrides.reservationDefaultDurationMinutes ?? 90,
     reservationLastSeatingBufferMinutes: overrides.reservationLastSeatingBufferMinutes ?? 15,
     reservationLifecycleGraceMinutes: overrides.reservationLifecycleGraceMinutes ?? 15,
+  };
+
+  const googleBusinessProfile: RestaurantGoogleBusinessProfileConnection = {
+    connected: false,
+    status: 'disconnected',
+    accountId: null,
+    accountName: null,
+    locationId: null,
+    locationName: null,
+    locationTitle: null,
+    availableLocations: [],
+    oauthConnectedAt: null,
+    lastSyncAt: null,
+    lastSyncStatus: null,
+    lastSyncError: null,
+    normalizedProfile: null,
   };
 
   const hours: OperatingHoursSnapshot = {
@@ -111,7 +128,7 @@ function buildRestaurantSnapshot(
     defaults: payload,
   };
 
-  return { profile, hours, servicePeriods, turnBands, emailTemplates: null };
+  return { profile, googleBusinessProfile, hours, servicePeriods, turnBands, emailTemplates: null };
 }
 
 function buildInitialState(): MutableState {
@@ -175,6 +192,152 @@ export class DevRestaurantService implements RestaurantService {
     const snapshot = getRestaurantSnapshot(this.state, restaurantId);
     snapshot.profile = { ...snapshot.profile, ...profile };
     return snapshot.profile;
+  }
+
+  async getGoogleBusinessProfileStatus(restaurantId: string) {
+    return getRestaurantSnapshot(this.state, restaurantId).googleBusinessProfile;
+  }
+
+  async getGoogleBusinessProfileConnectUrl(restaurantId: string) {
+    const snapshot = getRestaurantSnapshot(this.state, restaurantId);
+    snapshot.googleBusinessProfile = {
+      ...snapshot.googleBusinessProfile,
+      connected: true,
+      status: 'needs_location',
+      accountId: '1234567890',
+      accountName: 'Lapen Inns',
+      oauthConnectedAt: new Date('2026-04-07T12:00:00Z').toISOString(),
+      availableLocations: [
+        {
+          accountId: '1234567890',
+          accountName: 'Lapen Inns',
+          locationId: '987654321',
+          locationName: 'locations/987654321',
+          title: snapshot.profile.name,
+          addressText: snapshot.profile.address,
+          primaryPhone: snapshot.profile.contactPhone,
+          websiteUri: 'https://example.com/venues/demo-restaurant',
+          mapsUri: 'https://maps.google.com/?cid=example',
+          reviewUri: 'https://g.page/r/example/review',
+          matchScore: 8,
+        },
+      ],
+    };
+    return 'https://accounts.google.com/o/oauth2/v2/auth?mock=1';
+  }
+
+  async refreshGoogleBusinessProfileCatalog(restaurantId: string) {
+    const snapshot = getRestaurantSnapshot(this.state, restaurantId);
+    if (!snapshot.googleBusinessProfile.connected) {
+      throw new Error('Google Business Profile is not connected.');
+    }
+    snapshot.googleBusinessProfile = {
+      ...snapshot.googleBusinessProfile,
+      status: snapshot.googleBusinessProfile.locationId ? 'connected' : 'needs_location',
+    };
+    return snapshot.googleBusinessProfile;
+  }
+
+  async syncGoogleBusinessProfile(
+    restaurantId: string,
+    payload: { accountId?: string | null; locationId?: string | null } = {},
+  ) {
+    const snapshot = getRestaurantSnapshot(this.state, restaurantId);
+    const selected =
+      snapshot.googleBusinessProfile.availableLocations.find(
+        (option) =>
+          (!payload.locationId || option.locationId === payload.locationId) &&
+          (!payload.accountId || option.accountId === payload.accountId),
+      ) ?? snapshot.googleBusinessProfile.availableLocations[0];
+
+    if (!selected) {
+      throw new Error('Select a Google location first.');
+    }
+
+    snapshot.googleBusinessProfile = {
+      ...snapshot.googleBusinessProfile,
+      connected: true,
+      status: 'synced',
+      accountId: selected.accountId,
+      accountName: selected.accountName,
+      locationId: selected.locationId,
+      locationName: selected.locationName,
+      locationTitle: selected.title,
+      lastSyncAt: new Date('2026-04-07T12:05:00Z').toISOString(),
+      lastSyncStatus: 'success',
+      lastSyncError: null,
+      normalizedProfile: {
+        title: selected.title,
+        description:
+          'A polished Google Business Profile summary imported into the Ops profile so the landing page can stay current.',
+        primaryCategory: 'Restaurant',
+        additionalCategories: ['Pub', 'Gastropub'],
+        addressText: selected.addressText,
+        locality: 'London',
+        regionCode: 'GB',
+        postalCode: 'CB1 2AB',
+        primaryPhone: selected.primaryPhone,
+        additionalPhones: [],
+        websiteUri: selected.websiteUri,
+        mapsUri: selected.mapsUri,
+        reviewUri: selected.reviewUri,
+        regularHoursSummary: ['MONDAY 12:00 - MONDAY 22:00', 'TUESDAY 12:00 - TUESDAY 22:00'],
+        specialHoursSummary: [],
+        attributeLabels: ['Outdoor seating: Yes', 'Serves vegetarian dishes: Yes'],
+        rating: 4.6,
+        reviewCount: 248,
+        reviewSnippets: [
+          {
+            reviewId: 'review-1',
+            starRating: 'FIVE',
+            comment: 'Friendly team, smooth booking, and a strong Sunday roast.',
+            reviewerDisplayName: 'Local Guide',
+            createTime: '2026-03-28T09:15:00Z',
+            updateTime: '2026-03-28T09:15:00Z',
+          },
+        ],
+        media: [
+          {
+            name: 'media-1',
+            category: 'COVER',
+            format: 'PHOTO',
+            sourceUrl: 'https://images.example.com/restaurant-cover.jpg',
+            googleUrl: 'https://images.example.com/restaurant-cover.jpg',
+            thumbnailUrl: 'https://images.example.com/restaurant-cover-thumb.jpg',
+            description: 'Dining room hero image',
+          },
+        ],
+        metrics30d: [
+          {
+            metric: 'WEBSITE_CLICKS',
+            total: 84,
+            startDate: '2026-03-08',
+            endDate: '2026-04-06',
+          },
+        ],
+      },
+    };
+
+    return snapshot.googleBusinessProfile;
+  }
+
+  async disconnectGoogleBusinessProfile(restaurantId: string) {
+    const snapshot = getRestaurantSnapshot(this.state, restaurantId);
+    snapshot.googleBusinessProfile = {
+      connected: false,
+      status: 'disconnected',
+      accountId: null,
+      accountName: null,
+      locationId: null,
+      locationName: null,
+      locationTitle: null,
+      availableLocations: [],
+      oauthConnectedAt: null,
+      lastSyncAt: null,
+      lastSyncStatus: null,
+      lastSyncError: null,
+      normalizedProfile: null,
+    };
   }
 
   async getOperatingHours(restaurantId: string) {

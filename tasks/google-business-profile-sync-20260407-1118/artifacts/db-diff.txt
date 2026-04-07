@@ -1,0 +1,8 @@
+Pending remote staging dry-run.
+
+Planned migration:
+- `supabase/migrations/20260407113500_add_restaurant_google_business_profiles.sql`
+
+Notes:
+- Per repo policy, Supabase changes are remote-only and should be applied staging-first.
+- Confirm backup/PITR posture before running the migration.

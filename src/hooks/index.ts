@@ -7,6 +7,7 @@ export * from './ops/useOpsBookingsList';
 export * from './ops/useOpsBookingsTableState';
 export * from './ops/useOpsRestaurants';
 export * from './ops/useOpsRestaurantDetails';
+export * from './ops/useOpsRestaurantGoogleBusinessProfile';
 export * from './ops/useOpsOperatingHours';
 export * from './ops/useOpsServicePeriods';
 export * from './ops/useOpsRestaurantLogoUpload';

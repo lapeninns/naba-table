@@ -97,23 +97,38 @@ function buildFallbackDirectoryContent(
   restaurant: RestaurantSummary,
   locality: string | null,
 ): Omit<RestaurantDirectoryEntry, keyof RestaurantSummary | 'locality'> {
+  const google = restaurant.googleBusinessProfile ?? null;
   const groupTag = getGroupTag(restaurant.capacity);
   const capacityLine = getCapacityLine(restaurant.capacity);
   const locationLine = locality ? `${locality} dining` : 'Neighbourhood dining';
+  const googleRatingLabel =
+    typeof google?.rating === 'number' && typeof google?.reviewCount === 'number'
+      ? `${google.rating.toFixed(1)} Google rating (${google.reviewCount} reviews)`
+      : null;
+  const googleCategoryLabels = [
+    google?.primaryCategory ?? null,
+    ...(google?.additionalCategories ?? []).slice(0, 2),
+  ].filter((value): value is string => Boolean(value?.trim()));
+  const googleStory = google?.description?.trim() ?? null;
 
   return {
     badge: 'Bookable venue guide',
-    listingSummary: `${restaurant.name} is a ${locationLine.toLowerCase()} option on Nab a Table with clear booking steps, direct contact details, and practical arrival context before you reserve.`,
+    listingSummary:
+      googleStory ??
+      `${restaurant.name} is a ${locationLine.toLowerCase()} option on Nab a Table with clear booking steps, direct contact details, and practical arrival context before you reserve.`,
     detailSummary:
       restaurant.bookingPolicy?.trim() ||
+      googleStory ||
       `${restaurant.name} is set up for straightforward online reservations, with live booking access and venue details in one place.`,
     categories: dedupeStrings([
       locationLine,
       groupTag,
+      ...googleCategoryLabels,
       restaurant.address ? 'Easy to locate' : null,
       'Online reservations',
     ]),
     vibeTags: dedupeStrings([
+      googleRatingLabel,
       restaurant.address ? 'Map-ready arrival' : null,
       restaurant.contactPhone ? 'Direct host contact' : null,
       restaurant.capacity && restaurant.capacity >= 80 ? 'Works for larger groups' : 'Flexible party sizes',
@@ -127,12 +142,15 @@ function buildFallbackDirectoryContent(
     amenityTags: dedupeStrings([
       restaurant.contactPhone ? 'Phone support' : null,
       restaurant.contactEmail ? 'Email contact' : null,
+      ...(google?.attributeLabels ?? []).slice(0, 3),
       restaurant.address ? 'Directions available' : null,
       restaurant.bookingPolicy ? 'Booking notes shown' : 'Instant booking path',
     ]),
     highlights: [
       { label: 'Area', value: locality ?? 'Location shared once available' },
       { label: 'Booking', value: 'Reserve online through Nab a Table' },
+      ...(google?.primaryCategory ? [{ label: 'Google category', value: google.primaryCategory }] : []),
+      ...(googleRatingLabel ? [{ label: 'Google reviews', value: googleRatingLabel }] : []),
       { label: 'Group fit', value: capacityLine },
       {
         label: 'Contact',
@@ -140,11 +158,16 @@ function buildFallbackDirectoryContent(
       },
     ],
     story: [
-      `${restaurant.name} is presented here as a practical venue guide first: where it is, how to book it, and whether it suits the kind of visit you are planning.`,
+      googleStory ??
+        `${restaurant.name} is presented here as a practical venue guide first: where it is, how to book it, and whether it suits the kind of visit you are planning.`,
       'Even when a venue does not yet have a fully curated editorial profile, the directory should still help diners compare arrival ease, contact clarity, and group fit.',
+      ...(google?.reviewSnippets[0]?.comment
+        ? [`Recent guest signal: "${google.reviewSnippets[0].comment}"`]
+        : []),
     ],
     foodHighlights: [
       'Live booking path connected directly to the venue page.',
+      ...(google?.primaryCategory ? [`Google categorises the venue as ${google.primaryCategory}.`] : []),
       restaurant.bookingPolicy?.trim()
         ? `Booking note: ${restaurant.bookingPolicy.trim()}`
         : 'Use the booking flow to confirm party size and preferred time quickly.',
@@ -154,6 +177,7 @@ function buildFallbackDirectoryContent(
     ],
     bookingTips: dedupeStrings([
       'Use this page to compare venue fit before opening the booking flow.',
+      google?.mapsUri ? 'Google Maps directions are available for a quicker first visit.' : null,
       restaurant.contactPhone ? 'Call ahead if you need a quick answer on timing or access.' : null,
       restaurant.bookingPolicy ? 'Read the venue booking notes before confirming.' : null,
     ]),

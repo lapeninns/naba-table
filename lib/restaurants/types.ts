@@ -1,3 +1,5 @@
+import type { RestaurantGoogleBusinessProfileNormalized } from './google-business-profile';
+
 export interface RestaurantSummary {
   id: string;
   name: string;
@@ -18,6 +20,7 @@ export interface RestaurantSummary {
   reservationLifecycleGraceMinutes?: number | null;
   createdAt?: string;
   updatedAt?: string;
+  googleBusinessProfile?: RestaurantGoogleBusinessProfileNormalized | null;
 }
 
 export interface RestaurantFilters {

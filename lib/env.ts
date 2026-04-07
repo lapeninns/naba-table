@@ -154,6 +154,18 @@ export const env = {
     } as const;
   },
 
+  get integrations() {
+    const parsed = parseEnv();
+    return {
+      googleBusinessProfile: {
+        clientId: parsed.GOOGLE_BUSINESS_PROFILE_CLIENT_ID ?? null,
+        clientSecret: parsed.GOOGLE_BUSINESS_PROFILE_CLIENT_SECRET ?? null,
+        redirectUri: parsed.GOOGLE_BUSINESS_PROFILE_REDIRECT_URI ?? null,
+        tokenEncryptionKey: parsed.GOOGLE_BUSINESS_PROFILE_TOKEN_ENCRYPTION_KEY ?? null,
+      },
+    } as const;
+  },
+
   get featureFlags() {
     const parsed = parseEnv();
     const isProduction = parsed.NODE_ENV === 'production';

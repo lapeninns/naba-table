@@ -2813,6 +2813,86 @@ export type Database = {
         }
         Relationships: []
       }
+      restaurant_google_business_profiles: {
+        Row: {
+          account_id: string | null
+          account_name: string | null
+          available_locations: Json
+          created_at: string
+          last_sync_at: string | null
+          last_sync_error: string | null
+          last_sync_status: string | null
+          location_id: string | null
+          location_name: string | null
+          location_title: string | null
+          oauth_access_token_ciphertext: string
+          oauth_access_token_expires_at: string | null
+          oauth_connected_at: string
+          oauth_last_refreshed_at: string | null
+          oauth_refresh_token_ciphertext: string | null
+          oauth_scopes: string[]
+          oauth_token_type: string | null
+          profile_normalized: Json | null
+          profile_snapshot: Json | null
+          restaurant_id: string
+          updated_at: string
+        }
+        Insert: {
+          account_id?: string | null
+          account_name?: string | null
+          available_locations?: Json
+          created_at?: string
+          last_sync_at?: string | null
+          last_sync_error?: string | null
+          last_sync_status?: string | null
+          location_id?: string | null
+          location_name?: string | null
+          location_title?: string | null
+          oauth_access_token_ciphertext: string
+          oauth_access_token_expires_at?: string | null
+          oauth_connected_at?: string
+          oauth_last_refreshed_at?: string | null
+          oauth_refresh_token_ciphertext?: string | null
+          oauth_scopes?: string[]
+          oauth_token_type?: string | null
+          profile_normalized?: Json | null
+          profile_snapshot?: Json | null
+          restaurant_id: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string | null
+          account_name?: string | null
+          available_locations?: Json
+          created_at?: string
+          last_sync_at?: string | null
+          last_sync_error?: string | null
+          last_sync_status?: string | null
+          location_id?: string | null
+          location_name?: string | null
+          location_title?: string | null
+          oauth_access_token_ciphertext?: string
+          oauth_access_token_expires_at?: string | null
+          oauth_connected_at?: string
+          oauth_last_refreshed_at?: string | null
+          oauth_refresh_token_ciphertext?: string | null
+          oauth_scopes?: string[]
+          oauth_token_type?: string | null
+          profile_normalized?: Json | null
+          profile_snapshot?: Json | null
+          restaurant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "restaurant_google_business_profiles_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: true
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_policy: {
         Row: {
           allow_after_hours: boolean

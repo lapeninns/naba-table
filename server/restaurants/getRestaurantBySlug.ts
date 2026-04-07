@@ -1,3 +1,7 @@
+import {
+  getRestaurantGoogleBusinessProfileNormalizedSnapshot,
+  isGoogleBusinessProfileTableMissingError,
+} from '@/server/google-business-profile/store';
 import { ensureLogoColumnOnRow, isLogoUrlColumnMissing, logLogoColumnFallback } from '@/server/restaurants/logo-url-compat';
 import { restaurantSelectColumns } from '@/server/restaurants/select-fields';
 import { getServiceSupabaseClient } from '@/server/supabase';
@@ -54,6 +58,15 @@ export async function getRestaurantBySlug(slug: string): Promise<RestaurantDetai
       return null;
     }
 
+    let googleBusinessProfile = null;
+    try {
+      googleBusinessProfile = await getRestaurantGoogleBusinessProfileNormalizedSnapshot(restaurant.id, supabase);
+    } catch (error) {
+      if (!isGoogleBusinessProfileTableMissingError(error)) {
+        throw error;
+      }
+    }
+
     return {
       id: restaurant.id,
       name: restaurant.name,
@@ -64,9 +77,10 @@ export async function getRestaurantBySlug(slug: string): Promise<RestaurantDetai
       bookingPolicy: restaurant.booking_policy ?? null,
       contactEmail: restaurant.contact_email ?? null,
       contactPhone: restaurant.contact_phone ?? null,
-      googleMapUrl: restaurant.google_map_url ?? null,
-      googleReviewUrl: restaurant.google_review_url ?? null,
+      googleMapUrl: restaurant.google_map_url ?? googleBusinessProfile?.mapsUri ?? null,
+      googleReviewUrl: restaurant.google_review_url ?? googleBusinessProfile?.reviewUri ?? null,
       logoUrl: restaurant.logo_url ?? null,
+      googleBusinessProfile,
       reservationIntervalMinutes: restaurant.reservation_interval_minutes ?? null,
       reservationDefaultDurationMinutes: restaurant.reservation_default_duration_minutes ?? null,
       reservationLastSeatingBufferMinutes: restaurant.reservation_last_seating_buffer_minutes ?? null,

@@ -94,6 +94,29 @@ describe('public restaurant marketing pages', () => {
       contactEmail: 'hello@thefox.test',
       contactPhone: '+44 1234 567890',
       logoUrl: null,
+      googleBusinessProfile: {
+        title: 'The Fox',
+        description: 'Popular neighbourhood pub with polished seasonal dishes.',
+        primaryCategory: 'Pub',
+        additionalCategories: ['Restaurant'],
+        addressText: '1 High Street',
+        locality: 'Cambridge',
+        regionCode: 'GB',
+        postalCode: 'CB1 2AB',
+        primaryPhone: '+44 1234 567890',
+        additionalPhones: [],
+        websiteUri: 'https://thefox.example.com',
+        mapsUri: 'https://maps.example.com/the-fox',
+        reviewUri: 'https://reviews.example.com/the-fox',
+        regularHoursSummary: [],
+        specialHoursSummary: [],
+        attributeLabels: ['Outdoor seating: Yes'],
+        rating: 4.8,
+        reviewCount: 120,
+        reviewSnippets: [],
+        media: [],
+        metrics30d: [],
+      },
     });
 
     render(await RestaurantPage({ params: Promise.resolve({ slug: 'the-fox' }) }));
@@ -101,6 +124,8 @@ describe('public restaurant marketing pages', () => {
     expect(screen.getByRole('heading', { name: 'The Fox' })).toBeInTheDocument();
     expect(screen.getAllByText('+44 1234 567890')).not.toHaveLength(0);
     expect(screen.getByText('Why diners pick The Fox')).toBeInTheDocument();
+    expect(screen.getByText('Google reviews')).toBeInTheDocument();
+    expect(screen.getAllByText('4.8 Google rating (120 reviews)')).not.toHaveLength(0);
   });
 
   it('renders curated directory content for The Old Crown Girton', async () => {

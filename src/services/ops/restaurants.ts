@@ -4,6 +4,7 @@ import { DEFAULT_RESERVATION_INTERVAL_MINUTES } from '@reserve/shared/config/res
 
 import type { RestaurantRole } from '@/lib/owner/auth/roles';
 import type { RestaurantBookingEmailTemplateKey, RestaurantEmailTemplateVariant } from '@/lib/restaurants/email-templates';
+import type { RestaurantGoogleBusinessProfileConnection } from '@/lib/restaurants/google-business-profile';
 import type { OpsRestaurantOption, OpsServiceError } from '@/types/ops';
 import type { OccasionKey } from '@reserve/shared/occasions';
 
@@ -87,6 +88,10 @@ type EmailTemplateResponse = {
 type EmailTemplatePreviewResponse = {
   restaurantId: string;
   preview: RestaurantEmailTemplatePreview;
+};
+
+type GoogleBusinessProfileConnectResponse = {
+  authorizationUrl: string;
 };
 
 export type SendTestEmailTemplateResponse = {
@@ -224,6 +229,14 @@ export interface RestaurantService {
   listRestaurants(): Promise<Array<OpsRestaurantOption & { role: RestaurantRole }>>;
   getProfile(restaurantId: string): Promise<RestaurantProfile>;
   updateProfile(restaurantId: string, profile: Partial<RestaurantProfile>): Promise<RestaurantProfile>;
+  getGoogleBusinessProfileStatus(restaurantId: string): Promise<RestaurantGoogleBusinessProfileConnection>;
+  getGoogleBusinessProfileConnectUrl(restaurantId: string): Promise<string>;
+  refreshGoogleBusinessProfileCatalog(restaurantId: string): Promise<RestaurantGoogleBusinessProfileConnection>;
+  syncGoogleBusinessProfile(
+    restaurantId: string,
+    payload?: { accountId?: string | null; locationId?: string | null },
+  ): Promise<RestaurantGoogleBusinessProfileConnection>;
+  disconnectGoogleBusinessProfile(restaurantId: string): Promise<void>;
   getOperatingHours(restaurantId: string): Promise<OperatingHoursSnapshot>;
   updateOperatingHours(restaurantId: string, snapshot: OperatingHoursSnapshot): Promise<OperatingHoursSnapshot>;
   getServicePeriods(restaurantId: string): Promise<ServicePeriodRow[]>;
@@ -267,6 +280,26 @@ export class NotImplementedRestaurantService implements RestaurantService {
 
   updateProfile(): Promise<RestaurantProfile> {
     this.error('updateProfile not implemented');
+  }
+
+  getGoogleBusinessProfileStatus(): Promise<RestaurantGoogleBusinessProfileConnection> {
+    this.error('getGoogleBusinessProfileStatus not implemented');
+  }
+
+  getGoogleBusinessProfileConnectUrl(): Promise<string> {
+    this.error('getGoogleBusinessProfileConnectUrl not implemented');
+  }
+
+  refreshGoogleBusinessProfileCatalog(): Promise<RestaurantGoogleBusinessProfileConnection> {
+    this.error('refreshGoogleBusinessProfileCatalog not implemented');
+  }
+
+  syncGoogleBusinessProfile(): Promise<RestaurantGoogleBusinessProfileConnection> {
+    this.error('syncGoogleBusinessProfile not implemented');
+  }
+
+  disconnectGoogleBusinessProfile(): Promise<void> {
+    this.error('disconnectGoogleBusinessProfile not implemented');
   }
 
   getOperatingHours(): Promise<OperatingHoursSnapshot> {
@@ -381,6 +414,48 @@ export function createBrowserRestaurantService(): RestaurantService {
         body: JSON.stringify(profile),
       });
       return mapRestaurant(restaurant);
+    },
+
+    async getGoogleBusinessProfileStatus(restaurantId: string) {
+      return fetchJson<RestaurantGoogleBusinessProfileConnection>(
+        `${OPS_RESTAURANTS_BASE}/${restaurantId}/google-business-profile`,
+      );
+    },
+
+    async getGoogleBusinessProfileConnectUrl(restaurantId: string) {
+      const response = await fetchJson<GoogleBusinessProfileConnectResponse>(
+        `${OPS_RESTAURANTS_BASE}/${restaurantId}/google-business-profile/connect`,
+        {
+          method: 'POST',
+        },
+      );
+      return response.authorizationUrl;
+    },
+
+    async refreshGoogleBusinessProfileCatalog(restaurantId: string) {
+      return fetchJson<RestaurantGoogleBusinessProfileConnection>(
+        `${OPS_RESTAURANTS_BASE}/${restaurantId}/google-business-profile`,
+        {
+          method: 'POST',
+        },
+      );
+    },
+
+    async syncGoogleBusinessProfile(restaurantId: string, payload = {}) {
+      return fetchJson<RestaurantGoogleBusinessProfileConnection>(
+        `${OPS_RESTAURANTS_BASE}/${restaurantId}/google-business-profile/sync`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        },
+      );
+    },
+
+    async disconnectGoogleBusinessProfile(restaurantId: string) {
+      await fetchJson<{ ok: true }>(`${OPS_RESTAURANTS_BASE}/${restaurantId}/google-business-profile`, {
+        method: 'DELETE',
+      });
     },
 
     async getOperatingHours(restaurantId: string) {
