@@ -9,6 +9,7 @@ export interface RestaurantSummary {
   contactEmail?: string | null;
   contactPhone?: string | null;
   googleMapUrl?: string | null;
+  googleReviewUrl?: string | null;
   logoUrl?: string | null;
   isActive?: boolean | null;
   reservationIntervalMinutes?: number | null;

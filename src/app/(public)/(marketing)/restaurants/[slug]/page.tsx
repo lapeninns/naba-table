@@ -5,6 +5,7 @@ import {
     RestaurantDetailsSection,
 } from '@/components/restaurants/PublicSections';
 import { getRestaurantBySlug } from '@/server/restaurants/getRestaurantBySlug';
+import { enrichRestaurantDirectoryEntry } from '@src/data/restaurant-directory';
 
 import type { Metadata } from 'next';
 
@@ -22,9 +23,11 @@ export async function generateMetadata({ params }: { params: RouteParams }): Pro
         };
     }
 
+    const directoryRestaurant = enrichRestaurantDirectoryEntry(restaurant);
+
     return {
         title: `${restaurant.name} · Nab a Table`,
-        description: `Book a table at ${restaurant.name}. ${restaurant.address ?? 'Fine dining and great atmosphere.'}`,
+        description: `${directoryRestaurant.detailSummary} ${restaurant.address ?? ''}`.trim(),
     };
 }
 
@@ -36,29 +39,16 @@ export default async function RestaurantPage({ params }: { params: RouteParams }
         notFound();
     }
 
+    const directoryRestaurant = enrichRestaurantDirectoryEntry(restaurant);
     const mapEmbedUrl = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY
         ? `https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY}&q=${encodeURIComponent(restaurant.address ?? restaurant.name)}`
         : null;
 
     return (
         <div className="guest-theme bg-muted pb-16">
-            <RestaurantDetailHero restaurant={{
-                id: restaurant.id,
-                slug: restaurant.slug ?? slug,
-                name: restaurant.name,
-                address: restaurant.address,
-                logoUrl: restaurant.logoUrl,
-            }} />
+            <RestaurantDetailHero restaurant={directoryRestaurant} />
             <RestaurantDetailsSection
-                restaurant={{
-                    id: restaurant.id,
-                    slug: restaurant.slug ?? slug,
-                    name: restaurant.name,
-                    address: restaurant.address,
-                    contactEmail: restaurant.contactEmail,
-                    contactPhone: restaurant.contactPhone,
-                    logoUrl: restaurant.logoUrl,
-                }}
+                restaurant={directoryRestaurant}
                 mapEmbedUrl={mapEmbedUrl}
             />
         </div>

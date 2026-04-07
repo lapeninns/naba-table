@@ -1,16 +1,16 @@
- 
-
 import {
   ArrowRight,
   BookOpenCheck,
   CalendarCheck2,
-  Compass,
+  CarFront,
+  ExternalLink,
   MapPin,
   Phone,
-  Search,
   ShieldCheck,
   Sparkles,
+  Star,
   Users,
+  UtensilsCrossed,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -18,98 +18,86 @@ import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 
-type RestaurantListItem = {
-  id: string | number;
-  slug: string;
-  name: string;
-  address?: string | null;
-  logoUrl?: string | null;
-  capacity?: number | null;
-};
+import type { RestaurantDirectoryEntry } from '@src/data/restaurant-directory';
 
-type RestaurantDetail = RestaurantListItem & {
-  contactPhone?: string | null;
-  contactEmail?: string | null;
-};
+export function RestaurantsHeroSection({ restaurants }: { restaurants: RestaurantDirectoryEntry[] }) {
+  const topCategories = [...new Set(restaurants.flatMap((restaurant) => restaurant.categories))].slice(0, 5);
+  const localities = new Set(restaurants.map((restaurant) => restaurant.locality).filter(Boolean));
 
-const TAGS = ['Chef-led', 'Terrace', 'Live fire'];
-
-export function RestaurantsHeroSection({ totalRestaurants }: { totalRestaurants: number }) {
   return (
     <section className="px-4 py-12 sm:px-6 lg:py-16" aria-labelledby="restaurants-hero-heading">
       <div className="mx-auto flex max-w-6xl flex-col gap-10 rounded-[var(--guest-radius-2xl)] border border-slate-100 bg-white/90 p-6 shadow-[var(--guest-shadow-xl)] md:flex-row md:items-center md:justify-between">
-        <div className="flex-1 space-y-4">
+        <div className="flex-1 space-y-5">
           <Badge variant="secondary" className="rounded-full px-4 py-1 text-blue-900">
-            Curated guest picks
+            Restaurant directory
           </Badge>
           <div className="space-y-3">
             <h1
               id="restaurants-hero-heading"
-              className="guest-heading-hero text-[clamp(2rem,4vw,3rem)] font-bold text-slate-900"
+              className="guest-heading-hero text-[clamp(2rem,4vw,3.2rem)] font-bold text-slate-900"
             >
-              Find the right table fast.
+              Find the right restaurant, not just the next available slot.
             </h1>
-            <p className="text-base text-slate-600 sm:text-lg">
-              Live-ready venues with the same flow guests see at checkout—no surprises between
-              browsing and booking.
+            <p className="max-w-3xl text-base text-slate-600 sm:text-lg">
+              Browse venues by atmosphere, group fit, food style, and booking context. This is the
+              detail most pub directories skip: why a place works for the meal you are planning.
             </p>
           </div>
+          <div className="flex flex-wrap gap-3 text-sm text-slate-600" aria-label="Popular filters">
+            {topCategories.map((tag) => (
+              <span key={tag} className="rounded-full border border-slate-200 px-3 py-1">
+                {tag}
+              </span>
+            ))}
+          </div>
           <div className="flex flex-col gap-3 md:flex-row">
-            <div className="relative flex-1">
-              <label className="sr-only" htmlFor="restaurant-discovery">
-                Search restaurants
-              </label>
-              <Search
-                className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-                aria-hidden
-              />
-              <Input
-                id="restaurant-discovery"
-                name="restaurant-discovery"
-                type="search"
-                placeholder="Search by neighborhood, cuisine, or vibe"
-                className="h-12 rounded-[var(--guest-radius-lg)] border-slate-200 bg-slate-50 pl-11"
-              />
-            </div>
-            <Button size="lg" className="h-12 rounded-[var(--guest-radius-lg)] text-base" asChild>
+            <Button
+              size="lg"
+              className="h-12 rounded-[var(--guest-radius-lg)] bg-slate-950 text-base text-white hover:bg-slate-800"
+              asChild
+            >
               <Link href="/auth/signin">
                 <ShieldCheck className="mr-2 h-5 w-5" aria-hidden />
-                Save favorites
+                Save favourite venues
               </Link>
             </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="h-12 rounded-[var(--guest-radius-lg)] border-slate-200 text-base"
+              asChild
+            >
+              <Link href="/restaurants/the-old-crown-girton">See an example guide</Link>
+            </Button>
           </div>
-          <ul className="flex flex-wrap gap-3 text-sm text-slate-600" aria-label="Popular filters">
-            {TAGS.map((tag) => (
-              <li key={tag} className="rounded-full border border-slate-200 px-3 py-1">
-                {tag}
-              </li>
-            ))}
-          </ul>
         </div>
         <Card className="flex flex-1 flex-col gap-4 rounded-[var(--guest-radius-xl)] border-blue-100 bg-gradient-to-br from-blue-600/90 via-blue-500/90 to-blue-700/90 p-6 text-white shadow-[var(--guest-shadow-lg)]">
-          <div className="space-y-1">
-            <p className="text-sm uppercase tracking-[0.28em] text-blue-100">Live venues</p>
-            <p className="text-4xl font-semibold">{totalRestaurants}</p>
-            <p className="text-sm text-blue-100">Ready to book right now.</p>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <StatPill label="Live venues" value={String(restaurants.length)} icon={Sparkles} />
+            <StatPill label="Places covered" value={String(localities.size)} icon={MapPin} />
+            <StatPill label="Guide cues" value={String(topCategories.length)} icon={BookOpenCheck} />
           </div>
           <div className="rounded-[var(--guest-radius-lg)] bg-white/10 p-4">
-            <p className="text-sm font-medium">Built for clarity</p>
+            <p className="text-sm font-medium">Built for decision-making</p>
             <p className="text-sm text-blue-100">
-              Same cards and spacing you’ll see in the booking flow.
+              Venue categories, practical visit notes, and a direct booking path stay together on
+              the same page.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3 text-sm text-blue-100">
             <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1">
-              <Compass className="h-4 w-4" aria-hidden />
-              Guided discovery
+              <UtensilsCrossed className="h-4 w-4" aria-hidden />
+              Descriptions that help
             </span>
             <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1">
-              <Sparkles className="h-4 w-4" aria-hidden />
-              Instant confirm
+              <Users className="h-4 w-4" aria-hidden />
+              Group-fit guidance
             </span>
-            <ListingIllustration />
+            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1">
+              <CalendarCheck2 className="h-4 w-4" aria-hidden />
+              Booking-ready details
+            </span>
           </div>
         </Card>
       </div>
@@ -117,77 +105,124 @@ export function RestaurantsHeroSection({ totalRestaurants }: { totalRestaurants:
   );
 }
 
-export function RestaurantsGridSection({ restaurants }: { restaurants: RestaurantListItem[] }) {
+export function RestaurantsGridSection({ restaurants }: { restaurants: RestaurantDirectoryEntry[] }) {
   return (
-    <section className="px-4 pb-14 pt-4 sm:px-6" aria-labelledby="restaurants-grid-heading">
-      <div className="mx-auto max-w-6xl space-y-4">
+    <section className="pb-14 pt-2" aria-labelledby="restaurants-grid-heading">
+      <div className="space-y-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm text-blue-700">Carefully selected venues</p>
+            <p className="text-sm text-blue-700">Directory results</p>
             <h2
               id="restaurants-grid-heading"
               className="guest-heading-page text-[length:var(--guest-text-page)] font-semibold text-slate-900"
             >
-              Pick a spot
+              Compare venues with more context
             </h2>
           </div>
-          <p className="text-sm text-slate-500">Tap a card for details and booking.</p>
+          <p className="text-sm text-slate-600">
+            {restaurants.length} venue{restaurants.length === 1 ? '' : 's'} match your current
+            view.
+          </p>
         </div>
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {restaurants.map((restaurant) => (
             <article
               key={restaurant.id}
-              className="group flex h-full flex-col gap-4 rounded-[var(--guest-radius-xl)] border border-slate-100 bg-white p-4 shadow-[var(--guest-shadow-md)]"
+              className="group flex h-full flex-col overflow-hidden rounded-[var(--guest-radius-xl)] border border-slate-100 bg-white shadow-[var(--guest-shadow-md)]"
             >
               <Link
                 href={`/restaurants/${restaurant.slug}`}
-                className="relative block h-48 w-full overflow-hidden rounded-[var(--guest-radius-lg)]"
+                className="relative block h-52 w-full overflow-hidden"
               >
                 {restaurant.logoUrl ? (
                   <Image
                     src={restaurant.logoUrl}
                     alt={restaurant.name}
                     fill
-                    className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                    className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
                     sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    unoptimized
                   />
                 ) : (
-                  <div className="flex h-48 items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600">
-                    <span className="text-4xl font-bold opacity-60">
-                      {restaurant.name.charAt(0)}
-                    </span>
+                  <div className="flex h-full items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 text-blue-700">
+                    <span className="text-4xl font-bold opacity-60">{restaurant.name.charAt(0)}</span>
                   </div>
                 )}
-                <div className="absolute left-4 top-4 rounded-full bg-white/90 px-4 py-1 text-xs font-semibold text-blue-800 shadow">
-                  Instant confirm
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-slate-950/15 to-transparent" />
+                <div className="absolute left-4 top-4">
+                  <span className="rounded-full bg-white/90 px-4 py-1 text-xs font-semibold text-blue-800 shadow">
+                    {restaurant.badge}
+                  </span>
                 </div>
               </Link>
-              <div className="flex flex-1 flex-col gap-3">
-                <div>
-                  <Link
-                    href={`/restaurants/${restaurant.slug}`}
-                    className="inline-flex items-center gap-2 text-lg font-semibold text-slate-900 hover:text-blue-700"
-                  >
-                    {restaurant.name}
-                    <ArrowRight className="h-4 w-4" aria-hidden />
-                  </Link>
-                  {restaurant.address ? (
-                    <p className="mt-1 flex items-start gap-2 text-sm text-slate-600">
-                      <MapPin className="mt-0.5 h-4 w-4 text-slate-400" aria-hidden />
-                      <span className="line-clamp-2">{restaurant.address}</span>
-                    </p>
-                  ) : null}
+              <div className="flex flex-1 flex-col gap-4 p-4">
+                <div className="space-y-3">
+                  <div className="flex flex-wrap gap-2">
+                    {restaurant.categories.slice(0, 3).map((category) => (
+                      <Badge key={category} variant="secondary" className="rounded-full">
+                        {category}
+                      </Badge>
+                    ))}
+                  </div>
+                  <div>
+                    <Link
+                      href={`/restaurants/${restaurant.slug}`}
+                      className="inline-flex items-center gap-2 text-lg font-semibold text-slate-900 hover:text-blue-700"
+                    >
+                      {restaurant.name}
+                      <ArrowRight className="h-4 w-4" aria-hidden />
+                    </Link>
+                    {restaurant.address ? (
+                      <p className="mt-1 flex items-start gap-2 text-sm text-slate-600">
+                        <MapPin className="mt-0.5 h-4 w-4 text-slate-400" aria-hidden />
+                        <span className="line-clamp-2">{restaurant.address}</span>
+                      </p>
+                    ) : null}
+                  </div>
+                  <p className="text-sm leading-6 text-slate-600">{restaurant.listingSummary}</p>
                 </div>
-                <div className="flex items-center justify-between text-sm text-slate-600">
-                  <span className="inline-flex items-center gap-1">
+
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {restaurant.highlights.slice(0, 2).map((highlight) => (
+                    <div
+                      key={highlight.label}
+                      className="rounded-[var(--guest-radius-lg)] border border-slate-100 bg-slate-50 px-3 py-2"
+                    >
+                      <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-600">
+                        {highlight.label}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-700">{highlight.value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex flex-wrap gap-2 text-sm text-slate-600">
+                  {restaurant.bestFor.slice(0, 3).map((item) => (
+                    <span key={item} className="rounded-full bg-blue-50 px-3 py-1 text-blue-800">
+                      {item}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="mt-auto flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
+                  <span className="inline-flex items-center gap-1 text-sm text-slate-600">
                     <Users className="h-4 w-4" aria-hidden />
                     {restaurant.capacity
                       ? `Up to ${restaurant.capacity} guests`
-                      : 'Flexible seating'}
+                      : 'Flexible party sizes'}
                   </span>
-                  <Button variant="secondary" size="sm" className="rounded-full px-4" asChild>
-                    <Link href={`/restaurants/${restaurant.slug}`}>View</Link>
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button variant="secondary" size="sm" className="rounded-full px-4" asChild>
+                      <Link href={`/restaurants/${restaurant.slug}`}>View guide</Link>
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="rounded-full bg-slate-950 px-4 text-white hover:bg-slate-800"
+                      asChild
+                    >
+                      <Link href={`/restaurants/${restaurant.slug}/book`}>Book</Link>
+                    </Button>
+                  </div>
                 </div>
               </div>
             </article>
@@ -195,9 +230,9 @@ export function RestaurantsGridSection({ restaurants }: { restaurants: Restauran
         </div>
         {restaurants.length === 0 ? (
           <div className="rounded-[var(--guest-radius-xl)] border border-dashed border-slate-200 bg-white p-10 text-center text-slate-500">
-            <p className="text-lg font-semibold">No restaurants found</p>
+            <p className="text-lg font-semibold">No restaurants match those filters yet</p>
             <p className="text-sm">
-              Check back soon—we publish new venues as they pass our onboarding review.
+              Try a broader search term or clear the category filter to see more venues.
             </p>
           </div>
         ) : null}
@@ -206,9 +241,9 @@ export function RestaurantsGridSection({ restaurants }: { restaurants: Restauran
   );
 }
 
-export function RestaurantDetailHero({ restaurant }: { restaurant: RestaurantDetail }) {
+export function RestaurantDetailHero({ restaurant }: { restaurant: RestaurantDirectoryEntry }) {
   return (
-    <section className="relative h-[45vh] min-h-[320px] w-full overflow-hidden rounded-b-[var(--guest-radius-2xl)]">
+    <section className="relative min-h-[420px] w-full overflow-hidden rounded-b-[var(--guest-radius-2xl)]">
       {restaurant.logoUrl ? (
         <Image
           src={restaurant.logoUrl}
@@ -219,20 +254,59 @@ export function RestaurantDetailHero({ restaurant }: { restaurant: RestaurantDet
           unoptimized
         />
       ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-900" />
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-blue-900" />
       )}
-      <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/60 to-transparent" />
-      <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-10">
-        <div className="mx-auto flex max-w-5xl flex-col gap-3 text-white">
-          <Badge className="w-fit rounded-full bg-amber-400 text-amber-950">Featured partner</Badge>
-          <h1 className="guest-heading-hero text-[clamp(2.5rem,4vw,3.5rem)] font-semibold">
+      <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/65 to-slate-950/10" />
+      <div className="relative mx-auto flex max-w-6xl flex-col gap-6 px-4 pb-8 pt-24 text-white sm:px-6 sm:pt-28">
+        <div className="flex flex-wrap gap-2">
+          <Badge className="w-fit rounded-full bg-amber-300 text-amber-950">{restaurant.badge}</Badge>
+          {restaurant.categories.slice(0, 3).map((category) => (
+            <Badge key={category} className="rounded-full bg-white/10 text-white backdrop-blur">
+              {category}
+            </Badge>
+          ))}
+        </div>
+        <div className="max-w-3xl space-y-3">
+          <h1 className="guest-heading-hero text-[clamp(2.5rem,4vw,4rem)] font-semibold">
             {restaurant.name}
           </h1>
+          <p className="text-base leading-7 text-slate-100 sm:text-lg">{restaurant.detailSummary}</p>
           {restaurant.address ? (
-            <p className="flex items-center gap-2 text-base text-slate-100">
+            <p className="flex items-center gap-2 text-sm text-slate-100 sm:text-base">
               <MapPin className="h-5 w-5 text-amber-300" aria-hidden />
               {restaurant.address}
             </p>
+          ) : null}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {restaurant.bestFor.map((item) => (
+            <span
+              key={item}
+              className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-sm text-white"
+            >
+              {item}
+            </span>
+          ))}
+        </div>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Button
+            size="lg"
+            className="rounded-full bg-slate-950 text-base text-white hover:bg-slate-800"
+            asChild
+          >
+            <Link href={`/restaurants/${restaurant.slug}/book`}>Book a table</Link>
+          </Button>
+          {restaurant.googleMapUrl ? (
+            <Button
+              size="lg"
+              variant="outline"
+              className="rounded-full border-white/25 bg-white/10 text-base text-white hover:bg-white/15"
+              asChild
+            >
+              <Link href={restaurant.googleMapUrl} target="_blank" rel="noreferrer">
+                Get directions
+              </Link>
+            </Button>
           ) : null}
         </div>
       </div>
@@ -244,86 +318,179 @@ export function RestaurantDetailsSection({
   restaurant,
   mapEmbedUrl,
 }: {
-  restaurant: RestaurantDetail;
+  restaurant: RestaurantDirectoryEntry;
   mapEmbedUrl?: string | null;
 }) {
-  const insights = [
+  const quickFacts = [
     {
-      title: 'Contact',
-      icon: Phone,
-      value: restaurant.contactPhone ?? 'Call concierge',
-      sub: 'Direct line for host desk',
+      title: 'Best fit',
+      icon: Star,
+      value: restaurant.bestFor.slice(0, 2).join(' · '),
+      sub: 'What this venue is most useful for',
     },
     {
-      title: 'Email',
-      icon: BookOpenCheck,
-      value: restaurant.contactEmail ?? 'team@nabatable.com',
-      sub: 'Replies within 15 minutes',
+      title: 'Group fit',
+      icon: Users,
+      value: restaurant.capacity ? `Up to ${restaurant.capacity} guests` : 'Flexible party sizes',
+      sub: 'Good to know before opening the booking flow',
     },
     {
-      title: 'Arrivals',
+      title: 'Arrival',
+      icon: CarFront,
+      value: restaurant.locality ?? 'Check venue details',
+      sub: 'Location context at a glance',
+    },
+    {
+      title: 'Booking',
       icon: CalendarCheck2,
-      value: 'Instant confirmation',
-      sub: 'Status synced everywhere',
+      value: 'Instant online reservation',
+      sub: restaurant.bookingPolicy?.trim() || 'Direct link into the live booking flow',
     },
   ];
 
   return (
     <section className="px-4 py-10 sm:px-6" aria-labelledby="restaurant-details-heading">
-      <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[2fr_1fr]">
+      <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[minmax(0,2fr)_360px]">
         <div className="space-y-6">
           <div className="space-y-2">
+            <p className="text-sm font-medium text-blue-700">Venue guide</p>
             <h2
               id="restaurant-details-heading"
               className="guest-heading-page text-[length:var(--guest-text-page)] font-semibold text-slate-900"
             >
-              Experience snapshot
+              Why diners pick {restaurant.name}
             </h2>
-            <p className="text-sm text-slate-600">Same layout and cues you’ll see when you book.</p>
           </div>
+
+          <Card className="space-y-4 rounded-[var(--guest-radius-xl)] border-slate-100 bg-white p-6 shadow-[var(--guest-shadow-sm)]">
+            <div className="space-y-3">
+              <h3 className="text-xl font-semibold text-slate-900">Venue story</h3>
+              {restaurant.story.map((paragraph) => (
+                <p key={paragraph} className="text-sm leading-7 text-slate-600 sm:text-base">
+                  {paragraph}
+                </p>
+              ))}
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <CategoryBlock title="Categories" items={restaurant.categories} />
+              <CategoryBlock title="Atmosphere" items={restaurant.vibeTags} />
+              <CategoryBlock title="Best for" items={restaurant.bestFor} />
+              <CategoryBlock title="Amenities" items={restaurant.amenityTags} />
+            </div>
+          </Card>
+
           <div className="grid gap-4 sm:grid-cols-2">
-            {insights.map((insight) => (
+            {quickFacts.map((fact) => (
               <Card
-                key={insight.title}
+                key={fact.title}
                 className="space-y-2 rounded-[var(--guest-radius-lg)] border-slate-100 bg-white p-4 shadow-[var(--guest-shadow-sm)]"
               >
                 <div className="flex items-center gap-3">
                   <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-700">
-                    <insight.icon className="h-5 w-5" aria-hidden />
+                    <fact.icon className="h-5 w-5" aria-hidden />
                   </span>
-                  <p className="text-sm text-slate-500">{insight.title}</p>
+                  <p className="text-sm text-slate-500">{fact.title}</p>
                 </div>
-                <p className="text-base font-semibold text-slate-900">{insight.value}</p>
-                <p className="text-sm text-slate-500">{insight.sub}</p>
+                <p className="text-base font-semibold text-slate-900">{fact.value}</p>
+                <p className="text-sm text-slate-500">{fact.sub}</p>
               </Card>
             ))}
           </div>
-        </div>
-        <div className="space-y-4">
-          <Card className="space-y-4 rounded-[var(--guest-radius-xl)] border-slate-100 bg-white p-6 shadow-[var(--guest-shadow-md)]">
-            <div className="space-y-1">
-              <p className="text-sm text-blue-700">Powered by Nab a Table</p>
-              <p className="text-2xl font-semibold text-slate-900">Make a reservation</p>
-              <p className="text-sm text-slate-600">
-                Secure a table with the same wizard guests use after sign-in.
-              </p>
-            </div>
-            <Button size="lg" className="w-full rounded-full text-base" asChild>
-              <Link href={`/restaurants/${restaurant.slug}/book`}>Book a table</Link>
-            </Button>
-            <div className="rounded-[var(--guest-radius-lg)] border border-slate-100 bg-slate-50 p-4 text-xs text-slate-600">
-              <p className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-amber-500" aria-hidden />
-                Instant confirmation, synced everywhere.
-              </p>
+
+          <Card className="rounded-[var(--guest-radius-xl)] border-slate-100 bg-white p-6 shadow-[var(--guest-shadow-sm)]">
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm font-medium text-blue-700">Food and drink cues</p>
+                <h3 className="mt-1 text-xl font-semibold text-slate-900">What stands out on the table</h3>
+              </div>
+              <ul className="space-y-3">
+                {restaurant.foodHighlights.map((item) => (
+                  <li key={item} className="flex gap-3 text-sm text-slate-600 sm:text-base">
+                    <span className="mt-2 h-2 w-2 rounded-full bg-blue-600" aria-hidden />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           </Card>
+
+          <Card className="rounded-[var(--guest-radius-xl)] border-slate-100 bg-white p-6 shadow-[var(--guest-shadow-sm)]">
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm font-medium text-blue-700">Decision helpers</p>
+                <h3 className="mt-1 text-xl font-semibold text-slate-900">The practical details people compare</h3>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {restaurant.highlights.map((highlight) => (
+                  <div
+                    key={highlight.label}
+                    className="rounded-[var(--guest-radius-lg)] border border-slate-100 bg-slate-50 p-4"
+                  >
+                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-600">
+                      {highlight.label}
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-slate-700">{highlight.value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        <div className="space-y-4">
+          <Card className="space-y-4 rounded-[var(--guest-radius-xl)] border-slate-100 bg-white p-6 shadow-[var(--guest-shadow-md)] lg:sticky lg:top-24">
+            <div className="space-y-1">
+              <p className="text-sm text-blue-700">Book with context</p>
+              <p className="text-2xl font-semibold text-slate-900">Reserve at {restaurant.name}</p>
+              <p className="text-sm text-slate-600">
+                Keep the venue guide open until you are happy with the fit, then jump straight into
+                the live booking flow.
+              </p>
+            </div>
+            <Button
+              size="lg"
+              className="w-full rounded-full bg-slate-950 text-base text-white hover:bg-slate-800"
+              asChild
+            >
+              <Link href={`/restaurants/${restaurant.slug}/book`}>Book a table</Link>
+            </Button>
+            <div className="rounded-[var(--guest-radius-lg)] border border-slate-100 bg-slate-50 p-4">
+              <p className="flex items-start gap-2 text-sm text-slate-600">
+                <Sparkles className="mt-0.5 h-4 w-4 text-amber-500" aria-hidden />
+                <span>{restaurant.bookingTips[0] ?? 'Booking-ready details stay visible on this page.'}</span>
+              </p>
+            </div>
+            <div className="space-y-2 border-t border-slate-100 pt-4">
+              {restaurant.contactPhone ? (
+                <DetailLinkRow icon={Phone} href={`tel:${restaurant.contactPhone}`} label={restaurant.contactPhone} />
+              ) : null}
+              {restaurant.contactEmail ? (
+                <DetailLinkRow
+                  icon={BookOpenCheck}
+                  href={`mailto:${restaurant.contactEmail}`}
+                  label={restaurant.contactEmail}
+                />
+              ) : null}
+              {restaurant.googleMapUrl ? (
+                <DetailLinkRow icon={MapPin} href={restaurant.googleMapUrl} label="Open in Google Maps" external />
+              ) : null}
+              {restaurant.googleReviewUrl ? (
+                <DetailLinkRow
+                  icon={ExternalLink}
+                  href={restaurant.googleReviewUrl}
+                  label="Check public reviews"
+                  external
+                />
+              ) : null}
+            </div>
+          </Card>
+
           {mapEmbedUrl ? (
             <iframe
               title={`${restaurant.name} map`}
               width="100%"
               height="260"
-              className="rounded-[var(--guest-radius-xl)] border border-slate-100"
+              className="rounded-[var(--guest-radius-xl)] border border-slate-100 bg-white"
               src={mapEmbedUrl}
               allowFullScreen
             />
@@ -369,44 +536,69 @@ export function ReservationThankYouCard({
   );
 }
 
-export type { RestaurantDetail, RestaurantListItem };
-
-function ListingIllustration() {
+function StatPill({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof Sparkles;
+  label: string;
+  value: string;
+}) {
   return (
-    <svg
-      role="img"
-      aria-label="Restaurants illustration"
-      className="h-14 w-20 text-blue-50"
-      width="80"
-      height="56"
-      viewBox="0 0 200 120"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
+    <div className="rounded-[var(--guest-radius-lg)] bg-white/10 p-4">
+      <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white">
+        <Icon className="h-5 w-5" aria-hidden />
+      </div>
+      <p className="mt-3 text-2xl font-semibold">{value}</p>
+      <p className="text-sm text-blue-100">{label}</p>
+    </div>
+  );
+}
+
+function CategoryBlock({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div className="rounded-[var(--guest-radius-lg)] border border-slate-100 bg-slate-50 p-4">
+      <p className="text-sm font-medium text-slate-900">{title}</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {items.map((item) => (
+          <span
+            key={item}
+            className="rounded-full border border-slate-200 bg-white px-3 py-1 text-sm text-slate-700"
+          >
+            {item}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DetailLinkRow({
+  icon: Icon,
+  href,
+  label,
+  external = false,
+}: {
+  icon: typeof Phone;
+  href: string;
+  label: string;
+  external?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      target={external ? '_blank' : undefined}
+      rel={external ? 'noreferrer' : undefined}
+      className="flex items-center justify-between gap-3 rounded-[var(--guest-radius-lg)] border border-slate-100 px-3 py-3 text-sm text-slate-700 transition-colors hover:border-blue-200 hover:text-blue-700"
     >
-      <rect
-        x="14"
-        y="22"
-        width="172"
-        height="76"
-        rx="14"
-        fill="rgba(255,255,255,0.15)"
-        stroke="rgba(255,255,255,0.35)"
-      />
-      <rect x="30" y="36" width="70" height="14" rx="6" fill="white" opacity="0.65" />
-      <rect x="30" y="58" width="52" height="10" rx="5" fill="white" opacity="0.4" />
-      <rect x="30" y="76" width="86" height="10" rx="5" fill="white" opacity="0.25" />
-      <rect x="114" y="36" width="42" height="10" rx="5" fill="var(--primary)" opacity="0.25" />
-      <rect x="114" y="52" width="54" height="32" rx="8" fill="var(--primary)" opacity="0.18" />
-      <rect x="124" y="60" width="32" height="10" rx="5" fill="var(--primary)" opacity="0.65" />
-      <rect x="124" y="76" width="40" height="8" rx="4" fill="var(--primary)" opacity="0.35" />
-      <circle cx="168" cy="68" r="8" fill="white" opacity="0.9" />
-      <path
-        d="M164 68l2.8 3 5.2-6.5"
-        stroke="var(--primary)"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
+      <span className="inline-flex items-center gap-3">
+        <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-blue-50 text-blue-700">
+          <Icon className="h-4 w-4" aria-hidden />
+        </span>
+        <span>{label}</span>
+      </span>
+      <ArrowRight className="h-4 w-4" aria-hidden />
+    </Link>
   );
 }

@@ -65,6 +65,7 @@ export async function getRestaurantBySlug(slug: string): Promise<RestaurantDetai
       contactEmail: restaurant.contact_email ?? null,
       contactPhone: restaurant.contact_phone ?? null,
       googleMapUrl: restaurant.google_map_url ?? null,
+      googleReviewUrl: restaurant.google_review_url ?? null,
       logoUrl: restaurant.logo_url ?? null,
       reservationIntervalMinutes: restaurant.reservation_interval_minutes ?? null,
       reservationDefaultDurationMinutes: restaurant.reservation_default_duration_minutes ?? null,
