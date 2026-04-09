@@ -5,7 +5,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import type { ZodIssue } from "zod";
 
-import { envSchemas, resolveEnvSchemaTarget } from "../config/env.schema";
+import { envSchemas, extractSupabaseProjectRef, resolveEnvSchemaTarget } from "../config/env.schema";
 
 const modulePath = fileURLToPath(import.meta.url);
 const projectRoot = path.resolve(path.dirname(modulePath), "..");
@@ -38,6 +38,8 @@ const warnings: string[] = [];
 const appEnv = env.APP_ENV;
 const vercelEnv = process.env.VERCEL_ENV; // 'production' | 'preview' | 'development'
 const allowProdResources = env.ALLOW_PROD_RESOURCES_IN_NONPROD === true;
+const runtimeSupabaseProjectRef = extractSupabaseProjectRef(env.NEXT_PUBLIC_SUPABASE_URL);
+const dbSupabaseProjectRef = extractSupabaseProjectRef(process.env.SUPABASE_DB_URL);
 
 // Skip prod-resource guard when the deployment target itself is production (e.g., Vercel prod build)
 const treatAsProdTarget = appEnv === "production" || vercelEnv === "production";
@@ -96,6 +98,12 @@ if (!treatAsProdTarget && !allowProdResources) {
       );
     }
   }
+}
+
+if (runtimeSupabaseProjectRef && dbSupabaseProjectRef && runtimeSupabaseProjectRef !== dbSupabaseProjectRef) {
+  warnings.push(
+    `SUPABASE_DB_URL points to project ${dbSupabaseProjectRef} while NEXT_PUBLIC_SUPABASE_URL points to ${runtimeSupabaseProjectRef}. The app runtime is using ${runtimeSupabaseProjectRef}, but direct DB scripts and migration commands will target ${dbSupabaseProjectRef} until those env vars are aligned.`,
+  );
 }
 
 const dbTargetEnv = process.env.DB_TARGET_ENV ?? appEnv;

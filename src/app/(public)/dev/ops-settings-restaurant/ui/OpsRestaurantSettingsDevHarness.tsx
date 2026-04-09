@@ -21,6 +21,7 @@ import type { RestaurantSettingsView } from '@/components/features/restaurant-se
 
 const VIEW_OPTIONS: Array<{ value: RestaurantSettingsView; label: string }> = [
   { value: 'profile', label: 'Profile' },
+  { value: 'google-business-profile', label: 'Google Business Profile' },
   { value: 'operating-hours', label: 'Operating hours' },
   { value: 'service-periods', label: 'Service periods' },
   { value: 'turn-durations', label: 'Turn durations' },

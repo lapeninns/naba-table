@@ -30,10 +30,30 @@ describe('normalizeGoogleBusinessProfileSnapshot', () => {
         regularHours: {
           periods: [{ openDay: 'MONDAY', openTime: '12:00', closeDay: 'MONDAY', closeTime: '22:00' }],
         },
+        moreHours: [
+          {
+            hoursTypeId: 'DELIVERY',
+            periods: [{ openDay: 'MONDAY', openTime: '11:00', closeDay: 'MONDAY', closeTime: '21:00' }],
+          },
+        ],
         metadata: {
           mapsUri: 'https://maps.example.com/the-fox',
           newReviewUri: 'https://reviews.example.com/the-fox',
         },
+        serviceItems: [
+          {
+            structuredServiceItem: {
+              serviceTypeId: 'DELIVERY',
+            },
+          },
+          {
+            freeFormServiceItem: {
+              label: {
+                displayName: 'Takeout',
+              },
+            },
+          },
+        ],
       },
       attributes: {
         attributes: [
@@ -99,6 +119,8 @@ describe('normalizeGoogleBusinessProfileSnapshot', () => {
       mapsUri: 'https://maps.example.com/the-fox',
       reviewUri: 'https://reviews.example.com/the-fox',
       attributeLabels: ['Outdoor seating: Yes'],
+      moreHoursSummary: ['Delivery: MONDAY 11:00 - MONDAY 21:00'],
+      serviceItems: ['Delivery', 'Takeout'],
       rating: 4.7,
       reviewCount: 182,
     });

@@ -115,6 +115,68 @@ function summarizeHours(periods: Array<Record<string, unknown>> | undefined): st
     .filter(Boolean);
 }
 
+function formatStructuredLabel(value: string | null | undefined): string | null {
+  const normalized = normalizeText(value);
+  if (!normalized) {
+    return null;
+  }
+
+  return normalized
+    .split(/[_\s]+/)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ');
+}
+
+function summarizeMoreHours(
+  moreHours: GoogleBusinessProfileLocation['moreHours'] | undefined,
+): string[] {
+  if (!Array.isArray(moreHours) || moreHours.length === 0) {
+    return [];
+  }
+
+  return moreHours
+    .flatMap((entry) => {
+      const label = formatStructuredLabel(entry.hoursTypeId) ?? 'Additional hours';
+      const periods = summarizeHours(entry.periods);
+      if (periods.length === 0) {
+        return [];
+      }
+
+      return periods.map((period) => `${label}: ${period}`);
+    })
+    .filter((value, index, all) => Boolean(value) && all.indexOf(value) === index);
+}
+
+function extractServiceItems(location: GoogleBusinessProfileLocation): string[] {
+  if (!Array.isArray(location.serviceItems) || location.serviceItems.length === 0) {
+    return [];
+  }
+
+  const getCandidateValues = (value: unknown): string[] => {
+    if (!value || typeof value !== 'object') {
+      return [];
+    }
+
+    const record = value as Record<string, unknown>;
+    const direct = [
+      normalizeText(record.displayName as string | undefined),
+      normalizeText(record.serviceTypeId as string | undefined),
+      normalizeText(record.category as string | undefined),
+      normalizeText(record.label as string | undefined),
+      normalizeText(record.description as string | undefined),
+    ].filter((item): item is string => Boolean(item));
+
+    const nested = Object.values(record).flatMap((nestedValue) => getCandidateValues(nestedValue));
+    return [...direct, ...nested];
+  };
+
+  return location.serviceItems
+    .flatMap((entry) => getCandidateValues(entry))
+    .map((item) => formatStructuredLabel(item) ?? item)
+    .filter((item, index, all) => Boolean(item) && all.indexOf(item) === index)
+    .slice(0, 12);
+}
+
 function extractAttributeLabels(attributes: GoogleBusinessProfileAttributesResponse | null): string[] {
   if (!attributes?.attributes?.length) {
     return [];
@@ -148,7 +210,7 @@ function extractAttributeLabels(attributes: GoogleBusinessProfileAttributesRespo
 
 function normalizeReviewSnippets(reviews: GoogleBusinessProfileReviewsResponse | null): RestaurantGoogleBusinessProfileReviewSnippet[] {
   return (reviews?.reviews ?? [])
-    .slice(0, 3)
+    .slice(0, 8)
     .map((review) => ({
       reviewId: review.reviewId ?? randomUUID(),
       starRating: normalizeText(review.starRating),
@@ -210,6 +272,8 @@ export function normalizeGoogleBusinessProfileSnapshot(input: {
     locality: normalizeText(address?.locality),
     regionCode: normalizeText(address?.regionCode),
     postalCode: normalizeText(address?.postalCode),
+    placeId: normalizeText(input.location.metadata?.placeId),
+    openStatus: normalizeText((input.location as { openInfo?: { status?: string } }).openInfo?.status),
     primaryPhone: normalizeText(input.location.phoneNumbers?.primaryPhone),
     additionalPhones: (input.location.phoneNumbers?.additionalPhones ?? [])
       .map((phone) => normalizeText(phone))
@@ -218,12 +282,14 @@ export function normalizeGoogleBusinessProfileSnapshot(input: {
     mapsUri: normalizeText(input.location.metadata?.mapsUri),
     reviewUri: normalizeText(input.location.metadata?.newReviewUri),
     regularHoursSummary: summarizeHours(input.location.regularHours?.periods),
+    moreHoursSummary: summarizeMoreHours(input.location.moreHours),
     specialHoursSummary: summarizeHours(input.location.specialHours?.specialHourPeriods as Array<Record<string, unknown>> | undefined),
     attributeLabels: extractAttributeLabels(input.attributes),
+    serviceItems: extractServiceItems(input.location),
     rating: typeof input.reviews?.averageRating === 'number' ? input.reviews.averageRating : null,
     reviewCount: typeof input.reviews?.totalReviewCount === 'number' ? input.reviews.totalReviewCount : null,
     reviewSnippets: normalizeReviewSnippets(input.reviews),
-    media: (input.media?.mediaItems ?? []).slice(0, 6).map((item) => ({
+    media: (input.media?.mediaItems ?? []).slice(0, 12).map((item) => ({
       name: item.name ?? randomUUID(),
       category: normalizeText(item.locationAssociation?.category),
       format: normalizeText(item.mediaFormat),

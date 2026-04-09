@@ -8,46 +8,34 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { formatGoogleBusinessProfileLabel } from '@/lib/restaurants/google-business-profile-format';
 import {
   useOpsDisconnectRestaurantGoogleBusinessProfile,
   useOpsRefreshRestaurantGoogleBusinessProfileCatalog,
   useOpsRestaurantGoogleBusinessProfile,
   useOpsRestaurantGoogleBusinessProfileConnect,
   useOpsSyncRestaurantGoogleBusinessProfile,
-} from '@/hooks/ops/useOpsRestaurantGoogleBusinessProfile';
+} from '@src/hooks/ops/useOpsRestaurantGoogleBusinessProfile';
 
-import { SettingsSectionHeader } from './shared/SettingsSectionHeader';
+import {
+  buildLocationValue,
+  ChangeSummarySection,
+  DetailList,
+  formatDateTime,
+  MediaList,
+  parseLocationValue,
+  ReviewsList,
+  SectionPanel,
+  statusBadgeVariant,
+  statusLabel,
+  SyncHealthSection,
+  SyncHistoryTimeline,
+} from './RestaurantGoogleBusinessProfileShared';
+import { SettingsCard } from './shared/SettingsCard';
 
 type RestaurantGoogleBusinessProfileSectionProps = {
-  restaurantId: string;
+  restaurantId: string | null;
 };
-
-function buildLocationValue(accountId: string, locationId: string) {
-  return `${accountId}::${locationId}`;
-}
-
-function parseLocationValue(value: string) {
-  const [accountId, locationId] = value.split('::');
-  return {
-    accountId: accountId ?? '',
-    locationId: locationId ?? '',
-  };
-}
-
-function statusLabel(status: string) {
-  switch (status) {
-    case 'synced':
-      return 'Synced';
-    case 'needs_location':
-      return 'Needs location';
-    case 'connected':
-      return 'Connected';
-    case 'error':
-      return 'Attention needed';
-    default:
-      return 'Not connected';
-  }
-}
 
 export function RestaurantGoogleBusinessProfileSection({
   restaurantId,
@@ -75,19 +63,24 @@ export function RestaurantGoogleBusinessProfileSection({
           location.accountId === connection.accountId && location.locationId === connection.locationId,
       ) ?? connection.availableLocations[0] ?? null;
 
-    setSelectedLocation(
-      matched ? buildLocationValue(matched.accountId, matched.locationId) : '',
-    );
+    setSelectedLocation(matched ? buildLocationValue(matched.accountId, matched.locationId) : '');
   }, [connection]);
 
   const callbackState = searchParams.get('googleBusinessProfile');
   const callbackMessage = searchParams.get('message');
-
   const pending =
     connectMutation.isPending ||
     refreshMutation.isPending ||
     syncMutation.isPending ||
     disconnectMutation.isPending;
+
+  const selectedLocationOption = useMemo(
+    () =>
+      connection?.availableLocations.find(
+        (location) => buildLocationValue(location.accountId, location.locationId) === selectedLocation,
+      ) ?? null,
+    [connection?.availableLocations, selectedLocation],
+  );
 
   const importedHighlights = useMemo(() => {
     const profile = connection?.normalizedProfile;
@@ -96,15 +89,23 @@ export function RestaurantGoogleBusinessProfileSection({
     }
 
     return [
-      profile.primaryCategory ? `Category: ${profile.primaryCategory}` : null,
+      profile.primaryCategory ? `Primary category: ${profile.primaryCategory}` : null,
+      profile.placeId ? `Place ID: ${profile.placeId}` : null,
+      profile.openStatus ? `Open status: ${profile.openStatus}` : null,
       typeof profile.rating === 'number' && typeof profile.reviewCount === 'number'
-        ? `Google rating: ${profile.rating.toFixed(1)} (${profile.reviewCount} reviews)`
+        ? `Rating ${profile.rating.toFixed(1)} from ${profile.reviewCount} reviews`
         : null,
-      profile.addressText ? `Address: ${profile.addressText}` : null,
-      profile.websiteUri ? `Website imported` : null,
+      profile.reviewSnippets.length > 0 ? `${profile.reviewSnippets.length} review snippets imported` : null,
       profile.media.length > 0 ? `${profile.media.length} media items imported` : null,
-    ].filter((item): item is string => Boolean(item));
+      profile.metrics30d.length > 0 ? `${profile.metrics30d.length} performance metrics collected` : null,
+      profile.serviceItems.length > 0 ? `${profile.serviceItems.length} service items discovered` : null,
+    ].filter((value): value is string => Boolean(value));
   }, [connection?.normalizedProfile]);
+
+  const syncWarning =
+    connection?.status === 'partial' || connection?.syncFamilies.some((family) => family.status === 'failed')
+      ? connection?.lastSyncError
+      : null;
 
   const handleConnect = async () => {
     setUiError(null);
@@ -127,6 +128,7 @@ export function RestaurantGoogleBusinessProfileSection({
         await syncMutation.mutateAsync({});
         return;
       }
+
       const parsed = parseLocationValue(selectedLocation);
       await syncMutation.mutateAsync(parsed);
     } catch (error) {
@@ -143,51 +145,70 @@ export function RestaurantGoogleBusinessProfileSection({
     }
   };
 
+  if (!restaurantId) {
+    return (
+      <SettingsCard
+        title="Google Business Profile"
+        description="Select a restaurant to connect and sync Google listing data."
+      >
+        <p className="text-sm text-muted-foreground">
+          Choose a restaurant using the sidebar switcher to connect its Google Business Profile account and review
+          imported listing data.
+        </p>
+      </SettingsCard>
+    );
+  }
+
   if (statusQuery.isLoading && !connection) {
     return (
-      <div className="rounded-lg border border-border/60 bg-muted/20 p-5">
-        <SettingsSectionHeader
-          title="Google Business Profile"
-          description="Connect Google and import live profile details for the public restaurant page."
-        />
-        <div className="space-y-3">
-          <Skeleton className="h-4 w-56" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-24 w-full" />
+      <SettingsCard
+        title="Google Business Profile"
+        description="Connect, sync, and review imported Google listing data for the active restaurant."
+        headerAction={<Badge variant={statusBadgeVariant('loading')}>{statusLabel('loading')}</Badge>}
+      >
+        <div className="space-y-4">
+          <Skeleton className="h-20 w-full" />
+          <Skeleton className="h-32 w-full" />
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Skeleton className="h-48 w-full" />
+            <Skeleton className="h-48 w-full" />
+          </div>
         </div>
-      </div>
+      </SettingsCard>
     );
   }
 
   return (
-    <section className="rounded-lg border border-border/60 bg-muted/20 p-5">
-      <SettingsSectionHeader
-        title="Google Business Profile"
-        description="Connect this venue to Google Business Profile so Ops can import live profile details, reviews, media, and profile metadata for the curated landing page."
-        action={
-          <Badge variant={connection?.status === 'synced' ? 'default' : 'secondary'}>
-            {statusLabel(connection?.status ?? 'disconnected')}
-          </Badge>
-        }
-      />
-
-      <div className="space-y-4">
-        {(callbackState === 'connected' || callbackState === 'error' || uiError || connection?.lastSyncError) && (
-          <Alert variant={callbackState === 'error' || uiError || connection?.lastSyncError ? 'destructive' : 'default'}>
-            <AlertTitle>
-              {callbackState === 'connected'
-                ? 'Google Business Profile connected'
-                : callbackState === 'error'
-                  ? 'Google Business Profile connection failed'
-                  : connection?.lastSyncError
-                    ? 'Latest sync failed'
-                    : 'Google Business Profile update'}
-            </AlertTitle>
-            <AlertDescription>
-              {uiError || callbackMessage || connection?.lastSyncError || 'Connection updated successfully.'}
-            </AlertDescription>
+    <SettingsCard
+      title="Google Business Profile"
+      description="Connect, sync, and review imported Google listing data for the active restaurant."
+      headerAction={
+        <Badge variant={statusBadgeVariant(connection?.status ?? 'disconnected')}>
+          {statusLabel(connection?.status ?? 'disconnected')}
+        </Badge>
+      }
+    >
+      <div className="space-y-6">
+        {callbackState === 'connected' ? (
+          <Alert variant="success">
+            <AlertTitle>Google Business Profile connected</AlertTitle>
+            <AlertDescription>Connection updated successfully. Refresh the catalog or run a sync when ready.</AlertDescription>
           </Alert>
-        )}
+        ) : null}
+
+        {callbackState === 'error' ? (
+          <Alert variant="destructive">
+            <AlertTitle>Google Business Profile connection failed</AlertTitle>
+            <AlertDescription>{callbackMessage ?? 'Unable to complete the Google connection flow.'}</AlertDescription>
+          </Alert>
+        ) : null}
+
+        {uiError ? (
+          <Alert variant="destructive">
+            <AlertTitle>Google Business Profile action failed</AlertTitle>
+            <AlertDescription>{uiError}</AlertDescription>
+          </Alert>
+        ) : null}
 
         {statusQuery.error ? (
           <Alert variant="destructive">
@@ -196,166 +217,323 @@ export function RestaurantGoogleBusinessProfileSection({
           </Alert>
         ) : null}
 
-        <div className="grid gap-3 rounded-md border border-border/60 bg-background p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-foreground">
-              {connection?.connected
-                ? connection.locationTitle ?? connection.accountName ?? 'Google Business Profile connected'
-                : 'Not connected yet'}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              {connection?.connected
-                ? 'Once connected, select the matching Google location and sync profile data into Nab a Table.'
-                : 'Connect Google Business Profile to import categories, descriptions, review links, review signals, media, and supporting metadata.'}
-            </p>
-            {connection?.oauthConnectedAt ? (
-              <p className="text-xs text-muted-foreground">
-                Connected on {new Date(connection.oauthConnectedAt).toLocaleString()}
-              </p>
-            ) : null}
-            {connection?.lastSyncAt ? (
-              <p className="text-xs text-muted-foreground">
-                Last sync: {new Date(connection.lastSyncAt).toLocaleString()}
-              </p>
-            ) : null}
-          </div>
+        {syncWarning ? (
+          <Alert variant={connection?.status === 'partial' ? 'warning' : 'destructive'}>
+            <AlertTitle>{connection?.status === 'partial' ? 'Partial sync completed' : 'Latest sync failed'}</AlertTitle>
+            <AlertDescription>{syncWarning}</AlertDescription>
+          </Alert>
+        ) : null}
 
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" onClick={handleConnect} disabled={pending}>
-              {connection?.connected ? 'Reconnect Google' : 'Connect Google'}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => refreshMutation.mutate()}
-              disabled={pending || !connection?.connected}
-            >
-              Refresh locations
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleDisconnect}
-              disabled={pending || !connection?.connected}
-            >
-              Disconnect
-            </Button>
-          </div>
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(280px,0.9fr)]">
+          <SectionPanel
+            title={connection?.connected ? 'Connection status' : 'Connect Google'}
+            description="Use this workspace to connect a Google account, choose a location, and keep imported listing data up to date."
+          >
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-foreground">
+                  {connection?.connected
+                    ? connection.locationTitle ?? connection.accountName ?? 'Google Business Profile connected'
+                    : 'No Google Business Profile is connected yet'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {connection?.connected
+                    ? 'Connected accounts can refresh their location catalog, switch locations, and run manual syncs without leaving this page.'
+                    : 'Connect Google Business Profile to import profile details, categories, reviews, media, attributes, and performance metrics for this venue.'}
+                </p>
+              </div>
+
+              <DetailList
+                items={[
+                  { label: 'Connected account', value: connection?.accountName },
+                  { label: 'Selected location', value: connection?.locationTitle },
+                  { label: 'OAuth connected at', value: formatDateTime(connection?.oauthConnectedAt ?? null) },
+                  { label: 'Last sync', value: formatDateTime(connection?.lastSyncAt ?? null) },
+                ]}
+              />
+
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" onClick={handleConnect} disabled={pending}>
+                  {connection?.connected ? 'Reconnect Google' : 'Connect Google'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => refreshMutation.mutate()}
+                  disabled={pending || !connection?.connected}
+                >
+                  Refresh locations
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleDisconnect}
+                  disabled={pending || !connection?.connected}
+                >
+                  Disconnect
+                </Button>
+              </div>
+            </div>
+          </SectionPanel>
+
+          <SectionPanel
+            title="Imported overview"
+            description="A quick read on what the last successful sync brought into Nab a Table."
+          >
+            {connection?.normalizedProfile ? (
+              <div className="space-y-4">
+                {connection.normalizedProfile.description ? (
+                  <p className="text-sm text-foreground">{connection.normalizedProfile.description}</p>
+                ) : null}
+
+                {importedHighlights.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {importedHighlights.map((item) => (
+                      <Badge key={item} variant="outline">
+                        {item}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : null}
+
+                <div className="flex flex-wrap gap-3 text-sm">
+                  {connection.normalizedProfile.mapsUri ? (
+                    <a
+                      href={connection.normalizedProfile.mapsUri}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-primary underline-offset-4 hover:underline"
+                    >
+                      Open Google Maps
+                    </a>
+                  ) : null}
+                  {connection.normalizedProfile.reviewUri ? (
+                    <a
+                      href={connection.normalizedProfile.reviewUri}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-primary underline-offset-4 hover:underline"
+                    >
+                      Open review link
+                    </a>
+                  ) : null}
+                  {connection.normalizedProfile.websiteUri ? (
+                    <a
+                      href={connection.normalizedProfile.websiteUri}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-primary underline-offset-4 hover:underline"
+                    >
+                      Open website
+                    </a>
+                  ) : null}
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No imported snapshot is available yet. Choose a location and run a sync to populate profile data.
+              </p>
+            )}
+          </SectionPanel>
         </div>
 
         {connection?.connected ? (
-          <div className="space-y-3 rounded-md border border-border/60 bg-background p-4">
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-foreground">Linked Google location</p>
-              <p className="text-sm text-muted-foreground">
-                Choose which Google Business Profile location should power this restaurant page.
-              </p>
-            </div>
+          <SectionPanel
+            title="Location selection and sync"
+            description="Choose the Google location that should represent this restaurant, then run a manual sync."
+          >
+            <div className="space-y-4">
+              <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+                <SelectTrigger aria-label="Google Business Profile location">
+                  <SelectValue placeholder="Select a Google location" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(connection.availableLocations ?? []).map((location) => (
+                    <SelectItem
+                      key={buildLocationValue(location.accountId, location.locationId)}
+                      value={buildLocationValue(location.accountId, location.locationId)}
+                    >
+                      {location.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-            <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-              <SelectTrigger aria-label="Google Business Profile location">
-                <SelectValue placeholder="Select a Google location" />
-              </SelectTrigger>
-              <SelectContent>
-                {(connection.availableLocations ?? []).map((location) => (
-                  <SelectItem
-                    key={buildLocationValue(location.accountId, location.locationId)}
-                    value={buildLocationValue(location.accountId, location.locationId)}
-                  >
-                    {location.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              {selectedLocationOption ? (
+                <div className="rounded-lg border border-dashed border-border/60 bg-muted/30 p-4">
+                  <p className="text-sm font-medium text-foreground">{selectedLocationOption.title}</p>
+                  {selectedLocationOption.addressText ? (
+                    <p className="mt-1 text-sm text-muted-foreground">{selectedLocationOption.addressText}</p>
+                  ) : null}
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {selectedLocationOption.primaryPhone ? (
+                      <Badge variant="outline">{selectedLocationOption.primaryPhone}</Badge>
+                    ) : null}
+                    {selectedLocationOption.websiteUri ? <Badge variant="outline">Website available</Badge> : null}
+                    <Badge variant="outline">Match score {selectedLocationOption.matchScore}</Badge>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Refresh the Google catalog if you do not see the right location yet.
+                </p>
+              )}
 
-            {selectedLocation ? (
-              <div className="rounded-md border border-dashed border-border/60 bg-muted/30 p-3 text-sm text-muted-foreground">
-                {(() => {
-                  const selected = connection.availableLocations.find(
-                    (location) =>
-                      buildLocationValue(location.accountId, location.locationId) === selectedLocation,
-                  );
-                  if (!selected) {
-                    return 'Select a Google location to preview imported details.';
-                  }
-
-                  return (
-                    <div className="space-y-1">
-                      <p className="font-medium text-foreground">{selected.title}</p>
-                      {selected.addressText ? <p>{selected.addressText}</p> : null}
-                      {selected.primaryPhone ? <p>{selected.primaryPhone}</p> : null}
-                    </div>
-                  );
-                })()}
-              </div>
-            ) : null}
-
-            <div className="flex flex-wrap gap-2">
-              <Button type="button" onClick={handleSync} disabled={pending || connection.availableLocations.length === 0}>
-                {syncMutation.isPending ? 'Syncing…' : 'Sync Google data'}
-              </Button>
-            </div>
-          </div>
-        ) : null}
-
-        {connection?.normalizedProfile ? (
-          <div className="space-y-3 rounded-md border border-border/60 bg-background p-4">
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-foreground">Imported profile snapshot</p>
-              <p className="text-sm text-muted-foreground">
-                This summary is what Nab a Table can now use to enrich the public landing page.
-              </p>
-            </div>
-
-            {connection.normalizedProfile.description ? (
-              <p className="text-sm text-foreground">{connection.normalizedProfile.description}</p>
-            ) : null}
-
-            {importedHighlights.length > 0 ? (
               <div className="flex flex-wrap gap-2">
-                {importedHighlights.map((item) => (
-                  <Badge key={item} variant="outline">
-                    {item}
-                  </Badge>
-                ))}
+                <Button type="button" onClick={handleSync} disabled={pending || connection.availableLocations.length === 0}>
+                  {syncMutation.isPending ? 'Syncing…' : 'Sync Google data'}
+                </Button>
               </div>
-            ) : null}
+            </div>
+          </SectionPanel>
+        ) : null}
 
-            <div className="flex flex-wrap gap-2 text-sm">
-              {connection.normalizedProfile.mapsUri ? (
-                <a
-                  href={connection.normalizedProfile.mapsUri}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-primary underline-offset-4 hover:underline"
-                >
-                  Open Google Maps
-                </a>
+        <SectionPanel
+          title="What changed since last sync"
+          description="A quick diff against the previous synced snapshot so Ops can spot listing drift without opening every section."
+        >
+          <ChangeSummarySection summary={connection?.latestChangeSummary ?? null} />
+        </SectionPanel>
+
+        <SectionPanel
+          title="Recent sync history"
+          description="Review the latest manual sync attempts, including partial and failed runs, without losing the current snapshot."
+        >
+          <SyncHistoryTimeline history={connection?.syncHistory ?? []} />
+        </SectionPanel>
+
+        <div className="grid gap-4 xl:grid-cols-2">
+          <SectionPanel
+            title="Sync health"
+            description="Each Google API family is tracked separately so unsupported endpoints do not block the rest of the sync."
+          >
+            {connection ? <SyncHealthSection connection={connection} /> : null}
+          </SectionPanel>
+
+          <SectionPanel
+            title="Core location details"
+            description="Normalized listing data used to enrich the restaurant record and public venue page."
+          >
+            <DetailList
+              items={[
+                { label: 'Title', value: connection?.normalizedProfile?.title },
+                { label: 'Primary category', value: connection?.normalizedProfile?.primaryCategory },
+                {
+                  label: 'Additional categories',
+                  value: connection?.normalizedProfile?.additionalCategories.join(', '),
+                },
+                { label: 'Address', value: connection?.normalizedProfile?.addressText },
+                { label: 'Locality', value: connection?.normalizedProfile?.locality },
+                { label: 'Region code', value: connection?.normalizedProfile?.regionCode },
+                { label: 'Postal code', value: connection?.normalizedProfile?.postalCode },
+                { label: 'Place ID', value: connection?.normalizedProfile?.placeId },
+                { label: 'Open status', value: connection?.normalizedProfile?.openStatus },
+                { label: 'Primary phone', value: connection?.normalizedProfile?.primaryPhone },
+                {
+                  label: 'Additional phones',
+                  value: connection?.normalizedProfile?.additionalPhones.join(', '),
+                },
+              ]}
+            />
+          </SectionPanel>
+
+          <SectionPanel
+            title="Hours, attributes, and performance"
+            description="Operational fields Google exposes for the connected location."
+          >
+            <div className="space-y-4">
+              <DetailList
+                items={[
+                  {
+                    label: 'Regular hours',
+                    value: connection?.normalizedProfile?.regularHoursSummary.join(' | '),
+                  },
+                  {
+                    label: 'Additional hours',
+                    value: connection?.normalizedProfile?.moreHoursSummary.join(' | '),
+                  },
+                  {
+                    label: 'Special hours',
+                    value: connection?.normalizedProfile?.specialHoursSummary.join(' | '),
+                  },
+                ]}
+              />
+
+              {connection?.normalizedProfile?.attributeLabels?.length ? (
+                <div className="flex flex-wrap gap-2">
+                  {connection.normalizedProfile.attributeLabels.map((attribute) => (
+                    <Badge key={attribute} variant="outline">
+                      {attribute}
+                    </Badge>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No attribute labels were returned for this location.</p>
+              )}
+
+              {connection?.normalizedProfile?.serviceItems?.length ? (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-foreground">Service items</p>
+                  <div className="flex flex-wrap gap-2">
+                    {connection.normalizedProfile.serviceItems.map((serviceItem) => (
+                      <Badge key={serviceItem} variant="outline">
+                        {serviceItem}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No service-item details were returned for this location.</p>
+              )}
+
+              {connection?.normalizedProfile?.metrics30d?.length ? (
+                <div className="space-y-2">
+                  {connection.normalizedProfile.metrics30d.map((metric) => (
+                    <div
+                      key={metric.metric}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/60 p-3 text-sm"
+                    >
+                      <div>
+                        <p className="font-medium text-foreground">
+                          {formatGoogleBusinessProfileLabel(metric.metric) ?? metric.metric}
+                        </p>
+                        <p className="text-muted-foreground">
+                          {metric.startDate} to {metric.endDate}
+                        </p>
+                      </div>
+                      <Badge variant="outline">{metric.total}</Badge>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No performance metrics were returned for the last 30 days.</p>
+              )}
+            </div>
+          </SectionPanel>
+
+          <SectionPanel
+            title="Recent reviews"
+            description="Review snippets and aggregate rating imported from Google."
+          >
+            <div className="mb-4 flex flex-wrap gap-2">
+              {typeof connection?.normalizedProfile?.rating === 'number' ? (
+                <Badge variant="outline">Rating {connection.normalizedProfile.rating.toFixed(1)}</Badge>
               ) : null}
-              {connection.normalizedProfile.reviewUri ? (
-                <a
-                  href={connection.normalizedProfile.reviewUri}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-primary underline-offset-4 hover:underline"
-                >
-                  Open review link
-                </a>
-              ) : null}
-              {connection.normalizedProfile.websiteUri ? (
-                <a
-                  href={connection.normalizedProfile.websiteUri}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-primary underline-offset-4 hover:underline"
-                >
-                  Open website
-                </a>
+              {typeof connection?.normalizedProfile?.reviewCount === 'number' ? (
+                <Badge variant="outline">{connection.normalizedProfile.reviewCount} reviews</Badge>
               ) : null}
             </div>
-          </div>
-        ) : null}
+            <ReviewsList reviews={connection?.normalizedProfile?.reviewSnippets ?? []} />
+          </SectionPanel>
+
+          <SectionPanel
+            title="Media"
+            description="Media items returned from Google Business Profile for the selected location."
+          >
+            <MediaList media={connection?.normalizedProfile?.media ?? []} />
+          </SectionPanel>
+        </div>
       </div>
-    </section>
+    </SettingsCard>
   );
 }

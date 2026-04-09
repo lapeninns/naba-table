@@ -103,18 +103,41 @@ describe('public restaurant marketing pages', () => {
         locality: 'Cambridge',
         regionCode: 'GB',
         postalCode: 'CB1 2AB',
+        placeId: 'ChIJ-the-fox',
+        openStatus: 'OPEN',
         primaryPhone: '+44 1234 567890',
         additionalPhones: [],
         websiteUri: 'https://thefox.example.com',
         mapsUri: 'https://maps.example.com/the-fox',
         reviewUri: 'https://reviews.example.com/the-fox',
-        regularHoursSummary: [],
+        regularHoursSummary: ['MONDAY 12:00 - MONDAY 22:00'],
+        moreHoursSummary: ['Delivery Hours: MONDAY 11:00 - MONDAY 21:00'],
         specialHoursSummary: [],
         attributeLabels: ['Outdoor seating: Yes'],
+        serviceItems: ['Delivery', 'Takeout'],
         rating: 4.8,
         reviewCount: 120,
-        reviewSnippets: [],
-        media: [],
+        reviewSnippets: [
+          {
+            reviewId: 'review-1',
+            starRating: 'FIVE',
+            comment: 'Great service and a polished seasonal menu.',
+            reviewerDisplayName: 'Alex P',
+            createTime: '2026-04-01T10:00:00Z',
+            updateTime: '2026-04-01T10:00:00Z',
+          },
+        ],
+        media: [
+          {
+            name: 'media-1',
+            category: 'EXTERIOR',
+            format: 'PHOTO',
+            sourceUrl: null,
+            googleUrl: 'https://images.example.com/the-fox',
+            thumbnailUrl: null,
+            description: 'Front terrace',
+          },
+        ],
         metrics30d: [],
       },
     });
@@ -126,6 +149,11 @@ describe('public restaurant marketing pages', () => {
     expect(screen.getByText('Why diners pick The Fox')).toBeInTheDocument();
     expect(screen.getByText('Google reviews')).toBeInTheDocument();
     expect(screen.getAllByText('4.8 Google rating (120 reviews)')).not.toHaveLength(0);
+    expect(screen.getAllByText('Open')).not.toHaveLength(0);
+    expect(screen.getByText('Fresh venue signals before you book')).toBeInTheDocument();
+    expect(screen.getByText('Recent Google review')).toBeInTheDocument();
+    expect(screen.getByText('Front terrace')).toBeInTheDocument();
+    expect(screen.getByText(/Attributes and services/i)).toBeInTheDocument();
   });
 
   it('renders curated directory content for The Old Crown Girton', async () => {

@@ -13,7 +13,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useOpsRestaurantDetails, useOpsUpdateRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
 import { DEFAULT_RESERVATION_INTERVAL_MINUTES } from '@reserve/shared/config/reservations';
 
-import { RestaurantGoogleBusinessProfileSection } from './RestaurantGoogleBusinessProfileSection';
 import { RestaurantLogoUploader } from './RestaurantLogoUploader';
 import { SettingsCard } from './shared/SettingsCard';
 
@@ -148,7 +147,6 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
           updateMutation={updateMutation}
           isLoading={isLoading && !data}
         />
-        <RestaurantGoogleBusinessProfileSection restaurantId={restaurantId} />
         <RestaurantDetailsForm
           initialValues={initialValues}
           onSubmit={handleSubmit}

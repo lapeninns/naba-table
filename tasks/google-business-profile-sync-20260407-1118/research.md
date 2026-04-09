@@ -16,7 +16,8 @@ related_tickets: []
   - Let Ops users connect a restaurant in Nab a Table to its Google Business Profile.
   - Fetch the available Google Business Profile data for the connected location.
   - Persist the imported data so Nab a Table can build a curated public restaurant landing page from it.
-  - Keep the Google sync attached to the canonical restaurant settings/profile workflow.
+  - Preserve recent manual sync history so Ops can review what happened across runs instead of only the latest result.
+- Keep the Google sync attached to the canonical restaurant settings workflow, but move it onto a dedicated settings page instead of embedding it inside the profile form.
 - Non-functional (a11y, perf, security, privacy, i18n):
   - OAuth credentials and refresh tokens must never be stored in plaintext or exposed to the client.
   - UI must remain keyboard accessible and verifiable through the required DevTools harness.
@@ -25,8 +26,15 @@ related_tickets: []
 
 ## Existing Patterns & Reuse
 
-- Canonical Ops restaurant settings route lives under `src/app/app/(app)/settings/restaurant/profile/page.tsx`.
+- Canonical Ops restaurant settings routes live under `src/app/app/(app)/settings/restaurant/**`.
+- Settings view orchestration and navigation are centralized in:
+  - `src/components/features/restaurant-settings/routes.ts`
+  - `src/components/features/restaurant-settings/types.ts`
+  - `src/components/features/restaurant-settings/OpsRestaurantSettingsClient.tsx`
+  - `src/components/features/restaurant-settings/RestaurantSettingsSubnav.tsx`
 - Profile settings UI is rendered through `src/components/features/restaurant-settings/RestaurantProfileSection.tsx`.
+- The existing Google Business Profile UI already exists in `src/components/features/restaurant-settings/RestaurantGoogleBusinessProfileSection.tsx`, but it is embedded in the profile page and currently only exposes summary-level imported data.
+- The current GBP workspace only exposes the latest sync state from `restaurant_google_business_profiles`; there is no historical event log for past sync attempts.
 - Restaurant profile editing uses:
   - `components/ops/restaurants/RestaurantDetailsForm.tsx`
   - `src/hooks/ops/useOpsRestaurantDetails.ts`
@@ -55,6 +63,9 @@ related_tickets: []
   - fetch and persist the union of supported fields from the approved GBP endpoints we can access for a chosen location
   - store raw snapshots plus a normalized landing-page projection
 - Schema additions will require regenerated `types/supabase.ts` eventually; local code can be prepared first, but runtime deployment depends on the remote migration being applied.
+- Sync history should stay operationally useful but bounded:
+  - keep the latest canonical snapshot on `restaurant_google_business_profiles`
+  - store per-run history separately so the main connection row does not grow without bound
 
 ## Open Questions (owner, due)
 
@@ -70,9 +81,15 @@ related_tickets: []
   - encrypted token storage
   - a dedicated sync record with raw JSON snapshots and normalized summary fields
 - Keep manual restaurant profile fields as the canonical editable fallback, but enrich them from GBP where available.
-- Expose a new section inside restaurant profile settings for:
+- Expose a dedicated restaurant settings page for Google Business Profile that can act as an Ops workspace for:
   - connect/disconnect Google Business Profile
   - choose or confirm the linked Google location
   - run sync
-  - review what data is currently imported
+  - review imported data by API family
+  - understand partial-sync diagnostics when Google rejects one family but others succeed
 - Use the imported snapshot to feed the public restaurant landing page via the existing directory enrichment layer, preserving Nabatable’s curated presentation rather than dumping raw Google content directly.
+- Add a first-class GBP sync history record set:
+  - append-only event rows keyed by restaurant and time
+  - selected account/location context for each run
+  - overall run status plus per-family diagnostics
+- Surface recent sync history directly on the dedicated GBP settings page so Ops can spot recurring Google failures and confirm recoveries without leaving the workspace.

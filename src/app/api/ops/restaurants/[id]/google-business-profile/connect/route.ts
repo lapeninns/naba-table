@@ -5,11 +5,29 @@ import { buildGoogleBusinessProfileAuthorizationUrl } from '@/server/google-busi
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
 import { requireAdminMembership } from '@/server/team/access';
 
+import type { NextRequest } from 'next/server';
+
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
-export async function POST(_request: Request, context: RouteContext) {
+function getEffectiveRequestOrigin(request: NextRequest): string {
+  const fallback = new URL(request.url);
+  const forwardedProto = request.headers.get('x-forwarded-proto');
+  const forwardedHost = request.headers.get('x-forwarded-host');
+  const host = forwardedHost || request.headers.get('host');
+
+  if (!host) {
+    return fallback.origin;
+  }
+
+  const nextUrl = new URL(request.url);
+  nextUrl.protocol = forwardedProto ? `${forwardedProto}:` : nextUrl.protocol;
+  nextUrl.host = host;
+  return nextUrl.origin;
+}
+
+export async function POST(request: NextRequest, context: RouteContext) {
   const { id: restaurantId } = await context.params;
   const supabase = await getRouteHandlerSupabaseClient();
   const {
@@ -30,7 +48,8 @@ export async function POST(_request: Request, context: RouteContext) {
     await requireAdminMembership({ userId: user.id, restaurantId, client: supabase });
     const authorizationUrl = buildGoogleBusinessProfileAuthorizationUrl({
       restaurantId,
-      returnTo: '/settings/restaurant/profile',
+      returnTo: '/settings/restaurant/google-business-profile',
+      returnOrigin: getEffectiveRequestOrigin(request),
     });
     return NextResponse.json({ authorizationUrl });
   } catch (error) {

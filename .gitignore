@@ -28,8 +28,6 @@ src/app/(public)/__dev/
 *.dump
 *.backup.gz
 .turbo
-cli-proxy-api
-cli-proxy-api.*
 
 # debug
 npm-debug.log*

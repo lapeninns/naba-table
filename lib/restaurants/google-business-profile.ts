@@ -38,6 +38,60 @@ export type RestaurantGoogleBusinessProfileMetricSummary = {
   endDate: string;
 };
 
+export type RestaurantGoogleBusinessProfileChangeFamily =
+  | 'location'
+  | 'hours'
+  | 'attributes'
+  | 'reviews'
+  | 'media'
+  | 'performance';
+
+export type RestaurantGoogleBusinessProfileChangeKind = 'added' | 'removed' | 'updated';
+
+export type RestaurantGoogleBusinessProfileChangeHighlight = {
+  key: string;
+  label: string;
+  family: RestaurantGoogleBusinessProfileChangeFamily;
+  kind: RestaurantGoogleBusinessProfileChangeKind;
+  before: string | null;
+  after: string | null;
+};
+
+export type RestaurantGoogleBusinessProfileChangeSummary = {
+  generatedAt: string;
+  hasBaseline: boolean;
+  totalChanges: number;
+  remainingChanges: number;
+  highlights: RestaurantGoogleBusinessProfileChangeHighlight[];
+};
+
+export type RestaurantGoogleBusinessProfileSyncFamilyStatus = 'success' | 'failed' | 'skipped';
+
+export type RestaurantGoogleBusinessProfileSyncFamily = {
+  key: 'location' | 'attributes' | 'reviews' | 'media' | 'performance';
+  label: string;
+  status: RestaurantGoogleBusinessProfileSyncFamilyStatus;
+  error: string | null;
+  updatedAt: string | null;
+};
+
+export type RestaurantGoogleBusinessProfileSyncHistoryStatus = 'success' | 'partial' | 'failed';
+
+export type RestaurantGoogleBusinessProfileSyncHistoryEvent = {
+  id: string;
+  trigger: 'manual';
+  accountId: string | null;
+  accountName: string | null;
+  locationId: string | null;
+  locationName: string | null;
+  locationTitle: string | null;
+  startedAt: string;
+  completedAt: string | null;
+  status: RestaurantGoogleBusinessProfileSyncHistoryStatus;
+  error: string | null;
+  syncFamilies: RestaurantGoogleBusinessProfileSyncFamily[];
+};
+
 export type RestaurantGoogleBusinessProfileNormalized = {
   title: string;
   description: string | null;
@@ -47,14 +101,18 @@ export type RestaurantGoogleBusinessProfileNormalized = {
   locality: string | null;
   regionCode: string | null;
   postalCode: string | null;
+  placeId: string | null;
+  openStatus: string | null;
   primaryPhone: string | null;
   additionalPhones: string[];
   websiteUri: string | null;
   mapsUri: string | null;
   reviewUri: string | null;
   regularHoursSummary: string[];
+  moreHoursSummary: string[];
   specialHoursSummary: string[];
   attributeLabels: string[];
+  serviceItems: string[];
   rating: number | null;
   reviewCount: number | null;
   reviewSnippets: RestaurantGoogleBusinessProfileReviewSnippet[];
@@ -69,6 +127,7 @@ export type RestaurantGoogleBusinessProfileConnectionStatus =
   | 'connected'
   | 'needs_location'
   | 'synced'
+  | 'partial'
   | 'error';
 
 export type RestaurantGoogleBusinessProfileConnection = {
@@ -85,4 +144,7 @@ export type RestaurantGoogleBusinessProfileConnection = {
   lastSyncStatus: RestaurantGoogleBusinessProfileSyncStatus | null;
   lastSyncError: string | null;
   normalizedProfile: RestaurantGoogleBusinessProfileNormalized | null;
+  latestChangeSummary: RestaurantGoogleBusinessProfileChangeSummary | null;
+  syncFamilies: RestaurantGoogleBusinessProfileSyncFamily[];
+  syncHistory: RestaurantGoogleBusinessProfileSyncHistoryEvent[];
 };

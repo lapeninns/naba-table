@@ -22,6 +22,7 @@
 | Date (UTC) | Description | Staging | Production | Priority |
 | ---------- | ----------- | ------- | ---------- | -------- |
 
+| 2026-04-08 | Add Google Business Profile sync history events table | ⏳ | ⏳ | Medium |
 | 2026-03-23 | Remove built-in lunch/dinner occasion time windows | ✅ | ✅ | High |
 | 2026-03-23 | Set Old Crown interval to 30 minutes | ✅ | ✅ | Medium |
 | 2026-02-03 | Add per-day reservation interval + fixed slots to operating hours | ⏳ | ⏳ | Medium |
@@ -34,6 +35,41 @@
 ---
 
 ## Migration Details
+
+### 2026-04-08: Add Google Business Profile sync history events table
+
+**Status**: ⏳ Staging | ⏳ Production  
+**Priority**: Medium  
+**Migration File**: `supabase/migrations/20260408110500_add_restaurant_google_business_profile_sync_events.sql`
+
+#### Problem
+
+The dedicated Google Business Profile workspace only exposes the latest sync result. Ops needs a durable operational history of manual sync attempts so partial failures and recoveries can be reviewed over time.
+
+#### SQL to Apply
+
+Apply the full migration file: `supabase/migrations/20260408110500_add_restaurant_google_business_profile_sync_events.sql`
+
+#### Verification
+
+After applying:
+
+```sql
+SELECT column_name, data_type, is_nullable
+FROM information_schema.columns
+WHERE table_schema = 'public'
+  AND table_name = 'restaurant_google_business_profile_sync_events'
+ORDER BY ordinal_position;
+```
+
+Expected: the table includes location context columns plus `sync_started_at`, `sync_completed_at`, `sync_status`, `sync_error`, and `sync_families`.
+
+#### Rollback
+
+```sql
+DROP TABLE IF EXISTS public.restaurant_google_business_profile_sync_events;
+NOTIFY pgrst, 'reload schema';
+```
 
 ### 2026-03-23: Remove built-in lunch/dinner occasion time windows
 

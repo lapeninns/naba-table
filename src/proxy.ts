@@ -118,6 +118,10 @@ function isPublicRestaurantSchedulePath(pathname: string) {
   return /^\/api\/restaurants\/[^/]+\/(schedule|calendar-mask)(\/|$)/.test(pathname);
 }
 
+function isGoogleBusinessProfileCallbackPath(pathname: string) {
+  return pathname === '/api/ops/google-business-profile/callback';
+}
+
 function getOpsRewritePath(pathname: string) {
   if (!pathname.startsWith('/api/')) return null;
   if (pathname.startsWith('/api/ops/')) return null;
@@ -184,6 +188,9 @@ export async function handleRouting(req: NextRequest): Promise<NextResponse> {
 
       // 3b. Direct /api/ops/* calls require auth guard
       if (url.pathname.startsWith('/api/ops/')) {
+        if (isGoogleBusinessProfileCallbackPath(url.pathname)) {
+          return NextResponse.next();
+        }
         const nextResponse = NextResponse.next();
         const guardResult = await requireOpsAuth(req, nextResponse);
         if (guardResult instanceof NextResponse) return guardResult;
@@ -238,6 +245,9 @@ export async function handleRouting(req: NextRequest): Promise<NextResponse> {
 
   // 1. Ops API calls from root domain still need auth guard
   if (url.pathname.startsWith('/api/ops')) {
+    if (isGoogleBusinessProfileCallbackPath(url.pathname)) {
+      return NextResponse.next();
+    }
     const nextResponse = NextResponse.next();
     const guardResult = await requireOpsAuth(req, nextResponse);
     if (guardResult instanceof NextResponse) return guardResult;

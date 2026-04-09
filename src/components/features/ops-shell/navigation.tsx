@@ -2,6 +2,7 @@ import {
   BarChart3,
   CalendarDays,
   CircleHelp,
+  Globe2,
   DoorOpen,
   LayoutGrid,
   Mail,
@@ -109,6 +110,13 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         href: path('/settings/restaurant/profile'),
         icon: SlidersHorizontal,
         match: (pathname) => pathname.startsWith(path('/settings/restaurant/profile')),
+      },
+      {
+        title: 'Google Business Profile',
+        description: 'Connect and review imported Google listing data',
+        href: path('/settings/restaurant/google-business-profile'),
+        icon: Globe2,
+        match: (pathname) => pathname.startsWith(path('/settings/restaurant/google-business-profile')),
       },
       {
         title: 'Operating Hours',

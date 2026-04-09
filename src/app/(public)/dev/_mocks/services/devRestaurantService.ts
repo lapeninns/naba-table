@@ -84,6 +84,9 @@ function buildRestaurantSnapshot(
     lastSyncStatus: null,
     lastSyncError: null,
     normalizedProfile: null,
+    latestChangeSummary: null,
+    syncFamilies: [],
+    syncHistory: [],
   };
 
   const hours: OperatingHoursSnapshot = {
@@ -207,6 +210,8 @@ export class DevRestaurantService implements RestaurantService {
       accountId: '1234567890',
       accountName: 'Lapen Inns',
       oauthConnectedAt: new Date('2026-04-07T12:00:00Z').toISOString(),
+      syncFamilies: [],
+      syncHistory: snapshot.googleBusinessProfile.syncHistory,
       availableLocations: [
         {
           accountId: '1234567890',
@@ -257,7 +262,7 @@ export class DevRestaurantService implements RestaurantService {
     snapshot.googleBusinessProfile = {
       ...snapshot.googleBusinessProfile,
       connected: true,
-      status: 'synced',
+      status: 'partial',
       accountId: selected.accountId,
       accountName: selected.accountName,
       locationId: selected.locationId,
@@ -265,7 +270,48 @@ export class DevRestaurantService implements RestaurantService {
       locationTitle: selected.title,
       lastSyncAt: new Date('2026-04-07T12:05:00Z').toISOString(),
       lastSyncStatus: 'success',
-      lastSyncError: null,
+      lastSyncError: 'Partial sync completed. Performance: Request contains an invalid argument.',
+      latestChangeSummary: {
+        generatedAt: new Date('2026-04-07T12:05:00Z').toISOString(),
+        hasBaseline: true,
+        totalChanges: 4,
+        remainingChanges: 0,
+        highlights: [
+          {
+            key: 'description',
+            label: 'Description',
+            family: 'location',
+            kind: 'updated',
+            before: 'Earlier sync baseline for the venue profile.',
+            after:
+              'A polished Google Business Profile summary imported into the Ops profile so the landing page can stay current.',
+          },
+          {
+            key: 'serviceItems',
+            label: 'Service items',
+            family: 'attributes',
+            kind: 'updated',
+            before: 'Takeout',
+            after: 'Delivery | Takeout | Dine In',
+          },
+          {
+            key: 'reviewCount',
+            label: 'Review count',
+            family: 'reviews',
+            kind: 'updated',
+            before: '241',
+            after: '248',
+          },
+          {
+            key: 'metric:BUSINESS_IMPRESSIONS_DESKTOP_SEARCH',
+            label: 'Business Impressions Desktop Search',
+            family: 'performance',
+            kind: 'added',
+            before: null,
+            after: '412 (2026-03-08 to 2026-04-06)',
+          },
+        ],
+      },
       normalizedProfile: {
         title: selected.title,
         description:
@@ -276,14 +322,18 @@ export class DevRestaurantService implements RestaurantService {
         locality: 'London',
         regionCode: 'GB',
         postalCode: 'CB1 2AB',
+        placeId: 'ChIJ-demo-place-id',
+        openStatus: 'OPEN',
         primaryPhone: selected.primaryPhone,
         additionalPhones: [],
         websiteUri: selected.websiteUri,
         mapsUri: selected.mapsUri,
         reviewUri: selected.reviewUri,
         regularHoursSummary: ['MONDAY 12:00 - MONDAY 22:00', 'TUESDAY 12:00 - TUESDAY 22:00'],
+        moreHoursSummary: ['Drive Through: MONDAY 08:00 - MONDAY 22:00'],
         specialHoursSummary: [],
         attributeLabels: ['Outdoor seating: Yes', 'Serves vegetarian dishes: Yes'],
+        serviceItems: ['Delivery', 'Takeout', 'Dine In'],
         rating: 4.6,
         reviewCount: 248,
         reviewSnippets: [
@@ -314,8 +364,125 @@ export class DevRestaurantService implements RestaurantService {
             startDate: '2026-03-08',
             endDate: '2026-04-06',
           },
+          {
+            metric: 'BUSINESS_IMPRESSIONS_DESKTOP_SEARCH',
+            total: 412,
+            startDate: '2026-03-08',
+            endDate: '2026-04-06',
+          },
         ],
       },
+      syncFamilies: [
+        {
+          key: 'location',
+          label: 'Location details',
+          status: 'success',
+          error: null,
+          updatedAt: new Date('2026-04-07T12:05:00Z').toISOString(),
+        },
+        {
+          key: 'attributes',
+          label: 'Attributes',
+          status: 'success',
+          error: null,
+          updatedAt: new Date('2026-04-07T12:05:00Z').toISOString(),
+        },
+        {
+          key: 'reviews',
+          label: 'Reviews',
+          status: 'success',
+          error: null,
+          updatedAt: new Date('2026-04-07T12:05:00Z').toISOString(),
+        },
+        {
+          key: 'media',
+          label: 'Media',
+          status: 'success',
+          error: null,
+          updatedAt: new Date('2026-04-07T12:05:00Z').toISOString(),
+        },
+        {
+          key: 'performance',
+          label: 'Performance',
+          status: 'failed',
+          error: 'Request contains an invalid argument.',
+          updatedAt: new Date('2026-04-07T12:05:00Z').toISOString(),
+        },
+      ],
+      syncHistory: [
+        {
+          id: 'sync-2',
+          trigger: 'manual',
+          accountId: selected.accountId,
+          accountName: selected.accountName,
+          locationId: selected.locationId,
+          locationName: selected.locationName,
+          locationTitle: selected.title,
+          startedAt: new Date('2026-04-07T12:04:10Z').toISOString(),
+          completedAt: new Date('2026-04-07T12:05:00Z').toISOString(),
+          status: 'partial',
+          error: 'Partial sync completed. Performance: Request contains an invalid argument.',
+          syncFamilies: [
+            {
+              key: 'location',
+              label: 'Location details',
+              status: 'success',
+              error: null,
+              updatedAt: new Date('2026-04-07T12:05:00Z').toISOString(),
+            },
+            {
+              key: 'attributes',
+              label: 'Attributes',
+              status: 'success',
+              error: null,
+              updatedAt: new Date('2026-04-07T12:05:00Z').toISOString(),
+            },
+            {
+              key: 'reviews',
+              label: 'Reviews',
+              status: 'success',
+              error: null,
+              updatedAt: new Date('2026-04-07T12:05:00Z').toISOString(),
+            },
+            {
+              key: 'media',
+              label: 'Media',
+              status: 'success',
+              error: null,
+              updatedAt: new Date('2026-04-07T12:05:00Z').toISOString(),
+            },
+            {
+              key: 'performance',
+              label: 'Performance',
+              status: 'failed',
+              error: 'Request contains an invalid argument.',
+              updatedAt: new Date('2026-04-07T12:05:00Z').toISOString(),
+            },
+          ],
+        },
+        {
+          id: 'sync-1',
+          trigger: 'manual',
+          accountId: selected.accountId,
+          accountName: selected.accountName,
+          locationId: selected.locationId,
+          locationName: selected.locationName,
+          locationTitle: selected.title,
+          startedAt: new Date('2026-04-07T11:30:00Z').toISOString(),
+          completedAt: new Date('2026-04-07T11:30:32Z').toISOString(),
+          status: 'failed',
+          error: 'Request contains an invalid argument.',
+          syncFamilies: [
+            {
+              key: 'location',
+              label: 'Location details',
+              status: 'failed',
+              error: 'Request contains an invalid argument.',
+              updatedAt: new Date('2026-04-07T11:30:32Z').toISOString(),
+            },
+          ],
+        },
+      ],
     };
 
     return snapshot.googleBusinessProfile;
@@ -337,6 +504,9 @@ export class DevRestaurantService implements RestaurantService {
       lastSyncStatus: null,
       lastSyncError: null,
       normalizedProfile: null,
+      latestChangeSummary: null,
+      syncFamilies: [],
+      syncHistory: snapshot.googleBusinessProfile.syncHistory,
     };
   }
 

@@ -38,6 +38,13 @@ export function RestaurantSettingsSubnav() {
             queryFn: () => restaurantService.getOperatingHours(id),
             enabled: true,
           });
+        case '/settings/restaurant/google-business-profile':
+          return prefetchIfStale({
+            queryClient,
+            queryKey: queryKeys.opsRestaurants.googleBusinessProfile(id),
+            queryFn: () => restaurantService.getGoogleBusinessProfileStatus(id),
+            enabled: true,
+          });
         case '/settings/restaurant/service-periods':
           return prefetchIfStale({
             queryClient,

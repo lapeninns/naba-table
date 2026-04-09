@@ -69,7 +69,6 @@
     "supabase:apply-order:staging:dry": "SUPABASE_DB_URL=YOUR_STAGING_DB_URL bash scripts/apply_supabase_order.sh --env staging --dry-run",
     "supabase:apply-order:staging": "bash scripts/apply_supabase_order.sh --env staging --confirm",
     "supabase:apply-order:ordered": "SUPABASE_DB_URL=YOUR_STAGING_DB_URL bash scripts/ordered_apply.sh",
-    "vibeproxy:health": "bash scripts/vibeproxy_health_check.sh",
     "db:push": "echo '📤 Pushing migrations to Supabase remote...' && supabase db push",
     "db:pull": "echo '📥 Pulling schema from Supabase remote...' && supabase db pull",
     "db:status": "supabase migration list"

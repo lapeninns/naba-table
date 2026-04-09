@@ -2893,6 +2893,65 @@ export type Database = {
           },
         ]
       }
+      restaurant_google_business_profile_sync_events: {
+        Row: {
+          account_id: string | null
+          account_name: string | null
+          created_at: string
+          id: string
+          location_id: string | null
+          location_name: string | null
+          location_title: string | null
+          restaurant_id: string
+          sync_completed_at: string | null
+          sync_error: string | null
+          sync_families: Json
+          sync_started_at: string
+          sync_status: string
+          trigger_source: string
+        }
+        Insert: {
+          account_id?: string | null
+          account_name?: string | null
+          created_at?: string
+          id?: string
+          location_id?: string | null
+          location_name?: string | null
+          location_title?: string | null
+          restaurant_id: string
+          sync_completed_at?: string | null
+          sync_error?: string | null
+          sync_families?: Json
+          sync_started_at?: string
+          sync_status: string
+          trigger_source?: string
+        }
+        Update: {
+          account_id?: string | null
+          account_name?: string | null
+          created_at?: string
+          id?: string
+          location_id?: string | null
+          location_name?: string | null
+          location_title?: string | null
+          restaurant_id?: string
+          sync_completed_at?: string | null
+          sync_error?: string | null
+          sync_families?: Json
+          sync_started_at?: string
+          sync_status?: string
+          trigger_source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "restaurant_google_business_profile_sync_events_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_policy: {
         Row: {
           allow_after_hours: boolean

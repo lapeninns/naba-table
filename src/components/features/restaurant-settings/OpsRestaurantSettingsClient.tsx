@@ -27,6 +27,13 @@ const RestaurantProfileSection = dynamic(() => import('./RestaurantProfileSectio
   loading: () => <SettingsSectionSkeleton title="Loading profile" />,
 });
 
+const RestaurantGoogleBusinessProfileSection = dynamic(
+  () => import('./RestaurantGoogleBusinessProfileSection').then((m) => m.RestaurantGoogleBusinessProfileSection),
+  {
+    loading: () => <SettingsSectionSkeleton title="Loading Google Business Profile" />,
+  },
+);
+
 const OperatingHoursSection = dynamic(() => import('./OperatingHoursSection').then((m) => m.OperatingHoursSection), {
   loading: () => <SettingsSectionSkeleton title="Loading operating hours" />,
 });
@@ -93,6 +100,9 @@ export function OpsRestaurantSettingsClient({ defaultRestaurantId, view }: OpsRe
   const viewConfig = RESTAURANT_SETTINGS_ROUTE_MAP[view];
   const renderByView: Record<RestaurantSettingsView, (context: { restaurantId: string | null; restaurantName: string }) => ReactNode> = {
     profile: ({ restaurantId }) => <RestaurantProfileSection restaurantId={restaurantId} />,
+    'google-business-profile': ({ restaurantId }) => (
+      <RestaurantGoogleBusinessProfileSection restaurantId={restaurantId} />
+    ),
     'operating-hours': ({ restaurantId }) => <OperatingHoursSection restaurantId={restaurantId} />,
     occasions: () => <OccasionsSection />,
     'service-periods': ({ restaurantId }) => <ServicePeriodsSection restaurantId={restaurantId} />,

@@ -191,4 +191,29 @@ export function resolveEnvSchemaTarget(
   return treatAsProdTarget ? 'production' : 'development';
 }
 
+export function extractSupabaseProjectRef(value: string | null | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const url = new URL(value);
+    const hostname = url.hostname.toLowerCase();
+    const hostMatch = hostname.match(/^(?:db\.)?([a-z0-9]{20})\.supabase\.co$/i);
+    if (hostMatch) {
+      return hostMatch[1] ?? null;
+    }
+
+    const username = decodeURIComponent(url.username ?? '');
+    const usernameMatch = username.match(/^postgres\.([a-z0-9]{20})$/i);
+    if (usernameMatch) {
+      return usernameMatch[1] ?? null;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
 export type Env = z.infer<typeof baseEnvSchema>;

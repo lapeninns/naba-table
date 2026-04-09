@@ -34,11 +34,14 @@ function getRequiredConfig() {
 export function buildGoogleBusinessProfileAuthorizationUrl(input: {
   restaurantId: string;
   returnTo: string;
+  returnOrigin?: string;
+  redirectUri?: string;
 }) {
   const config = getRequiredConfig();
+  const redirectUri = input.redirectUri ?? config.redirectUri;
   const url = new URL(GOOGLE_OAUTH_AUTHORIZE_URL);
   url.searchParams.set('client_id', config.clientId);
-  url.searchParams.set('redirect_uri', config.redirectUri);
+  url.searchParams.set('redirect_uri', redirectUri);
   url.searchParams.set('response_type', 'code');
   url.searchParams.set('scope', GOOGLE_BUSINESS_PROFILE_SCOPE);
   url.searchParams.set('access_type', 'offline');
@@ -50,18 +53,23 @@ export function buildGoogleBusinessProfileAuthorizationUrl(input: {
       restaurantId: input.restaurantId,
       returnTo: input.returnTo,
       issuedAt: Date.now(),
+      redirectUri,
+      returnOrigin: input.returnOrigin,
     }),
   );
 
   return url.toString();
 }
 
-async function exchangeToken(params: Record<string, string>): Promise<GoogleBusinessProfileTokenResponse> {
+async function exchangeToken(
+  params: Record<string, string>,
+  options: { redirectUri?: string } = {},
+): Promise<GoogleBusinessProfileTokenResponse> {
   const config = getRequiredConfig();
   const body = new URLSearchParams({
     client_id: config.clientId,
     client_secret: config.clientSecret,
-    redirect_uri: config.redirectUri,
+    redirect_uri: options.redirectUri ?? config.redirectUri,
     ...params,
   });
 
@@ -106,11 +114,17 @@ async function exchangeToken(params: Record<string, string>): Promise<GoogleBusi
   };
 }
 
-export async function exchangeGoogleBusinessProfileCode(code: string) {
-  return exchangeToken({
-    code,
-    grant_type: 'authorization_code',
-  });
+export async function exchangeGoogleBusinessProfileCode(
+  code: string,
+  redirectUri?: string,
+) {
+  return exchangeToken(
+    {
+      code,
+      grant_type: 'authorization_code',
+    },
+    { redirectUri },
+  );
 }
 
 export async function refreshGoogleBusinessProfileAccessToken(refreshToken: string) {

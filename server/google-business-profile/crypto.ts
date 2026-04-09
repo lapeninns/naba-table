@@ -58,6 +58,8 @@ type SignedStatePayload = {
   restaurantId: string;
   returnTo: string;
   issuedAt: number;
+  redirectUri?: string;
+  returnOrigin?: string;
 };
 
 export function signGoogleBusinessProfileState(payload: SignedStatePayload): string {

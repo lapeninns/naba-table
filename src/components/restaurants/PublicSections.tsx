@@ -15,6 +15,7 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 
+import { RestaurantGoogleBusinessProfileHighlights } from '@/components/restaurants/RestaurantGoogleBusinessProfileHighlights';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -242,6 +243,14 @@ export function RestaurantsGridSection({ restaurants }: { restaurants: Restauran
 }
 
 export function RestaurantDetailHero({ restaurant }: { restaurant: RestaurantDirectoryEntry }) {
+  const openStatus = restaurant.googleBusinessProfile?.openStatus
+    ? restaurant.googleBusinessProfile.openStatus
+        .toLowerCase()
+        .split('_')
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ')
+    : null;
+
   return (
     <section className="relative min-h-[420px] w-full overflow-hidden rounded-b-[var(--guest-radius-2xl)]">
       {restaurant.logoUrl ? (
@@ -260,6 +269,9 @@ export function RestaurantDetailHero({ restaurant }: { restaurant: RestaurantDir
       <div className="relative mx-auto flex max-w-6xl flex-col gap-6 px-4 pb-8 pt-24 text-white sm:px-6 sm:pt-28">
         <div className="flex flex-wrap gap-2">
           <Badge className="w-fit rounded-full bg-amber-300 text-amber-950">{restaurant.badge}</Badge>
+          {openStatus ? (
+            <Badge className="rounded-full bg-emerald-200 text-emerald-950">{openStatus}</Badge>
+          ) : null}
           {restaurant.categories.slice(0, 3).map((category) => (
             <Badge key={category} className="rounded-full bg-white/10 text-white backdrop-blur">
               {category}
@@ -378,6 +390,8 @@ export function RestaurantDetailsSection({
               <CategoryBlock title="Amenities" items={restaurant.amenityTags} />
             </div>
           </Card>
+
+          <RestaurantGoogleBusinessProfileHighlights restaurant={restaurant} />
 
           <div className="grid gap-4 sm:grid-cols-2">
             {quickFacts.map((fact) => (
