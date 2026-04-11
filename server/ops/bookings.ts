@@ -2,6 +2,7 @@ import { DateTime } from "luxon";
 
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
+import { computeServiceBreakdown } from "@/lib/ops/daily-booking-summary";
 import { getDateInTimezone } from "@/lib/utils/datetime";
 import { LruCache } from "@/server/capacity/lru-cache";
 import { getCustomerProfilesForCustomers } from "@/server/ops/customer-profiles";
@@ -166,6 +167,7 @@ type BookingSummaryQueryRow = Pick<
   Tables<"bookings">,
   | "id"
   | "status"
+  | "booking_type"
   | "start_time"
   | "end_time"
   | "party_size"
@@ -353,6 +355,7 @@ export async function getTodayBookingsSummary(
         `
         id,
         status,
+        booking_type,
         start_time,
         end_time,
         party_size,
@@ -465,6 +468,7 @@ export async function getTodayBookingsSummary(
         id: booking.id,
         customerId: booking.customer_id ?? null,
         status: booking.status,
+        bookingType: booking.booking_type ?? null,
         startTime: booking.start_time,
         endTime: booking.end_time,
         partySize: booking.party_size,
@@ -497,6 +501,7 @@ export async function getTodayBookingsSummary(
     });
 
     const totals = computeDashboardTotals(summaryBookings);
+    const serviceBreakdown = computeServiceBreakdown(summaryBookings);
 
     const result = {
       meta: {
@@ -508,6 +513,7 @@ export async function getTodayBookingsSummary(
       timezone,
       restaurantId,
       totals,
+      serviceBreakdown,
       bookings: summaryBookings,
     } satisfies TodayBookingsSummary;
 

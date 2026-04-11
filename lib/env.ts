@@ -154,6 +154,24 @@ export const env = {
     } as const;
   },
 
+  get twilio() {
+    const parsed = parseEnv();
+    const accountSid = parsed.TWILIO_ACCOUNT_SID ?? null;
+    const apiKeySid = parsed.TWILIO_API_KEY_SID ?? null;
+    const apiKeySecret = parsed.TWILIO_API_KEY_SECRET ?? null;
+    const messagingServiceSid = parsed.TWILIO_MESSAGING_SERVICE_SID ?? null;
+    const shortenUrls = parsed.TWILIO_SHORTEN_URLS ?? false;
+
+    return {
+      accountSid,
+      apiKeySid,
+      apiKeySecret,
+      messagingServiceSid,
+      shortenUrls,
+      configured: Boolean(accountSid && apiKeySid && apiKeySecret && messagingServiceSid),
+    } as const;
+  },
+
   get featureFlags() {
     const parsed = parseEnv();
     const isProduction = parsed.NODE_ENV === 'production';
@@ -382,6 +400,9 @@ export const env = {
     return {
       emailQueueGatewayUrl: parsed.CLOUDFLARE_EMAIL_QUEUE_GATEWAY_URL,
       emailQueueGatewayToken: parsed.CLOUDFLARE_EMAIL_QUEUE_GATEWAY_TOKEN,
+      bookingShortLinksBaseUrl: parsed.BOOKING_SHORT_LINKS_BASE_URL ?? null,
+      bookingShortLinksInternalUrl: parsed.BOOKING_SHORT_LINKS_INTERNAL_URL ?? null,
+      bookingShortLinksInternalToken: parsed.BOOKING_SHORT_LINKS_INTERNAL_TOKEN ?? null,
     } as const;
   },
 } as const;

@@ -4,7 +4,11 @@ import { RESTAURANT_ROLE_OWNER } from '@/lib/owner/auth/roles';
 import { DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES } from '@/lib/restaurants/defaults';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { deleteRestaurant, updateRestaurant } from '@/server/restaurants';
-import { ensureLogoColumnOnRow, isLogoUrlColumnMissing, logLogoColumnFallback } from '@/server/restaurants/logo-url-compat';
+import {
+  ensureLogoColumnOnRow,
+  isLogoUrlColumnMissing,
+  logLogoColumnFallback,
+} from '@/server/restaurants/logo-url-compat';
 import { restaurantSelectColumns } from '@/server/restaurants/select-fields';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 import { requireAdminMembership, requireMembershipForRestaurant } from '@/server/team/access';
@@ -17,7 +21,7 @@ import {
 } from '../schema';
 
 import type { Database } from '@/types/supabase';
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server';
 
 type RestaurantRow = Database['public']['Tables']['restaurants']['Row'];
 
@@ -50,7 +54,10 @@ export async function GET(req: NextRequest, context: RouteContext) {
   if (authError) {
     console.error('[ops/restaurants/[id]][GET] failed to resolve auth', authError.message);
     const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
+    return NextResponse.json(
+      { error: mapped.message, code: mapped.code },
+      { status: mapped.status },
+    );
   }
 
   if (!user) {
@@ -112,6 +119,8 @@ export async function GET(req: NextRequest, context: RouteContext) {
       contactEmail: restaurantRow.contact_email,
       contactPhone: restaurantRow.contact_phone,
       address: restaurantRow.address,
+      managerDailySummaryEnabled: restaurantRow.manager_daily_summary_enabled ?? false,
+      managerNotificationPhone: restaurantRow.manager_notification_phone,
       googleMapUrl: restaurantRow.google_map_url,
       googleReviewUrl: restaurantRow.google_review_url,
       bookingPolicy: restaurantRow.booking_policy,
@@ -123,7 +132,8 @@ export async function GET(req: NextRequest, context: RouteContext) {
       reservationDefaultDurationMinutes: restaurantRow.reservation_default_duration_minutes,
       reservationLastSeatingBufferMinutes: restaurantRow.reservation_last_seating_buffer_minutes,
       reservationLifecycleGraceMinutes:
-        restaurantRow.reservation_lifecycle_grace_minutes ?? DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES,
+        restaurantRow.reservation_lifecycle_grace_minutes ??
+        DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES,
       createdAt: restaurantRow.created_at,
       updatedAt: restaurantRow.updated_at,
       role: membershipRole,
@@ -150,7 +160,10 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
   if (authError) {
     console.error('[ops/restaurants/[id]][PATCH] failed to resolve auth', authError.message);
     const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
+    return NextResponse.json(
+      { error: mapped.message, code: mapped.code },
+      { status: mapped.status },
+    );
   }
 
   if (!user) {
@@ -168,7 +181,10 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
     if (membershipErrorCode === 'MEMBERSHIP_ROLE_DENIED') {
-      return NextResponse.json({ error: 'Forbidden: Owner or manager role required' }, { status: 403 });
+      return NextResponse.json(
+        { error: 'Forbidden: Owner or manager role required' },
+        { status: 403 },
+      );
     }
 
     console.error('[ops/restaurants/[id]][PATCH] membership guard failed', error);
@@ -184,7 +200,10 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
 
   const parsed = updateRestaurantSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.flatten() }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Validation failed', details: parsed.error.flatten() },
+      { status: 400 },
+    );
   }
 
   const input = parsed.data;
@@ -201,6 +220,8 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
         contactEmail: input.contactEmail,
         contactPhone: input.contactPhone,
         address: input.address,
+        managerDailySummaryEnabled: input.managerDailySummaryEnabled,
+        managerNotificationPhone: input.managerNotificationPhone,
         googleMapUrl: input.googleMapUrl,
         googleReviewUrl: input.googleReviewUrl,
         bookingPolicy: input.bookingPolicy,
@@ -227,6 +248,8 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
         contactEmail: restaurant.contactEmail,
         contactPhone: restaurant.contactPhone,
         address: restaurant.address,
+        managerDailySummaryEnabled: restaurant.managerDailySummaryEnabled,
+        managerNotificationPhone: restaurant.managerNotificationPhone,
         googleMapUrl: restaurant.googleMapUrl,
         googleReviewUrl: restaurant.googleReviewUrl,
         bookingPolicy: restaurant.bookingPolicy,
@@ -262,7 +285,10 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
   if (authError) {
     console.error('[ops/restaurants/[id]][DELETE] failed to resolve auth', authError.message);
     const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
+    return NextResponse.json(
+      { error: mapped.message, code: mapped.code },
+      { status: mapped.status },
+    );
   }
 
   if (!user) {

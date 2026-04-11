@@ -1,9 +1,0 @@
-URL: https://www.nabatable.com/restaurants/three-horseshoes
-Checked at: 2026-04-07T10:40Z
-Observed status: HTTP 200
-Observed title/content markers:
-- Title still contains "Three Horseshoes · Nab a Table"
-- Page still renders booking CTA/content
-Interpretation:
-- The production database row is now inactive, but the currently deployed production app still ignores restaurants.is_active on the public slug route.
-- A deploy of the code changes in this task is still required for the live URL to disappear.

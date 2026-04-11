@@ -1,5 +1,9 @@
 import { DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES } from '@/lib/restaurants/defaults';
-import { ensureLogoColumnOnRow, isLogoUrlColumnMissing, logLogoColumnFallback } from '@/server/restaurants/logo-url-compat';
+import {
+  ensureLogoColumnOnRow,
+  isLogoUrlColumnMissing,
+  logLogoColumnFallback,
+} from '@/server/restaurants/logo-url-compat';
 import { restaurantSelectColumns } from '@/server/restaurants/select-fields';
 import { assertValidTimezone } from '@/server/restaurants/timezone';
 import { getServiceSupabaseClient } from '@/server/supabase';
@@ -20,6 +24,8 @@ export type CreateRestaurantInput = {
   contactEmail?: string | null;
   contactPhone?: string | null;
   address?: string | null;
+  managerDailySummaryEnabled?: boolean;
+  managerNotificationPhone?: string | null;
   googleMapUrl?: string | null;
   googleReviewUrl?: string | null;
   bookingPolicy?: string | null;
@@ -42,6 +48,8 @@ export type CreatedRestaurant = {
   contactEmail: string | null;
   contactPhone: string | null;
   address: string | null;
+  managerDailySummaryEnabled: boolean;
+  managerNotificationPhone: string | null;
   googleMapUrl: string | null;
   googleReviewUrl: string | null;
   bookingPolicy: string | null;
@@ -111,13 +119,19 @@ export async function createRestaurant(
       : 90;
   const lastSeatingBufferMinutes = input.reservationLastSeatingBufferMinutes;
   const lifecycleGraceMinutes =
-    input.reservationLifecycleGraceMinutes !== undefined ? input.reservationLifecycleGraceMinutes : 30;
+    input.reservationLifecycleGraceMinutes !== undefined
+      ? input.reservationLifecycleGraceMinutes
+      : 30;
 
   if (!Number.isInteger(intervalMinutes) || intervalMinutes < 1 || intervalMinutes > 180) {
     throw new Error('Reservation interval must be an integer between 1 and 180 minutes.');
   }
 
-  if (!Number.isInteger(defaultDurationMinutes) || defaultDurationMinutes < 15 || defaultDurationMinutes > 300) {
+  if (
+    !Number.isInteger(defaultDurationMinutes) ||
+    defaultDurationMinutes < 15 ||
+    defaultDurationMinutes > 300
+  ) {
     throw new Error('Reservation duration must be an integer between 15 and 300 minutes.');
   }
 
@@ -138,6 +152,13 @@ export async function createRestaurant(
     throw new Error('Lifecycle grace period must be an integer between 0 and 120 minutes.');
   }
 
+  const managerNotificationPhone = input.managerNotificationPhone?.trim() || null;
+  const managerDailySummaryEnabled = input.managerDailySummaryEnabled ?? false;
+
+  if (managerDailySummaryEnabled && !managerNotificationPhone) {
+    throw new Error('A manager notification phone is required when daily SMS summaries are enabled.');
+  }
+
   const insertPayload: Database['public']['Tables']['restaurants']['Insert'] = {
     name: input.name,
     slug: uniqueSlug,
@@ -146,6 +167,8 @@ export async function createRestaurant(
     contact_email: input.contactEmail ?? null,
     contact_phone: input.contactPhone ?? null,
     address: input.address ?? null,
+    manager_daily_summary_enabled: managerDailySummaryEnabled,
+    manager_notification_phone: managerNotificationPhone,
     google_map_url: input.googleMapUrl ?? null,
     google_review_url: input.googleReviewUrl ?? null,
     booking_policy: input.bookingPolicy ?? null,
@@ -211,6 +234,8 @@ export async function createRestaurant(
     contactEmail: restaurant.contact_email,
     contactPhone: restaurant.contact_phone,
     address: restaurant.address,
+    managerDailySummaryEnabled: restaurant.manager_daily_summary_enabled ?? false,
+    managerNotificationPhone: restaurant.manager_notification_phone,
     googleMapUrl: restaurant.google_map_url,
     googleReviewUrl: restaurant.google_review_url,
     bookingPolicy: restaurant.booking_policy,

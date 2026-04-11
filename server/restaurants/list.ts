@@ -1,5 +1,9 @@
 import { DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES } from '@/lib/restaurants/defaults';
-import { ensureLogoColumnOnRows, isLogoUrlColumnMissing, logLogoColumnFallback } from '@/server/restaurants/logo-url-compat';
+import {
+  ensureLogoColumnOnRows,
+  isLogoUrlColumnMissing,
+  logLogoColumnFallback,
+} from '@/server/restaurants/logo-url-compat';
 import { restaurantSelectColumns } from '@/server/restaurants/select-fields';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
@@ -23,6 +27,8 @@ export type RestaurantListItem = {
   contactEmail: string | null;
   contactPhone: string | null;
   address: string | null;
+  managerDailySummaryEnabled: boolean;
+  managerNotificationPhone: string | null;
   googleMapUrl: string | null;
   googleReviewUrl: string | null;
   bookingPolicy: string | null;
@@ -95,7 +101,9 @@ export async function listRestaurantsForOps(
   };
 
   type RestaurantsQueryResponse = PostgrestResponse<RestaurantWithMembership>;
-  const normalizeRows = (rows: RestaurantWithMembership[] | null | undefined): RestaurantWithMembership[] =>
+  const normalizeRows = (
+    rows: RestaurantWithMembership[] | null | undefined,
+  ): RestaurantWithMembership[] =>
     (ensureLogoColumnOnRows(rows) ?? []) as RestaurantWithMembership[];
 
   let { data, error, count } = (await buildQuery(true)) as RestaurantsQueryResponse;
@@ -130,6 +138,8 @@ export async function listRestaurantsForOps(
       contactEmail: row.contact_email,
       contactPhone: row.contact_phone,
       address: row.address,
+      managerDailySummaryEnabled: row.manager_daily_summary_enabled ?? false,
+      managerNotificationPhone: row.manager_notification_phone,
       googleMapUrl: row.google_map_url,
       googleReviewUrl: row.google_review_url,
       bookingPolicy: row.booking_policy,

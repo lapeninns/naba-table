@@ -10,7 +10,7 @@ import {
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
 import { requireAdminMembership } from '@/server/team/access';
 
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server';
 
 type RouteParams = {
   params: Promise<{
@@ -29,6 +29,13 @@ const detailsSchema = z.object({
   timezone: z.string().min(1),
   capacity: z.number().int().min(0).nullable().optional(),
   phone: z.string().max(80).nullable().optional(),
+  managerDailySummaryEnabled: z.boolean().optional(),
+  managerNotificationPhone: z
+    .string()
+    .regex(/^\+[1-9][0-9]{6,14}$/)
+    .max(16)
+    .nullable()
+    .optional(),
   email: z.string().email().nullable().optional(),
   address: z.string().max(240).nullable().optional(),
   googleMapUrl: z.string().url().max(2048).nullable().optional(),
@@ -37,7 +44,9 @@ const detailsSchema = z.object({
   logoUrl: z.string().url().nullable().optional(),
 });
 
-async function resolveRestaurantId(paramsPromise: Promise<{ id: string | string[] }> | undefined): Promise<string | null> {
+async function resolveRestaurantId(
+  paramsPromise: Promise<{ id: string | string[] }> | undefined,
+): Promise<string | null> {
   if (!paramsPromise) return null;
   const params = await paramsPromise;
   const { id } = params;
@@ -55,7 +64,10 @@ async function ensureAuthorized(restaurantId: string): Promise<NextResponse | nu
 
   if (authError) {
     const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
+    return NextResponse.json(
+      { error: mapped.message, code: mapped.code },
+      { status: mapped.status },
+    );
   }
 
   if (!user) {
@@ -121,6 +133,8 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       timezone: parsed.timezone,
       capacity: parsed.capacity ?? null,
       contactPhone: parsed.phone ?? null,
+      managerDailySummaryEnabled: parsed.managerDailySummaryEnabled,
+      managerNotificationPhone: parsed.managerNotificationPhone ?? null,
       contactEmail: parsed.email ?? null,
       address: parsed.address ?? null,
       googleMapUrl: parsed.googleMapUrl ?? null,
@@ -130,7 +144,10 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     };
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Invalid payload', details: error.flatten() }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid payload', details: error.flatten() },
+        { status: 400 },
+      );
     }
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
   }

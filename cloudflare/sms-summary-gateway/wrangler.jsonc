@@ -1,0 +1,47 @@
+{
+  "name": "nabatable-sms-summary-gateway",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-04-11",
+  "workers_dev": true,
+  "triggers": {
+    "crons": [
+      "*/15 * * * *"
+    ]
+  },
+  "queues": {
+    "producers": [
+      {
+        "binding": "DAILY_BOOKING_SUMMARY_QUEUE",
+        "queue": "nabatable-sms-daily-summary"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "nabatable-sms-daily-summary",
+        "max_batch_size": 10,
+        "max_batch_timeout": 5,
+        "max_retries": 5,
+        "dead_letter_queue": "nabatable-sms-daily-summary-dlq"
+      }
+    ]
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "DAILY_BOOKING_SUMMARY_STATE",
+        "class_name": "DailyBookingSummaryState"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "DailyBookingSummaryState"
+      ]
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}
