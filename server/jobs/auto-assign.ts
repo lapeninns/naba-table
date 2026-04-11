@@ -1,4 +1,7 @@
 import {
+  sendFirstBookingConfirmationNotifications,
+} from "@/server/bookings/confirmation-notifications";
+import {
   parseAutoAssignLastResult,
   isInlineResultRecent,
   isInlineHardFailure,
@@ -13,7 +16,6 @@ import { classifyPlannerReason } from "@/server/capacity/planner-reason";
 import { recordPlannerQuoteTelemetry } from "@/server/capacity/planner-telemetry";
 import { quoteTablesForBooking, atomicConfirmAndTransition } from "@/server/capacity/tables";
 import {
-  sendBookingConfirmationEmail,
   sendBookingModificationConfirmedEmail,
   sendBookingPendingAttentionEmail,
 } from "@/server/emails/bookings";
@@ -226,7 +228,9 @@ export async function autoAssignAndConfirmIfPossible(
             if (emailVariant === "modified") {
               await sendBookingModificationConfirmedEmail(booking as unknown as Tables<"bookings">);
             } else {
-              await sendBookingConfirmationEmail(booking as unknown as Tables<"bookings">);
+              await sendFirstBookingConfirmationNotifications(
+                booking as unknown as Tables<"bookings">,
+              );
             }
           } catch (e) {
             console.error("[auto-assign] failed sending confirmation for already-confirmed", { bookingId, error: e });
@@ -566,7 +570,9 @@ export async function autoAssignAndConfirmIfPossible(
               } else if (emailVariant === "modified") {
                 await sendBookingModificationConfirmedEmail(updated as unknown as Tables<"bookings">);
               } else {
-                await sendBookingConfirmationEmail(updated as unknown as Tables<"bookings">);
+                await sendFirstBookingConfirmationNotifications(
+                  updated as unknown as Tables<"bookings">,
+                );
               }
             }
 

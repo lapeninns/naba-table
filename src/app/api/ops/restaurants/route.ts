@@ -12,7 +12,7 @@ import {
   type RestaurantResponse,
 } from './schema';
 
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server';
 
 export async function GET(req: NextRequest) {
   const supabase = await getRouteHandlerSupabaseClient();
@@ -24,7 +24,10 @@ export async function GET(req: NextRequest) {
   if (authError) {
     console.error('[ops/restaurants][GET] failed to resolve auth', authError.message);
     const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
+    return NextResponse.json(
+      { error: mapped.message, code: mapped.code },
+      { status: mapped.status },
+    );
   }
 
   if (!user) {
@@ -40,7 +43,10 @@ export async function GET(req: NextRequest) {
 
   const parsed = listRestaurantsQuerySchema.safeParse(rawParams);
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Invalid query', details: parsed.error.flatten() }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Invalid query', details: parsed.error.flatten() },
+      { status: 400 },
+    );
   }
 
   const params = parsed.data;
@@ -68,6 +74,8 @@ export async function GET(req: NextRequest) {
       contactEmail: restaurant.contactEmail,
       contactPhone: restaurant.contactPhone,
       address: restaurant.address,
+      managerDailySummaryEnabled: restaurant.managerDailySummaryEnabled,
+      managerNotificationPhone: restaurant.managerNotificationPhone,
       googleMapUrl: restaurant.googleMapUrl,
       googleReviewUrl: restaurant.googleReviewUrl,
       bookingPolicy: restaurant.bookingPolicy,
@@ -111,7 +119,10 @@ export async function POST(req: NextRequest) {
   if (authError) {
     console.error('[ops/restaurants][POST] failed to resolve auth', authError.message);
     const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
+    return NextResponse.json(
+      { error: mapped.message, code: mapped.code },
+      { status: mapped.status },
+    );
   }
 
   if (!user) {
@@ -127,7 +138,10 @@ export async function POST(req: NextRequest) {
 
   const parsed = createRestaurantSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsed.error.flatten() }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Validation failed', details: parsed.error.flatten() },
+      { status: 400 },
+    );
   }
 
   const input = parsed.data;
@@ -143,6 +157,8 @@ export async function POST(req: NextRequest) {
         contactEmail: input.contactEmail,
         contactPhone: input.contactPhone,
         address: input.address,
+        managerDailySummaryEnabled: input.managerDailySummaryEnabled,
+        managerNotificationPhone: input.managerNotificationPhone,
         googleMapUrl: input.googleMapUrl,
         googleReviewUrl: input.googleReviewUrl,
         bookingPolicy: input.bookingPolicy,
@@ -170,6 +186,8 @@ export async function POST(req: NextRequest) {
         contactEmail: restaurant.contactEmail,
         contactPhone: restaurant.contactPhone,
         address: restaurant.address,
+        managerDailySummaryEnabled: restaurant.managerDailySummaryEnabled,
+        managerNotificationPhone: restaurant.managerNotificationPhone,
         googleMapUrl: restaurant.googleMapUrl,
         googleReviewUrl: restaurant.googleReviewUrl,
         bookingPolicy: restaurant.bookingPolicy,

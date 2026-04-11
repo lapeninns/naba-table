@@ -47,6 +47,7 @@ export type OpsDashboardBookingItem = {
   id: string;
   customerId?: string | null;
   status: OpsBookingStatus;
+  bookingType?: string | null;
   startTime: string | null;
   endTime: string | null;
   partySize: number;
@@ -103,12 +104,25 @@ export type OpsDashboardMeta = {
   restaurantId: string;
 };
 
+export type OpsServiceBreakdownPeriod = {
+  key: string;
+  bookings: number;
+  covers: number;
+};
+
+export type OpsServiceBreakdown = {
+  activeBookings: number;
+  activeCovers: number;
+  periods: OpsServiceBreakdownPeriod[];
+};
+
 export type OpsDashboardData = {
   meta: OpsDashboardMeta;
   date: string;
   timezone: string;
   restaurantId: string;
   totals: OpsDashboardTotals;
+  serviceBreakdown?: OpsServiceBreakdown;
   bookings: OpsDashboardBookingItem[];
   heatmap?: OpsBookingHeatmap;
 };
@@ -215,6 +229,7 @@ export type OpsRestaurantOption = {
   isActive?: boolean;
   timezone?: string | null;
   address?: string | null;
+  managerDailySummaryEnabled?: boolean;
 };
 
 export type OpsServiceError = HttpError | Error;

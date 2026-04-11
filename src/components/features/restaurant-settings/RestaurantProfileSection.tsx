@@ -10,7 +10,10 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useOpsRestaurantDetails, useOpsUpdateRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
+import {
+  useOpsRestaurantDetails,
+  useOpsUpdateRestaurantDetails,
+} from '@/hooks/ops/useOpsRestaurantDetails';
 import { DEFAULT_RESERVATION_INTERVAL_MINUTES } from '@reserve/shared/config/reservations';
 
 import { RestaurantLogoUploader } from './RestaurantLogoUploader';
@@ -25,6 +28,8 @@ const EMPTY_VALUES: RestaurantDetailsFormValues = {
   contactEmail: null,
   contactPhone: null,
   address: null,
+  managerDailySummaryEnabled: false,
+  managerNotificationPhone: null,
   googleMapUrl: null,
   googleReviewUrl: null,
   bookingPolicy: null,
@@ -54,6 +59,8 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
       contactEmail: data.contactEmail,
       contactPhone: data.contactPhone,
       address: data.address,
+      managerDailySummaryEnabled: data.managerDailySummaryEnabled,
+      managerNotificationPhone: data.managerNotificationPhone,
       googleMapUrl: data.googleMapUrl,
       googleReviewUrl: data.googleReviewUrl,
       bookingPolicy: data.bookingPolicy,
@@ -75,6 +82,8 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
         contactEmail: values.contactEmail ?? null,
         contactPhone: values.contactPhone ?? null,
         address: values.address ?? null,
+        managerDailySummaryEnabled: values.managerDailySummaryEnabled,
+        managerNotificationPhone: values.managerNotificationPhone ?? null,
         googleMapUrl: values.googleMapUrl ?? null,
         googleReviewUrl: values.googleReviewUrl ?? null,
         bookingPolicy: values.bookingPolicy ?? null,
@@ -95,7 +104,8 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
         description="Select a restaurant to manage its profile details."
       >
         <p className="text-sm text-muted-foreground">
-          Choose a restaurant using the sidebar switcher to view and update its name, slug, contact information, and booking policy.
+          Choose a restaurant using the sidebar switcher to view and update its name, slug, contact
+          information, and booking policy.
         </p>
       </SettingsCard>
     );

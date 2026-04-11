@@ -1,5 +1,9 @@
 import { DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES } from '@/lib/restaurants/defaults';
-import { ensureLogoColumnOnRow, isLogoUrlColumnMissing, logLogoColumnFallback } from '@/server/restaurants/logo-url-compat';
+import {
+  ensureLogoColumnOnRow,
+  isLogoUrlColumnMissing,
+  logLogoColumnFallback,
+} from '@/server/restaurants/logo-url-compat';
 import { restaurantSelectColumns } from '@/server/restaurants/select-fields';
 import { assertValidTimezone } from '@/server/restaurants/timezone';
 import { getServiceSupabaseClient } from '@/server/supabase';
@@ -21,6 +25,8 @@ export type UpdateRestaurantInput = {
   contactEmail?: string | null;
   contactPhone?: string | null;
   address?: string | null;
+  managerDailySummaryEnabled?: boolean;
+  managerNotificationPhone?: string | null;
   googleMapUrl?: string | null;
   googleReviewUrl?: string | null;
   bookingPolicy?: string | null;
@@ -44,6 +50,8 @@ export type UpdatedRestaurant = {
   contactEmail: string | null;
   contactPhone: string | null;
   address: string | null;
+  managerDailySummaryEnabled: boolean;
+  managerNotificationPhone: string | null;
   googleMapUrl: string | null;
   googleReviewUrl: string | null;
   bookingPolicy: string | null;
@@ -115,6 +123,40 @@ export async function updateRestaurant(
 
   if (input.address !== undefined) {
     updateData.address = input.address;
+  }
+
+  if (input.managerNotificationPhone !== undefined) {
+    const trimmed = input.managerNotificationPhone?.trim();
+    updateData.manager_notification_phone = trimmed && trimmed.length > 0 ? trimmed : null;
+  }
+
+  if (input.managerDailySummaryEnabled !== undefined) {
+    updateData.manager_daily_summary_enabled = input.managerDailySummaryEnabled;
+  }
+
+  if (
+    updateData.manager_daily_summary_enabled === true &&
+    updateData.manager_notification_phone === undefined
+  ) {
+    const { data: currentRow, error: currentError } = await client
+      .from('restaurants')
+      .select('manager_notification_phone')
+      .eq('id', restaurantId)
+      .maybeSingle<{ manager_notification_phone: string | null }>();
+
+    if (currentError) {
+      throw new Error(`Failed to load current manager notification phone: ${currentError.message}`);
+    }
+
+    updateData.manager_notification_phone = currentRow?.manager_notification_phone ?? null;
+  }
+
+  if (updateData.manager_notification_phone === null) {
+    updateData.manager_daily_summary_enabled = false;
+  }
+
+  if (updateData.manager_daily_summary_enabled === true && !updateData.manager_notification_phone) {
+    throw new Error('A manager notification phone is required when daily SMS summaries are enabled.');
   }
 
   if (input.googleMapUrl !== undefined) {
@@ -217,6 +259,8 @@ export async function updateRestaurant(
     contactEmail: data.contact_email,
     contactPhone: data.contact_phone,
     address: data.address,
+    managerDailySummaryEnabled: data.manager_daily_summary_enabled ?? false,
+    managerNotificationPhone: data.manager_notification_phone,
     googleMapUrl: data.google_map_url,
     googleReviewUrl: data.google_review_url ?? null,
     bookingPolicy: data.booking_policy,

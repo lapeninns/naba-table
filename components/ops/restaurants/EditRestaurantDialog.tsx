@@ -19,7 +19,11 @@ type EditRestaurantDialogProps = {
   restaurant: RestaurantDTO | null;
 };
 
-export function EditRestaurantDialog({ open, onOpenChange, restaurant }: EditRestaurantDialogProps) {
+export function EditRestaurantDialog({
+  open,
+  onOpenChange,
+  restaurant,
+}: EditRestaurantDialogProps) {
   const updateMutation = useUpdateRestaurant();
 
   const handleSubmit = async (input: UpdateRestaurantInput) => {
@@ -41,7 +45,9 @@ export function EditRestaurantDialog({ open, onOpenChange, restaurant }: EditRes
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Edit Restaurant</DialogTitle>
-          <DialogDescription>Update restaurant information. All fields marked with * are required.</DialogDescription>
+          <DialogDescription>
+            Update restaurant information. All fields marked with * are required.
+          </DialogDescription>
         </DialogHeader>
 
         <RestaurantDetailsForm
@@ -52,6 +58,8 @@ export function EditRestaurantDialog({ open, onOpenChange, restaurant }: EditRes
             contactEmail: restaurant.contactEmail,
             contactPhone: restaurant.contactPhone,
             address: restaurant.address,
+            managerDailySummaryEnabled: restaurant.managerDailySummaryEnabled,
+            managerNotificationPhone: restaurant.managerNotificationPhone,
             googleMapUrl: restaurant.googleMapUrl,
             googleReviewUrl: restaurant.googleReviewUrl,
             bookingPolicy: restaurant.bookingPolicy,

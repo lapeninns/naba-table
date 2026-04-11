@@ -1,4 +1,8 @@
-import { ensureLogoColumnOnRow, isLogoUrlColumnMissing, logLogoColumnFallback } from '@/server/restaurants/logo-url-compat';
+import {
+  ensureLogoColumnOnRow,
+  isLogoUrlColumnMissing,
+  logLogoColumnFallback,
+} from '@/server/restaurants/logo-url-compat';
 import { restaurantSelectColumns } from '@/server/restaurants/select-fields';
 import { assertValidTimezone } from '@/server/restaurants/timezone';
 import { getServiceSupabaseClient } from '@/server/supabase';
@@ -21,6 +25,8 @@ export type RestaurantDetails = {
   contactEmail: string | null;
   contactPhone: string | null;
   address: string | null;
+  managerDailySummaryEnabled: boolean;
+  managerNotificationPhone: string | null;
   googleMapUrl: string | null;
   googleReviewUrl: string | null;
   bookingPolicy: string | null;
@@ -35,6 +41,8 @@ export type UpdateRestaurantDetailsInput = {
   contactEmail?: string | null;
   contactPhone?: string | null;
   address?: string | null;
+  managerDailySummaryEnabled?: boolean;
+  managerNotificationPhone?: string | null;
   googleMapUrl?: string | null;
   googleReviewUrl?: string | null;
   bookingPolicy?: string | null;
@@ -59,6 +67,8 @@ type NormalizedDetailsInput = {
   contactEmail: string | null;
   contactPhone: string | null;
   address: string | null;
+  managerDailySummaryEnabled: boolean;
+  managerNotificationPhone: string | null;
   googleMapUrl: string | null;
   googleReviewUrl: string | null;
   bookingPolicy: string | null;
@@ -81,7 +91,8 @@ function validateDetailsInput(input: NormalizedDetailsInput): NormalizedDetailsI
     throw new Error('Slug must contain only lowercase letters, numbers, and hyphens');
   }
 
-  const capacity = input.capacity === null ? null : Number.isFinite(input.capacity) ? input.capacity : null;
+  const capacity =
+    input.capacity === null ? null : Number.isFinite(input.capacity) ? input.capacity : null;
   if (capacity !== null && capacity < 0) {
     throw new Error('Capacity must be a positive number');
   }
@@ -94,6 +105,8 @@ function validateDetailsInput(input: NormalizedDetailsInput): NormalizedDetailsI
     contactEmail: sanitizeString(input.contactEmail),
     contactPhone: sanitizeString(input.contactPhone),
     address: sanitizeString(input.address),
+    managerDailySummaryEnabled: input.managerDailySummaryEnabled ?? false,
+    managerNotificationPhone: sanitizeString(input.managerNotificationPhone),
     googleMapUrl: sanitizeString(input.googleMapUrl),
     googleReviewUrl: sanitizeString(input.googleReviewUrl),
     bookingPolicy: sanitizeString(input.bookingPolicy),
@@ -138,6 +151,8 @@ export async function getRestaurantDetails(
     contactEmail: restaurant.contact_email,
     contactPhone: restaurant.contact_phone,
     address: restaurant.address,
+    managerDailySummaryEnabled: restaurant.manager_daily_summary_enabled ?? false,
+    managerNotificationPhone: restaurant.manager_notification_phone,
     googleMapUrl: restaurant.google_map_url,
     googleReviewUrl: restaurant.google_review_url,
     bookingPolicy: restaurant.booking_policy,
@@ -159,6 +174,9 @@ export async function updateRestaurantDetails(
     contactEmail: input.contactEmail ?? current.contactEmail,
     contactPhone: input.contactPhone ?? current.contactPhone,
     address: input.address ?? current.address,
+    managerDailySummaryEnabled:
+      input.managerDailySummaryEnabled ?? current.managerDailySummaryEnabled,
+    managerNotificationPhone: input.managerNotificationPhone ?? current.managerNotificationPhone,
     googleMapUrl: input.googleMapUrl ?? current.googleMapUrl,
     googleReviewUrl: input.googleReviewUrl ?? current.googleReviewUrl,
     bookingPolicy: input.bookingPolicy ?? current.bookingPolicy,
@@ -174,6 +192,8 @@ export async function updateRestaurantDetails(
     contactEmail: validated.contactEmail,
     contactPhone: validated.contactPhone,
     address: validated.address,
+    managerDailySummaryEnabled: validated.managerDailySummaryEnabled,
+    managerNotificationPhone: validated.managerNotificationPhone,
     bookingPolicy: validated.bookingPolicy,
     logoUrl: validated.logoUrl,
     ...(validated.googleMapUrl !== null ? { googleMapUrl: validated.googleMapUrl } : {}),
@@ -190,6 +210,8 @@ export async function updateRestaurantDetails(
     contactEmail: updated.contactEmail,
     contactPhone: updated.contactPhone,
     address: updated.address,
+    managerDailySummaryEnabled: updated.managerDailySummaryEnabled,
+    managerNotificationPhone: updated.managerNotificationPhone,
     googleMapUrl: updated.googleMapUrl,
     googleReviewUrl: updated.googleReviewUrl,
     bookingPolicy: updated.bookingPolicy,

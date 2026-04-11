@@ -6,10 +6,7 @@ import { useUpdateRestaurant } from '@/hooks/ops/useUpdateRestaurant';
 import { fetchJson } from '@/lib/http/fetchJson';
 import { queryKeys } from '@/lib/query/keys';
 
-import type {
-  RestaurantDTO,
-  RestaurantsListResponse,
-} from '@/app/api/ops/restaurants/schema';
+import type { RestaurantDTO, RestaurantsListResponse } from '@/app/api/ops/restaurants/schema';
 
 vi.mock('@/lib/http/fetchJson', () => ({
   fetchJson: vi.fn(),
@@ -30,6 +27,8 @@ describe('useUpdateRestaurant', () => {
       contactEmail: null,
       contactPhone: null,
       address: null,
+      managerDailySummaryEnabled: false,
+      managerNotificationPhone: null,
       googleMapUrl: null,
       googleReviewUrl: null,
       bookingPolicy: null,
@@ -46,10 +45,9 @@ describe('useUpdateRestaurant', () => {
       role: 'owner',
     };
 
-    queryClient.setQueryData(
-      queryKeys.opsRestaurants.list({}),
-      { pageInfo: { page: 1, pageSize: 20, total: 1, hasNext: false } } as RestaurantsListResponse,
-    );
+    queryClient.setQueryData(queryKeys.opsRestaurants.list({}), {
+      pageInfo: { page: 1, pageSize: 20, total: 1, hasNext: false },
+    } as RestaurantsListResponse);
     queryClient.setQueryData(queryKeys.opsRestaurants.detail(restaurant.id), restaurant);
 
     vi.mocked(fetchJson).mockResolvedValue({ restaurant } as never);
@@ -61,9 +59,9 @@ describe('useUpdateRestaurant', () => {
       data: { name: 'The Fox & Hounds', isActive: false },
     });
 
-    expect(
-      queryClient.getQueryData(queryKeys.opsRestaurants.list({})),
-    ).toEqual({ pageInfo: { page: 1, pageSize: 20, total: 1, hasNext: false } });
+    expect(queryClient.getQueryData(queryKeys.opsRestaurants.list({}))).toEqual({
+      pageInfo: { page: 1, pageSize: 20, total: 1, hasNext: false },
+    });
     expect(queryClient.getQueryData(queryKeys.opsRestaurants.detail(restaurant.id))).toEqual({
       ...restaurant,
       name: 'The Fox & Hounds',

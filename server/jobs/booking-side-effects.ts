@@ -1,9 +1,10 @@
 import { z } from 'zod';
 
 import { recordBookingCancelledEvent, recordBookingCreatedEvent } from '@/server/analytics';
+import { sendFirstBookingConfirmationNotifications } from '@/server/bookings/confirmation-notifications';
+import { normalizePhone } from '@/server/customers';
 import {
   sendBookingCancellationEmail,
-  sendBookingConfirmationEmail,
   sendBookingReminderEmail,
   sendBookingReviewRequestEmail,
   sendBookingUpdateEmail,
@@ -14,6 +15,10 @@ import {
 } from '@/server/feature-flags';
 import { enqueueEmailJob } from '@/server/queue/email';
 import { cancelEmailIntents } from '@/server/queue/email-intents';
+import {
+  sendGuestBookingCancellationSms,
+  sendGuestBookingUpdateSms,
+} from '@/server/sms/bookings';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { BookingRecord } from '@/server/bookings';
@@ -134,6 +139,10 @@ async function fetchRestaurantTimezone(
 
 function isValidEmail(value?: string | null): boolean {
   return Boolean(value && value.trim().length > 3 && value.includes('@'));
+}
+
+function hasValidSmsRecipient(value?: string | null): boolean {
+  return normalizePhone(value).length > 0;
 }
 
 function computeDelayMs(
@@ -451,6 +460,10 @@ async function processBookingCreatedSideEffects(
   const queuedViaQueue = false;
   const normalizedEmail = booking.customer_email?.trim?.() ?? '';
   const shouldSendEmail = (payload.emailProvided ?? true) && normalizedEmail.length > 0;
+  const shouldSendSms = hasValidSmsRecipient(booking.customer_phone);
+  const shouldSendConfirmationNotifications =
+    booking.status === 'confirmed' &&
+    ((!SUPPRESS_EMAILS && shouldSendEmail) || shouldSendSms);
 
   const emailPrefs = await fetchRestaurantEmailPrefs(restaurantId, client);
 
@@ -474,11 +487,14 @@ async function processBookingCreatedSideEffects(
     console.error('[jobs][booking.created][analytics]', error);
   }
 
-  if (!SUPPRESS_EMAILS && shouldSendEmail) {
+  if (shouldSendConfirmationNotifications) {
     try {
-      await sendBookingConfirmationEmail(booking as BookingRecord);
+      await sendFirstBookingConfirmationNotifications(booking as BookingRecord, {
+        allowEmail: !SUPPRESS_EMAILS && shouldSendEmail,
+        allowSms: shouldSendSms,
+      });
     } catch (error) {
-      console.error('[jobs][booking.created][email]', error);
+      console.error('[jobs][booking.created][confirmation-notifications]', error);
     }
   }
 
@@ -555,11 +571,18 @@ async function processBookingUpdatedSideEffects(
     });
   }
 
-  if (confirmedFromPending && !SUPPRESS_EMAILS && isValidEmail(current.customer_email)) {
+  if (
+    confirmedFromPending &&
+    ((!SUPPRESS_EMAILS && isValidEmail(current.customer_email)) ||
+      hasValidSmsRecipient(current.customer_phone))
+  ) {
     try {
-      await sendBookingConfirmationEmail(current as BookingRecord);
+      await sendFirstBookingConfirmationNotifications(current as BookingRecord, {
+        allowEmail: !SUPPRESS_EMAILS && isValidEmail(current.customer_email),
+        allowSms: hasValidSmsRecipient(current.customer_phone),
+      });
     } catch (error) {
-      console.error('[jobs][booking.updated][email-confirmation]', error);
+      console.error('[jobs][booking.updated][confirmation-notifications]', error);
     }
 
     const timezone = await fetchRestaurantTimezone(restaurantId, resolveSupabase(_supabase));
@@ -590,6 +613,14 @@ async function processBookingUpdatedSideEffects(
       await sendBookingUpdateEmail(current as BookingRecord);
     } catch (error) {
       console.error('[jobs][booking.updated][email]', error);
+    }
+  }
+
+  if (hasValidSmsRecipient(current.customer_phone)) {
+    try {
+      await sendGuestBookingUpdateSms(current as BookingRecord);
+    } catch (error) {
+      console.error('[jobs][booking.updated][sms]', error);
     }
   }
 
@@ -641,6 +672,14 @@ async function processBookingCancelledSideEffects(
       await sendFn(cancelled as BookingRecord);
     } catch (error) {
       console.error('[jobs][booking.cancelled][email]', error);
+    }
+  }
+
+  if (hasValidSmsRecipient(cancelled.customer_phone)) {
+    try {
+      await sendGuestBookingCancellationSms(cancelled as BookingRecord, { cancelledBy });
+    } catch (error) {
+      console.error('[jobs][booking.cancelled][sms]', error);
     }
   }
 }

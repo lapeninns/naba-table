@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import { computeDashboardTotals, patchDashboardSummaryBooking } from '@src/utils/ops/dashboardSummary';
+import {
+  computeServiceBreakdown,
+  formatDailyBookingSummaryMessage,
+} from '@/lib/ops/daily-booking-summary';
 
 import type { OpsTodayBookingsSummary } from '@src/types/ops';
 
@@ -28,6 +32,7 @@ const summary: OpsTodayBookingsSummary = {
       id: 'pending-booking',
       customerId: 'customer-1',
       status: 'pending',
+      bookingType: 'lunch',
       startTime: '18:00:00',
       endTime: '19:00:00',
       partySize: 2,
@@ -47,6 +52,7 @@ const summary: OpsTodayBookingsSummary = {
       id: 'confirmed-booking',
       customerId: 'customer-2',
       status: 'confirmed',
+      bookingType: 'dinner',
       startTime: '19:00:00',
       endTime: '20:00:00',
       partySize: 1,
@@ -66,6 +72,7 @@ const summary: OpsTodayBookingsSummary = {
       id: 'no-show-booking',
       customerId: 'customer-3',
       status: 'no_show',
+      bookingType: 'dinner',
       startTime: '17:00:00',
       endTime: '18:00:00',
       partySize: 4,
@@ -83,6 +90,8 @@ const summary: OpsTodayBookingsSummary = {
     },
   ],
 };
+
+summary.serviceBreakdown = computeServiceBreakdown(summary.bookings);
 
 describe('dashboard summary helpers', () => {
   it('computes totals from booking statuses and cover rules', () => {
@@ -109,5 +118,89 @@ describe('dashboard summary helpers', () => {
       upcoming: 1,
       covers: 3,
     });
+    expect(updated.serviceBreakdown).toEqual({
+      activeBookings: 2,
+      activeCovers: 3,
+      periods: [
+        { key: 'lunch', bookings: 1, covers: 2 },
+        { key: 'dinner', bookings: 1, covers: 1 },
+      ],
+    });
+  });
+
+  it('groups unknown booking types into Other and excludes cancelled/no-show from the breakdown', () => {
+    const breakdown = computeServiceBreakdown([
+      {
+        ...summary.bookings[0],
+        id: 'lunch-1',
+        status: 'confirmed',
+        bookingType: 'lunch',
+        partySize: 4,
+      },
+      {
+        ...summary.bookings[1],
+        id: 'dinner-1',
+        status: 'pending',
+        bookingType: 'dinner',
+        partySize: 6,
+      },
+      {
+        ...summary.bookings[1],
+        id: 'other-1',
+        status: 'checked_in',
+        bookingType: 'brunch',
+        partySize: 2,
+      },
+      {
+        ...summary.bookings[2],
+        id: 'cancelled-1',
+        status: 'cancelled',
+        bookingType: 'lunch',
+        partySize: 10,
+      },
+      {
+        ...summary.bookings[2],
+        id: 'no-show-1',
+        status: 'no_show',
+        bookingType: 'dinner',
+        partySize: 9,
+      },
+    ]);
+
+    expect(breakdown).toEqual({
+      activeBookings: 3,
+      activeCovers: 12,
+      periods: [
+        { key: 'lunch', bookings: 1, covers: 4 },
+        { key: 'dinner', bookings: 1, covers: 6 },
+        { key: 'other', bookings: 1, covers: 2 },
+      ],
+    });
+  });
+
+  it('formats the booking summary message with exact multiline output and singular/plural handling', () => {
+    expect(formatDailyBookingSummaryMessage(summary)).toBe(
+      ['We have 2 bookings today with 3 covers', '', 'Lunch 1 (2)', 'Dinner 1 (1)'].join('\n'),
+    );
+
+    expect(
+      formatDailyBookingSummaryMessage({
+        serviceBreakdown: {
+          activeBookings: 1,
+          activeCovers: 1,
+          periods: [{ key: 'lunch', bookings: 1, covers: 1 }],
+        },
+      }),
+    ).toBe(['We have 1 booking today with 1 cover', '', 'Lunch 1 (1)', 'Dinner 0 (0)'].join('\n'));
+
+    expect(
+      formatDailyBookingSummaryMessage({
+        serviceBreakdown: {
+          activeBookings: 0,
+          activeCovers: 0,
+          periods: [],
+        },
+      }),
+    ).toBe(['We have 0 bookings today with 0 covers', '', 'Lunch 0 (0)', 'Dinner 0 (0)'].join('\n'));
   });
 });

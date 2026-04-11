@@ -12,8 +12,13 @@ export type ReservationCalendarPayload = {
   venueAddress?: string | null | undefined;
   venueTimezone?: string | null | undefined;
   venueEmail?: string | null | undefined;
+  venuePhone?: string | null | undefined;
   status?: "confirmed" | "cancelled" | "pending";
   sequence?: number;
+  bookingType?: string | null | undefined;
+  seatingPreference?: string | null | undefined;
+  notes?: string | null | undefined;
+  manageUrl?: string | null | undefined;
 };
 
 export type ReservationVenue = {
@@ -29,6 +34,20 @@ function normaliseDate(value: string | null | undefined): Date | null {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return null;
   return parsed;
+}
+
+function escapeIcsText(value: string): string {
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(/\r\n|\r|\n/g, '\\n')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,');
+}
+
+function cleanLine(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
 }
 
 export function ensureReservationVenue(payload: ReservationCalendarPayload): ReservationVenue {
@@ -61,6 +80,17 @@ export function buildCalendarEvent(payload: ReservationCalendarPayload): string 
 
   const sequence = payload.sequence ?? 0;
   const uid = `${payload.reservationId}@nabatable.com`;
+  const detailLines = [
+    `Reservation for ${payload.guestName || "Guest"}`,
+    `Reference: ${payload.reference ?? "N/A"}`,
+    `Party size: ${payload.partySize ?? 1}`,
+    cleanLine(payload.bookingType) ? `Booking type: ${payload.bookingType}` : null,
+    cleanLine(payload.seatingPreference) ? `Seating preference: ${payload.seatingPreference}` : null,
+    cleanLine(payload.notes) ? `Notes: ${payload.notes}` : null,
+    cleanLine(payload.manageUrl) ? `Manage booking: ${payload.manageUrl}` : null,
+    cleanLine(payload.venuePhone) ? `Venue phone: ${payload.venuePhone}` : null,
+  ].filter((value): value is string => Boolean(value));
+  const description = escapeIcsText(detailLines.join('\n'));
 
   const lines = [
     "BEGIN:VCALENDAR",
@@ -72,18 +102,32 @@ export function buildCalendarEvent(payload: ReservationCalendarPayload): string 
     `DTSTAMP:${toTimestamp(now)}`,
     `DTSTART:${toTimestamp(startDate)}`,
     `DTEND:${toTimestamp(endDate)}`,
-    `SUMMARY:${venue.name} Reservation`,
-    `LOCATION:${venue.address}`,
-    `DESCRIPTION:Reservation for ${payload.guestName || "Guest"} (${payload.partySize ?? 1} guests).\nReference: ${payload.reference ?? "N/A"}`,
+    `SUMMARY:${escapeIcsText(`${venue.name} Reservation`)}`,
+    `LOCATION:${escapeIcsText(venue.address)}`,
+    `DESCRIPTION:${description}`,
     `STATUS:${status}`,
     `SEQUENCE:${sequence}`,
-    `ORGANIZER;CN="${venue.name}":mailto:${venue.email}`,
-    ...(payload.guestEmail ? [`ATTENDEE;CN="${payload.guestName || "Guest"}";RSVP=TRUE:mailto:${payload.guestEmail}`] : []),
+    cleanLine(payload.manageUrl) ? `URL:${escapeIcsText(payload.manageUrl as string)}` : null,
+    `ORGANIZER;CN="${escapeIcsText(venue.name)}":mailto:${escapeIcsText(venue.email)}`,
+    ...(payload.guestEmail
+      ? [`ATTENDEE;CN="${escapeIcsText(payload.guestName || "Guest")}";RSVP=TRUE:mailto:${escapeIcsText(payload.guestEmail)}`]
+      : []),
     "END:VEVENT",
     "END:VCALENDAR",
-  ];
+  ].filter((value): value is string => Boolean(value));
 
   return lines.join("\r\n");
+}
+
+export function shouldAttachCalendarEventAttachment(params: {
+  bookingStatus: string | null | undefined;
+  isPending: boolean;
+}): boolean {
+  if (params.isPending) {
+    return false;
+  }
+
+  return params.bookingStatus !== 'no_show';
 }
 
 export function resolveCalendarDates(payload: ReservationCalendarPayload): {

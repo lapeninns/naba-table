@@ -183,6 +183,8 @@ export function CreateRestaurantDialog({ open, onOpenChange }: CreateRestaurantD
       contactEmail: formData.contactEmail.trim() || null,
       contactPhone: formData.contactPhone.trim() || null,
       address: formData.address.trim() || null,
+      managerDailySummaryEnabled: false,
+      managerNotificationPhone: null,
       googleMapUrl: formData.googleMapUrl.trim() || null,
       googleReviewUrl: null,
       bookingPolicy: formData.bookingPolicy.trim() || null,
@@ -202,7 +204,9 @@ export function CreateRestaurantDialog({ open, onOpenChange }: CreateRestaurantD
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Create Restaurant</DialogTitle>
-          <DialogDescription>Add a new restaurant to your system. All fields marked with * are required.</DialogDescription>
+          <DialogDescription>
+            Add a new restaurant to your system. All fields marked with * are required.
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -218,11 +222,17 @@ export function CreateRestaurantDialog({ open, onOpenChange }: CreateRestaurantD
                 placeholder="The Happy Pub"
                 aria-invalid={Boolean(errors.name)}
                 aria-describedby={errors.name ? 'create-restaurant-name-error' : undefined}
-                className={cn(errors.name && 'border-destructive focus-visible:ring-destructive/60')}
+                className={cn(
+                  errors.name && 'border-destructive focus-visible:ring-destructive/60',
+                )}
                 autoFocus
               />
               {errors.name && (
-                <p id="create-restaurant-name-error" className="text-xs text-destructive" role="alert">
+                <p
+                  id="create-restaurant-name-error"
+                  className="text-xs text-destructive"
+                  role="alert"
+                >
                   {errors.name}
                 </p>
               )}
@@ -239,15 +249,23 @@ export function CreateRestaurantDialog({ open, onOpenChange }: CreateRestaurantD
                 placeholder="the-happy-pub"
                 aria-invalid={Boolean(errors.slug)}
                 aria-describedby={errors.slug ? 'create-restaurant-slug-error' : undefined}
-                className={cn(errors.slug && 'border-destructive focus-visible:ring-destructive/60')}
+                className={cn(
+                  errors.slug && 'border-destructive focus-visible:ring-destructive/60',
+                )}
               />
               {errors.slug && (
-                <p id="create-restaurant-slug-error" className="text-xs text-destructive" role="alert">
+                <p
+                  id="create-restaurant-slug-error"
+                  className="text-xs text-destructive"
+                  role="alert"
+                >
                   {errors.slug}
                 </p>
               )}
               {!errors.slug && (
-                <p className="text-xs text-muted-foreground">Auto-generated from name. Can be customized.</p>
+                <p className="text-xs text-muted-foreground">
+                  Auto-generated from name. Can be customized.
+                </p>
               )}
             </div>
 
@@ -273,7 +291,11 @@ export function CreateRestaurantDialog({ open, onOpenChange }: CreateRestaurantD
                 ))}
               </select>
               {errors.timezone && (
-                <p id="create-restaurant-timezone-error" className="text-xs text-destructive" role="alert">
+                <p
+                  id="create-restaurant-timezone-error"
+                  className="text-xs text-destructive"
+                  role="alert"
+                >
                   {errors.timezone}
                 </p>
               )}
@@ -290,10 +312,16 @@ export function CreateRestaurantDialog({ open, onOpenChange }: CreateRestaurantD
                 placeholder="100"
                 aria-invalid={Boolean(errors.capacity)}
                 aria-describedby={errors.capacity ? 'create-restaurant-capacity-error' : undefined}
-                className={cn(errors.capacity && 'border-destructive focus-visible:ring-destructive/60')}
+                className={cn(
+                  errors.capacity && 'border-destructive focus-visible:ring-destructive/60',
+                )}
               />
               {errors.capacity && (
-                <p id="create-restaurant-capacity-error" className="text-xs text-destructive" role="alert">
+                <p
+                  id="create-restaurant-capacity-error"
+                  className="text-xs text-destructive"
+                  role="alert"
+                >
                   {errors.capacity}
                 </p>
               )}
@@ -309,10 +337,16 @@ export function CreateRestaurantDialog({ open, onOpenChange }: CreateRestaurantD
                 placeholder="info@restaurant.com"
                 aria-invalid={Boolean(errors.contactEmail)}
                 aria-describedby={errors.contactEmail ? 'create-restaurant-email-error' : undefined}
-                className={cn(errors.contactEmail && 'border-destructive focus-visible:ring-destructive/60')}
+                className={cn(
+                  errors.contactEmail && 'border-destructive focus-visible:ring-destructive/60',
+                )}
               />
               {errors.contactEmail && (
-                <p id="create-restaurant-email-error" className="text-xs text-destructive" role="alert">
+                <p
+                  id="create-restaurant-email-error"
+                  className="text-xs text-destructive"
+                  role="alert"
+                >
                   {errors.contactEmail}
                 </p>
               )}
@@ -328,10 +362,16 @@ export function CreateRestaurantDialog({ open, onOpenChange }: CreateRestaurantD
                 placeholder="+1 234 567 890"
                 aria-invalid={Boolean(errors.contactPhone)}
                 aria-describedby={errors.contactPhone ? 'create-restaurant-phone-error' : undefined}
-                className={cn(errors.contactPhone && 'border-destructive focus-visible:ring-destructive/60')}
+                className={cn(
+                  errors.contactPhone && 'border-destructive focus-visible:ring-destructive/60',
+                )}
               />
               {errors.contactPhone && (
-                <p id="create-restaurant-phone-error" className="text-xs text-destructive" role="alert">
+                <p
+                  id="create-restaurant-phone-error"
+                  className="text-xs text-destructive"
+                  role="alert"
+                >
                   {errors.contactPhone}
                 </p>
               )}
@@ -357,14 +397,22 @@ export function CreateRestaurantDialog({ open, onOpenChange }: CreateRestaurantD
                 value={formData.googleMapUrl}
                 onChange={(e) => handleChange('googleMapUrl', e.target.value)}
                 aria-invalid={Boolean(errors.googleMapUrl)}
-                aria-describedby={errors.googleMapUrl ? 'create-restaurant-map-error' : 'create-restaurant-map-help'}
-                className={cn(errors.googleMapUrl && 'border-destructive focus-visible:ring-destructive/60')}
+                aria-describedby={
+                  errors.googleMapUrl ? 'create-restaurant-map-error' : 'create-restaurant-map-help'
+                }
+                className={cn(
+                  errors.googleMapUrl && 'border-destructive focus-visible:ring-destructive/60',
+                )}
               />
               <p id="create-restaurant-map-help" className="text-xs text-muted-foreground">
                 Optional link shared in guest emails for directions.
               </p>
               {errors.googleMapUrl && (
-                <p id="create-restaurant-map-error" className="text-xs text-destructive" role="alert">
+                <p
+                  id="create-restaurant-map-error"
+                  className="text-xs text-destructive"
+                  role="alert"
+                >
                   {errors.googleMapUrl}
                 </p>
               )}

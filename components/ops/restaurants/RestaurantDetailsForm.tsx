@@ -6,6 +6,7 @@ import { HelpTooltip } from '@/components/features/restaurant-settings/HelpToolt
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import {
@@ -24,6 +25,8 @@ export type RestaurantDetailsFormValues = {
   contactEmail: string | null;
   contactPhone: string | null;
   address: string | null;
+  managerDailySummaryEnabled: boolean;
+  managerNotificationPhone: string | null;
   googleMapUrl: string | null;
   googleReviewUrl: string | null;
   bookingPolicy: string | null;
@@ -49,6 +52,8 @@ type FormState = {
   contactEmail: string;
   contactPhone: string;
   address: string;
+  managerDailySummaryEnabled: boolean;
+  managerNotificationPhone: string;
   googleMapUrl: string;
   googleReviewUrl: string;
   bookingPolicy: string;
@@ -64,7 +69,8 @@ const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 const FIELD_TOOLTIPS = {
   slug: 'Lowercase identifier used in booking links and exports. Only letters, numbers, and hyphens are allowed.',
-  timezone: 'Determines how operating hours, reservations, and reminders are interpreted across the product.',
+  timezone:
+    'Determines how operating hours, reservations, and reminders are interpreted across the product.',
   reservationInterval:
     'Spacing between available reservation slots. Shorter intervals create more options but increase booking traffic.',
   reservationDuration:
@@ -75,7 +81,12 @@ const FIELD_TOOLTIPS = {
     'Minutes after the reservation end time when staff can still check out or mark no-shows.',
   bookingPolicy:
     'Optional message shown to guests during booking and in confirmations (e.g., grace periods, large-party policies).',
-  googleReviewUrl: 'Link for customers to leave a Google review. This is sent in post-visit emails.',
+  managerNotificationPhone:
+    'Direct delivery number for the daily manager SMS summary. Use E.164 format such as +447700900000.',
+  managerDailySummaryEnabled:
+    'Turns the 10:00 local-time manager booking summary SMS on or off for this restaurant.',
+  googleReviewUrl:
+    'Link for customers to leave a Google review. This is sent in post-visit emails.',
   googleMapUrl: 'Link shared with guests for directions in Google Maps.',
 } as const;
 
@@ -100,21 +111,26 @@ function mapInitialValues(values: RestaurantDetailsFormValues): FormState {
     contactEmail: values.contactEmail ?? '',
     contactPhone: values.contactPhone ?? '',
     address: values.address ?? '',
+    managerDailySummaryEnabled: values.managerDailySummaryEnabled ?? false,
+    managerNotificationPhone: values.managerNotificationPhone ?? '',
     bookingPolicy: values.bookingPolicy ?? '',
     reservationIntervalMinutes:
       values.reservationIntervalMinutes !== undefined && values.reservationIntervalMinutes !== null
         ? String(values.reservationIntervalMinutes)
         : '',
     reservationDefaultDurationMinutes:
-      values.reservationDefaultDurationMinutes !== undefined && values.reservationDefaultDurationMinutes !== null
+      values.reservationDefaultDurationMinutes !== undefined &&
+      values.reservationDefaultDurationMinutes !== null
         ? String(values.reservationDefaultDurationMinutes)
         : '',
     reservationLastSeatingBufferMinutes:
-      values.reservationLastSeatingBufferMinutes !== undefined && values.reservationLastSeatingBufferMinutes !== null
+      values.reservationLastSeatingBufferMinutes !== undefined &&
+      values.reservationLastSeatingBufferMinutes !== null
         ? String(values.reservationLastSeatingBufferMinutes)
         : '',
     reservationLifecycleGraceMinutes:
-      values.reservationLifecycleGraceMinutes !== undefined && values.reservationLifecycleGraceMinutes !== null
+      values.reservationLifecycleGraceMinutes !== undefined &&
+      values.reservationLifecycleGraceMinutes !== null
         ? String(values.reservationLifecycleGraceMinutes)
         : '',
     googleMapUrl: values.googleMapUrl ?? '',
@@ -130,6 +146,7 @@ function sanitizePayload(state: FormState): UpdateRestaurantInput {
   const trimmedEmail = trim(state.contactEmail);
   const trimmedPhone = trim(state.contactPhone);
   const trimmedAddress = trim(state.address);
+  const trimmedManagerNotificationPhone = trim(state.managerNotificationPhone);
   const trimmedMapUrl = trim(state.googleMapUrl);
   const trimmedReviewUrl = trim(state.googleReviewUrl);
   const trimmedPolicy = trim(state.bookingPolicy);
@@ -138,26 +155,29 @@ function sanitizePayload(state: FormState): UpdateRestaurantInput {
   const lastSeatingBufferMinutes = Number.parseInt(state.reservationLastSeatingBufferMinutes, 10);
   const lifecycleGraceMinutes = Number.parseInt(state.reservationLifecycleGraceMinutes, 10);
 
-	  return {
-	    name: trimmedName,
-	    slug: trimmedSlug,
-	    timezone: trimmedTimezone,
+  return {
+    name: trimmedName,
+    slug: trimmedSlug,
+    timezone: trimmedTimezone,
     contactEmail: trimmedEmail.length > 0 ? trimmedEmail : null,
     contactPhone: trimmedPhone.length > 0 ? trimmedPhone : null,
     address: trimmedAddress.length > 0 ? trimmedAddress : null,
+    managerDailySummaryEnabled: state.managerDailySummaryEnabled,
+    managerNotificationPhone:
+      trimmedManagerNotificationPhone.length > 0 ? trimmedManagerNotificationPhone : null,
     googleMapUrl: trimmedMapUrl.length > 0 ? trimmedMapUrl : null,
     googleReviewUrl: trimmedReviewUrl.length > 0 ? trimmedReviewUrl : null,
     bookingPolicy: trimmedPolicy.length > 0 ? trimmedPolicy : null,
-	    reservationIntervalMinutes: intervalMinutes,
-	    reservationDefaultDurationMinutes: defaultDurationMinutes,
-	    reservationLastSeatingBufferMinutes: lastSeatingBufferMinutes,
-	    reservationLifecycleGraceMinutes: lifecycleGraceMinutes,
-	    // Email preferences are always enabled - no longer configurable
-	    emailSendReminder24h: true,
-	    emailSendReminderShort: true,
-	    emailSendReviewRequest: true,
-	  };
-	}
+    reservationIntervalMinutes: intervalMinutes,
+    reservationDefaultDurationMinutes: defaultDurationMinutes,
+    reservationLastSeatingBufferMinutes: lastSeatingBufferMinutes,
+    reservationLifecycleGraceMinutes: lifecycleGraceMinutes,
+    // Email preferences are always enabled - no longer configurable
+    emailSendReminder24h: true,
+    emailSendReminderShort: true,
+    emailSendReviewRequest: true,
+  };
+}
 
 function validate(state: FormState): FormErrors {
   const errors: FormErrors = {};
@@ -239,27 +259,34 @@ function validate(state: FormState): FormErrors {
     errors.contactPhone = 'Phone number must be at least 5 characters';
   }
 
-	  const reviewUrl = state.googleReviewUrl.trim();
-	  if (reviewUrl) {
-	    try {
-	      new URL(reviewUrl);
-	    } catch {
-	      errors.googleReviewUrl = 'Enter a valid URL (e.g., https://g.page/.../review)';
-	    }
-	  }
+  const managerNotificationPhone = state.managerNotificationPhone.trim();
+  if (state.managerDailySummaryEnabled && !managerNotificationPhone) {
+    errors.managerNotificationPhone = 'Add a manager number before enabling daily SMS summaries';
+  }
+  if (managerNotificationPhone && !/^\+[1-9][0-9]{6,14}$/.test(managerNotificationPhone)) {
+    errors.managerNotificationPhone = 'Use E.164 format such as +447700900000';
+  }
 
-	  const mapUrl = state.googleMapUrl.trim();
-	  if (mapUrl) {
-	    try {
-	      new URL(mapUrl);
-	    } catch {
-	      errors.googleMapUrl = 'Enter a valid URL (e.g., https://maps.google.com/...)';
-	    }
-	  }
+  const reviewUrl = state.googleReviewUrl.trim();
+  if (reviewUrl) {
+    try {
+      new URL(reviewUrl);
+    } catch {
+      errors.googleReviewUrl = 'Enter a valid URL (e.g., https://g.page/.../review)';
+    }
+  }
+
+  const mapUrl = state.googleMapUrl.trim();
+  if (mapUrl) {
+    try {
+      new URL(mapUrl);
+    } catch {
+      errors.googleMapUrl = 'Enter a valid URL (e.g., https://maps.google.com/...)';
+    }
+  }
 
   return errors;
 }
-
 
 export function RestaurantDetailsForm({
   initialValues,
@@ -287,7 +314,9 @@ export function RestaurantDetailsForm({
     }
   };
 
-  // handleToggle removed - email preferences are no longer configurable
+  const handleToggle = (field: keyof Pick<FormState, 'managerDailySummaryEnabled'>, value: boolean) => {
+    setState((prev) => ({ ...prev, [field]: value }));
+  };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -330,12 +359,95 @@ export function RestaurantDetailsForm({
             )}
           </div>
 
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-1">
+              <Label
+                htmlFor="restaurant-manager-notification-phone"
+                className="inline-flex items-center gap-1"
+              >
+                Manager Notification Number
+              </Label>
+              <HelpTooltip
+                description={FIELD_TOOLTIPS.managerNotificationPhone}
+                ariaLabel="What is the manager notification number?"
+              />
+            </div>
+            <Input
+              id="restaurant-manager-notification-phone"
+              type="tel"
+              inputMode="tel"
+              placeholder="+447700900000"
+              value={state.managerNotificationPhone}
+              onChange={(event) => handleChange('managerNotificationPhone', event.target.value)}
+              aria-invalid={Boolean(errors.managerNotificationPhone)}
+              aria-describedby={
+                errors.managerNotificationPhone
+                  ? 'restaurant-manager-notification-phone-error'
+                  : 'restaurant-manager-notification-phone-help'
+              }
+              className={cn(
+                errors.managerNotificationPhone &&
+                  'border-destructive focus-visible:ring-destructive/60',
+              )}
+            />
+            <p
+              id="restaurant-manager-notification-phone-help"
+              className="text-xs text-muted-foreground"
+            >
+              Used for the daily manager summary recipient. Keep it in E.164 format for production
+              SMS delivery.
+            </p>
+            {errors.managerNotificationPhone && (
+              <p
+                id="restaurant-manager-notification-phone-error"
+                className="text-xs text-destructive"
+                role="alert"
+              >
+                {errors.managerNotificationPhone}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2 rounded-lg border border-border/70 bg-muted/20 p-3">
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-1">
+                  <Label
+                    htmlFor="restaurant-manager-daily-summary-enabled"
+                    className="inline-flex items-center gap-1"
+                  >
+                    Daily Manager SMS Summary
+                  </Label>
+                  <HelpTooltip
+                    description={FIELD_TOOLTIPS.managerDailySummaryEnabled}
+                    ariaLabel="What does the daily manager SMS summary toggle do?"
+                  />
+                </div>
+                <p
+                  id="restaurant-manager-daily-summary-enabled-help"
+                  className="text-xs text-muted-foreground"
+                >
+                  Sends the booking summary to the manager at 10:00 local restaurant time.
+                </p>
+              </div>
+              <Switch
+                id="restaurant-manager-daily-summary-enabled"
+                checked={state.managerDailySummaryEnabled}
+                onCheckedChange={(checked) => handleToggle('managerDailySummaryEnabled', checked)}
+                aria-describedby="restaurant-manager-daily-summary-enabled-help"
+              />
+            </div>
+          </div>
+
           <div className="space-y-1.5 sm:col-span-2">
             <div className="flex items-center gap-1">
               <Label htmlFor="restaurant-slug" className="inline-flex items-center gap-1">
                 Slug <span className="text-destructive">*</span>
               </Label>
-              <HelpTooltip description={FIELD_TOOLTIPS.slug} ariaLabel="What is a restaurant slug?" />
+              <HelpTooltip
+                description={FIELD_TOOLTIPS.slug}
+                ariaLabel="What is a restaurant slug?"
+              />
             </div>
             <Input
               id="restaurant-slug"
@@ -357,7 +469,10 @@ export function RestaurantDetailsForm({
               <Label htmlFor="restaurant-timezone" className="inline-flex items-center gap-1">
                 Timezone <span className="text-destructive">*</span>
               </Label>
-              <HelpTooltip description={FIELD_TOOLTIPS.timezone} ariaLabel="Why does timezone matter?" />
+              <HelpTooltip
+                description={FIELD_TOOLTIPS.timezone}
+                ariaLabel="Why does timezone matter?"
+              />
             </div>
             <select
               id="restaurant-timezone"
@@ -409,11 +524,13 @@ export function RestaurantDetailsForm({
                   : 'restaurant-interval-help'
               }
               className={cn(
-                errors.reservationIntervalMinutes && 'border-destructive focus-visible:ring-destructive/60',
+                errors.reservationIntervalMinutes &&
+                  'border-destructive focus-visible:ring-destructive/60',
               )}
             />
             <p id="restaurant-interval-help" className="text-xs text-muted-foreground">
-              Controls slot spacing; must be between {RESERVATION_INTERVAL_MIN} and {RESERVATION_INTERVAL_MAX} minutes.
+              Controls slot spacing; must be between {RESERVATION_INTERVAL_MIN} and{' '}
+              {RESERVATION_INTERVAL_MAX} minutes.
             </p>
             {errors.reservationIntervalMinutes && (
               <p id="restaurant-interval-error" className="text-xs text-destructive" role="alert">
@@ -440,7 +557,9 @@ export function RestaurantDetailsForm({
               max={300}
               step={1}
               value={state.reservationDefaultDurationMinutes}
-              onChange={(event) => handleChange('reservationDefaultDurationMinutes', event.target.value)}
+              onChange={(event) =>
+                handleChange('reservationDefaultDurationMinutes', event.target.value)
+              }
               aria-invalid={Boolean(errors.reservationDefaultDurationMinutes)}
               aria-describedby={
                 errors.reservationDefaultDurationMinutes
@@ -449,7 +568,7 @@ export function RestaurantDetailsForm({
               }
               className={cn(
                 errors.reservationDefaultDurationMinutes &&
-                'border-destructive focus-visible:ring-destructive/60',
+                  'border-destructive focus-visible:ring-destructive/60',
               )}
             />
             <p id="restaurant-duration-help" className="text-xs text-muted-foreground">
@@ -480,7 +599,9 @@ export function RestaurantDetailsForm({
               max={300}
               step={1}
               value={state.reservationLastSeatingBufferMinutes}
-              onChange={(event) => handleChange('reservationLastSeatingBufferMinutes', event.target.value)}
+              onChange={(event) =>
+                handleChange('reservationLastSeatingBufferMinutes', event.target.value)
+              }
               aria-invalid={Boolean(errors.reservationLastSeatingBufferMinutes)}
               aria-describedby={
                 errors.reservationLastSeatingBufferMinutes
@@ -489,14 +610,19 @@ export function RestaurantDetailsForm({
               }
               className={cn(
                 errors.reservationLastSeatingBufferMinutes &&
-                'border-destructive focus-visible:ring-destructive/60',
+                  'border-destructive focus-visible:ring-destructive/60',
               )}
             />
             <p id="restaurant-last-seating-help" className="text-xs text-muted-foreground">
-              Controls the latest start time relative to closing; choose a value between 15 and 300 minutes.
+              Controls the latest start time relative to closing; choose a value between 15 and 300
+              minutes.
             </p>
             {errors.reservationLastSeatingBufferMinutes && (
-              <p id="restaurant-last-seating-error" className="text-xs text-destructive" role="alert">
+              <p
+                id="restaurant-last-seating-error"
+                className="text-xs text-destructive"
+                role="alert"
+              >
                 {errors.reservationLastSeatingBufferMinutes}
               </p>
             )}
@@ -504,7 +630,10 @@ export function RestaurantDetailsForm({
 
           <div className="space-y-1.5">
             <div className="flex items-center gap-1">
-              <Label htmlFor="restaurant-lifecycle-grace" className="inline-flex items-center gap-1">
+              <Label
+                htmlFor="restaurant-lifecycle-grace"
+                className="inline-flex items-center gap-1"
+              >
                 Lifecycle Grace Period (minutes) <span className="text-destructive">*</span>
               </Label>
               <HelpTooltip
@@ -520,7 +649,9 @@ export function RestaurantDetailsForm({
               max={120}
               step={1}
               value={state.reservationLifecycleGraceMinutes}
-              onChange={(event) => handleChange('reservationLifecycleGraceMinutes', event.target.value)}
+              onChange={(event) =>
+                handleChange('reservationLifecycleGraceMinutes', event.target.value)
+              }
               aria-invalid={Boolean(errors.reservationLifecycleGraceMinutes)}
               aria-describedby={
                 errors.reservationLifecycleGraceMinutes
@@ -529,16 +660,20 @@ export function RestaurantDetailsForm({
               }
               className={cn(
                 errors.reservationLifecycleGraceMinutes &&
-                'border-destructive focus-visible:ring-destructive/60',
+                  'border-destructive focus-visible:ring-destructive/60',
               )}
-	            />
-	            <p id="restaurant-lifecycle-grace-help" className="text-xs text-muted-foreground">
-	              Extra time after a booking ends before it is hidden; usually 0-120 mins.
-	            </p>
-	            {errors.reservationLifecycleGraceMinutes && (
-	              <p id="restaurant-lifecycle-grace-error" className="text-xs text-destructive" role="alert">
-	                {errors.reservationLifecycleGraceMinutes}
-	              </p>
+            />
+            <p id="restaurant-lifecycle-grace-help" className="text-xs text-muted-foreground">
+              Extra time after a booking ends before it is hidden; usually 0-120 mins.
+            </p>
+            {errors.reservationLifecycleGraceMinutes && (
+              <p
+                id="restaurant-lifecycle-grace-error"
+                className="text-xs text-destructive"
+                role="alert"
+              >
+                {errors.reservationLifecycleGraceMinutes}
+              </p>
             )}
           </div>
 
@@ -551,7 +686,9 @@ export function RestaurantDetailsForm({
               onChange={(event) => handleChange('contactEmail', event.target.value)}
               aria-invalid={Boolean(errors.contactEmail)}
               aria-describedby={errors.contactEmail ? 'restaurant-email-error' : undefined}
-              className={cn(errors.contactEmail && 'border-destructive focus-visible:ring-destructive/60')}
+              className={cn(
+                errors.contactEmail && 'border-destructive focus-visible:ring-destructive/60',
+              )}
             />
             {errors.contactEmail && (
               <p id="restaurant-email-error" className="text-xs text-destructive" role="alert">
@@ -569,7 +706,9 @@ export function RestaurantDetailsForm({
               onChange={(event) => handleChange('contactPhone', event.target.value)}
               aria-invalid={Boolean(errors.contactPhone)}
               aria-describedby={errors.contactPhone ? 'restaurant-phone-error' : undefined}
-              className={cn(errors.contactPhone && 'border-destructive focus-visible:ring-destructive/60')}
+              className={cn(
+                errors.contactPhone && 'border-destructive focus-visible:ring-destructive/60',
+              )}
             />
             {errors.contactPhone && (
               <p id="restaurant-phone-error" className="text-xs text-destructive" role="alert">
@@ -604,15 +743,23 @@ export function RestaurantDetailsForm({
               onChange={(event) => handleChange('googleReviewUrl', event.target.value)}
               aria-invalid={Boolean(errors.googleReviewUrl)}
               aria-describedby={
-                errors.googleReviewUrl ? 'restaurant-google-review-error' : 'restaurant-google-review-help'
+                errors.googleReviewUrl
+                  ? 'restaurant-google-review-error'
+                  : 'restaurant-google-review-help'
               }
-              className={cn(errors.googleReviewUrl && 'border-destructive focus-visible:ring-destructive/60')}
+              className={cn(
+                errors.googleReviewUrl && 'border-destructive focus-visible:ring-destructive/60',
+              )}
             />
             <p id="restaurant-google-review-help" className="text-xs text-muted-foreground">
               Optional link sent to customers to ask for a review.
             </p>
             {errors.googleReviewUrl && (
-              <p id="restaurant-google-review-error" className="text-xs text-destructive" role="alert">
+              <p
+                id="restaurant-google-review-error"
+                className="text-xs text-destructive"
+                role="alert"
+              >
                 {errors.googleReviewUrl}
               </p>
             )}
@@ -621,7 +768,10 @@ export function RestaurantDetailsForm({
           <div className="space-y-1.5 sm:col-span-2">
             <div className="flex items-center gap-1">
               <Label htmlFor="restaurant-google-map">Google Maps URL</Label>
-              <HelpTooltip description={FIELD_TOOLTIPS.googleMapUrl} ariaLabel="Why add a Google Maps link?" />
+              <HelpTooltip
+                description={FIELD_TOOLTIPS.googleMapUrl}
+                ariaLabel="Why add a Google Maps link?"
+              />
             </div>
             <Input
               id="restaurant-google-map"
@@ -634,7 +784,9 @@ export function RestaurantDetailsForm({
               aria-describedby={
                 errors.googleMapUrl ? 'restaurant-google-map-error' : 'restaurant-google-map-help'
               }
-              className={cn(errors.googleMapUrl && 'border-destructive focus-visible:ring-destructive/60')}
+              className={cn(
+                errors.googleMapUrl && 'border-destructive focus-visible:ring-destructive/60',
+              )}
             />
             <p id="restaurant-google-map-help" className="text-xs text-muted-foreground">
               Optional link shared with guests for directions.
@@ -649,7 +801,10 @@ export function RestaurantDetailsForm({
           <div className="space-y-1.5 sm:col-span-2">
             <div className="flex items-center gap-1">
               <Label htmlFor="restaurant-policy">Booking Policy</Label>
-              <HelpTooltip description={FIELD_TOOLTIPS.bookingPolicy} ariaLabel="Booking policy guidance" />
+              <HelpTooltip
+                description={FIELD_TOOLTIPS.bookingPolicy}
+                ariaLabel="Booking policy guidance"
+              />
             </div>
             <Textarea
               id="restaurant-policy"

@@ -4,6 +4,7 @@ import config from '@/config';
 import { env } from '@/lib/env';
 import {
   buildCalendarEvent,
+  shouldAttachCalendarEventAttachment,
   type ReservationCalendarPayload,
 } from '@/lib/reservations/calendar-event';
 import {
@@ -23,6 +24,7 @@ import {
   type EmailAttachment,
   isEmailRecipientSuppressedError,
 } from '@/libs/resend';
+import { buildBookingManageUrl } from '@/server/bookings/manage-url';
 import {
   COLORS,
   renderButton,
@@ -48,7 +50,6 @@ import {
   logLogoColumnFallback,
 } from '@/server/restaurants/logo-url-compat';
 import { restaurantSelectColumns } from '@/server/restaurants/select-fields';
-import { createSessionRecoveryAccessToken } from '@/server/security/session-recovery-access-token';
 import { getServiceSupabaseClient } from '@/server/supabase';
 import {
   formatDateForInput,
@@ -240,45 +241,6 @@ function resolveTemplateVariant(params: {
   };
 }
 
-function buildManageUrl(booking: BookingRecord) {
-  const secret = env.security.sessionRecoveryAccessTokenSecret;
-  const ttlSeconds = env.security.sessionRecoveryAccessTokenTtlSeconds;
-  const restaurantId = booking.restaurant_id;
-  const email = booking.customer_email;
-  const phone = booking.customer_phone;
-
-  const buildRecoverErrorUrl = (code: string) => {
-    const errorUrl = new URL(`${bookingSiteUrl}/bookings/recover/error`);
-    errorUrl.searchParams.set('code', code);
-    return errorUrl.toString();
-  };
-
-  if (!secret) {
-    return buildRecoverErrorUrl('ACCESS_TOKEN_NOT_CONFIGURED');
-  }
-
-  if (!restaurantId || !email || !phone) {
-    return buildRecoverErrorUrl('MISSING_ACCESS_TOKEN');
-  }
-
-  try {
-    const accessToken = createSessionRecoveryAccessToken({
-      restaurantId,
-      email,
-      phone,
-      secret,
-      ttlSeconds,
-    });
-
-    const recoverUrl = new URL(`${bookingSiteUrl}/bookings/recover`);
-    recoverUrl.searchParams.set('access_token', accessToken);
-    recoverUrl.searchParams.set('next', `/bookings/${booking.id}`);
-    return recoverUrl.toString();
-  } catch {
-    return buildRecoverErrorUrl('INVALID_ACCESS_TOKEN');
-  }
-}
-
 function buildCalendarPayload(
   booking: BookingRecord,
   venue: VenueDetails,
@@ -298,7 +260,12 @@ function buildCalendarPayload(
     venueAddress: venue.address,
     venueTimezone: venue.timezone,
     venueEmail: venue.email,
+    venuePhone: venue.phone,
     status: booking.status === 'cancelled' ? 'cancelled' : 'confirmed',
+    bookingType: booking.booking_type,
+    seatingPreference: booking.seating_preference,
+    notes: booking.notes,
+    manageUrl: buildBookingManageUrl(booking),
   };
 }
 
@@ -463,7 +430,7 @@ export function renderHtml({
     icon: iconOverwrite || templateConfig.icon
   };
 
-  const manageUrl = buildManageUrl(booking);
+  const manageUrl = buildBookingManageUrl(booking);
 
   // Schema.org Annotation
   const annotation: EmailAnnotation = {
@@ -612,7 +579,7 @@ async function dispatchEmail(
   },
 ): Promise<EmailDeliveryLogEntry | null> {
   const venue = await resolveVenueDetails(booking.restaurant_id);
-  const manageUrl = buildManageUrl(booking);
+  const manageUrl = buildBookingManageUrl(booking);
   const summary = buildSummary(booking, venue);
   const isPending = booking.status === 'pending' || booking.status === 'pending_allocation';
   const calendarPayload = buildCalendarPayload(booking, venue);
@@ -630,9 +597,10 @@ async function dispatchEmail(
   let calendarAttachmentName: string | undefined;
   if (
     calendarEventContent &&
-    !isPending &&
-    booking.status !== 'cancelled' &&
-    booking.status !== 'no_show'
+    shouldAttachCalendarEventAttachment({
+      bookingStatus: booking.status,
+      isPending,
+    })
   ) {
     const venueSlug = venue.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'reservation';
     calendarAttachmentName = `${venueSlug}-${booking.reference ?? booking.id}.ics`;
@@ -971,7 +939,7 @@ export function renderRestaurantBookingEmailPreview(params: {
     recipientEmail,
   });
   const summary = buildSummary(booking, params.venue);
-  const manageUrl = buildManageUrl(booking);
+  const manageUrl = buildBookingManageUrl(booking);
   const restaurantBookingUrl = params.venue.slug
     ? `${bookingSiteUrl}/restaurants/${params.venue.slug}/book`
     : bookingSiteUrl;

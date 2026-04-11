@@ -3,7 +3,10 @@ import { DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES } from '@/lib/restaurants/d
 import { DEFAULT_RESERVATION_INTERVAL_MINUTES } from '@reserve/shared/config/reservations';
 
 import type { RestaurantRole } from '@/lib/owner/auth/roles';
-import type { RestaurantBookingEmailTemplateKey, RestaurantEmailTemplateVariant } from '@/lib/restaurants/email-templates';
+import type {
+  RestaurantBookingEmailTemplateKey,
+  RestaurantEmailTemplateVariant,
+} from '@/lib/restaurants/email-templates';
 import type { OpsRestaurantOption, OpsServiceError } from '@/types/ops';
 import type { OccasionKey } from '@reserve/shared/occasions';
 
@@ -20,6 +23,8 @@ type RestaurantsListResponse = {
     contactEmail: string | null;
     contactPhone: string | null;
     address: string | null;
+    managerDailySummaryEnabled: boolean;
+    managerNotificationPhone: string | null;
     googleMapUrl: string | null;
     googleReviewUrl: string | null;
     bookingPolicy: string | null;
@@ -46,6 +51,8 @@ type RestaurantResponse = {
     contactEmail: string | null;
     contactPhone: string | null;
     address: string | null;
+    managerDailySummaryEnabled: boolean;
+    managerNotificationPhone: string | null;
     googleMapUrl: string | null;
     googleReviewUrl: string | null;
     bookingPolicy: string | null;
@@ -109,6 +116,8 @@ export type RestaurantProfile = {
   contactEmail: string | null;
   contactPhone: string | null;
   address: string | null;
+  managerDailySummaryEnabled: boolean;
+  managerNotificationPhone: string | null;
   googleMapUrl: string | null;
   googleReviewUrl: string | null;
   bookingPolicy: string | null;
@@ -226,9 +235,15 @@ export type SendTestEmailTemplateInput = PreviewEmailTemplateInput & {
 export interface RestaurantService {
   listRestaurants(): Promise<Array<OpsRestaurantOption & { role: RestaurantRole }>>;
   getProfile(restaurantId: string): Promise<RestaurantProfile>;
-  updateProfile(restaurantId: string, profile: Partial<RestaurantProfile>): Promise<RestaurantProfile>;
+  updateProfile(
+    restaurantId: string,
+    profile: Partial<RestaurantProfile>,
+  ): Promise<RestaurantProfile>;
   getOperatingHours(restaurantId: string): Promise<OperatingHoursSnapshot>;
-  updateOperatingHours(restaurantId: string, snapshot: OperatingHoursSnapshot): Promise<OperatingHoursSnapshot>;
+  updateOperatingHours(
+    restaurantId: string,
+    snapshot: OperatingHoursSnapshot,
+  ): Promise<OperatingHoursSnapshot>;
   getServicePeriods(restaurantId: string): Promise<ServicePeriodRow[]>;
   updateServicePeriods(restaurantId: string, rows: ServicePeriodRow[]): Promise<ServicePeriodRow[]>;
   getTurnBands(restaurantId: string): Promise<TurnBandsSnapshot>;
@@ -343,6 +358,8 @@ function mapRestaurant(dto: RestaurantResponse['restaurant']): RestaurantProfile
     contactEmail: dto.contactEmail ?? null,
     contactPhone: dto.contactPhone ?? null,
     address: dto.address ?? null,
+    managerDailySummaryEnabled: dto.managerDailySummaryEnabled ?? false,
+    managerNotificationPhone: dto.managerNotificationPhone ?? null,
     googleMapUrl: dto.googleMapUrl ?? null,
     googleReviewUrl: dto.googleReviewUrl ?? null,
     bookingPolicy: dto.bookingPolicy ?? null,
@@ -362,7 +379,9 @@ function mapRestaurant(dto: RestaurantResponse['restaurant']): RestaurantProfile
 export function createBrowserRestaurantService(): RestaurantService {
   return {
     async listRestaurants() {
-      const response = await fetchJson<RestaurantsListResponse>(`${OPS_RESTAURANTS_BASE}?page=1&pageSize=50`);
+      const response = await fetchJson<RestaurantsListResponse>(
+        `${OPS_RESTAURANTS_BASE}?page=1&pageSize=50`,
+      );
       return response.items.map((restaurant) => ({
         id: restaurant.id,
         name: restaurant.name ?? 'Restaurant',
@@ -375,16 +394,21 @@ export function createBrowserRestaurantService(): RestaurantService {
     },
 
     async getProfile(restaurantId: string) {
-      const { restaurant } = await fetchJson<RestaurantResponse>(`${OPS_RESTAURANTS_BASE}/${restaurantId}`);
+      const { restaurant } = await fetchJson<RestaurantResponse>(
+        `${OPS_RESTAURANTS_BASE}/${restaurantId}`,
+      );
       return mapRestaurant(restaurant);
     },
 
     async updateProfile(restaurantId: string, profile: Partial<RestaurantProfile>) {
-      const { restaurant } = await fetchJson<RestaurantResponse>(`${OPS_RESTAURANTS_BASE}/${restaurantId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(profile),
-      });
+      const { restaurant } = await fetchJson<RestaurantResponse>(
+        `${OPS_RESTAURANTS_BASE}/${restaurantId}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(profile),
+        },
+      );
       return mapRestaurant(restaurant);
     },
 
@@ -401,16 +425,21 @@ export function createBrowserRestaurantService(): RestaurantService {
     },
 
     async getServicePeriods(restaurantId: string) {
-      const response = await fetchJson<ServicePeriodsResponse>(`${OPS_RESTAURANTS_BASE}/${restaurantId}/service-periods`);
+      const response = await fetchJson<ServicePeriodsResponse>(
+        `${OPS_RESTAURANTS_BASE}/${restaurantId}/service-periods`,
+      );
       return response.periods;
     },
 
     async updateServicePeriods(restaurantId: string, rows: ServicePeriodRow[]) {
-      const response = await fetchJson<ServicePeriodsResponse>(`${OPS_RESTAURANTS_BASE}/${restaurantId}/service-periods`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(rows),
-      });
+      const response = await fetchJson<ServicePeriodsResponse>(
+        `${OPS_RESTAURANTS_BASE}/${restaurantId}/service-periods`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(rows),
+        },
+      );
       return response.periods;
     },
 
@@ -427,10 +456,16 @@ export function createBrowserRestaurantService(): RestaurantService {
     },
 
     async getEmailTemplates(restaurantId: string) {
-      return fetchJson<EmailTemplatesResponse>(`${OPS_RESTAURANTS_BASE}/${restaurantId}/email-templates`);
+      return fetchJson<EmailTemplatesResponse>(
+        `${OPS_RESTAURANTS_BASE}/${restaurantId}/email-templates`,
+      );
     },
 
-    async updateEmailTemplate(restaurantId: string, templateKey: RestaurantBookingEmailTemplateKey, payload: { variants: RestaurantEmailTemplateVariant[] }) {
+    async updateEmailTemplate(
+      restaurantId: string,
+      templateKey: RestaurantBookingEmailTemplateKey,
+      payload: { variants: RestaurantEmailTemplateVariant[] },
+    ) {
       const response = await fetchJson<EmailTemplateResponse>(
         `${OPS_RESTAURANTS_BASE}/${restaurantId}/email-templates/${templateKey}`,
         {

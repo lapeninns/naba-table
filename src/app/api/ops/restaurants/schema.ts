@@ -14,6 +14,7 @@ import {
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SLUG_REGEX = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+const E164_REGEX = /^\+[1-9][0-9]{6,14}$/;
 const INTERVAL_SCHEMA = z
   .number()
   .int()
@@ -69,6 +70,14 @@ export const createRestaurantSchema = z.object({
   address: z
     .string()
     .trim()
+    .nullable()
+    .optional()
+    .transform((val) => val || null),
+  managerDailySummaryEnabled: z.boolean().optional(),
+  managerNotificationPhone: z
+    .string()
+    .trim()
+    .regex(E164_REGEX, 'Manager notification phone must be in E.164 format')
     .nullable()
     .optional()
     .transform((val) => val || null),
@@ -135,6 +144,14 @@ export const updateRestaurantSchema = z.object({
     .nullable()
     .optional()
     .transform((val) => val || null),
+  managerDailySummaryEnabled: z.boolean().optional(),
+  managerNotificationPhone: z
+    .string()
+    .trim()
+    .regex(E164_REGEX, 'Manager notification phone must be in E.164 format')
+    .nullable()
+    .optional()
+    .transform((val) => val || null),
   googleMapUrl: z
     .string()
     .trim()
@@ -177,6 +194,8 @@ export type RestaurantDTO = {
   contactEmail: string | null;
   contactPhone: string | null;
   address: string | null;
+  managerDailySummaryEnabled: boolean;
+  managerNotificationPhone: string | null;
   googleMapUrl: string | null;
   googleReviewUrl: string | null;
   bookingPolicy: string | null;
@@ -212,7 +231,9 @@ export type DeleteRestaurantResponse = {
 };
 
 export const restaurantEmailTemplateKeySchema = z.enum(RESTAURANT_BOOKING_EMAIL_TEMPLATE_KEYS);
-export const restaurantEmailTemplateGroupKeySchema = z.enum(RESTAURANT_BOOKING_EMAIL_TEMPLATE_GROUP_KEYS);
+export const restaurantEmailTemplateGroupKeySchema = z.enum(
+  RESTAURANT_BOOKING_EMAIL_TEMPLATE_GROUP_KEYS,
+);
 
 const emailTemplateTextSchema = z.string().trim().min(1).max(280);
 const emailTemplateSupportTextSchema = z.string().trim().max(180);
@@ -249,14 +270,21 @@ const emailTemplateVariantSchema = z.object({
   ask: emailTemplateSupportTextSchema.optional().transform((val) => val ?? ''),
   ctaLabel: z.string().trim().min(1).max(60),
   isActive: z.boolean(),
-  order: z.number().int().min(0).max(MAX_RESTAURANT_EMAIL_TEMPLATE_VARIANTS - 1),
+  order: z
+    .number()
+    .int()
+    .min(0)
+    .max(MAX_RESTAURANT_EMAIL_TEMPLATE_VARIANTS - 1),
 });
 
 export const updateRestaurantEmailTemplateSchema = z.object({
   variants: z
     .array(emailTemplateVariantSchema)
     .min(1, 'At least one variant is required')
-    .max(MAX_RESTAURANT_EMAIL_TEMPLATE_VARIANTS, `You can save up to ${MAX_RESTAURANT_EMAIL_TEMPLATE_VARIANTS} variants`)
+    .max(
+      MAX_RESTAURANT_EMAIL_TEMPLATE_VARIANTS,
+      `You can save up to ${MAX_RESTAURANT_EMAIL_TEMPLATE_VARIANTS} variants`,
+    )
     .superRefine((variants, ctx) => {
       const ids = new Set<string>();
       const orders = new Set<number>();
@@ -324,9 +352,15 @@ export const sendRestaurantEmailTemplateTestSchema = previewRestaurantEmailTempl
   toEmail: z.string().trim().regex(EMAIL_REGEX, 'Invalid email format'),
 });
 
-export type UpdateRestaurantEmailTemplateInput = z.infer<typeof updateRestaurantEmailTemplateSchema>;
-export type PreviewRestaurantEmailTemplateInput = z.infer<typeof previewRestaurantEmailTemplateSchema>;
-export type SendRestaurantEmailTemplateTestInput = z.infer<typeof sendRestaurantEmailTemplateTestSchema>;
+export type UpdateRestaurantEmailTemplateInput = z.infer<
+  typeof updateRestaurantEmailTemplateSchema
+>;
+export type PreviewRestaurantEmailTemplateInput = z.infer<
+  typeof previewRestaurantEmailTemplateSchema
+>;
+export type SendRestaurantEmailTemplateTestInput = z.infer<
+  typeof sendRestaurantEmailTemplateTestSchema
+>;
 
 export type RestaurantEmailTemplateVariantDTO = z.infer<typeof emailTemplateVariantSchema>;
 

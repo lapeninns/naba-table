@@ -11,7 +11,6 @@ import {
 
 import { DEV_RESTAURANT_ID } from '../devIds';
 
-
 import type {
   OperatingHoursSnapshot,
   RestaurantEmailTemplatePreview,
@@ -26,7 +25,6 @@ import type {
   TurnBandsPayload,
   TurnBandsSnapshot,
 } from '@/services/ops/restaurants';
-
 
 const SECOND_DEV_RESTAURANT_ID = '22222222-2222-4222-8222-222222222222';
 
@@ -43,7 +41,8 @@ type MutableState = {
 };
 
 function buildRestaurantSnapshot(
-  overrides: Partial<RestaurantProfile> & Pick<RestaurantProfile, 'id' | 'name' | 'slug' | 'timezone'>,
+  overrides: Partial<RestaurantProfile> &
+    Pick<RestaurantProfile, 'id' | 'name' | 'slug' | 'timezone'>,
 ): RestaurantSnapshot {
   const profile: RestaurantProfile = {
     id: overrides.id,
@@ -54,6 +53,8 @@ function buildRestaurantSnapshot(
     contactEmail: overrides.contactEmail ?? 'ops@example.com',
     contactPhone: overrides.contactPhone ?? '+44 7700 900123',
     address: overrides.address ?? '1 Example Street, London',
+    managerDailySummaryEnabled: overrides.managerDailySummaryEnabled ?? true,
+    managerNotificationPhone: overrides.managerNotificationPhone ?? '+44 7700 900123',
     googleMapUrl: overrides.googleMapUrl ?? null,
     googleReviewUrl: overrides.googleReviewUrl ?? null,
     bookingPolicy:
@@ -92,8 +93,22 @@ function buildRestaurantSnapshot(
   };
 
   const servicePeriods: ServicePeriodRow[] = [
-    { id: 'sp-1', name: 'Lunch', dayOfWeek: null, startTime: '12:00', endTime: '15:00', bookingOption: 'dining' },
-    { id: 'sp-2', name: 'Dinner', dayOfWeek: null, startTime: '17:00', endTime: '22:00', bookingOption: 'dining' },
+    {
+      id: 'sp-1',
+      name: 'Lunch',
+      dayOfWeek: null,
+      startTime: '12:00',
+      endTime: '15:00',
+      bookingOption: 'dining',
+    },
+    {
+      id: 'sp-2',
+      name: 'Dinner',
+      dayOfWeek: null,
+      startTime: '17:00',
+      endTime: '22:00',
+      bookingOption: 'dining',
+    },
   ];
 
   const payload: TurnBandsPayload = {
@@ -217,32 +232,46 @@ export class DevRestaurantService implements RestaurantService {
     return {
       restaurantId,
       canEdit: true,
-      groups: getRestaurantBookingEmailTemplateGroups().map<RestaurantEmailTemplateGroup>((group) => ({
-        key: group.key,
-        title: group.title,
-        description: group.description,
-        templates: getRestaurantBookingEmailTemplateCatalog()
-          .filter((definition) => definition.group === group.key)
-          .map<RestaurantEmailTemplate>((definition) => {
-            const variants = buildEditableTemplateVariants(definition.key, restaurant.emailTemplates);
-            const defaultVariants = buildEditableTemplateVariants(definition.key, null);
-            const status = restaurant.emailTemplates?.templates[definition.key] ? 'custom' : 'default';
-            return {
-              key: definition.key,
-              title: definition.title,
-              description: definition.description,
-              groupKey: definition.group,
-              supportsCtaLabel: definition.supportsCtaLabel,
-              availableVariables: ['{{name}}', '{{firstName}}', '{{venue}}', '{{date}}', '{{time}}', '{{party}}'],
-              recommendedVariables: definition.recommendedVariables.map((key) => `{{${key}}}`),
-              authoringHints: [...definition.authoringHints],
-              status,
-              activeVariantCount: variants.filter((variant) => variant.isActive).length,
-              variants,
-              defaultVariants,
-            };
-          }),
-      })),
+      groups: getRestaurantBookingEmailTemplateGroups().map<RestaurantEmailTemplateGroup>(
+        (group) => ({
+          key: group.key,
+          title: group.title,
+          description: group.description,
+          templates: getRestaurantBookingEmailTemplateCatalog()
+            .filter((definition) => definition.group === group.key)
+            .map<RestaurantEmailTemplate>((definition) => {
+              const variants = buildEditableTemplateVariants(
+                definition.key,
+                restaurant.emailTemplates,
+              );
+              const defaultVariants = buildEditableTemplateVariants(definition.key, null);
+              const status = restaurant.emailTemplates?.templates[definition.key]
+                ? 'custom'
+                : 'default';
+              return {
+                key: definition.key,
+                title: definition.title,
+                description: definition.description,
+                groupKey: definition.group,
+                supportsCtaLabel: definition.supportsCtaLabel,
+                availableVariables: [
+                  '{{name}}',
+                  '{{firstName}}',
+                  '{{venue}}',
+                  '{{date}}',
+                  '{{time}}',
+                  '{{party}}',
+                ],
+                recommendedVariables: definition.recommendedVariables.map((key) => `{{${key}}}`),
+                authoringHints: [...definition.authoringHints],
+                status,
+                activeVariantCount: variants.filter((variant) => variant.isActive).length,
+                variants,
+                defaultVariants,
+              };
+            }),
+        }),
+      ),
     };
   }
 
@@ -270,7 +299,14 @@ export class DevRestaurantService implements RestaurantService {
       description: definition.description,
       groupKey: definition.group,
       supportsCtaLabel: definition.supportsCtaLabel,
-      availableVariables: ['{{name}}', '{{firstName}}', '{{venue}}', '{{date}}', '{{time}}', '{{party}}'],
+      availableVariables: [
+        '{{name}}',
+        '{{firstName}}',
+        '{{venue}}',
+        '{{date}}',
+        '{{time}}',
+        '{{party}}',
+      ],
       recommendedVariables: definition.recommendedVariables.map((key) => `{{${key}}}`),
       authoringHints: [...definition.authoringHints],
       status: 'custom' as const,
@@ -298,7 +334,14 @@ export class DevRestaurantService implements RestaurantService {
       description: definition.description,
       groupKey: definition.group,
       supportsCtaLabel: definition.supportsCtaLabel,
-      availableVariables: ['{{name}}', '{{firstName}}', '{{venue}}', '{{date}}', '{{time}}', '{{party}}'],
+      availableVariables: [
+        '{{name}}',
+        '{{firstName}}',
+        '{{venue}}',
+        '{{date}}',
+        '{{time}}',
+        '{{party}}',
+      ],
       recommendedVariables: definition.recommendedVariables.map((key) => `{{${key}}}`),
       authoringHints: [...definition.authoringHints],
       status: 'default' as const,
@@ -314,34 +357,34 @@ export class DevRestaurantService implements RestaurantService {
     payload: PreviewEmailTemplateInput = {},
   ): Promise<RestaurantEmailTemplatePreview> {
     const restaurant = getRestaurantSnapshot(this.state, restaurantId);
-    const response = await fetchJson<{ restaurantId: string; preview: RestaurantEmailTemplatePreview }>(
-      '/dev/api/restaurant-email-template-preview',
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          templateKey,
-          preferredVariantId: payload.preferredVariantId,
-          recipientEmail: 'preview@nabatable.local',
-          variants: payload.variants?.length
-            ? payload.variants
-            : buildEditableTemplateVariants(templateKey, restaurant.emailTemplates),
-          venue: {
-            id: restaurant.profile.id,
-            slug: restaurant.profile.slug,
-            name: restaurant.profile.name,
-            timezone: restaurant.profile.timezone,
-            address: restaurant.profile.address,
-            phone: restaurant.profile.contactPhone,
-            email: restaurant.profile.contactEmail,
-            policy: restaurant.profile.bookingPolicy,
-            logoUrl: restaurant.profile.logoUrl,
-            googleMapUrl: restaurant.profile.googleMapUrl,
-            googleReviewUrl: restaurant.profile.googleReviewUrl,
-          },
-        }),
-      },
-    );
+    const response = await fetchJson<{
+      restaurantId: string;
+      preview: RestaurantEmailTemplatePreview;
+    }>('/dev/api/restaurant-email-template-preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        templateKey,
+        preferredVariantId: payload.preferredVariantId,
+        recipientEmail: 'preview@nabatable.local',
+        variants: payload.variants?.length
+          ? payload.variants
+          : buildEditableTemplateVariants(templateKey, restaurant.emailTemplates),
+        venue: {
+          id: restaurant.profile.id,
+          slug: restaurant.profile.slug,
+          name: restaurant.profile.name,
+          timezone: restaurant.profile.timezone,
+          address: restaurant.profile.address,
+          phone: restaurant.profile.contactPhone,
+          email: restaurant.profile.contactEmail,
+          policy: restaurant.profile.bookingPolicy,
+          logoUrl: restaurant.profile.logoUrl,
+          googleMapUrl: restaurant.profile.googleMapUrl,
+          googleReviewUrl: restaurant.profile.googleReviewUrl,
+        },
+      }),
+    });
 
     return response.preview;
   }

@@ -1,6 +1,11 @@
-import type { OpsBookingListItem, OpsBookingStatus, OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
+import { NON_ACTIVE_BOOKING_STATUSES, computeServiceBreakdown } from '@/lib/ops/daily-booking-summary';
 
-const NON_COVER_STATUSES = new Set<OpsBookingStatus>(['cancelled', 'no_show']);
+import type {
+  OpsBookingListItem,
+  OpsBookingStatus,
+  OpsTodayBooking,
+  OpsTodayBookingsSummary,
+} from '@/types/ops';
 
 export function computeDashboardTotals(bookings: OpsTodayBooking[]) {
   return bookings.reduce(
@@ -35,7 +40,7 @@ export function computeDashboardTotals(bookings: OpsTodayBooking[]) {
           break;
       }
 
-      if (!NON_COVER_STATUSES.has(booking.status)) {
+      if (!NON_ACTIVE_BOOKING_STATUSES.has(booking.status as OpsBookingStatus)) {
         acc.covers += booking.partySize;
       }
 
@@ -76,6 +81,7 @@ export function patchDashboardSummaryBooking(
     ...summary,
     bookings,
     totals: computeDashboardTotals(bookings),
+    serviceBreakdown: computeServiceBreakdown(bookings),
   };
 }
 

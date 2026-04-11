@@ -102,7 +102,7 @@ async function request<TResponse>(
     if (!response.ok) {
       const normalized: ApiError = {
         code: parsed?.code ?? `${response.status}`,
-        message: parsed?.message ?? response.statusText ?? 'Request failed',
+        message: parsed?.message ?? parsed?.error ?? response.statusText ?? 'Request failed',
         details: parsed?.details,
         status: response.status,
       };
