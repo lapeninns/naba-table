@@ -33,7 +33,10 @@ import { normalizeBookingsTab, type BookingsTab } from '@/guest/lib/validation';
 import { StatusRegion } from '@/guest/routes/shared/StatusRegion';
 import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils';
-import { getBookingDateTimeMillis, parseBookingDateTime } from '@reserve/shared/formatting/bookingDateTime';
+import {
+  getBookingDateTimeMillis,
+  parseBookingDateTime,
+} from '@reserve/shared/formatting/bookingDateTime';
 
 import type { BookingDTO } from '@/guest/services/ports';
 
@@ -95,12 +98,8 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
     });
 
     return {
-      upcoming: upcomingItems.sort(
-        (a, b) => getBookingStartMillis(a) - getBookingStartMillis(b),
-      ),
-      past: pastItems.sort(
-        (a, b) => getBookingStartMillis(b) - getBookingStartMillis(a),
-      ),
+      upcoming: upcomingItems.sort((a, b) => getBookingStartMillis(a) - getBookingStartMillis(b)),
+      past: pastItems.sort((a, b) => getBookingStartMillis(b) - getBookingStartMillis(a)),
     };
   }, [bookings?.items]);
 
@@ -108,7 +107,7 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
     return (
       <div className="min-h-screen bg-surface-warm pb-20">
         {/* Hero skeleton */}
-        <section className="border-b border-border/50 bg-gradient-hero py-12 px-6">
+        <section className="luminous-panel mx-4 mt-4 px-6 py-12 sm:mx-6">
           <div className="mx-auto max-w-6xl space-y-4">
             <Skeleton className="h-8 w-48" />
             <Skeleton className="h-5 w-96" />
@@ -161,23 +160,22 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
   return (
     <div className="min-h-screen bg-surface-warm pb-20">
       {/* Hero Section */}
-      <section className="border-b border-border/50 bg-gradient-hero">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 py-12 px-5 sm:gap-6 sm:px-8 sm:py-16 lg:px-10 lg:py-20">
-          <div className="space-y-2 sm:space-y-3 animate-fade-in-up">
-            <p className="text-xs uppercase tracking-[0.2em] text-subtle">My Reservations</p>
-            <h1 className="heading-hero">
-              Your Reservations
-            </h1>
-            <p className="text-body-warm max-w-2xl">
-              Manage your upcoming and past reservations
+      <section className="px-4 pt-5 sm:px-6">
+        <div className="luminous-panel mx-auto grid w-full max-w-6xl gap-8 px-6 py-12 sm:px-8 sm:py-16 lg:grid-cols-[minmax(0,1.4fr)_auto] lg:items-end lg:px-10 lg:py-20">
+          <div className="space-y-3 animate-fade-in-up">
+            <p className="luminous-kicker">My Reservations</p>
+            <h1 className="heading-hero luminous-balance">Your Reservations</h1>
+            <p className="text-body-warm luminous-copy-measure">
+              Upcoming plans stay in focus, while past visits drop into the background so your next
+              decision feels immediate.
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-3 lg:justify-self-end">
             <Button
               asChild
               size="lg"
-              className="rounded-full bg-primary text-white hover:bg-primary/90 min-h-[48px] w-full sm:w-auto btn-tactile focus-ring touch-feedback"
+              className="luminous-cta min-h-[48px] w-full rounded-[var(--luminous-radius)] sm:w-auto btn-tactile focus-ring touch-feedback"
             >
               <Link href="/restaurants">
                 <Plus className="mr-2 h-5 w-5" />
@@ -202,12 +200,12 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
           }}
           className="w-full"
         >
-          <TabsList className="w-full justify-start gap-1 border-b border-border bg-transparent p-0 mb-8 sm:mb-10 lg:mb-12 h-auto rounded-none overflow-x-auto flex-nowrap scrollbar-hide">
+          <TabsList className="luminous-glass mb-8 h-auto w-full justify-start gap-1 overflow-x-auto rounded-[1.5rem] p-2 flex-nowrap scrollbar-hide sm:mb-10 lg:mb-12 lg:max-w-[24rem]">
             <TabsTrigger
               value="upcoming"
               className={cn(
-                'relative rounded-none border-b-2 border-transparent bg-transparent px-4 py-3 sm:px-6 text-sm sm:text-base font-semibold transition-colors min-h-[44px] whitespace-nowrap',
-                'data-[state=active]:border-primary data-[state=active]:text-foreground data-[state=active]:shadow-none',
+                'relative min-h-[44px] whitespace-nowrap rounded-[var(--luminous-radius)] bg-transparent px-4 py-3 text-sm font-semibold transition-colors sm:px-6 sm:text-base',
+                'data-[state=active]:bg-[var(--luminous-surface-lowest)] data-[state=active]:text-foreground data-[state=active]:shadow-[var(--luminous-shadow-soft)]',
                 'text-muted-foreground hover:text-foreground/80',
               )}
             >
@@ -219,8 +217,8 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
             <TabsTrigger
               value="past"
               className={cn(
-                'relative rounded-none border-b-2 border-transparent bg-transparent px-4 py-3 sm:px-6 text-sm sm:text-base font-semibold transition-colors min-h-[44px] whitespace-nowrap',
-                'data-[state=active]:border-primary data-[state=active]:text-foreground data-[state=active]:shadow-none',
+                'relative min-h-[44px] whitespace-nowrap rounded-[var(--luminous-radius)] bg-transparent px-4 py-3 text-sm font-semibold transition-colors sm:px-6 sm:text-base',
+                'data-[state=active]:bg-[var(--luminous-surface-lowest)] data-[state=active]:text-foreground data-[state=active]:shadow-[var(--luminous-shadow-soft)]',
                 'text-muted-foreground hover:text-foreground/80',
               )}
             >
@@ -236,19 +234,19 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
 
           <TabsContent value="upcoming" className="mt-0">
             {upcoming.length === 0 ? (
-              <Card className="p-12 bg-surface-elevated text-center">
+              <Card className="luminous-panel border-0 p-12 text-center">
                 <Calendar className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                 <h3 className="heading-subsection mb-2">No upcoming reservations</h3>
                 <p className="text-sm text-subtle mb-6">Time to plan your next dining adventure.</p>
                 <Button
                   asChild
-                  className="rounded-full min-h-[44px] btn-tactile focus-ring touch-feedback"
+                  className="luminous-cta min-h-[44px] rounded-[var(--luminous-radius)] btn-tactile focus-ring touch-feedback"
                 >
                   <Link href="/restaurants">Find a restaurant</Link>
                 </Button>
               </Card>
             ) : (
-              <div className="grid gap-4 sm:gap-6 md:grid-cols-2 stagger-container">
+              <div className="grid gap-5 sm:gap-6 md:grid-cols-2 stagger-container">
                 {upcoming.map((booking, index) => (
                   <BookingCard
                     key={booking.id}
@@ -262,13 +260,13 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
 
           <TabsContent value="past" className="mt-0">
             {past.length === 0 ? (
-              <Card className="p-12 bg-surface-elevated text-center">
+              <Card className="luminous-panel border-0 p-12 text-center">
                 <Calendar className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                 <h3 className="heading-subsection mb-2">No past reservations</h3>
                 <p className="text-sm text-subtle">Your completed reservations will appear here.</p>
               </Card>
             ) : (
-              <div className="grid gap-4 sm:gap-6 md:grid-cols-2 stagger-container">
+              <div className="grid gap-5 sm:gap-6 md:grid-cols-2 stagger-container">
                 {past.map((booking, index) => (
                   <BookingCard
                     key={booking.id}
@@ -306,7 +304,7 @@ function BookingCard({ booking, isPast = false, style }: BookingCardProps) {
     <Card
       variant="interactive"
       className={cn(
-        'overflow-hidden transition-all touch-feedback',
+        'luminous-card overflow-hidden border-0 transition-all touch-feedback',
         isPast && 'opacity-75 hover:opacity-100',
       )}
       style={style}
@@ -316,9 +314,7 @@ function BookingCard({ booking, isPast = false, style }: BookingCardProps) {
         <div className="flex items-start justify-between gap-4 sm:gap-5 mb-5 sm:mb-6 lg:mb-8">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-3 mb-1">
-              <h3 className="heading-subsection truncate">
-                {booking.restaurantName}
-              </h3>
+              <h3 className="heading-subsection truncate">{booking.restaurantName}</h3>
               <StatusBadge status={booking.status} isPast={isPast} />
             </div>
             {booking.restaurantSlug && (
@@ -372,24 +368,22 @@ function BookingCard({ booking, isPast = false, style }: BookingCardProps) {
         </div>
 
         {/* Booking Details */}
-        <div className="flex items-center gap-4 sm:gap-5 mb-4 sm:mb-6">
+        <div className="luminous-card-soft mb-5 flex items-center gap-4 rounded-[calc(var(--luminous-radius)+2px)] px-4 py-4 sm:gap-5 sm:px-5 sm:py-5">
           {/* Date Box */}
           <div
             className={cn(
-              'flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-xl border text-center transition-colors',
+              'flex h-18 w-18 shrink-0 flex-col items-center justify-center rounded-[var(--luminous-radius)] text-center transition-colors',
               isPast
-                ? 'border-border bg-muted text-muted-foreground'
-                : 'border-primary/10 bg-primary/5 text-primary',
+                ? 'bg-[var(--luminous-surface-low)] text-muted-foreground'
+                : 'bg-[var(--luminous-primary-tint)] text-primary',
             )}
-            >
-            <span className="text-xs font-bold uppercase leading-none mb-1">
-              {monthLabel}
-            </span>
+          >
+            <span className="text-xs font-bold uppercase leading-none mb-1">{monthLabel}</span>
             <span className="text-2xl font-bold leading-none">{dayLabel}</span>
           </div>
 
           {/* Time and Party Details */}
-          <div className="flex-1 space-y-1.5">
+          <div className="flex-1 space-y-2">
             <div className="flex items-center gap-2.5 text-foreground/80">
               <Clock className="h-4 w-4 text-muted-foreground/60" />
               <span className="font-semibold">{timeLabel}</span>
@@ -406,7 +400,7 @@ function BookingCard({ booking, isPast = false, style }: BookingCardProps) {
         {/* Footer Link */}
         <Link
           href={`/guest/bookings/${booking.id}`}
-          className="flex items-center justify-between -mx-5 -mb-5 px-5 py-4 sm:-mx-6 sm:-mb-6 sm:px-6 sm:py-5 lg:-mx-8 lg:-mb-8 lg:px-8 lg:py-6 text-sm font-medium text-muted-foreground hover:text-primary hover:bg-muted transition-colors border-t border-border/50 group focus-ring touch-feedback"
+          className="group -mx-5 -mb-5 flex items-center justify-between rounded-b-[var(--luminous-radius)] bg-[var(--luminous-surface-low)] px-5 py-4 text-sm font-medium text-muted-foreground transition-colors hover:text-primary sm:-mx-6 sm:-mb-6 sm:px-6 sm:py-5 lg:-mx-8 lg:-mb-8 lg:px-8 lg:py-6 focus-ring touch-feedback"
         >
           <span>View reservation details</span>
           <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
@@ -473,7 +467,7 @@ function StatusBadge({ status, isPast = false }: StatusBadgeProps) {
   return (
     <Badge
       variant="secondary"
-      className="rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wider font-bold border border-border bg-muted text-muted-foreground"
+      className="rounded-full border-0 px-2 py-0.5 text-[10px] uppercase tracking-wider font-bold bg-[var(--luminous-surface-highest)] text-muted-foreground"
     >
       {label}
     </Badge>

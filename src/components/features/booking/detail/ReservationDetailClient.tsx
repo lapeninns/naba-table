@@ -35,7 +35,6 @@ import {
 } from '@/components/features/booking/ui/BookingComponents';
 import { GuestError } from '@/components/guest/ui';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { emit } from '@/lib/analytics/emit';
@@ -50,7 +49,10 @@ import {
   formatReservationDateShortFromDate,
   formatReservationTimeFromDate,
 } from '@reserve/shared/formatting/booking';
-import { getBookingDateTimeMillis, parseBookingDateTime } from '@reserve/shared/formatting/bookingDateTime';
+import {
+  getBookingDateTimeMillis,
+  parseBookingDateTime,
+} from '@reserve/shared/formatting/bookingDateTime';
 import { DEFAULT_VENUE } from '@shared/config/venue';
 
 import { ReservationHistory } from './ReservationHistory';
@@ -324,10 +326,10 @@ export function ReservationDetailClient({
   // Loading State
   if (isLoading && !reservation) {
     return (
-      <section className="min-h-screen bg-surface-warm py-8 sm:py-10 pb-20">
-        <div className="mx-auto w-full max-w-5xl space-y-6 sm:space-y-8 px-4 sm:px-6">
+      <section className="min-h-screen bg-transparent py-8 sm:py-10 pb-[var(--luminous-space-grand)]">
+        <div className="mx-auto w-full max-w-6xl space-y-[var(--luminous-space-breath)] px-4 sm:px-6">
           {/* Summary card skeleton */}
-          <div className="rounded-2xl border border-border bg-background p-6 sm:p-8 space-y-6 animate-fade-in-up">
+          <div className="luminous-panel space-y-6 p-6 sm:p-8 animate-fade-in-up">
             <div className="flex items-center gap-3">
               <Skeleton className="h-11 w-11 rounded-full" />
               <Skeleton className="h-6 w-24 rounded-full" />
@@ -340,12 +342,12 @@ export function ReservationDetailClient({
           </div>
           {/* Stat cards skeleton */}
           <div className="grid gap-4 sm:grid-cols-3">
-            <Skeleton className="h-28 rounded-2xl" />
-            <Skeleton className="h-28 rounded-2xl" />
-            <Skeleton className="h-28 rounded-2xl" />
+            <Skeleton className="h-28 rounded-[var(--luminous-radius-panel)]" />
+            <Skeleton className="h-28 rounded-[var(--luminous-radius-panel)]" />
+            <Skeleton className="h-28 rounded-[var(--luminous-radius-panel)]" />
           </div>
           {/* Info panel skeleton */}
-          <Skeleton className="h-48 rounded-2xl" />
+          <Skeleton className="h-48 rounded-[var(--luminous-radius-panel)]" />
         </div>
       </section>
     );
@@ -354,7 +356,7 @@ export function ReservationDetailClient({
   // Error State
   if (isError && !reservation) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center bg-surface-warm">
+      <div className="flex min-h-[60vh] items-center justify-center">
         <GuestError
           description={error?.message ?? 'We encountered an error loading your reservation.'}
           onRetry={() => refetch()}
@@ -393,7 +395,8 @@ export function ReservationDetailClient({
     <BookingDetailShell>
       <BookingSummaryCard
         title={restaurantName ?? venue.name ?? 'Your Reservation'}
-        description="Update, share, or download your booking in one place."
+        description="Every update, share action, and practical detail stays within the same guest journey."
+        backHref={canManage ? '/guest/bookings' : '/bookings'}
         reference={reservation.reference ?? reservation.id.slice(0, 8).toUpperCase()}
         status={{ icon: StatusIcon, label: statusConfig.label, tone: statusConfig.tone }}
         offlineNotice={
@@ -413,8 +416,8 @@ export function ReservationDetailClient({
         }
       />
 
-      <div className="grid gap-8 xl:grid-cols-[1fr_320px]">
-        <div className="space-y-8">
+      <div className="grid gap-[var(--luminous-space-breath)] lg:grid-cols-[1fr_18rem]">
+        <div className="space-y-[var(--luminous-space-breath)]">
           <div className="grid gap-4 sm:grid-cols-3">
             <DetailStatCard
               icon={Calendar}
@@ -469,13 +472,13 @@ export function ReservationDetailClient({
           </ActionButtonRow>
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-[var(--luminous-space-breath)]">
           <ManageBookingPanel
             title="Manage booking"
             actions={
               <div className="space-y-3">
                 <Button
-                  className="w-full rounded-full bg-primary hover:bg-primary/90 text-white min-h-[48px]"
+                  className="luminous-cta w-full rounded-[var(--luminous-radius)] text-white min-h-[48px]"
                   size="lg"
                   onClick={handleEdit}
                   disabled={actionDisabled}
@@ -483,8 +486,8 @@ export function ReservationDetailClient({
                   Modify Details
                 </Button>
                 <Button
-                  variant="outline"
-                  className="w-full rounded-full border-border min-h-[44px]"
+                  variant="secondary"
+                  className="luminous-secondary w-full rounded-[var(--luminous-radius)] min-h-[44px]"
                   size="lg"
                   onClick={handleCancel}
                   disabled={actionDisabled}
@@ -503,7 +506,7 @@ export function ReservationDetailClient({
               <div className="flex flex-col gap-1">
                 <p className="font-semibold">Sign in to modify this reservation.</p>
                 <Link
-                  href={`/auth/signin?redirectedFrom=/guest/bookings/${reservationId}`}
+                  href={`/auth/signin?redirectedFrom=/bookings/${reservationId}`}
                   className="font-semibold text-primary underline"
                 >
                   Sign In →
@@ -515,9 +518,7 @@ export function ReservationDetailClient({
       </div>
 
       {canManage && (
-        <Card className="bg-surface-elevated p-4">
-          <ReservationHistory reservationId={reservationId} timezone={venue.timezone} />
-        </Card>
+        <ReservationHistory reservationId={reservationId} timezone={venue.timezone} />
       )}
 
       {bookingDto && (

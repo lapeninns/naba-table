@@ -49,26 +49,88 @@ export function ConfirmationStep(props: ConfirmationStepProps) {
             <Info className="h-6 w-6 text-blue-500" />
           )
         }
-        contentClassName="space-y-6"
+        contentClassName="space-y-5"
       >
-        <div className="space-y-6">
-          {/* Status Banner - REMOVED redundant GuestStatus, using WizardStep header instead */}
+        <div className="space-y-5">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(18rem,0.85fr)]">
+            <div className="luminous-card rounded-[var(--luminous-radius)] p-4 sm:p-5">
+              <div className="space-y-1">
+                <p className="luminous-kicker">Reservation snapshot</p>
+                <p className="text-sm font-semibold text-foreground">
+                  Everything you need is ready below.
+                </p>
+              </div>
 
-          {/* Actions Bar (Add to Calendar, Directions) */}
-          {status !== 'pending' && reservationWindow && (
-            <div className="animate-in fade-in slide-in-from-bottom-2 duration-700 delay-200">
-              <BookingConfirmationActions
-                restaurantName={controller.venue.name}
-                restaurantAddress={controller.venue.address}
-                date={reservationWindow.start}
-                partySize={controller.booking?.party_size ?? controller.details.party}
-                bookingRef={controller.reference}
-                onDownloadIcs={controller.handleAddToCalendar}
-              />
+              <dl className="mt-5 grid gap-4 sm:grid-cols-2">
+                <div className="luminous-card-soft rounded-[calc(var(--luminous-radius)+2px)] px-4 py-4">
+                  <dt className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    Reference
+                  </dt>
+                  <dd className="mt-1 text-lg font-mono font-semibold tracking-tight text-foreground">
+                    {controller.reference}
+                  </dd>
+                </div>
+                <div className="luminous-card-soft rounded-[calc(var(--luminous-radius)+2px)] px-4 py-4">
+                  <dt className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    Guest
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold text-foreground">
+                    {controller.guestName}
+                  </dd>
+                </div>
+                <div className="luminous-card-soft rounded-[calc(var(--luminous-radius)+2px)] px-4 py-4 sm:col-span-2">
+                  <dt className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    When
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold text-foreground">
+                    {controller.summaryDate}
+                    <span className="block text-sm font-normal text-muted-foreground">
+                      {controller.summaryTime}
+                    </span>
+                  </dd>
+                </div>
+                <div className="luminous-card-soft rounded-[calc(var(--luminous-radius)+2px)] px-4 py-4">
+                  <dt className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    Party size
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold text-foreground">
+                    {controller.partyText}
+                  </dd>
+                </div>
+                <div className="luminous-card-soft rounded-[calc(var(--luminous-radius)+2px)] px-4 py-4">
+                  <dt className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    Venue
+                  </dt>
+                  <dd className="mt-1 text-base font-semibold text-foreground">
+                    {controller.venue.name}
+                  </dd>
+                </div>
+              </dl>
             </div>
-          )}
 
-          {/* Feedback Alert - Only show if transient/error or if unrelated to main status */}
+            <div className="space-y-4">
+              {status !== 'pending' && reservationWindow && (
+                <div className="animate-in slide-in-from-bottom-2 fade-in duration-700 delay-200">
+                  <BookingConfirmationActions
+                    restaurantName={controller.venue.name}
+                    restaurantAddress={controller.venue.address}
+                    date={reservationWindow.start}
+                    partySize={controller.booking?.party_size ?? controller.details.party}
+                    bookingRef={controller.reference}
+                    onDownloadIcs={controller.handleAddToCalendar}
+                  />
+                </div>
+              )}
+
+              <div className="luminous-card rounded-[var(--luminous-radius)] px-4 py-4">
+                <p className="luminous-kicker">Manage later</p>
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                  Need to make changes? You can manage your booking via the link sent to your email.
+                </p>
+              </div>
+            </div>
+          </div>
+
           {controller.feedback &&
             (controller.feedback.variant !== 'success' || !status.match(/confirmed|updated/)) && (
               <Alert
@@ -99,54 +161,6 @@ export function ConfirmationStep(props: ConfirmationStepProps) {
                 </div>
               </Alert>
             )}
-
-          {/* Reservation Details Card */}
-          <div className="rounded-xl border border-border bg-card p-5 shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300">
-            <dl className="grid gap-6 sm:grid-cols-2">
-              <div>
-                <dt className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
-                  Reference
-                </dt>
-                <dd className="mt-1 text-lg font-mono font-semibold text-foreground tracking-tight">
-                  {controller.reference}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
-                  Guest
-                </dt>
-                <dd className="mt-1 text-base font-semibold text-foreground">
-                  {controller.guestName}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
-                  When
-                </dt>
-                <dd className="mt-1 text-base font-medium text-foreground">
-                  {controller.summaryDate}
-                  <span className="block text-sm text-muted-foreground">
-                    {controller.summaryTime}
-                  </span>
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
-                  Size
-                </dt>
-                <dd className="mt-1 text-base font-medium text-foreground">
-                  {controller.partyText}
-                </dd>
-              </div>
-            </dl>
-          </div>
-
-          {/* Links / Info */}
-          {status !== 'pending' && (
-            <p className="text-center text-xs text-muted-foreground pt-4">
-              Need to make changes? You can manage your booking via the link sent to your email.
-            </p>
-          )}
         </div>
       </WizardStep>
     </StepErrorBoundary>

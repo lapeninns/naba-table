@@ -34,12 +34,9 @@ function BentoCard({ children, className }: BentoCardProps) {
   return (
     <div
       className={cn(
-        // Base styling
-        'rounded-2xl border border-border/50 bg-background/60 p-5 shadow-sm',
-        'backdrop-blur-md',
-        // Transition for hover
+        'luminous-card rounded-[var(--luminous-radius)] p-4 sm:p-5',
         'transition-all duration-300',
-        'hover:shadow-lg hover:border-primary/20 hover:bg-background/80',
+        'hover:shadow-[0_28px_72px_rgba(26,28,30,0.08)]',
         className,
       )}
     >
@@ -110,21 +107,9 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
           Tablet: 2 columns (Date+Party | Time)
           Mobile: 1 column stacked
       ═══════════════════════════════════════════════════════════════════ */}
-      <div
-        className={cn(
-          'grid gap-4',
-          // Mobile: single column
-          'grid-cols-1',
-          // Tablet: 2 columns
-          'md:grid-cols-2',
-          // Desktop: 3 columns
-          'lg:grid-cols-3',
-        )}
-      >
-        {/* ─────────────────────────────────────────────────────────────────
-            Column 1: Date Selection
-        ───────────────────────────────────────────────────────────── */}
-        <BentoCard className="lg:row-span-1">
+      <div className="grid gap-4">
+        {/* Date Selection — full width */}
+        <BentoCard>
           <Calendar24Date
             date={{
               value: dateField.value ?? '',
@@ -141,9 +126,7 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
           />
         </BentoCard>
 
-        {/* ─────────────────────────────────────────────────────────────────
-            Column 2: Party Size
-        ───────────────────────────────────────────────────────────── */}
+        {/* Party Size — own row */}
         <BentoCard>
           <FormField
             control={control}
@@ -158,9 +141,7 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
           />
         </BentoCard>
 
-        {/* ─────────────────────────────────────────────────────────────────
-            Column 3: Time Selection (Direct Input)
-        ───────────────────────────────────────────────────────────── */}
+        {/* Time Selection — own row */}
         <BentoCard>
           <Calendar24Time
             time={{
@@ -198,7 +179,7 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
       {/* ─────────────────────────────────────────────────────────────────
           Notes Field - Full Width
       ───────────────────────────────────────────────────────────── */}
-      <BentoCard>
+      <BentoCard className="col-span-2">
         <FormField
           control={control}
           name="notes"

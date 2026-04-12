@@ -1,17 +1,14 @@
-import type { MetadataRoute } from "next";
+import { guestFacingSitemapEntries } from './guest-facing-pages';
 
-const baseUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ||
-  process.env.SITE_URL ||
-  "https://shipfa.st";
+import type { MetadataRoute } from 'next';
 
-const guestRoutes = ["/", "/contact", "/restaurants", "/auth/signin", "/guest/bookings", "/guest/thank-you"];
+const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || 'https://nabatable.com';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const normalizedBase = baseUrl.replace(/\/+$/, "");
-  return guestRoutes.map((path) => ({
-    url: `${normalizedBase}${path}`,
-    changeFrequency: path === "/" ? "weekly" : "monthly",
-    priority: path === "/" ? 1 : 0.4,
+  const normalizedBase = baseUrl.replace(/\/+$/, '');
+  return guestFacingSitemapEntries.map((entry) => ({
+    url: `${normalizedBase}${entry.href}`,
+    changeFrequency: entry.changeFrequency,
+    priority: entry.priority,
   }));
 }

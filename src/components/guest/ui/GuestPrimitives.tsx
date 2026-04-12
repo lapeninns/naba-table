@@ -404,31 +404,37 @@ export function GuestError({
   redirectLabel = 'Go back',
 }: GuestErrorProps) {
   return (
-    <GuestCard
-      header={
-        <div className="flex flex-col items-center gap-4 text-center mt-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600">
-            <AlertCircle className="h-6 w-6" aria-hidden />
-          </div>
-          <h3 className="text-xl font-bold">{title}</h3>
+    <div className="luminous-panel relative overflow-hidden px-6 py-8 sm:px-8 sm:py-10 text-center max-w-md mx-auto">
+      <div className="relative space-y-6">
+        <div className="mx-auto inline-flex h-16 w-16 items-center justify-center rounded-[1.25rem] bg-[var(--luminous-tone-danger-bg)] text-[var(--luminous-tone-danger-text)]">
+          <AlertCircle className="h-8 w-8" aria-hidden />
         </div>
-      }
-      footer={
-        <div className="flex flex-wrap items-center justify-center gap-4 w-full">
+        <div className="space-y-2">
+          <h3 className="heading-subsection">{title}</h3>
+          <p className="text-body-warm luminous-copy-measure mx-auto">{description}</p>
+        </div>
+        <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
           {onRetry ? (
-            <Button onClick={onRetry} className="rounded-full px-8">
+            <Button
+              onClick={onRetry}
+              size="lg"
+              className="luminous-cta btn-tactile min-h-[48px] rounded-[var(--luminous-radius)] px-6 text-white"
+            >
               Try again
             </Button>
           ) : null}
           {redirectHref ? (
-            <Button variant="outline" asChild className="rounded-full px-8">
+            <Button
+              variant="secondary"
+              size="lg"
+              asChild
+              className="luminous-secondary btn-tactile min-h-[44px] rounded-[var(--luminous-radius)] px-6"
+            >
               <Link href={redirectHref}>{redirectLabel}</Link>
             </Button>
           ) : null}
         </div>
-      }
-    >
-      <p className="text-center text-muted-foreground">{description}</p>
-    </GuestCard>
+      </div>
+    </div>
   );
 }

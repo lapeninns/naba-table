@@ -9,7 +9,6 @@ import { cn } from '@shared/lib/cn';
 import { Button } from '@shared/ui/button';
 import { Calendar } from '@shared/ui/calendar';
 import { Input } from '@shared/ui/input';
-import { Label } from '@shared/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@shared/ui/popover';
 import {
   Select,
@@ -132,27 +131,28 @@ export function Calendar24Date({
   }, [loadingDates]);
 
   return (
-    <div className="flex flex-col gap-3">
-      <Label
+    <div className="flex flex-col gap-2">
+      <div
         id={dateLabelId}
         className="flex items-center gap-1.5 px-1 text-sm font-semibold sm:text-base"
       >
         <CalendarIcon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
         <span>Date</span>
-      </Label>
+      </div>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
             id={dateButtonId}
-            variant="outline"
+            variant="secondary"
             className={cn(
-              'w-full justify-between font-normal h-12 text-base',
+              'luminous-input h-12 w-full justify-between font-normal text-base shadow-none',
               !date.value && 'text-muted-foreground',
-              date.error && 'border-destructive focus-visible:ring-destructive',
+              date.error && 'focus-visible:ring-destructive',
             )}
             aria-haspopup="dialog"
             aria-expanded={open}
             aria-invalid={Boolean(date.error)}
+            aria-label={`Date ${label}`}
             aria-labelledby={dateLabelId}
             aria-describedby={
               [dateDescriptionId, dateErrorId].filter(Boolean).join(' ') || undefined
@@ -183,7 +183,10 @@ export function Calendar24Date({
           />
         </PopoverContent>
       </Popover>
-      <p id={dateDescriptionId} className="px-1 text-xs text-muted-foreground sm:text-[0.8rem]">
+      <p
+        id={dateDescriptionId}
+        className="hidden px-1 text-xs text-muted-foreground sm:block sm:text-[0.8rem]"
+      >
         {DATE_DESCRIPTION}
       </p>
       {date.error ? (
@@ -262,17 +265,17 @@ export function Calendar24Time({
   return (
     <div
       className={cn(
-        'flex flex-col gap-3 transition-opacity duration-300',
+        'flex flex-col gap-2 transition-opacity duration-300',
         isTimeLoading && 'opacity-50',
       )}
     >
-      <Label
+      <div
         id={timeLabelId}
         className="flex items-center gap-1.5 px-1 text-sm font-semibold sm:text-base"
       >
         <ClockIcon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
         <span>Time</span>
-      </Label>
+      </div>
       <div className="flex flex-col gap-2">
         <div className="relative">
           {showSuggestions ? (
@@ -285,10 +288,11 @@ export function Calendar24Time({
               <SelectTrigger
                 id={timeInputId}
                 className={cn(
-                  'h-12 w-full text-base font-normal bg-background',
+                  'luminous-input h-12 w-full bg-transparent text-base font-normal shadow-none',
                   !inputValue && 'text-muted-foreground',
-                  time.error && 'border-destructive focus:ring-destructive',
+                  time.error && 'focus:ring-destructive',
                 )}
+                aria-label={`Time ${inputValue || '--:--'}`}
                 aria-invalid={Boolean(time.error)}
                 aria-labelledby={timeLabelId}
                 aria-describedby={
@@ -363,15 +367,16 @@ export function Calendar24Time({
                   time.onChange(event.target.value, { commit: true });
                 }}
                 aria-invalid={Boolean(time.error)}
+                aria-label={`Time ${inputValue || '--:--'}`}
                 aria-labelledby={timeLabelId}
                 aria-describedby={
                   [timeDescriptionId, timeErrorId].filter(Boolean).join(' ') || undefined
                 }
                 placeholder="--:--"
                 className={cn(
-                  'h-12 bg-background text-base font-normal appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none',
+                  'luminous-input h-12 bg-transparent text-base font-normal appearance-none shadow-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none',
                   !inputValue ? 'text-foreground' : undefined,
-                  time.error && 'border-destructive focus-visible:ring-destructive',
+                  time.error && 'focus-visible:ring-destructive',
                 )}
                 disabled={isTimeDisabled || isTimeLoading}
               />
@@ -401,7 +406,10 @@ export function Calendar24Time({
           </p>
         )}
       </div>
-      <p id={timeDescriptionId} className="px-1 text-xs text-muted-foreground sm:text-[0.8rem]">
+      <p
+        id={timeDescriptionId}
+        className="hidden px-1 text-xs text-muted-foreground sm:block sm:text-[0.8rem]"
+      >
         {TIME_DESCRIPTION}
       </p>
       {time.error ? (

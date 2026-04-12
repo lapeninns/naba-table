@@ -29,15 +29,8 @@ export interface WizardStepProps {
 const STEP_CONTAINER_CLASSES = cn('mx-auto w-full', 'animate-fade-in');
 
 const CARD_CLASSES = cn(
-  // Subtle shadow for depth
-  'shadow-lg shadow-black/5',
-  // Clean border
-  'border border-border/50',
-  // Solid background (no glass effect for cleaner look)
-  'bg-card',
-  // Rounded corners
-  'rounded-xl sm:rounded-2xl',
-  // Focus styling
+  'luminous-panel border-0 shadow-none',
+  'rounded-[1.75rem]',
   'focus-visible:outline-none',
   'focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2',
 );
@@ -47,15 +40,16 @@ const CARD_CLASSES = cn(
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface TitleSectionProps {
+  step: number;
   titleId: string;
   title: string;
   description?: string;
   icon?: React.ReactNode;
 }
 
-function TitleSection({ titleId, title, description, icon }: TitleSectionProps) {
+function TitleSection({ step, titleId, title, description, icon }: TitleSectionProps) {
   return (
-    <div className="flex items-start gap-3 sm:items-center">
+    <div className="flex items-start gap-4">
       {/* Icon */}
       {icon && (
         <span
@@ -72,22 +66,21 @@ function TitleSection({ titleId, title, description, icon }: TitleSectionProps) 
       )}
 
       {/* Title + Description */}
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 space-y-2">
+        <p className="luminous-kicker">Step {step}</p>
         <CardTitle
           id={titleId}
           role="heading"
           aria-level={2}
-          className={cn(
-            'text-lg font-semibold leading-tight text-foreground',
-            'sm:text-xl',
-            'lg:text-2xl',
-          )}
+          className={cn('heading-section text-foreground')}
         >
           {title}
         </CardTitle>
 
         {description && (
-          <CardDescription className={cn('mt-1', 'text-sm text-muted-foreground')}>
+          <CardDescription
+            className={cn('luminous-copy-measure text-[0.95rem] leading-7 text-subtle')}
+          >
             {description}
           </CardDescription>
         )}
@@ -141,13 +134,24 @@ export function WizardStep({
     >
       <Card ref={stepRef} tabIndex={-1} className={cn(CARD_CLASSES, className)}>
         {/* Header: Title + Description (no progress - it's in the nav bar) */}
-        <CardHeader className="px-4 py-4 sm:px-6 sm:py-5">
-          <TitleSection titleId={titleId} title={title} description={description} icon={icon} />
+        <CardHeader className="px-4 py-4 sm:px-8 sm:py-7">
+          <TitleSection
+            step={step}
+            titleId={titleId}
+            title={title}
+            description={description}
+            icon={icon}
+          />
         </CardHeader>
 
         {/* Content Area */}
         <CardContent
-          className={cn('space-y-4 px-4 pb-5', 'sm:space-y-5 sm:px-6 sm:pb-6', contentClassName)}
+          className={cn(
+            'space-y-4 px-4 pb-5',
+            'sm:space-y-6 sm:px-8 sm:pb-8',
+            'lg:px-10',
+            contentClassName,
+          )}
         >
           {children}
         </CardContent>

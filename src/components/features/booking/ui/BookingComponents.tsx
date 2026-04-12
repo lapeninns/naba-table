@@ -2,26 +2,51 @@ import Link from 'next/link';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 
 import type { ElementType, ReactNode } from 'react';
 
 type StatusTone = 'default' | 'success' | 'warning' | 'danger' | 'info';
 
-const toneClasses: Record<StatusTone, { badge: string; text: string }> = {
-  default: { badge: 'bg-muted text-foreground', text: 'text-muted-foreground' },
-  success: { badge: 'bg-emerald-50 text-emerald-700 border-emerald-100', text: 'text-emerald-600' },
-  warning: { badge: 'bg-amber-50 text-amber-700 border-amber-100', text: 'text-amber-600' },
-  danger: { badge: 'bg-red-50 text-red-700 border-red-100', text: 'text-red-600' },
-  info: { badge: 'bg-blue-50 text-blue-700 border-blue-100', text: 'text-blue-600' },
+const toneClasses: Record<
+  StatusTone,
+  {
+    badge: string;
+    marker: string;
+    alert: string;
+  }
+> = {
+  default: {
+    badge: 'bg-[var(--luminous-surface-highest)] text-foreground',
+    marker: 'bg-foreground/55',
+    alert: 'bg-[var(--luminous-surface-highest)] text-foreground',
+  },
+  success: {
+    badge: 'bg-[var(--luminous-tone-success-bg)] text-[var(--luminous-tone-success-text)]',
+    marker: 'bg-[var(--luminous-tone-success-marker)]',
+    alert: 'bg-[var(--luminous-tone-success-bg)] text-[var(--luminous-tone-success-text)]',
+  },
+  warning: {
+    badge: 'bg-[var(--luminous-tone-warning-bg)] text-[var(--luminous-tone-warning-text)]',
+    marker: 'bg-[var(--luminous-tone-warning-marker)]',
+    alert: 'bg-[var(--luminous-tone-warning-bg)] text-[var(--luminous-tone-warning-text)]',
+  },
+  danger: {
+    badge: 'bg-[var(--luminous-tone-danger-bg)] text-[var(--luminous-tone-danger-text)]',
+    marker: 'bg-[var(--luminous-tone-danger-marker)]',
+    alert: 'bg-[var(--luminous-tone-danger-bg)] text-[var(--luminous-tone-danger-text)]',
+  },
+  info: {
+    badge: 'bg-[var(--luminous-primary-tint-strong)] text-primary',
+    marker: 'bg-primary',
+    alert: 'bg-[var(--luminous-primary-tint)] text-primary',
+  },
 };
 
 export function BookingDetailShell({ children }: { children: ReactNode }) {
   return (
-    <section className="min-h-screen bg-surface-warm py-8 sm:py-10 pb-20">
-      <div className="mx-auto w-full max-w-5xl space-y-6 sm:space-y-8 px-6">{children}</div>
+    <section className="min-h-screen bg-transparent pb-[var(--luminous-space-grand)] pt-2 sm:pt-6">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-[var(--luminous-space-breath)]">{children}</div>
     </section>
   );
 }
@@ -30,7 +55,7 @@ export function BookingSummaryCard({
   title,
   reference,
   description,
-  backHref = '/guest/dashboard',
+  backHref = '/bookings',
   status,
   offlineNotice,
   actions,
@@ -45,48 +70,59 @@ export function BookingSummaryCard({
 }) {
   const Icon = status.icon;
   const tone = toneClasses[status.tone ?? 'default'];
+
   return (
-    <Card
-      variant="featured"
-      className="space-y-6 p-6 sm:p-8 bg-surface-elevated animate-fade-in-up"
-    >
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <Link
-              href={backHref}
-              className="inline-flex items-center justify-center rounded-full bg-muted p-2 text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors min-h-[44px] min-w-[44px]"
-            >
-              <span className="sr-only">Back</span>
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z" />
-              </svg>
-            </Link>
-            <Badge
-              className={cn(
-                'rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider border',
-                tone.badge,
-              )}
-            >
-              <Icon className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-              {status.label}
-            </Badge>
+    <div className="luminous-panel relative overflow-hidden px-6 py-7 sm:px-8 sm:py-9 lg:px-10">
+      <div className="absolute inset-x-0 top-0 h-28 bg-[radial-gradient(circle_at_top_left,color-mix(in_srgb,var(--luminous-primary-container)_16%,transparent),transparent_54%)]" />
+      <div className="relative space-y-7">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="space-y-5">
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                asChild
+                variant="ghost"
+                className="luminous-ghost h-auto min-h-[44px] rounded-[var(--luminous-radius)] px-2 text-muted-foreground hover:text-foreground"
+              >
+                <Link href={backHref}>Back</Link>
+              </Button>
+
+              <Badge
+                className={cn(
+                  'rounded-full border-0 px-3 py-1 text-[0.68rem] font-bold uppercase tracking-[0.18em]',
+                  tone.badge,
+                )}
+              >
+                <Icon className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                {status.label}
+              </Badge>
+            </div>
+
+            <div className="space-y-3">
+              <h1 className="heading-page max-w-3xl">{title}</h1>
+              {description ? (
+                <p className="text-body-warm luminous-copy-measure text-[1.02rem]">{description}</p>
+              ) : null}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 sm:justify-end">
+              <div className={cn('h-2.5 w-2.5 rounded-full', tone.marker)} />
+              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                Reservation reference
+              </div>
+              <div className="font-mono text-sm font-semibold text-foreground">{reference}</div>
+            </div>
           </div>
 
-          <div>
-            <h1 className="heading-hero">{title}</h1>
-            {description ? <p className="mt-2 text-body-warm">{description}</p> : null}
-          </div>
-
-          <div className="flex items-center gap-2 text-sm text-muted-foreground font-mono">
-            <span>REF:</span>
-            <span className="font-bold text-foreground">{reference}</span>
-          </div>
+          {actions ? (
+            <div className="flex w-full flex-col gap-3 lg:w-auto lg:min-w-[16rem] lg:max-w-[18rem]">
+              {actions}
+            </div>
+          ) : null}
         </div>
-        {actions ? <div className="flex flex-col gap-3 sm:flex-row pt-2">{actions}</div> : null}
+
+        {offlineNotice}
       </div>
-      {offlineNotice}
-    </Card>
+    </div>
   );
 }
 
@@ -102,18 +138,21 @@ export function DetailStatCard({
   subtext?: ReactNode;
 }) {
   return (
-    <Card variant="interactive" className="flex flex-col gap-3 p-5">
-      <div className="flex justify-between items-start">
-        <div className="p-2.5 rounded-xl flex items-center justify-center bg-primary/10 text-primary">
-          <Icon className="w-5 h-5" />
+    <article className="luminous-card relative flex min-h-[10rem] flex-col justify-between gap-4 overflow-hidden px-5 py-5">
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[var(--luminous-primary)] to-[var(--luminous-primary-container)] opacity-[0.12]" />
+      <div className="flex items-start justify-between gap-3">
+        <div className="inline-flex h-11 w-11 items-center justify-center rounded-[var(--luminous-radius)] bg-[var(--luminous-primary-tint)] text-primary">
+          <Icon className="h-5 w-5" aria-hidden />
         </div>
+        <p className="text-[0.68rem] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+          {label}
+        </p>
       </div>
-      <div>
-        <div className="text-subtle text-xs font-bold uppercase tracking-wider mb-1">{label}</div>
-        <div className="heading-subsection">{value}</div>
-        {subtext ? <div className="text-sm text-subtle mt-0.5 font-medium">{subtext}</div> : null}
+      <div className="space-y-1">
+        <div className="heading-section text-[clamp(1.35rem,3vw,1.75rem)]">{value}</div>
+        {subtext ? <p className="text-sm leading-6 text-muted-foreground">{subtext}</p> : null}
       </div>
-    </Card>
+    </article>
   );
 }
 
@@ -125,39 +164,39 @@ export function InfoPanel({
   rows: Array<{ icon: ElementType; label: string; value: ReactNode }>;
 }) {
   return (
-    <Card className="overflow-hidden rounded-3xl border border-border bg-background shadow-sm">
-      <div className="border-b border-border/50 bg-muted/50 px-6 py-4">
-        <h3 className="heading-subsection">{title}</h3>
-      </div>
-      <div className="divide-y divide-border/50">
-        {rows.map((row, index) => (
-          <div key={`${row.label}-${index}`} className="flex items-center gap-4 px-6 py-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
-              <row.icon className="h-5 w-5" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">
+    <section className="luminous-panel px-6 py-6 sm:px-7 sm:py-7">
+      <div className="space-y-4">
+        <h2 className="heading-subsection">{title}</h2>
+
+        <div className="grid gap-3">
+          {rows.map((row, index) => (
+            <div
+              key={`${row.label}-${index}`}
+              className="luminous-card grid gap-3 px-4 py-4 sm:grid-cols-[2.25rem_minmax(8rem,12rem)_1fr] sm:items-start"
+            >
+              <div className="inline-flex h-9 w-9 items-center justify-center rounded-[var(--luminous-radius)] bg-[var(--luminous-primary-tint)] text-primary">
+                <row.icon className="h-4.5 w-4.5" aria-hidden />
+              </div>
+              <p className="text-[0.68rem] font-bold uppercase tracking-[0.18em] text-muted-foreground sm:pt-2">
                 {row.label}
               </p>
-              <p className="heading-subsection truncate">{row.value}</p>
+              <div className="text-sm font-semibold leading-6 text-foreground sm:pt-1.5">
+                {row.value}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
-    </Card>
+    </section>
   );
 }
 
 export function ActionButtonRow({ children }: { children: ReactNode }) {
-  return <div className="flex gap-3 md:hidden">{children}</div>;
+  return <div className="grid gap-3 md:hidden">{children}</div>;
 }
 
 export function BookingSidebarCard({ children }: { children: ReactNode }) {
-  return (
-    <Card className="rounded-3xl border border-border bg-background shadow-sm overflow-hidden">
-      {children}
-    </Card>
-  );
+  return <aside className="luminous-panel px-5 py-5 sm:px-6">{children}</aside>;
 }
 
 export function ManageBookingPanel({
@@ -171,11 +210,13 @@ export function ManageBookingPanel({
 }) {
   return (
     <BookingSidebarCard>
-      <div className="space-y-6 p-6">
-        <h3 className="heading-subsection">{title}</h3>
-        {actions}
-        {footer ? <Separator className="my-2" /> : null}
-        {footer}
+      <div className="space-y-5">
+        <div className="space-y-1">
+          <p className="luminous-kicker">Actions</p>
+          <h2 className="heading-subsection">{title}</h2>
+        </div>
+        <div className="grid gap-3">{actions}</div>
+        {footer ? <div className="luminous-card-soft rounded-[var(--luminous-radius)] px-4 py-4">{footer}</div> : null}
       </div>
     </BookingSidebarCard>
   );
@@ -190,27 +231,22 @@ export function InlineAlert({
 }) {
   const palette = toneClasses[tone];
   return (
-    <div
-      className={cn(
-        'rounded-2xl border px-4 py-3 text-sm font-medium',
-        palette.badge,
-        palette.text,
-      )}
-    >
+    <div className={cn('rounded-[var(--luminous-radius)] px-4 py-3 text-sm font-medium', palette.alert)}>
       {children}
     </div>
   );
 }
 
 export function SummaryActions({ children }: { children: ReactNode }) {
-  return <div className="hidden items-center gap-3 md:flex">{children}</div>;
+  return <div className="hidden flex-col gap-3 md:flex">{children}</div>;
 }
 
 export function PrimaryButtonLink({ href, children }: { href: string; children: ReactNode }) {
   return (
     <Button
       asChild
-      className="rounded-full bg-primary hover:bg-primary/90 text-white font-semibold px-6 min-h-[48px]"
+      size="lg"
+      className="luminous-cta btn-tactile min-h-[48px] rounded-[var(--luminous-radius)] px-6 text-white"
     >
       <Link href={href}>{children}</Link>
     </Button>
@@ -228,8 +264,9 @@ export function SecondaryButton({
 }) {
   return (
     <Button
-      variant="outline"
-      className="rounded-full border-border hover:bg-muted font-medium px-5 min-h-[44px] btn-tactile focus-ring touch-feedback"
+      variant="secondary"
+      size="lg"
+      className="luminous-secondary btn-tactile min-h-[46px] justify-center rounded-[var(--luminous-radius)] px-5"
       onClick={onClick}
       disabled={disabled}
     >
@@ -250,7 +287,8 @@ export function GhostButton({
   return (
     <Button
       variant="ghost"
-      className="rounded-full text-muted-foreground hover:text-foreground hover:bg-muted min-h-[44px]"
+      size="lg"
+      className="luminous-ghost min-h-[44px] justify-center rounded-[var(--luminous-radius)] px-4"
       onClick={onClick}
       disabled={disabled}
     >

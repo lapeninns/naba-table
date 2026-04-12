@@ -497,7 +497,7 @@ export function usePlanStepForm({
     form.reset(
       {
         date: state.details.date ?? '',
-        time: state.details.time ?? enabledSlots[0]?.value ?? '',
+        time: state.details.time ?? '',
         party: state.details.party ?? 1,
         bookingType: state.details.bookingType,
         notes: state.details.notes ?? '',
@@ -511,7 +511,6 @@ export function usePlanStepForm({
     state.details.party,
     state.details.bookingType,
     state.details.notes,
-    enabledSlots,
   ]);
 
   const updateField = useCallback(

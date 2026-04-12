@@ -28,19 +28,17 @@ import { WizardStep } from '../WizardStep';
 
 import type { DetailsStepProps } from './details-step/types';
 
-const CONTACT_SECTION_CLASS = 'space-y-4 rounded-xl border border-border bg-card p-5 shadow-sm';
+const CONTACT_SECTION_CLASS = 'luminous-card space-y-4 rounded-[var(--luminous-radius)] p-4 sm:p-5';
 const basePreferenceLabelClass =
-  'hover:bg-accent/50 flex w-full items-start gap-3 rounded-lg border p-3 transition-colors has-[[aria-checked=true]]:border-primary has-[[aria-checked=true]]:bg-primary/10 dark:has-[[aria-checked=true]]:border-primary/60 dark:has-[[aria-checked=true]]:bg-primary/20';
+  'flex w-full items-start gap-3 rounded-[var(--luminous-radius)] p-3 transition-colors has-[[aria-checked=true]]:bg-[rgba(0,64,161,0.08)]';
 
 const optionalPreferenceLabelClass = (checked: boolean) =>
-  cn(basePreferenceLabelClass, checked ? 'border-primary/60' : 'border-border bg-muted/40');
+  cn(basePreferenceLabelClass, checked ? '' : 'bg-[var(--luminous-surface-low)]');
 
 const requiredPreferenceLabelClass = (checked: boolean) =>
   cn(
     basePreferenceLabelClass,
-    checked
-      ? 'border-primary/60'
-      : 'border-destructive/40 bg-destructive/10 text-destructive-foreground dark:text-destructive-foreground',
+    checked ? '' : 'bg-destructive/10 text-destructive-foreground dark:text-destructive-foreground',
   );
 
 export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
@@ -94,29 +92,34 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
         step={2}
         title="Tell us how to reach you"
         description={description}
-        contentClassName="space-y-6 md:space-y-8"
+        contentClassName="space-y-5"
       >
         <Form {...form}>
           <form
-            className="space-y-6 md:space-y-8"
+            className="space-y-5"
             onSubmit={form.handleSubmit(handleSubmit, handleError)}
             noValidate
           >
             <button type="submit" className="hidden" aria-hidden />
 
             <section className={CONTACT_SECTION_CLASS}>
-              <h3 className="text-lg font-semibold text-foreground">Contact details</h3>
-              {mode === 'ops' ? (
-                <p className="text-sm text-muted-foreground">
-                  At least one contact method (email or phone) is required.
-                </p>
-              ) : null}
-              <div className="space-y-4">
+              <div className="space-y-1">
+                <p className="luminous-kicker">Contact details</p>
+                <h3 className="text-base font-semibold text-foreground sm:text-lg">
+                  Where should we send your confirmation?
+                </h3>
+                {mode === 'ops' ? (
+                  <p className="text-sm text-muted-foreground">
+                    At least one contact method is required for a follow-up.
+                  </p>
+                ) : null}
+              </div>
+              <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
                 <FormField
                   control={form.control}
                   name="name"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="md:col-span-2">
                       <FormLabel>Full name</FormLabel>
                       <FormControl>
                         <Input
@@ -125,6 +128,7 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
                           autoComplete="name"
                           value={field.value}
                           disabled={isNameLocked}
+                          className="luminous-input border-0 shadow-none"
                           onChange={(event) => {
                             const next = event.target.value;
                             field.onChange(next);
@@ -150,6 +154,7 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
                           autoComplete="email"
                           value={field.value}
                           disabled={isEmailLocked}
+                          className="luminous-input border-0 shadow-none"
                           onChange={(event) => {
                             const next = event.target.value;
                             field.onChange(next);
@@ -185,6 +190,7 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
                           inputMode="tel"
                           value={field.value}
                           disabled={isPhoneLocked}
+                          className="luminous-input border-0 shadow-none"
                           onChange={(event) => {
                             const next = event.target.value;
                             field.onChange(next);
@@ -205,6 +211,12 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
             </section>
 
             <section className={CONTACT_SECTION_CLASS}>
+              <div className="space-y-1">
+                <p className="luminous-kicker">Booking preferences</p>
+                <h3 className="text-base font-semibold text-foreground sm:text-lg">
+                  Keep the confirmation practical
+                </h3>
+              </div>
               <Accordion
                 type="single"
                 collapsible
@@ -231,16 +243,11 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
                         control={form.control}
                         name="rememberDetails"
                         render={({ field }) => {
-                          const checkboxId = 'remember-details';
                           return (
                             <FormItem className="space-y-1">
-                              <Label
-                                htmlFor={checkboxId}
-                                className={optionalPreferenceLabelClass(Boolean(field.value))}
-                              >
+                              <Label className={optionalPreferenceLabelClass(Boolean(field.value))}>
                                 <FormControl>
                                   <Checkbox
-                                    id={checkboxId}
                                     checked={field.value}
                                     onCheckedChange={(next) => {
                                       const value = next === true;
@@ -268,16 +275,11 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
                         control={form.control}
                         name="marketingOptIn"
                         render={({ field }) => {
-                          const checkboxId = 'marketing-opt-in';
                           return (
                             <FormItem className="space-y-1">
-                              <Label
-                                htmlFor={checkboxId}
-                                className={optionalPreferenceLabelClass(Boolean(field.value))}
-                              >
+                              <Label className={optionalPreferenceLabelClass(Boolean(field.value))}>
                                 <FormControl>
                                   <Checkbox
-                                    id={checkboxId}
                                     checked={field.value}
                                     onCheckedChange={(next) => {
                                       const value = next === true;
@@ -305,16 +307,11 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
                         control={form.control}
                         name="agree"
                         render={({ field }) => {
-                          const checkboxId = 'agree-terms';
                           return (
                             <FormItem className="space-y-3">
-                              <Label
-                                htmlFor={checkboxId}
-                                className={requiredPreferenceLabelClass(Boolean(field.value))}
-                              >
+                              <Label className={requiredPreferenceLabelClass(Boolean(field.value))}>
                                 <FormControl>
                                   <Checkbox
-                                    id={checkboxId}
                                     checked={field.value}
                                     onCheckedChange={(next) => {
                                       const value = next === true;

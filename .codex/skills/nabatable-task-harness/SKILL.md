@@ -39,6 +39,7 @@ Set up and maintain the minimum durable artifacts that let a Nabatable task surv
 
 - Root `AGENTS.md` is the policy source of truth.
 - Repo-local `.codex/skills/` should be preferred when the task matches them; use global skills as complements.
+- If the task changes guest-facing public or booking UI, record `/GUEST_FACING_DESIGN_SYSTEM.md` in the task artifacts as the visual source of truth and treat it as higher priority than legacy guest styling notes.
 - The task folder should record the real verification path taken, including when a required browser or auth flow needed a fallback.
 - Keep the working set small and relevant. Do not turn task artifacts into transcripts.
 

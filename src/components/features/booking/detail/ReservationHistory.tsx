@@ -1,14 +1,6 @@
 'use client';
 
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { InlineAlert } from '@/components/features/booking/ui/BookingComponents';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useBookingHistory } from '@/hooks/useBookingHistory';
 import { cn } from '@/lib/utils';
@@ -133,72 +125,84 @@ export function ReservationHistory({
 
   if (historyQuery.isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">History</CardTitle>
-          <CardDescription>Loading recent changes…</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
+      <section className="luminous-panel px-6 py-6 sm:px-7">
+        <div className="mb-5">
+          <p className="luminous-kicker">Activity</p>
+          <h3 className="heading-subsection">History</h3>
+          <p className="text-body-warm text-sm text-muted-foreground">Loading recent changes…</p>
+        </div>
+        <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, idx) => (
-            <Skeleton key={idx} className="h-20 w-full" />
+            <Skeleton key={idx} className="h-20 w-full rounded-[var(--luminous-radius)]" />
           ))}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     );
   }
 
   if (historyQuery.isError) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">History</CardTitle>
-          <CardDescription>Review how this reservation changed over time.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Alert variant="destructive">
-            <AlertTitle>Unable to load history</AlertTitle>
-            <AlertDescription>{historyQuery.error?.message ?? 'Please try again later.'}</AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
+      <section className="luminous-panel px-6 py-6 sm:px-7">
+        <div className="mb-5">
+          <p className="luminous-kicker">Activity</p>
+          <h3 className="heading-subsection">History</h3>
+          <p className="text-body-warm text-sm text-muted-foreground">
+            Review how this reservation changed over time.
+          </p>
+        </div>
+        <InlineAlert tone="danger">
+          <p className="font-semibold">Unable to load history</p>
+          <p>{historyQuery.error?.message ?? 'Please try again later.'}</p>
+        </InlineAlert>
+      </section>
     );
   }
 
   const events = historyQuery.data?.events ?? [];
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">History</CardTitle>
-        <CardDescription>Track edits and cancellations for this reservation.</CardDescription>
-      </CardHeader>
-      <CardContent>
+    <section className="luminous-panel px-6 py-6 sm:px-7">
+      <div className="mb-5">
+        <p className="luminous-kicker">Activity</p>
+        <h3 className="heading-subsection">History</h3>
+        <p className="text-body-warm text-sm text-muted-foreground">
+          Track edits and cancellations for this reservation.
+        </p>
+      </div>
+      <div>
         {events.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No changes recorded yet.</p>
+          <p className="text-body-warm text-sm text-muted-foreground">No changes recorded yet.</p>
         ) : (
           <ul className="space-y-4">
             {events.map((event) => {
-              const actorLabel = event.actor && event.actor.trim().length > 0 ? event.actor.trim() : 'system';
+              const actorLabel =
+                event.actor && event.actor.trim().length > 0 ? event.actor.trim() : 'system';
               const actorDisplay = actorLabel.toLowerCase() === 'system' ? 'System' : actorLabel;
               const changedAtLabel =
                 formatReservationDateTimeFromDate(new Date(event.changedAt), { timezone }) || '—';
 
               return (
-                <li key={event.versionId} className="space-y-3 rounded-lg border border-border/60 p-4">
+                <li
+                  key={event.versionId}
+                  className="luminous-card space-y-3 rounded-[var(--luminous-radius)] p-4"
+                >
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold text-foreground">{event.summary}</p>
                       <p className="text-xs text-muted-foreground">{changedAtLabel}</p>
                     </div>
-                    <Badge variant="outline" className="text-xs font-medium">
+                    <span className="rounded-full border-0 bg-[var(--luminous-surface-highest)] px-3 py-1 text-[0.68rem] font-bold uppercase tracking-[0.18em] text-muted-foreground">
                       {actorDisplay}
-                    </Badge>
+                    </span>
                   </div>
 
                   {event.changes.length > 0 ? (
                     <dl className="space-y-2">
                       {event.changes.map((change) => (
-                        <div key={`${event.versionId}-${change.field}`} className="grid gap-3 sm:grid-cols-[180px,1fr]">
+                        <div
+                          key={`${event.versionId}-${change.field}`}
+                          className="grid gap-3 sm:grid-cols-[180px,1fr]"
+                        >
                           <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                             {change.label}
                           </dt>
@@ -206,7 +210,7 @@ export function ReservationHistory({
                             <span
                               className={cn(
                                 'inline-flex flex-wrap items-center gap-1',
-                                'rounded-full bg-muted px-2 py-1 text-xs font-medium text-muted-foreground',
+                                'luminous-card-soft rounded-[var(--luminous-radius)] px-3 py-2 text-xs font-medium text-muted-foreground',
                               )}
                             >
                               <span>{formatBeforeValue(change)}</span>
@@ -218,14 +222,16 @@ export function ReservationHistory({
                       ))}
                     </dl>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No notable field changes recorded.</p>
+                    <p className="text-body-warm text-sm text-muted-foreground">
+                      No notable field changes recorded.
+                    </p>
                   )}
                 </li>
               );
             })}
           </ul>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

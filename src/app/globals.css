@@ -214,44 +214,38 @@
 
   /* Guest-facing palette (blue scale) — applied via .guest-theme wrapper */
   .guest-theme {
-    /* -------------------------------------------------------------------------
-       PRIMARY SCALE - Blue (Trust/Reliability)
-       ------------------------------------------------------------------------- */
-    --color-primary-50: #eff6ff;
-    --color-primary-100: #dbeafe;
-    --color-primary-200: #bfdbfe;
-    --color-primary-500: #3b82f6;
-    --color-primary-700: #1d4ed8;
-    --color-primary-900: #1e3a8a;
+    --background: 220 33% 98%;
+    --foreground: 222 30% 14%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 30% 14%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 30% 14%;
 
-    --primary: 217 91% 60%;
-    /* primary-500 */
+    /* -------------------------------------------------------------------------
+       GUEST PRESET PALETTE - guest-only adaptation of radix-luma
+       ------------------------------------------------------------------------- */
+    --color-primary-50: #f4f1ff;
+    --color-primary-100: #ebe5ff;
+    --color-primary-200: #d8cdff;
+    --color-primary-500: #7c5cff;
+    --color-primary-700: #6345d8;
+    --color-primary-900: #3f2b8e;
+
+    --primary: 255 100% 68%;
     --primary-foreground: 210 40% 98%;
+    --secondary: 252 42% 96%;
+    --secondary-foreground: 222 30% 16%;
+    --accent: 226 33% 95%;
+    --accent-foreground: 222 30% 16%;
+    --muted: 220 28% 95%;
+    --muted-foreground: 220 14% 42%;
 
-    /* -------------------------------------------------------------------------
-       ACCENT SCALE - Coral Pink (Warmth/CTAs)
-       ------------------------------------------------------------------------- */
-    --color-accent-50: #fef2f2;
-    --color-accent-100: #ffe5e5;
-    --color-accent-500: #ff6b6b;
-    --color-accent-700: #e03e3e;
-
-    --secondary: 213 96% 93%;
-    --secondary-foreground: 222 47% 11%;
-
-    --accent: 0 100% 71%;
-    /* accent-500 */
-    --accent-foreground: 222 47% 11%;
-
-    --muted: 213 100% 96%;
-    --muted-foreground: 215 18% 45%;
-
-    --info: 217 91% 60%;
+    --info: 255 100% 68%;
     --info-foreground: 210 40% 98%;
 
-    --border: 216 33% 90%;
-    --input: 216 33% 90%;
-    --ring: 217 91% 60%;
+    --border: 220 18% 88%;
+    --input: 220 18% 88%;
+    --ring: 255 100% 68%;
 
     /* Interactive States */
     --color-interactive: var(--color-primary-500);
@@ -259,11 +253,11 @@
     --color-interactive-active: var(--color-primary-900);
 
     /* Charts */
-    --chart-1: 217 91% 60%;
-    --chart-2: 220 83% 53%;
-    --chart-3: 222 85% 45%;
-    --chart-4: 224 76% 34%;
-    --chart-5: 226 71% 25%;
+    --chart-1: 255 100% 68%;
+    --chart-2: 245 77% 64%;
+    --chart-3: 236 58% 56%;
+    --chart-4: 229 41% 48%;
+    --chart-5: 222 32% 40%;
 
     /* -------------------------------------------------------------------------
        GUEST DESIGN TOKENS - Standardized spacing, typography, and components
@@ -324,15 +318,15 @@
     /* Long-form */
 
     /* Border Radius - consistent rounded corners */
-    --guest-radius-sm: 0.5rem;
-    --guest-radius-md: 0.75rem;
+    --guest-radius-sm: 0.625rem;
+    --guest-radius-md: 0.875rem;
     --guest-radius-lg: 1rem;
-    --guest-radius-xl: 1.5rem;
-    --guest-radius-2xl: 2rem;
+    --guest-radius-xl: 1.375rem;
+    --guest-radius-2xl: 1.85rem;
     --guest-radius-full: 9999px;
 
     /* Shadow Color Base */
-    --shadow-color-base: 220 20% 20%;
+    --shadow-color-base: 230 22% 18%;
 
     /* Shadows - Tokenized & Layered */
     --guest-shadow-xs: 0 1px 2px hsl(var(--shadow-color-base) / 0.04);
@@ -346,7 +340,7 @@
     --guest-shadow-xl:
       0 16px 48px hsl(var(--shadow-color-base) / 0.12),
       0 8px 16px hsl(var(--shadow-color-base) / 0.08);
-    --guest-shadow-glow: 0 0 24px hsl(var(--primary) / 0.25);
+    --guest-shadow-glow: 0 0 28px hsl(var(--primary) / 0.2);
 
     /* Transitions - smooth, consistent timing */
     --guest-transition-fast: 150ms ease-out;

@@ -49,6 +49,7 @@ Ship Nabatable changes through the canonical implementation path with the right 
 - Reuse the real production component/client path in tests instead of helper replicas whenever possible.
 - Keep shared state and business rules centralized.
 - Prefer existing repo patterns over new abstractions.
+- For guest-facing public or booking surfaces, `/GUEST_FACING_DESIGN_SYSTEM.md` is the visual source of truth. When existing guest components or tokens conflict with it, align the canonical path to the design-system document instead of preserving the older styling.
 
 ## Testing Rules
 

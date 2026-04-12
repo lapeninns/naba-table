@@ -1,18 +1,15 @@
 /**
- * Shared premium gradient background for all guest-facing layouts.
- * Ensures visual consistency across marketing, auth, and guest portal pages.
+ * Shared tonal background for guest-facing layouts.
+ * Mirrors the Luminous Precision surface hierarchy instead of the older saturated preset.
  */
 export function GuestBackground() {
-    return (
-        <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden>
-
-            {/* Subtle grid pattern */}
-            <div
-                className="absolute inset-0 opacity-[0.02]"
-                style={{
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-                }}
-            />
-        </div>
-    );
+  return (
+    <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden>
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(249,249,252,0.96)_0%,rgba(243,243,246,0.84)_48%,rgba(249,249,252,1)_100%)]" />
+      <div className="absolute left-[-10rem] top-[-8rem] h-[24rem] w-[24rem] rounded-full bg-[rgba(0,64,161,0.08)] blur-[96px]" />
+      <div className="absolute right-[-12rem] top-[8rem] h-[28rem] w-[28rem] rounded-full bg-[rgba(0,86,210,0.08)] blur-[110px]" />
+      <div className="absolute bottom-[-16rem] left-1/4 h-[34rem] w-[34rem] rounded-full bg-[rgba(26,28,30,0.05)] blur-[120px]" />
+      <div className="absolute inset-x-0 top-0 h-px bg-white/50" />
+    </div>
+  );
 }

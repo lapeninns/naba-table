@@ -871,7 +871,7 @@ export function ScheduleAwareTimestampPicker({
         {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
 
         <div className="overflow-hidden rounded-2xl border border-border/70 bg-background/70 shadow-sm">
-          <div className="grid gap-px bg-border/40 md:grid-cols-3">
+          <div className="grid gap-px bg-border/40">
             <div className="bg-card p-4">
               <Calendar24Date
                 date={{

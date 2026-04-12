@@ -48,6 +48,7 @@ Produce credible UI verification for Nabatable changes, including a clear fallba
 - verification surface used: dev harness or authenticated route
 - why that surface was chosen
 - exact interaction verified
+- whether the guest-facing UI matches `/GUEST_FACING_DESIGN_SYSTEM.md` for tonal layering, glass treatment, editorial typography, and the no-line rule when that document applies
 - screenshots or equivalent artifacts when available
 - any blocker, fallback, or residual risk
 

@@ -12,7 +12,7 @@ export function Footer({ variant: _variant = 'marketing' }: { variant?: FooterVa
   const isAuthenticated = status === 'authenticated';
 
   return (
-    <footer className="border-t border-border/70 bg-background/80 text-foreground backdrop-blur supports-[backdrop-filter]:saturate-150">
+    <footer className="bg-[var(--luminous-surface-low)] text-foreground backdrop-blur-[18px] supports-[backdrop-filter]:saturate-150">
       <div className="guest-boundary flex flex-col gap-3 py-6 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
           <BrandLogo size="sm" showBeta={false} />
@@ -23,20 +23,20 @@ export function Footer({ variant: _variant = 'marketing' }: { variant?: FooterVa
         <nav aria-label="Footer navigation" className="flex flex-wrap gap-3 text-sm">
           <Link
             href="/restaurants"
-            className="rounded-full border border-border px-3 py-1 transition-colors hover:border-primary/40 hover:text-primary"
+            className="rounded-[var(--luminous-radius)] bg-[var(--luminous-surface-lowest)] px-3.5 py-1.5 transition-colors hover:bg-[var(--luminous-primary-tint)] hover:text-primary"
           >
             Browse restaurants
           </Link>
           <Link
             href="/guest/bookings"
-            className="rounded-full border border-border px-3 py-1 transition-colors hover:border-primary/40 hover:text-primary"
+            className="rounded-[var(--luminous-radius)] bg-[var(--luminous-surface-lowest)] px-3.5 py-1.5 transition-colors hover:bg-[var(--luminous-primary-tint)] hover:text-primary"
           >
             My bookings
           </Link>
           {!isAuthenticated ? (
             <Link
               href="/auth/signin"
-              className="rounded-full border border-border px-3 py-1 transition-colors hover:border-primary/40 hover:text-primary"
+              className="rounded-[var(--luminous-radius)] bg-[var(--luminous-surface-lowest)] px-3.5 py-1.5 transition-colors hover:bg-[var(--luminous-primary-tint)] hover:text-primary"
             >
               Sign in
             </Link>
@@ -44,10 +44,6 @@ export function Footer({ variant: _variant = 'marketing' }: { variant?: FooterVa
         </nav>
       </div>
 
-      {/* Separator */}
-      <div className="guest-boundary">
-        <hr className="border-border/40" />
-      </div>
 
       {/* Bottom row */}
       <div className="guest-boundary flex flex-col gap-2 py-4 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
@@ -56,11 +52,11 @@ export function Footer({ variant: _variant = 'marketing' }: { variant?: FooterVa
           <Link href="/privacy" className="transition-colors hover:text-primary">
             Privacy Policy
           </Link>
-          <Link href="#" className="transition-colors hover:text-primary">
-            Terms
+          <Link href="/site-map" className="transition-colors hover:text-primary">
+            Site map
           </Link>
-          <Link href="#" className="transition-colors hover:text-primary">
-            Support
+          <Link href="/contact" className="transition-colors hover:text-primary">
+            Contact
           </Link>
         </nav>
       </div>

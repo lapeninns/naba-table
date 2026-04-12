@@ -122,7 +122,7 @@ const ActionButton = React.memo(function ActionButton({ action, role }: ActionBu
   const isDisabled = action.disabled || isLoading;
 
   // Determine button variant based on action config or role
-  const variant = action.variant ?? (isPrimary ? 'default' : isSecondary ? 'outline' : 'ghost');
+  const variant = action.variant ?? (isPrimary ? 'default' : isSecondary ? 'secondary' : 'ghost');
 
   // Build accessible label (fallback chain)
   const accessibleLabel = action.ariaLabel ?? action.srLabel ?? action.label;
@@ -137,31 +137,16 @@ const ActionButton = React.memo(function ActionButton({ action, role }: ActionBu
       aria-busy={isLoading}
       data-testid={`wizard-action-${action.id}`}
       className={cn(
-        // Base: Equal flex distribution, 44px height on mobile, 48px on desktop
-        'flex-1 h-11 rounded-full sm:flex-none sm:h-12',
-        // Typography - responsive sizing (smaller on mobile to fit)
+        'flex-1 h-11 rounded-[var(--luminous-radius)] sm:flex-none sm:h-12',
         'text-xs font-semibold sm:text-sm',
-        // Focus ring (2px offset for visibility)
         'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-        // GPU-accelerated transitions (transform + opacity only)
         'transition-all duration-200 ease-out',
-        // Role-specific styling
         isPrimary && [
-          'px-3 sm:px-6',
-          // Layered shadows: neutral base + primary tint (fallback-safe)
-          'shadow-lg',
-          'shadow-primary/20 dark:shadow-primary/10',
-          'hover:shadow-xl hover:shadow-primary/30',
-          // Micro-interaction: scale on hover/press
+          'luminous-cta px-3 text-white sm:px-6',
           'hover:scale-[1.02] active:scale-[0.98]',
         ],
-        isSecondary && [
-          'px-2 sm:px-5',
-          // Subtle border emphasis on hover
-          'hover:border-primary/50',
-        ],
-        isSupport && ['flex-none px-3 h-9 text-xs font-medium'],
-        // Override width if explicitly set
+        isSecondary && ['luminous-secondary px-2 sm:px-5'],
+        isSupport && ['luminous-ghost flex-none px-3 h-9 text-xs font-medium'],
         action.fullWidth === false && 'flex-none w-auto',
       )}
     >
@@ -200,15 +185,10 @@ const ActionButton = React.memo(function ActionButton({ action, role }: ActionBu
  * Desktop: Adds bottom padding for floating effect
  */
 const OUTER_CONTAINER_CLASSES = cn(
-  // Fixed positioning at bottom
   'fixed inset-x-0 bottom-0 z-50',
-  // Safe area padding for notched devices
   'pb-[env(safe-area-inset-bottom,0px)]',
-  // Mobile: No horizontal padding (edge-to-edge)
-  // Desktop: Horizontal padding + bottom margin for floating effect
-  'px-0 sm:px-4 lg:px-6',
+  'px-4 sm:px-5 lg:px-6',
   'sm:pb-4',
-  // Pointer events pass through (nav re-enables them)
   'pointer-events-none',
 );
 
@@ -226,32 +206,11 @@ const OUTER_CONTAINER_CLASSES = cn(
  * - Desktop: Full pill shape, floating
  */
 const NAV_CAPSULE_CLASSES = cn(
-  // Re-enable pointer events
   'pointer-events-auto',
-  // Centering and max-width
   'mx-auto w-full',
-
-  // ─── GLASSMORPHISM ───────────────────────────────────────────────────────
-  // Light mode: White with 90% opacity
-  'bg-white/90 backdrop-blur-xl',
-  'supports-[backdrop-filter]:bg-white/80',
-  // Dark mode: Dark slate with reduced opacity
-  'dark:bg-slate-950/90 dark:supports-[backdrop-filter]:bg-slate-950/80',
-
-  // ─── BORDER & SHADOW ─────────────────────────────────────────────────────
-  'border border-white/40 dark:border-slate-700/50',
-  // More prominent shadow for floating effect
-  'shadow-2xl shadow-black/15 dark:shadow-black/50',
-
-  // ─── SHAPE ───────────────────────────────────────────────────────────────
-  // Mobile: Attached to viewport bottom, rounded top corners
-  'rounded-t-3xl',
-  // Desktop: Floating capsule with graceful rounding
-  // Using rounded-3xl (24px) instead of rounded-full to prevent
-  // "stretched pill" appearance on wide screens
-  'sm:max-w-4xl sm:rounded-3xl',
-
-  // ─── TEXT ────────────────────────────────────────────────────────────────
+  'luminous-glass',
+  'rounded-[var(--luminous-radius-panel)]',
+  'sm:max-w-6xl',
   'text-foreground',
 );
 
@@ -304,18 +263,20 @@ export function WizardNavigation({
             Mobile: Stacked layout (summary, progress, buttons)
             Desktop: Summary on top, progress + buttons inline below
         ═══════════════════════════════════════════════════════════════════ */}
-        <div className="flex flex-col gap-2 px-3 py-2 sm:px-5 sm:py-3">
+        <div className="flex flex-col gap-3 px-4 py-3 sm:px-6 sm:py-4">
           {/* ─────────────────────────────────────────────────────────────────
               TOP: Centered Booking Summary
           ───────────────────────────────────────────────────────────────── */}
           {summary.details && summary.details.length >= 3 && (
-            <p className="text-center text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">{summary.details[0]}</span>
-              {' at '}
-              <span className="font-medium text-foreground">{summary.details[1]}</span>
-              {' on '}
-              <span className="font-medium text-foreground">{summary.details[2]}</span>
-            </p>
+            <div className="luminous-card-soft rounded-[calc(var(--luminous-radius)+4px)] px-4 py-3">
+              <p className="text-center text-xs leading-5 text-muted-foreground sm:text-sm">
+                <span className="font-semibold text-foreground">{summary.details[0]}</span>
+                {' · '}
+                <span className="font-semibold text-foreground">{summary.details[1]}</span>
+                {' · '}
+                <span className="font-semibold text-foreground">{summary.details[2]}</span>
+              </p>
+            </div>
           )}
 
           {/* ─────────────────────────────────────────────────────────────────
@@ -323,19 +284,19 @@ export function WizardNavigation({
               Mobile: Stacked (progress row, then buttons row)
               Desktop: Inline (progress expands, buttons on right)
           ───────────────────────────────────────────────────────────────── */}
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
             {/* Progress indicator with progress bar */}
             <WizardProgress
               steps={steps}
               currentStep={currentStep}
               summary={summary}
-              className="min-w-0 flex-1"
+              className="luminous-card min-w-0 flex-1 rounded-[calc(var(--luminous-radius)+4px)] px-4 py-3"
             />
 
             {/* Action Buttons - fill width equally on mobile */}
             {hasActions && (
               <div
-                className="flex w-full items-stretch gap-2 sm:w-auto sm:shrink-0"
+                className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:min-w-[16rem] sm:shrink-0"
                 role="group"
                 aria-label="Step actions"
               >
@@ -358,9 +319,9 @@ export function WizardNavigation({
             Only rendered if there are support-level actions (rare)
         ───────────────────────────────────────────────────────────────── */}
         {hasSupport && (
-          <div className="border-t border-dashed border-border/40 px-4 py-2">
+          <div className="px-4 pb-3">
             <div
-              className="flex flex-wrap justify-center gap-2"
+              className="luminous-card-soft flex flex-wrap justify-center gap-2 rounded-[calc(var(--luminous-radius)+2px)] px-3 py-2"
               role="group"
               aria-label="Additional actions"
             >

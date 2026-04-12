@@ -188,8 +188,9 @@ export function ReceiptClient({ reservationId, hasSession }: ReceiptClientProps)
         description={
           reservation.status === 'cancelled'
             ? 'This reservation has been cancelled.'
-            : 'Save this receipt for easier check-in when you arrive.'
+            : 'Keep this receipt close for the smoothest route back into your reservation details.'
         }
+        backHref="/guest/bookings"
         reference={reservation.reference ?? reservation.id.slice(0, 8).toUpperCase()}
         status={{ icon: Calendar, label: statusTone.label, tone: statusTone.tone }}
         actions={
@@ -243,7 +244,7 @@ export function ReceiptClient({ reservationId, hasSession }: ReceiptClientProps)
             <span className="font-semibold">Sign in to manage bookings faster.</span>
             <Link
               href={`/auth/signin?redirectedFrom=/guest/bookings/${reservationId}`}
-              className="font-semibold text-blue-700 underline focus-ring touch-feedback"
+              className="font-semibold text-primary underline focus-ring touch-feedback"
             >
               Sign in →
             </Link>

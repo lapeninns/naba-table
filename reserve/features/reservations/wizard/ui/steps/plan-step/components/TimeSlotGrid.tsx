@@ -61,7 +61,7 @@ export function TimeSlotGrid({
   if (slots.length === 0) {
     if (loading) {
       return (
-        <section className="flex flex-col gap-4 rounded-xl border border-border bg-card/80 p-4 shadow-md">
+        <section className="luminous-card flex flex-col gap-4 rounded-[var(--luminous-radius)] p-4">
           <div className="flex items-center justify-between">
             <div className="h-5 w-24 animate-pulse rounded-md bg-muted/60" />
             <div className="h-4 w-32 animate-pulse rounded-md bg-muted/60" />
@@ -90,7 +90,7 @@ export function TimeSlotGrid({
     <section
       aria-label="Available times"
       className={cn(
-        'flex flex-col gap-4 rounded-xl border border-border bg-gradient-to-br from-card/95 to-card/80 p-4 shadow-md backdrop-blur-sm transition-all duration-300',
+        'luminous-card flex flex-col gap-4 rounded-[var(--luminous-radius)] p-4 transition-all duration-300',
         loading && 'opacity-50 pointer-events-none',
       )}
       ref={containerRef}
@@ -119,20 +119,20 @@ export function TimeSlotGrid({
                       type="button"
                       className={cn(
                         // Base styles - larger on mobile for better touch targets
-                        'group relative flex h-14 min-w-[120px] items-center justify-center rounded-lg border text-sm font-semibold transition-all duration-200',
+                        'group relative flex h-14 min-w-[120px] items-center justify-center rounded-[var(--luminous-radius)] text-sm font-semibold transition-all duration-200',
                         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
                         'touch-manipulation select-none',
                         // Disabled state
                         slot.disabled &&
-                          'cursor-not-allowed border-border/60 bg-muted/40 text-muted-foreground/60',
+                          'cursor-not-allowed bg-[var(--luminous-surface-highest)] text-muted-foreground/60',
                         // Active/selected state - enhanced visual feedback
                         !slot.disabled &&
                           isActive &&
-                          'border-primary bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]',
+                          'bg-primary text-primary-foreground shadow-[var(--luminous-shadow-float)] scale-[1.02]',
                         // Default interactive state
                         !slot.disabled &&
                           !isActive &&
-                          'border-border bg-card hover:border-primary/60 hover:bg-primary/10 hover:shadow-md active:scale-95',
+                          'bg-[var(--luminous-surface-lowest)] hover:bg-[var(--luminous-primary-tint)] hover:shadow-[var(--luminous-shadow-soft)] active:scale-95',
                         // Smooth scale animation on tap
                         !slot.disabled && 'active:transition-transform active:duration-100',
                       )}
@@ -142,7 +142,7 @@ export function TimeSlotGrid({
                       onClick={() => onSelect(slot.value)}
                       data-slot-value={slot.value}
                       style={{
-                        WebkitTapHighlightColor: 'rgba(0,0,0,0)',
+                        WebkitTapHighlightColor: 'transparent',
                         touchAction: 'manipulation',
                       }}
                     >

@@ -1,5 +1,3 @@
- 
-
 import {
   ArrowRight,
   BookOpenCheck,
@@ -342,23 +340,28 @@ export function ReservationThankYouCard({
   body?: string;
 }) {
   return (
-    <main className="guest-theme flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-900 via-slate-950 to-slate-900 px-4 py-12 text-white">
-      <div className="w-full max-w-lg space-y-5 rounded-[var(--guest-radius-2xl)] border border-white/20 bg-white/5 p-8 text-center shadow-[var(--guest-shadow-xl)] backdrop-blur">
-        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-200/20 text-emerald-300">
+    <main className="guest-theme flex min-h-screen items-center justify-center bg-transparent px-4 py-12 text-foreground">
+      <div className="luminous-panel w-full max-w-lg space-y-5 p-8 text-center">
+        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[rgba(0,64,161,0.08)] text-primary">
           <Sparkles className="h-10 w-10" aria-hidden />
         </div>
         <div className="space-y-2">
-          <h1 className="text-3xl font-semibold">{headline}</h1>
-          <p className="text-sm text-blue-100">{body}</p>
+          <p className="luminous-kicker">Reservation status</p>
+          <h1 className="heading-page">{headline}</h1>
+          <p className="text-body-warm">{body}</p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-          <Button size="lg" className="w-full rounded-full sm:w-auto" asChild>
+          <Button
+            size="lg"
+            className="luminous-cta w-full rounded-[var(--luminous-radius)] sm:w-auto"
+            asChild
+          >
             <Link href="/guest/bookings">View my bookings</Link>
           </Button>
           <Button
-            variant="outline"
+            variant="secondary"
             size="lg"
-            className="w-full rounded-full border-white/30 text-white hover:bg-white/10 sm:w-auto"
+            className="luminous-secondary w-full rounded-[var(--luminous-radius)] sm:w-auto"
             asChild
           >
             <Link href="/restaurants">Explore restaurants</Link>

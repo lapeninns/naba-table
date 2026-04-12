@@ -102,22 +102,22 @@ function PrimaryNav({ currentPath, tone }: { currentPath: string | null; tone: T
 
   const baseStyles =
     tone === 'dark'
-      ? 'border-white/15 bg-white/10 text-white'
-      : 'border-border/60 bg-background/70 text-foreground';
+      ? 'bg-white/10 text-white'
+      : 'bg-[rgba(249,249,252,0.78)] text-foreground shadow-[0_24px_60px_rgba(26,28,30,0.06)]';
   const inactive =
     tone === 'dark'
       ? 'text-white/70 hover:bg-white/10 hover:text-white'
-      : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground';
+      : 'text-muted-foreground hover:bg-muted hover:text-foreground';
   const active =
     tone === 'dark'
-      ? 'bg-white text-slate-900 shadow-sm ring-0'
-      : 'bg-foreground text-background shadow-sm ring-0';
+      ? 'bg-[var(--luminous-surface-lowest)] text-foreground shadow-[var(--luminous-shadow-soft)] ring-0'
+      : 'bg-primary text-primary-foreground shadow-[var(--luminous-shadow-soft)] ring-0';
 
   return (
     <nav
       aria-label="Primary navigation"
       className={cn(
-        'hidden items-center gap-2 rounded-full px-1.5 py-1 shadow-sm backdrop-blur supports-[backdrop-filter]:saturate-150 md:flex',
+        'hidden items-center gap-2 rounded-4xl px-1.5 py-1 shadow-[var(--luminous-shadow-soft)] backdrop-blur-[18px] supports-[backdrop-filter]:saturate-150 md:flex',
         baseStyles,
       )}
     >
@@ -125,7 +125,7 @@ function PrimaryNav({ currentPath, tone }: { currentPath: string | null; tone: T
         href={PRIMARY_LINK.href}
         aria-current={isActive(PRIMARY_LINK.href) ? 'page' : undefined}
         className={cn(
-          'rounded-full px-3.5 py-2 text-sm font-semibold leading-5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+          'rounded-4xl px-4 py-2 text-sm font-semibold leading-5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
           isActive(PRIMARY_LINK.href) ? active : inactive,
         )}
       >
@@ -171,10 +171,10 @@ function DesktopActions({
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="group relative h-10 w-10 rounded-full border border-border/50 bg-background text-foreground outline-none transition hover:ring-2 hover:ring-primary/20 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              className="group relative h-10 w-10 rounded-4xl bg-background text-foreground outline-none transition hover:ring-2 hover:ring-primary/20 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               aria-label={`${account.displayName} menu`}
             >
-              <Avatar className="h-10 w-10 border border-border/30">
+              <Avatar className="h-10 w-10">
                 {account.avatarUrl ? (
                   <AvatarImage src={account.avatarUrl} alt={account.displayName} />
                 ) : null}
@@ -275,7 +275,7 @@ function MobileMenu({
       <SheetTrigger asChild>
         <button
           type="button"
-          className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border/70 bg-background text-foreground shadow-sm transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background touch-manipulation md:hidden"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-4xl bg-[var(--luminous-surface-lowest)] text-foreground shadow-[var(--luminous-shadow-soft)] transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background touch-manipulation md:hidden"
           aria-label="Open navigation menu"
           aria-expanded={open}
           aria-controls="guest-navigation-drawer"
@@ -292,15 +292,15 @@ function MobileMenu({
         <SheetHeader className="sr-only">
           <SheetTitle>Guest navigation</SheetTitle>
         </SheetHeader>
-        <div className="rounded-3xl border border-border/60 bg-background/90 p-4 shadow-sm">
+        <div className="luminous-panel rounded-[var(--luminous-radius-panel)] bg-[var(--luminous-surface-low)] p-4">
           <div className="flex flex-col gap-1 pr-10">
             <BrandMark tone={tone} />
           </div>
 
           {isAuthenticated && account ? (
-            <div className="mt-6 flex flex-col gap-4 rounded-2xl border border-border/60 bg-muted/50 p-4">
+            <div className="mt-6 flex flex-col gap-4 rounded-[var(--luminous-radius)] bg-[var(--luminous-surface-lowest)] p-4">
               <div className="flex items-center gap-4">
-                <Avatar className="h-12 w-12 border border-border/70 bg-background">
+                <Avatar className="h-12 w-12 bg-background">
                   {account.avatarUrl ? (
                     <AvatarImage src={account.avatarUrl} alt={account.displayName} />
                   ) : null}
@@ -320,7 +320,7 @@ function MobileMenu({
               <SheetClose asChild>
                 <Link
                   href="/guest/profile"
-                  className="inline-flex items-center justify-center rounded-full border border-border/80 px-4 py-2 text-sm font-medium text-foreground transition hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  className="inline-flex items-center justify-center rounded-[var(--luminous-radius)] bg-[var(--luminous-surface-low)] px-4 py-2 text-sm font-medium text-foreground transition hover:bg-[var(--luminous-primary-tint)] hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 >
                   Manage profile
                 </Link>
@@ -345,10 +345,10 @@ function MobileMenu({
                     <Link
                       href={link.href}
                       className={cn(
-                        'flex items-center gap-3 rounded-2xl border border-border/60 px-4 py-3 text-base font-semibold text-foreground transition',
+                        'flex items-center gap-3 rounded-[var(--luminous-radius)] bg-[var(--luminous-surface-lowest)] px-4 py-3 text-base font-semibold text-foreground transition',
                         'hover:border-primary/50 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
                         isActive(link.href)
-                          ? 'border-primary/50 bg-primary/5 text-primary'
+                          ? 'bg-[var(--luminous-primary-tint)] text-primary'
                           : undefined,
                       )}
                     >
@@ -364,13 +364,13 @@ function MobileMenu({
           ))}
         </div>
 
-        <SheetFooter className="mt-auto flex w-full flex-col gap-3 border-t border-border/50 pt-4">
+        <SheetFooter className="mt-auto flex w-full flex-col gap-3 pt-4">
           {isAuthenticated ? (
             <button
               type="button"
               className={cn(
                 buttonVariants({ variant: 'outline', size: 'default' }),
-                'w-full justify-center gap-2 rounded-2xl text-base font-semibold touch-manipulation',
+                'w-full justify-center gap-2 rounded-4xl text-base font-semibold touch-manipulation',
               )}
               onClick={() => {
                 void onSignOut();
@@ -386,7 +386,7 @@ function MobileMenu({
                 href="/auth"
                 className={cn(
                   buttonVariants({ variant: 'default', size: 'default' }),
-                  'w-full justify-center rounded-2xl text-base font-semibold',
+                  'w-full justify-center rounded-4xl text-base font-semibold',
                 )}
               >
                 Sign in
@@ -452,20 +452,18 @@ export function GuestNavbar({ tone = 'light', isSticky = true }: GuestNavbarProp
   }, [pathname]);
 
   const headerToneClasses =
-    tone === 'dark'
-      ? 'border-b border-white/10 bg-white/10 text-white'
-      : 'border-b border-border/70 bg-white/90 text-foreground';
+    tone === 'dark' ? 'bg-white/10 text-white' : 'bg-transparent text-foreground';
 
   const shellClasses = cn(
-    isSticky ? 'sticky top-0' : 'relative',
-    'z-50 w-full backdrop-blur supports-[backdrop-filter]:saturate-150',
+    isSticky ? 'sticky top-3' : 'relative',
+    'z-50 w-full px-3 backdrop-blur-[18px] supports-[backdrop-filter]:saturate-150 sm:px-5',
     headerToneClasses,
   );
 
   return (
     <div className={shellClasses}>
       <div className="guest-boundary w-full py-3 md:py-4">
-        <div className="flex items-center justify-between gap-3">
+        <div className="luminous-glass flex items-center justify-between gap-3 rounded-[1.75rem] px-4 py-3 md:px-5">
           <BrandMark tone={tone} />
 
           <div className="hidden flex-1 items-center justify-end gap-4 md:flex">

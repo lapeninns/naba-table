@@ -54,10 +54,10 @@ interface SectionHeaderProps {
 
 function SectionHeader({ title, icon, onEdit, editLabel }: SectionHeaderProps) {
   return (
-    <div className="flex items-center justify-between gap-3 mb-5 border-b border-border/40 pb-3">
+    <div className="mb-5 flex items-center justify-between gap-3">
       <div className="flex items-center gap-2">
         {icon && <span className="text-primary">{icon}</span>}
-        <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+        <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">
           {title}
         </h3>
       </div>
@@ -100,22 +100,6 @@ function DetailItem({ icon, label, value, className, valueClassName }: DetailIte
   );
 }
 
-function TicketPerforation() {
-  return (
-    <div className="relative h-px w-full bg-border my-2" aria-hidden="true">
-      {/* Left Notch */}
-      <div className="absolute -left-6 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-background border border-border" />
-      <div className="absolute -left-6 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-background scale-90" />{' '}
-      {/* Mask border overlap */}
-      {/* Right Notch */}
-      <div className="absolute -right-6 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-background border border-border" />
-      <div className="absolute -right-6 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-background scale-90" />
-      {/* Dashed Line */}
-      <div className="absolute inset-0 border-t-2 border-dashed border-muted-foreground/20" />
-    </div>
-  );
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Main Component
 // ─────────────────────────────────────────────────────────────────────────────
@@ -142,10 +126,10 @@ export function ReviewStep(props: ReviewStepProps) {
         step={3}
         title="Review & Confirm"
         description="Please review your reservation details below."
-        contentClassName="space-y-6"
+        contentClassName="space-y-5"
         icon={<ReceiptIcon className="h-6 w-6" />}
       >
-        <div className="space-y-6">
+        <div className="space-y-5">
           {/* Screen reader summary */}
           <p className="sr-only" aria-live="polite">
             {`Review details for ${summary.summaryValue}. Press confirm to finalise your reservation.`}
@@ -165,9 +149,9 @@ export function ReviewStep(props: ReviewStepProps) {
             TICKET CONTAINER 
             Using a clean card look with a "perforation" divider
           */}
-          <article className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+          <div className="grid gap-4 lg:grid-cols-2">
             {/* SECTION 1: Plan */}
-            <div className="p-6">
+            <div className="luminous-card rounded-[var(--luminous-radius)] p-4 sm:p-5">
               <SectionHeader
                 title="Your Visit"
                 icon={<SparklesIcon className="h-4 w-4" />}
@@ -175,7 +159,7 @@ export function ReviewStep(props: ReviewStepProps) {
                 editLabel="Edit reservation details"
               />
 
-              <dl className="grid gap-6 sm:grid-cols-2">
+              <dl className="grid gap-4 sm:grid-cols-2">
                 <DetailItem
                   icon={<CalendarIcon className="h-4 w-4" />}
                   label="Date & Time"
@@ -201,11 +185,8 @@ export function ReviewStep(props: ReviewStepProps) {
               </dl>
             </div>
 
-            {/* Perforation Divider */}
-            <TicketPerforation />
-
             {/* SECTION 2: Details */}
-            <div className="p-6">
+            <div className="luminous-card rounded-[var(--luminous-radius)] p-4 sm:p-5">
               <SectionHeader
                 title="Your Details"
                 icon={<UserIcon className="h-4 w-4" />}
@@ -213,7 +194,7 @@ export function ReviewStep(props: ReviewStepProps) {
                 editLabel="Edit guest details"
               />
 
-              <dl className="grid gap-6 sm:grid-cols-2">
+              <dl className="grid gap-4 sm:grid-cols-2">
                 <DetailItem
                   icon={<UserIcon className="h-4 w-4" />}
                   label="Full name"
@@ -238,20 +219,18 @@ export function ReviewStep(props: ReviewStepProps) {
 
               {/* Notes - Full Width */}
               {details.notes && (
-                <div className="mt-6 pt-4 border-t border-border/40">
+                <div className="mt-4 rounded-[var(--luminous-radius)] bg-[var(--luminous-surface-low)] p-4">
                   <dt className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground font-medium mb-2">
                     <MessageSquareIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
                     <span>Special Requests</span>
                   </dt>
-                  <dd className="text-sm text-foreground/90 bg-muted/40 p-3 rounded-lg border border-border/50">
-                    &quot;{details.notes}&quot;
-                  </dd>
+                  <dd className="text-sm text-foreground/90">&quot;{details.notes}&quot;</dd>
                 </div>
               )}
             </div>
-          </article>
+          </div>
 
-          <div className="text-center text-xs text-muted-foreground px-4">
+          <div className="rounded-[var(--luminous-radius)] bg-[var(--luminous-surface-low)] px-4 py-3 text-center text-xs text-muted-foreground">
             By clicking Confirm, you agree to our Terms of Service and Privacy Policy.
           </div>
         </div>

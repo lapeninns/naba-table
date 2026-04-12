@@ -22,7 +22,7 @@ export function NotesField({ value, onChange, onBlur, error }: NotesFieldProps) 
   const isNearLimit = value.length > MAX_LENGTH * 0.9;
 
   return (
-    <FormItem className="space-y-3">
+    <FormItem className="space-y-2.5">
       <FormLabel
         htmlFor={notesId}
         className="flex items-center gap-1.5 text-sm font-semibold sm:text-base"
@@ -39,9 +39,9 @@ export function NotesField({ value, onChange, onBlur, error }: NotesFieldProps) 
           onBlur={(event) => {
             onBlur?.(event.target.value);
           }}
-          rows={4}
+          rows={3}
           spellCheck
-          className="resize-none text-base sm:text-sm"
+          className="luminous-input resize-none text-base sm:text-sm"
           maxLength={MAX_LENGTH}
         />
       </FormControl>

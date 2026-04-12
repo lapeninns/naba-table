@@ -43,10 +43,14 @@ These modules back the **public booking + guest portal** under `src/app/(public)
 5. **State Machines & Error Paths**
    - All flows must implement loading/empty/error/success states with actionable messaging.
    - Provide retry hooks and offline-friendly cues when possible (tie into `booking-offline-queue` as needed).
+6. **Guest Visual Source Of Truth**
+   - For guest-facing design decisions, use `/GUEST_FACING_DESIGN_SYSTEM.md` as the visual source of truth.
+   - If legacy guest styles, earlier preset migrations, or existing components conflict with that document, the design-system document wins for the redesigned booking journey.
 
 ## Links
 
 - Root AGENTS: `/AGENTS.md`
+- Guest-facing design system: `/GUEST_FACING_DESIGN_SYSTEM.md`
 - App routes: `src/app/(public)/**`, `src/app/guest/**`
 - Shared hooks: `src/hooks/**`
 - Context providers: `src/contexts/**`

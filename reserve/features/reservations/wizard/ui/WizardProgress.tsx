@@ -70,6 +70,7 @@ export function WizardProgress({
           <Progress
             value={progressValue}
             className="h-1.5 flex-1 rounded-full bg-muted"
+            aria-label={`Booking progress: step ${clampedCurrent} of ${total}`}
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={Math.round(progressValue)}
@@ -103,12 +104,12 @@ export function WizardProgress({
               >
                 <div
                   className={cn(
-                    'flex h-9 w-9 items-center justify-center rounded-full border text-sm font-semibold transition-colors',
+                    'flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold transition-colors',
                     isCurrent
-                      ? 'border-primary bg-primary text-primary-foreground'
+                      ? 'bg-primary text-primary-foreground'
                       : isComplete
-                        ? 'border-primary bg-primary/20 text-primary'
-                        : 'border-border bg-background text-muted-foreground',
+                        ? 'bg-[var(--luminous-primary-tint)] text-primary'
+                        : 'bg-[var(--luminous-surface-highest)] text-muted-foreground',
                   )}
                   aria-current={isCurrent ? 'step' : undefined}
                   aria-label={`${step.label} (${stepNumber} of ${total})`}

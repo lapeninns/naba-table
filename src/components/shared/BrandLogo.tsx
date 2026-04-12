@@ -21,11 +21,11 @@ export function BrandLogo({
   variant = 'light',
   animated = false,
 }: BrandLogoProps) {
-  const textColor = variant === 'dark' ? 'text-white' : 'text-slate-900';
+  const textColor = variant === 'dark' ? 'text-white' : 'text-foreground';
   const betaBg =
     variant === 'dark'
-      ? 'bg-blue-600/20 border-blue-500/30 text-blue-100'
-      : 'bg-blue-50 border-blue-100 text-blue-700';
+      ? 'border-white/15 bg-white/10 text-white/90'
+      : 'border-primary/15 bg-primary/10 text-primary';
 
   return (
     <Link
@@ -50,7 +50,7 @@ export function BrandLogo({
         {showBeta && (
           <span
             className={cn(
-              'absolute -top-3 right-0 sm:-right-10 -rotate-12 text-[10px] font-bold uppercase tracking-[0.2em] px-1.5 py-0.5 rounded-full whitespace-nowrap border shadow-sm',
+              'absolute -top-3 right-0 sm:-right-10 -rotate-12 rounded-full border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.2em] whitespace-nowrap shadow-sm',
               betaBg,
             )}
           >

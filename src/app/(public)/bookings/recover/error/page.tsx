@@ -1,7 +1,6 @@
-import { AlertTriangle } from 'lucide-react';
-import Link from 'next/link';
+import { AlertTriangle, ShieldCheck } from 'lucide-react';
 
-import { Button } from '@shared/ui/button';
+import { BookingStatePage } from '@/components/features/booking/ui/BookingStatePage';
 
 import type { Metadata } from 'next';
 
@@ -50,24 +49,37 @@ export default async function BookingRecoverErrorPage({
   const content = copyByCode[code] ?? copyByCode.INVALID_ACCESS_TOKEN;
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-col items-center justify-center gap-6 px-6 py-16 text-center">
-      <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-amber-50 text-amber-600">
-        <AlertTriangle className="h-8 w-8" aria-hidden="true" />
-      </div>
-
-      <div className="space-y-2">
-        <h1 className="text-2xl font-semibold text-foreground sm:text-3xl">{content.title}</h1>
-        <p className="text-sm text-muted-foreground sm:text-base">{content.description}</p>
-      </div>
-
-      <div className="flex w-full flex-col gap-3 sm:flex-row sm:justify-center">
-        <Button asChild size="lg">
-          <Link href="/auth/signin">Sign in</Link>
-        </Button>
-        <Button asChild variant="outline" size="lg">
-          <Link href="/">Return home</Link>
-        </Button>
-      </div>
-    </main>
+    <BookingStatePage
+      eyebrow="Booking link issue"
+      title={content.title}
+      description={content.description}
+      icon={AlertTriangle}
+      tone={code === 'ACCESS_TOKEN_NOT_CONFIGURED' ? 'warning' : 'danger'}
+      primaryAction={{ href: '/auth/signin', label: 'Sign in to manage' }}
+      secondaryAction={{ href: '/', label: 'Return home', variant: 'secondary' }}
+      aside={
+        <>
+          <div className="space-y-2">
+            <p className="luminous-kicker">Recovery guidance</p>
+            <p className="text-sm font-semibold text-foreground">Use the freshest route back in.</p>
+            <p className="text-sm leading-6 text-muted-foreground">
+              Old or incomplete links can no longer guarantee access. Signing in or using the most
+              recent booking email is the safest path.
+            </p>
+          </div>
+          <div className="luminous-card-soft rounded-[var(--luminous-radius)] px-4 py-4">
+            <div className="flex items-start gap-3">
+              <ShieldCheck className="mt-0.5 h-5 w-5 text-primary" aria-hidden />
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-foreground">Access stays protected</p>
+                <p className="text-sm leading-6 text-muted-foreground">
+                  Booking recovery still respects the same guest authentication and token rules.
+                </p>
+              </div>
+            </div>
+          </div>
+        </>
+      }
+    />
   );
 }
