@@ -1,9 +1,12 @@
 # Continuity Ledger
 
-Last updated: 2026-04-12T09:16:00Z
+Last updated: 2026-04-12T10:01:00Z
 
 ## Goal (incl. success criteria)
 
+- Sync the guest-facing site-map implementation from the reference branch onto `Guest-Facing-Frontend`.
+- Success: `/site-map` exists on this branch and reflects the guest route inventory.
+- Success: `src/app/sitemap.ts` reuses the shared guest route inventory instead of a hardcoded list.
 - Add a daily manager booking summary service that sends today's active bookings and covers, including lunch/dinner breakdown, around 10:00.
 - Success: canonical backend summary data includes a service-period breakdown suitable for messaging.
 - Success: a Cloudflare Worker can schedule, queue, dedupe, and send the daily summary through Twilio SMS.
@@ -63,6 +66,7 @@ Last updated: 2026-04-12T09:16:00Z
 
 ## State
 
+- Phase 4: `tasks/site-map-sync-from-reference-20260412-0932/` is implemented and browser-verified on `Guest-Facing-Frontend`, including stale generated metadata file cleanup so `/site-map`, `/sitemap.xml`, and `/robots.txt` resolve from the App Router paths.
 - Phase 6: manager-summary SMS cutover is implemented, deployed, and now aligned to the real production Supabase project `vrdiqfudmwydclqpydee`.
 - Phase 4: `tasks/stack-party-time-fields-20260411-2040/` is implemented and browser-verified for the ops booking edit dialog layout adjustment.
 - Phase 3/4: guest confirmation SMS + first-confirmation email rule is implemented in code and covered by focused automated verification.
@@ -78,6 +82,9 @@ Last updated: 2026-04-12T09:16:00Z
 
 ## Done
 
+- Ported the guest-facing route catalog, `/site-map` page, sitemap reuse, and footer link pattern from `origin/codex/FrontendImprovementsofguestfacing`.
+- Moved stale untracked `public/robots.txt`, `public/sitemap.xml`, and `public/sitemap-0.xml` into `~/.Trash/` to remove Next.js metadata route conflicts.
+- Captured browser verification artifacts for `/site-map`, `/sitemap.xml`, and `/robots.txt` under `tasks/site-map-sync-from-reference-20260412-0932/artifacts/`.
 - Confirmed the existing ops dashboard summary path could be extended without creating a second business-rules path.
 - Removed the exploratory Vercel/Meta route and env wiring.
 - Created task artifacts under `tasks/whatsapp-booking-summary-20260411-0951/`.
@@ -144,6 +151,7 @@ Last updated: 2026-04-12T09:16:00Z
 
 ## Now
 
+- Hand off the site-map sync cleanly with the route catalog, metadata cleanup, and verification artifacts recorded.
 - Hand off the small ops edit-dialog layout tweak cleanly; `ScheduleAwareTimestampPicker` now stacks date, party size, and time vertically in the canonical edit flow.
 - Hand off the luminous booking redesign cleanly with task artifacts, updated skill/rule precedence, and captured browser verification evidence.
 - Rebuild the booking journey from the current live code, not from earlier redesign notes, so the public entry, wizard, detail, thank-you, recovery, and receipt surfaces converge on one visual system.
@@ -159,6 +167,7 @@ Last updated: 2026-04-12T09:16:00Z
 
 ## Next
 
+- If requested, stage or commit the site-map sync once the user has reviewed the diff.
 - If a follow-up request comes in, fix the dev harness `dev-restaurant` schedule/calendar-mask `404` responses so edit-dialog availability can be fully exercised in-browser.
 - Continue tightening the booking-flow spacing and component psychology now that the party-size controller regression is fixed at the form-state level.
 - Implement the new `booking-journey-design-system-rebuild-20260411-1954` plan across the route shells and shared booking components, then recapture browser proof.
@@ -178,6 +187,11 @@ Last updated: 2026-04-12T09:16:00Z
 
 ## Working set (files/ids/commands)
 
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/site-map-sync-from-reference-20260412-0932/
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/app/guest-facing-pages.ts
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/app/(public)/(marketing)/site-map/page.tsx
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/app/sitemap.ts
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/layouts/Footer.tsx
 - /Users/amankumarshrestha/LapenInns Project/nabatableLP/server/ops/bookings.ts
 - /Users/amankumarshrestha/LapenInns Project/nabatableLP/lib/ops/daily-booking-summary.ts
 - /Users/amankumarshrestha/LapenInns Project/nabatableLP/lib/reservations/calendar-event.ts

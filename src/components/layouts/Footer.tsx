@@ -56,11 +56,11 @@ export function Footer({ variant: _variant = 'marketing' }: { variant?: FooterVa
           <Link href="/privacy" className="transition-colors hover:text-primary">
             Privacy Policy
           </Link>
-          <Link href="#" className="transition-colors hover:text-primary">
-            Terms
+          <Link href="/site-map" className="transition-colors hover:text-primary">
+            Site map
           </Link>
-          <Link href="#" className="transition-colors hover:text-primary">
-            Support
+          <Link href="/contact" className="transition-colors hover:text-primary">
+            Contact
           </Link>
         </nav>
       </div>
