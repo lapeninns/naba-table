@@ -1,6 +1,6 @@
 # Continuity Ledger
 
-Last updated: 2026-04-11T18:22:00Z
+Last updated: 2026-04-12T09:16:00Z
 
 ## Goal (incl. success criteria)
 
@@ -17,6 +17,18 @@ Last updated: 2026-04-11T18:22:00Z
 - Add guest SMS notifications for booking updates and cancellations while keeping reminders/review requests email-only.
 - Replace long guest SMS manage-booking URLs with branded Cloudflare short links under a Nabatable-owned domain.
 - Polish guest SMS copy so confirmation, update, and cancellation messages read like clear transactional event notices.
+- Add a public guest-facing page directory that lists and categorizes the live guest routes from a canonical source of truth.
+- Success: guests and the team can review the guest surface area on a single `/site-map` page.
+- Success: the XML sitemap reuses the same guest route inventory and excludes non-indexable auth/receipt/helper routes.
+- Migrate guest-facing pages toward shadcn preset `b1aKNEah8` while keeping the active `src/` codepaths canonical.
+- Success: preset-driven visual migration lands on guest-facing pages without shadcn writing into stale root-level paths.
+- Redesign the guest-facing booking journey around "The Luminous Precision Framework" and treat that attached design system as the visual source of truth.
+- Success: the root design-system document becomes the authoritative guest-facing blueprint for booking entry, confirmation, receipt, and management views.
+- Success: canonical booking journey components and routes are rebuilt to follow the no-line, tonal layering, glass, and editorial typography rules.
+- Rebuild the booking journey again from the root booking routes using the design system as the only UI/UX source of truth, while preserving the public/auth access model and legacy redirect routes.
+- Success: `/bookings`, `/restaurants/[slug]/book`, `/restaurants/[slug]/book/thank-you`, `/bookings/[bookingId]`, and `/bookings/recover/error` read as one consistent premium guest journey.
+- Success: preserved redirects still land on visually consistent canonical targets without changing behavior.
+- Use the inspected `b1aKNEah8` Shadcn preset only as a guest-facing reference; do not let it alter non-guest surfaces or the repo-wide Shadcn foundation.
 
 ## Constraints/Assumptions
 
@@ -25,6 +37,9 @@ Last updated: 2026-04-11T18:22:00Z
 - Scheduled outbound delivery is SMS-only through Twilio.
 - Supabase remains remote-only; no local DB workflows.
 - The manager notification number and summary toggle must live on `restaurants` as the canonical profile-owned config.
+- Guest-facing route categorization should stay in-app and reflect the real App Router structure instead of documentation-only prose.
+- The shadcn CLI currently reports resolved paths under `/components` and `/app/globals.css`; that mismatch must be handled before applying a preset broadly.
+- The new design system overrides prior guest-facing aesthetic direction for this booking redesign task.
 
 ## Key decisions
 
@@ -41,14 +56,25 @@ Last updated: 2026-04-11T18:22:00Z
 - Keep guest SMS limited to high-signal lifecycle moments: confirmation, updated, and cancelled.
 - Short links should remain an indirection layer over the existing signed manage-booking URL rather than replacing the current booking recovery token model.
 - For dynamic booking links, prefer a Cloudflare Worker with a strongly consistent backing store over Bulk Redirects or KV-only.
+- For guest-facing booking UI, the Luminous Precision design system document is the sole visual source of truth for this task.
+- The current redesign pass should treat existing luminous styling as provisional; route and shared-component decisions should be re-judged against `/GUEST_FACING_DESIGN_SYSTEM.md`, not prior local styling choices.
+- The preset-driven adjustments for this pass must stay inside guest/public booking codepaths and must not migrate the repo to `base` or monorepo structure.
+- The manager daily summary SMS copy should use the compact one-line venue-prefixed format approved in chat, with lunch and dinner counts always shown and `Other` only when needed.
 
 ## State
 
 - Phase 6: manager-summary SMS cutover is implemented, deployed, and now aligned to the real production Supabase project `vrdiqfudmwydclqpydee`.
+- Phase 4: `tasks/stack-party-time-fields-20260411-2040/` is implemented and browser-verified for the ops booking edit dialog layout adjustment.
 - Phase 3/4: guest confirmation SMS + first-confirmation email rule is implemented in code and covered by focused automated verification.
 - Phase 3/4: guest/public booking submission errors now normalize to friendly copy in the shared booking wizard path.
 - Phase 3/4: guest booking lifecycle SMS now covers confirmation, updates, and cancellations.
 - Phase 6: Cloudflare booking short links are implemented, provisioned, and wired into Vercel production for guest confirmation/update SMS.
+- Phase 4: guest-facing page directory work is implemented and verified with shared catalog, public `/site-map`, and sitemap/footer wiring.
+- Phase 4: guest style preset migration is implemented on guest-facing surfaces only, with task artifacts and browser verification in place.
+- Phase 4: luminous booking journey redesign is implemented on the canonical booking path and backed by browser verification/artifacts.
+- Phase 1/2: a new task folder exists at `tasks/booking-journey-design-system-rebuild-20260411-1954/` for a full route-by-route rebuild of the booking journey using the design system as the only visual source of truth.
+- Phase 3: updating the manager daily summary SMS formatter to the approved compact venue-name copy under `tasks/manager-summary-sms-copy-20260412-0916/`.
+- Phase 4 complete for the manager summary SMS copy update; focused Vitest coverage and full TypeScript checks are green.
 
 ## Done
 
@@ -95,6 +121,7 @@ Last updated: 2026-04-11T18:22:00Z
 - Confirmed a real demo SMS using booking `8B9BG33T5B` delivered with the long manage URL, reinforcing the need for a branded short-link service.
 - Implemented `server/bookings/short-link.ts` and switched guest confirmation/update SMS to request Cloudflare short links with a long-link fallback.
 - Added the dedicated worker under `cloudflare/booking-short-links/` with D1-backed storage, optional KV caching, an authenticated internal create-link route, and a public redirect route.
+- Updated the manager daily summary SMS formatter to use the compact venue-prefixed one-line copy with lunch/dinner splits, and threaded the venue name through the Cloudflare summary preview path.
 - Provisioned Cloudflare D1 + KV for short links, uploaded `INTERNAL_LINKS_TOKEN`, deployed the worker, and smoke-tested `/health`.
 - Added `BOOKING_SHORT_LINKS_BASE_URL`, `BOOKING_SHORT_LINKS_INTERNAL_URL`, and `BOOKING_SHORT_LINKS_INTERNAL_TOKEN` to Vercel production, then redeployed `app.nabatable.com` (`dpl_5y8uGJpBSuWtjLc7D9r3qXVxay4h`).
 - Verified a live short link for booking `8B9BG33T5B`: token `4UTIJrXJum2J`, public redirect `302` to the exact real manage URL, and a delivered one-segment SMS (`SM86591c78d25ea86396cbe99d0cb996bf`).
@@ -104,23 +131,46 @@ Last updated: 2026-04-11T18:22:00Z
 - Repointed Vercel production `BOOKING_SHORT_LINKS_BASE_URL` and `BOOKING_SHORT_LINKS_INTERNAL_URL` to `https://go.nabatable.com`, then redeployed production (`dpl_FW9wfTT8FHu7TsWPojkdM8NMrP7R`).
 - Verified `https://go.nabatable.com/m/4UTIJrXJum2J` redirects to the real manage-booking recovery URL and sent a live branded-domain proof SMS; Twilio delivered `SM7b5681f1b819f89f0005b22d8129390c` with the requested layout in `2` segments.
 - Simplified the visible guest harness UX so the root is a categorized page directory and child routes focus on mocked page review plus metadata, not mind-map/CTA analysis.
+- Created task artifacts under `tasks/guest-facing-pages-directory-20260411-1726/`.
+- Added `src/app/guest-facing-pages.ts` as the canonical guest route catalog and wired it into `src/app/sitemap.ts`.
+- Added the public `/site-map` route plus footer links on both marketing footer variants.
+- Verified `/site-map` in Chrome DevTools on desktop and mobile; captured screenshots, Lighthouse report, and performance trace artifacts.
+- Created task artifacts under `tasks/luminous-booking-journey-redesign-20260411-1759/`.
+- Documented the Luminous Precision booking redesign scope, constraints, and implementation plan in the new task folder.
+- Added `/GUEST_FACING_DESIGN_SYSTEM.md` as the root guest-facing design-system source of truth and wired that precedence into `src/guest/AGENTS.md` plus the repo-local Nabatable skills.
+- Rebuilt the canonical public/guest booking shells, wizard steps, and shared booking components around tonal layering, glass surfaces, gradient CTAs, and Manrope/Inter typography.
+- Fixed the booking flow's custom-control labeling so Chrome DevTools and Lighthouse accessibility checks now pass on the public booking page.
+- Captured updated browser proof under `tasks/luminous-booking-journey-redesign-20260411-1759/artifacts/`, including final screenshots, Lighthouse reports, and a performance trace.
 
 ## Now
 
-- Guest pages dev harness work is in the final verification/doc-sync stage after upgrading all mapped child pages to fuller mocks.
+- Hand off the small ops edit-dialog layout tweak cleanly; `ScheduleAwareTimestampPicker` now stacks date, party size, and time vertically in the canonical edit flow.
+- Hand off the luminous booking redesign cleanly with task artifacts, updated skill/rule precedence, and captured browser verification evidence.
+- Rebuild the booking journey from the current live code, not from earlier redesign notes, so the public entry, wizard, detail, thank-you, recovery, and receipt surfaces converge on one visual system.
+- Keep the preset translation isolated to guest-facing pages only; no ops/admin/auth/global UI migration.
+- Hand off the guest-facing page directory change cleanly with task artifacts and captured verification evidence.
+- Hand off the guest-only preset migration cleanly; the requested monorepo reinstall path is incompatible with this repo, so the delivered change ports the preset language into guest/public codepaths only.
 - Hand off the corrected live production state cleanly; manager-summary SMS is deployed, branded as `NABATABLE`, and pointed at the real production database.
 - Monitor the next real guest confirmation/update on production to confirm the app-generated SMS body contains the Cloudflare short link instead of the long URL.
 - Deploy the friendly guest booking error-copy fix after review.
 - Decide whether to keep the current event-style SMS layout as-is or do one more cost-focused tightening pass to try to reduce confirmation SMS from `2` segments to `1`.
+- Monitor any follow-up requests to adjust route categories or add future guest routes into the shared catalog.
+- Preserve guest booking/account behavior while keeping ops-facing surfaces untouched.
 
 ## Next
 
+- If a follow-up request comes in, fix the dev harness `dev-restaurant` schedule/calendar-mask `404` responses so edit-dialog availability can be fully exercised in-browser.
+- Continue tightening the booking-flow spacing and component psychology now that the party-size controller regression is fixed at the form-state level.
+- Implement the new `booking-journey-design-system-rebuild-20260411-1954` plan across the route shells and shared booking components, then recapture browser proof.
 - Verify the guest confirmation SMS flow end to end from a real booking creation or first confirm transition, now that the app can mint Cloudflare short links in production.
 - Verify one real guest update SMS and one real guest cancellation SMS on production using the new event-style copy.
 - Promote the same SMS worker/config to additional restaurants as Nabatable expands.
 - Run the new `tests/e2e/guest-booking.spec.ts` duplicate-booking regression once the Playwright server lock issue is cleared.
 - If deployed, verify one real booking update and one real cancellation on production to confirm SMS delivery.
 - If desired, add click analytics/revocation on top of the D1 short-link service without changing the guest SMS contract.
+- Investigate the existing `/restaurants` hydration mismatch separately if it reproduces outside this style migration task.
+- If needed, validate the redesigned booking detail/receipt surfaces on their real route variants beyond the shared dev harness/public booking path proof already captured.
+- Investigate the dev-only Turbopack preload `404` for the stale wizard-step chunk if it persists outside local development.
 
 ## Open questions (UNCONFIRMED if needed)
 
@@ -150,3 +200,24 @@ Last updated: 2026-04-11T18:22:00Z
 - /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/booking-update-cancel-sms-20260411-1458/
 - /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/sms-link-shortening-cancelled-ics-20260411-1512/
 - /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/cloudflare-booking-short-links-20260411-1522/
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/app/guest-facing-pages.ts
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/app/(public)/(marketing)/site-map/page.tsx
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/app/sitemap.ts
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/layouts/Footer.tsx
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/guest-facing-pages-directory-20260411-1726/
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/components.json
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/app/(public)/
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/app/guest/
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/layouts/
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/landing/
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/guest-style-preset-migration-20260411-1736/
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/luminous-booking-journey-redesign-20260411-1759/
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/booking-journey-design-system-rebuild-20260411-1954/
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/stack-party-time-fields-20260411-2040/
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/app/(public)/(marketing)/restaurants/[slug]/book/page.tsx
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/features/booking/list/BookingListClient.tsx
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/features/booking/detail/ReservationDetailClient.tsx
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/app/guest/bookings/[bookingId]/receipt/ReceiptClient.tsx
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/features/booking/ui/BookingComponents.tsx
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/reserve/features/reservations/wizard/ui/
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/features/booking-state-machine/ScheduleAwareTimestampPicker.tsx
