@@ -14,6 +14,7 @@ type WorkerEnv = {
 
 type RestaurantRow = {
   id: string;
+  name: string | null;
   timezone: string | null;
   is_active: boolean | null;
   manager_daily_summary_enabled: boolean | null;
@@ -92,6 +93,16 @@ export async function buildDailySummaryPreview(
   },
 ): Promise<DailySummaryPreview> {
   const supabase = createSupabaseAdminClient(env);
+  const { data: restaurant, error: restaurantError } = await supabase
+    .from('restaurants')
+    .select('name')
+    .eq('id', params.restaurantId)
+    .maybeSingle();
+
+  if (restaurantError) {
+    throw new Error(`Failed to load restaurant for summary: ${restaurantError.message}`);
+  }
+
   const { data, error } = await supabase
     .from('bookings')
     .select('status, booking_type, party_size')
@@ -118,6 +129,8 @@ export async function buildDailySummaryPreview(
     timezone: params.timezone,
     restaurantId: params.restaurantId,
     summary,
-    message: formatDailyBookingSummaryMessage(summary),
+    message: formatDailyBookingSummaryMessage(summary, {
+      venueName: restaurant?.name?.trim() || 'Restaurant',
+    }),
   };
 }

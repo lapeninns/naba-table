@@ -74,7 +74,7 @@ describe('twilio sms delivery', () => {
       apiKeySecret: 'secret',
       messagingServiceSid: 'MG123',
       to: '+449876543210',
-      body: 'We have 10 bookings today with 140 covers',
+      body: 'Old Crown Girton: Today 10 bkgs, 140 covers. Lunch 4/52. Dinner 6/88.',
     });
 
     expect(url).toBe('https://api.twilio.com/2010-04-01/Accounts/AC123/Messages.json');
@@ -85,7 +85,9 @@ describe('twilio sms delivery', () => {
 
     const params = new URLSearchParams(init.body as string);
     expect(params.get('To')).toBe('+449876543210');
-    expect(params.get('Body')).toBe('We have 10 bookings today with 140 covers');
+    expect(params.get('Body')).toBe(
+      'Old Crown Girton: Today 10 bkgs, 140 covers. Lunch 4/52. Dinner 6/88.',
+    );
     expect(params.get('MessagingServiceSid')).toBe('MG123');
   });
 
@@ -135,7 +137,7 @@ describe('daily summary queue consumer', () => {
         ],
       },
     },
-    message: 'We have 2 bookings today with 6 covers\n\nLunch 1 (2)\nDinner 1 (4)',
+    message: 'Old Crown Girton: Today 2 bkgs, 6 covers. Lunch 1/2. Dinner 1/4.',
   };
 
   it('marks successful sends and skips duplicates', async () => {

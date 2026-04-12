@@ -30,10 +30,6 @@ function createServicePeriodTally(): ServicePeriodTally {
   };
 }
 
-function pluralize(count: number, singular: string, plural: string): string {
-  return `${count} ${count === 1 ? singular : plural}`;
-}
-
 export function normalizeServicePeriodKey(value: string | null | undefined): ServicePeriodKey {
   const normalized = value?.trim().toLowerCase();
 
@@ -125,18 +121,22 @@ export function formatServicePeriodLabel(key: string): string {
 
 export function formatDailyBookingSummaryMessage(
   summary: Pick<OpsTodayBookingsSummary, 'serviceBreakdown'>,
+  options: { venueName: string },
 ): string {
   const serviceBreakdown = summary.serviceBreakdown ?? createEmptyServiceBreakdown();
   const periods = getServiceBreakdownPeriodMap(serviceBreakdown);
-  const headline = `We have ${pluralize(serviceBreakdown.activeBookings, 'booking', 'bookings')} today with ${pluralize(serviceBreakdown.activeCovers, 'cover', 'covers')}`;
-  const lines = [
-    `${formatServicePeriodLabel('lunch')} ${periods.lunch.bookings} (${periods.lunch.covers})`,
-    `${formatServicePeriodLabel('dinner')} ${periods.dinner.bookings} (${periods.dinner.covers})`,
+  const venueName = options.venueName.trim().length > 0 ? options.venueName.trim() : 'Restaurant';
+  const sentences = [
+    `${venueName}: Today ${serviceBreakdown.activeBookings} bkgs, ${serviceBreakdown.activeCovers} covers.`,
+    `${formatServicePeriodLabel('lunch')} ${periods.lunch.bookings}/${periods.lunch.covers}.`,
+    `${formatServicePeriodLabel('dinner')} ${periods.dinner.bookings}/${periods.dinner.covers}.`,
   ];
 
   if (periods.other.bookings > 0 || periods.other.covers > 0) {
-    lines.push(`${formatServicePeriodLabel('other')} ${periods.other.bookings} (${periods.other.covers})`);
+    sentences.push(
+      `${formatServicePeriodLabel('other')} ${periods.other.bookings}/${periods.other.covers}.`,
+    );
   }
 
-  return [headline, '', ...lines].join('\n');
+  return sentences.join(' ');
 }
