@@ -16,6 +16,42 @@ type TwilioSendResult = {
   status: string | null;
 };
 
+export type TwilioMessageRecord = {
+  sid: string;
+  status: string | null;
+  to: string | null;
+  from: string | null;
+  body: string | null;
+  direction: string | null;
+  dateSent: string | null;
+  dateCreated: string | null;
+  dateUpdated: string | null;
+  errorCode: number | null;
+  errorMessage: string | null;
+  messagingServiceSid: string | null;
+  uri: string | null;
+};
+
+type TwilioListMessagesRequest = {
+  accountSid: string;
+  authToken?: string;
+  apiKeySid?: string;
+  apiKeySecret?: string;
+  to?: string;
+  from?: string;
+  dateSent?: string;
+  dateSentAfter?: string;
+  dateSentBefore?: string;
+  pageSize?: number;
+  pageToken?: string;
+  nextPageUri?: string | null;
+};
+
+export type TwilioListMessagesPage = {
+  messages: TwilioMessageRecord[];
+  nextPageUri: string | null;
+};
+
 export type TwilioSmsDeliveryStatus = 'queued' | 'sent' | 'delivered' | 'undelivered' | 'failed';
 
 type TwilioErrorPayload = {
@@ -30,6 +66,10 @@ function toBase64(value: string): string {
   }
 
   return Buffer.from(value, 'utf-8').toString('base64');
+}
+
+function buildBasicAuthHeader(username: string, password: string): string {
+  return `Basic ${toBase64(`${username}:${password}`)}`;
 }
 
 function parseTwilioErrorPayload(raw: string): TwilioErrorPayload | null {
@@ -82,10 +122,45 @@ export function buildTwilioSmsRequest(params: TwilioSmsRequest): {
     init: {
       method: 'POST',
       headers: {
-        authorization: `Basic ${toBase64(`${params.apiKeySid}:${params.apiKeySecret}`)}`,
+        authorization: buildBasicAuthHeader(params.apiKeySid, params.apiKeySecret),
         'content-type': 'application/x-www-form-urlencoded;charset=UTF-8',
       },
       body: body.toString(),
+    },
+  };
+}
+
+export function buildTwilioListMessagesRequest(params: TwilioListMessagesRequest): {
+  url: string;
+  init: RequestInit;
+} {
+  const url = params.nextPageUri
+    ? new URL(params.nextPageUri, 'https://api.twilio.com')
+    : new URL(`https://api.twilio.com/2010-04-01/Accounts/${params.accountSid}/Messages.json`);
+
+  if (!params.nextPageUri) {
+    if (params.to) url.searchParams.set('To', params.to);
+    if (params.from) url.searchParams.set('From', params.from);
+    if (params.dateSent) url.searchParams.set('DateSent', params.dateSent);
+    if (params.dateSentAfter) url.searchParams.set('DateSentAfter', params.dateSentAfter);
+    if (params.dateSentBefore) url.searchParams.set('DateSentBefore', params.dateSentBefore);
+    if (params.pageSize) url.searchParams.set('PageSize', String(params.pageSize));
+    if (params.pageToken) url.searchParams.set('PageToken', params.pageToken);
+  }
+
+  const username = params.apiKeySid ?? params.accountSid;
+  const password = params.apiKeySecret ?? params.authToken;
+  if (!password) {
+    throw new Error('Twilio list messages auth credentials are required');
+  }
+
+  return {
+    url: url.toString(),
+    init: {
+      method: 'GET',
+      headers: {
+        authorization: buildBasicAuthHeader(username, password),
+      },
     },
   };
 }
@@ -181,5 +256,75 @@ export async function sendTwilioSmsMessage(
   return {
     messageSid: body?.sid ?? null,
     status: body?.status ?? null,
+  };
+}
+
+export async function listTwilioMessagesPage(
+  params: TwilioListMessagesRequest & { fetchImpl?: typeof fetch },
+): Promise<TwilioListMessagesPage> {
+  const { url, init } = buildTwilioListMessagesRequest(params);
+  const fetchImpl = params.fetchImpl ?? fetch;
+
+  let response: Response;
+  try {
+    response = await fetchImpl(url, init);
+  } catch (error) {
+    throw new RetryableDispatchError(
+      error instanceof Error ? error.message : 'Twilio request failed',
+    );
+  }
+
+  const raw = await response.text();
+  const parsed = parseTwilioErrorPayload(raw);
+
+  if (!response.ok) {
+    const message = parsed?.message?.trim() || `Twilio message list failed (${response.status})`;
+    if (isRetryableTwilioStatus(response.status)) {
+      throw new RetryableDispatchError(message, response.status);
+    }
+
+    throw new TerminalDispatchError(message, response.status);
+  }
+
+  const body = raw
+    ? (JSON.parse(raw) as {
+        messages?: Array<{
+          sid?: string | null;
+          status?: string | null;
+          to?: string | null;
+          from?: string | null;
+          body?: string | null;
+          direction?: string | null;
+          date_sent?: string | null;
+          date_created?: string | null;
+          date_updated?: string | null;
+          error_code?: number | null;
+          error_message?: string | null;
+          messaging_service_sid?: string | null;
+          uri?: string | null;
+        }>;
+        next_page_uri?: string | null;
+      })
+    : null;
+
+  return {
+    messages: (body?.messages ?? [])
+      .filter((message): message is NonNullable<typeof message> => Boolean(message?.sid))
+      .map((message) => ({
+        sid: message.sid as string,
+        status: message.status ?? null,
+        to: message.to ?? null,
+        from: message.from ?? null,
+        body: message.body ?? null,
+        direction: message.direction ?? null,
+        dateSent: message.date_sent ?? null,
+        dateCreated: message.date_created ?? null,
+        dateUpdated: message.date_updated ?? null,
+        errorCode: message.error_code ?? null,
+        errorMessage: message.error_message ?? null,
+        messagingServiceSid: message.messaging_service_sid ?? null,
+        uri: message.uri ?? null,
+      })),
+    nextPageUri: body?.next_page_uri ?? null,
   };
 }
