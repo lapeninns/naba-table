@@ -1,11 +1,11 @@
 
 import {
+  checkSlotAvailability,
   createBookingWithCapacityCheck,
   updateBookingWithCapacityCheck,
   type BookingResult as CapacityBookingResult,
 } from "@/server/capacity";
 import { getRestaurantSchedule } from "@/server/restaurants/schedule";
-import { isTimeWithinPeriod, selectMatchingPeriod } from "@/server/restaurants/servicePeriodMatching";
 import { getServiceSupabaseClient } from "@/server/supabase";
 
 
@@ -31,30 +31,6 @@ type ServiceFactoryOptions = {
   client?: DbClient;
   logger?: Logger;
   timeProvider?: TimeProvider;
-};
-
-type ServicePeriodRow = {
-  id: string;
-  name: string | null;
-  day_of_week: number | null;
-  start_time: string | null;
-  end_time: string | null;
-};
-
-type CapacityRuleRow = {
-  id: string;
-  service_period_id: string | null;
-  day_of_week: number | null;
-  effective_date: string | null;
-  max_covers: number | null;
-  max_parties: number | null;
-};
-
-type BookingRow = {
-  id: string;
-  party_size: number;
-  start_time: string | null;
-  status: string;
 };
 
 class SupabaseScheduleRepository implements ScheduleRepository {
@@ -85,100 +61,30 @@ class SupabaseCapacityService implements CapacityService {
 
   async checkAvailability(input: CapacityCheckInput): Promise<CapacityCheckResult> {
     try {
-      const dayOfWeek = resolveDayOfWeek(input.bookingDate);
+      const startMinutes = toMinutes(input.startTime);
+      const endMinutes = toMinutes(input.endTime);
+      const durationMinutes =
+        startMinutes !== null && endMinutes !== null
+          ? Math.max(endMinutes - startMinutes, 0)
+          : undefined;
 
-      const { data: periodRows, error: periodError } = await this.client
-        .from("restaurant_service_periods")
-        .select("id,name,day_of_week,start_time,end_time")
-        .eq("restaurant_id", input.restaurantId);
-
-      if (periodError) {
-        this.logWarn("Failed to load service periods for capacity check", {
+      const availability = await checkSlotAvailability(
+        {
           restaurantId: input.restaurantId,
-          error: periodError.message,
-        });
-        return unknownCapacityResult("service_period_query_failed", periodError.message);
-      }
+          date: input.bookingDate,
+          time: input.startTime,
+          partySize: input.partySize,
+          durationMinutes,
+        },
+        this.client,
+      );
 
-      const periods = (periodRows ?? []) as ServicePeriodRow[];
-      const matchingPeriod = selectMatchingPeriod(periods, input.startTime, dayOfWeek);
-
-      const { data: ruleRows, error: ruleError } = await this.client
-        // Table not present in generated Database types; cast to suppress schema mismatch.
-        .from("restaurant_capacity_rules" as never)
-        .select("id,service_period_id,day_of_week,effective_date,max_covers,max_parties")
-        .eq("restaurant_id", input.restaurantId);
-
-      if (ruleError) {
-        this.logWarn("Failed to load capacity rules", {
-          restaurantId: input.restaurantId,
-          error: ruleError.message,
-        });
-        return unknownCapacityResult("capacity_rule_query_failed", ruleError.message);
-      }
-
-      const rules = (ruleRows ?? []) as CapacityRuleRow[];
-      const activeRule = selectCapacityRule(rules, matchingPeriod?.id ?? null, input.bookingDate, dayOfWeek);
-
-      const maxCovers = activeRule?.max_covers ?? Number.MAX_SAFE_INTEGER;
-      const maxParties = activeRule?.max_parties ?? Number.MAX_SAFE_INTEGER;
-
-      const bookingsQuery = this.client
-        .from("bookings")
-        .select("id,party_size,start_time,status")
-        .eq("restaurant_id", input.restaurantId)
-        .eq("booking_date", input.bookingDate)
-        .not("status", "in", '("cancelled","no_show")');
-
-      if (input.bookingId) {
-        bookingsQuery.neq("id", input.bookingId);
-      }
-
-      const { data: bookingRows, error: bookingError } = await bookingsQuery;
-      if (bookingError) {
-        this.logWarn("Failed to load bookings for capacity check", {
-          restaurantId: input.restaurantId,
-          bookingDate: input.bookingDate,
-          error: bookingError.message,
-        });
-        return unknownCapacityResult("booking_query_failed", bookingError.message);
-      }
-
-      const relevantBookings = (bookingRows ?? []) as BookingRow[];
-
-      const applicableBookings = relevantBookings.filter((booking) => {
-        if (!matchingPeriod) {
-          return true;
-        }
-        if (!booking.start_time) {
-          return true;
-        }
-        return isTimeWithinPeriod(booking.start_time, matchingPeriod.start_time, matchingPeriod.end_time);
-      });
-
-      const bookedCovers = applicableBookings.reduce((total, booking) => total + (booking.party_size ?? 0), 0);
-      const bookedParties = applicableBookings.length;
-
-      const coversAfter = bookedCovers + input.partySize;
-      const partiesAfter = bookedParties + 1;
-
-      const capacityDetail = {
-        servicePeriod: matchingPeriod?.name ?? null,
-        servicePeriodId: matchingPeriod?.id ?? null,
-        maxCovers,
-        bookedCovers,
-        availableCovers: Math.max(maxCovers - bookedCovers, 0),
-        maxParties,
-        bookedParties,
-        availableParties: Math.max(maxParties - bookedParties, 0),
-      };
-
-      if (coversAfter > maxCovers || partiesAfter > maxParties) {
+      if (!availability.available) {
         return {
           ok: false,
           errorCode: "CAPACITY_EXCEEDED",
           detail: {
-            ...capacityDetail,
+            ...availability.metadata,
             requestedCovers: input.partySize,
             requestedParties: 1,
           },
@@ -187,7 +93,7 @@ class SupabaseCapacityService implements CapacityService {
 
       return {
         ok: true,
-        detail: capacityDetail,
+        detail: availability.metadata,
       };
     } catch (error) {
       this.logWarn("Unexpected error during capacity check", {
@@ -259,6 +165,16 @@ function assertValue<T>(value: T | null | undefined, field: string): T {
   return value;
 }
 
+function toMinutes(value: string): number | null {
+  const match = value.match(/^([0-9]{1,2}):([0-9]{2})(?::([0-9]{2}))?$/);
+  if (!match) {
+    return null;
+  }
+  const hours = Number.parseInt(match[1]!, 10);
+  const minutes = Number.parseInt(match[2]!, 10);
+  return hours * 60 + minutes;
+}
+
 function toCommitResult(result: CapacityBookingResult): CapacityCommitResult {
   return {
     success: result.success,
@@ -268,54 +184,6 @@ function toCommitResult(result: CapacityBookingResult): CapacityCommitResult {
     details: (result.details ?? undefined) as Record<string, unknown> | undefined,
     originalResult: result,
   };
-}
-
-function resolveDayOfWeek(isoDate: string): number {
-  const date = new Date(`${isoDate}T00:00:00Z`);
-  const day = Number.isNaN(date.getTime()) ? new Date().getUTCDay() : date.getUTCDay();
-  return day;
-}
-
-function selectCapacityRule(
-  rules: CapacityRuleRow[],
-  servicePeriodId: string | null,
-  bookingDate: string,
-  dayOfWeek: number,
-): CapacityRuleRow | null {
-  const eligible = rules.filter((rule) => {
-    const effectiveMatch = !rule.effective_date || rule.effective_date <= bookingDate;
-    const dayMatch = rule.day_of_week === null || rule.day_of_week === dayOfWeek;
-    const serviceMatch = rule.service_period_id === null || rule.service_period_id === servicePeriodId;
-    return effectiveMatch && dayMatch && serviceMatch;
-  });
-
-  if (eligible.length === 0) {
-    return null;
-  }
-
-  eligible.sort((a, b) => {
-    const effA = a.effective_date ?? "";
-    const effB = b.effective_date ?? "";
-    if (effA !== effB) {
-      return effA > effB ? -1 : 1;
-    }
-
-    const dayA = a.day_of_week ?? -1;
-    const dayB = b.day_of_week ?? -1;
-    if (dayA !== dayB) {
-      return dayA > dayB ? -1 : 1;
-    }
-
-    const serviceA = a.service_period_id ? 1 : 0;
-    const serviceB = b.service_period_id ? 1 : 0;
-    if (serviceA !== serviceB) {
-      return serviceA > serviceB ? -1 : 1;
-    }
-
-    return 0;
-  });
-
-  return eligible[0] ?? null;
 }
 
 function unknownCapacityResult(reason: string, message?: string): CapacityCheckResult {

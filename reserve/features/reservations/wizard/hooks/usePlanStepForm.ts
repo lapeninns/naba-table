@@ -17,6 +17,7 @@ import {
 import { isBookingOption } from '@reserve/shared/booking';
 import { formatDateForInput } from '@reserve/shared/formatting/booking';
 import { toMinutes } from '@reserve/shared/time';
+import { isWeekend, toDateMidnight } from '@reserve/shared/time/date';
 
 import { useWizardActions, useWizardState } from '../context/WizardContext';
 import { planFormSchema, type PlanFormValues } from '../model/schemas';
@@ -84,6 +85,33 @@ const parseDateKey = (value: string | null | undefined): Date | null => {
   return Number.isNaN(next.getTime()) ? null : next;
 };
 
+export const PLAN_DATE_ADVISORY_COPY =
+  'Weekend and holiday hours can vary. Contact the venue directly if you need to confirm availability before you travel.';
+
+export function derivePlanDateAdvisory(
+  date: string | null | undefined,
+  overrideDates: Iterable<string> | null | undefined,
+): string | null {
+  if (!date) {
+    return null;
+  }
+
+  let selectedDate: Date;
+  try {
+    selectedDate = toDateMidnight(date);
+  } catch {
+    return null;
+  }
+
+  const hasOverride = overrideDates ? new Set(Array.from(overrideDates)).has(date) : false;
+
+  if (!isWeekend(selectedDate) && !hasOverride) {
+    return null;
+  }
+
+  return PLAN_DATE_ADVISORY_COPY;
+}
+
 export const deriveMaskAvailability = (
   mask: CalendarMask,
   normalizedMinTimestamp: number,
@@ -132,6 +160,7 @@ type UnavailableDateTrackingArgs = {
 
 type UnavailableDateTrackingResult = {
   unavailableDates: Map<string, PlanStepUnavailableReason>;
+  overrideDates: Set<string>;
   prefetchVisibleMonth: (value: Date | null | undefined) => void;
   updateUnavailableDate: (dateKey: string, reason: PlanStepUnavailableReason | null) => void;
   normalizedMinDate: Date;
@@ -150,6 +179,7 @@ function useUnavailableDateTracking({
   const [unavailableDates, setUnavailableDates] = useState<Map<string, PlanStepUnavailableReason>>(
     () => new Map(),
   );
+  const [overrideDates, setOverrideDates] = useState<Set<string>>(() => new Set());
   const [loadingDates, setLoadingDates] = useState<Set<string>>(() => new Set());
 
   const normalizedMinDate = useMemo(() => {
@@ -193,6 +223,13 @@ function useUnavailableDateTracking({
     (mask: CalendarMask) => {
       deriveMaskAvailability(mask, normalizedMinTimestamp).forEach((reason, isoKey) => {
         updateUnavailableDate(isoKey, reason);
+      });
+      setOverrideDates((prev) => {
+        const next = new Set(prev);
+        for (const dateKey of mask.overrideDates ?? []) {
+          next.add(dateKey);
+        }
+        return next;
       });
     },
     [normalizedMinTimestamp, updateUnavailableDate],
@@ -302,6 +339,7 @@ function useUnavailableDateTracking({
     maskPrefetchedMonthsRef.current.clear();
     setLoadingDates(new Set());
     setUnavailableDates(new Map());
+    setOverrideDates(new Set());
   }, [restaurantSlug]);
 
   const currentUnavailabilityReason = useMemo<PlanStepUnavailableReason | null>(() => {
@@ -313,6 +351,7 @@ function useUnavailableDateTracking({
 
   return {
     unavailableDates,
+    overrideDates,
     prefetchVisibleMonth,
     updateUnavailableDate,
     normalizedMinDate,
@@ -405,6 +444,7 @@ export function usePlanStepForm({
 
   const {
     unavailableDates,
+    overrideDates,
     prefetchVisibleMonth,
     updateUnavailableDate,
     normalizedMinDate,
@@ -490,6 +530,10 @@ export function usePlanStepForm({
   });
 
   const debouncedPrefetch = useDebounce(prefetchVisibleMonth, 300);
+  const advisoryMessage = useMemo(
+    () => derivePlanDateAdvisory(state.details.date, overrideDates),
+    [overrideDates, state.details.date],
+  );
 
   const lastValidDateRef = useRef<string | null>(state.details.date ?? null);
 
@@ -826,6 +870,7 @@ export function usePlanStepForm({
     isScheduleFetching,
     schedule,
     currentUnavailabilityReason,
+    advisoryMessage,
     isSubmitting: form.formState.isSubmitting,
     isValid: form.formState.isValid,
     submitForm,

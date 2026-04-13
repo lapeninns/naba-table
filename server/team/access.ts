@@ -29,6 +29,32 @@ export type RestaurantMembershipWithDetails = Tables<"restaurant_memberships"> &
   } | null;
 };
 
+export class MembershipAccessError extends Error {
+  readonly status: number;
+  readonly code:
+    | "MEMBERSHIP_NOT_FOUND"
+    | "MEMBERSHIP_ROLE_DENIED"
+    | "MEMBERSHIP_VALIDATION_UNAVAILABLE";
+  readonly details?: unknown;
+
+  constructor(params: {
+    status: number;
+    code:
+      | "MEMBERSHIP_NOT_FOUND"
+      | "MEMBERSHIP_ROLE_DENIED"
+      | "MEMBERSHIP_VALIDATION_UNAVAILABLE";
+    message: string;
+    details?: unknown;
+    cause?: unknown;
+  }) {
+    super(params.message, params.cause ? { cause: params.cause } : undefined);
+    this.name = "MembershipAccessError";
+    this.status = params.status;
+    this.code = params.code;
+    this.details = params.details;
+  }
+}
+
 type RawMembershipRow = Tables<"restaurant_memberships"> & {
   restaurants?: { id: string; name: string | null; slug: string | null } | { id: string; name: string | null; slug: string | null }[] | null;
 };
@@ -46,6 +72,50 @@ function normalizeMembership(row: RawMembershipRow): RestaurantMembershipWithDet
     ...row,
     restaurants: normalized ?? null,
   };
+}
+
+function getErrorStatus(error: unknown): number | null {
+  if (!error || typeof error !== "object") return null;
+  const status = Reflect.get(error, "status");
+  return typeof status === "number" ? status : null;
+}
+
+function getErrorMessage(error: unknown): string {
+  if (!error || typeof error !== "object") return "";
+  const message = Reflect.get(error, "message");
+  return typeof message === "string" ? message : "";
+}
+
+function isMembershipBackendUnavailable(error: unknown): boolean {
+  const status = getErrorStatus(error);
+  if (status !== null && status >= 500) {
+    return true;
+  }
+
+  const normalizedMessage = getErrorMessage(error).toLowerCase();
+  return (
+    normalizedMessage.includes("bad gateway") ||
+    normalizedMessage.includes("gateway timeout") ||
+    normalizedMessage.includes("cloudflare") ||
+    normalizedMessage.includes("<!doctype html>") ||
+    normalizedMessage.includes("<html") ||
+    normalizedMessage.includes("upstream") ||
+    normalizedMessage.includes("fetch failed")
+  );
+}
+
+function mapMembershipQueryError(error: unknown): unknown {
+  if (!isMembershipBackendUnavailable(error)) {
+    return error;
+  }
+
+  return new MembershipAccessError({
+    status: 503,
+    code: "MEMBERSHIP_VALIDATION_UNAVAILABLE",
+    message: "Membership verification is temporarily unavailable",
+    details: error,
+    cause: error,
+  });
 }
 
 function getCachedMemberships(userId: string): RestaurantMembershipWithDetails[] | null {
@@ -88,7 +158,7 @@ export async function fetchUserMemberships(
     .eq("user_id", userId);
 
   if (error) {
-    throw error;
+    throw mapMembershipQueryError(error);
   }
 
   const rows = (data ?? []) as RawMembershipRow[];
@@ -117,6 +187,21 @@ export async function requireMembershipForRestaurant(params: {
   client?: DbClient;
 }): Promise<RestaurantMembershipWithDetails> {
   const { userId, restaurantId, allowedRoles = RESTAURANT_ROLES, client = getServiceSupabaseClient() } = params;
+  const cachedMemberships = getCachedMemberships(userId);
+  const cachedMatch = cachedMemberships?.find((membership) => membership.restaurant_id === restaurantId) ?? null;
+
+  if (cachedMatch) {
+    if (!allowedRoles.includes(cachedMatch.role as RestaurantRole)) {
+      throw new MembershipAccessError({
+        status: 403,
+        code: "MEMBERSHIP_ROLE_DENIED",
+        message: "Insufficient permissions for restaurant",
+        details: { role: cachedMatch.role, restaurantId, userId },
+      });
+    }
+
+    return cachedMatch;
+  }
 
   const { data, error } = await client
     .from("restaurant_memberships")
@@ -126,7 +211,7 @@ export async function requireMembershipForRestaurant(params: {
     .maybeSingle();
 
   if (error) {
-    throw error;
+    throw mapMembershipQueryError(error);
   }
 
   if (!data) {
@@ -136,7 +221,12 @@ export async function requireMembershipForRestaurant(params: {
       requiredRoles: allowedRoles,
       timestamp: new Date().toISOString(),
     });
-    throw Object.assign(new Error("Membership not found"), { code: "MEMBERSHIP_NOT_FOUND" as const });
+    throw new MembershipAccessError({
+      status: 403,
+      code: "MEMBERSHIP_NOT_FOUND",
+      message: "Membership not found",
+      details: { restaurantId, userId },
+    });
   }
 
   const casted = normalizeMembership(data as RawMembershipRow);
@@ -148,9 +238,11 @@ export async function requireMembershipForRestaurant(params: {
       actualRole: casted.role,
       timestamp: new Date().toISOString(),
     });
-    throw Object.assign(new Error("Insufficient permissions for restaurant"), {
-      code: "MEMBERSHIP_ROLE_DENIED" as const,
-      role: casted.role,
+    throw new MembershipAccessError({
+      status: 403,
+      code: "MEMBERSHIP_ROLE_DENIED",
+      message: "Insufficient permissions for restaurant",
+      details: { role: casted.role, restaurantId, userId },
     });
   }
 

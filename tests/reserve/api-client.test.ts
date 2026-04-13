@@ -35,4 +35,41 @@ describe('apiClient', () => {
       status: 409,
     });
   });
+
+  it('preserves the full server error body for alternative slot handling', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          code: 'CAPACITY_EXCEEDED',
+          message: 'No capacity available for 19:00.',
+          alternatives: [
+            { time: '18:30', available: true, utilizationPercent: 72 },
+            { time: '20:00', available: true, utilizationPercent: 61 },
+          ],
+          retryable: true,
+          retryAfter: 1,
+        }),
+        {
+          status: 409,
+          headers: { 'content-type': 'application/json' },
+        },
+      ),
+    );
+
+    const { apiClient } = await import('@reserve/shared/api/client');
+
+    await expect(apiClient.post('/bookings', {})).rejects.toMatchObject({
+      code: 'CAPACITY_EXCEEDED',
+      message: 'No capacity available for 19:00.',
+      status: 409,
+      body: expect.objectContaining({
+        alternatives: [
+          { time: '18:30', available: true, utilizationPercent: 72 },
+          { time: '20:00', available: true, utilizationPercent: 61 },
+        ],
+        retryable: true,
+        retryAfter: 1,
+      }),
+    });
+  });
 });
