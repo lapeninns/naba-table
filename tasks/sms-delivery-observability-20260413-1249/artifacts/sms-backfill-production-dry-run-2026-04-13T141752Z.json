@@ -1,0 +1,411 @@
+{
+  "summary": {
+    "env": "production",
+    "windowDays": 30,
+    "messageLimit": 500,
+    "fetchedTwilioMessages": 71,
+    "candidateTwilioMessages": 61,
+    "fetchedBookings": 517,
+    "alreadyRecorded": 1,
+    "matched": 8,
+    "ambiguous": 0,
+    "unmatched": 52,
+    "inserted": 0,
+    "insertFailed": 0
+  },
+  "samples": {
+    "matched": [
+      {
+        "messageSid": "SMdf04df704d50084a4ed68f8cd3686392",
+        "bookingId": "036d1696-ed6a-407d-9ae8-ca42550aeb63",
+        "restaurantId": "a050d1ad-1ee0-4ea0-abc2-22c3778aa52c",
+        "bookingReference": "DVXVJE2VFU",
+        "smsType": "booking_confirmation",
+        "matchedBy": "reference+phone",
+        "occurredAt": "Sun, 12 Apr 2026 17:01:19 +0000",
+        "providerStatus": "delivered",
+        "to": "+447932321660"
+      },
+      {
+        "messageSid": "SM2ba02d0415da6920df765da423f9e5e3",
+        "bookingId": "2b1be051-f90e-45a1-941e-19a4bde73994",
+        "restaurantId": "adf0252b-74f1-407c-9b3d-f03cd6c1f1c5",
+        "bookingReference": "T6VRPMSZF9",
+        "smsType": "booking_confirmation",
+        "matchedBy": "reference+phone",
+        "occurredAt": "Sun, 12 Apr 2026 17:00:59 +0000",
+        "providerStatus": "delivered",
+        "to": "+447789672723"
+      },
+      {
+        "messageSid": "SM30d1eef199c6134ca5656240b104c962",
+        "bookingId": "5ad6d4d0-15c1-4729-b187-b07441557e0a",
+        "restaurantId": "adf0252b-74f1-407c-9b3d-f03cd6c1f1c5",
+        "bookingReference": "JHEMAQ5HCF",
+        "smsType": "booking_confirmation",
+        "matchedBy": "reference+phone",
+        "occurredAt": "Sun, 12 Apr 2026 15:09:27 +0000",
+        "providerStatus": "delivered",
+        "to": "+447942928699"
+      },
+      {
+        "messageSid": "SM6540177fafed8742351dde2770e7712f",
+        "bookingId": "5ab9f947-6c68-4326-9b2c-c7e37e7af16f",
+        "restaurantId": "486de541-a307-4414-b0b1-f774a0e4a9fa",
+        "bookingReference": "78F5C9U4HW",
+        "smsType": "booking_confirmation",
+        "matchedBy": "reference+phone",
+        "occurredAt": "Sun, 12 Apr 2026 07:43:18 +0000",
+        "providerStatus": "sent",
+        "to": "+447931403832"
+      },
+      {
+        "messageSid": "SMc8ab7b097dc2bf14c4c2893f5de3be87",
+        "bookingId": "be6701a2-57f1-4220-8121-41bf9c312c62",
+        "restaurantId": "486de541-a307-4414-b0b1-f774a0e4a9fa",
+        "bookingReference": "FBSA3VU4KS",
+        "smsType": "booking_confirmation",
+        "matchedBy": "reference+phone",
+        "occurredAt": "Sun, 12 Apr 2026 07:41:43 +0000",
+        "providerStatus": "sent",
+        "to": "+447931403832"
+      },
+      {
+        "messageSid": "SM5158f80bca87a90ccb997a5437d9e92b",
+        "bookingId": "28b61f32-865d-42db-9fc7-78c174982222",
+        "restaurantId": "a050d1ad-1ee0-4ea0-abc2-22c3778aa52c",
+        "bookingReference": "UF46MVLTVW",
+        "smsType": "booking_confirmation",
+        "matchedBy": "reference+phone",
+        "occurredAt": "Sat, 11 Apr 2026 21:36:22 +0000",
+        "providerStatus": "delivered",
+        "to": "+447930888806"
+      },
+      {
+        "messageSid": "SMccdddb526ff58ffcad58c28d90b3da92",
+        "bookingId": "4228e1dd-e04c-44b5-a114-1b256f7803a2",
+        "restaurantId": "486de541-a307-4414-b0b1-f774a0e4a9fa",
+        "bookingReference": "VXRLWHYB72",
+        "smsType": "restaurant_cancellation",
+        "matchedBy": "reference+phone",
+        "occurredAt": "Sat, 11 Apr 2026 18:21:39 +0000",
+        "providerStatus": "delivered",
+        "to": "+447921360641"
+      },
+      {
+        "messageSid": "SMd5d8458134e0142acdb815e1197467db",
+        "bookingId": "34b5fc13-c5e2-4286-be93-960ffa6926e7",
+        "restaurantId": "a050d1ad-1ee0-4ea0-abc2-22c3778aa52c",
+        "bookingReference": "DRMLNDQSUQ",
+        "smsType": "booking_confirmation",
+        "matchedBy": "reference+phone",
+        "occurredAt": "Sat, 11 Apr 2026 17:22:05 +0000",
+        "providerStatus": "delivered",
+        "to": "+447599260572"
+      }
+    ],
+    "ambiguous": [],
+    "unmatched": [
+      {
+        "messageSid": "SM76f78f74660e7bdfd68436b4584f77d7",
+        "reason": "no_booking_for_phone",
+        "to": "+447708919166",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SMea5f77af8a89bc089aa9f89d74bbd979",
+        "reason": "no_booking_for_phone",
+        "to": "+447467586751",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SMb2d2e6021b8e99ed66394eeaafeb66cd",
+        "reason": "no_booking_for_phone",
+        "to": "+447467586751",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SM55f215554816b77ed86cb32558cf52fe",
+        "reason": "no_booking_for_phone",
+        "to": "+447539777650",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SM394e918c51d55010156006886f398d3e",
+        "reason": "no_booking_for_phone",
+        "to": "+447802284222",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SM849119a3a366e3878a2ab7db073f945a",
+        "reason": "no_booking_for_phone",
+        "to": "+447467586751",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SM6ca424ccb06061598447b7566dc9773b",
+        "reason": "no_booking_for_phone",
+        "to": "+447467586751",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SM645b09d2a61707ff6fec031776c0086b",
+        "reason": "no_booking_for_phone",
+        "to": "+447467586751",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SMf2fa1afe7488ad2ce0b8a7946ae77fa6",
+        "reason": "no_booking_for_phone",
+        "to": "+447467586751",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SM735300a22a4e819f6eab48b3aa249423",
+        "reason": "no_booking_for_phone",
+        "to": "+447467586751",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SM1d96e66c352e0046cb896abf58bafa47",
+        "reason": "no_booking_for_phone",
+        "to": "+447769657763",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SM709f0b170386586831da54374a471cb4",
+        "reason": "no_booking_for_phone",
+        "to": "+447378815082",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SM855f819bb7844e7d2fb451fc70b65947",
+        "reason": "no_booking_for_phone",
+        "to": "+447467586751",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SM941f30996c7cb177d2a9e426e660e068",
+        "reason": "no_booking_for_phone",
+        "to": "+447467586751",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SM73478bd2d68d80da90e33bea12cdd9a9",
+        "reason": "no_booking_for_phone",
+        "to": "+447467586751",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SM3d57355b74798087d9ee4ca7255b02d8",
+        "reason": "no_booking_for_phone",
+        "to": "+447467586751",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SMb8193c883ba66912f39c33f3a5ac23c6",
+        "reason": "no_booking_for_phone",
+        "to": "+447467586751",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SMcd34545480e08304d392417a990e3066",
+        "reason": "no_booking_for_phone",
+        "to": "+447915156319",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SM7320c754512f6149540b997c2e410a32",
+        "reason": "no_booking_for_phone",
+        "to": "+447876224174",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SM941837ab73763247685b7a0c618c1e87",
+        "reason": "no_booking_for_phone",
+        "to": "+447780696439",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SM8d64ca880535c8ec8b5e2d854d82d32b",
+        "reason": "no_booking_for_phone",
+        "to": "+447535151678",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SM861d239588fe26d002f58a1a9bd90ee1",
+        "reason": "no_booking_for_phone",
+        "to": "+447939881026",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SM7673abf69f1815fe336bca086b0af404",
+        "reason": "no_booking_for_phone",
+        "to": "+447985468397",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SM6edadce22b38429beb76718f0065e989",
+        "reason": "no_booking_for_phone",
+        "to": "+447517176396",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SM138d5507d870165309064a37b2b38db9",
+        "reason": "no_booking_for_phone",
+        "to": "+447465430951",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SM1c90c184559fc52ec5847b00c91ee29d",
+        "reason": "no_booking_for_phone",
+        "to": "+447913114830",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SMb59937544ca013c268b2257ac8b8a8d1",
+        "reason": "no_booking_for_phone",
+        "to": "+447467586751",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SMe29f7f69dfda7c47e9b2f3369e0788c8",
+        "reason": "no_booking_for_phone",
+        "to": "+447467586751",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SM6a0b7cbb7a0a5f90f58d82d549cd0878",
+        "reason": "no_booking_for_phone",
+        "to": "+447467586751",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SM4baec24d057c9fff04c81524572feca7",
+        "reason": "no_booking_for_phone",
+        "to": "+447467586751",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SMede68d7e03654bb4bcf0f5ad254a9ce1",
+        "reason": "no_booking_for_phone",
+        "to": "+447467586751",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SM015c6cacffe3d582620e04e097ee9291",
+        "reason": "no_booking_for_phone",
+        "to": "+447811813206",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SM3ea017ecbbfb34c8de4243de4de50c9b",
+        "reason": "no_booking_for_phone",
+        "to": "+447967042606",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SM6b3e37852a48d3054ffccf9cbfe472b0",
+        "reason": "no_booking_for_phone",
+        "to": "+447535151678",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SM2ff3bfc6812cc7fcce071423c21d0083",
+        "reason": "no_booking_for_phone",
+        "to": "+447467586751",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SM33aa93d671c5c171accaf5ee74b0c4a1",
+        "reason": "no_booking_for_phone",
+        "to": "+447467586751",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SM9cd09da406a711b24d1388ed68d6505a",
+        "reason": "no_booking_for_phone",
+        "to": "+447870779246",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SM5428418f90f6c4f4ed1886076b22f71d",
+        "reason": "no_booking_for_phone",
+        "to": "+447981297467",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SM7b5681f1b819f89f0005b22d8129390c",
+        "reason": "no_booking_for_phone",
+        "to": "+447467586751",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SMa9fef05109acd9aae73baa64c5cbeb2e",
+        "reason": "no_booking_for_phone",
+        "to": "+447467586751",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SM9b1695561abfee0f168e57e7ef60dd39",
+        "reason": "no_booking_for_phone",
+        "to": "+447467586751",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SM86591c78d25ea86396cbe99d0cb996bf",
+        "reason": "no_booking_for_phone",
+        "to": "+447467586751",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SMddd872b6c38fb289b8aab401d70e3ee4",
+        "reason": "no_booking_for_phone",
+        "to": "+447467586751",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SM3b700154132c299b8c443f86b264fb28",
+        "reason": "no_booking_for_phone",
+        "to": "+447811346821",
+        "providerStatus": "undelivered"
+      },
+      {
+        "messageSid": "SM85d54bdab478748537983a474f733d3c",
+        "reason": "no_booking_for_phone",
+        "to": "+447467586751",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SMdcd8b182584446b6988410367180ecd6",
+        "reason": "no_booking_for_phone",
+        "to": "+447467586751",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SMd19b8e35005001c4d58b39377d6cfc34",
+        "reason": "no_booking_for_phone",
+        "to": "+447467586751",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SM29bc20465e4019b6240ae77cd9337dbf",
+        "reason": "no_booking_for_phone",
+        "to": "+447467586751",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SM05f70affd3f1a18b0a9f4f577d12efdb",
+        "reason": "no_booking_for_phone",
+        "to": "+447467586751",
+        "providerStatus": "delivered"
+      },
+      {
+        "messageSid": "SM5a64021037bff3ba6fc405840c01363b",
+        "reason": "no_booking_for_phone",
+        "to": "+447467596751",
+        "providerStatus": "failed"
+      }
+    ]
+  }
+}

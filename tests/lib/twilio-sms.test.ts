@@ -3,6 +3,7 @@ import { createHmac } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 
 import {
+  buildTwilioListMessagesRequest,
   buildTwilioSmsRequest,
   mapTwilioMessageStatusToDeliveryStatus,
   validateTwilioWebhookSignature,
@@ -51,6 +52,41 @@ describe('buildTwilioSmsRequest', () => {
 
     expect(String(request.init.body)).toContain(
       'StatusCallback=https%3A%2F%2Fapp.nabatable.com%2Fapi%2Fwebhook%2Ftwilio%2Fsms-status',
+    );
+  });
+});
+
+describe('buildTwilioListMessagesRequest', () => {
+  it('builds a filtered messages list request', () => {
+    const request = buildTwilioListMessagesRequest({
+      accountSid: 'AC123',
+      authToken: 'auth-token',
+      to: '+447700900111',
+      dateSentAfter: '2026-04-01',
+      dateSentBefore: '2026-04-13',
+      pageSize: 200,
+    });
+
+    expect(request.url).toContain('/2010-04-01/Accounts/AC123/Messages.json');
+    expect(request.url).toContain('To=%2B447700900111');
+    expect(request.url).toContain('DateSentAfter=2026-04-01');
+    expect(request.url).toContain('DateSentBefore=2026-04-13');
+    expect(request.url).toContain('PageSize=200');
+    expect(request.init.method).toBe('GET');
+  });
+
+  it('uses next_page_uri verbatim when following pagination', () => {
+    const request = buildTwilioListMessagesRequest({
+      accountSid: 'AC123',
+      authToken: 'auth-token',
+      nextPageUri:
+        '/2010-04-01/Accounts/AC123/Messages.json?Page=1&PageToken=PAMM123&PageSize=50',
+      pageSize: 999,
+      to: '+447700900111',
+    });
+
+    expect(request.url).toBe(
+      'https://api.twilio.com/2010-04-01/Accounts/AC123/Messages.json?Page=1&PageToken=PAMM123&PageSize=50',
     );
   });
 });

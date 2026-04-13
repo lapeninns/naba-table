@@ -1,0 +1,119 @@
+{
+  "totalCount": 9,
+  "countError": null,
+  "sampleError": null,
+  "backfillRows": [
+    {
+      "booking_id": "036d1696-ed6a-407d-9ae8-ca42550aeb63",
+      "message_sid": "SMdf04df704d50084a4ed68f8cd3686392",
+      "status": "delivered",
+      "sms_type": "booking_confirmation",
+      "recipient_phone": "447932321660",
+      "occurred_at": "2026-04-12T17:01:19+00:00",
+      "metadata": {
+        "source": "twilio_historical_backfill",
+        "matchedBy": "reference+phone",
+        "twilioStatus": "delivered",
+        "twilioErrorCode": null
+      }
+    },
+    {
+      "booking_id": "2b1be051-f90e-45a1-941e-19a4bde73994",
+      "message_sid": "SM2ba02d0415da6920df765da423f9e5e3",
+      "status": "delivered",
+      "sms_type": "booking_confirmation",
+      "recipient_phone": "447789672723",
+      "occurred_at": "2026-04-12T17:00:59+00:00",
+      "metadata": {
+        "source": "twilio_historical_backfill",
+        "matchedBy": "reference+phone",
+        "twilioStatus": "delivered",
+        "twilioErrorCode": null
+      }
+    },
+    {
+      "booking_id": "5ad6d4d0-15c1-4729-b187-b07441557e0a",
+      "message_sid": "SM30d1eef199c6134ca5656240b104c962",
+      "status": "delivered",
+      "sms_type": "booking_confirmation",
+      "recipient_phone": "447942928699",
+      "occurred_at": "2026-04-12T15:09:27+00:00",
+      "metadata": {
+        "source": "twilio_historical_backfill",
+        "matchedBy": "reference+phone",
+        "twilioStatus": "delivered",
+        "twilioErrorCode": null
+      }
+    },
+    {
+      "booking_id": "5ab9f947-6c68-4326-9b2c-c7e37e7af16f",
+      "message_sid": "SM6540177fafed8742351dde2770e7712f",
+      "status": "sent",
+      "sms_type": "booking_confirmation",
+      "recipient_phone": "447931403832",
+      "occurred_at": "2026-04-12T07:43:18+00:00",
+      "metadata": {
+        "source": "twilio_historical_backfill",
+        "matchedBy": "reference+phone",
+        "twilioStatus": "sent",
+        "twilioErrorCode": null
+      }
+    },
+    {
+      "booking_id": "be6701a2-57f1-4220-8121-41bf9c312c62",
+      "message_sid": "SMc8ab7b097dc2bf14c4c2893f5de3be87",
+      "status": "sent",
+      "sms_type": "booking_confirmation",
+      "recipient_phone": "447931403832",
+      "occurred_at": "2026-04-12T07:41:43+00:00",
+      "metadata": {
+        "source": "twilio_historical_backfill",
+        "matchedBy": "reference+phone",
+        "twilioStatus": "sent",
+        "twilioErrorCode": null
+      }
+    },
+    {
+      "booking_id": "28b61f32-865d-42db-9fc7-78c174982222",
+      "message_sid": "SM5158f80bca87a90ccb997a5437d9e92b",
+      "status": "delivered",
+      "sms_type": "booking_confirmation",
+      "recipient_phone": "447930888806",
+      "occurred_at": "2026-04-11T21:36:22+00:00",
+      "metadata": {
+        "source": "twilio_historical_backfill",
+        "matchedBy": "reference+phone",
+        "twilioStatus": "delivered",
+        "twilioErrorCode": null
+      }
+    },
+    {
+      "booking_id": "4228e1dd-e04c-44b5-a114-1b256f7803a2",
+      "message_sid": "SMccdddb526ff58ffcad58c28d90b3da92",
+      "status": "delivered",
+      "sms_type": "restaurant_cancellation",
+      "recipient_phone": "447921360641",
+      "occurred_at": "2026-04-11T18:21:39+00:00",
+      "metadata": {
+        "source": "twilio_historical_backfill",
+        "matchedBy": "reference+phone",
+        "twilioStatus": "delivered",
+        "twilioErrorCode": null
+      }
+    },
+    {
+      "booking_id": "34b5fc13-c5e2-4286-be93-960ffa6926e7",
+      "message_sid": "SMd5d8458134e0142acdb815e1197467db",
+      "status": "delivered",
+      "sms_type": "booking_confirmation",
+      "recipient_phone": "447599260572",
+      "occurred_at": "2026-04-11T17:22:05+00:00",
+      "metadata": {
+        "source": "twilio_historical_backfill",
+        "matchedBy": "reference+phone",
+        "twilioStatus": "delivered",
+        "twilioErrorCode": null
+      }
+    }
+  ]
+}
