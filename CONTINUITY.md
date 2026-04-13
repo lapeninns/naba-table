@@ -1,6 +1,6 @@
 # Continuity Ledger
 
-Last updated: 2026-04-12T09:16:00Z
+Last updated: 2026-04-13T10:13:00Z
 
 ## Goal (incl. success criteria)
 
@@ -63,6 +63,7 @@ Last updated: 2026-04-12T09:16:00Z
 
 ## State
 
+- Phase 4: `tasks/posthog-public-booking-root-fix-20260413-1008/` is implemented and verified for the public booking landmark-root fix and embedded wizard fallback behavior.
 - Phase 6: manager-summary SMS cutover is implemented, deployed, and now aligned to the real production Supabase project `vrdiqfudmwydclqpydee`.
 - Phase 4: `tasks/stack-party-time-fields-20260411-2040/` is implemented and browser-verified for the ops booking edit dialog layout adjustment.
 - Phase 3/4: guest confirmation SMS + first-confirmation email rule is implemented in code and covered by focused automated verification.
@@ -78,6 +79,10 @@ Last updated: 2026-04-12T09:16:00Z
 
 ## Done
 
+- Created task artifacts under `tasks/posthog-public-booking-root-fix-20260413-1008/`.
+- Fixed the reserve booking wizard suspense fallback so embedded public booking pages can render without introducing a nested page-level `<main>`.
+- Added focused regression coverage to keep public booking hub, public booking message pages, restaurant booking entry, and embedded booking wizard layout free of nested `<main>` landmarks.
+- Browser-verified `/bookings`, `/restaurants/the-old-crown-girton/book`, `/bookings/recover/error`, and `/restaurants/the-old-crown-girton/book/thank-you` with single-main DOM checks and captured screenshots/Lighthouse artifacts.
 - Confirmed the existing ops dashboard summary path could be extended without creating a second business-rules path.
 - Removed the exploratory Vercel/Meta route and env wiring.
 - Created task artifacts under `tasks/whatsapp-booking-summary-20260411-0951/`.
@@ -144,6 +149,7 @@ Last updated: 2026-04-12T09:16:00Z
 
 ## Now
 
+- Hand off the public booking landmark-root fix cleanly with task artifacts, focused regression tests, and browser proof.
 - Hand off the small ops edit-dialog layout tweak cleanly; `ScheduleAwareTimestampPicker` now stacks date, party size, and time vertically in the canonical edit flow.
 - Hand off the luminous booking redesign cleanly with task artifacts, updated skill/rule precedence, and captured browser verification evidence.
 - Rebuild the booking journey from the current live code, not from earlier redesign notes, so the public entry, wizard, detail, thank-you, recovery, and receipt surfaces converge on one visual system.
@@ -159,6 +165,7 @@ Last updated: 2026-04-12T09:16:00Z
 
 ## Next
 
+- If the linked PostHog event still appears after deploy, inspect the event payload directly in PostHog to determine whether the remaining source is unrelated browser-storage noise or the existing booking-page warnings.
 - If a follow-up request comes in, fix the dev harness `dev-restaurant` schedule/calendar-mask `404` responses so edit-dialog availability can be fully exercised in-browser.
 - Continue tightening the booking-flow spacing and component psychology now that the party-size controller regression is fixed at the form-state level.
 - Implement the new `booking-journey-design-system-rebuild-20260411-1954` plan across the route shells and shared booking components, then recapture browser proof.

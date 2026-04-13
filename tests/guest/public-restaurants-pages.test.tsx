@@ -18,7 +18,8 @@ const notFound = vi.hoisted(() =>
 
 vi.mock('next/navigation', () => ({ notFound }));
 vi.mock('next/image', () => ({
-  default: (props: ComponentProps<'img'>) => <img {...props} />,
+  // eslint-disable-next-line @next/next/no-img-element
+  default: (props: ComponentProps<'img'>) => <img alt={props.alt ?? ''} {...props} />,
 }));
 vi.mock('next/link', () => ({
   default: ({ href, children, ...props }: { href: string; children: ReactNode }) => (
@@ -113,9 +114,10 @@ describe('public restaurant marketing pages', () => {
       address: '1 High Street',
     });
 
-    render(await BookingPage({ params: Promise.resolve({ slug: 'the-fox' }) }));
+    const { container } = render(await BookingPage({ params: Promise.resolve({ slug: 'the-fox' }) }));
 
     expect(screen.getByText('Wizard for The Fox')).toBeInTheDocument();
+    expect(container.querySelector('main')).not.toBeInTheDocument();
   });
 
   it('returns notFound when booking restaurant is missing', async () => {

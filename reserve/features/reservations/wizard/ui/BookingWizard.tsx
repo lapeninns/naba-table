@@ -28,16 +28,18 @@ const ReviewStep = React.lazy(() =>
 import type { BookingDetails, BookingWizardMode } from '../model/reducer';
 import type { CalendarMask } from '@reserve/features/reservations/wizard/services/schedule';
 
-function LoadingFallback() {
+function LoadingFallback({ layoutElement = 'main' }: { layoutElement?: 'main' | 'div' }) {
+  const Container = layoutElement === 'div' ? 'div' : 'main';
+
   return (
-    <main className="flex min-h-screen w-full items-center justify-center bg-slate-50 px-4 py-12">
+    <Container className="flex min-h-screen w-full items-center justify-center bg-slate-50 px-4 py-12">
       <div className="space-y-3 text-center text-slate-600">
         <Loader2 className="mx-auto h-8 w-8 animate-spin" aria-hidden />
         <p className="text-base" role="status">
           Loading reservation flow…
         </p>
       </div>
-    </main>
+    </Container>
   );
 }
 
@@ -314,7 +316,7 @@ export function BookingWizard({
   contentClassName,
 }: BookingWizardProps = {}) {
   return (
-    <Suspense fallback={<LoadingFallback />}>
+    <Suspense fallback={<LoadingFallback layoutElement={layoutElement} />}>
       <BookingWizardContent
         initialDetails={initialDetails}
         mode={mode}

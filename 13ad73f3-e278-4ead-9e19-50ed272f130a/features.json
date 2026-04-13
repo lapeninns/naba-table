@@ -1,0 +1,251 @@
+{
+  "features": [
+    {
+      "id": "bookings-hub-design-consistency",
+      "description": "Align `/bookings` to the mission's guest-booking design contract while preserving current copy, CTA labels, destinations, and signed-in/signed-out handoffs. Use the existing page as the visual source of truth and tighten the public hub's responsive layout for mobile-first booking entry.",
+      "skillName": "booking-ui-worker",
+      "preconditions": [
+        "Guest booking mission AGENTS guidance is in place",
+        "Shared server on port 3000 is available for browser verification",
+        "Workers understand that `/bookings` is the visual source of truth, not a redesign target with new behavior"
+      ],
+      "expectedBehavior": [
+        "The `/bookings` hero, card headings, supporting copy, and CTA labels remain unchanged unless a tiny UX wording fix is explicitly justified",
+        "`Browse restaurants` still goes to `/restaurants`",
+        "`View my bookings` preserves the existing signed-out redirect and signed-in destination behavior",
+        "`Sign in` still targets `/auth/signin?redirectedFrom=/bookings`",
+        "Mobile layout keeps the cards stacked, CTAs full-width, and avoids horizontal scrolling"
+      ],
+      "verificationSteps": [
+        "pnpm exec vitest run tests/guest/guest-view-models.test.ts tests/guest/public-restaurants-pages.test.tsx --reporter=verbose",
+        "pnpm typecheck",
+        "npx eslint --ext .ts,.tsx \"src/app/(public)/bookings\"",
+        "Manual: verify `/bookings` on mobile and desktop against the validation contract, including CTA targets and signed-out auth handoff"
+      ],
+      "fulfills": [
+        "VAL-HUB-001",
+        "VAL-HUB-002",
+        "VAL-HUB-003",
+        "VAL-HUB-004",
+        "VAL-HUB-005",
+        "VAL-HUB-006",
+        "VAL-HUB-007"
+      ],
+      "milestone": "shell-alignment",
+      "status": "in_progress",
+      "workerSessionIds": ["674f39ab-085d-41dd-8a68-0347b4ac6de5"]
+    },
+    {
+      "id": "restaurant-booking-shell-alignment",
+      "description": "Bring `/restaurants/[slug]/book` onto the same guest-booking visual system as `/bookings` without changing the route's venue resolution, step model, or booking behavior. Keep the discovery-to-booking handoff coherent and measurable across the two surfaces.",
+      "skillName": "booking-ui-worker",
+      "preconditions": [
+        "Bookings hub design contract is understood as the visual source of truth",
+        "Restaurant booking route and `ReservationWizardClient` remain the canonical entry into the wizard",
+        "No backend/slug-resolution changes are required"
+      ],
+      "expectedBehavior": [
+        "Valid restaurant slugs still load the venue-scoped booking wizard and invalid slugs still resolve to not-found behavior",
+        "The booking route shares guest-booking shell language, card treatment, and CTA prominence with `/bookings`",
+        "The `/bookings` to restaurant-discovery to restaurant-booking journey feels like one consistent frontend system without changing route behavior"
+      ],
+      "verificationSteps": [
+        "pnpm exec vitest run tests/guest/public-restaurants-pages.test.tsx --reporter=verbose",
+        "pnpm typecheck",
+        "npx eslint --ext .ts,.tsx \"src/app/(public)/(marketing)/restaurants/[slug]\" \"src/components/features/booking/wizard/ReservationWizardClient.tsx\" \"reserve/features/reservations/wizard\"",
+        "Manual: compare `/bookings` and `/restaurants/[slug]/book` on mobile and desktop for shell continuity and preserved slug behavior"
+      ],
+      "fulfills": ["VAL-FLOW-001", "VAL-CROSS-001"],
+      "milestone": "shell-alignment",
+      "status": "pending",
+      "workerSessionIds": []
+    },
+    {
+      "id": "detail-route-consistency-and-guards",
+      "description": "Align the canonical public and guest booking-detail surfaces to one shared bookings-system shell without changing their route-specific access behavior. Focus this feature on visible summary, card, and layout consistency only.",
+      "skillName": "booking-ui-worker",
+      "preconditions": [
+        "Shared detail implementation path through `src/app/(public)/bookings/booking-page.tsx` is understood",
+        "Recovery and auth route semantics are treated as immutable and out of scope for this feature",
+        "Detail UI changes remain frontend-only"
+      ],
+      "expectedBehavior": [
+        "Public and guest detail surfaces stay on the shared shell pattern while preserving existing summary and action affordances",
+        "No route-guard, redirect, or token semantics are changed by this shell-alignment work"
+      ],
+      "verificationSteps": [
+        "pnpm exec vitest run tests/guest/guest-bookings-params.test.ts tests/guest/guest-view-models.test.ts --reporter=verbose",
+        "pnpm typecheck",
+        "npx eslint --ext .ts,.tsx \"src/app/(public)/bookings\" \"src/app/guest/bookings\" \"src/components/features/booking/detail\" \"src/components/features/booking/ui\"",
+        "Manual: verify `/bookings/[bookingId]` and `/guest/bookings/[bookingId]` share the same visual shell pattern on mobile and desktop"
+      ],
+      "fulfills": ["VAL-DETAIL-003"],
+      "milestone": "shell-alignment",
+      "status": "pending",
+      "workerSessionIds": []
+    },
+    {
+      "id": "confirmation-surface-shell-alignment",
+      "description": "Align the in-flow confirmation state and the restaurant thank-you surfaces with the guest booking design system while preserving existing copy, route destinations, and the canonical restaurant thank-you redirect chain.",
+      "skillName": "booking-ui-worker",
+      "preconditions": [
+        "Restaurant booking wizard confirmation state remains inside the existing step-4 flow",
+        "Restaurant thank-you routes remain public and redirect topology stays unchanged",
+        "The feature does not replace the lightweight thank-you card with a new receipt flow"
+      ],
+      "expectedBehavior": [
+        "Wizard confirmation still shows guest-safe booking essentials before exit",
+        "`/restaurants/[slug]/book/thank-you` keeps its current lightweight confirmation experience and CTA set",
+        "`/restaurants/[slug]/thank-you` still redirects into the canonical thank-you route"
+      ],
+      "verificationSteps": [
+        "pnpm exec vitest run tests/guest/public-restaurants-pages.test.tsx tests/guest/public-booking-redirects.test.ts --reporter=verbose",
+        "pnpm typecheck",
+        "npx eslint --ext .ts,.tsx \"src/app/(public)/(marketing)/restaurants/[slug]\" \"src/components/restaurants/PublicSections.tsx\" \"reserve/features/reservations/wizard\"",
+        "Manual: verify the wizard confirmation state plus both restaurant thank-you entry routes on mobile and desktop"
+      ],
+      "fulfills": ["VAL-CONFIRM-001", "VAL-CONFIRM-002", "VAL-CONFIRM-003"],
+      "milestone": "shell-alignment",
+      "status": "pending",
+      "workerSessionIds": []
+    },
+    {
+      "id": "booking-wizard-mobile-form-hardening",
+      "description": "Improve the booking wizard for fast one-hand mobile use while preserving current plan gating, details validation, review/edit loops, sticky navigation behavior, and guest-safe confirmation/error messaging.",
+      "skillName": "booking-ui-worker",
+      "preconditions": [
+        "The restaurant booking shell alignment feature has landed or is understood",
+        "The worker will preserve the Plan → Details → Review → Confirmation state model",
+        "No server/API behavior changes are needed to satisfy the validation contract"
+      ],
+      "expectedBehavior": [
+        "Plan step still blocks progression until a real bookable plan is complete",
+        "Details step still enforces current guest contact rules before review",
+        "Mobile sticky navigation remains reachable and does not clip or cover controls",
+        "Review preserves entered booking data and safe back/edit behavior",
+        "Submit outcomes remain guest-safe across confirmation, duplicate, offline, and timeout recovery states"
+      ],
+      "verificationSteps": [
+        "pnpm exec vitest run tests/a11y/planStepForm.a11y.test.tsx tests/guest/public-restaurants-pages.test.tsx --reporter=verbose",
+        "pnpm typecheck",
+        "npx eslint --ext .ts,.tsx \"reserve/features/reservations/wizard\" \"src/components/features/booking/wizard/ReservationWizardClient.tsx\"",
+        "Manual: run the mobile booking flow on `/restaurants/[slug]/book`, covering plan gating, details validation, sticky actions, review/edit, and guest-safe submit states"
+      ],
+      "fulfills": ["VAL-FLOW-002", "VAL-FLOW-003", "VAL-FLOW-004", "VAL-FLOW-005", "VAL-FLOW-006"],
+      "milestone": "mobile-flow",
+      "status": "pending",
+      "workerSessionIds": []
+    },
+    {
+      "id": "receipt-detail-mobile-actions-and-rebook",
+      "description": "Unify the detailed confirmation and management destinations so receipt and detail surfaces share a stable mobile-first summary/action hierarchy, preserve receipt access rules, and keep rebook continuity back into the correct restaurant booking flow.",
+      "skillName": "booking-ui-worker",
+      "preconditions": [
+        "Receipt and detail surfaces continue to rely on shared booking primitives",
+        "Token-based receipt access remains valid and distinct from deprecated public detail token handling",
+        "Rebook behavior continues to route through the existing restaurant booking flow"
+      ],
+      "expectedBehavior": [
+        "`/guest/bookings/[bookingId]/receipt` remains the canonical detailed confirmation surface",
+        "Receipt access rules still distinguish signed-in entry, token-only entry, and sign-in redirect fallback",
+        "Token-only receipt entry still shows the manage-faster sign-in prompt",
+        "Public/guest detail and receipt surfaces keep a stable mobile summary/action hierarchy",
+        "`Book Again` still returns guests to the correct restaurant booking flow when a usable slug exists"
+      ],
+      "verificationSteps": [
+        "pnpm exec vitest run tests/guest/public-booking-redirects.test.ts tests/guest/guest-bookings-params.test.ts --reporter=verbose",
+        "pnpm typecheck",
+        "npx eslint --ext .ts,.tsx \"src/app/guest/bookings\" \"src/components/features/booking/detail\" \"src/components/features/booking/ui\"",
+        "Manual: verify thank-you, receipt, and detail mobile action hierarchy, token-only receipt prompt, and rebook continuity into `/restaurants/[slug]/book`"
+      ],
+      "fulfills": [
+        "VAL-CONFIRM-005",
+        "VAL-CONFIRM-006",
+        "VAL-CONFIRM-007",
+        "VAL-DETAIL-007",
+        "VAL-CROSS-003",
+        "VAL-CROSS-005"
+      ],
+      "milestone": "mobile-flow",
+      "status": "pending",
+      "workerSessionIds": []
+    },
+    {
+      "id": "alias-and-receipt-handoff-consistency",
+      "description": "Complete the confirmation/redirect continuity work by preserving the canonical thank-you-to-receipt chain, top-level thank-you alias behavior, and redirect-only checkpoint routes across the guest booking journey.",
+      "skillName": "booking-ui-worker",
+      "preconditions": [
+        "Canonical thank-you, receipt, and detail surfaces are already identified and remain unchanged as destinations",
+        "Alias behavior is treated as a route invariant",
+        "This feature does not own recovery failure-state UI"
+      ],
+      "expectedBehavior": [
+        "`/bookings/[bookingId]/thank-you` and `/thank-you?bookingId=...` still funnel into the canonical receipt route with query continuity",
+        "Confirmation exits still flow into the canonical receipt journey when booking identity exists",
+        "Redirect-only aliases continue to behave as checkpoints, not standalone experiences"
+      ],
+      "verificationSteps": [
+        "pnpm exec vitest run tests/guest/public-booking-redirects.test.ts tests/guest/guest-bookings-params.test.ts tests/guest/guest-view-models.test.ts --reporter=verbose",
+        "pnpm typecheck",
+        "npx eslint --ext .ts,.tsx \"src/app/(public)/bookings\" \"src/app/guest/bookings\" \"src/components/features/booking/detail\" \"src/components/features/booking/ui\"",
+        "Manual: verify `/bookings/[bookingId]/thank-you`, `/thank-you?bookingId=...`, confirmation exit chains, and alias redirect continuity"
+      ],
+      "fulfills": ["VAL-CONFIRM-004", "VAL-CONFIRM-008", "VAL-CROSS-002", "VAL-CROSS-004"],
+      "milestone": "confirmation-recovery",
+      "status": "pending",
+      "workerSessionIds": []
+    },
+    {
+      "id": "recovery-and-guest-safe-fallback-states",
+      "description": "Harden recovery-route behavior and guest-safe failure states across public detail, receipt, and recovery error pages without changing canonical destinations or backend semantics.",
+      "skillName": "booking-ui-worker",
+      "preconditions": [
+        "Alias and receipt handoff behavior remains unchanged",
+        "Recovery route semantics stay server-owned and frontend work must preserve them",
+        "Shared detail and receipt fallback components are available to extend"
+      ],
+      "expectedBehavior": [
+        "Recovery route still maps invalid token states safely and sanitizes `next`",
+        "Recovery error page still shows code-specific guest-safe guidance with only the current exit actions",
+        "Receipt load failures stay in a guest-safe fallback state instead of exposing raw errors",
+        "Degraded recovery sessions on public detail fail into the shared guest-safe detail error state"
+      ],
+      "verificationSteps": [
+        "pnpm exec vitest run tests/guest/public-booking-redirects.test.ts tests/guest/guest-view-models.test.ts --reporter=verbose",
+        "pnpm typecheck",
+        "npx eslint --ext .ts,.tsx \"src/app/(public)/bookings\" \"src/app/guest/bookings\" \"src/components/features/booking/detail\" \"src/components/features/booking/ui\"",
+        "Manual: verify `/bookings/recover/error`, degraded detail fallback, and receipt error fallback states"
+      ],
+      "fulfills": ["VAL-CONFIRM-009", "VAL-DETAIL-006", "VAL-DETAIL-008", "VAL-DETAIL-009"],
+      "milestone": "confirmation-recovery",
+      "status": "pending",
+      "workerSessionIds": []
+    },
+    {
+      "id": "detail-route-guard-preservation",
+      "description": "Protect the public and guest booking-detail route contracts while frontend consistency work lands. Preserve recovery-link handoff, auth redirects, and deprecated-token behavior so shell changes do not break access semantics.",
+      "skillName": "booking-ui-worker",
+      "preconditions": [
+        "Detail shell alignment work is complete or understood",
+        "Route guards and recovery handoffs are treated as immutable behavior contracts",
+        "This feature may adjust thin route wrappers or guard-related UI only as needed to preserve behavior"
+      ],
+      "expectedBehavior": [
+        "Public recovery-link entry still strips access tokens from the final detail URL after handoff",
+        "Public and guest unsigned access still redirect to the correct sign-in targets",
+        "Legacy `?token=` detail access still fails through the deprecated recovery path",
+        "No shell-consistency change regresses booking-detail route guards"
+      ],
+      "verificationSteps": [
+        "pnpm exec vitest run tests/guest/public-booking-redirects.test.ts tests/guest/guest-bookings-params.test.ts --reporter=verbose",
+        "pnpm typecheck",
+        "npx eslint --ext .ts,.tsx \"src/app/(public)/bookings\" \"src/app/guest/bookings\"",
+        "Manual: verify `/bookings/[bookingId]?access_token=...`, signed-out `/bookings/[bookingId]`, signed-out `/guest/bookings/[bookingId]`, and `/bookings/[bookingId]?token=...`"
+      ],
+      "fulfills": ["VAL-DETAIL-001", "VAL-DETAIL-002", "VAL-DETAIL-004", "VAL-DETAIL-005"],
+      "milestone": "confirmation-recovery",
+      "status": "pending",
+      "workerSessionIds": []
+    }
+  ]
+}

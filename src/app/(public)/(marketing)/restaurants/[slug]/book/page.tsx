@@ -32,10 +32,10 @@ export default async function BookingPage({ params }: { params: RouteParams }) {
   }
 
   return (
-    <main className="guest-theme bg-gradient-to-b from-slate-50 via-white to-slate-50 px-4 py-8 sm:px-6 sm:py-10">
-      <div className="mx-auto max-w-5xl rounded-[var(--guest-radius-2xl)] border border-slate-100 bg-white p-4 sm:p-5 shadow-[var(--guest-shadow-xl)]">
+    <section className="bg-surface-warm px-5 py-8 sm:px-8 sm:py-12 lg:px-10">
+      <div className="mx-auto max-w-6xl rounded-[2rem] border border-border/60 bg-background/95 p-4 shadow-sm sm:p-6">
         <ReservationWizardClient restaurant={restaurant} />
       </div>
-    </main>
+    </section>
   );
 }

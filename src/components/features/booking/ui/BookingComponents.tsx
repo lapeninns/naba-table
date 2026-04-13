@@ -26,6 +26,47 @@ export function BookingDetailShell({ children }: { children: ReactNode }) {
   );
 }
 
+export function BookingMessageShell({
+  icon: Icon,
+  title,
+  description,
+  actions,
+  tone = 'info',
+}: {
+  icon: ElementType;
+  title: ReactNode;
+  description: ReactNode;
+  actions: ReactNode;
+  tone?: StatusTone;
+}) {
+  const palette = toneClasses[tone];
+
+  return (
+    <section className="bg-surface-warm px-5 py-10 sm:px-8 sm:py-14 lg:px-10">
+      <div className="mx-auto w-full max-w-2xl">
+        <Card
+          variant="featured"
+          className="animate-fade-in-up space-y-6 border border-border/60 bg-background/95 p-6 text-center shadow-sm sm:p-8"
+        >
+          <div
+            className={cn(
+              'mx-auto flex h-16 w-16 items-center justify-center rounded-full border',
+              palette.badge,
+            )}
+          >
+            <Icon className="h-7 w-7" aria-hidden />
+          </div>
+          <div className="space-y-3">
+            <h1 className="heading-hero">{title}</h1>
+            <p className="text-body-warm mx-auto max-w-xl">{description}</p>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">{actions}</div>
+        </Card>
+      </div>
+    </section>
+  );
+}
+
 export function BookingSummaryCard({
   title,
   reference,
@@ -149,7 +190,7 @@ export function InfoPanel({
 }
 
 export function ActionButtonRow({ children }: { children: ReactNode }) {
-  return <div className="flex gap-3 md:hidden">{children}</div>;
+  return <div className="flex flex-col gap-3 sm:flex-row md:hidden">{children}</div>;
 }
 
 export function BookingSidebarCard({ children }: { children: ReactNode }) {
@@ -229,7 +270,7 @@ export function SecondaryButton({
   return (
     <Button
       variant="outline"
-      className="rounded-full border-border hover:bg-muted font-medium px-5 min-h-[44px] btn-tactile focus-ring touch-feedback"
+      className="min-h-[44px] w-full justify-center rounded-full border-border px-5 font-medium hover:bg-muted btn-tactile focus-ring touch-feedback sm:w-auto"
       onClick={onClick}
       disabled={disabled}
     >
@@ -250,7 +291,7 @@ export function GhostButton({
   return (
     <Button
       variant="ghost"
-      className="rounded-full text-muted-foreground hover:text-foreground hover:bg-muted min-h-[44px]"
+      className="min-h-[44px] w-full justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground sm:w-auto"
       onClick={onClick}
       disabled={disabled}
     >

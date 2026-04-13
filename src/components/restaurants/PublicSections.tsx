@@ -15,6 +15,7 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 
+import { BookingMessageShell } from '@/components/features/booking/ui/BookingComponents';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -342,16 +343,13 @@ export function ReservationThankYouCard({
   body?: string;
 }) {
   return (
-    <main className="guest-theme flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-900 via-slate-950 to-slate-900 px-4 py-12 text-white">
-      <div className="w-full max-w-lg space-y-5 rounded-[var(--guest-radius-2xl)] border border-white/20 bg-white/5 p-8 text-center shadow-[var(--guest-shadow-xl)] backdrop-blur">
-        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-200/20 text-emerald-300">
-          <Sparkles className="h-10 w-10" aria-hidden />
-        </div>
-        <div className="space-y-2">
-          <h1 className="text-3xl font-semibold">{headline}</h1>
-          <p className="text-sm text-blue-100">{body}</p>
-        </div>
-        <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+    <BookingMessageShell
+      icon={Sparkles}
+      title={headline}
+      description={body}
+      tone="success"
+      actions={
+        <>
           <Button size="lg" className="w-full rounded-full sm:w-auto" asChild>
             <Link href="/guest/bookings">View my bookings</Link>
           </Button>
@@ -363,9 +361,9 @@ export function ReservationThankYouCard({
           >
             <Link href="/restaurants">Explore restaurants</Link>
           </Button>
-        </div>
-      </div>
-    </main>
+        </>
+      }
+    />
   );
 }
 
