@@ -6,7 +6,7 @@ import { useGuestPreferences } from '@/hooks/useGuestPreferences';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { emit } from '@/lib/analytics/emit';
 import { BOOKING_IN_PAST_CUSTOMER_MESSAGE } from '@/lib/bookings/messages';
-import { mapErrorToMessage } from '@reserve/shared/error';
+import { extractBookingSubmissionError, mapErrorToMessage } from '@reserve/shared/error';
 import { useStickyProgress } from '@reserve/shared/hooks/useStickyProgress';
 import { BOOKING_TYPES_UI, SEATING_PREFERENCES_UI } from '@shared/config/booking';
 import { runtime } from '@shared/config/runtime';
@@ -389,6 +389,7 @@ export function useReservationWizard(
         'error' in result ? result.error : null,
         'Unable to process booking',
       );
+      actions.setSubmissionError(null);
       actions.setError(message);
       return;
     }
@@ -398,9 +399,7 @@ export function useReservationWizard(
 
     actions.clearError();
     setPlanAlert(null);
-    actions.setLoading(true);
     actions.setSubmitting(true);
-    actions.goToStep(4);
 
     try {
       const submission = await mutation.mutateAsync({
@@ -429,6 +428,7 @@ export function useReservationWizard(
         actions.setLoading(false);
         actions.setSubmitting(false);
         actions.goToStep(originStep);
+        actions.setSubmissionError(null);
         setPlanAlert(null);
         return;
       }
@@ -473,6 +473,7 @@ export function useReservationWizard(
         actions.setLoading(false);
         actions.setSubmitting(false);
         actions.goToStep(originStep);
+        actions.setSubmissionError(null);
         actions.setError(
           'We could not confirm the booking in time. Please check your email before trying again.',
         );
@@ -495,16 +496,18 @@ export function useReservationWizard(
           bookingId: state.editingId ?? undefined,
         });
       }
-      const fallbackMessage = mapErrorToMessage(error, 'Unable to process booking');
-      const message = isPastBooking ? BOOKING_IN_PAST_CUSTOMER_MESSAGE : fallbackMessage;
+      const submissionError = extractBookingSubmissionError(error, 'Unable to process booking');
+      const message = isPastBooking ? BOOKING_IN_PAST_CUSTOMER_MESSAGE : submissionError.message;
       actions.setLoading(false);
       actions.setSubmitting(false);
       if (isPastBooking) {
         actions.goToStep(1);
         setPlanAlert(message);
+        actions.setSubmissionError(null);
         actions.setError(null);
       } else {
         actions.goToStep(originStep);
+        actions.setSubmissionError(submissionError);
         actions.setError(message);
         setPlanAlert(null);
       }

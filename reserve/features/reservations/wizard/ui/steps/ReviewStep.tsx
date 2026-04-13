@@ -19,6 +19,7 @@ import React from 'react';
 
 import { useReviewStep } from '@features/reservations/wizard/hooks/useReviewStep';
 import { formatBookingLabel } from '@reserve/shared/formatting/booking';
+import { formatReservationTime } from '@reserve/shared/formatting/booking';
 import { cn } from '@shared/lib/cn';
 import { Alert, AlertDescription, AlertIcon } from '@shared/ui/alert';
 import { Button } from '@shared/ui/button';
@@ -121,11 +122,13 @@ function TicketPerforation() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function ReviewStep(props: ReviewStepProps) {
-  const { details, summary, error } = useReviewStep(props);
+  const { details, summary, error, submissionError, handleAlternativeSelect } =
+    useReviewStep(props);
   const { goToStep } = useWizardNavigation();
 
   const emailDisplay = details.email?.trim() ? details.email : 'Not provided';
   const phoneDisplay = details.phone?.trim() ? details.phone : 'Not provided';
+  const alternativeSlots = submissionError?.alternatives ?? [];
 
   // Navigation handlers for edit buttons
   const handleEditPlan = () => goToStep(1);
@@ -157,7 +160,43 @@ export function ReviewStep(props: ReviewStepProps) {
               <AlertIcon>
                 <AlertTriangle className="h-4 w-4" aria-hidden />
               </AlertIcon>
-              <AlertDescription aria-live="polite">{error}</AlertDescription>
+              <AlertDescription aria-live="polite">
+                <div className="space-y-3">
+                  <p>{submissionError?.message ?? error}</p>
+
+                  {submissionError?.retryable && (
+                    <p className="text-xs text-destructive/90">
+                      That slot changed while you were booking. You can retry right away or choose
+                      another nearby time.
+                      {submissionError.retryAfter
+                        ? ` Suggested retry window: ${submissionError.retryAfter} second${submissionError.retryAfter === 1 ? '' : 's'}.`
+                        : ''}
+                    </p>
+                  )}
+
+                  {alternativeSlots.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-destructive/90">
+                        Nearby availability
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {alternativeSlots.map((slot) => (
+                          <Button
+                            key={slot.time}
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="border-destructive/30 bg-background text-foreground hover:bg-destructive/5"
+                            onClick={() => handleAlternativeSelect(slot.time)}
+                          >
+                            {formatReservationTime(slot.time)}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </AlertDescription>
             </Alert>
           )}
 

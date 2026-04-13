@@ -24,6 +24,7 @@ export type WizardActions = {
   setSubmitting: (value: boolean) => void;
   setLoading: (value: boolean) => void;
   setError: (message: string | null) => void;
+  setSubmissionError: (error: State['submissionError']) => void;
   clearError: () => void;
   setBookings: (bookings: State['bookings']) => void;
   applyConfirmation: (payload: ConfirmationPayload) => void;
@@ -44,7 +45,11 @@ const createActions = (
   setSubmitting: (value) => dispatch({ type: 'SET_SUBMITTING', value }),
   setLoading: (value) => dispatch({ type: 'SET_LOADING', value }),
   setError: (message) => dispatch({ type: 'SET_ERROR', message }),
-  clearError: () => dispatch({ type: 'SET_ERROR', message: null }),
+  setSubmissionError: (error) => dispatch({ type: 'SET_SUBMISSION_ERROR', error }),
+  clearError: () => {
+    dispatch({ type: 'SET_ERROR', message: null });
+    dispatch({ type: 'SET_SUBMISSION_ERROR', error: null });
+  },
   setBookings: (bookings) => dispatch({ type: 'SET_BOOKINGS', bookings }),
   applyConfirmation: (payload) =>
     dispatch({
