@@ -78,6 +78,7 @@ export async function getRestaurantCalendarMask({
   }
 
   const closedDateSet = new Set<string>();
+  const overrideDateSet = new Set<string>();
   for (const row of closureRows ?? []) {
     if (!row?.effective_date) {
       continue;
@@ -87,6 +88,33 @@ export async function getRestaurantCalendarMask({
       .toISODate();
     if (date) {
       closedDateSet.add(date);
+      overrideDateSet.add(date);
+    }
+  }
+
+  const { data: overrideRows, error: overrideError } = await supabase
+    .from('restaurant_operating_hours')
+    .select('effective_date')
+    .eq('restaurant_id', restaurantId)
+    .not('effective_date', 'is', null)
+    .gte('effective_date', from)
+    .lte('effective_date', to);
+
+  if (overrideError) {
+    throw new GetCalendarMaskError('[calendar-mask] failed to load date overrides', {
+      cause: overrideError,
+    });
+  }
+
+  for (const row of overrideRows ?? []) {
+    if (!row?.effective_date) {
+      continue;
+    }
+    const date = DateTime.fromISO(row.effective_date, { zone })
+      .startOf('day')
+      .toISODate();
+    if (date) {
+      overrideDateSet.add(date);
     }
   }
 
@@ -96,6 +124,7 @@ export async function getRestaurantCalendarMask({
     to,
     closedDaysOfWeek: Array.from(closedDaysSet.values()).sort((a, b) => a - b),
     closedDates: Array.from(closedDateSet.values()).sort(),
+    overrideDates: Array.from(overrideDateSet.values()).sort(),
   };
 }
 

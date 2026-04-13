@@ -195,6 +195,15 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
         </Alert>
       )}
 
+      {state.advisoryMessage && (
+        <Alert variant="info" className="animate-fade-in">
+          <AlertIcon>
+            <AlertCircle className="h-4 w-4" aria-hidden />
+          </AlertIcon>
+          <AlertDescription aria-live="polite">{state.advisoryMessage}</AlertDescription>
+        </Alert>
+      )}
+
       {/* ─────────────────────────────────────────────────────────────────
           Notes Field - Full Width
       ───────────────────────────────────────────────────────────── */}

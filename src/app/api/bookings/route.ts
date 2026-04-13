@@ -458,6 +458,7 @@ async function safeFindBookingAlternatives(args: {
   partySize: number;
   preferredTime: string;
   durationMinutes?: number;
+  bookingOption?: string | null;
 }): Promise<BookingAlternativeSlotResponse[]> {
   try {
     const alternatives = await findAlternativeSlots(
@@ -467,6 +468,7 @@ async function safeFindBookingAlternatives(args: {
         partySize: args.partySize,
         preferredTime: args.preferredTime,
         durationMinutes: args.durationMinutes,
+        bookingOption: args.bookingOption ?? null,
         maxAlternatives: 5,
         searchWindowMinutes: 120,
       },
@@ -491,6 +493,7 @@ async function buildCapacityFailureResponse(args: {
   startTime: string;
   partySize: number;
   durationMinutes?: number;
+  bookingOption?: string | null;
   requestSource: string;
   clientIp: string;
   code: 'CAPACITY_EXCEEDED' | 'BOOKING_CONFLICT';
@@ -506,6 +509,7 @@ async function buildCapacityFailureResponse(args: {
     partySize: args.partySize,
     preferredTime: args.startTime,
     durationMinutes: args.durationMinutes,
+    bookingOption: args.bookingOption ?? null,
   });
 
   if (args.code === 'CAPACITY_EXCEEDED') {
@@ -1062,6 +1066,7 @@ export async function POST(req: NextRequest) {
             time: startTime,
             partySize: data.party,
             durationMinutes,
+            bookingOption: normalizedBookingType,
             seatingPreference: data.seating,
           },
           supabase,
@@ -1075,6 +1080,7 @@ export async function POST(req: NextRequest) {
             startTime,
             partySize: data.party,
             durationMinutes,
+            bookingOption: normalizedBookingType,
             requestSource,
             clientIp,
             code: 'CAPACITY_EXCEEDED',
@@ -1156,6 +1162,7 @@ export async function POST(req: NextRequest) {
               partySize: data.party,
               preferredTime: startTime,
               durationMinutes,
+              bookingOption: normalizedBookingType,
             });
             const utilizationPercent =
               primaryIssue.detail && typeof primaryIssue.detail.utilizationPercent === 'number'
@@ -1226,6 +1233,7 @@ export async function POST(req: NextRequest) {
              startTime,
              partySize: data.party,
              durationMinutes,
+             bookingOption: normalizedBookingType,
              requestSource,
              clientIp,
              code,
@@ -1242,6 +1250,7 @@ export async function POST(req: NextRequest) {
              startTime,
              partySize: data.party,
              durationMinutes,
+             bookingOption: normalizedBookingType,
              requestSource,
              clientIp,
              code,

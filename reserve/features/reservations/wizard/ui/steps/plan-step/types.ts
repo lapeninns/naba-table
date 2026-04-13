@@ -44,6 +44,7 @@ export type PlanStepFormState = {
   isScheduleFetching: boolean;
   schedule: ReservationSchedule | null;
   currentUnavailabilityReason: PlanStepUnavailableReason | null;
+  advisoryMessage: string | null;
   isSubmitting: boolean;
   isValid: boolean;
   submitForm: (values: PlanFormValues) => void;
