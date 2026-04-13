@@ -2,6 +2,8 @@ import { getRestaurantSchedule } from "@/server/restaurants/schedule";
 import { isTimeWithinPeriod, selectMatchingPeriod } from "@/server/restaurants/servicePeriodMatching";
 import { getServiceSupabaseClient } from "@/server/supabase";
 
+import { checkRequestSeatability } from "./seatability";
+
 import type {
   AvailabilityCheckParams,
   AvailabilityResult,
@@ -177,7 +179,7 @@ async function loadCapacityContext(
 
 function evaluateAvailability(
   context: CapacityContext,
-  params: Pick<AvailabilityCheckParams, "date" | "time" | "partySize" | "durationMinutes">,
+  params: Pick<AvailabilityCheckParams, "date" | "time" | "partySize" | "durationMinutes" | "bookingOption">,
 ): AvailabilityResult {
   const dayOfWeek = resolveDayOfWeek(params.date);
   const matchingPeriod = selectMatchingPeriod(context.periods, params.time, dayOfWeek);
@@ -302,7 +304,33 @@ export async function checkSlotAvailability(
   client?: DbClient,
 ): Promise<AvailabilityResult> {
   const context = await loadCapacityContext(params.restaurantId, params.date, client);
-  return evaluateAvailability(context, params);
+  const aggregateAvailability = evaluateAvailability(context, params);
+  const matchingSlot = context.schedule.slots.find((slot) => slot.value === params.time) ?? null;
+
+  if (!aggregateAvailability.available) {
+    return aggregateAvailability;
+  }
+
+  const seatability = await checkRequestSeatability(
+    {
+      restaurantId: params.restaurantId,
+      date: params.date,
+      time: params.time,
+      partySize: params.partySize,
+      bookingOption: matchingSlot?.bookingOption ?? params.bookingOption ?? null,
+    },
+    client,
+  );
+
+  if (!seatability.seatable) {
+    return {
+      available: false,
+      reason: "We can’t seat this party at the selected time. Please try another slot or contact the venue.",
+      metadata: aggregateAvailability.metadata,
+    };
+  }
+
+  return aggregateAvailability;
 }
 
 export async function findAlternativeSlots(
@@ -342,13 +370,30 @@ export async function findAlternativeSlots(
   const alternatives: TimeSlot[] = [];
 
   for (const candidate of candidates) {
+    const matchingSlot = context.schedule.slots.find((slot) => slot.value === candidate.value) ?? null;
     const evaluation = evaluateAvailability(context, {
       date: params.date,
       time: candidate.value,
       partySize: params.partySize,
+      bookingOption: matchingSlot?.bookingOption ?? params.bookingOption ?? null,
     });
 
     if (!evaluation.available) {
+      continue;
+    }
+
+    const seatability = await checkRequestSeatability(
+      {
+        restaurantId: params.restaurantId,
+        date: params.date,
+        time: candidate.value,
+        partySize: params.partySize,
+        bookingOption: matchingSlot?.bookingOption ?? params.bookingOption ?? null,
+      },
+      client,
+    );
+
+    if (!seatability.seatable) {
       continue;
     }
 

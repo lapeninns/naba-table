@@ -16,6 +16,7 @@ export type AvailabilityCheckParams = {
   time: string; // HH:MM
   partySize: number;
   durationMinutes?: number;
+  bookingOption?: string | null;
   seatingPreference?: string;
 };
 
@@ -55,6 +56,7 @@ export type AlternativeSlotParams = {
   partySize: number;
   preferredTime: string;
   durationMinutes?: number;
+  bookingOption?: string | null;
   maxAlternatives?: number; // Default: 5
   searchWindowMinutes?: number; // Default: 120 (±2 hours)
 };
