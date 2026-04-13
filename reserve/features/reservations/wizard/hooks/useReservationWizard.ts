@@ -193,9 +193,10 @@ export function useReservationWizard(
     if (venueHydratedRef.current) return;
     const slug = state.details.restaurantSlug?.trim();
     const hasVenue =
-      state.details.restaurantName ||
-      state.details.restaurantTimezone ||
-      state.details.restaurantAddress;
+      Boolean(state.details.restaurantId?.trim()) &&
+      Boolean(state.details.restaurantName?.trim()) &&
+      Boolean(state.details.restaurantTimezone?.trim()) &&
+      Boolean(state.details.restaurantAddress?.trim());
 
     if (!slug || hasVenue) return;
 
@@ -221,6 +222,7 @@ export function useReservationWizard(
   }, [
     actions,
     state.details,
+    state.details.restaurantId,
     state.details.restaurantAddress,
     state.details.restaurantName,
     state.details.restaurantSlug,
