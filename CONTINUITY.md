@@ -1,6 +1,6 @@
 # Continuity Ledger
 
-Last updated: 2026-04-13T15:15:00Z
+Last updated: 2026-04-13T16:30:00Z
 
 ## Goal (incl. success criteria)
 
@@ -8,6 +8,7 @@ Last updated: 2026-04-13T15:15:00Z
 - Success: shared capacity availability logic is real, not stubbed.
 - Success: guests receive `409` responses with alternatives for pre-check capacity failures and atomic race conflicts.
 - Success: the real public booking wizard renders alternatives from the canonical route response and can recover to a successful nearby slot against staging-backed data.
+- Follow-up: ensure ops dashboard membership validation reports transient Supabase upstream failures as retryable `503` responses instead of misleading `403` responses.
 
 ## Constraints/Assumptions
 
@@ -27,9 +28,14 @@ Last updated: 2026-04-13T15:15:00Z
 ## State
 
 - Implementation is in place for `tasks/booking-capacity-precheck-20260413-1355/`.
+- Follow-up mitigation is in progress for `tasks/ops-dashboard-membership-503-20260413-1629/`.
 - Verified locally:
   - `pnpm vitest run tests/server/public-bookings-route.test.ts` passed
   - `pnpm vitest run tests/reserve/api-client.test.ts tests/reserve/review-step-capacity-error.test.tsx` passed
+  - `pnpm typecheck` passed
+- Verified follow-up mitigation locally:
+  - `pnpm vitest run tests/server/ops-dashboard-summary-route.test.ts tests/server/public-bookings-route.test.ts` passed
+  - focused ESLint on touched auth/dashboard files passed
   - `pnpm typecheck` passed
 - Chrome DevTools MCP proof completed on `/dev/guest-booking-capacity` with desktop + mobile screenshots and no console errors.
 - Chrome DevTools MCP proof completed on the real public route `/restaurants/the-old-crown-girton/book` against staging-backed data:
@@ -52,11 +58,11 @@ Last updated: 2026-04-13T15:15:00Z
 
 ## Now
 
-- Summarizing the production-like results for handoff.
+- Packaging the ops dashboard membership `503` follow-up for redeploy.
 
 ## Next
 
-- Commit the booking capacity pre-check change set when ready.
+- Commit and redeploy the ops dashboard membership `503` follow-up patch.
 
 ## Open questions (UNCONFIRMED if needed)
 
