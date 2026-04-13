@@ -3,9 +3,12 @@ import { z } from 'zod';
 
 import { env } from '@/lib/env';
 import { getBookingHistory } from '@/server/bookingHistory';
-import { normalizeEmail, normalizePhone } from '@/server/customers';
+import { normalizeEmail } from '@/server/customers';
 import { recordObservabilityEvent } from '@/server/observability';
-import { validateSessionRecoveryAccessToken } from '@/server/security/session-recovery-access-token';
+import {
+  sessionRecoveryTokenMatchesBookingContact,
+  validateSessionRecoveryAccessToken,
+} from '@/server/security/session-recovery-access-token';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 
 import type { NextRequest } from 'next/server';
@@ -101,17 +104,17 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     }
 
     // Verify token matches booking
-    const bookingEmail = bookingRow.customer_email ? normalizeEmail(bookingRow.customer_email) : null;
-    const bookingPhone = bookingRow.customer_phone ? normalizePhone(bookingRow.customer_phone) : null;
     const tokenEmail = normalizeEmail(result.payload.email);
-    const tokenPhone = normalizePhone(result.payload.phone);
 
     if (
-      bookingRow.restaurant_id !== result.payload.restaurantId ||
-      !bookingEmail ||
-      !bookingPhone ||
-      bookingEmail !== tokenEmail ||
-      bookingPhone !== tokenPhone
+      !sessionRecoveryTokenMatchesBookingContact({
+        payload: result.payload,
+        booking: {
+          restaurantId: bookingRow.restaurant_id,
+          email: bookingRow.customer_email,
+          phone: bookingRow.customer_phone,
+        },
+      })
     ) {
       void recordObservabilityEvent({
         source: 'api.bookings',
@@ -120,7 +123,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         context: {
           booking_id: bookingId,
           token_email: tokenEmail,
-          booking_email: bookingEmail,
+          booking_email: bookingRow.customer_email ? normalizeEmail(bookingRow.customer_email) : null,
           reason: 'token_mismatch',
         },
       });
@@ -215,4 +218,3 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 }
 
 export const dynamic = 'force-dynamic';
-

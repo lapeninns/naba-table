@@ -1,0 +1,182 @@
+{
+  "reportLabel": "staging",
+  "mode": "dry-run",
+  "contact": {
+    "email": "amanshresthaaaaa@gmail.com",
+    "rawPhone": "07467586751",
+    "phoneCandidates": [
+      "07467586751",
+      "447467586751",
+      "+447467586751"
+    ]
+  },
+  "restaurants": [
+    {
+      "id": "870fc888-3f92-4825-b357-ba57511c07a6",
+      "slug": "seed-perf-r001",
+      "name": "Seed Perf Restaurant 001"
+    },
+    {
+      "id": "a050d1ad-1ee0-4ea0-abc2-22c3778aa52c",
+      "slug": "the-old-crown-girton",
+      "name": "The Old Crown Girton"
+    }
+  ],
+  "counts": {
+    "customers": 2,
+    "bookings": 8,
+    "analytics_events": 11,
+    "email_delivery_log": 14,
+    "waiting_list": 0,
+    "leads": 0,
+    "auth_users": 1,
+    "auth_users_from_customers": 0,
+    "user_profiles_from_customers": 0,
+    "customer_profiles": 2,
+    "booking_assignment_attempts": 0,
+    "booking_assignment_idempotency": 4,
+    "booking_confirmation_results": 9,
+    "booking_state_history": 8,
+    "booking_table_assignments": 5,
+    "booking_versions": 0,
+    "manual_assignment_sessions": 0,
+    "table_holds": 0,
+    "table_soft_holds": 0,
+    "allocations": 9,
+    "capacity_outbox": 27,
+    "email_dispatch_intents": 2
+  },
+  "authInspectionError": null,
+  "samples": {
+    "customers": [
+      {
+        "id": "1a6c491b-e85d-4771-a360-1096cd264cea",
+        "restaurant_id": "a050d1ad-1ee0-4ea0-abc2-22c3778aa52c",
+        "full_name": "Aman Shrestha",
+        "email": "amanshresthaaaaa@gmail.com",
+        "phone": "+447467586751",
+        "auth_user_id": null,
+        "user_profile_id": null
+      },
+      {
+        "id": "aca3003d-87dc-4818-b4e4-a669403e7bb8",
+        "restaurant_id": "870fc888-3f92-4825-b357-ba57511c07a6",
+        "full_name": "Aman Kumar Shrestha",
+        "email": "amanshresthaaaaa@gmail.com",
+        "phone": "+447467586751",
+        "auth_user_id": null,
+        "user_profile_id": null
+      }
+    ],
+    "bookings": [
+      {
+        "id": "00d3cc75-5eb8-4fcc-8001-53a1337df805",
+        "restaurant_id": "a050d1ad-1ee0-4ea0-abc2-22c3778aa52c",
+        "customer_id": "1a6c491b-e85d-4771-a360-1096cd264cea",
+        "reference": "3GFH4DAK4N",
+        "status": "confirmed",
+        "booking_date": "2026-03-28",
+        "customer_email": "amanshresthaaaaa@gmail.com",
+        "customer_phone": "07467586751"
+      },
+      {
+        "id": "31d542e9-c509-421b-9ac5-1e96a97d68b5",
+        "restaurant_id": "870fc888-3f92-4825-b357-ba57511c07a6",
+        "customer_id": "aca3003d-87dc-4818-b4e4-a669403e7bb8",
+        "reference": "4AUDJYN2GN",
+        "status": "confirmed",
+        "booking_date": "2026-04-22",
+        "customer_email": "amanshresthaaaaa@gmail.com",
+        "customer_phone": "+447467586751"
+      },
+      {
+        "id": "5459a0d0-d77b-43d8-980a-826f73499d18",
+        "restaurant_id": "a050d1ad-1ee0-4ea0-abc2-22c3778aa52c",
+        "customer_id": "1a6c491b-e85d-4771-a360-1096cd264cea",
+        "reference": "XC5FW5FSTW",
+        "status": "cancelled",
+        "booking_date": "2026-02-25",
+        "customer_email": "amanshresthaaaaa@gmail.com",
+        "customer_phone": "07467586751"
+      },
+      {
+        "id": "5ea5945f-0227-4506-be82-1459f07f3df8",
+        "restaurant_id": "870fc888-3f92-4825-b357-ba57511c07a6",
+        "customer_id": "aca3003d-87dc-4818-b4e4-a669403e7bb8",
+        "reference": "T9QV6WGL8R",
+        "status": "cancelled",
+        "booking_date": "2026-03-28",
+        "customer_email": "amanshresthaaaaa@gmail.com",
+        "customer_phone": "+447467586751"
+      },
+      {
+        "id": "c0289d8b-51a2-4f1e-a4d3-9be56349417c",
+        "restaurant_id": "a050d1ad-1ee0-4ea0-abc2-22c3778aa52c",
+        "customer_id": "1a6c491b-e85d-4771-a360-1096cd264cea",
+        "reference": "QVEA8YS82Y",
+        "status": "pending",
+        "booking_date": "2026-02-10",
+        "customer_email": "amanshresthaaaaa@gmail.com",
+        "customer_phone": "07467586751"
+      },
+      {
+        "id": "c3c94864-3f13-43b8-ba94-b59048aa3929",
+        "restaurant_id": "a050d1ad-1ee0-4ea0-abc2-22c3778aa52c",
+        "customer_id": "1a6c491b-e85d-4771-a360-1096cd264cea",
+        "reference": "0W3KJOB6Q2",
+        "status": "confirmed",
+        "booking_date": "2026-02-10",
+        "customer_email": "amanshresthaaaaa@gmail.com",
+        "customer_phone": "07467586751"
+      },
+      {
+        "id": "e92c1139-0e90-4c56-92ac-503ee1a47a80",
+        "restaurant_id": "a050d1ad-1ee0-4ea0-abc2-22c3778aa52c",
+        "customer_id": "1a6c491b-e85d-4771-a360-1096cd264cea",
+        "reference": "JWOR70JSOZ",
+        "status": "confirmed",
+        "booking_date": "2026-02-18",
+        "customer_email": "amanshresthaaaaa@gmail.com",
+        "customer_phone": "07467586751"
+      },
+      {
+        "id": "f77a1f2d-92da-417a-99f3-37efdfdd09e6",
+        "restaurant_id": "a050d1ad-1ee0-4ea0-abc2-22c3778aa52c",
+        "customer_id": "1a6c491b-e85d-4771-a360-1096cd264cea",
+        "reference": "D6B2W7GK27",
+        "status": "cancelled",
+        "booking_date": "2026-02-19",
+        "customer_email": "amanshresthaaaaa@gmail.com",
+        "customer_phone": "447467586751"
+      }
+    ],
+    "authUsers": [
+      {
+        "id": "0da5c794-8d75-4f3b-b238-1874fbc9214b",
+        "email": "amanshresthaaaaa@gmail.com",
+        "phone": ""
+      }
+    ]
+  },
+  "ids": {
+    "customerIds": [
+      "1a6c491b-e85d-4771-a360-1096cd264cea",
+      "aca3003d-87dc-4818-b4e4-a669403e7bb8"
+    ],
+    "bookingIds": [
+      "00d3cc75-5eb8-4fcc-8001-53a1337df805",
+      "31d542e9-c509-421b-9ac5-1e96a97d68b5",
+      "5459a0d0-d77b-43d8-980a-826f73499d18",
+      "5ea5945f-0227-4506-be82-1459f07f3df8",
+      "c0289d8b-51a2-4f1e-a4d3-9be56349417c",
+      "c3c94864-3f13-43b8-ba94-b59048aa3929",
+      "e92c1139-0e90-4c56-92ac-503ee1a47a80",
+      "f77a1f2d-92da-417a-99f3-37efdfdd09e6"
+    ],
+    "authUserIds": [],
+    "userProfileIds": []
+  },
+  "notes": [
+    "auth users are reported best-effort for inspection but are not auto-deleted by this script."
+  ]
+}

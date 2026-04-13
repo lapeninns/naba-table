@@ -19,6 +19,8 @@ export function buildBookingManageUrl(booking: ManageUrlBooking): string {
   const restaurantId = booking.restaurant_id;
   const email = booking.customer_email;
   const phone = booking.customer_phone;
+  const hasEmail = typeof email === 'string' && email.trim().length > 0;
+  const hasPhone = typeof phone === 'string' && phone.trim().length > 0;
 
   const buildRecoverErrorUrl = (code: string) => {
     const errorUrl = new URL(`${bookingSiteUrl}/bookings/recover/error`);
@@ -30,7 +32,7 @@ export function buildBookingManageUrl(booking: ManageUrlBooking): string {
     return buildRecoverErrorUrl('ACCESS_TOKEN_NOT_CONFIGURED');
   }
 
-  if (!restaurantId || !email || !phone) {
+  if (!restaurantId || (!hasEmail && !hasPhone)) {
     return buildRecoverErrorUrl('MISSING_ACCESS_TOKEN');
   }
 

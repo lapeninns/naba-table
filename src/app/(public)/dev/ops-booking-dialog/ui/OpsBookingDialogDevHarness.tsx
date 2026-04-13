@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { BookingOfflineQueueProvider } from '@/contexts/booking-offline-queue';
 
 
-import { DEV_RESTAURANT_ID } from '../../_mocks/devIds';
+import { DEV_BOOKING_ID, DEV_RESTAURANT_ID } from '../../_mocks/devIds';
 import { createOpsDevServiceFactories } from '../../_mocks/services/devFactories';
 import { OpsDevProviders } from '../../_shared/OpsDevProviders';
 
@@ -19,7 +19,7 @@ export function OpsBookingDialogDevHarness() {
 
   const booking: OpsTodayBooking = useMemo(
     () => ({
-      id: 'booking-dev-1',
+      id: DEV_BOOKING_ID,
       status: 'confirmed',
       startTime: '19:00',
       endTime: '20:30',

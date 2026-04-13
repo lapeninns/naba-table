@@ -10,10 +10,18 @@ const payloadSchema = z.object({
   v: z.literal(1),
   purpose: z.literal('session_recovery'),
   restaurantId: z.string().uuid(),
-  email: z.string().email(),
-  phone: z.string().min(7).max(50),
+  email: z.string().email().nullable(),
+  phone: z.string().min(7).max(50).nullable(),
   iat: z.number().int().nonnegative(),
   exp: z.number().int().positive(),
+}).superRefine((value, ctx) => {
+  if (!value.email && !value.phone) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'At least one contact method is required',
+      path: ['email'],
+    });
+  }
 });
 
 export type SessionRecoveryAccessTokenPayload = z.infer<typeof payloadSchema>;
@@ -28,6 +36,12 @@ export type SessionRecoveryAccessTokenValidationError =
 export type SessionRecoveryAccessTokenValidationResult =
   | { ok: true; payload: SessionRecoveryAccessTokenPayload }
   | { ok: false; reason: SessionRecoveryAccessTokenValidationError; restaurantId?: string | null };
+
+type SessionRecoveryBookingContact = {
+  restaurantId: string | null | undefined;
+  email: string | null | undefined;
+  phone: string | null | undefined;
+};
 
 function base64UrlEncode(value: string): string {
   return Buffer.from(value, 'utf8')
@@ -60,8 +74,8 @@ function safeEqual(a: string, b: string): boolean {
 
 export function createSessionRecoveryAccessToken(params: {
   restaurantId: string;
-  email: string;
-  phone: string;
+  email?: string | null;
+  phone?: string | null;
   secret: string;
   now?: Date;
   ttlSeconds?: number;
@@ -70,13 +84,19 @@ export function createSessionRecoveryAccessToken(params: {
   const ttlSeconds = Math.max(60, Math.min(params.ttlSeconds ?? 900, MAX_TTL_SECONDS));
   const issuedAt = Math.floor(nowMs / 1000);
   const expiresAt = issuedAt + ttlSeconds;
+  const normalizedEmail = normalizeEmail(params.email);
+  const normalizedPhone = normalizePhone(params.phone);
+
+  if (!normalizedEmail && !normalizedPhone) {
+    throw new Error('At least one contact method is required');
+  }
 
   const payload: SessionRecoveryAccessTokenPayload = {
     v: 1,
     purpose: 'session_recovery',
     restaurantId: params.restaurantId,
-    email: normalizeEmail(params.email),
-    phone: normalizePhone(params.phone),
+    email: normalizedEmail || null,
+    phone: normalizedPhone || null,
     iat: issuedAt,
     exp: expiresAt,
   };
@@ -131,4 +151,33 @@ export function validateSessionRecoveryAccessToken(
   }
 
   return { ok: true, payload: parsedPayload };
+}
+
+export function sessionRecoveryTokenMatchesBookingContact(params: {
+  payload: SessionRecoveryAccessTokenPayload;
+  booking: SessionRecoveryBookingContact;
+}): boolean {
+  const tokenEmail = normalizeEmail(params.payload.email);
+  const tokenPhone = normalizePhone(params.payload.phone);
+
+  if (!tokenEmail && !tokenPhone) {
+    return false;
+  }
+
+  if (params.booking.restaurantId !== params.payload.restaurantId) {
+    return false;
+  }
+
+  const bookingEmail = normalizeEmail(params.booking.email);
+  const bookingPhone = normalizePhone(params.booking.phone);
+
+  if (tokenEmail && bookingEmail !== tokenEmail) {
+    return false;
+  }
+
+  if (tokenPhone && bookingPhone !== tokenPhone) {
+    return false;
+  }
+
+  return true;
 }

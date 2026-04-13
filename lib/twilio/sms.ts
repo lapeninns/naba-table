@@ -1,3 +1,5 @@
+import { createHmac, timingSafeEqual } from 'node:crypto';
+
 type TwilioSmsRequest = {
   accountSid: string;
   apiKeySid: string;
@@ -6,12 +8,15 @@ type TwilioSmsRequest = {
   to: string;
   body: string;
   shortenUrls?: boolean;
+  statusCallback?: string;
 };
 
 type TwilioSendResult = {
   messageSid: string | null;
   status: string | null;
 };
+
+export type TwilioSmsDeliveryStatus = 'queued' | 'sent' | 'delivered' | 'undelivered' | 'failed';
 
 type TwilioErrorPayload = {
   code?: number | null;
@@ -68,6 +73,9 @@ export function buildTwilioSmsRequest(params: TwilioSmsRequest): {
   if (params.shortenUrls) {
     body.set('ShortenUrls', 'true');
   }
+  if (params.statusCallback) {
+    body.set('StatusCallback', params.statusCallback);
+  }
 
   return {
     url: `https://api.twilio.com/2010-04-01/Accounts/${params.accountSid}/Messages.json`,
@@ -84,6 +92,59 @@ export function buildTwilioSmsRequest(params: TwilioSmsRequest): {
 
 export function isRetryableTwilioStatus(status: number): boolean {
   return status === 429 || status >= 500;
+}
+
+export function mapTwilioMessageStatusToDeliveryStatus(
+  status: string | null | undefined,
+): TwilioSmsDeliveryStatus | null {
+  const normalized = status?.trim().toLowerCase() ?? '';
+
+  switch (normalized) {
+    case 'accepted':
+    case 'queued':
+    case 'scheduled':
+    case 'sending':
+      return 'queued';
+    case 'sent':
+      return 'sent';
+    case 'delivered':
+      return 'delivered';
+    case 'undelivered':
+      return 'undelivered';
+    case 'failed':
+    case 'canceled':
+      return 'failed';
+    default:
+      return null;
+  }
+}
+
+function toBase64Digest(secret: string, value: string): string {
+  return createHmac('sha1', secret).update(value, 'utf8').digest('base64');
+}
+
+function safeEqualBase64(a: string, b: string): boolean {
+  const aBuf = Buffer.from(a);
+  const bBuf = Buffer.from(b);
+  if (aBuf.length !== bBuf.length) return false;
+  return timingSafeEqual(aBuf, bBuf);
+}
+
+export function validateTwilioWebhookSignature(params: {
+  url: string;
+  form: URLSearchParams;
+  signature: string;
+  authToken: string;
+}): boolean {
+  const pairs = Array.from(params.form.entries()).sort(([a], [b]) => a.localeCompare(b));
+  let data = params.url;
+
+  for (const [key, value] of pairs) {
+    data += key + value;
+  }
+
+  const expected = toBase64Digest(params.authToken, data);
+  return safeEqualBase64(expected, params.signature.trim());
 }
 
 export async function sendTwilioSmsMessage(

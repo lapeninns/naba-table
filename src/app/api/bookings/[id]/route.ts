@@ -47,7 +47,10 @@ import {
 } from '@/server/jobs/booking-side-effects';
 import { recordObservabilityEvent } from '@/server/observability';
 import { getRestaurantSchedule } from '@/server/restaurants/schedule';
-import { validateSessionRecoveryAccessToken } from '@/server/security/session-recovery-access-token';
+import {
+  sessionRecoveryTokenMatchesBookingContact,
+  validateSessionRecoveryAccessToken,
+} from '@/server/security/session-recovery-access-token';
 import {
   getDefaultRestaurantId,
   getRouteHandlerSupabaseClient,
@@ -887,22 +890,16 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     }
 
     const bookingRecord = existing as Tables<'bookings'>;
-    const bookingEmail = bookingRecord.customer_email
-      ? normalizeEmail(bookingRecord.customer_email)
-      : null;
-    const bookingPhone = bookingRecord.customer_phone
-      ? normalizePhone(bookingRecord.customer_phone)
-      : null;
-
-    const tokenEmail = normalizeEmail(result.payload.email);
-    const tokenPhone = normalizePhone(result.payload.phone);
 
     if (
-      bookingRecord.restaurant_id !== result.payload.restaurantId ||
-      !bookingEmail ||
-      !bookingPhone ||
-      bookingEmail !== tokenEmail ||
-      bookingPhone !== tokenPhone
+      !sessionRecoveryTokenMatchesBookingContact({
+        payload: result.payload,
+        booking: {
+          restaurantId: bookingRecord.restaurant_id,
+          email: bookingRecord.customer_email,
+          phone: bookingRecord.customer_phone,
+        },
+      })
     ) {
       return NextResponse.json(
         { error: 'You do not have permission to view this booking', code: 'FORBIDDEN' },
@@ -1126,22 +1123,16 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       }
 
       const bookingRecord = existing as Tables<'bookings'>;
-      const bookingEmail = bookingRecord.customer_email
-        ? normalizeEmail(bookingRecord.customer_email)
-        : null;
-      const bookingPhone = bookingRecord.customer_phone
-        ? normalizePhone(bookingRecord.customer_phone)
-        : null;
-
-      const tokenEmail = normalizeEmail(result.payload.email);
-      const tokenPhone = normalizePhone(result.payload.phone);
 
       if (
-        bookingRecord.restaurant_id !== result.payload.restaurantId ||
-        !bookingEmail ||
-        !bookingPhone ||
-        bookingEmail !== tokenEmail ||
-        bookingPhone !== tokenPhone
+        !sessionRecoveryTokenMatchesBookingContact({
+          payload: result.payload,
+          booking: {
+            restaurantId: bookingRecord.restaurant_id,
+            email: bookingRecord.customer_email,
+            phone: bookingRecord.customer_phone,
+          },
+        })
       ) {
         return NextResponse.json(
           { error: 'You do not have permission to modify this booking', code: 'FORBIDDEN' },
@@ -1149,13 +1140,15 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
         );
       }
 
+      const tokenEmail = normalizeEmail(result.payload.email);
+
       return handleDashboardUpdate({
         bookingId,
         data: dashboardParsed.data,
         existingBooking: bookingRecord,
         actor: {
           id: bookingRecord.customer_id ?? 'session-recovery',
-          email: bookingRecord.customer_email ?? tokenEmail,
+          email: bookingRecord.customer_email ?? (tokenEmail || null),
         },
         serviceSupabase,
       });
@@ -1447,7 +1440,6 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     }
 
     const tokenEmail = normalizeEmail(result.payload.email);
-    const tokenPhone = normalizePhone(result.payload.phone);
     const serviceSupabase = getServiceSupabaseClient();
 
     try {
@@ -1470,19 +1462,15 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
         );
       }
 
-      const bookingEmail = existingBooking.customer_email
-        ? normalizeEmail(existingBooking.customer_email)
-        : null;
-      const bookingPhone = existingBooking.customer_phone
-        ? normalizePhone(existingBooking.customer_phone)
-        : null;
-
       if (
-        existingBooking.restaurant_id !== result.payload.restaurantId ||
-        !bookingEmail ||
-        !bookingPhone ||
-        bookingEmail !== tokenEmail ||
-        bookingPhone !== tokenPhone
+        !sessionRecoveryTokenMatchesBookingContact({
+          payload: result.payload,
+          booking: {
+            restaurantId: existingBooking.restaurant_id,
+            email: existingBooking.customer_email,
+            phone: existingBooking.customer_phone,
+          },
+        })
       ) {
         return NextResponse.json(
           { error: 'You can only cancel your own reservation', code: 'FORBIDDEN' },

@@ -1,9 +1,13 @@
 import { env } from '@/lib/env';
-import { sendTwilioSmsMessage } from '@/lib/twilio/sms';
+import {
+  mapTwilioMessageStatusToDeliveryStatus,
+  sendTwilioSmsMessage,
+} from '@/lib/twilio/sms';
 import { buildBookingManageUrl } from '@/server/bookings/manage-url';
 import { createBookingManageShortUrl } from '@/server/bookings/short-link';
 import { normalizePhone } from '@/server/customers';
 import { recordObservabilityEvent } from '@/server/observability';
+import { recordSmsDeliveryLog } from '@/server/sms/delivery-log';
 import { getServiceSupabaseClient } from '@/server/supabase';
 import { formatReservationDateShort, formatReservationTimeFromDate } from '@reserve/shared/formatting/booking';
 
@@ -20,6 +24,12 @@ type SmsResult = {
   messageSid: string | null;
   status: string | null;
 };
+
+type SmsDeliveryType =
+  | 'booking_confirmation'
+  | 'booking_update'
+  | 'booking_cancellation'
+  | 'restaurant_cancellation';
 
 type BookingCancellationActor = 'customer' | 'staff' | 'system';
 
@@ -168,6 +178,7 @@ async function sendGuestBookingSms(params: {
   booking: BookingRecord;
   body: string;
   source: string;
+  smsType: SmsDeliveryType;
   fetchImpl?: typeof fetch;
 }): Promise<SmsResult | null> {
   if (!hasGuestConfirmationSmsConfig()) {
@@ -179,12 +190,18 @@ async function sendGuestBookingSms(params: {
     return null;
   }
 
+  const statusCallback =
+    env.twilio.authToken && env.app.url
+      ? new URL('/api/webhook/twilio/sms-status', env.app.url).toString()
+      : undefined;
+
   const result = await sendTwilioSmsMessage({
     accountSid: env.twilio.accountSid as string,
     apiKeySid: env.twilio.apiKeySid as string,
     apiKeySecret: env.twilio.apiKeySecret as string,
     messagingServiceSid: env.twilio.messagingServiceSid as string,
     shortenUrls: env.twilio.shortenUrls,
+    statusCallback,
     to: recipient,
     body: params.body,
     fetchImpl: params.fetchImpl,
@@ -201,6 +218,23 @@ async function sendGuestBookingSms(params: {
       to: recipient,
     },
   });
+
+  const deliveryStatus = mapTwilioMessageStatusToDeliveryStatus(result.status) ?? 'queued';
+  if (result.messageSid) {
+    await recordSmsDeliveryLog({
+      bookingId: params.booking.id,
+      restaurantId: params.booking.restaurant_id,
+      smsType: params.smsType,
+      recipientPhone: recipient,
+      messageSid: result.messageSid,
+      status: deliveryStatus,
+      provider: 'twilio',
+      metadata: {
+        source: params.source,
+        initialTwilioStatus: result.status,
+      },
+    });
+  }
 
   return result;
 }
@@ -222,6 +256,7 @@ export async function sendGuestBookingConfirmationSms(
       manageUrl,
     }),
     source: 'booking.confirmation_sms',
+    smsType: 'booking_confirmation',
     fetchImpl: options?.fetchImpl,
   });
 }
@@ -243,6 +278,7 @@ export async function sendGuestBookingUpdateSms(
       manageUrl,
     }),
     source: 'booking.update_sms',
+    smsType: 'booking_update',
     fetchImpl: options?.fetchImpl,
   });
 }
@@ -266,6 +302,8 @@ export async function sendGuestBookingCancellationSms(
       options?.cancelledBy === 'customer'
         ? 'booking.cancellation_sms'
         : 'booking.restaurant_cancellation_sms',
+    smsType:
+      options?.cancelledBy === 'customer' ? 'booking_cancellation' : 'restaurant_cancellation',
     fetchImpl: options?.fetchImpl,
   });
 }

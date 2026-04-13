@@ -48,6 +48,7 @@ const baseEnvSchema = z
     TWILIO_ACCOUNT_SID: z.string().min(1).optional(),
     TWILIO_API_KEY_SID: z.string().min(1).optional(),
     TWILIO_API_KEY_SECRET: z.string().min(1).optional(),
+    TWILIO_AUTH_TOKEN: z.string().min(1).optional(),
     TWILIO_MESSAGING_SERVICE_SID: z.string().min(1).optional(),
     TWILIO_SHORTEN_URLS: booleanStringOptional,
     NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().min(1).optional(),

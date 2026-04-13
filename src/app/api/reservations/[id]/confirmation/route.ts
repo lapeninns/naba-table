@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server';
 
 import { env } from '@/lib/env';
-import { normalizeEmail, normalizePhone } from '@/server/customers';
+import { normalizeEmail } from '@/server/customers';
 import { buildReservationConfirmationPdfBuffer } from '@/server/reservations/confirmation-pdf';
-import { validateSessionRecoveryAccessToken } from '@/server/security/session-recovery-access-token';
+import {
+  sessionRecoveryTokenMatchesBookingContact,
+  validateSessionRecoveryAccessToken,
+} from '@/server/security/session-recovery-access-token';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 
 import type { NextRequest } from 'next/server';
@@ -70,19 +73,16 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid session recovery token', code }, { status });
     }
 
-    const bookingEmail = booking.customer_email ? normalizeEmail(booking.customer_email) : null;
-    const bookingPhone = booking.customer_phone ? normalizePhone(booking.customer_phone) : null;
-    const tokenEmail = normalizeEmail(tokenResult.payload.email);
-    const tokenPhone = normalizePhone(tokenResult.payload.phone);
-
-    const tokenMatches =
-      booking.restaurant_id === tokenResult.payload.restaurantId &&
-      Boolean(bookingEmail) &&
-      Boolean(bookingPhone) &&
-      bookingEmail === tokenEmail &&
-      bookingPhone === tokenPhone;
-
-    if (!tokenMatches) {
+    if (
+      !sessionRecoveryTokenMatchesBookingContact({
+        payload: tokenResult.payload,
+        booking: {
+          restaurantId: booking.restaurant_id,
+          email: booking.customer_email,
+          phone: booking.customer_phone,
+        },
+      })
+    ) {
       return forbidden;
     }
   } else {

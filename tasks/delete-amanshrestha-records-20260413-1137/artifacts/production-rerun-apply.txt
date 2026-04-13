@@ -1,0 +1,119 @@
+{
+  "reportLabel": "production-rerun",
+  "mode": "apply",
+  "contact": {
+    "emails": [
+      "amanshresthaaaaa@gmail.com",
+      "amanshresthaa.uk@gmail.com"
+    ],
+    "rawPhone": "07467586751",
+    "phoneCandidates": [
+      "07467586751",
+      "447467586751",
+      "+447467586751"
+    ]
+  },
+  "restaurants": [
+    {
+      "id": "a050d1ad-1ee0-4ea0-abc2-22c3778aa52c",
+      "slug": "the-old-crown-girton",
+      "name": "The Old Crown Girton"
+    }
+  ],
+  "counts": {
+    "customers": 1,
+    "bookings": 2,
+    "analytics_events": 2,
+    "email_delivery_log": 1,
+    "waiting_list": 0,
+    "leads": 0,
+    "auth_users": 0,
+    "auth_users_from_customers": 0,
+    "user_profiles_from_customers": 0,
+    "customer_profiles": 1,
+    "booking_assignment_attempts": 0,
+    "booking_assignment_idempotency": 2,
+    "booking_confirmation_results": 2,
+    "booking_state_history": 2,
+    "booking_table_assignments": 2,
+    "booking_versions": 0,
+    "manual_assignment_sessions": 0,
+    "table_holds": 0,
+    "table_soft_holds": 0,
+    "allocations": 2,
+    "capacity_outbox": 6,
+    "email_dispatch_intents": 1
+  },
+  "authInspectionError": "Database error finding users",
+  "samples": {
+    "customers": [
+      {
+        "id": "67abeea9-229c-4815-8348-119535f0ad76",
+        "restaurant_id": "a050d1ad-1ee0-4ea0-abc2-22c3778aa52c",
+        "full_name": "Aman",
+        "email": "walkin+f53df38367e24e7da1b4354b@system.local",
+        "phone": "+447467586751",
+        "auth_user_id": null,
+        "user_profile_id": null
+      }
+    ],
+    "bookings": [
+      {
+        "id": "22d4d031-07c4-4b2a-9daf-4e90a571032d",
+        "restaurant_id": "a050d1ad-1ee0-4ea0-abc2-22c3778aa52c",
+        "customer_id": "67abeea9-229c-4815-8348-119535f0ad76",
+        "reference": "BZ9C62NKRB",
+        "status": "confirmed",
+        "booking_date": "2026-04-13",
+        "customer_email": "",
+        "customer_phone": "07467586751"
+      },
+      {
+        "id": "8b247b86-12c3-4ef9-b29c-2b00cdd531e8",
+        "restaurant_id": "a050d1ad-1ee0-4ea0-abc2-22c3778aa52c",
+        "customer_id": "67abeea9-229c-4815-8348-119535f0ad76",
+        "reference": "6Q3YR3GZ3R",
+        "status": "confirmed",
+        "booking_date": "2026-04-13",
+        "customer_email": "amanshresthaaaaa@gmail.com",
+        "customer_phone": "+447467586751"
+      }
+    ],
+    "authUsers": []
+  },
+  "ids": {
+    "customerIds": [
+      "67abeea9-229c-4815-8348-119535f0ad76"
+    ],
+    "bookingIds": [
+      "22d4d031-07c4-4b2a-9daf-4e90a571032d",
+      "8b247b86-12c3-4ef9-b29c-2b00cdd531e8"
+    ],
+    "authUserIds": [],
+    "userProfileIds": []
+  },
+  "notes": [
+    "auth users are reported best-effort for inspection but are not auto-deleted by this script."
+  ],
+  "deletions": {
+    "leads": 0,
+    "waiting_list": 0,
+    "manual_assignment_sessions": 0,
+    "booking_table_assignments": 2,
+    "booking_state_history": 2,
+    "booking_assignment_attempts": 0,
+    "booking_assignment_idempotency": 2,
+    "booking_confirmation_results": 2,
+    "booking_versions": 0,
+    "analytics_events": 2,
+    "table_soft_holds": 0,
+    "table_holds": 0,
+    "email_dispatch_intents": 1,
+    "email_delivery_log": 1,
+    "allocations": 2,
+    "capacity_outbox": 6,
+    "customer_profiles": 1,
+    "bookings": 2,
+    "customers": 1
+  }
+}
