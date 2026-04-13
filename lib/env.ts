@@ -159,6 +159,7 @@ export const env = {
     const accountSid = parsed.TWILIO_ACCOUNT_SID ?? null;
     const apiKeySid = parsed.TWILIO_API_KEY_SID ?? null;
     const apiKeySecret = parsed.TWILIO_API_KEY_SECRET ?? null;
+    const authToken = parsed.TWILIO_AUTH_TOKEN ?? null;
     const messagingServiceSid = parsed.TWILIO_MESSAGING_SERVICE_SID ?? null;
     const shortenUrls = parsed.TWILIO_SHORTEN_URLS ?? false;
 
@@ -166,6 +167,7 @@ export const env = {
       accountSid,
       apiKeySid,
       apiKeySecret,
+      authToken,
       messagingServiceSid,
       shortenUrls,
       configured: Boolean(accountSid && apiKeySid && apiKeySecret && messagingServiceSid),

@@ -25,6 +25,7 @@ import type {
   OpsTodayBookingsSummary,
   OpsWalkInBookingPayload,
 } from '@/types/ops';
+import type { BookingSmsDeliveryResponse } from '@/types/smsDelivery';
 import type { Tables } from '@/types/supabase';
 
 const OPS_BOOKINGS_BASE = '/api/ops/bookings';
@@ -452,6 +453,10 @@ export interface BookingService {
     bookingId: string,
     params?: { limit?: number },
   ): Promise<BookingEmailDeliveryResponse>;
+  getBookingSmsDeliveryLog(
+    bookingId: string,
+    params?: { limit?: number },
+  ): Promise<BookingSmsDeliveryResponse>;
   getRestaurantEmailDeliveryFeed(params: {
     restaurantId?: string;
     range?: OpsEmailDeliveryRange;
@@ -689,6 +694,35 @@ export function createBrowserBookingService(): BookingService {
 
       try {
         return await fetchJson<BookingEmailDeliveryResponse>(url);
+      } catch (error) {
+        if (error instanceof HttpError) {
+          const code =
+            error.status === 401 || error.status === 419
+              ? 'UNAUTHENTICATED'
+              : error.status === 403
+                ? 'FORBIDDEN'
+                : error.status === 404
+                  ? 'BOOKING_NOT_FOUND'
+                  : error.status === 503
+                    ? 'DELIVERY_LOG_UNAVAILABLE'
+                    : 'INTERNAL';
+          return { ok: false, code, error: error.message, message: error.message };
+        }
+        throw error;
+      }
+    },
+    async getBookingSmsDeliveryLog(bookingId, params) {
+      const rawLimit = params?.limit;
+      const fallback = 50;
+      const limit =
+        typeof rawLimit === 'number' && Number.isFinite(rawLimit) ? Math.floor(rawLimit) : fallback;
+      const clamped = Math.max(1, Math.min(200, limit));
+
+      const search = new URLSearchParams({ limit: String(clamped) });
+      const url = `${OPS_BOOKINGS_BASE}/${bookingId}/sms-delivery?${search.toString()}`;
+
+      try {
+        return await fetchJson<BookingSmsDeliveryResponse>(url);
       } catch (error) {
         if (error instanceof HttpError) {
           const code =
@@ -1040,6 +1074,10 @@ export class NotImplementedBookingService implements BookingService {
 
   getBookingEmailDeliveryLog(): Promise<BookingEmailDeliveryResponse> {
     this.error('getBookingEmailDeliveryLog not implemented');
+  }
+
+  getBookingSmsDeliveryLog(): Promise<BookingSmsDeliveryResponse> {
+    this.error('getBookingSmsDeliveryLog not implemented');
   }
 
   getRestaurantEmailDeliveryFeed(): Promise<OpsEmailDeliveryFeedResponse> {

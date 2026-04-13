@@ -160,6 +160,7 @@ function createDevBookingService(): BookingService {
     }),
 
     getBookingEmailDeliveryLog: unimplemented('getBookingEmailDeliveryLog'),
+    getBookingSmsDeliveryLog: unimplemented('getBookingSmsDeliveryLog'),
     getTodaySummary: unimplemented('getTodaySummary'),
     getBookingHeatmap: unimplemented('getBookingHeatmap'),
     getRejectionAnalytics: unimplemented('getRejectionAnalytics'),

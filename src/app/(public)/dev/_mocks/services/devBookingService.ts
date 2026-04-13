@@ -15,6 +15,7 @@ import type {
 } from '@/types/emailDelivery';
 import type { OpsEmailQueueFeedResponse, OpsEmailQueueJobStatus } from '@/types/emailQueue';
 import type { OpsBookingListItem, OpsBookingsFilters, OpsBookingsPage, OpsBookingStatus } from '@/types/ops';
+import type { BookingSmsDeliveryResponse, SmsDeliveryEventDTO } from '@/types/smsDelivery';
 
 function parseIso(value: Date | string | null | undefined): Date | null {
   if (!value) return null;
@@ -260,6 +261,43 @@ export class DevBookingService implements BookingService {
           id: `dev-mail-${bookingId}-delivered`,
           status: 'delivered',
           occurredAt: new Date(now.getTime() - 30_000).toISOString(),
+        },
+      ],
+    };
+  };
+
+  getBookingSmsDeliveryLog: BookingService['getBookingSmsDeliveryLog'] = async (
+    bookingId,
+  ): Promise<BookingSmsDeliveryResponse> => {
+    const booking = this.getBookingRecord(bookingId);
+    const recipientPhone = booking.customerPhone ?? '+447700900000';
+    const now = new Date();
+    const base: Omit<SmsDeliveryEventDTO, 'id' | 'status' | 'occurredAt'> = {
+      bookingId,
+      restaurantId: booking.restaurantId ?? null,
+      smsType: 'booking_confirmation',
+      recipientPhone,
+      messageSid: `dev-sms-${bookingId}`,
+      provider: 'mock',
+      error: null,
+      metadata: null,
+    };
+
+    return {
+      ok: true,
+      bookingId,
+      events: [
+        {
+          ...base,
+          id: `dev-sms-${bookingId}-queued`,
+          status: 'queued',
+          occurredAt: new Date(now.getTime() - 90_000).toISOString(),
+        },
+        {
+          ...base,
+          id: `dev-sms-${bookingId}-delivered`,
+          status: 'delivered',
+          occurredAt: new Date(now.getTime() - 20_000).toISOString(),
         },
       ],
     };

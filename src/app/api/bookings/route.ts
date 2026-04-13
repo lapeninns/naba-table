@@ -525,8 +525,8 @@ export async function GET(req: NextRequest) {
         );
       }
 
-      email = tokenResult.payload.email;
-      phone = tokenResult.payload.phone;
+      email = tokenResult.payload.email ?? '';
+      phone = tokenResult.payload.phone ?? '';
       targetRestaurantId = tokenResult.payload.restaurantId;
       access.token.valid = true;
       access.token.restaurantId = targetRestaurantId;

@@ -2053,6 +2053,69 @@ export type Database = {
           },
         ];
       };
+      sms_delivery_log: {
+        Row: {
+          booking_id: string | null;
+          created_at: string;
+          error: string | null;
+          id: string;
+          message_sid: string;
+          metadata: Json | null;
+          occurred_at: string;
+          provider: string | null;
+          provider_event_id: string | null;
+          recipient_phone: string;
+          restaurant_id: string | null;
+          sms_type: string | null;
+          status: string;
+        };
+        Insert: {
+          booking_id?: string | null;
+          created_at?: string;
+          error?: string | null;
+          id?: string;
+          message_sid: string;
+          metadata?: Json | null;
+          occurred_at?: string;
+          provider?: string | null;
+          provider_event_id?: string | null;
+          recipient_phone: string;
+          restaurant_id?: string | null;
+          sms_type?: string | null;
+          status: string;
+        };
+        Update: {
+          booking_id?: string | null;
+          created_at?: string;
+          error?: string | null;
+          id?: string;
+          message_sid?: string;
+          metadata?: Json | null;
+          occurred_at?: string;
+          provider?: string | null;
+          provider_event_id?: string | null;
+          recipient_phone?: string;
+          restaurant_id?: string | null;
+          sms_type?: string | null;
+          status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'sms_delivery_log_booking_id_fkey';
+            columns: ['booking_id'];
+            isOneToOne: false;
+            referencedRelation: 'bookings';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'sms_delivery_log_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       email_dispatch_intents: {
         Row: {
           attempts_made: number;

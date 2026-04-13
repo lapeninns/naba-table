@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 
 import { ArrivalCountdown } from './ArrivalCountdown';
 import { EmailDeliveryPanel } from './EmailDeliveryPanel';
+import { SmsDeliveryPanel } from './SmsDeliveryPanel';
 import { formatBookingTime, parseBookingDateTime } from '../utils';
 import { GuestContactCard } from './guest/GuestContactCard';
 import { GuestDepositCard } from './guest/GuestDepositCard';
@@ -191,6 +192,7 @@ export function GuestProfilePanel({
             <div className="space-y-4">
               <GuestTimelineCard status={status} booking={booking} timezone={timezone} />
               <EmailDeliveryPanel bookingId={booking.id} timezone={timezone} />
+              <SmsDeliveryPanel bookingId={booking.id} timezone={timezone} />
             </div>
           </TabsContent>
         </Tabs>
@@ -204,6 +206,7 @@ export function GuestProfilePanel({
       <GuestIdentityCard booking={booking} />
       <GuestContactCard booking={booking} />
       <EmailDeliveryPanel bookingId={booking.id} timezone={timezone} />
+      <SmsDeliveryPanel bookingId={booking.id} timezone={timezone} />
       <GuestMetaGrid
         partySize={booking.partySize}
         formattedStartTime={formattedStartTime}
