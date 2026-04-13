@@ -5,7 +5,6 @@ import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 
 import { ClarityProvider } from './analytics/ClarityProvider';
-// import { ExitIntentPopup } from './analytics/ExitIntentPopup';
 import { LazySection } from './optimizations';
 import {
   HeroSection,
@@ -88,9 +87,6 @@ export function LandingPage({ isAuthenticated }: LandingPageProps) {
         </LazySection>
         <CTASection />
       </main>
-
-      {/* <StickyCTA /> */}
-      {/* <ExitIntentPopup /> */}
       <Footer />
     </div>
   );
