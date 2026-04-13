@@ -35,7 +35,7 @@ import {
   OperatingHoursError,
   assertBookingWithinOperatingWindow,
 } from '@/server/bookings/timeValidation';
-import { createBookingWithCapacityCheck } from '@/server/capacity';
+import { checkSlotAvailability, createBookingWithCapacityCheck, findAlternativeSlots } from '@/server/capacity';
 import { normalizeEmail, upsertCustomer } from '@/server/customers';
 import {
   enqueueBookingCreatedSideEffects,
@@ -443,6 +443,121 @@ async function recoverBookingRecord(
   }
 
   return null;
+}
+
+type BookingAlternativeSlotResponse = {
+  time: string;
+  available: boolean;
+  utilizationPercent: number;
+};
+
+async function safeFindBookingAlternatives(args: {
+  client: ReturnType<typeof getServiceSupabaseClient>;
+  restaurantId: string;
+  date: string;
+  partySize: number;
+  preferredTime: string;
+  durationMinutes?: number;
+}): Promise<BookingAlternativeSlotResponse[]> {
+  try {
+    const alternatives = await findAlternativeSlots(
+      {
+        restaurantId: args.restaurantId,
+        date: args.date,
+        partySize: args.partySize,
+        preferredTime: args.preferredTime,
+        durationMinutes: args.durationMinutes,
+        maxAlternatives: 5,
+        searchWindowMinutes: 120,
+      },
+      args.client,
+    );
+
+    return alternatives.map((slot) => ({
+      time: slot.time,
+      available: slot.available,
+      utilizationPercent: slot.utilizationPercent,
+    }));
+  } catch (error) {
+    console.error('[bookings][POST][alternatives]', stringifyError(error));
+    return [];
+  }
+}
+
+async function buildCapacityFailureResponse(args: {
+  client: ReturnType<typeof getServiceSupabaseClient>;
+  restaurantId: string;
+  date: string;
+  startTime: string;
+  partySize: number;
+  durationMinutes?: number;
+  requestSource: string;
+  clientIp: string;
+  code: 'CAPACITY_EXCEEDED' | 'BOOKING_CONFLICT';
+  message: string;
+  details?: Record<string, unknown> | null;
+  retryable?: boolean;
+  retryAfterSeconds?: number;
+}): Promise<NextResponse> {
+  const alternatives = await safeFindBookingAlternatives({
+    client: args.client,
+    restaurantId: args.restaurantId,
+    date: args.date,
+    partySize: args.partySize,
+    preferredTime: args.startTime,
+    durationMinutes: args.durationMinutes,
+  });
+
+  if (args.code === 'CAPACITY_EXCEEDED') {
+    void recordObservabilityEvent({
+      source: args.requestSource,
+      eventType: 'booking.capacity_exceeded',
+      severity: 'warning',
+      context: {
+        restaurantId: args.restaurantId,
+        date: args.date,
+        time: args.startTime,
+        partySize: args.partySize,
+        ipScope: anonymizeIp(args.clientIp),
+        alternativesFound: alternatives.length,
+        ...(args.details ?? {}),
+      },
+    });
+  }
+
+  const utilizationPercent =
+    args.details && typeof args.details.utilizationPercent === 'number'
+      ? args.details.utilizationPercent
+      : null;
+  const retryAfterSeconds = args.retryAfterSeconds ?? 1;
+  const headers: Record<string, string> = {};
+
+  if (args.code === 'CAPACITY_EXCEEDED') {
+    headers['X-Capacity-Exceeded'] = 'true';
+    if (utilizationPercent !== null) {
+      headers['X-Utilization-Percent'] = utilizationPercent.toString();
+    }
+  }
+
+  if (args.code === 'BOOKING_CONFLICT') {
+    headers['Retry-After'] = retryAfterSeconds.toString();
+    headers['X-Conflict-Type'] = 'race_condition';
+  }
+
+  return NextResponse.json(
+    {
+      error: args.message,
+      code: args.code,
+      details: args.details ?? null,
+      alternatives,
+      ...(args.retryable ? { retryable: true, retryAfter: retryAfterSeconds } : {}),
+    },
+    { status: 409, headers },
+  );
+}
+
+function getPrimaryValidationIssue(response: BookingValidationError['response']) {
+  return response.issues[0] ?? null;
 }
 
 export async function GET(req: NextRequest) {
@@ -923,7 +1038,72 @@ export async function POST(req: NextRequest) {
 
     let booking: BookingRecord | undefined;
     let reusedExisting = false;
-    if (useUnifiedValidation) {
+
+    const recoveredExisting = await recoverBookingRecord(supabase, {
+      restaurantId,
+      idempotencyKey,
+      customerId: customer.id,
+      bookingDate: data.date,
+      startTime,
+      endTime,
+    });
+
+    if (recoveredExisting) {
+      booking = recoveredExisting;
+      reusedExisting = true;
+    }
+
+    if (!booking) {
+      try {
+        const availabilityCheck = await checkSlotAvailability(
+          {
+            restaurantId,
+            date: data.date,
+            time: startTime,
+            partySize: data.party,
+            durationMinutes,
+            seatingPreference: data.seating,
+          },
+          supabase,
+        );
+
+        if (!availabilityCheck.available) {
+          return await buildCapacityFailureResponse({
+            client: supabase,
+            restaurantId,
+            date: data.date,
+            startTime,
+            partySize: data.party,
+            durationMinutes,
+            requestSource,
+            clientIp,
+            code: 'CAPACITY_EXCEEDED',
+            message: availabilityCheck.reason ?? 'No capacity available for this time slot.',
+            details: {
+              requestedTime: startTime,
+              partySize: data.party,
+              ...availabilityCheck.metadata,
+            },
+          });
+        }
+      } catch (capacityPrecheckError) {
+        console.error('[bookings][POST][capacity-precheck]', stringifyError(capacityPrecheckError));
+        void recordObservabilityEvent({
+          source: requestSource,
+          eventType: 'booking.capacity_precheck.failed',
+          severity: 'warning',
+          context: {
+            restaurantId,
+            date: data.date,
+            time: startTime,
+            partySize: data.party,
+            error: stringifyError(capacityPrecheckError),
+          },
+        });
+      }
+    }
+
+    if (!booking && useUnifiedValidation) {
       const validationService = createBookingValidationService({ client: supabase });
 
       const bookingInput: BookingInput = {
@@ -967,11 +1147,42 @@ export async function POST(req: NextRequest) {
       } catch (error) {
         if (error instanceof BookingValidationError) {
           const mapped = mapValidationFailure(error.response);
+          const primaryIssue = getPrimaryValidationIssue(error.response);
+          if (primaryIssue?.code === 'CAPACITY_EXCEEDED') {
+            const alternatives = await safeFindBookingAlternatives({
+              client: supabase,
+              restaurantId,
+              date: data.date,
+              partySize: data.party,
+              preferredTime: startTime,
+              durationMinutes,
+            });
+            const utilizationPercent =
+              primaryIssue.detail && typeof primaryIssue.detail.utilizationPercent === 'number'
+                ? primaryIssue.detail.utilizationPercent
+                : null;
+
+            return NextResponse.json(
+              {
+                ...mapped.body,
+                alternatives,
+              },
+              withValidationHeaders({
+                status: mapped.status,
+                headers: {
+                  'X-Capacity-Exceeded': 'true',
+                  ...(utilizationPercent !== null
+                    ? { 'X-Utilization-Percent': utilizationPercent.toString() }
+                    : {}),
+                },
+              }),
+            );
+          }
           return NextResponse.json(mapped.body, withValidationHeaders({ status: mapped.status }));
         }
         throw error;
       }
-    } else {
+    } else if (!booking) {
        const bookingResult = await createBookingWithCapacityCheck({
          restaurantId,
          customerId: customer.id,
@@ -995,7 +1206,7 @@ export async function POST(req: NextRequest) {
  
        if (!bookingResult.success) {
          const code = bookingResult.error;
- 
+
          if (code === 'CAPACITY_UNAVAILABLE') {
            return NextResponse.json(
              {
@@ -1006,16 +1217,39 @@ export async function POST(req: NextRequest) {
              { status: 503 },
            );
          }
- 
+
          if (code === 'CAPACITY_EXCEEDED') {
-           return NextResponse.json(
-             {
-               error: bookingResult.message ?? 'No capacity available',
-               code,
-               details: bookingResult.details ?? null,
-             },
-             { status: 409 },
-           );
+           return await buildCapacityFailureResponse({
+             client: supabase,
+             restaurantId,
+             date: data.date,
+             startTime,
+             partySize: data.party,
+             durationMinutes,
+             requestSource,
+             clientIp,
+             code,
+             message: bookingResult.message ?? 'No capacity available',
+             details: (bookingResult.details as Record<string, unknown> | undefined) ?? null,
+           });
+         }
+
+         if (code === 'BOOKING_CONFLICT') {
+           return await buildCapacityFailureResponse({
+             client: supabase,
+             restaurantId,
+             date: data.date,
+             startTime,
+             partySize: data.party,
+             durationMinutes,
+             requestSource,
+             clientIp,
+             code,
+             message: bookingResult.message ?? 'This time slot was just booked. Please try again.',
+             details: (bookingResult.details as Record<string, unknown> | undefined) ?? null,
+             retryable: true,
+             retryAfterSeconds: 1,
+           });
          }
  
          return NextResponse.json(
@@ -1028,6 +1262,7 @@ export async function POST(req: NextRequest) {
          );
        }
  
+       reusedExisting = bookingResult.duplicate === true;
        booking = bookingResult.booking as BookingRecord | undefined;
 
 
@@ -1100,9 +1335,6 @@ export async function POST(req: NextRequest) {
           }
         }
       }
-
-      booking = bookingResult.booking as BookingRecord;
-      reusedExisting = bookingResult.duplicate === true;
 
       // Enforce default initial status to 'pending' for newly created bookings (RPC may return 'confirmed').
       if (!reusedExisting && booking.status !== 'pending') {

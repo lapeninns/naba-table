@@ -96,6 +96,7 @@ describe('PlanStepForm accessibility', () => {
       setSubmitting: vi.fn(),
       setLoading: vi.fn(),
       setError: vi.fn(),
+      setSubmissionError: vi.fn(),
       clearError: vi.fn(),
       setBookings: vi.fn(),
       applyConfirmation: vi.fn(),
