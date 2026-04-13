@@ -36,19 +36,22 @@ Tool: Chrome DevTools MCP
 
 ## Migration Verification
 
-- Attempted staging migration dry run with `npx supabase db push --linked --dry-run`.
-- Attempted explicit pooler-auth dry run with `npx supabase db push --linked -p <derived-password> --dry-run`.
-- Result: blocked by Postgres authentication failure from this machine for the linked staging project.
-- No remote migration was applied in staging or production during this release pass.
+- Supabase CLI dry runs remained blocked by Postgres authentication failure from this machine.
+- Applied `supabase/migrations/20260413130000_add_sms_delivery_log.sql` through the Supabase Management API in staging (`ndxmivcrehsacuerwxtm`) and production (`vrdiqfudmwydclqpydee`).
+- Recorded migration version `20260413130000` in `supabase_migrations.schema_migrations` for both remote environments using the existing Management API migration-history pattern already present in the project.
+- Verified both environments return `200 []` from the REST surface for `sms_delivery_log`, which clears the earlier `PGRST205` failure mode behind the “Delivery tracking unavailable” banner.
 
 ## Artifacts
 
 - Browser screenshot: `artifacts/sms-delivery-panel-dev-harness.png`
+- Staging verification: `artifacts/staging-migration-verify-20260413-1402-fixed.txt`
+- Production migration apply: `artifacts/production-migration-apply-20260413-1401.jsonl`
+- Production verification: `artifacts/production-migration-verify-20260413-1401.txt`
 
 ## Known Issues
 
 - [x] Browser proof completed on the booking-details History tab via the dev harness.
-- [ ] Remote migration apply/verification is still blocked by stale or invalid Supabase Postgres credentials for CLI access from this machine.
+- [x] Remote migration applied and verified in staging and production via the Supabase Management API fallback.
 
 ## Sign-off
 

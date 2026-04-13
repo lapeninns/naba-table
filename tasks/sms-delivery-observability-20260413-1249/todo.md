@@ -41,7 +41,7 @@ related_tickets: []
   - SMS retry is intentionally excluded to avoid accidental duplicate guest texts.
 - Deviations:
   - The dev harness initially used a booking id that did not exist in the mock booking service fixtures, so browser proof first surfaced the SMS panel error state; the harness was then corrected to use the canonical fixture booking id before final UI verification.
-  - Remote migration apply from this machine is currently blocked by stale or invalid Postgres password access for the Supabase CLI, even though the project refs and service-role-backed app behavior are otherwise configured.
+  - Supabase CLI Postgres auth remained unusable from this machine, so the staging and production migration was applied through the Supabase Management API and recorded in `supabase_migrations.schema_migrations` to preserve migration history.
 
 ## Batched Questions
 
