@@ -1,6 +1,6 @@
 # Continuity Ledger
 
-Last updated: 2026-04-13T13:55:00Z
+Last updated: 2026-04-13T14:03:00Z
 
 ## Goal (incl. success criteria)
 
@@ -13,7 +13,6 @@ Last updated: 2026-04-13T13:55:00Z
 
 - Follow root `AGENTS.md`, `server/AGENTS.md`, `src/app/AGENTS.md`, and `supabase/AGENTS.md`.
 - SMS retry is intentionally out of scope for this pass because duplicate guest texts are higher risk than email retries.
-- Database migration authoring is in scope; remote apply is not assumed in this turn.
 - Twilio webhook validation should use the account auth token, so env support is required.
 
 ## Key decisions
@@ -30,24 +29,26 @@ Last updated: 2026-04-13T13:55:00Z
   - `pnpm build` passed
   - focused SMS-related Vitest suite passed
   - Chrome DevTools MCP proof completed on `/dev/ops-booking-dialog` after correcting the harness fixture booking id
-- Release blocker:
-  - Supabase CLI migration apply is currently blocked from this machine because staging pooler authentication fails even when the staging project ref is correct.
+- Deployment and migration are complete:
+  - The app is live on production at commit `72478fd2`.
+  - `sms_delivery_log` is present in staging and production, and migration history now records version `20260413130000` in both environments.
+  - The REST surface for `sms_delivery_log` returns `200 []` in production instead of `PGRST205`.
 
 ## Done
 
-- Created and updated `tasks/sms-delivery-observability-20260413-1249/` with current implementation and verification state.
+- Created and updated `tasks/sms-delivery-observability-20260413-1249/` with implementation, migration, and verification state.
 - Added `sms_delivery_log` migration, delivery-log helpers, Twilio status callback route, booking-level ops API, hook, grouping utilities, and booking details SMS delivery panel.
 - Added focused SMS delivery tests and captured browser proof screenshot at `tasks/sms-delivery-observability-20260413-1249/artifacts/sms-delivery-panel-dev-harness.png`.
+- Applied the SMS delivery migration in staging and production through the Supabase Management API and verified the live PostgREST surface.
 
 ## Now
 
-- Preparing the repo for commit/push and production deployment.
+- Closing out the SMS delivery task with final migration evidence.
 
 ## Next
 
-- Commit and push the current expected change set.
-- Deploy the app to production.
-- Resolve Supabase CLI database authentication so the staged SMS migration can be applied remotely.
+- Refresh the production ops booking view and confirm the unavailable banner is gone in the live UI.
+- Keep the Supabase CLI auth issue as a separate follow-up since the migration itself is complete.
 
 ## Open questions (UNCONFIRMED if needed)
 
