@@ -64,7 +64,11 @@ export function ReservationWizardClient({
   return (
     <ReservationWizard
       initialDetails={initialDetails}
+      layoutElement="div"
       returnPath={returnPath}
+      className="bg-transparent px-0 pb-0 pt-0 sm:pb-0 sm:pt-0 md:px-0 lg:px-0"
+      contentClassName="max-w-none gap-5 sm:gap-6"
+      navigationClassName="sm:px-0 lg:px-0"
       dependencies={{ navigator }}
     />
   );

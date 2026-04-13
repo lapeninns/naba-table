@@ -10,6 +10,7 @@ import type { BookingDetails, BookingWizardMode } from '../model/reducer';
 type ReservationWizardProps = {
   initialDetails?: Partial<BookingDetails>;
   mode?: BookingWizardMode;
+  layoutElement?: 'main' | 'div';
   returnPath?: string;
   /**
    * Optional dependency overrides (navigation, analytics, etc.). If omitted,
@@ -24,6 +25,7 @@ type ReservationWizardProps = {
 export function ReservationWizard({
   initialDetails,
   mode = 'customer',
+  layoutElement = 'main',
   returnPath,
   dependencies,
   navigationClassName,
@@ -37,6 +39,7 @@ export function ReservationWizard({
       <BookingWizard
         initialDetails={initialDetails}
         mode={mode}
+        layoutElement={layoutElement}
         returnPath={normalizedReturnPath}
         navigationClassName={navigationClassName}
         className={className}
