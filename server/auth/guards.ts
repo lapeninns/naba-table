@@ -2,7 +2,12 @@
 import { RESTAURANT_ROLES, type RestaurantRole } from "@/lib/owner/auth/roles";
 import { mapSupabaseAuthError } from "@/server/auth/supabase-auth-errors";
 import { getRouteHandlerSupabaseClient } from "@/server/supabase";
-import { fetchUserMemberships, requireMembershipForRestaurant, type RestaurantMembershipWithDetails } from "@/server/team/access";
+import {
+  MembershipAccessError,
+  fetchUserMemberships,
+  requireMembershipForRestaurant,
+  type RestaurantMembershipWithDetails,
+} from "@/server/team/access";
 
 import type { Database } from "@/types/supabase";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
@@ -77,23 +82,31 @@ export async function requireRestaurantMember(params: {
       client: supabase,
     });
   } catch (error) {
-    if (typeof error === "object" && error !== null) {
-      const details = error as { code?: unknown; message?: unknown };
-      if (details.code === "MEMBERSHIP_NOT_FOUND") {
+    if (error instanceof MembershipAccessError) {
+      if (error.code === "MEMBERSHIP_NOT_FOUND") {
         throw new GuardError({
           status: 403,
           code: "FORBIDDEN",
           message: "You are not a member of this restaurant",
-          details: details.message,
+          details: error.details,
           cause: error,
         });
       }
-      if (details.code === "MEMBERSHIP_ROLE_DENIED") {
+      if (error.code === "MEMBERSHIP_ROLE_DENIED") {
         throw new GuardError({
           status: 403,
           code: "FORBIDDEN",
           message: "You do not have sufficient permissions for this restaurant",
-          details: details.message,
+          details: error.details,
+          cause: error,
+        });
+      }
+      if (error.code === "MEMBERSHIP_VALIDATION_UNAVAILABLE") {
+        throw new GuardError({
+          status: 503,
+          code: "MEMBERSHIP_VALIDATION_UNAVAILABLE",
+          message: "Membership verification is temporarily unavailable",
+          details: error.details,
           cause: error,
         });
       }
@@ -116,6 +129,16 @@ export async function listUserRestaurantMemberships(
   try {
     return await fetchUserMemberships(userId, supabase);
   } catch (error) {
+    if (error instanceof MembershipAccessError && error.code === "MEMBERSHIP_VALIDATION_UNAVAILABLE") {
+      throw new GuardError({
+        status: 503,
+        code: "MEMBERSHIP_VALIDATION_UNAVAILABLE",
+        message: "Membership verification is temporarily unavailable",
+        details: error.details,
+        cause: error,
+      });
+    }
+
     throw new GuardError({
       status: 500,
       code: "MEMBERSHIP_QUERY_FAILED",

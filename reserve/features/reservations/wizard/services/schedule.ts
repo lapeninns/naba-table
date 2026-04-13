@@ -157,6 +157,7 @@ export type CalendarMask = {
   to: string;
   closedDaysOfWeek: number[];
   closedDates: string[];
+  overrideDates?: string[];
 };
 
 export const calendarMaskQueryKey = (
