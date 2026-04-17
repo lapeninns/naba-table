@@ -40,6 +40,7 @@ export type RestaurantSchedule = {
   restaurantId: string;
   date: string;
   timezone: string;
+  notes: string | null;
   intervalMinutes: number;
   defaultDurationMinutes: number;
   lastSeatingBufferMinutes: number;
@@ -82,6 +83,7 @@ type RawOperatingHours = {
   opens_at: string | null;
   closes_at: string | null;
   is_closed: boolean | null;
+  notes: string | null;
   reservation_interval_minutes: number | null;
   reservation_slot_times: string[] | null;
 };
@@ -461,13 +463,17 @@ export async function getRestaurantSchedule(
     await Promise.all([
       client
         .from('restaurant_operating_hours')
-        .select('opens_at, closes_at, is_closed, reservation_interval_minutes, reservation_slot_times')
+        .select(
+          'opens_at, closes_at, is_closed, notes, reservation_interval_minutes, reservation_slot_times',
+        )
         .eq('restaurant_id', restaurantId)
         .eq('effective_date', date)
         .maybeSingle(),
       client
         .from('restaurant_operating_hours')
-        .select('opens_at, closes_at, is_closed, reservation_interval_minutes, reservation_slot_times')
+        .select(
+          'opens_at, closes_at, is_closed, notes, reservation_interval_minutes, reservation_slot_times',
+        )
         .eq('restaurant_id', restaurantId)
         .eq('day_of_week', dayOfWeek)
         .is('effective_date', null)
@@ -551,6 +557,7 @@ export async function getRestaurantSchedule(
     restaurantId: restaurant.id,
     date,
     timezone: restaurant.timezone,
+    notes: effectiveHours?.notes?.trim() || null,
     intervalMinutes: effectiveIntervalMinutes,
     defaultDurationMinutes,
     window: {

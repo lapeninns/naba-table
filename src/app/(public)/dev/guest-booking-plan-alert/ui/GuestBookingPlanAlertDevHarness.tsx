@@ -9,8 +9,11 @@ import { Alert, AlertDescription, AlertIcon } from '@shared/ui/alert';
 
 const WEEKEND_DATE = '2026-04-18';
 const OVERRIDE_DATE = '2026-04-15';
+const NOTE_DATE = '2026-04-14';
+const OPERATING_HOURS_NOTE = 'Kitchen closes early at 8:30 PM due to a private event.';
 
 export function GuestBookingPlanAlertDevHarness() {
+  const noteAdvisory = derivePlanDateAdvisory(NOTE_DATE, [], OPERATING_HOURS_NOTE);
   const weekendAdvisory = derivePlanDateAdvisory(WEEKEND_DATE, []);
   const overrideAdvisory = derivePlanDateAdvisory(OVERRIDE_DATE, [OVERRIDE_DATE]);
 
@@ -23,6 +26,21 @@ export function GuestBookingPlanAlertDevHarness() {
             Dev-only proof for the plan-step advisory shown on weekends and date overrides.
           </p>
         </section>
+
+        {noteAdvisory ? (
+          <section className="space-y-2 rounded-2xl border border-border bg-card p-6 shadow-sm">
+            <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
+              Operating-hours note
+            </p>
+            <p className="text-sm text-foreground">Selected date: {NOTE_DATE}</p>
+            <Alert variant="info">
+              <AlertIcon>
+                <AlertCircle className="h-4 w-4" aria-hidden />
+              </AlertIcon>
+              <AlertDescription>{noteAdvisory}</AlertDescription>
+            </Alert>
+          </section>
+        ) : null}
 
         {weekendAdvisory ? (
           <section className="space-y-2 rounded-2xl border border-border bg-card p-6 shadow-sm">

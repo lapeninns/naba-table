@@ -91,7 +91,13 @@ export const PLAN_DATE_ADVISORY_COPY =
 export function derivePlanDateAdvisory(
   date: string | null | undefined,
   overrideDates: Iterable<string> | null | undefined,
+  operatingHoursNote?: string | null,
 ): string | null {
+  const trimmedNote = operatingHoursNote?.trim();
+  if (trimmedNote) {
+    return trimmedNote;
+  }
+
   if (!date) {
     return null;
   }
@@ -531,8 +537,8 @@ export function usePlanStepForm({
 
   const debouncedPrefetch = useDebounce(prefetchVisibleMonth, 300);
   const advisoryMessage = useMemo(
-    () => derivePlanDateAdvisory(state.details.date, overrideDates),
-    [overrideDates, state.details.date],
+    () => derivePlanDateAdvisory(state.details.date, overrideDates, schedule?.notes),
+    [overrideDates, schedule?.notes, state.details.date],
   );
 
   const lastValidDateRef = useRef<string | null>(state.details.date ?? null);

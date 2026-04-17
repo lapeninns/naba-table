@@ -51,6 +51,7 @@ describe('PlanStepForm accessibility', () => {
       restaurantId: 'rest-1',
       date: '2026-02-10',
       timezone: 'Europe/London',
+      notes: null,
       intervalMinutes: 15,
       defaultDurationMinutes: 90,
       lastSeatingBufferMinutes: 0,
