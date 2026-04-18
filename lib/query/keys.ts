@@ -39,6 +39,8 @@ export const queryKeys = {
     all: ['ops', 'restaurants'] as const,
     list: (params: Record<string, unknown> = {}) => ['ops', 'restaurants', 'list', params] as const,
     detail: (id: string) => ['ops', 'restaurants', 'detail', id] as const,
+    businessContext: (restaurantId: string) =>
+      ['ops', 'restaurants', restaurantId, 'business-context'] as const,
     googleBusinessProfile: (restaurantId: string) =>
       ['ops', 'restaurants', restaurantId, 'google-business-profile'] as const,
     hours: (restaurantId: string) => ['ops', 'restaurants', restaurantId, 'hours'] as const,
@@ -111,6 +113,7 @@ export type QueryKey =
   | ReturnType<(typeof queryKeys)['opsCustomers']['list']>
   | ReturnType<(typeof queryKeys)['opsRestaurants']['list']>
   | ReturnType<(typeof queryKeys)['opsRestaurants']['detail']>
+  | ReturnType<(typeof queryKeys)['opsRestaurants']['businessContext']>
   | ReturnType<(typeof queryKeys)['opsRestaurants']['googleBusinessProfile']>
   | ReturnType<(typeof queryKeys)['opsRestaurants']['hours']>
   | ReturnType<(typeof queryKeys)['opsRestaurants']['servicePeriods']>

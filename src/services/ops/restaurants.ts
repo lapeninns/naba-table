@@ -119,18 +119,24 @@ export type GoogleBusinessProfileAvailableLocation = {
 
 export type GoogleBusinessProfileBusinessInfo = {
   details: {
+    businessName: string | null;
     description: string | null;
+    languageCode: string | null;
     openingDate: string | null;
     businessStatus: string | null;
     isServiceAreaBusiness: boolean;
+    canReopen: boolean | null;
     source: string;
     managedBy: string;
     lastSyncedAt: string | null;
     verification?: {
+      businessName: GoogleBusinessProfileFieldVerification | null;
       description: GoogleBusinessProfileFieldVerification | null;
+      languageCode: GoogleBusinessProfileFieldVerification | null;
       openingDate: GoogleBusinessProfileFieldVerification | null;
       businessStatus: GoogleBusinessProfileFieldVerification | null;
       isServiceAreaBusiness: GoogleBusinessProfileFieldVerification | null;
+      canReopen: GoogleBusinessProfileFieldVerification | null;
     };
   } | null;
   addresses: Array<{
@@ -143,6 +149,15 @@ export type GoogleBusinessProfileBusinessInfo = {
     postalCode: string | null;
     regionCode: string | null;
     countryCode: string | null;
+    languageCode: string | null;
+    sublocality: string | null;
+    organization: string | null;
+    sortingCode: string | null;
+    recipients: string[];
+    latlng: {
+      latitude?: number;
+      longitude?: number;
+    } | null;
     isPrimary: boolean;
     lastSyncedAt: string | null;
     verificationStatus?: GoogleBusinessProfileFieldVerification | null;
@@ -169,6 +184,11 @@ export type GoogleBusinessProfileBusinessInfo = {
     id: string;
     displayName: string;
     categoryCode: string | null;
+    moreHoursTypes: Array<{
+      hoursTypeId: string | null;
+      displayName: string | null;
+      localizedDisplayName: string | null;
+    }>;
     isPrimary: boolean;
     lastSyncedAt: string | null;
     verificationStatus?: GoogleBusinessProfileFieldVerification | null;
@@ -178,6 +198,7 @@ export type GoogleBusinessProfileBusinessInfo = {
     displayName: string;
     areaType: string;
     regionCode: string | null;
+    placeData: Record<string, unknown> | null;
     lastSyncedAt: string | null;
     verificationStatus?: GoogleBusinessProfileFieldVerification | null;
   }>;
@@ -185,6 +206,7 @@ export type GoogleBusinessProfileBusinessInfo = {
     id: string;
     hoursType: string;
     periodLabel: string | null;
+    periodCode: string | null;
     openDay: number | null;
     closeDay: number | null;
     startDate: string | null;
@@ -199,13 +221,33 @@ export type GoogleBusinessProfileBusinessInfo = {
     id: string;
     attributeGroup: string | null;
     attributeKey: string;
+    attributeName: string | null;
+    attributeId: string | null;
     displayName: string | null;
     displayText: string | null;
+    displayTextStandalone: string | null;
+    displayTextNegative: string | null;
     valueType: string;
     boolValue: boolean | null;
     textValue: string | null;
     uriValue: string | null;
+    uriValues: string[];
     enumValues: string[];
+    unsetEnumValues: string[];
+    valueMetadata: Array<{
+      value: boolean | string | null;
+      displayName: string | null;
+    }>;
+    lastSyncedAt: string | null;
+    verificationStatus?: GoogleBusinessProfileFieldVerification | null;
+  }>;
+  serviceItems: Array<{
+    id: string;
+    itemKey: string;
+    itemType: string | null;
+    displayName: string | null;
+    description: string | null;
+    payload: Record<string, unknown> | null;
     lastSyncedAt: string | null;
     verificationStatus?: GoogleBusinessProfileFieldVerification | null;
   }>;
@@ -289,6 +331,130 @@ export type GoogleBusinessProfileConnection = {
   availableLocations: GoogleBusinessProfileAvailableLocation[];
   businessInfo: GoogleBusinessProfileBusinessInfo;
 };
+
+export type RestaurantBusinessContextMoreHoursType = {
+  hoursTypeId: string | null;
+  displayName: string | null;
+  localizedDisplayName: string | null;
+};
+
+export type RestaurantBusinessContextAttributeValueMetadata = {
+  value: boolean | string | null;
+  displayName: string | null;
+};
+
+export type RestaurantBusinessContextCategory = {
+  id: string;
+  displayName: string;
+  categoryCode: string | null;
+  moreHoursTypes: RestaurantBusinessContextMoreHoursType[];
+  isPrimary: boolean;
+  source: string;
+  managedBy: string;
+  updatedAt: string | null;
+};
+
+export type RestaurantBusinessContextServiceArea = {
+  id: string;
+  displayName: string;
+  areaType: string;
+  regionCode: string | null;
+  placeData: Record<string, unknown> | null;
+  source: string;
+  managedBy: string;
+  updatedAt: string | null;
+};
+
+export type RestaurantBusinessContextAttribute = {
+  id: string;
+  attributeGroup: string | null;
+  attributeKey: string;
+  attributeName: string | null;
+  attributeId: string | null;
+  displayName: string | null;
+  displayText: string | null;
+  displayTextStandalone: string | null;
+  displayTextNegative: string | null;
+  valueType: string;
+  boolValue: boolean | null;
+  textValue: string | null;
+  uriValue: string | null;
+  uriValues: string[];
+  enumValues: string[];
+  unsetEnumValues: string[];
+  valueMetadata: RestaurantBusinessContextAttributeValueMetadata[];
+  source: string;
+  managedBy: string;
+  updatedAt: string | null;
+};
+
+export type RestaurantBusinessContextServiceItem = {
+  id: string;
+  itemKey: string;
+  itemType: string | null;
+  displayName: string | null;
+  description: string | null;
+  payload: Record<string, unknown> | null;
+  source: string;
+  managedBy: string;
+  updatedAt: string | null;
+};
+
+export type RestaurantBusinessContextFamily = {
+  categories: RestaurantBusinessContextCategory[];
+  serviceAreas: RestaurantBusinessContextServiceArea[];
+  attributes: RestaurantBusinessContextAttribute[];
+  serviceItems: RestaurantBusinessContextServiceItem[];
+};
+
+export type RestaurantBusinessContextSnapshot = {
+  core: RestaurantBusinessContextFamily;
+  providerSnapshot: RestaurantBusinessContextFamily;
+};
+
+export type UpdateRestaurantBusinessContextInput = Partial<{
+  categories: Array<{
+    id?: string;
+    displayName: string;
+    categoryCode?: string | null;
+    moreHoursTypes?: RestaurantBusinessContextMoreHoursType[];
+    isPrimary?: boolean;
+  }>;
+  serviceAreas: Array<{
+    id?: string;
+    displayName: string;
+    areaType?: string;
+    regionCode?: string | null;
+    placeData?: Record<string, unknown> | null;
+  }>;
+  attributes: Array<{
+    id?: string;
+    attributeGroup?: string | null;
+    attributeKey: string;
+    attributeName?: string | null;
+    attributeId?: string | null;
+    displayName?: string | null;
+    displayText?: string | null;
+    displayTextStandalone?: string | null;
+    displayTextNegative?: string | null;
+    valueType: string;
+    boolValue?: boolean | null;
+    textValue?: string | null;
+    uriValue?: string | null;
+    uriValues?: string[];
+    enumValues?: string[];
+    unsetEnumValues?: string[];
+    valueMetadata?: RestaurantBusinessContextAttributeValueMetadata[];
+  }>;
+  serviceItems: Array<{
+    id?: string;
+    itemKey: string;
+    itemType?: string | null;
+    displayName?: string | null;
+    description?: string | null;
+    payload?: Record<string, unknown> | null;
+  }>;
+}>;
 
 export type LinkGoogleBusinessProfileLocationInput = {
   accountName: string;
@@ -469,10 +635,15 @@ export type SendTestEmailTemplateInput = PreviewEmailTemplateInput & {
 export interface RestaurantService {
   listRestaurants(): Promise<Array<OpsRestaurantOption & { role: RestaurantRole }>>;
   getProfile(restaurantId: string): Promise<RestaurantProfile>;
+  getBusinessContext(restaurantId: string): Promise<RestaurantBusinessContextSnapshot>;
   updateProfile(
     restaurantId: string,
     profile: Partial<RestaurantProfile>,
   ): Promise<RestaurantProfile>;
+  updateBusinessContext(
+    restaurantId: string,
+    payload: UpdateRestaurantBusinessContextInput,
+  ): Promise<RestaurantBusinessContextSnapshot>;
   syncProfileWithGoogleBusinessProfile(
     restaurantId: string,
     payload: GoogleBusinessProfileProfileSyncPayload,
@@ -543,8 +714,16 @@ export class NotImplementedRestaurantService implements RestaurantService {
     this.error('getProfile not implemented');
   }
 
+  getBusinessContext(): Promise<RestaurantBusinessContextSnapshot> {
+    this.error('getBusinessContext not implemented');
+  }
+
   updateProfile(): Promise<RestaurantProfile> {
     this.error('updateProfile not implemented');
+  }
+
+  updateBusinessContext(): Promise<RestaurantBusinessContextSnapshot> {
+    this.error('updateBusinessContext not implemented');
   }
 
   syncProfileWithGoogleBusinessProfile(
@@ -701,6 +880,12 @@ export function createBrowserRestaurantService(): RestaurantService {
       return mapRestaurant(restaurant);
     },
 
+    async getBusinessContext(restaurantId: string) {
+      return fetchJson<RestaurantBusinessContextSnapshot>(
+        `${OPS_RESTAURANTS_BASE}/${restaurantId}/business-context`,
+      );
+    },
+
     async updateProfile(restaurantId: string, profile: Partial<RestaurantProfile>) {
       const { restaurant } = await fetchJson<RestaurantResponse>(
         `${OPS_RESTAURANTS_BASE}/${restaurantId}`,
@@ -711,6 +896,20 @@ export function createBrowserRestaurantService(): RestaurantService {
         },
       );
       return mapRestaurant(restaurant);
+    },
+
+    async updateBusinessContext(
+      restaurantId: string,
+      payload: UpdateRestaurantBusinessContextInput,
+    ) {
+      return fetchJson<RestaurantBusinessContextSnapshot>(
+        `${OPS_RESTAURANTS_BASE}/${restaurantId}/business-context`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        },
+      );
     },
 
     async syncProfileWithGoogleBusinessProfile(

@@ -1,5 +1,6 @@
 'use client';
 
+import { Settings2 } from 'lucide-react';
 import { useMemo } from 'react';
 import { useState } from 'react';
 
@@ -8,7 +9,14 @@ import {
   type RestaurantDetailsFormValues,
   COMMON_TIMEZONES,
 } from '@/components/ops/restaurants/RestaurantDetailsForm';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useOpsGoogleBusinessProfileConnection } from '@/hooks/ops/useOpsGoogleBusinessProfile';
@@ -22,6 +30,7 @@ import { DEFAULT_RESERVATION_INTERVAL_MINUTES } from '@reserve/shared/config/res
 import { GoogleBusinessProfileSyncActionDialog } from './GoogleBusinessProfileSyncActionDialog';
 import { deriveProfileVerification } from './googleBusinessProfileVerification';
 import { GoogleBusinessProfileVerificationControls } from './GoogleBusinessProfileVerificationControls';
+import { RestaurantBusinessContextSection } from './RestaurantBusinessContextSection';
 import { RestaurantLogoUploader } from './RestaurantLogoUploader';
 import { SettingsCard } from './shared/SettingsCard';
 
@@ -215,82 +224,120 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
   }
 
   return (
-    <SettingsCard
-      title="Restaurant Profile"
-      description="Update core restaurant details and contact information."
-      headerAction={
-        <GoogleBusinessProfileVerificationControls
-          status={profileVerification.status}
-          recommendedDirection={profileVerification.recommendedDirection}
-          canPull={profileVerification.canPull}
-          canPush={profileVerification.canPush}
-          onPull={() => setSyncDialogMode('pull')}
-          onPush={() => setSyncDialogMode('push')}
-          isPulling={
-            syncMutation.isPending && syncMutation.variables?.direction === 'pull_from_gbp'
-          }
-          isPushing={syncMutation.isPending && syncMutation.variables?.direction === 'push_to_gbp'}
-        />
-      }
-    >
-      <div className="space-y-6">
-        <div className="space-y-2 rounded-lg border border-border/70 bg-muted/30 p-4">
-          <p className="text-sm font-medium text-foreground">{profileVerification.summary}</p>
-          {profileVerification.warnings.map((warning) => (
-            <p key={warning} className="text-xs text-muted-foreground">
-              {warning}
-            </p>
-          ))}
-          {syncMutation.error ? (
-            <p className="text-xs text-destructive">{syncMutation.error.message}</p>
-          ) : null}
-        </div>
-        <RestaurantLogoUploader
-          restaurantId={restaurantId}
-          restaurantName={derivedRestaurantName}
-          logoUrl={data?.logoUrl ?? null}
-          updateMutation={updateMutation}
-          isLoading={isLoading && !data}
-        />
-        <RestaurantDetailsForm
-          initialValues={initialValues}
-          onSubmit={handleSubmit}
-          isSubmitting={updateMutation.isPending}
-          gbpFieldVerifications={profileVerification.fields}
-        />
-      </div>
-      <GoogleBusinessProfileSyncActionDialog
-        open={syncDialogMode !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setSyncDialogMode(null);
-          }
-        }}
-        title={syncDialogMode === 'push' ? 'Push profile fields to GBP' : 'Import profile fields from GBP'}
-        description={
-          syncDialogMode === 'push'
-            ? 'Choose which canonical Nabatable profile fields to export to Google Business Profile, then confirm the action with your login password.'
-            : 'Choose which Google Business Profile fields to import into the canonical Nabatable profile, then confirm the action with your login password.'
+    <div className="space-y-6">
+      <SettingsCard
+        title="Restaurant Profile"
+        description="Update core restaurant details and contact information."
+        headerAction={
+          <GoogleBusinessProfileVerificationControls
+            status={profileVerification.status}
+            recommendedDirection={profileVerification.recommendedDirection}
+            canPull={profileVerification.canPull}
+            canPush={profileVerification.canPush}
+            onPull={() => setSyncDialogMode('pull')}
+            onPush={() => setSyncDialogMode('push')}
+            isPulling={
+              syncMutation.isPending && syncMutation.variables?.direction === 'pull_from_gbp'
+            }
+            isPushing={
+              syncMutation.isPending && syncMutation.variables?.direction === 'push_to_gbp'
+            }
+          />
         }
-        confirmLabel={syncDialogMode === 'push' ? 'Push selected fields' : 'Import selected fields'}
-        items={activeSyncItems}
-        isPending={syncMutation.isPending}
-        errorMessage={syncMutation.error?.message ?? null}
-        onConfirm={({ password, selectedIds }) => {
-          syncMutation.mutate(
-            {
-              direction: activeDirection,
-              password,
-              fields: selectedIds as GoogleBusinessProfileProfileField[],
-            },
-            {
-              onSuccess: () => {
-                setSyncDialogMode(null);
+      >
+        <div className="space-y-6">
+          <div className="space-y-2 rounded-lg border border-border/70 bg-muted/30 p-4">
+            <p className="text-sm font-medium text-foreground">{profileVerification.summary}</p>
+            {profileVerification.warnings.map((warning) => (
+              <p key={warning} className="text-xs text-muted-foreground">
+                {warning}
+              </p>
+            ))}
+            {syncMutation.error ? (
+              <p className="text-xs text-destructive">{syncMutation.error.message}</p>
+            ) : null}
+          </div>
+          <RestaurantLogoUploader
+            restaurantId={restaurantId}
+            restaurantName={derivedRestaurantName}
+            logoUrl={data?.logoUrl ?? null}
+            updateMutation={updateMutation}
+            isLoading={isLoading && !data}
+          />
+          <RestaurantDetailsForm
+            initialValues={initialValues}
+            onSubmit={handleSubmit}
+            isSubmitting={updateMutation.isPending}
+            gbpFieldVerifications={profileVerification.fields}
+          />
+        </div>
+        <GoogleBusinessProfileSyncActionDialog
+          open={syncDialogMode !== null}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSyncDialogMode(null);
+            }
+          }}
+          title={
+            syncDialogMode === 'push' ? 'Push profile fields to GBP' : 'Import profile fields from GBP'
+          }
+          description={
+            syncDialogMode === 'push'
+              ? 'Choose which canonical Nabatable profile fields to export to Google Business Profile, then confirm the action with your login password.'
+              : 'Choose which Google Business Profile fields to import into the canonical Nabatable profile, then confirm the action with your login password.'
+          }
+          confirmLabel={syncDialogMode === 'push' ? 'Push selected fields' : 'Import selected fields'}
+          items={activeSyncItems}
+          isPending={syncMutation.isPending}
+          errorMessage={syncMutation.error?.message ?? null}
+          onConfirm={({ password, selectedIds }) => {
+            syncMutation.mutate(
+              {
+                direction: activeDirection,
+                password,
+                fields: selectedIds as GoogleBusinessProfileProfileField[],
               },
-            },
-          );
-        }}
-      />
-    </SettingsCard>
+              {
+                onSuccess: () => {
+                  setSyncDialogMode(null);
+                },
+              },
+            );
+          }}
+        />
+      </SettingsCard>
+
+      <SettingsCard
+        title="Advanced"
+        description="Low-frequency structured metadata and specialist setup for discovery, integrations, and future sync-aware flows."
+      >
+        <Accordion type="single" collapsible className="rounded-xl border border-border/60 bg-muted/10">
+          <AccordionItem value="business-context" className="border-none">
+            <AccordionTrigger className="rounded-xl px-4 py-4 hover:bg-muted/30">
+              <div className="flex min-w-0 flex-1 items-start gap-3 text-left">
+                <div className="rounded-lg border border-border/60 bg-background p-2">
+                  <Settings2 className="size-4 text-muted-foreground" />
+                </div>
+                <div className="min-w-0 space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-semibold text-foreground">Business Context</span>
+                    <Badge variant="outline" className="text-[11px] uppercase tracking-[0.16em]">
+                      Advanced
+                    </Badge>
+                  </div>
+                  <p className="text-sm font-normal leading-6 text-muted-foreground">
+                    Categories, service areas, attributes, and service items that shape structured
+                    restaurant metadata.
+                  </p>
+                </div>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="px-4 pb-4">
+              <RestaurantBusinessContextSection restaurantId={restaurantId} embedded />
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+      </SettingsCard>
+    </div>
   );
 }

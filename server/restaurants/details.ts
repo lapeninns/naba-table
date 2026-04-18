@@ -168,21 +168,29 @@ export async function updateRestaurantDetails(
   client: DbClient = getServiceSupabaseClient(),
 ): Promise<RestaurantDetails> {
   const current = await getRestaurantDetails(restaurantId, client);
+  const hasInput = <K extends keyof UpdateRestaurantDetailsInput>(key: K) =>
+    Object.prototype.hasOwnProperty.call(input, key);
   const merged: NormalizedDetailsInput = {
-    name: input.name ?? current.name,
-    slug: input.slug ?? current.slug,
-    timezone: input.timezone ?? current.timezone,
-    capacity: input.capacity ?? current.capacity,
-    contactEmail: input.contactEmail ?? current.contactEmail,
-    contactPhone: input.contactPhone ?? current.contactPhone,
-    address: input.address ?? current.address,
-    managerDailySummaryEnabled:
-      input.managerDailySummaryEnabled ?? current.managerDailySummaryEnabled,
-    managerNotificationPhone: input.managerNotificationPhone ?? current.managerNotificationPhone,
-    googleMapUrl: input.googleMapUrl ?? current.googleMapUrl,
-    googleReviewUrl: input.googleReviewUrl ?? current.googleReviewUrl,
-    bookingPolicy: input.bookingPolicy ?? current.bookingPolicy,
-    logoUrl: input.logoUrl ?? current.logoUrl,
+    name: hasInput('name') && input.name !== undefined ? input.name : current.name,
+    slug: hasInput('slug') && input.slug !== undefined ? input.slug : current.slug,
+    timezone:
+      hasInput('timezone') && input.timezone !== undefined ? input.timezone : current.timezone,
+    capacity: hasInput('capacity') ? (input.capacity ?? null) : current.capacity,
+    contactEmail: hasInput('contactEmail') ? (input.contactEmail ?? null) : current.contactEmail,
+    contactPhone: hasInput('contactPhone') ? (input.contactPhone ?? null) : current.contactPhone,
+    address: hasInput('address') ? (input.address ?? null) : current.address,
+    managerDailySummaryEnabled: hasInput('managerDailySummaryEnabled')
+      ? (input.managerDailySummaryEnabled ?? false)
+      : current.managerDailySummaryEnabled,
+    managerNotificationPhone: hasInput('managerNotificationPhone')
+      ? (input.managerNotificationPhone ?? null)
+      : current.managerNotificationPhone,
+    googleMapUrl: hasInput('googleMapUrl') ? (input.googleMapUrl ?? null) : current.googleMapUrl,
+    googleReviewUrl: hasInput('googleReviewUrl')
+      ? (input.googleReviewUrl ?? null)
+      : current.googleReviewUrl,
+    bookingPolicy: hasInput('bookingPolicy') ? (input.bookingPolicy ?? null) : current.bookingPolicy,
+    logoUrl: hasInput('logoUrl') ? (input.logoUrl ?? null) : current.logoUrl,
   };
 
   const validated = validateDetailsInput(merged);

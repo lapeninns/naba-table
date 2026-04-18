@@ -10,11 +10,13 @@ describe('google business profile business info mapping', () => {
       location: {
         name: 'locations/456',
         title: 'Old Crown Girton',
+        languageCode: 'en-GB',
         profile: {
           description: 'A family friendly pub and Nepalese restaurant.',
         },
         openInfo: {
           status: 'OPEN',
+          canReopen: true,
           openingDate: {
             year: 2024,
             month: 8,
@@ -42,6 +44,13 @@ describe('google business profile business info mapping', () => {
           primaryCategory: {
             name: 'gcid:pub',
             displayName: 'Pub',
+            moreHoursTypes: [
+              {
+                hoursTypeId: 'KITCHEN',
+                displayName: 'Kitchen',
+                localizedDisplayName: 'Kitchen',
+              },
+            ],
           },
           additionalCategories: [
             {
@@ -60,6 +69,26 @@ describe('google business profile business info mapping', () => {
             },
           ],
         },
+        moreHours: [
+          {
+            hoursTypeId: 'KITCHEN',
+            periods: [
+              {
+                openDay: 'FRIDAY',
+                closeDay: 'FRIDAY',
+                openTime: '17:00',
+                closeTime: '22:00',
+              },
+            ],
+          },
+        ],
+        serviceItems: [
+          {
+            structuredServiceItemId: 'private_dining',
+            displayName: 'Private dining',
+            description: 'Private dining room',
+          },
+        ],
       },
       attributes: {
         name: 'locations/456/attributes',
@@ -86,6 +115,9 @@ describe('google business profile business info mapping', () => {
     });
 
     expect(rows.details?.description).toBe('A family friendly pub and Nepalese restaurant.');
+    expect(rows.details?.business_name).toBe('Old Crown Girton');
+    expect(rows.details?.language_code).toBe('en-GB');
+    expect(rows.details?.can_reopen).toBe(true);
     expect(rows.details?.opening_date).toBe('2024-08-01');
     expect(rows.addresses[0]?.formatted_address).toContain('89 High Street');
     expect(rows.phoneNumbers).toHaveLength(2);
@@ -95,6 +127,13 @@ describe('google business profile business info mapping', () => {
       'Pub',
       'Nepalese restaurant',
     ]);
+    expect(rows.categories[0]?.more_hours_types_json).toEqual([
+      {
+        hoursTypeId: 'KITCHEN',
+        displayName: 'Kitchen',
+        localizedDisplayName: 'Kitchen',
+      },
+    ]);
     expect(rows.hours[0]).toMatchObject({
       hours_type: 'public',
       open_day: 0,
@@ -102,10 +141,19 @@ describe('google business profile business info mapping', () => {
       open_time: '12:00',
       close_time: '21:00',
     });
+    expect(rows.hours[1]).toMatchObject({
+      hours_type: 'service',
+      period_code: 'KITCHEN',
+      period_label: 'Kitchen',
+    });
     expect(rows.attributes[0]).toMatchObject({
       attribute_group: 'Accessibility',
       attribute_key: 'has_wheelchair_accessible_entrance',
       bool_value: true,
+    });
+    expect(rows.serviceItems[0]).toMatchObject({
+      item_key: 'private_dining',
+      display_name: 'Private dining',
     });
   });
 
@@ -116,11 +164,13 @@ describe('google business profile business info mapping', () => {
       location: {
         name: 'locations/456',
         title: 'Old Crown Girton',
+        languageCode: 'en-GB',
         profile: {
           description: 'A family friendly pub and Nepalese restaurant.',
         },
         openInfo: {
           status: 'OPEN',
+          canReopen: true,
           openingDate: {
             year: 2024,
             month: 8,
@@ -160,6 +210,14 @@ describe('google business profile business info mapping', () => {
 
     expect(statuses).toEqual(
       expect.arrayContaining([
+        expect.objectContaining({
+          entity_table: 'restaurant_business_details',
+          entity_key: 'details',
+          field_key: 'business_name',
+          sync_status: 'synced',
+          is_verified: true,
+          last_provider_value_json: 'Old Crown Girton',
+        }),
         expect.objectContaining({
           entity_table: 'restaurant_business_details',
           entity_key: 'details',
@@ -259,7 +317,7 @@ describe('google business profile business info mapping', () => {
           },
         ],
         ['restaurant_business_details'],
-        client as any,
+        client as Parameters<typeof businessInfoTestUtils.replaceProviderFieldSyncStatuses>[3],
       ),
     ).resolves.toBeUndefined();
 

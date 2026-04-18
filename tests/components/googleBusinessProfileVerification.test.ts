@@ -33,6 +33,7 @@ function buildConnection(overrides?: Partial<GoogleBusinessProfileConnection>): 
       serviceAreas: [],
       hours: [],
       attributes: [],
+      serviceItems: [],
       coreNormalization: {
         operatingHours: {
           source: 'public',
@@ -74,6 +75,7 @@ describe('google business profile verification helpers', () => {
         serviceAreas: [],
         hours: [],
         attributes: [],
+        serviceItems: [],
         coreNormalization: {
           operatingHours: {
             source: 'public',
@@ -156,11 +158,13 @@ describe('google business profile verification helpers', () => {
         categories: [],
         serviceAreas: [],
         attributes: [],
+        serviceItems: [],
         hours: [
           {
             id: 'h1',
             hoursType: 'service',
             periodLabel: 'Kitchen',
+            periodCode: 'KITCHEN',
             openDay: 2,
             closeDay: 2,
             startDate: null,
@@ -175,6 +179,7 @@ describe('google business profile verification helpers', () => {
             id: 'h2',
             hoursType: 'service',
             periodLabel: 'Kitchen',
+            periodCode: 'KITCHEN',
             openDay: 2,
             closeDay: 2,
             startDate: null,
@@ -239,11 +244,13 @@ describe('google business profile verification helpers', () => {
         categories: [],
         serviceAreas: [],
         attributes: [],
+        serviceItems: [],
         hours: [
           {
             id: 'h1',
             hoursType: 'service',
             periodLabel: 'Kitchen',
+            periodCode: 'KITCHEN',
             openDay: 0,
             closeDay: 0,
             startDate: null,

@@ -27,6 +27,10 @@ export default defineConfig({
         rootDir,
         'src/hooks/ops/useOpsRestaurantDetails.ts',
       ),
+      '@/hooks/ops/useOpsRestaurantBusinessContext': path.resolve(
+        rootDir,
+        'src/hooks/ops/useOpsRestaurantBusinessContext.ts',
+      ),
       '@/hooks/ops/useOpsOperatingHours': path.resolve(rootDir, 'src/hooks/ops/useOpsOperatingHours.ts'),
       '@/hooks/ops/useOpsServicePeriods': path.resolve(rootDir, 'src/hooks/ops/useOpsServicePeriods.ts'),
       '@/hooks/ops/useOpsTableTimeline': path.resolve(rootDir, 'src/hooks/ops/useOpsTableTimeline.ts'),

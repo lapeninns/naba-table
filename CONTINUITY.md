@@ -1,10 +1,16 @@
 # Continuity Ledger
 
-Last updated: 2026-04-18T15:47:00Z
+Last updated: 2026-04-18T21:03:00Z
 
 ## Goal (incl. success criteria)
 
+- Consolidate the split restaurant settings pages for operating hours, service periods, and occasions into a single canonical `Availability & Occasions` command center.
+- Success: `/app/settings/restaurant/availability` becomes the new canonical settings route for these three concerns.
+- Success: operators can manage hours, service periods, and occasions from one page with summary/navigation context.
+- Success: the top weekly schedule workspace supports real CRUD for operating hours, lunch/dinner service windows, and date overrides instead of acting as read-only summary UI.
+- Success: old deep links continue to work via redirects and the new view is verified in Chrome DevTools.
 - Review changes on branch `codex/Menu` against merge base `2dbdce280a8ec516d03ac57fd42c063dc953e980` and return only concrete, actionable regressions.
+- Create analysis-only JSON bundles for the restaurant settings routes `/settings/restaurant/operating-hours`, `/settings/restaurant/service-periods`, and `/settings/restaurant/occasions`.
 - Implement a first-class Google Business Profile connection flow in the Nabatable ops dashboard.
 - Success: a restaurant admin can authorize Google, return safely to Nabatable, and choose which GBP location links to the current restaurant.
 - Success: Nabatable stores provider credentials and OAuth state securely without creating a second restaurant business-data model.
@@ -19,19 +25,48 @@ Last updated: 2026-04-18T15:47:00Z
 - Success: every GBP fetch/import/export action requires password confirmation with the logged-in user's password before execution.
 - Success: multi-item GBP sync actions support explicit checkbox selection so admins can sync only the chosen fields/days/rows.
 - Success: selected-only GBP sync preserves unselected core/provider rows and validates normalized payloads before execution.
+- Redesign the Google Business Profile settings page so it feels minimal, cleaner, and more design-system-native without changing the underlying GBP workflow.
+- Success: the GBP page uses existing primitives only, reduces visual redundancy, and stays easy to operate.
+- Success: the `Hours & services` tab matches the new control-room design language with a single consolidated weekly matrix and override view.
+- Success: the GBP page is verification-first and read-only for business data, while canonical CRUD lives on Nabatable's dedicated settings pages.
+- Success: Nabatable canonical tables can retain the full currently fetched GBP model so future CRUD UI can operate on first-class core data and only sync the Google-supported subset.
+- Remove the non-essential left-column summary rails from `/settings/restaurant/availability` and `/settings/restaurant/google-business-profile`.
+- Success: both settings pages keep their primary workspace/actions while losing the extra summary column.
+- Review how well organized the current restaurant settings IA is and recommend whether "Advanced" should be a separate page or a section.
+- Success: document the current route/section structure and provide a concrete IA recommendation without changing runtime code.
+- Fix the three approved `codex/Menu` review findings covering duplicate menu/drink item creation and GBP OAuth host preservation.
+- Success: create-only menu and drink POST routes reject duplicate external IDs with a conflict instead of silently overwriting existing items.
+- Success: GBP connect and callback redirects stay on the initiating host/environment instead of rewriting to the production app host.
+- Implement the chosen IA direction: create an Advanced section inside Restaurant Profile for Business Context and add Google Business Profile to the main sidebar.
+- Success: profile feels cleaner, Business Context is explicitly advanced, and GBP becomes a first-class settings destination in the sidebar.
+- Dry-run a UX cleanup for the Google Business Profile overview tab so `Workspace logic` is removed and the overview content is recategorized before any runtime edits.
+- Success: agree on a clearer overview taxonomy for connection, sync health, and profile review without changing workflow behavior during the dry run.
 
 ## Constraints/Assumptions
 
 - Follow root `AGENTS.md` plus `src/app`, `src/components`, and `server` nested rules.
 - Chrome DevTools proof is required because this task adds a new dashboard UI surface.
+- The availability command center now orchestrates the existing operating-hours and service-period mutations behind a single top-level schedule save.
 - Use the existing canonical business-information schema; do not introduce a parallel GBP business-data model.
 - The neighboring GBP project remains useful for payload patterns, but runtime auth cannot depend on it because its stored refresh token is revoked.
 - First pass no longer stops at connect/link only; manual pull sync for business information is now in scope and implemented.
 - Existing restaurant settings views and profile editing must not regress.
 - Remote DB migration application may be unavailable even when the staging app itself works, so the GBP route needs a compatibility path before the new verification table exists in the remote schema cache.
+- The user has now explicitly chosen a product direction where the GBP page is read-only for verification and connection management, not a CRUD workspace.
+- The route-analysis task must not modify runtime implementations; only task artifacts may be created.
+- The user has now asked to expand the canonical GBP schema so all currently fetched GBP data has a home in Nabatable core tables before the next CRUD UI phase.
+- The user now wants the current-branch left-column summary treatment removed from the availability and GBP settings pages after checking whether it existed on `main`.
+- The current request is planning-first: produce a dry-run categorization for the GBP overview tab before changing runtime UI.
+- The user approved the dry-run recommendation and wants the GBP overview cleanup implemented.
+- The user clarified that they first wanted a full section inventory across `Overview`, `Hours & services`, and `Attributes & context`, then a cleanup pass that removes redundant sections/copy.
+- The user then chose the single-page model over the tabbed model for the final GBP layout.
+- The user then asked for a dry-run redundancy pass on the single-page section ordering and removal of anything clearly duplicated.
 
 ## Key decisions
 
+- Use a new canonical route `/settings/restaurant/availability` and treat the old operating-hours, service-periods, and occasions pages as redirect-only entry points.
+- Keep the existing detailed hours/service editors below the command-center schedule so GBP sync, verification, and preserved custom-period workflows do not regress.
+- Promote the top schedule card into the real day-to-day CRUD surface while continuing to reuse the existing backend contracts.
 - Treat dashboard GBP connection as a new task after the canonical schema work.
 - Keep `restaurant_external_profiles` as the durable public integration record.
 - Add separate support tables for encrypted credentials and short-lived OAuth state instead of overloading the canonical business tables.
@@ -41,6 +76,71 @@ Last updated: 2026-04-18T15:47:00Z
 
 ## State
 
+- A new task folder has been created at `tasks/availability-occasions-command-center-20260418-1825/` for the restaurant-settings consolidation.
+- The new canonical `Availability & Occasions` settings route is now implemented with a composed command-center layout, updated navigation, and redirect-only legacy split routes.
+- The availability command center now ships as one workflow-owned page: weekly operating hours CRUD, nested lunch/dinner service-window CRUD, date override CRUD, and booking occasion CRUD live together behind one top-level save action.
+- The old split operating-hours, service-periods, and occasions page wrappers have been replaced by redirect-only entry points instead of rendering inline beneath the command center.
+- The unified page has been re-verified in Chrome DevTools on the public dev harness with fresh full-page screenshots and a fresh Lighthouse report.
+- Static checks pass after the CRUD upgrade: focused ESLint and full `pnpm exec tsc --noEmit --pretty false`.
+- New browser artifacts now exist for the final command-center state, including `availability-command-center-weekly-selected.png` and `lighthouse-final.report.html`.
+- The dev harness occasion seed now includes builtin active `Lunch` and `Dinner` entries so the unified service-window controls render in their intended enabled state during local QA.
+- A new task folder has been created at `tasks/gbp-build-delete-chain-20260418-1647/` for the GBP build regression in `server/google-business-profile/business-info.ts`.
+- A new task folder has been created at `tasks/restaurant-settings-analysis-20260418-1743/` for route-scoped JSON source bundles covering operating hours, service periods, and occasions.
+- A new task folder has been created at `tasks/restaurant-settings-left-summary-removal-20260418-1908/` for removing the extra left summary rail from the new availability and GBP settings pages.
+- Comparison against `main` shows that the exact `/settings/restaurant/availability` and `/settings/restaurant/google-business-profile` routes do not exist there; the left-column summary treatment is part of the current branch implementation.
+- The availability page now renders as a single primary workspace column with the previous left summary rail removed.
+- The GBP page now renders as a single primary workspace flow with the previous left summary rail removed and the disconnect action promoted into the hero action row.
+- Created `tasks/profile-advanced-gbp-sidebar-20260418-1918/` for the follow-on IA implementation.
+- A new task folder has been created at `tasks/gbp-overview-categorization-cleanup-20260418-1926/` for the Google Business Profile overview cleanup dry run.
+- Confirmed the existing design-system primitives can support this cleanly via the shared accordion component.
+- Implemented the Restaurant Profile advanced disclosure with the Business Context editor embedded under an accordion-backed `Advanced` card.
+- Promoted `Google Business Profile` into the main ops sidebar restaurant-settings section and added a focused sidebar config test.
+- Chrome DevTools proof used the public restaurant-settings dev harness for the profile interaction and documented the authenticated-shell auth redirect fallback for sidebar verification.
+- Focused ESLint and full TypeScript typecheck now pass for the left-summary cleanup.
+- Chrome DevTools verification used the existing dev-only harness because fresh `app.localhost` DevTools pages redirected to sign-in.
+- Availability and GBP harness screenshots, snapshots, Lighthouse reports, and performance traces are now stored under `tasks/restaurant-settings-left-summary-removal-20260418-1908/artifacts/`.
+- The GBP location picker now has an explicit accessible name after Lighthouse flagged the unlabeled trigger during verification.
+- Browser inspection for the new dry run confirms the current overview sequence is `Location routing` -> `Workspace logic` -> `Profile alignment`, with `Recent sync activity` rendered below the tabs.
+- Current dry-run recommendation: remove `Workspace logic` and regroup the overview around `Connection & location`, `Sync health & activity`, and `Canonical profile review`.
+- The approved overview cleanup is now implemented in the canonical GBP page:
+  - `Workspace logic` removed
+  - overview workspace renamed to `Connection & location`
+  - activity feed moved inside the `Overview` tab as `Sync health & activity`
+  - profile alignment remains the final overview review section
+- The wider IA cleanup is now also implemented:
+  - `Hours & services` no longer has a duplicate intro/routing card above the main verification panel
+  - the main hours panel is now titled `Availability verification`
+  - `Attributes` is now `Structured attributes`
+  - `Supporting profile context` is now `Business context`
+  - redundant attribute summary and business-context metric strips were removed
+- The final page is now rendered as one ordered workflow instead of tabs:
+  - sticky jump nav
+  - `Connection & location`
+  - `Sync health & activity`
+  - `Profile alignment`
+  - `Availability verification`
+  - `Business context`
+  - `Structured attributes`
+- The first redundancy pass is now implemented:
+  - removed the duplicate `Google account` / `Linked location` / `Discovery` card row from the `Connection` section
+  - kept the hero summary cards as the single top-of-page orientation block
+- The second redundancy pass is now implemented:
+  - `Discovery` no longer repeats `Latest snapshot`
+  - `Profile alignment` no longer repeats the same verification-only instruction in the intro body
+- Focused ESLint and full TypeScript typecheck pass after the overview cleanup.
+- Chrome DevTools verification for the new grouping succeeded on the public dev harness across overview, hours, and attributes tabs, with new artifacts stored under `tasks/gbp-overview-categorization-cleanup-20260418-1926/artifacts/`.
+- Chrome DevTools verification also succeeded for the final single-page layout on desktop and mobile dev-harness surfaces.
+- Chrome DevTools verification for the redundancy pass succeeded on the dev harness, with fresh snapshot/screenshot artifacts recorded.
+- Chrome DevTools verification for the second redundancy pass also succeeded on the dev harness.
+- The current `pnpm run build` failure is a local helper-type issue: `ProviderRowMutationBuilder.delete()` only modeled two `.eq(...)` calls, but `replaceProviderRows` now chains three filters including `managed_by`.
+- The first-pass fix widens the local delete-query helper type so the existing delete chain remains awaitable and supports repeated `.eq(...)` calls without changing runtime behavior.
+- `pnpm run build` now passes again after the helper-type fix, with the original TypeScript error removed.
+- A new task folder has been created at `tasks/sms-summary-test-send-20260418-1633/` for a one-off live manager-summary send.
+- A live manager daily summary SMS for `The Old Crown Girton` for `2026-04-19` was sent to `+447467586751`.
+- Twilio accepted the send as `SMd4ea5164ed26133b14c44ec72c433355` with body `The Old Crown Girton: Today 3 bkgs, 20 covers. Lunch 3/20. Dinner 0/0. app.nabatable.com`.
+- A new task folder has been created at `tasks/manager-daily-summary-domain-tail-20260418-1608/` for appending the Nabatable app domain to the manager daily summary SMS.
+- The canonical manager daily summary formatter in `lib/ops/daily-booking-summary.ts` now appends `app.nabatable.com` as the final sentence.
+- Focused summary formatter and Cloudflare worker tests both pass with the updated SMS copy.
 - Review task folder created at `tasks/code-review-menu-20260418-1425/`.
 - Diff against `main` inspected for GBP sync, menu import, and drink import changes.
 - Concrete review findings identified:
@@ -77,9 +177,56 @@ Last updated: 2026-04-18T15:47:00Z
 - A new follow-on task folder has been created at `tasks/gbp-kitchen-window-split-20260418-1418/` for refining whole-day kitchen-window normalization.
 - GBP normalization now infers lunch/dinner from a single unlabeled `Kitchen` window when that window spans `17:00`, keeping server normalization and core-page comparison logic aligned.
 - Live Old Crown verification now reports `businessInfo.coreNormalization.servicePeriods.matchStatus = matched` across all 14 normalized windows, including Sunday.
+- A new task folder has been created at `tasks/gbp-settings-ui-refresh-20260418-1548/` for a focused Google Business Profile settings redesign.
+- The redesign plan centers on a lighter summary band, tabbed secondary detail, and flatter section hierarchy instead of stacked cards.
+- The GBP settings page has now been rebuilt into a control-room layout with a status hero, left rail, stronger overview workspace, row-level profile repair controls, and a fully redesigned hours/services tab.
+- The `Hours & services` tab no longer uses the old stacked normalization carryover; it now renders a single consolidated weekly schedule matrix, special override table, booking-rule alignment panel, and direct canonical edit CTAs.
+- GBP tab state is now URL-addressable through `gbpTab`, which makes the redesigned workspaces easier to deep-link and verify in the dev harness.
+- Focused lint and full `pnpm exec tsc --noEmit --pretty false` both pass after the redesign changes.
+- Chrome DevTools MCP proof now exists for the rebuilt hours tab on `http://localhost:3000/dev/ops-settings-restaurant?view=google-business-profile&gbpTab=hours`.
+- The user later clarified that the GBP page should stay in read mode for verification only, with CRUD owned by core Nabatable settings pages.
+- In response, the GBP page no longer renders the bespoke profile editor or embedded operating-hours/service-period editors.
+- The profile alignment panel is now verification-only and routes operators to `/settings/restaurant/profile` for edits.
+- Fresh Chrome DevTools MCP proof now exists for the read-only overview and hours tabs under `tasks/gbp-settings-full-crud-20260418-1717/artifacts/`.
+- The `Booking rule alignment` panel has now been removed from the GBP hours tab, and the remaining hours copy was updated to avoid dangling booking-rule references.
+- A new task folder has been created at `tasks/gbp-core-schema-expansion-20260418-1738/` for canonical schema expansion.
+- Added `supabase/migrations/20260418173800_expand_restaurant_gbp_canonical_tables.sql` to extend canonical GBP storage.
+- The canonical schema now adds:
+  - extra business-detail fields (`business_name`, `language_code`, `can_reopen`)
+  - category `more_hours_types_json`
+  - service-area `place_data_json`
+  - hour `period_code`
+  - richer attribute fields and JSON-backed metadata/value arrays
+  - new `restaurant_service_items` table
+- `server/google-business-profile/business-info.ts` now persists and reads those new canonical fields/tables.
+- `src/services/ops/restaurants.ts` DTOs and local typed fixtures/tests were updated to match the additive GBP contract.
+- Focused lint, full typecheck, and focused GBP tests now pass after the schema/model expansion.
+- A new task folder has been created at `tasks/review-findings-menu-gbp-routes-20260418-1959/` for the approved menu/drink create and GBP host fixes.
+- Menu and drink create routes now reject duplicate external IDs with explicit `409` conflicts before the shared upsert RPC runs, preventing silent overwrite on operator create flows.
+- GBP connect and callback routes now preserve the request or forwarded origin through a shared helper instead of rewriting to `app.${NEXT_PUBLIC_ROOT_DOMAIN}`.
+- Focused route regression tests now cover duplicate create conflicts and environment-sticky GBP connect/callback redirects, and the targeted Vitest, TypeScript, and ESLint verification path has passed.
 
 ## Done
 
+- Created the `review-findings-menu-gbp-routes-20260418-1959` task folder with current-state research, plan, todo, verification, and artifacts stubs.
+- Added create-only duplicate external-id guards for menu and drink POST routes on the canonical ops API path.
+- Added `src/app/api/ops/google-business-profile/_origin.ts` and rewired the GBP connect/callback routes to preserve the initiating origin.
+- Added and passed focused route regression tests for duplicate create conflicts and GBP callback/connect host preservation.
+- Created the `availability-occasions-command-center-20260418-1825` task folder with `research.md`, `plan.md`, `todo.md`, `verification.md`, and `artifacts/`.
+- Re-read the applicable AGENTS policy plus the local `nabatable-task-harness`, `nabatable-fullstack-delivery`, and `nabatable-ui-proof` skills for this settings consolidation.
+- Audited the canonical restaurant-settings pages, subnav routing, ops navigation, and existing operating-hours/service-periods/occasions section implementations.
+- Added `src/app/app/(app)/settings/restaurant/availability/page.tsx` and `src/components/features/restaurant-settings/AvailabilityOccasionsCommandCenter.tsx` for the new composed workspace.
+- Updated restaurant-settings route metadata, dev harness options, and ops/settings navigation to point to the new canonical availability route.
+- Converted the old operating-hours, service-periods, and occasions pages into redirects targeting anchors on the new unified page.
+- Updated GBP-to-core deep links so they now open the new availability route instead of the retired split pages.
+- Passed focused ESLint and full TypeScript typecheck for the consolidation changes.
+- Captured Chrome DevTools MCP proof plus desktop/mobile screenshots and Lighthouse reports under `tasks/availability-occasions-command-center-20260418-1825/artifacts/`.
+- Created task artifacts for the one-off Old Crown Girton manager-summary test send.
+- Generated the `2026-04-19` Old Crown Girton manager summary from canonical production-data code and sent it to `+447467586751`.
+- Recorded live send evidence under `tasks/sms-summary-test-send-20260418-1633/artifacts/send-result.json`.
+- Created task artifacts for the manager daily summary SMS copy update.
+- Appended `app.nabatable.com` to the canonical manager daily summary formatter.
+- Updated focused formatter and worker expectations and passed `pnpm exec vitest run tests/utils/dashboardSummary.test.ts tests/cloudflare/sms-summary-gateway.test.ts`.
 - Re-read the applicable AGENTS policy and local Nabatable skills.
 - Audited the existing restaurant settings shell, ops service architecture, and admin access guard patterns.
 - Confirmed there is no existing GBP dashboard route, Google OAuth route, or secure provider-credential storage in Nabatable today.
@@ -127,16 +274,38 @@ Last updated: 2026-04-18T15:47:00Z
 - A new task folder has been created at `tasks/review-findings-fix-20260418-1437/` for fixing accepted code-review findings from the `codex/Menu` diff.
 - The accepted review findings are now fixed in code: paired modifier CSV validation, safe flat-address GBP export rejection, and persisted-timestamp-based implicit sync direction.
 - Targeted Vitest suites, `pnpm exec tsc --noEmit --pretty false`, and `pnpm run build` all pass after the fixes.
+- Created the GBP settings UI refresh task artifacts with requirements, visual thesis, and implementation plan.
+- Added the GBP view to the public restaurant-settings dev harness and seeded the dev restaurant service with a richer linked GBP snapshot so the redesigned surface can be verified without auth.
+- Captured updated browser proof for the GBP settings redesign, including the rebuilt synced-data section on the public dev harness route.
+- Rebuilt `GoogleBusinessProfileSection` from scratch into a stronger redesign with overview, hours/services, and attributes workspaces.
+- Added `GoogleBusinessProfileProfileAlignmentPanel` to surface supported profile repair/import actions directly on the GBP page.
+- Recreated `GoogleBusinessProfileCoreAlignmentSections.tsx` as a new consolidated hours/services workspace matching the user's reference more closely.
+- Added `gbpTab` URL state support so the redesigned hours workspace can be opened and verified directly.
+- Re-ran focused lint, full typecheck, Chrome DevTools MCP snapshot/screenshot capture, and a Lighthouse snapshot against the hours-tab route.
+- Re-scoped the `tasks/gbp-settings-full-crud-20260418-1717/` task to reflect the user's read-only verification decision.
+- Removed duplicate CRUD affordances from the GBP page and aligned overview copy with the new ownership model.
+- Created `tasks/restaurant-settings-organization-review-20260418-1915/` for an analysis-only IA review of the restaurant settings area.
+- Reviewed the current settings route shell, sidebar navigation, restaurant subnav, canonical availability command center, and specialist surfaces like GBP and Business Context.
+- Initial recommendation: introduce an explicit advanced section inside Profile before creating a new top-level Advanced page; keep GBP as its own integration workspace.
+- Re-ran focused lint and full typecheck after the read-only pivot.
+- Captured fresh Chrome DevTools MCP snapshots/screenshots for the read-only overview and hours routes with no console errors.
+- Removed the `Booking rule alignment` section from `GoogleBusinessProfileCoreAlignmentSections.tsx`.
+- Re-ran focused lint, full typecheck, and Chrome DevTools MCP proof for the hours tab after that removal.
+- Created the `restaurant-settings-analysis-20260418-1743` task folder with `research.md`, `plan.md`, `todo.md`, `verification.md`, and `artifacts/`.
+- Added and validated the canonical GBP schema-expansion migration plus sync/read-model plumbing.
+- Created the `restaurant-settings-left-summary-removal-20260418-1908` task folder with `research.md`, `plan.md`, `todo.md`, `verification.md`, and `artifacts/`.
+- Removed the left summary rails from `AvailabilityOccasionsCommandCenter` and `GoogleBusinessProfileSection`.
+- Kept core actions reachable by moving GBP disconnect into the hero action row.
+- Added an explicit accessible name to the GBP location picker trigger in `GoogleBusinessProfileOverviewWorkspace.tsx`.
+- Recorded browser verification and automated checks in the left-summary-removal task folder.
 
 ## Now
 
-- Hand off the implemented fixes for the accepted review findings with verification results.
+- Summarize the implemented GBP IA cleanup and verification results for the user.
 
 ## Next
 
-- If asked to re-review, re-run `git diff 2dbdce280a8ec516d03ac57fd42c063dc953e980` and inspect any follow-up fixes.
-- If requested later, restore safe GBP address push by introducing canonical structured postal-address storage in Nabatable and mapping that directly to `storefrontAddress`.
-- If requested later, re-run a visual pass on the core settings pages to confirm the verification warnings still read clearly after the address-export restriction.
+- If requested, continue with adjacent restaurant-settings polish such as the low-contrast subnav descriptive text flagged by Lighthouse.
 
 ## Open questions (UNCONFIRMED if needed)
 
@@ -146,10 +315,26 @@ Last updated: 2026-04-18T15:47:00Z
 
 - /Users/amankumarshrestha/LapenInns Project/nabatableLP/AGENTS.md
 - /Users/amankumarshrestha/LapenInns Project/nabatableLP/CONTINUITY.md
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/app/app/(app)/settings/restaurant/availability/page.tsx
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/app/app/(app)/settings/restaurant/operating-hours/page.tsx
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/app/app/(app)/settings/restaurant/service-periods/page.tsx
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/app/app/(app)/settings/restaurant/occasions/page.tsx
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/features/restaurant-settings/AvailabilityOccasionsCommandCenter.tsx
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/features/restaurant-settings/OpsRestaurantSettingsClient.tsx
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/features/restaurant-settings/routes.ts
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/features/restaurant-settings/RestaurantSettingsSubnav.tsx
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/features/ops-shell/navigation.tsx
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/app/(public)/dev/ops-settings-restaurant/ui/OpsRestaurantSettingsDevHarness.tsx
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/availability-occasions-command-center-20260418-1825/research.md
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/availability-occasions-command-center-20260418-1825/plan.md
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/availability-occasions-command-center-20260418-1825/todo.md
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/availability-occasions-command-center-20260418-1825/verification.md
 - /Users/amankumarshrestha/LapenInns Project/nabatableLP/config/env.schema.ts
 - /Users/amankumarshrestha/LapenInns Project/nabatableLP/lib/env.ts
 - /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/app/app/(app)/settings/restaurant/\*\*
 - /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/app/api/ops/restaurants/[id]/\*\*
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/app/(public)/dev/ops-settings-restaurant/ui/OpsRestaurantSettingsDevHarness.tsx
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/app/(public)/dev/\_mocks/services/devRestaurantService.ts
 - /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/features/restaurant-settings/\*\*
 - /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/contexts/ops-services.tsx
 - /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/hooks/ops/\*\*
@@ -168,3 +353,15 @@ Last updated: 2026-04-18T15:47:00Z
 - /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/gbp-field-verification-20260418-1213/plan.md
 - /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/gbp-field-verification-20260418-1213/todo.md
 - /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/gbp-field-verification-20260418-1213/verification.md
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/gbp-settings-ui-refresh-20260418-1548/research.md
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/restaurant-settings-analysis-20260418-1743/research.md
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/restaurant-settings-analysis-20260418-1743/plan.md
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/restaurant-settings-analysis-20260418-1743/todo.md
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/restaurant-settings-analysis-20260418-1743/verification.md
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/restaurant-settings-left-summary-removal-20260418-1908/research.md
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/restaurant-settings-left-summary-removal-20260418-1908/plan.md
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/restaurant-settings-left-summary-removal-20260418-1908/todo.md
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/restaurant-settings-left-summary-removal-20260418-1908/verification.md
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/gbp-settings-ui-refresh-20260418-1548/plan.md
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/gbp-settings-ui-refresh-20260418-1548/todo.md
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/gbp-settings-ui-refresh-20260418-1548/verification.md

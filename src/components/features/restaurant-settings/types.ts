@@ -3,6 +3,7 @@ import type { OccasionKey } from '@reserve/shared/occasions';
 export type RestaurantSettingsView =
   | 'profile'
   | 'google-business-profile'
+  | 'availability'
   | 'operating-hours'
   | 'occasions'
   | 'service-periods'

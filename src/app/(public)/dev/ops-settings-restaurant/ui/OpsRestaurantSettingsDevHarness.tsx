@@ -1,5 +1,6 @@
 'use client';
 
+import { useSearchParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
 
 import { OpsRestaurantSettingsClient } from '@/components/features/restaurant-settings/OpsRestaurantSettingsClient';
@@ -21,6 +22,8 @@ import type { RestaurantSettingsView } from '@/components/features/restaurant-se
 
 const VIEW_OPTIONS: Array<{ value: RestaurantSettingsView; label: string }> = [
   { value: 'profile', label: 'Profile' },
+  { value: 'google-business-profile', label: 'Google Business Profile' },
+  { value: 'availability', label: 'Availability & occasions' },
   { value: 'operating-hours', label: 'Operating hours' },
   { value: 'service-periods', label: 'Service periods' },
   { value: 'turn-durations', label: 'Turn durations' },
@@ -29,8 +32,13 @@ const VIEW_OPTIONS: Array<{ value: RestaurantSettingsView; label: string }> = [
 ];
 
 export function OpsRestaurantSettingsDevHarness() {
+  const searchParams = useSearchParams();
   const factories = useMemo(() => createOpsDevServiceFactories(), []);
-  const [view, setView] = useState<RestaurantSettingsView>('profile');
+  const requestedView = searchParams.get('view');
+  const initialView = VIEW_OPTIONS.some((option) => option.value === requestedView)
+    ? (requestedView as RestaurantSettingsView)
+    : 'profile';
+  const [view, setView] = useState<RestaurantSettingsView>(initialView);
 
   return (
     <OpsDevProviders factories={factories} initialRestaurantId={DEV_RESTAURANT_ID}>
@@ -41,8 +49,8 @@ export function OpsRestaurantSettingsDevHarness() {
       >
         <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">
-            View selector is local to this harness; the left subnav is rendered for responsive layout
-            verification but links to authenticated routes.
+            View selector is local to this harness; the left subnav is rendered for responsive
+            layout verification but links to authenticated routes.
           </p>
           <div className="w-full space-y-2 sm:w-[260px]">
             <Label htmlFor="ops-restaurant-settings-view" className="sr-only">

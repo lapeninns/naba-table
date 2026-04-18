@@ -35,6 +35,14 @@ const GoogleBusinessProfileSection = dynamic(
   },
 );
 
+const AvailabilityOccasionsCommandCenter = dynamic(
+  () =>
+    import('./AvailabilityOccasionsCommandCenter').then((m) => m.AvailabilityOccasionsCommandCenter),
+  {
+    loading: () => <SettingsSectionSkeleton title="Loading availability and occasions" />,
+  },
+);
+
 const OperatingHoursSection = dynamic(() => import('./OperatingHoursSection').then((m) => m.OperatingHoursSection), {
   loading: () => <SettingsSectionSkeleton title="Loading operating hours" />,
 });
@@ -104,6 +112,7 @@ export function OpsRestaurantSettingsClient({ defaultRestaurantId, view }: OpsRe
     'google-business-profile': ({ restaurantId }) => (
       <GoogleBusinessProfileSection restaurantId={restaurantId} />
     ),
+    availability: ({ restaurantId }) => <AvailabilityOccasionsCommandCenter restaurantId={restaurantId} />,
     'operating-hours': ({ restaurantId }) => <OperatingHoursSection restaurantId={restaurantId} />,
     occasions: () => <OccasionsSection />,
     'service-periods': ({ restaurantId }) => <ServicePeriodsSection restaurantId={restaurantId} />,

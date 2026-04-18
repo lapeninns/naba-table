@@ -13,6 +13,8 @@ import { DEV_RESTAURANT_ID } from '../devIds';
 
 import type {
   GoogleBusinessProfileConnection,
+  RestaurantBusinessContextSnapshot,
+  UpdateRestaurantBusinessContextInput,
   GoogleBusinessProfileOperatingHoursSyncPayload,
   GoogleBusinessProfileProfileSyncPayload,
   GoogleBusinessProfileProtectedActionPayload,
@@ -36,6 +38,7 @@ const SECOND_DEV_RESTAURANT_ID = '22222222-2222-4222-8222-222222222222';
 
 type RestaurantSnapshot = {
   profile: RestaurantProfile;
+  businessContext: RestaurantBusinessContextSnapshot['core'];
   hours: OperatingHoursSnapshot;
   servicePeriods: ServicePeriodRow[];
   turnBands: TurnBandsSnapshot;
@@ -132,7 +135,19 @@ function buildRestaurantSnapshot(
     defaults: payload,
   };
 
-  return { profile, hours, servicePeriods, turnBands, emailTemplates: null };
+  return {
+    profile,
+    businessContext: {
+      categories: [],
+      serviceAreas: [],
+      attributes: [],
+      serviceItems: [],
+    },
+    hours,
+    servicePeriods,
+    turnBands,
+    emailTemplates: null,
+  };
 }
 
 function buildInitialState(): MutableState {
@@ -198,11 +213,197 @@ export class DevRestaurantService implements RestaurantService {
     return snapshot.profile;
   }
 
+  async getBusinessContext(restaurantId: string): Promise<RestaurantBusinessContextSnapshot> {
+    const snapshot = getRestaurantSnapshot(this.state, restaurantId);
+    const connection = await this.getGoogleBusinessProfileConnection();
+
+    return {
+      core: snapshot.businessContext,
+      providerSnapshot: {
+        categories: connection.businessInfo.categories.map((row) => ({
+          id: row.id,
+          displayName: row.displayName,
+          categoryCode: row.categoryCode,
+          moreHoursTypes: row.moreHoursTypes,
+          isPrimary: row.isPrimary,
+          source: 'gbp',
+          managedBy: 'gbp',
+          updatedAt: row.lastSyncedAt,
+        })),
+        serviceAreas: connection.businessInfo.serviceAreas.map((row) => ({
+          id: row.id,
+          displayName: row.displayName,
+          areaType: row.areaType,
+          regionCode: row.regionCode,
+          placeData: row.placeData,
+          source: 'gbp',
+          managedBy: 'gbp',
+          updatedAt: row.lastSyncedAt,
+        })),
+        attributes: connection.businessInfo.attributes.map((row) => ({
+          id: row.id,
+          attributeGroup: row.attributeGroup,
+          attributeKey: row.attributeKey,
+          attributeName: row.attributeName,
+          attributeId: row.attributeId,
+          displayName: row.displayName,
+          displayText: row.displayText,
+          displayTextStandalone: row.displayTextStandalone,
+          displayTextNegative: row.displayTextNegative,
+          valueType: row.valueType,
+          boolValue: row.boolValue,
+          textValue: row.textValue,
+          uriValue: row.uriValue,
+          uriValues: row.uriValues,
+          enumValues: row.enumValues,
+          unsetEnumValues: row.unsetEnumValues,
+          valueMetadata: row.valueMetadata,
+          source: 'gbp',
+          managedBy: 'gbp',
+          updatedAt: row.lastSyncedAt,
+        })),
+        serviceItems: connection.businessInfo.serviceItems.map((row) => ({
+          id: row.id,
+          itemKey: row.itemKey,
+          itemType: row.itemType,
+          displayName: row.displayName,
+          description: row.description,
+          payload: row.payload,
+          source: 'gbp',
+          managedBy: 'gbp',
+          updatedAt: row.lastSyncedAt,
+        })),
+      },
+    };
+  }
+
+  async updateBusinessContext(
+    restaurantId: string,
+    payload: UpdateRestaurantBusinessContextInput,
+  ): Promise<RestaurantBusinessContextSnapshot> {
+    const snapshot = getRestaurantSnapshot(this.state, restaurantId);
+    const now = new Date().toISOString();
+
+    if (payload.categories) {
+      snapshot.businessContext.categories = payload.categories.map((row, index) => ({
+        id: row.id ?? `core-category-${index + 1}`,
+        displayName: row.displayName,
+        categoryCode: row.categoryCode ?? null,
+        moreHoursTypes: row.moreHoursTypes ?? [],
+        isPrimary: row.isPrimary ?? false,
+        source: 'nabatable',
+        managedBy: 'nabatable',
+        updatedAt: now,
+      }));
+    }
+
+    if (payload.serviceAreas) {
+      snapshot.businessContext.serviceAreas = payload.serviceAreas.map((row, index) => ({
+        id: row.id ?? `core-service-area-${index + 1}`,
+        displayName: row.displayName,
+        areaType: row.areaType ?? 'region',
+        regionCode: row.regionCode ?? null,
+        placeData: row.placeData ?? null,
+        source: 'nabatable',
+        managedBy: 'nabatable',
+        updatedAt: now,
+      }));
+    }
+
+    if (payload.attributes) {
+      snapshot.businessContext.attributes = payload.attributes.map((row, index) => ({
+        id: row.id ?? `core-attribute-${index + 1}`,
+        attributeGroup: row.attributeGroup ?? null,
+        attributeKey: row.attributeKey,
+        attributeName: row.attributeName ?? null,
+        attributeId: row.attributeId ?? null,
+        displayName: row.displayName ?? null,
+        displayText: row.displayText ?? null,
+        displayTextStandalone: row.displayTextStandalone ?? null,
+        displayTextNegative: row.displayTextNegative ?? null,
+        valueType: row.valueType,
+        boolValue: row.boolValue ?? null,
+        textValue: row.textValue ?? null,
+        uriValue: row.uriValue ?? null,
+        uriValues: row.uriValues ?? [],
+        enumValues: row.enumValues ?? [],
+        unsetEnumValues: row.unsetEnumValues ?? [],
+        valueMetadata: row.valueMetadata ?? [],
+        source: 'nabatable',
+        managedBy: 'nabatable',
+        updatedAt: now,
+      }));
+    }
+
+    if (payload.serviceItems) {
+      snapshot.businessContext.serviceItems = payload.serviceItems.map((row, index) => ({
+        id: row.id ?? `core-service-item-${index + 1}`,
+        itemKey: row.itemKey,
+        itemType: row.itemType ?? null,
+        displayName: row.displayName ?? null,
+        description: row.description ?? null,
+        payload: row.payload ?? null,
+        source: 'nabatable',
+        managedBy: 'nabatable',
+        updatedAt: now,
+      }));
+    }
+
+    return this.getBusinessContext(restaurantId);
+  }
+
   async syncProfileWithGoogleBusinessProfile(
     restaurantId: string,
-    _payload: GoogleBusinessProfileProfileSyncPayload,
+    payload: GoogleBusinessProfileProfileSyncPayload,
   ) {
-    return getRestaurantSnapshot(this.state, restaurantId).profile;
+    const snapshot = getRestaurantSnapshot(this.state, restaurantId);
+    const connection = await this.getGoogleBusinessProfileConnection();
+
+    if (payload.direction !== 'pull_from_gbp') {
+      return snapshot.profile;
+    }
+
+    const selectedFields = payload.fields ?? [
+      'name',
+      'contactPhone',
+      'address',
+      'googleMapUrl',
+      'googleReviewUrl',
+    ];
+    const primaryAddress =
+      connection.businessInfo.addresses.find((address) => address.isPrimary) ??
+      connection.businessInfo.addresses[0];
+    const primaryPhone =
+      connection.businessInfo.phoneNumbers.find((phone) => phone.isPrimary) ??
+      connection.businessInfo.phoneNumbers[0];
+    const googleMapLink = connection.businessInfo.links.find(
+      (link) => link.linkType === 'google_map',
+    );
+    const googleReviewLink = connection.businessInfo.links.find(
+      (link) => link.linkType === 'google_review',
+    );
+
+    snapshot.profile = {
+      ...snapshot.profile,
+      ...(selectedFields.includes('name')
+        ? { name: connection.externalLocationTitle ?? snapshot.profile.name }
+        : {}),
+      ...(selectedFields.includes('contactPhone')
+        ? { contactPhone: primaryPhone?.phoneNumber ?? snapshot.profile.contactPhone }
+        : {}),
+      ...(selectedFields.includes('address')
+        ? { address: primaryAddress?.formattedAddress ?? snapshot.profile.address }
+        : {}),
+      ...(selectedFields.includes('googleMapUrl')
+        ? { googleMapUrl: googleMapLink?.url ?? snapshot.profile.googleMapUrl }
+        : {}),
+      ...(selectedFields.includes('googleReviewUrl')
+        ? { googleReviewUrl: googleReviewLink?.url ?? snapshot.profile.googleReviewUrl }
+        : {}),
+      updatedAt: new Date().toISOString(),
+    };
+
+    return snapshot.profile;
   }
 
   async getOperatingHours(restaurantId: string) {
@@ -431,61 +632,427 @@ export class DevRestaurantService implements RestaurantService {
   }
 
   async getGoogleBusinessProfileConnection(): Promise<GoogleBusinessProfileConnection> {
+    const verification = {
+      provider: 'google_business_profile',
+      syncStatus: 'synced',
+      isVerified: true,
+      verifiedAt: '2026-04-18T10:30:00Z',
+      verifiedBy: 'system',
+      lastSyncedAt: '2026-04-18T10:30:00Z',
+      lastCheckedAt: '2026-04-18T10:30:00Z',
+    } as const;
+
     return {
       isConfigured: true,
       provider: 'google_business_profile',
-      status: 'unlinked',
-      connectedGoogleEmail: null,
-      connectedGoogleName: null,
-      externalAccountId: null,
-      externalAccountName: null,
-      externalLocationId: null,
-      externalLocationName: null,
-      externalLocationTitle: null,
-      externalPlaceId: null,
-      lastPullAt: null,
+      status: 'linked',
+      connectedGoogleEmail: 'ops@nabatable.dev',
+      connectedGoogleName: 'Nabatable Ops',
+      externalAccountId: 'acc-demo-1',
+      externalAccountName: 'accounts/123456789012345678901',
+      externalLocationId: 'loc-demo-1',
+      externalLocationName: 'locations/12345678901234567890',
+      externalLocationTitle: 'Nabatable Demo Kitchen',
+      externalPlaceId: 'ChIJN1t_tDeuEmsRUsoyG83frY4',
+      lastPullAt: '2026-04-18T10:30:00Z',
       lastPushAt: null,
       lastError: null,
-      availableLocations: [],
+      availableLocations: [
+        {
+          accountName: 'accounts/123456789012345678901',
+          accountId: 'acc-demo-1',
+          accountDisplayName: 'Nabatable Demo Group',
+          locationName: 'locations/12345678901234567890',
+          locationId: 'loc-demo-1',
+          title: 'Nabatable Demo Kitchen',
+          addressText: '14 Market Street, Cambridge CB2 3QJ',
+          placeId: 'ChIJN1t_tDeuEmsRUsoyG83frY4',
+        },
+        {
+          accountName: 'accounts/123456789012345678901',
+          accountId: 'acc-demo-1',
+          accountDisplayName: 'Nabatable Demo Group',
+          locationName: 'locations/22345678901234567890',
+          locationId: 'loc-demo-2',
+          title: 'Nabatable Riverside',
+          addressText: '22 Riverside Walk, Cambridge CB5 8AD',
+          placeId: 'ChIJW-T2Wt7uEmsRKl2I1CJFUsI',
+        },
+      ],
       businessInfo: {
-        details: null,
-        addresses: [],
-        phoneNumbers: [],
-        links: [],
-        categories: [],
+        details: {
+          businessName: 'Nabatable Demo Kitchen',
+          description:
+            'Contemporary British dining with a wood-fired grill, seasonal cocktails, and a fast-moving neighbourhood service.',
+          languageCode: 'en-GB',
+          openingDate: '2024-09-12',
+          businessStatus: 'OPEN',
+          isServiceAreaBusiness: false,
+          canReopen: true,
+          source: 'google_business_profile',
+          managedBy: 'owner',
+          lastSyncedAt: '2026-04-18T10:30:00Z',
+          verification: {
+            businessName: verification,
+            description: verification,
+            languageCode: verification,
+            openingDate: verification,
+            businessStatus: verification,
+            isServiceAreaBusiness: verification,
+            canReopen: verification,
+          },
+        },
+        addresses: [
+          {
+            id: 'gbp-address-1',
+            addressType: 'storefront',
+            formattedAddress: '14 Market Street, Cambridge CB2 3QJ',
+            addressLines: ['14 Market Street'],
+            locality: 'Cambridge',
+            administrativeArea: 'Cambridgeshire',
+            postalCode: 'CB2 3QJ',
+            regionCode: 'GB-ENG',
+            countryCode: 'GB',
+            languageCode: 'en-GB',
+            sublocality: null,
+            organization: null,
+            sortingCode: null,
+            recipients: [],
+            latlng: {
+              latitude: 52.2053,
+              longitude: 0.1218,
+            },
+            isPrimary: true,
+            lastSyncedAt: '2026-04-18T10:30:00Z',
+            verificationStatus: verification,
+          },
+        ],
+        phoneNumbers: [
+          {
+            id: 'gbp-phone-1',
+            phoneKind: 'primary',
+            phoneNumber: '+44 20 7946 0958',
+            isPrimary: true,
+            lastSyncedAt: '2026-04-18T10:30:00Z',
+            verificationStatus: verification,
+          },
+        ],
+        links: [
+          {
+            id: 'gbp-link-1',
+            linkType: 'website',
+            linkStatus: 'active',
+            label: 'Website',
+            url: 'https://nabatable.local/demo-kitchen',
+            isPrimary: true,
+            lastSyncedAt: '2026-04-18T10:30:00Z',
+            verificationStatus: verification,
+          },
+          {
+            id: 'gbp-link-2',
+            linkType: 'menu',
+            linkStatus: 'active',
+            label: 'Menu',
+            url: 'https://nabatable.local/demo-kitchen/menu',
+            isPrimary: false,
+            lastSyncedAt: '2026-04-18T10:30:00Z',
+            verificationStatus: verification,
+          },
+          {
+            id: 'gbp-link-3',
+            linkType: 'google_map',
+            linkStatus: 'active',
+            label: 'Google Maps',
+            url: 'https://maps.google.com/?cid=1234567890123456789',
+            isPrimary: false,
+            lastSyncedAt: '2026-04-18T10:30:00Z',
+            verificationStatus: verification,
+          },
+          {
+            id: 'gbp-link-4',
+            linkType: 'google_review',
+            linkStatus: 'active',
+            label: 'Google Reviews',
+            url: 'https://search.google.com/local/writereview?placeid=ChIJN1t_tDeuEmsRUsoyG83frY4',
+            isPrimary: false,
+            lastSyncedAt: '2026-04-18T10:30:00Z',
+            verificationStatus: verification,
+          },
+        ],
+        categories: [
+          {
+            id: 'gbp-category-1',
+            displayName: 'Restaurant',
+            categoryCode: 'restaurant',
+            moreHoursTypes: [
+              {
+                hoursTypeId: 'KITCHEN',
+                displayName: 'Kitchen',
+                localizedDisplayName: 'Kitchen',
+              },
+            ],
+            isPrimary: true,
+            lastSyncedAt: '2026-04-18T10:30:00Z',
+            verificationStatus: verification,
+          },
+          {
+            id: 'gbp-category-2',
+            displayName: 'Cocktail Bar',
+            categoryCode: 'cocktail_bar',
+            moreHoursTypes: [],
+            isPrimary: false,
+            lastSyncedAt: '2026-04-18T10:30:00Z',
+            verificationStatus: verification,
+          },
+        ],
         serviceAreas: [],
-        hours: [],
-        attributes: [],
+        hours: [
+          {
+            id: 'gbp-hours-1',
+            hoursType: 'public',
+            periodLabel: null,
+            periodCode: null,
+            openDay: 1,
+            closeDay: 1,
+            startDate: null,
+            endDate: null,
+            openTime: '12:00',
+            closeTime: '22:00',
+            isClosed: false,
+            lastSyncedAt: '2026-04-18T10:30:00Z',
+            verificationStatus: verification,
+          },
+          {
+            id: 'gbp-hours-2',
+            hoursType: 'public',
+            periodLabel: null,
+            periodCode: null,
+            openDay: 2,
+            closeDay: 2,
+            startDate: null,
+            endDate: null,
+            openTime: '12:00',
+            closeTime: '22:00',
+            isClosed: false,
+            lastSyncedAt: '2026-04-18T10:30:00Z',
+            verificationStatus: verification,
+          },
+          {
+            id: 'gbp-hours-3',
+            hoursType: 'service',
+            periodLabel: 'Kitchen',
+            periodCode: 'KITCHEN',
+            openDay: 5,
+            closeDay: 5,
+            startDate: null,
+            endDate: null,
+            openTime: '11:30',
+            closeTime: '22:30',
+            isClosed: false,
+            lastSyncedAt: '2026-04-18T10:30:00Z',
+            verificationStatus: verification,
+          },
+          {
+            id: 'gbp-hours-4',
+            hoursType: 'special',
+            periodLabel: null,
+            periodCode: null,
+            openDay: null,
+            closeDay: null,
+            startDate: '2026-05-05',
+            endDate: '2026-05-05',
+            openTime: '12:00',
+            closeTime: '23:30',
+            isClosed: false,
+            lastSyncedAt: '2026-04-18T10:30:00Z',
+            verificationStatus: verification,
+          },
+        ],
+        attributes: [
+          {
+            id: 'gbp-attr-1',
+            attributeGroup: 'Amenities',
+            attributeKey: 'outdoor_seating',
+            attributeName: 'locations/123/attributes/outdoor_seating',
+            attributeId: 'outdoor_seating',
+            displayName: 'Outdoor seating',
+            displayText: 'Outdoor seating: Yes',
+            displayTextStandalone: 'Outdoor seating',
+            displayTextNegative: 'No outdoor seating',
+            valueType: 'boolean',
+            boolValue: true,
+            textValue: null,
+            uriValue: null,
+            uriValues: [],
+            enumValues: [],
+            unsetEnumValues: [],
+            valueMetadata: [],
+            lastSyncedAt: '2026-04-18T10:30:00Z',
+            verificationStatus: verification,
+          },
+          {
+            id: 'gbp-attr-2',
+            attributeGroup: 'Dining options',
+            attributeKey: 'reservations',
+            attributeName: 'locations/123/attributes/reservations',
+            attributeId: 'reservations',
+            displayName: 'Reservations',
+            displayText: 'Reservations required',
+            displayTextStandalone: 'Reservations required',
+            displayTextNegative: null,
+            valueType: 'text',
+            boolValue: null,
+            textValue: 'Recommended for peak dinner service',
+            uriValue: null,
+            uriValues: [],
+            enumValues: [],
+            unsetEnumValues: [],
+            valueMetadata: [],
+            lastSyncedAt: '2026-04-18T10:30:00Z',
+            verificationStatus: verification,
+          },
+        ],
+        serviceItems: [
+          {
+            id: 'gbp-service-item-1',
+            itemKey: 'private_dining',
+            itemType: 'service',
+            displayName: 'Private dining',
+            description: 'Semi-private events and group dining packages.',
+            payload: {
+              structuredServiceItemId: 'private_dining',
+              displayName: 'Private dining',
+              description: 'Semi-private events and group dining packages.',
+            },
+            lastSyncedAt: '2026-04-18T10:30:00Z',
+            verificationStatus: verification,
+          },
+        ],
         coreNormalization: {
           operatingHours: {
-            source: 'unavailable',
-            matchStatus: 'unavailable',
+            source: 'public',
+            matchStatus: 'drifted',
             summary:
-              'No GBP hour set can be normalized confidently into Nabatable operating hours yet.',
-            warnings: [],
-            weekly: [],
-            overrides: [],
+              'GBP public hours normalize cleanly, but Friday and weekend rows still differ from the current core schedule.',
+            warnings: ['Friday closes 30 minutes earlier in GBP than in core.'],
+            weekly: [
+              {
+                dayOfWeek: 0,
+                opensAt: '12:00',
+                closesAt: '21:00',
+                isClosed: false,
+                matchesCore: false,
+              },
+              {
+                dayOfWeek: 1,
+                opensAt: '12:00',
+                closesAt: '22:00',
+                isClosed: false,
+                matchesCore: true,
+              },
+              {
+                dayOfWeek: 2,
+                opensAt: '12:00',
+                closesAt: '22:00',
+                isClosed: false,
+                matchesCore: true,
+              },
+              {
+                dayOfWeek: 3,
+                opensAt: '12:00',
+                closesAt: '22:00',
+                isClosed: false,
+                matchesCore: true,
+              },
+              {
+                dayOfWeek: 4,
+                opensAt: '12:00',
+                closesAt: '22:00',
+                isClosed: false,
+                matchesCore: true,
+              },
+              {
+                dayOfWeek: 5,
+                opensAt: '11:30',
+                closesAt: '22:30',
+                isClosed: false,
+                matchesCore: false,
+              },
+              {
+                dayOfWeek: 6,
+                opensAt: '11:30',
+                closesAt: '21:30',
+                isClosed: false,
+                matchesCore: true,
+              },
+            ],
+            overrides: [
+              {
+                effectiveDate: '2026-05-05',
+                opensAt: '12:00',
+                closesAt: '23:30',
+                isClosed: false,
+                matchesCore: false,
+              },
+            ],
           },
           servicePeriods: {
-            source: 'unavailable',
-            matchStatus: 'unavailable',
+            source: 'more_hours',
+            matchStatus: 'partial',
             summary:
-              'GBP does not natively guarantee lunch/dinner service-period data, so service periods are only normalizable when more-hours labels explicitly encode meal windows.',
-            warnings: [],
-            periods: [],
+              'Kitchen more-hours infer usable lunch and dinner windows for most days, but Sunday dinner still needs manual confirmation.',
+            warnings: ['Sunday has only one broad kitchen window, so dinner remains inferred.'],
+            periods: [
+              {
+                bookingOption: 'lunch',
+                name: 'Lunch',
+                dayOfWeek: 1,
+                startTime: '12:00',
+                endTime: '15:00',
+                matchesCore: true,
+              },
+              {
+                bookingOption: 'dinner',
+                name: 'Dinner',
+                dayOfWeek: 1,
+                startTime: '17:00',
+                endTime: '22:00',
+                matchesCore: true,
+              },
+              {
+                bookingOption: 'lunch',
+                name: 'Lunch',
+                dayOfWeek: 5,
+                startTime: '11:30',
+                endTime: '15:00',
+                matchesCore: true,
+              },
+              {
+                bookingOption: 'dinner',
+                name: 'Dinner',
+                dayOfWeek: 5,
+                startTime: '17:00',
+                endTime: '22:30',
+                matchesCore: false,
+              },
+              {
+                bookingOption: 'lunch',
+                name: 'Lunch',
+                dayOfWeek: 6,
+                startTime: '11:30',
+                endTime: '15:00',
+                matchesCore: true,
+              },
+            ],
           },
           bookingHours: {
-            matchStatus: 'unavailable',
+            matchStatus: 'partial',
             summary:
-              'GBP does not currently provide enough structured data to verify Nabatable booking hours.',
-            warnings: [],
-            missingInputs: [
-              'reservation interval minutes',
-              'reservation slot times',
-              'default reservation duration',
-              'last seating buffer',
-              'lifecycle grace rules',
+              'GBP informs the outer booking envelope, but booking rules still depend on Nabatable-only duration and slot settings.',
+            warnings: [
+              'Reservation interval and last-seating rules are still verified from core settings only.',
             ],
+            missingInputs: ['reservation interval minutes', 'last seating buffer'],
           },
         },
       },

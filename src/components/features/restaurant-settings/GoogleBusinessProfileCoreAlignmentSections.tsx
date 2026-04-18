@@ -1,457 +1,446 @@
 'use client';
 
+import {
+  AlertTriangle,
+  CalendarDays,
+  ShieldCheck,
+} from 'lucide-react';
+import Link from 'next/link';
+
+import { GoogleBusinessProfilePanel } from '@/components/features/restaurant-settings/GoogleBusinessProfilePanel';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 
-import { SettingsCard, SettingsSectionHeader } from './shared';
+import {
+  formatGoogleBusinessProfileDate,
+  formatGoogleBusinessProfileDay,
+  formatGoogleBusinessProfileTime,
+} from './GoogleBusinessProfileUiHelpers';
 
 import type {
   GoogleBusinessProfileBusinessInfo,
   GoogleBusinessProfileCoreMatchStatus,
 } from '@/services/ops/restaurants';
 
-const DAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+type CoreAlignmentSectionsProps = {
+  coreNormalization: GoogleBusinessProfileBusinessInfo['coreNormalization'] | null;
+};
 
-function formatDate(value: string | null): string | null {
-  if (!value) {
-    return null;
+type ServicePeriodsByDay = Map<
+  number,
+  {
+    lunch?: GoogleBusinessProfileBusinessInfo['coreNormalization']['servicePeriods']['periods'][number];
+    dinner?: GoogleBusinessProfileBusinessInfo['coreNormalization']['servicePeriods']['periods'][number];
   }
+>;
 
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
+const DAYS_OF_WEEK = Array.from({ length: 7 }, (_, index) => index);
+
+function getMatchStatusBadgeClasses(status: GoogleBusinessProfileCoreMatchStatus) {
+  switch (status) {
+    case 'matched':
+      return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+    case 'partial':
+      return 'border-sky-200 bg-sky-50 text-sky-700';
+    case 'drifted':
+      return 'border-amber-200 bg-amber-50 text-amber-700';
+    default:
+      return 'border-slate-200 bg-slate-50 text-slate-600';
   }
-
-  return new Intl.DateTimeFormat('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  }).format(parsed);
 }
 
-function formatTime(value: string | null): string | null {
-  if (!value) {
-    return null;
+function getMatchStatusLabel(status: GoogleBusinessProfileCoreMatchStatus) {
+  switch (status) {
+    case 'matched':
+      return 'Verified';
+    case 'partial':
+      return 'Partial';
+    case 'drifted':
+      return 'Drifted';
+    default:
+      return 'Unavailable';
   }
-
-  const match = value.match(/^(\d{2}):(\d{2})$/);
-  if (!match) {
-    return value;
-  }
-
-  const hours = Number(match[1]);
-  const minutes = Number(match[2]);
-  if (!Number.isInteger(hours) || !Number.isInteger(minutes)) {
-    return value;
-  }
-
-  const meridiem = hours >= 12 ? 'PM' : 'AM';
-  const baseHour = hours % 12 || 12;
-  const minuteText = String(minutes).padStart(2, '0');
-  return `${baseHour}:${minuteText} ${meridiem}`;
 }
 
-function formatDay(day: number | null): string | null {
-  if (day === null || day < 0 || day >= DAY_LABELS.length) {
-    return null;
-  }
-
-  return DAY_LABELS[day] ?? null;
+function MatchStatusBadge({ status }: { status: GoogleBusinessProfileCoreMatchStatus }) {
+  return (
+    <Badge
+      variant="outline"
+      className={cn(
+        'h-6 rounded-full px-2.5 text-[10px] font-semibold uppercase tracking-[0.18em]',
+        getMatchStatusBadgeClasses(status),
+      )}
+    >
+      {getMatchStatusLabel(status)}
+    </Badge>
+  );
 }
 
-function countMatches(items: Array<{ matchesCore: boolean | null }>): string {
-  if (items.length === 0) {
-    return 'No normalized rows';
-  }
-
-  const matched = items.filter((item) => item.matchesCore === true).length;
-  return `${matched}/${items.length} rows match core`;
-}
-
-function CoreMatchStatusBadge(props: { status: GoogleBusinessProfileCoreMatchStatus }) {
-  const statusLabel =
-    props.status === 'matched'
-      ? 'Verified'
-      : props.status === 'drifted'
-        ? 'Drifted'
-        : props.status === 'partial'
-          ? 'Partial'
-          : 'Unavailable';
-
-  const statusClasses =
-    props.status === 'matched'
+function AlignmentBadge({ status }: { status: 'verified' | 'drifted' | 'unavailable' }) {
+  const tone =
+    status === 'verified'
       ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-      : props.status === 'drifted'
+      : status === 'drifted'
         ? 'border-amber-200 bg-amber-50 text-amber-700'
-        : props.status === 'partial'
-          ? 'border-sky-200 bg-sky-50 text-sky-700'
-          : 'border-slate-200 bg-slate-50 text-slate-600';
+        : 'border-slate-200 bg-slate-50 text-slate-600';
 
   return (
     <Badge
       variant="outline"
-      className={cn(
-        'h-5 rounded-full px-2 text-[10px] font-semibold uppercase tracking-wide',
-        statusClasses,
-      )}
+      className={cn('h-6 rounded-full px-2.5 text-[10px] font-semibold uppercase tracking-wide', tone)}
     >
-      {statusLabel}
+      {status === 'verified' ? 'Verified' : status === 'drifted' ? 'Drifted' : 'Unavailable'}
     </Badge>
   );
 }
 
-function MatchBadge(props: { matchesCore: boolean | null }) {
-  if (props.matchesCore === null) {
-    return (
-      <Badge
-        variant="outline"
-        className="h-5 rounded-full px-2 text-[10px] uppercase tracking-wide"
-      >
-        Unknown
-      </Badge>
-    );
-  }
-
-  return (
-    <Badge
-      variant="outline"
-      className={cn(
-        'h-5 rounded-full px-2 text-[10px] uppercase tracking-wide',
-        props.matchesCore
-          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-          : 'border-amber-200 bg-amber-50 text-amber-700',
-      )}
-    >
-      {props.matchesCore ? 'Verified' : 'Drifted'}
-    </Badge>
-  );
-}
-
-function formatNormalizedHoursValue(params: {
+function formatOperatingWindow(params: {
   opensAt: string | null;
   closesAt: string | null;
   isClosed: boolean;
-}): string {
+}) {
   if (params.isClosed) {
     return 'Closed';
   }
 
-  const openTime = formatTime(params.opensAt) ?? params.opensAt ?? null;
-  const closeTime = formatTime(params.closesAt) ?? params.closesAt ?? null;
-  if (openTime && closeTime) {
-    return `${openTime} - ${closeTime}`;
+  const opensAt = formatGoogleBusinessProfileTime(params.opensAt) ?? params.opensAt ?? null;
+  const closesAt = formatGoogleBusinessProfileTime(params.closesAt) ?? params.closesAt ?? null;
+
+  if (!opensAt || !closesAt) {
+    return 'Not available';
   }
 
-  return 'Not available';
+  return `${opensAt} - ${closesAt}`;
 }
 
-function groupNormalizedServicePeriodsByDay(
-  periods: GoogleBusinessProfileBusinessInfo['coreNormalization']['servicePeriods']['periods'],
+function formatServiceWindow(
+  period:
+    | GoogleBusinessProfileBusinessInfo['coreNormalization']['servicePeriods']['periods'][number]
+    | undefined,
 ) {
-  const grouped = new Map<
-    number,
-    {
-      lunch?: GoogleBusinessProfileBusinessInfo['coreNormalization']['servicePeriods']['periods'][number];
-      dinner?: GoogleBusinessProfileBusinessInfo['coreNormalization']['servicePeriods']['periods'][number];
-    }
-  >();
+  if (!period) {
+    return null;
+  }
+
+  const start = formatGoogleBusinessProfileTime(period.startTime) ?? period.startTime;
+  const end = formatGoogleBusinessProfileTime(period.endTime) ?? period.endTime;
+  return `${start} - ${end}`;
+}
+
+function groupServicePeriodsByDay(
+  periods: GoogleBusinessProfileBusinessInfo['coreNormalization']['servicePeriods']['periods'],
+): ServicePeriodsByDay {
+  const grouped: ServicePeriodsByDay = new Map();
 
   for (const period of periods) {
     if (period.dayOfWeek === null) {
       continue;
     }
 
-    const existing = grouped.get(period.dayOfWeek) ?? {};
-    existing[period.bookingOption] = period;
-    grouped.set(period.dayOfWeek, existing);
+    const current = grouped.get(period.dayOfWeek) ?? {};
+    current[period.bookingOption] = period;
+    grouped.set(period.dayOfWeek, current);
   }
 
   return grouped;
 }
 
-type CoreAlignmentSectionsProps = {
-  coreNormalization: GoogleBusinessProfileBusinessInfo['coreNormalization'] | null;
-};
+function getOperatingHoursSourceLabel(
+  source: GoogleBusinessProfileBusinessInfo['coreNormalization']['operatingHours']['source'],
+) {
+  switch (source) {
+    case 'kitchen':
+      return 'GBP kitchen more hours';
+    case 'public':
+      return 'GBP regular hours';
+    default:
+      return 'No usable GBP hours source';
+  }
+}
+
+function getServicePeriodsSourceLabel(
+  source: GoogleBusinessProfileBusinessInfo['coreNormalization']['servicePeriods']['source'],
+) {
+  return source === 'more_hours' ? 'GBP more hours' : 'No usable GBP service source';
+}
+
+function getCombinedMatchStatus(
+  coreNormalization: GoogleBusinessProfileBusinessInfo['coreNormalization'],
+): GoogleBusinessProfileCoreMatchStatus {
+  const statuses = [
+    coreNormalization.operatingHours.matchStatus,
+    coreNormalization.servicePeriods.matchStatus,
+  ];
+
+  if (statuses.every((status) => status === 'matched')) {
+    return 'matched';
+  }
+
+  if (statuses.some((status) => status === 'drifted')) {
+    return 'drifted';
+  }
+
+  if (statuses.some((status) => status === 'partial')) {
+    return 'partial';
+  }
+
+  return 'unavailable';
+}
+
+function getOverrideStatusLabel(isClosed: boolean) {
+  return isClosed ? 'Closed' : 'Open';
+}
+
+function NotesBlock({ warnings }: { warnings: string[] }) {
+  if (warnings.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="rounded-2xl border border-amber-200/80 bg-amber-50/70 p-4">
+      <p className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700">
+        <AlertTriangle className="size-3.5" />
+        Normalization notes
+      </p>
+      <ul className="space-y-2">
+        {warnings.map((warning) => (
+          <li key={warning} className="text-sm leading-6 text-amber-900">
+            {warning}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 export function GoogleBusinessProfileCoreAlignmentSections({
   coreNormalization,
 }: CoreAlignmentSectionsProps) {
-  const normalizedServicePeriodsByDay = coreNormalization
-    ? groupNormalizedServicePeriodsByDay(coreNormalization.servicePeriods.periods)
-    : null;
+  if (!coreNormalization) {
+    return (
+      <GoogleBusinessProfilePanel
+        title="Availability verification"
+        description="Run the first GBP sync to review Google hours, service windows, and override alignment."
+      >
+        <p className="text-sm text-muted-foreground">
+          No normalized Google Business Profile data has been fetched yet.
+        </p>
+      </GoogleBusinessProfilePanel>
+    );
+  }
+
+  const combinedStatus = getCombinedMatchStatus(coreNormalization);
+  const groupedServicePeriods = groupServicePeriodsByDay(coreNormalization.servicePeriods.periods);
+  const normalizationWarnings = [
+    ...coreNormalization.operatingHours.warnings,
+    ...coreNormalization.servicePeriods.warnings,
+  ];
 
   return (
-    <>
-      <SettingsCard
-        title="Operating Hours"
-        description="Read-only normalization of GBP hours into Nabatable's operating-hours structure."
-      >
-        {coreNormalization ? (
-          <div className="space-y-6">
-            <SettingsSectionHeader
-              title="Weekly Schedule"
-              description={coreNormalization.operatingHours.summary}
-              action={
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="hidden sm:inline-flex">
-                    Source:{' '}
-                    {coreNormalization.operatingHours.source === 'kitchen'
-                      ? 'GBP kitchen more hours'
-                      : coreNormalization.operatingHours.source === 'public'
-                        ? 'GBP regular public hours'
-                        : 'No usable GBP source'}
-                  </Badge>
-                  <CoreMatchStatusBadge status={coreNormalization.operatingHours.matchStatus} />
-                </div>
-              }
-            />
-            <div className="overflow-hidden rounded-xl border">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-border">
-                  <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
-                    <tr>
-                      <th className="px-4 py-3 text-left">Day</th>
-                      <th className="px-4 py-3 text-left">GBP hours</th>
-                      <th className="px-4 py-3 text-left">Closed</th>
-                      <th className="px-4 py-3 text-left">Match</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border/70 text-sm">
-                    {coreNormalization.operatingHours.weekly.map((row) => (
-                      <tr key={row.dayOfWeek} className={cn(row.isClosed && 'bg-muted/40')}>
-                        <th
-                          scope="row"
-                          className="px-4 py-3 whitespace-nowrap font-medium text-foreground"
-                        >
-                          {formatDay(row.dayOfWeek)}
-                        </th>
-                        <td className="px-4 py-3 text-muted-foreground">
-                          {formatNormalizedHoursValue(row)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge variant={row.isClosed ? 'secondary' : 'outline'}>
-                            {row.isClosed ? 'Closed' : 'Open'}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3">
-                          <MatchBadge matchesCore={row.matchesCore} />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {coreNormalization.operatingHours.overrides.length > 0 ? (
-              <div className="space-y-3">
-                <SettingsSectionHeader
-                  title="Special Overrides"
-                  description="One-off special-hours rows normalized from GBP dated hours."
-                  className="pb-0"
-                />
-                <div className="overflow-hidden rounded-xl border">
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-border">
-                      <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
-                        <tr>
-                          <th className="px-4 py-3 text-left">Date</th>
-                          <th className="px-4 py-3 text-left">GBP hours</th>
-                          <th className="px-4 py-3 text-left">Closed</th>
-                          <th className="px-4 py-3 text-left">Match</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border/70 text-sm">
-                        {coreNormalization.operatingHours.overrides.map((row) => (
-                          <tr key={row.effectiveDate} className={cn(row.isClosed && 'bg-muted/40')}>
-                            <th
-                              scope="row"
-                              className="px-4 py-3 whitespace-nowrap font-medium text-foreground"
-                            >
-                              {formatDate(row.effectiveDate) ?? row.effectiveDate}
-                            </th>
-                            <td className="px-4 py-3 text-muted-foreground">
-                              {formatNormalizedHoursValue(row)}
-                            </td>
-                            <td className="px-4 py-3">
-                              <Badge variant={row.isClosed ? 'secondary' : 'outline'}>
-                                {row.isClosed ? 'Closed' : 'Open'}
-                              </Badge>
-                            </td>
-                            <td className="px-4 py-3">
-                              <MatchBadge matchesCore={row.matchesCore} />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            ) : null}
-
-            {coreNormalization.operatingHours.warnings.length > 0 ? (
-              <div className="space-y-2 rounded-xl border border-dashed border-border/70 bg-muted/20 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Normalization notes
-                </p>
-                {coreNormalization.operatingHours.warnings.map((warning) => (
-                  <p key={warning} className="text-sm text-muted-foreground">
-                    {warning}
-                  </p>
-                ))}
-              </div>
-            ) : null}
+    <div className="space-y-6">
+      <GoogleBusinessProfilePanel
+        title="Availability verification"
+        description="Read-only normalization of Google operating hours and service windows into Nabatable's availability structures."
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className="hidden rounded-full px-3 py-1 text-[11px] sm:inline-flex">
+              Source: {getOperatingHoursSourceLabel(coreNormalization.operatingHours.source)}
+            </Badge>
+            <Badge variant="outline" className="hidden rounded-full px-3 py-1 text-[11px] xl:inline-flex">
+              Services: {getServicePeriodsSourceLabel(coreNormalization.servicePeriods.source)}
+            </Badge>
+            <MatchStatusBadge status={combinedStatus} />
           </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            Core alignment will appear after a GBP business-information payload with normalized
-            hours metadata is available.
-          </p>
-        )}
-      </SettingsCard>
-
-      <SettingsCard
-        title="Service Periods"
-        description="Read-only normalization of GBP more-hours into Nabatable lunch and dinner windows."
+        }
+        contentClassName="space-y-6"
       >
-        {coreNormalization ? (
-          <div className="space-y-6">
-            <SettingsSectionHeader
-              title="Daily Service Windows"
-              description={coreNormalization.servicePeriods.summary}
-              action={
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="hidden sm:inline-flex">
-                    Source:{' '}
-                    {coreNormalization.servicePeriods.source === 'more_hours'
-                      ? 'GBP more hours'
-                      : 'No explicit GBP meal periods'}
-                  </Badge>
-                  <CoreMatchStatusBadge status={coreNormalization.servicePeriods.matchStatus} />
-                </div>
-              }
-            />
-            <div className="space-y-4">
-              {DAY_LABELS.map((label, dayOfWeek) => {
-                const dayPeriods = normalizedServicePeriodsByDay?.get(dayOfWeek) ?? {};
+        <div className="flex flex-col gap-4 rounded-2xl border border-border/70 bg-muted/20 p-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <ShieldCheck className="size-4 text-emerald-600" />
+              Review here, edit in Nabatable
+            </div>
+            <p className="max-w-3xl text-sm text-muted-foreground">
+              Compare Google&apos;s normalized schedule against the core availability rules that
+              drive bookings, then use the canonical settings pages for edits.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" size="sm" asChild>
+              <Link href="/settings/restaurant/availability#availability-hours">
+                Edit availability
+              </Link>
+            </Button>
+            <Button type="button" variant="outline" size="sm" asChild>
+              <Link href="/settings/restaurant/availability#service-periods">
+                Edit service periods
+              </Link>
+            </Button>
+          </div>
+        </div>
+
+        <div className="overflow-hidden rounded-2xl border border-border/70">
+          <Table>
+            <TableHeader className="bg-muted/50">
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="px-4 py-3 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                  Day
+                </TableHead>
+                <TableHead className="px-4 py-3 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                  Operating hours
+                </TableHead>
+                <TableHead className="px-4 py-3 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                  Lunch service
+                </TableHead>
+                <TableHead className="px-4 py-3 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                  Dinner service
+                </TableHead>
+                <TableHead className="px-4 py-3 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                  Alignment
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {DAYS_OF_WEEK.map((dayOfWeek) => {
+                const operatingRow = coreNormalization.operatingHours.weekly.find(
+                  (row) => row.dayOfWeek === dayOfWeek,
+                );
+                const periods = groupedServicePeriods.get(dayOfWeek);
+                const lunchWindow = formatServiceWindow(periods?.lunch);
+                const dinnerWindow = formatServiceWindow(periods?.dinner);
+                const isClosed = operatingRow?.isClosed ?? false;
+                const isDrifted =
+                  operatingRow?.matchesCore === false ||
+                  periods?.lunch?.matchesCore === false ||
+                  periods?.dinner?.matchesCore === false;
+                const hasComparableData =
+                  Boolean(operatingRow) ||
+                  Boolean(periods?.lunch) ||
+                  Boolean(periods?.dinner);
+                const alignmentStatus = !hasComparableData
+                  ? 'unavailable'
+                  : isDrifted
+                    ? 'drifted'
+                    : 'verified';
 
                 return (
-                  <div
+                  <TableRow
                     key={dayOfWeek}
-                    className="rounded-xl border border-border/70 bg-card/30 p-4 shadow-sm"
+                    className={cn(isClosed && 'bg-muted/20', 'hover:bg-muted/10')}
                   >
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-foreground">{label}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {dayPeriods.lunch || dayPeriods.dinner
-                            ? 'Normalized from GBP more-hours rows.'
-                            : 'No inferable lunch/dinner periods for this day.'}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="mt-4 grid gap-4 md:grid-cols-2">
-                      {(['lunch', 'dinner'] as const).map((mealKey) => {
-                        const period = dayPeriods[mealKey];
-                        return (
-                          <div key={mealKey} className="rounded-lg border border-border/60 p-4">
-                            <div className="flex items-center justify-between gap-3">
-                              <div>
-                                <p className="text-sm font-medium text-foreground">
-                                  {mealKey === 'lunch' ? 'Lunch' : 'Dinner'}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {period
-                                    ? `${formatTime(period.startTime) ?? period.startTime} - ${formatTime(period.endTime) ?? period.endTime}`
-                                    : 'Not available'}
-                                </p>
-                              </div>
-                              {period ? (
-                                <MatchBadge matchesCore={period.matchesCore} />
-                              ) : (
-                                <Badge
-                                  variant="outline"
-                                  className="h-5 rounded-full px-2 text-[10px] uppercase tracking-wide"
-                                >
-                                  Missing
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
+                    <TableCell className="px-4 py-3 font-medium text-foreground">
+                      {formatGoogleBusinessProfileDay(dayOfWeek) ?? 'Unknown day'}
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-sm text-muted-foreground">
+                      {operatingRow ? (
+                        isClosed ? (
+                          <Badge variant="outline" className="rounded-full">
+                            Closed
+                          </Badge>
+                        ) : (
+                          formatOperatingWindow(operatingRow)
+                        )
+                      ) : (
+                        '—'
+                      )}
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-sm text-muted-foreground">
+                      {isClosed ? '—' : lunchWindow ?? '—'}
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-sm text-muted-foreground">
+                      {isClosed ? '—' : dinnerWindow ?? '—'}
+                    </TableCell>
+                    <TableCell className="px-4 py-3">
+                      <AlignmentBadge status={alignmentStatus} />
+                    </TableCell>
+                  </TableRow>
                 );
               })}
+            </TableBody>
+          </Table>
+        </div>
+
+        {coreNormalization.operatingHours.overrides.length > 0 ? (
+          <div className="space-y-4 border-t border-border/70 pt-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="space-y-1">
+                <h4 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <CalendarDays className="size-4 text-muted-foreground" />
+                  Special date overrides
+                </h4>
+                <p className="text-sm text-muted-foreground">
+                  Google-dated overrides normalized against Nabatable&apos;s override calendar.
+                </p>
+              </div>
+              <Button type="button" variant="outline" size="sm" asChild>
+                <Link href="/settings/restaurant/availability#availability-hours">
+                  Add or edit override
+                </Link>
+              </Button>
             </div>
 
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {countMatches(coreNormalization.servicePeriods.periods)}
-            </p>
-
-            {coreNormalization.servicePeriods.warnings.length > 0 ? (
-              <div className="space-y-2 rounded-xl border border-dashed border-border/70 bg-muted/20 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Normalization notes
-                </p>
-                {coreNormalization.servicePeriods.warnings.map((warning) => (
-                  <p key={warning} className="text-sm text-muted-foreground">
-                    {warning}
-                  </p>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            Service-period alignment will appear after GBP more-hours data is available.
-          </p>
-        )}
-      </SettingsCard>
-
-      <SettingsCard
-        title="Booking Hours"
-        description="GBP can inform the outer booking envelope, but booking-rule verification still depends on Nabatable-only settings."
-      >
-        {coreNormalization ? (
-          <div className="space-y-6">
-            <SettingsSectionHeader
-              title="Coverage"
-              description={coreNormalization.bookingHours.summary}
-              action={<CoreMatchStatusBadge status={coreNormalization.bookingHours.matchStatus} />}
-            />
-            <div className="flex flex-wrap gap-2">
-              {coreNormalization.bookingHours.missingInputs.map((input) => (
-                <Badge
-                  key={input}
-                  variant="outline"
-                  className="text-[10px] uppercase tracking-wide"
-                >
-                  {input}
-                </Badge>
-              ))}
+            <div className="overflow-hidden rounded-2xl border border-border/70">
+              <Table>
+                <TableHeader className="bg-muted/50">
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="px-4 py-3 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                      Date
+                    </TableHead>
+                    <TableHead className="px-4 py-3 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                      GBP hours
+                    </TableHead>
+                    <TableHead className="px-4 py-3 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                      Status
+                    </TableHead>
+                    <TableHead className="px-4 py-3 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                      Match
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {coreNormalization.operatingHours.overrides.map((row) => (
+                    <TableRow key={row.effectiveDate} className="hover:bg-muted/10">
+                      <TableCell className="px-4 py-3 font-medium text-foreground">
+                        {formatGoogleBusinessProfileDate(row.effectiveDate) ?? row.effectiveDate}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-sm text-muted-foreground">
+                        {formatOperatingWindow(row)}
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        <Badge variant="outline" className="rounded-full">
+                          {getOverrideStatusLabel(row.isClosed)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        <AlignmentBadge
+                          status={
+                            row.matchesCore === null
+                              ? 'unavailable'
+                              : row.matchesCore
+                                ? 'verified'
+                                : 'drifted'
+                          }
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
-            {coreNormalization.bookingHours.warnings.length > 0 ? (
-              <div className="space-y-2 rounded-xl border border-dashed border-border/70 bg-muted/20 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Verification limits
-                </p>
-                {coreNormalization.bookingHours.warnings.map((warning) => (
-                  <p key={warning} className="text-sm text-muted-foreground">
-                    {warning}
-                  </p>
-                ))}
-              </div>
-            ) : null}
           </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            Booking-hours verification appears once normalized GBP hour metadata is available.
-          </p>
-        )}
-      </SettingsCard>
-    </>
+        ) : null}
+
+        <NotesBlock warnings={normalizationWarnings} />
+      </GoogleBusinessProfilePanel>
+    </div>
   );
 }

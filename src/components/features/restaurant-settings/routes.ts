@@ -21,6 +21,12 @@ export const RESTAURANT_SETTINGS_ROUTES: RestaurantSettingsRoute[] = [
     description: 'Connect Google, link a location, and prepare business info sync.',
   },
   {
+    view: 'availability',
+    href: '/settings/restaurant/availability',
+    title: 'Availability & Occasions',
+    description: 'Weekly hours, overrides, meal windows, and booking occasions together.',
+  },
+  {
     view: 'operating-hours',
     href: '/settings/restaurant/operating-hours',
     title: 'Operating Hours',
@@ -63,8 +69,7 @@ const getRoute = (view: RestaurantSettingsView): RestaurantSettingsNavItem => {
 export const RESTAURANT_SETTINGS_NAV_ITEMS: RestaurantSettingsNavItem[] = [
   getRoute('profile'),
   getRoute('google-business-profile'),
-  getRoute('operating-hours'),
-  getRoute('service-periods'),
+  getRoute('availability'),
   {
     href: '/settings/restaurant/menu',
     title: 'Menu',
@@ -76,7 +81,6 @@ export const RESTAURANT_SETTINGS_NAV_ITEMS: RestaurantSettingsNavItem[] = [
     title: 'Tables',
     description: 'Manage table inventory, zones, and capacity.',
   },
-  getRoute('occasions'),
   getRoute('team'),
 ];
 

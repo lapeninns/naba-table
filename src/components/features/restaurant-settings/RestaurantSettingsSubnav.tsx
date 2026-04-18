@@ -24,6 +24,27 @@ export function RestaurantSettingsSubnav() {
       const id = activeRestaurantId;
       if (!id) return;
       switch (href) {
+        case '/settings/restaurant/availability':
+          return Promise.all([
+            prefetchIfStale({
+              queryClient,
+              queryKey: queryKeys.opsRestaurants.hours(id),
+              queryFn: () => restaurantService.getOperatingHours(id),
+              enabled: true,
+            }),
+            prefetchIfStale({
+              queryClient,
+              queryKey: queryKeys.opsRestaurants.servicePeriods(id),
+              queryFn: () => restaurantService.getServicePeriods(id),
+              enabled: true,
+            }),
+            prefetchIfStale({
+              queryClient,
+              queryKey: queryKeys.opsOccasions.list(),
+              queryFn: () => occasionService.listOccasions(),
+              enabled: true,
+            }),
+          ]);
         case '/settings/restaurant/profile':
           return prefetchIfStale({
             queryClient,
