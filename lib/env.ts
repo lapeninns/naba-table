@@ -370,6 +370,22 @@ export const env = {
     } as const;
   },
 
+  get googleBusinessProfile() {
+    const parsed = parseEnv();
+    return {
+      clientId: parsed.GOOGLE_BUSINESS_PROFILE_CLIENT_ID ?? null,
+      clientSecret: parsed.GOOGLE_BUSINESS_PROFILE_CLIENT_SECRET ?? null,
+      redirectUri: parsed.GOOGLE_BUSINESS_PROFILE_REDIRECT_URI ?? null,
+      tokenEncryptionKey: parsed.GOOGLE_BUSINESS_PROFILE_TOKEN_ENCRYPTION_KEY ?? null,
+      configured: Boolean(
+        parsed.GOOGLE_BUSINESS_PROFILE_CLIENT_ID &&
+          parsed.GOOGLE_BUSINESS_PROFILE_CLIENT_SECRET &&
+          parsed.GOOGLE_BUSINESS_PROFILE_REDIRECT_URI &&
+          parsed.GOOGLE_BUSINESS_PROFILE_TOKEN_ENCRYPTION_KEY,
+      ),
+    } as const;
+  },
+
   get misc() {
     const parsed = parseEnv();
     return {

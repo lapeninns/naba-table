@@ -106,6 +106,197 @@ export type SendTestEmailTemplateResponse = {
   preview: RestaurantEmailTemplatePreview;
 };
 
+export type GoogleBusinessProfileAvailableLocation = {
+  accountName: string;
+  accountId: string;
+  accountDisplayName: string | null;
+  locationName: string;
+  locationId: string;
+  title: string | null;
+  addressText: string | null;
+  placeId: string | null;
+};
+
+export type GoogleBusinessProfileBusinessInfo = {
+  details: {
+    description: string | null;
+    openingDate: string | null;
+    businessStatus: string | null;
+    isServiceAreaBusiness: boolean;
+    source: string;
+    managedBy: string;
+    lastSyncedAt: string | null;
+    verification?: {
+      description: GoogleBusinessProfileFieldVerification | null;
+      openingDate: GoogleBusinessProfileFieldVerification | null;
+      businessStatus: GoogleBusinessProfileFieldVerification | null;
+      isServiceAreaBusiness: GoogleBusinessProfileFieldVerification | null;
+    };
+  } | null;
+  addresses: Array<{
+    id: string;
+    addressType: string;
+    formattedAddress: string | null;
+    addressLines: string[];
+    locality: string | null;
+    administrativeArea: string | null;
+    postalCode: string | null;
+    regionCode: string | null;
+    countryCode: string | null;
+    isPrimary: boolean;
+    lastSyncedAt: string | null;
+    verificationStatus?: GoogleBusinessProfileFieldVerification | null;
+  }>;
+  phoneNumbers: Array<{
+    id: string;
+    phoneKind: string;
+    phoneNumber: string;
+    isPrimary: boolean;
+    lastSyncedAt: string | null;
+    verificationStatus?: GoogleBusinessProfileFieldVerification | null;
+  }>;
+  links: Array<{
+    id: string;
+    linkType: string;
+    linkStatus: string;
+    label: string | null;
+    url: string;
+    isPrimary: boolean;
+    lastSyncedAt: string | null;
+    verificationStatus?: GoogleBusinessProfileFieldVerification | null;
+  }>;
+  categories: Array<{
+    id: string;
+    displayName: string;
+    categoryCode: string | null;
+    isPrimary: boolean;
+    lastSyncedAt: string | null;
+    verificationStatus?: GoogleBusinessProfileFieldVerification | null;
+  }>;
+  serviceAreas: Array<{
+    id: string;
+    displayName: string;
+    areaType: string;
+    regionCode: string | null;
+    lastSyncedAt: string | null;
+    verificationStatus?: GoogleBusinessProfileFieldVerification | null;
+  }>;
+  hours: Array<{
+    id: string;
+    hoursType: string;
+    periodLabel: string | null;
+    openDay: number | null;
+    closeDay: number | null;
+    startDate: string | null;
+    endDate: string | null;
+    openTime: string | null;
+    closeTime: string | null;
+    isClosed: boolean;
+    lastSyncedAt: string | null;
+    verificationStatus?: GoogleBusinessProfileFieldVerification | null;
+  }>;
+  attributes: Array<{
+    id: string;
+    attributeGroup: string | null;
+    attributeKey: string;
+    displayName: string | null;
+    displayText: string | null;
+    valueType: string;
+    boolValue: boolean | null;
+    textValue: string | null;
+    uriValue: string | null;
+    enumValues: string[];
+    lastSyncedAt: string | null;
+    verificationStatus?: GoogleBusinessProfileFieldVerification | null;
+  }>;
+  coreNormalization: GoogleBusinessProfileCoreNormalization;
+};
+
+export type GoogleBusinessProfileFieldVerification = {
+  provider: string;
+  syncStatus: string;
+  isVerified: boolean;
+  verifiedAt: string | null;
+  verifiedBy: string | null;
+  lastSyncedAt: string | null;
+  lastCheckedAt: string | null;
+};
+
+export type GoogleBusinessProfileCoreMatchStatus =
+  | 'matched'
+  | 'drifted'
+  | 'partial'
+  | 'unavailable';
+
+export type GoogleBusinessProfileCoreNormalization = {
+  operatingHours: {
+    source: 'kitchen' | 'public' | 'unavailable';
+    matchStatus: GoogleBusinessProfileCoreMatchStatus;
+    summary: string;
+    warnings: string[];
+    weekly: Array<{
+      dayOfWeek: number;
+      opensAt: string | null;
+      closesAt: string | null;
+      isClosed: boolean;
+      matchesCore: boolean | null;
+    }>;
+    overrides: Array<{
+      effectiveDate: string;
+      opensAt: string | null;
+      closesAt: string | null;
+      isClosed: boolean;
+      matchesCore: boolean | null;
+    }>;
+  };
+  servicePeriods: {
+    source: 'more_hours' | 'unavailable';
+    matchStatus: GoogleBusinessProfileCoreMatchStatus;
+    summary: string;
+    warnings: string[];
+    periods: Array<{
+      bookingOption: 'lunch' | 'dinner';
+      name: string;
+      dayOfWeek: number | null;
+      startTime: string;
+      endTime: string;
+      matchesCore: boolean | null;
+    }>;
+  };
+  bookingHours: {
+    matchStatus: 'partial' | 'unavailable';
+    summary: string;
+    warnings: string[];
+    missingInputs: string[];
+  };
+};
+
+export type GoogleBusinessProfileConnection = {
+  isConfigured: boolean;
+  provider: 'google_business_profile';
+  status: 'pending_auth' | 'authorized' | 'linked' | 'unlinked' | 'reauth_required' | 'sync_error';
+  connectedGoogleEmail: string | null;
+  connectedGoogleName: string | null;
+  externalAccountId: string | null;
+  externalAccountName: string | null;
+  externalLocationId: string | null;
+  externalLocationName: string | null;
+  externalLocationTitle: string | null;
+  externalPlaceId: string | null;
+  lastPullAt: string | null;
+  lastPushAt: string | null;
+  lastError: string | null;
+  availableLocations: GoogleBusinessProfileAvailableLocation[];
+  businessInfo: GoogleBusinessProfileBusinessInfo;
+};
+
+export type LinkGoogleBusinessProfileLocationInput = {
+  accountName: string;
+  accountId: string;
+  locationName: string;
+  locationId: string;
+};
+
 export type RestaurantProfile = {
   id: string;
   name: string;
@@ -129,6 +320,7 @@ export type RestaurantProfile = {
   reservationDefaultDurationMinutes: number;
   reservationLastSeatingBufferMinutes: number;
   reservationLifecycleGraceMinutes: number;
+  updatedAt?: string | null;
 };
 
 export type OperatingHoursRow = {
@@ -153,6 +345,7 @@ export type OperatingHoursOverride = {
 };
 
 export type OperatingHoursSnapshot = {
+  updatedAt?: string | null;
   weekly: OperatingHoursRow[];
   overrides: OperatingHoursOverride[];
 };
@@ -164,7 +357,48 @@ export type ServicePeriodRow = {
   startTime: string;
   endTime: string;
   bookingOption: OccasionKey;
+  updatedAt?: string | null;
 };
+
+export type CoreSyncDirection = 'pull_from_gbp' | 'push_to_gbp';
+
+export type GoogleBusinessProfileProtectedActionPayload = {
+  password: string;
+};
+
+export type GoogleBusinessProfileProfileField =
+  | 'name'
+  | 'contactPhone'
+  | 'address'
+  | 'googleMapUrl'
+  | 'googleReviewUrl';
+
+export type GoogleBusinessProfileProfileSyncPayload =
+  GoogleBusinessProfileProtectedActionPayload & {
+    direction?: CoreSyncDirection;
+    fields?: GoogleBusinessProfileProfileField[];
+  };
+
+export type GoogleBusinessProfileOperatingHoursSelection = {
+  weeklyDays?: number[];
+  overrideDates?: string[];
+};
+
+export type GoogleBusinessProfileOperatingHoursSyncPayload =
+  GoogleBusinessProfileProtectedActionPayload & {
+    direction?: CoreSyncDirection;
+    selection?: GoogleBusinessProfileOperatingHoursSelection;
+  };
+
+export type GoogleBusinessProfileServicePeriodsSelection = {
+  dayOfWeeks?: number[];
+};
+
+export type GoogleBusinessProfileServicePeriodsSyncPayload =
+  GoogleBusinessProfileProtectedActionPayload & {
+    direction?: CoreSyncDirection;
+    selection?: GoogleBusinessProfileServicePeriodsSelection;
+  };
 
 export type TurnBandInput = {
   maxPartySize: number;
@@ -239,13 +473,25 @@ export interface RestaurantService {
     restaurantId: string,
     profile: Partial<RestaurantProfile>,
   ): Promise<RestaurantProfile>;
+  syncProfileWithGoogleBusinessProfile(
+    restaurantId: string,
+    payload: GoogleBusinessProfileProfileSyncPayload,
+  ): Promise<RestaurantProfile>;
   getOperatingHours(restaurantId: string): Promise<OperatingHoursSnapshot>;
   updateOperatingHours(
     restaurantId: string,
     snapshot: OperatingHoursSnapshot,
   ): Promise<OperatingHoursSnapshot>;
+  syncOperatingHoursWithGoogleBusinessProfile(
+    restaurantId: string,
+    payload: GoogleBusinessProfileOperatingHoursSyncPayload,
+  ): Promise<OperatingHoursSnapshot>;
   getServicePeriods(restaurantId: string): Promise<ServicePeriodRow[]>;
   updateServicePeriods(restaurantId: string, rows: ServicePeriodRow[]): Promise<ServicePeriodRow[]>;
+  syncServicePeriodsWithGoogleBusinessProfile(
+    restaurantId: string,
+    payload: GoogleBusinessProfileServicePeriodsSyncPayload,
+  ): Promise<ServicePeriodRow[]>;
   getTurnBands(restaurantId: string): Promise<TurnBandsSnapshot>;
   updateTurnBands(restaurantId: string, payload: TurnBandsPayload): Promise<TurnBandsSnapshot>;
   getEmailTemplates(restaurantId: string): Promise<RestaurantEmailTemplatesSnapshot>;
@@ -268,6 +514,20 @@ export interface RestaurantService {
     templateKey: RestaurantBookingEmailTemplateKey,
     payload: SendTestEmailTemplateInput,
   ): Promise<SendTestEmailTemplateResponse>;
+  getGoogleBusinessProfileConnection(
+    restaurantId: string,
+  ): Promise<GoogleBusinessProfileConnection>;
+  linkGoogleBusinessProfileLocation(
+    restaurantId: string,
+    payload: LinkGoogleBusinessProfileLocationInput,
+  ): Promise<GoogleBusinessProfileConnection>;
+  syncGoogleBusinessProfileBusinessInfo(
+    restaurantId: string,
+    payload: GoogleBusinessProfileProtectedActionPayload,
+  ): Promise<GoogleBusinessProfileConnection>;
+  disconnectGoogleBusinessProfileConnection(
+    restaurantId: string,
+  ): Promise<GoogleBusinessProfileConnection>;
 }
 
 export class NotImplementedRestaurantService implements RestaurantService {
@@ -287,6 +547,13 @@ export class NotImplementedRestaurantService implements RestaurantService {
     this.error('updateProfile not implemented');
   }
 
+  syncProfileWithGoogleBusinessProfile(
+    _restaurantId: string,
+    _payload: GoogleBusinessProfileProfileSyncPayload,
+  ): Promise<RestaurantProfile> {
+    this.error('syncProfileWithGoogleBusinessProfile not implemented');
+  }
+
   getOperatingHours(): Promise<OperatingHoursSnapshot> {
     this.error('getOperatingHours not implemented');
   }
@@ -295,12 +562,26 @@ export class NotImplementedRestaurantService implements RestaurantService {
     this.error('updateOperatingHours not implemented');
   }
 
+  syncOperatingHoursWithGoogleBusinessProfile(
+    _restaurantId: string,
+    _payload: GoogleBusinessProfileOperatingHoursSyncPayload,
+  ): Promise<OperatingHoursSnapshot> {
+    this.error('syncOperatingHoursWithGoogleBusinessProfile not implemented');
+  }
+
   getServicePeriods(): Promise<ServicePeriodRow[]> {
     this.error('getServicePeriods not implemented');
   }
 
   updateServicePeriods(): Promise<ServicePeriodRow[]> {
     this.error('updateServicePeriods not implemented');
+  }
+
+  syncServicePeriodsWithGoogleBusinessProfile(
+    _restaurantId: string,
+    _payload: GoogleBusinessProfileServicePeriodsSyncPayload,
+  ): Promise<ServicePeriodRow[]> {
+    this.error('syncServicePeriodsWithGoogleBusinessProfile not implemented');
   }
 
   getTurnBands(): Promise<TurnBandsSnapshot> {
@@ -329,6 +610,25 @@ export class NotImplementedRestaurantService implements RestaurantService {
 
   sendTestEmailTemplate(): Promise<SendTestEmailTemplateResponse> {
     this.error('sendTestEmailTemplate not implemented');
+  }
+
+  getGoogleBusinessProfileConnection(): Promise<GoogleBusinessProfileConnection> {
+    this.error('getGoogleBusinessProfileConnection not implemented');
+  }
+
+  linkGoogleBusinessProfileLocation(): Promise<GoogleBusinessProfileConnection> {
+    this.error('linkGoogleBusinessProfileLocation not implemented');
+  }
+
+  syncGoogleBusinessProfileBusinessInfo(
+    _restaurantId: string,
+    _payload: GoogleBusinessProfileProtectedActionPayload,
+  ): Promise<GoogleBusinessProfileConnection> {
+    this.error('syncGoogleBusinessProfileBusinessInfo not implemented');
+  }
+
+  disconnectGoogleBusinessProfileConnection(): Promise<GoogleBusinessProfileConnection> {
+    this.error('disconnectGoogleBusinessProfileConnection not implemented');
   }
 }
 
@@ -373,6 +673,7 @@ function mapRestaurant(dto: RestaurantResponse['restaurant']): RestaurantProfile
     reservationLastSeatingBufferMinutes: dto.reservationLastSeatingBufferMinutes ?? 15,
     reservationLifecycleGraceMinutes:
       dto.reservationLifecycleGraceMinutes ?? DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES,
+    updatedAt: dto.updatedAt ?? null,
   };
 }
 
@@ -412,6 +713,21 @@ export function createBrowserRestaurantService(): RestaurantService {
       return mapRestaurant(restaurant);
     },
 
+    async syncProfileWithGoogleBusinessProfile(
+      restaurantId: string,
+      payload: GoogleBusinessProfileProfileSyncPayload,
+    ) {
+      await fetchJson<Record<string, unknown>>(`${OPS_RESTAURANTS_BASE}/${restaurantId}/details`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const { restaurant } = await fetchJson<RestaurantResponse>(
+        `${OPS_RESTAURANTS_BASE}/${restaurantId}`,
+      );
+      return mapRestaurant(restaurant);
+    },
+
     async getOperatingHours(restaurantId: string) {
       return fetchJson<OperatingHoursSnapshot>(`${OPS_RESTAURANTS_BASE}/${restaurantId}/hours`);
     },
@@ -424,9 +740,35 @@ export function createBrowserRestaurantService(): RestaurantService {
       });
     },
 
+    async syncOperatingHoursWithGoogleBusinessProfile(
+      restaurantId: string,
+      payload: GoogleBusinessProfileOperatingHoursSyncPayload,
+    ) {
+      return fetchJson<OperatingHoursSnapshot>(`${OPS_RESTAURANTS_BASE}/${restaurantId}/hours`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    },
+
     async getServicePeriods(restaurantId: string) {
       const response = await fetchJson<ServicePeriodsResponse>(
         `${OPS_RESTAURANTS_BASE}/${restaurantId}/service-periods`,
+      );
+      return response.periods;
+    },
+
+    async syncServicePeriodsWithGoogleBusinessProfile(
+      restaurantId: string,
+      payload: GoogleBusinessProfileServicePeriodsSyncPayload,
+    ) {
+      const response = await fetchJson<ServicePeriodsResponse>(
+        `${OPS_RESTAURANTS_BASE}/${restaurantId}/service-periods`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        },
       );
       return response.periods;
     },
@@ -510,6 +852,49 @@ export function createBrowserRestaurantService(): RestaurantService {
     ) {
       return fetchJson<SendTestEmailTemplateResponse>(
         `${OPS_RESTAURANTS_BASE}/${restaurantId}/email-templates/${templateKey}/test-send`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        },
+      );
+    },
+
+    async getGoogleBusinessProfileConnection(restaurantId: string) {
+      return fetchJson<GoogleBusinessProfileConnection>(
+        `${OPS_RESTAURANTS_BASE}/${restaurantId}/google-business-profile`,
+      );
+    },
+
+    async linkGoogleBusinessProfileLocation(
+      restaurantId: string,
+      payload: LinkGoogleBusinessProfileLocationInput,
+    ) {
+      return fetchJson<GoogleBusinessProfileConnection>(
+        `${OPS_RESTAURANTS_BASE}/${restaurantId}/google-business-profile`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        },
+      );
+    },
+
+    async disconnectGoogleBusinessProfileConnection(restaurantId: string) {
+      return fetchJson<GoogleBusinessProfileConnection>(
+        `${OPS_RESTAURANTS_BASE}/${restaurantId}/google-business-profile`,
+        {
+          method: 'DELETE',
+        },
+      );
+    },
+
+    async syncGoogleBusinessProfileBusinessInfo(
+      restaurantId: string,
+      payload: GoogleBusinessProfileProtectedActionPayload,
+    ) {
+      return fetchJson<GoogleBusinessProfileConnection>(
+        `${OPS_RESTAURANTS_BASE}/${restaurantId}/google-business-profile`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

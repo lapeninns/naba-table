@@ -16,7 +16,7 @@ import { RESTAURANT_SETTINGS_NAV_ITEMS } from './routes';
 export function RestaurantSettingsSubnav() {
   const pathname = usePathname();
   const queryClient = useQueryClient();
-  const { restaurantService, occasionService, teamService, tableInventoryService } = useOpsServices();
+  const { restaurantService, occasionService, teamService, tableInventoryService, menuService } = useOpsServices();
   const { activeRestaurantId } = useOpsSession();
 
   const prefetchSettingsView = useCallback(
@@ -38,11 +38,25 @@ export function RestaurantSettingsSubnav() {
             queryFn: () => restaurantService.getOperatingHours(id),
             enabled: true,
           });
+        case '/settings/restaurant/google-business-profile':
+          return prefetchIfStale({
+            queryClient,
+            queryKey: queryKeys.opsRestaurants.googleBusinessProfile(id),
+            queryFn: () => restaurantService.getGoogleBusinessProfileConnection(id),
+            enabled: true,
+          });
         case '/settings/restaurant/service-periods':
           return prefetchIfStale({
             queryClient,
             queryKey: queryKeys.opsRestaurants.servicePeriods(id),
             queryFn: () => restaurantService.getServicePeriods(id),
+            enabled: true,
+          });
+        case '/settings/restaurant/menu':
+          return prefetchIfStale({
+            queryClient,
+            queryKey: queryKeys.opsMenu.list(id, {}),
+            queryFn: () => menuService.listItems(id, {}),
             enabled: true,
           });
         case '/settings/restaurant/turn-durations':
@@ -77,7 +91,15 @@ export function RestaurantSettingsSubnav() {
           return undefined;
       }
     },
-    [activeRestaurantId, occasionService, queryClient, restaurantService, tableInventoryService, teamService],
+    [
+      activeRestaurantId,
+      menuService,
+      occasionService,
+      queryClient,
+      restaurantService,
+      tableInventoryService,
+      teamService,
+    ],
   );
 
   return (

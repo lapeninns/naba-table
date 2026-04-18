@@ -2774,6 +2774,1380 @@ export type Database = {
           },
         ];
       };
+      restaurant_drink_menu_items: {
+        Row: {
+          abv: string | null;
+          acidity_level: string | null;
+          active: boolean;
+          alcoholic: boolean;
+          allergens_contains: string[];
+          allergens_may_contain: string[];
+          availability_status: string;
+          base_price: string;
+          base_spirit: string | null;
+          beer_style: string | null;
+          bitterness_level: string | null;
+          body_level: string | null;
+          caffeine_level: string | null;
+          can_be_made_decaf: boolean;
+          can_be_made_non_alcoholic: boolean;
+          category: string;
+          contains_caffeine: boolean;
+          contains_dairy: boolean;
+          contains_gluten: boolean;
+          contains_nuts: boolean;
+          country: string | null;
+          created_at: string;
+          currency: string;
+          customization_rules: string | null;
+          dietary_tags: string[];
+          display_order: number;
+          drink_name: string;
+          drink_type: string | null;
+          external_drink_id: string;
+          flavor_profile: string | null;
+          full_description: string | null;
+          garnish: string | null;
+          grape_varietal: string | null;
+          id: string;
+          image_url: string | null;
+          key_ingredients: string[];
+          limited_time: boolean;
+          pairings: string[];
+          popularity_score: number | null;
+          recommendation_tags: string[];
+          region: string | null;
+          restaurant_id: string;
+          roast_level: string | null;
+          seasonal: boolean;
+          served_style: string | null;
+          service_time: string | null;
+          serving_size: string | null;
+          short_description: string | null;
+          signature_score: number | null;
+          sold_out: boolean;
+          subcategory: string | null;
+          sweetness_level: string | null;
+          temperature: string | null;
+          updated_at: string;
+          volume_ml: number | null;
+          wine_type: string | null;
+        };
+        Insert: {
+          abv?: string | null;
+          acidity_level?: string | null;
+          active?: boolean;
+          alcoholic?: boolean;
+          allergens_contains?: string[];
+          allergens_may_contain?: string[];
+          availability_status?: string;
+          base_price?: string;
+          base_spirit?: string | null;
+          beer_style?: string | null;
+          bitterness_level?: string | null;
+          body_level?: string | null;
+          caffeine_level?: string | null;
+          can_be_made_decaf?: boolean;
+          can_be_made_non_alcoholic?: boolean;
+          category: string;
+          contains_caffeine?: boolean;
+          contains_dairy?: boolean;
+          contains_gluten?: boolean;
+          contains_nuts?: boolean;
+          country?: string | null;
+          created_at?: string;
+          currency?: string;
+          customization_rules?: string | null;
+          dietary_tags?: string[];
+          display_order?: number;
+          drink_name: string;
+          drink_type?: string | null;
+          external_drink_id: string;
+          flavor_profile?: string | null;
+          full_description?: string | null;
+          garnish?: string | null;
+          grape_varietal?: string | null;
+          id?: string;
+          image_url?: string | null;
+          key_ingredients?: string[];
+          limited_time?: boolean;
+          pairings?: string[];
+          popularity_score?: number | null;
+          recommendation_tags?: string[];
+          region?: string | null;
+          restaurant_id: string;
+          roast_level?: string | null;
+          seasonal?: boolean;
+          served_style?: string | null;
+          service_time?: string | null;
+          serving_size?: string | null;
+          short_description?: string | null;
+          signature_score?: number | null;
+          sold_out?: boolean;
+          subcategory?: string | null;
+          sweetness_level?: string | null;
+          temperature?: string | null;
+          updated_at?: string;
+          volume_ml?: number | null;
+          wine_type?: string | null;
+        };
+        Update: {
+          abv?: string | null;
+          acidity_level?: string | null;
+          active?: boolean;
+          alcoholic?: boolean;
+          allergens_contains?: string[];
+          allergens_may_contain?: string[];
+          availability_status?: string;
+          base_price?: string;
+          base_spirit?: string | null;
+          beer_style?: string | null;
+          bitterness_level?: string | null;
+          body_level?: string | null;
+          caffeine_level?: string | null;
+          can_be_made_decaf?: boolean;
+          can_be_made_non_alcoholic?: boolean;
+          category?: string;
+          contains_caffeine?: boolean;
+          contains_dairy?: boolean;
+          contains_gluten?: boolean;
+          contains_nuts?: boolean;
+          country?: string | null;
+          created_at?: string;
+          currency?: string;
+          customization_rules?: string | null;
+          dietary_tags?: string[];
+          display_order?: number;
+          drink_name?: string;
+          drink_type?: string | null;
+          external_drink_id?: string;
+          flavor_profile?: string | null;
+          full_description?: string | null;
+          garnish?: string | null;
+          grape_varietal?: string | null;
+          id?: string;
+          image_url?: string | null;
+          key_ingredients?: string[];
+          limited_time?: boolean;
+          pairings?: string[];
+          popularity_score?: number | null;
+          recommendation_tags?: string[];
+          region?: string | null;
+          restaurant_id?: string;
+          roast_level?: string | null;
+          seasonal?: boolean;
+          served_style?: string | null;
+          service_time?: string | null;
+          serving_size?: string | null;
+          short_description?: string | null;
+          signature_score?: number | null;
+          sold_out?: boolean;
+          subcategory?: string | null;
+          sweetness_level?: string | null;
+          temperature?: string | null;
+          updated_at?: string;
+          volume_ml?: number | null;
+          wine_type?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'restaurant_drink_menu_items_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      restaurant_drink_menu_modifier_groups: {
+        Row: {
+          created_at: string;
+          display_order: number;
+          drink_item_id: string;
+          external_modifier_group_id: string;
+          group_name: string;
+          id: string;
+          max_select: number;
+          min_select: number;
+          required: boolean;
+          restaurant_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          display_order?: number;
+          drink_item_id: string;
+          external_modifier_group_id: string;
+          group_name: string;
+          id?: string;
+          max_select?: number;
+          min_select?: number;
+          required?: boolean;
+          restaurant_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          display_order?: number;
+          drink_item_id?: string;
+          external_modifier_group_id?: string;
+          group_name?: string;
+          id?: string;
+          max_select?: number;
+          min_select?: number;
+          required?: boolean;
+          restaurant_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'restaurant_drink_menu_modifier_groups_item_fk';
+            columns: ['restaurant_id', 'drink_item_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurant_drink_menu_items';
+            referencedColumns: ['restaurant_id', 'id'];
+          },
+          {
+            foreignKeyName: 'restaurant_drink_menu_modifier_groups_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      restaurant_drink_menu_modifier_options: {
+        Row: {
+          availability_status: string;
+          created_at: string;
+          default_selected: boolean;
+          display_order: number;
+          external_modifier_option_id: string;
+          id: string;
+          modifier_group_id: string;
+          option_name: string;
+          price_delta: string;
+          restaurant_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          availability_status?: string;
+          created_at?: string;
+          default_selected?: boolean;
+          display_order?: number;
+          external_modifier_option_id: string;
+          id?: string;
+          modifier_group_id: string;
+          option_name: string;
+          price_delta?: string;
+          restaurant_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          availability_status?: string;
+          created_at?: string;
+          default_selected?: boolean;
+          display_order?: number;
+          external_modifier_option_id?: string;
+          id?: string;
+          modifier_group_id?: string;
+          option_name?: string;
+          price_delta?: string;
+          restaurant_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'restaurant_drink_menu_modifier_options_group_fk';
+            columns: ['restaurant_id', 'modifier_group_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurant_drink_menu_modifier_groups';
+            referencedColumns: ['restaurant_id', 'id'];
+          },
+          {
+            foreignKeyName: 'restaurant_drink_menu_modifier_options_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      restaurant_menu_items: {
+        Row: {
+          active: boolean;
+          allergens_contains: string[];
+          allergens_may_contain: string[];
+          availability_status: string;
+          base_price: string;
+          can_be_made_gluten_free: boolean;
+          can_be_made_vegan: boolean;
+          can_be_made_vegetarian: boolean;
+          category: string;
+          cooking_style: string | null;
+          created_at: string;
+          currency: string;
+          customization_rules: string | null;
+          dietary_tags: string[];
+          display_order: number;
+          external_item_id: string;
+          flavor_profile: string | null;
+          full_description: string | null;
+          id: string;
+          image_url: string | null;
+          item_name: string;
+          key_ingredients: string[];
+          limited_time: boolean;
+          main_protein_or_base: string | null;
+          pairings: string[];
+          popularity_score: number | null;
+          portion_size: string | null;
+          preparation_method: string | null;
+          recommendation_tags: string[];
+          removable_ingredients: string[];
+          restaurant_id: string;
+          seasonal: boolean;
+          service_time: string | null;
+          serving_notes: string | null;
+          shareable: boolean;
+          short_description: string | null;
+          signature_score: number | null;
+          sold_out: boolean;
+          spice_adjustable: boolean;
+          spice_level: string | null;
+          subcategory: string | null;
+          substitutions_allowed: boolean;
+          texture: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          active?: boolean;
+          allergens_contains?: string[];
+          allergens_may_contain?: string[];
+          availability_status?: string;
+          base_price?: string;
+          can_be_made_gluten_free?: boolean;
+          can_be_made_vegan?: boolean;
+          can_be_made_vegetarian?: boolean;
+          category: string;
+          cooking_style?: string | null;
+          created_at?: string;
+          currency?: string;
+          customization_rules?: string | null;
+          dietary_tags?: string[];
+          display_order?: number;
+          external_item_id: string;
+          flavor_profile?: string | null;
+          full_description?: string | null;
+          id?: string;
+          image_url?: string | null;
+          item_name: string;
+          key_ingredients?: string[];
+          limited_time?: boolean;
+          main_protein_or_base?: string | null;
+          pairings?: string[];
+          popularity_score?: number | null;
+          portion_size?: string | null;
+          preparation_method?: string | null;
+          recommendation_tags?: string[];
+          removable_ingredients?: string[];
+          restaurant_id: string;
+          seasonal?: boolean;
+          service_time?: string | null;
+          serving_notes?: string | null;
+          shareable?: boolean;
+          short_description?: string | null;
+          signature_score?: number | null;
+          sold_out?: boolean;
+          spice_adjustable?: boolean;
+          spice_level?: string | null;
+          subcategory?: string | null;
+          substitutions_allowed?: boolean;
+          texture?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          active?: boolean;
+          allergens_contains?: string[];
+          allergens_may_contain?: string[];
+          availability_status?: string;
+          base_price?: string;
+          can_be_made_gluten_free?: boolean;
+          can_be_made_vegan?: boolean;
+          can_be_made_vegetarian?: boolean;
+          category?: string;
+          cooking_style?: string | null;
+          created_at?: string;
+          currency?: string;
+          customization_rules?: string | null;
+          dietary_tags?: string[];
+          display_order?: number;
+          external_item_id?: string;
+          flavor_profile?: string | null;
+          full_description?: string | null;
+          id?: string;
+          image_url?: string | null;
+          item_name?: string;
+          key_ingredients?: string[];
+          limited_time?: boolean;
+          main_protein_or_base?: string | null;
+          pairings?: string[];
+          popularity_score?: number | null;
+          portion_size?: string | null;
+          preparation_method?: string | null;
+          recommendation_tags?: string[];
+          removable_ingredients?: string[];
+          restaurant_id?: string;
+          seasonal?: boolean;
+          service_time?: string | null;
+          serving_notes?: string | null;
+          shareable?: boolean;
+          short_description?: string | null;
+          signature_score?: number | null;
+          sold_out?: boolean;
+          spice_adjustable?: boolean;
+          spice_level?: string | null;
+          subcategory?: string | null;
+          substitutions_allowed?: boolean;
+          texture?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'restaurant_menu_items_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      restaurant_menu_modifier_groups: {
+        Row: {
+          created_at: string;
+          display_order: number;
+          external_modifier_group_id: string;
+          group_name: string;
+          id: string;
+          max_select: number;
+          menu_item_id: string;
+          min_select: number;
+          required: boolean;
+          restaurant_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          display_order?: number;
+          external_modifier_group_id: string;
+          group_name: string;
+          id?: string;
+          max_select?: number;
+          menu_item_id: string;
+          min_select?: number;
+          required?: boolean;
+          restaurant_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          display_order?: number;
+          external_modifier_group_id?: string;
+          group_name?: string;
+          id?: string;
+          max_select?: number;
+          menu_item_id?: string;
+          min_select?: number;
+          required?: boolean;
+          restaurant_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'restaurant_menu_modifier_groups_item_fk';
+            columns: ['restaurant_id', 'menu_item_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurant_menu_items';
+            referencedColumns: ['restaurant_id', 'id'];
+          },
+          {
+            foreignKeyName: 'restaurant_menu_modifier_groups_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      restaurant_menu_modifier_options: {
+        Row: {
+          availability_status: string;
+          created_at: string;
+          default_selected: boolean;
+          display_order: number;
+          external_modifier_option_id: string;
+          id: string;
+          modifier_group_id: string;
+          option_name: string;
+          price_delta: string;
+          restaurant_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          availability_status?: string;
+          created_at?: string;
+          default_selected?: boolean;
+          display_order?: number;
+          external_modifier_option_id: string;
+          id?: string;
+          modifier_group_id: string;
+          option_name: string;
+          price_delta?: string;
+          restaurant_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          availability_status?: string;
+          created_at?: string;
+          default_selected?: boolean;
+          display_order?: number;
+          external_modifier_option_id?: string;
+          id?: string;
+          modifier_group_id?: string;
+          option_name?: string;
+          price_delta?: string;
+          restaurant_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'restaurant_menu_modifier_options_group_fk';
+            columns: ['restaurant_id', 'modifier_group_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurant_menu_modifier_groups';
+            referencedColumns: ['restaurant_id', 'id'];
+          },
+          {
+            foreignKeyName: 'restaurant_menu_modifier_options_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      restaurant_external_profile_snapshots: {
+        Row: {
+          created_at: string;
+          external_profile_id: string;
+          fetched_at: string;
+          id: string;
+          payload: Json;
+          payload_hash: string;
+          snapshot_type: string;
+          source_revision: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          external_profile_id: string;
+          fetched_at?: string;
+          id?: string;
+          payload: Json;
+          payload_hash: string;
+          snapshot_type: string;
+          source_revision?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          external_profile_id?: string;
+          fetched_at?: string;
+          id?: string;
+          payload?: Json;
+          payload_hash?: string;
+          snapshot_type?: string;
+          source_revision?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'restaurant_external_profile_snapshots_external_profile_id_fkey';
+            columns: ['external_profile_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurant_external_profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      restaurant_field_sync_statuses: {
+        Row: {
+          created_at: string;
+          entity_key: string;
+          entity_table: string;
+          field_key: string;
+          id: string;
+          is_verified: boolean;
+          last_canonical_value_json: Json | null;
+          last_checked_at: string | null;
+          last_provider_value_json: Json | null;
+          last_synced_at: string | null;
+          provider: string;
+          provider_record_id: string | null;
+          restaurant_id: string;
+          sync_status: string;
+          updated_at: string;
+          value_hash: string | null;
+          verified_at: string | null;
+          verified_by: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          entity_key: string;
+          entity_table: string;
+          field_key: string;
+          id?: string;
+          is_verified?: boolean;
+          last_canonical_value_json?: Json | null;
+          last_checked_at?: string | null;
+          last_provider_value_json?: Json | null;
+          last_synced_at?: string | null;
+          provider: string;
+          provider_record_id?: string | null;
+          restaurant_id: string;
+          sync_status?: string;
+          updated_at?: string;
+          value_hash?: string | null;
+          verified_at?: string | null;
+          verified_by?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          entity_key?: string;
+          entity_table?: string;
+          field_key?: string;
+          id?: string;
+          is_verified?: boolean;
+          last_canonical_value_json?: Json | null;
+          last_checked_at?: string | null;
+          last_provider_value_json?: Json | null;
+          last_synced_at?: string | null;
+          provider?: string;
+          provider_record_id?: string | null;
+          restaurant_id?: string;
+          sync_status?: string;
+          updated_at?: string;
+          value_hash?: string | null;
+          verified_at?: string | null;
+          verified_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'restaurant_field_sync_statuses_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      restaurant_external_profile_credentials: {
+        Row: {
+          access_token_encrypted: string | null;
+          access_token_expires_at: string | null;
+          connected_google_email: string | null;
+          connected_google_name: string | null;
+          created_at: string;
+          external_profile_id: string;
+          granted_scopes: string[];
+          last_error: string | null;
+          last_refreshed_at: string | null;
+          provider_user_id: string | null;
+          refresh_token_encrypted: string;
+          token_type: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          access_token_encrypted?: string | null;
+          access_token_expires_at?: string | null;
+          connected_google_email?: string | null;
+          connected_google_name?: string | null;
+          created_at?: string;
+          external_profile_id: string;
+          granted_scopes?: string[];
+          last_error?: string | null;
+          last_refreshed_at?: string | null;
+          provider_user_id?: string | null;
+          refresh_token_encrypted: string;
+          token_type?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          access_token_encrypted?: string | null;
+          access_token_expires_at?: string | null;
+          connected_google_email?: string | null;
+          connected_google_name?: string | null;
+          created_at?: string;
+          external_profile_id?: string;
+          granted_scopes?: string[];
+          last_error?: string | null;
+          last_refreshed_at?: string | null;
+          provider_user_id?: string | null;
+          refresh_token_encrypted?: string;
+          token_type?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'restaurant_external_profile_credentials_external_profile_id_fkey';
+            columns: ['external_profile_id'];
+            isOneToOne: true;
+            referencedRelation: 'restaurant_external_profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      restaurant_external_profile_oauth_states: {
+        Row: {
+          consumed_at: string | null;
+          created_at: string;
+          expires_at: string;
+          id: string;
+          provider: string;
+          requested_by_user_id: string;
+          restaurant_id: string;
+          return_path: string;
+          state_token: string;
+          updated_at: string;
+        };
+        Insert: {
+          consumed_at?: string | null;
+          created_at?: string;
+          expires_at: string;
+          id?: string;
+          provider: string;
+          requested_by_user_id: string;
+          restaurant_id: string;
+          return_path?: string;
+          state_token: string;
+          updated_at?: string;
+        };
+        Update: {
+          consumed_at?: string | null;
+          created_at?: string;
+          expires_at?: string;
+          id?: string;
+          provider?: string;
+          requested_by_user_id?: string;
+          restaurant_id?: string;
+          return_path?: string;
+          state_token?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'restaurant_external_profile_oauth_states_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      restaurant_external_profiles: {
+        Row: {
+          connection_status: string;
+          created_at: string;
+          external_account_id: string | null;
+          external_account_name: string | null;
+          external_location_id: string | null;
+          external_location_name: string | null;
+          external_location_title: string | null;
+          external_place_id: string | null;
+          external_resource_name: string | null;
+          id: string;
+          last_pull_at: string | null;
+          last_push_at: string | null;
+          last_error: string | null;
+          provider: string;
+          pull_enabled: boolean;
+          push_enabled: boolean;
+          restaurant_id: string;
+          sync_enabled: boolean;
+          updated_at: string;
+        };
+        Insert: {
+          connection_status?: string;
+          created_at?: string;
+          external_account_id?: string | null;
+          external_account_name?: string | null;
+          external_location_id?: string | null;
+          external_location_name?: string | null;
+          external_location_title?: string | null;
+          external_place_id?: string | null;
+          external_resource_name?: string | null;
+          id?: string;
+          last_pull_at?: string | null;
+          last_push_at?: string | null;
+          last_error?: string | null;
+          provider: string;
+          pull_enabled?: boolean;
+          push_enabled?: boolean;
+          restaurant_id: string;
+          sync_enabled?: boolean;
+          updated_at?: string;
+        };
+        Update: {
+          connection_status?: string;
+          created_at?: string;
+          external_account_id?: string | null;
+          external_account_name?: string | null;
+          external_location_id?: string | null;
+          external_location_name?: string | null;
+          external_location_title?: string | null;
+          external_place_id?: string | null;
+          external_resource_name?: string | null;
+          id?: string;
+          last_pull_at?: string | null;
+          last_push_at?: string | null;
+          last_error?: string | null;
+          provider?: string;
+          pull_enabled?: boolean;
+          push_enabled?: boolean;
+          restaurant_id?: string;
+          sync_enabled?: boolean;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'restaurant_external_profiles_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      restaurant_addresses: {
+        Row: {
+          address_type: string;
+          address_lines: Json;
+          administrative_area: string | null;
+          country_code: string | null;
+          created_at: string;
+          display_order: number;
+          formatted_address: string | null;
+          id: string;
+          is_primary: boolean;
+          last_manual_override_at: string | null;
+          last_synced_at: string | null;
+          language_code: string | null;
+          latlng_json: Json;
+          locality: string | null;
+          managed_by: string;
+          organization: string | null;
+          postal_code: string | null;
+          recipients: Json;
+          region_code: string | null;
+          restaurant_id: string;
+          source: string;
+          source_record_id: string | null;
+          sorting_code: string | null;
+          sublocality: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          address_type?: string;
+          address_lines?: Json;
+          administrative_area?: string | null;
+          country_code?: string | null;
+          created_at?: string;
+          display_order?: number;
+          formatted_address?: string | null;
+          id?: string;
+          is_primary?: boolean;
+          last_manual_override_at?: string | null;
+          last_synced_at?: string | null;
+          language_code?: string | null;
+          latlng_json?: Json;
+          locality?: string | null;
+          managed_by?: string;
+          organization?: string | null;
+          postal_code?: string | null;
+          recipients?: Json;
+          region_code?: string | null;
+          restaurant_id: string;
+          source?: string;
+          source_record_id?: string | null;
+          sorting_code?: string | null;
+          sublocality?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          address_type?: string;
+          address_lines?: Json;
+          administrative_area?: string | null;
+          country_code?: string | null;
+          created_at?: string;
+          display_order?: number;
+          formatted_address?: string | null;
+          id?: string;
+          is_primary?: boolean;
+          last_manual_override_at?: string | null;
+          last_synced_at?: string | null;
+          language_code?: string | null;
+          latlng_json?: Json;
+          locality?: string | null;
+          managed_by?: string;
+          organization?: string | null;
+          postal_code?: string | null;
+          recipients?: Json;
+          region_code?: string | null;
+          restaurant_id?: string;
+          source?: string;
+          source_record_id?: string | null;
+          sorting_code?: string | null;
+          sublocality?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'restaurant_addresses_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      restaurant_attributes: {
+        Row: {
+          attribute_group: string | null;
+          attribute_key: string;
+          bool_value: boolean | null;
+          created_at: string;
+          display_name: string | null;
+          display_order: number;
+          display_text: string | null;
+          enum_values: Json;
+          id: string;
+          last_manual_override_at: string | null;
+          last_synced_at: string | null;
+          managed_by: string;
+          restaurant_id: string;
+          source: string;
+          source_record_id: string | null;
+          text_value: string | null;
+          updated_at: string;
+          uri_value: string | null;
+          value_type: string;
+        };
+        Insert: {
+          attribute_group?: string | null;
+          attribute_key: string;
+          bool_value?: boolean | null;
+          created_at?: string;
+          display_name?: string | null;
+          display_order?: number;
+          display_text?: string | null;
+          enum_values?: Json;
+          id?: string;
+          last_manual_override_at?: string | null;
+          last_synced_at?: string | null;
+          managed_by?: string;
+          restaurant_id: string;
+          source?: string;
+          source_record_id?: string | null;
+          text_value?: string | null;
+          updated_at?: string;
+          uri_value?: string | null;
+          value_type: string;
+        };
+        Update: {
+          attribute_group?: string | null;
+          attribute_key?: string;
+          bool_value?: boolean | null;
+          created_at?: string;
+          display_name?: string | null;
+          display_order?: number;
+          display_text?: string | null;
+          enum_values?: Json;
+          id?: string;
+          last_manual_override_at?: string | null;
+          last_synced_at?: string | null;
+          managed_by?: string;
+          restaurant_id?: string;
+          source?: string;
+          source_record_id?: string | null;
+          text_value?: string | null;
+          updated_at?: string;
+          uri_value?: string | null;
+          value_type?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'restaurant_attributes_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      restaurant_business_details: {
+        Row: {
+          business_status: string | null;
+          created_at: string;
+          description: string | null;
+          is_service_area_business: boolean;
+          last_manual_override_at: string | null;
+          last_synced_at: string | null;
+          managed_by: string;
+          opening_date: string | null;
+          restaurant_id: string;
+          source: string;
+          source_record_id: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          business_status?: string | null;
+          created_at?: string;
+          description?: string | null;
+          is_service_area_business?: boolean;
+          last_manual_override_at?: string | null;
+          last_synced_at?: string | null;
+          managed_by?: string;
+          opening_date?: string | null;
+          restaurant_id: string;
+          source?: string;
+          source_record_id?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          business_status?: string | null;
+          created_at?: string;
+          description?: string | null;
+          is_service_area_business?: boolean;
+          last_manual_override_at?: string | null;
+          last_synced_at?: string | null;
+          managed_by?: string;
+          opening_date?: string | null;
+          restaurant_id?: string;
+          source?: string;
+          source_record_id?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'restaurant_business_details_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: true;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      restaurant_categories: {
+        Row: {
+          category_code: string | null;
+          created_at: string;
+          display_order: number;
+          id: string;
+          is_primary: boolean;
+          last_manual_override_at: string | null;
+          last_synced_at: string | null;
+          managed_by: string;
+          restaurant_id: string;
+          source: string;
+          source_record_id: string | null;
+          updated_at: string;
+          display_name: string;
+        };
+        Insert: {
+          category_code?: string | null;
+          created_at?: string;
+          display_name: string;
+          display_order?: number;
+          id?: string;
+          is_primary?: boolean;
+          last_manual_override_at?: string | null;
+          last_synced_at?: string | null;
+          managed_by?: string;
+          restaurant_id: string;
+          source?: string;
+          source_record_id?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          category_code?: string | null;
+          created_at?: string;
+          display_name?: string;
+          display_order?: number;
+          id?: string;
+          is_primary?: boolean;
+          last_manual_override_at?: string | null;
+          last_synced_at?: string | null;
+          managed_by?: string;
+          restaurant_id?: string;
+          source?: string;
+          source_record_id?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'restaurant_categories_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      restaurant_hours: {
+        Row: {
+          close_day: number | null;
+          close_time: string | null;
+          created_at: string;
+          display_order: number;
+          end_date: string | null;
+          hours_type: string;
+          id: string;
+          is_closed: boolean;
+          last_manual_override_at: string | null;
+          last_synced_at: string | null;
+          managed_by: string;
+          open_day: number | null;
+          open_time: string | null;
+          period_label: string | null;
+          restaurant_id: string;
+          source: string;
+          source_record_id: string | null;
+          start_date: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          close_day?: number | null;
+          close_time?: string | null;
+          created_at?: string;
+          display_order?: number;
+          end_date?: string | null;
+          hours_type: string;
+          id?: string;
+          is_closed?: boolean;
+          last_manual_override_at?: string | null;
+          last_synced_at?: string | null;
+          managed_by?: string;
+          open_day?: number | null;
+          open_time?: string | null;
+          period_label?: string | null;
+          restaurant_id: string;
+          source?: string;
+          source_record_id?: string | null;
+          start_date?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          close_day?: number | null;
+          close_time?: string | null;
+          created_at?: string;
+          display_order?: number;
+          end_date?: string | null;
+          hours_type?: string;
+          id?: string;
+          is_closed?: boolean;
+          last_manual_override_at?: string | null;
+          last_synced_at?: string | null;
+          managed_by?: string;
+          open_day?: number | null;
+          open_time?: string | null;
+          period_label?: string | null;
+          restaurant_id?: string;
+          source?: string;
+          source_record_id?: string | null;
+          start_date?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'restaurant_hours_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      restaurant_links: {
+        Row: {
+          created_at: string;
+          display_order: number;
+          id: string;
+          is_primary: boolean;
+          last_manual_override_at: string | null;
+          last_synced_at: string | null;
+          label: string | null;
+          link_status: string;
+          link_type: string;
+          managed_by: string;
+          restaurant_id: string;
+          source: string;
+          source_record_id: string | null;
+          updated_at: string;
+          url: string;
+        };
+        Insert: {
+          created_at?: string;
+          display_order?: number;
+          id?: string;
+          is_primary?: boolean;
+          last_manual_override_at?: string | null;
+          last_synced_at?: string | null;
+          label?: string | null;
+          link_status?: string;
+          link_type: string;
+          managed_by?: string;
+          restaurant_id: string;
+          source?: string;
+          source_record_id?: string | null;
+          updated_at?: string;
+          url: string;
+        };
+        Update: {
+          created_at?: string;
+          display_order?: number;
+          id?: string;
+          is_primary?: boolean;
+          last_manual_override_at?: string | null;
+          last_synced_at?: string | null;
+          label?: string | null;
+          link_status?: string;
+          link_type?: string;
+          managed_by?: string;
+          restaurant_id?: string;
+          source?: string;
+          source_record_id?: string | null;
+          updated_at?: string;
+          url?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'restaurant_links_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      restaurant_phone_numbers: {
+        Row: {
+          created_at: string;
+          display_order: number;
+          id: string;
+          is_primary: boolean;
+          last_manual_override_at: string | null;
+          last_synced_at: string | null;
+          managed_by: string;
+          phone_kind: string;
+          phone_number: string;
+          restaurant_id: string;
+          source: string;
+          source_record_id: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          display_order?: number;
+          id?: string;
+          is_primary?: boolean;
+          last_manual_override_at?: string | null;
+          last_synced_at?: string | null;
+          managed_by?: string;
+          phone_kind: string;
+          phone_number: string;
+          restaurant_id: string;
+          source?: string;
+          source_record_id?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          display_order?: number;
+          id?: string;
+          is_primary?: boolean;
+          last_manual_override_at?: string | null;
+          last_synced_at?: string | null;
+          managed_by?: string;
+          phone_kind?: string;
+          phone_number?: string;
+          restaurant_id?: string;
+          source?: string;
+          source_record_id?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'restaurant_phone_numbers_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      restaurant_service_areas: {
+        Row: {
+          area_type: string;
+          created_at: string;
+          display_order: number;
+          id: string;
+          last_manual_override_at: string | null;
+          last_synced_at: string | null;
+          managed_by: string;
+          region_code: string | null;
+          restaurant_id: string;
+          source: string;
+          source_record_id: string | null;
+          updated_at: string;
+          display_name: string;
+        };
+        Insert: {
+          area_type?: string;
+          created_at?: string;
+          display_order?: number;
+          display_name: string;
+          id?: string;
+          last_manual_override_at?: string | null;
+          last_synced_at?: string | null;
+          managed_by?: string;
+          region_code?: string | null;
+          restaurant_id: string;
+          source?: string;
+          source_record_id?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          area_type?: string;
+          created_at?: string;
+          display_order?: number;
+          display_name?: string;
+          id?: string;
+          last_manual_override_at?: string | null;
+          last_synced_at?: string | null;
+          managed_by?: string;
+          region_code?: string | null;
+          restaurant_id?: string;
+          source?: string;
+          source_record_id?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'restaurant_service_areas_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       restaurants: {
         Row: {
           address: string | null;
@@ -3695,6 +5069,26 @@ export type Database = {
         };
         Returns: Json;
       };
+      import_restaurant_menu_bundle: {
+        Args: {
+          p_items: Json;
+          p_modifier_groups?: Json;
+          p_modifier_options?: Json;
+          p_replace_modifiers?: boolean;
+          p_restaurant_id: string;
+        };
+        Returns: Json;
+      };
+      import_restaurant_drink_menu_bundle: {
+        Args: {
+          p_items: Json;
+          p_modifier_groups?: Json;
+          p_modifier_options?: Json;
+          p_replace_modifiers?: boolean;
+          p_restaurant_id: string;
+        };
+        Returns: Json;
+      };
       current_restaurant_id: { Args: never; Returns: string };
       generate_booking_reference: { Args: never; Returns: string };
       get_or_create_booking_slot: {
@@ -3902,6 +5296,20 @@ export type Database = {
           isOneToOne: false;
           isSetofReturn: true;
         };
+      };
+      upsert_restaurant_menu_item_with_modifiers: {
+        Args: {
+          p_item: Json;
+          p_restaurant_id: string;
+        };
+        Returns: Json;
+      };
+      upsert_restaurant_drink_menu_item_with_modifiers: {
+        Args: {
+          p_item: Json;
+          p_restaurant_id: string;
+        };
+        Returns: Json;
       };
       unassign_table_from_booking: {
         Args: { p_booking_id: string; p_table_id: string };

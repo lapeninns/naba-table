@@ -21,6 +21,10 @@ const OPS_API_SERVICES = new Set([
   'zones',
 ]);
 
+const PUBLIC_OPS_API_PATHS = new Set([
+  '/api/ops/google-business-profile/callback',
+]);
+
 export const config = {
   matcher: ['/((?!_next/|_static/|_vercel|[\\w-]+\\.\\w+).*)'],
 };
@@ -129,6 +133,10 @@ function getOpsRewritePath(pathname: string) {
   return `/api/ops/${service}${rest.length ? `/${rest.join('/')}` : ''}`;
 }
 
+function isPublicOpsApiPath(pathname: string) {
+  return PUBLIC_OPS_API_PATHS.has(pathname);
+}
+
 export async function handleRouting(req: NextRequest): Promise<NextResponse> {
   const url = req.nextUrl;
   const searchParams = url.searchParams.toString();
@@ -184,6 +192,9 @@ export async function handleRouting(req: NextRequest): Promise<NextResponse> {
 
       // 3b. Direct /api/ops/* calls require auth guard
       if (url.pathname.startsWith('/api/ops/')) {
+        if (isPublicOpsApiPath(url.pathname)) {
+          return NextResponse.next();
+        }
         const nextResponse = NextResponse.next();
         const guardResult = await requireOpsAuth(req, nextResponse);
         if (guardResult instanceof NextResponse) return guardResult;
@@ -238,6 +249,9 @@ export async function handleRouting(req: NextRequest): Promise<NextResponse> {
 
   // 1. Ops API calls from root domain still need auth guard
   if (url.pathname.startsWith('/api/ops')) {
+    if (isPublicOpsApiPath(url.pathname)) {
+      return NextResponse.next();
+    }
     const nextResponse = NextResponse.next();
     const guardResult = await requireOpsAuth(req, nextResponse);
     if (guardResult instanceof NextResponse) return guardResult;

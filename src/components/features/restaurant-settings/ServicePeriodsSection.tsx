@@ -11,12 +11,30 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useOpsOccasions } from '@/hooks/ops/useOccasions';
+import { useOpsGoogleBusinessProfileConnection } from '@/hooks/ops/useOpsGoogleBusinessProfile';
 import { useOpsOperatingHours } from '@/hooks/ops/useOpsOperatingHours';
-import { useOpsServicePeriods, useOpsUpdateServicePeriods } from '@/hooks/ops/useOpsServicePeriods';
+import {
+  useOpsServicePeriods,
+  useOpsSyncServicePeriodsWithGoogleBusinessProfile,
+  useOpsUpdateServicePeriods,
+} from '@/hooks/ops/useOpsServicePeriods';
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
 import { cn } from '@/lib/utils';
 
-import { buildServicePeriodPayload, buildServicePeriodState, type DayServiceConfig, type MealConfig, type WeeklyHoursEntry } from './servicePeriodsMapper';
+import { GoogleBusinessProfileComparisonBadge } from './GoogleBusinessProfileComparisonBadge';
+import { GoogleBusinessProfileSyncActionDialog } from './GoogleBusinessProfileSyncActionDialog';
+import {
+  deriveServicePeriodDayComparisons,
+  deriveServicePeriodsVerification,
+} from './googleBusinessProfileVerification';
+import { GoogleBusinessProfileVerificationControls } from './GoogleBusinessProfileVerificationControls';
+import {
+  buildServicePeriodPayload,
+  buildServicePeriodState,
+  type DayServiceConfig,
+  type MealConfig,
+  type WeeklyHoursEntry,
+} from './servicePeriodsMapper';
 import { SettingsCard } from './shared/SettingsCard';
 import { DAYS_OF_WEEK, type ServicePeriodRow } from './types';
 
@@ -42,7 +60,8 @@ const MEAL_LABELS: Record<MealKey, string> = {
 
 const MEAL_TOOLTIPS: Record<MealKey, string> = {
   lunch: 'Defines when lunch reservations can be booked within the kitchen operating window.',
-  dinner: 'Defines when dinner reservations can be booked. Keep times inside the kitchen open/close window.',
+  dinner:
+    'Defines when dinner reservations can be booked. Keep times inside the kitchen open/close window.',
 };
 
 function canonicalizeRequiredTime(value: string): string {
@@ -65,7 +84,12 @@ function toComparableTime(value: string | null | undefined): string | null {
 }
 
 const buildWeeklyHoursMap = (
-  weekly?: Array<{ dayOfWeek: number; opensAt: string | null; closesAt: string | null; isClosed: boolean }>,
+  weekly?: Array<{
+    dayOfWeek: number;
+    opensAt: string | null;
+    closesAt: string | null;
+    isClosed: boolean;
+  }>,
 ): Record<number, WeeklyHoursEntry> => {
   if (!weekly) {
     return {};
@@ -119,7 +143,11 @@ function MealEditor({
         <div>
           <div className="flex items-center gap-1">
             <p className="text-sm font-medium text-foreground">{label}</p>
-            <HelpTooltip description={tooltip} ariaLabel={`${label} service window help`} align="center" />
+            <HelpTooltip
+              description={tooltip}
+              ariaLabel={`${label} service window help`}
+              align="center"
+            />
           </div>
           <p className="text-xs text-muted-foreground">Only available while the kitchen is open.</p>
         </div>
@@ -168,16 +196,22 @@ function MealEditor({
 export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionProps) {
   const periodsQuery = useOpsServicePeriods(restaurantId);
   const hoursQuery = useOpsOperatingHours(restaurantId);
+  const gbpConnectionQuery = useOpsGoogleBusinessProfileConnection(restaurantId);
   const occasionQuery = useOpsOccasions();
   const updateMutation = useOpsUpdateServicePeriods(restaurantId);
+  const syncMutation = useOpsSyncServicePeriodsWithGoogleBusinessProfile(restaurantId);
 
   const occasionOptions = useMemo(() => occasionQuery.data ?? [], [occasionQuery.data]);
-  const occasionKeys = useMemo(() => extractRequiredOccasionKeys(occasionOptions), [occasionOptions]);
+  const occasionKeys = useMemo(
+    () => extractRequiredOccasionKeys(occasionOptions),
+    [occasionOptions],
+  );
 
   const [dayConfigs, setDayConfigs] = useState<DayServiceConfig[]>([]);
   const [customRows, setCustomRows] = useState<ServicePeriodRow[]>([]);
   const [errors, setErrors] = useState<DayErrors>({});
   const [isDirty, setIsDirty] = useState(false);
+  const [syncDialogMode, setSyncDialogMode] = useState<null | 'pull' | 'push'>(null);
 
   const weeklyHoursMap = useMemo(
     () =>
@@ -245,7 +279,12 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
     setIsDirty(true);
   };
 
-  const handleMealTimeChange = (dayIndex: number, mealKey: MealKey, field: 'startTime' | 'endTime', value: string) => {
+  const handleMealTimeChange = (
+    dayIndex: number,
+    mealKey: MealKey,
+    field: 'startTime' | 'endTime',
+    value: string,
+  ) => {
     const targetDay = dayConfigs[dayIndex];
     setDayConfigs((current) => {
       const target = current[dayIndex];
@@ -368,6 +407,45 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
   };
 
   const isDisabled = updateMutation.isPending || !hasRequiredOccasions;
+  const gbpVerification = deriveServicePeriodsVerification({
+    periods: periodsQuery.data,
+    connection: gbpConnectionQuery.data,
+  });
+  const dayComparisons = deriveServicePeriodDayComparisons({
+    days: dayConfigs.map((day) => ({
+      dayOfWeek: day.dayOfWeek,
+      lunch: {
+        enabled: day.lunch.enabled,
+        startTime: day.lunch.startTime,
+        endTime: day.lunch.endTime,
+      },
+      dinner: {
+        enabled: day.dinner.enabled,
+        startTime: day.dinner.startTime,
+        endTime: day.dinner.endTime,
+      },
+    })),
+    connection: gbpConnectionQuery.data,
+  });
+  const syncSelectionItems = useMemo(
+    () =>
+      dayConfigs.map((day) => {
+        const comparison = dayComparisons[day.dayOfWeek];
+        return {
+          id: `day:${day.dayOfWeek}`,
+          group: 'Days',
+          label: day.label,
+          description:
+            comparison?.tooltipLines.join(' | ') ||
+            (day.isClosed
+              ? 'Kitchen is closed on this day.'
+              : `Kitchen window: ${formatRange(day.opensAt, day.closesAt)}`),
+          defaultChecked: comparison ? comparison.status !== 'verified' : true,
+        };
+      }),
+    [dayComparisons, dayConfigs],
+  );
+  const activeDirection = syncDialogMode === 'push' ? 'push_to_gbp' : 'pull_from_gbp';
 
   useGlobalShortcuts([
     {
@@ -387,7 +465,9 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
     return (
       <SettingsCard title="Service Periods">
         <div className="flex min-h-[200px] items-center justify-center py-8">
-          <p className="text-sm text-muted-foreground">Select a restaurant to manage service periods</p>
+          <p className="text-sm text-muted-foreground">
+            Select a restaurant to manage service periods
+          </p>
         </div>
       </SettingsCard>
     );
@@ -395,7 +475,8 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
 
   const loadError = periodsQuery.error ?? hoursQuery.error ?? occasionQuery.error ?? null;
   if (loadError) {
-    const message = loadError instanceof Error ? loadError.message : 'Unable to load service periods';
+    const message =
+      loadError instanceof Error ? loadError.message : 'Unable to load service periods';
     return (
       <SettingsCard title="Service Periods">
         <Alert variant="destructive">
@@ -433,16 +514,40 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
         title="Service Periods"
         description="Configure kitchen windows for lunch and dinner per day."
         headerAction={
-          <HelpTooltip
-            description="Lunch and dinner windows must stay inside each day's kitchen hours."
-            ariaLabel="Service periods help"
-          />
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <HelpTooltip
+              description="Lunch and dinner windows must stay inside each day's kitchen hours."
+              ariaLabel="Service periods help"
+            />
+            <GoogleBusinessProfileVerificationControls
+              status={gbpVerification.status}
+              recommendedDirection={gbpVerification.recommendedDirection}
+              canPull={gbpVerification.canPull}
+              canPush={gbpVerification.canPush}
+              disabled={isDirty}
+              onPull={() => setSyncDialogMode('pull')}
+              onPush={() => setSyncDialogMode('push')}
+              isPulling={
+                syncMutation.isPending && syncMutation.variables?.direction === 'pull_from_gbp'
+              }
+              isPushing={
+                syncMutation.isPending && syncMutation.variables?.direction === 'push_to_gbp'
+              }
+            />
+          </div>
         }
         footer={
           <div className="flex w-full flex-wrap items-center justify-between gap-3">
-            <p className="text-xs text-muted-foreground">Lunch & dinner availability follows kitchen windows.</p>
+            <p className="text-xs text-muted-foreground">
+              Lunch & dinner availability follows kitchen windows.
+            </p>
             <div className="flex items-center gap-2 ml-auto">
-              <Button type="button" variant="outline" onClick={handleReset} disabled={isDisabled || !isDirty}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleReset}
+                disabled={isDisabled || !isDirty}
+              >
                 Reset
               </Button>
               <Button type="button" onClick={handleSave} disabled={isDisabled || !isDirty}>
@@ -453,10 +558,32 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
         }
       >
         <div className="space-y-4">
+          <div className="space-y-2 rounded-lg border border-border/70 bg-muted/30 p-4">
+            <p className="text-sm font-medium text-foreground">{gbpVerification.summary}</p>
+            <p className="text-xs text-muted-foreground">
+              GBP sync maps meal windows through kitchen more-hours so split days like `12:00–15:00`
+              and `17:00–22:00` stay aligned with lunch and dinner.
+            </p>
+            {isDirty ? (
+              <p className="text-xs text-muted-foreground">
+                Save or reset local changes before running a GBP sync for this section.
+              </p>
+            ) : null}
+            {gbpVerification.warnings.map((warning) => (
+              <p key={warning} className="text-xs text-muted-foreground">
+                {warning}
+              </p>
+            ))}
+            {syncMutation.error ? (
+              <p className="text-xs text-destructive">{syncMutation.error.message}</p>
+            ) : null}
+          </div>
           {!hasRequiredOccasions && (
             <Alert variant="destructive">
               <AlertTitle>Missing booking occasions</AlertTitle>
-              <AlertDescription>Ensure lunch and dinner occasions exist before editing service periods.</AlertDescription>
+              <AlertDescription>
+                Ensure lunch and dinner occasions exist before editing service periods.
+              </AlertDescription>
             </Alert>
           )}
 
@@ -464,51 +591,111 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
             <Alert>
               <AlertTitle>Additional service periods preserved</AlertTitle>
               <AlertDescription>
-                {customRows.length} custom period{customRows.length === 1 ? '' : 's'} exist outside the lunch/dinner
-                layout. They will be saved unchanged.
+                {customRows.length} custom period{customRows.length === 1 ? '' : 's'} exist outside
+                the lunch/dinner layout. They will be saved unchanged.
               </AlertDescription>
             </Alert>
           )}
 
           <div className="space-y-4">
-            {dayConfigs.map((day, index) => (
-              <div
-                key={day.dayOfWeek}
-                className="rounded-xl border border-border/70 bg-card/30 p-4 shadow-sm"
-                aria-live="polite"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">{day.label}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {day.isClosed ? 'Closed' : `Kitchen can operate between ${formatRange(day.opensAt, day.closesAt)}`}
-                    </p>
+            {dayConfigs.map((day, index) => {
+              const comparison = dayComparisons[day.dayOfWeek];
+
+              return (
+                <div
+                  key={day.dayOfWeek}
+                  className="rounded-xl border border-border/70 bg-card/30 p-4 shadow-sm"
+                  aria-live="polite"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-semibold text-foreground">{day.label}</p>
+                        {comparison && comparison.status !== 'unavailable' ? (
+                          <GoogleBusinessProfileComparisonBadge
+                            status={comparison.status}
+                            tooltipTitle={comparison.tooltipTitle}
+                            tooltipLines={comparison.tooltipLines}
+                            tooltipFooter={comparison.tooltipFooter}
+                            ariaLabel={`Show GBP service-period details for ${day.label}`}
+                          />
+                        ) : null}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {day.isClosed
+                          ? 'Closed'
+                          : `Kitchen can operate between ${formatRange(day.opensAt, day.closesAt)}`}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-4 grid gap-4 md:grid-cols-2">
+                    <MealEditor
+                      label={MEAL_LABELS.lunch}
+                      tooltip={MEAL_TOOLTIPS.lunch}
+                      meal={day.lunch}
+                      disabled={day.isClosed || isDisabled}
+                      errors={errors[day.dayOfWeek]?.lunch}
+                      onToggle={(value) => handleMealToggle(index, 'lunch', value)}
+                      onChange={(field, value) =>
+                        handleMealTimeChange(index, 'lunch', field, value)
+                      }
+                    />
+                    <MealEditor
+                      label={MEAL_LABELS.dinner}
+                      tooltip={MEAL_TOOLTIPS.dinner}
+                      meal={day.dinner}
+                      disabled={day.isClosed || isDisabled}
+                      errors={errors[day.dayOfWeek]?.dinner}
+                      onToggle={(value) => handleMealToggle(index, 'dinner', value)}
+                      onChange={(field, value) =>
+                        handleMealTimeChange(index, 'dinner', field, value)
+                      }
+                    />
                   </div>
                 </div>
-                <div className="mt-4 grid gap-4 md:grid-cols-2">
-                  <MealEditor
-                    label={MEAL_LABELS.lunch}
-                    tooltip={MEAL_TOOLTIPS.lunch}
-                    meal={day.lunch}
-                    disabled={day.isClosed || isDisabled}
-                    errors={errors[day.dayOfWeek]?.lunch}
-                    onToggle={(value) => handleMealToggle(index, 'lunch', value)}
-                    onChange={(field, value) => handleMealTimeChange(index, 'lunch', field, value)}
-                  />
-                  <MealEditor
-                    label={MEAL_LABELS.dinner}
-                    tooltip={MEAL_TOOLTIPS.dinner}
-                    meal={day.dinner}
-                    disabled={day.isClosed || isDisabled}
-                    errors={errors[day.dayOfWeek]?.dinner}
-                    onToggle={(value) => handleMealToggle(index, 'dinner', value)}
-                    onChange={(field, value) => handleMealTimeChange(index, 'dinner', field, value)}
-                  />
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
+        <GoogleBusinessProfileSyncActionDialog
+          open={syncDialogMode !== null}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSyncDialogMode(null);
+            }
+          }}
+          title={syncDialogMode === 'push' ? 'Push service-period days to GBP' : 'Import service-period days from GBP'}
+          description={
+            syncDialogMode === 'push'
+              ? 'Choose which day-level lunch and dinner windows should be exported from Nabatable to Google Business Profile.'
+              : 'Choose which day-level lunch and dinner windows should be imported from Google Business Profile into Nabatable.'
+          }
+          confirmLabel={syncDialogMode === 'push' ? 'Push selected days' : 'Import selected days'}
+          items={syncSelectionItems}
+          isPending={syncMutation.isPending}
+          errorMessage={syncMutation.error?.message ?? null}
+          onConfirm={({ password, selectedIds }) => {
+            const dayOfWeeks = selectedIds
+              .filter((id) => id.startsWith('day:'))
+              .map((id) => Number.parseInt(id.replace('day:', ''), 10))
+              .filter(Number.isInteger);
+
+            syncMutation.mutate(
+              {
+                direction: activeDirection,
+                password,
+                selection: {
+                  dayOfWeeks,
+                },
+              },
+              {
+                onSuccess: () => {
+                  setSyncDialogMode(null);
+                },
+              },
+            );
+          }}
+        />
       </SettingsCard>
     </TooltipProvider>
   );

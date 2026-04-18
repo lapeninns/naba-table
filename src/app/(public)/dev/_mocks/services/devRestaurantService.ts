@@ -12,6 +12,12 @@ import {
 import { DEV_RESTAURANT_ID } from '../devIds';
 
 import type {
+  GoogleBusinessProfileConnection,
+  GoogleBusinessProfileOperatingHoursSyncPayload,
+  GoogleBusinessProfileProfileSyncPayload,
+  GoogleBusinessProfileProtectedActionPayload,
+  GoogleBusinessProfileServicePeriodsSyncPayload,
+  LinkGoogleBusinessProfileLocationInput,
   OperatingHoursSnapshot,
   RestaurantEmailTemplatePreview,
   PreviewEmailTemplateInput,
@@ -192,6 +198,13 @@ export class DevRestaurantService implements RestaurantService {
     return snapshot.profile;
   }
 
+  async syncProfileWithGoogleBusinessProfile(
+    restaurantId: string,
+    _payload: GoogleBusinessProfileProfileSyncPayload,
+  ) {
+    return getRestaurantSnapshot(this.state, restaurantId).profile;
+  }
+
   async getOperatingHours(restaurantId: string) {
     return getRestaurantSnapshot(this.state, restaurantId).hours;
   }
@@ -202,6 +215,13 @@ export class DevRestaurantService implements RestaurantService {
     return restaurant.hours;
   }
 
+  async syncOperatingHoursWithGoogleBusinessProfile(
+    restaurantId: string,
+    _payload: GoogleBusinessProfileOperatingHoursSyncPayload,
+  ) {
+    return getRestaurantSnapshot(this.state, restaurantId).hours;
+  }
+
   async getServicePeriods(restaurantId: string) {
     return getRestaurantSnapshot(this.state, restaurantId).servicePeriods;
   }
@@ -210,6 +230,13 @@ export class DevRestaurantService implements RestaurantService {
     const restaurant = getRestaurantSnapshot(this.state, restaurantId);
     restaurant.servicePeriods = rows;
     return restaurant.servicePeriods;
+  }
+
+  async syncServicePeriodsWithGoogleBusinessProfile(
+    restaurantId: string,
+    _payload: GoogleBusinessProfileServicePeriodsSyncPayload,
+  ) {
+    return getRestaurantSnapshot(this.state, restaurantId).servicePeriods;
   }
 
   async getTurnBands(restaurantId: string) {
@@ -401,6 +428,86 @@ export class DevRestaurantService implements RestaurantService {
       messageId: `mock-${templateKey}`,
       preview: await this.previewEmailTemplate(restaurantId, templateKey, payload),
     };
+  }
+
+  async getGoogleBusinessProfileConnection(): Promise<GoogleBusinessProfileConnection> {
+    return {
+      isConfigured: true,
+      provider: 'google_business_profile',
+      status: 'unlinked',
+      connectedGoogleEmail: null,
+      connectedGoogleName: null,
+      externalAccountId: null,
+      externalAccountName: null,
+      externalLocationId: null,
+      externalLocationName: null,
+      externalLocationTitle: null,
+      externalPlaceId: null,
+      lastPullAt: null,
+      lastPushAt: null,
+      lastError: null,
+      availableLocations: [],
+      businessInfo: {
+        details: null,
+        addresses: [],
+        phoneNumbers: [],
+        links: [],
+        categories: [],
+        serviceAreas: [],
+        hours: [],
+        attributes: [],
+        coreNormalization: {
+          operatingHours: {
+            source: 'unavailable',
+            matchStatus: 'unavailable',
+            summary:
+              'No GBP hour set can be normalized confidently into Nabatable operating hours yet.',
+            warnings: [],
+            weekly: [],
+            overrides: [],
+          },
+          servicePeriods: {
+            source: 'unavailable',
+            matchStatus: 'unavailable',
+            summary:
+              'GBP does not natively guarantee lunch/dinner service-period data, so service periods are only normalizable when more-hours labels explicitly encode meal windows.',
+            warnings: [],
+            periods: [],
+          },
+          bookingHours: {
+            matchStatus: 'unavailable',
+            summary:
+              'GBP does not currently provide enough structured data to verify Nabatable booking hours.',
+            warnings: [],
+            missingInputs: [
+              'reservation interval minutes',
+              'reservation slot times',
+              'default reservation duration',
+              'last seating buffer',
+              'lifecycle grace rules',
+            ],
+          },
+        },
+      },
+    };
+  }
+
+  async linkGoogleBusinessProfileLocation(
+    _restaurantId: string,
+    _payload: LinkGoogleBusinessProfileLocationInput,
+  ): Promise<GoogleBusinessProfileConnection> {
+    return this.getGoogleBusinessProfileConnection();
+  }
+
+  async disconnectGoogleBusinessProfileConnection(): Promise<GoogleBusinessProfileConnection> {
+    return this.getGoogleBusinessProfileConnection();
+  }
+
+  async syncGoogleBusinessProfileBusinessInfo(
+    _restaurantId: string,
+    _payload: GoogleBusinessProfileProtectedActionPayload,
+  ): Promise<GoogleBusinessProfileConnection> {
+    return this.getGoogleBusinessProfileConnection();
   }
 }
 

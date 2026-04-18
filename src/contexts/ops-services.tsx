@@ -13,6 +13,16 @@ import {
   type CustomerServiceFactory,
 } from '@/services/ops/customers';
 import {
+  createDrinkMenuService,
+  type DrinkMenuService,
+  type DrinkMenuServiceFactory,
+} from '@/services/ops/drinks-menu';
+import {
+  createMenuService,
+  type MenuService,
+  type MenuServiceFactory,
+} from '@/services/ops/menu';
+import {
   createOccasionService,
   type OccasionService,
   type OccasionServiceFactory,
@@ -37,6 +47,8 @@ export type OpsServices = {
   customerService: CustomerService;
   tableInventoryService: TableInventoryService;
   occasionService: OccasionService;
+  menuService: MenuService;
+  drinkMenuService: DrinkMenuService;
   zoneService: ZoneService;
 };
 
@@ -47,6 +59,8 @@ type OpsServiceFactories = {
   customerService?: CustomerServiceFactory;
   tableInventoryService?: TableInventoryServiceFactory;
   occasionService?: OccasionServiceFactory;
+  menuService?: MenuServiceFactory;
+  drinkMenuService?: DrinkMenuServiceFactory;
   zoneService?: () => ZoneService;
 };
 
@@ -66,6 +80,8 @@ export function OpsServicesProvider({ factories, children }: OpsServicesProvider
       customerService: createCustomerService(factories?.customerService),
       tableInventoryService: createTableInventoryService(factories?.tableInventoryService),
       occasionService: createOccasionService(factories?.occasionService),
+      menuService: createMenuService(factories?.menuService),
+      drinkMenuService: createDrinkMenuService(factories?.drinkMenuService),
       zoneService: factories?.zoneService ? factories.zoneService() : new ZoneService(),
     }),
     [factories],
@@ -104,6 +120,14 @@ export function useTableInventoryService(): TableInventoryService {
 
 export function useOccasionService(): OccasionService {
   return useOpsServices().occasionService;
+}
+
+export function useMenuService(): MenuService {
+  return useOpsServices().menuService;
+}
+
+export function useDrinkMenuService(): DrinkMenuService {
+  return useOpsServices().drinkMenuService;
 }
 
 export function useZoneService(): ZoneService {

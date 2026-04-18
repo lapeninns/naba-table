@@ -31,6 +31,7 @@ export type RestaurantDetails = {
   googleReviewUrl: string | null;
   bookingPolicy: string | null;
   logoUrl: string | null;
+  updatedAt: string | null;
 };
 
 export type UpdateRestaurantDetailsInput = {
@@ -157,6 +158,7 @@ export async function getRestaurantDetails(
     googleReviewUrl: restaurant.google_review_url,
     bookingPolicy: restaurant.booking_policy,
     logoUrl: restaurant.logo_url,
+    updatedAt: restaurant.updated_at ?? null,
   };
 }
 
@@ -216,5 +218,6 @@ export async function updateRestaurantDetails(
     googleReviewUrl: updated.googleReviewUrl,
     bookingPolicy: updated.bookingPolicy,
     logoUrl: updated.logoUrl,
+    updatedAt: updated.updatedAt ?? null,
   };
 }

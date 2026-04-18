@@ -95,4 +95,81 @@ describe('RestaurantDetailsForm manager notification phone', () => {
       screen.getByText(/add a manager number before enabling daily sms summaries/i),
     ).toBeInTheDocument();
   });
+
+  it('shows a GBP match badge when a core field matches the synced GBP value', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <RestaurantDetailsForm
+        initialValues={initialValues}
+        onSubmit={vi.fn()}
+        gbpFieldVerifications={{
+          name: {
+            status: 'verified',
+            canPull: true,
+            canPush: true,
+            providerValue: 'Old Crown Girton',
+            googleManaged: false,
+            tooltipTitle: 'Google Business Profile',
+            tooltipLines: ['GBP name: Old Crown Girton'],
+            tooltipFooter: null,
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByText(/matches gbp/i)).toBeInTheDocument();
+
+    await user.clear(screen.getByRole('textbox', { name: /restaurant name/i }));
+    await user.type(screen.getByRole('textbox', { name: /restaurant name/i }), 'Different Name');
+
+    expect(screen.queryByText(/matches gbp/i)).not.toBeInTheDocument();
+  });
+
+  it('normalizes phone and URL comparisons before showing GBP match badges', () => {
+    render(
+      <RestaurantDetailsForm
+        initialValues={{
+          ...initialValues,
+          googleMapUrl: 'https://maps.google.com/demo-venue/',
+          googleReviewUrl: 'https://g.page/demo-venue/review/',
+        }}
+        onSubmit={vi.fn()}
+        gbpFieldVerifications={{
+          contactPhone: {
+            status: 'verified',
+            canPull: true,
+            canPush: true,
+            providerValue: '+441223277217',
+            googleManaged: false,
+            tooltipTitle: 'Google Business Profile',
+            tooltipLines: ['GBP phone: +441223277217'],
+            tooltipFooter: null,
+          },
+          googleMapUrl: {
+            status: 'verified',
+            canPull: true,
+            canPush: false,
+            providerValue: 'https://maps.google.com/demo-venue',
+            googleManaged: true,
+            tooltipTitle: 'Google Business Profile',
+            tooltipLines: ['GBP Maps URL: https://maps.google.com/demo-venue'],
+            tooltipFooter: null,
+          },
+          googleReviewUrl: {
+            status: 'verified',
+            canPull: true,
+            canPush: false,
+            providerValue: 'https://g.page/demo-venue/review',
+            googleManaged: true,
+            tooltipTitle: 'Google Business Profile',
+            tooltipLines: ['GBP review URL: https://g.page/demo-venue/review'],
+            tooltipFooter: null,
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getAllByText(/matches gbp/i)).toHaveLength(3);
+  });
 });

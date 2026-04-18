@@ -1,18 +1,31 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient, type UseMutationResult, type UseQueryResult } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseMutationResult,
+  type UseQueryResult,
+} from '@tanstack/react-query';
 
 import { useRestaurantService } from '@/contexts/ops-services';
 import { queryKeys } from '@/lib/query/keys';
 
 import type { HttpError } from '@/lib/http/errors';
-import type { RestaurantProfile } from '@/services/ops/restaurants';
+import type {
+  GoogleBusinessProfileProfileSyncPayload,
+  RestaurantProfile,
+} from '@/services/ops/restaurants';
 
-export function useOpsRestaurantDetails(restaurantId?: string | null): UseQueryResult<RestaurantProfile, HttpError> {
+export function useOpsRestaurantDetails(
+  restaurantId?: string | null,
+): UseQueryResult<RestaurantProfile, HttpError> {
   const restaurantService = useRestaurantService();
 
   return useQuery<RestaurantProfile, HttpError>({
-    queryKey: restaurantId ? queryKeys.opsRestaurants.detail(restaurantId) : queryKeys.opsRestaurants.detail('none'),
+    queryKey: restaurantId
+      ? queryKeys.opsRestaurants.detail(restaurantId)
+      : queryKeys.opsRestaurants.detail('none'),
     queryFn: () => {
       if (!restaurantId) {
         throw new Error('Restaurant id is required');
@@ -40,6 +53,33 @@ export function useOpsUpdateRestaurantDetails(
     onSuccess: (profile) => {
       if (!restaurantId) return;
       queryClient.setQueryData(queryKeys.opsRestaurants.detail(restaurantId), profile);
+    },
+  });
+}
+
+export function useOpsSyncRestaurantDetailsWithGoogleBusinessProfile(
+  restaurantId?: string | null,
+): UseMutationResult<
+  RestaurantProfile,
+  HttpError | Error,
+  GoogleBusinessProfileProfileSyncPayload
+> {
+  const restaurantService = useRestaurantService();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload) => {
+      if (!restaurantId) {
+        throw new Error('Restaurant id is required');
+      }
+      return restaurantService.syncProfileWithGoogleBusinessProfile(restaurantId, payload);
+    },
+    onSuccess: (profile) => {
+      if (!restaurantId) return;
+      queryClient.setQueryData(queryKeys.opsRestaurants.detail(restaurantId), profile);
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.opsRestaurants.googleBusinessProfile(restaurantId),
+      });
     },
   });
 }

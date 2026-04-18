@@ -1,6 +1,5 @@
 import { randomUUID } from 'crypto';
 
-
 import {
   RESERVATION_INTERVAL_MAX,
   RESERVATION_INTERVAL_MIN,
@@ -42,6 +41,7 @@ export type OperatingHourOverride = {
 export type OperatingHoursSnapshot = {
   restaurantId: string;
   timezone: string;
+  updatedAt: string | null;
   weekly: WeeklyOperatingHour[];
   overrides: OperatingHourOverride[];
 };
@@ -100,10 +100,7 @@ function normalizeInterval(value: number | null | undefined, context: string): n
   return value;
 }
 
-function normalizeSlotTimes(
-  value: string[] | null | undefined,
-  context: string,
-): string[] | null {
+function normalizeSlotTimes(value: string[] | null | undefined, context: string): string[] | null {
   if (!value || value.length === 0) {
     return null;
   }
@@ -139,13 +136,23 @@ function normalizeSlotTimesFromDb(value: string[] | null | undefined): string[] 
 }
 
 function validateWeeklyEntry(entry: UpdateWeeklyOperatingHour): WeeklyOperatingHour {
-  if (!Number.isInteger(entry.dayOfWeek) || entry.dayOfWeek < 0 || entry.dayOfWeek >= DAYS_IN_WEEK) {
+  if (
+    !Number.isInteger(entry.dayOfWeek) ||
+    entry.dayOfWeek < 0 ||
+    entry.dayOfWeek >= DAYS_IN_WEEK
+  ) {
     throw new Error(`Weekly entry dayOfWeek must be between 0-6`);
   }
 
   const isClosed = entry.isClosed ?? false;
-  const opensAt = canonicalOptionalTime(entry.opensAt ?? null, `Weekly day ${entry.dayOfWeek} opensAt`);
-  const closesAt = canonicalOptionalTime(entry.closesAt ?? null, `Weekly day ${entry.dayOfWeek} closesAt`);
+  const opensAt = canonicalOptionalTime(
+    entry.opensAt ?? null,
+    `Weekly day ${entry.dayOfWeek} opensAt`,
+  );
+  const closesAt = canonicalOptionalTime(
+    entry.closesAt ?? null,
+    `Weekly day ${entry.dayOfWeek} closesAt`,
+  );
   const reservationIntervalMinutes = normalizeInterval(
     entry.reservationIntervalMinutes ?? null,
     `Weekly day ${entry.dayOfWeek} reservationIntervalMinutes`,
@@ -186,8 +193,14 @@ function validateOverride(entry: UpdateOperatingHourOverride): OperatingHourOver
   }
 
   const isClosed = entry.isClosed ?? false;
-  const opensAt = canonicalOptionalTime(entry.opensAt ?? null, `Override ${entry.effectiveDate} opensAt`);
-  const closesAt = canonicalOptionalTime(entry.closesAt ?? null, `Override ${entry.effectiveDate} closesAt`);
+  const opensAt = canonicalOptionalTime(
+    entry.opensAt ?? null,
+    `Override ${entry.effectiveDate} opensAt`,
+  );
+  const closesAt = canonicalOptionalTime(
+    entry.closesAt ?? null,
+    `Override ${entry.effectiveDate} closesAt`,
+  );
   const reservationIntervalMinutes = normalizeInterval(
     entry.reservationIntervalMinutes ?? null,
     `Override ${entry.effectiveDate} reservationIntervalMinutes`,
@@ -241,30 +254,29 @@ export async function getOperatingHours(
   restaurantId: string,
   client: DbClient = getServiceSupabaseClient(),
 ): Promise<OperatingHoursSnapshot> {
-  const [{ data: restaurantRows, error: restaurantError }, { data: weeklyRows, error: weeklyError }, { data: overrideRows, error: overrideError }] =
-    await Promise.all([
-      client
-        .from('restaurants')
-        .select('id, timezone')
-        .eq('id', restaurantId)
-        .maybeSingle(),
-      client
-        .from('restaurant_operating_hours')
-        .select(
-          'id, day_of_week, opens_at, closes_at, is_closed, notes, reservation_interval_minutes, reservation_slot_times',
-        )
-        .eq('restaurant_id', restaurantId)
-        .is('effective_date', null)
-        .order('day_of_week', { ascending: true }),
-      client
-        .from('restaurant_operating_hours')
-        .select(
-          'id, effective_date, opens_at, closes_at, is_closed, notes, reservation_interval_minutes, reservation_slot_times',
-        )
-        .eq('restaurant_id', restaurantId)
-        .not('effective_date', 'is', null)
-        .order('effective_date', { ascending: true }),
-    ]);
+  const [
+    { data: restaurantRows, error: restaurantError },
+    { data: weeklyRows, error: weeklyError },
+    { data: overrideRows, error: overrideError },
+  ] = await Promise.all([
+    client.from('restaurants').select('id, timezone').eq('id', restaurantId).maybeSingle(),
+    client
+      .from('restaurant_operating_hours')
+      .select(
+        'id, day_of_week, opens_at, closes_at, is_closed, notes, reservation_interval_minutes, reservation_slot_times, updated_at',
+      )
+      .eq('restaurant_id', restaurantId)
+      .is('effective_date', null)
+      .order('day_of_week', { ascending: true }),
+    client
+      .from('restaurant_operating_hours')
+      .select(
+        'id, effective_date, opens_at, closes_at, is_closed, notes, reservation_interval_minutes, reservation_slot_times, updated_at',
+      )
+      .eq('restaurant_id', restaurantId)
+      .not('effective_date', 'is', null)
+      .order('effective_date', { ascending: true }),
+  ]);
 
   if (restaurantError) {
     throw restaurantError;
@@ -303,9 +315,17 @@ export async function getOperatingHours(
     reservationSlotTimes: normalizeSlotTimesFromDb(row.reservation_slot_times),
   }));
 
+  const updatedAt =
+    [...(weeklyRows ?? []), ...(overrideRows ?? [])]
+      .map((row) => row.updated_at ?? null)
+      .filter((value): value is string => Boolean(value))
+      .sort()
+      .at(-1) ?? null;
+
   return {
     restaurantId,
     timezone: restaurantRows.timezone,
+    updatedAt,
     weekly: buildDefaultWeeklySchedule(weekly),
     overrides,
   };
@@ -365,7 +385,9 @@ export async function updateOperatingHours(
   }
 
   if (insertRows.length > 0) {
-    const { error: insertError } = await client.from('restaurant_operating_hours').insert(insertRows);
+    const { error: insertError } = await client
+      .from('restaurant_operating_hours')
+      .insert(insertRows);
     if (insertError) {
       throw insertError;
     }

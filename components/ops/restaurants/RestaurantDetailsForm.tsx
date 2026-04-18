@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
+import { GoogleBusinessProfileComparisonBadge } from '@/components/features/restaurant-settings/GoogleBusinessProfileComparisonBadge';
 import { HelpTooltip } from '@/components/features/restaurant-settings/HelpTooltip';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +18,7 @@ import { cn } from '@/lib/utils';
 
 import type { UpdateRestaurantInput } from '@/app/api/ops/restaurants/schema';
 import type { PropsWithChildren } from 'react';
+import type { ProfileFieldVerification } from '@/components/features/restaurant-settings/googleBusinessProfileVerification';
 
 export type RestaurantDetailsFormValues = {
   name: string;
@@ -43,6 +45,7 @@ export type RestaurantDetailsFormProps = PropsWithChildren<{
   onCancel?: () => void;
   submitLabel?: string;
   className?: string;
+  gbpFieldVerifications?: Partial<Record<GbpComparableField, ProfileFieldVerification>>;
 }>;
 
 type FormState = {
@@ -64,6 +67,8 @@ type FormState = {
 };
 
 type FormErrors = Partial<Record<keyof FormState, string>>;
+type GbpComparableField = 'name' | 'contactPhone' | 'address' | 'googleMapUrl' | 'googleReviewUrl';
+type GbpFieldStatus = 'verified' | 'drifted' | 'unavailable';
 
 const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
@@ -102,6 +107,91 @@ export const COMMON_TIMEZONES = [
   'Europe/Paris',
   'Europe/Berlin',
 ] as const;
+
+function normalizeWhitespace(value: string): string {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+function normalizeComparableText(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const normalized = normalizeWhitespace(value).toLowerCase();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeComparablePhone(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const normalized = value.replace(/[^\d+]/g, '');
+  return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeComparableUrl(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    const normalizedPath = parsed.pathname.replace(/\/+$/, '') || '/';
+    return `${parsed.protocol.toLowerCase()}//${parsed.host.toLowerCase()}${normalizedPath}${parsed.search}`;
+  } catch {
+    return trimmed.toLowerCase();
+  }
+}
+
+function compareFieldValue(
+  field: GbpComparableField,
+  currentValue: string,
+  gbpValue: string | null | undefined,
+): boolean {
+  switch (field) {
+    case 'contactPhone': {
+      const currentPhone = normalizeComparablePhone(currentValue);
+      const providerPhone = normalizeComparablePhone(gbpValue);
+      return Boolean(currentPhone) && currentPhone === providerPhone;
+    }
+    case 'googleMapUrl':
+    case 'googleReviewUrl': {
+      const currentUrl = normalizeComparableUrl(currentValue);
+      const providerUrl = normalizeComparableUrl(gbpValue);
+      return Boolean(currentUrl) && currentUrl === providerUrl;
+    }
+    case 'name':
+    case 'address': {
+      const currentText = normalizeComparableText(currentValue);
+      const providerText = normalizeComparableText(gbpValue);
+      return Boolean(currentText) && currentText === providerText;
+    }
+    default:
+      return false;
+  }
+}
+
+function GbpStatusBadge(props: { verification?: ProfileFieldVerification; status: GbpFieldStatus }) {
+  if (props.status === 'unavailable' || !props.verification) {
+    return null;
+  }
+
+  return (
+    <GoogleBusinessProfileComparisonBadge
+      status={props.status}
+      tooltipTitle={props.verification.tooltipTitle}
+      tooltipLines={props.verification.tooltipLines}
+      tooltipFooter={props.verification.tooltipFooter}
+      ariaLabel="Show Google Business Profile field details"
+    />
+  );
+}
 
 function mapInitialValues(values: RestaurantDetailsFormValues): FormState {
   return {
@@ -296,6 +386,7 @@ export function RestaurantDetailsForm({
   submitLabel = 'Save Changes',
   className,
   children,
+  gbpFieldVerifications,
 }: RestaurantDetailsFormProps) {
   const [state, setState] = useState<FormState>(() => mapInitialValues(initialValues));
   const [errors, setErrors] = useState<FormErrors>({});
@@ -307,6 +398,60 @@ export function RestaurantDetailsForm({
     setErrors({});
   }, [serializedInitialValues, initialValues]);
 
+  const gbpStatuses = useMemo(
+    () => ({
+      name: compareFieldValue('name', state.name, gbpFieldVerifications?.name?.providerValue)
+        ? ('verified' as const)
+        : gbpFieldVerifications?.name?.providerValue || state.name
+          ? ('drifted' as const)
+          : ('unavailable' as const),
+      contactPhone: compareFieldValue(
+        'contactPhone',
+        state.contactPhone,
+        gbpFieldVerifications?.contactPhone?.providerValue,
+      )
+        ? ('verified' as const)
+        : gbpFieldVerifications?.contactPhone?.providerValue || state.contactPhone
+          ? ('drifted' as const)
+          : ('unavailable' as const),
+      address: compareFieldValue('address', state.address, gbpFieldVerifications?.address?.providerValue)
+        ? ('verified' as const)
+        : gbpFieldVerifications?.address?.providerValue || state.address
+          ? ('drifted' as const)
+          : ('unavailable' as const),
+      googleMapUrl: compareFieldValue(
+        'googleMapUrl',
+        state.googleMapUrl,
+        gbpFieldVerifications?.googleMapUrl?.providerValue,
+      )
+        ? ('verified' as const)
+        : gbpFieldVerifications?.googleMapUrl?.providerValue || state.googleMapUrl
+          ? ('drifted' as const)
+          : ('unavailable' as const),
+      googleReviewUrl: compareFieldValue(
+        'googleReviewUrl',
+        state.googleReviewUrl,
+        gbpFieldVerifications?.googleReviewUrl?.providerValue,
+      )
+        ? ('verified' as const)
+        : gbpFieldVerifications?.googleReviewUrl?.providerValue || state.googleReviewUrl
+          ? ('drifted' as const)
+          : ('unavailable' as const),
+    }),
+    [
+      gbpFieldVerifications?.address?.providerValue,
+      gbpFieldVerifications?.contactPhone?.providerValue,
+      gbpFieldVerifications?.googleMapUrl?.providerValue,
+      gbpFieldVerifications?.googleReviewUrl?.providerValue,
+      gbpFieldVerifications?.name?.providerValue,
+      state.address,
+      state.contactPhone,
+      state.googleMapUrl,
+      state.googleReviewUrl,
+      state.name,
+    ],
+  );
+
   const handleChange = (field: keyof FormState, value: string) => {
     setState((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
@@ -314,7 +459,10 @@ export function RestaurantDetailsForm({
     }
   };
 
-  const handleToggle = (field: keyof Pick<FormState, 'managerDailySummaryEnabled'>, value: boolean) => {
+  const handleToggle = (
+    field: keyof Pick<FormState, 'managerDailySummaryEnabled'>,
+    value: boolean,
+  ) => {
     setState((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -340,9 +488,15 @@ export function RestaurantDetailsForm({
       <form onSubmit={handleSubmit} className={cn('space-y-4', className)}>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="restaurant-name">
-              Restaurant Name <span className="text-destructive">*</span>
-            </Label>
+            <div className="flex flex-wrap items-center gap-2">
+              <Label htmlFor="restaurant-name">
+                Restaurant Name <span className="text-destructive">*</span>
+              </Label>
+              <GbpStatusBadge
+                status={gbpStatuses.name}
+                verification={gbpFieldVerifications?.name}
+              />
+            </div>
             <Input
               id="restaurant-name"
               value={state.name}
@@ -698,7 +852,13 @@ export function RestaurantDetailsForm({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="restaurant-phone">Contact Phone</Label>
+            <div className="flex flex-wrap items-center gap-2">
+              <Label htmlFor="restaurant-phone">Contact Phone</Label>
+              <GbpStatusBadge
+                status={gbpStatuses.contactPhone}
+                verification={gbpFieldVerifications?.contactPhone}
+              />
+            </div>
             <Input
               id="restaurant-phone"
               type="tel"
@@ -718,7 +878,13 @@ export function RestaurantDetailsForm({
           </div>
 
           <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="restaurant-address">Address</Label>
+            <div className="flex flex-wrap items-center gap-2">
+              <Label htmlFor="restaurant-address">Address</Label>
+              <GbpStatusBadge
+                status={gbpStatuses.address}
+                verification={gbpFieldVerifications?.address}
+              />
+            </div>
             <Input
               id="restaurant-address"
               value={state.address}
@@ -727,8 +893,12 @@ export function RestaurantDetailsForm({
           </div>
 
           <div className="space-y-1.5 sm:col-span-2">
-            <div className="flex items-center gap-1">
+            <div className="flex flex-wrap items-center gap-2">
               <Label htmlFor="restaurant-google-review">Google Review URL</Label>
+              <GbpStatusBadge
+                status={gbpStatuses.googleReviewUrl}
+                verification={gbpFieldVerifications?.googleReviewUrl}
+              />
               <HelpTooltip
                 description={FIELD_TOOLTIPS.googleReviewUrl}
                 ariaLabel="Why add a Google review link?"
@@ -766,8 +936,12 @@ export function RestaurantDetailsForm({
           </div>
 
           <div className="space-y-1.5 sm:col-span-2">
-            <div className="flex items-center gap-1">
+            <div className="flex flex-wrap items-center gap-2">
               <Label htmlFor="restaurant-google-map">Google Maps URL</Label>
+              <GbpStatusBadge
+                status={gbpStatuses.googleMapUrl}
+                verification={gbpFieldVerifications?.googleMapUrl}
+              />
               <HelpTooltip
                 description={FIELD_TOOLTIPS.googleMapUrl}
                 ariaLabel="Why add a Google Maps link?"

@@ -4,5 +4,7 @@ export * from './team';
 export * from './customers';
 export * from './tables';
 export * from './occasions';
+export * from './menu';
+export * from './drinks-menu';
 export { default as ZoneService } from './zones';
 export type { Zone } from './zones';

@@ -1,7 +1,7 @@
 'use client';
 
 import { Plus, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { HelpTooltip } from '@/components/features/restaurant-settings/HelpTooltip';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -10,7 +10,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { useOpsOperatingHours, useOpsUpdateOperatingHours } from '@/hooks/ops/useOpsOperatingHours';
+import { useOpsGoogleBusinessProfileConnection } from '@/hooks/ops/useOpsGoogleBusinessProfile';
+import {
+  useOpsOperatingHours,
+  useOpsSyncOperatingHoursWithGoogleBusinessProfile,
+  useOpsUpdateOperatingHours,
+} from '@/hooks/ops/useOpsOperatingHours';
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
 import {
   RESERVATION_INTERVAL_MAX,
@@ -19,6 +24,13 @@ import {
 import { cn } from '@/lib/utils';
 import { normalizeTime } from '@reserve/shared/time';
 
+import { GoogleBusinessProfileComparisonBadge } from './GoogleBusinessProfileComparisonBadge';
+import { GoogleBusinessProfileSyncActionDialog } from './GoogleBusinessProfileSyncActionDialog';
+import {
+  deriveOperatingHoursRowComparisons,
+  deriveOperatingHoursVerification,
+} from './googleBusinessProfileVerification';
+import { GoogleBusinessProfileVerificationControls } from './GoogleBusinessProfileVerificationControls';
 import { OperatingHoursOverrideDateField } from './OperatingHoursOverrideDateField';
 import { SettingsCard, SettingsSectionHeader } from './shared';
 import { DAYS_OF_WEEK } from './types';
@@ -147,7 +159,9 @@ function parseSlotTimesInput(value: string): { value: string[] | null; error?: s
 
 export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionProps) {
   const { data, error, isLoading } = useOpsOperatingHours(restaurantId);
+  const gbpConnectionQuery = useOpsGoogleBusinessProfileConnection(restaurantId);
   const updateMutation = useOpsUpdateOperatingHours(restaurantId);
+  const syncMutation = useOpsSyncOperatingHoursWithGoogleBusinessProfile(restaurantId);
 
   const [weeklyRows, setWeeklyRows] = useState<WeeklyRow[]>(
     DAYS_OF_WEEK.map((_, i) => ({
@@ -164,6 +178,7 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
   const [weeklyErrors, setWeeklyErrors] = useState<WeeklyErrors>({});
   const [overrideErrors, setOverrideErrors] = useState<OverrideErrors>([]);
   const [isDirty, setIsDirty] = useState(false);
+  const [syncDialogMode, setSyncDialogMode] = useState<null | 'pull' | 'push'>(null);
 
   useEffect(() => {
     if (data) {
@@ -393,6 +408,81 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
   };
 
   const isDisabled = updateMutation.isPending;
+  const gbpVerification = deriveOperatingHoursVerification({
+    snapshot: data,
+    connection: gbpConnectionQuery.data,
+  });
+  const rowComparisons = deriveOperatingHoursRowComparisons({
+    weekly: weeklyRows,
+    overrides: overrideRows.map((row) => ({
+      effectiveDate: row.effectiveDate,
+      opensAt: row.opensAt,
+      closesAt: row.closesAt,
+      isClosed: row.isClosed,
+    })),
+    connection: gbpConnectionQuery.data,
+  });
+  const syncSelectionItems = useMemo(() => {
+    const providerOverrides =
+      gbpConnectionQuery.data?.businessInfo.coreNormalization.operatingHours.overrides ?? [];
+    const providerOverrideByDate = new Map(
+      providerOverrides.map((row) => [row.effectiveDate, row] as const),
+    );
+    const allOverrideDates = [...new Set([
+      ...overrideRows.map((row) => row.effectiveDate),
+      ...providerOverrides.map((row) => row.effectiveDate),
+    ])].sort();
+
+    const weeklyItems = weeklyRows.map((row) => {
+      const comparison = rowComparisons.weeklyByDay[row.dayOfWeek];
+      return {
+        id: `weekly:${row.dayOfWeek}`,
+        group: 'Weekly schedule',
+        label: DAYS_OF_WEEK[row.dayOfWeek],
+        description:
+          comparison?.tooltipLines[0] ??
+          (row.isClosed
+            ? 'Nabatable currently marks this day closed.'
+            : `Nabatable: ${row.opensAt || 'Not set'} - ${row.closesAt || 'Not set'}`),
+        details: comparison?.tooltipLines,
+        defaultChecked: comparison ? comparison.status !== 'verified' : true,
+      };
+    });
+
+    const overrideItems = allOverrideDates.map((effectiveDate) => {
+      const comparison = rowComparisons.overridesByDate[effectiveDate];
+      const current = overrideRows.find((row) => row.effectiveDate === effectiveDate) ?? null;
+      const provider = providerOverrideByDate.get(effectiveDate) ?? null;
+
+      return {
+        id: `override:${effectiveDate}`,
+        group: 'Overrides',
+        label: effectiveDate,
+        description:
+          comparison?.tooltipLines[0] ??
+          (provider
+            ? provider.isClosed
+              ? 'GBP marks this date closed.'
+              : `GBP special hours: ${provider.opensAt || 'Not set'} - ${provider.closesAt || 'Not set'}`
+            : current
+              ? current.isClosed
+                ? 'Nabatable currently marks this date closed.'
+                : `Nabatable override: ${current.opensAt || 'Not set'} - ${current.closesAt || 'Not set'}`
+              : 'No override is currently set for this date.'),
+        details: comparison?.tooltipLines,
+        defaultChecked: comparison ? comparison.status !== 'verified' : true,
+      };
+    });
+
+    return [...weeklyItems, ...overrideItems];
+  }, [
+    gbpConnectionQuery.data,
+    overrideRows,
+    rowComparisons.overridesByDate,
+    rowComparisons.weeklyByDay,
+    weeklyRows,
+  ]);
+  const activeDirection = syncDialogMode === 'push' ? 'push_to_gbp' : 'pull_from_gbp';
 
   useGlobalShortcuts([
     {
@@ -453,6 +543,23 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
       <SettingsCard
         title="Operating Hours"
         description="Configure weekly schedule and holiday overrides"
+        headerAction={
+          <GoogleBusinessProfileVerificationControls
+            status={gbpVerification.status}
+            recommendedDirection={gbpVerification.recommendedDirection}
+            canPull={gbpVerification.canPull}
+            canPush={gbpVerification.canPush}
+            disabled={isDirty}
+            onPull={() => setSyncDialogMode('pull')}
+            onPush={() => setSyncDialogMode('push')}
+            isPulling={
+              syncMutation.isPending && syncMutation.variables?.direction === 'pull_from_gbp'
+            }
+            isPushing={
+              syncMutation.isPending && syncMutation.variables?.direction === 'push_to_gbp'
+            }
+          />
+        }
         footer={
           <div className="flex w-full items-center justify-between">
             <div className="text-xs text-muted-foreground hidden sm:block">
@@ -475,6 +582,26 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
         }
       >
         <div className="space-y-8">
+          <div className="space-y-2 rounded-lg border border-border/70 bg-muted/30 p-4">
+            <p className="text-sm font-medium text-foreground">{gbpVerification.summary}</p>
+            <p className="text-xs text-muted-foreground">
+              GBP sync aligns the outer open/close window and holiday overrides. Nabatable keeps
+              reservation intervals and slot times as core booking-hour controls.
+            </p>
+            {isDirty ? (
+              <p className="text-xs text-muted-foreground">
+                Save or reset local changes before running a GBP sync for this section.
+              </p>
+            ) : null}
+            {gbpVerification.warnings.map((warning) => (
+              <p key={warning} className="text-xs text-muted-foreground">
+                {warning}
+              </p>
+            ))}
+            {syncMutation.error ? (
+              <p className="text-xs text-destructive">{syncMutation.error.message}</p>
+            ) : null}
+          </div>
           {/* Weekly Schedule */}
           <div className="space-y-3">
             <SettingsSectionHeader
@@ -498,13 +625,26 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
                   <tbody className="divide-y divide-border/70 text-sm">
                     {weeklyRows.map((row, index) => {
                       const errors = weeklyErrors[row.dayOfWeek] ?? {};
+                      const comparison = rowComparisons.weeklyByDay[row.dayOfWeek];
                       return (
                         <tr key={row.dayOfWeek} className={cn(row.isClosed && 'bg-muted/40')}>
                           <th
                             scope="row"
                             className="px-4 py-3 font-medium text-foreground whitespace-nowrap"
                           >
-                            {DAYS_OF_WEEK[row.dayOfWeek]}
+                            <div className="flex flex-col gap-1">
+                              <span>{DAYS_OF_WEEK[row.dayOfWeek]}</span>
+                              {comparison && comparison.status !== 'unavailable' ? (
+                                <GoogleBusinessProfileComparisonBadge
+                                  status={comparison.status}
+                                  tooltipTitle={comparison.tooltipTitle}
+                                  tooltipLines={comparison.tooltipLines}
+                                  tooltipFooter={comparison.tooltipFooter}
+                                  ariaLabel={`Show GBP hours for ${DAYS_OF_WEEK[row.dayOfWeek]}`}
+                                  className="w-fit"
+                                />
+                              ) : null}
+                            </div>
                           </th>
                           <td className="px-4 py-3">
                             <Input
@@ -661,12 +801,24 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
               <div className="space-y-3">
                 {overrideRows.map((row, index) => {
                   const errors = overrideErrors[index] ?? {};
+                  const comparison = rowComparisons.overridesByDate[row.effectiveDate];
                   return (
                     <div
                       key={row.id ?? index}
                       className="grid gap-3 rounded-lg border border-border/60 p-4 text-sm md:grid-cols-[repeat(7,minmax(0,1fr))_auto]"
                     >
                       <div>
+                        <div className="mb-2 flex items-center gap-2">
+                          {comparison && comparison.status !== 'unavailable' ? (
+                            <GoogleBusinessProfileComparisonBadge
+                              status={comparison.status}
+                              tooltipTitle={comparison.tooltipTitle}
+                              tooltipLines={comparison.tooltipLines}
+                              tooltipFooter={comparison.tooltipFooter}
+                              ariaLabel={`Show GBP special-hours comparison for ${row.effectiveDate}`}
+                            />
+                          ) : null}
+                        </div>
                         <OperatingHoursOverrideDateField
                           value={row.effectiveDate}
                           onChange={(value) =>
@@ -828,6 +980,49 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
             )}
           </div>
         </div>
+        <GoogleBusinessProfileSyncActionDialog
+          open={syncDialogMode !== null}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSyncDialogMode(null);
+            }
+          }}
+          title={syncDialogMode === 'push' ? 'Push operating-hours rows to GBP' : 'Import operating-hours rows from GBP'}
+          description={
+            syncDialogMode === 'push'
+              ? 'Choose the weekly days and dated overrides that should be exported from Nabatable to Google Business Profile.'
+              : 'Choose the weekly days and dated overrides that should be imported from Google Business Profile into Nabatable.'
+          }
+          confirmLabel={syncDialogMode === 'push' ? 'Push selected rows' : 'Import selected rows'}
+          items={syncSelectionItems}
+          isPending={syncMutation.isPending}
+          errorMessage={syncMutation.error?.message ?? null}
+          onConfirm={({ password, selectedIds }) => {
+            const weeklyDays = selectedIds
+              .filter((id) => id.startsWith('weekly:'))
+              .map((id) => Number.parseInt(id.replace('weekly:', ''), 10))
+              .filter(Number.isInteger);
+            const overrideDates = selectedIds
+              .filter((id) => id.startsWith('override:'))
+              .map((id) => id.replace('override:', ''));
+
+            syncMutation.mutate(
+              {
+                direction: activeDirection,
+                password,
+                selection: {
+                  weeklyDays,
+                  overrideDates,
+                },
+              },
+              {
+                onSuccess: () => {
+                  setSyncDialogMode(null);
+                },
+              },
+            );
+          }}
+        />
       </SettingsCard>
     </TooltipProvider>
   );

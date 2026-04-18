@@ -111,6 +111,30 @@ if (process.env.APP_ENV === "staging" && process.env.NODE_ENV !== "development" 
   warnings.push(`APP_ENV=staging should typically run with NODE_ENV=development locally or NODE_ENV=production for deploy previews.`);
 }
 
+const gbpVars = {
+  clientId: env.GOOGLE_BUSINESS_PROFILE_CLIENT_ID,
+  clientSecret: env.GOOGLE_BUSINESS_PROFILE_CLIENT_SECRET,
+  redirectUri: env.GOOGLE_BUSINESS_PROFILE_REDIRECT_URI,
+  tokenEncryptionKey: env.GOOGLE_BUSINESS_PROFILE_TOKEN_ENCRYPTION_KEY,
+};
+
+const gbpConfiguredCount = Object.values(gbpVars).filter((value) => typeof value === "string" && value.trim().length > 0).length;
+
+if (gbpConfiguredCount > 0 && gbpConfiguredCount < 4) {
+  blockers.push(
+    "Google Business Profile integration is partially configured. Set GOOGLE_BUSINESS_PROFILE_CLIENT_ID, GOOGLE_BUSINESS_PROFILE_CLIENT_SECRET, GOOGLE_BUSINESS_PROFILE_REDIRECT_URI, and GOOGLE_BUSINESS_PROFILE_TOKEN_ENCRYPTION_KEY together.",
+  );
+}
+
+if (gbpVars.tokenEncryptionKey) {
+  const decodedKeyLength = Buffer.from(gbpVars.tokenEncryptionKey, "base64url").length;
+  if (decodedKeyLength !== 32) {
+    blockers.push(
+      "GOOGLE_BUSINESS_PROFILE_TOKEN_ENCRYPTION_KEY must be base64url data that decodes to exactly 32 bytes.",
+    );
+  }
+}
+
 if (blockers.length > 0) {
   console.error("\nEnvironment safety checks failed:\n");
   for (const blocker of blockers) {

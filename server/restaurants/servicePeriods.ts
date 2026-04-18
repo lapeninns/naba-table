@@ -7,7 +7,6 @@ import { getServiceSupabaseClient } from '@/server/supabase';
 import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-
 type DbClient = SupabaseClient<Database>;
 
 export type BookingOption = string;
@@ -19,6 +18,7 @@ export type ServicePeriod = {
   startTime: string;
   endTime: string;
   bookingOption: BookingOption;
+  updatedAt: string | null;
 };
 
 export type UpdateServicePeriod = {
@@ -49,7 +49,10 @@ function normalizeBookingOption(value: BookingOption | string | null | undefined
   return value.toString().trim().toLowerCase();
 }
 
-function validateServicePeriod(entry: UpdateServicePeriod, validOptions: Set<string>): ServicePeriod {
+function validateServicePeriod(
+  entry: UpdateServicePeriod,
+  validOptions: Set<string>,
+): ServicePeriod {
   const name = entry.name.trim();
   if (!name) {
     throw new Error('Service period name is required');
@@ -75,6 +78,7 @@ function validateServicePeriod(entry: UpdateServicePeriod, validOptions: Set<str
     startTime,
     endTime,
     bookingOption,
+    updatedAt: null,
   };
 }
 
@@ -102,7 +106,9 @@ export function assertNoOverlappingPeriods(periods: ServicePeriod[]): void {
       const current = sorted[index];
       if (prev.endTime > current.startTime && !canOverlap(prev, current)) {
         const label = key === null ? 'all days' : `day ${key}`;
-        throw new Error(`Service periods overlap on ${label}: "${prev.name}" and "${current.name}"`);
+        throw new Error(
+          `Service periods overlap on ${label}: "${prev.name}" and "${current.name}"`,
+        );
       }
     }
   });
@@ -114,7 +120,7 @@ export async function getServicePeriods(
 ): Promise<ServicePeriod[]> {
   const { data, error } = await client
     .from('restaurant_service_periods')
-    .select('id, name, day_of_week, start_time, end_time, booking_option')
+    .select('id, name, day_of_week, start_time, end_time, booking_option, updated_at')
     .eq('restaurant_id', restaurantId)
     .order('day_of_week', { ascending: true })
     .order('start_time', { ascending: true });
@@ -134,9 +140,10 @@ export async function getServicePeriods(
     id: row.id,
     name: row.name,
     dayOfWeek: row.day_of_week,
-    startTime: canonicalizeFromDb(row.start_time) ?? (row.start_time ?? ''),
-    endTime: canonicalizeFromDb(row.end_time) ?? (row.end_time ?? ''),
+    startTime: canonicalizeFromDb(row.start_time) ?? row.start_time ?? '',
+    endTime: canonicalizeFromDb(row.end_time) ?? row.end_time ?? '',
     bookingOption: normalizeBookingOption(row.booking_option as BookingOption),
+    updatedAt: row.updated_at ?? null,
   }));
 }
 
@@ -177,7 +184,9 @@ export async function updateServicePeriods(
       booking_option: period.bookingOption,
     }));
 
-    const { error: insertError } = await client.from('restaurant_service_periods').insert(insertRows);
+    const { error: insertError } = await client
+      .from('restaurant_service_periods')
+      .insert(insertRows);
     if (insertError) {
       throw insertError;
     }

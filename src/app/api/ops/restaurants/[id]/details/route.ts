@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import {
+  PasswordConfirmationError,
+  verifyUserPasswordConfirmation,
+} from '@/server/auth/password-confirmation';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
+import { syncRestaurantProfileWithGoogleBusinessProfile } from '@/server/google-business-profile/service';
 import {
   getRestaurantDetails,
   updateRestaurantDetails,
@@ -44,6 +49,14 @@ const detailsSchema = z.object({
   logoUrl: z.string().url().nullable().optional(),
 });
 
+const syncSchema = z.object({
+  direction: z.enum(['pull_from_gbp', 'push_to_gbp']).optional(),
+  fields: z
+    .array(z.enum(['name', 'contactPhone', 'address', 'googleMapUrl', 'googleReviewUrl']))
+    .optional(),
+  password: z.string().trim().min(1, 'Enter your password to confirm this GBP action.'),
+});
+
 async function resolveRestaurantId(
   paramsPromise: Promise<{ id: string | string[] }> | undefined,
 ): Promise<string | null> {
@@ -55,7 +68,9 @@ async function resolveRestaurantId(
   return null;
 }
 
-async function ensureAuthorized(restaurantId: string): Promise<NextResponse | null> {
+async function ensureAuthorized(
+  restaurantId: string,
+): Promise<NextResponse | { userEmail: string | null }> {
   const supabase = await getRouteHandlerSupabaseClient();
   const {
     data: { user },
@@ -85,11 +100,20 @@ async function ensureAuthorized(restaurantId: string): Promise<NextResponse | nu
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  return null;
+  return {
+    userEmail: user.email ?? null,
+  };
 }
 
 function handleUnexpectedError(error: unknown, context: string) {
   console.error(context, error);
+
+  if (error instanceof PasswordConfirmationError) {
+    return NextResponse.json(
+      { message: error.message, code: error.code },
+      { status: error.status },
+    );
+  }
 
   if (error instanceof Error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
@@ -106,7 +130,7 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
 
   try {
     const authResponse = await ensureAuthorized(restaurantId);
-    if (authResponse) {
+    if (authResponse instanceof NextResponse) {
       return authResponse;
     }
 
@@ -154,7 +178,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 
   try {
     const authResponse = await ensureAuthorized(restaurantId);
-    if (authResponse) {
+    if (authResponse instanceof NextResponse) {
       return authResponse;
     }
 
@@ -162,5 +186,46 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json(details);
   } catch (error) {
     return handleUnexpectedError(error, '[ops][restaurants][details][PUT]');
+  }
+}
+
+export async function POST(req: NextRequest, { params }: RouteParams) {
+  const restaurantId = await resolveRestaurantId(params);
+  if (!restaurantId) {
+    return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
+  }
+
+  let payload: z.infer<typeof syncSchema>;
+  try {
+    payload = syncSchema.parse(await req.json());
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Invalid payload', details: error.flatten() },
+        { status: 400 },
+      );
+    }
+    return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
+  }
+
+  try {
+    const authResponse = await ensureAuthorized(restaurantId);
+    if (authResponse instanceof NextResponse) {
+      return authResponse;
+    }
+
+    await verifyUserPasswordConfirmation({
+      email: authResponse.userEmail,
+      password: payload.password,
+    });
+
+    const details = await syncRestaurantProfileWithGoogleBusinessProfile({
+      restaurantId,
+      direction: payload.direction,
+      fields: payload.fields,
+    });
+    return NextResponse.json(details);
+  } catch (error) {
+    return handleUnexpectedError(error, '[ops][restaurants][details][POST]');
   }
 }

@@ -132,6 +132,13 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         match: (pathname) => pathname.startsWith(path('/settings/restaurant/service-periods')),
       },
       {
+        title: 'Menu',
+        description: 'Manage menu items and modifiers',
+        href: path('/settings/restaurant/menu'),
+        icon: UtensilsCrossed,
+        match: (pathname) => pathname.startsWith(path('/settings/restaurant/menu')),
+      },
+      {
         title: 'Reservation Durations',
         description: 'Party-size turn times',
         href: path('/settings/restaurant/turn-durations'),

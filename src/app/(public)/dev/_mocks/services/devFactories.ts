@@ -2,6 +2,8 @@
 
 import { createDevBookingService } from './devBookingService';
 import { createDevCustomerService } from './devCustomerService';
+import { createDevDrinkMenuService } from './devDrinkMenuService';
+import { createDevMenuService } from './devMenuService';
 import { createDevOccasionService } from './devOccasionService';
 import { createDevRestaurantService } from './devRestaurantService';
 import { createDevTeamService } from './devTeamService';
@@ -9,6 +11,8 @@ import { createDevTablesState, DevTableInventoryService, DevZoneService } from '
 
 import type { BookingServiceFactory } from '@/services/ops/bookings';
 import type { CustomerServiceFactory } from '@/services/ops/customers';
+import type { DrinkMenuServiceFactory } from '@/services/ops/drinks-menu';
+import type { MenuServiceFactory } from '@/services/ops/menu';
 import type { OccasionServiceFactory } from '@/services/ops/occasions';
 import type { RestaurantServiceFactory } from '@/services/ops/restaurants';
 import type { TableInventoryServiceFactory } from '@/services/ops/tables';
@@ -22,6 +26,8 @@ type OpsDevServiceFactories = {
   customerService: CustomerServiceFactory;
   tableInventoryService: TableInventoryServiceFactory;
   occasionService: OccasionServiceFactory;
+  menuService: MenuServiceFactory;
+  drinkMenuService: DrinkMenuServiceFactory;
   zoneService: () => ZoneService;
 };
 
@@ -38,6 +44,8 @@ export function createOpsDevServiceFactories(): Partial<OpsDevServiceFactories> 
     customerService: () => createDevCustomerService(),
     tableInventoryService: () => new DevTableInventoryService(tablesState),
     occasionService: () => createDevOccasionService(),
+    menuService: () => createDevMenuService(),
+    drinkMenuService: () => createDevDrinkMenuService(),
     teamService: () => createDevTeamService(),
     zoneService: () => new DevZoneService(tablesState),
   };
