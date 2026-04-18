@@ -180,7 +180,7 @@ describe('dashboard summary helpers', () => {
 
   it('formats the booking summary message with exact compact venue-prefixed output', () => {
     expect(formatDailyBookingSummaryMessage(summary, { venueName: 'Old Crown Girton' })).toBe(
-      'Old Crown Girton: Today 2 bkgs, 3 covers. Lunch 1/2. Dinner 1/1.',
+      'Old Crown Girton: Today 2 bkgs, 3 covers. Lunch 1/2. Dinner 1/1. app.nabatable.com',
     );
 
     expect(
@@ -191,7 +191,7 @@ describe('dashboard summary helpers', () => {
           periods: [{ key: 'lunch', bookings: 1, covers: 1 }],
         },
       }, { venueName: 'Old Crown Girton' }),
-    ).toBe('Old Crown Girton: Today 1 bkgs, 1 covers. Lunch 1/1. Dinner 0/0.');
+    ).toBe('Old Crown Girton: Today 1 bkgs, 1 covers. Lunch 1/1. Dinner 0/0. app.nabatable.com');
 
     expect(
       formatDailyBookingSummaryMessage({
@@ -201,7 +201,7 @@ describe('dashboard summary helpers', () => {
           periods: [],
         },
       }, { venueName: 'Old Crown Girton' }),
-    ).toBe('Old Crown Girton: Today 0 bkgs, 0 covers. Lunch 0/0. Dinner 0/0.');
+    ).toBe('Old Crown Girton: Today 0 bkgs, 0 covers. Lunch 0/0. Dinner 0/0. app.nabatable.com');
   });
 
   it('adds an Other sentence only when non-lunch/dinner bookings are present', () => {
@@ -220,6 +220,8 @@ describe('dashboard summary helpers', () => {
         },
         { venueName: 'Old Crown Girton' },
       ),
-    ).toBe('Old Crown Girton: Today 4 bkgs, 14 covers. Lunch 1/4. Dinner 2/8. Other 1/2.');
+    ).toBe(
+      'Old Crown Girton: Today 4 bkgs, 14 covers. Lunch 1/4. Dinner 2/8. Other 1/2. app.nabatable.com',
+    );
   });
 });
