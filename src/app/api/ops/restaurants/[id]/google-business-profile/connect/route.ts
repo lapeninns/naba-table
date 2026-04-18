@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { getRequestOrigin } from '@/app/api/ops/google-business-profile/_origin';
 import {
   ensureRestaurantAdminAccess,
   resolveRestaurantId,
@@ -13,22 +14,6 @@ type RouteContext = {
 };
 
 const SETTINGS_RETURN_PATH = '/settings/restaurant/google-business-profile';
-
-function getAppOrigin(req: NextRequest): string {
-  const forwardedProto = req.headers.get('x-forwarded-proto');
-  const protocol = forwardedProto ?? req.nextUrl.protocol.replace(/:$/, '');
-  const hostHeader = req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? req.nextUrl.host;
-  const [hostname, port] = hostHeader.split(':');
-  const rootDomain = (process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'localhost').toLowerCase();
-  const appHostname =
-    hostname?.startsWith('app.')
-      ? hostname
-      : rootDomain === 'localhost'
-        ? 'app.localhost'
-        : `app.${rootDomain}`;
-
-  return `${protocol}://${port ? `${appHostname}:${port}` : appHostname}`;
-}
 
 export async function GET(req: NextRequest, { params }: RouteContext) {
   const restaurantId = await resolveRestaurantId(params);
@@ -45,7 +30,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
     const authorizationUrl = await createGoogleBusinessProfileAuthorizationUrl({
       restaurantId,
       requestedByUserId: access.userId,
-      returnPath: new URL(SETTINGS_RETURN_PATH, getAppOrigin(req)).toString(),
+      returnPath: new URL(SETTINGS_RETURN_PATH, getRequestOrigin(req)).toString(),
     });
 
     return NextResponse.redirect(authorizationUrl);

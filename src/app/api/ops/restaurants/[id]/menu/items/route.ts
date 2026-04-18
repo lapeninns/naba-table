@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 
-import { listMenuItems, upsertMenuItem } from '@/server/menu/repository';
+import {
+  listMenuItems,
+  menuItemExternalIdExistsForRestaurant,
+  upsertMenuItem,
+} from '@/server/menu/repository';
 import { MenuItemUpsertInputSchema, MenuListFiltersSchema } from '@/server/menu/types';
 
 import { ensureRestaurantAdminAccess, resolveRestaurantId } from '../../_shared';
@@ -65,6 +69,22 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
   }
 
   try {
+    const alreadyExists = await menuItemExternalIdExistsForRestaurant(
+      restaurantId,
+      parsed.data.externalItemId,
+    );
+    if (alreadyExists) {
+      const message = `A menu item with externalItemId "${parsed.data.externalItemId}" already exists.`;
+      return NextResponse.json(
+        {
+          error: message,
+          message,
+          code: 'MENU_ITEM_EXTERNAL_ID_CONFLICT',
+        },
+        { status: 409 },
+      );
+    }
+
     const item = await upsertMenuItem(restaurantId, parsed.data);
     return NextResponse.json({ item }, { status: 201 });
   } catch (error) {

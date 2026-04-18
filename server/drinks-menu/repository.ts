@@ -423,3 +423,22 @@ export async function drinkItemExistsForRestaurant(
 
   return Boolean(data?.id);
 }
+
+export async function drinkItemExternalIdExistsForRestaurant(
+  restaurantId: string,
+  externalDrinkId: string,
+  client: DbClient = getServiceSupabaseClient(),
+): Promise<boolean> {
+  const { data, error } = await client
+    .from('restaurant_drink_menu_items')
+    .select('id')
+    .eq('restaurant_id', restaurantId)
+    .eq('external_drink_id', externalDrinkId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return Boolean(data?.id);
+}

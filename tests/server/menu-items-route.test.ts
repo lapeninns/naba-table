@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const authGetUserMock = vi.hoisted(() => vi.fn());
 const requireAdminMembershipMock = vi.hoisted(() => vi.fn());
 const listMenuItemsMock = vi.hoisted(() => vi.fn());
+const menuItemExternalIdExistsForRestaurantMock = vi.hoisted(() => vi.fn());
 const upsertMenuItemMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/supabase', () => ({
@@ -20,6 +21,7 @@ vi.mock('@/server/team/access', () => ({
 
 vi.mock('@/server/menu/repository', () => ({
   listMenuItems: listMenuItemsMock,
+  menuItemExternalIdExistsForRestaurant: menuItemExternalIdExistsForRestaurantMock,
   upsertMenuItem: upsertMenuItemMock,
 }));
 
@@ -30,6 +32,7 @@ describe('ops menu items route', () => {
     authGetUserMock.mockReset();
     requireAdminMembershipMock.mockReset();
     listMenuItemsMock.mockReset();
+    menuItemExternalIdExistsForRestaurantMock.mockReset();
     upsertMenuItemMock.mockReset();
   });
 
@@ -68,6 +71,7 @@ describe('ops menu items route', () => {
       error: null,
     });
     requireAdminMembershipMock.mockResolvedValue(undefined);
+    menuItemExternalIdExistsForRestaurantMock.mockResolvedValue(false);
     upsertMenuItemMock.mockResolvedValue({
       id: 'item-1',
       externalItemId: 'starter-burrata',
@@ -131,5 +135,48 @@ describe('ops menu items route', () => {
         itemName: 'Burrata',
       }),
     );
+  });
+
+  it('returns 409 when a create payload reuses an existing external item id', async () => {
+    authGetUserMock.mockResolvedValue({
+      data: { user: { id: 'user-1' } },
+      error: null,
+    });
+    requireAdminMembershipMock.mockResolvedValue(undefined);
+    menuItemExternalIdExistsForRestaurantMock.mockResolvedValue(true);
+
+    const response = await POST(
+      new NextRequest('https://example.com/api/ops/restaurants/rest-1/menu/items', {
+        method: 'POST',
+        body: JSON.stringify({
+          externalItemId: 'starter-burrata',
+          itemName: 'Burrata',
+          category: 'Starters',
+          basePrice: 9.5,
+          currency: 'GBP',
+          availabilityStatus: 'available',
+          keyIngredients: [],
+          recommendationTags: [],
+          pairings: [],
+          dietaryTags: [],
+          allergensContains: [],
+          allergensMayContain: [],
+          removableIngredients: [],
+          active: true,
+          seasonal: false,
+          limitedTime: false,
+          soldOut: false,
+          displayOrder: 10,
+          modifierGroups: [],
+        }),
+      }),
+      { params: Promise.resolve({ id: 'rest-1' }) },
+    );
+
+    expect(response.status).toBe(409);
+    expect(upsertMenuItemMock).not.toHaveBeenCalled();
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'MENU_ITEM_EXTERNAL_ID_CONFLICT',
+    });
   });
 });

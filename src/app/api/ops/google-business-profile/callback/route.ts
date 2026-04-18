@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { getRequestOrigin } from '@/app/api/ops/google-business-profile/_origin';
 import { logger } from '@/lib/logger';
 import { completeGoogleBusinessProfileAuthorization } from '@/server/google-business-profile/service';
 
@@ -7,19 +8,8 @@ import type { NextRequest } from 'next/server';
 
 const DEFAULT_RETURN_PATH = '/settings/restaurant/google-business-profile';
 
-function getAppOrigin(request: NextRequest): string {
-  const forwardedProto = request.headers.get('x-forwarded-proto');
-  const protocol = forwardedProto ?? request.nextUrl.protocol.replace(/:$/, '');
-  const hostHeader =
-    request.headers.get('x-forwarded-host') ?? request.headers.get('host') ?? request.nextUrl.host;
-  const [, port] = hostHeader.split(':');
-  const rootDomain = (process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'localhost').toLowerCase();
-  const appHostname = rootDomain === 'localhost' ? 'app.localhost' : `app.${rootDomain}`;
-  return `${protocol}://${port ? `${appHostname}:${port}` : appHostname}`;
-}
-
 function buildRedirect(request: NextRequest, status: 'connected' | 'error', message?: string) {
-  const url = new URL(DEFAULT_RETURN_PATH, getAppOrigin(request));
+  const url = new URL(DEFAULT_RETURN_PATH, getRequestOrigin(request));
   url.searchParams.set('gbp', status);
   if (message) {
     url.searchParams.set('message', message);
@@ -50,10 +40,7 @@ export async function GET(req: NextRequest) {
       code,
     });
 
-    const redirectUrl = new URL(result.returnPath || DEFAULT_RETURN_PATH, getAppOrigin(req));
-    const appOrigin = new URL(getAppOrigin(req));
-    redirectUrl.protocol = appOrigin.protocol;
-    redirectUrl.host = appOrigin.host;
+    const redirectUrl = new URL(result.returnPath || DEFAULT_RETURN_PATH, getRequestOrigin(req));
     redirectUrl.searchParams.set('gbp', 'connected');
     return NextResponse.redirect(redirectUrl);
   } catch (error) {

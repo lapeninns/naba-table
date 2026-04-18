@@ -82,7 +82,35 @@ describe('restaurant google business profile routes', () => {
     expect(createAuthorizationUrlMock).toHaveBeenCalledWith({
       restaurantId: 'rest-1',
       requestedByUserId: 'user-1',
-      returnPath: 'https://app.localhost/settings/restaurant/google-business-profile',
+      returnPath: 'https://example.com/settings/restaurant/google-business-profile',
+    });
+  });
+
+  it('uses the forwarded host and protocol for GBP connect return paths', async () => {
+    resolveRestaurantIdMock.mockResolvedValue('rest-1');
+    ensureRestaurantAdminAccessMock.mockResolvedValue({ userId: 'user-1' });
+    createAuthorizationUrlMock.mockResolvedValue(
+      'https://accounts.google.com/o/oauth2/v2/auth?state=test',
+    );
+
+    await connectGET(
+      new NextRequest(
+        'http://internal-host/api/ops/restaurants/rest-1/google-business-profile/connect',
+        {
+          headers: {
+            'x-forwarded-host': 'preview.nabatable.example',
+            'x-forwarded-proto': 'https',
+          },
+        },
+      ),
+      { params: Promise.resolve({ id: 'rest-1' }) },
+    );
+
+    expect(createAuthorizationUrlMock).toHaveBeenCalledWith({
+      restaurantId: 'rest-1',
+      requestedByUserId: 'user-1',
+      returnPath:
+        'https://preview.nabatable.example/settings/restaurant/google-business-profile',
     });
   });
 
@@ -146,6 +174,7 @@ describe('restaurant google business profile routes', () => {
         serviceAreas: [],
         hours: [],
         attributes: [],
+        serviceItems: [],
         coreNormalization: {
           operatingHours: {
             source: 'unavailable',
@@ -217,10 +246,13 @@ describe('restaurant google business profile routes', () => {
       availableLocations: [],
       businessInfo: {
         details: {
+          businessName: 'Old Crown Girton',
           description: 'A family friendly pub.',
+          languageCode: 'en-GB',
           openingDate: '2024-08-01',
           businessStatus: 'OPEN',
           isServiceAreaBusiness: false,
+          canReopen: true,
           source: 'gbp',
           managedBy: 'gbp',
           lastSyncedAt: '2026-04-18T12:00:00.000Z',
@@ -232,6 +264,7 @@ describe('restaurant google business profile routes', () => {
         serviceAreas: [],
         hours: [],
         attributes: [],
+        serviceItems: [],
         coreNormalization: {
           operatingHours: {
             source: 'unavailable',

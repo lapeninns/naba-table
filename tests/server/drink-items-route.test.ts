@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const authGetUserMock = vi.hoisted(() => vi.fn());
 const requireAdminMembershipMock = vi.hoisted(() => vi.fn());
 const listDrinkItemsMock = vi.hoisted(() => vi.fn());
+const drinkItemExternalIdExistsForRestaurantMock = vi.hoisted(() => vi.fn());
 const upsertDrinkItemMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/supabase', () => ({
@@ -19,6 +20,7 @@ vi.mock('@/server/team/access', () => ({
 }));
 
 vi.mock('@/server/drinks-menu/repository', () => ({
+  drinkItemExternalIdExistsForRestaurant: drinkItemExternalIdExistsForRestaurantMock,
   listDrinkItems: listDrinkItemsMock,
   upsertDrinkItem: upsertDrinkItemMock,
 }));
@@ -30,6 +32,7 @@ describe('ops drink items route', () => {
     authGetUserMock.mockReset();
     requireAdminMembershipMock.mockReset();
     listDrinkItemsMock.mockReset();
+    drinkItemExternalIdExistsForRestaurantMock.mockReset();
     upsertDrinkItemMock.mockReset();
   });
 
@@ -68,6 +71,7 @@ describe('ops drink items route', () => {
       error: null,
     });
     requireAdminMembershipMock.mockResolvedValue(undefined);
+    drinkItemExternalIdExistsForRestaurantMock.mockResolvedValue(false);
     upsertDrinkItemMock.mockResolvedValue({
       id: 'drink-1',
       externalDrinkId: 'house-negroni',
@@ -143,5 +147,54 @@ describe('ops drink items route', () => {
         drinkName: 'House Negroni',
       }),
     );
+  });
+
+  it('returns 409 when a create payload reuses an existing external drink id', async () => {
+    authGetUserMock.mockResolvedValue({
+      data: { user: { id: 'user-1' } },
+      error: null,
+    });
+    requireAdminMembershipMock.mockResolvedValue(undefined);
+    drinkItemExternalIdExistsForRestaurantMock.mockResolvedValue(true);
+
+    const response = await POST(
+      new NextRequest('https://example.com/api/ops/restaurants/rest-1/drinks/items', {
+        method: 'POST',
+        body: JSON.stringify({
+          externalDrinkId: 'house-negroni',
+          drinkName: 'House Negroni',
+          category: 'cocktail',
+          basePrice: 11.5,
+          currency: 'GBP',
+          availabilityStatus: 'available',
+          alcoholic: true,
+          keyIngredients: [],
+          dietaryTags: [],
+          allergensContains: [],
+          allergensMayContain: [],
+          pairings: [],
+          recommendationTags: [],
+          containsDairy: false,
+          containsNuts: false,
+          containsGluten: false,
+          containsCaffeine: false,
+          canBeMadeNonAlcoholic: true,
+          canBeMadeDecaf: false,
+          seasonal: false,
+          limitedTime: false,
+          soldOut: false,
+          active: true,
+          displayOrder: 10,
+          modifierGroups: [],
+        }),
+      }),
+      { params: Promise.resolve({ id: 'rest-1' }) },
+    );
+
+    expect(response.status).toBe(409);
+    expect(upsertDrinkItemMock).not.toHaveBeenCalled();
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'DRINK_ITEM_EXTERNAL_ID_CONFLICT',
+    });
   });
 });
