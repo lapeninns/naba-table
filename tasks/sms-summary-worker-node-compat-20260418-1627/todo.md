@@ -16,14 +16,14 @@ related_tickets: []
 
 ## Core
 
-- [ ] Add `nodejs_compat` to `cloudflare/sms-summary-gateway/wrangler.jsonc`.
-- [ ] Push only the worker-config fix to `main`.
+- [x] Add `nodejs_compat` to `cloudflare/sms-summary-gateway/wrangler.jsonc`.
+- [x] Push only the worker-config fix to `main`.
 
 ## Verification
 
-- [ ] Redeploy the worker with the CLI script.
-- [ ] Confirm the new deployment version is listed.
-- [ ] Confirm the worker health endpoint responds.
+- [x] Redeploy the worker with the CLI script.
+- [x] Confirm the new deployment version is listed.
+- [x] Confirm the worker health endpoint responds.
 
 ## Notes
 

@@ -12,11 +12,24 @@ related_tickets: []
 
 ## CLI Deploy
 
-- Pending implementation.
+- Pushed worker-config fix to `main` as commit `502e3585` (`fix: enable node compatibility for sms summary worker`).
+- Ran `pnpm run cloudflare:sms-summary:deploy` from a clean worktree pinned to `origin/main`.
+- Deploy succeeded and Cloudflare reported:
+  - `Deployed nabatable-sms-summary-gateway triggers`
+  - `Current Version ID: 8bfff091-a785-4371-8ebb-593795ead98c`
+- Follow-up `pnpm run cloudflare:sms-summary:versions` shows the new deployment created at `2026-04-18T16:28:47.353Z`.
 
 ## Health Check
 
-- Pending implementation.
+- `curl -sS 'https://nabatable-sms-summary-gateway.amanshresthaaaaa.workers.dev/health'`
+- Response: `{"ok":true,"service":"sms-summary-gateway"}`
+
+## Production-Data Preview
+
+- Ran the existing preview path with production env credentials:
+  - `pnpm exec dotenv -e '/Users/amankumarshrestha/LapenInns Project/nabatableLP/.env.tmp.production' -- tsx -e "...buildDailySummaryPreview..."`
+- Preview output:
+  - `The Old Crown Girton: Today 9 bkgs, 54 covers. Lunch 1/5. Dinner 8/49. app.nabatable.com`
 
 ## Notes
 
