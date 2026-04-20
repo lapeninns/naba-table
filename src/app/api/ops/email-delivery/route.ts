@@ -376,6 +376,7 @@ export async function GET(request: NextRequest) {
               p95DeliverySeconds: null,
               topFailedTemplates: [],
               topFailedEmailTypes: [],
+              stuckInFlight: 0,
             },
         } satisfies Extract<OpsEmailDeliverySummaryResponse, { ok: true }>,
         { status: 200 },

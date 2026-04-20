@@ -25,7 +25,12 @@ import type {
   OpsTodayBookingsSummary,
   OpsWalkInBookingPayload,
 } from '@/types/ops';
-import type { BookingSmsDeliveryResponse } from '@/types/smsDelivery';
+import type {
+  BookingSmsDeliveryResponse,
+  OpsSmsDeliveryFeedResponse,
+  OpsSmsDeliveryRange,
+  SmsDeliveryStatus,
+} from '@/types/smsDelivery';
 import type { Tables } from '@/types/supabase';
 
 const OPS_BOOKINGS_BASE = '/api/ops/bookings';
@@ -457,6 +462,13 @@ export interface BookingService {
     bookingId: string,
     params?: { limit?: number },
   ): Promise<BookingSmsDeliveryResponse>;
+  getRestaurantSmsDeliveryFeed(params: {
+    restaurantId?: string;
+    range?: OpsSmsDeliveryRange;
+    page?: number;
+    pageSize?: number;
+    status?: SmsDeliveryStatus[];
+  }): Promise<OpsSmsDeliveryFeedResponse>;
   getRestaurantEmailDeliveryFeed(params: {
     restaurantId?: string;
     range?: OpsEmailDeliveryRange;
@@ -735,6 +747,41 @@ export function createBrowserBookingService(): BookingService {
                   : error.status === 503
                     ? 'DELIVERY_LOG_UNAVAILABLE'
                     : 'INTERNAL';
+          return { ok: false, code, error: error.message, message: error.message };
+        }
+        throw error;
+      }
+    },
+    async getRestaurantSmsDeliveryFeed(params) {
+      const rawPage = typeof params.page === 'number' && Number.isFinite(params.page) ? params.page : 1;
+      const rawPageSize =
+        typeof params.pageSize === 'number' && Number.isFinite(params.pageSize) ? params.pageSize : 50;
+      const page = Math.max(1, Math.floor(rawPage));
+      const pageSize = Math.max(1, Math.min(200, Math.floor(rawPageSize)));
+      const range: OpsSmsDeliveryRange = params.range ?? '7d';
+
+      const search = new URLSearchParams();
+      if (params.restaurantId) search.set('restaurantId', params.restaurantId);
+      search.set('range', range);
+      search.set('page', String(page));
+      search.set('pageSize', String(pageSize));
+      if (params.status && params.status.length > 0) {
+        search.set('status', params.status.join(','));
+      }
+
+      const url = `/api/ops/sms-delivery?${search.toString()}`;
+      try {
+        return await fetchJson<OpsSmsDeliveryFeedResponse>(url);
+      } catch (error) {
+        if (error instanceof HttpError) {
+          const code =
+            error.status === 401 || error.status === 419
+              ? 'UNAUTHENTICATED'
+              : error.status === 403
+                ? 'FORBIDDEN'
+                : error.status === 503
+                  ? 'DELIVERY_LOG_UNAVAILABLE'
+                  : 'INTERNAL';
           return { ok: false, code, error: error.message, message: error.message };
         }
         throw error;
@@ -1078,6 +1125,10 @@ export class NotImplementedBookingService implements BookingService {
 
   getBookingSmsDeliveryLog(): Promise<BookingSmsDeliveryResponse> {
     this.error('getBookingSmsDeliveryLog not implemented');
+  }
+
+  getRestaurantSmsDeliveryFeed(): Promise<OpsSmsDeliveryFeedResponse> {
+    this.error('getRestaurantSmsDeliveryFeed not implemented');
   }
 
   getRestaurantEmailDeliveryFeed(): Promise<OpsEmailDeliveryFeedResponse> {

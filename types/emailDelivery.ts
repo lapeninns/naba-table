@@ -73,7 +73,28 @@ export type OpsEmailDeliveryAttemptDTO = {
   currentOccurredAt: string | null; // ISO
   events: EmailDeliveryEventDTO[];
   booking: OpsEmailDeliveryBookingDTO | null;
+  /**
+   * True when the attempt is in a non-terminal state (sent / delivery_delayed)
+   * and we have not received a terminal webhook within the stale threshold.
+   * Derived on the read path; not persisted.
+   */
+  isStale?: boolean;
+  /** Age of the most recent event in milliseconds, when `isStale` is true. */
+  stuckForMs?: number | null;
 };
+
+/**
+ * Hours an email can sit in a non-terminal state before we flag it as stuck.
+ * Matches the typical Resend webhook SLA (terminal events within minutes);
+ * anything past 12h is almost certainly a lost webhook or a provider issue.
+ */
+export const EMAIL_DELIVERY_STALE_THRESHOLD_HOURS = 12;
+
+/** Non-terminal statuses considered "in flight". */
+export const EMAIL_DELIVERY_IN_FLIGHT_STATUSES: ReadonlyArray<EmailDeliveryStatus> = [
+  "sent",
+  "delivery_delayed",
+];
 
 export type OpsEmailDeliveryTopTemplateEntry = {
   templateType: string;
@@ -101,6 +122,11 @@ export type OpsEmailDeliverySummary = {
   p95DeliverySeconds: number | null;
   topFailedTemplates: OpsEmailDeliveryTopTemplateEntry[];
   topFailedEmailTypes: OpsEmailDeliveryTopEmailTypeEntry[];
+  /**
+   * Count of in-flight attempts (sent / delivery_delayed) older than the
+   * {@link EMAIL_DELIVERY_STALE_THRESHOLD_HOURS} threshold. Derived server-side.
+   */
+  stuckInFlight?: number;
 };
 
 export type OpsEmailDeliveryFeedResponse =

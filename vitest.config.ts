@@ -8,6 +8,9 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
+      // The `server-only` Next.js runtime marker is a no-op module at runtime;
+      // vitest doesn't ship a resolver for it, so stub it to an empty file.
+      'server-only': path.resolve(rootDir, 'tests/stubs/server-only.ts'),
       // Keep vitest resolution aligned with tsconfig "paths" for this hook (implementation lives in src/).
       '@/hooks/useGlobalShortcuts': path.resolve(rootDir, 'src/hooks/useGlobalShortcuts.ts'),
       // Contexts live under src/ (no root-level contexts/ directory).
@@ -18,6 +21,10 @@ export default defineConfig({
       '@/hooks/ops/useOpsBookingEmailDeliveryLog': path.resolve(
         rootDir,
         'src/hooks/ops/useOpsBookingEmailDeliveryLog.ts',
+      ),
+      '@/hooks/ops/useOpsBookingSmsDeliveryLog': path.resolve(
+        rootDir,
+        'src/hooks/ops/useOpsBookingSmsDeliveryLog.ts',
       ),
       '@/hooks/ops/useOpsEmailDeliveryFeed': path.resolve(
         rootDir,
@@ -38,6 +45,7 @@ export default defineConfig({
         rootDir,
         'src/hooks/ops/useOpsEmailQueueFeed.ts',
       ),
+      '@/hooks/ops/useOpsDrinksMenu': path.resolve(rootDir, 'src/hooks/ops/useOpsDrinksMenu.ts'),
       '@/hooks/useMediaQuery': path.resolve(rootDir, 'src/hooks/useMediaQuery.ts'),
       '@/utils': path.resolve(rootDir, 'src/utils'),
       '@/app': path.resolve(rootDir, 'src/app'),

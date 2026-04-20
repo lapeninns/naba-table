@@ -1,5 +1,9 @@
 import { recordObservabilityEvent } from '@/server/observability';
 import { getServiceSupabaseClient } from '@/server/supabase';
+import {
+  EMAIL_DELIVERY_IN_FLIGHT_STATUSES,
+  EMAIL_DELIVERY_STALE_THRESHOLD_HOURS,
+} from '@/types/emailDelivery';
 
 import type {
   EmailDeliveryEventDTO,
@@ -302,6 +306,44 @@ function compareAttemptsByCurrentDesc(a: AttemptAggregate, b: AttemptAggregate):
   return b.currentEventId.localeCompare(a.currentEventId);
 }
 
+const EMAIL_STALE_THRESHOLD_MS = EMAIL_DELIVERY_STALE_THRESHOLD_HOURS * 60 * 60 * 1000;
+const EMAIL_IN_FLIGHT_STATUS_SET: ReadonlySet<EmailDeliveryStatus> = new Set(EMAIL_DELIVERY_IN_FLIGHT_STATUSES);
+
+export function computeEmailAttemptStaleness(input: {
+  currentStatus: EmailDeliveryStatus;
+  currentOccurredAt: string | null;
+  now?: number;
+}): { isStale: boolean; stuckForMs: number | null } {
+  if (!EMAIL_IN_FLIGHT_STATUS_SET.has(input.currentStatus)) {
+    return { isStale: false, stuckForMs: null };
+  }
+
+  const occurredMs = parseIsoMs(input.currentOccurredAt);
+  if (!occurredMs) {
+    return { isStale: false, stuckForMs: null };
+  }
+
+  const nowMs = typeof input.now === 'number' ? input.now : Date.now();
+  const ageMs = nowMs - occurredMs;
+  if (ageMs < EMAIL_STALE_THRESHOLD_MS) {
+    return { isStale: false, stuckForMs: null };
+  }
+
+  return { isStale: true, stuckForMs: ageMs };
+}
+
+function decorateAttemptWithStaleness(attempt: OpsEmailDeliveryAttemptDTO, now: number): OpsEmailDeliveryAttemptDTO {
+  const staleness = computeEmailAttemptStaleness({
+    currentStatus: attempt.currentStatus,
+    currentOccurredAt: attempt.currentOccurredAt,
+    now,
+  });
+  if (!staleness.isStale) {
+    return attempt;
+  }
+  return { ...attempt, isStale: true, stuckForMs: staleness.stuckForMs };
+}
+
 function toBookingDto(row: BookingSnapshotRow): NonNullable<OpsEmailDeliveryAttemptDTO['booking']> {
   return {
     id: row.id,
@@ -467,20 +509,26 @@ async function listEmailDeliveryAttemptsWithQueryFallback(params: ListEmailDeliv
     }
   }
 
-  const attempts: OpsEmailDeliveryAttemptDTO[] = pageAggregates.map((attempt) => ({
-    messageId: attempt.messageId,
-    recipientEmail: attempt.recipientEmail,
-    bookingId: attempt.bookingId,
-    emailType: attempt.emailType,
-    templateType: attempt.templateType,
-    provider: attempt.provider,
-    currentStatus: attempt.currentStatus,
-    currentOccurredAt: attempt.currentOccurredAt,
-    events: attempt.events
-      .slice()
-      .sort((a, b) => parseIsoMs(a.occurredAt) - parseIsoMs(b.occurredAt) || a.id.localeCompare(b.id)),
-    booking: attempt.bookingId ? bookingById.get(attempt.bookingId) ?? null : null,
-  }));
+  const now = Date.now();
+  const attempts: OpsEmailDeliveryAttemptDTO[] = pageAggregates.map((attempt) =>
+    decorateAttemptWithStaleness(
+      {
+        messageId: attempt.messageId,
+        recipientEmail: attempt.recipientEmail,
+        bookingId: attempt.bookingId,
+        emailType: attempt.emailType,
+        templateType: attempt.templateType,
+        provider: attempt.provider,
+        currentStatus: attempt.currentStatus,
+        currentOccurredAt: attempt.currentOccurredAt,
+        events: attempt.events
+          .slice()
+          .sort((a, b) => parseIsoMs(a.occurredAt) - parseIsoMs(b.occurredAt) || a.id.localeCompare(b.id)),
+        booking: attempt.bookingId ? bookingById.get(attempt.bookingId) ?? null : null,
+      },
+      now,
+    ),
+  );
 
   return { attempts, hasNext, page, pageSize };
 }
@@ -597,18 +645,24 @@ export async function listEmailDeliveryAttemptsForRestaurant(params: {
   const hasNext = rows.length > pageSize;
   const pageRows = hasNext ? rows.slice(0, pageSize) : rows;
 
-  const attempts: OpsEmailDeliveryAttemptDTO[] = pageRows.map((row) => ({
-    messageId: String(row.messageId ?? ''),
-    recipientEmail: String(row.recipientEmail ?? ''),
-    bookingId: typeof row.bookingId === 'string' ? row.bookingId : null,
-    emailType: typeof row.emailType === 'string' ? row.emailType : null,
-    templateType: typeof row.templateType === 'string' ? row.templateType : null,
-    provider: typeof row.provider === 'string' ? (row.provider as EmailDeliveryProvider) : null,
-    currentStatus: row.currentStatus as EmailDeliveryStatus,
-    currentOccurredAt: typeof row.currentOccurredAt === 'string' ? row.currentOccurredAt : null,
-    events: ensureArray<EmailDeliveryEventDTO>(row.events),
-    booking: (ensureObject<Record<string, unknown>>(row.booking) as OpsEmailDeliveryAttemptDTO['booking']) ?? null,
-  }));
+  const now = Date.now();
+  const attempts: OpsEmailDeliveryAttemptDTO[] = pageRows.map((row) =>
+    decorateAttemptWithStaleness(
+      {
+        messageId: String(row.messageId ?? ''),
+        recipientEmail: String(row.recipientEmail ?? ''),
+        bookingId: typeof row.bookingId === 'string' ? row.bookingId : null,
+        emailType: typeof row.emailType === 'string' ? row.emailType : null,
+        templateType: typeof row.templateType === 'string' ? row.templateType : null,
+        provider: typeof row.provider === 'string' ? (row.provider as EmailDeliveryProvider) : null,
+        currentStatus: row.currentStatus as EmailDeliveryStatus,
+        currentOccurredAt: typeof row.currentOccurredAt === 'string' ? row.currentOccurredAt : null,
+        events: ensureArray<EmailDeliveryEventDTO>(row.events),
+        booking: (ensureObject<Record<string, unknown>>(row.booking) as OpsEmailDeliveryAttemptDTO['booking']) ?? null,
+      },
+      now,
+    ),
+  );
 
   return { attempts, hasNext, page, pageSize };
 }
@@ -660,6 +714,88 @@ export async function retryEmailDeliveryLogEntry(params: {
   return resent;
 }
 
+async function countStuckInFlightEmailAttempts(params: {
+  restaurantId: string;
+  range: OpsEmailDeliveryRange;
+}): Promise<number> {
+  const sinceIso = resolveRangeStartIso(params.range);
+  const staleCutoffIso = new Date(Date.now() - EMAIL_STALE_THRESHOLD_MS).toISOString();
+  const supabase = getServiceSupabaseClient();
+
+  // Find message/recipient pairs that have an in-flight event older than the
+  // stale threshold AND no newer terminal event. We can't express that in one
+  // PostgREST query efficiently, so we fetch the small set of stale in-flight
+  // rows and filter out any pair that has a later terminal event in memory.
+  const { data: inflightRows, error: inflightError } = await supabase
+    .from('email_delivery_log')
+    .select('message_id, recipient_email, occurred_at')
+    .eq('restaurant_id', params.restaurantId)
+    .gte('occurred_at', sinceIso)
+    .lte('occurred_at', staleCutoffIso)
+    .in('status', EMAIL_DELIVERY_IN_FLIGHT_STATUSES as unknown as string[])
+    .limit(1_000);
+
+  if (inflightError) {
+    if (isDeliveryLogUnavailable(inflightError)) {
+      throw new EmailDeliveryLogUnavailableError();
+    }
+    // Non-fatal: summary is still useful without this number.
+    console.warn('[email][delivery-log] stuck-count query failed', { message: inflightError.message });
+    return 0;
+  }
+
+  const candidates = new Map<string, { messageId: string; recipientEmail: string; occurredAt: string }>();
+  for (const row of inflightRows ?? []) {
+    const messageId = typeof row.message_id === 'string' ? row.message_id : '';
+    const recipient = typeof row.recipient_email === 'string' ? row.recipient_email : '';
+    const occurredAt = typeof row.occurred_at === 'string' ? row.occurred_at : '';
+    if (!messageId || !recipient || !occurredAt) continue;
+    const key = `${messageId}__${recipient.toLowerCase()}`;
+    const existing = candidates.get(key);
+    if (!existing || parseIsoMs(occurredAt) > parseIsoMs(existing.occurredAt)) {
+      candidates.set(key, { messageId, recipientEmail: recipient, occurredAt });
+    }
+  }
+
+  if (candidates.size === 0) return 0;
+
+  const messageIds = Array.from(new Set(Array.from(candidates.values()).map((c) => c.messageId)));
+  const { data: terminalRows, error: terminalError } = await supabase
+    .from('email_delivery_log')
+    .select('message_id, recipient_email, status, occurred_at')
+    .eq('restaurant_id', params.restaurantId)
+    .in('status', ['delivered', 'bounced', 'complained', 'failed'])
+    .in('message_id', messageIds)
+    .limit(5_000);
+
+  if (terminalError) {
+    console.warn('[email][delivery-log] stuck-count terminal query failed', { message: terminalError.message });
+    // Conservative fallback: assume none of the stale in-flight rows were
+    // superseded. This may over-count, which is acceptable for an alert.
+    return candidates.size;
+  }
+
+  const supersededKeys = new Set<string>();
+  for (const row of terminalRows ?? []) {
+    const messageId = typeof row.message_id === 'string' ? row.message_id : '';
+    const recipient = typeof row.recipient_email === 'string' ? row.recipient_email : '';
+    const occurredAt = typeof row.occurred_at === 'string' ? row.occurred_at : '';
+    if (!messageId || !recipient || !occurredAt) continue;
+    const key = `${messageId}__${recipient.toLowerCase()}`;
+    const candidate = candidates.get(key);
+    if (!candidate) continue;
+    if (parseIsoMs(occurredAt) >= parseIsoMs(candidate.occurredAt)) {
+      supersededKeys.add(key);
+    }
+  }
+
+  let stuck = 0;
+  for (const key of candidates.keys()) {
+    if (!supersededKeys.has(key)) stuck += 1;
+  }
+  return stuck;
+}
+
 export async function getEmailDeliveryAttemptsSummary(params: {
   restaurantId: string;
   range: OpsEmailDeliveryRange;
@@ -689,6 +825,22 @@ export async function getEmailDeliveryAttemptsSummary(params: {
     throw new Error(`Failed to load email delivery summary (${error.code ?? 'unknown'}).`);
   }
 
+  let stuckInFlight = 0;
+  try {
+    stuckInFlight = await countStuckInFlightEmailAttempts({
+      restaurantId: params.restaurantId,
+      range: params.range,
+    });
+  } catch (stuckError) {
+    if (stuckError instanceof EmailDeliveryLogUnavailableError) {
+      throw stuckError;
+    }
+    // Non-fatal; summary is still returned with stuckInFlight defaulted to 0.
+    console.warn('[email][delivery-log] stuck-count computation failed', {
+      message: stuckError instanceof Error ? stuckError.message : String(stuckError),
+    });
+  }
+
   const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | null | undefined;
   if (!row) {
     return {
@@ -707,6 +859,7 @@ export async function getEmailDeliveryAttemptsSummary(params: {
       p95DeliverySeconds: null,
       topFailedTemplates: [],
       topFailedEmailTypes: [],
+      stuckInFlight,
     };
   }
 
@@ -726,5 +879,6 @@ export async function getEmailDeliveryAttemptsSummary(params: {
     p95DeliverySeconds: typeof row.p95DeliverySeconds === 'number' ? row.p95DeliverySeconds : null,
     topFailedTemplates: ensureArray<OpsEmailDeliverySummary['topFailedTemplates'][number]>(row.topFailedTemplates),
     topFailedEmailTypes: ensureArray<OpsEmailDeliverySummary['topFailedEmailTypes'][number]>(row.topFailedEmailTypes),
+    stuckInFlight,
   };
 }

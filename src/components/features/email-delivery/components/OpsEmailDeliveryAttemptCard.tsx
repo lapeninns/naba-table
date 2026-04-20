@@ -92,7 +92,10 @@ function StatusBadge({ status }: { status: EmailDeliveryStatus }) {
   );
 }
 
-function statusRailClass(status: EmailDeliveryStatus): string {
+function statusRailClass(status: EmailDeliveryStatus, isStale: boolean): string {
+  if (isStale) {
+    return 'border-l-4 border-amber-600';
+  }
   switch (status) {
     case 'delivered':
       return 'border-l-4 border-emerald-500';
@@ -106,6 +109,18 @@ function statusRailClass(status: EmailDeliveryStatus): string {
     default:
       return 'border-l-4 border-slate-300';
   }
+}
+
+function formatStuckForHint(stuckForMs: number | null | undefined): string | null {
+  if (typeof stuckForMs !== 'number' || !Number.isFinite(stuckForMs) || stuckForMs <= 0) return null;
+  const hours = Math.floor(stuckForMs / (60 * 60 * 1000));
+  if (hours >= 48) {
+    const days = Math.floor(hours / 24);
+    return `stuck ${days}d`;
+  }
+  if (hours >= 1) return `stuck ${hours}h`;
+  const mins = Math.max(1, Math.floor(stuckForMs / 60000));
+  return `stuck ${mins}m`;
 }
 
 export type OpsEmailDeliveryAttemptCardProps = {
@@ -128,17 +143,34 @@ export function OpsEmailDeliveryAttemptCard({ attempt, timezone, restaurantId }:
 
   const isLongRecipient = attempt.recipientEmail.length > 38;
 
+  const isStale = attempt.isStale === true;
+  const stuckHint = isStale ? formatStuckForHint(attempt.stuckForMs) : null;
+
   return (
     <Card
-      className={cn('border-slate-200/60 bg-white', statusRailClass(attempt.currentStatus))}
+      className={cn(
+        'border-slate-200/60 bg-white',
+        statusRailClass(attempt.currentStatus, isStale),
+        isStale && 'bg-amber-50/40',
+      )}
       data-attempt-key={`${attempt.messageId}__${attempt.recipientEmail.toLowerCase()}`}
+      data-stale={isStale ? 'true' : undefined}
     >
       <CardContent className="p-4">
         <Collapsible>
           <div className="flex min-w-0 items-start justify-between gap-3">
             <div className="flex min-w-0 items-start gap-3">
-              <div className="mt-0.5">
+              <div className="mt-0.5 flex items-center gap-2">
                 <StatusBadge status={attempt.currentStatus} />
+                {isStale ? (
+                  <Badge
+                    variant="outline"
+                    className="border-amber-400 bg-amber-100 text-[10px] font-bold uppercase tracking-wide text-amber-900"
+                    title="Accepted by the provider but no delivery receipt received"
+                  >
+                    Stuck{stuckHint ? ` · ${stuckHint}` : ''}
+                  </Badge>
+                ) : null}
               </div>
 
               <div className="min-w-0">

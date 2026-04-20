@@ -15,6 +15,8 @@ vi.mock('@/server/supabase', () => ({
 
 vi.mock('@/libs/resend', () => ({
   sendEmail,
+  createEmailIdempotencyKey: ({ scope, parts }: { scope: string; parts: unknown[] }) =>
+    `${scope}:${parts.join(':')}`,
 }));
 
 vi.mock('@/lib/env', () => ({

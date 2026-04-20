@@ -8,9 +8,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import {
+  EMAIL_DELIVERY_STALE_THRESHOLD_HOURS,
+  type EmailDeliveryStatus,
+  type OpsEmailDeliverySummary,
+} from '@/types/emailDelivery';
 import { EMAIL_DELIVERY_STATUS_LABELS } from '@src/lib/email-delivery/presentation';
-
-import type { EmailDeliveryStatus, OpsEmailDeliverySummary } from '@/types/emailDelivery';
 
 export type OpsEmailDeliverySummaryMetricsProps = {
   summary: OpsEmailDeliverySummary | null;
@@ -155,6 +158,7 @@ export function OpsEmailDeliverySummaryMetrics({
 
   const total = Math.max(0, Math.floor(summary.total));
   const failures = Math.max(0, Math.floor(summary.bounced + summary.complained + summary.failed));
+  const stuckInFlight = Math.max(0, Math.floor(summary.stuckInFlight ?? 0));
 
   const segments: Segment[] = [
     { status: 'delivered', count: summary.delivered, className: 'bg-emerald-500' },
@@ -179,6 +183,20 @@ export function OpsEmailDeliverySummaryMetrics({
           </Badge>
         ) : null}
       </div>
+
+      {stuckInFlight > 0 ? (
+        <Alert variant="destructive" className="border-amber-300 bg-amber-50/70 text-amber-900">
+          <AlertTitle className="text-sm font-semibold">
+            {stuckInFlight} email{stuckInFlight === 1 ? '' : 's'} stuck without a delivery receipt
+          </AlertTitle>
+          <AlertDescription className="text-xs">
+            These were accepted by the provider more than {EMAIL_DELIVERY_STALE_THRESHOLD_HOURS}h ago but never received a
+            terminal webhook (<code>delivered</code> / <code>bounced</code> / <code>failed</code>). Likely causes: dropped
+            webhook, provider incident, or the recipient mailbox silently discarded it. Open any row below flagged
+            &ldquo;Stuck&rdquo; to investigate or retry.
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         <MetricTile

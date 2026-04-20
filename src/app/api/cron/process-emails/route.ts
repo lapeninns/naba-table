@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { isEmailQueueEnabled } from '@/server/feature-flags';
 import { recordObservabilityEvent } from '@/server/observability';
+import { reconcileDeliveryAnomalies } from '@/server/observability/delivery-reconciler';
 import {
   EMAIL_JOB_TYPE_VALUES,
   type EmailJobType,
@@ -116,7 +117,20 @@ export async function GET(request: Request) {
       },
     });
 
-    return NextResponse.json(result);
+    // Piggy-back a lightweight stuck-delivery reconciliation sweep on every
+    // drain tick. Cheap to run (two short queries against recent rows) and
+    // guarantees we surface dropped-webhook cases to ops without needing a
+    // separate cron schedule.
+    let reconcileReport: Awaited<ReturnType<typeof reconcileDeliveryAnomalies>> | null = null;
+    try {
+      reconcileReport = await reconcileDeliveryAnomalies();
+    } catch (reconcileError) {
+      console.warn('[cron][process-emails] delivery reconciliation failed', {
+        error: reconcileError instanceof Error ? reconcileError.message : String(reconcileError),
+      });
+    }
+
+    return NextResponse.json({ ...result, reconciliation: reconcileReport });
   } catch (error) {
     console.error('[cron][process-emails] Error:', error);
     return NextResponse.json(

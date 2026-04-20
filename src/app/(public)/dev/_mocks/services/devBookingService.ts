@@ -15,7 +15,13 @@ import type {
 } from '@/types/emailDelivery';
 import type { OpsEmailQueueFeedResponse, OpsEmailQueueJobStatus } from '@/types/emailQueue';
 import type { OpsBookingListItem, OpsBookingsFilters, OpsBookingsPage, OpsBookingStatus } from '@/types/ops';
-import type { BookingSmsDeliveryResponse, SmsDeliveryEventDTO } from '@/types/smsDelivery';
+import type {
+  BookingSmsDeliveryResponse,
+  OpsSmsDeliveryFeedResponse,
+  OpsSmsDeliveryRange,
+  SmsDeliveryEventDTO,
+  SmsDeliveryStatus,
+} from '@/types/smsDelivery';
 
 function parseIso(value: Date | string | null | undefined): Date | null {
   if (!value) return null;
@@ -557,6 +563,153 @@ export class DevBookingService implements BookingService {
         p95DeliverySeconds: null,
         topFailedTemplates: [],
         topFailedEmailTypes: [],
+      },
+    };
+  }
+
+  async getRestaurantSmsDeliveryFeed(params: {
+    restaurantId?: string;
+    range?: OpsSmsDeliveryRange;
+    page?: number;
+    pageSize?: number;
+    status?: SmsDeliveryStatus[];
+  }): Promise<OpsSmsDeliveryFeedResponse> {
+    if (!params.restaurantId) {
+      throw new Error('[dev][bookingService] restaurantId is required');
+    }
+
+    const range = params.range ?? '7d';
+    const page = Math.max(1, params.page ?? 1);
+    const pageSize = Math.max(1, Math.min(200, params.pageSize ?? 50));
+    const statuses = params.status ?? [];
+    const statusFilter = statuses.length > 0 ? new Set(statuses) : null;
+    const now = new Date();
+    const attempts: Extract<OpsSmsDeliveryFeedResponse, { ok: true }>['attempts'] = [
+      {
+        messageSid: 'SMDEV111',
+        recipientPhone: '+447700900111',
+        bookingId: DEV_BOOKING_ID,
+        smsType: 'booking_confirmation',
+        provider: 'mock',
+        currentStatus: 'delivered',
+        currentOccurredAt: new Date(now.getTime() - 5 * 60_000).toISOString(),
+        booking: {
+          id: DEV_BOOKING_ID,
+          reference: 'DEV123',
+          bookingDate: '2026-04-20',
+          startTime: '19:00',
+          endTime: '20:30',
+          customerName: 'Alex Johnson',
+          partySize: 2,
+        },
+        events: [
+          {
+            id: 'dev-sms-1-queued',
+            bookingId: DEV_BOOKING_ID,
+            restaurantId: params.restaurantId,
+            smsType: 'booking_confirmation',
+            recipientPhone: '+447700900111',
+            messageSid: 'SMDEV111',
+            status: 'queued',
+            provider: 'mock',
+            occurredAt: new Date(now.getTime() - 7 * 60_000).toISOString(),
+            error: null,
+            metadata: null,
+          },
+          {
+            id: 'dev-sms-1-delivered',
+            bookingId: DEV_BOOKING_ID,
+            restaurantId: params.restaurantId,
+            smsType: 'booking_confirmation',
+            recipientPhone: '+447700900111',
+            messageSid: 'SMDEV111',
+            status: 'delivered',
+            provider: 'mock',
+            occurredAt: new Date(now.getTime() - 5 * 60_000).toISOString(),
+            error: null,
+            metadata: null,
+          },
+        ],
+      },
+      {
+        messageSid: 'SMDEV222',
+        recipientPhone: '+447700900222',
+        bookingId: DEV_BOOKING_OTHER_ID,
+        smsType: 'booking_update',
+        provider: 'mock',
+        currentStatus: 'failed',
+        currentOccurredAt: new Date(now.getTime() - 2 * 60_000).toISOString(),
+        booking: {
+          id: DEV_BOOKING_OTHER_ID,
+          reference: 'DEV456',
+          bookingDate: '2026-04-20',
+          startTime: '20:00',
+          endTime: '21:30',
+          customerName: 'Sam Patel',
+          partySize: 4,
+        },
+        events: [
+          {
+            id: 'dev-sms-2-sent',
+            bookingId: DEV_BOOKING_OTHER_ID,
+            restaurantId: params.restaurantId,
+            smsType: 'booking_update',
+            recipientPhone: '+447700900222',
+            messageSid: 'SMDEV222',
+            status: 'sent',
+            provider: 'mock',
+            occurredAt: new Date(now.getTime() - 3 * 60_000).toISOString(),
+            error: null,
+            metadata: null,
+          },
+          {
+            id: 'dev-sms-2-failed',
+            bookingId: DEV_BOOKING_OTHER_ID,
+            restaurantId: params.restaurantId,
+            smsType: 'booking_update',
+            recipientPhone: '+447700900222',
+            messageSid: 'SMDEV222',
+            status: 'failed',
+            provider: 'mock',
+            occurredAt: new Date(now.getTime() - 2 * 60_000).toISOString(),
+            error: 'Simulated carrier rejection',
+            metadata: null,
+          },
+        ],
+      },
+    ];
+
+    const filtered = statusFilter
+      ? attempts.filter((attempt) => statusFilter.has(attempt.currentStatus))
+      : attempts;
+    const total = filtered.length;
+    const start = (page - 1) * pageSize;
+    const selected = filtered.slice(start, start + pageSize);
+    const hasNext = start + pageSize < total;
+
+    return {
+      ok: true,
+      restaurantId: params.restaurantId,
+      range,
+      pageInfo: { page, pageSize, hasNext },
+      attempts: selected,
+      summary: {
+        total,
+        queued: filtered.filter((attempt) => attempt.currentStatus === 'queued').length,
+        sent: filtered.filter((attempt) => attempt.currentStatus === 'sent').length,
+        delivered: filtered.filter((attempt) => attempt.currentStatus === 'delivered').length,
+        undelivered: filtered.filter((attempt) => attempt.currentStatus === 'undelivered').length,
+        failed: filtered.filter((attempt) => attempt.currentStatus === 'failed').length,
+        deliveredRate: total > 0 ? filtered.filter((attempt) => attempt.currentStatus === 'delivered').length / total : 0,
+        failureRate:
+          total > 0
+            ? filtered.filter(
+                (attempt) =>
+                  attempt.currentStatus === 'failed' || attempt.currentStatus === 'undelivered',
+              ).length / total
+            : 0,
+        uniqueRecipients: new Set(filtered.map((attempt) => attempt.recipientPhone)).size,
+        uniqueBookings: new Set(filtered.map((attempt) => attempt.bookingId)).size,
       },
     };
   }

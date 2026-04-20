@@ -1,8 +1,15 @@
 import { normalizePhone } from '@/server/customers';
 import { recordObservabilityEvent } from '@/server/observability';
 import { getServiceSupabaseClient } from '@/server/supabase';
+import {
+  SMS_DELIVERY_IN_FLIGHT_STATUSES,
+  SMS_DELIVERY_STALE_THRESHOLD_MINUTES,
+} from '@/types/smsDelivery';
 
 import type {
+  OpsSmsDeliveryAttemptDTO,
+  OpsSmsDeliveryRange,
+  OpsSmsDeliverySummary,
   SmsDeliveryEventDTO,
   SmsDeliveryProvider,
   SmsDeliveryStatus,
@@ -194,4 +201,319 @@ export async function listSmsDeliveryEventsForBooking(params: {
   }
 
   return (data ?? []).map((row) => toEntryDto(row as SmsDeliveryLogRow));
+}
+
+type BookingSnapshotRow = {
+  id: string;
+  reference: string | null;
+  booking_date: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  customer_name: string | null;
+  party_size: number | null;
+};
+
+type ListSmsDeliveryAttemptsForRestaurantParams = {
+  restaurantId: string;
+  range: OpsSmsDeliveryRange;
+  page?: number;
+  pageSize?: number;
+  statuses?: ReadonlyArray<SmsDeliveryStatus>;
+};
+
+type SmsAttemptAggregate = {
+  messageSid: string;
+  recipientPhone: string;
+  bookingId: string | null;
+  smsType: string | null;
+  provider: SmsDeliveryProvider | null;
+  currentStatus: SmsDeliveryStatus;
+  currentOccurredAt: string | null;
+  currentEventId: string;
+  events: SmsDeliveryEventDTO[];
+};
+
+function resolveRangeStartIso(range: OpsSmsDeliveryRange): string {
+  const now = Date.now();
+  const lookbackMs =
+    range === '24h' ? 24 * 60 * 60 * 1000 : range === '30d' ? 30 * 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
+  return new Date(now - lookbackMs).toISOString();
+}
+
+function normalizePage(raw: unknown): number {
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) return 1;
+  return Math.max(1, Math.floor(raw));
+}
+
+function normalizePageSize(raw: unknown): number {
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) return 50;
+  return Math.max(1, Math.min(200, Math.floor(raw)));
+}
+
+function parseIsoMs(value: string | null | undefined): number {
+  if (!value) return 0;
+  const ms = new Date(value).getTime();
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+function isNewerEvent(candidate: SmsDeliveryEventDTO, current: SmsAttemptAggregate): boolean {
+  const candidateMs = parseIsoMs(candidate.occurredAt);
+  const currentMs = parseIsoMs(current.currentOccurredAt);
+  if (candidateMs !== currentMs) return candidateMs > currentMs;
+  return candidate.id > current.currentEventId;
+}
+
+function toBookingDto(row: BookingSnapshotRow): NonNullable<OpsSmsDeliveryAttemptDTO['booking']> {
+  return {
+    id: row.id,
+    reference: row.reference ?? '',
+    bookingDate: row.booking_date ?? '',
+    startTime: row.start_time ?? '',
+    endTime: row.end_time ?? '',
+    customerName: row.customer_name ?? '',
+    partySize: typeof row.party_size === 'number' ? row.party_size : 0,
+  };
+}
+
+const SMS_STALE_THRESHOLD_MS = SMS_DELIVERY_STALE_THRESHOLD_MINUTES * 60 * 1000;
+const SMS_IN_FLIGHT_STATUS_SET: ReadonlySet<SmsDeliveryStatus> = new Set(SMS_DELIVERY_IN_FLIGHT_STATUSES);
+
+export function computeSmsAttemptStaleness(input: {
+  currentStatus: SmsDeliveryStatus;
+  currentOccurredAt: string | null;
+  now?: number;
+}): { isStale: boolean; stuckForMs: number | null } {
+  if (!SMS_IN_FLIGHT_STATUS_SET.has(input.currentStatus)) {
+    return { isStale: false, stuckForMs: null };
+  }
+  const occurredMs = parseIsoMs(input.currentOccurredAt);
+  if (!occurredMs) return { isStale: false, stuckForMs: null };
+  const nowMs = typeof input.now === 'number' ? input.now : Date.now();
+  const ageMs = nowMs - occurredMs;
+  if (ageMs < SMS_STALE_THRESHOLD_MS) return { isStale: false, stuckForMs: null };
+  return { isStale: true, stuckForMs: ageMs };
+}
+
+function decorateSmsAttemptWithStaleness(
+  attempt: OpsSmsDeliveryAttemptDTO,
+  now: number,
+): OpsSmsDeliveryAttemptDTO {
+  const staleness = computeSmsAttemptStaleness({
+    currentStatus: attempt.currentStatus,
+    currentOccurredAt: attempt.currentOccurredAt,
+    now,
+  });
+  if (!staleness.isStale) return attempt;
+  return { ...attempt, isStale: true, stuckForMs: staleness.stuckForMs };
+}
+
+export async function listSmsDeliveryAttemptsForRestaurant(
+  params: ListSmsDeliveryAttemptsForRestaurantParams,
+): Promise<{ attempts: OpsSmsDeliveryAttemptDTO[]; hasNext: boolean; page: number; pageSize: number }> {
+  const page = normalizePage(params.page);
+  const pageSize = normalizePageSize(params.pageSize);
+  const start = (page - 1) * pageSize;
+  const sinceIso = resolveRangeStartIso(params.range);
+  const statusFilter = params.statuses?.length ? new Set(params.statuses) : null;
+
+  const supabase = getServiceSupabaseClient();
+  const { data, error } = await supabase
+    .from('sms_delivery_log')
+    .select(
+      'id, booking_id, restaurant_id, sms_type, recipient_phone, message_sid, status, provider, provider_event_id, occurred_at, error, metadata',
+    )
+    .eq('restaurant_id', params.restaurantId)
+    .gte('occurred_at', sinceIso)
+    .order('occurred_at', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(10_000);
+
+  if (error) {
+    if (isDeliveryLogUnavailable(error)) {
+      throw new SmsDeliveryLogUnavailableError();
+    }
+    throw new Error(`Failed to load SMS delivery attempts (${error.code ?? 'unknown'}).`);
+  }
+
+  const buckets = new Map<string, SmsAttemptAggregate>();
+  for (const row of (data as SmsDeliveryLogRow[] | null | undefined) ?? []) {
+    const event = toEntryDto(row);
+    const key = `${event.messageSid}__${event.recipientPhone}`;
+    const current = buckets.get(key);
+    if (!current) {
+      buckets.set(key, {
+        messageSid: event.messageSid,
+        recipientPhone: event.recipientPhone,
+        bookingId: event.bookingId,
+        smsType: event.smsType,
+        provider: event.provider,
+        currentStatus: event.status,
+        currentOccurredAt: event.occurredAt,
+        currentEventId: event.id,
+        events: [event],
+      });
+      continue;
+    }
+    current.events.push(event);
+    if (isNewerEvent(event, current)) {
+      current.bookingId = event.bookingId ?? current.bookingId;
+      current.smsType = event.smsType ?? current.smsType;
+      current.provider = event.provider ?? current.provider;
+      current.currentStatus = event.status;
+      current.currentOccurredAt = event.occurredAt;
+      current.currentEventId = event.id;
+    }
+  }
+
+  const aggregates = Array.from(buckets.values())
+    .filter((attempt) => (statusFilter ? statusFilter.has(attempt.currentStatus) : true))
+    .sort((a, b) => parseIsoMs(b.currentOccurredAt) - parseIsoMs(a.currentOccurredAt));
+
+  const pageSlice = aggregates.slice(start, start + pageSize + 1);
+  const hasNext = pageSlice.length > pageSize;
+  const selected = hasNext ? pageSlice.slice(0, pageSize) : pageSlice;
+
+  const bookingIds = Array.from(
+    new Set(selected.map((attempt) => attempt.bookingId).filter((id): id is string => Boolean(id))),
+  );
+  let bookingById = new Map<string, NonNullable<OpsSmsDeliveryAttemptDTO['booking']>>();
+  if (bookingIds.length > 0) {
+    const { data: bookings, error: bookingsError } = await supabase
+      .from('bookings')
+      .select('id, reference, booking_date, start_time, end_time, customer_name, party_size')
+      .in('id', bookingIds);
+    if (!bookingsError) {
+      bookingById = new Map(
+        ((bookings as BookingSnapshotRow[] | null | undefined) ?? []).map((booking) => [booking.id, toBookingDto(booking)]),
+      );
+    }
+  }
+
+  const now = Date.now();
+  const attempts: OpsSmsDeliveryAttemptDTO[] = selected.map((attempt) =>
+    decorateSmsAttemptWithStaleness(
+      {
+        messageSid: attempt.messageSid,
+        recipientPhone: attempt.recipientPhone,
+        bookingId: attempt.bookingId,
+        smsType: attempt.smsType,
+        provider: attempt.provider,
+        currentStatus: attempt.currentStatus,
+        currentOccurredAt: attempt.currentOccurredAt,
+        events: attempt.events
+          .slice()
+          .sort((a, b) => parseIsoMs(a.occurredAt) - parseIsoMs(b.occurredAt) || a.id.localeCompare(b.id)),
+        booking: attempt.bookingId ? bookingById.get(attempt.bookingId) ?? null : null,
+      },
+      now,
+    ),
+  );
+
+  return { attempts, hasNext, page, pageSize };
+}
+
+export async function getSmsDeliveryAttemptsSummary(params: {
+  restaurantId: string;
+  range: OpsSmsDeliveryRange;
+  statuses?: ReadonlyArray<SmsDeliveryStatus>;
+}): Promise<OpsSmsDeliverySummary> {
+  const sinceIso = resolveRangeStartIso(params.range);
+  const statusFilter = params.statuses?.length ? new Set(params.statuses) : null;
+  const supabase = getServiceSupabaseClient();
+  const { data, error } = await supabase
+    .from('sms_delivery_log')
+    .select('id, recipient_phone, booking_id, message_sid, status, occurred_at')
+    .eq('restaurant_id', params.restaurantId)
+    .gte('occurred_at', sinceIso)
+    .order('occurred_at', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(10_000);
+
+  if (error) {
+    if (isDeliveryLogUnavailable(error)) {
+      throw new SmsDeliveryLogUnavailableError();
+    }
+    throw new Error(`Failed to load SMS delivery summary (${error.code ?? 'unknown'}).`);
+  }
+
+  const attempts = new Map<
+    string,
+    {
+      recipientPhone: string;
+      bookingId: string | null;
+      currentStatus: SmsDeliveryStatus;
+      currentOccurredAt: string;
+      currentEventId: string;
+    }
+  >();
+
+  for (const row of (data ?? []) as Array<Record<string, unknown>>) {
+    const messageSid = typeof row.message_sid === 'string' ? row.message_sid : null;
+    const recipientPhone = typeof row.recipient_phone === 'string' ? row.recipient_phone : null;
+    const status = typeof row.status === 'string' ? (row.status as SmsDeliveryStatus) : null;
+    const occurredAt = typeof row.occurred_at === 'string' ? row.occurred_at : null;
+    const eventId = typeof row.id === 'string' ? row.id : null;
+    if (!messageSid || !recipientPhone || !status || !occurredAt || !eventId) continue;
+
+    const key = `${messageSid}__${recipientPhone}`;
+    const current = attempts.get(key);
+    if (!current) {
+      attempts.set(key, {
+        recipientPhone,
+        bookingId: typeof row.booking_id === 'string' ? row.booking_id : null,
+        currentStatus: status,
+        currentOccurredAt: occurredAt,
+        currentEventId: eventId,
+      });
+      continue;
+    }
+    if (
+      parseIsoMs(occurredAt) > parseIsoMs(current.currentOccurredAt) ||
+      (parseIsoMs(occurredAt) === parseIsoMs(current.currentOccurredAt) && eventId > current.currentEventId)
+    ) {
+      current.currentStatus = status;
+      current.currentOccurredAt = occurredAt;
+      current.currentEventId = eventId;
+      current.bookingId = (typeof row.booking_id === 'string' ? row.booking_id : null) ?? current.bookingId;
+    }
+  }
+
+  const finalAttempts = Array.from(attempts.values()).filter((attempt) =>
+    statusFilter ? statusFilter.has(attempt.currentStatus) : true,
+  );
+
+  const total = finalAttempts.length;
+  const queued = finalAttempts.filter((attempt) => attempt.currentStatus === 'queued').length;
+  const sent = finalAttempts.filter((attempt) => attempt.currentStatus === 'sent').length;
+  const delivered = finalAttempts.filter((attempt) => attempt.currentStatus === 'delivered').length;
+  const undelivered = finalAttempts.filter((attempt) => attempt.currentStatus === 'undelivered').length;
+  const failed = finalAttempts.filter((attempt) => attempt.currentStatus === 'failed').length;
+  const uniqueRecipients = new Set(finalAttempts.map((attempt) => attempt.recipientPhone)).size;
+  const uniqueBookings = new Set(
+    finalAttempts.map((attempt) => attempt.bookingId).filter((bookingId): bookingId is string => Boolean(bookingId)),
+  ).size;
+
+  const nowMs = Date.now();
+  const stuckInFlight = finalAttempts.reduce((count, attempt) => {
+    const { isStale } = computeSmsAttemptStaleness({
+      currentStatus: attempt.currentStatus,
+      currentOccurredAt: attempt.currentOccurredAt,
+      now: nowMs,
+    });
+    return isStale ? count + 1 : count;
+  }, 0);
+
+  return {
+    total,
+    queued,
+    sent,
+    delivered,
+    undelivered,
+    failed,
+    deliveredRate: total > 0 ? delivered / total : 0,
+    failureRate: total > 0 ? (undelivered + failed) / total : 0,
+    uniqueRecipients,
+    uniqueBookings,
+    stuckInFlight,
+  };
 }

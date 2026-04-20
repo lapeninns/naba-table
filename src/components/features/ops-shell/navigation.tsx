@@ -7,6 +7,7 @@ import {
   LayoutGrid,
   Mail,
   MailCheck,
+  MessageSquare,
   Clock3,
   TrendingDown,
   UtensilsCrossed,
@@ -81,6 +82,13 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         href: path('/email-delivery'),
         icon: MailCheck,
         match: (pathname) => pathname.startsWith(path('/email-delivery')),
+      },
+      {
+        title: 'SMS Delivery',
+        description: 'Track queued/sent/delivered/failed SMS status',
+        href: path('/sms-delivery'),
+        icon: MessageSquare,
+        match: (pathname) => pathname.startsWith(path('/sms-delivery')),
       },
       {
         title: 'Email Templates',
