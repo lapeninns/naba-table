@@ -1,3 +1,5 @@
+import { cache } from 'react';
+
 import { ensureLogoColumnOnRow, isLogoUrlColumnMissing, logLogoColumnFallback } from '@/server/restaurants/logo-url-compat';
 import { restaurantSelectColumns } from '@/server/restaurants/select-fields';
 import { getServiceSupabaseClient } from '@/server/supabase';
@@ -19,7 +21,9 @@ export class GetRestaurantBySlugError extends Error {
   }
 }
 
-export async function getRestaurantBySlug(slug: string): Promise<RestaurantDetail | null> {
+export const getRestaurantBySlug = cache(async function getRestaurantBySlug(
+  slug: string,
+): Promise<RestaurantDetail | null> {
   const normalized = slug.trim();
   if (!normalized) {
     return null;
@@ -85,4 +89,4 @@ export async function getRestaurantBySlug(slug: string): Promise<RestaurantDetai
       { cause: error },
     );
   }
-}
+});

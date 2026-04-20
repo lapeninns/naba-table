@@ -210,6 +210,7 @@ function BookingWizardContent({
         description="You’re offline. You can edit details, but confirming requires a connection."
       />
     ) : null;
+  const effectiveStickyVisible = state.step === 4 ? true : stickyVisible;
 
   const shouldShowSkeleton = state.loading && state.step !== 4;
 
@@ -260,6 +261,7 @@ function BookingWizardContent({
       case 4:
         return (
           <ConfirmationStep
+            mode={mode}
             onNewBooking={handleNewBooking}
             onClose={handleClose}
             onActionsChange={handleActionsChange}
@@ -279,7 +281,7 @@ function BookingWizardContent({
         summary={selectionSummary}
         heroRef={heroRef}
         stickyHeight={stickyHeight}
-        stickyVisible={stickyVisible}
+        stickyVisible={effectiveStickyVisible}
         onStickyHeightChange={handleStickyHeightChange}
         restaurantName={state.details.restaurantName || undefined}
         banner={banner}

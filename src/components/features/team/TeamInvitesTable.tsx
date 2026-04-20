@@ -5,6 +5,13 @@ import { useMemo, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useOpsRevokeTeamInvite, useOpsTeamInvitations } from '@/hooks/ops/useOpsTeamInvitations';
 
@@ -60,17 +67,21 @@ export function TeamInvitesTable({ restaurantId, canManage }: TeamInvitesTablePr
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <select
+          <Select
             value={status}
-            onChange={(event) => setStatus(event.target.value as TeamInviteStatus)}
-            className="h-9 w-[160px] rounded-md border border-border bg-background px-3 text-sm text-foreground shadow-sm focus:border-border focus:outline-none focus:ring-2 focus:ring-primary/40"
+            onValueChange={(value) => setStatus(value as TeamInviteStatus)}
           >
-            {STATUS_OPTIONS.map((option) => (
-              <option key={option} value={option}>
-                {STATUS_LABEL[option]}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="h-9 w-[160px]" aria-label="Filter invitations by status">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              {STATUS_OPTIONS.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {STATUS_LABEL[option]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 

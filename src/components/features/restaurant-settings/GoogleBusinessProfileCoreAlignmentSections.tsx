@@ -1,10 +1,6 @@
 'use client';
 
-import {
-  AlertTriangle,
-  CalendarDays,
-  ShieldCheck,
-} from 'lucide-react';
+import { AlertTriangle, CalendarDays, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 
 import { GoogleBusinessProfilePanel } from '@/components/features/restaurant-settings/GoogleBusinessProfilePanel';
@@ -18,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { opsHref } from '@/lib/url/opsHref';
 import { cn } from '@/lib/utils';
 
 import {
@@ -96,7 +93,10 @@ function AlignmentBadge({ status }: { status: 'verified' | 'drifted' | 'unavaila
   return (
     <Badge
       variant="outline"
-      className={cn('h-6 rounded-full px-2.5 text-[10px] font-semibold uppercase tracking-wide', tone)}
+      className={cn(
+        'h-6 rounded-full px-2.5 text-[10px] font-semibold uppercase tracking-wide',
+        tone,
+      )}
     >
       {status === 'verified' ? 'Verified' : status === 'drifted' ? 'Drifted' : 'Unavailable'}
     </Badge>
@@ -252,10 +252,16 @@ export function GoogleBusinessProfileCoreAlignmentSections({
         description="Read-only normalization of Google operating hours and service windows into Nabatable's availability structures."
         action={
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline" className="hidden rounded-full px-3 py-1 text-[11px] sm:inline-flex">
+            <Badge
+              variant="outline"
+              className="hidden rounded-full px-3 py-1 text-[11px] sm:inline-flex"
+            >
               Source: {getOperatingHoursSourceLabel(coreNormalization.operatingHours.source)}
             </Badge>
-            <Badge variant="outline" className="hidden rounded-full px-3 py-1 text-[11px] xl:inline-flex">
+            <Badge
+              variant="outline"
+              className="hidden rounded-full px-3 py-1 text-[11px] xl:inline-flex"
+            >
               Services: {getServicePeriodsSourceLabel(coreNormalization.servicePeriods.source)}
             </Badge>
             <MatchStatusBadge status={combinedStatus} />
@@ -276,12 +282,12 @@ export function GoogleBusinessProfileCoreAlignmentSections({
           </div>
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" size="sm" asChild>
-              <Link href="/settings/restaurant/availability#availability-hours">
+              <Link href={opsHref('/settings/restaurant/availability#availability-hours')}>
                 Edit availability
               </Link>
             </Button>
             <Button type="button" variant="outline" size="sm" asChild>
-              <Link href="/settings/restaurant/availability#service-periods">
+              <Link href={opsHref('/settings/restaurant/availability#service-periods')}>
                 Edit service periods
               </Link>
             </Button>
@@ -323,9 +329,7 @@ export function GoogleBusinessProfileCoreAlignmentSections({
                   periods?.lunch?.matchesCore === false ||
                   periods?.dinner?.matchesCore === false;
                 const hasComparableData =
-                  Boolean(operatingRow) ||
-                  Boolean(periods?.lunch) ||
-                  Boolean(periods?.dinner);
+                  Boolean(operatingRow) || Boolean(periods?.lunch) || Boolean(periods?.dinner);
                 const alignmentStatus = !hasComparableData
                   ? 'unavailable'
                   : isDrifted
@@ -354,10 +358,10 @@ export function GoogleBusinessProfileCoreAlignmentSections({
                       )}
                     </TableCell>
                     <TableCell className="px-4 py-3 text-sm text-muted-foreground">
-                      {isClosed ? '—' : lunchWindow ?? '—'}
+                      {isClosed ? '—' : (lunchWindow ?? '—')}
                     </TableCell>
                     <TableCell className="px-4 py-3 text-sm text-muted-foreground">
-                      {isClosed ? '—' : dinnerWindow ?? '—'}
+                      {isClosed ? '—' : (dinnerWindow ?? '—')}
                     </TableCell>
                     <TableCell className="px-4 py-3">
                       <AlignmentBadge status={alignmentStatus} />
@@ -382,7 +386,7 @@ export function GoogleBusinessProfileCoreAlignmentSections({
                 </p>
               </div>
               <Button type="button" variant="outline" size="sm" asChild>
-                <Link href="/settings/restaurant/availability#availability-hours">
+                <Link href={opsHref('/settings/restaurant/availability#availability-hours')}>
                   Add or edit override
                 </Link>
               </Button>

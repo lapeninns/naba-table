@@ -1,12 +1,21 @@
 'use client';
 
+import { Check, ChevronsUpDown } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 import { GoogleBusinessProfileComparisonBadge } from '@/components/features/restaurant-settings/GoogleBusinessProfileComparisonBadge';
 import { HelpTooltip } from '@/components/features/restaurant-settings/HelpTooltip';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -17,8 +26,8 @@ import {
 import { cn } from '@/lib/utils';
 
 import type { UpdateRestaurantInput } from '@/app/api/ops/restaurants/schema';
-import type { PropsWithChildren } from 'react';
 import type { ProfileFieldVerification } from '@/components/features/restaurant-settings/googleBusinessProfileVerification';
+import type { PropsWithChildren } from 'react';
 
 export type RestaurantDetailsFormValues = {
   name: string;
@@ -43,6 +52,7 @@ export type RestaurantDetailsFormProps = PropsWithChildren<{
   onSubmit: (values: UpdateRestaurantInput) => Promise<void> | void;
   isSubmitting?: boolean;
   onCancel?: () => void;
+  onDirtyChange?: (dirty: boolean) => void;
   submitLabel?: string;
   className?: string;
   gbpFieldVerifications?: Partial<Record<GbpComparableField, ProfileFieldVerification>>;
@@ -107,6 +117,11 @@ export const COMMON_TIMEZONES = [
   'Europe/Paris',
   'Europe/Berlin',
 ] as const;
+
+const ALL_TIMEZONES =
+  typeof Intl.supportedValuesOf === 'function'
+    ? Intl.supportedValuesOf('timeZone')
+    : [...COMMON_TIMEZONES];
 
 function normalizeWhitespace(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
@@ -226,6 +241,25 @@ function mapInitialValues(values: RestaurantDetailsFormValues): FormState {
     googleMapUrl: values.googleMapUrl ?? '',
     googleReviewUrl: values.googleReviewUrl ?? '',
   };
+}
+
+function formatTimezoneOffset(timezone: string): string {
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      timeZoneName: 'shortOffset',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).formatToParts(new Date());
+    return parts.find((part) => part.type === 'timeZoneName')?.value ?? 'UTC';
+  } catch {
+    return 'UTC';
+  }
+}
+
+function buildTimezoneLabel(timezone: string): string {
+  const city = timezone.split('/').at(-1)?.replace(/_/g, ' ') ?? timezone;
+  return `${city} (${formatTimezoneOffset(timezone)})`;
 }
 
 function sanitizePayload(state: FormState): UpdateRestaurantInput {
@@ -383,6 +417,7 @@ export function RestaurantDetailsForm({
   onSubmit,
   isSubmitting = false,
   onCancel,
+  onDirtyChange,
   submitLabel = 'Save Changes',
   className,
   children,
@@ -390,13 +425,38 @@ export function RestaurantDetailsForm({
 }: RestaurantDetailsFormProps) {
   const [state, setState] = useState<FormState>(() => mapInitialValues(initialValues));
   const [errors, setErrors] = useState<FormErrors>({});
+  const [timezonePickerOpen, setTimezonePickerOpen] = useState(false);
+  const [timezoneSearch, setTimezoneSearch] = useState('');
 
-  const serializedInitialValues = useMemo(() => JSON.stringify(initialValues), [initialValues]);
+  const initialFormState = useMemo(() => mapInitialValues(initialValues), [initialValues]);
+  const serializedInitialValues = useMemo(() => JSON.stringify(initialFormState), [initialFormState]);
+  const serializedCurrentState = useMemo(() => JSON.stringify(state), [state]);
+  const isDirty = serializedCurrentState !== serializedInitialValues;
 
   useEffect(() => {
-    setState(mapInitialValues(initialValues));
+    if (serializedCurrentState !== serializedInitialValues && isDirty) {
+      return;
+    }
+    setState(initialFormState);
     setErrors({});
-  }, [serializedInitialValues, initialValues]);
+  }, [initialFormState, isDirty, serializedCurrentState, serializedInitialValues]);
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
+
+  const filteredTimezones = useMemo(() => {
+    const query = timezoneSearch.trim().toLowerCase();
+    if (!query) {
+      return ALL_TIMEZONES;
+    }
+
+    return ALL_TIMEZONES.filter((timezone) => {
+      const normalized = timezone.toLowerCase();
+      const label = buildTimezoneLabel(timezone).toLowerCase();
+      return normalized.includes(query) || label.includes(query);
+    });
+  }, [timezoneSearch]);
 
   const gbpStatuses = useMemo(
     () => ({
@@ -477,6 +537,7 @@ export function RestaurantDetailsForm({
 
     try {
       await onSubmit(sanitizePayload(state));
+      setErrors({});
     } catch (error) {
       // Error presentation is delegated to the mutation hook / caller.
       console.error('[RestaurantDetailsForm] submit failed', error);
@@ -487,6 +548,17 @@ export function RestaurantDetailsForm({
     <TooltipProvider delayDuration={100}>
       <form onSubmit={handleSubmit} className={cn('space-y-4', className)}>
         <div className="grid gap-4 sm:grid-cols-2">
+          <div
+            id="profile-identity"
+            className="scroll-mt-28 sm:col-span-2 rounded-lg border border-border/70 bg-muted/20 p-4"
+          >
+            <p className="text-sm font-medium text-foreground">Restaurant identity</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Keep the guest-facing details, timezone, and contact information aligned with what
+              staff actually manage day to day.
+            </p>
+          </div>
+
           <div className="space-y-1.5 sm:col-span-2">
             <div className="flex flex-wrap items-center gap-2">
               <Label htmlFor="restaurant-name">
@@ -515,111 +587,6 @@ export function RestaurantDetailsForm({
 
           <div className="space-y-1.5">
             <div className="flex items-center gap-1">
-              <Label
-                htmlFor="restaurant-manager-notification-phone"
-                className="inline-flex items-center gap-1"
-              >
-                Manager Notification Number
-              </Label>
-              <HelpTooltip
-                description={FIELD_TOOLTIPS.managerNotificationPhone}
-                ariaLabel="What is the manager notification number?"
-              />
-            </div>
-            <Input
-              id="restaurant-manager-notification-phone"
-              type="tel"
-              inputMode="tel"
-              placeholder="+447700900000"
-              value={state.managerNotificationPhone}
-              onChange={(event) => handleChange('managerNotificationPhone', event.target.value)}
-              aria-invalid={Boolean(errors.managerNotificationPhone)}
-              aria-describedby={
-                errors.managerNotificationPhone
-                  ? 'restaurant-manager-notification-phone-error'
-                  : 'restaurant-manager-notification-phone-help'
-              }
-              className={cn(
-                errors.managerNotificationPhone &&
-                  'border-destructive focus-visible:ring-destructive/60',
-              )}
-            />
-            <p
-              id="restaurant-manager-notification-phone-help"
-              className="text-xs text-muted-foreground"
-            >
-              Used for the daily manager summary recipient. Keep it in E.164 format for production
-              SMS delivery.
-            </p>
-            {errors.managerNotificationPhone && (
-              <p
-                id="restaurant-manager-notification-phone-error"
-                className="text-xs text-destructive"
-                role="alert"
-              >
-                {errors.managerNotificationPhone}
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-2 rounded-lg border border-border/70 bg-muted/20 p-3">
-            <div className="flex items-start justify-between gap-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-1">
-                  <Label
-                    htmlFor="restaurant-manager-daily-summary-enabled"
-                    className="inline-flex items-center gap-1"
-                  >
-                    Daily Manager SMS Summary
-                  </Label>
-                  <HelpTooltip
-                    description={FIELD_TOOLTIPS.managerDailySummaryEnabled}
-                    ariaLabel="What does the daily manager SMS summary toggle do?"
-                  />
-                </div>
-                <p
-                  id="restaurant-manager-daily-summary-enabled-help"
-                  className="text-xs text-muted-foreground"
-                >
-                  Sends the booking summary to the manager at 10:00 local restaurant time.
-                </p>
-              </div>
-              <Switch
-                id="restaurant-manager-daily-summary-enabled"
-                checked={state.managerDailySummaryEnabled}
-                onCheckedChange={(checked) => handleToggle('managerDailySummaryEnabled', checked)}
-                aria-describedby="restaurant-manager-daily-summary-enabled-help"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-1.5 sm:col-span-2">
-            <div className="flex items-center gap-1">
-              <Label htmlFor="restaurant-slug" className="inline-flex items-center gap-1">
-                Slug <span className="text-destructive">*</span>
-              </Label>
-              <HelpTooltip
-                description={FIELD_TOOLTIPS.slug}
-                ariaLabel="What is a restaurant slug?"
-              />
-            </div>
-            <Input
-              id="restaurant-slug"
-              value={state.slug}
-              onChange={(event) => handleChange('slug', event.target.value)}
-              aria-invalid={Boolean(errors.slug)}
-              aria-describedby={errors.slug ? 'restaurant-slug-error' : undefined}
-              className={cn(errors.slug && 'border-destructive focus-visible:ring-destructive/60')}
-            />
-            {errors.slug && (
-              <p id="restaurant-slug-error" className="text-xs text-destructive" role="alert">
-                {errors.slug}
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-1">
               <Label htmlFor="restaurant-timezone" className="inline-flex items-center gap-1">
                 Timezone <span className="text-destructive">*</span>
               </Label>
@@ -628,28 +595,153 @@ export function RestaurantDetailsForm({
                 ariaLabel="Why does timezone matter?"
               />
             </div>
-            <select
-              id="restaurant-timezone"
-              value={state.timezone}
-              onChange={(event) => handleChange('timezone', event.target.value)}
-              className={cn(
-                'h-10 w-full rounded-md border border-border bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
-                errors.timezone && 'border-destructive focus-visible:ring-destructive/60',
-              )}
-              aria-invalid={Boolean(errors.timezone)}
-              aria-describedby={errors.timezone ? 'restaurant-timezone-error' : undefined}
-            >
-              {COMMON_TIMEZONES.map((timezone) => (
-                <option key={timezone} value={timezone}>
-                  {timezone}
-                </option>
-              ))}
-            </select>
+            <Popover open={timezonePickerOpen} onOpenChange={setTimezonePickerOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  id="restaurant-timezone"
+                  type="button"
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={timezonePickerOpen}
+                  aria-invalid={Boolean(errors.timezone)}
+                  aria-describedby={errors.timezone ? 'restaurant-timezone-error' : 'restaurant-timezone-help'}
+                  className={cn(
+                    'h-10 w-full justify-between text-left font-normal',
+                    !state.timezone && 'text-muted-foreground',
+                    errors.timezone && 'border-destructive focus-visible:ring-destructive/60',
+                  )}
+                >
+                  <span className="truncate">
+                    {state.timezone ? buildTimezoneLabel(state.timezone) : 'Select timezone'}
+                  </span>
+                  <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[360px] p-3" align="start">
+                <div className="space-y-3">
+                  <Input
+                    value={timezoneSearch}
+                    onChange={(event) => setTimezoneSearch(event.target.value)}
+                    placeholder="Search city, region, or UTC offset"
+                  />
+                  <ScrollArea className="h-64 pr-3">
+                    <div className="space-y-1">
+                      {filteredTimezones.map((timezone) => (
+                        <button
+                          key={timezone}
+                          type="button"
+                          className={cn(
+                            'flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition hover:bg-muted',
+                            state.timezone === timezone && 'bg-muted text-foreground',
+                          )}
+                          onClick={() => {
+                            handleChange('timezone', timezone);
+                            setTimezonePickerOpen(false);
+                            setTimezoneSearch('');
+                          }}
+                        >
+                          <span className="min-w-0">
+                            <span className="block truncate font-medium">
+                              {buildTimezoneLabel(timezone)}
+                            </span>
+                            <span className="block truncate text-xs text-muted-foreground">
+                              {timezone}
+                            </span>
+                          </span>
+                          {state.timezone === timezone ? (
+                            <Check className="ml-3 size-4 shrink-0 text-primary" />
+                          ) : null}
+                        </button>
+                      ))}
+                      {filteredTimezones.length === 0 ? (
+                        <p className="px-3 py-2 text-sm text-muted-foreground">
+                          No matching timezones found.
+                        </p>
+                      ) : null}
+                    </div>
+                  </ScrollArea>
+                </div>
+              </PopoverContent>
+            </Popover>
+            <p id="restaurant-timezone-help" className="text-xs text-muted-foreground">
+              Search by city, region, or UTC offset to keep schedules and reminders accurate.
+            </p>
             {errors.timezone && (
               <p id="restaurant-timezone-error" className="text-xs text-destructive" role="alert">
                 {errors.timezone}
               </p>
             )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="restaurant-email">Contact Email</Label>
+            <Input
+              id="restaurant-email"
+              type="email"
+              value={state.contactEmail}
+              onChange={(event) => handleChange('contactEmail', event.target.value)}
+              aria-invalid={Boolean(errors.contactEmail)}
+              aria-describedby={errors.contactEmail ? 'restaurant-email-error' : undefined}
+              className={cn(
+                errors.contactEmail && 'border-destructive focus-visible:ring-destructive/60',
+              )}
+            />
+            {errors.contactEmail && (
+              <p id="restaurant-email-error" className="text-xs text-destructive" role="alert">
+                {errors.contactEmail}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <Label htmlFor="restaurant-phone">Contact Phone</Label>
+              <GbpStatusBadge
+                status={gbpStatuses.contactPhone}
+                verification={gbpFieldVerifications?.contactPhone}
+              />
+            </div>
+            <Input
+              id="restaurant-phone"
+              type="tel"
+              value={state.contactPhone}
+              onChange={(event) => handleChange('contactPhone', event.target.value)}
+              aria-invalid={Boolean(errors.contactPhone)}
+              aria-describedby={errors.contactPhone ? 'restaurant-phone-error' : undefined}
+              className={cn(
+                errors.contactPhone && 'border-destructive focus-visible:ring-destructive/60',
+              )}
+            />
+            {errors.contactPhone && (
+              <p id="restaurant-phone-error" className="text-xs text-destructive" role="alert">
+                {errors.contactPhone}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1.5 sm:col-span-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Label htmlFor="restaurant-address">Address</Label>
+              <GbpStatusBadge
+                status={gbpStatuses.address}
+                verification={gbpFieldVerifications?.address}
+              />
+            </div>
+            <Input
+              id="restaurant-address"
+              value={state.address}
+              onChange={(event) => handleChange('address', event.target.value)}
+            />
+          </div>
+
+          <div
+            id="profile-booking"
+            className="scroll-mt-28 sm:col-span-2 rounded-lg border border-border/70 bg-muted/20 p-4"
+          >
+            <p className="text-sm font-medium text-foreground">Guest booking experience</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              These rules shape what guests see during booking and in follow-up communications.
+            </p>
           </div>
 
           <div className="space-y-1.5">
@@ -831,67 +923,6 @@ export function RestaurantDetailsForm({
             )}
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="restaurant-email">Contact Email</Label>
-            <Input
-              id="restaurant-email"
-              type="email"
-              value={state.contactEmail}
-              onChange={(event) => handleChange('contactEmail', event.target.value)}
-              aria-invalid={Boolean(errors.contactEmail)}
-              aria-describedby={errors.contactEmail ? 'restaurant-email-error' : undefined}
-              className={cn(
-                errors.contactEmail && 'border-destructive focus-visible:ring-destructive/60',
-              )}
-            />
-            {errors.contactEmail && (
-              <p id="restaurant-email-error" className="text-xs text-destructive" role="alert">
-                {errors.contactEmail}
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-1.5">
-            <div className="flex flex-wrap items-center gap-2">
-              <Label htmlFor="restaurant-phone">Contact Phone</Label>
-              <GbpStatusBadge
-                status={gbpStatuses.contactPhone}
-                verification={gbpFieldVerifications?.contactPhone}
-              />
-            </div>
-            <Input
-              id="restaurant-phone"
-              type="tel"
-              value={state.contactPhone}
-              onChange={(event) => handleChange('contactPhone', event.target.value)}
-              aria-invalid={Boolean(errors.contactPhone)}
-              aria-describedby={errors.contactPhone ? 'restaurant-phone-error' : undefined}
-              className={cn(
-                errors.contactPhone && 'border-destructive focus-visible:ring-destructive/60',
-              )}
-            />
-            {errors.contactPhone && (
-              <p id="restaurant-phone-error" className="text-xs text-destructive" role="alert">
-                {errors.contactPhone}
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-1.5 sm:col-span-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <Label htmlFor="restaurant-address">Address</Label>
-              <GbpStatusBadge
-                status={gbpStatuses.address}
-                verification={gbpFieldVerifications?.address}
-              />
-            </div>
-            <Input
-              id="restaurant-address"
-              value={state.address}
-              onChange={(event) => handleChange('address', event.target.value)}
-            />
-          </div>
-
           <div className="space-y-1.5 sm:col-span-2">
             <div className="flex flex-wrap items-center gap-2">
               <Label htmlFor="restaurant-google-review">Google Review URL</Label>
@@ -988,7 +1019,138 @@ export function RestaurantDetailsForm({
             />
           </div>
 
-          {/* Guest email settings removed - all emails are always enabled */}
+          <div
+            id="profile-notifications"
+            className="scroll-mt-28 sm:col-span-2 rounded-lg border border-border/70 bg-muted/20 p-4"
+          >
+            <p className="text-sm font-medium text-foreground">Staff notifications</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Daily manager summaries can be configured here. Guest reminder and review emails are
+              always on for every restaurant, so staff do not need to manage them individually.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-1">
+              <Label
+                htmlFor="restaurant-manager-notification-phone"
+                className="inline-flex items-center gap-1"
+              >
+                Manager Notification Number
+              </Label>
+              <HelpTooltip
+                description={FIELD_TOOLTIPS.managerNotificationPhone}
+                ariaLabel="What is the manager notification number?"
+              />
+            </div>
+            <Input
+              id="restaurant-manager-notification-phone"
+              type="tel"
+              inputMode="tel"
+              placeholder="+447700900000"
+              value={state.managerNotificationPhone}
+              onChange={(event) => handleChange('managerNotificationPhone', event.target.value)}
+              aria-invalid={Boolean(errors.managerNotificationPhone)}
+              aria-describedby={
+                errors.managerNotificationPhone
+                  ? 'restaurant-manager-notification-phone-error'
+                  : 'restaurant-manager-notification-phone-help'
+              }
+              className={cn(
+                errors.managerNotificationPhone &&
+                  'border-destructive focus-visible:ring-destructive/60',
+              )}
+            />
+            <p
+              id="restaurant-manager-notification-phone-help"
+              className="text-xs text-muted-foreground"
+            >
+              Used for the daily manager summary recipient. Keep it in E.164 format for production
+              SMS delivery.
+            </p>
+            {errors.managerNotificationPhone && (
+              <p
+                id="restaurant-manager-notification-phone-error"
+                className="text-xs text-destructive"
+                role="alert"
+              >
+                {errors.managerNotificationPhone}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2 rounded-lg border border-border/70 bg-muted/20 p-3">
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-1">
+                  <Label
+                    htmlFor="restaurant-manager-daily-summary-enabled"
+                    className="inline-flex items-center gap-1"
+                  >
+                    Daily Manager SMS Summary
+                  </Label>
+                  <HelpTooltip
+                    description={FIELD_TOOLTIPS.managerDailySummaryEnabled}
+                    ariaLabel="What does the daily manager SMS summary toggle do?"
+                  />
+                </div>
+                <p
+                  id="restaurant-manager-daily-summary-enabled-help"
+                  className="text-xs text-muted-foreground"
+                >
+                  Sends the booking summary to the manager at 10:00 local restaurant time.
+                </p>
+              </div>
+              <Switch
+                id="restaurant-manager-daily-summary-enabled"
+                checked={state.managerDailySummaryEnabled}
+                onCheckedChange={(checked) => handleToggle('managerDailySummaryEnabled', checked)}
+                aria-describedby="restaurant-manager-daily-summary-enabled-help"
+              />
+            </div>
+          </div>
+
+          <div className="sm:col-span-2">
+            <Accordion type="single" collapsible className="rounded-lg border border-border/70">
+              <AccordionItem value="advanced-settings" className="border-none">
+                <AccordionTrigger className="px-4 text-left text-sm font-medium">
+                  Advanced settings
+                </AccordionTrigger>
+                <AccordionContent className="space-y-4 px-4 pb-4">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-1">
+                      <Label htmlFor="restaurant-slug" className="inline-flex items-center gap-1">
+                        Slug <span className="text-destructive">*</span>
+                      </Label>
+                      <HelpTooltip
+                        description={FIELD_TOOLTIPS.slug}
+                        ariaLabel="What is a restaurant slug?"
+                      />
+                    </div>
+                    <Input
+                      id="restaurant-slug"
+                      value={state.slug}
+                      onChange={(event) => handleChange('slug', event.target.value)}
+                      aria-invalid={Boolean(errors.slug)}
+                      aria-describedby={errors.slug ? 'restaurant-slug-error' : 'restaurant-slug-help'}
+                      className={cn(
+                        errors.slug && 'border-destructive focus-visible:ring-destructive/60',
+                      )}
+                    />
+                    <p id="restaurant-slug-help" className="text-xs text-muted-foreground">
+                      This powers booking links and exports. Change it carefully to avoid breaking
+                      shared URLs.
+                    </p>
+                    {errors.slug && (
+                      <p id="restaurant-slug-error" className="text-xs text-destructive" role="alert">
+                        {errors.slug}
+                      </p>
+                    )}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </div>
         </div>
 
         {children}

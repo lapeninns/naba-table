@@ -1,9 +1,12 @@
 'use client';
 
+import { Fragment } from 'react';
+
+import { useOpsSession } from '@/contexts/ops-session';
+
 import { OpsSidebarLayout } from './OpsSidebarLayout';
 
 import type { ReactNode } from 'react';
-
 
 type OpsShellProps = {
   children: ReactNode;
@@ -11,5 +14,12 @@ type OpsShellProps = {
 };
 
 export function OpsShell({ children, defaultSidebarOpen }: OpsShellProps) {
-  return <OpsSidebarLayout defaultSidebarOpen={defaultSidebarOpen}>{children}</OpsSidebarLayout>;
+  const { user, activeRestaurantId } = useOpsSession();
+  const contentScopeKey = `${user?.id ?? 'anonymous'}:${activeRestaurantId ?? 'none'}`;
+
+  return (
+    <OpsSidebarLayout defaultSidebarOpen={defaultSidebarOpen}>
+      <Fragment key={contentScopeKey}>{children}</Fragment>
+    </OpsSidebarLayout>
+  );
 }

@@ -5,8 +5,6 @@ import { getRestaurantBySlug } from "@/server/restaurants/getRestaurantBySlug";
 
 import type { Metadata } from "next";
 
-export const dynamic = "force-dynamic";
-
 type RouteParams = Promise<{ slug: string }>;
 
 export async function generateMetadata({ params }: { params: RouteParams }): Promise<Metadata> {

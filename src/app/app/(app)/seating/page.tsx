@@ -1,5 +1,7 @@
 import { redirect } from 'next/navigation';
 
+import { opsHref } from '@/lib/url/opsHref';
+
 export default function SeatingIndexPage() {
-  redirect('/dashboard');
+  redirect(opsHref('/settings/restaurant/tables'));
 }

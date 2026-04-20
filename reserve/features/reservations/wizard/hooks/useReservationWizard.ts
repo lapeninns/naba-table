@@ -175,6 +175,75 @@ export function useReservationWizard(
     return provided && provided.length > 0 ? provided : null;
   }, [initialDetails?.restaurantSlug]);
 
+  useEffect(() => {
+    const nextMetadata: Partial<BookingDetails> = {};
+
+    if (
+      typeof initialDetails?.restaurantId === 'string' &&
+      initialDetails.restaurantId.length > 0 &&
+      initialDetails.restaurantId !== state.details.restaurantId
+    ) {
+      nextMetadata.restaurantId = initialDetails.restaurantId;
+    }
+
+    if (
+      typeof initialDetails?.restaurantSlug === 'string' &&
+      initialDetails.restaurantSlug.length > 0 &&
+      initialDetails.restaurantSlug !== state.details.restaurantSlug
+    ) {
+      nextMetadata.restaurantSlug = initialDetails.restaurantSlug;
+    }
+
+    if (
+      typeof initialDetails?.restaurantName === 'string' &&
+      initialDetails.restaurantName.length > 0 &&
+      initialDetails.restaurantName !== state.details.restaurantName
+    ) {
+      nextMetadata.restaurantName = initialDetails.restaurantName;
+    }
+
+    if (
+      typeof initialDetails?.restaurantAddress === 'string' &&
+      initialDetails.restaurantAddress !== state.details.restaurantAddress
+    ) {
+      nextMetadata.restaurantAddress = initialDetails.restaurantAddress;
+    }
+
+    if (
+      typeof initialDetails?.restaurantTimezone === 'string' &&
+      initialDetails.restaurantTimezone !== state.details.restaurantTimezone
+    ) {
+      nextMetadata.restaurantTimezone = initialDetails.restaurantTimezone;
+    }
+
+    if (
+      typeof initialDetails?.reservationDurationMinutes === 'number' &&
+      Number.isFinite(initialDetails.reservationDurationMinutes) &&
+      initialDetails.reservationDurationMinutes > 0 &&
+      initialDetails.reservationDurationMinutes !== state.details.reservationDurationMinutes
+    ) {
+      nextMetadata.reservationDurationMinutes = initialDetails.reservationDurationMinutes;
+    }
+
+    if (Object.keys(nextMetadata).length > 0) {
+      actions.hydrateDetails(nextMetadata);
+    }
+  }, [
+    actions,
+    initialDetails?.reservationDurationMinutes,
+    initialDetails?.restaurantAddress,
+    initialDetails?.restaurantId,
+    initialDetails?.restaurantName,
+    initialDetails?.restaurantSlug,
+    initialDetails?.restaurantTimezone,
+    state.details.reservationDurationMinutes,
+    state.details.restaurantAddress,
+    state.details.restaurantId,
+    state.details.restaurantName,
+    state.details.restaurantSlug,
+    state.details.restaurantTimezone,
+  ]);
+
   // Persist preferences when party/time change
   useEffect(() => {
     const party = state.details.party;
@@ -542,22 +611,9 @@ export function useReservationWizard(
   }, [actions]);
 
   const handleClose = useCallback(() => {
-    if (mode === 'ops') {
-      if (typeof window !== 'undefined') {
-        window.location.assign('/app');
-      } else {
-        navigator.push('/app');
-      }
-      setPlanAlert(null);
-      return;
-    }
-    if (typeof window !== 'undefined') {
-      window.location.assign(safeReturnPath);
-    } else {
-      navigator.push(safeReturnPath);
-    }
+    navigator.replace(safeReturnPath);
     setPlanAlert(null);
-  }, [mode, navigator, safeReturnPath]);
+  }, [navigator, safeReturnPath]);
 
   return {
     state,

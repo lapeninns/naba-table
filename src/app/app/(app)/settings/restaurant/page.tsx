@@ -1,5 +1,7 @@
 import { redirect } from 'next/navigation';
 
+import { opsHref } from '@/lib/url/opsHref';
+
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -8,5 +10,5 @@ export const metadata: Metadata = {
 };
 
 export default function OpsSettingsRestaurantPage() {
-  redirect('/settings/restaurant/availability');
+  redirect(opsHref('/settings/restaurant/availability'));
 }

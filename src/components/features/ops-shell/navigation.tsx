@@ -8,7 +8,6 @@ import {
   Mail,
   MailCheck,
   Clock3,
-  Timer,
   TrendingDown,
   UtensilsCrossed,
   SlidersHorizontal,
@@ -132,18 +131,13 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         match: (pathname) => pathname.startsWith(path('/settings/restaurant/menu')),
       },
       {
-        title: 'Reservation Durations',
-        description: 'Party-size turn times',
-        href: path('/settings/restaurant/turn-durations'),
-        icon: Timer,
-        match: (pathname) => pathname.startsWith(path('/settings/restaurant/turn-durations')),
-      },
-      {
         title: 'Tables',
         description: 'Manage table inventory',
-        href: path('/settings/tables'),
+        href: path('/settings/restaurant/tables'),
         icon: LayoutGrid,
-        match: (pathname) => pathname.startsWith(path('/settings/tables')),
+        match: (pathname) =>
+          pathname.startsWith(path('/settings/restaurant/tables')) ||
+          pathname.startsWith(path('/settings/tables')),
       },
       {
         title: 'Team',

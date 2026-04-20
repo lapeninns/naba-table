@@ -60,7 +60,8 @@ export function ConfirmationStep(props: ConfirmationStepProps) {
               <BookingConfirmationActions
                 restaurantName={controller.venue.name}
                 restaurantAddress={controller.venue.address}
-                date={reservationWindow.start}
+                start={reservationWindow.start}
+                end={reservationWindow.end}
                 partySize={controller.booking?.party_size ?? controller.details.party}
                 bookingRef={controller.reference}
                 onDownloadIcs={controller.handleAddToCalendar}

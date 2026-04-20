@@ -2,7 +2,8 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus, Trash2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { z } from 'zod';
 
@@ -34,6 +35,45 @@ const steps = [
   { id: 5 as OnboardingStep, title: 'Tables', description: 'Zones and tables' },
   { id: 6 as OnboardingStep, title: 'Review', description: 'Confirm & launch' },
 ];
+
+const STEP_PATHS: Record<OnboardingStep, string> = {
+  1: '/onboarding',
+  2: '/onboarding/profile',
+  3: '/onboarding/hours',
+  4: '/onboarding/services',
+  5: '/onboarding/tables',
+  6: '/onboarding/review',
+};
+
+function stepFromPathname(pathname: string | null): OnboardingStep {
+  switch (pathname) {
+    case '/onboarding/profile':
+      return 2;
+    case '/onboarding/hours':
+      return 3;
+    case '/onboarding/services':
+      return 4;
+    case '/onboarding/tables':
+      return 5;
+    case '/onboarding/review':
+      return 6;
+    case '/onboarding':
+    default:
+      return 1;
+  }
+}
+
+function getMaxAccessibleStep(state: OnboardingState): OnboardingStep {
+  if (!state.account) {
+    return 1;
+  }
+
+  if (!state.restaurantId) {
+    return 2;
+  }
+
+  return 6;
+}
 
 const accountSchema = z
   .object({
@@ -830,9 +870,32 @@ function StepError() {
 }
 
 function OnboardingContent() {
-  const { state } = useOnboarding();
+  const { state, setStep } = useOnboarding();
+  const pathname = usePathname();
+  const router = useRouter();
+  const requestedStep = stepFromPathname(pathname);
+  const maxAccessibleStep = getMaxAccessibleStep(state);
+  const lastHandledPathRef = useRef<string | null>(null);
 
   const noop = () => { };
+
+  useEffect(() => {
+    if (lastHandledPathRef.current === pathname) {
+      return;
+    }
+    lastHandledPathRef.current = pathname;
+    const nextStep = requestedStep > maxAccessibleStep ? maxAccessibleStep : requestedStep;
+    if (state.step !== nextStep) {
+      setStep(nextStep);
+    }
+  }, [maxAccessibleStep, pathname, requestedStep, setStep, state.step]);
+
+  useEffect(() => {
+    const expectedPath = STEP_PATHS[state.step];
+    if (pathname !== expectedPath) {
+      router.replace(expectedPath);
+    }
+  }, [pathname, router, state.step]);
 
   return (
     <OnboardingShell steps={steps} current={state.step} title="Launch your restaurant in minutes">

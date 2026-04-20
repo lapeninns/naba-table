@@ -9,6 +9,13 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useRestaurants } from '@/hooks/ops/useRestaurants';
 
 import { CreateRestaurantDialog } from './CreateRestaurantDialog';
@@ -106,18 +113,21 @@ export function RestaurantsClient() {
           <Label htmlFor="restaurants-sort" className="text-sm font-medium text-foreground">
             Sort by
           </Label>
-          <select
-            id="restaurants-sort"
+          <Select
             value={sort}
-            onChange={(e) => {
-              setSort(e.target.value as 'name' | 'created_at');
+            onValueChange={(value) => {
+              setSort(value as 'name' | 'created_at');
               setPage(1);
             }}
-            className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
           >
-            <option value="name">Name (A-Z)</option>
-            <option value="created_at">Recently Created</option>
-          </select>
+            <SelectTrigger id="restaurants-sort" className="h-10">
+              <SelectValue placeholder="Sort restaurants" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="name">Name (A-Z)</SelectItem>
+              <SelectItem value="created_at">Recently Created</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 

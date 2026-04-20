@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
+import { opsHref } from '@/lib/url/opsHref';
 
 import { CustomersTable } from './CustomersTable';
 import { ExportCustomersButton } from './ExportCustomersButton';
@@ -130,7 +131,7 @@ export function OpsCustomersClient({
           description="Ask an owner or manager to send you an invitation so you can view customer data."
           action={
             <Button asChild variant="secondary">
-              <Link href="/guest/dashboard">Back to dashboard</Link>
+              <Link href={opsHref('/dashboard')}>Return to ops home</Link>
             </Button>
           }
         />

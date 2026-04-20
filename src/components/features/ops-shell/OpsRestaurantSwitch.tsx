@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { useOpsAccountSnapshot, useOpsSession } from '@/contexts/ops-session';
+import { useOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
 import { cn } from '@/lib/utils';
 import { debounce } from '@/utils/debounceThrottle';
 
@@ -63,6 +64,7 @@ type OpsRestaurantSwitchProps = {
 export function OpsRestaurantSwitch({ className }: OpsRestaurantSwitchProps) {
   const { memberships, activeMembership, activeRestaurantId, setActiveRestaurantId } = useOpsSession();
   const account = useOpsAccountSnapshot();
+  const { confirmNavigation } = useOpsUnsavedChanges();
 
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -110,6 +112,12 @@ export function OpsRestaurantSwitch({ className }: OpsRestaurantSwitchProps) {
   }, [debouncedSearch, memberships]);
 
   const handleSelect = (restaurantId: string) => {
+    if (
+      restaurantId !== activeRestaurantId &&
+      !confirmNavigation('You have unsaved changes for the current restaurant. Switch restaurants and discard them?')
+    ) {
+      return;
+    }
     setActiveRestaurantId(restaurantId);
     setOpen(false);
     setSearchTerm('');

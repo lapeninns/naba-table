@@ -1,10 +1,10 @@
 'use client';
 
 import { Beer, UtensilsCrossed } from 'lucide-react';
-import { useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useMemo } from 'react';
 
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
-import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
 import { Button } from '@/components/ui/button';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 
@@ -14,21 +14,30 @@ import { FoodMenuManagementPanel } from './FoodMenuManagementPanel';
 type CatalogMode = 'food' | 'drinks';
 
 export function OpsMenuManagementClient() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { memberships, activeRestaurantId } = useOpsSession();
   const activeMembership = useOpsActiveMembership();
-  const [catalogMode, setCatalogMode] = useState<CatalogMode>('food');
+  const catalogMode = useMemo<CatalogMode>(() => {
+    const current = searchParams?.get('catalog');
+    return current === 'drinks' ? 'drinks' : 'food';
+  }, [searchParams]);
+
+  const setCatalogMode = (nextMode: CatalogMode) => {
+    if (!pathname) {
+      return;
+    }
+    const nextQuery = new URLSearchParams(searchParams?.toString() ?? '');
+    nextQuery.set('catalog', nextMode);
+    router.replace(`${pathname}?${nextQuery.toString()}`, { scroll: false });
+  };
 
   const restaurantId =
     activeMembership?.restaurantId ??
     memberships.find((membership) => membership.restaurantId === activeRestaurantId)?.restaurantId ??
     memberships[0]?.restaurantId ??
     null;
-
-  const restaurantName =
-    activeMembership?.restaurantName ??
-    memberships.find((membership) => membership.restaurantId === activeRestaurantId)?.restaurantName ??
-    memberships[0]?.restaurantName ??
-    'Selected restaurant';
 
   if (memberships.length === 0) {
     return (
@@ -42,37 +51,35 @@ export function OpsMenuManagementClient() {
   }
 
   return (
-    <main className="space-y-6">
-      <OpsPageHeader
-        title="Menu"
-        subtitle="Manage both food and drink menus, nested modifiers, and spreadsheet imports."
-        meta={
-          <span className="text-xs text-muted-foreground">
-            Currently editing menu data for <span className="font-medium text-foreground">{restaurantName}</span>.
-          </span>
-        }
-        headingLevel="h2"
-        titleClassName="text-2xl"
-      />
+    <section className="space-y-4">
+      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Menu catalog">
+        <Button
+          type="button"
+          role="tab"
+          aria-selected={catalogMode === 'food'}
+          variant={catalogMode === 'food' ? 'default' : 'outline'}
+          onClick={() => setCatalogMode('food')}
+        >
+          <UtensilsCrossed className="mr-2 h-4 w-4" />
+          Food menu
+        </Button>
+        <Button
+          type="button"
+          role="tab"
+          aria-selected={catalogMode === 'drinks'}
+          variant={catalogMode === 'drinks' ? 'default' : 'outline'}
+          onClick={() => setCatalogMode('drinks')}
+        >
+          <Beer className="mr-2 h-4 w-4" />
+          Drinks menu
+        </Button>
+      </div>
 
-      <section className="space-y-4">
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" variant={catalogMode === 'food' ? 'default' : 'outline'} onClick={() => setCatalogMode('food')}>
-            <UtensilsCrossed className="mr-2 h-4 w-4" />
-            Food menu
-          </Button>
-          <Button type="button" variant={catalogMode === 'drinks' ? 'default' : 'outline'} onClick={() => setCatalogMode('drinks')}>
-            <Beer className="mr-2 h-4 w-4" />
-            Drinks menu
-          </Button>
-        </div>
-
-        {catalogMode === 'food' ? (
-          <FoodMenuManagementPanel restaurantId={restaurantId} />
-        ) : (
-          <DrinkMenuManagementPanel restaurantId={restaurantId} />
-        )}
-      </section>
-    </main>
+      {catalogMode === 'food' ? (
+        <FoodMenuManagementPanel restaurantId={restaurantId} />
+      ) : (
+        <DrinkMenuManagementPanel restaurantId={restaurantId} />
+      )}
+    </section>
   );
 }

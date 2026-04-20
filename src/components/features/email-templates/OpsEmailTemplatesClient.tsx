@@ -10,6 +10,7 @@ import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmpty
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useOpsEmailTemplatesPageState } from '@/hooks/ops/useOpsEmailTemplatesPageState';
+import { opsHref } from '@/lib/url/opsHref';
 import { cn } from '@/lib/utils';
 
 export function OpsEmailTemplatesClient() {
@@ -31,8 +32,8 @@ export function OpsEmailTemplatesClient() {
           description="You need access to at least one restaurant to manage guest-facing email templates."
           action={
             <Button asChild variant="secondary">
-              <Link href="/guest/dashboard" prefetch={false}>
-                Back to dashboard
+              <Link href={opsHref('/dashboard')} prefetch={false}>
+                Return to ops home
               </Link>
             </Button>
           }
@@ -53,7 +54,8 @@ export function OpsEmailTemplatesClient() {
   }
 
   const showSkeleton = state.templatesQuery.isLoading && !state.templatesQuery.data;
-  const previewErrorMessage = state.previewMutation.error instanceof Error ? state.previewMutation.error.message : null;
+  const previewErrorMessage =
+    state.previewMutation.error instanceof Error ? state.previewMutation.error.message : null;
 
   return (
     <section className="relative flex h-[calc(100vh-3.5rem)] min-h-[720px] w-full min-w-0 overflow-hidden bg-zinc-50 text-zinc-900">

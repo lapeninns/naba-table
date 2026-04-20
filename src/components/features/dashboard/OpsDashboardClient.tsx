@@ -8,6 +8,7 @@ import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmpty
 import { Button } from '@/components/ui/button';
 import { BookingStateMachineProvider } from '@/contexts/booking-state-machine';
 import { useMinimumDelay } from '@/hooks/use-minimum-delay';
+import { opsHref } from '@/lib/url/opsHref';
 import { getTodayInTimezone } from '@/lib/utils/datetime';
 
 import { DashboardErrorState } from './DashboardErrorState';
@@ -270,7 +271,7 @@ function NoAccessState() {
         description="Ask an owner or manager to send you an invitation so you can manage bookings."
         action={
           <Button variant="outline" size="sm" asChild>
-            <Link href="/guest/dashboard">Back to dashboard</Link>
+            <Link href={opsHref('/dashboard')}>Return to ops home</Link>
           </Button>
         }
       />

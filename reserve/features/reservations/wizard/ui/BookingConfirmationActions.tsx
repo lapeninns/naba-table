@@ -16,7 +16,8 @@ import { Button } from '@shared/ui/button';
 interface BookingConfirmationActionsProps {
   restaurantName: string;
   restaurantAddress?: string;
-  date: Date;
+  start: Date;
+  end: Date;
   partySize: number;
   bookingRef: string;
   onDownloadIcs?: () => void;
@@ -25,20 +26,18 @@ interface BookingConfirmationActionsProps {
 export function BookingConfirmationActions({
   restaurantName,
   restaurantAddress,
-  date,
+  start,
+  end,
   partySize,
   bookingRef,
   onDownloadIcs,
 }: BookingConfirmationActionsProps) {
-  // Calculate end time (assume 2 hours duration)
-  const endTime = new Date(date.getTime() + 2 * 60 * 60 * 1000);
-
   const eventDetails = {
     title: `Dinner at ${restaurantName}`,
     description: `Reservation Reference: ${bookingRef}\nParty Size: ${partySize}`,
     location: restaurantAddress || restaurantName,
-    start: date,
-    end: endTime,
+    start,
+    end,
   };
 
   const getGoogleCalendarUrl = () => {

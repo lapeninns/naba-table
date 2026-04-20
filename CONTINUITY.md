@@ -1,6 +1,6 @@
 # Continuity Ledger
 
-Last updated: 2026-04-18T21:03:00Z
+Last updated: 2026-04-20T16:00:00Z
 
 ## Goal (incl. success criteria)
 
@@ -11,6 +11,9 @@ Last updated: 2026-04-18T21:03:00Z
 - Success: old deep links continue to work via redirects and the new view is verified in Chrome DevTools.
 - Review changes on branch `codex/Menu` against merge base `2dbdce280a8ec516d03ac57fd42c063dc953e980` and return only concrete, actionable regressions.
 - Create analysis-only JSON bundles for the restaurant settings routes `/settings/restaurant/operating-hours`, `/settings/restaurant/service-periods`, and `/settings/restaurant/occasions`.
+- Create analysis-only JSON bundles for all restaurant settings routes under `/settings/restaurant`, with a dry-run inventory first.
+- Create one analysis-only JSON bundle covering all restaurant settings routes under `/settings/restaurant`.
+- Create one analysis-only JSON bundle covering all authenticated ops-facing routes under `/app`.
 - Implement a first-class Google Business Profile connection flow in the Nabatable ops dashboard.
 - Success: a restaurant admin can authorize Google, return safely to Nabatable, and choose which GBP location links to the current restaurant.
 - Success: Nabatable stores provider credentials and OAuth state securely without creating a second restaurant business-data model.
@@ -41,6 +44,14 @@ Last updated: 2026-04-18T21:03:00Z
 - Success: profile feels cleaner, Business Context is explicitly advanced, and GBP becomes a first-class settings destination in the sidebar.
 - Dry-run a UX cleanup for the Google Business Profile overview tab so `Workspace logic` is removed and the overview content is recategorized before any runtime edits.
 - Success: agree on a clearer overview taxonomy for connection, sync health, and profile review without changing workflow behavior during the dry run.
+- Implement a first tranche of route and booking-wizard hardening from the uploaded frontend architecture snapshot.
+- Success: ops route targets stop mixing bare settings paths with `/app` paths in the touched canonical flows.
+- Success: dead-end seating/floor-plan routes land on the tables workflow instead of the dashboard.
+- Success: walk-in confirmation clearly returns staff to bookings, sticky wizard navigation no longer covers content, and late restaurant metadata hydrates safely.
+- Success: no-access ops CTAs stay inside the ops product, non-actionable status badges stop adding tab stops, and shared buttons default to `type="button"`.
+- Fix the ops admin account-switch regression where content and restaurant context can stick to the previous authenticated account.
+- Success: switching to a different ops account in the same browser resolves a valid restaurant for the new account instead of preserving stale previous-account selection.
+- Success: downstream ops views and labels no longer render previous-account context after auth changes.
 
 ## Constraints/Assumptions
 
@@ -54,6 +65,9 @@ Last updated: 2026-04-18T21:03:00Z
 - Remote DB migration application may be unavailable even when the staging app itself works, so the GBP route needs a compatibility path before the new verification table exists in the remote schema cache.
 - The user has now explicitly chosen a product direction where the GBP page is read-only for verification and connection management, not a CRUD workspace.
 - The route-analysis task must not modify runtime implementations; only task artifacts may be created.
+- The expanded route-analysis request should dry-run the full restaurant-settings page inventory before generating any new JSON artifacts.
+- The expanded route-analysis request now calls for a single consolidated JSON artifact instead of per-route files.
+- The ops-frontend analysis pass should treat `src/app/app/(app)` as the authenticated ops workspace and exclude auth entry routes unless explicitly requested.
 - The user has now asked to expand the canonical GBP schema so all currently fetched GBP data has a home in Nabatable core tables before the next CRUD UI phase.
 - The user now wants the current-branch left-column summary treatment removed from the availability and GBP settings pages after checking whether it existed on `main`.
 - The current request is planning-first: produce a dry-run categorization for the GBP overview tab before changing runtime UI.
@@ -61,6 +75,9 @@ Last updated: 2026-04-18T21:03:00Z
 - The user clarified that they first wanted a full section inventory across `Overview`, `Hours & services`, and `Attributes & context`, then a cleanup pass that removes redundant sections/copy.
 - The user then chose the single-page model over the tabbed model for the final GBP layout.
 - The user then asked for a dry-run redundancy pass on the single-page section ordering and removal of anything clearly duplicated.
+- The current request is a focused remediation tranche from a broader frontend UX snapshot; full IA redesign items remain out of scope for this pass.
+- The current request is a regression fix focused on cross-account stale ops state after sign-out/sign-in in the same browser.
+- The current request also includes a focused navigation-performance cleanup across the root app shell, ops sidebar navigation, and public restaurants routes.
 
 ## Key decisions
 
@@ -76,6 +93,13 @@ Last updated: 2026-04-18T21:03:00Z
 
 ## State
 
+- A new task folder has been created at `tasks/old-school-house-table-tripling-20260420-1553/` for a one-off production Old School House table-layout expansion.
+- Production `The Old School House` table inventory was expanded from 18 to 54 tables using `scripts/triple-old-school-house-production-tables.ts`.
+- The final production readback confirms 54 total / 54 active tables, a `2:12 / 4:39 / 7:3` capacity mix, and live table numbers through `54`.
+- The first apply attempt safely rolled back after a `table_adjacencies_pkey` conflict revealed that production now regenerates adjacency canonically from `table_inventory` zone triggers.
+- The final successful apply left `restaurants.capacity` unchanged at 50 and allowed production to rebuild adjacency to 396 rows based on movable eligible tables per zone.
+- A new task folder has been created at `tasks/ux-ui-remediation-20260419-0814/` for the implementation pass that follows the architecture review.
+- A new task folder has been created at `tasks/ux-ui-architecture-review-20260419-0809/` for an analysis-only frontend UX/UI architecture review.
 - A new task folder has been created at `tasks/availability-occasions-command-center-20260418-1825/` for the restaurant-settings consolidation.
 - The new canonical `Availability & Occasions` settings route is now implemented with a composed command-center layout, updated navigation, and redirect-only legacy split routes.
 - The availability command center now ships as one workflow-owned page: weekly operating hours CRUD, nested lunch/dinner service-window CRUD, date override CRUD, and booking occasion CRUD live together behind one top-level save action.
@@ -86,6 +110,26 @@ Last updated: 2026-04-18T21:03:00Z
 - The dev harness occasion seed now includes builtin active `Lunch` and `Dinner` entries so the unified service-window controls render in their intended enabled state during local QA.
 - A new task folder has been created at `tasks/gbp-build-delete-chain-20260418-1647/` for the GBP build regression in `server/google-business-profile/business-info.ts`.
 - A new task folder has been created at `tasks/restaurant-settings-analysis-20260418-1743/` for route-scoped JSON source bundles covering operating hours, service periods, and occasions.
+- A new task folder has been created at `tasks/restaurant-settings-analysis-all-pages-20260418-2255/` for route-scoped JSON source bundles covering all restaurant settings pages.
+- The consolidated restaurant-settings analysis artifact now exists at `tasks/restaurant-settings-analysis-all-pages-20260418-2255/artifacts/restaurant-settings-analysis.json`.
+- A new task folder has been created at `tasks/ops-frontend-analysis-20260419-1033/` for a consolidated authenticated ops frontend source bundle.
+- The consolidated authenticated ops frontend analysis artifact now exists at `tasks/ops-frontend-analysis-20260419-1033/artifacts/ops-facing-analysis.json`.
+- The bundle covers 24 ops app page entries under `src/app/app/(app)` and includes traced components, hooks, utilities, and matched API route handlers with full source contents.
+- A new task folder has been created at `tasks/ops-route-wizard-hardening-20260419-1059/` for the first implementation tranche from the frontend architecture snapshot.
+- Validation confirms the targeted issues are present in the current code: mixed bare vs `/app` ops hrefs, dead-end seating/floor-plan redirects, one-time wizard initial hydration, unused sticky footer height, hard-coded ops confirmation close routing, focusable status badges, and no-access CTAs into `/guest/dashboard`.
+- The first ops route/wizard hardening tranche is now implemented:
+  - shared `opsHref`/`normalizeOpsPathname` helper added under `lib/url/`
+  - touched ops settings links and legacy redirects now point at canonical `/app/...` ops routes
+  - dead-end seating/floor-plan pages now target tables instead of dashboard
+  - walk-in confirmation now surfaces `Back to bookings`, uses the provided return path, and passes the real reservation window to calendar actions
+  - wizard layout now applies measured footer height for bottom spacing
+  - ops no-access CTAs now stay in ops, status badges no longer add tab stops, and shared buttons default to `type="button"`
+- Focused verification now passes for the code path:
+  - `pnpm exec tsc --noEmit --pretty false`
+  - focused ESLint on touched files
+  - `pnpm exec vitest run tests/lib/opsHref.test.ts tests/components/ButtonAndBadge.test.tsx`
+- Chrome DevTools proof captured settings-harness and mobile confirmation artifacts under `tasks/ops-route-wizard-hardening-20260419-1059/artifacts/`.
+- Residual blocker for pristine browser proof: the public `ops-new-booking` dev harness still emits pre-existing calendar-mask/schedule 404s, so confirmation-step proof used a direct state dispatch after the real shell rendered.
 - A new task folder has been created at `tasks/restaurant-settings-left-summary-removal-20260418-1908/` for removing the extra left summary rail from the new availability and GBP settings pages.
 - Comparison against `main` shows that the exact `/settings/restaurant/availability` and `/settings/restaurant/google-business-profile` routes do not exist there; the left-column summary treatment is part of the current branch implementation.
 - The availability page now renders as a single primary workspace column with the previous left summary rail removed.
@@ -204,10 +248,40 @@ Last updated: 2026-04-18T21:03:00Z
 - A new task folder has been created at `tasks/review-findings-menu-gbp-routes-20260418-1959/` for the approved menu/drink create and GBP host fixes.
 - Menu and drink create routes now reject duplicate external IDs with explicit `409` conflicts before the shared upsert RPC runs, preventing silent overwrite on operator create flows.
 - GBP connect and callback routes now preserve the request or forwarded origin through a shared helper instead of rewriting to `app.${NEXT_PUBLIC_ROOT_DOMAIN}`.
+- A new task folder has been created at `tasks/ops-admin-account-switch-state-reset-20260419-1418/` for the stale ops account-context regression.
+- Initial diagnosis points at `src/contexts/ops-session.tsx`: the provider initializes persisted restaurant state once and may retain stale selection across authenticated account prop changes.
+- The implemented fix ultimately landed in `src/components/features/ops-shell/OpsShell.tsx`, where the routed ops content subtree is now keyed by authenticated user id plus active restaurant id so stale page state cannot survive account or restaurant switches.
+- Focused verification for the account-switch regression now passes:
+  - `pnpm exec vitest run tests/components/OpsShell.test.tsx`
+  - `pnpm exec tsc --noEmit --pretty false`
+  - `pnpm exec eslint src/components/features/ops-shell/OpsShell.tsx tests/components/OpsShell.test.tsx`
+- Chrome DevTools proof for the shell switcher now exists under `tasks/ops-admin-account-switch-state-reset-20260419-1418/artifacts/`, using the public `http://localhost:3000/dev/ops-navigation` harness because the `/app`-host dev route redirected to sign-in in this environment.
 - Focused route regression tests now cover duplicate create conflicts and environment-sticky GBP connect/callback redirects, and the targeted Vitest, TypeScript, and ESLint verification path has passed.
+- A new task folder has been created at `tasks/navigation-performance-cleanup-20260419-1556/` for the route-speed cleanup pass.
+- The navigation cleanup is now implemented:
+  - removed the root app-shell `force-dynamic`
+  - restored primary ops-sidebar prefetch
+  - added loading boundaries for `src/app/app/(app)` and public restaurants
+  - removed duplicate auth/data work from dashboard, new-bookings, and tables pages
+  - removed explicit `force-dynamic` from public restaurants pages and added request-scoped restaurant lookup memoization
+- Focused ESLint and full `pnpm exec tsc --noEmit --pretty false` now pass for the touched navigation files.
+- Chrome DevTools proof for the navigation cleanup now exists under `tasks/navigation-performance-cleanup-20260419-1556/artifacts/`, including restaurants list/detail/booking captures, an ops-navigation harness capture, a Lighthouse snapshot, and a performance trace.
+- Residual dev-only issue observed during verification: the public booking route still requests one missing reservation-wizard chunk and surfaces three unlabeled form fields, but the page still renders and those findings are outside this cleanup's touched codepath.
+- A new task folder has been created at `tasks/settings-ux-remediation-20260420-1340/` for tranche 1 of the restaurant-settings UX remediation implementation.
+- The settings-ux remediation tranche is now implemented:
+  - `RestaurantSettingsPageShell` is a client component that derives the title/description/eyebrow from the active nav item, renders the persistent restaurant context chip, and mounts `RestaurantSettingsSubnav` once per route.
+  - `OpsRestaurantSettingsClient` and `OpsMenuManagementClient` no longer render their own `OpsPageHeader` or nested `<main>`.
+  - `/app/settings/tables` has been replaced by `/app/settings/restaurant/tables`, with a legacy redirect and updated sidebar, subnav, and seating/floor-plan redirect targets.
+  - A shared `ConfirmDialog` (built on Shadcn `AlertDialog`) replaces all restaurant-settings and menu `window.confirm` calls: occasion delete, duration reset, menu/drink sheet close-while-dirty and explicit cancel, and panel-level switch-while-dirty.
+  - `TurnDurationsSection` now registers with `useRegisterOpsUnsavedChanges` so its dirty state participates in the global ops navigation guard.
+- Focused ESLint (after auto-fix of two import-order warnings) and full `npx tsc --noEmit` now pass for the tranche.
+- Four follow-on task folders are stubbed with research/plan/todo/verification scaffolding: `tasks/gbp-settings-hero-restructure-20260420-1340`, `tasks/profile-business-context-split-20260420-1340`, `tasks/settings-inpage-jump-navs-20260420-1340`, `tasks/settings-responsive-qa-pass-20260420-1340`.
 
 ## Done
 
+- Grouped the requested UX/UI fixes into root-cause buckets: settings IA cleanup, dirty-state protection, onboarding persistence, menu-flow cleanup, and guest/booking IA simplification.
+- Read the root, `src/app`, and `src/components` AGENTS policies plus the repo-local task-harness skill for this review.
+- Inspected the main frontend route shells covering onboarding, guest/public bookings, ops sidebar navigation, and restaurant settings sub-navigation.
 - Created the `review-findings-menu-gbp-routes-20260418-1959` task folder with current-state research, plan, todo, verification, and artifacts stubs.
 - Added create-only duplicate external-id guards for menu and drink POST routes on the canonical ops API path.
 - Added `src/app/api/ops/google-business-profile/_origin.ts` and rewired the GBP connect/callback routes to preserve the initiating origin.
@@ -301,11 +375,17 @@ Last updated: 2026-04-18T21:03:00Z
 
 ## Now
 
-- Summarize the implemented GBP IA cleanup and verification results for the user.
+- Tranche 1 of the restaurant-settings UX remediation (`tasks/settings-ux-remediation-20260420-1340/`) is implemented (see prior entry).
+- Tranche 2 is now also implemented across three of the four stubbed follow-on task folders:
+  - `tasks/settings-inpage-jump-navs-20260420-1340/` — new shared `SettingsJumpNav` component (sticky desktop vertical rail + mobile/tablet sticky horizontal pill strip) with `IntersectionObserver`-driven active-state tracking, smooth scroll, and URL hash sync. Wired into Restaurant Profile and the GBP settings page. Availability command-center nav was intentionally kept as tabs for this pass (see task `todo.md`).
+  - `tasks/profile-business-context-split-20260420-1340/` — anchor IDs added to each workflow banner inside `RestaurantDetailsForm` (`profile-identity`, `profile-booking`, `profile-notifications`) and to the Advanced card (`profile-advanced`) so the rail can target them. Business Context remains demoted behind the Advanced accordion.
+  - `tasks/gbp-settings-hero-restructure-20260420-1340/` — hero reorganized into a scannable three-band layout (status/title/actions, then `Connection / Alignment / Latest snapshot`). Removed the redundant `Google account / Linked location / Discovery` triple and the duplicate `Drift / Notes / Snapshot` triple under the Sync section. Replaced the local pill-bar jump nav with the shared `SettingsJumpNav`.
+- Focused ESLint (one import-order autofix) and full `npx tsc --noEmit` both pass on the touched files.
 
 ## Next
 
-- If requested, continue with adjacent restaurant-settings polish such as the low-contrast subnav descriptive text flagged by Lighthouse.
+- `tasks/settings-responsive-qa-pass-20260420-1340/` remains deferred until the authenticated ops harness / DevTools MCP session is available; task `todo.md` spells out what to re-run when unblocked.
+- Optional follow-ups captured inside `tasks/gbp-settings-hero-restructure-20260420-1340/todo.md`: (a) surface inline per-field diff values next to drifted profile fields in the alignment panel, (b) add a dedicated `reauth_required` reconnect banner beneath the hero when that state fires.
 
 ## Open questions (UNCONFIRMED if needed)
 
@@ -315,6 +395,8 @@ Last updated: 2026-04-18T21:03:00Z
 
 - /Users/amankumarshrestha/LapenInns Project/nabatableLP/AGENTS.md
 - /Users/amankumarshrestha/LapenInns Project/nabatableLP/CONTINUITY.md
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/scripts/triple-old-school-house-production-tables.ts
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/old-school-house-table-tripling-20260420-1553/verification.md
 - /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/app/app/(app)/settings/restaurant/availability/page.tsx
 - /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/app/app/(app)/settings/restaurant/operating-hours/page.tsx
 - /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/app/app/(app)/settings/restaurant/service-periods/page.tsx
@@ -365,3 +447,18 @@ Last updated: 2026-04-18T21:03:00Z
 - /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/gbp-settings-ui-refresh-20260418-1548/plan.md
 - /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/gbp-settings-ui-refresh-20260418-1548/todo.md
 - /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/gbp-settings-ui-refresh-20260418-1548/verification.md
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/ux-ui-architecture-review-20260419-0809/research.md
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/ux-ui-architecture-review-20260419-0809/plan.md
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/ux-ui-architecture-review-20260419-0809/todo.md
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/ux-ui-architecture-review-20260419-0809/verification.md
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/ux-ui-remediation-20260419-0814/research.md
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/ux-ui-remediation-20260419-0814/plan.md
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/ux-ui-remediation-20260419-0814/todo.md
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/ux-ui-remediation-20260419-0814/verification.md
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/app/onboarding/\*\*
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/features/onboarding/\*\*
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/features/ops-shell/\*\*
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/features/restaurant-settings/\*\*
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/app/(public)/bookings/\*\*
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/app/guest/\*\*
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/layouts/GuestNavbar.tsx

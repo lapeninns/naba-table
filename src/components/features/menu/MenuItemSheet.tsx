@@ -1,8 +1,15 @@
 'use client';
 
 import { Plus, Trash2 } from 'lucide-react';
-import { cloneElement, isValidElement, useEffect, useId, useState } from 'react';
+import { cloneElement, isValidElement, useEffect, useId, useMemo, useRef, useState } from 'react';
 
+import { ConfirmDialog } from '@/components/features/restaurant-settings/ConfirmDialog';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,6 +44,7 @@ export function MenuItemSheet({
   isLoading,
   isSaving,
   facets,
+  onDirtyChange,
   onSubmit,
 }: {
   open: boolean;
@@ -45,16 +53,30 @@ export function MenuItemSheet({
   isLoading: boolean;
   isSaving: boolean;
   facets: MenuFacetSet;
+  onDirtyChange?: (dirty: boolean) => void;
   onSubmit: (payload: MenuItemUpsertInput) => Promise<void>;
 }) {
   const [form, setForm] = useState<MenuItemFormState>(createEmptyMenuItemFormState());
   const [formError, setFormError] = useState<string | null>(null);
+  const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
+  const loadedSourceKeyRef = useRef<string>('new');
+  const sourceKey = item?.id ?? 'new';
+  const baselineSnapshot = useMemo(() => JSON.stringify(createMenuItemFormState(item)), [item]);
+  const currentSnapshot = useMemo(() => JSON.stringify(form), [form]);
+  const isDirty = currentSnapshot !== baselineSnapshot;
 
   useEffect(() => {
     if (!open) return;
-    setForm(createMenuItemFormState(item));
-    setFormError(null);
-  }, [item, open]);
+    if (loadedSourceKeyRef.current !== sourceKey || !isDirty) {
+      loadedSourceKeyRef.current = sourceKey;
+      setForm(createMenuItemFormState(item));
+      setFormError(null);
+    }
+  }, [item, open, sourceKey, isDirty]);
+
+  useEffect(() => {
+    onDirtyChange?.(open && isDirty);
+  }, [isDirty, onDirtyChange, open]);
 
   const updateField = <K extends keyof MenuItemFormState>(key: K, value: MenuItemFormState[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -71,8 +93,25 @@ export function MenuItemSheet({
     }
   };
 
+  const handleSheetOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen && isDirty) {
+      setDiscardDialogOpen(true);
+      return;
+    }
+
+    onOpenChange(nextOpen);
+  };
+
+  const handleCancel = () => {
+    if (isDirty) {
+      setDiscardDialogOpen(true);
+      return;
+    }
+    onOpenChange(false);
+  };
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={handleSheetOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-4xl">
         <SheetHeader>
           <SheetTitle>{item ? 'Edit menu item' : 'New menu item'}</SheetTitle>
@@ -95,9 +134,6 @@ export function MenuItemSheet({
 
               <FormSection title="Basics" description="Core identity, categorization, price, and availability.">
                 <div className="grid gap-4 md:grid-cols-2">
-                  <Field label="External item ID">
-                    <Input value={form.externalItemId} onChange={(event) => updateField('externalItemId', event.target.value)} />
-                  </Field>
                   <Field label="Item name">
                     <Input value={form.itemName} onChange={(event) => updateField('itemName', event.target.value)} />
                   </Field>
@@ -145,12 +181,6 @@ export function MenuItemSheet({
                         Unavailable
                       </Button>
                     </div>
-                  </Field>
-                  <Field label="Display order">
-                    <Input value={form.displayOrder} onChange={(event) => updateField('displayOrder', event.target.value)} />
-                  </Field>
-                  <Field label="Image URL" className="md:col-span-2">
-                    <Input value={form.imageUrl} onChange={(event) => updateField('imageUrl', event.target.value)} />
                   </Field>
                 </div>
               </FormSection>
@@ -218,12 +248,6 @@ export function MenuItemSheet({
                   <Field label="May contain allergens">
                     <Textarea value={form.allergensMayContain} onChange={(event) => updateField('allergensMayContain', event.target.value)} rows={3} />
                   </Field>
-                  <Field label="Signature score">
-                    <Input value={form.signatureScore} onChange={(event) => updateField('signatureScore', event.target.value)} />
-                  </Field>
-                  <Field label="Popularity score">
-                    <Input value={form.popularityScore} onChange={(event) => updateField('popularityScore', event.target.value)} />
-                  </Field>
                 </div>
               </FormSection>
 
@@ -244,6 +268,33 @@ export function MenuItemSheet({
                   <ToggleField label="Sold out" checked={form.soldOut} onCheckedChange={(checked) => updateField('soldOut', checked)} />
                 </div>
               </FormSection>
+
+              <Accordion type="single" collapsible className="rounded-lg border border-border/60 px-4">
+                <AccordionItem value="advanced-metadata" className="border-none">
+                  <AccordionTrigger className="text-left text-sm font-medium">
+                    Advanced metadata
+                  </AccordionTrigger>
+                  <AccordionContent className="pt-2">
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <Field label="External item ID">
+                        <Input value={form.externalItemId} onChange={(event) => updateField('externalItemId', event.target.value)} />
+                      </Field>
+                      <Field label="Display order">
+                        <Input value={form.displayOrder} onChange={(event) => updateField('displayOrder', event.target.value)} />
+                      </Field>
+                      <Field label="Signature score">
+                        <Input value={form.signatureScore} onChange={(event) => updateField('signatureScore', event.target.value)} />
+                      </Field>
+                      <Field label="Popularity score">
+                        <Input value={form.popularityScore} onChange={(event) => updateField('popularityScore', event.target.value)} />
+                      </Field>
+                      <Field label="Image URL" className="md:col-span-2">
+                        <Input value={form.imageUrl} onChange={(event) => updateField('imageUrl', event.target.value)} />
+                      </Field>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
 
               <FormSection title="Modifiers" description="Nested modifier groups and options.">
                 <div className="space-y-4">
@@ -489,7 +540,7 @@ export function MenuItemSheet({
         </div>
 
         <SheetFooter className="border-t border-border/60">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
+          <Button type="button" variant="outline" onClick={handleCancel} disabled={isSaving}>
             Cancel
           </Button>
           <Button type="button" onClick={() => void handleSubmit()} disabled={isSaving || isLoading}>
@@ -497,6 +548,20 @@ export function MenuItemSheet({
           </Button>
         </SheetFooter>
       </SheetContent>
+
+      <ConfirmDialog
+        open={discardDialogOpen}
+        onOpenChange={setDiscardDialogOpen}
+        title="Discard unsaved menu item changes?"
+        description="Any edits to this menu item will be lost. This cannot be undone."
+        confirmLabel="Discard changes"
+        cancelLabel="Keep editing"
+        tone="destructive"
+        onConfirm={() => {
+          setDiscardDialogOpen(false);
+          onOpenChange(false);
+        }}
+      />
     </Sheet>
   );
 }

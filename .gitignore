@@ -44,6 +44,7 @@ test_single_output.log
 
 # temporary directories
 tmp/
+tasks/
 
 # backups
 /backups/

@@ -10,7 +10,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -19,6 +25,7 @@ import {
   useOpsRestaurantBusinessContext,
   useOpsUpdateRestaurantBusinessContext,
 } from '@/hooks/ops/useOpsRestaurantBusinessContext';
+import { opsHref } from '@/lib/url/opsHref';
 
 import { SettingsCard } from './shared/SettingsCard';
 
@@ -247,9 +254,15 @@ function SummaryBadges({
 }) {
   return (
     <div className="flex flex-wrap gap-2">
-      <Badge variant="outline">{coreCount} core row{coreCount === 1 ? '' : 's'}</Badge>
-      <Badge variant="outline">{providerCount} GBP row{providerCount === 1 ? '' : 's'}</Badge>
-      <Badge variant="secondary">{seedSource === 'provider' ? 'Seeded from GBP' : 'Canonical core'}</Badge>
+      <Badge variant="outline">
+        {coreCount} core row{coreCount === 1 ? '' : 's'}
+      </Badge>
+      <Badge variant="outline">
+        {providerCount} GBP row{providerCount === 1 ? '' : 's'}
+      </Badge>
+      <Badge variant="secondary">
+        {seedSource === 'provider' ? 'Seeded from GBP' : 'Canonical core'}
+      </Badge>
     </div>
   );
 }
@@ -287,9 +300,15 @@ export function RestaurantBusinessContextSection({
     }
 
     const nextCategories = cloneFamily(data.core.categories, data.providerSnapshot.categories);
-    const nextServiceAreas = cloneFamily(data.core.serviceAreas, data.providerSnapshot.serviceAreas);
+    const nextServiceAreas = cloneFamily(
+      data.core.serviceAreas,
+      data.providerSnapshot.serviceAreas,
+    );
     const nextAttributes = cloneFamily(data.core.attributes, data.providerSnapshot.attributes);
-    const nextServiceItems = cloneFamily(data.core.serviceItems, data.providerSnapshot.serviceItems);
+    const nextServiceItems = cloneFamily(
+      data.core.serviceItems,
+      data.providerSnapshot.serviceItems,
+    );
 
     setCategories(toCategoryEditors(nextCategories.rows));
     setServiceAreas(toServiceAreaEditors(nextServiceAreas.rows));
@@ -485,7 +504,8 @@ export function RestaurantBusinessContextSection({
   if (contextQuery.isLoading && !contextQuery.data) {
     return renderFrame({
       title: 'Business Context',
-      description: 'Manage categories, service areas, attributes, and service items stored in core.',
+      description:
+        'Manage categories, service areas, attributes, and service items stored in core.',
       children: (
         <div className="space-y-4">
           <Skeleton className="h-20 w-full" />
@@ -499,13 +519,19 @@ export function RestaurantBusinessContextSection({
   if (contextQuery.error) {
     return renderFrame({
       title: 'Business Context',
-      description: 'Manage categories, service areas, attributes, and service items stored in core.',
+      description:
+        'Manage categories, service areas, attributes, and service items stored in core.',
       children: (
         <Alert variant="destructive">
           <AlertTitle>Unable to load business context</AlertTitle>
           <AlertDescription className="flex items-center justify-between gap-4">
             <span>{contextQuery.error.message}</span>
-            <Button type="button" variant="outline" size="sm" onClick={() => contextQuery.refetch()}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => contextQuery.refetch()}
+            >
               Retry
             </Button>
           </AlertDescription>
@@ -526,7 +552,10 @@ export function RestaurantBusinessContextSection({
             <p>
               This editor writes Nabatable-owned rows in the canonical business-context tables. The
               latest fetched Google snapshot stays read-only on the{' '}
-              <Link href="/settings/restaurant/google-business-profile" className="underline">
+              <Link
+                href={opsHref('/settings/restaurant/google-business-profile')}
+                className="underline"
+              >
                 Google Business Profile page
               </Link>
               .
@@ -538,7 +567,11 @@ export function RestaurantBusinessContextSection({
           </AlertDescription>
         </Alert>
 
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as FamilyKey)} className="space-y-4">
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => setActiveTab(value as FamilyKey)}
+          className="space-y-4"
+        >
           <TabsList className="grid h-auto w-full grid-cols-2 p-1 lg:grid-cols-4">
             <TabsTrigger value="categories">Categories</TabsTrigger>
             <TabsTrigger value="serviceAreas">Service areas</TabsTrigger>
@@ -565,28 +598,57 @@ export function RestaurantBusinessContextSection({
               <div key={row.id} className="space-y-4 rounded-xl border border-border/60 p-4">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm font-medium text-foreground">Category {index + 1}</p>
-                  <Button type="button" variant="ghost" size="sm" onClick={() => {
-                    setCategories((current) => current.filter((item) => item.id !== row.id));
-                    markDirty('categories');
-                  }}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setCategories((current) => current.filter((item) => item.id !== row.id));
+                      markDirty('categories');
+                    }}
+                  >
                     <Trash2 className="size-4" />
                     Remove
                   </Button>
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor={makeFieldId('categories', row.id, 'displayName')}>Display name</Label>
-                    <Input id={makeFieldId('categories', row.id, 'displayName')} value={row.displayName} onChange={(event) => {
-                      setCategories((current) => current.map((item) => item.id === row.id ? { ...item, displayName: event.target.value } : item));
-                      markDirty('categories');
-                    }} />
+                    <Label htmlFor={makeFieldId('categories', row.id, 'displayName')}>
+                      Display name
+                    </Label>
+                    <Input
+                      id={makeFieldId('categories', row.id, 'displayName')}
+                      value={row.displayName}
+                      onChange={(event) => {
+                        setCategories((current) =>
+                          current.map((item) =>
+                            item.id === row.id
+                              ? { ...item, displayName: event.target.value }
+                              : item,
+                          ),
+                        );
+                        markDirty('categories');
+                      }}
+                    />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor={makeFieldId('categories', row.id, 'categoryCode')}>Category code</Label>
-                    <Input id={makeFieldId('categories', row.id, 'categoryCode')} value={row.categoryCode} onChange={(event) => {
-                      setCategories((current) => current.map((item) => item.id === row.id ? { ...item, categoryCode: event.target.value } : item));
-                      markDirty('categories');
-                    }} />
+                    <Label htmlFor={makeFieldId('categories', row.id, 'categoryCode')}>
+                      Category code
+                    </Label>
+                    <Input
+                      id={makeFieldId('categories', row.id, 'categoryCode')}
+                      value={row.categoryCode}
+                      onChange={(event) => {
+                        setCategories((current) =>
+                          current.map((item) =>
+                            item.id === row.id
+                              ? { ...item, categoryCode: event.target.value }
+                              : item,
+                          ),
+                        );
+                        markDirty('categories');
+                      }}
+                    />
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -595,41 +657,85 @@ export function RestaurantBusinessContextSection({
                     aria-labelledby={makeFieldId('categories', row.id, 'isPrimary-label')}
                     checked={row.isPrimary}
                     onCheckedChange={(checked) => {
-                      setCategories((current) => current.map((item) => item.id === row.id ? { ...item, isPrimary: checked } : item));
+                      setCategories((current) =>
+                        current.map((item) =>
+                          item.id === row.id ? { ...item, isPrimary: checked } : item,
+                        ),
+                      );
                       markDirty('categories');
                     }}
                   />
-                  <Label id={makeFieldId('categories', row.id, 'isPrimary-label')} htmlFor={makeFieldId('categories', row.id, 'isPrimary')}>
+                  <Label
+                    id={makeFieldId('categories', row.id, 'isPrimary-label')}
+                    htmlFor={makeFieldId('categories', row.id, 'isPrimary')}
+                  >
                     Primary category
                   </Label>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor={makeFieldId('categories', row.id, 'moreHoursTypesJson')}>Supported more-hours types JSON</Label>
-                  <Textarea id={makeFieldId('categories', row.id, 'moreHoursTypesJson')} value={row.moreHoursTypesJson} rows={5} onChange={(event) => {
-                    setCategories((current) => current.map((item) => item.id === row.id ? { ...item, moreHoursTypesJson: event.target.value } : item));
-                    markDirty('categories');
-                  }} />
+                  <Label htmlFor={makeFieldId('categories', row.id, 'moreHoursTypesJson')}>
+                    Supported more-hours types JSON
+                  </Label>
+                  <Textarea
+                    id={makeFieldId('categories', row.id, 'moreHoursTypesJson')}
+                    value={row.moreHoursTypesJson}
+                    rows={5}
+                    onChange={(event) => {
+                      setCategories((current) =>
+                        current.map((item) =>
+                          item.id === row.id
+                            ? { ...item, moreHoursTypesJson: event.target.value }
+                            : item,
+                        ),
+                      );
+                      markDirty('categories');
+                    }}
+                  />
                 </div>
               </div>
             ))}
 
             <div className="flex flex-wrap gap-3">
-              <Button type="button" variant="outline" onClick={() => {
-                setCategories((current) => [...current, { id: makeEditorId('category'), displayName: '', categoryCode: '', isPrimary: false, moreHoursTypesJson: '' }]);
-                markDirty('categories');
-              }}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setCategories((current) => [
+                    ...current,
+                    {
+                      id: makeEditorId('category'),
+                      displayName: '',
+                      categoryCode: '',
+                      isPrimary: false,
+                      moreHoursTypesJson: '',
+                    },
+                  ]);
+                  markDirty('categories');
+                }}
+              >
                 <Plus className="size-4" />
                 Add category
               </Button>
-              <Button type="button" variant="outline" onClick={() => resetFamily('categories')} disabled={!dirty.categories}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => resetFamily('categories')}
+                disabled={!dirty.categories}
+              >
                 <RotateCcw className="size-4" />
                 Reset draft
               </Button>
-              <Button type="button" onClick={() => saveFamily('categories')} disabled={!dirty.categories || savingFamily === 'categories'}>
+              <Button
+                type="button"
+                onClick={() => saveFamily('categories')}
+                disabled={!dirty.categories || savingFamily === 'categories'}
+              >
                 Save categories
               </Button>
             </div>
-            {errors.categories ? <p className="text-sm text-destructive">{errors.categories}</p> : null}
+            {errors.categories ? (
+              <p className="text-sm text-destructive">{errors.categories}</p>
+            ) : null}
           </TabsContent>
 
           <TabsContent value="serviceAreas" className="space-y-4">
@@ -638,71 +744,151 @@ export function RestaurantBusinessContextSection({
               <p className="text-xs text-muted-foreground">
                 {formatSeedSource(seedSource.serviceAreas, providerCounts.serviceAreas)}
               </p>
-              <SummaryBadges coreCount={coreCounts.serviceAreas} providerCount={providerCounts.serviceAreas} seedSource={seedSource.serviceAreas} />
+              <SummaryBadges
+                coreCount={coreCounts.serviceAreas}
+                providerCount={providerCounts.serviceAreas}
+                seedSource={seedSource.serviceAreas}
+              />
             </div>
 
             {serviceAreas.map((row) => (
               <div key={row.id} className="space-y-4 rounded-xl border border-border/60 p-4">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-medium text-foreground">{row.displayName || 'New service area'}</p>
-                  <Button type="button" variant="ghost" size="sm" onClick={() => {
-                    setServiceAreas((current) => current.filter((item) => item.id !== row.id));
-                    markDirty('serviceAreas');
-                  }}>
+                  <p className="text-sm font-medium text-foreground">
+                    {row.displayName || 'New service area'}
+                  </p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setServiceAreas((current) => current.filter((item) => item.id !== row.id));
+                      markDirty('serviceAreas');
+                    }}
+                  >
                     <Trash2 className="size-4" />
                     Remove
                   </Button>
                 </div>
                 <div className="grid gap-4 md:grid-cols-3">
                   <div className="space-y-2">
-                    <Label htmlFor={makeFieldId('serviceAreas', row.id, 'displayName')}>Display name</Label>
-                    <Input id={makeFieldId('serviceAreas', row.id, 'displayName')} value={row.displayName} onChange={(event) => {
-                      setServiceAreas((current) => current.map((item) => item.id === row.id ? { ...item, displayName: event.target.value } : item));
-                      markDirty('serviceAreas');
-                    }} />
+                    <Label htmlFor={makeFieldId('serviceAreas', row.id, 'displayName')}>
+                      Display name
+                    </Label>
+                    <Input
+                      id={makeFieldId('serviceAreas', row.id, 'displayName')}
+                      value={row.displayName}
+                      onChange={(event) => {
+                        setServiceAreas((current) =>
+                          current.map((item) =>
+                            item.id === row.id
+                              ? { ...item, displayName: event.target.value }
+                              : item,
+                          ),
+                        );
+                        markDirty('serviceAreas');
+                      }}
+                    />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor={makeFieldId('serviceAreas', row.id, 'areaType')}>Area type</Label>
-                    <Input id={makeFieldId('serviceAreas', row.id, 'areaType')} value={row.areaType} onChange={(event) => {
-                      setServiceAreas((current) => current.map((item) => item.id === row.id ? { ...item, areaType: event.target.value } : item));
-                      markDirty('serviceAreas');
-                    }} />
+                    <Label htmlFor={makeFieldId('serviceAreas', row.id, 'areaType')}>
+                      Area type
+                    </Label>
+                    <Input
+                      id={makeFieldId('serviceAreas', row.id, 'areaType')}
+                      value={row.areaType}
+                      onChange={(event) => {
+                        setServiceAreas((current) =>
+                          current.map((item) =>
+                            item.id === row.id ? { ...item, areaType: event.target.value } : item,
+                          ),
+                        );
+                        markDirty('serviceAreas');
+                      }}
+                    />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor={makeFieldId('serviceAreas', row.id, 'regionCode')}>Region code</Label>
-                    <Input id={makeFieldId('serviceAreas', row.id, 'regionCode')} value={row.regionCode} onChange={(event) => {
-                      setServiceAreas((current) => current.map((item) => item.id === row.id ? { ...item, regionCode: event.target.value } : item));
-                      markDirty('serviceAreas');
-                    }} />
+                    <Label htmlFor={makeFieldId('serviceAreas', row.id, 'regionCode')}>
+                      Region code
+                    </Label>
+                    <Input
+                      id={makeFieldId('serviceAreas', row.id, 'regionCode')}
+                      value={row.regionCode}
+                      onChange={(event) => {
+                        setServiceAreas((current) =>
+                          current.map((item) =>
+                            item.id === row.id ? { ...item, regionCode: event.target.value } : item,
+                          ),
+                        );
+                        markDirty('serviceAreas');
+                      }}
+                    />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor={makeFieldId('serviceAreas', row.id, 'placeDataJson')}>Structured place data JSON</Label>
-                  <Textarea id={makeFieldId('serviceAreas', row.id, 'placeDataJson')} value={row.placeDataJson} rows={5} onChange={(event) => {
-                    setServiceAreas((current) => current.map((item) => item.id === row.id ? { ...item, placeDataJson: event.target.value } : item));
-                    markDirty('serviceAreas');
-                  }} />
+                  <Label htmlFor={makeFieldId('serviceAreas', row.id, 'placeDataJson')}>
+                    Structured place data JSON
+                  </Label>
+                  <Textarea
+                    id={makeFieldId('serviceAreas', row.id, 'placeDataJson')}
+                    value={row.placeDataJson}
+                    rows={5}
+                    onChange={(event) => {
+                      setServiceAreas((current) =>
+                        current.map((item) =>
+                          item.id === row.id
+                            ? { ...item, placeDataJson: event.target.value }
+                            : item,
+                        ),
+                      );
+                      markDirty('serviceAreas');
+                    }}
+                  />
                 </div>
               </div>
             ))}
 
             <div className="flex flex-wrap gap-3">
-              <Button type="button" variant="outline" onClick={() => {
-                setServiceAreas((current) => [...current, { id: makeEditorId('service-area'), displayName: '', areaType: 'region', regionCode: '', placeDataJson: '' }]);
-                markDirty('serviceAreas');
-              }}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setServiceAreas((current) => [
+                    ...current,
+                    {
+                      id: makeEditorId('service-area'),
+                      displayName: '',
+                      areaType: 'region',
+                      regionCode: '',
+                      placeDataJson: '',
+                    },
+                  ]);
+                  markDirty('serviceAreas');
+                }}
+              >
                 <Plus className="size-4" />
                 Add service area
               </Button>
-              <Button type="button" variant="outline" onClick={() => resetFamily('serviceAreas')} disabled={!dirty.serviceAreas}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => resetFamily('serviceAreas')}
+                disabled={!dirty.serviceAreas}
+              >
                 <RotateCcw className="size-4" />
                 Reset draft
               </Button>
-              <Button type="button" onClick={() => saveFamily('serviceAreas')} disabled={!dirty.serviceAreas || savingFamily === 'serviceAreas'}>
+              <Button
+                type="button"
+                onClick={() => saveFamily('serviceAreas')}
+                disabled={!dirty.serviceAreas || savingFamily === 'serviceAreas'}
+              >
                 Save service areas
               </Button>
             </div>
-            {errors.serviceAreas ? <p className="text-sm text-destructive">{errors.serviceAreas}</p> : null}
+            {errors.serviceAreas ? (
+              <p className="text-sm text-destructive">{errors.serviceAreas}</p>
+            ) : null}
           </TabsContent>
 
           <TabsContent value="attributes" className="space-y-4">
@@ -711,17 +897,28 @@ export function RestaurantBusinessContextSection({
               <p className="text-xs text-muted-foreground">
                 {formatSeedSource(seedSource.attributes, providerCounts.attributes)}
               </p>
-              <SummaryBadges coreCount={coreCounts.attributes} providerCount={providerCounts.attributes} seedSource={seedSource.attributes} />
+              <SummaryBadges
+                coreCount={coreCounts.attributes}
+                providerCount={providerCounts.attributes}
+                seedSource={seedSource.attributes}
+              />
             </div>
 
             {attributes.map((row) => (
               <div key={row.id} className="space-y-4 rounded-xl border border-border/60 p-4">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-medium text-foreground">{row.displayName || row.attributeKey || 'New attribute'}</p>
-                  <Button type="button" variant="ghost" size="sm" onClick={() => {
-                    setAttributes((current) => current.filter((item) => item.id !== row.id));
-                    markDirty('attributes');
-                  }}>
+                  <p className="text-sm font-medium text-foreground">
+                    {row.displayName || row.attributeKey || 'New attribute'}
+                  </p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setAttributes((current) => current.filter((item) => item.id !== row.id));
+                      markDirty('attributes');
+                    }}
+                  >
                     <Trash2 className="size-4" />
                     Remove
                   </Button>
@@ -737,21 +934,45 @@ export function RestaurantBusinessContextSection({
                   ].map(([label, field]) => (
                     <div key={field} className="space-y-2">
                       <Label htmlFor={makeFieldId('attributes', row.id, field)}>{label}</Label>
-                      <Input id={makeFieldId('attributes', row.id, field)} value={row[field as keyof AttributeEditor] as string} onChange={(event) => {
-                        setAttributes((current) => current.map((item) => item.id === row.id ? { ...item, [field]: event.target.value } : item));
-                        markDirty('attributes');
-                      }} />
+                      <Input
+                        id={makeFieldId('attributes', row.id, field)}
+                        value={row[field as keyof AttributeEditor] as string}
+                        onChange={(event) => {
+                          setAttributes((current) =>
+                            current.map((item) =>
+                              item.id === row.id ? { ...item, [field]: event.target.value } : item,
+                            ),
+                          );
+                          markDirty('attributes');
+                        }}
+                      />
                     </div>
                   ))}
                 </div>
                 <div className="grid gap-4 md:grid-cols-3">
                   <div className="space-y-2">
-                    <Label htmlFor={makeFieldId('attributes', row.id, 'boolValue')}>Boolean value</Label>
-                    <Select value={row.boolValue} onValueChange={(value) => {
-                      setAttributes((current) => current.map((item) => item.id === row.id ? { ...item, boolValue: value as AttributeEditor['boolValue'] } : item));
-                      markDirty('attributes');
-                    }}>
-                      <SelectTrigger id={makeFieldId('attributes', row.id, 'boolValue')} aria-label="Boolean value"><SelectValue /></SelectTrigger>
+                    <Label htmlFor={makeFieldId('attributes', row.id, 'boolValue')}>
+                      Boolean value
+                    </Label>
+                    <Select
+                      value={row.boolValue}
+                      onValueChange={(value) => {
+                        setAttributes((current) =>
+                          current.map((item) =>
+                            item.id === row.id
+                              ? { ...item, boolValue: value as AttributeEditor['boolValue'] }
+                              : item,
+                          ),
+                        );
+                        markDirty('attributes');
+                      }}
+                    >
+                      <SelectTrigger
+                        id={makeFieldId('attributes', row.id, 'boolValue')}
+                        aria-label="Boolean value"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="unset">Unset</SelectItem>
                         <SelectItem value="true">True</SelectItem>
@@ -760,18 +981,38 @@ export function RestaurantBusinessContextSection({
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor={makeFieldId('attributes', row.id, 'textValue')}>Text value</Label>
-                    <Input id={makeFieldId('attributes', row.id, 'textValue')} value={row.textValue} onChange={(event) => {
-                      setAttributes((current) => current.map((item) => item.id === row.id ? { ...item, textValue: event.target.value } : item));
-                      markDirty('attributes');
-                    }} />
+                    <Label htmlFor={makeFieldId('attributes', row.id, 'textValue')}>
+                      Text value
+                    </Label>
+                    <Input
+                      id={makeFieldId('attributes', row.id, 'textValue')}
+                      value={row.textValue}
+                      onChange={(event) => {
+                        setAttributes((current) =>
+                          current.map((item) =>
+                            item.id === row.id ? { ...item, textValue: event.target.value } : item,
+                          ),
+                        );
+                        markDirty('attributes');
+                      }}
+                    />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor={makeFieldId('attributes', row.id, 'uriValue')}>Primary URI</Label>
-                    <Input id={makeFieldId('attributes', row.id, 'uriValue')} value={row.uriValue} onChange={(event) => {
-                      setAttributes((current) => current.map((item) => item.id === row.id ? { ...item, uriValue: event.target.value } : item));
-                      markDirty('attributes');
-                    }} />
+                    <Label htmlFor={makeFieldId('attributes', row.id, 'uriValue')}>
+                      Primary URI
+                    </Label>
+                    <Input
+                      id={makeFieldId('attributes', row.id, 'uriValue')}
+                      value={row.uriValue}
+                      onChange={(event) => {
+                        setAttributes((current) =>
+                          current.map((item) =>
+                            item.id === row.id ? { ...item, uriValue: event.target.value } : item,
+                          ),
+                        );
+                        markDirty('attributes');
+                      }}
+                    />
                   </div>
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
@@ -785,40 +1026,97 @@ export function RestaurantBusinessContextSection({
                   ].map(([label, field]) => (
                     <div key={field} className="space-y-2">
                       <Label htmlFor={makeFieldId('attributes', row.id, field)}>{label}</Label>
-                      <Input id={makeFieldId('attributes', row.id, field)} value={row[field as keyof AttributeEditor] as string} onChange={(event) => {
-                        setAttributes((current) => current.map((item) => item.id === row.id ? { ...item, [field]: event.target.value } : item));
-                        markDirty('attributes');
-                      }} />
+                      <Input
+                        id={makeFieldId('attributes', row.id, field)}
+                        value={row[field as keyof AttributeEditor] as string}
+                        onChange={(event) => {
+                          setAttributes((current) =>
+                            current.map((item) =>
+                              item.id === row.id ? { ...item, [field]: event.target.value } : item,
+                            ),
+                          );
+                          markDirty('attributes');
+                        }}
+                      />
                     </div>
                   ))}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor={makeFieldId('attributes', row.id, 'valueMetadataJson')}>Value metadata JSON</Label>
-                  <Textarea id={makeFieldId('attributes', row.id, 'valueMetadataJson')} value={row.valueMetadataJson} rows={5} onChange={(event) => {
-                    setAttributes((current) => current.map((item) => item.id === row.id ? { ...item, valueMetadataJson: event.target.value } : item));
-                    markDirty('attributes');
-                  }} />
+                  <Label htmlFor={makeFieldId('attributes', row.id, 'valueMetadataJson')}>
+                    Value metadata JSON
+                  </Label>
+                  <Textarea
+                    id={makeFieldId('attributes', row.id, 'valueMetadataJson')}
+                    value={row.valueMetadataJson}
+                    rows={5}
+                    onChange={(event) => {
+                      setAttributes((current) =>
+                        current.map((item) =>
+                          item.id === row.id
+                            ? { ...item, valueMetadataJson: event.target.value }
+                            : item,
+                        ),
+                      );
+                      markDirty('attributes');
+                    }}
+                  />
                 </div>
               </div>
             ))}
 
             <div className="flex flex-wrap gap-3">
-              <Button type="button" variant="outline" onClick={() => {
-                setAttributes((current) => [...current, { id: makeEditorId('attribute'), attributeGroup: '', attributeKey: '', attributeName: '', attributeId: '', displayName: '', displayText: '', displayTextStandalone: '', displayTextNegative: '', valueType: 'text', boolValue: 'unset', textValue: '', uriValue: '', uriValuesText: '', enumValuesText: '', unsetEnumValuesText: '', valueMetadataJson: '' }]);
-                markDirty('attributes');
-              }}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setAttributes((current) => [
+                    ...current,
+                    {
+                      id: makeEditorId('attribute'),
+                      attributeGroup: '',
+                      attributeKey: '',
+                      attributeName: '',
+                      attributeId: '',
+                      displayName: '',
+                      displayText: '',
+                      displayTextStandalone: '',
+                      displayTextNegative: '',
+                      valueType: 'text',
+                      boolValue: 'unset',
+                      textValue: '',
+                      uriValue: '',
+                      uriValuesText: '',
+                      enumValuesText: '',
+                      unsetEnumValuesText: '',
+                      valueMetadataJson: '',
+                    },
+                  ]);
+                  markDirty('attributes');
+                }}
+              >
                 <Plus className="size-4" />
                 Add attribute
               </Button>
-              <Button type="button" variant="outline" onClick={() => resetFamily('attributes')} disabled={!dirty.attributes}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => resetFamily('attributes')}
+                disabled={!dirty.attributes}
+              >
                 <RotateCcw className="size-4" />
                 Reset draft
               </Button>
-              <Button type="button" onClick={() => saveFamily('attributes')} disabled={!dirty.attributes || savingFamily === 'attributes'}>
+              <Button
+                type="button"
+                onClick={() => saveFamily('attributes')}
+                disabled={!dirty.attributes || savingFamily === 'attributes'}
+              >
                 Save attributes
               </Button>
             </div>
-            {errors.attributes ? <p className="text-sm text-destructive">{errors.attributes}</p> : null}
+            {errors.attributes ? (
+              <p className="text-sm text-destructive">{errors.attributes}</p>
+            ) : null}
           </TabsContent>
 
           <TabsContent value="serviceItems" className="space-y-4">
@@ -827,17 +1125,28 @@ export function RestaurantBusinessContextSection({
               <p className="text-xs text-muted-foreground">
                 {formatSeedSource(seedSource.serviceItems, providerCounts.serviceItems)}
               </p>
-              <SummaryBadges coreCount={coreCounts.serviceItems} providerCount={providerCounts.serviceItems} seedSource={seedSource.serviceItems} />
+              <SummaryBadges
+                coreCount={coreCounts.serviceItems}
+                providerCount={providerCounts.serviceItems}
+                seedSource={seedSource.serviceItems}
+              />
             </div>
 
             {serviceItems.map((row) => (
               <div key={row.id} className="space-y-4 rounded-xl border border-border/60 p-4">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-medium text-foreground">{row.displayName || row.itemKey || 'New service item'}</p>
-                  <Button type="button" variant="ghost" size="sm" onClick={() => {
-                    setServiceItems((current) => current.filter((item) => item.id !== row.id));
-                    markDirty('serviceItems');
-                  }}>
+                  <p className="text-sm font-medium text-foreground">
+                    {row.displayName || row.itemKey || 'New service item'}
+                  </p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setServiceItems((current) => current.filter((item) => item.id !== row.id));
+                      markDirty('serviceItems');
+                    }}
+                  >
                     <Trash2 className="size-4" />
                     Remove
                   </Button>
@@ -851,40 +1160,84 @@ export function RestaurantBusinessContextSection({
                   ].map(([label, field]) => (
                     <div key={field} className="space-y-2">
                       <Label htmlFor={makeFieldId('serviceItems', row.id, field)}>{label}</Label>
-                      <Input id={makeFieldId('serviceItems', row.id, field)} value={row[field as keyof ServiceItemEditor] as string} onChange={(event) => {
-                        setServiceItems((current) => current.map((item) => item.id === row.id ? { ...item, [field]: event.target.value } : item));
-                        markDirty('serviceItems');
-                      }} />
+                      <Input
+                        id={makeFieldId('serviceItems', row.id, field)}
+                        value={row[field as keyof ServiceItemEditor] as string}
+                        onChange={(event) => {
+                          setServiceItems((current) =>
+                            current.map((item) =>
+                              item.id === row.id ? { ...item, [field]: event.target.value } : item,
+                            ),
+                          );
+                          markDirty('serviceItems');
+                        }}
+                      />
                     </div>
                   ))}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor={makeFieldId('serviceItems', row.id, 'payloadJson')}>Payload JSON</Label>
-                  <Textarea id={makeFieldId('serviceItems', row.id, 'payloadJson')} value={row.payloadJson} rows={5} onChange={(event) => {
-                    setServiceItems((current) => current.map((item) => item.id === row.id ? { ...item, payloadJson: event.target.value } : item));
-                    markDirty('serviceItems');
-                  }} />
+                  <Label htmlFor={makeFieldId('serviceItems', row.id, 'payloadJson')}>
+                    Payload JSON
+                  </Label>
+                  <Textarea
+                    id={makeFieldId('serviceItems', row.id, 'payloadJson')}
+                    value={row.payloadJson}
+                    rows={5}
+                    onChange={(event) => {
+                      setServiceItems((current) =>
+                        current.map((item) =>
+                          item.id === row.id ? { ...item, payloadJson: event.target.value } : item,
+                        ),
+                      );
+                      markDirty('serviceItems');
+                    }}
+                  />
                 </div>
               </div>
             ))}
 
             <div className="flex flex-wrap gap-3">
-              <Button type="button" variant="outline" onClick={() => {
-                setServiceItems((current) => [...current, { id: makeEditorId('service-item'), itemKey: '', itemType: '', displayName: '', description: '', payloadJson: '' }]);
-                markDirty('serviceItems');
-              }}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setServiceItems((current) => [
+                    ...current,
+                    {
+                      id: makeEditorId('service-item'),
+                      itemKey: '',
+                      itemType: '',
+                      displayName: '',
+                      description: '',
+                      payloadJson: '',
+                    },
+                  ]);
+                  markDirty('serviceItems');
+                }}
+              >
                 <Plus className="size-4" />
                 Add service item
               </Button>
-              <Button type="button" variant="outline" onClick={() => resetFamily('serviceItems')} disabled={!dirty.serviceItems}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => resetFamily('serviceItems')}
+                disabled={!dirty.serviceItems}
+              >
                 <RotateCcw className="size-4" />
                 Reset draft
               </Button>
-              <Button type="button" onClick={() => saveFamily('serviceItems')} disabled={!dirty.serviceItems || savingFamily === 'serviceItems'}>
+              <Button
+                type="button"
+                onClick={() => saveFamily('serviceItems')}
+                disabled={!dirty.serviceItems || savingFamily === 'serviceItems'}
+              >
                 Save service items
               </Button>
             </div>
-            {errors.serviceItems ? <p className="text-sm text-destructive">{errors.serviceItems}</p> : null}
+            {errors.serviceItems ? (
+              <p className="text-sm text-destructive">{errors.serviceItems}</p>
+            ) : null}
           </TabsContent>
         </Tabs>
       </div>

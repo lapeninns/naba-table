@@ -4,10 +4,18 @@ import { Loader2, Plus, Upload } from 'lucide-react';
 import { cloneElement, isValidElement, useId, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
+import { ConfirmDialog } from '@/components/features/restaurant-settings/ConfirmDialog';
 import { SettingsCard } from '@/components/features/restaurant-settings/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   useOpsCreateDrinkMenuItem,
@@ -42,6 +50,8 @@ export function DrinkMenuManagementPanel({
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [editorDirty, setEditorDirty] = useState(false);
+  const [pendingItemId, setPendingItemId] = useState<{ value: string | null } | null>(null);
 
   const debouncedSearch = useDebouncedValue(searchInput, 250);
 
@@ -80,6 +90,15 @@ export function DrinkMenuManagementPanel({
     }
   };
 
+  const openEditorForItem = (itemId: string | null) => {
+    if (editorDirty && sheetOpen) {
+      setPendingItemId({ value: itemId });
+      return;
+    }
+    setSelectedItemId(itemId);
+    setSheetOpen(true);
+  };
+
   return (
     <SettingsCard
       title="Drinks catalogue"
@@ -90,13 +109,7 @@ export function DrinkMenuManagementPanel({
             <Upload className="mr-2 h-4 w-4" />
             Import drinks CSV
           </Button>
-          <Button
-            type="button"
-            onClick={() => {
-              setSelectedItemId(null);
-              setSheetOpen(true);
-            }}
-          >
+          <Button type="button" onClick={() => openEditorForItem(null)}>
             <Plus className="mr-2 h-4 w-4" />
             New drink item
           </Button>
@@ -124,18 +137,22 @@ export function DrinkMenuManagementPanel({
           />
         </Field>
         <Field label="Status">
-          <select
-            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+          <Select
             value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value as DrinkListStatusFilter)}
+            onValueChange={(value) => setStatusFilter(value as DrinkListStatusFilter)}
           >
-            <option value="all">All</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-            <option value="sold-out">Sold out</option>
-            <option value="available">Available</option>
-            <option value="unavailable">Unavailable</option>
-          </select>
+            <SelectTrigger className="h-10">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="inactive">Inactive</SelectItem>
+              <SelectItem value="sold-out">Sold out</SelectItem>
+              <SelectItem value="available">Available</SelectItem>
+              <SelectItem value="unavailable">Unavailable</SelectItem>
+            </SelectContent>
+          </Select>
         </Field>
       </div>
 
@@ -200,10 +217,7 @@ export function DrinkMenuManagementPanel({
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => {
-                        setSelectedItemId(item.id);
-                        setSheetOpen(true);
-                      }}
+                      onClick={() => openEditorForItem(item.id)}
                     >
                       Edit
                     </Button>
@@ -232,16 +246,38 @@ export function DrinkMenuManagementPanel({
           setSheetOpen(open);
           if (!open) {
             setSelectedItemId(null);
+            setEditorDirty(false);
           }
         }}
         item={selectedItemId ? detailQuery.data ?? null : null}
         isLoading={Boolean(selectedItemId) && detailQuery.isLoading}
         isSaving={createMutation.isPending || updateMutation.isPending}
         facets={facets}
+        onDirtyChange={setEditorDirty}
         onSubmit={handleSubmit}
       />
 
       <DrinkImportDialog open={importOpen} onOpenChange={setImportOpen} restaurantId={restaurantId} />
+
+      <ConfirmDialog
+        open={pendingItemId !== null}
+        onOpenChange={(next) => {
+          if (!next) setPendingItemId(null);
+        }}
+        title="Discard unsaved drink item changes?"
+        description="Switching items will discard the edits currently open in the editor. This cannot be undone."
+        confirmLabel="Discard and switch"
+        cancelLabel="Keep editing"
+        tone="destructive"
+        onConfirm={() => {
+          if (!pendingItemId) return;
+          const nextId = pendingItemId.value;
+          setPendingItemId(null);
+          setEditorDirty(false);
+          setSelectedItemId(nextId);
+          setSheetOpen(true);
+        }}
+      />
     </SettingsCard>
   );
 }

@@ -25,6 +25,7 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { useOpsSession } from '@/contexts/ops-session';
+import { OpsUnsavedChangesProvider, useOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
 import { signOutFromSupabase } from '@/lib/supabase/signOut';
 import { cn } from '@/lib/utils';
@@ -48,34 +49,36 @@ export function OpsSidebarLayout({
 }: OpsSidebarLayoutProps) {
   return (
     <ThemeProvider theme="app">
-      <SidebarProvider defaultOpen={defaultSidebarOpen} className="bg-background">
-        <OpsSidebarPanel />
-        <SidebarRail />
-        <SidebarInset className="bg-background">
-          <a
-            href="#ops-content"
-            className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[40] focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:shadow"
-          >
-            Skip to content
-          </a>
-          <div className="flex h-14 items-center gap-3 border-b border-border/60 px-4 sm:px-6">
-            <SidebarTrigger className="-ml-1" aria-label="Toggle navigation menu" />
-            {headerSlot ? (
-              <div className="flex-1 truncate text-sm font-medium text-muted-foreground">
-                {headerSlot}
-              </div>
-            ) : null}
-          </div>
-          {/* <OpsOfflineIndicator /> */}
-          <div
-            id="ops-content"
-            tabIndex={-1}
-            className="flex min-w-0 flex-1 flex-col overflow-x-hidden"
-          >
-            {children}
-          </div>
-        </SidebarInset>
-      </SidebarProvider>
+      <OpsUnsavedChangesProvider>
+        <SidebarProvider defaultOpen={defaultSidebarOpen} className="bg-background">
+          <OpsSidebarPanel />
+          <SidebarRail />
+          <SidebarInset className="bg-background">
+            <a
+              href="#ops-content"
+              className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[40] focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:shadow"
+            >
+              Skip to content
+            </a>
+            <div className="flex h-14 items-center gap-3 border-b border-border/60 px-4 sm:px-6">
+              <SidebarTrigger className="-ml-1" aria-label="Toggle navigation menu" />
+              {headerSlot ? (
+                <div className="flex-1 truncate text-sm font-medium text-muted-foreground">
+                  {headerSlot}
+                </div>
+              ) : null}
+            </div>
+            {/* <OpsOfflineIndicator /> */}
+            <div
+              id="ops-content"
+              tabIndex={-1}
+              className="flex min-w-0 flex-1 flex-col overflow-x-hidden"
+            >
+              {children}
+            </div>
+          </SidebarInset>
+        </SidebarProvider>
+      </OpsUnsavedChangesProvider>
     </ThemeProvider>
   );
 }
@@ -125,6 +128,7 @@ function OpsSidebarNav({
   pathname: string;
 }) {
   const isOnline = useOnlineStatus();
+  const { confirmNavigation } = useOpsUnsavedChanges();
 
   const handleOfflineNavigation = useCallback(
     (event: MouseEvent<HTMLAnchorElement>) => {
@@ -132,6 +136,20 @@ function OpsSidebarNav({
       event.preventDefault();
     },
     [isOnline],
+  );
+
+  const handleNavigationIntent = useCallback(
+    (event: MouseEvent<HTMLAnchorElement>) => {
+      if (!isOnline) {
+        event.preventDefault();
+        return;
+      }
+
+      if (!confirmNavigation()) {
+        event.preventDefault();
+      }
+    },
+    [confirmNavigation, isOnline],
   );
 
   return (
@@ -158,8 +176,12 @@ function OpsSidebarNav({
                         href={item.href}
                         aria-current={active ? 'page' : undefined}
                         aria-disabled={!isOnline}
-                        prefetch={false}
-                        onClick={(event) => handleOfflineNavigation(event)}
+                        onClick={(event) => {
+                          handleOfflineNavigation(event);
+                          if (!event.defaultPrevented) {
+                            handleNavigationIntent(event);
+                          }
+                        }}
                       >
                         <Icon
                           aria-hidden
@@ -200,9 +222,13 @@ function OpsSidebarSkeleton() {
 
 function OpsAccountActions() {
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const { confirmNavigation } = useOpsUnsavedChanges();
 
   const handleSignOut = useCallback(async () => {
     if (isSigningOut) return;
+    if (!confirmNavigation('You have unsaved changes in this workspace. Log out and discard them?')) {
+      return;
+    }
     try {
       setIsSigningOut(true);
       await signOutFromSupabase();
@@ -214,7 +240,7 @@ function OpsAccountActions() {
       setIsSigningOut(false);
     }
     // Note: We don't reset isSigningOut on success since we're navigating away
-  }, [isSigningOut]);
+  }, [confirmNavigation, isSigningOut]);
 
   return (
     <SidebarGroup>

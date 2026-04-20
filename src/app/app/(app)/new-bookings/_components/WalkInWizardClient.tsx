@@ -1,22 +1,23 @@
 'use client';
 
-import { Loader2 } from "lucide-react";
-import dynamic from "next/dynamic";
-import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo } from "react";
+import { Loader2 } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useMemo } from 'react';
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { useOpsActiveMembership, useOpsSession } from "@/contexts/ops-session";
-import { useOpsRestaurantDetails } from "@/hooks";
-import { PlanStepSkeleton } from "@features/reservations/wizard/ui/WizardSkeletons";
-import { DEFAULT_VENUE } from "@shared/config/venue";
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
+import { useOpsRestaurantDetails } from '@/hooks';
+import { opsHref } from '@/lib/url/opsHref';
+import { PlanStepSkeleton } from '@features/reservations/wizard/ui/WizardSkeletons';
 
 const ReservationWizard = dynamic(
-  () => import("@features/reservations/wizard/ui/ReservationWizard").then((m) => m.ReservationWizard),
+  () =>
+    import('@features/reservations/wizard/ui/ReservationWizard').then((m) => m.ReservationWizard),
   {
     loading: () => (
       <div className="p-4" role="status" aria-busy>
@@ -26,7 +27,7 @@ const ReservationWizard = dynamic(
   },
 );
 
-import type { BookingDetails } from "@features/reservations/wizard/model/reducer";
+import type { BookingDetails } from '@features/reservations/wizard/model/reducer';
 
 export function WalkInWizardClient() {
   const router = useRouter();
@@ -50,10 +51,10 @@ export function WalkInWizardClient() {
 
     return {
       restaurantId: activeRestaurantId,
-      restaurantSlug: activeMembership.restaurantSlug ?? DEFAULT_VENUE.slug,
-      restaurantName: profile?.name ?? activeMembership.restaurantName ?? DEFAULT_VENUE.name,
-      restaurantAddress: profile?.address ?? DEFAULT_VENUE.address,
-      restaurantTimezone: profile?.timezone ?? DEFAULT_VENUE.timezone,
+      restaurantSlug: activeMembership.restaurantSlug ?? '',
+      restaurantName: profile?.name ?? activeMembership.restaurantName,
+      restaurantAddress: profile?.address ?? '',
+      restaurantTimezone: profile?.timezone ?? '',
       ...(reservationDurationMinutes ? { reservationDurationMinutes } : {}),
       ...(dateParam ? { date: dateParam } : {}),
       ...(timeParam ? { time: timeParam } : {}),
@@ -77,7 +78,7 @@ export function WalkInWizardClient() {
         <AlertDescription className="flex flex-col gap-2">
           You need a restaurant membership before logging walk-ins.
           <Button asChild size="sm" variant="secondary" className="w-fit">
-            <Link href="/app/bookings">Back to bookings</Link>
+            <Link href={opsHref('/bookings')}>Back to bookings</Link>
           </Button>
         </AlertDescription>
       </Alert>
@@ -110,15 +111,17 @@ export function WalkInWizardClient() {
               Create a new booking
             </h1>
             <p className="text-sm text-muted-foreground sm:max-w-2xl">
-              Use the same booking steps as guests, with ops controls and optional contact details. We will return you to bookings when
-              you are done.
+              Use the same booking steps as guests, with ops controls and optional contact details.
+              We will return you to bookings when you are done.
             </p>
           </div>
           {restaurantQuery.isError ? (
             <Alert variant="warning" className="max-w-xl">
-              <AlertTitle>Missing restaurant details</AlertTitle>
+              <AlertTitle>Limited fallback mode</AlertTitle>
               <AlertDescription>
-                We could not load the restaurant profile. The wizard will use defaults for address and timezone.
+                We could not load the restaurant profile. You can still capture the booking, but
+                venue address, timezone, and duration metadata may be incomplete until the profile
+                becomes available again.
               </AlertDescription>
             </Alert>
           ) : null}
@@ -126,22 +129,28 @@ export function WalkInWizardClient() {
       </div>
 
       <Card className="border shadow-sm">
-        {restaurantQuery.isLoading ? (
+        {restaurantQuery.isLoading && !restaurantQuery.data ? (
           <div className="flex items-center gap-2 border-b border-border/70 bg-card/60 px-4 py-3 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
             <span role="status">Loading restaurant details…</span>
           </div>
         ) : null}
         <div className="p-3 sm:p-4 lg:p-6">
-          <ReservationWizard
-            mode="ops"
-            initialDetails={initialDetails ?? undefined}
-            returnPath="/app/bookings"
-            dependencies={{ navigator }}
-            navigationClassName="sticky bottom-0"
-            className="min-h-0 bg-transparent p-0 pb-20 sm:pt-0 md:px-0 lg:px-0"
-            contentClassName="gap-6 sm:gap-8"
-          />
+          {restaurantQuery.isLoading && !restaurantQuery.data ? (
+            <div className="p-4" role="status" aria-busy>
+              <PlanStepSkeleton />
+            </div>
+          ) : (
+            <ReservationWizard
+              mode="ops"
+              initialDetails={initialDetails ?? undefined}
+              returnPath={opsHref('/bookings')}
+              dependencies={{ navigator }}
+              navigationClassName="sticky bottom-0"
+              className="min-h-0 bg-transparent p-0 sm:pt-0 md:px-0 lg:px-0"
+              contentClassName="gap-6 sm:gap-8"
+            />
+          )}
         </div>
       </Card>
     </div>

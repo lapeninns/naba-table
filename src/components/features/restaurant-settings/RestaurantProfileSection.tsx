@@ -19,6 +19,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useRegisterOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
 import { useOpsGoogleBusinessProfileConnection } from '@/hooks/ops/useOpsGoogleBusinessProfile';
 import {
   useOpsSyncRestaurantDetailsWithGoogleBusinessProfile,
@@ -32,7 +33,15 @@ import { deriveProfileVerification } from './googleBusinessProfileVerification';
 import { GoogleBusinessProfileVerificationControls } from './GoogleBusinessProfileVerificationControls';
 import { RestaurantBusinessContextSection } from './RestaurantBusinessContextSection';
 import { RestaurantLogoUploader } from './RestaurantLogoUploader';
+import { SettingsJumpNav, type SettingsJumpNavItem } from './SettingsJumpNav';
 import { SettingsCard } from './shared/SettingsCard';
+
+const PROFILE_JUMP_ITEMS: SettingsJumpNavItem[] = [
+  { id: 'profile-identity', label: 'Identity & contact' },
+  { id: 'profile-booking', label: 'Booking experience' },
+  { id: 'profile-notifications', label: 'Staff notifications' },
+  { id: 'profile-advanced', label: 'Advanced' },
+];
 
 import type { UpdateRestaurantInput } from '@/app/api/ops/restaurants/schema';
 import type { GoogleBusinessProfileProfileField } from '@/services/ops/restaurants';
@@ -65,6 +74,13 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
   const updateMutation = useOpsUpdateRestaurantDetails(restaurantId);
   const syncMutation = useOpsSyncRestaurantDetailsWithGoogleBusinessProfile(restaurantId);
   const [syncDialogMode, setSyncDialogMode] = useState<null | 'pull' | 'push'>(null);
+  const [formDirty, setFormDirty] = useState(false);
+
+  useRegisterOpsUnsavedChanges(
+    'restaurant-profile',
+    formDirty,
+    'You have unsaved restaurant profile changes. Leave without saving them?',
+  );
 
   const initialValues = useMemo<RestaurantDetailsFormValues>(() => {
     if (!data) {
@@ -224,7 +240,10 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+      <SettingsJumpNav items={PROFILE_JUMP_ITEMS} ariaLabel="Restaurant profile sections" />
+
+      <div className="min-w-0 flex-1 space-y-6">
       <SettingsCard
         title="Restaurant Profile"
         description="Update core restaurant details and contact information."
@@ -268,6 +287,7 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
             initialValues={initialValues}
             onSubmit={handleSubmit}
             isSubmitting={updateMutation.isPending}
+            onDirtyChange={setFormDirty}
             gbpFieldVerifications={profileVerification.fields}
           />
         </div>
@@ -307,37 +327,40 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
         />
       </SettingsCard>
 
-      <SettingsCard
-        title="Advanced"
-        description="Low-frequency structured metadata and specialist setup for discovery, integrations, and future sync-aware flows."
-      >
-        <Accordion type="single" collapsible className="rounded-xl border border-border/60 bg-muted/10">
-          <AccordionItem value="business-context" className="border-none">
-            <AccordionTrigger className="rounded-xl px-4 py-4 hover:bg-muted/30">
-              <div className="flex min-w-0 flex-1 items-start gap-3 text-left">
-                <div className="rounded-lg border border-border/60 bg-background p-2">
-                  <Settings2 className="size-4 text-muted-foreground" />
-                </div>
-                <div className="min-w-0 space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-semibold text-foreground">Business Context</span>
-                    <Badge variant="outline" className="text-[11px] uppercase tracking-[0.16em]">
-                      Advanced
-                    </Badge>
+      <div id="profile-advanced" className="scroll-mt-28">
+        <SettingsCard
+          title="Advanced"
+          description="Low-frequency structured metadata and specialist setup for discovery, integrations, and future sync-aware flows."
+        >
+          <Accordion type="single" collapsible className="rounded-xl border border-border/60 bg-muted/10">
+            <AccordionItem value="business-context" className="border-none">
+              <AccordionTrigger className="rounded-xl px-4 py-4 hover:bg-muted/30">
+                <div className="flex min-w-0 flex-1 items-start gap-3 text-left">
+                  <div className="rounded-lg border border-border/60 bg-background p-2">
+                    <Settings2 className="size-4 text-muted-foreground" />
                   </div>
-                  <p className="text-sm font-normal leading-6 text-muted-foreground">
-                    Categories, service areas, attributes, and service items that shape structured
-                    restaurant metadata.
-                  </p>
+                  <div className="min-w-0 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-semibold text-foreground">Business Context</span>
+                      <Badge variant="outline" className="text-[11px] uppercase tracking-[0.16em]">
+                        Advanced
+                      </Badge>
+                    </div>
+                    <p className="text-sm font-normal leading-6 text-muted-foreground">
+                      Categories, service areas, attributes, and service items that shape structured
+                      restaurant metadata.
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </AccordionTrigger>
-            <AccordionContent className="px-4 pb-4">
-              <RestaurantBusinessContextSection restaurantId={restaurantId} embedded />
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
-      </SettingsCard>
+              </AccordionTrigger>
+              <AccordionContent className="px-4 pb-4">
+                <RestaurantBusinessContextSection restaurantId={restaurantId} embedded />
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </SettingsCard>
+      </div>
+      </div>
     </div>
   );
 }

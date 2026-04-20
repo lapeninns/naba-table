@@ -1,5 +1,7 @@
 import { redirect } from 'next/navigation';
 
+import { opsHref } from '@/lib/url/opsHref';
+
 export default function OperatingHoursSettingsPage() {
-  redirect('/settings/restaurant/availability#availability-hours');
+  redirect(opsHref('/settings/restaurant/availability#availability-hours'));
 }

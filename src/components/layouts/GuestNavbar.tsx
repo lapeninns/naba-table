@@ -44,7 +44,7 @@ type AccountLink = NavLink & {
   icon?: React.ComponentType<{ className?: string }>;
 };
 
-const PRIMARY_LINK: NavLink = { href: '/restaurants', label: 'Restaurants' };
+const PRIMARY_LINKS: NavLink[] = [{ href: '/restaurants', label: 'Restaurants' }];
 
 const ACCOUNT_LINKS: AccountLink[] = [
   { href: '/guest/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -90,7 +90,15 @@ function BrandMark({ tone }: { tone: Tone }) {
   return <BrandLogo href="/" variant={tone} size="sm" />;
 }
 
-function PrimaryNav({ currentPath, tone }: { currentPath: string | null; tone: Tone }) {
+function PrimaryNav({
+  currentPath,
+  tone,
+  links,
+}: {
+  currentPath: string | null;
+  tone: Tone;
+  links: NavLink[];
+}) {
   const isActive = useCallback(
     (href: string) => {
       if (!currentPath) return false;
@@ -121,16 +129,19 @@ function PrimaryNav({ currentPath, tone }: { currentPath: string | null; tone: T
         baseStyles,
       )}
     >
-      <Link
-        href={PRIMARY_LINK.href}
-        aria-current={isActive(PRIMARY_LINK.href) ? 'page' : undefined}
-        className={cn(
-          'rounded-full px-3.5 py-2 text-sm font-semibold leading-5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-          isActive(PRIMARY_LINK.href) ? active : inactive,
-        )}
-      >
-        {PRIMARY_LINK.label}
-      </Link>
+      {links.map((link) => (
+        <Link
+          key={link.href}
+          href={link.href}
+          aria-current={isActive(link.href) ? 'page' : undefined}
+          className={cn(
+            'rounded-full px-3.5 py-2 text-sm font-semibold leading-5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+            isActive(link.href) ? active : inactive,
+          )}
+        >
+          {link.label}
+        </Link>
+      ))}
     </nav>
   );
 }
@@ -260,7 +271,7 @@ function MobileMenu({
   );
 
   const navSections: { title: string; links: AccountLink[] }[] = [
-    { title: 'Explore', links: [{ ...PRIMARY_LINK }] },
+    { title: 'Explore', links: PRIMARY_LINKS.map((link) => ({ ...link })) },
   ];
 
   if (isAuthenticated) {
@@ -415,6 +426,13 @@ export function GuestNavbar({ tone = 'light', isSticky = true }: GuestNavbarProp
     typeof metadata?.['full_name'] === 'string' ? (metadata?.['full_name'] as string) : null;
 
   const { data: profile, isLoading: isProfileLoading } = useProfile({ enabled: isAuthenticated });
+  const primaryLinks = useMemo<NavLink[]>(
+    () =>
+      isAuthenticated
+        ? [...PRIMARY_LINKS, { href: '/guest/bookings', label: 'My bookings' }]
+        : PRIMARY_LINKS,
+    [isAuthenticated],
+  );
 
   const accountSnapshot: AccountSnapshot | null = useMemo(() => {
     if (!isAuthenticated) return null;
@@ -469,7 +487,7 @@ export function GuestNavbar({ tone = 'light', isSticky = true }: GuestNavbarProp
           <BrandMark tone={tone} />
 
           <div className="hidden flex-1 items-center justify-end gap-4 md:flex">
-            <PrimaryNav currentPath={pathname ?? null} tone={tone} />
+            <PrimaryNav currentPath={pathname ?? null} tone={tone} links={primaryLinks} />
             <DesktopActions
               isLoading={isLoadingSession || (isAuthenticated && isProfileLoading)}
               isAuthenticated={isAuthenticated}

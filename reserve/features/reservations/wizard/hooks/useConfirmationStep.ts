@@ -86,6 +86,7 @@ const buildReservationWindow = (state: State) => {
 
 export function useConfirmationStep({
   state: providedState,
+  mode = 'customer',
   onNewBooking,
   onClose,
   onActionsChange,
@@ -274,20 +275,45 @@ export function useConfirmationStep({
   }, [onNewBooking]);
 
   useEffect(() => {
-    const actions: StepAction[] = [];
-    actions.push({
-      id: 'confirmation-new',
-      label: 'Start a new booking',
-      ariaLabel: 'Start a new booking',
-      variant: 'default',
-      icon: 'Plus',
-      onClick: handleNewBooking,
-      disabled: isLoading,
-      role: 'primary',
-    });
+    const actions: StepAction[] =
+      mode === 'ops'
+        ? [
+            {
+              id: 'confirmation-return',
+              label: 'Back to bookings',
+              ariaLabel: 'Back to bookings',
+              variant: 'default',
+              icon: 'ChevronLeft',
+              onClick: handleClose,
+              disabled: isLoading,
+              role: 'primary',
+            },
+            {
+              id: 'confirmation-new',
+              label: 'Start a new booking',
+              ariaLabel: 'Start a new booking',
+              variant: 'outline',
+              icon: 'Plus',
+              onClick: handleNewBooking,
+              disabled: isLoading,
+              role: 'secondary',
+            },
+          ]
+        : [
+            {
+              id: 'confirmation-new',
+              label: 'Start a new booking',
+              ariaLabel: 'Start a new booking',
+              variant: 'default',
+              icon: 'Plus',
+              onClick: handleNewBooking,
+              disabled: isLoading,
+              role: 'primary',
+            },
+          ];
 
     onActionsChange(actions);
-  }, [handleNewBooking, isLoading, onActionsChange]);
+  }, [handleClose, handleNewBooking, isLoading, mode, onActionsChange]);
 
   return {
     booking,

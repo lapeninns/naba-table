@@ -9,6 +9,7 @@ import { useOpsServices } from '@/contexts/ops-services';
 import { useOpsSession } from '@/contexts/ops-session';
 import { prefetchIfStale } from '@/lib/prefetchers';
 import { queryKeys } from '@/lib/query/keys';
+import { normalizeOpsPathname } from '@/lib/url/opsHref';
 import { cn } from '@/lib/utils';
 
 import { RESTAURANT_SETTINGS_NAV_ITEMS } from './routes';
@@ -16,14 +17,15 @@ import { RESTAURANT_SETTINGS_NAV_ITEMS } from './routes';
 export function RestaurantSettingsSubnav() {
   const pathname = usePathname();
   const queryClient = useQueryClient();
-  const { restaurantService, occasionService, teamService, tableInventoryService, menuService } = useOpsServices();
+  const { restaurantService, occasionService, teamService, tableInventoryService, menuService } =
+    useOpsServices();
   const { activeRestaurantId } = useOpsSession();
 
   const prefetchSettingsView = useCallback(
     (href: string) => {
       const id = activeRestaurantId;
       if (!id) return;
-      switch (href) {
+      switch (normalizeOpsPathname(href)) {
         case '/settings/restaurant/availability':
           return Promise.all([
             prefetchIfStale({
@@ -42,6 +44,12 @@ export function RestaurantSettingsSubnav() {
               queryClient,
               queryKey: queryKeys.opsOccasions.list(),
               queryFn: () => occasionService.listOccasions(),
+              enabled: true,
+            }),
+            prefetchIfStale({
+              queryClient,
+              queryKey: queryKeys.opsRestaurants.turnBands(id),
+              queryFn: () => restaurantService.getTurnBands(id),
               enabled: true,
             }),
           ]);
@@ -80,13 +88,6 @@ export function RestaurantSettingsSubnav() {
             queryFn: () => menuService.listItems(id, {}),
             enabled: true,
           });
-        case '/settings/restaurant/turn-durations':
-          return prefetchIfStale({
-            queryClient,
-            queryKey: queryKeys.opsRestaurants.turnBands(id),
-            queryFn: () => restaurantService.getTurnBands(id),
-            enabled: true,
-          });
         case '/settings/restaurant/occasions':
           return prefetchIfStale({
             queryClient,
@@ -101,7 +102,7 @@ export function RestaurantSettingsSubnav() {
             queryFn: () => teamService.listInvites(id, 'pending'),
             enabled: true,
           });
-        case '/settings/tables':
+        case '/settings/restaurant/tables':
           return prefetchIfStale({
             queryClient,
             queryKey: queryKeys.opsTables.list(id, {}),
@@ -127,7 +128,10 @@ export function RestaurantSettingsSubnav() {
     <nav aria-label="Restaurant settings" className="overflow-x-auto">
       <div className="inline-flex min-w-full gap-2 rounded-lg border border-border/60 bg-muted/40 p-1">
         {RESTAURANT_SETTINGS_NAV_ITEMS.map((item) => {
-          const active = pathname?.startsWith(item.href) ?? false;
+          const active =
+            pathname != null
+              ? normalizeOpsPathname(pathname).startsWith(normalizeOpsPathname(item.href))
+              : false;
           return (
             <Link
               key={item.href}
@@ -139,11 +143,13 @@ export function RestaurantSettingsSubnav() {
                 'group flex min-w-[180px] flex-col gap-1 rounded-md px-3 py-2 text-left text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
                 active
                   ? 'bg-background text-foreground shadow-sm ring-1 ring-border'
-                  : 'text-muted-foreground hover:text-foreground hover:ring-1 hover:ring-border'
+                  : 'text-muted-foreground hover:text-foreground hover:ring-1 hover:ring-border',
               )}
             >
               <span className="leading-5">{item.title}</span>
-              <span className="text-xs font-normal text-muted-foreground/90">{item.description}</span>
+              <span className="text-xs font-normal text-muted-foreground/90">
+                {item.description}
+              </span>
             </Link>
           );
         })}

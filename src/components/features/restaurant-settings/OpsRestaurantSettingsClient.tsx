@@ -4,11 +4,8 @@ import dynamic from 'next/dynamic';
 import { useEffect, type ReactNode } from 'react';
 
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
-import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
-
-import { RESTAURANT_SETTINGS_ROUTE_MAP } from './routes';
 
 import type { RestaurantSettingsView } from './types';
 
@@ -42,22 +39,6 @@ const AvailabilityOccasionsCommandCenter = dynamic(
     loading: () => <SettingsSectionSkeleton title="Loading availability and occasions" />,
   },
 );
-
-const OperatingHoursSection = dynamic(() => import('./OperatingHoursSection').then((m) => m.OperatingHoursSection), {
-  loading: () => <SettingsSectionSkeleton title="Loading operating hours" />,
-});
-
-const OccasionsSection = dynamic(() => import('./OccasionsSection').then((m) => m.OccasionsSection), {
-  loading: () => <SettingsSectionSkeleton title="Loading occasions" />,
-});
-
-const ServicePeriodsSection = dynamic(() => import('./ServicePeriodsSection').then((m) => m.ServicePeriodsSection), {
-  loading: () => <SettingsSectionSkeleton title="Loading service periods" />,
-});
-
-const TurnDurationsSection = dynamic(() => import('./TurnDurationsSection').then((m) => m.TurnDurationsSection), {
-  loading: () => <SettingsSectionSkeleton title="Loading reservation durations" />,
-});
 
 const OpsTeamManagementClient = dynamic(() => import('../team').then((m) => m.OpsTeamManagementClient), {
   loading: () => <SettingsSectionSkeleton title="Loading team" />,
@@ -104,39 +85,14 @@ export function OpsRestaurantSettingsClient({ defaultRestaurantId, view }: OpsRe
 
   const selectedRestaurantId = selectedMembership?.restaurantId ?? null;
 
-  const restaurantName = selectedMembership?.restaurantName ?? 'Selected restaurant';
-
-  const viewConfig = RESTAURANT_SETTINGS_ROUTE_MAP[view];
-  const renderByView: Record<RestaurantSettingsView, (context: { restaurantId: string | null; restaurantName: string }) => ReactNode> = {
+  const renderByView: Record<RestaurantSettingsView, (context: { restaurantId: string | null }) => ReactNode> = {
     profile: ({ restaurantId }) => <RestaurantProfileSection restaurantId={restaurantId} />,
     'google-business-profile': ({ restaurantId }) => (
       <GoogleBusinessProfileSection restaurantId={restaurantId} />
     ),
     availability: ({ restaurantId }) => <AvailabilityOccasionsCommandCenter restaurantId={restaurantId} />,
-    'operating-hours': ({ restaurantId }) => <OperatingHoursSection restaurantId={restaurantId} />,
-    occasions: () => <OccasionsSection />,
-    'service-periods': ({ restaurantId }) => <ServicePeriodsSection restaurantId={restaurantId} />,
-    'turn-durations': ({ restaurantId }) => <TurnDurationsSection restaurantId={restaurantId} />,
     team: () => <OpsTeamManagementClient />,
   };
 
-  return (
-    <div className="space-y-6">
-      <OpsPageHeader
-        title={viewConfig.title}
-        subtitle={viewConfig.description}
-        meta={
-          <span className="text-xs text-muted-foreground">
-            Currently editing settings for{' '}
-            <span className="font-medium text-foreground">{restaurantName}</span>. Use the sidebar switcher to change
-            restaurants.
-          </span>
-        }
-        headingLevel="h2"
-        titleClassName="text-2xl"
-      />
-
-      {renderByView[view]({ restaurantId: selectedRestaurantId, restaurantName })}
-    </div>
-  );
+  return <div className="space-y-6">{renderByView[view]({ restaurantId: selectedRestaurantId })}</div>;
 }

@@ -1,6 +1,5 @@
 'use client';
 
-import { X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -13,6 +12,13 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useCreateRestaurant } from '@/hooks/ops/useCreateRestaurant';
 import { cn } from '@/lib/utils';
@@ -159,7 +165,7 @@ export function CreateRestaurantDialog({ open, onOpenChange }: CreateRestaurantD
     if (formData.googleMapUrl.trim()) {
       try {
         new URL(formData.googleMapUrl.trim());
-      } catch (error) {
+      } catch {
         newErrors.googleMapUrl = 'Enter a valid URL (e.g., https://maps.google.com/...)';
       }
     }
@@ -194,7 +200,7 @@ export function CreateRestaurantDialog({ open, onOpenChange }: CreateRestaurantD
     try {
       await createMutation.mutateAsync(input);
       onOpenChange(false);
-    } catch (error) {
+    } catch {
       // Error handling is done by the hook
     }
   };
@@ -273,23 +279,26 @@ export function CreateRestaurantDialog({ open, onOpenChange }: CreateRestaurantD
               <Label htmlFor="create-restaurant-timezone">
                 Timezone <span className="text-destructive">*</span>
               </Label>
-              <select
-                id="create-restaurant-timezone"
+              <Select
                 value={formData.timezone}
-                onChange={(e) => handleChange('timezone', e.target.value)}
-                className={cn(
-                  'h-10 w-full rounded-md border border-border bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
-                  errors.timezone && 'border-destructive focus-visible:ring-destructive/60',
-                )}
-                aria-invalid={Boolean(errors.timezone)}
-                aria-describedby={errors.timezone ? 'create-restaurant-timezone-error' : undefined}
+                onValueChange={(value) => handleChange('timezone', value)}
               >
-                {COMMON_TIMEZONES.map((tz) => (
-                  <option key={tz} value={tz}>
-                    {tz}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger
+                  id="create-restaurant-timezone"
+                  aria-invalid={Boolean(errors.timezone)}
+                  aria-describedby={errors.timezone ? 'create-restaurant-timezone-error' : undefined}
+                  className={cn(errors.timezone && 'border-destructive focus-visible:ring-destructive/60')}
+                >
+                  <SelectValue placeholder="Select timezone" />
+                </SelectTrigger>
+                <SelectContent>
+                  {COMMON_TIMEZONES.map((tz) => (
+                    <SelectItem key={tz} value={tz}>
+                      {tz}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {errors.timezone && (
                 <p
                   id="create-restaurant-timezone-error"

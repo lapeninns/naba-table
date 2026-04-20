@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { Button } from '@/components/ui/button';
 import { useBookingStateMachine } from '@/contexts/booking-state-machine';
+import { opsHref } from '@/lib/url/opsHref';
 
 import type { BookingDTO } from '@/hooks/useBookings';
 import type { OpsBookingStatus } from '@/types/ops';
@@ -34,7 +35,7 @@ export function NoRestaurantAccess() {
         description="Ask an owner or manager to send you an invitation so you can manage bookings."
         action={
           <Button asChild variant="secondary">
-            <Link href="/guest/dashboard">Back to dashboard</Link>
+            <Link href={opsHref('/dashboard')}>Return to ops home</Link>
           </Button>
         }
       />
@@ -52,4 +53,3 @@ export function SelectingRestaurantFallback() {
     </section>
   );
 }
-

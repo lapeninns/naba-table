@@ -1,8 +1,15 @@
 'use client';
 
 import { Plus, Trash2 } from 'lucide-react';
-import { cloneElement, isValidElement, useEffect, useId, useState } from 'react';
+import { cloneElement, isValidElement, useEffect, useId, useMemo, useRef, useState } from 'react';
 
+import { ConfirmDialog } from '@/components/features/restaurant-settings/ConfirmDialog';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,6 +44,7 @@ export function DrinkItemSheet({
   isLoading,
   isSaving,
   facets,
+  onDirtyChange,
   onSubmit,
 }: {
   open: boolean;
@@ -45,16 +53,30 @@ export function DrinkItemSheet({
   isLoading: boolean;
   isSaving: boolean;
   facets: DrinkFacetSet;
+  onDirtyChange?: (dirty: boolean) => void;
   onSubmit: (payload: DrinkItemUpsertInput) => Promise<void>;
 }) {
   const [form, setForm] = useState<DrinkItemFormState>(createEmptyDrinkItemFormState());
   const [formError, setFormError] = useState<string | null>(null);
+  const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
+  const loadedSourceKeyRef = useRef<string>('new');
+  const sourceKey = item?.id ?? 'new';
+  const baselineSnapshot = useMemo(() => JSON.stringify(createDrinkItemFormState(item)), [item]);
+  const currentSnapshot = useMemo(() => JSON.stringify(form), [form]);
+  const isDirty = currentSnapshot !== baselineSnapshot;
 
   useEffect(() => {
     if (!open) return;
-    setForm(createDrinkItemFormState(item));
-    setFormError(null);
-  }, [item, open]);
+    if (loadedSourceKeyRef.current !== sourceKey || !isDirty) {
+      loadedSourceKeyRef.current = sourceKey;
+      setForm(createDrinkItemFormState(item));
+      setFormError(null);
+    }
+  }, [item, open, sourceKey, isDirty]);
+
+  useEffect(() => {
+    onDirtyChange?.(open && isDirty);
+  }, [isDirty, onDirtyChange, open]);
 
   const updateField = <K extends keyof DrinkItemFormState>(key: K, value: DrinkItemFormState[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -71,8 +93,25 @@ export function DrinkItemSheet({
     }
   };
 
+  const handleSheetOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen && isDirty) {
+      setDiscardDialogOpen(true);
+      return;
+    }
+
+    onOpenChange(nextOpen);
+  };
+
+  const handleCancel = () => {
+    if (isDirty) {
+      setDiscardDialogOpen(true);
+      return;
+    }
+    onOpenChange(false);
+  };
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={handleSheetOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-4xl">
         <SheetHeader>
           <SheetTitle>{item ? 'Edit drink item' : 'New drink item'}</SheetTitle>
@@ -95,9 +134,6 @@ export function DrinkItemSheet({
 
               <FormSection title="Basics" description="Identity, pricing, and availability.">
                 <div className="grid gap-4 md:grid-cols-2">
-                  <Field label="External drink ID">
-                    <Input value={form.externalDrinkId} onChange={(event) => updateField('externalDrinkId', event.target.value)} />
-                  </Field>
                   <Field label="Drink name">
                     <Input value={form.drinkName} onChange={(event) => updateField('drinkName', event.target.value)} />
                   </Field>
@@ -140,12 +176,6 @@ export function DrinkItemSheet({
                         Unavailable
                       </Button>
                     </div>
-                  </Field>
-                  <Field label="Display order">
-                    <Input value={form.displayOrder} onChange={(event) => updateField('displayOrder', event.target.value)} />
-                  </Field>
-                  <Field label="Image URL" className="md:col-span-2">
-                    <Input value={form.imageUrl} onChange={(event) => updateField('imageUrl', event.target.value)} />
                   </Field>
                 </div>
               </FormSection>
@@ -238,12 +268,6 @@ export function DrinkItemSheet({
                   <Field label="Recommendation tags">
                     <Textarea value={form.recommendationTags} onChange={(event) => updateField('recommendationTags', event.target.value)} rows={3} />
                   </Field>
-                  <Field label="Signature score">
-                    <Input value={form.signatureScore} onChange={(event) => updateField('signatureScore', event.target.value)} />
-                  </Field>
-                  <Field label="Popularity score">
-                    <Input value={form.popularityScore} onChange={(event) => updateField('popularityScore', event.target.value)} />
-                  </Field>
                 </div>
               </FormSection>
 
@@ -270,6 +294,48 @@ export function DrinkItemSheet({
                   <ToggleField label="Can be made decaf" checked={form.canBeMadeDecaf} onCheckedChange={(checked) => updateField('canBeMadeDecaf', checked)} />
                 </div>
               </FormSection>
+
+              <Accordion type="single" collapsible className="rounded-lg border border-border/60 px-4">
+                <AccordionItem value="advanced-metadata" className="border-none">
+                  <AccordionTrigger className="text-left text-sm font-medium">
+                    Advanced metadata
+                  </AccordionTrigger>
+                  <AccordionContent className="pt-2">
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <Field label="External drink ID">
+                        <Input
+                          value={form.externalDrinkId}
+                          onChange={(event) => updateField('externalDrinkId', event.target.value)}
+                        />
+                      </Field>
+                      <Field label="Display order">
+                        <Input
+                          value={form.displayOrder}
+                          onChange={(event) => updateField('displayOrder', event.target.value)}
+                        />
+                      </Field>
+                      <Field label="Signature score">
+                        <Input
+                          value={form.signatureScore}
+                          onChange={(event) => updateField('signatureScore', event.target.value)}
+                        />
+                      </Field>
+                      <Field label="Popularity score">
+                        <Input
+                          value={form.popularityScore}
+                          onChange={(event) => updateField('popularityScore', event.target.value)}
+                        />
+                      </Field>
+                      <Field label="Image URL" className="md:col-span-2">
+                        <Input
+                          value={form.imageUrl}
+                          onChange={(event) => updateField('imageUrl', event.target.value)}
+                        />
+                      </Field>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
 
               <FormSection title="Modifiers" description="Variations such as mixers, milk choice, extra shot, or garnish swaps.">
                 <div className="space-y-4">
@@ -448,7 +514,7 @@ export function DrinkItemSheet({
         </div>
 
         <SheetFooter className="border-t border-border/60">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
+          <Button type="button" variant="outline" onClick={handleCancel} disabled={isSaving}>
             Cancel
           </Button>
           <Button type="button" onClick={() => void handleSubmit()} disabled={isSaving || isLoading}>
@@ -456,6 +522,20 @@ export function DrinkItemSheet({
           </Button>
         </SheetFooter>
       </SheetContent>
+
+      <ConfirmDialog
+        open={discardDialogOpen}
+        onOpenChange={setDiscardDialogOpen}
+        title="Discard unsaved drink item changes?"
+        description="Any edits to this drink item will be lost. This cannot be undone."
+        confirmLabel="Discard changes"
+        cancelLabel="Keep editing"
+        tone="destructive"
+        onConfirm={() => {
+          setDiscardDialogOpen(false);
+          onOpenChange(false);
+        }}
+      />
     </Sheet>
   );
 }

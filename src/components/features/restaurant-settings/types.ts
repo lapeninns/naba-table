@@ -4,10 +4,6 @@ export type RestaurantSettingsView =
   | 'profile'
   | 'google-business-profile'
   | 'availability'
-  | 'operating-hours'
-  | 'occasions'
-  | 'service-periods'
-  | 'turn-durations'
   | 'team';
 
 export type WeeklyRow = {

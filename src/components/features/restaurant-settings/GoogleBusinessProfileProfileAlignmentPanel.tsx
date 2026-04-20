@@ -7,6 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { opsHref } from '@/lib/url/opsHref';
 import { cn } from '@/lib/utils';
 
 import { GoogleBusinessProfilePanel } from './GoogleBusinessProfilePanel';
@@ -67,7 +68,11 @@ function statusLabel(status: 'verified' | 'drifted' | 'partial' | 'unavailable')
   }
 }
 
-function FieldStatusBadge({ status }: { status: 'verified' | 'drifted' | 'partial' | 'unavailable' }) {
+function FieldStatusBadge({
+  status,
+}: {
+  status: 'verified' | 'drifted' | 'partial' | 'unavailable';
+}) {
   return (
     <Badge
       variant="outline"
@@ -122,7 +127,7 @@ export function GoogleBusinessProfileProfileAlignmentPanel({
         description="Review the core profile fields Nabatable compares against Google. This section is verification-only; make edits in the canonical restaurant profile settings."
         action={
           <Button variant="outline" size="sm" asChild>
-            <Link href="/settings/restaurant/profile">
+            <Link href={opsHref('/settings/restaurant/profile')}>
               <ExternalLink className="size-4" />
               Open restaurant profile
             </Link>

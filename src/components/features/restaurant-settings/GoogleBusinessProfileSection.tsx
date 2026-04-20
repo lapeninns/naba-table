@@ -42,6 +42,7 @@ import {
   getGoogleBusinessProfileConnectionStatusLabel,
 } from './GoogleBusinessProfileUiHelpers';
 import { deriveProfileVerification } from './googleBusinessProfileVerification';
+import { SettingsJumpNav, type SettingsJumpNavItem } from './SettingsJumpNav';
 
 type GoogleBusinessProfileSectionProps = {
   restaurantId: string | null;
@@ -274,30 +275,13 @@ function ActivityFeed({ items }: { items: ActivityItem[] }) {
   );
 }
 
-const GBP_SECTION_LINKS = [
-  { href: '#gbp-connection', label: 'Connection' },
-  { href: '#gbp-sync', label: 'Sync' },
-  { href: '#gbp-profile', label: 'Profile' },
-  { href: '#gbp-availability', label: 'Availability' },
-  { href: '#gbp-context', label: 'Context' },
-] as const;
-
-function SectionJumpNav() {
-  return (
-    <nav
-      aria-label="Google Business Profile sections"
-      className="sticky top-4 z-10 rounded-2xl border border-border/60 bg-background/95 px-3 py-3 shadow-sm backdrop-blur"
-    >
-      <div className="flex flex-wrap gap-2">
-        {GBP_SECTION_LINKS.map((link) => (
-          <Button key={link.href} type="button" variant="outline" size="sm" asChild>
-            <a href={link.href}>{link.label}</a>
-          </Button>
-        ))}
-      </div>
-    </nav>
-  );
-}
+const GBP_JUMP_ITEMS: SettingsJumpNavItem[] = [
+  { id: 'gbp-connection', label: 'Connection' },
+  { id: 'gbp-sync', label: 'Sync health' },
+  { id: 'gbp-profile', label: 'Profile alignment' },
+  { id: 'gbp-availability', label: 'Availability alignment' },
+  { id: 'gbp-context', label: 'Business context' },
+];
 
 export function GoogleBusinessProfileSection({ restaurantId }: GoogleBusinessProfileSectionProps) {
   const searchParams = useSearchParams();
@@ -507,21 +491,45 @@ export function GoogleBusinessProfileSection({ restaurantId }: GoogleBusinessPro
               </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 rounded-2xl border border-border/60 bg-background/60 p-4 md:grid-cols-3">
               <GoogleBusinessProfileSummaryItem
-                label="Google account"
-                value={data.connectedGoogleEmail ?? 'Not connected'}
-                detail={data.connectedGoogleName}
+                label="Connection"
+                value={
+                  data.connectedGoogleEmail
+                    ? (data.externalLocationTitle ?? 'No location linked')
+                    : 'Not connected'
+                }
+                detail={
+                  data.connectedGoogleEmail
+                    ? `Authorized as ${data.connectedGoogleEmail}${
+                        data.availableLocations.length
+                          ? ` · ${data.availableLocations.length} location${data.availableLocations.length === 1 ? '' : 's'} available`
+                          : ''
+                      }`
+                    : `${data.availableLocations.length} location${data.availableLocations.length === 1 ? '' : 's'} discoverable once you connect`
+                }
               />
               <GoogleBusinessProfileSummaryItem
-                label="Linked location"
-                value={data.externalLocationTitle ?? data.externalLocationId ?? 'No location linked'}
-                detail={data.externalLocationId}
+                label="Alignment"
+                value={
+                  totalDriftCount === 0
+                    ? 'In sync with Google'
+                    : `${totalDriftCount} item${totalDriftCount === 1 ? '' : 's'} need review`
+                }
+                detail={
+                  noteCount > 0
+                    ? `${noteCount} normalization note${noteCount === 1 ? '' : 's'} · see details below`
+                    : 'Profile and availability currently match the snapshot'
+                }
               />
               <GoogleBusinessProfileSummaryItem
-                label="Discovery"
-                value={`${data.availableLocations.length} location${data.availableLocations.length === 1 ? '' : 's'} available`}
-                detail="Visible through the connected Google credentials"
+                label="Latest snapshot"
+                value={formatTimestamp(data.lastPullAt)}
+                detail={
+                  data.lastPushAt
+                    ? `Last push ${formatTimestamp(data.lastPushAt)}`
+                    : 'No push to Google recorded yet'
+                }
               />
             </div>
 
@@ -545,9 +553,10 @@ export function GoogleBusinessProfileSection({ restaurantId }: GoogleBusinessPro
         </div>
       </section>
 
-      <div className="space-y-6">
-        <SectionJumpNav />
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+        <SettingsJumpNav items={GBP_JUMP_ITEMS} ariaLabel="Google Business Profile sections" />
 
+        <div className="min-w-0 flex-1 space-y-6">
         <div id="gbp-connection" className="space-y-6 scroll-mt-24">
           <GoogleBusinessProfileOverviewWorkspace
             data={data}
@@ -584,40 +593,6 @@ export function GoogleBusinessProfileSection({ restaurantId }: GoogleBusinessPro
         </div>
 
         <div id="gbp-sync" className="space-y-6 scroll-mt-24">
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="rounded-2xl border border-border/60 bg-background/95 p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Drift count
-              </p>
-              <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground">
-                {totalDriftCount}
-              </p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {totalDriftCount === 0
-                  ? 'Core profile and normalized availability currently align with Google.'
-                  : `${totalDriftCount} profile or availability rows need review.`}
-              </p>
-            </div>
-            <div className="rounded-2xl border border-border/60 bg-background/95 p-4">
-              <GoogleBusinessProfileSummaryItem
-                label="Normalization notes"
-                value={`${noteCount} note${noteCount === 1 ? '' : 's'}`}
-                detail="Warnings explain where Google data cannot map cleanly into Nabatable."
-              />
-            </div>
-            <div className="rounded-2xl border border-border/60 bg-background/95 p-4">
-              <GoogleBusinessProfileSummaryItem
-                label="Latest snapshot"
-                value={formatTimestamp(data.lastPullAt)}
-                detail={
-                  data.lastPushAt
-                    ? `Last push ${formatTimestamp(data.lastPushAt)}`
-                    : 'No push to Google recorded yet'
-                }
-              />
-            </div>
-          </div>
-
           <ActivityFeed items={activityItems} />
         </div>
 
@@ -645,6 +620,7 @@ export function GoogleBusinessProfileSection({ restaurantId }: GoogleBusinessPro
           />
 
           <GoogleBusinessProfileAttributesSection attributes={data.businessInfo.attributes} />
+        </div>
         </div>
       </div>
 

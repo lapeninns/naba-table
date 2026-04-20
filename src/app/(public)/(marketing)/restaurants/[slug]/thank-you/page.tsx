@@ -2,8 +2,6 @@ import { redirect } from "next/navigation";
 
 type Params = Promise<{ slug: string }>;
 
-export const dynamic = "force-dynamic";
-
 /**
  * Redirect /restaurants/[slug]/thank-you to /restaurants/[slug]/book/thank-you
  * This consolidates the thank-you paths to a single canonical location.

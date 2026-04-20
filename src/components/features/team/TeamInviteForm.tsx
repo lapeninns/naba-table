@@ -9,6 +9,13 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useOpsCreateTeamInvite } from '@/hooks/ops/useOpsTeamInvitations';
 import { RESTAURANT_ROLE_OPTIONS } from '@/lib/owner/auth/roles';
 
@@ -106,16 +113,18 @@ export function TeamInviteForm({ restaurantId }: TeamInviteFormProps) {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Role</FormLabel>
-                <FormControl>
-                  <select
-                    {...field}
-                    className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground shadow-sm focus:border-border focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  >
-                    <option value="manager">Manager</option>
-                    <option value="host">Host</option>
-                    <option value="server">Server</option>
-                  </select>
-                </FormControl>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select role" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="manager">Manager</SelectItem>
+                    <SelectItem value="host">Host</SelectItem>
+                    <SelectItem value="server">Server</SelectItem>
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}

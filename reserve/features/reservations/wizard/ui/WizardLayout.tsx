@@ -24,8 +24,8 @@ interface WizardLayoutProps {
 
 export function WizardLayout({
   heroRef,
-  stickyHeight: _stickyHeight = 0,
-  stickyVisible: _stickyVisible = false,
+  stickyHeight = 0,
+  stickyVisible = false,
   restaurantName,
   banner,
   children,
@@ -35,20 +35,27 @@ export function WizardLayout({
   contentClassName,
 }: WizardLayoutProps) {
   const Container = elementType === 'div' ? 'div' : 'main';
+  const footerOffset = stickyVisible ? stickyHeight : 0;
 
   return (
     <>
       <Container
+        style={{
+          paddingBottom: `calc(1.5rem + ${footerOffset}px + env(safe-area-inset-bottom, 0px))`,
+          scrollPaddingBottom: `calc(${footerOffset}px + env(safe-area-inset-bottom, 0px))`,
+        }}
         className={cn(
           'w-full',
           'bg-gradient-to-b from-blue-50/50 via-white to-white',
-          'px-4 pb-6 pt-4',
-          'sm:pt-5 sm:pb-8 md:px-6 lg:px-8',
+          'px-4 pt-4 sm:pt-5 md:px-6 lg:px-8',
           'font-sans text-foreground',
           className,
         )}
       >
         <div
+          style={{
+            scrollPaddingBottom: `calc(${footerOffset}px + env(safe-area-inset-bottom, 0px))`,
+          }}
           className={cn(
             // Tighter max-width and reduced gaps
             'mx-auto flex w-full max-w-4xl flex-col gap-4 sm:gap-6',
