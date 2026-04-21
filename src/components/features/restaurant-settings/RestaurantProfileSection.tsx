@@ -28,9 +28,9 @@ import {
 } from '@/hooks/ops/useOpsRestaurantDetails';
 import { DEFAULT_RESERVATION_INTERVAL_MINUTES } from '@reserve/shared/config/reservations';
 
-import { GoogleBusinessProfileSyncActionDialog } from './GoogleBusinessProfileSyncActionDialog';
-import { deriveProfileVerification } from './googleBusinessProfileVerification';
-import { GoogleBusinessProfileVerificationControls } from './GoogleBusinessProfileVerificationControls';
+import { GoogleBusinessProfileSyncActionDialog } from './google-business-profile/GoogleBusinessProfileSyncActionDialog';
+import { deriveProfileVerification } from './google-business-profile/googleBusinessProfileVerification';
+import { GoogleBusinessProfileVerificationControls } from './google-business-profile/GoogleBusinessProfileVerificationControls';
 import { RestaurantBusinessContextSection } from './RestaurantBusinessContextSection';
 import { RestaurantLogoUploader } from './RestaurantLogoUploader';
 import { SettingsJumpNav, type SettingsJumpNavItem } from './SettingsJumpNav';

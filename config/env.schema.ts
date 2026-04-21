@@ -17,6 +17,12 @@ const baseEnvSchema = z
     ALLOW_MEMORY_RATE_LIMIT_IN_PROD: booleanStringOptional,
     NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
     NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
+    /** Supabase read-replica API URL (same project keys). Service-role server client only; see supabase/AGENTS.md */
+    SUPABASE_READ_REPLICA_URL: z.string().url().optional(),
+    /** When true with SUPABASE_READ_REPLICA_URL, `getServiceSupabaseClient` uses the replica URL (non-production targets only). */
+    FEATURE_SERVICE_CLIENT_USE_READ_REPLICA: booleanStringOptional,
+    /** Optional banner text shown at the top of the Ops app (e.g. "Preview: production read replica"). */
+    OPS_ENV_BANNER: z.string().max(500).optional(),
     PRODUCTION_SUPABASE_URL: z.string().url().optional(),
     PRODUCTION_SUPABASE_ANON_KEY: z.string().min(1).optional(),
     PRODUCTION_SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),

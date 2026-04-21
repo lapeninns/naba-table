@@ -1,4 +1,10 @@
+import { env } from '@/lib/env';
+import {
+  fetchTwilioMessage,
+  mapTwilioMessageStatusToDeliveryStatus,
+} from '@/lib/twilio/sms';
 import { recordObservabilityEvent } from '@/server/observability';
+import { recordSmsDeliveryLog } from '@/server/sms/delivery-log';
 import { getServiceSupabaseClient } from '@/server/supabase';
 import {
   EMAIL_DELIVERY_IN_FLIGHT_STATUSES,
@@ -14,6 +20,7 @@ import type { Json } from '@/types/supabase';
 const EMAIL_STALE_THRESHOLD_MS = EMAIL_DELIVERY_STALE_THRESHOLD_HOURS * 60 * 60 * 1000;
 const SMS_STALE_THRESHOLD_MS = SMS_DELIVERY_STALE_THRESHOLD_MINUTES * 60 * 1000;
 const LOOKBACK_HOURS = 72;
+const MAX_SMS_TWILIO_STATUS_FETCHES_PER_RUN = 100;
 
 export type DeliveryReconcileReport = {
   stuckEmailAttempts: number;
@@ -24,7 +31,14 @@ export type DeliveryReconcileReport = {
 };
 
 type EmailRow = { message_id: string; recipient_email: string; restaurant_id: string | null; occurred_at: string };
-type SmsRow = { message_sid: string; recipient_phone: string; restaurant_id: string | null; occurred_at: string };
+type SmsRow = {
+  message_sid: string;
+  recipient_phone: string;
+  restaurant_id: string | null;
+  booking_id: string | null;
+  sms_type: string | null;
+  occurred_at: string;
+};
 
 function keyFor(a: string, b: string): string {
   return `${a}__${b.toLowerCase()}`;
@@ -34,6 +48,58 @@ function parseIsoMs(value: string | null | undefined): number {
   if (!value) return 0;
   const ms = new Date(value).getTime();
   return Number.isFinite(ms) ? ms : 0;
+}
+
+function toIsoStringOrNull(value: string | null | undefined): string | null {
+  const ms = parseIsoMs(value);
+  if (!ms) return null;
+  return new Date(ms).toISOString();
+}
+
+function hasTwilioSmsReadCredentials(): boolean {
+  return Boolean(
+    env.twilio.accountSid &&
+      ((env.twilio.apiKeySid && env.twilio.apiKeySecret) || env.twilio.authToken),
+  );
+}
+
+async function refreshSmsCandidateFromTwilio(row: SmsRow): Promise<boolean> {
+  if (!hasTwilioSmsReadCredentials()) {
+    return false;
+  }
+
+  const message = await fetchTwilioMessage({
+    accountSid: env.twilio.accountSid as string,
+    apiKeySid: env.twilio.apiKeySid ?? undefined,
+    apiKeySecret: env.twilio.apiKeySecret ?? undefined,
+    authToken: env.twilio.authToken ?? undefined,
+    messageSid: row.message_sid,
+  });
+
+  const mappedStatus = mapTwilioMessageStatusToDeliveryStatus(message.status);
+  if (!mappedStatus || SMS_DELIVERY_IN_FLIGHT_STATUSES.includes(mappedStatus)) {
+    return false;
+  }
+
+  await recordSmsDeliveryLog({
+    bookingId: row.booking_id ?? null,
+    restaurantId: row.restaurant_id ?? null,
+    smsType: row.sms_type ?? null,
+    recipientPhone: row.recipient_phone,
+    messageSid: row.message_sid,
+    status: mappedStatus,
+    provider: 'twilio',
+    occurredAt: toIsoStringOrNull(message.dateUpdated ?? message.dateSent ?? message.dateCreated) ?? undefined,
+    error: message.errorMessage ?? null,
+    metadata: {
+      source: 'delivery_reconciler_poll',
+      polledStatus: message.status ?? null,
+      polledAt: new Date().toISOString(),
+      errorCode: message.errorCode,
+    },
+  });
+
+  return true;
 }
 
 async function reconcileEmails(): Promise<{ stuck: number; scanned: number; error?: string }> {
@@ -122,10 +188,11 @@ async function reconcileSms(): Promise<{ stuck: number; scanned: number; error?:
 
   const { data: inflightRows, error: inflightError } = await supabase
     .from('sms_delivery_log')
-    .select('message_sid, recipient_phone, restaurant_id, occurred_at')
+    .select('message_sid, recipient_phone, restaurant_id, booking_id, sms_type, occurred_at')
     .gte('occurred_at', lookbackIso)
     .lte('occurred_at', staleCutoffIso)
     .in('status', SMS_DELIVERY_IN_FLIGHT_STATUSES as unknown as string[])
+    .order('occurred_at', { ascending: true })
     .limit(5_000);
 
   if (inflightError) {
@@ -171,6 +238,27 @@ async function reconcileSms(): Promise<{ stuck: number; scanned: number; error?:
     if (!candidate) continue;
     if (parseIsoMs(row.occurred_at) >= parseIsoMs(candidate.occurred_at)) {
       superseded.add(key);
+    }
+  }
+
+  if (hasTwilioSmsReadCredentials()) {
+    let refreshed = 0;
+    for (const [key, row] of candidates) {
+      if (refreshed >= MAX_SMS_TWILIO_STATUS_FETCHES_PER_RUN) break;
+      if (superseded.has(key)) continue;
+
+      refreshed += 1;
+      try {
+        const resolved = await refreshSmsCandidateFromTwilio(row);
+        if (resolved) {
+          superseded.add(key);
+        }
+      } catch (error) {
+        console.warn('[delivery.reconciler] failed to refresh SMS status from Twilio', {
+          messageSid: row.message_sid,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
   }
 

@@ -63,9 +63,9 @@ export type OpsSmsDeliveryAttemptDTO = {
   events: SmsDeliveryEventDTO[];
   booking: OpsSmsDeliveryBookingDTO | null;
   /**
-   * True when the attempt is in a non-terminal state (queued / sent) and we
-   * have not received a terminal Twilio status callback within the stale
-   * threshold. Derived on the read path; not persisted.
+   * True when the attempt is still in a non-terminal state (queued / sent)
+   * after the stale threshold has passed. Derived on the read path; not
+   * persisted.
    */
   isStale?: boolean;
   /** Age of the most recent event in milliseconds, when `isStale` is true. */
@@ -73,12 +73,13 @@ export type OpsSmsDeliveryAttemptDTO = {
 };
 
 /**
- * Minutes an SMS attempt can sit in a non-terminal state before we flag it as
- * stuck. Twilio normally emits a terminal callback within a minute or two;
- * anything past 30 minutes is highly suspicious (dropped webhook, carrier
- * black hole, or queued without being dispatched).
+ * Hours an SMS attempt can remain in a non-terminal Twilio state before we
+ * flag it as stale. Twilio's delivery-logging guidance recommends polling by
+ * Message SID when a message has not reached `delivered` or `undelivered`
+ * within 12 hours because a status callback may have been missed.
  */
-export const SMS_DELIVERY_STALE_THRESHOLD_MINUTES = 30;
+export const SMS_DELIVERY_STALE_THRESHOLD_HOURS = 12;
+export const SMS_DELIVERY_STALE_THRESHOLD_MINUTES = SMS_DELIVERY_STALE_THRESHOLD_HOURS * 60;
 
 /** Non-terminal SMS statuses considered "in flight". */
 export const SMS_DELIVERY_IN_FLIGHT_STATUSES: ReadonlyArray<SmsDeliveryStatus> = ['queued', 'sent'];

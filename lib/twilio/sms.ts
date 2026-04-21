@@ -47,6 +47,14 @@ type TwilioListMessagesRequest = {
   nextPageUri?: string | null;
 };
 
+type TwilioFetchMessageRequest = {
+  accountSid: string;
+  messageSid: string;
+  authToken?: string;
+  apiKeySid?: string;
+  apiKeySecret?: string;
+};
+
 export type TwilioListMessagesPage = {
   messages: TwilioMessageRecord[];
   nextPageUri: string | null;
@@ -60,6 +68,22 @@ type TwilioErrorPayload = {
   status?: number | null;
 };
 
+type TwilioMessageApiPayload = {
+  sid?: string | null;
+  status?: string | null;
+  to?: string | null;
+  from?: string | null;
+  body?: string | null;
+  direction?: string | null;
+  date_sent?: string | null;
+  date_created?: string | null;
+  date_updated?: string | null;
+  error_code?: number | null;
+  error_message?: string | null;
+  messaging_service_sid?: string | null;
+  uri?: string | null;
+};
+
 function toBase64(value: string): string {
   if (typeof btoa === 'function') {
     return btoa(value);
@@ -70,6 +94,21 @@ function toBase64(value: string): string {
 
 function buildBasicAuthHeader(username: string, password: string): string {
   return `Basic ${toBase64(`${username}:${password}`)}`;
+}
+
+function resolveTwilioReadCredentials(params: {
+  accountSid: string;
+  authToken?: string;
+  apiKeySid?: string;
+  apiKeySecret?: string;
+}): { username: string; password: string } {
+  const username = params.apiKeySid ?? params.accountSid;
+  const password = params.apiKeySecret ?? params.authToken;
+  if (!password) {
+    throw new Error('Twilio read credentials are required');
+  }
+
+  return { username, password };
 }
 
 function parseTwilioErrorPayload(raw: string): TwilioErrorPayload | null {
@@ -148,18 +187,31 @@ export function buildTwilioListMessagesRequest(params: TwilioListMessagesRequest
     if (params.pageToken) url.searchParams.set('PageToken', params.pageToken);
   }
 
-  const username = params.apiKeySid ?? params.accountSid;
-  const password = params.apiKeySecret ?? params.authToken;
-  if (!password) {
-    throw new Error('Twilio list messages auth credentials are required');
-  }
+  const credentials = resolveTwilioReadCredentials(params);
 
   return {
     url: url.toString(),
     init: {
       method: 'GET',
       headers: {
-        authorization: buildBasicAuthHeader(username, password),
+        authorization: buildBasicAuthHeader(credentials.username, credentials.password),
+      },
+    },
+  };
+}
+
+export function buildTwilioFetchMessageRequest(params: TwilioFetchMessageRequest): {
+  url: string;
+  init: RequestInit;
+} {
+  const credentials = resolveTwilioReadCredentials(params);
+
+  return {
+    url: `https://api.twilio.com/2010-04-01/Accounts/${params.accountSid}/Messages/${params.messageSid}.json`,
+    init: {
+      method: 'GET',
+      headers: {
+        authorization: buildBasicAuthHeader(credentials.username, credentials.password),
       },
     },
   };
@@ -220,6 +272,26 @@ export function validateTwilioWebhookSignature(params: {
 
   const expected = toBase64Digest(params.authToken, data);
   return safeEqualBase64(expected, params.signature.trim());
+}
+
+function parseTwilioMessageRecord(message: TwilioMessageApiPayload | null | undefined): TwilioMessageRecord | null {
+  if (!message?.sid) return null;
+
+  return {
+    sid: message.sid,
+    status: message.status ?? null,
+    to: message.to ?? null,
+    from: message.from ?? null,
+    body: message.body ?? null,
+    direction: message.direction ?? null,
+    dateSent: message.date_sent ?? null,
+    dateCreated: message.date_created ?? null,
+    dateUpdated: message.date_updated ?? null,
+    errorCode: message.error_code ?? null,
+    errorMessage: message.error_message ?? null,
+    messagingServiceSid: message.messaging_service_sid ?? null,
+    uri: message.uri ?? null,
+  };
 }
 
 export async function sendTwilioSmsMessage(
@@ -288,43 +360,51 @@ export async function listTwilioMessagesPage(
 
   const body = raw
     ? (JSON.parse(raw) as {
-        messages?: Array<{
-          sid?: string | null;
-          status?: string | null;
-          to?: string | null;
-          from?: string | null;
-          body?: string | null;
-          direction?: string | null;
-          date_sent?: string | null;
-          date_created?: string | null;
-          date_updated?: string | null;
-          error_code?: number | null;
-          error_message?: string | null;
-          messaging_service_sid?: string | null;
-          uri?: string | null;
-        }>;
+        messages?: TwilioMessageApiPayload[];
         next_page_uri?: string | null;
       })
     : null;
 
   return {
     messages: (body?.messages ?? [])
-      .filter((message): message is NonNullable<typeof message> => Boolean(message?.sid))
-      .map((message) => ({
-        sid: message.sid as string,
-        status: message.status ?? null,
-        to: message.to ?? null,
-        from: message.from ?? null,
-        body: message.body ?? null,
-        direction: message.direction ?? null,
-        dateSent: message.date_sent ?? null,
-        dateCreated: message.date_created ?? null,
-        dateUpdated: message.date_updated ?? null,
-        errorCode: message.error_code ?? null,
-        errorMessage: message.error_message ?? null,
-        messagingServiceSid: message.messaging_service_sid ?? null,
-        uri: message.uri ?? null,
-      })),
+      .map((message) => parseTwilioMessageRecord(message))
+      .filter((message): message is TwilioMessageRecord => Boolean(message)),
     nextPageUri: body?.next_page_uri ?? null,
   };
+}
+
+export async function fetchTwilioMessage(
+  params: TwilioFetchMessageRequest & { fetchImpl?: typeof fetch },
+): Promise<TwilioMessageRecord> {
+  const { url, init } = buildTwilioFetchMessageRequest(params);
+  const fetchImpl = params.fetchImpl ?? fetch;
+
+  let response: Response;
+  try {
+    response = await fetchImpl(url, init);
+  } catch (error) {
+    throw new RetryableDispatchError(
+      error instanceof Error ? error.message : 'Twilio request failed',
+    );
+  }
+
+  const raw = await response.text();
+  const parsed = parseTwilioErrorPayload(raw);
+
+  if (!response.ok) {
+    const message = parsed?.message?.trim() || `Twilio message fetch failed (${response.status})`;
+    if (isRetryableTwilioStatus(response.status)) {
+      throw new RetryableDispatchError(message, response.status);
+    }
+
+    throw new TerminalDispatchError(message, response.status);
+  }
+
+  const body = raw ? (JSON.parse(raw) as TwilioMessageApiPayload) : null;
+  const record = parseTwilioMessageRecord(body);
+  if (!record) {
+    throw new Error('Twilio message fetch response missing sid');
+  }
+
+  return record;
 }

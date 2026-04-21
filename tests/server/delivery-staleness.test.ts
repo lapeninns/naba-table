@@ -4,7 +4,6 @@ import { computeEmailAttemptStaleness } from '@/server/emails/email-delivery-log
 import { computeSmsAttemptStaleness } from '@/server/sms/delivery-log';
 
 const HOUR_MS = 60 * 60 * 1000;
-const MIN_MS = 60 * 1000;
 
 describe('computeEmailAttemptStaleness', () => {
   const now = new Date('2026-01-15T12:00:00.000Z').getTime();
@@ -62,19 +61,19 @@ describe('computeEmailAttemptStaleness', () => {
 describe('computeSmsAttemptStaleness', () => {
   const now = new Date('2026-01-15T12:00:00.000Z').getTime();
 
-  it('flags queued attempts older than the 30m threshold', () => {
+  it('flags queued attempts older than the 12h threshold', () => {
     const result = computeSmsAttemptStaleness({
       currentStatus: 'queued',
-      currentOccurredAt: new Date(now - 45 * MIN_MS).toISOString(),
+      currentOccurredAt: new Date(now - 13 * HOUR_MS).toISOString(),
       now,
     });
     expect(result.isStale).toBe(true);
   });
 
-  it('flags sent attempts older than the 30m threshold', () => {
+  it('flags sent attempts older than the 12h threshold', () => {
     const result = computeSmsAttemptStaleness({
       currentStatus: 'sent',
-      currentOccurredAt: new Date(now - 31 * MIN_MS).toISOString(),
+      currentOccurredAt: new Date(now - 13 * HOUR_MS).toISOString(),
       now,
     });
     expect(result.isStale).toBe(true);
@@ -83,7 +82,7 @@ describe('computeSmsAttemptStaleness', () => {
   it('does not flag sent attempts within the threshold', () => {
     const result = computeSmsAttemptStaleness({
       currentStatus: 'sent',
-      currentOccurredAt: new Date(now - 10 * MIN_MS).toISOString(),
+      currentOccurredAt: new Date(now - 6 * HOUR_MS).toISOString(),
       now,
     });
     expect(result.isStale).toBe(false);

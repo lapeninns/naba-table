@@ -26,7 +26,7 @@ import {
 import { cn } from '@/lib/utils';
 
 import type { UpdateRestaurantInput } from '@/app/api/ops/restaurants/schema';
-import type { ProfileFieldVerification } from '@/components/features/restaurant-settings/googleBusinessProfileVerification';
+import type { ProfileFieldVerification } from '@/components/features/restaurant-settings/google-business-profile/googleBusinessProfileVerification';
 import type { PropsWithChildren } from 'react';
 
 export type RestaurantDetailsFormValues = {

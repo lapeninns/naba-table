@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
-import type { CoreVerificationStatus } from './googleBusinessProfileVerification';
+import type { CoreVerificationStatus } from './google-business-profile/googleBusinessProfileVerification';
 
 type GoogleBusinessProfileComparisonBadgeProps = {
   status: Exclude<CoreVerificationStatus, 'unavailable'>;

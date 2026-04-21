@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   deriveOperatingHoursRowComparisons,
   deriveServicePeriodDayComparisons,
-} from '@/components/features/restaurant-settings/googleBusinessProfileVerification';
+} from '@/components/features/restaurant-settings/google-business-profile/googleBusinessProfileVerification';
 
 import type { GoogleBusinessProfileConnection } from '@/services/ops/restaurants';
 

@@ -25,13 +25,13 @@ import {
 import { cn } from '@/lib/utils';
 import { normalizeTime } from '@reserve/shared/time';
 
-import { GoogleBusinessProfileComparisonBadge } from './GoogleBusinessProfileComparisonBadge';
-import { GoogleBusinessProfileSyncActionDialog } from './GoogleBusinessProfileSyncActionDialog';
+import { GoogleBusinessProfileSyncActionDialog } from './google-business-profile/GoogleBusinessProfileSyncActionDialog';
 import {
   deriveOperatingHoursRowComparisons,
   deriveOperatingHoursVerification,
-} from './googleBusinessProfileVerification';
-import { GoogleBusinessProfileVerificationControls } from './GoogleBusinessProfileVerificationControls';
+} from './google-business-profile/googleBusinessProfileVerification';
+import { GoogleBusinessProfileVerificationControls } from './google-business-profile/GoogleBusinessProfileVerificationControls';
+import { GoogleBusinessProfileComparisonBadge } from './GoogleBusinessProfileComparisonBadge';
 import { OperatingHoursOverrideDateField } from './OperatingHoursOverrideDateField';
 import { SettingsCard, SettingsSectionHeader } from './shared';
 import { DAYS_OF_WEEK } from './types';

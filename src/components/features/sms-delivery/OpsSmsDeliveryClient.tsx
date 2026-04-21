@@ -31,7 +31,7 @@ import {
   SMS_DELIVERY_STATUS_LABELS,
 } from '@/src/lib/sms-delivery/presentation';
 import {
-  SMS_DELIVERY_STALE_THRESHOLD_MINUTES,
+  SMS_DELIVERY_STALE_THRESHOLD_HOURS,
   type OpsSmsDeliveryRange,
   type SmsDeliveryStatus,
 } from '@/types/smsDelivery';
@@ -239,13 +239,15 @@ export function OpsSmsDeliveryClient({
       {feed && (feed.summary.stuckInFlight ?? 0) > 0 ? (
         <Alert className="mt-4 border-amber-300 bg-amber-50/70 text-amber-900">
           <AlertTitle className="text-sm font-semibold">
-            {feed.summary.stuckInFlight} SMS stuck without a delivery receipt
+            {feed.summary.stuckInFlight} SMS still awaiting terminal status
           </AlertTitle>
           <AlertDescription className="text-xs">
-            These were queued or sent more than {SMS_DELIVERY_STALE_THRESHOLD_MINUTES} minutes ago but never received a
-            terminal Twilio callback (<code>delivered</code> / <code>undelivered</code> / <code>failed</code>). Likely
-            causes: dropped webhook, carrier issue, or the number silently refused the message. Any row below flagged
-            &ldquo;Stuck&rdquo; warrants investigation.
+            These SMS attempts are still at <code>queued</code> or <code>sent</code> more than{' '}
+            {SMS_DELIVERY_STALE_THRESHOLD_HOURS}h after Twilio accepted them. Twilio recommends polling the Message
+            resource when a message has not reached <code>delivered</code> or <code>undelivered</code> within that
+            window because a status callback may have been missed. Likely causes: a missed callback, carrier delay, or
+            a message that never progressed beyond queueing/sending. Any row below flagged &ldquo;Stuck&rdquo; warrants
+            Twilio log review or reconciliation.
           </AlertDescription>
         </Alert>
       ) : null}

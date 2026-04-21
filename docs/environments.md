@@ -33,6 +33,30 @@
 - Keep `ALLOW_PROD_RESOURCES_IN_NONPROD=false` so validation blocks accidental production URLs/keys.
 - Never commit real keys; populate `.env.local` (git ignored) or managed secrets only.
 
+## Staging / preview with production read replica
+
+Use this when a hosted non-production deployment should show production-shaped data in the real Ops app while remaining read-only at the storage layer as much as possible.
+
+- Set `APP_ENV=staging` and `NODE_ENV=production` on the target deployment.
+- Point `NEXT_PUBLIC_SUPABASE_URL` at the production primary project URL.
+- Use the production project `NEXT_PUBLIC_SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY`.
+- Set `SUPABASE_READ_REPLICA_URL` to the production read-replica API URL.
+- Set `FEATURE_SERVICE_CLIENT_USE_READ_REPLICA=true`.
+- Optionally set `OPS_ENV_BANNER` to an explicit reminder such as `Preview: prod read replica`.
+- Run `pnpm exec tsx scripts/validate-env.ts` with the same env before shipping.
+
+Behavior and limits:
+
+- Browser auth, cookies, and middleware remain on the primary project URL.
+- Service-role reads can route to the read replica on non-production targets.
+- Writes through service-role APIs/background jobs may fail on a true replica; treat that as expected for read-only preview.
+- `/dev/**` harness routes are unaffected because they use in-memory mocks.
+
+Validation nuance:
+
+- `scripts/validate-env.ts` still blocks non-production envs that match `PRODUCTION_*` marker vars unless you explicitly opt into the higher-risk override path.
+- For a read-replica preview deployment, either leave the `PRODUCTION_*` marker vars unset for that environment or expect the validation guard to require the explicit override route.
+
 ### Production markers (placeholders in `.env.example`)
 
 - `PRODUCTION_SUPABASE_URL`

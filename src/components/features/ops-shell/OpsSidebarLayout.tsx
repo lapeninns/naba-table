@@ -1,11 +1,12 @@
 'use client';
 
-import { LogOut, Loader2 } from 'lucide-react';
+import { Info, LogOut, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useCallback, useMemo, useState, type MouseEvent, type ReactNode } from 'react';
 
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
+import { Alert, AlertDescription, AlertIcon, AlertTitle } from '@/components/ui/alert';
 import {
   Sidebar,
   SidebarContent,
@@ -40,12 +41,14 @@ type OpsSidebarLayoutProps = {
   children: ReactNode;
   defaultSidebarOpen?: boolean;
   headerSlot?: ReactNode;
+  envBanner?: string | null;
 };
 
 export function OpsSidebarLayout({
   children,
   defaultSidebarOpen = true,
   headerSlot,
+  envBanner,
 }: OpsSidebarLayoutProps) {
   return (
     <ThemeProvider theme="app">
@@ -68,6 +71,20 @@ export function OpsSidebarLayout({
                 </div>
               ) : null}
             </div>
+            {envBanner ? (
+              <Alert
+                variant="warning"
+                className="mx-4 mt-3 shrink-0 sm:mx-6"
+                role="status"
+                aria-live="polite"
+              >
+                <AlertIcon>
+                  <Info className="h-4 w-4" aria-hidden />
+                </AlertIcon>
+                <AlertTitle>Environment notice</AlertTitle>
+                <AlertDescription>{envBanner}</AlertDescription>
+              </Alert>
+            ) : null}
             {/* <OpsOfflineIndicator /> */}
             <div
               id="ops-content"

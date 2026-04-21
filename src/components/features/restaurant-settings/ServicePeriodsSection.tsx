@@ -21,13 +21,13 @@ import {
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
 import { cn } from '@/lib/utils';
 
-import { GoogleBusinessProfileComparisonBadge } from './GoogleBusinessProfileComparisonBadge';
-import { GoogleBusinessProfileSyncActionDialog } from './GoogleBusinessProfileSyncActionDialog';
+import { GoogleBusinessProfileSyncActionDialog } from './google-business-profile/GoogleBusinessProfileSyncActionDialog';
 import {
   deriveServicePeriodDayComparisons,
   deriveServicePeriodsVerification,
-} from './googleBusinessProfileVerification';
-import { GoogleBusinessProfileVerificationControls } from './GoogleBusinessProfileVerificationControls';
+} from './google-business-profile/googleBusinessProfileVerification';
+import { GoogleBusinessProfileVerificationControls } from './google-business-profile/GoogleBusinessProfileVerificationControls';
+import { GoogleBusinessProfileComparisonBadge } from './GoogleBusinessProfileComparisonBadge';
 import {
   buildServicePeriodPayload,
   buildServicePeriodState,

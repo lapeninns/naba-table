@@ -3,6 +3,20 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
+const { routerReplaceMock } = vi.hoisted(() => ({
+  routerReplaceMock: vi.fn(),
+}));
+
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/app/settings/restaurant/menu',
+  useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({
+    replace: routerReplaceMock,
+    push: vi.fn(),
+    prefetch: vi.fn(),
+  }),
+}));
+
 import { OpsMenuManagementClient } from '@/components/features/menu';
 import { OpsServicesProvider } from '@/contexts/ops-services';
 import { OpsSessionProvider } from '@/contexts/ops-session';
@@ -139,7 +153,8 @@ describe('OpsMenuManagementClient', () => {
     await user.click(screen.getByRole('button', { name: 'Edit' }));
 
     expect(await screen.findByText('Edit menu item')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('starter-burrata')).toBeInTheDocument();
+    // External ID lives under collapsed "Advanced metadata"; item name is always visible.
+    expect(screen.getByDisplayValue('Burrata')).toBeInTheDocument();
   });
 
   it('captures search input changes', async () => {

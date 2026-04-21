@@ -12,6 +12,39 @@ import type { NextRequest } from 'next/server';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+function readForwardedHeaderValue(value: string | null): string | null {
+  if (!value) return null;
+
+  const normalized = value
+    .split(',')
+    .map((part) => part.trim())
+    .find((part) => part.length > 0);
+
+  return normalized ?? null;
+}
+
+function buildTwilioSignatureValidationUrls(req: NextRequest): string[] {
+  const pathWithSearch = `${req.nextUrl.pathname}${req.nextUrl.search}`;
+  const requestProtocol = req.nextUrl.protocol.replace(/:$/, '');
+  const forwardedProto = readForwardedHeaderValue(req.headers.get('x-forwarded-proto'));
+  const forwardedHost = readForwardedHeaderValue(req.headers.get('x-forwarded-host'));
+  const candidates = new Set<string>();
+
+  if (forwardedHost) {
+    const protocol =
+      forwardedProto === 'http' || forwardedProto === 'https' ? forwardedProto : requestProtocol;
+    candidates.add(`${protocol}://${forwardedHost}${pathWithSearch}`);
+  }
+
+  candidates.add(req.url);
+
+  if (env.app.url) {
+    candidates.add(new URL(pathWithSearch, env.app.url).toString());
+  }
+
+  return Array.from(candidates);
+}
+
 export async function POST(req: NextRequest) {
   const authToken = env.twilio.authToken;
   if (!authToken) {
@@ -26,14 +59,21 @@ export async function POST(req: NextRequest) {
   }
 
   const form = new URLSearchParams(rawBody);
-  const isValid = validateTwilioWebhookSignature({
-    url: req.url,
-    form,
-    signature,
-    authToken,
-  });
+  const validationUrls = buildTwilioSignatureValidationUrls(req);
+  const isValid = validationUrls.some((url) =>
+    validateTwilioWebhookSignature({
+      url,
+      form,
+      signature,
+      authToken,
+    }),
+  );
 
   if (!isValid) {
+    console.warn('[webhook][twilio][sms-status] signature validation failed', {
+      requestUrl: req.url,
+      validationUrls,
+    });
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

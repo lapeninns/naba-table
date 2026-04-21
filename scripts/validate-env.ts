@@ -60,6 +60,14 @@ if (treatAsProdTarget) {
   }
 }
 
+const readReplicaUrl = env.SUPABASE_READ_REPLICA_URL?.trim();
+const useReadReplicaForService = env.FEATURE_SERVICE_CLIENT_USE_READ_REPLICA === true;
+if (useReadReplicaForService && !readReplicaUrl) {
+  blockers.push(
+    "FEATURE_SERVICE_CLIENT_USE_READ_REPLICA=true requires SUPABASE_READ_REPLICA_URL (Supabase read replica API URL for the same project).",
+  );
+}
+
 if (!treatAsProdTarget && !allowProdResources) {
   const comparisons: Array<{ key: string; value?: string; prodKey: string; prodValue?: string }> = [
     {

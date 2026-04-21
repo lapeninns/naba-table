@@ -46,6 +46,10 @@ export default defineConfig({
         'src/hooks/ops/useOpsEmailQueueFeed.ts',
       ),
       '@/hooks/ops/useOpsDrinksMenu': path.resolve(rootDir, 'src/hooks/ops/useOpsDrinksMenu.ts'),
+      '@/hooks/ops/useOpsGoogleBusinessProfile': path.resolve(
+        rootDir,
+        'src/hooks/ops/useOpsGoogleBusinessProfile.ts',
+      ),
       '@/hooks/useMediaQuery': path.resolve(rootDir, 'src/hooks/useMediaQuery.ts'),
       '@/utils': path.resolve(rootDir, 'src/utils'),
       '@/app': path.resolve(rootDir, 'src/app'),

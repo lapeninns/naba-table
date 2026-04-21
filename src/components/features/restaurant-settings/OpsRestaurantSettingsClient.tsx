@@ -26,7 +26,9 @@ const RestaurantProfileSection = dynamic(() => import('./RestaurantProfileSectio
 
 const GoogleBusinessProfileSection = dynamic(
   () =>
-    import('./GoogleBusinessProfileSection').then((m) => m.GoogleBusinessProfileSection),
+    import('./google-business-profile/GoogleBusinessProfileSection').then(
+      (m) => m.GoogleBusinessProfileSection,
+    ),
   {
     loading: () => <SettingsSectionSkeleton title="Loading Google Business Profile" />,
   },

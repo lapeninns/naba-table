@@ -2,7 +2,7 @@ import userEvent from '@testing-library/user-event';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { GoogleBusinessProfileSyncActionDialog } from '@/src/components/features/restaurant-settings/GoogleBusinessProfileSyncActionDialog';
+import { GoogleBusinessProfileSyncActionDialog } from '@/src/components/features/restaurant-settings/google-business-profile/GoogleBusinessProfileSyncActionDialog';
 
 describe('GoogleBusinessProfileSyncActionDialog', () => {
   it('requires both a password and at least one selected item before confirming', async () => {

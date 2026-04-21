@@ -10,6 +10,7 @@ import {
   OPS_ACTIVE_RESTAURANT_COOKIE_NAME,
   resolvePreferredOpsRestaurantId,
 } from '@/lib/ops/session';
+import { resolveOpsEnvBanner } from '@/server/ops/resolve-ops-env-banner';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
 import { fetchUserMembershipsCached, type RestaurantMembershipWithDetails } from '@/server/team/access';
 
@@ -113,6 +114,8 @@ export default async function OpsAppLayout({ children }: OpsAppLayoutProps) {
     rejectionAnalytics: env.featureFlags.opsRejectionAnalytics ?? false,
   } as const;
 
+  const opsEnvBanner = resolveOpsEnvBanner();
+
   return (
     <OpsSessionProvider
       user={supabaseUser}
@@ -122,7 +125,9 @@ export default async function OpsAppLayout({ children }: OpsAppLayoutProps) {
     >
       <OpsServicesProvider>
         <AppProviders>
-          <OpsShell defaultSidebarOpen={defaultOpen}>{children}</OpsShell>
+          <OpsShell defaultSidebarOpen={defaultOpen} envBanner={opsEnvBanner}>
+            {children}
+          </OpsShell>
         </AppProviders>
       </OpsServicesProvider>
     </OpsSessionProvider>

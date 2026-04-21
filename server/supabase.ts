@@ -26,8 +26,41 @@ export class MissingRestaurantContextError extends Error {
   }
 }
 
+/** Auth, cookies, middleware, and RLS-aligned browser flows always use the primary project URL. */
+function getPublicSupabaseUrl(): string {
+  return getEnv().NEXT_PUBLIC_SUPABASE_URL;
+}
+
+function getPublicSupabaseAnonKey(): string {
+  return getEnv().NEXT_PUBLIC_SUPABASE_ANON_KEY;
+}
+
+function getServiceRoleSupabaseKey(): string {
+  return getEnv().SUPABASE_SERVICE_ROLE_KEY;
+}
+
+/**
+ * Supabase REST URL for the memoized service-role client.
+ * On staging/preview, can target a read replica when configured (same API keys as the primary).
+ * Never switches away from the primary URL on production deployment targets.
+ */
+export function resolveServiceRoleSupabaseUrl(): string {
+  const parsed = getEnv();
+  const replicaUrl = parsed.SUPABASE_READ_REPLICA_URL?.trim();
+  const wantsReplica =
+    parsed.FEATURE_SERVICE_CLIENT_USE_READ_REPLICA === true && Boolean(replicaUrl);
+  if (!wantsReplica) {
+    return parsed.NEXT_PUBLIC_SUPABASE_URL;
+  }
+  const treatAsProdTarget =
+    parsed.APP_ENV === "production" || process.env.VERCEL_ENV === "production";
+  if (treatAsProdTarget) {
+    return parsed.NEXT_PUBLIC_SUPABASE_URL;
+  }
+  return replicaUrl!;
+}
+
 const runtimeEnv = getEnv();
-const { url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY, serviceKey: SUPABASE_SERVICE_ROLE_KEY } = env.supabase;
 const shouldRunStrictHoldCheck = ["production", "staging"].includes(env.node.appEnv);
 const RESTAURANT_CONTEXT_HEADER = "X-Restaurant-Id";
 const DEFAULT_RESTAURANT_SLUG = runtimeEnv.NEXT_PUBLIC_DEFAULT_RESTAURANT_SLUG ?? null;
@@ -97,7 +130,27 @@ function createCookieAdapter(store: CookieReader, writer?: CookieWriter, remembe
 
 export function getServiceSupabaseClient(): SupabaseClient<Database> {
   if (!serviceClient) {
-    serviceClient = createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    const dataUrl = resolveServiceRoleSupabaseUrl();
+    const publicUrl = getPublicSupabaseUrl();
+    if (dataUrl !== publicUrl) {
+      supabaseLogger.info("service-role Supabase client using alternate data URL (read replica)", {
+        primaryHost: (() => {
+          try {
+            return new URL(publicUrl).host;
+          } catch {
+            return null;
+          }
+        })(),
+        dataHost: (() => {
+          try {
+            return new URL(dataUrl).host;
+          } catch {
+            return null;
+          }
+        })(),
+      });
+    }
+    serviceClient = createClient<Database>(dataUrl, getServiceRoleSupabaseKey(), {
       auth: {
         persistSession: false,
       },
@@ -156,7 +209,7 @@ export function getTenantServiceSupabaseClient(restaurantId: string): SupabaseCl
     return cached;
   }
 
-  const tenantClient = createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  const tenantClient = createClient<Database>(resolveServiceRoleSupabaseUrl(), getServiceRoleSupabaseKey(), {
     auth: {
       persistSession: false,
     },
@@ -173,7 +226,7 @@ export function getTenantServiceSupabaseClient(restaurantId: string): SupabaseCl
 
 export async function getServerComponentSupabaseClient(): Promise<SupabaseClient<Database>> {
   const cookieStore = await cookies();
-  return createServerClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  return createServerClient<Database>(getPublicSupabaseUrl(), getPublicSupabaseAnonKey(), {
     cookies: createCookieAdapter(cookieStore),
   });
 }
@@ -183,13 +236,13 @@ export async function getRouteHandlerSupabaseClient(
   rememberMe: boolean = true,
 ): Promise<SupabaseClient<Database>> {
   const store = cookieStore ?? (await cookies());
-  return createServerClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  return createServerClient<Database>(getPublicSupabaseUrl(), getPublicSupabaseAnonKey(), {
     cookies: createCookieAdapter(store, store as CookieWriter, rememberMe),
   });
 }
 
 export function getMiddlewareSupabaseClient(req: NextRequest, res: NextResponse): SupabaseClient<Database> {
-  return createServerClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  return createServerClient<Database>(getPublicSupabaseUrl(), getPublicSupabaseAnonKey(), {
     cookies: createCookieAdapter(req.cookies, res.cookies),
   });
 }

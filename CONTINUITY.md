@@ -1,6 +1,6 @@
 # Continuity Ledger
 
-Last updated: 2026-04-20T16:00:00Z
+Last updated: 2026-04-20T22:11:32Z
 
 ## Goal (incl. success criteria)
 
@@ -81,6 +81,9 @@ Last updated: 2026-04-20T16:00:00Z
 
 ## Key decisions
 
+- For SMS delivery observability, treat Twilio's documented 12-hour reconciliation window as the stale threshold instead of the prior 30-minute heuristic.
+- The SMS delivery reconciler now performs a bounded Twilio Message-resource fetch for stale in-flight SMS attempts and appends a reconciled terminal event when Twilio already knows the final status.
+- The SMS status webhook now validates Twilio signatures against forwarded/public callback URL candidates plus the configured app origin, preventing internal/proxy request URLs from discarding legitimate `sent` / `delivered` / `failed` callbacks.
 - Use a new canonical route `/settings/restaurant/availability` and treat the old operating-hours, service-periods, and occasions pages as redirect-only entry points.
 - Keep the existing detailed hours/service editors below the command-center schedule so GBP sync, verification, and preserved custom-period workflows do not regress.
 - Promote the top schedule card into the real day-to-day CRUD surface while continuing to reuse the existing backend contracts.
@@ -93,6 +96,22 @@ Last updated: 2026-04-20T16:00:00Z
 
 ## State
 
+- A new task folder has been created at `tasks/sms-delivery-reconcile-window-20260420-2204/` for correcting the SMS stale-alert threshold and reconciliation behavior.
+- Twilio docs review confirmed the outbound Messaging Service lifecycle is `accepted` -> `queued` -> `sent` / `failed` -> `delivered` / `undelivered`, and Twilio recommends polling by Message SID if `delivered` / `undelivered` has not arrived within 12 hours.
+- `types/smsDelivery.ts`, `server/observability/delivery-reconciler.ts`, and `src/components/features/sms-delivery/OpsSmsDeliveryClient.tsx` now align with that guidance.
+- `lib/twilio/sms.ts` now supports fetching a single Twilio Message resource for reconciliation, and focused Twilio + staleness tests pass.
+- `src/app/api/webhook/twilio/sms-status/route.ts` now accepts valid Twilio signatures when the app is behind a proxy/internal host, with focused route tests covering forwarded-host/proto validation.
+- Added a dev-only harness at `/dev/ops-sms-delivery` so the SMS delivery alert can be browser-verified without authenticated ops access; the harness renders the updated 12h warning and a stale mock row with no console errors.
+- A new task folder has been created at `tasks/local-prod-primary-env-20260420-2158/` for pointing the local runtime at the production Supabase primary project.
+- Inspection confirms `.env.local` contains duplicated blocks, so the safest local-only edit is to append a final authoritative override block instead of normalizing the whole file.
+- `.env.local` now has a final override block that points runtime Supabase vars at production primary while keeping localhost app URLs and `NODE_ENV=development`.
+- Local env validation now passes with `ALLOW_PROD_RESOURCES_IN_NONPROD=true`, and the effective local Supabase host is `vrdiqfudmwydclqpydee.supabase.co`.
+- A new task folder has been created at `tasks/staging-prod-read-replica-20260420-2125/` for the Vercel staging/preview read-replica rollout guidance.
+- Verification of the current worktree confirms that the canonical runtime path for service-role reads already supports `SUPABASE_READ_REPLICA_URL` behind `FEATURE_SERVICE_CLIENT_USE_READ_REPLICA`, while public auth/browser flows keep using `NEXT_PUBLIC_SUPABASE_URL`.
+- This pass is intentionally scoped away from the already-dirty env/server implementation files and focused on task artifacts plus root deployment documentation.
+- The repo is linked to Vercel project `nabatable`, and `preview` envs currently do not contain `SUPABASE_READ_REPLICA_URL` or `FEATURE_SERVICE_CLIENT_USE_READ_REPLICA`.
+- The available Supabase management token confirms the production project is reachable, but the dedicated read-replica API URL could not be retrieved from the attempted management endpoints in this session.
+- A CLI-only pass with `npx supabase` confirms the public Supabase CLI exposes key retrieval but not read-replica endpoint discovery.
 - A new task folder has been created at `tasks/old-school-house-table-tripling-20260420-1553/` for a one-off production Old School House table-layout expansion.
 - Production `The Old School House` table inventory was expanded from 18 to 54 tables using `scripts/triple-old-school-house-production-tables.ts`.
 - The final production readback confirms 54 total / 54 active tables, a `2:12 / 4:39 / 7:3` capacity mix, and live table numbers through `54`.
@@ -279,6 +298,15 @@ Last updated: 2026-04-20T16:00:00Z
 
 ## Done
 
+- Confirmed `.env.vercel-production` contains the production primary Supabase URL and keys needed for the local runtime switch.
+- Confirmed the active tail of `.env.local` still points at staging values and duplicates earlier blocks.
+- Created `.env.local.bak-20260420-2158-prod-primary-switch` before editing.
+- Appended the final production-primary local override block and validated it successfully.
+- Confirmed the repo-local read-replica implementation and runbook source of truth in `server/supabase.ts`, `scripts/validate-env.ts`, `server/ops/resolve-ops-env-banner.ts`, and `supabase/AGENTS.md`.
+- Confirmed the current dirty worktree already contains uncommitted read-replica implementation changes, so this pass should avoid overlapping runtime edits.
+- Confirmed the linked Vercel project and current preview env inventory for the read-replica rollout.
+- Confirmed the remaining blocker is the missing production replica API URL, not the Vercel automation path.
+- Confirmed the missing replica URL cannot be recovered through the currently available Supabase CLI surface.
 - Grouped the requested UX/UI fixes into root-cause buckets: settings IA cleanup, dirty-state protection, onboarding persistence, menu-flow cleanup, and guest/booking IA simplification.
 - Read the root, `src/app`, and `src/components` AGENTS policies plus the repo-local task-harness skill for this review.
 - Inspected the main frontend route shells covering onboarding, guest/public bookings, ops sidebar navigation, and restaurant settings sub-navigation.
@@ -375,6 +403,7 @@ Last updated: 2026-04-20T16:00:00Z
 
 ## Now
 
+- Local runtime is pointed at production primary; next step is to use it carefully and roll back with the backup if needed.
 - Tranche 1 of the restaurant-settings UX remediation (`tasks/settings-ux-remediation-20260420-1340/`) is implemented (see prior entry).
 - Tranche 2 is now also implemented across three of the four stubbed follow-on task folders:
   - `tasks/settings-inpage-jump-navs-20260420-1340/` — new shared `SettingsJumpNav` component (sticky desktop vertical rail + mobile/tablet sticky horizontal pill strip) with `IntersectionObserver`-driven active-state tracking, smooth scroll, and URL hash sync. Wired into Restaurant Profile and the GBP settings page. Availability command-center nav was intentionally kept as tabs for this pass (see task `todo.md`).
@@ -384,6 +413,7 @@ Last updated: 2026-04-20T16:00:00Z
 
 ## Next
 
+- If needed, restore `.env.local.bak-20260420-2158-prod-primary-switch` to return local runtime to its pre-switch state.
 - `tasks/settings-responsive-qa-pass-20260420-1340/` remains deferred until the authenticated ops harness / DevTools MCP session is available; task `todo.md` spells out what to re-run when unblocked.
 - Optional follow-ups captured inside `tasks/gbp-settings-hero-restructure-20260420-1340/todo.md`: (a) surface inline per-field diff values next to drifted profile fields in the alignment panel, (b) add a dedicated `reauth_required` reconnect banner beneath the hero when that state fires.
 
@@ -393,6 +423,12 @@ Last updated: 2026-04-20T16:00:00Z
 
 ## Working set (files/ids/commands)
 
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/staging-prod-read-replica-20260420-2125/research.md
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/staging-prod-read-replica-20260420-2125/plan.md
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/staging-prod-read-replica-20260420-2125/todo.md
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/staging-prod-read-replica-20260420-2125/verification.md
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/README.md
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/docs/environments.md
 - /Users/amankumarshrestha/LapenInns Project/nabatableLP/AGENTS.md
 - /Users/amankumarshrestha/LapenInns Project/nabatableLP/CONTINUITY.md
 - /Users/amankumarshrestha/LapenInns Project/nabatableLP/scripts/triple-old-school-house-production-tables.ts
