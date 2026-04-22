@@ -1,0 +1,44 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - tablist "Menu catalog" [ref=e3]:
+      - tab "Food menu" [selected] [ref=e4]:
+        - img
+        - text: Food menu
+      - tab "Drinks menu" [ref=e5]:
+        - img
+        - text: Drinks menu
+    - generic [ref=e6]:
+      - generic [ref=e8]:
+        - generic [ref=e9]:
+          - generic [ref=e10]: Food catalogue
+          - generic [ref=e11]: Search, filter, and edit food items currently attached to this restaurant.
+        - generic [ref=e13]:
+          - button "Import food CSV" [ref=e14]:
+            - img
+            - text: Import food CSV
+          - button "New food item" [ref=e15]:
+            - img
+            - text: New food item
+      - generic [ref=e16]:
+        - generic [ref=e17]:
+          - generic [ref=e18]:
+            - text: Search
+            - textbox "Search" [ref=e19]:
+              - /placeholder: Search name, category, subcategory
+          - generic [ref=e20]:
+            - text: Category
+            - combobox "Category" [ref=e21]
+          - generic [ref=e22]:
+            - text: Subcategory
+            - combobox "Subcategory" [ref=e23]
+          - generic [ref=e24]:
+            - text: Status
+            - combobox [ref=e25]:
+              - img
+            - combobox [ref=e26]
+        - generic [ref=e27]:
+          - img [ref=e28]
+          - text: Loading food items…
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e35] [cursor=pointer]:
+    - img [ref=e36]

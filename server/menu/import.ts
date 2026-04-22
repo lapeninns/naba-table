@@ -631,7 +631,13 @@ export async function prepareMenuImport(
     modifierGroupsToUpdate: modifierGroups.filter((group) => existingIds.modifierGroupExternalIds.has(group.externalModifierGroupId)).length,
     modifierOptionsToCreate: modifierOptions.filter((option) => !existingIds.modifierOptionExternalIds.has(option.externalModifierOptionId)).length,
     modifierOptionsToUpdate: modifierOptions.filter((option) => existingIds.modifierOptionExternalIds.has(option.externalModifierOptionId)).length,
-    impactedItemCount: new Set(modifierGroups.map((group) => group.externalItemId)).size,
+    impactedItemCount: replaceModifiers
+      ? new Set(
+          modifierGroups.length > 0
+            ? modifierGroups.map((group) => group.externalItemId)
+            : items.map((item) => item.externalItemId),
+        ).size
+      : 0,
     replaceModifiers,
   });
 

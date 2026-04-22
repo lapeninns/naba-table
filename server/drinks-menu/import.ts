@@ -675,7 +675,13 @@ export async function prepareDrinkImport(
     modifierGroupsToUpdate: modifierGroups.filter((group) => existingIds.modifierGroupExternalIds.has(group.externalModifierGroupId)).length,
     modifierOptionsToCreate: modifierOptions.filter((option) => !existingIds.modifierOptionExternalIds.has(option.externalModifierOptionId)).length,
     modifierOptionsToUpdate: modifierOptions.filter((option) => existingIds.modifierOptionExternalIds.has(option.externalModifierOptionId)).length,
-    impactedItemCount: new Set(modifierGroups.map((group) => group.externalDrinkId)).size,
+    impactedItemCount: replaceModifiers
+      ? new Set(
+          modifierGroups.length > 0
+            ? modifierGroups.map((group) => group.externalDrinkId)
+            : items.map((item) => item.externalDrinkId),
+        ).size
+      : 0,
     replaceModifiers,
   });
 

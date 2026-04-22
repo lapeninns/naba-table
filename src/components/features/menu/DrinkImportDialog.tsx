@@ -1,7 +1,7 @@
 'use client';
 
 import { Loader2, Upload } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import { toast } from 'sonner';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -59,6 +59,14 @@ export function DrinkImportDialog({
   );
 
   const isBusy = previewMutation.isPending || applyMutation.isPending;
+
+  const handleFileChange = (
+    setter: Dispatch<SetStateAction<File | null>>,
+    file: File | null,
+  ) => {
+    setPreview(null);
+    setter(file);
+  };
 
   const resetState = () => {
     setItemsFile(null);
@@ -122,12 +130,12 @@ export function DrinkImportDialog({
         <div className="grid gap-4">
           <div className="grid gap-2">
             <Label htmlFor="drink-import-items">Drinks CSV</Label>
-            <Input
-              id="drink-import-items"
-              type="file"
-              accept=".csv,text/csv"
-              onChange={(event) => setItemsFile(event.target.files?.[0] ?? null)}
-            />
+              <Input
+                id="drink-import-items"
+                type="file"
+                accept=".csv,text/csv"
+                onChange={(event) => handleFileChange(setItemsFile, event.target.files?.[0] ?? null)}
+              />
           </div>
           <div className="grid gap-2 md:grid-cols-2">
             <div className="grid gap-2">
@@ -136,7 +144,9 @@ export function DrinkImportDialog({
                 id="drink-import-groups"
                 type="file"
                 accept=".csv,text/csv"
-                onChange={(event) => setModifierGroupsFile(event.target.files?.[0] ?? null)}
+                onChange={(event) =>
+                  handleFileChange(setModifierGroupsFile, event.target.files?.[0] ?? null)
+                }
               />
             </div>
             <div className="grid gap-2">
@@ -145,7 +155,9 @@ export function DrinkImportDialog({
                 id="drink-import-options"
                 type="file"
                 accept=".csv,text/csv"
-                onChange={(event) => setModifierOptionsFile(event.target.files?.[0] ?? null)}
+                onChange={(event) =>
+                  handleFileChange(setModifierOptionsFile, event.target.files?.[0] ?? null)
+                }
               />
             </div>
           </div>

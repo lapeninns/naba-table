@@ -1,0 +1,276 @@
+- generic:
+  - generic:
+    - tablist:
+      - tab:
+        - img
+        - text: Food menu
+      - tab [selected]:
+        - img
+        - text: Drinks menu
+    - generic:
+      - generic:
+        - generic:
+          - generic:
+            - generic: Drinks catalogue
+            - generic: Manage beer, wine, cocktails, spirits, and alcohol-free options for this venue.
+          - generic:
+            - generic:
+              - button:
+                - img
+                - text: Import drinks CSV
+              - button:
+                - img
+                - text: New drink item
+      - generic:
+        - generic:
+          - generic:
+            - text: Search
+            - textbox:
+              - /placeholder: Search name, category, subcategory, drink type
+          - generic:
+            - text: Category
+            - combobox
+          - generic:
+            - text: Subcategory
+            - combobox
+          - generic:
+            - text: Status
+            - combobox:
+              - generic: All
+              - img
+        - generic:
+          - generic:
+            - table:
+              - rowgroup:
+                - row:
+                  - columnheader: Drink
+                  - columnheader: Category
+                  - columnheader: Price
+                  - columnheader: Service time
+                  - columnheader: Availability
+                  - columnheader: Modifiers
+                  - columnheader: Status
+                  - columnheader: Actions
+              - rowgroup:
+                - row:
+                  - cell:
+                    - generic: House Negroni
+                    - generic: house-negroni
+                  - cell:
+                    - generic: cocktail
+                    - generic: classic
+                  - cell: GBP 11.50
+                  - cell: Evening
+                  - cell:
+                    - generic: available
+                  - cell: "1"
+                  - cell:
+                    - generic:
+                      - generic: Active
+                      - generic: Alcoholic
+                  - cell:
+                    - button: Edit
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e35] [cursor=pointer]:
+    - img [ref=e36]
+  - alert
+  - generic:
+    - generic:
+      - img
+    - button:
+      - img
+  - dialog "New drink item" [ref=e451]:
+    - generic [ref=e452]:
+      - heading "New drink item" [level=2] [ref=e453]
+      - paragraph [ref=e454]: Manage pub, restaurant, and gastropub drink metadata, availability, and modifiers.
+    - generic [ref=e456]:
+      - generic [ref=e457]:
+        - generic [ref=e458]:
+          - heading "Basics" [level=3] [ref=e459]
+          - paragraph [ref=e460]: Identity, pricing, and availability.
+        - generic [ref=e461]:
+          - generic [ref=e462]:
+            - generic [ref=e463]: Drink name
+            - textbox "Drink name" [active] [ref=e465]
+          - generic [ref=e466]:
+            - generic [ref=e467]: Category
+            - combobox "Category" [ref=e469]
+          - generic [ref=e470]:
+            - generic [ref=e471]: Subcategory
+            - combobox "Subcategory" [ref=e473]
+          - generic [ref=e474]:
+            - generic [ref=e475]: Drink type
+            - combobox "Drink type" [ref=e477]
+          - generic [ref=e478]:
+            - generic [ref=e479]: Base price
+            - textbox "Base price" [ref=e481]: "0.00"
+          - generic [ref=e482]:
+            - generic [ref=e483]: Currency
+            - textbox "Currency" [ref=e485]: GBP
+          - generic [ref=e486]:
+            - generic [ref=e487]: Service time
+            - combobox "Service time" [ref=e489]
+          - generic [ref=e490]:
+            - generic [ref=e491]: Availability status
+            - generic "Availability status" [ref=e493]:
+              - button "Available" [ref=e494]
+              - button "Unavailable" [ref=e495]
+      - generic [ref=e496]:
+        - generic [ref=e497]:
+          - heading "Descriptions" [level=3] [ref=e498]
+          - paragraph [ref=e499]: Guest-facing copy and serving notes.
+        - generic [ref=e500]:
+          - generic [ref=e501]:
+            - generic [ref=e502]: Short description
+            - textbox "Short description" [ref=e504]
+          - generic [ref=e505]:
+            - generic [ref=e506]: Full description
+            - textbox "Full description" [ref=e508]
+          - generic [ref=e509]:
+            - generic [ref=e510]: Customization rules
+            - textbox "Customization rules" [ref=e512]
+      - generic [ref=e513]:
+        - generic [ref=e514]:
+          - heading "Style and Service" [level=3] [ref=e515]
+          - paragraph [ref=e516]: Alcohol profile, serve style, and provenance.
+        - generic [ref=e517]:
+          - generic [ref=e518]:
+            - generic [ref=e519]: Alcoholic
+            - switch "Alcoholic" [ref=e520] [cursor=pointer]
+          - generic [ref=e521]:
+            - generic [ref=e522]: ABV
+            - textbox "ABV" [ref=e524]
+          - generic [ref=e525]:
+            - generic [ref=e526]: Volume (ml)
+            - textbox "Volume (ml)" [ref=e528]
+          - generic [ref=e529]:
+            - generic [ref=e530]: Serving size
+            - textbox "Serving size" [ref=e532]
+          - generic [ref=e533]:
+            - generic [ref=e534]: Served style
+            - textbox "Served style" [ref=e536]
+          - generic [ref=e537]:
+            - generic [ref=e538]: Temperature
+            - textbox "Temperature" [ref=e540]
+          - generic [ref=e541]:
+            - generic [ref=e542]: Base spirit
+            - textbox "Base spirit" [ref=e544]
+          - generic [ref=e545]:
+            - generic [ref=e546]: Beer style
+            - textbox "Beer style" [ref=e548]
+          - generic [ref=e549]:
+            - generic [ref=e550]: Wine type
+            - textbox "Wine type" [ref=e552]
+          - generic [ref=e553]:
+            - generic [ref=e554]: Grape varietal
+            - textbox "Grape varietal" [ref=e556]
+          - generic [ref=e557]:
+            - generic [ref=e558]: Region
+            - textbox "Region" [ref=e560]
+          - generic [ref=e561]:
+            - generic [ref=e562]: Country
+            - textbox "Country" [ref=e564]
+      - generic [ref=e565]:
+        - generic [ref=e566]:
+          - heading "Flavor and Composition" [level=3] [ref=e567]
+          - paragraph [ref=e568]: Profile, ingredients, garnish, and pairing guidance.
+        - generic [ref=e569]:
+          - generic [ref=e570]:
+            - generic [ref=e571]: Roast level
+            - textbox "Roast level" [ref=e573]
+          - generic [ref=e574]:
+            - generic [ref=e575]: Caffeine level
+            - textbox "Caffeine level" [ref=e577]
+          - generic [ref=e578]:
+            - generic [ref=e579]: Sweetness level
+            - textbox "Sweetness level" [ref=e581]
+          - generic [ref=e582]:
+            - generic [ref=e583]: Bitterness level
+            - textbox "Bitterness level" [ref=e585]
+          - generic [ref=e586]:
+            - generic [ref=e587]: Acidity level
+            - textbox "Acidity level" [ref=e589]
+          - generic [ref=e590]:
+            - generic [ref=e591]: Body level
+            - textbox "Body level" [ref=e593]
+          - generic [ref=e594]:
+            - generic [ref=e595]: Flavor profile
+            - textbox "Flavor profile" [ref=e597]
+          - generic [ref=e598]:
+            - generic [ref=e599]: Garnish
+            - textbox "Garnish" [ref=e601]
+          - generic [ref=e602]:
+            - generic [ref=e603]: Key ingredients
+            - textbox "Key ingredients" [ref=e605]
+          - generic [ref=e606]:
+            - generic [ref=e607]: Pairings
+            - textbox "Pairings" [ref=e609]
+          - generic [ref=e610]:
+            - generic [ref=e611]: Recommendation tags
+            - textbox "Recommendation tags" [ref=e613]
+      - generic [ref=e614]:
+        - generic [ref=e615]:
+          - heading "Dietary and Allergens" [level=3] [ref=e616]
+          - paragraph [ref=e617]: Contains flags, dietary tags, and allergen arrays.
+        - generic [ref=e618]:
+          - generic [ref=e619]:
+            - generic [ref=e620]: Dietary tags
+            - textbox "Dietary tags" [ref=e622]
+          - generic [ref=e623]:
+            - generic [ref=e624]: Contains allergens
+            - textbox "Contains allergens" [ref=e626]
+          - generic [ref=e627]:
+            - generic [ref=e628]: May contain allergens
+            - textbox "May contain allergens" [ref=e630]
+          - generic [ref=e631]:
+            - generic [ref=e632]: Contains dairy
+            - switch "Contains dairy" [ref=e633] [cursor=pointer]
+          - generic [ref=e634]:
+            - generic [ref=e635]: Contains nuts
+            - switch "Contains nuts" [ref=e636] [cursor=pointer]
+          - generic [ref=e637]:
+            - generic [ref=e638]: Contains gluten
+            - switch "Contains gluten" [ref=e639] [cursor=pointer]
+          - generic [ref=e640]:
+            - generic [ref=e641]: Contains caffeine
+            - switch "Contains caffeine" [ref=e642] [cursor=pointer]
+          - generic [ref=e643]:
+            - generic [ref=e644]: Can be made non-alcoholic
+            - switch "Can be made non-alcoholic" [ref=e645] [cursor=pointer]
+          - generic [ref=e646]:
+            - generic [ref=e647]: Can be made decaf
+            - switch "Can be made decaf" [ref=e648] [cursor=pointer]
+      - heading "Advanced metadata" [level=3] [ref=e651]:
+        - button "Advanced metadata" [ref=e652]:
+          - generic [ref=e653]: Advanced metadata
+          - img [ref=e654]
+      - generic [ref=e656]:
+        - generic [ref=e657]:
+          - heading "Modifiers" [level=3] [ref=e658]
+          - paragraph [ref=e659]: Variations such as mixers, milk choice, extra shot, or garnish swaps.
+        - button "Add modifier group" [ref=e661]:
+          - img
+          - text: Add modifier group
+      - generic [ref=e662]:
+        - generic [ref=e663]:
+          - heading "Status" [level=3] [ref=e664]
+          - paragraph [ref=e665]: Lifecycle and merchandising flags.
+        - generic [ref=e666]:
+          - generic [ref=e667]:
+            - generic [ref=e668]: Seasonal
+            - switch "Seasonal" [ref=e669] [cursor=pointer]
+          - generic [ref=e670]:
+            - generic [ref=e671]: Limited time
+            - switch "Limited time" [ref=e672] [cursor=pointer]
+          - generic [ref=e673]:
+            - generic [ref=e674]: Sold out
+            - switch "Sold out" [ref=e675] [cursor=pointer]
+          - generic [ref=e676]:
+            - generic [ref=e677]: Active
+            - switch "Active" [checked] [ref=e678] [cursor=pointer]
+    - generic [ref=e679]:
+      - button "Cancel" [ref=e680]
+      - button "Save drink" [ref=e681]
+    - button "Close" [ref=e682]:
+      - img [ref=e683]
+      - generic [ref=e686]: Close

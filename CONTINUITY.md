@@ -1,9 +1,14 @@
 # Continuity Ledger
 
-Last updated: 2026-04-20T22:11:32Z
+Last updated: 2026-04-22T18:11:00Z
 
 ## Goal (incl. success criteria)
 
+- Fix the four approved `codex/Menu` review findings covering menu/drink modifier-bundle deletion and stale import-preview state.
+- Success: applying a menu import with empty modifier CSVs deletes existing modifiers for the imported items instead of reporting success while preserving stale modifiers.
+- Success: applying a drink import with empty modifier CSVs deletes existing modifiers for the imported drinks instead of reporting success while preserving stale modifiers.
+- Success: changing any selected menu import CSV invalidates the prior preview so Apply cannot reuse stale validation state.
+- Success: changing any selected drink import CSV invalidates the prior preview so Apply cannot reuse stale validation state.
 - Consolidate the split restaurant settings pages for operating hours, service periods, and occasions into a single canonical `Availability & Occasions` command center.
 - Success: `/app/settings/restaurant/availability` becomes the new canonical settings route for these three concerns.
 - Success: operators can manage hours, service periods, and occasions from one page with summary/navigation context.
@@ -55,6 +60,10 @@ Last updated: 2026-04-20T22:11:32Z
 
 ## Constraints/Assumptions
 
+- Root `AGENTS.md` plus the `src/app`, `src/components`, `src/hooks`, `server`, and `supabase` nested rules apply to this fix.
+- This is a regression-fix task on the canonical menu/drink import path, so verification-first implementation with focused regression tests is acceptable.
+- The SQL fix should reuse the existing import/delete path rather than introducing a parallel modifier-removal mechanism.
+- Browser proof is desirable because the dialogs change, but focused component tests are the primary guard; if DevTools proof is not completed, record that explicitly in the task artifacts.
 - Follow root `AGENTS.md` plus `src/app`, `src/components`, and `server` nested rules.
 - Chrome DevTools proof is required because this task adds a new dashboard UI surface.
 - The availability command center now orchestrates the existing operating-hours and service-period mutations behind a single top-level schedule save.
@@ -96,6 +105,25 @@ Last updated: 2026-04-20T22:11:32Z
 
 ## State
 
+- A new task folder has been created at `tasks/full-repo-manual-qa-20260422-1614/` for the branch-wide QA pass requested on `codex/Menu`.
+- The repo-wide route inventory is now captured in `tasks/full-repo-manual-qa-20260422-1614/artifacts/route-matrix.json` with 78 page routes across public, guest, onboarding, dev, auth, and authenticated ops surfaces.
+- Internal-browser Chrome DevTools MCP proof was captured on the live dev harness routes `/dev/ops-menu` and `/dev/ops-settings-restaurant?view=google-business-profile`, with screenshots stored as `devtools-ops-menu.png` and `devtools-gbp.png`.
+- The DevTools pass surfaced two QA signals worth preserving:
+  - menu harness accessibility issue: `Incorrect use of <label for=FORM_ELEMENT>`
+  - GBP harness accessibility/runtime issues: missing form `id`/`name` plus a transient HMR `ChunkLoadError`
+- Repo-wide automated verification is now recorded under the full-repo QA task:
+  - `pnpm lint`: pass with 12 warnings, 0 errors
+  - `pnpm typecheck`: pass
+  - `pnpm build`: pass
+  - `npx vitest run`: pass (139 files / 506 tests)
+  - `npx playwright test`: fail (17 passed / 12 failed)
+- The Playwright failures are concentrated in guest/public flows and one dev-harness config path rather than the reviewed menu-import fixes:
+  - guest auth/public expectations on `/auth`, `/bookings`, `/restaurants/[slug]/thank-you`, `/reserve`, and `/reserve/new`
+  - guest booking flows on `/r/[slug]` rendering a generic `Something went wrong` state before the date picker becomes usable
+  - guest booking management leaving `Modify Details` disabled in the update/cancel scenario
+  - guest portal redirect mismatches on `/guest` and `/guest/thank-you`
+  - `ops-email-delivery-dev-harness.spec.ts` hardcoding `localhost:3000` while the suite-managed servers run on `5174`/`5180`
+- The scripted authenticated app-route sweep on `app.localhost:3000` redirected every ops page to sign-in, but that result is not treated as authoritative because the scripted password login did not persist and it conflicts with earlier manual authenticated settings checks.
 - A new task folder has been created at `tasks/sms-delivery-reconcile-window-20260420-2204/` for correcting the SMS stale-alert threshold and reconciliation behavior.
 - Twilio docs review confirmed the outbound Messaging Service lifecycle is `accepted` -> `queued` -> `sent` / `failed` -> `delivered` / `undelivered`, and Twilio recommends polling by Message SID if `delivered` / `undelivered` has not arrived within 12 hours.
 - `types/smsDelivery.ts`, `server/observability/delivery-reconciler.ts`, and `src/components/features/sms-delivery/OpsSmsDeliveryClient.tsx` now align with that guidance.
@@ -198,6 +226,14 @@ Last updated: 2026-04-20T22:11:32Z
 - The current `pnpm run build` failure is a local helper-type issue: `ProviderRowMutationBuilder.delete()` only modeled two `.eq(...)` calls, but `replaceProviderRows` now chains three filters including `managed_by`.
 - The first-pass fix widens the local delete-query helper type so the existing delete chain remains awaitable and supports repeated `.eq(...)` calls without changing runtime behavior.
 - `pnpm run build` now passes again after the helper-type fix, with the original TypeScript error removed.
+- A new task folder has been created at `tasks/menu-import-review-fixes-20260422-1124/` for the approved empty-modifier-bundle and stale-preview fixes.
+- Menu and drink bundle migrations now delete existing modifiers for the imported items/drinks even when the supplied modifier CSVs are header-only and therefore represent an empty replacement bundle.
+- Menu and drink import previews now reset immediately when any selected CSV changes, so Apply cannot reuse stale `canApply` state against a new payload.
+- Focused verification now passes for this fix set:
+  - `pnpm -s exec vitest run tests/server/menu-import.test.ts tests/server/drink-import.test.ts tests/components/MenuImportDialog.test.tsx tests/components/DrinkImportDialog.test.tsx`
+  - `pnpm -s exec tsc --noEmit --pretty false`
+  - focused ESLint on the touched dialog and test files
+- Chrome DevTools proof was not run in this turn; the task artifacts explicitly record that the UI regression is covered by focused component interaction tests instead.
 - A new task folder has been created at `tasks/sms-summary-test-send-20260418-1633/` for a one-off live manager-summary send.
 - A live manager daily summary SMS for `The Old Crown Girton` for `2026-04-19` was sent to `+447467586751`.
 - Twilio accepted the send as `SMd4ea5164ed26133b14c44ec72c433355` with body `The Old Crown Girton: Today 3 bkgs, 20 covers. Lunch 3/20. Dinner 0/0. app.nabatable.com`.
@@ -403,6 +439,7 @@ Last updated: 2026-04-20T22:11:32Z
 
 ## Now
 
+- Repo-wide QA evidence has been captured in `tasks/full-repo-manual-qa-20260422-1614/verification.md`; no runtime fixes have been applied for the newly discovered guest/public regressions yet.
 - Local runtime is pointed at production primary; next step is to use it carefully and roll back with the backup if needed.
 - Tranche 1 of the restaurant-settings UX remediation (`tasks/settings-ux-remediation-20260420-1340/`) is implemented (see prior entry).
 - Tranche 2 is now also implemented across three of the four stubbed follow-on task folders:
@@ -413,6 +450,8 @@ Last updated: 2026-04-20T22:11:32Z
 
 ## Next
 
+- Triage the 12 failing Playwright specs from the full-repo QA pass and decide whether to fix them on `codex/Menu` or split them into follow-on tasks.
+- If continuing repo-wide QA, restart a clean local `pnpm dev` session and do targeted reruns only for the failing guest/public routes instead of broad parallel sweeps.
 - If needed, restore `.env.local.bak-20260420-2158-prod-primary-switch` to return local runtime to its pre-switch state.
 - `tasks/settings-responsive-qa-pass-20260420-1340/` remains deferred until the authenticated ops harness / DevTools MCP session is available; task `todo.md` spells out what to re-run when unblocked.
 - Optional follow-ups captured inside `tasks/gbp-settings-hero-restructure-20260420-1340/todo.md`: (a) surface inline per-field diff values next to drifted profile fields in the alignment panel, (b) add a dedicated `reauth_required` reconnect banner beneath the hero when that state fires.

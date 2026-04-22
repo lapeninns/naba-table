@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 import { LOCAL_VENUES } from './localVenues';
@@ -73,49 +74,47 @@ export function LiveFeedCard({ reduceMotion }: LiveFeedCardProps) {
   }, [reduceMotion]);
 
   return (
-    <div className="factory-card rounded-xl p-6 h-full flex flex-col bg-white border border-slate-200 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all">
-      <div className="flex justify-between items-center mb-4">
-        <div className="flex items-center gap-2">
-          <div className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-            <span className="animate-pulse relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+    <Card
+      variant="compact"
+      className="flex h-full flex-col transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+    >
+      <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0 p-4 sm:p-5 md:p-6">
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="relative flex size-2 shrink-0">
+            <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary/40 opacity-75" />
+            <span className="relative inline-flex size-2 animate-pulse rounded-full bg-primary" />
           </div>
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
-            Automated Bookings
+          <span className="truncate text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            Automated bookings
           </span>
         </div>
-        <Badge
-          variant="secondary"
-          className="bg-blue-50 text-blue-700 ring-1 ring-blue-700/10 hover:bg-blue-100 transition-colors"
-        >
+        <Badge variant="secondary" className="shrink-0">
           Active
         </Badge>
-      </div>
-      <div className="space-y-3 flex-1">
+      </CardHeader>
+      <CardContent className="flex flex-1 flex-col gap-2.5 p-4 pt-0 sm:gap-3 sm:p-5 sm:pt-0 md:p-6 md:pt-0">
         {items.map((item, index) => (
           <div
             key={`${item.venue}-${item.time}-${index}`}
-            className="flex justify-between items-center p-3 bg-slate-50 rounded-lg border border-slate-100 font-mono text-xs"
+            className="flex flex-col gap-2 rounded-lg border border-border/80 bg-muted/50 p-3 font-mono text-xs sm:flex-row sm:items-center sm:justify-between sm:gap-3"
           >
-            <div>
-              <div className="font-semibold text-slate-900">{item.venue}</div>
-              <div className="text-slate-500 mt-0.5">
+            <div className="min-w-0 flex-1">
+              <div className="truncate font-semibold text-foreground">{item.venue}</div>
+              <div className="mt-0.5 text-muted-foreground">
                 {item.time} • {item.party}
               </div>
             </div>
             <div
               className={cn(
-                'font-medium',
-                LIVE_FEED_SUCCESS_STATUSES.includes(item.status)
-                  ? 'text-green-600'
-                  : 'text-amber-600',
+                'shrink-0 font-medium',
+                LIVE_FEED_SUCCESS_STATUSES.includes(item.status) ? 'text-success' : 'text-warning',
               )}
             >
               {item.status}
             </div>
           </div>
         ))}
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

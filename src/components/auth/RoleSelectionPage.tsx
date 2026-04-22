@@ -143,7 +143,6 @@ function RoleCard({
 
 export function RoleSelectionPage({ searchParams }: RoleSelectionPageProps) {
   const [preferredRole, setPreferredRole] = useState<Role | null>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
 
   // Helper to build URL with preserved search params
   const buildUrl = (base: string) => {
@@ -176,7 +175,6 @@ export function RoleSelectionPage({ searchParams }: RoleSelectionPageProps) {
         setPreferredRole(savedRole);
       }
     }
-    setIsLoaded(true);
   }, []);
 
   const handleRoleSelect = (role: Role, _href: string) => {
@@ -239,16 +237,12 @@ export function RoleSelectionPage({ searchParams }: RoleSelectionPageProps) {
 
       {/* Role Cards */}
       <div className="grid md:grid-cols-2 gap-6 lg:gap-8 mb-8">
-        {isLoaded && (
-          <>
-            <div className="motion-safe:reveal-up">
-              <RoleCard {...guestCard} />
-            </div>
-            <div className="motion-safe:reveal-up md:delay-100">
-              <RoleCard {...ownerCard} />
-            </div>
-          </>
-        )}
+        <div className="motion-safe:reveal-up">
+          <RoleCard {...guestCard} />
+        </div>
+        <div className="motion-safe:reveal-up md:delay-100">
+          <RoleCard {...ownerCard} />
+        </div>
       </div>
 
       {/* Helper Text */}

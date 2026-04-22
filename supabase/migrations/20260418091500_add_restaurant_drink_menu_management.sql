@@ -852,6 +852,18 @@ BEGIN
   END IF;
 
   IF jsonb_array_length(COALESCE(p_modifier_groups, '[]'::jsonb)) = 0 THEN
+    SELECT COALESCE(array_agg(id), ARRAY[]::uuid[])
+    INTO v_impacted_item_ids
+    FROM public.restaurant_drink_menu_items
+    WHERE restaurant_id = p_restaurant_id
+      AND external_drink_id = ANY(v_item_external_ids);
+
+    IF COALESCE(array_length(v_impacted_item_ids, 1), 0) > 0 THEN
+      DELETE FROM public.restaurant_drink_menu_modifier_groups
+      WHERE restaurant_id = p_restaurant_id
+        AND drink_item_id = ANY(v_impacted_item_ids);
+    END IF;
+
     RETURN jsonb_build_object(
       'itemsProcessed', COALESCE(jsonb_array_length(p_items), 0),
       'modifierGroupsProcessed', 0,

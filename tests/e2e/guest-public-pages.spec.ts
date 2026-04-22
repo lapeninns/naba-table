@@ -10,7 +10,7 @@ test.describe('public booking pages', () => {
 
     const actions = page.getByRole('region', { name: 'Booking actions' });
 
-    await expect(page.getByRole('heading', { name: 'Bookings', level: 1 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Your Reservations', level: 1 })).toBeVisible();
     await expect(actions.getByRole('link', { name: 'Browse restaurants' })).toBeVisible();
     await expect(actions.getByRole('link', { name: 'View my bookings' })).toBeVisible();
   });

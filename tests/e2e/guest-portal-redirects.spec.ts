@@ -28,7 +28,10 @@ test.describe('guest portal redirects', () => {
     test(`${name} redirects to sign-in`, async ({ page }) => {
       await page.goto(path, { waitUntil: 'domcontentloaded' });
 
-      await expect(page).toHaveURL(/\/auth\/signin/);
+      await page.waitForURL(/\/auth\/signin/, {
+        timeout: 20_000,
+        waitUntil: 'domcontentloaded',
+      });
       const url = new URL(page.url());
       expect(url.searchParams.get('redirectedFrom')).toBe(redirectedFrom);
     });

@@ -85,4 +85,22 @@ rigatoni-add-ons,main-rigatoni,Add-ons,false,0,2`,
       ]),
     );
   });
+
+  it('marks items as impacted when an empty modifier bundle is used to clear modifiers', async () => {
+    const result = await prepareMenuImport(
+      'rest-1',
+      {
+        itemsText: `item_id,item_name,category,subcategory,short_description,full_description,base_price,currency,service_time,availability_status,key_ingredients,main_protein_or_base,cooking_style,preparation_method,flavor_profile,texture,spice_level,spice_adjustable,portion_size,shareable,recommendation_tags,pairings,signature_score,popularity_score,dietary_tags,allergens_contains,allergens_may_contain,removable_ingredients,substitutions_allowed,can_be_made_vegetarian,can_be_made_vegan,can_be_made_gluten_free,customization_rules,serving_notes,active,seasonal,limited_time,sold_out,display_order,image_url
+main-rigatoni,Rigatoni,Mains,Pasta,Short,Full,15.00,GBP,Dinner,available,,,Roasted,Baked,Rich,Soft,Medium,false,Main,false,,,70,88,,,,"",false,false,false,false,,Hot,true,false,false,false,20,`,
+        modifierGroupsText: 'modifier_group_id,item_id,group_name,required,min_select,max_select\n',
+        modifierOptionsText:
+          'modifier_option_id,modifier_group_id,option_name,price_delta,default_selected,availability_status\n',
+      },
+      {} as never,
+    );
+
+    expect(result.preview.canApply).toBe(true);
+    expect(result.preview.summary.replaceModifiers).toBe(true);
+    expect(result.preview.summary.impactedItemCount).toBe(1);
+  });
 });

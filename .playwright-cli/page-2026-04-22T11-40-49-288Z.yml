@@ -1,0 +1,102 @@
+- generic:
+  - generic:
+    - tablist:
+      - tab:
+        - img
+        - text: Food menu
+      - tab [selected]:
+        - img
+        - text: Drinks menu
+    - generic:
+      - generic:
+        - generic:
+          - generic:
+            - generic: Drinks catalogue
+            - generic: Manage beer, wine, cocktails, spirits, and alcohol-free options for this venue.
+          - generic:
+            - generic:
+              - button:
+                - img
+                - text: Import drinks CSV
+              - button:
+                - img
+                - text: New drink item
+      - generic:
+        - generic:
+          - generic:
+            - text: Search
+            - textbox:
+              - /placeholder: Search name, category, subcategory, drink type
+          - generic:
+            - text: Category
+            - combobox
+          - generic:
+            - text: Subcategory
+            - combobox
+          - generic:
+            - text: Status
+            - combobox:
+              - generic: All
+              - img
+        - generic:
+          - generic:
+            - table:
+              - rowgroup:
+                - row:
+                  - columnheader: Drink
+                  - columnheader: Category
+                  - columnheader: Price
+                  - columnheader: Service time
+                  - columnheader: Availability
+                  - columnheader: Modifiers
+                  - columnheader: Status
+                  - columnheader: Actions
+              - rowgroup:
+                - row:
+                  - cell:
+                    - generic: House Negroni
+                    - generic: house-negroni
+                  - cell:
+                    - generic: cocktail
+                    - generic: classic
+                  - cell: GBP 11.50
+                  - cell: Evening
+                  - cell:
+                    - generic: available
+                  - cell: "1"
+                  - cell:
+                    - generic:
+                      - generic: Active
+                      - generic: Alcoholic
+                  - cell:
+                    - button: Edit
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e35] [cursor=pointer]:
+    - img [ref=e36]
+  - alert
+  - generic:
+    - generic:
+      - img
+    - button:
+      - img
+  - dialog "Import drink CSVs" [ref=e429]:
+    - generic [ref=e430]:
+      - heading "Import drink CSVs" [level=2] [ref=e431]
+      - paragraph [ref=e432]: Upload the required drinks CSV and, if needed, the optional modifier group and modifier option CSVs.
+    - generic [ref=e433]:
+      - generic [ref=e434]:
+        - generic [ref=e435]: Drinks CSV
+        - button "Drinks CSV" [active] [ref=e436]
+      - generic [ref=e437]:
+        - generic [ref=e438]:
+          - generic [ref=e439]: Modifier groups CSV
+          - button "Modifier groups CSV" [ref=e440]
+        - generic [ref=e441]:
+          - generic [ref=e442]: Modifier options CSV
+          - button "Modifier options CSV" [ref=e443]
+    - generic [ref=e444]:
+      - button "Preview import" [disabled]
+      - button "Apply import" [disabled]
+    - button "Close" [ref=e445]:
+      - img [ref=e446]
+      - generic [ref=e449]: Close

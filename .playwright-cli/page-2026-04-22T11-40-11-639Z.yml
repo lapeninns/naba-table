@@ -1,0 +1,234 @@
+- generic:
+  - generic:
+    - tablist:
+      - tab [selected]:
+        - img
+        - text: Food menu
+      - tab:
+        - img
+        - text: Drinks menu
+    - generic:
+      - generic:
+        - generic:
+          - generic:
+            - generic: Food catalogue
+            - generic: Search, filter, and edit food items currently attached to this restaurant.
+          - generic:
+            - generic:
+              - button:
+                - img
+                - text: Import food CSV
+              - button:
+                - img
+                - text: New food item
+      - generic:
+        - generic:
+          - generic:
+            - text: Search
+            - textbox:
+              - /placeholder: Search name, category, subcategory
+          - generic:
+            - text: Category
+            - combobox
+          - generic:
+            - text: Subcategory
+            - combobox
+          - generic:
+            - text: Status
+            - combobox:
+              - generic: All
+              - img
+        - generic:
+          - generic:
+            - table:
+              - rowgroup:
+                - row:
+                  - columnheader: Item
+                  - columnheader: Category
+                  - columnheader: Price
+                  - columnheader: Service time
+                  - columnheader: Availability
+                  - columnheader: Modifiers
+                  - columnheader: Status
+                  - columnheader: Actions
+              - rowgroup:
+                - row:
+                  - cell:
+                    - generic: Burrata & Heritage Tomatoes
+                    - generic: starter-burrata
+                  - cell:
+                    - generic: Starters
+                    - generic: Cold
+                  - cell: GBP 9.50
+                  - cell: Lunch
+                  - cell:
+                    - generic: available
+                  - cell: "1"
+                  - cell:
+                    - generic:
+                      - generic: Active
+                  - cell:
+                    - button: Edit
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e35] [cursor=pointer]:
+    - img [ref=e36]
+  - alert
+  - generic:
+    - generic:
+      - img
+    - button:
+      - img
+  - dialog "New menu item" [ref=e192]:
+    - generic [ref=e193]:
+      - heading "New menu item" [level=2] [ref=e194]
+      - paragraph [ref=e195]: Manage the item metadata, availability, and modifier structure for the active restaurant.
+    - generic [ref=e197]:
+      - generic [ref=e198]:
+        - generic [ref=e199]:
+          - heading "Basics" [level=3] [ref=e200]
+          - paragraph [ref=e201]: Core identity, categorization, price, and availability.
+        - generic [ref=e202]:
+          - generic [ref=e203]:
+            - generic [ref=e204]: Item name
+            - textbox "Item name" [active] [ref=e206]
+          - generic [ref=e207]:
+            - generic [ref=e208]: Category
+            - combobox "Category" [ref=e210]
+          - generic [ref=e211]:
+            - generic [ref=e212]: Subcategory
+            - combobox "Subcategory" [ref=e214]
+          - generic [ref=e215]:
+            - generic [ref=e216]: Base price
+            - textbox "Base price" [ref=e218]: "0.00"
+          - generic [ref=e219]:
+            - generic [ref=e220]: Currency
+            - textbox "Currency" [ref=e222]: GBP
+          - generic [ref=e223]:
+            - generic [ref=e224]: Service time
+            - combobox "Service time" [ref=e226]
+          - generic [ref=e227]:
+            - generic [ref=e228]: Availability status
+            - generic "Availability status" [ref=e230]:
+              - button "Available" [ref=e231]
+              - button "Unavailable" [ref=e232]
+      - generic [ref=e233]:
+        - generic [ref=e234]:
+          - heading "Descriptions" [level=3] [ref=e235]
+          - paragraph [ref=e236]: Short and long-form guest-facing copy.
+        - generic [ref=e237]:
+          - generic [ref=e238]:
+            - generic [ref=e239]: Short description
+            - textbox "Short description" [ref=e241]
+          - generic [ref=e242]:
+            - generic [ref=e243]: Full description
+            - textbox "Full description" [ref=e245]
+          - generic [ref=e246]:
+            - generic [ref=e247]: Serving notes
+            - textbox "Serving notes" [ref=e249]
+      - generic [ref=e250]:
+        - generic [ref=e251]:
+          - heading "Culinary Profile" [level=3] [ref=e252]
+          - paragraph [ref=e253]: Preparation and ingredient metadata.
+        - generic [ref=e254]:
+          - generic [ref=e255]:
+            - generic [ref=e256]: Key ingredients
+            - textbox "Key ingredients" [ref=e258]
+          - generic [ref=e259]:
+            - generic [ref=e260]: Recommendation tags
+            - textbox "Recommendation tags" [ref=e262]
+          - generic [ref=e263]:
+            - generic [ref=e264]: Pairings
+            - textbox "Pairings" [ref=e266]
+          - generic [ref=e267]:
+            - generic [ref=e268]: Removable ingredients
+            - textbox "Removable ingredients" [ref=e270]
+          - generic [ref=e271]:
+            - generic [ref=e272]: Main protein or base
+            - textbox "Main protein or base" [ref=e274]
+          - generic [ref=e275]:
+            - generic [ref=e276]: Cooking style
+            - textbox "Cooking style" [ref=e278]
+          - generic [ref=e279]:
+            - generic [ref=e280]: Preparation method
+            - textbox "Preparation method" [ref=e282]
+          - generic [ref=e283]:
+            - generic [ref=e284]: Flavor profile
+            - textbox "Flavor profile" [ref=e286]
+          - generic [ref=e287]:
+            - generic [ref=e288]: Texture
+            - textbox "Texture" [ref=e290]
+          - generic [ref=e291]:
+            - generic [ref=e292]: Spice level
+            - textbox "Spice level" [ref=e294]
+          - generic [ref=e295]:
+            - generic [ref=e296]: Portion size
+            - textbox "Portion size" [ref=e298]
+      - generic [ref=e299]:
+        - generic [ref=e300]:
+          - heading "Dietary and Allergen Metadata" [level=3] [ref=e301]
+          - paragraph [ref=e302]: Guest-facing dietary and allergen signaling.
+        - generic [ref=e303]:
+          - generic [ref=e304]:
+            - generic [ref=e305]: Dietary tags
+            - textbox "Dietary tags" [ref=e307]
+          - generic [ref=e308]:
+            - generic [ref=e309]: Contains allergens
+            - textbox "Contains allergens" [ref=e311]
+          - generic [ref=e312]:
+            - generic [ref=e313]: May contain allergens
+            - textbox "May contain allergens" [ref=e315]
+      - generic [ref=e316]:
+        - generic [ref=e317]:
+          - heading "Customization and Status" [level=3] [ref=e318]
+          - paragraph [ref=e319]: Substitutions, toggles, and lifecycle flags.
+        - generic [ref=e320]:
+          - generic [ref=e321]:
+            - generic [ref=e322]: Customization rules
+            - textbox "Customization rules" [ref=e324]
+          - generic [ref=e325]:
+            - generic [ref=e326]: Spice adjustable
+            - switch "Spice adjustable" [ref=e327] [cursor=pointer]
+          - generic [ref=e328]:
+            - generic [ref=e329]: Shareable
+            - switch "Shareable" [ref=e330] [cursor=pointer]
+          - generic [ref=e331]:
+            - generic [ref=e332]: Substitutions allowed
+            - switch "Substitutions allowed" [ref=e333] [cursor=pointer]
+          - generic [ref=e334]:
+            - generic [ref=e335]: Can be made vegetarian
+            - switch "Can be made vegetarian" [ref=e336] [cursor=pointer]
+          - generic [ref=e337]:
+            - generic [ref=e338]: Can be made vegan
+            - switch "Can be made vegan" [ref=e339] [cursor=pointer]
+          - generic [ref=e340]:
+            - generic [ref=e341]: Can be made gluten free
+            - switch "Can be made gluten free" [ref=e342] [cursor=pointer]
+          - generic [ref=e343]:
+            - generic [ref=e344]: Active
+            - switch "Active" [checked] [ref=e345] [cursor=pointer]
+          - generic [ref=e346]:
+            - generic [ref=e347]: Seasonal
+            - switch "Seasonal" [ref=e348] [cursor=pointer]
+          - generic [ref=e349]:
+            - generic [ref=e350]: Limited time
+            - switch "Limited time" [ref=e351] [cursor=pointer]
+          - generic [ref=e352]:
+            - generic [ref=e353]: Sold out
+            - switch "Sold out" [ref=e354] [cursor=pointer]
+      - heading "Advanced metadata" [level=3] [ref=e357]:
+        - button "Advanced metadata" [ref=e358]:
+          - generic [ref=e359]: Advanced metadata
+          - img [ref=e360]
+      - generic [ref=e362]:
+        - generic [ref=e363]:
+          - heading "Modifiers" [level=3] [ref=e364]
+          - paragraph [ref=e365]: Nested modifier groups and options.
+        - button "Add modifier group" [ref=e367]:
+          - img
+          - text: Add modifier group
+    - generic [ref=e368]:
+      - button "Cancel" [ref=e369]
+      - button "Save item" [ref=e370]
+    - button "Close" [ref=e371]:
+      - img [ref=e372]
+      - generic [ref=e375]: Close

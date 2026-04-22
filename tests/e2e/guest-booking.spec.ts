@@ -1,17 +1,22 @@
 import { expect, test } from '@playwright/test';
 
+import { buildFutureBookingDate } from './helpers/future-booking';
+
 const restaurantSlug = 'the-fox';
 const restaurantId = '11111111-1111-4111-8111-111111111111';
 const bookingId = '22222222-2222-4222-8222-222222222222';
 const bookingReference = 'NB1234';
+const futureBooking = buildFutureBookingDate();
+const bookingDate = futureBooking.isoDate;
+const bookingDateLabel = futureBooking.displayLabel;
 
 test('guest can complete a booking flow', async ({ page }) => {
   await page.route('**/api/restaurants/**', async (route) => {
     const url = new URL(route.request().url());
 
     if (url.pathname.endsWith('/calendar-mask')) {
-      const from = url.searchParams.get('from') ?? '2026-02-01';
-      const to = url.searchParams.get('to') ?? '2026-02-28';
+      const from = url.searchParams.get('from') ?? bookingDate;
+      const to = url.searchParams.get('to') ?? bookingDate;
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -27,7 +32,7 @@ test('guest can complete a booking flow', async ({ page }) => {
     }
 
     if (url.pathname.endsWith('/schedule')) {
-      const date = url.searchParams.get('date') ?? '2026-02-10';
+      const date = url.searchParams.get('date') ?? bookingDate;
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -100,7 +105,7 @@ test('guest can complete a booking flow', async ({ page }) => {
         booking: {
           id: bookingId,
           restaurant_id: restaurantId,
-          booking_date: '2026-02-10',
+          booking_date: bookingDate,
           start_time: '19:00',
           end_time: '20:30',
           booking_type: 'dinner',
@@ -123,7 +128,7 @@ test('guest can complete a booking flow', async ({ page }) => {
           {
             id: bookingId,
             restaurant_id: restaurantId,
-            booking_date: '2026-02-10',
+            booking_date: bookingDate,
             start_time: '19:00',
             end_time: '20:30',
             booking_type: 'dinner',
@@ -150,9 +155,7 @@ test('guest can complete a booking flow', async ({ page }) => {
   await page.goto(`/r/${restaurantSlug}`);
 
   await page.getByRole('button', { name: 'Date' }).click();
-  await page
-    .getByRole('button', { name: 'Tuesday, February 10th, 2026' })
-    .click();
+  await page.getByRole('button', { name: bookingDateLabel }).click();
 
   await page.getByRole('combobox', { name: 'Time' }).click();
   await page.getByRole('option', { name: '7:00 PM' }).click();
@@ -180,8 +183,8 @@ test('guest sees a friendly duplicate-booking error instead of a raw code', asyn
     const url = new URL(route.request().url());
 
     if (url.pathname.endsWith('/calendar-mask')) {
-      const from = url.searchParams.get('from') ?? '2026-02-01';
-      const to = url.searchParams.get('to') ?? '2026-02-28';
+      const from = url.searchParams.get('from') ?? bookingDate;
+      const to = url.searchParams.get('to') ?? bookingDate;
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -197,7 +200,7 @@ test('guest sees a friendly duplicate-booking error instead of a raw code', asyn
     }
 
     if (url.pathname.endsWith('/schedule')) {
-      const date = url.searchParams.get('date') ?? '2026-02-10';
+      const date = url.searchParams.get('date') ?? bookingDate;
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -275,9 +278,7 @@ test('guest sees a friendly duplicate-booking error instead of a raw code', asyn
   await page.goto(`/r/${restaurantSlug}`);
 
   await page.getByRole('button', { name: 'Date' }).click();
-  await page
-    .getByRole('button', { name: 'Tuesday, February 10th, 2026' })
-    .click();
+  await page.getByRole('button', { name: bookingDateLabel }).click();
 
   await page.getByRole('combobox', { name: 'Time' }).click();
   await page.getByRole('option', { name: '7:00 PM' }).click();
@@ -286,6 +287,7 @@ test('guest sees a friendly duplicate-booking error instead of a raw code', asyn
   await page.getByLabel('Full name').fill('Guest Booker');
   await page.getByLabel('Email address').fill('guest@example.com');
   await page.getByLabel('UK phone number').fill('+441234567890');
+  await page.getByRole('button', { name: /Preferences/i }).click();
   await page
     .getByRole('checkbox', { name: /I agree to the terms and privacy notice/i })
     .check();

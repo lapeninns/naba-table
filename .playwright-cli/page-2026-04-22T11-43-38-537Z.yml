@@ -1,0 +1,211 @@
+- generic [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e4]:
+      - generic [ref=e5]: Dev
+      - heading "Restaurant" [level=1] [ref=e7]
+      - generic [ref=e8]: Dev harness for the restaurant settings shell, subnav, and sections.
+      - generic [ref=e10]:
+        - generic [ref=e11]: Editing
+        - generic [ref=e12]: Dev Restaurant (Ops Harness)
+        - generic [ref=e13]: Use the sidebar restaurant switcher to change restaurants.
+    - navigation "Restaurant settings" [ref=e14]:
+      - generic [ref=e15]:
+        - link "Restaurant Profile Name, branding, contact details, booking policy, reminders." [ref=e16] [cursor=pointer]:
+          - /url: /app/settings/restaurant/profile
+          - generic [ref=e17]: Restaurant Profile
+          - generic [ref=e18]: Name, branding, contact details, booking policy, reminders.
+        - link "Google Business Profile Connect Google, link a location, and prepare business info sync." [ref=e19] [cursor=pointer]:
+          - /url: /app/settings/restaurant/google-business-profile
+          - generic [ref=e20]: Google Business Profile
+          - generic [ref=e21]: Connect Google, link a location, and prepare business info sync.
+        - link "Availability & Occasions Weekly hours, overrides, meal windows, occasions, and dining-duration bands in one place." [ref=e22] [cursor=pointer]:
+          - /url: /app/settings/restaurant/availability
+          - generic [ref=e23]: Availability & Occasions
+          - generic [ref=e24]: Weekly hours, overrides, meal windows, occasions, and dining-duration bands in one place.
+        - link "Menu Manage menu items, modifiers, and imports." [ref=e25] [cursor=pointer]:
+          - /url: /app/settings/restaurant/menu
+          - generic [ref=e26]: Menu
+          - generic [ref=e27]: Manage menu items, modifiers, and imports.
+        - link "Tables Manage table inventory, zones, and capacity." [ref=e28] [cursor=pointer]:
+          - /url: /app/settings/restaurant/tables
+          - generic [ref=e29]: Tables
+          - generic [ref=e30]: Manage table inventory, zones, and capacity.
+        - link "Team Invite and manage restaurant staff access." [ref=e31] [cursor=pointer]:
+          - /url: /app/settings/restaurant/team
+          - generic [ref=e32]: Team
+          - generic [ref=e33]: Invite and manage restaurant staff access.
+    - generic [ref=e34]:
+      - generic [ref=e35]:
+        - paragraph [ref=e36]: View selector is local to this harness; the left subnav is rendered for responsive layout verification but links to authenticated routes.
+        - generic [ref=e37]:
+          - generic [ref=e38]: Select a restaurant settings view
+          - combobox "Select a restaurant settings view" [ref=e39]:
+            - generic: Availability & occasions
+            - img
+      - generic [ref=e41]:
+        - generic [ref=e43]:
+          - generic [ref=e44]:
+            - generic [ref=e45]: Canonical workspace
+            - generic [ref=e46]:
+              - generic [ref=e47]: Availability & Occasions
+              - generic [ref=e48]: Configure the restaurant's operating week, special-date overrides, meal windows, and bookable occasions without bouncing between separate settings pages.
+          - generic [ref=e49]:
+            - link "Schedule" [ref=e50] [cursor=pointer]:
+              - /url: "#availability-schedule"
+            - link "Occasions" [ref=e51] [cursor=pointer]:
+              - /url: "#booking-occasions"
+        - generic [ref=e52]:
+          - generic [ref=e71]:
+            - generic [ref=e72]: Weekly schedule
+            - generic [ref=e73]:
+              - generic [ref=e74]: Operating hours and service windows together
+              - generic [ref=e75]: Edit the outer open-close window, the nested lunch and dinner windows, and special date overrides from one working surface.
+          - generic [ref=e57]:
+            - alert [ref=e76]:
+              - img [ref=e77]
+              - paragraph [ref=e82]: Additional service periods are preserved
+              - generic [ref=e83]: 2 custom service periods sit outside the lunch-dinner layout. They will be preserved unchanged by this command center.
+            - alert [ref=e84]:
+              - img [ref=e85]
+              - paragraph [ref=e88]: How this command center works
+              - generic [ref=e89]: This page owns the day-to-day availability workflow. Weekly hours, service windows, overrides, and booking occasions (with per-party-size turn times) now live in one editable surface with one save action.
+            - generic [ref=e90]:
+              - tablist [ref=e91]:
+                - tab "Weekly schedule" [ref=e92]
+                - tab "Date overrides" [active] [selected] [ref=e93]
+              - tabpanel "Date overrides" [ref=e786]:
+                - generic [ref=e787]:
+                  - generic [ref=e788]:
+                    - generic [ref=e789]:
+                      - paragraph [ref=e790]: Holiday and one-off overrides
+                      - paragraph [ref=e791]: Add closures, shortened service, or extended trading for specific dates.
+                    - button "Add override" [ref=e792]:
+                      - img
+                      - text: Add override
+                  - generic [ref=e793]:
+                    - generic [ref=e794]:
+                      - generic [ref=e795]:
+                        - paragraph [ref=e796]: Override 1
+                        - paragraph [ref=e797]: Override the default schedule for one calendar date.
+                      - generic [ref=e798]:
+                        - generic [ref=e799]: Open
+                        - switch "Open" [checked] [ref=e800] [cursor=pointer]
+                        - button [ref=e801]:
+                          - img
+                    - generic [ref=e802]:
+                      - generic [ref=e803]:
+                        - generic [ref=e804]: Date
+                        - textbox "Date" [ref=e805]: 2026-02-14
+                      - generic [ref=e806]:
+                        - generic [ref=e807]:
+                          - generic [ref=e808]: Opens
+                          - textbox "Opens" [ref=e809]: 12:00
+                        - generic [ref=e810]:
+                          - generic [ref=e811]: Closes
+                          - textbox "Closes" [ref=e812]: 23:30
+                      - generic [ref=e813]:
+                        - generic [ref=e814]:
+                          - generic [ref=e815]:
+                            - generic [ref=e816]: Interval (min)
+                            - spinbutton "Interval (min)" [ref=e817]
+                          - generic [ref=e818]:
+                            - generic [ref=e819]: Slot times
+                            - textbox "Slot times" [ref=e820]:
+                              - /placeholder: 12:00, 12:30, 13:00
+                        - generic [ref=e821]:
+                          - generic [ref=e822]: Notes
+                          - textbox "Notes" [ref=e823]:
+                            - /placeholder: Christmas Eve or private event
+                            - text: Valentine’s Day extended service
+            - generic [ref=e609]:
+              - generic [ref=e610]:
+                - generic [ref=e611]:
+                  - paragraph [ref=e612]: Booking occasions
+                  - paragraph [ref=e613]: Control the guest-facing occasion tags without leaving the availability workflow.
+                - button "New occasion" [ref=e614]
+              - table [ref=e617]:
+                - rowgroup [ref=e618]:
+                  - row "Label Availability Status Dining duration Actions" [ref=e619]:
+                    - columnheader "Label" [ref=e620]
+                    - columnheader "Availability" [ref=e621]
+                    - columnheader "Status" [ref=e622]
+                    - columnheader "Dining duration" [ref=e623]
+                    - columnheader "Actions" [ref=e624]
+                - rowgroup [ref=e625]:
+                  - row "Dining Builtin Dining Always available Toggle Dining Active 90 min (default) Edit Delete" [ref=e626]:
+                    - cell "Dining Builtin Dining" [ref=e627]:
+                      - generic [ref=e628]:
+                        - generic [ref=e629]: Dining
+                        - generic [ref=e630]: Builtin
+                      - paragraph [ref=e631]: Dining
+                    - cell "Always available" [ref=e632]
+                    - cell "Toggle Dining Active" [ref=e633]:
+                      - generic [ref=e634]:
+                        - switch "Toggle Dining" [checked] [ref=e635] [cursor=pointer]
+                        - generic [ref=e636]: Active
+                    - cell "90 min (default)" [ref=e637]
+                    - cell "Edit Delete" [ref=e638]:
+                      - button "Edit" [ref=e639]
+                      - button "Delete" [disabled]
+                  - row "Lunch Service window Builtin Lunch Always available Toggle Lunch Active 90 min (default) Edit Delete" [ref=e640]:
+                    - cell "Lunch Service window Builtin Lunch" [ref=e641]:
+                      - generic [ref=e642]:
+                        - generic [ref=e643]: Lunch
+                        - generic [ref=e644]: Service window
+                        - generic [ref=e645]: Builtin
+                      - paragraph [ref=e646]: Lunch
+                    - cell "Always available" [ref=e647]
+                    - cell "Toggle Lunch Active" [ref=e648]:
+                      - generic [ref=e649]:
+                        - switch "Toggle Lunch" [checked] [ref=e650] [cursor=pointer]
+                        - generic [ref=e651]: Active
+                    - cell "90 min (default)" [ref=e652]
+                    - cell "Edit Delete" [ref=e653]:
+                      - button "Edit" [ref=e654]
+                      - button "Delete" [disabled]
+                  - row "Dinner Service window Builtin Dinner Always available Toggle Dinner Active 120 min (default) Edit Delete" [ref=e655]:
+                    - cell "Dinner Service window Builtin Dinner" [ref=e656]:
+                      - generic [ref=e657]:
+                        - generic [ref=e658]: Dinner
+                        - generic [ref=e659]: Service window
+                        - generic [ref=e660]: Builtin
+                      - paragraph [ref=e661]: Dinner
+                    - cell "Always available" [ref=e662]
+                    - cell "Toggle Dinner Active" [ref=e663]:
+                      - generic [ref=e664]:
+                        - switch "Toggle Dinner" [checked] [ref=e665] [cursor=pointer]
+                        - generic [ref=e666]: Active
+                    - cell "120 min (default)" [ref=e667]
+                    - cell "Edit Delete" [ref=e668]:
+                      - button "Edit" [ref=e669]
+                      - button "Delete" [disabled]
+                  - row "Chef’s Tasting Menu (Long Title That Wraps On Mobile) Tasting Always available Toggle Chef’s Tasting Menu (Long Title That Wraps On Mobile) Active 150 min (default) Edit Delete" [ref=e670]:
+                    - cell "Chef’s Tasting Menu (Long Title That Wraps On Mobile) Tasting" [ref=e671]:
+                      - generic [ref=e673]: Chef’s Tasting Menu (Long Title That Wraps On Mobile)
+                      - paragraph [ref=e674]: Tasting
+                    - cell "Always available" [ref=e675]
+                    - cell "Toggle Chef’s Tasting Menu (Long Title That Wraps On Mobile) Active" [ref=e676]:
+                      - generic [ref=e677]:
+                        - switch "Toggle Chef’s Tasting Menu (Long Title That Wraps On Mobile)" [checked] [ref=e678] [cursor=pointer]
+                        - generic [ref=e679]: Active
+                    - cell "150 min (default)" [ref=e680]
+                    - cell "Edit Delete" [ref=e681]:
+                      - button "Edit" [ref=e682]
+                      - button "Delete" [ref=e683]
+          - generic [ref=e684]:
+            - generic [ref=e685]: "Save once to persist the full availability workflow: weekly hours, service windows, date overrides, and booking occasions (with their turn times)."
+            - generic [ref=e686]:
+              - button "Reset" [disabled]:
+                - img
+                - text: Reset
+              - button "Save configuration" [disabled]:
+                - img
+                - text: Save configuration
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e66] [cursor=pointer]:
+    - img [ref=e67]
+  - alert [ref=e70]
+  - generic [ref=e687]:
+    - img [ref=e689]
+    - button "Open Tanstack query devtools" [ref=e737] [cursor=pointer]:
+      - img [ref=e738]

@@ -1,6 +1,7 @@
 'use client';
 
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 import { Icon } from '../shared/Icons';
@@ -52,50 +53,47 @@ const BENEFITS = [
 
 export function BenefitsSection() {
   return (
-    <section id="features" className="py-24 bg-white border-b border-slate-200">
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="text-center max-w-3xl mx-auto mb-16 space-y-4 motion-safe:reveal-up">
-          <Badge variant="secondary" className="bg-blue-50 text-blue-700 ring-1 ring-blue-700/10">
-            The UK Pub Profit Stack
-          </Badge>
-          <h2 className="text-4xl font-bold text-slate-900">The Total Lockdown Bundle</h2>
-          <p className="text-lg text-slate-600">
-            Total Value: £12,500+ / Yours for less than a missed 4-top.
+    <section id="features" className="border-b border-border bg-background py-12 sm:py-16 md:py-20 lg:py-24">
+      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 md:px-8 2xl:px-10">
+        <div className="mx-auto mb-10 flex max-w-3xl flex-col items-center gap-3 text-center sm:mb-12 sm:gap-4 md:mb-14 lg:mb-16 motion-safe:reveal-up">
+          <Badge variant="secondary">The UK pub profit stack</Badge>
+          <h2 className="text-2xl font-bold text-foreground sm:text-3xl md:text-4xl">
+            The total lockdown bundle
+          </h2>
+          <p className="text-base text-muted-foreground sm:text-lg">
+            Total value: £12,500+ / yours for less than a missed 4-top.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 md:gap-6 lg:grid-cols-3 lg:gap-8">
           {BENEFITS.map((benefit, index) => {
             const isFeatured = index === BENEFITS.length - 1;
             return (
-              <div
+              <Card
                 key={benefit.title}
                 className={cn(
-                  'group p-6 rounded-2xl bg-slate-50 transition-all duration-200 ease-out border border-transparent hover:border-slate-100 hover:bg-white group-hover:-translate-y-2 group-hover:shadow-xl motion-safe:reveal-up',
+                  'group transition-all duration-200 ease-out motion-safe:reveal-up hover:-translate-y-1 hover:shadow-lg',
                   isFeatured
-                    ? 'md:col-span-2 lg:col-span-3 bg-gradient-to-r from-slate-50 to-blue-50 border-blue-100'
-                    : '',
+                    ? 'border-primary/20 bg-gradient-to-br from-muted/80 to-primary/5 sm:col-span-2 lg:col-span-3'
+                    : 'hover:border-border/80',
                 )}
                 style={{ transitionDelay: `${index * 100}ms` }}
               >
-                <div className="flex justify-between items-start mb-6">
-                  <div className="w-12 h-12 bg-white text-blue-600 rounded-xl shadow-sm flex items-center justify-center transition-all duration-200 ease-out group-hover:bg-blue-600 group-hover:text-white group-hover:rotate-6 group-hover:scale-110">
-                    <Icon name={benefit.icon} className="w-6 h-6" />
+                <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0 p-4 sm:p-5 md:p-6">
+                  <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-background text-primary shadow-sm transition duration-200 ease-out group-hover:rotate-3 group-hover:scale-105 group-hover:bg-primary group-hover:text-primary-foreground">
+                    <Icon name={benefit.icon} className="size-6" />
                   </div>
-                  <Badge
-                    variant="secondary"
-                    className={
-                      isFeatured
-                        ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-700/10'
-                        : 'bg-slate-100 text-slate-600'
-                    }
-                  >
+                  <Badge variant={isFeatured ? 'metric' : 'secondary'} className="shrink-0">
                     {benefit.value}
                   </Badge>
-                </div>
-                <h3 className="text-xl font-bold text-slate-900 mb-3">{benefit.title}</h3>
-                <p className="text-slate-600 text-sm leading-relaxed">{benefit.description}</p>
-              </div>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-2 px-4 pb-4 pt-0 sm:px-5 sm:pb-5 md:px-6 md:pb-6">
+                  <CardTitle className="text-left text-lg sm:text-xl">{benefit.title}</CardTitle>
+                  <p className="text-sm leading-relaxed text-muted-foreground sm:text-base">
+                    {benefit.description}
+                  </p>
+                </CardContent>
+              </Card>
             );
           })}
         </div>

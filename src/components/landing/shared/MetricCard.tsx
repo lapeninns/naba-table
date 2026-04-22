@@ -2,6 +2,9 @@
 
 import { useRef, useState, useEffect } from 'react';
 
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+
 import { Icon } from './Icons';
 
 type Metric = {
@@ -86,22 +89,28 @@ export function MetricCard({ metric, reduceMotion }: MetricCardProps) {
   }
 
   return (
-    <div className="factory-card p-6 rounded-xl bg-white border border-slate-200 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all">
-      <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4">
-        <Icon name={metric.icon} className="w-6 h-6" />
-      </div>
-      <div
-        ref={ref}
-        className="text-4xl font-extrabold text-slate-900 mb-1 font-variant-numeric tabular-nums transition-colors transition-transform"
-      >
-        {formatMetricValue(value)}
-      </div>
-      <div className="text-sm font-semibold text-slate-500 uppercase tracking-wide">
-        {metric.label}
-      </div>
-      <div className="mt-4 pt-4 border-t border-slate-100 text-xs text-slate-400 font-mono">
-        {metric.detail}
-      </div>
-    </div>
+    <Card
+      variant="compact"
+      className="hover:-translate-y-0.5 transition-all duration-200 hover:shadow-md"
+    >
+      <CardHeader className="flex flex-col gap-0 space-y-0 p-4 sm:p-5 md:p-6">
+        <div className="mb-3 flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary sm:mb-4">
+          <Icon name={metric.icon} className="size-6" />
+        </div>
+        <div
+          ref={ref}
+          className="font-variant-numeric text-3xl font-extrabold tabular-nums text-foreground transition-colors sm:text-4xl"
+        >
+          {formatMetricValue(value)}
+        </div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:text-sm">
+          {metric.label}
+        </p>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3 p-4 pt-0 sm:p-5 sm:pt-0 md:p-6 md:pt-0">
+        <Separator />
+        <p className="font-mono text-xs text-muted-foreground">{metric.detail}</p>
+      </CardContent>
+    </Card>
   );
 }
