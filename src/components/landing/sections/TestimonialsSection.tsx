@@ -61,22 +61,20 @@ export function TestimonialsSection() {
   return (
     <section
       id="testimonials"
-      className="bg-slate-950 py-12 text-foreground sm:py-16 md:py-20 lg:py-24"
+      className="pg-section border-b border-border bg-background text-foreground"
     >
-      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 md:px-8 2xl:px-10">
-        <div className="mb-10 flex flex-col gap-8 sm:mb-12 md:mb-14 lg:mb-16 lg:grid lg:grid-cols-2 lg:items-end lg:gap-10 xl:gap-12">
+      <div className="pg-container">
+        <div className="mb-10 flex flex-col gap-8 sm:mb-12 md:mb-14 lg:mb-16 lg:grid lg:grid-cols-[5fr_7fr] lg:items-end lg:gap-10 xl:gap-12">
           <div className="flex flex-col gap-3 sm:gap-4">
-            <h2 className="text-2xl font-bold text-white sm:text-3xl md:text-4xl">Proof it works.</h2>
-            <p className="text-base text-slate-400 sm:text-lg">
-              Food-led pubs using Nab a Table to print money.
-            </p>
+            <h2 className="pg-section-title">Proof it works.</h2>
+            <p className="pg-lead">Food-led pubs using Nab a Table to print money.</p>
           </div>
           <div className="flex flex-wrap gap-2 sm:gap-3 lg:justify-end">
             {OBJECTION_POINTS.map((point) => (
               <Badge
                 key={point}
                 variant="outline"
-                className="border-slate-600 bg-slate-900/50 px-3 py-1.5 text-xs font-medium text-slate-200 sm:text-sm"
+                className="pg-chip border-border bg-muted px-3 py-1.5 text-xs font-medium sm:text-sm"
               >
                 <span className="inline-flex items-center gap-1.5">
                   <Icon name="check" className="text-primary" />
@@ -92,9 +90,7 @@ export function TestimonialsSection() {
             return (
               <Card
                 key={testimonial.venue}
-                className={cn(
-                  'border-slate-700/80 bg-slate-900/50 text-slate-200 motion-safe:reveal-up transition-colors hover:border-slate-600 hover:bg-slate-900/70',
-                )}
+                className={cn('pg-card text-foreground motion-safe:reveal-up')}
                 style={{ transitionDelay: `${index * 80}ms` }}
               >
                 <CardContent className="flex flex-col gap-4 p-5 sm:gap-5 sm:p-6 md:gap-6 md:p-7 lg:p-8">
@@ -107,12 +103,14 @@ export function TestimonialsSection() {
                       />
                     ))}
                   </div>
-                  <blockquote className="text-base italic leading-relaxed sm:text-lg">
+                  <blockquote className="text-base italic leading-relaxed text-muted-foreground sm:text-lg">
                     &quot;{testimonial.quote}&quot;
                   </blockquote>
                 </CardContent>
-                <CardFooter className="border-t border-slate-800/80 px-5 pb-5 pt-0 sm:px-6 sm:pb-6 md:px-7 md:pb-7 lg:px-8 lg:pb-8">
-                  <p className="text-sm font-bold text-white sm:text-base">{testimonial.venue}</p>
+                <CardFooter className="border-t border-border/70 px-5 pb-5 pt-0 sm:px-6 sm:pb-6 md:px-7 md:pb-7 lg:px-8 lg:pb-8">
+                  <p className="text-sm font-bold text-foreground sm:text-base">
+                    {testimonial.venue}
+                  </p>
                 </CardFooter>
               </Card>
             );

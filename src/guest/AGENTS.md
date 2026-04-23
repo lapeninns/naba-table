@@ -2,7 +2,7 @@
 agents_version: 5.4
 scope: subproject
 extends: ../../AGENTS.md
-last_updated: 2026-02-06
+last_updated: 2026-04-23
 owner: github:@guest-experience
 profile: guest-app
 ---
@@ -20,6 +20,75 @@ profile: guest-app
 - `services/` — guest-facing API clients (reservations, schedule, messaging, etc.).
 
 These modules back the **public booking + guest portal** under `src/app/(public)` and `src/app/guest/**`. Treat all outputs as user-visible and mobile-first.
+
+Guest-facing visual work must follow the repo-root `GUEST_FACING_DESIGN_SYSTEM.md` (Radix Luma), copied from `/Users/amankumarshrestha/NewShadcn/DESIGN.md`. Keep shared styling inside the `.guest-theme` / `[data-theme='guest']` boundary so ops-facing routes remain on the app design system.
+
+## Radix Luma Design Contract
+
+Radix Luma is the mandatory design system for guest-facing routes, guest portal states, public booking flows, and guest reusable compounds. Treat the repo-root `GUEST_FACING_DESIGN_SYSTEM.md` as the design source of truth and `docs/design-system/public-guest.md` as the implementation map.
+
+### Scope
+
+- Applies to guest route helpers in `src/guest/**`.
+- Applies to consumers under `src/app/(public)/**`, `src/app/guest/**`, `src/components/guest/ui/**`, `src/components/features/booking/**`, `src/components/features/guest/**`, `src/components/restaurants/**`, and homepage/public marketing components when they render guest-facing UI.
+- Does not apply to authenticated operator routes under `src/app/app/**` or ops feature components unless a separate ops design-system task explicitly says so.
+
+### Source Files
+
+- Root design source: `GUEST_FACING_DESIGN_SYSTEM.md`.
+- Guest token layer: `styles/design-system/public-guest.tokens.css`.
+- Guest utility layer: `styles/design-system/public-guest.utilities.css`.
+- Guest compatibility bridge: `styles/design-system/public-guest.bridge.css`.
+- Shared guest compounds: `src/components/guest/ui/**`.
+- Shadcn primitives: `components/ui/**`.
+
+### Visual Rules
+
+- Use Zinc neutrals and the singular cobalt accent `#1447E6`; do not introduce separate blue, amber, violet, coral, or warm-gray palettes for guest surfaces.
+- Light mode is the default appearance. Dark mode must be explicitly re-tuned, not inverted.
+- Use Merriweather only for display/headline tiers, Inter for interface/body text, and Geist Mono for metadata, technical labels, codes, and tabular values.
+- Use semantic colors by role: `primary` only for CTAs, active states, focus rings, and interactive highlights; `destructive` only for errors or destructive actions.
+- Do not rely on color alone for meaning. Pair error/active/success states with icon, text, shape, or weight.
+- Do not use random dark sections in otherwise light guest pages. Use Zinc tonal layers, borders, panels, or subtle cobalt glow instead.
+
+### Layout Rules
+
+- Build mobile-first and use `min-h-[100dvh]` for full-height guest panels; never use `h-screen`.
+- Use `pg-container`, `pg-container-sm`, `pg-section`, `pg-section-tight`, `pg-grid`, `pg-card`, `pg-panel`, `pg-chip`, `pg-hero-title`, `pg-section-title`, and `pg-lead` before adding new one-off classes.
+- Constrain body copy to roughly `65ch` and use fluid `clamp()` sizing through the existing guest tokens/utilities rather than discrete breakpoint jumps.
+- Use CSS Grid for multi-column guest layouts. Prefer asymmetric 5/7 or 7/5 splits and bento-style hierarchy; avoid generic three-equal-card rows unless content truly has equal weight.
+- Maintain 44px minimum touch targets and at least 8px separation for adjacent tap targets.
+
+### Components & Styling
+
+- Compose from shadcn/Radix primitives in `components/ui/**`; do not create new primitive/base component systems inside `src/guest/**`.
+- Put reusable guest/public compounds in `src/components/guest/ui/**` when at least two guest/public surfaces need the pattern.
+- Keep token changes scoped to `.guest-theme` / `[data-theme='guest']`.
+- Prefer extending `styles/design-system/public-guest.utilities.css` for new reusable guest utilities and `styles/design-system/public-guest.bridge.css` only for compatibility with existing legacy classes.
+- Cards rest with border-only edge definition. Add hover lift only to interactive cards, never static informational containers.
+- Buttons are capsule-shaped and tactile. Limit prominent filled primary buttons to the main action(s) on a view; use secondary, outline, ghost, or link styles for supporting actions.
+- Inputs use static labels above fields, 36px visual height minimum, visible focus rings, and inline error text.
+
+### Motion & Accessibility
+
+- Motion must be brief, precise, and purposeful. Use transform/opacity only for animation.
+- Respect `prefers-reduced-motion`; remove stagger/reveal motion or reduce it to opacity-only.
+- Preserve visible `:focus-visible` states and logical keyboard order.
+- Every loading, empty, error, success, offline, and auth-gated state must be designed, accessible, and actionable.
+- Error states use destructive color sparingly and must include clear text, not only red styling.
+
+### Copy & Product Fit
+
+- Guest-facing copy should be specific, calm, and operationally clear. Avoid generic hype words and placeholder language.
+- Public booking and guest portal copy should preserve exact restaurant names, reservation labels, dates, prices, and route language from source data.
+- Auth-gated redirects must preserve the intended guest path via `redirectedFrom` where applicable.
+
+### Verification
+
+- UI changes require Chrome DevTools MCP proof per root policy.
+- Minimum browser proof for guest visual changes: mobile viewport, homepage or public booking route, and the specific guest/public route changed.
+- If a guest route is auth-gated, verify the real redirect/auth surface or use a dev-only harness with the root-policy guard.
+- Static checks for guest visual changes should include focused ESLint, `pnpm typecheck`, Prettier, and CSS parse/import checks when design-system CSS is touched.
 
 ## Build Commands
 

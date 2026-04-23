@@ -16,9 +16,9 @@ export function MarketingLayout({
 }: MarketingLayoutProps) {
   return (
     <ThemeProvider theme="guest">
-      <div className="guest-theme relative min-h-screen min-h-[100svh] bg-muted text-foreground">
+      <div className="guest-theme pg-page relative min-h-[100dvh] text-foreground">
         <GuestBackground />
-        <div className="relative z-10 flex min-h-screen min-h-[100svh] flex-col bg-surface">
+        <div className="relative z-10 flex min-h-[100dvh] flex-col">
           {showNavbar ? <GuestNavbar /> : null}
           <main id="main-content" className="flex-1">
             {children}

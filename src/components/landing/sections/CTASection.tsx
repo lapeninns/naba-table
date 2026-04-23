@@ -3,20 +3,28 @@
 import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 
 export function CTASection() {
   return (
-    <section className="relative overflow-hidden border-b border-border bg-background py-16 sm:py-20 md:py-24 lg:py-28 xl:py-32">
+    <section className="pg-section relative overflow-hidden border-b border-border bg-background">
       <div className="pointer-events-none absolute inset-0 bg-primary/[0.03] pattern-grid-lg" />
-      <div className="relative z-10 mx-auto w-full max-w-4xl px-4 sm:px-6 md:px-8 2xl:px-10">
-        <Card className="border-border/60 bg-card/80 shadow-sm backdrop-blur-sm motion-safe:reveal-up">
+      <div className="pg-container-sm relative z-10">
+        <Card className="pg-panel motion-safe:reveal-up">
           <CardHeader className="flex flex-col gap-2 space-y-0 p-5 text-center sm:gap-3 sm:p-8 md:gap-4 md:p-10 lg:gap-5">
-            <CardTitle className="text-2xl font-extrabold sm:text-3xl md:text-4xl lg:text-5xl">
+            <CardTitle className="pg-section-title">
               Ready to stop burning £150 per no-show?
             </CardTitle>
-            <CardDescription className="mx-auto max-w-2xl text-base sm:text-lg md:text-xl">
-              We&apos;ll show you exactly how to automate busy work and reclaim 20 hours of your week.
+            <CardDescription className="pg-lead mx-auto max-w-2xl">
+              We&apos;ll show you exactly how to automate busy work and reclaim 20 hours of your
+              week.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-4 px-5 pb-2 pt-0 sm:px-8 md:px-10">

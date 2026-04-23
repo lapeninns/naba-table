@@ -74,10 +74,7 @@ export function LiveFeedCard({ reduceMotion }: LiveFeedCardProps) {
   }, [reduceMotion]);
 
   return (
-    <Card
-      variant="compact"
-      className="flex h-full flex-col transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
-    >
+    <Card variant="compact" className="pg-card flex h-full flex-col transition-all duration-200">
       <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0 p-4 sm:p-5 md:p-6">
         <div className="flex min-w-0 items-center gap-2">
           <div className="relative flex size-2 shrink-0">

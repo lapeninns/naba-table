@@ -243,7 +243,7 @@ export function ReceiptClient({ reservationId, hasSession }: ReceiptClientProps)
             <span className="font-semibold">Sign in to manage bookings faster.</span>
             <Link
               href={`/auth/signin?redirectedFrom=/guest/bookings/${reservationId}`}
-              className="font-semibold text-blue-700 underline focus-ring touch-feedback"
+              className="font-semibold text-primary underline focus-ring touch-feedback"
             >
               Sign in →
             </Link>

@@ -33,7 +33,10 @@ import { normalizeBookingsTab, type BookingsTab } from '@/guest/lib/validation';
 import { StatusRegion } from '@/guest/routes/shared/StatusRegion';
 import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils';
-import { getBookingDateTimeMillis, parseBookingDateTime } from '@reserve/shared/formatting/bookingDateTime';
+import {
+  getBookingDateTimeMillis,
+  parseBookingDateTime,
+} from '@reserve/shared/formatting/bookingDateTime';
 
 import type { BookingDTO } from '@/guest/services/ports';
 
@@ -95,18 +98,14 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
     });
 
     return {
-      upcoming: upcomingItems.sort(
-        (a, b) => getBookingStartMillis(a) - getBookingStartMillis(b),
-      ),
-      past: pastItems.sort(
-        (a, b) => getBookingStartMillis(b) - getBookingStartMillis(a),
-      ),
+      upcoming: upcomingItems.sort((a, b) => getBookingStartMillis(a) - getBookingStartMillis(b)),
+      past: pastItems.sort((a, b) => getBookingStartMillis(b) - getBookingStartMillis(a)),
     };
   }, [bookings?.items]);
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-surface-warm pb-20">
+      <div className="min-h-[100dvh] bg-surface-warm pb-20">
         {/* Hero skeleton */}
         <section className="border-b border-border/50 bg-gradient-hero py-12 px-6">
           <div className="mx-auto max-w-6xl space-y-4">
@@ -131,7 +130,7 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
 
   if (isError) {
     return (
-      <StatusRegion focus live="assertive" className="min-h-screen bg-surface-warm pb-20">
+      <StatusRegion focus live="assertive" className="min-h-[100dvh] bg-surface-warm pb-20">
         <div className="flex min-h-[60vh] items-center justify-center">
           <GuestError
             description="We couldn't load your bookings. Please try again."
@@ -146,7 +145,7 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
 
   if (!hasAnyBookings) {
     return (
-      <StatusRegion live="polite" className="min-h-screen bg-surface-warm pb-20">
+      <StatusRegion live="polite" className="min-h-[100dvh] bg-surface-warm pb-20">
         <GuestEmpty
           icon={Search}
           title="No bookings yet"
@@ -159,25 +158,21 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
   }
 
   return (
-    <div className="min-h-screen bg-surface-warm pb-20">
+    <div className="min-h-[100dvh] bg-surface-warm pb-20">
       {/* Hero Section */}
       <section className="border-b border-border/50 bg-gradient-hero">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 py-12 px-5 sm:gap-6 sm:px-8 sm:py-16 lg:px-10 lg:py-20">
           <div className="space-y-2 sm:space-y-3 animate-fade-in-up">
             <p className="text-xs uppercase tracking-[0.2em] text-subtle">My Reservations</p>
-            <h1 className="heading-hero">
-              Your Reservations
-            </h1>
-            <p className="text-body-warm max-w-2xl">
-              Manage your upcoming and past reservations
-            </p>
+            <h1 className="heading-hero">Your Reservations</h1>
+            <p className="text-body-warm max-w-2xl">Manage your upcoming and past reservations</p>
           </div>
 
           <div className="flex flex-wrap gap-3">
             <Button
               asChild
               size="lg"
-              className="rounded-full bg-primary text-white hover:bg-primary/90 min-h-[48px] w-full sm:w-auto btn-tactile focus-ring touch-feedback"
+              className="min-h-[48px] w-full rounded-full bg-primary text-primary-foreground hover:bg-primary/90 sm:w-auto btn-tactile focus-ring touch-feedback"
             >
               <Link href="/restaurants">
                 <Plus className="mr-2 h-5 w-5" />
@@ -316,9 +311,7 @@ function BookingCard({ booking, isPast = false, style }: BookingCardProps) {
         <div className="flex items-start justify-between gap-4 sm:gap-5 mb-5 sm:mb-6 lg:mb-8">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-3 mb-1">
-              <h3 className="heading-subsection truncate">
-                {booking.restaurantName}
-              </h3>
+              <h3 className="heading-subsection truncate">{booking.restaurantName}</h3>
               <StatusBadge status={booking.status} isPast={isPast} />
             </div>
             {booking.restaurantSlug && (
@@ -381,10 +374,8 @@ function BookingCard({ booking, isPast = false, style }: BookingCardProps) {
                 ? 'border-border bg-muted text-muted-foreground'
                 : 'border-primary/10 bg-primary/5 text-primary',
             )}
-            >
-            <span className="text-xs font-bold uppercase leading-none mb-1">
-              {monthLabel}
-            </span>
+          >
+            <span className="text-xs font-bold uppercase leading-none mb-1">{monthLabel}</span>
             <span className="text-2xl font-bold leading-none">{dayLabel}</span>
           </div>
 

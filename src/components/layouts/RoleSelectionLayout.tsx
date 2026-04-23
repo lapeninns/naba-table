@@ -12,8 +12,8 @@ function RoleSelectionNavbar() {
   return (
     <nav
       className={cn(
-        'fixed top-0 left-0 w-full z-50 px-6 transition-all duration-200 border-b',
-        'bg-white/90 backdrop-blur-md py-3 border-slate-200 shadow-sm',
+        'fixed left-0 top-0 z-50 w-full border-b px-6 py-3 transition-all duration-200',
+        'border-border bg-background/85 shadow-[var(--pg-shadow-nav)] backdrop-blur-xl',
       )}
     >
       <div className="max-w-7xl mx-auto flex justify-between items-center">
@@ -21,7 +21,10 @@ function RoleSelectionNavbar() {
           <BrandLogo href="/auth" animated />
         </div>
         <div className="flex items-center gap-3">
-          <Link href="/" className="text-sm font-semibold text-slate-600 hover:text-slate-900">
+          <Link
+            href="/"
+            className="rounded-full px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
             Back to Home
           </Link>
         </div>
@@ -33,9 +36,9 @@ function RoleSelectionNavbar() {
 export function RoleSelectionLayout({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider theme="guest">
-      <div className="guest-theme relative min-h-screen min-h-[100svh] bg-muted text-foreground">
+      <div className="guest-theme pg-page relative min-h-[100dvh] text-foreground">
         <GuestBackground />
-        <div className="relative z-10 flex min-h-screen min-h-[100svh] flex-col bg-surface">
+        <div className="relative z-10 flex min-h-[100dvh] flex-col">
           <RoleSelectionNavbar />
           <main
             id="main-content"

@@ -56,6 +56,7 @@ export default defineConfig({
       '@/guest': path.resolve(rootDir, 'src/guest'),
       '@/components/ui': path.resolve(rootDir, 'components/ui'),
       '@/components/features': path.resolve(rootDir, 'src/components/features'),
+      '@/components/dashboard': path.resolve(rootDir, 'components/dashboard'),
       '@/components': path.resolve(rootDir, 'src/components'),
       '@': rootDir,
       '@src': path.resolve(rootDir, 'src'),

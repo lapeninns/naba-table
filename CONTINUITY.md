@@ -1,9 +1,19 @@
 # Continuity Ledger
 
-Last updated: 2026-04-22T18:11:00Z
+Last updated: 2026-04-23T10:58:00Z
 
 ## Goal (incl. success criteria)
 
+- Organize the homepage and guest-facing design system under one public/guest source of truth.
+- Success: public/guest tokens, utilities, and the existing compatibility bridge live under `styles/design-system/`.
+- Success: `src/app/globals.css` imports the new public/guest design-system files without changing ops theme files.
+- Success: docs explain that homepage, marketing, booking, and guest portal surfaces use this system while ops stays on the app theme.
+- Adopt `GUEST_FACING_DESIGN_SYSTEM.md` (Radix Luma, copied from `/Users/amankumarshrestha/NewShadcn/DESIGN.md`) as the source design system for guest-facing routes.
+- Success: guest/public tokens, route shells, and compatibility classes use Zinc neutrals, cobalt accent, Merriweather headlines, Inter body text, and Geist Mono metadata.
+- Fix the three newly accepted `codex/Menu` review findings covering GBP post-OAuth routing and menu/drink editor failure handling.
+- Success: the GBP OAuth callback and connect flow always return to the canonical `/app/settings/restaurant/google-business-profile` screen.
+- Success: when an existing food item fails to load for editing, the UI surfaces an error state instead of silently falling back to a blank create form.
+- Success: when an existing drink item fails to load for editing, the UI surfaces an error state instead of silently falling back to a blank create form.
 - Fix the four approved `codex/Menu` review findings covering menu/drink modifier-bundle deletion and stale import-preview state.
 - Success: applying a menu import with empty modifier CSVs deletes existing modifiers for the imported items instead of reporting success while preserving stale modifiers.
 - Success: applying a drink import with empty modifier CSVs deletes existing modifiers for the imported drinks instead of reporting success while preserving stale modifiers.
@@ -60,6 +70,11 @@ Last updated: 2026-04-22T18:11:00Z
 
 ## Constraints/Assumptions
 
+- Current public/guest design-system migration is organization-first; it preserves old `.guest-theme` compatibility classes and does not intentionally redesign visible routes.
+- Browser proof is deferred for this pass because no route has been visibly migrated to `pg-*` utilities yet; first visible route migration should capture screenshots.
+- Radix Luma adoption is scoped to guest/public surfaces only; shared ops primitives should not be retuned globally unless guarded by guest selectors.
+- This pass is scoped strictly to the three accepted review findings from the latest review run, not the wider QA backlog.
+- This is a regression-fix task on canonical `src/app/api` and `src/components/features/menu` paths, so focused automated proof is the primary verification path.
 - Root `AGENTS.md` plus the `src/app`, `src/components`, `src/hooks`, `server`, and `supabase` nested rules apply to this fix.
 - This is a regression-fix task on the canonical menu/drink import path, so verification-first implementation with focused regression tests is acceptable.
 - The SQL fix should reuse the existing import/delete path rather than introducing a parallel modifier-removal mechanism.
@@ -90,6 +105,12 @@ Last updated: 2026-04-22T18:11:00Z
 
 ## Key decisions
 
+- Public/guest design-system files now live together under `styles/design-system/`: `public-guest.tokens.css`, `public-guest.utilities.css`, and `public-guest.bridge.css`.
+- Keep homepage-specific composition in `src/components/landing/**`; put reusable public/guest compounds in `src/components/guest/ui/**`; keep ops on the `app` theme.
+- The current guest/public visual source of truth is repo-root `GUEST_FACING_DESIGN_SYSTEM.md`.
+- Homepage, restaurant public pages, auth, public booking, and guest portal compositions now use the Radix Luma guest/public layer directly instead of only inheriting token overrides.
+- Use the existing canonical ops path helper contract as the source of truth: GBP redirects should land on the `/app`-prefixed settings route, matching the registered page and shared settings navigation.
+- Keep the menu/drink editor fix inside the panel/sheet boundary instead of adding new service abstractions; the edit flow should block on detail-query failure and surface the error inline.
 - For SMS delivery observability, treat Twilio's documented 12-hour reconciliation window as the stale threshold instead of the prior 30-minute heuristic.
 - The SMS delivery reconciler now performs a bounded Twilio Message-resource fetch for stale in-flight SMS attempts and appends a reconciled terminal event when Twilio already knows the final status.
 - The SMS status webhook now validates Twilio signatures against forwarded/public callback URL candidates plus the configured app origin, preventing internal/proxy request URLs from discarding legitimate `sent` / `delivered` / `failed` callbacks.
@@ -105,6 +126,10 @@ Last updated: 2026-04-22T18:11:00Z
 
 ## State
 
+- A new task folder has been created at `tasks/review-findings-menu-editors-gbp-20260422-2033/` for this focused fix pass.
+- The current accepted findings to fix are: GBP fallback redirect missing `/app`, food editor blank-form fallback on detail failure, and drink editor blank-form fallback on detail failure.
+- The focused fix is now implemented in code: GBP fallback constants use the canonical `/app` settings route, and food/drink edit sheets now render destructive load errors instead of blank create forms when detail fetches fail.
+- Focused proof for this pass is complete via targeted Vitest coverage and focused ESLint on the touched files.
 - A new task folder has been created at `tasks/full-repo-manual-qa-20260422-1614/` for the branch-wide QA pass requested on `codex/Menu`.
 - The repo-wide route inventory is now captured in `tasks/full-repo-manual-qa-20260422-1614/artifacts/route-matrix.json` with 78 page routes across public, guest, onboarding, dev, auth, and authenticated ops surfaces.
 - Internal-browser Chrome DevTools MCP proof was captured on the live dev harness routes `/dev/ops-menu` and `/dev/ops-settings-restaurant?view=google-business-profile`, with screenshots stored as `devtools-ops-menu.png` and `devtools-gbp.png`.
@@ -334,6 +359,14 @@ Last updated: 2026-04-22T18:11:00Z
 
 ## Done
 
+- Re-read the applicable AGENTS policies plus the local `nabatable-task-harness` and `nabatable-fullstack-delivery` skills for this scoped fix pass.
+- Audited the canonical GBP callback/connect routes, menu/drink management panels, editor sheets, and focused test coverage.
+- Created `tasks/review-findings-menu-editors-gbp-20260422-2033/` with current research, plan, todo, and verification notes.
+- Updated GBP callback/connect/service fallback constants to `/app/settings/restaurant/google-business-profile`.
+- Tightened `FoodMenuManagementPanel` + `MenuItemSheet` so failed existing-item loads show a blocking error state instead of a blank create form.
+- Tightened `DrinkMenuManagementPanel` + `DrinkItemSheet` so failed existing-item loads show a blocking error state instead of a blank create form.
+- Added and passed focused regression tests for the GBP callback path and the food/drink editor failure states.
+- Passed focused ESLint on the touched route, component, and test files for this fix pass.
 - Confirmed `.env.vercel-production` contains the production primary Supabase URL and keys needed for the local runtime switch.
 - Confirmed the active tail of `.env.local` still points at staging values and duplicates earlier blocks.
 - Created `.env.local.bak-20260420-2158-prod-primary-switch` before editing.
@@ -439,6 +472,7 @@ Last updated: 2026-04-22T18:11:00Z
 
 ## Now
 
+- Focused review-finding fixes are complete; only final handoff/summary remains for this pass.
 - Repo-wide QA evidence has been captured in `tasks/full-repo-manual-qa-20260422-1614/verification.md`; no runtime fixes have been applied for the newly discovered guest/public regressions yet.
 - Local runtime is pointed at production primary; next step is to use it carefully and roll back with the backup if needed.
 - Tranche 1 of the restaurant-settings UX remediation (`tasks/settings-ux-remediation-20260420-1340/`) is implemented (see prior entry).
@@ -450,6 +484,7 @@ Last updated: 2026-04-22T18:11:00Z
 
 ## Next
 
+- If another `codex/Menu` review batch is accepted, start a new scoped task folder rather than folding more unrelated fixes into this one.
 - Triage the 12 failing Playwright specs from the full-repo QA pass and decide whether to fix them on `codex/Menu` or split them into follow-on tasks.
 - If continuing repo-wide QA, restart a clean local `pnpm dev` session and do targeted reruns only for the failing guest/public routes instead of broad parallel sweeps.
 - If needed, restore `.env.local.bak-20260420-2158-prod-primary-switch` to return local runtime to its pre-switch state.
@@ -462,6 +497,19 @@ Last updated: 2026-04-22T18:11:00Z
 
 ## Working set (files/ids/commands)
 
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/review-findings-menu-editors-gbp-20260422-2033/research.md
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/review-findings-menu-editors-gbp-20260422-2033/plan.md
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/review-findings-menu-editors-gbp-20260422-2033/todo.md
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/review-findings-menu-editors-gbp-20260422-2033/verification.md
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/app/api/ops/google-business-profile/callback/route.ts
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/app/api/ops/restaurants/[id]/google-business-profile/connect/route.ts
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/server/google-business-profile/service.ts
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/features/menu/FoodMenuManagementPanel.tsx
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/features/menu/DrinkMenuManagementPanel.tsx
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/features/menu/MenuItemSheet.tsx
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/src/components/features/menu/DrinkItemSheet.tsx
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/server/google-business-profile-callback-route.test.ts
+- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/components/OpsMenuManagementClient.test.tsx
 - /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/staging-prod-read-replica-20260420-2125/research.md
 - /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/staging-prod-read-replica-20260420-2125/plan.md
 - /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/staging-prod-read-replica-20260420-2125/todo.md

@@ -15251,3 +15251,16 @@ Consider migrating the non-React component export to a separate file and importi
 
 It is also possible the parent component of the component you edited is a class component, which disables Fast Refresh.
 Fast Refresh requires at least one parent function component in your React tree. @ webpack-internal:///(app-pages-browser)/./node_modules/.pnpm/next@16.1.6_@babel+core@7.28.5_@opentelemetry+api@1.9.0_@playwright+test@1.58.1_react-d_055f00bf67930ba8ce2f2cfa28ccf179/node_modules/next/dist/next-devtools/shared/forward-logs-shared.js:27
+[31175459ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://app.localhost:3000/dev/ops-navigation:0
+[31175513ms] [INFO] %c20:26:14.608 [api] color:#2196F3 → GET /api/config {rid: e110d4be} @ http://app.localhost:3000/_next/static/chunks/0ebidtnz3t-xk.js:0
+[31175513ms] [INFO] %c20:26:14.609 [api] color:#2196F3 → GET /api/me {rid: fcca1f76} @ http://app.localhost:3000/_next/static/chunks/0ebidtnz3t-xk.js:0
+[31175513ms] [INFO] %c20:26:14.609 [api] color:#2196F3 → GET /api/workspaces {rid: 5307cabc} @ http://app.localhost:3000/_next/static/chunks/0ebidtnz3t-xk.js:0
+[31175533ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://app.localhost:3000/api/config:0
+[31175533ms] [ERROR] %c20:26:14.628 [api] color:#F44336;font-weight:bold ← 401 /api/config {rid: e110d4be, duration: 20ms, error: missing authorization} @ http://app.localhost:3000/_next/static/chunks/0ebidtnz3t-xk.js:0
+[31175533ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://app.localhost:3000/api/me:0
+[31175533ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://app.localhost:3000/api/workspaces:0
+[31175533ms] [ERROR] %c20:26:14.629 [api] color:#F44336;font-weight:bold ← 401 /api/me {rid: fcca1f76, duration: 20ms, error: missing authorization} @ http://app.localhost:3000/_next/static/chunks/0ebidtnz3t-xk.js:0
+[31175533ms] [ERROR] %c20:26:14.629 [auth] color:#F44336;font-weight:bold cookie auth init failed ApiError: missing authorization
+    at Object.fetch (http://app.localhost:3000/_next/static/chunks/0ebidtnz3t-xk.js:1:3692)
+    at async Promise.all (index 0) @ http://app.localhost:3000/_next/static/chunks/0ebidtnz3t-xk.js:0
+[31175533ms] [ERROR] %c20:26:14.629 [api] color:#F44336;font-weight:bold ← 401 /api/workspaces {rid: 5307cabc, duration: 20ms, error: missing authorization} @ http://app.localhost:3000/_next/static/chunks/0ebidtnz3t-xk.js:0

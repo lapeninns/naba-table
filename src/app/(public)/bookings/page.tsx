@@ -51,7 +51,7 @@ function BookingHubActionCard({
 
 export default function BookingsLandingPage() {
   return (
-    <div className="min-h-screen bg-surface-warm pb-16 sm:pb-20">
+    <div className="min-h-[100dvh] bg-surface-warm pb-16 sm:pb-20">
       {/* Hero Section */}
       <section className="border-b border-border/50 bg-gradient-hero">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-5 py-10 sm:gap-8 sm:px-8 sm:py-16 lg:px-10 lg:py-20">
@@ -94,12 +94,7 @@ export default function BookingsLandingPage() {
                   <Button asChild size="lg" className={primaryActionClass}>
                     <Link href="/guest/bookings">View my bookings</Link>
                   </Button>
-                  <Button
-                    asChild
-                    size="lg"
-                    variant="outline"
-                    className={secondaryActionClass}
-                  >
+                  <Button asChild size="lg" variant="outline" className={secondaryActionClass}>
                     <Link href="/auth/signin?redirectedFrom=/bookings">Sign in</Link>
                   </Button>
                 </>

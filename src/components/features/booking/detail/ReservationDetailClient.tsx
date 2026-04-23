@@ -50,7 +50,10 @@ import {
   formatReservationDateShortFromDate,
   formatReservationTimeFromDate,
 } from '@reserve/shared/formatting/booking';
-import { getBookingDateTimeMillis, parseBookingDateTime } from '@reserve/shared/formatting/bookingDateTime';
+import {
+  getBookingDateTimeMillis,
+  parseBookingDateTime,
+} from '@reserve/shared/formatting/bookingDateTime';
 import { DEFAULT_VENUE } from '@shared/config/venue';
 
 import { ReservationHistory } from './ReservationHistory';
@@ -324,7 +327,7 @@ export function ReservationDetailClient({
   // Loading State
   if (isLoading && !reservation) {
     return (
-      <section className="min-h-screen bg-surface-warm py-8 sm:py-10 pb-20">
+      <section className="min-h-[100dvh] bg-surface-warm py-8 pb-20 sm:py-10">
         <div className="mx-auto w-full max-w-5xl space-y-6 sm:space-y-8 px-4 sm:px-6">
           {/* Summary card skeleton */}
           <div className="rounded-2xl border border-border bg-background p-6 sm:p-8 space-y-6 animate-fade-in-up">
@@ -475,7 +478,7 @@ export function ReservationDetailClient({
             actions={
               <div className="space-y-3">
                 <Button
-                  className="w-full rounded-full bg-primary hover:bg-primary/90 text-white min-h-[48px]"
+                  className="min-h-[48px] w-full rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
                   size="lg"
                   onClick={handleEdit}
                   disabled={actionDisabled}

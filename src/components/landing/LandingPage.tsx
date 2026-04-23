@@ -59,7 +59,7 @@ export function LandingPage({ isAuthenticated }: LandingPageProps) {
   return (
     <div
       className={cn(
-        'min-h-screen relative font-sans selection:bg-primary/15 selection:text-foreground',
+        'relative min-h-[100dvh] font-sans selection:bg-primary/15 selection:text-foreground',
         prefersReducedMotion ? '' : '',
       )}
     >

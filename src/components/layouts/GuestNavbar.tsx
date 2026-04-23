@@ -111,7 +111,7 @@ function PrimaryNav({
   const baseStyles =
     tone === 'dark'
       ? 'border-white/15 bg-white/10 text-white'
-      : 'border-border/60 bg-background/70 text-foreground';
+      : 'border-border bg-background/80 text-foreground shadow-[var(--pg-shadow-nav)]';
   const inactive =
     tone === 'dark'
       ? 'text-white/70 hover:bg-white/10 hover:text-white'
@@ -119,13 +119,13 @@ function PrimaryNav({
   const active =
     tone === 'dark'
       ? 'bg-white text-slate-900 shadow-sm ring-0'
-      : 'bg-foreground text-background shadow-sm ring-0';
+      : 'bg-primary text-primary-foreground shadow-[var(--pg-shadow-button)] ring-0';
 
   return (
     <nav
       aria-label="Primary navigation"
       className={cn(
-        'hidden items-center gap-2 rounded-full px-1.5 py-1 shadow-sm backdrop-blur supports-[backdrop-filter]:saturate-150 md:flex',
+        'hidden h-12 items-center gap-1.5 rounded-full px-1.5 py-1 backdrop-blur-xl supports-[backdrop-filter]:saturate-150 md:flex',
         baseStyles,
       )}
     >
@@ -135,7 +135,7 @@ function PrimaryNav({
           href={link.href}
           aria-current={isActive(link.href) ? 'page' : undefined}
           className={cn(
-            'rounded-full px-3.5 py-2 text-sm font-semibold leading-5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+            'rounded-full px-3.5 py-2 text-sm font-semibold leading-5 transition active:translate-y-px active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
             isActive(link.href) ? active : inactive,
           )}
         >
@@ -472,7 +472,7 @@ export function GuestNavbar({ tone = 'light', isSticky = true }: GuestNavbarProp
   const headerToneClasses =
     tone === 'dark'
       ? 'border-b border-white/10 bg-white/10 text-white'
-      : 'border-b border-border/70 bg-white/90 text-foreground';
+      : 'border-b border-border bg-background/85 text-foreground';
 
   const shellClasses = cn(
     isSticky ? 'sticky top-0' : 'relative',

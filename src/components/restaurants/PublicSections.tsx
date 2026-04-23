@@ -1,5 +1,3 @@
- 
-
 import {
   ArrowRight,
   BookOpenCheck,
@@ -39,20 +37,17 @@ const TAGS = ['Chef-led', 'Terrace', 'Live fire'];
 
 export function RestaurantsHeroSection({ totalRestaurants }: { totalRestaurants: number }) {
   return (
-    <section className="px-4 py-12 sm:px-6 lg:py-16" aria-labelledby="restaurants-hero-heading">
-      <div className="mx-auto flex max-w-6xl flex-col gap-10 rounded-[var(--guest-radius-2xl)] border border-slate-100 bg-white/90 p-6 shadow-[var(--guest-shadow-xl)] md:flex-row md:items-center md:justify-between">
+    <section className="pg-section-tight" aria-labelledby="restaurants-hero-heading">
+      <div className="pg-container pg-panel flex flex-col gap-10 p-6 md:grid md:grid-cols-[7fr_5fr] md:items-center">
         <div className="flex-1 space-y-4">
-          <Badge variant="secondary" className="rounded-full px-4 py-1 text-blue-900">
+          <Badge variant="secondary" className="pg-chip">
             Curated guest picks
           </Badge>
           <div className="space-y-3">
-            <h1
-              id="restaurants-hero-heading"
-              className="guest-heading-hero text-[clamp(2rem,4vw,3rem)] font-bold text-slate-900"
-            >
+            <h1 id="restaurants-hero-heading" className="guest-heading-hero">
               Find the right table fast.
             </h1>
-            <p className="text-base text-slate-600 sm:text-lg">
+            <p className="pg-lead">
               Live-ready venues with the same flow guests see at checkout—no surprises between
               browsing and booking.
             </p>
@@ -63,7 +58,7 @@ export function RestaurantsHeroSection({ totalRestaurants }: { totalRestaurants:
                 Search restaurants
               </label>
               <Search
-                className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
                 aria-hidden
               />
               <Input
@@ -71,42 +66,47 @@ export function RestaurantsHeroSection({ totalRestaurants }: { totalRestaurants:
                 name="restaurant-discovery"
                 type="search"
                 placeholder="Search by neighborhood, cuisine, or vibe"
-                className="h-12 rounded-[var(--guest-radius-lg)] border-slate-200 bg-slate-50 pl-11"
+                className="h-12 rounded-[var(--pg-radius-md)] border-border bg-background pl-11"
               />
             </div>
-            <Button size="lg" className="h-12 rounded-[var(--guest-radius-lg)] text-base" asChild>
+            <Button size="lg" className="h-12 rounded-full text-base" asChild>
               <Link href="/auth/signin">
                 <ShieldCheck className="mr-2 h-5 w-5" aria-hidden />
                 Save favorites
               </Link>
             </Button>
           </div>
-          <ul className="flex flex-wrap gap-3 text-sm text-slate-600" aria-label="Popular filters">
+          <ul
+            className="flex flex-wrap gap-3 text-sm text-muted-foreground"
+            aria-label="Popular filters"
+          >
             {TAGS.map((tag) => (
-              <li key={tag} className="rounded-full border border-slate-200 px-3 py-1">
+              <li key={tag} className="pg-chip">
                 {tag}
               </li>
             ))}
           </ul>
         </div>
-        <Card className="flex flex-1 flex-col gap-4 rounded-[var(--guest-radius-xl)] border-blue-100 bg-gradient-to-br from-blue-600/90 via-blue-500/90 to-blue-700/90 p-6 text-white shadow-[var(--guest-shadow-lg)]">
+        <Card className="pg-card flex flex-1 flex-col gap-4 p-6">
           <div className="space-y-1">
-            <p className="text-sm uppercase tracking-[0.28em] text-blue-100">Live venues</p>
-            <p className="text-4xl font-semibold">{totalRestaurants}</p>
-            <p className="text-sm text-blue-100">Ready to book right now.</p>
+            <p className="pg-kicker">Live venues</p>
+            <p className="font-[var(--pg-font-mono)] text-4xl font-semibold text-foreground">
+              {totalRestaurants}
+            </p>
+            <p className="text-sm text-muted-foreground">Ready to book right now.</p>
           </div>
-          <div className="rounded-[var(--guest-radius-lg)] bg-white/10 p-4">
+          <div className="rounded-[var(--pg-radius-md)] bg-muted p-4">
             <p className="text-sm font-medium">Built for clarity</p>
-            <p className="text-sm text-blue-100">
+            <p className="text-sm text-muted-foreground">
               Same cards and spacing you’ll see in the booking flow.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-3 text-sm text-blue-100">
-            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1">
+          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+            <span className="pg-chip">
               <Compass className="h-4 w-4" aria-hidden />
               Guided discovery
             </span>
-            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1">
+            <span className="pg-chip">
               <Sparkles className="h-4 w-4" aria-hidden />
               Instant confirm
             </span>
@@ -120,26 +120,20 @@ export function RestaurantsHeroSection({ totalRestaurants }: { totalRestaurants:
 
 export function RestaurantsGridSection({ restaurants }: { restaurants: RestaurantListItem[] }) {
   return (
-    <section className="px-4 pb-14 pt-4 sm:px-6" aria-labelledby="restaurants-grid-heading">
-      <div className="mx-auto max-w-6xl space-y-4">
+    <section className="pg-section-tight pt-0" aria-labelledby="restaurants-grid-heading">
+      <div className="pg-container space-y-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm text-blue-700">Carefully selected venues</p>
-            <h2
-              id="restaurants-grid-heading"
-              className="guest-heading-page text-[length:var(--guest-text-page)] font-semibold text-slate-900"
-            >
+            <p className="pg-kicker">Carefully selected venues</p>
+            <h2 id="restaurants-grid-heading" className="guest-heading-page">
               Pick a spot
             </h2>
           </div>
-          <p className="text-sm text-slate-500">Tap a card for details and booking.</p>
+          <p className="text-sm text-muted-foreground">Tap a card for details and booking.</p>
         </div>
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {restaurants.map((restaurant) => (
-            <article
-              key={restaurant.id}
-              className="group flex h-full flex-col gap-4 rounded-[var(--guest-radius-xl)] border border-slate-100 bg-white p-4 shadow-[var(--guest-shadow-md)]"
-            >
+            <article key={restaurant.id} className="pg-card group flex h-full flex-col gap-4 p-4">
               <Link
                 href={`/restaurants/${restaurant.slug}`}
                 className="relative block h-48 w-full overflow-hidden rounded-[var(--guest-radius-lg)]"
@@ -153,13 +147,13 @@ export function RestaurantsGridSection({ restaurants }: { restaurants: Restauran
                     sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                   />
                 ) : (
-                  <div className="flex h-48 items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600">
+                  <div className="flex h-48 items-center justify-center bg-muted text-primary">
                     <span className="text-4xl font-bold opacity-60">
                       {restaurant.name.charAt(0)}
                     </span>
                   </div>
                 )}
-                <div className="absolute left-4 top-4 rounded-full bg-white/90 px-4 py-1 text-xs font-semibold text-blue-800 shadow">
+                <div className="pg-chip absolute left-4 top-4 bg-background/90 text-xs font-semibold">
                   Instant confirm
                 </div>
               </Link>
@@ -167,19 +161,19 @@ export function RestaurantsGridSection({ restaurants }: { restaurants: Restauran
                 <div>
                   <Link
                     href={`/restaurants/${restaurant.slug}`}
-                    className="inline-flex items-center gap-2 text-lg font-semibold text-slate-900 hover:text-blue-700"
+                    className="inline-flex items-center gap-2 text-lg font-semibold text-foreground hover:text-primary"
                   >
                     {restaurant.name}
                     <ArrowRight className="h-4 w-4" aria-hidden />
                   </Link>
                   {restaurant.address ? (
-                    <p className="mt-1 flex items-start gap-2 text-sm text-slate-600">
-                      <MapPin className="mt-0.5 h-4 w-4 text-slate-400" aria-hidden />
+                    <p className="mt-1 flex items-start gap-2 text-sm text-muted-foreground">
+                      <MapPin className="mt-0.5 h-4 w-4 text-muted-foreground" aria-hidden />
                       <span className="line-clamp-2">{restaurant.address}</span>
                     </p>
                   ) : null}
                 </div>
-                <div className="flex items-center justify-between text-sm text-slate-600">
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
                   <span className="inline-flex items-center gap-1">
                     <Users className="h-4 w-4" aria-hidden />
                     {restaurant.capacity
@@ -195,7 +189,7 @@ export function RestaurantsGridSection({ restaurants }: { restaurants: Restauran
           ))}
         </div>
         {restaurants.length === 0 ? (
-          <div className="rounded-[var(--guest-radius-xl)] border border-dashed border-slate-200 bg-white p-10 text-center text-slate-500">
+          <div className="pg-card border-dashed p-10 text-center text-muted-foreground">
             <p className="text-lg font-semibold">No restaurants found</p>
             <p className="text-sm">
               Check back soon—we publish new venues as they pass our onboarding review.
@@ -209,7 +203,7 @@ export function RestaurantsGridSection({ restaurants }: { restaurants: Restauran
 
 export function RestaurantDetailHero({ restaurant }: { restaurant: RestaurantDetail }) {
   return (
-    <section className="relative h-[45vh] min-h-[320px] w-full overflow-hidden rounded-b-[var(--guest-radius-2xl)]">
+    <section className="relative h-[45vh] min-h-[320px] w-full overflow-hidden border-b border-border bg-muted">
       {restaurant.logoUrl ? (
         <Image
           src={restaurant.logoUrl}
@@ -220,18 +214,20 @@ export function RestaurantDetailHero({ restaurant }: { restaurant: RestaurantDet
           unoptimized
         />
       ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-900" />
+        <div className="absolute inset-0 bg-muted" />
       )}
-      <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/60 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-t from-foreground/80 via-foreground/35 to-transparent" />
       <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-10">
-        <div className="mx-auto flex max-w-5xl flex-col gap-3 text-white">
-          <Badge className="w-fit rounded-full bg-amber-400 text-amber-950">Featured partner</Badge>
+        <div className="mx-auto flex max-w-5xl flex-col gap-3 text-background">
+          <Badge className="w-fit rounded-full bg-background/90 text-foreground">
+            Featured partner
+          </Badge>
           <h1 className="guest-heading-hero text-[clamp(2.5rem,4vw,3.5rem)] font-semibold">
             {restaurant.name}
           </h1>
           {restaurant.address ? (
-            <p className="flex items-center gap-2 text-base text-slate-100">
-              <MapPin className="h-5 w-5 text-amber-300" aria-hidden />
+            <p className="flex items-center gap-2 text-base text-background/90">
+              <MapPin className="h-5 w-5 text-background/80" aria-hidden />
               {restaurant.address}
             </p>
           ) : null}
@@ -270,51 +266,47 @@ export function RestaurantDetailsSection({
   ];
 
   return (
-    <section className="px-4 py-10 sm:px-6" aria-labelledby="restaurant-details-heading">
-      <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[2fr_1fr]">
+    <section className="pg-section-tight" aria-labelledby="restaurant-details-heading">
+      <div className="pg-container grid gap-8 lg:grid-cols-[7fr_5fr]">
         <div className="space-y-6">
           <div className="space-y-2">
-            <h2
-              id="restaurant-details-heading"
-              className="guest-heading-page text-[length:var(--guest-text-page)] font-semibold text-slate-900"
-            >
+            <h2 id="restaurant-details-heading" className="guest-heading-page">
               Experience snapshot
             </h2>
-            <p className="text-sm text-slate-600">Same layout and cues you’ll see when you book.</p>
+            <p className="text-sm text-muted-foreground">
+              Same layout and cues you’ll see when you book.
+            </p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             {insights.map((insight) => (
-              <Card
-                key={insight.title}
-                className="space-y-2 rounded-[var(--guest-radius-lg)] border-slate-100 bg-white p-4 shadow-[var(--guest-shadow-sm)]"
-              >
+              <Card key={insight.title} className="pg-card space-y-2 p-4">
                 <div className="flex items-center gap-3">
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-700">
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
                     <insight.icon className="h-5 w-5" aria-hidden />
                   </span>
-                  <p className="text-sm text-slate-500">{insight.title}</p>
+                  <p className="text-sm text-muted-foreground">{insight.title}</p>
                 </div>
-                <p className="text-base font-semibold text-slate-900">{insight.value}</p>
-                <p className="text-sm text-slate-500">{insight.sub}</p>
+                <p className="text-base font-semibold text-foreground">{insight.value}</p>
+                <p className="text-sm text-muted-foreground">{insight.sub}</p>
               </Card>
             ))}
           </div>
         </div>
         <div className="space-y-4">
-          <Card className="space-y-4 rounded-[var(--guest-radius-xl)] border-slate-100 bg-white p-6 shadow-[var(--guest-shadow-md)]">
+          <Card className="pg-card space-y-4 p-6">
             <div className="space-y-1">
-              <p className="text-sm text-blue-700">Powered by Nab a Table</p>
-              <p className="text-2xl font-semibold text-slate-900">Make a reservation</p>
-              <p className="text-sm text-slate-600">
+              <p className="pg-kicker">Powered by Nab a Table</p>
+              <p className="heading-subsection">Make a reservation</p>
+              <p className="text-sm text-muted-foreground">
                 Secure a table with the same wizard guests use after sign-in.
               </p>
             </div>
             <Button size="lg" className="w-full rounded-full text-base" asChild>
               <Link href={`/restaurants/${restaurant.slug}/book`}>Book a table</Link>
             </Button>
-            <div className="rounded-[var(--guest-radius-lg)] border border-slate-100 bg-slate-50 p-4 text-xs text-slate-600">
+            <div className="rounded-[var(--pg-radius-md)] border border-border bg-muted p-4 text-xs text-muted-foreground">
               <p className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-amber-500" aria-hidden />
+                <Sparkles className="h-4 w-4 text-primary" aria-hidden />
                 Instant confirmation, synced everywhere.
               </p>
             </div>
@@ -324,7 +316,7 @@ export function RestaurantDetailsSection({
               title={`${restaurant.name} map`}
               width="100%"
               height="260"
-              className="rounded-[var(--guest-radius-xl)] border border-slate-100"
+              className="rounded-[var(--pg-radius-lg)] border border-border"
               src={mapEmbedUrl}
               allowFullScreen
             />
@@ -353,12 +345,7 @@ export function ReservationThankYouCard({
           <Button size="lg" className="w-full rounded-full sm:w-auto" asChild>
             <Link href="/guest/bookings">View my bookings</Link>
           </Button>
-          <Button
-            variant="outline"
-            size="lg"
-            className="w-full rounded-full border-white/30 text-white hover:bg-white/10 sm:w-auto"
-            asChild
-          >
+          <Button variant="outline" size="lg" className="w-full rounded-full sm:w-auto" asChild>
             <Link href="/restaurants">Explore restaurants</Link>
           </Button>
         </>
@@ -374,7 +361,7 @@ function ListingIllustration() {
     <svg
       role="img"
       aria-label="Restaurants illustration"
-      className="h-14 w-20 text-blue-50"
+      className="h-14 w-20 text-primary"
       width="80"
       height="56"
       viewBox="0 0 200 120"

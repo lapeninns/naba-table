@@ -23,7 +23,7 @@ export function HeadingXL({
   children: React.ReactNode;
   className?: string;
 }) {
-  return <h1 className={cn('heading-hero', className)}>{children}</h1>;
+  return <h1 className={cn('pg-hero-title', className)}>{children}</h1>;
 }
 
 export function HeadingLG({
@@ -33,7 +33,7 @@ export function HeadingLG({
   children: React.ReactNode;
   className?: string;
 }) {
-  return <h2 className={cn('heading-page', className)}>{children}</h2>;
+  return <h2 className={cn('pg-section-title', className)}>{children}</h2>;
 }
 
 export function HeadingMD({
@@ -43,7 +43,9 @@ export function HeadingMD({
   children: React.ReactNode;
   className?: string;
 }) {
-  return <h3 className={cn('heading-section', className)}>{children}</h3>;
+  return (
+    <h3 className={cn('heading-section font-[var(--pg-font-display)]', className)}>{children}</h3>
+  );
 }
 
 export function TextBody({
@@ -53,7 +55,7 @@ export function TextBody({
   children: React.ReactNode;
   className?: string;
 }) {
-  return <p className={cn('text-body-warm', className)}>{children}</p>;
+  return <p className={cn('pg-body', className)}>{children}</p>;
 }
 
 /* ============================================================================
@@ -88,27 +90,21 @@ export function GuestSection({
   padding = 'lg',
 }: SectionProps) {
   return (
-    <section
-      className={cn(
-        'relative flex flex-col gap-6 rounded-3xl',
-        'border border-border bg-background',
-        'shadow-[0_1px_2px_rgba(0,0,0,0.05)]', // shadow-sm
-        paddingMap[padding],
-        className,
-      )}
-    >
+    <section className={cn('pg-card relative flex flex-col gap-6', paddingMap[padding], className)}>
       {(eyebrow || title || description || actions) && (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-1">
             {eyebrow ? (
-              <span className="inline-flex items-center rounded-full border border-border bg-muted px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-muted-foreground">
-                {eyebrow}
-              </span>
+              <span className="pg-chip text-[10px] uppercase tracking-[0.16em]">{eyebrow}</span>
             ) : null}
             {title ? (
-              <h2 className="text-2xl font-bold leading-tight text-foreground">{title}</h2>
+              <h2 className="font-[var(--pg-font-display)] text-2xl font-bold leading-tight tracking-[-0.01em] text-foreground">
+                {title}
+              </h2>
             ) : null}
-            {description ? <p className="text-base text-muted-foreground">{description}</p> : null}
+            {description ? (
+              <p className="max-w-[65ch] text-base text-muted-foreground">{description}</p>
+            ) : null}
           </div>
           {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
         </div>
@@ -128,14 +124,7 @@ type GuestCardProps = {
 
 export function GuestCard({ header, footer, className, style, children }: GuestCardProps) {
   return (
-    <div
-      className={cn(
-        'rounded-3xl border border-border bg-background',
-        'shadow-[0_1px_2px_rgba(0,0,0,0.05)] transition-shadow duration-200 hover:shadow-[0_10px_15px_-3px_rgba(0,0,0,0.08)]',
-        className,
-      )}
-      style={style}
-    >
+    <div className={cn('pg-card', className)} style={style}>
       {header ? <div className="p-6 pb-2 text-foreground font-semibold">{header}</div> : null}
       <div className="p-6 text-foreground">{children}</div>
       {footer ? <div className="p-6 pt-2 border-t border-border/30">{footer}</div> : null}
@@ -163,9 +152,8 @@ export function MetricTile({
   return (
     <div
       className={cn(
-        'relative flex flex-col gap-4 rounded-xl border p-6 transition-all duration-200',
-        'bg-background border-border shadow-[0_1px_2px_rgba(0,0,0,0.05)]',
-        'hover:shadow-[0_10px_15px_-3px_rgba(0,0,0,0.08)] hover:-translate-y-0.5',
+        'pg-card relative flex flex-col gap-4 p-6',
+        'hover:-translate-y-0.5 hover:shadow-[var(--pg-shadow-md)]',
       )}
     >
       <div className="flex justify-between items-start">
@@ -178,7 +166,7 @@ export function MetricTile({
           {IconComp ? <IconComp className="w-5 h-5" /> : null}
         </div>
         {detail && (
-          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-primary/10 text-primary">
+          <span className="inline-flex items-center rounded-md bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
             {detail}
           </span>
         )}
@@ -214,9 +202,8 @@ export function ActionCard({
     <Wrapper
       {...props}
       className={cn(
-        'group relative flex flex-col gap-3 rounded-2xl border p-5 text-left transition-all duration-200',
-        'bg-background border-border shadow-[0_1px_2px_rgba(0,0,0,0.05)]',
-        'hover:shadow-[0_10px_15px_-3px_rgba(0,0,0,0.08)] hover:-translate-y-1',
+        'pg-card group relative flex flex-col gap-3 p-5 text-left transition-all duration-200',
+        'hover:-translate-y-1 hover:shadow-[var(--pg-shadow-md)]',
       )}
     >
       <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted text-foreground transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
@@ -277,7 +264,7 @@ export function SearchBar({ onSearch }: { onSearch?: () => void }) {
       <div className="p-2 w-full md:w-auto">
         <button
           onClick={onSearch}
-          className="bg-primary hover:bg-primary/90 text-white p-4 rounded-full transition-all shadow-md hover:scale-105 flex items-center justify-center gap-2 w-full md:w-auto active:scale-95"
+          className="flex w-full items-center justify-center gap-2 rounded-full bg-primary p-4 text-primary-foreground shadow-[var(--pg-shadow-button)] transition-all hover:bg-primary/90 hover:scale-105 active:scale-95 md:w-auto"
         >
           <Search className="w-5 h-5 font-bold" />
           <span className="font-semibold px-2 md:hidden lg:inline">Search</span>
@@ -305,9 +292,9 @@ const toneMap: Record<
   NonNullable<GuestStatusProps['tone']>,
   { bg: string; text: string; icon: React.ElementType }
 > = {
-  info: { bg: 'bg-blue-50', text: 'text-blue-700', icon: Info },
-  success: { bg: 'bg-green-50', text: 'text-green-700', icon: CheckCircle2 },
-  warning: { bg: 'bg-amber-50', text: 'text-amber-700', icon: AlertCircle },
+  info: { bg: 'bg-primary/10', text: 'text-primary', icon: Info },
+  success: { bg: 'bg-primary/10', text: 'text-primary', icon: CheckCircle2 },
+  warning: { bg: 'bg-muted', text: 'text-foreground', icon: AlertCircle },
   danger: { bg: 'bg-red-50', text: 'text-red-700', icon: AlertCircle },
 };
 

@@ -20,17 +20,14 @@ interface MetricsSectionProps {
 
 export function MetricsSection({ reduceMotion }: MetricsSectionProps) {
   return (
-    <section
-      id="metrics"
-      className="border-b border-border bg-muted/40 py-12 sm:py-16 md:py-20 lg:py-24"
-    >
-      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 md:px-8 2xl:px-10">
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-7 md:gap-8 lg:grid-cols-3 lg:gap-8 xl:gap-10">
+    <section id="metrics" className="pg-section border-b border-border bg-muted/40">
+      <div className="pg-container">
+        <div className="pg-grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[5fr_3.5fr_3.5fr]">
           <div className="flex flex-col gap-3 sm:gap-4 md:max-w-md lg:max-w-none lg:justify-center">
-            <h2 className="text-2xl font-bold text-foreground sm:text-3xl md:text-4xl">Numbers don&apos;t lie.</h2>
-            <p className="text-base text-muted-foreground sm:text-lg">
-              Stop guessing. See exactly how automated confirmations and waitlist monetization impact
-              your bottom line.
+            <h2 className="pg-section-title">Numbers don&apos;t lie.</h2>
+            <p className="pg-lead">
+              Stop guessing. See exactly how automated confirmations and waitlist monetization
+              impact your bottom line.
             </p>
           </div>
           {METRICS.map((metric) => (

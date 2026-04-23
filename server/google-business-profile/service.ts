@@ -54,7 +54,7 @@ type OAuthStateRow =
   Database['public']['Tables']['restaurant_external_profile_oauth_states']['Row'];
 
 const PROVIDER = 'google_business_profile';
-const DEFAULT_RETURN_PATH = '/settings/restaurant/google-business-profile';
+const DEFAULT_RETURN_PATH = '/app/settings/restaurant/google-business-profile';
 const ACCESS_TOKEN_EXPIRY_SKEW_MS = 60_000;
 const OAUTH_STATE_TTL_MS = 15 * 60 * 1000;
 const gbpLogger = logger.child({ module: 'gbp' });

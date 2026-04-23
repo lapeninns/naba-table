@@ -53,28 +53,26 @@ const BENEFITS = [
 
 export function BenefitsSection() {
   return (
-    <section id="features" className="border-b border-border bg-background py-12 sm:py-16 md:py-20 lg:py-24">
-      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 md:px-8 2xl:px-10">
+    <section id="features" className="pg-section border-b border-border bg-background">
+      <div className="pg-container">
         <div className="mx-auto mb-10 flex max-w-3xl flex-col items-center gap-3 text-center sm:mb-12 sm:gap-4 md:mb-14 lg:mb-16 motion-safe:reveal-up">
-          <Badge variant="secondary">The UK pub profit stack</Badge>
-          <h2 className="text-2xl font-bold text-foreground sm:text-3xl md:text-4xl">
-            The total lockdown bundle
-          </h2>
-          <p className="text-base text-muted-foreground sm:text-lg">
-            Total value: £12,500+ / yours for less than a missed 4-top.
-          </p>
+          <Badge variant="secondary" className="pg-chip">
+            The UK pub profit stack
+          </Badge>
+          <h2 className="pg-section-title">The total lockdown bundle</h2>
+          <p className="pg-lead">Total value: £12,500+ / yours for less than a missed 4-top.</p>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 md:gap-6 lg:grid-cols-3 lg:gap-8">
+        <div className="pg-grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {BENEFITS.map((benefit, index) => {
             const isFeatured = index === BENEFITS.length - 1;
             return (
               <Card
                 key={benefit.title}
                 className={cn(
-                  'group transition-all duration-200 ease-out motion-safe:reveal-up hover:-translate-y-1 hover:shadow-lg',
+                  'pg-card group motion-safe:reveal-up',
                   isFeatured
-                    ? 'border-primary/20 bg-gradient-to-br from-muted/80 to-primary/5 sm:col-span-2 lg:col-span-3'
+                    ? 'pg-panel border-primary/20 sm:col-span-2 lg:col-span-3'
                     : 'hover:border-border/80',
                 )}
                 style={{ transitionDelay: `${index * 100}ms` }}
@@ -88,7 +86,7 @@ export function BenefitsSection() {
                   </Badge>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-2 px-4 pb-4 pt-0 sm:px-5 sm:pb-5 md:px-6 md:pb-6">
-                  <CardTitle className="text-left text-lg sm:text-xl">{benefit.title}</CardTitle>
+                  <CardTitle className="heading-subsection text-left">{benefit.title}</CardTitle>
                   <p className="text-sm leading-relaxed text-muted-foreground sm:text-base">
                     {benefit.description}
                   </p>

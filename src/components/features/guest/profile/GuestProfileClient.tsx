@@ -33,7 +33,9 @@ export function GuestProfileClient({ viewModel }: { viewModel: GuestProfileViewM
   });
 
   const updateProfile = useUpdateProfile();
-  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(
+    null,
+  );
 
   useEffect(() => {
     form.reset({
@@ -92,15 +94,13 @@ export function GuestProfileClient({ viewModel }: { viewModel: GuestProfileViewM
   const isPristine = !form.formState.isDirty;
 
   return (
-    <div className="min-h-screen bg-surface-warm pb-20">
+    <div className="min-h-[100dvh] bg-surface-warm pb-20">
       {/* Hero Section */}
       <section className="border-b border-border/50 bg-gradient-hero">
         <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 sm:gap-4 py-8 sm:py-12 lg:py-16 px-4 sm:px-6">
           <div className="space-y-2 sm:space-y-3 animate-fade-in-up">
             <p className="text-xs uppercase tracking-[0.2em] text-subtle">Settings</p>
-            <h1 className="heading-hero">
-              Your Profile
-            </h1>
+            <h1 className="heading-hero">Your Profile</h1>
             <p className="text-body-warm max-w-2xl">
               Manage your personal information, preferences, and security settings.
             </p>
@@ -196,7 +196,7 @@ export function GuestProfileClient({ viewModel }: { viewModel: GuestProfileViewM
                 <Button
                   type="submit"
                   size="lg"
-                  className="w-full sm:w-auto rounded-full px-6 sm:px-8 bg-primary text-white hover:bg-primary/90 min-h-[44px] sm:min-h-[48px] btn-tactile focus-ring touch-feedback text-sm sm:text-base"
+                  className="w-full rounded-full bg-primary px-6 text-sm text-primary-foreground hover:bg-primary/90 sm:w-auto sm:px-8 min-h-[44px] sm:min-h-[48px] btn-tactile focus-ring touch-feedback sm:text-base"
                   disabled={isSubmitting || isPristine}
                 >
                   <Save className="w-4 h-4 mr-2" />

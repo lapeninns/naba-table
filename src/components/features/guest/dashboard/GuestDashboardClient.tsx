@@ -20,7 +20,11 @@ import {
   formatReservationDateFromDate,
   formatReservationTimeFromDate,
 } from '@reserve/shared/formatting/booking';
-import { getBookingDateTimeMillis, parseBookingDateTime, resolveBookingTimezone } from '@reserve/shared/formatting/bookingDateTime';
+import {
+  getBookingDateTimeMillis,
+  parseBookingDateTime,
+  resolveBookingTimezone,
+} from '@reserve/shared/formatting/bookingDateTime';
 
 import { deriveBookingState } from './booking-derivations';
 
@@ -76,7 +80,7 @@ export function GuestDashboardClient() {
 
   if (isError) {
     return (
-      <StatusRegion focus live="assertive" className="min-h-screen pb-20">
+      <StatusRegion focus live="assertive" className="min-h-[100dvh] pb-20">
         <div className="flex min-h-[60vh] items-center justify-center">
           <GuestError
             description="We couldn't fetch your reservations. Please try again."
@@ -91,7 +95,7 @@ export function GuestDashboardClient() {
   }
 
   return (
-    <div className="min-h-screen bg-surface-warm pb-20">
+    <div className="min-h-[100dvh] bg-surface-warm pb-20">
       {/* Hero */}
       <section className="border-b border-border/50 bg-gradient-hero">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 sm:gap-8 py-10 sm:py-16 lg:py-20 px-4 sm:px-6">
@@ -109,7 +113,7 @@ export function GuestDashboardClient() {
             <Button
               asChild
               size="lg"
-              className="rounded-full bg-primary text-white hover:bg-primary/90 min-h-[48px] btn-tactile focus-ring touch-feedback"
+              className="min-h-[48px] rounded-full bg-primary text-primary-foreground hover:bg-primary/90 btn-tactile focus-ring touch-feedback"
             >
               <Link href="/restaurants">Book a table</Link>
             </Button>
@@ -318,29 +322,25 @@ function FeaturedBooking({
 
   if (!booking) {
     return (
-      <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-foreground text-background shadow-[0_20px_25px_-5px_rgba(0,0,0,0.1)] p-6 sm:p-8 lg:p-12 text-center">
+      <div className="pg-panel relative overflow-hidden p-6 text-center sm:p-8 lg:p-12">
         <div className="relative z-10 flex flex-col items-center">
-          <div className="h-12 w-12 sm:h-16 sm:w-16 bg-background/10 rounded-full flex items-center justify-center mb-4 sm:mb-6">
-            <Sparkles className="h-6 w-6 sm:h-8 sm:w-8 text-background" />
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 sm:mb-6 sm:h-16 sm:w-16">
+            <Sparkles className="h-6 w-6 text-primary sm:h-8 sm:w-8" />
           </div>
-          <h2 className="heading-page mb-3 sm:mb-4">
-            No upcoming plans?
-          </h2>
-          <p className="text-base sm:text-lg text-background/70 max-w-xl mb-6 sm:mb-8">
+          <h2 className="heading-page mb-3 sm:mb-4">No upcoming plans?</h2>
+          <p className="mb-6 max-w-xl text-base text-muted-foreground sm:mb-8 sm:text-lg">
             Explore our curated list of restaurants and secure your table for tonight.
           </p>
           <div className="flex gap-4">
             <Button
               asChild
-              className="rounded-full bg-background text-foreground hover:bg-background/90 px-6 sm:px-8 py-5 sm:py-6 text-base sm:text-lg font-semibold border-none btn-tactile focus-ring touch-feedback"
+              className="rounded-full bg-primary px-6 py-5 text-base font-semibold text-primary-foreground hover:bg-primary/90 btn-tactile focus-ring touch-feedback sm:px-8 sm:py-6 sm:text-lg"
             >
               <Link href="/restaurants">Find a Table</Link>
             </Button>
           </div>
         </div>
-        {/* Decorative background elements */}
-        <div className="absolute top-0 right-0 w-48 sm:w-64 h-48 sm:h-64 bg-primary/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-        <div className="absolute bottom-0 left-0 w-48 sm:w-64 h-48 sm:h-64 bg-primary/30 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
+        <div className="absolute right-0 top-0 h-48 w-48 -translate-y-1/2 translate-x-1/2 rounded-full bg-primary/10 blur-3xl sm:h-64 sm:w-64" />
       </div>
     );
   }
@@ -369,9 +369,7 @@ function FeaturedBooking({
           </Badge>
 
           <div>
-            <h2 className="heading-page mb-1">
-              {booking.restaurantName}
-            </h2>
+            <h2 className="heading-page mb-1">{booking.restaurantName}</h2>
             <div className="flex items-center text-muted-foreground font-medium text-sm">
               <MapPin className="w-4 h-4 mr-2 flex-shrink-0" />
               {booking.restaurantSlug ? 'View details' : 'Restaurant'}
@@ -436,13 +434,15 @@ function UpcomingBookingCard({ booking }: { booking: BookingDTO }) {
     <Link href={`/guest/bookings/${booking.id}`} className="block focus-ring rounded-xl">
       <Card
         variant="interactive"
-          className="p-3 sm:p-4 flex items-center gap-3 sm:gap-4 group card-interactive touch-feedback"
+        className="pg-card p-3 sm:p-4 flex items-center gap-3 sm:gap-4 group card-interactive touch-feedback"
       >
         <div className="flex-shrink-0 w-14 h-14 sm:w-16 sm:h-16 bg-primary/5 text-primary rounded-lg sm:rounded-xl flex flex-col items-center justify-center leading-none">
           <span className="text-[10px] sm:text-xs font-bold uppercase mb-0.5 sm:mb-1">
             {bookingDateTime?.setLocale('en').toFormat('MMM') ?? '—'}
           </span>
-          <span className="text-xl sm:text-2xl font-bold">{bookingDateTime?.toFormat('d') ?? '—'}</span>
+          <span className="text-xl sm:text-2xl font-bold">
+            {bookingDateTime?.toFormat('d') ?? '—'}
+          </span>
         </div>
         <div className="flex-1 min-w-0">
           <h4 className="font-bold text-foreground truncate text-sm sm:text-base">

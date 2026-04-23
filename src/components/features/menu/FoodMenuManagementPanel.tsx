@@ -242,7 +242,9 @@ export function FoodMenuManagementPanel({
             setEditorDirty(false);
           }
         }}
+        isExistingItem={Boolean(selectedItemId)}
         item={selectedItemId ? detailQuery.data ?? null : null}
+        loadError={selectedItemId ? detailQuery.error?.message ?? null : null}
         isLoading={Boolean(selectedItemId) && detailQuery.isLoading}
         isSaving={createMutation.isPending || updateMutation.isPending}
         facets={facets}

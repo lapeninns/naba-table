@@ -12,16 +12,16 @@ type StatusTone = 'default' | 'success' | 'warning' | 'danger' | 'info';
 
 const toneClasses: Record<StatusTone, { badge: string; text: string }> = {
   default: { badge: 'bg-muted text-foreground', text: 'text-muted-foreground' },
-  success: { badge: 'bg-emerald-50 text-emerald-700 border-emerald-100', text: 'text-emerald-600' },
-  warning: { badge: 'bg-amber-50 text-amber-700 border-amber-100', text: 'text-amber-600' },
+  success: { badge: 'bg-primary/10 text-primary border-primary/20', text: 'text-primary' },
+  warning: { badge: 'bg-muted text-foreground border-border', text: 'text-muted-foreground' },
   danger: { badge: 'bg-red-50 text-red-700 border-red-100', text: 'text-red-600' },
-  info: { badge: 'bg-blue-50 text-blue-700 border-blue-100', text: 'text-blue-600' },
+  info: { badge: 'bg-primary/10 text-primary border-primary/20', text: 'text-primary' },
 };
 
 export function BookingDetailShell({ children }: { children: ReactNode }) {
   return (
-    <section className="min-h-screen bg-surface-warm py-8 sm:py-10 pb-20">
-      <div className="mx-auto w-full max-w-5xl space-y-6 sm:space-y-8 px-6">{children}</div>
+    <section className="min-h-[100dvh] bg-surface-warm py-8 pb-20 sm:py-10">
+      <div className="pg-container space-y-6 sm:space-y-8">{children}</div>
     </section>
   );
 }
@@ -42,11 +42,11 @@ export function BookingMessageShell({
   const palette = toneClasses[tone];
 
   return (
-    <section className="bg-surface-warm px-5 py-10 sm:px-8 sm:py-14 lg:px-10">
-      <div className="mx-auto w-full max-w-2xl">
+    <section className="pg-section-tight bg-surface-warm">
+      <div className="pg-container-sm">
         <Card
           variant="featured"
-          className="animate-fade-in-up space-y-6 border border-border/60 bg-background/95 p-6 text-center shadow-sm sm:p-8"
+          className="pg-card animate-fade-in-up space-y-6 p-6 text-center sm:p-8"
         >
           <div
             className={cn(
@@ -89,7 +89,7 @@ export function BookingSummaryCard({
   return (
     <Card
       variant="featured"
-      className="space-y-6 p-6 sm:p-8 bg-surface-elevated animate-fade-in-up"
+      className="pg-card animate-fade-in-up space-y-6 bg-surface-elevated p-6 sm:p-8"
     >
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-4">
@@ -143,7 +143,7 @@ export function DetailStatCard({
   subtext?: ReactNode;
 }) {
   return (
-    <Card variant="interactive" className="flex flex-col gap-3 p-5">
+    <Card variant="interactive" className="pg-card flex flex-col gap-3 p-5">
       <div className="flex justify-between items-start">
         <div className="p-2.5 rounded-xl flex items-center justify-center bg-primary/10 text-primary">
           <Icon className="w-5 h-5" />
@@ -166,7 +166,7 @@ export function InfoPanel({
   rows: Array<{ icon: ElementType; label: string; value: ReactNode }>;
 }) {
   return (
-    <Card className="overflow-hidden rounded-3xl border border-border bg-background shadow-sm">
+    <Card className="pg-card overflow-hidden rounded-3xl">
       <div className="border-b border-border/50 bg-muted/50 px-6 py-4">
         <h3 className="heading-subsection">{title}</h3>
       </div>
@@ -194,11 +194,7 @@ export function ActionButtonRow({ children }: { children: ReactNode }) {
 }
 
 export function BookingSidebarCard({ children }: { children: ReactNode }) {
-  return (
-    <Card className="rounded-3xl border border-border bg-background shadow-sm overflow-hidden">
-      {children}
-    </Card>
-  );
+  return <Card className="pg-card overflow-hidden rounded-3xl">{children}</Card>;
 }
 
 export function ManageBookingPanel({
@@ -251,7 +247,7 @@ export function PrimaryButtonLink({ href, children }: { href: string; children: 
   return (
     <Button
       asChild
-      className="rounded-full bg-primary hover:bg-primary/90 text-white font-semibold px-6 min-h-[48px]"
+      className="min-h-[48px] rounded-full bg-primary px-6 font-semibold text-primary-foreground hover:bg-primary/90"
     >
       <Link href={href}>{children}</Link>
     </Button>

@@ -31,14 +31,11 @@ const FAQ_ITEMS = [
 
 export function FAQSection() {
   return (
-    <section
-      id="faq"
-      className="border-b border-border bg-muted/40 py-12 sm:py-16 md:py-20 lg:py-24"
-    >
-      <div className="mx-auto w-full max-w-3xl px-4 sm:px-6 md:px-8 2xl:px-10">
-        <Card className="motion-safe:reveal-up">
+    <section id="faq" className="pg-section border-b border-border bg-muted/40">
+      <div className="pg-container-sm">
+        <Card className="pg-card motion-safe:reveal-up">
           <CardHeader className="flex flex-col gap-1.5 space-y-0 p-4 pb-0 text-center sm:gap-2 sm:p-6 sm:pb-0 md:p-8 md:pb-0">
-            <CardTitle className="text-2xl sm:text-3xl">Guarantees &amp; objections</CardTitle>
+            <CardTitle className="pg-section-title">Guarantees &amp; objections</CardTitle>
           </CardHeader>
           <CardContent className="p-2 sm:p-4 md:p-6">
             <Accordion type="single" collapsible className="w-full">

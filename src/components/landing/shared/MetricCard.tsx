@@ -89,17 +89,14 @@ export function MetricCard({ metric, reduceMotion }: MetricCardProps) {
   }
 
   return (
-    <Card
-      variant="compact"
-      className="hover:-translate-y-0.5 transition-all duration-200 hover:shadow-md"
-    >
+    <Card variant="compact" className="pg-card transition-all duration-200">
       <CardHeader className="flex flex-col gap-0 space-y-0 p-4 sm:p-5 md:p-6">
         <div className="mb-3 flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary sm:mb-4">
           <Icon name={metric.icon} className="size-6" />
         </div>
         <div
           ref={ref}
-          className="font-variant-numeric text-3xl font-extrabold tabular-nums text-foreground transition-colors sm:text-4xl"
+          className="font-variant-numeric font-[var(--pg-font-mono)] text-3xl font-bold tabular-nums text-foreground transition-colors sm:text-4xl"
         >
           {formatMetricValue(value)}
         </div>

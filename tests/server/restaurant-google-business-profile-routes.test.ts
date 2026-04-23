@@ -82,7 +82,7 @@ describe('restaurant google business profile routes', () => {
     expect(createAuthorizationUrlMock).toHaveBeenCalledWith({
       restaurantId: 'rest-1',
       requestedByUserId: 'user-1',
-      returnPath: 'https://example.com/settings/restaurant/google-business-profile',
+      returnPath: 'https://example.com/app/settings/restaurant/google-business-profile',
     });
   });
 
@@ -110,7 +110,7 @@ describe('restaurant google business profile routes', () => {
       restaurantId: 'rest-1',
       requestedByUserId: 'user-1',
       returnPath:
-        'https://preview.nabatable.example/settings/restaurant/google-business-profile',
+        'https://preview.nabatable.example/app/settings/restaurant/google-business-profile',
     });
   });
 

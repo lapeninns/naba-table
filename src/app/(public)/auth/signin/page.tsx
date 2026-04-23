@@ -206,16 +206,14 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
           {/* Left Column - Value Proposition */}
           <div className="order-2 flex flex-col justify-center space-y-6 lg:order-1">
             <div className="space-y-4">
-              <div className="inline-flex items-center gap-2 rounded-full bg-primary/5 px-4 py-1.5 text-sm font-medium text-primary">
+              <div className="pg-chip">
                 <Sparkles className="h-4 w-4" />
-                Seamless dining experiences
+                Dining details in one place
               </div>
 
-              <h1 className="heading-hero">
-                Welcome back to effortless dining
-              </h1>
+              <h1 className="heading-hero">Welcome back to effortless dining</h1>
 
-              <p className="text-body-warm">
+              <p className="text-body-warm max-w-[65ch]">
                 Sign in to manage your reservations, discover new restaurants, and enjoy instant
                 confirmations—all from one place.
               </p>
@@ -223,7 +221,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
 
             {/* Benefits Grid */}
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="flex items-start gap-3 rounded-lg border border-border bg-background p-3.5">
+              <div className="pg-card flex items-start gap-3 p-3.5">
                 <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10">
                   <Zap className="h-4 w-4 text-primary" />
                 </div>
@@ -233,9 +231,9 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
                 </div>
               </div>
 
-              <div className="flex items-start gap-3 rounded-lg border border-border bg-background p-3.5">
-                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-emerald-50">
-                  <Clock className="h-4 w-4 text-emerald-600" />
+              <div className="pg-card flex items-start gap-3 p-3.5">
+                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                  <Clock className="h-4 w-4 text-primary" />
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-foreground">Easy changes</h3>
@@ -243,9 +241,9 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
                 </div>
               </div>
 
-              <div className="flex items-start gap-3 rounded-lg border border-border bg-background p-3.5">
-                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-violet-50">
-                  <Shield className="h-4 w-4 text-violet-600" />
+              <div className="pg-card flex items-start gap-3 p-3.5">
+                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                  <Shield className="h-4 w-4 text-primary" />
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-foreground">Secure & private</h3>
@@ -255,7 +253,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
             </div>
 
             {/* Social Proof */}
-            <div className="flex items-center justify-around rounded-lg border border-border bg-muted px-4 py-3">
+            <div className="pg-panel flex items-center justify-around px-4 py-3">
               <div className="text-center">
                 <div className="text-xl font-bold text-foreground">50K+</div>
                 <div className="text-xs text-muted-foreground">Diners</div>
@@ -291,7 +289,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
             )}
 
             {/* Sign-in Card */}
-            <div className="rounded-2xl border border-border bg-background shadow-xl">
+            <div className="pg-card rounded-2xl">
               <div className="p-6 sm:p-8">
                 <GuestSignInForm redirectedFrom={redirectedFromParam} />
               </div>

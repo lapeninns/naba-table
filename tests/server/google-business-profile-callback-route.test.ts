@@ -26,7 +26,7 @@ describe('google business profile callback route', () => {
   it('preserves the stored return host on successful authorization', async () => {
     completeGoogleBusinessProfileAuthorizationMock.mockResolvedValue({
       restaurantId: 'rest-1',
-      returnPath: 'https://preview.nabatable.example/settings/restaurant/google-business-profile',
+      returnPath: 'https://preview.nabatable.example/app/settings/restaurant/google-business-profile',
     });
 
     const response = await GET(
@@ -37,7 +37,7 @@ describe('google business profile callback route', () => {
 
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toBe(
-      'https://preview.nabatable.example/settings/restaurant/google-business-profile?gbp=connected',
+      'https://preview.nabatable.example/app/settings/restaurant/google-business-profile?gbp=connected',
     );
     expect(completeGoogleBusinessProfileAuthorizationMock).toHaveBeenCalledWith({
       stateToken: 'test-state',
@@ -60,7 +60,7 @@ describe('google business profile callback route', () => {
 
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toBe(
-      'https://staging.nabatable.example/settings/restaurant/google-business-profile?gbp=error&message=Google+authorization+was+cancelled+or+denied.',
+      'https://staging.nabatable.example/app/settings/restaurant/google-business-profile?gbp=error&message=Google+authorization+was+cancelled+or+denied.',
     );
   });
 });

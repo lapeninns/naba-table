@@ -26,23 +26,25 @@
 The design system serves **two surfaces**:
 
 1. **App theme** (`data-theme="app"`) — compact, data-dense dashboard for restaurant operators
-2. **Guest theme** (`data-theme="guest"` / `.guest-theme`) — warm, trust-focused palette for diners
+2. **Guest theme** (`data-theme="guest"` / `.guest-theme`) — Radix Luma public/guest system for homepage, booking, auth, and guest portal surfaces, with `GUEST_FACING_DESIGN_SYSTEM.md` as the root source of truth
 
 ### Key Design-System Files
 
-| File                               | Role                                                                 |
-| ---------------------------------- | -------------------------------------------------------------------- |
-| `src/app/globals.css`              | Master entry — imports all layers, defines `:root` + `.dark` tokens  |
-| `styles/base.css`                  | Base resets, `:root` + `.dark` color/shape/shadow tokens, a11y rules |
-| `styles/tokens.css`                | SR-prefixed token aliases, spacing scale, utility classes            |
-| `styles/animations.css`            | Keyframe definitions + animation utility classes                     |
-| `styles/themes/guest.css`          | Guest palette overrides (blue primary, coral accent)                 |
-| `styles/themes/guest-enhanced.css` | Guest warm surfaces, layered shadows, motion, typography             |
-| `styles/themes/app.css`            | App theme compact spacing and text scale                             |
-| `styles/guest-design-system.css`   | Guest class-based typography and utility bridge                      |
-| `tailwind.config.js`               | Tailwind extensions — colors, typography, spacing, animations        |
-| `components.json`                  | shadcn/ui configuration                                              |
-| `lib/utils.ts`                     | `cn()` helper (clsx + tailwind-merge)                                |
+| File                                              | Role                                                                                                  |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `src/app/globals.css`                             | Master entry — imports all layers, defines `:root` + `.dark` tokens                                   |
+| `styles/base.css`                                 | Base resets, `:root` + `.dark` color/shape/shadow tokens, a11y rules                                  |
+| `styles/tokens.css`                               | SR-prefixed token aliases, spacing scale, utility classes                                             |
+| `styles/animations.css`                           | Keyframe definitions + animation utility classes                                                      |
+| `styles/themes/guest.css`                         | Guest palette overrides (blue primary, coral accent)                                                  |
+| `styles/themes/guest-enhanced.css`                | Guest warm surfaces, layered shadows, motion, typography                                              |
+| `styles/themes/app.css`                           | App theme compact spacing and text scale                                                              |
+| `styles/design-system/public-guest.tokens.css`    | Radix Luma public/guest-scoped `--pg-*` tokens for homepage, booking, auth, and guest portal surfaces |
+| `styles/design-system/public-guest.utilities.css` | Radix Luma public/guest-scoped `pg-*` layout, type, surface, focus, and motion utilities              |
+| `styles/design-system/public-guest.bridge.css`    | Compatibility guest classes retuned to Radix Luma while existing pages migrate to `pg-*`              |
+| `tailwind.config.js`                              | Tailwind extensions — colors, typography, spacing, animations                                         |
+| `components.json`                                 | shadcn/ui configuration                                                                               |
+| `lib/utils.ts`                                    | `cn()` helper (clsx + tailwind-merge)                                                                 |
 
 ---
 
@@ -621,7 +623,10 @@ styles/
 ├── base.css                     ← :root tokens, resets, a11y
 ├── tokens.css                   ← SR-prefixed aliases, spacing
 ├── animations.css               ← Keyframe definitions
-├── guest-design-system.css      ← Guest utility bridge
+├── design-system/
+│   ├── public-guest.tokens.css  ← Public/guest token layer
+│   ├── public-guest.utilities.css ← Public/guest pg-* utility layer
+│   └── public-guest.bridge.css  ← Existing guest compatibility classes
 └── themes/
     ├── app.css                  ← App theme overrides
     ├── guest.css                ← Guest palette

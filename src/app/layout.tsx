@@ -1,3 +1,4 @@
+import { Geist_Mono, Inter, Merriweather } from 'next/font/google';
 import PlausibleProvider from 'next-plausible';
 import { type CSSProperties, type ReactNode } from 'react';
 
@@ -9,6 +10,27 @@ import './globals.css';
 import { AppProviders } from './providers';
 
 import type { Viewport } from 'next';
+
+const radixLumaDisplay = Merriweather({
+  subsets: ['latin'],
+  weight: ['700'],
+  variable: '--font-radix-luma-display',
+  display: 'swap',
+});
+
+const radixLumaBody = Inter({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-radix-luma-body',
+  display: 'swap',
+});
+
+const radixLumaMono = Geist_Mono({
+  subsets: ['latin'],
+  weight: ['400'],
+  variable: '--font-radix-luma-mono',
+  display: 'swap',
+});
 
 export const viewport: Viewport = {
   // Will use the primary color of your theme to show a nice theme color in the URL bar of supported browsers
@@ -28,7 +50,11 @@ const htmlStyle: CSSProperties = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang={config.locale ?? 'en'} className="antialiased font-sans" style={htmlStyle}>
+    <html
+      lang={config.locale ?? 'en'}
+      className={`${radixLumaDisplay.variable} ${radixLumaBody.variable} ${radixLumaMono.variable} antialiased font-sans`}
+      style={htmlStyle}
+    >
       {config.domainName && (
         <head>
           <PlausibleProvider domain={config.domainName} />

@@ -13,7 +13,7 @@ type RouteContext = {
   params: Promise<{ id: string | string[] }>;
 };
 
-const SETTINGS_RETURN_PATH = '/settings/restaurant/google-business-profile';
+const SETTINGS_RETURN_PATH = '/app/settings/restaurant/google-business-profile';
 
 export async function GET(req: NextRequest, { params }: RouteContext) {
   const restaurantId = await resolveRestaurantId(params);

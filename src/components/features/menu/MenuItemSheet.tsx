@@ -40,7 +40,9 @@ import type { ReactElement, ReactNode } from 'react';
 export function MenuItemSheet({
   open,
   onOpenChange,
+  isExistingItem,
   item,
+  loadError,
   isLoading,
   isSaving,
   facets,
@@ -49,7 +51,9 @@ export function MenuItemSheet({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  isExistingItem: boolean;
   item: MenuItemDetail | null;
+  loadError?: string | null;
   isLoading: boolean;
   isSaving: boolean;
   facets: MenuFacetSet;
@@ -60,19 +64,29 @@ export function MenuItemSheet({
   const [formError, setFormError] = useState<string | null>(null);
   const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
   const loadedSourceKeyRef = useRef<string>('new');
-  const sourceKey = item?.id ?? 'new';
-  const baselineSnapshot = useMemo(() => JSON.stringify(createMenuItemFormState(item)), [item]);
+  const baselineSnapshotRef = useRef<string>(JSON.stringify(createEmptyMenuItemFormState()));
+  const sourceKey = isExistingItem ? item?.id ?? 'edit-pending' : 'new';
   const currentSnapshot = useMemo(() => JSON.stringify(form), [form]);
-  const isDirty = currentSnapshot !== baselineSnapshot;
+  const isDirty = currentSnapshot !== baselineSnapshotRef.current;
+  const hasLoadError = Boolean(loadError);
+  const canEditForm = !isExistingItem || Boolean(item);
 
   useEffect(() => {
     if (!open) return;
-    if (loadedSourceKeyRef.current !== sourceKey || !isDirty) {
-      loadedSourceKeyRef.current = sourceKey;
-      setForm(createMenuItemFormState(item));
-      setFormError(null);
+    if (isExistingItem && !item) {
+      return;
     }
-  }, [item, open, sourceKey, isDirty]);
+
+    if (loadedSourceKeyRef.current !== sourceKey || !isDirty) {
+      const nextForm = createMenuItemFormState(item);
+      loadedSourceKeyRef.current = sourceKey;
+      baselineSnapshotRef.current = JSON.stringify(nextForm);
+      setForm(nextForm);
+      if (!hasLoadError) {
+        setFormError(null);
+      }
+    }
+  }, [item, open, sourceKey, isDirty, isExistingItem, hasLoadError]);
 
   useEffect(() => {
     onDirtyChange?.(open && isDirty);
@@ -83,6 +97,10 @@ export function MenuItemSheet({
   };
 
   const handleSubmit = async () => {
+    if (!canEditForm || hasLoadError) {
+      return;
+    }
+
     try {
       setFormError(null);
       const payload = buildMenuItemPayload(form);
@@ -114,7 +132,7 @@ export function MenuItemSheet({
     <Sheet open={open} onOpenChange={handleSheetOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-4xl">
         <SheetHeader>
-          <SheetTitle>{item ? 'Edit menu item' : 'New menu item'}</SheetTitle>
+          <SheetTitle>{isExistingItem ? 'Edit menu item' : 'New menu item'}</SheetTitle>
           <SheetDescription>
             Manage the item metadata, availability, and modifier structure for the active restaurant.
           </SheetDescription>
@@ -123,6 +141,11 @@ export function MenuItemSheet({
         <div className="flex-1 overflow-y-auto px-4 pb-4">
           {isLoading ? (
             <div className="py-8 text-sm text-muted-foreground">Loading item details…</div>
+          ) : hasLoadError ? (
+            <Alert variant="destructive">
+              <AlertTitle>Unable to load menu item</AlertTitle>
+              <AlertDescription>{loadError}</AlertDescription>
+            </Alert>
           ) : (
             <div className="space-y-6">
               {formError ? (
@@ -543,7 +566,11 @@ export function MenuItemSheet({
           <Button type="button" variant="outline" onClick={handleCancel} disabled={isSaving}>
             Cancel
           </Button>
-          <Button type="button" onClick={() => void handleSubmit()} disabled={isSaving || isLoading}>
+          <Button
+            type="button"
+            onClick={() => void handleSubmit()}
+            disabled={isSaving || isLoading || hasLoadError || !canEditForm}
+          >
             {isSaving ? 'Saving…' : 'Save item'}
           </Button>
         </SheetFooter>

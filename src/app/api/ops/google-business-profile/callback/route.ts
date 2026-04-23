@@ -6,7 +6,7 @@ import { completeGoogleBusinessProfileAuthorization } from '@/server/google-busi
 
 import type { NextRequest } from 'next/server';
 
-const DEFAULT_RETURN_PATH = '/settings/restaurant/google-business-profile';
+const DEFAULT_RETURN_PATH = '/app/settings/restaurant/google-business-profile';
 
 function buildRedirect(request: NextRequest, status: 'connected' | 'error', message?: string) {
   const url = new URL(DEFAULT_RETURN_PATH, getRequestOrigin(request));

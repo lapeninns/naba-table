@@ -42,31 +42,22 @@ function RoleCard({
   const cardContent = (
     <Card
       className={cn(
-        'relative h-full transition-all duration-300 ease-out',
-        'border-2',
+        'pg-card relative h-full transition-all duration-300 ease-out',
         isSelected
-          ? 'border-blue-600 ring-4 ring-blue-100'
-          : 'border-slate-200 hover:border-blue-300',
-        isHovered ? 'shadow-xl -translate-y-1' : 'shadow-md hover:shadow-lg',
+          ? 'border-primary ring-4 ring-primary/10'
+          : 'border-border hover:border-primary/30',
+        isHovered ? '-translate-y-1 shadow-[var(--pg-shadow-md)]' : '',
       )}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       <div className="p-8 h-full flex flex-col">
         {/* Icon */}
-        <div
-          className="flex items-center justify-center w-16 h-16 mb-6 rounded-2xl bg-gradient-to-br transition-all duration-300 ease-out"
-          style={{
-            background:
-              type === 'guest'
-                ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)'
-                : 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
-          }}
-        >
+        <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 transition-all duration-300 ease-out">
           <span
             className={cn(
               'transition-colors duration-300',
-              type === 'guest' ? 'text-blue-600' : 'text-amber-600',
+              type === 'guest' ? 'text-primary' : 'text-foreground',
             )}
             aria-hidden
           >
@@ -75,13 +66,13 @@ function RoleCard({
         </div>
 
         {/* Title & Description */}
-        <h2 className="text-2xl font-bold text-slate-900 mb-3">{title}</h2>
-        <p className="text-slate-600 mb-6 flex-1">{description}</p>
+        <h2 className="heading-section mb-3">{title}</h2>
+        <p className="mb-6 flex-1 text-muted-foreground">{description}</p>
 
         {/* Benefits */}
         <ul className="space-y-3 mb-6" aria-label={`Benefits for ${type}`}>
           {benefits.map((benefit, index) => (
-            <li key={index} className="flex items-start gap-3 text-sm text-slate-700">
+            <li key={index} className="flex items-start gap-3 text-sm text-muted-foreground">
               <svg
                 className="w-5 h-5 flex-shrink-0 mt-0.5"
                 fill="currentColor"
@@ -92,7 +83,7 @@ function RoleCard({
                   fillRule="evenodd"
                   d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414 1.414L8 12.586l7.293-7.293a1 1 0 011.414-1.414z"
                   clipRule="evenodd"
-                  className={type === 'guest' ? 'text-blue-600' : 'text-amber-600'}
+                  className="text-primary"
                 />
               </svg>
               <span>{benefit}</span>
@@ -105,10 +96,10 @@ function RoleCard({
           asChild
           size="lg"
           className={cn(
-            'w-full group transition-all duration-300 ease-out',
+            'group w-full rounded-full transition-all duration-300 ease-out',
             type === 'guest'
-              ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-200'
-              : 'bg-amber-500 text-white hover:bg-amber-600 shadow-amber-200',
+              ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+              : 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
           )}
         >
           {/* 
@@ -226,11 +217,9 @@ export function RoleSelectionPage({ searchParams }: RoleSelectionPageProps) {
   return (
     <div className="w-full max-w-5xl animate-fade-up">
       {/* Header */}
-      <div className="mb-10 text-center space-y-4">
-        <h1 className="text-4xl sm:text-5xl font-bold text-slate-900 tracking-tight">
-          Choose your path
-        </h1>
-        <p className="text-lg text-slate-600 max-w-2xl mx-auto">
+      <div className="mb-10 space-y-4 text-center">
+        <h1 className="pg-hero-title">Choose your path</h1>
+        <p className="pg-lead mx-auto max-w-2xl">
           We help both guests and restaurants. Select the option that matches your needs.
         </p>
       </div>
@@ -247,17 +236,17 @@ export function RoleSelectionPage({ searchParams }: RoleSelectionPageProps) {
 
       {/* Helper Text */}
       <div className="text-center space-y-2">
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted-foreground">
           Not sure which to choose?{' '}
           <Link
             href="/restaurants"
-            className="text-blue-600 hover:text-blue-700 font-medium underline-offset-4 hover:underline transition-colors"
+            className="font-medium text-primary underline-offset-4 transition-colors hover:underline"
           >
             Start as a guest
           </Link>{' '}
           to browse restaurants first.
         </p>
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-muted-foreground">
           Your preference is saved for 30 days to make your next visit faster.
         </p>
       </div>
