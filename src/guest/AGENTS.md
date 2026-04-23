@@ -61,8 +61,13 @@ Radix Luma is the mandatory design system for guest-facing routes, guest portal 
 
 ### Components & Styling
 
-- Compose from shadcn/Radix primitives in `components/ui/**`; do not create new primitive/base component systems inside `src/guest/**`.
-- Put reusable guest/public compounds in `src/components/guest/ui/**` when at least two guest/public surfaces need the pattern.
+- Components are shadcn/Radix-first, always. Start with installed primitives in `components/ui/**` and compose them before writing custom markup.
+- Custom guest components are allowed only as product-specific compounds composed from shadcn/Radix primitives, existing guest utilities, and semantic tokens. Do not create new primitive/base component systems inside `src/guest/**`.
+- Put reusable guest/public compounds in `src/components/guest/ui/**` when at least two guest/public surfaces need the pattern; keep one-off layout composition beside the page or feature that owns it.
+- Use shadcn variants before custom classes (`variant`, `size`, `asChild`, standard subcomponents). Prefer `Button`, `Card`, `Badge`, `Alert`, `Skeleton`, `Separator`, `Dialog`, `Sheet`, `Popover`, `Tabs`, `Select`, `Input`, `Textarea`, `Checkbox`, `Switch`, and `Table` instead of hand-rolled equivalents.
+- If a needed primitive is missing, use the shadcn skill/plugin workflow and the project package runner (`pnpm dlx shadcn@latest ...`) to inspect, search, view docs, and add/update components. Do not manually fetch registry files or paste raw upstream component code.
+- Before adding or updating shadcn components, run or consult `pnpm dlx shadcn@latest info`, check installed components, use `pnpm dlx shadcn@latest docs <component>` for APIs/examples, and use `--dry-run` / `--diff` for updates where local changes may exist.
+- Use shadcn MCP/plugin tooling where available for discovery, docs, registry inspection, and component generation; fall back to the shadcn CLI only when MCP/plugin tooling is unavailable or insufficient.
 - Keep token changes scoped to `.guest-theme` / `[data-theme='guest']`.
 - Prefer extending `styles/design-system/public-guest.utilities.css` for new reusable guest utilities and `styles/design-system/public-guest.bridge.css` only for compatibility with existing legacy classes.
 - Cards rest with border-only edge definition. Add hover lift only to interactive cards, never static informational containers.
