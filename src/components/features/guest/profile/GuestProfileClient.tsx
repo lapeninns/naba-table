@@ -94,14 +94,14 @@ export function GuestProfileClient({ viewModel }: { viewModel: GuestProfileViewM
   const isPristine = !form.formState.isDirty;
 
   return (
-    <div className="min-h-[100dvh] bg-surface-warm pb-20">
+    <div className="pg-surface min-h-[100dvh] pb-20">
       {/* Hero Section */}
-      <section className="border-b border-border/50 bg-gradient-hero">
+      <section className="pg-hero-band">
         <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 sm:gap-4 py-8 sm:py-12 lg:py-16 px-4 sm:px-6">
-          <div className="space-y-2 sm:space-y-3 animate-fade-in-up">
-            <p className="text-xs uppercase tracking-[0.2em] text-subtle">Settings</p>
-            <h1 className="heading-hero">Your Profile</h1>
-            <p className="text-body-warm max-w-2xl">
+          <div className="pg-appear space-y-2 sm:space-y-3">
+            <p className="pg-kicker">Settings</p>
+            <h1 className="pg-hero-title">Your Profile</h1>
+            <p className="pg-body max-w-2xl">
               Manage your personal information, preferences, and security settings.
             </p>
           </div>
@@ -110,7 +110,7 @@ export function GuestProfileClient({ viewModel }: { viewModel: GuestProfileViewM
 
       <div className="mx-auto w-full max-w-4xl px-4 sm:px-6 py-6 sm:py-8 lg:py-10 space-y-6 sm:space-y-8">
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 animate-fade-in-up stagger-container">
+        <div className="pg-stagger grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
           <MetricTile label="Account Status" value="Active" icon={Settings} detail="Standard" />
           <MetricTile label="Email Verified" value="Yes" icon={Shield} variant="highlight" />
         </div>
@@ -118,11 +118,11 @@ export function GuestProfileClient({ viewModel }: { viewModel: GuestProfileViewM
         <Separator className="my-6 sm:my-8" />
 
         {/* Profile Form */}
-        <Card className="p-4 sm:p-6 lg:p-8 bg-surface-elevated animate-fade-in-up">
+        <Card className="pg-card pg-appear p-4 sm:p-6 lg:p-8">
           <div className="space-y-4 sm:space-y-6">
             <div className="space-y-1 sm:space-y-2">
-              <h2 className="heading-section">Personal Information</h2>
-              <p className="text-xs sm:text-sm text-subtle">
+              <h2 className="pg-card-title">Personal Information</h2>
+              <p className="pg-caption">
                 Update your contact details and how we address you.
               </p>
             </div>
@@ -138,7 +138,7 @@ export function GuestProfileClient({ viewModel }: { viewModel: GuestProfileViewM
                     type="text"
                     autoComplete="name"
                     {...form.register('full_name')}
-                    className="rounded-lg sm:rounded-xl h-11 sm:h-12 text-base focus-ring"
+                    className="pg-focus-ring h-11 rounded-lg text-base sm:h-12 sm:rounded-xl"
                     disabled={isSubmitting}
                   />
                   {form.formState.errors.full_name ? (
@@ -172,7 +172,7 @@ export function GuestProfileClient({ viewModel }: { viewModel: GuestProfileViewM
                     type="tel"
                     autoComplete="tel"
                     {...form.register('phone_number')}
-                    className="rounded-lg sm:rounded-xl h-11 sm:h-12 text-base focus-ring"
+                    className="pg-focus-ring h-11 rounded-lg text-base sm:h-12 sm:rounded-xl"
                     disabled={isSubmitting}
                   />
                   {form.formState.errors.phone_number ? (
@@ -196,7 +196,7 @@ export function GuestProfileClient({ viewModel }: { viewModel: GuestProfileViewM
                 <Button
                   type="submit"
                   size="lg"
-                  className="w-full rounded-full bg-primary px-6 text-sm text-primary-foreground hover:bg-primary/90 sm:w-auto sm:px-8 min-h-[44px] sm:min-h-[48px] btn-tactile focus-ring touch-feedback sm:text-base"
+                  className="pg-action pg-focus-ring pg-touch min-h-[44px] w-full rounded-full bg-primary px-6 text-sm text-primary-foreground hover:bg-primary/90 sm:min-h-[48px] sm:w-auto sm:px-8 sm:text-base"
                   disabled={isSubmitting || isPristine}
                 >
                   <Save className="w-4 h-4 mr-2" />

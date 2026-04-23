@@ -7,21 +7,13 @@ import { useState, useEffect } from 'react';
 import { BrandLogo } from '@/components/shared/BrandLogo';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 
 const NAV_LINKS = [
-  { href: '#hero', label: 'The Blueprint' },
-  { href: '#problem', label: 'The Leak' },
-  { href: '#features', label: 'Profit Stack' },
-  { href: '#testimonials', label: 'Proof' },
-  { href: '#faq', label: 'Guarantee' },
+  { href: '#system', label: 'The System' },
+  { href: '#value-stack', label: 'The Value Stack' },
+  { href: '#faq', label: 'FAQ' },
 ] as const;
 
 interface NavbarProps {
@@ -41,7 +33,7 @@ function NavLinkList({
     return (
       <div
         className={cn(
-          'hidden items-center gap-1 rounded-full border border-border/60 bg-muted/50 p-1 backdrop-blur-sm md:flex lg:gap-1',
+          'pg-panel hidden items-center gap-1 rounded-full p-1 backdrop-blur-sm md:flex lg:gap-1',
           className,
         )}
       >
@@ -84,7 +76,7 @@ export function Navbar({ isAuthenticated }: NavbarProps) {
   }, []);
 
   const authHref = isAuthenticated ? '/guest/dashboard' : '/auth';
-  const authLabel = isAuthenticated ? 'Dashboard' : 'Sign In';
+  const authLabel = isAuthenticated ? 'Dashboard' : 'Member Login';
 
   return (
     <nav
@@ -92,7 +84,7 @@ export function Navbar({ isAuthenticated }: NavbarProps) {
         'fixed top-0 left-0 z-50 w-full border-b transition-all duration-200',
         'px-4 sm:px-6 md:px-8 2xl:px-10',
         scrolled
-          ? 'border-border bg-background/90 py-2.5 shadow-sm backdrop-blur-md sm:py-3'
+          ? 'border-border bg-background/90 py-2.5 shadow-[var(--pg-shadow-nav)] backdrop-blur-md sm:py-3'
           : 'border-transparent bg-transparent py-3 sm:py-4 md:py-5',
       )}
     >
@@ -110,10 +102,10 @@ export function Navbar({ isAuthenticated }: NavbarProps) {
             {authLabel}
           </Link>
           <Button size="default" className="hidden sm:inline-flex" asChild>
-            <Link href="/contact">Contact Sales</Link>
+            <Link href="/contact">Claim Your Pub&apos;s Spot</Link>
           </Button>
           <Button size="sm" className="sm:hidden" asChild>
-            <Link href="/contact">Contact</Link>
+            <Link href="/contact">Claim Spot</Link>
           </Button>
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
@@ -143,7 +135,7 @@ export function Navbar({ isAuthenticated }: NavbarProps) {
                 </Link>
                 <Button asChild className="w-full">
                   <Link href="/contact" onClick={() => setMobileOpen(false)}>
-                    Contact Sales
+                    Claim Your Pub&apos;s Spot
                   </Link>
                 </Button>
               </div>

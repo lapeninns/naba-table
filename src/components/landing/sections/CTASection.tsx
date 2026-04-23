@@ -20,23 +20,26 @@ export function CTASection() {
         <Card className="pg-panel motion-safe:reveal-up">
           <CardHeader className="flex flex-col gap-2 space-y-0 p-5 text-center sm:gap-3 sm:p-8 md:gap-4 md:p-10 lg:gap-5">
             <CardTitle className="pg-section-title">
-              Ready to stop burning £150 per no-show?
+              Ready to make your next service the calmest one yet?
             </CardTitle>
             <CardDescription className="pg-lead mx-auto max-w-2xl">
-              We&apos;ll show you exactly how to automate busy work and reclaim 20 hours of your
-              week.
+              Let us show you exactly how much time and money Nabatable will save your pub. Claim
+              one of our remaining setup spots today.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-4 px-5 pb-2 pt-0 sm:px-8 md:px-10">
             <div className="flex w-full max-w-md flex-col gap-3 sm:max-w-none sm:flex-row sm:justify-center sm:gap-4">
               <Button size="lg" className="w-full sm:w-auto" variant="default" asChild>
-                <Link href="/contact">Contact sales</Link>
+                <Link href="/contact">Secure Your Demo &amp; Spot</Link>
+              </Button>
+              <Button size="lg" className="w-full sm:w-auto" variant="outline" asChild>
+                <Link href="#value-stack">View Value &amp; Pricing</Link>
               </Button>
             </div>
           </CardContent>
           <CardFooter className="flex justify-center px-5 pb-6 pt-0 sm:px-8 sm:pb-8 md:px-10 md:pb-10">
             <p className="text-center text-sm font-medium text-muted-foreground">
-              Setup takes &lt; 24h. We handle the heavy lifting.
+              White-Glove setup included. No lock-in contracts.
             </p>
           </CardFooter>
         </Card>

@@ -44,9 +44,9 @@ export function ConfirmationStep(props: ConfirmationStepProps) {
         description={controller.description}
         icon={
           status === 'confirmed' || status === 'updated' ? (
-            <CheckCircle2 className="h-6 w-6 text-emerald-500" />
+            <CheckCircle2 className="h-6 w-6 text-primary" />
           ) : (
-            <Info className="h-6 w-6 text-blue-500" />
+            <Info className="h-6 w-6 text-primary" />
           )
         }
         contentClassName="space-y-6"
@@ -102,7 +102,7 @@ export function ConfirmationStep(props: ConfirmationStepProps) {
             )}
 
           {/* Reservation Details Card */}
-          <div className="rounded-xl border border-border bg-card p-5 shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300">
+          <div className="pg-card animate-in fade-in slide-in-from-bottom-4 p-5 duration-700 delay-300">
             <dl className="grid gap-6 sm:grid-cols-2">
               <div>
                 <dt className="text-xs uppercase tracking-wider text-muted-foreground font-medium">

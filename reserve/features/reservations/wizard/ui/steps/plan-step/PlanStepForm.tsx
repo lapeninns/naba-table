@@ -34,12 +34,8 @@ function BentoCard({ children, className }: BentoCardProps) {
   return (
     <div
       className={cn(
-        // Base styling
-        'rounded-2xl border border-border/50 bg-background/60 p-5 shadow-sm',
-        'backdrop-blur-md',
-        // Transition for hover
-        'transition-all duration-300',
-        'hover:shadow-lg hover:border-primary/20 hover:bg-background/80',
+        'pg-panel pg-card-interactive p-5 backdrop-blur-md',
+        'hover:border-primary/20 hover:bg-background/80',
         className,
       )}
     >

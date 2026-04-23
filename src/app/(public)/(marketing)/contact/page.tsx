@@ -32,13 +32,13 @@ const contactCards = [
 
 export default function ContactPage() {
   return (
-    <article className="guest-page space-y-10">
+    <article className="pg-container pg-section space-y-10">
       <header className="space-y-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+        <p className="pg-kicker">
           Contact Sales
         </p>
-        <h1 className="heading-page">Talk to sales</h1>
-        <p className="max-w-3xl text-body-warm">
+        <h1 className="pg-section-title">Talk to sales</h1>
+        <p className="pg-body max-w-3xl">
           Reach out if you want help rolling out Nab a Table, replacing manual booking admin, or
           tightening service-period and capacity setup for your venue.
         </p>
@@ -49,7 +49,7 @@ export default function ContactPage() {
           <a
             key={title}
             href={href}
-            className="rounded-2xl border border-border bg-surface-elevated p-6 shadow-card transition-colors hover:border-primary/40 hover:bg-background"
+            className="pg-card pg-card-interactive p-6 hover:border-primary/40 hover:bg-background"
           >
             <div className="flex items-start gap-4">
               <span className="rounded-full bg-primary/10 p-3 text-primary">
@@ -65,9 +65,9 @@ export default function ContactPage() {
         ))}
       </section>
 
-      <section className="rounded-2xl border border-border bg-surface-elevated p-6 shadow-card">
-        <h2 className="heading-section">What to include</h2>
-        <p className="mt-3 max-w-3xl text-body-warm">
+      <section className="pg-card p-6">
+        <h2 className="pg-card-title">What to include</h2>
+        <p className="pg-body mt-3 max-w-3xl">
           The fastest way to get a useful reply is to include your venue name, website, how you
           currently take bookings, and whether you want help with setup, migration, or guest
           operations.

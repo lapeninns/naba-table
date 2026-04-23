@@ -46,7 +46,7 @@ export function WizardLayout({
         }}
         className={cn(
           'w-full',
-          'bg-gradient-to-b from-blue-50/50 via-white to-white',
+          'pg-surface',
           'px-4 pt-4 sm:pt-5 md:px-6 lg:px-8',
           'font-sans text-foreground',
           className,
@@ -67,10 +67,8 @@ export function WizardLayout({
           {/* Restaurant header */}
           {restaurantName && (
             <header className="text-center">
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground sm:text-sm">
-                Book at
-              </p>
-              <h1 className="text-xl font-bold text-foreground sm:text-2xl">{restaurantName}</h1>
+              <p className="pg-kicker">Book at</p>
+              <h1 className="pg-card-title">{restaurantName}</h1>
             </header>
           )}
 

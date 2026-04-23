@@ -45,7 +45,7 @@ export function BrandLogo({
             textColor,
           )}
         >
-          Nab a Table
+          Nabatable
         </span>
         {showBeta && (
           <span

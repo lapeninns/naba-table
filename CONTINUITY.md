@@ -1,9 +1,12 @@
 # Continuity Ledger
 
-Last updated: 2026-04-23T10:58:00Z
+Last updated: 2026-04-23T09:59:53Z
 
 ## Goal (incl. success criteria)
 
+- Apply the supplied Grand Slam Offer copy to the public Nabatable homepage.
+- Success: homepage visible sections follow Navigation, Hero, Service Cockpit, Blueprint, Profit Stack, Guarantee/Scarcity, FAQ, Final CTA, and Footer copy.
+- Success: implementation stays on canonical `src/components/landing/**` and `src/app/(public)/page.tsx` paths, with task artifacts and browser/static verification.
 - Organize the homepage and guest-facing design system under one public/guest source of truth.
 - Success: public/guest tokens, utilities, and the existing compatibility bridge live under `styles/design-system/`.
 - Success: `src/app/globals.css` imports the new public/guest design-system files without changing ops theme files.
@@ -126,6 +129,7 @@ Last updated: 2026-04-23T10:58:00Z
 
 ## State
 
+- Phase 4 verification is complete for `tasks/homepage-grand-slam-copy-20260423-0959/`: the supplied Grand Slam Offer homepage copy has been implemented in the canonical public landing components, focused ESLint and TypeScript passed, and Chrome DevTools MCP proof was captured on `localhost:3001`.
 - A new task folder has been created at `tasks/review-findings-menu-editors-gbp-20260422-2033/` for this focused fix pass.
 - The current accepted findings to fix are: GBP fallback redirect missing `/app`, food editor blank-form fallback on detail failure, and drink editor blank-form fallback on detail failure.
 - The focused fix is now implemented in code: GBP fallback constants use the canonical `/app` settings route, and food/drink edit sheets now render destructive load errors instead of blank create forms when detail fetches fail.

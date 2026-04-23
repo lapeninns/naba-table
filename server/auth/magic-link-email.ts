@@ -31,6 +31,7 @@ type MagicLinkDeliveryReason =
 type MagicLinkGenerateResult = {
   properties?: {
     action_link?: unknown;
+    hashed_token?: unknown;
     verification_type?: unknown;
   } | null;
 };
@@ -55,11 +56,11 @@ function asErrorMessage(error: unknown): string {
   return String(error);
 }
 
-function extractActionLink(data: MagicLinkGenerateResult | null): string {
-  const actionLink = data?.properties?.action_link;
-  if (typeof actionLink !== "string" || actionLink.trim().length === 0) {
+function extractTokenHash(data: MagicLinkGenerateResult | null): string {
+  const tokenHash = data?.properties?.hashed_token;
+  if (typeof tokenHash !== "string" || tokenHash.trim().length === 0) {
     throw new MagicLinkDeliveryError(
-      "Supabase generateLink response did not include a usable action link.",
+      "Supabase generateLink response did not include a usable token hash.",
       500,
       "invalid_link_payload",
     );
@@ -74,7 +75,14 @@ function extractActionLink(data: MagicLinkGenerateResult | null): string {
     );
   }
 
-  return actionLink;
+  return tokenHash;
+}
+
+function buildCallbackMagicLink(emailRedirectTo: string, tokenHash: string): string {
+  const magicLink = new URL(emailRedirectTo);
+  magicLink.searchParams.set("token_hash", tokenHash);
+  magicLink.searchParams.set("type", "magiclink");
+  return magicLink.toString();
 }
 
 function buildMagicLinkContent(params: {
@@ -210,13 +218,14 @@ export async function sendAuthMagicLink(params: SendAuthMagicLinkParams): Promis
     );
   }
 
-  const actionLink = extractActionLink(generatedLink as MagicLinkGenerateResult | null);
+  const tokenHash = extractTokenHash(generatedLink as MagicLinkGenerateResult | null);
+  const magicLink = buildCallbackMagicLink(emailRedirectTo, tokenHash);
 
   const loginUrl = new URL(config.auth.loginUrl, env.app.url).toString();
   const supportEmail = config.email.supportEmail?.trim();
   const helpUrl = supportEmail ? `mailto:${supportEmail}` : loginUrl;
   const message = buildMagicLinkContent({
-    magicLink: actionLink,
+    magicLink,
     intent,
     loginUrl,
     helpUrl,
@@ -236,7 +245,7 @@ export async function sendAuthMagicLink(params: SendAuthMagicLinkParams): Promis
       idempotencyKey: buildMagicLinkIdempotencyKey({
         email,
         intent,
-        actionLink,
+        actionLink: magicLink,
         redirectTo: emailRedirectTo,
       }),
     });

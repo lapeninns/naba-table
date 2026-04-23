@@ -44,7 +44,7 @@ export function RestaurantsHeroSection({ totalRestaurants }: { totalRestaurants:
             Curated guest picks
           </Badge>
           <div className="space-y-3">
-            <h1 id="restaurants-hero-heading" className="guest-heading-hero">
+            <h1 id="restaurants-hero-heading" className="pg-hero-title">
               Find the right table fast.
             </h1>
             <p className="pg-lead">
@@ -97,7 +97,7 @@ export function RestaurantsHeroSection({ totalRestaurants }: { totalRestaurants:
           </div>
           <div className="rounded-[var(--pg-radius-md)] bg-muted p-4">
             <p className="text-sm font-medium">Built for clarity</p>
-            <p className="text-sm text-muted-foreground">
+            <p className="pg-on-muted text-sm">
               Same cards and spacing you’ll see in the booking flow.
             </p>
           </div>
@@ -125,7 +125,7 @@ export function RestaurantsGridSection({ restaurants }: { restaurants: Restauran
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="pg-kicker">Carefully selected venues</p>
-            <h2 id="restaurants-grid-heading" className="guest-heading-page">
+            <h2 id="restaurants-grid-heading" className="pg-section-title">
               Pick a spot
             </h2>
           </div>
@@ -222,7 +222,7 @@ export function RestaurantDetailHero({ restaurant }: { restaurant: RestaurantDet
           <Badge className="w-fit rounded-full bg-background/90 text-foreground">
             Featured partner
           </Badge>
-          <h1 className="guest-heading-hero text-[clamp(2.5rem,4vw,3.5rem)] font-semibold">
+          <h1 className="pg-hero-title text-[clamp(2.5rem,4vw,3.5rem)] font-semibold">
             {restaurant.name}
           </h1>
           {restaurant.address ? (
@@ -270,7 +270,7 @@ export function RestaurantDetailsSection({
       <div className="pg-container grid gap-8 lg:grid-cols-[7fr_5fr]">
         <div className="space-y-6">
           <div className="space-y-2">
-            <h2 id="restaurant-details-heading" className="guest-heading-page">
+            <h2 id="restaurant-details-heading" className="pg-section-title">
               Experience snapshot
             </h2>
             <p className="text-sm text-muted-foreground">
@@ -296,7 +296,7 @@ export function RestaurantDetailsSection({
           <Card className="pg-card space-y-4 p-6">
             <div className="space-y-1">
               <p className="pg-kicker">Powered by Nab a Table</p>
-              <p className="heading-subsection">Make a reservation</p>
+              <p className="pg-card-title">Make a reservation</p>
               <p className="text-sm text-muted-foreground">
                 Secure a table with the same wizard guests use after sign-in.
               </p>

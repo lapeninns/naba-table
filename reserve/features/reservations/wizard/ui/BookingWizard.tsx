@@ -32,8 +32,8 @@ function LoadingFallback({ layoutElement = 'main' }: { layoutElement?: 'main' | 
   const Container = layoutElement === 'div' ? 'div' : 'main';
 
   return (
-    <Container className="flex min-h-screen w-full items-center justify-center bg-slate-50 px-4 py-12">
-      <div className="space-y-3 text-center text-slate-600">
+    <Container className="pg-surface flex min-h-screen w-full items-center justify-center px-4 py-12">
+      <div className="pg-body space-y-3 text-center">
         <Loader2 className="mx-auto h-8 w-8 animate-spin" aria-hidden />
         <p className="text-base" role="status">
           Loading reservation flow…

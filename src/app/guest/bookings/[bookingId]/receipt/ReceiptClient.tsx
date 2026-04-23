@@ -139,7 +139,7 @@ export function ReceiptClient({ reservationId, hasSession }: ReceiptClientProps)
           We couldn&apos;t load your receipt. Please try the link again.
         </InlineAlert>
         <div className="pt-4">
-          <Button asChild className="rounded-full btn-tactile focus-ring touch-feedback">
+          <Button asChild className="pg-action pg-focus-ring pg-touch rounded-full">
             <Link href="/guest/bookings">View my bookings</Link>
           </Button>
         </div>
@@ -243,7 +243,7 @@ export function ReceiptClient({ reservationId, hasSession }: ReceiptClientProps)
             <span className="font-semibold">Sign in to manage bookings faster.</span>
             <Link
               href={`/auth/signin?redirectedFrom=/guest/bookings/${reservationId}`}
-              className="font-semibold text-primary underline focus-ring touch-feedback"
+              className="pg-focus-ring pg-touch font-semibold text-primary underline"
             >
               Sign in →
             </Link>

@@ -64,7 +64,7 @@ export function OccasionPicker({
               value={option.key}
               aria-disabled={ariaDisabled}
               disabled={ariaDisabled}
-              className="h-12 text-sm font-medium transition-all duration-200 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-md hover:bg-primary/10 active:scale-95"
+              className="pg-action h-12 text-sm font-medium data-[state=on]:bg-primary data-[state=on]:text-primary-foreground hover:bg-primary/10 active:scale-95"
             >
               {option.label}
             </ToggleGroupItem>

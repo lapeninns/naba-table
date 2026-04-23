@@ -28,7 +28,7 @@ import { WizardStep } from '../WizardStep';
 
 import type { DetailsStepProps } from './details-step/types';
 
-const CONTACT_SECTION_CLASS = 'space-y-4 rounded-xl border border-border bg-card p-5 shadow-sm';
+const CONTACT_SECTION_CLASS = 'pg-card space-y-4 p-5';
 const basePreferenceLabelClass =
   'hover:bg-accent/50 flex w-full items-start gap-3 rounded-lg border p-3 transition-colors has-[[aria-checked=true]]:border-primary has-[[aria-checked=true]]:bg-primary/10 dark:has-[[aria-checked=true]]:border-primary/60 dark:has-[[aria-checked=true]]:bg-primary/20';
 

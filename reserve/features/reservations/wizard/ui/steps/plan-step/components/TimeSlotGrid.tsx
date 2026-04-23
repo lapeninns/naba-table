@@ -61,7 +61,7 @@ export function TimeSlotGrid({
   if (slots.length === 0) {
     if (loading) {
       return (
-        <section className="flex flex-col gap-4 rounded-xl border border-border bg-card/80 p-4 shadow-md">
+        <section className="pg-card flex flex-col gap-4 p-4">
           <div className="flex items-center justify-between">
             <div className="h-5 w-24 animate-pulse rounded-md bg-muted/60" />
             <div className="h-4 w-32 animate-pulse rounded-md bg-muted/60" />
@@ -73,7 +73,7 @@ export function TimeSlotGrid({
                 {Array.from({ length: 8 }).map((_, i) => (
                   <div
                     key={i}
-                    className="h-14 rounded-lg bg-muted/40 animate-pulse"
+                    className="pg-skeleton h-14 rounded-lg"
                     style={{ animationDelay: `${i * 50}ms` }}
                   />
                 ))}
@@ -90,7 +90,7 @@ export function TimeSlotGrid({
     <section
       aria-label="Available times"
       className={cn(
-        'flex flex-col gap-4 rounded-xl border border-border bg-gradient-to-br from-card/95 to-card/80 p-4 shadow-md backdrop-blur-sm transition-all duration-300',
+        'pg-card flex flex-col gap-4 p-4 backdrop-blur-sm transition-all duration-300',
         loading && 'opacity-50 pointer-events-none',
       )}
       ref={containerRef}
@@ -104,7 +104,7 @@ export function TimeSlotGrid({
       <div className="space-y-4 overflow-x-auto pb-1">
         {[...groupedSlots.entries()].map(([label, entries]) => {
           return (
-            <div key={label} className="space-y-2.5 min-w-[280px] animate-fade-in">
+            <div key={label} className="pg-appear min-w-[280px] space-y-2.5">
               <div className="flex items-center gap-2 flex-wrap">
                 <h4 className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground sm:text-[0.7rem]">
                   {label}
@@ -128,11 +128,11 @@ export function TimeSlotGrid({
                         // Active/selected state - enhanced visual feedback
                         !slot.disabled &&
                           isActive &&
-                          'border-primary bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]',
+                          'border-primary bg-primary text-primary-foreground scale-[1.02]',
                         // Default interactive state
                         !slot.disabled &&
                           !isActive &&
-                          'border-border bg-card hover:border-primary/60 hover:bg-primary/10 hover:shadow-md active:scale-95',
+                          'border-border bg-card hover:border-primary/60 hover:bg-primary/10 active:scale-95',
                         // Smooth scale animation on tap
                         !slot.disabled && 'active:transition-transform active:duration-100',
                       )}

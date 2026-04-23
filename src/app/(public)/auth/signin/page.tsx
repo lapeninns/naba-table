@@ -211,9 +211,9 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
                 Dining details in one place
               </div>
 
-              <h1 className="heading-hero">Welcome back to effortless dining</h1>
+              <h1 className="pg-hero-title">Welcome back to effortless dining</h1>
 
-              <p className="text-body-warm max-w-[65ch]">
+              <p className="pg-body max-w-[65ch]">
                 Sign in to manage your reservations, discover new restaurants, and enjoy instant
                 confirmations—all from one place.
               </p>

@@ -105,9 +105,9 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
 
   if (isLoading) {
     return (
-      <div className="min-h-[100dvh] bg-surface-warm pb-20">
+      <div className="pg-surface min-h-[100dvh] pb-20">
         {/* Hero skeleton */}
-        <section className="border-b border-border/50 bg-gradient-hero py-12 px-6">
+        <section className="pg-hero-band px-6 py-12">
           <div className="mx-auto max-w-6xl space-y-4">
             <Skeleton className="h-8 w-48" />
             <Skeleton className="h-5 w-96" />
@@ -130,7 +130,7 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
 
   if (isError) {
     return (
-      <StatusRegion focus live="assertive" className="min-h-[100dvh] bg-surface-warm pb-20">
+      <StatusRegion focus live="assertive" className="pg-surface min-h-[100dvh] pb-20">
         <div className="flex min-h-[60vh] items-center justify-center">
           <GuestError
             description="We couldn't load your bookings. Please try again."
@@ -145,7 +145,7 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
 
   if (!hasAnyBookings) {
     return (
-      <StatusRegion live="polite" className="min-h-[100dvh] bg-surface-warm pb-20">
+      <StatusRegion live="polite" className="pg-surface min-h-[100dvh] pb-20">
         <GuestEmpty
           icon={Search}
           title="No bookings yet"
@@ -158,21 +158,21 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
   }
 
   return (
-    <div className="min-h-[100dvh] bg-surface-warm pb-20">
+    <div className="pg-surface min-h-[100dvh] pb-20">
       {/* Hero Section */}
-      <section className="border-b border-border/50 bg-gradient-hero">
+      <section className="pg-hero-band">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 py-12 px-5 sm:gap-6 sm:px-8 sm:py-16 lg:px-10 lg:py-20">
-          <div className="space-y-2 sm:space-y-3 animate-fade-in-up">
-            <p className="text-xs uppercase tracking-[0.2em] text-subtle">My Reservations</p>
-            <h1 className="heading-hero">Your Reservations</h1>
-            <p className="text-body-warm max-w-2xl">Manage your upcoming and past reservations</p>
+          <div className="pg-appear space-y-2 sm:space-y-3">
+            <p className="pg-kicker">My Reservations</p>
+            <h1 className="pg-hero-title">Your Reservations</h1>
+            <p className="pg-body max-w-2xl">Manage your upcoming and past reservations</p>
           </div>
 
           <div className="flex flex-wrap gap-3">
             <Button
               asChild
               size="lg"
-              className="min-h-[48px] w-full rounded-full bg-primary text-primary-foreground hover:bg-primary/90 sm:w-auto btn-tactile focus-ring touch-feedback"
+              className="pg-action pg-focus-ring pg-touch min-h-[48px] w-full rounded-full bg-primary text-primary-foreground hover:bg-primary/90 sm:w-auto"
             >
               <Link href="/restaurants">
                 <Plus className="mr-2 h-5 w-5" />
@@ -231,19 +231,19 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
 
           <TabsContent value="upcoming" className="mt-0">
             {upcoming.length === 0 ? (
-              <Card className="p-12 bg-surface-elevated text-center">
+              <Card className="pg-card p-12 text-center">
                 <Calendar className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="heading-subsection mb-2">No upcoming reservations</h3>
-                <p className="text-sm text-subtle mb-6">Time to plan your next dining adventure.</p>
+                <h3 className="pg-card-title mb-2">No upcoming reservations</h3>
+                <p className="pg-caption mb-6">Time to plan your next dining adventure.</p>
                 <Button
                   asChild
-                  className="rounded-full min-h-[44px] btn-tactile focus-ring touch-feedback"
+                  className="pg-action pg-focus-ring pg-touch min-h-[44px] rounded-full"
                 >
                   <Link href="/restaurants">Find a restaurant</Link>
                 </Button>
               </Card>
             ) : (
-              <div className="grid gap-4 sm:gap-6 md:grid-cols-2 stagger-container">
+              <div className="pg-stagger grid gap-4 sm:gap-6 md:grid-cols-2">
                 {upcoming.map((booking, index) => (
                   <BookingCard
                     key={booking.id}
@@ -257,13 +257,13 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
 
           <TabsContent value="past" className="mt-0">
             {past.length === 0 ? (
-              <Card className="p-12 bg-surface-elevated text-center">
+              <Card className="pg-card p-12 text-center">
                 <Calendar className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="heading-subsection mb-2">No past reservations</h3>
-                <p className="text-sm text-subtle">Your completed reservations will appear here.</p>
+                <h3 className="pg-card-title mb-2">No past reservations</h3>
+                <p className="pg-caption">Your completed reservations will appear here.</p>
               </Card>
             ) : (
-              <div className="grid gap-4 sm:gap-6 md:grid-cols-2 stagger-container">
+              <div className="pg-stagger grid gap-4 sm:gap-6 md:grid-cols-2">
                 {past.map((booking, index) => (
                   <BookingCard
                     key={booking.id}
@@ -301,7 +301,7 @@ function BookingCard({ booking, isPast = false, style }: BookingCardProps) {
     <Card
       variant="interactive"
       className={cn(
-        'overflow-hidden transition-all touch-feedback',
+        'pg-touch overflow-hidden transition-all',
         isPast && 'opacity-75 hover:opacity-100',
       )}
       style={style}
@@ -311,7 +311,7 @@ function BookingCard({ booking, isPast = false, style }: BookingCardProps) {
         <div className="flex items-start justify-between gap-4 sm:gap-5 mb-5 sm:mb-6 lg:mb-8">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-3 mb-1">
-              <h3 className="heading-subsection truncate">{booking.restaurantName}</h3>
+              <h3 className="pg-card-title truncate">{booking.restaurantName}</h3>
               <StatusBadge status={booking.status} isPast={isPast} />
             </div>
             {booking.restaurantSlug && (
@@ -327,7 +327,7 @@ function BookingCard({ booking, isPast = false, style }: BookingCardProps) {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-10 w-10 -mr-2 text-muted-foreground/60 hover:text-foreground focus-ring"
+                className="pg-focus-ring -mr-2 h-10 w-10 text-muted-foreground/60 hover:text-foreground"
               >
                 <MoreHorizontal className="h-5 w-5" />
                 <span className="sr-only">Open menu</span>
@@ -397,7 +397,7 @@ function BookingCard({ booking, isPast = false, style }: BookingCardProps) {
         {/* Footer Link */}
         <Link
           href={`/guest/bookings/${booking.id}`}
-          className="flex items-center justify-between -mx-5 -mb-5 px-5 py-4 sm:-mx-6 sm:-mb-6 sm:px-6 sm:py-5 lg:-mx-8 lg:-mb-8 lg:px-8 lg:py-6 text-sm font-medium text-muted-foreground hover:text-primary hover:bg-muted transition-colors border-t border-border/50 group focus-ring touch-feedback"
+          className="pg-focus-ring pg-touch group -mx-5 -mb-5 flex items-center justify-between border-t border-border/50 px-5 py-4 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-primary sm:-mx-6 sm:-mb-6 sm:px-6 sm:py-5 lg:-mx-8 lg:-mb-8 lg:px-8 lg:py-6"
         >
           <span>View reservation details</span>
           <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />

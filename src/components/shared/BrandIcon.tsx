@@ -23,14 +23,12 @@ const sizePxMap: Record<BrandIconSize, number> = {
 };
 
 export function BrandIcon({ size = 'md', className, animated = false }: BrandIconProps) {
-  const logoSrc = animated
-    ? '/brand/nabatable-logo-animated.svg'
-    : '/brand/nabatable-logo.svg';
+  const logoSrc = animated ? '/brand/nabatable-logo-animated.svg' : '/brand/nabatable-logo.svg';
 
   return (
     <Image
       src={logoSrc}
-      alt="Nab a Table logo"
+      alt="Nabatable logo"
       width={sizePxMap[size]}
       height={sizePxMap[size]}
       className={cn('inline-block', sizeClassMap[size], className)}

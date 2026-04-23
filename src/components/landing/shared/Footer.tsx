@@ -14,31 +14,25 @@ export function Footer() {
           <div className="sm:col-span-2">
             <BrandLogo size="lg" showBeta={false} className="mb-4" />
             <p className="max-w-sm text-sm leading-relaxed text-muted-foreground sm:max-w-xs">
-              The operating system for modern hospitality. Empowering venues to deliver exceptional
-              guest experiences through data and automation.
+              The ultimate reservations and capacity growth system for modern food-led UK pubs.
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:gap-4">
             <h4 className="text-base font-bold text-foreground">Product</h4>
             <ul className="flex flex-col gap-2 text-sm text-muted-foreground">
               <li>
-                <a href="#features" className={FOOTER_LINK_STYLES}>
-                  Features
+                <a href="#system" className={FOOTER_LINK_STYLES}>
+                  The System
                 </a>
               </li>
               <li>
-                <a href="#" className={FOOTER_LINK_STYLES}>
-                  Integrations
+                <a href="#value-stack" className={FOOTER_LINK_STYLES}>
+                  Value Stack
                 </a>
               </li>
               <li>
-                <a href="#" className={FOOTER_LINK_STYLES}>
-                  Pricing
-                </a>
-              </li>
-              <li>
-                <a href="#" className={FOOTER_LINK_STYLES}>
-                  Changelog
+                <a href="#guarantee" className={FOOTER_LINK_STYLES}>
+                  Guarantee
                 </a>
               </li>
             </ul>
@@ -72,7 +66,7 @@ export function Footer() {
         <Separator className="my-8 bg-border sm:my-10 md:my-12" />
         <div className="flex flex-col items-center justify-between gap-4 sm:flex-row sm:items-center sm:gap-6">
           <p className="order-2 text-center text-xs text-muted-foreground sm:order-1 sm:text-left">
-            © 2024 Nab a Table Inc. All rights reserved.
+            © 2026 Nabatable Inc.
           </p>
           <div className="order-1 flex items-center gap-2 sm:order-2">
             <div className="size-2 animate-pulse rounded-full bg-primary" />

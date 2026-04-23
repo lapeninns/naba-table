@@ -8,59 +8,68 @@ import { Icon } from '../shared/Icons';
 
 const BENEFITS = [
   {
-    title: 'The Core Engine',
-    description:
-      'Automated bookings and email confirmations. No-shows drop to near zero immediately.',
-    value: '£5,000 Value',
+    title: '"Always Open" Reservation Hub',
+    description: 'Capture bookings 24/7 with customized seating preferences and live availability.',
+    value: '24/7 Capture',
     icon: 'check' as const,
   },
   {
-    title: 'Sunday Roast Capacity Calc',
-    description:
-      'An algorithm that stops kitchen meltdowns by pacing covers perfectly during peak service.',
-    value: '£1,500 Value',
+    title: 'Iron-Clad Reminders',
+    description: 'Automated SMS and email sequences that slash no-shows.',
+    value: 'No-Show Shield',
     icon: 'clock' as const,
   },
   {
-    title: 'No-Show Prevention Pack',
-    description:
-      'Email reminder sequences and confirmation copy designed specifically for UK pubs.',
-    value: '£1,000 Value',
+    title: 'Smart-Capacity Engine',
+    description: 'Total control over service periods and table turn-times.',
+    value: 'Flow Control',
     icon: 'shield' as const,
   },
   {
-    title: 'Host Stand Playbook',
-    description:
-      '10-minute pre-shift checklist and scripts so staff stop "playing Tetris" with your floor.',
-    value: '£2,000 Value',
+    title: 'Conflict-Free Visual Floorplan',
+    description: 'Drag, drop, and resolve seating conflicts before the doors open.',
+    value: 'Clear Floor',
     icon: 'user' as const,
   },
   {
-    title: 'Whale-Watcher CRM',
+    title: 'VIP & Waitlist Maximiser',
     description:
-      'Identify high-spenders instantly. Ensure VIPs get the treatment that drives 3x loyalty.',
-    value: '£2,000 Value',
+      'Automatically fill last-minute cancellations and recognize your highest-spending regulars.',
+    value: 'More Covers',
     icon: 'chart' as const,
   },
   {
-    title: 'White Glove Migration',
+    title: '"Done-For-You" White-Glove Setup (BONUS)',
     description:
-      'We handle the entire tech switch from old systems or spreadsheets. You do zero work.',
-    value: 'PRICELESS',
+      "We configure your entire system tailored perfectly to how your pub runs, so you don't have to lift a finger.",
+    value: 'Included',
     icon: 'zap' as const,
   },
 ];
 
 export function BenefitsSection() {
   return (
-    <section id="features" className="pg-section border-b border-border bg-background">
+    <section id="value-stack" className="pg-section border-b border-border bg-background">
       <div className="pg-container">
         <div className="mx-auto mb-10 flex max-w-3xl flex-col items-center gap-3 text-center sm:mb-12 sm:gap-4 md:mb-14 lg:mb-16 motion-safe:reveal-up">
           <Badge variant="secondary" className="pg-chip">
-            The UK pub profit stack
+            The Profit Stack
           </Badge>
-          <h2 className="pg-section-title">The total lockdown bundle</h2>
-          <p className="pg-lead">Total value: £12,500+ / yours for less than a missed 4-top.</p>
+          <h2 className="pg-section-title">
+            Everything you need for record-breaking, stress-free shifts.
+          </h2>
+          <p className="pg-lead">
+            We don&apos;t just give you software; we install a complete revenue-protection system.
+          </p>
+          <div className="flex flex-wrap justify-center gap-2 pt-1">
+            {['No lock-in contracts', 'Full transparent logging', '100% White-Glove Setup'].map(
+              (item) => (
+                <Badge key={item} variant="outline" className="pg-chip bg-muted">
+                  {item}
+                </Badge>
+              ),
+            )}
+          </div>
         </div>
 
         <div className="pg-grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
@@ -78,7 +87,7 @@ export function BenefitsSection() {
                 style={{ transitionDelay: `${index * 100}ms` }}
               >
                 <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0 p-4 sm:p-5 md:p-6">
-                  <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-background text-primary shadow-sm transition duration-200 ease-out group-hover:rotate-3 group-hover:scale-105 group-hover:bg-primary group-hover:text-primary-foreground">
+                  <div className="pg-card flex size-12 shrink-0 items-center justify-center rounded-xl text-primary transition duration-200 ease-out group-hover:rotate-3 group-hover:scale-105 group-hover:bg-primary group-hover:text-primary-foreground">
                     <Icon name={benefit.icon} className="size-6" />
                   </div>
                   <Badge variant={isFeatured ? 'metric' : 'secondary'} className="shrink-0">
@@ -86,7 +95,7 @@ export function BenefitsSection() {
                   </Badge>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-2 px-4 pb-4 pt-0 sm:px-5 sm:pb-5 md:px-6 md:pb-6">
-                  <CardTitle className="heading-subsection text-left">{benefit.title}</CardTitle>
+                  <CardTitle className="pg-card-title text-left">{benefit.title}</CardTitle>
                   <p className="text-sm leading-relaxed text-muted-foreground sm:text-base">
                     {benefit.description}
                   </p>

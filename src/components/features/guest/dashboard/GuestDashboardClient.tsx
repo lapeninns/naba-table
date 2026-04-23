@@ -95,16 +95,16 @@ export function GuestDashboardClient() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-surface-warm pb-20">
+    <div className="pg-surface min-h-[100dvh] pb-20">
       {/* Hero */}
-      <section className="border-b border-border/50 bg-gradient-hero">
+      <section className="pg-hero-band">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 sm:gap-8 py-10 sm:py-16 lg:py-20 px-4 sm:px-6">
-          <div className="space-y-3 sm:space-y-4 animate-fade-in-up">
-            <p className="text-xs uppercase tracking-[0.2em] text-subtle">Guest dashboard</p>
-            <h1 className="heading-hero">
+          <div className="pg-appear space-y-3 sm:space-y-4">
+            <p className="pg-kicker">Guest dashboard</p>
+            <h1 className="pg-hero-title">
               {greeting}, {heroName.split(' ')[0]}
             </h1>
-            <p className="text-body-warm max-w-2xl">
+            <p className="pg-body max-w-2xl">
               Manage your upcoming tables, receipts, and favorites in one place.
             </p>
           </div>
@@ -113,7 +113,7 @@ export function GuestDashboardClient() {
             <Button
               asChild
               size="lg"
-              className="min-h-[48px] rounded-full bg-primary text-primary-foreground hover:bg-primary/90 btn-tactile focus-ring touch-feedback"
+              className="pg-action pg-focus-ring pg-touch min-h-[48px] rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
             >
               <Link href="/restaurants">Book a table</Link>
             </Button>
@@ -121,7 +121,7 @@ export function GuestDashboardClient() {
               asChild
               size="lg"
               variant="outline"
-              className="rounded-full border-border bg-background text-primary hover:border-primary/40 min-h-[48px] btn-tactile focus-ring touch-feedback"
+              className="pg-action pg-focus-ring pg-touch min-h-[48px] rounded-full border-border bg-background text-primary hover:border-primary/40"
             >
               <Link href="/guest/bookings">My bookings</Link>
             </Button>
@@ -129,7 +129,7 @@ export function GuestDashboardClient() {
               asChild
               size="lg"
               variant="ghost"
-              className="text-primary hover:text-primary min-h-[48px] btn-tactile focus-ring touch-feedback"
+              className="pg-action pg-focus-ring pg-touch min-h-[48px] text-primary hover:text-primary"
             >
               <Link href="/guest/profile">Profile</Link>
             </Button>
@@ -139,14 +139,14 @@ export function GuestDashboardClient() {
 
       {/* Main content */}
       <div className="mx-auto grid w-full max-w-6xl gap-6 sm:gap-8 py-6 sm:py-8 lg:py-10 lg:grid-cols-[1.6fr_1fr] px-4 sm:px-6">
-        <div className="space-y-6 sm:space-y-8 stagger-container">
+        <div className="pg-stagger space-y-6 sm:space-y-8">
           {/* Next booking / empty state */}
           <section className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="heading-section">Next up</h2>
+              <h2 className="pg-card-title">Next up</h2>
               <Link
                 href="/guest/bookings"
-                className="text-sm font-semibold text-primary hover:text-primary flex items-center gap-1 rounded-sm focus-ring touch-feedback p-1 -mr-1"
+                className="pg-focus-ring pg-touch -mr-1 flex items-center gap-1 rounded-sm p-1 text-sm font-semibold text-primary hover:text-primary"
               >
                 View all <ChevronRight className="h-4 w-4" />
               </Link>
@@ -157,7 +157,7 @@ export function GuestDashboardClient() {
           {/* Upcoming list */}
           <section className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="heading-section">Upcoming</h2>
+              <h2 className="pg-card-title">Upcoming</h2>
               {upcomingList.length > 0 ? (
                 <Badge variant="metric" className="rounded-full">
                   {upcomingList.length} reservation(s)
@@ -165,22 +165,22 @@ export function GuestDashboardClient() {
               ) : null}
             </div>
             {upcomingList.length === 0 ? (
-              <Card className="p-6 bg-surface-elevated">
+              <Card className="pg-card p-6">
                 <p className="text-base font-semibold text-foreground">No upcoming reservations</p>
-                <p className="text-sm text-subtle mt-1">
+                <p className="pg-caption mt-1">
                   Book a table now and it will appear here.
                 </p>
                 <div className="mt-4">
                   <Button
                     asChild
-                    className="rounded-full min-h-[44px] btn-tactile focus-ring touch-feedback"
+                    className="pg-action pg-focus-ring pg-touch min-h-[44px] rounded-full"
                   >
                     <Link href="/restaurants">Find a table</Link>
                   </Button>
                 </div>
               </Card>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 stagger-container">
+              <div className="pg-stagger grid gap-4 md:grid-cols-2">
                 {upcomingList.slice(0, 4).map((booking) => (
                   <UpcomingBookingCard key={booking.id} booking={booking} />
                 ))}
@@ -236,7 +236,7 @@ export function GuestDashboardClient() {
                       />
                       <span className="truncate">{fav.name}</span>
                     </span>
-                    <span className="text-subtle flex-shrink-0 ml-2">{fav.count}x</span>
+                    <span className="pg-caption ml-2 flex-shrink-0">{fav.count}x</span>
                   </li>
                 ))}
               </ul>
@@ -246,26 +246,26 @@ export function GuestDashboardClient() {
           {/* Profile quick access */}
           <Card className="p-4 sm:p-5 bg-muted">
             <div className="flex items-center gap-3">
-              <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-background shadow-card flex items-center justify-center flex-shrink-0">
+              <div className="pg-card flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full sm:h-10 sm:w-10">
                 <User className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-foreground">Your profile</p>
-                <p className="text-xs text-subtle truncate">Preferences and contact details</p>
+                <p className="pg-caption truncate">Preferences and contact details</p>
               </div>
             </div>
             <div className="mt-3 sm:mt-4 space-y-2">
               <Button
                 asChild
                 variant="secondary"
-                className="w-full rounded-full text-primary btn-tactile focus-ring touch-feedback"
+                className="pg-action pg-focus-ring pg-touch w-full rounded-full text-primary"
               >
                 <Link href="/guest/profile">Edit profile</Link>
               </Button>
               <Button
                 asChild
                 variant="outline"
-                className="w-full rounded-full btn-tactile focus-ring touch-feedback"
+                className="pg-action pg-focus-ring pg-touch w-full rounded-full"
               >
                 <Link href="/guest/bookings">View receipts</Link>
               </Button>
@@ -290,7 +290,7 @@ function FeaturedBooking({
 }) {
   if (isLoading) {
     return (
-      <Card variant="featured" className="overflow-hidden skeleton-enhanced">
+      <Card variant="featured" className="pg-skeleton overflow-hidden">
         <div className="grid sm:grid-cols-[1fr_220px] lg:grid-cols-[1fr_260px]">
           <div className="p-5 sm:p-6 lg:p-8 space-y-4 sm:space-y-6">
             <Skeleton className="h-7 w-32 rounded-full" />
@@ -327,14 +327,14 @@ function FeaturedBooking({
           <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 sm:mb-6 sm:h-16 sm:w-16">
             <Sparkles className="h-6 w-6 text-primary sm:h-8 sm:w-8" />
           </div>
-          <h2 className="heading-page mb-3 sm:mb-4">No upcoming plans?</h2>
+          <h2 className="pg-section-title mb-3 sm:mb-4">No upcoming plans?</h2>
           <p className="mb-6 max-w-xl text-base text-muted-foreground sm:mb-8 sm:text-lg">
             Explore our curated list of restaurants and secure your table for tonight.
           </p>
           <div className="flex gap-4">
             <Button
               asChild
-              className="rounded-full bg-primary px-6 py-5 text-base font-semibold text-primary-foreground hover:bg-primary/90 btn-tactile focus-ring touch-feedback sm:px-8 sm:py-6 sm:text-lg"
+              className="pg-action pg-focus-ring pg-touch rounded-full bg-primary px-6 py-5 text-base font-semibold text-primary-foreground hover:bg-primary/90 sm:px-8 sm:py-6 sm:text-lg"
             >
               <Link href="/restaurants">Find a Table</Link>
             </Button>
@@ -355,7 +355,7 @@ function FeaturedBooking({
     : false;
 
   return (
-    <Card variant="featured" className="card-interactive overflow-hidden">
+    <Card variant="featured" className="pg-card-interactive overflow-hidden">
       <div className="grid sm:grid-cols-[1fr_200px] lg:grid-cols-[1fr_260px]">
         <div className="p-5 sm:p-6 lg:p-8 space-y-4 sm:space-y-6">
           <Badge
@@ -369,7 +369,7 @@ function FeaturedBooking({
           </Badge>
 
           <div>
-            <h2 className="heading-page mb-1">{booking.restaurantName}</h2>
+            <h2 className="pg-section-title mb-1">{booking.restaurantName}</h2>
             <div className="flex items-center text-muted-foreground font-medium text-sm">
               <MapPin className="w-4 h-4 mr-2 flex-shrink-0" />
               {booking.restaurantSlug ? 'View details' : 'Restaurant'}
@@ -416,7 +416,7 @@ function FeaturedBooking({
 
           <Button
             asChild
-            className="w-full rounded-full btn-tactile focus-ring touch-feedback text-sm sm:text-base"
+            className="pg-action pg-focus-ring pg-touch w-full rounded-full text-sm sm:text-base"
             size="lg"
           >
             <Link href={`/guest/bookings/${booking.id}`}>Manage booking</Link>
@@ -431,10 +431,10 @@ function UpcomingBookingCard({ booking }: { booking: BookingDTO }) {
   const bookingDateTime = parseBookingDateTime(booking.startIso, booking.restaurantTimezone);
   const bookingDate = bookingDateTime?.toJSDate() ?? null;
   return (
-    <Link href={`/guest/bookings/${booking.id}`} className="block focus-ring rounded-xl">
+    <Link href={`/guest/bookings/${booking.id}`} className="pg-focus-ring block rounded-xl">
       <Card
         variant="interactive"
-        className="pg-card p-3 sm:p-4 flex items-center gap-3 sm:gap-4 group card-interactive touch-feedback"
+        className="pg-card pg-card-interactive pg-touch group flex items-center gap-3 p-3 sm:gap-4 sm:p-4"
       >
         <div className="flex-shrink-0 w-14 h-14 sm:w-16 sm:h-16 bg-primary/5 text-primary rounded-lg sm:rounded-xl flex flex-col items-center justify-center leading-none">
           <span className="text-[10px] sm:text-xs font-bold uppercase mb-0.5 sm:mb-1">

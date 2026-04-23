@@ -43,9 +43,7 @@ export function HeadingMD({
   children: React.ReactNode;
   className?: string;
 }) {
-  return (
-    <h3 className={cn('heading-section font-[var(--pg-font-display)]', className)}>{children}</h3>
-  );
+  return <h3 className={cn('pg-card-title', className)}>{children}</h3>;
 }
 
 export function TextBody({
@@ -220,7 +218,7 @@ export function ActionCard({
 
 export function SearchBar({ onSearch }: { onSearch?: () => void }) {
   return (
-    <div className="flex flex-col md:flex-row items-center bg-background rounded-3xl md:rounded-full border border-border shadow-[0_6px_16px_rgba(0,0,0,0.08)] p-2 max-w-4xl w-full mx-auto relative z-20">
+    <div className="pg-panel relative z-20 mx-auto flex w-full max-w-4xl flex-col items-center p-2 md:flex-row md:rounded-full">
       {/* Location */}
       <div className="w-full md:flex-1 px-6 py-3 cursor-pointer relative group border-b md:border-b-0 border-border transition-colors hover:bg-muted/50 md:rounded-l-full">
         <label className="block text-xs font-bold text-foreground mb-0.5 uppercase tracking-wide">
@@ -264,7 +262,7 @@ export function SearchBar({ onSearch }: { onSearch?: () => void }) {
       <div className="p-2 w-full md:w-auto">
         <button
           onClick={onSearch}
-          className="flex w-full items-center justify-center gap-2 rounded-full bg-primary p-4 text-primary-foreground shadow-[var(--pg-shadow-button)] transition-all hover:bg-primary/90 hover:scale-105 active:scale-95 md:w-auto"
+          className="pg-action pg-focus-ring pg-touch flex w-full items-center justify-center gap-2 rounded-full bg-primary p-4 text-primary-foreground hover:bg-primary/90 md:w-auto"
         >
           <Search className="w-5 h-5 font-bold" />
           <span className="font-semibold px-2 md:hidden lg:inline">Search</span>
@@ -295,7 +293,7 @@ const toneMap: Record<
   info: { bg: 'bg-primary/10', text: 'text-primary', icon: Info },
   success: { bg: 'bg-primary/10', text: 'text-primary', icon: CheckCircle2 },
   warning: { bg: 'bg-muted', text: 'text-foreground', icon: AlertCircle },
-  danger: { bg: 'bg-red-50', text: 'text-red-700', icon: AlertCircle },
+  danger: { bg: 'pg-danger-badge', text: 'pg-danger-text', icon: AlertCircle },
 };
 
 export const GuestStatus = forwardRef<HTMLDivElement, GuestStatusProps>(function GuestStatus(
@@ -310,7 +308,7 @@ export const GuestStatus = forwardRef<HTMLDivElement, GuestStatusProps>(function
       role="status"
       tabIndex={-1}
       className={cn(
-        'flex items-start gap-4 rounded-2xl border border-border px-4 py-3',
+        'pg-card flex items-start gap-4 px-4 py-3',
         palette.bg,
         palette.text,
         className,
@@ -349,21 +347,15 @@ export function GuestEmpty({
   className,
 }: GuestEmptyProps) {
   return (
-    <div
-      className={cn(
-        'flex flex-col items-center rounded-3xl border border-border',
-        'bg-muted/50 px-8 py-12 text-center',
-        className,
-      )}
-    >
-      <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-background shadow-sm border border-border text-muted-foreground">
+    <div className={cn('pg-panel flex flex-col items-center px-8 py-12 text-center', className)}>
+      <div className="pg-card mb-6 flex h-16 w-16 items-center justify-center rounded-[var(--pg-radius-md)] text-muted-foreground">
         <Icon className="h-8 w-8" aria-hidden />
       </div>
-      <h3 className="text-xl font-bold text-foreground">{title}</h3>
-      <p className="mt-2 max-w-sm text-muted-foreground">{description}</p>
+      <h3 className="pg-card-title">{title}</h3>
+      <p className="pg-body mt-2 max-w-sm">{description}</p>
       <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
         {actionLabel && actionHref ? (
-          <Button asChild className="rounded-full px-8">
+          <Button asChild className="pg-action pg-focus-ring pg-touch rounded-full px-8">
             <Link href={actionHref} {...(actionProps as object)}>
               {actionLabel}
             </Link>
@@ -394,28 +386,35 @@ export function GuestError({
     <GuestCard
       header={
         <div className="flex flex-col items-center gap-4 text-center mt-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600">
+          <div className="pg-danger-icon flex h-12 w-12 items-center justify-center rounded-full">
             <AlertCircle className="h-6 w-6" aria-hidden />
           </div>
-          <h3 className="text-xl font-bold">{title}</h3>
+          <h3 className="pg-card-title">{title}</h3>
         </div>
       }
       footer={
         <div className="flex flex-wrap items-center justify-center gap-4 w-full">
           {onRetry ? (
-            <Button onClick={onRetry} className="rounded-full px-8">
+            <Button
+              onClick={onRetry}
+              className="pg-action pg-focus-ring pg-touch rounded-full px-8"
+            >
               Try again
             </Button>
           ) : null}
           {redirectHref ? (
-            <Button variant="outline" asChild className="rounded-full px-8">
+            <Button
+              variant="outline"
+              asChild
+              className="pg-action pg-focus-ring pg-touch rounded-full px-8"
+            >
               <Link href={redirectHref}>{redirectLabel}</Link>
             </Button>
           ) : null}
         </div>
       }
     >
-      <p className="text-center text-muted-foreground">{description}</p>
+      <p className="pg-body text-center">{description}</p>
     </GuestCard>
   );
 }

@@ -138,20 +138,14 @@ const ActionButton = React.memo(function ActionButton({ action, role }: ActionBu
       data-testid={`wizard-action-${action.id}`}
       className={cn(
         // Base: Equal flex distribution, 44px height on mobile, 48px on desktop
-        'flex-1 h-11 rounded-full sm:flex-none sm:h-12',
+        'pg-action pg-focus-ring flex-1 h-11 rounded-full sm:flex-none sm:h-12',
         // Typography - responsive sizing (smaller on mobile to fit)
         'text-xs font-semibold sm:text-sm',
-        // Focus ring (2px offset for visibility)
-        'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         // GPU-accelerated transitions (transform + opacity only)
         'transition-all duration-200 ease-out',
         // Role-specific styling
         isPrimary && [
           'px-3 sm:px-6',
-          // Layered shadows: neutral base + primary tint (fallback-safe)
-          'shadow-lg',
-          'shadow-primary/20 dark:shadow-primary/10',
-          'hover:shadow-xl hover:shadow-primary/30',
           // Micro-interaction: scale on hover/press
           'hover:scale-[1.02] active:scale-[0.98]',
         ],
@@ -231,25 +225,15 @@ const NAV_CAPSULE_CLASSES = cn(
   // Centering and max-width
   'mx-auto w-full',
 
-  // ─── GLASSMORPHISM ───────────────────────────────────────────────────────
-  // Light mode: White with 90% opacity
-  'bg-white/90 backdrop-blur-xl',
-  'supports-[backdrop-filter]:bg-white/80',
-  // Dark mode: Dark slate with reduced opacity
-  'dark:bg-slate-950/90 dark:supports-[backdrop-filter]:bg-slate-950/80',
-
-  // ─── BORDER & SHADOW ─────────────────────────────────────────────────────
-  'border border-white/40 dark:border-slate-700/50',
-  // More prominent shadow for floating effect
-  'shadow-2xl shadow-black/15 dark:shadow-black/50',
+  'pg-panel backdrop-blur-xl',
 
   // ─── SHAPE ───────────────────────────────────────────────────────────────
   // Mobile: Attached to viewport bottom, rounded top corners
-  'rounded-t-3xl',
+  'rounded-t-[var(--pg-radius-lg)]',
   // Desktop: Floating capsule with graceful rounding
   // Using rounded-3xl (24px) instead of rounded-full to prevent
   // "stretched pill" appearance on wide screens
-  'sm:max-w-4xl sm:rounded-3xl',
+  'sm:max-w-4xl sm:rounded-[var(--pg-radius-lg)]',
 
   // ─── TEXT ────────────────────────────────────────────────────────────────
   'text-foreground',

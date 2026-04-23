@@ -327,10 +327,10 @@ export function ReservationDetailClient({
   // Loading State
   if (isLoading && !reservation) {
     return (
-      <section className="min-h-[100dvh] bg-surface-warm py-8 pb-20 sm:py-10">
+      <section className="pg-surface min-h-[100dvh] py-8 pb-20 sm:py-10">
         <div className="mx-auto w-full max-w-5xl space-y-6 sm:space-y-8 px-4 sm:px-6">
           {/* Summary card skeleton */}
-          <div className="rounded-2xl border border-border bg-background p-6 sm:p-8 space-y-6 animate-fade-in-up">
+          <div className="pg-card pg-appear space-y-6 p-6 sm:p-8">
             <div className="flex items-center gap-3">
               <Skeleton className="h-11 w-11 rounded-full" />
               <Skeleton className="h-6 w-24 rounded-full" />
@@ -357,7 +357,7 @@ export function ReservationDetailClient({
   // Error State
   if (isError && !reservation) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center bg-surface-warm">
+      <div className="pg-surface flex min-h-[60vh] items-center justify-center">
         <GuestError
           description={error?.message ?? 'We encountered an error loading your reservation.'}
           onRetry={() => refetch()}
@@ -518,7 +518,7 @@ export function ReservationDetailClient({
       </div>
 
       {canManage && (
-        <Card className="bg-surface-elevated p-4">
+        <Card className="pg-card p-4">
           <ReservationHistory reservationId={reservationId} timezone={venue.timezone} />
         </Card>
       )}

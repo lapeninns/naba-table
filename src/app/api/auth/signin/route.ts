@@ -57,6 +57,10 @@ const GUEST_MAGIC_LINK_TURNSTILE_ACTION = 'guest_signin_magic_link';
 
 type MagicLinkLookupStatus = 'found' | 'not_found' | 'error';
 
+function isGuestMagicLinkCaptchaEnabled() {
+  return Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim());
+}
+
 function normalizeHttpStatus(status: number | undefined, fallback: number): number {
   if (typeof status !== 'number' || !Number.isFinite(status)) {
     return fallback;
@@ -127,21 +131,39 @@ async function lookupMagicLinkProfile(email: string): Promise<MagicLinkLookupSta
   const serviceSupabase = getServiceSupabaseClient();
   const normalizedEmail = normalizeEmail(email);
 
-  const { data, error } = await serviceSupabase
-    .from('user_profiles')
+  const { data: profile, error: profileError } = await serviceSupabase
+    .from('profiles')
     .select('id')
     .eq('email', normalizedEmail)
     .limit(1)
     .maybeSingle();
 
-  if (error && error.code !== 'PGRST116') {
-    console.error('[Auth/signin] Failed to lookup user profile for magic link', {
-      error: error.message,
+  if (profileError && profileError.code !== 'PGRST116') {
+    console.error('[Auth/signin] Failed to lookup profile for magic link', {
+      error: profileError.message,
     });
     return 'error';
   }
 
-  return data?.id ? 'found' : 'not_found';
+  if (!profile?.id) {
+    return 'not_found';
+  }
+
+  const { data: userProfile, error: userProfileError } = await serviceSupabase
+    .from('user_profiles')
+    .select('id')
+    .eq('id', profile.id)
+    .limit(1)
+    .maybeSingle();
+
+  if (userProfileError && userProfileError.code !== 'PGRST116') {
+    console.error('[Auth/signin] Failed to lookup user profile for magic link', {
+      error: userProfileError.message,
+    });
+    return 'error';
+  }
+
+  return userProfile?.id ? 'found' : 'not_found';
 }
 
 export async function POST(req: NextRequest) {
@@ -260,7 +282,7 @@ export async function POST(req: NextRequest) {
       return setRateHeaders(response, throttleResult.blocked.result);
     }
 
-    if (surface === 'public_guest') {
+    if (surface === 'public_guest' && isGuestMagicLinkCaptchaEnabled()) {
       if (!captchaToken) {
         await recordMagicLinkSigninAudit({
           email,
@@ -289,6 +311,7 @@ export async function POST(req: NextRequest) {
         token: captchaToken,
         remoteIp: clientIp,
         expectedAction: GUEST_MAGIC_LINK_TURNSTILE_ACTION,
+        expectedHostname: hostname || undefined,
       });
 
       if (!captchaResult.ok) {

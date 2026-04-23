@@ -6,17 +6,18 @@ import { getServerComponentSupabaseClient } from '@/server/supabase';
 
 import type { Metadata } from 'next';
 
-const BRAND_NAME = 'Nab a Table';
-const PRIMARY_REGION = 'Cambridgeshire, Norfolk and Bedfordshire';
+const BRAND_NAME = 'Nabatable';
 
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: `${BRAND_NAME} - Reserve your table in 30 seconds`,
-  description: `Pick your time and party size, add a note, and get an instant confirmation at top restaurants across ${PRIMARY_REGION}. Free to book; no phone calls.`,
+  title: `${BRAND_NAME} - The Packed House Pub System`,
+  description:
+    'Fill your tables, reduce no-shows, and run calmer food-led UK pub services with the Nabatable reservations and capacity growth system.',
   openGraph: {
-    title: `${BRAND_NAME} - Reserve your table in 30 seconds`,
-    description: `Instant confirmations, live availability, and clear hold windows for every booking across ${PRIMARY_REGION}.`,
+    title: `${BRAND_NAME} - The Packed House Pub System`,
+    description:
+      'Automate reservations, reminders, floor planning, and service capacity for modern food-led UK pubs.',
     type: 'website',
   },
   twitter: {

@@ -51,6 +51,7 @@ export default defineConfig({
         'src/hooks/ops/useOpsGoogleBusinessProfile.ts',
       ),
       '@/hooks/useMediaQuery': path.resolve(rootDir, 'src/hooks/useMediaQuery.ts'),
+      'server-only': path.resolve(rootDir, 'tests/mocks/server-only.ts'),
       '@/utils': path.resolve(rootDir, 'src/utils'),
       '@/app': path.resolve(rootDir, 'src/app'),
       '@/guest': path.resolve(rootDir, 'src/guest'),

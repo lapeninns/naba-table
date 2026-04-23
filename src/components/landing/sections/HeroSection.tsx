@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 
 import { LiveFeedCard } from '../shared/LiveFeedCard';
 
-const HERO_BADGE = 'Installed in 24 Hours';
+const HERO_BADGE = "The 'Category of One' Growth System for UK Pubs";
 
 interface HeroSectionProps {
   reduceMotion: boolean;
@@ -34,24 +34,32 @@ export function HeroSection({ reduceMotion }: HeroSectionProps) {
               {HERO_BADGE}
             </Badge>
             <Badge variant="outline" className="pg-chip w-fit text-xs font-semibold">
-              Only 1 spot left this month
+              5 monthly setup spots
             </Badge>
           </div>
 
           <h1 className="pg-hero-title">
-            <span className="block sm:inline sm:mr-1">The zero-risk no-show</span>{' '}
-            <span className="block text-primary sm:inline">lockdown system</span>{' '}
-            <span className="mt-1 block sm:mt-0 sm:inline">for food-led UK pubs</span>
+            <span className="block sm:inline sm:mr-1">
+              The &apos;Packed House&apos; Pub System:
+            </span>{' '}
+            <span className="block text-primary sm:inline">Fill Your Tables</span>{' '}
+            <span className="mt-1 block sm:mt-0 sm:inline">
+              &amp; Eradicate No-Shows Without Lifting A Finger.
+            </span>
           </h1>
 
           <p className="pg-lead mx-auto max-w-xl lg:mx-0">
-            Using Nab a Table is like moving from a manual bicycle to a self-driving car. Set your
-            destination (more profit) and let the system navigate the traffic of bookings for you.
+            Stop chasing bookings and losing money to empty seats. Nabatable is the only all-in-one
+            system that automates your reservations, eliminates seating chaos, and guarantees a
+            calmer, more profitable service.
           </p>
 
           <div className="flex flex-col flex-wrap items-stretch justify-center gap-3 sm:flex-row sm:items-center sm:gap-4 lg:justify-start">
+            <Button size="lg" className="w-full sm:w-auto" asChild>
+              <Link href="/contact">Claim 1 of Our 5 Monthly Setup Spots</Link>
+            </Button>
             <Button variant="outline" size="lg" className="w-full sm:w-auto" asChild>
-              <Link href="/contact">Contact Sales</Link>
+              <Link href="#system">See How It Works</Link>
             </Button>
           </div>
         </div>
@@ -61,10 +69,10 @@ export function HeroSection({ reduceMotion }: HeroSectionProps) {
           <div className="pg-card absolute -bottom-4 -left-2 hidden max-w-[min(100vw,20rem)] p-3 text-card-foreground motion-safe:animate-bounce-slow sm:-bottom-6 sm:-left-4 sm:block sm:p-4 md:max-w-xs">
             <div className="mb-2 flex items-center gap-2">
               <div className="size-2 animate-pulse rounded-full bg-primary" />
-              <div className="font-mono text-xs text-muted-foreground">Revenue optimized</div>
+              <div className="font-mono text-xs text-muted-foreground">Service protected</div>
             </div>
             <div className="font-mono text-xs font-bold leading-relaxed sm:text-[12px]">
-              +£4,250/mo extra profit
+              Lost Revenue from No-Shows: £0
             </div>
           </div>
         </div>

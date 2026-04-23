@@ -10,22 +10,22 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 const FAQ_ITEMS = [
   {
-    id: 'guarantee-90',
-    question: 'The 90-Day No-Show Recovery Guarantee',
+    id: 'basic-form',
+    question: 'Is this just another basic booking form?',
     answer:
-      "If we don't recover at least 3x our fee in no-show or late-cancel revenue within 90 days, we work for free until we do.",
+      'No. Basic forms create double-bookings. Nabatable is a complete capacity-management ecosystem that handles reminders, floor plans, and VIP tracking specifically for UK pubs.',
   },
   {
-    id: 'anti-guarantee',
-    question: 'The "Anti-Guarantee"',
+    id: 'stop-no-shows',
+    question: 'Will this actually stop no-shows?',
     answer:
-      'We have no long-term contracts. We have to earn your business every single month. If you hate making more money, you can leave at any time.',
+      'Yes. By utilizing our automated SMS and email sequences combined with guest-history tracking, we aggressively protect your tables from ghosting guests.',
   },
   {
-    id: 'pricing',
-    question: 'How does pricing work?',
+    id: 'setup-effort',
+    question: "I don't have time to set this up. Is it hard?",
     answer:
-      'We abandoned the commodity model. We charge a one-time "White Glove" setup (£3k-£9k) and a monthly Profit-Engine fee (£299-£899).',
+      "Not at all. That's why we include our White-Glove Setup support. You tell us how your pub runs, and we build the rules into the system for you.",
   },
 ] as const;
 
@@ -35,7 +35,7 @@ export function FAQSection() {
       <div className="pg-container-sm">
         <Card className="pg-card motion-safe:reveal-up">
           <CardHeader className="flex flex-col gap-1.5 space-y-0 p-4 pb-0 text-center sm:gap-2 sm:p-6 sm:pb-0 md:p-8 md:pb-0">
-            <CardTitle className="pg-section-title">Guarantees &amp; objections</CardTitle>
+            <CardTitle className="pg-section-title">Frequently Asked Questions</CardTitle>
           </CardHeader>
           <CardContent className="p-2 sm:p-4 md:p-6">
             <Accordion type="single" collapsible className="w-full">

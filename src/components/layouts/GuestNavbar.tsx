@@ -110,15 +110,15 @@ function PrimaryNav({
 
   const baseStyles =
     tone === 'dark'
-      ? 'border-white/15 bg-white/10 text-white'
+      ? 'pg-nav-inverse'
       : 'border-border bg-background/80 text-foreground shadow-[var(--pg-shadow-nav)]';
   const inactive =
     tone === 'dark'
-      ? 'text-white/70 hover:bg-white/10 hover:text-white'
+      ? 'pg-nav-inverse-muted'
       : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground';
   const active =
     tone === 'dark'
-      ? 'bg-white text-slate-900 shadow-sm ring-0'
+      ? 'bg-background text-foreground ring-0'
       : 'bg-primary text-primary-foreground shadow-[var(--pg-shadow-button)] ring-0';
 
   return (
@@ -170,7 +170,7 @@ function DesktopActions({
           href="/auth"
           className={cn(
             buttonVariants({ variant: tone === 'dark' ? 'secondary' : 'outline', size: 'sm' }),
-            tone === 'dark' ? 'text-white' : undefined,
+            tone === 'dark' ? 'pg-nav-inverse' : undefined,
           )}
         >
           Sign in
@@ -286,7 +286,7 @@ function MobileMenu({
       <SheetTrigger asChild>
         <button
           type="button"
-          className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border/70 bg-background text-foreground shadow-sm transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background touch-manipulation md:hidden"
+          className="pg-card pg-action pg-focus-ring pg-touch inline-flex h-11 w-11 items-center justify-center rounded-full text-foreground hover:text-primary md:hidden"
           aria-label="Open navigation menu"
           aria-expanded={open}
           aria-controls="guest-navigation-drawer"
@@ -303,7 +303,7 @@ function MobileMenu({
         <SheetHeader className="sr-only">
           <SheetTitle>Guest navigation</SheetTitle>
         </SheetHeader>
-        <div className="rounded-3xl border border-border/60 bg-background/90 p-4 shadow-sm">
+        <div className="pg-card p-4">
           <div className="flex flex-col gap-1 pr-10">
             <BrandMark tone={tone} />
           </div>
@@ -471,7 +471,7 @@ export function GuestNavbar({ tone = 'light', isSticky = true }: GuestNavbarProp
 
   const headerToneClasses =
     tone === 'dark'
-      ? 'border-b border-white/10 bg-white/10 text-white'
+      ? 'border-b pg-nav-inverse pg-nav-inverse-border'
       : 'border-b border-border bg-background/85 text-foreground';
 
   const shellClasses = cn(

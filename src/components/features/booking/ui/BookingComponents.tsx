@@ -14,13 +14,13 @@ const toneClasses: Record<StatusTone, { badge: string; text: string }> = {
   default: { badge: 'bg-muted text-foreground', text: 'text-muted-foreground' },
   success: { badge: 'bg-primary/10 text-primary border-primary/20', text: 'text-primary' },
   warning: { badge: 'bg-muted text-foreground border-border', text: 'text-muted-foreground' },
-  danger: { badge: 'bg-red-50 text-red-700 border-red-100', text: 'text-red-600' },
+  danger: { badge: 'pg-danger-badge', text: 'pg-danger-text' },
   info: { badge: 'bg-primary/10 text-primary border-primary/20', text: 'text-primary' },
 };
 
 export function BookingDetailShell({ children }: { children: ReactNode }) {
   return (
-    <section className="min-h-[100dvh] bg-surface-warm py-8 pb-20 sm:py-10">
+    <section className="pg-surface min-h-[100dvh] py-8 pb-20 sm:py-10">
       <div className="pg-container space-y-6 sm:space-y-8">{children}</div>
     </section>
   );
@@ -42,12 +42,9 @@ export function BookingMessageShell({
   const palette = toneClasses[tone];
 
   return (
-    <section className="pg-section-tight bg-surface-warm">
+    <section className="pg-section-tight pg-surface">
       <div className="pg-container-sm">
-        <Card
-          variant="featured"
-          className="pg-card animate-fade-in-up space-y-6 p-6 text-center sm:p-8"
-        >
+        <Card variant="featured" className="pg-card pg-appear space-y-6 p-6 text-center sm:p-8">
           <div
             className={cn(
               'mx-auto flex h-16 w-16 items-center justify-center rounded-full border',
@@ -57,8 +54,8 @@ export function BookingMessageShell({
             <Icon className="h-7 w-7" aria-hidden />
           </div>
           <div className="space-y-3">
-            <h1 className="heading-hero">{title}</h1>
-            <p className="text-body-warm mx-auto max-w-xl">{description}</p>
+            <h1 className="pg-hero-title">{title}</h1>
+            <p className="pg-body mx-auto max-w-xl">{description}</p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">{actions}</div>
         </Card>
@@ -87,10 +84,7 @@ export function BookingSummaryCard({
   const Icon = status.icon;
   const tone = toneClasses[status.tone ?? 'default'];
   return (
-    <Card
-      variant="featured"
-      className="pg-card animate-fade-in-up space-y-6 bg-surface-elevated p-6 sm:p-8"
-    >
+    <Card variant="featured" className="pg-card pg-appear space-y-6 p-6 sm:p-8">
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-4">
           <div className="flex items-center gap-3">
@@ -115,8 +109,8 @@ export function BookingSummaryCard({
           </div>
 
           <div>
-            <h1 className="heading-hero">{title}</h1>
-            {description ? <p className="mt-2 text-body-warm">{description}</p> : null}
+            <h1 className="pg-hero-title">{title}</h1>
+            {description ? <p className="pg-body mt-2">{description}</p> : null}
           </div>
 
           <div className="flex items-center gap-2 text-sm text-muted-foreground font-mono">
@@ -150,9 +144,9 @@ export function DetailStatCard({
         </div>
       </div>
       <div>
-        <div className="text-subtle text-xs font-bold uppercase tracking-wider mb-1">{label}</div>
-        <div className="heading-subsection">{value}</div>
-        {subtext ? <div className="text-sm text-subtle mt-0.5 font-medium">{subtext}</div> : null}
+        <div className="pg-caption mb-1 text-xs font-bold uppercase tracking-wider">{label}</div>
+        <div className="pg-card-title">{value}</div>
+        {subtext ? <div className="pg-caption mt-0.5 font-medium">{subtext}</div> : null}
       </div>
     </Card>
   );
@@ -168,7 +162,7 @@ export function InfoPanel({
   return (
     <Card className="pg-card overflow-hidden rounded-3xl">
       <div className="border-b border-border/50 bg-muted/50 px-6 py-4">
-        <h3 className="heading-subsection">{title}</h3>
+        <h3 className="pg-card-title">{title}</h3>
       </div>
       <div className="divide-y divide-border/50">
         {rows.map((row, index) => (
@@ -180,7 +174,7 @@ export function InfoPanel({
               <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">
                 {row.label}
               </p>
-              <p className="heading-subsection truncate">{row.value}</p>
+              <p className="pg-card-title truncate">{row.value}</p>
             </div>
           </div>
         ))}
@@ -209,7 +203,7 @@ export function ManageBookingPanel({
   return (
     <BookingSidebarCard>
       <div className="space-y-6 p-6">
-        <h3 className="heading-subsection">{title}</h3>
+        <h3 className="pg-card-title">{title}</h3>
         {actions}
         {footer ? <Separator className="my-2" /> : null}
         {footer}
@@ -247,7 +241,7 @@ export function PrimaryButtonLink({ href, children }: { href: string; children: 
   return (
     <Button
       asChild
-      className="min-h-[48px] rounded-full bg-primary px-6 font-semibold text-primary-foreground hover:bg-primary/90"
+      className="pg-action pg-focus-ring pg-touch min-h-[48px] rounded-full bg-primary px-6 font-semibold text-primary-foreground hover:bg-primary/90"
     >
       <Link href={href}>{children}</Link>
     </Button>
@@ -266,7 +260,7 @@ export function SecondaryButton({
   return (
     <Button
       variant="outline"
-      className="min-h-[44px] w-full justify-center rounded-full border-border px-5 font-medium hover:bg-muted btn-tactile focus-ring touch-feedback sm:w-auto"
+      className="pg-action pg-focus-ring pg-touch min-h-[44px] w-full justify-center rounded-full border-border px-5 font-medium hover:bg-muted sm:w-auto"
       onClick={onClick}
       disabled={disabled}
     >
@@ -287,7 +281,7 @@ export function GhostButton({
   return (
     <Button
       variant="ghost"
-      className="min-h-[44px] w-full justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground sm:w-auto"
+      className="pg-action pg-focus-ring pg-touch min-h-[44px] w-full justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground sm:w-auto"
       onClick={onClick}
       disabled={disabled}
     >

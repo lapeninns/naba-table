@@ -18,11 +18,11 @@ const MOBILE_MENU_ID = 'auth-navbar-menu';
 
 function ctaClasses(variant: 'primary' | 'ghost' = 'primary') {
   const base =
-    'inline-flex items-center justify-center rounded-full px-5 py-2 text-sm font-semibold transition';
+    'pg-action pg-focus-ring pg-touch inline-flex items-center justify-center rounded-full px-5 py-2 text-sm font-semibold transition';
   if (variant === 'ghost') {
     return cn(base, 'border border-border/70 bg-transparent text-foreground hover:bg-foreground/5');
   }
-  return cn(base, 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm');
+  return cn(base, 'bg-primary text-primary-foreground hover:bg-primary/90');
 }
 
 export function AuthNavbar() {
@@ -62,7 +62,7 @@ export function AuthNavbar() {
     cn(
       'rounded-full px-3 py-2 text-sm font-semibold transition',
       isActive(href)
-        ? 'bg-foreground text-background shadow-sm'
+        ? 'bg-primary text-primary-foreground'
         : 'text-foreground/70 hover:text-foreground',
     );
 
@@ -75,7 +75,7 @@ export function AuthNavbar() {
           aria-label="Auth navigation"
           className="hidden flex-1 items-center justify-center md:flex"
         >
-          <div className="flex items-center gap-1 rounded-full border border-border/80 bg-background/70 px-2 py-1 shadow-sm">
+          <div className="pg-panel flex items-center gap-1 rounded-full px-2 py-1">
             {AUTH_NAV_LINKS.map((item) => (
               <Link
                 key={item.href}
@@ -101,7 +101,7 @@ export function AuthNavbar() {
         <div className="flex items-center gap-2 sm:hidden">
           <button
             type="button"
-            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-sm transition hover:text-primary"
+            className="pg-card pg-action pg-focus-ring pg-touch inline-flex h-11 w-11 items-center justify-center rounded-full text-foreground hover:text-primary"
             aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={mobileOpen}
             aria-controls={MOBILE_MENU_ID}
@@ -120,7 +120,7 @@ export function AuthNavbar() {
         <div className="fixed inset-0 z-50 bg-foreground/60 backdrop-blur-sm">
           <div className="absolute inset-x-0 bottom-0 flex flex-col">
             <div
-              className="rounded-t-3xl bg-background px-6 py-6 shadow-2xl"
+              className="pg-panel rounded-t-3xl px-6 py-6"
               role="dialog"
               aria-modal="true"
               id={MOBILE_MENU_ID}

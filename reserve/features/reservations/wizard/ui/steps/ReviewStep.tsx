@@ -204,7 +204,7 @@ export function ReviewStep(props: ReviewStepProps) {
             TICKET CONTAINER 
             Using a clean card look with a "perforation" divider
           */}
-          <article className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+          <article className="pg-card overflow-hidden">
             {/* SECTION 1: Plan */}
             <div className="p-6">
               <SectionHeader

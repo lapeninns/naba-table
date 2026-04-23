@@ -9,10 +9,8 @@ import { LazySection } from './optimizations';
 import {
   HeroSection,
   ProblemSection,
-  MetricsSection,
   BenefitsSection,
-  HowItWorksSection,
-  TestimonialsSection,
+  GuaranteeSection,
   FAQSection,
   CTASection,
 } from './sections';
@@ -72,15 +70,11 @@ export function LandingPage({ isAuthenticated }: LandingPageProps) {
       <main id="main-content">
         <HeroSection reduceMotion={prefersReducedMotion} />
         <ProblemSection />
-        <MetricsSection reduceMotion={prefersReducedMotion} />
         <LazySection>
           <BenefitsSection />
         </LazySection>
         <LazySection>
-          <HowItWorksSection />
-        </LazySection>
-        <LazySection>
-          <TestimonialsSection />
+          <GuaranteeSection />
         </LazySection>
         <LazySection>
           <FAQSection />

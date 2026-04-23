@@ -26,18 +26,10 @@ export interface WizardStepProps {
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
 
-const STEP_CONTAINER_CLASSES = cn('mx-auto w-full', 'animate-fade-in');
+const STEP_CONTAINER_CLASSES = cn('mx-auto w-full', 'pg-appear');
 
 const CARD_CLASSES = cn(
-  // Subtle shadow for depth
-  'shadow-lg shadow-black/5',
-  // Clean border
-  'border border-border/50',
-  // Solid background (no glass effect for cleaner look)
-  'bg-card',
-  // Rounded corners
-  'rounded-xl sm:rounded-2xl',
-  // Focus styling
+  'pg-card',
   'focus-visible:outline-none',
   'focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2',
 );
@@ -73,23 +65,12 @@ function TitleSection({ titleId, title, description, icon }: TitleSectionProps) 
 
       {/* Title + Description */}
       <div className="min-w-0 flex-1">
-        <CardTitle
-          id={titleId}
-          role="heading"
-          aria-level={2}
-          className={cn(
-            'text-lg font-semibold leading-tight text-foreground',
-            'sm:text-xl',
-            'lg:text-2xl',
-          )}
-        >
+        <CardTitle id={titleId} role="heading" aria-level={2} className="pg-card-title">
           {title}
         </CardTitle>
 
         {description && (
-          <CardDescription className={cn('mt-1', 'text-sm text-muted-foreground')}>
-            {description}
-          </CardDescription>
+          <CardDescription className="pg-caption mt-1">{description}</CardDescription>
         )}
       </div>
     </div>

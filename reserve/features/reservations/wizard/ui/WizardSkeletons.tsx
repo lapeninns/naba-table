@@ -31,7 +31,7 @@ export function DetailsStepSkeleton() {
         <Skeleton className="h-4 w-80" />
       </CardHeader>
       <CardContent className="space-y-6 md:space-y-8">
-        <section className="space-y-4 rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <section className="pg-card space-y-4 p-5">
           <Skeleton className="h-5 w-36" />
           <div className="space-y-4">
             <Skeleton className="h-10 w-full" />
@@ -39,7 +39,7 @@ export function DetailsStepSkeleton() {
             <Skeleton className="h-10 w-full" />
           </div>
         </section>
-        <section className="space-y-4 rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <section className="pg-card space-y-4 p-5">
           <Skeleton className="h-5 w-32" />
           <Skeleton className="h-12 w-full" />
           <Skeleton className="h-28 w-full" />
@@ -58,7 +58,7 @@ export function ReviewStepSkeleton() {
       </CardHeader>
       <CardContent className="space-y-6">
         <Skeleton className="h-4 w-48" />
-        <div className="grid gap-4 rounded-2xl border border-border bg-card p-5 shadow-sm sm:grid-cols-2 lg:grid-cols-3">
+        <div className="pg-card grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, index) => (
             <div key={index} className="space-y-2">
               <Skeleton className="h-3 w-24" />
@@ -83,7 +83,7 @@ export function ConfirmationStepSkeleton() {
       </CardHeader>
       <CardContent className="space-y-6">
         <Skeleton className="h-4 w-80" />
-        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+        <div className="pg-card p-5">
           <div className="grid gap-4 sm:grid-cols-2">
             {Array.from({ length: 4 }).map((_, index) => (
               <div key={index} className="space-y-2">

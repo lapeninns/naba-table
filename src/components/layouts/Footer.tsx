@@ -16,7 +16,7 @@ export function Footer({ variant: _variant = 'marketing' }: { variant?: FooterVa
       <div className="guest-boundary flex flex-col gap-3 py-6 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
           <BrandLogo size="sm" showBeta={false} />
-          <p className="text-xs text-body-warm">
+          <p className="pg-caption">
             Live availability · Instant confirmation · Calendar-ready receipts
           </p>
         </div>
