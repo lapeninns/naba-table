@@ -60,10 +60,10 @@ function EnhancedAuthLayoutContent({
                     Restaurant owners
                   </Link>
                   <Link
-                    href="/#features"
+                    href="/restaurants"
                     className="rounded-full border border-border bg-background px-4 py-2 font-medium text-foreground transition-all hover:border-primary/40 hover:bg-muted"
                   >
-                    Learn more
+                    Browse tables
                   </Link>
                 </>
               ) : (
@@ -99,8 +99,7 @@ function EnhancedAuthLayoutContent({
               isGuest ? 'pg-container' : 'mx-auto max-w-7xl px-4 sm:px-6 lg:px-8',
             )}
           >
-            <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-              {/* Brand Column */}
+            <div className="grid gap-8 sm:grid-cols-[1.4fr_1fr_1fr]">
               <div className="space-y-3">
                 <BrandLogo href={`/auth${searchSuffix}`} size="sm" />
                 <p className="text-sm text-muted-foreground">
@@ -110,7 +109,6 @@ function EnhancedAuthLayoutContent({
                 </p>
               </div>
 
-              {/* Product Links */}
               <div className="space-y-3">
                 <h3 className="text-sm font-semibold text-foreground">Product</h3>
                 <ul className="space-y-2 text-sm">
@@ -124,35 +122,26 @@ function EnhancedAuthLayoutContent({
                   </li>
                   <li>
                     <Link
-                      href="/#features"
+                      href="/bookings"
                       className="text-muted-foreground transition-colors hover:text-primary"
                     >
-                      Features
+                      Booking hub
                     </Link>
                   </li>
                   <li>
                     <Link
-                      href="/#how-it-works"
+                      href="/auth/signin"
                       className="text-muted-foreground transition-colors hover:text-primary"
                     >
-                      How it works
+                      Guest sign-in
                     </Link>
                   </li>
                 </ul>
               </div>
 
-              {/* Company Links */}
               <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-foreground">Company</h3>
+                <h3 className="text-sm font-semibold text-foreground">Help</h3>
                 <ul className="space-y-2 text-sm">
-                  <li>
-                    <Link
-                      href="/about"
-                      className="text-muted-foreground transition-colors hover:text-primary"
-                    >
-                      About us
-                    </Link>
-                  </li>
                   <li>
                     <Link
                       href="/contact"
@@ -163,41 +152,10 @@ function EnhancedAuthLayoutContent({
                   </li>
                   <li>
                     <Link
-                      href="/partners"
-                      className="text-muted-foreground transition-colors hover:text-primary"
-                    >
-                      Partner with us
-                    </Link>
-                  </li>
-                </ul>
-              </div>
-
-              {/* Legal Links */}
-              <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-foreground">Legal</h3>
-                <ul className="space-y-2 text-sm">
-                  <li>
-                    <Link
                       href="/privacy"
                       className="text-muted-foreground transition-colors hover:text-primary"
                     >
                       Privacy policy
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href="/terms"
-                      className="text-muted-foreground transition-colors hover:text-primary"
-                    >
-                      Terms of service
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href="/cookies"
-                      className="text-muted-foreground transition-colors hover:text-primary"
-                    >
-                      Cookie policy
                     </Link>
                   </li>
                 </ul>

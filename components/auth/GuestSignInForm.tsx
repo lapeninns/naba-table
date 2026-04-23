@@ -149,9 +149,7 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
         }
         if (error.code === 'CAPTCHA_INVALID') {
           const reason =
-            typeof error.details === 'object' &&
-            error.details !== null &&
-            'reason' in error.details
+            typeof error.details === 'object' && error.details !== null && 'reason' in error.details
               ? (error.details as { reason?: string }).reason
               : undefined;
           return {
@@ -238,7 +236,7 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
         mode: 'magic_link',
         email: values.email,
         redirectedFrom: targetPath,
-        captchaToken: isCaptchaEnabled ? captchaToken ?? undefined : undefined,
+        captchaToken: isCaptchaEnabled ? (captchaToken ?? undefined) : undefined,
       });
 
       track('auth_magiclink_sent', { redirectedFrom: response.redirectTo ?? targetPath });
@@ -287,12 +285,8 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
       ) : null}
       {/* Header */}
       <div className="space-y-2 text-center">
-        <h2 className="text-2xl font-bold tracking-tight text-slate-900">
-          Sign in to your account
-        </h2>
-        <p className="text-sm text-slate-600">
-          We&apos;ll send you a secure magic link—no password needed
-        </p>
+        <h2 className="pg-card-title">Sign in to your account</h2>
+        <p className="pg-caption">We&apos;ll send you a secure magic link—no password needed</p>
       </div>
 
       {/* Form */}
@@ -303,13 +297,16 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
             name="email"
             render={({ field }) => (
               <FormItem>
-                <FormLabel htmlFor="guest-signin-email" className="text-sm font-medium text-slate-700">
+                <FormLabel
+                  htmlFor="guest-signin-email"
+                  className="text-sm font-medium text-foreground"
+                >
                   Email address
                 </FormLabel>
                 <FormControl>
                   <div className="relative">
                     <Mail
-                      className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400"
+                      className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground"
                       aria-hidden="true"
                     />
                     <Input
@@ -319,7 +316,7 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
                       inputMode="email"
                       autoComplete="email"
                       placeholder="you@example.com"
-                      className="h-12 rounded-xl border-slate-300 bg-white pl-12 text-base transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 touch-manipulation"
+                      className="pg-focus-ring h-12 rounded-[var(--pg-radius-md)] border-border bg-background pl-12 text-base touch-manipulation"
                       style={{ fontSize: '16px' }}
                     />
                   </div>
@@ -345,19 +342,17 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
             <div className="space-y-2">
               <div
                 ref={captchaContainerRef}
-                className="min-h-[70px] rounded-xl border border-slate-200 bg-slate-50 p-2"
+                className="min-h-[70px] rounded-[var(--pg-radius-md)] border border-border bg-muted p-2"
                 data-testid="guest-signin-turnstile"
               />
-              <p className="text-xs text-slate-500">
-                Complete verification to enable magic-link delivery.
-              </p>
+              <p className="pg-caption">Complete verification to enable magic-link delivery.</p>
             </div>
           ) : null}
 
           <Button
             type="submit"
             size="lg"
-            className="h-12 w-full rounded-xl bg-blue-600 text-base font-semibold shadow-lg shadow-blue-600/25 transition-all hover:bg-blue-700 hover:shadow-xl hover:shadow-blue-600/30 active:scale-[0.98] disabled:active:scale-100 touch-manipulation"
+            className="pg-action pg-focus-ring pg-touch h-12 w-full rounded-full bg-primary text-base font-semibold text-primary-foreground shadow-[var(--pg-shadow-button)] hover:bg-primary/90 active:scale-[0.98] disabled:active:scale-100 touch-manipulation"
             disabled={submitDisabled}
           >
             {isSubmitting ? (
@@ -376,18 +371,11 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
       </Form>
 
       {/* Helper Text */}
-      <div className="text-center text-xs leading-relaxed text-slate-500">
-        By signing in, you agree to our{' '}
-        <a
-          href="/terms"
-          className="font-medium text-blue-600 underline-offset-2 hover:text-blue-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 rounded-sm"
-        >
-          Terms of Service
-        </a>{' '}
-        and{' '}
+      <div className="text-center text-xs leading-relaxed text-muted-foreground">
+        By signing in, you agree to receive secure sign-in emails and to our{' '}
         <a
           href="/privacy"
-          className="font-medium text-blue-600 underline-offset-2 hover:text-blue-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 rounded-sm"
+          className="pg-focus-ring rounded-sm font-medium text-primary underline-offset-2 hover:underline"
         >
           Privacy Policy
         </a>

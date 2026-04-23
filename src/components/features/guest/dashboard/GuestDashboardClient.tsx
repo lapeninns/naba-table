@@ -6,7 +6,13 @@ import { DateTime } from 'luxon';
 import Link from 'next/link';
 import { useMemo } from 'react';
 
-import { GuestError } from '@/components/guest/ui';
+import {
+  GuestError,
+  GuestHero,
+  GuestMetricCard,
+  GuestPrimaryButton,
+  GuestSecondaryButton,
+} from '@/components/guest/ui';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -71,11 +77,10 @@ export function GuestDashboardClient() {
 
   const stats = useMemo(
     () => ({
-      total: derived.total,
       upcoming: upcomingList.length,
       favorites: derived.favorites.length,
     }),
-    [derived.total, upcomingList.length, derived.favorites.length],
+    [upcomingList.length, derived.favorites.length],
   );
 
   if (isError) {
@@ -96,46 +101,32 @@ export function GuestDashboardClient() {
 
   return (
     <div className="pg-surface min-h-[100dvh] pb-20">
-      {/* Hero */}
-      <section className="pg-hero-band">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 sm:gap-8 py-10 sm:py-16 lg:py-20 px-4 sm:px-6">
-          <div className="pg-appear space-y-3 sm:space-y-4">
-            <p className="pg-kicker">Guest dashboard</p>
-            <h1 className="pg-hero-title">
-              {greeting}, {heroName.split(' ')[0]}
-            </h1>
-            <p className="pg-body max-w-2xl">
-              Manage your upcoming tables, receipts, and favorites in one place.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-2 sm:gap-3">
-            <Button
-              asChild
-              size="lg"
-              className="pg-action pg-focus-ring pg-touch min-h-[48px] rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              <Link href="/restaurants">Book a table</Link>
-            </Button>
-            <Button
-              asChild
-              size="lg"
-              variant="outline"
-              className="pg-action pg-focus-ring pg-touch min-h-[48px] rounded-full border-border bg-background text-primary hover:border-primary/40"
-            >
-              <Link href="/guest/bookings">My bookings</Link>
-            </Button>
+      <GuestHero
+        eyebrow="Guest dashboard"
+        title={`${greeting}, ${heroName.split(' ')[0]}`}
+        description="Manage your upcoming tables, receipts, and favourites in one calm workspace."
+        actions={
+          <>
+            <GuestPrimaryButton href="/restaurants">Book a table</GuestPrimaryButton>
+            <GuestSecondaryButton href="/guest/bookings">My bookings</GuestSecondaryButton>
             <Button
               asChild
               size="lg"
               variant="ghost"
-              className="pg-action pg-focus-ring pg-touch min-h-[48px] text-primary hover:text-primary"
+              className="pg-action pg-focus-ring pg-touch min-h-[48px] rounded-full text-primary hover:text-primary"
             >
               <Link href="/guest/profile">Profile</Link>
             </Button>
+          </>
+        }
+        aside={
+          <div className="grid w-full max-w-md grid-cols-2 gap-3">
+            <GuestMetricCard icon={Calendar} label="Upcoming" value={stats.upcoming} />
+            <GuestMetricCard icon={Heart} label="Favourites" value={stats.favorites} />
           </div>
-        </div>
-      </section>
+        }
+        compact
+      />
 
       {/* Main content */}
       <div className="mx-auto grid w-full max-w-6xl gap-6 sm:gap-8 py-6 sm:py-8 lg:py-10 lg:grid-cols-[1.6fr_1fr] px-4 sm:px-6">
@@ -167,9 +158,7 @@ export function GuestDashboardClient() {
             {upcomingList.length === 0 ? (
               <Card className="pg-card p-6">
                 <p className="text-base font-semibold text-foreground">No upcoming reservations</p>
-                <p className="pg-caption mt-1">
-                  Book a table now and it will appear here.
-                </p>
+                <p className="pg-caption mt-1">Book a table now and it will appear here.</p>
                 <div className="mt-4">
                   <Button
                     asChild
@@ -189,34 +178,7 @@ export function GuestDashboardClient() {
           </section>
         </div>
 
-        {/* Sidebar */}
         <div className="space-y-4 sm:space-y-6">
-          {/* Quick stats */}
-          <Card className="p-4 sm:p-5">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-foreground">At a glance</p>
-              <Badge
-                variant="secondary"
-                className="rounded-full px-2.5 sm:px-3 py-1 text-foreground text-xs"
-              >
-                {stats.total} total
-              </Badge>
-            </div>
-            <div className="mt-3 sm:mt-4 grid grid-cols-2 gap-2 sm:gap-3">
-              <StatPill
-                label="Upcoming"
-                value={stats.upcoming}
-                icon={<Calendar className="h-4 w-4" />}
-              />
-              <StatPill
-                label="Favorites"
-                value={stats.favorites}
-                icon={<Heart className="h-4 w-4" />}
-              />
-            </div>
-          </Card>
-
-          {/* Favorites */}
           {derived.favorites.length > 0 && (
             <Card className="p-4 sm:p-5 space-y-2.5 sm:space-y-3">
               <div className="flex items-center justify-between">
@@ -466,18 +428,6 @@ function UpcomingBookingCard({ booking }: { booking: BookingDTO }) {
 /* ============================================================================
    UTILITY FUNCTIONS
    ============================================================================ */
-
-function StatPill({ label, value, icon }: { label: string; value: number; icon: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between rounded-lg sm:rounded-xl border border-border bg-muted px-2.5 sm:px-3 py-2">
-      <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-foreground/80">
-        <span className="text-primary">{icon}</span>
-        {label}
-      </div>
-      <span className="text-sm sm:text-base font-semibold text-foreground">{value}</span>
-    </div>
-  );
-}
 
 function Detail({ label, value }: { label: string; value: string }) {
   return (

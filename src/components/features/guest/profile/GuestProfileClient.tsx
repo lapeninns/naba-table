@@ -5,12 +5,11 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { ZodError } from 'zod';
 
-import { GuestStatus, MetricTile } from '@/components/guest/ui';
+import { GuestHero, GuestMetricCard, GuestStatus } from '@/components/guest/ui';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import { useGuestProfile } from '@/guest/hooks';
 import { coerceProfileUpdatePayload, useUpdateProfile } from '@/hooks/useProfile';
 
@@ -95,36 +94,30 @@ export function GuestProfileClient({ viewModel }: { viewModel: GuestProfileViewM
 
   return (
     <div className="pg-surface min-h-[100dvh] pb-20">
-      {/* Hero Section */}
-      <section className="pg-hero-band">
-        <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 sm:gap-4 py-8 sm:py-12 lg:py-16 px-4 sm:px-6">
-          <div className="pg-appear space-y-2 sm:space-y-3">
-            <p className="pg-kicker">Settings</p>
-            <h1 className="pg-hero-title">Your Profile</h1>
-            <p className="pg-body max-w-2xl">
-              Manage your personal information, preferences, and security settings.
-            </p>
+      <GuestHero
+        eyebrow="Settings"
+        title="Your profile"
+        description="Keep the details restaurants need for confirmation, arrival, and service notes accurate."
+        aside={
+          <div className="grid w-full max-w-md grid-cols-2 gap-3">
+            <GuestMetricCard
+              icon={Settings}
+              label="Account status"
+              value="Active"
+              detail="Standard"
+            />
+            <GuestMetricCard icon={Shield} label="Email verified" value="Yes" />
           </div>
-        </div>
-      </section>
+        }
+        compact
+      />
 
       <div className="mx-auto w-full max-w-4xl px-4 sm:px-6 py-6 sm:py-8 lg:py-10 space-y-6 sm:space-y-8">
-        {/* Stats Overview */}
-        <div className="pg-stagger grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
-          <MetricTile label="Account Status" value="Active" icon={Settings} detail="Standard" />
-          <MetricTile label="Email Verified" value="Yes" icon={Shield} variant="highlight" />
-        </div>
-
-        <Separator className="my-6 sm:my-8" />
-
-        {/* Profile Form */}
         <Card className="pg-card pg-appear p-4 sm:p-6 lg:p-8">
           <div className="space-y-4 sm:space-y-6">
             <div className="space-y-1 sm:space-y-2">
               <h2 className="pg-card-title">Personal Information</h2>
-              <p className="pg-caption">
-                Update your contact details and how we address you.
-              </p>
+              <p className="pg-caption">Update your contact details and how we address you.</p>
             </div>
 
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">

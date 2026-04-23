@@ -15,7 +15,7 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
-import { GuestEmpty, GuestError } from '@/components/guest/ui';
+import { GuestEmpty, GuestError, GuestHero, GuestPrimaryButton } from '@/components/guest/ui';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -159,29 +159,18 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
 
   return (
     <div className="pg-surface min-h-[100dvh] pb-20">
-      {/* Hero Section */}
-      <section className="pg-hero-band">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 py-12 px-5 sm:gap-6 sm:px-8 sm:py-16 lg:px-10 lg:py-20">
-          <div className="pg-appear space-y-2 sm:space-y-3">
-            <p className="pg-kicker">My Reservations</p>
-            <h1 className="pg-hero-title">Your Reservations</h1>
-            <p className="pg-body max-w-2xl">Manage your upcoming and past reservations</p>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <Button
-              asChild
-              size="lg"
-              className="pg-action pg-focus-ring pg-touch min-h-[48px] w-full rounded-full bg-primary text-primary-foreground hover:bg-primary/90 sm:w-auto"
-            >
-              <Link href="/restaurants">
-                <Plus className="mr-2 h-5 w-5" />
-                New Booking
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </section>
+      <GuestHero
+        eyebrow="My reservations"
+        title="Upcoming plans and past visits."
+        description="Review reservations, open receipts, and start another booking from the same place."
+        actions={
+          <GuestPrimaryButton href="/restaurants">
+            <Plus className="h-5 w-5" />
+            New booking
+          </GuestPrimaryButton>
+        }
+        compact
+      />
 
       {/* Main Content */}
       <div className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 sm:py-12 lg:px-10">

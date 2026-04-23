@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 const AUTH_NAV_LINKS = [
   { href: '/', label: 'Home' },
   { href: '/restaurants', label: 'Browse' },
-  { href: '/support', label: 'Support' },
+  { href: '/contact', label: 'Support' },
 ];
 
 const MOBILE_MENU_ID = 'auth-navbar-menu';
@@ -90,7 +90,7 @@ export function AuthNavbar() {
         </nav>
 
         <div className="hidden items-center gap-2 sm:flex">
-          <Link href="/support" className={ctaClasses('ghost')}>
+          <Link href="/contact" className={ctaClasses('ghost')}>
             Need help?
           </Link>
           <Link href="/restaurants" className={ctaClasses()}>
@@ -162,7 +162,7 @@ export function AuthNavbar() {
                   Explore tables
                 </Link>
                 <Link
-                  href="/support"
+                  href="/contact"
                   onClick={closeMenu}
                   className={cn(ctaClasses('ghost'), 'w-full justify-center')}
                 >

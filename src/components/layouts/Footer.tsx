@@ -16,9 +16,7 @@ export function Footer({ variant: _variant = 'marketing' }: { variant?: FooterVa
       <div className="guest-boundary flex flex-col gap-3 py-6 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
           <BrandLogo size="sm" showBeta={false} />
-          <p className="pg-caption">
-            Live availability · Instant confirmation · Calendar-ready receipts
-          </p>
+          <p className="pg-caption">Live availability · Instant confirmation · Guest receipts</p>
         </div>
         <nav aria-label="Footer navigation" className="flex flex-wrap gap-3 text-sm">
           <Link
@@ -56,10 +54,7 @@ export function Footer({ variant: _variant = 'marketing' }: { variant?: FooterVa
           <Link href="/privacy" className="transition-colors hover:text-primary">
             Privacy Policy
           </Link>
-          <Link href="#" className="transition-colors hover:text-primary">
-            Terms
-          </Link>
-          <Link href="#" className="transition-colors hover:text-primary">
+          <Link href="/contact" className="transition-colors hover:text-primary">
             Support
           </Link>
         </nav>

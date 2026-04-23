@@ -1,9 +1,13 @@
 # Continuity Ledger
 
-Last updated: 2026-04-23T09:59:53Z
+Last updated: 2026-04-23T12:13:37Z
 
 ## Goal (incl. success criteria)
 
+- Redesign the guest-facing pages from scratch using `GUEST_FACING_DESIGN_SYSTEM.md` and `AGENTS.md`.
+- Success: guest/public pages share a coherent Radix Luma page language without duplicated hero/action/card scaffolding.
+- Success: homepage/marketing, restaurants, public booking, auth, and guest portal surfaces preserve canonical route/data behavior.
+- Success: the work is documented in `tasks/guest-facing-redesign-20260423-1213/` and verified with static checks plus browser proof.
 - Apply the supplied Grand Slam Offer copy to the public Nabatable homepage.
 - Success: homepage visible sections follow Navigation, Hero, Service Cockpit, Blueprint, Profit Stack, Guarantee/Scarcity, FAQ, Final CTA, and Footer copy.
 - Success: implementation stays on canonical `src/components/landing/**` and `src/app/(public)/page.tsx` paths, with task artifacts and browser/static verification.
@@ -73,6 +77,9 @@ Last updated: 2026-04-23T09:59:53Z
 
 ## Constraints/Assumptions
 
+- The current guest-facing redesign request did not include an explicit page list after "following pages"; assume the broad current guest/public route set unless narrowed later.
+- This pass is a UI/composition refactor only; no Supabase or production data changes are needed.
+- Use existing Shadcn/Radix primitives and guest utilities; do not add a new primitive/base component system.
 - Current public/guest design-system migration is organization-first; it preserves old `.guest-theme` compatibility classes and does not intentionally redesign visible routes.
 - Browser proof is deferred for this pass because no route has been visibly migrated to `pg-*` utilities yet; first visible route migration should capture screenshots.
 - Radix Luma adoption is scoped to guest/public surfaces only; shared ops primitives should not be retuned globally unless guarded by guest selectors.
@@ -108,6 +115,8 @@ Last updated: 2026-04-23T09:59:53Z
 
 ## Key decisions
 
+- Add shared guest page compounds under `src/components/guest/ui/` before touching individual pages, so the redesign reduces redundancy instead of multiplying page-local markup.
+- Keep the redesign scoped to `.guest-theme` / `[data-theme='guest']` and leave ops surfaces on the app theme.
 - Public/guest design-system files now live together under `styles/design-system/`: `public-guest.tokens.css`, `public-guest.utilities.css`, and `public-guest.bridge.css`.
 - Keep homepage-specific composition in `src/components/landing/**`; put reusable public/guest compounds in `src/components/guest/ui/**`; keep ops on the `app` theme.
 - The current guest/public visual source of truth is repo-root `GUEST_FACING_DESIGN_SYSTEM.md`.
@@ -129,6 +138,9 @@ Last updated: 2026-04-23T09:59:53Z
 
 ## State
 
+- A new task folder has been created at `tasks/guest-facing-redesign-20260423-1213/` for the guest-facing redesign.
+- Research and plan are populated from current repo inspection: root/guest AGENTS, repo-local Nabatable skills, `GUEST_FACING_DESIGN_SYSTEM.md`, `docs/design-system/public-guest.md`, and current route/component inventory.
+- Implementation and verification are complete for `tasks/guest-facing-redesign-20260423-1213/`: shared guest page compounds were added, guest/public pages were recomposed, focused ESLint/typecheck/build passed, and Chrome DevTools screenshots were captured for `/bookings`, `/restaurants`, `/auth/signin`, plus the `/guest/profile` auth redirect.
 - Phase 4 verification is complete for `tasks/homepage-grand-slam-copy-20260423-0959/`: the supplied Grand Slam Offer homepage copy has been implemented in the canonical public landing components, focused ESLint and TypeScript passed, and Chrome DevTools MCP proof was captured on `localhost:3001`.
 - A new task folder has been created at `tasks/review-findings-menu-editors-gbp-20260422-2033/` for this focused fix pass.
 - The current accepted findings to fix are: GBP fallback redirect missing `/app`, food editor blank-form fallback on detail failure, and drink editor blank-form fallback on detail failure.

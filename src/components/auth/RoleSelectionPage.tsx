@@ -37,23 +37,15 @@ function RoleCard({
   isSelected = false,
   onClick,
 }: RoleCardProps) {
-  const [isHovered, setIsHovered] = useState(false);
-
   const cardContent = (
     <Card
       className={cn(
-        'pg-card relative h-full transition-all duration-300 ease-out',
-        isSelected
-          ? 'border-primary ring-4 ring-primary/10'
-          : 'border-border hover:border-primary/30',
-        isHovered ? '-translate-y-1 shadow-[var(--pg-shadow-md)]' : '',
+        'pg-card pg-card-interactive relative h-full p-6 sm:p-8',
+        isSelected ? 'border-primary ring-4 ring-primary/10' : 'border-border',
       )}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
     >
-      <div className="p-8 h-full flex flex-col">
-        {/* Icon */}
-        <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 transition-all duration-300 ease-out">
+      <div className="flex h-full flex-col gap-6">
+        <div className="flex h-14 w-14 items-center justify-center rounded-[var(--pg-radius-md)] bg-primary/10 transition-all duration-300 ease-out">
           <span
             className={cn(
               'transition-colors duration-300',
@@ -65,12 +57,12 @@ function RoleCard({
           </span>
         </div>
 
-        {/* Title & Description */}
-        <h2 className="heading-section mb-3">{title}</h2>
-        <p className="mb-6 flex-1 text-muted-foreground">{description}</p>
+        <div className="space-y-2">
+          <h2 className="pg-card-title">{title}</h2>
+          <p className="pg-body text-sm">{description}</p>
+        </div>
 
-        {/* Benefits */}
-        <ul className="space-y-3 mb-6" aria-label={`Benefits for ${type}`}>
+        <ul className="flex-1 space-y-3" aria-label={`Benefits for ${type}`}>
           {benefits.map((benefit, index) => (
             <li key={index} className="flex items-start gap-3 text-sm text-muted-foreground">
               <svg
@@ -96,7 +88,7 @@ function RoleCard({
           asChild
           size="lg"
           className={cn(
-            'group w-full rounded-full transition-all duration-300 ease-out',
+            'pg-action pg-focus-ring pg-touch group w-full rounded-full transition-all duration-300 ease-out',
             type === 'guest'
               ? 'bg-primary text-primary-foreground hover:bg-primary/90'
               : 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
@@ -215,16 +207,16 @@ export function RoleSelectionPage({ searchParams }: RoleSelectionPageProps) {
   };
 
   return (
-    <div className="w-full max-w-5xl animate-fade-up">
-      {/* Header */}
+    <div className="w-full max-w-5xl">
       <div className="mb-10 space-y-4 text-center">
+        <p className="pg-kicker">Start here</p>
         <h1 className="pg-hero-title">Choose your path</h1>
         <p className="pg-lead mx-auto max-w-2xl">
-          We help both guests and restaurants. Select the option that matches your needs.
+          Get to the right Nabatable surface without guessing: guest reservations or restaurant
+          operations.
         </p>
       </div>
 
-      {/* Role Cards */}
       <div className="grid md:grid-cols-2 gap-6 lg:gap-8 mb-8">
         <div className="motion-safe:reveal-up">
           <RoleCard {...guestCard} />
@@ -234,7 +226,6 @@ export function RoleSelectionPage({ searchParams }: RoleSelectionPageProps) {
         </div>
       </div>
 
-      {/* Helper Text */}
       <div className="text-center space-y-2">
         <p className="text-sm text-muted-foreground">
           Not sure which to choose?{' '}
