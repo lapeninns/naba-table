@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const generateLink = vi.hoisted(() => vi.fn());
 const sendEmail = vi.hoisted(() => vi.fn());
 
+vi.mock('server-only', () => ({}));
+
 vi.mock('@/server/supabase', () => ({
   getServiceSupabaseClient: () => ({
     auth: {
@@ -15,6 +17,8 @@ vi.mock('@/server/supabase', () => ({
 
 vi.mock('@/libs/resend', () => ({
   sendEmail,
+  createEmailIdempotencyKey: ({ scope, parts }: { scope: string; parts: unknown[] }) =>
+    `${scope}:${parts.join(':')}`,
 }));
 
 vi.mock('@/lib/env', () => ({
@@ -50,6 +54,7 @@ describe('sendAuthMagicLink', () => {
       data: {
         properties: {
           action_link: 'https://supabase.example/auth/v1/verify?token_hash=abc&type=magiclink',
+          hashed_token: 'abc',
           verification_type: 'magiclink',
         },
       },
@@ -75,6 +80,12 @@ describe('sendAuthMagicLink', () => {
     expect(sendEmail).toHaveBeenCalledWith(
       expect.objectContaining({
         to: 'guest@example.com',
+        html: expect.stringContaining(
+          'https://www.nabatable.com/api/auth/callback?redirectedFrom=%2Fguest&amp;token_hash=abc&amp;type=magiclink',
+        ),
+        text: expect.stringContaining(
+          'https://www.nabatable.com/api/auth/callback?redirectedFrom=%2Fguest&token_hash=abc&type=magiclink',
+        ),
       }),
     );
   });
