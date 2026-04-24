@@ -100,10 +100,12 @@ function PrimaryNav({
   currentPath,
   tone,
   links,
+  onRouteIntent,
 }: {
   currentPath: string | null;
   tone: Tone;
   links: NavLink[];
+  onRouteIntent: (href: string) => void;
 }) {
   const isActive = useCallback(
     (href: string) => {
@@ -141,7 +143,13 @@ function PrimaryNav({
                 : 'bg-muted text-foreground shadow-[var(--pg-shadow-xs)] hover:bg-muted'),
           )}
         >
-          <Link href={link.href} aria-current={isActive(link.href) ? 'page' : undefined}>
+          <Link
+            href={link.href}
+            aria-current={isActive(link.href) ? 'page' : undefined}
+            onFocus={() => onRouteIntent(link.href)}
+            onPointerDown={() => onRouteIntent(link.href)}
+            onPointerEnter={() => onRouteIntent(link.href)}
+          >
             {link.label}
           </Link>
         </Button>
@@ -157,6 +165,7 @@ function DesktopActions({
   tone,
   onSignOut,
   isSigningOut,
+  onRouteIntent,
 }: {
   isLoading: boolean;
   isAuthenticated: boolean;
@@ -164,6 +173,7 @@ function DesktopActions({
   tone: Tone;
   onSignOut: () => Promise<void>;
   isSigningOut: boolean;
+  onRouteIntent: (href: string) => void;
 }) {
   return (
     <div className="hidden items-center gap-3 md:flex">
@@ -179,7 +189,14 @@ function DesktopActions({
           size="sm"
           variant="outline"
         >
-          <Link href="/auth">Sign in</Link>
+          <Link
+            href="/auth"
+            onFocus={() => onRouteIntent('/auth')}
+            onPointerDown={() => onRouteIntent('/auth')}
+            onPointerEnter={() => onRouteIntent('/auth')}
+          >
+            Sign in
+          </Link>
         </Button>
       ) : null}
 
@@ -221,6 +238,9 @@ function DesktopActions({
                   <Link
                     href={item.href}
                     className="flex w-full items-center gap-2.5 text-sm font-medium text-foreground/90"
+                    onFocus={() => onRouteIntent(item.href)}
+                    onPointerDown={() => onRouteIntent(item.href)}
+                    onPointerEnter={() => onRouteIntent(item.href)}
                   >
                     {item.icon ? <item.icon className="text-muted-foreground" /> : null}
                     {item.label}
@@ -259,6 +279,7 @@ function MobileMenu({
   account,
   onSignOut,
   isSigningOut,
+  onRouteIntent,
 }: {
   tone: Tone;
   open: boolean;
@@ -268,6 +289,7 @@ function MobileMenu({
   account: AccountSnapshot | null;
   onSignOut: () => Promise<void>;
   isSigningOut: boolean;
+  onRouteIntent: (href: string) => void;
 }) {
   const isActive = useCallback(
     (href: string) => {
@@ -365,7 +387,14 @@ function MobileMenu({
                   size="sm"
                   className="rounded-[var(--pg-radius-pill)]"
                 >
-                  <Link href="/guest/profile">Manage profile</Link>
+                  <Link
+                    href="/guest/profile"
+                    onFocus={() => onRouteIntent('/guest/profile')}
+                    onPointerDown={() => onRouteIntent('/guest/profile')}
+                    onPointerEnter={() => onRouteIntent('/guest/profile')}
+                  >
+                    Manage profile
+                  </Link>
                 </Button>
               </SheetClose>
             </div>
@@ -400,7 +429,12 @@ function MobileMenu({
                           isActive(link.href) && 'border border-border/70 bg-muted',
                         )}
                       >
-                        <Link href={link.href}>
+                        <Link
+                          href={link.href}
+                          onFocus={() => onRouteIntent(link.href)}
+                          onPointerDown={() => onRouteIntent(link.href)}
+                          onPointerEnter={() => onRouteIntent(link.href)}
+                        >
                           {link.icon ? (
                             <link.icon className="text-muted-foreground" aria-hidden />
                           ) : null}
@@ -431,7 +465,14 @@ function MobileMenu({
           ) : (
             <SheetClose asChild>
               <Button asChild variant="outline" className="w-full rounded-[var(--pg-radius-pill)]">
-                <Link href="/auth">Sign in</Link>
+                <Link
+                  href="/auth"
+                  onFocus={() => onRouteIntent('/auth')}
+                  onPointerDown={() => onRouteIntent('/auth')}
+                  onPointerEnter={() => onRouteIntent('/auth')}
+                >
+                  Sign in
+                </Link>
               </Button>
             </SheetClose>
           )}
@@ -458,6 +499,15 @@ export function GuestNavbar({ tone = 'light', isSticky = true }: GuestNavbarProp
 
   const { data: profile, isLoading: isProfileLoading } = useProfile({ enabled: isAuthenticated });
   const primaryLinks = PRIMARY_LINKS;
+  const prefetchRoute = useCallback(
+    (href: string) => {
+      if (!href || href === pathname || href.startsWith('#')) {
+        return;
+      }
+      router.prefetch(href);
+    },
+    [pathname, router],
+  );
 
   const accountSnapshot: AccountSnapshot | null = useMemo(() => {
     if (!isAuthenticated) return null;
@@ -494,6 +544,15 @@ export function GuestNavbar({ tone = 'light', isSticky = true }: GuestNavbarProp
     setIsMobileOpen(false);
   }, [pathname]);
 
+  useEffect(() => {
+    primaryLinks.forEach((link) => prefetchRoute(link.href));
+    if (isAuthenticated) {
+      ACCOUNT_LINKS.forEach((link) => prefetchRoute(link.href));
+    } else {
+      prefetchRoute('/auth');
+    }
+  }, [isAuthenticated, prefetchRoute, primaryLinks]);
+
   const headerToneClasses =
     tone === 'dark'
       ? 'border-b border-white/10 bg-foreground/80 text-background'
@@ -514,7 +573,12 @@ export function GuestNavbar({ tone = 'light', isSticky = true }: GuestNavbarProp
           </div>
 
           <div className="hidden flex-1 items-center justify-end gap-4 md:flex">
-            <PrimaryNav currentPath={pathname ?? null} tone={tone} links={primaryLinks} />
+            <PrimaryNav
+              currentPath={pathname ?? null}
+              tone={tone}
+              links={primaryLinks}
+              onRouteIntent={prefetchRoute}
+            />
             <DesktopActions
               isLoading={isLoadingSession || (isAuthenticated && isProfileLoading)}
               isAuthenticated={isAuthenticated}
@@ -522,6 +586,7 @@ export function GuestNavbar({ tone = 'light', isSticky = true }: GuestNavbarProp
               tone={tone}
               onSignOut={handleSignOut}
               isSigningOut={isSigningOut}
+              onRouteIntent={prefetchRoute}
             />
           </div>
 
@@ -535,6 +600,7 @@ export function GuestNavbar({ tone = 'light', isSticky = true }: GuestNavbarProp
               account={accountSnapshot}
               onSignOut={handleSignOut}
               isSigningOut={isSigningOut}
+              onRouteIntent={prefetchRoute}
             />
           </div>
         </div>

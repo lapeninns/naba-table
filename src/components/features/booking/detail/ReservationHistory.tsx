@@ -23,15 +23,6 @@ const STATUS_LABELS: Record<string, string> = {
   pending_allocation: 'Pending allocation',
 };
 
-const SEATING_LABELS: Record<string, string> = {
-  any: 'No preference',
-  indoor: 'Indoor',
-  outdoor: 'Outdoor',
-  window: 'Window',
-  booth: 'Booth',
-  bar: 'Bar',
-};
-
 function formatChangeValue(change: BookingHistoryChange): string {
   const { field, after } = change;
 
@@ -53,10 +44,6 @@ function formatChangeValue(change: BookingHistoryChange): string {
 
   if (field === 'booking_type' && typeof after === 'string') {
     return formatBookingLabel(after as Parameters<typeof formatBookingLabel>[0]);
-  }
-
-  if (field === 'seating_preference' && typeof after === 'string') {
-    return SEATING_LABELS[after] ?? after;
   }
 
   if (field === 'status' && typeof after === 'string') {
@@ -95,10 +82,6 @@ function formatBeforeValue(change: BookingHistoryChange): string {
 
   if (field === 'booking_type' && typeof before === 'string') {
     return formatBookingLabel(before as Parameters<typeof formatBookingLabel>[0]);
-  }
-
-  if (field === 'seating_preference' && typeof before === 'string') {
-    return SEATING_LABELS[before] ?? before;
   }
 
   if (field === 'status' && typeof before === 'string') {

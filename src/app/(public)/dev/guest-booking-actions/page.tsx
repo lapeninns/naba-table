@@ -27,7 +27,6 @@ const devReservation: Reservation = {
   endAt: '2026-04-29T15:00:00.000Z',
   partySize: 12,
   bookingType: 'lunch',
-  seatingPreference: 'Any',
   status: 'confirmed',
   customerName: 'Aman Shrestha',
   customerEmail: 'aman@example.com',

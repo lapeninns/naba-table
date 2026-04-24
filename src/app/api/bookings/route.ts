@@ -14,7 +14,6 @@ import {
 import { mapValidationFailure, withValidationHeaders } from '@/server/booking/http';
 import {
   BOOKING_TYPES,
-  SEATING_OPTIONS,
   deriveEndTimeFromDuration,
   fetchBookingsForContact,
   buildBookingAuditSnapshot,
@@ -100,6 +99,7 @@ const myBookingsQuerySchema = baseQuerySchema.extend({
 });
 
 const bookingTypeEnum = z.enum(BOOKING_TYPES);
+const DEFAULT_SEATING_PREFERENCE = 'any';
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/i;
 
 const bookingSchema = z.object({
@@ -109,7 +109,6 @@ const bookingSchema = z.object({
   time: z.string().regex(/^\d{2}:\d{2}$/),
   party: z.number().int().min(1),
   bookingType: bookingTypeEnum,
-  seating: z.enum(SEATING_OPTIONS),
   notes: z.string().max(500).optional().nullable(),
   name: z.string().min(2).max(120),
   email: z.string().email(),
@@ -1067,7 +1066,6 @@ export async function POST(req: NextRequest) {
             partySize: data.party,
             durationMinutes,
             bookingOption: normalizedBookingType,
-            seatingPreference: data.seating,
           },
           supabase,
         );
@@ -1119,7 +1117,6 @@ export async function POST(req: NextRequest) {
         partySize: data.party,
         start: `${data.date}T${startTime}:00`,
         durationMinutes,
-        seatingPreference: data.seating,
         notes: data.notes ?? null,
         customerId: customer.id,
         customerName: data.name,
@@ -1201,7 +1198,7 @@ export async function POST(req: NextRequest) {
          customerName: data.name,
          customerEmail: normalizeEmail(data.email),
          customerPhone: data.phone.trim(),
-         seatingPreference: data.seating,
+         seatingPreference: DEFAULT_SEATING_PREFERENCE,
          notes: data.notes ?? null,
          marketingOptIn: data.marketingOptIn ?? false,
          idempotencyKey,
@@ -1310,7 +1307,7 @@ export async function POST(req: NextRequest) {
               end_time: endTime,
               party_size: data.party,
               booking_type: normalizedBookingType,
-              seating_preference: data.seating,
+              seating_preference: DEFAULT_SEATING_PREFERENCE,
               status: 'pending',
               reference,
               customer_name: data.name,

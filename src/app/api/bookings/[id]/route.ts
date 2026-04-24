@@ -16,7 +16,6 @@ import {
 import { mapValidationFailure, withValidationHeaders } from '@/server/booking/http';
 import {
   BOOKING_TYPES,
-  SEATING_OPTIONS,
   buildBookingAuditSnapshot,
   clearBookingTableAssignments,
   deriveEndTimeFromDuration,
@@ -76,7 +75,6 @@ const updateSchema = z.object({
   time: z.string().regex(/^\d{2}:\d{2}$/),
   party: z.number().int().min(1),
   bookingType: bookingTypeEnum,
-  seating: z.enum(SEATING_OPTIONS),
   notes: z.string().max(500).optional().nullable(),
   name: z.string().min(2).max(120),
   email: z.string().email(),
@@ -1317,8 +1315,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       existingBooking.booking_date !== data.date ||
       existingBooking.start_time !== startTime ||
       existingBooking.end_time !== endTime ||
-      existingBooking.party_size !== data.party ||
-      existingBooking.seating_preference !== data.seating;
+      existingBooking.party_size !== data.party;
 
     const updated: Tables<'bookings'> = requiresTableRealignment
       ? await beginBookingModificationFlow({
@@ -1333,7 +1330,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
             end_time: endTime,
             party_size: data.party,
             booking_type: normalizedBookingType,
-            seating_preference: data.seating,
+            seating_preference: existingBooking.seating_preference,
             customer_name: data.name,
             customer_email: normalizedEmail,
             customer_phone: normalizedPhone,
@@ -1348,7 +1345,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
           end_time: endTime,
           party_size: data.party,
           booking_type: normalizedBookingType,
-          seating_preference: data.seating,
+          seating_preference: existingBooking.seating_preference,
           customer_name: data.name,
           customer_email: normalizedEmail,
           customer_phone: normalizedPhone,

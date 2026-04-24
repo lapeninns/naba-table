@@ -15,7 +15,6 @@ import {
   Sparkles,
   User,
   Users,
-  Utensils,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
@@ -232,7 +231,6 @@ export function ReservationDetailClient({
       venueAddress: venue.address,
       venueTimezone: venue.timezone,
       status: calendarStatusFromReservation(reservation.status),
-      seatingPreference: reservation.seatingPreference,
       notes: reservation.notes,
       manageUrl:
         typeof window === 'undefined'
@@ -496,19 +494,12 @@ export function ReservationDetailClient({
             ]}
           />
 
-          <InfoPanel
-            title="Preferences"
-            rows={[
-              {
-                icon: Utensils,
-                label: 'Seating',
-                value: reservation.seatingPreference || 'Standard',
-              },
-              ...(reservation.notes
-                ? [{ icon: MessageSquare, label: 'Special Requests', value: reservation.notes }]
-                : []),
-            ]}
-          />
+          {reservation.notes ? (
+            <InfoPanel
+              title="Preferences"
+              rows={[{ icon: MessageSquare, label: 'Special Requests', value: reservation.notes }]}
+            />
+          ) : null}
 
           <ActionButtonRow>
             <SecondaryButton onClick={handleDownload}>

@@ -59,7 +59,6 @@ const reservation = {
   customerName: 'Guest Booker',
   customerEmail: 'guest@example.com',
   customerPhone: '+441234567890',
-  seatingPreference: 'Indoor',
   reference: 'NB1234',
   createdAt: '2026-04-01T10:00:00.000Z',
 };
@@ -148,6 +147,7 @@ describe('ReservationDetailClient', () => {
         reference: reservation.reference,
         guestEmail: reservation.customerEmail,
         venueName: reservation.restaurantName,
+        notes: reservation.notes,
       }),
     );
     expect(
@@ -177,7 +177,6 @@ describe('ReservationDetailClient', () => {
         guestEmail: reservation.customerEmail,
         partySize: reservation.partySize,
         status: 'confirmed',
-        seatingPreference: reservation.seatingPreference,
         notes: reservation.notes,
       }),
     );

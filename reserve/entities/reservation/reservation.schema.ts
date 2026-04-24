@@ -39,7 +39,6 @@ export const reservationSchema = z.object({
   endAt: z.string().datetime({ offset: true }).nullable().optional(),
   partySize: z.number().int().positive(),
   bookingType: z.enum(['lunch', 'dinner']),
-  seatingPreference: z.string(),
   status: z.string(),
   customerName: z.string(),
   customerEmail: z.union([z.string().email(), z.literal('')]),

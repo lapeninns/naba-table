@@ -12,6 +12,8 @@ import { track } from '@shared/lib/analytics';
 import type { ReservationSubmissionResult } from './types';
 import type { ReservationDraft } from '../model/reducer';
 
+const DEFAULT_OPS_SEATING_PREFERENCE = 'any';
+
 type OpsReservationError = {
   code?: string;
   message?: string;
@@ -43,7 +45,7 @@ export function useCreateOpsReservation() {
         time: draft.time,
         party: draft.party,
         bookingType: draft.bookingType,
-        seating: draft.seating,
+        seating: DEFAULT_OPS_SEATING_PREFERENCE,
         notes: draft.notes ?? undefined,
         name: draft.name,
         email: draft.email ?? undefined,

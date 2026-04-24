@@ -8,7 +8,7 @@ import { emit } from '@/lib/analytics/emit';
 import { BOOKING_IN_PAST_CUSTOMER_MESSAGE } from '@/lib/bookings/messages';
 import { extractBookingSubmissionError, mapErrorToMessage } from '@reserve/shared/error';
 import { useStickyProgress } from '@reserve/shared/hooks/useStickyProgress';
-import { BOOKING_TYPES_UI, SEATING_PREFERENCES_UI } from '@shared/config/booking';
+import { BOOKING_TYPES_UI } from '@shared/config/booking';
 import { runtime } from '@shared/config/runtime';
 
 import { useRememberedContacts } from './useRememberedContacts';
@@ -34,7 +34,6 @@ import type {
 const EMPTY_ACTIONS: StepAction[] = [];
 
 const DEFAULT_BOOKING_OPTION = BOOKING_TYPES_UI[0];
-const DEFAULT_SEATING_OPTION = SEATING_PREFERENCES_UI[0];
 
 const hasMeaningfulDraft = (details: BookingDetails): boolean => {
   return (
@@ -42,7 +41,6 @@ const hasMeaningfulDraft = (details: BookingDetails): boolean => {
     Boolean(details.notes?.trim()?.length) ||
     details.party > 1 ||
     details.bookingType !== DEFAULT_BOOKING_OPTION ||
-    details.seating !== DEFAULT_SEATING_OPTION ||
     Boolean(details.name.trim().length) ||
     Boolean(details.email.trim().length) ||
     Boolean(details.phone.trim().length)

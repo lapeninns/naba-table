@@ -31,9 +31,9 @@ const resolveOrigin = (): string => getTrustedSiteOrigin();
 async function prefetchReservation(
   queryClient: QueryClient,
   reservationId: string,
+  cookieStore: Awaited<ReturnType<typeof cookies>>,
   token?: string | null,
 ) {
-  const cookieStore = await cookies();
   const cookieHeader = cookieHeaderFromStore(cookieStore);
   const origin = resolveOrigin();
 
@@ -95,7 +95,7 @@ export default async function GuestBookingReceiptPage({
   }
 
   const supabase = await getServerComponentSupabaseClient();
-  const userResponse = await supabase.auth.getUser();
+  const [userResponse, cookieStore] = await Promise.all([supabase.auth.getUser(), cookies()]);
   const user = userResponse.data.user;
 
   // Require either auth or token for receipt access
@@ -104,7 +104,7 @@ export default async function GuestBookingReceiptPage({
   }
 
   const queryClient = new QueryClient();
-  const reservation = await prefetchReservation(queryClient, normalized, token);
+  const reservation = await prefetchReservation(queryClient, normalized, cookieStore, token);
   const dehydratedState = dehydrate(queryClient);
 
   return (

@@ -31,7 +31,6 @@ const reservation = {
   customerName: 'Receipt Guest',
   customerEmail: 'receipt@example.com',
   customerPhone: '+441234567891',
-  seatingPreference: 'Indoor',
   reference: 'NB5678',
   createdAt: '2026-04-01T10:00:00.000Z',
 };

@@ -32,7 +32,6 @@ export function useCreateReservation() {
         time: draft.time,
         party: draft.party,
         bookingType: draft.bookingType,
-        seating: draft.seating,
         notes: draft.notes ?? undefined,
         name: draft.name,
         email: draft.email ?? undefined,

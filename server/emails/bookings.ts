@@ -263,7 +263,6 @@ function buildCalendarPayload(
     venuePhone: venue.phone,
     status: booking.status === 'cancelled' ? 'cancelled' : 'confirmed',
     bookingType: booking.booking_type,
-    seatingPreference: booking.seating_preference,
     notes: booking.notes,
     manageUrl: buildBookingManageUrl(booking),
   };

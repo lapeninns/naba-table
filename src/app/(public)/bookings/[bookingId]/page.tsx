@@ -27,8 +27,11 @@ const cookieHeaderFromStore = (cookieStore: Awaited<ReturnType<typeof cookies>>)
 
 const resolveOrigin = (): string => getTrustedSiteOrigin();
 
-async function prefetchReservation(queryClient: QueryClient, reservationId: string) {
-  const cookieStore = await cookies();
+async function prefetchReservation(
+  queryClient: QueryClient,
+  reservationId: string,
+  cookieStore: Awaited<ReturnType<typeof cookies>>,
+) {
   const cookieHeader = cookieHeaderFromStore(cookieStore);
   const origin = resolveOrigin();
 
@@ -106,7 +109,7 @@ export default async function BookingDetailPage({
   const queryClient = new QueryClient();
   // Prefetch only when authenticated or recovery cookie provided
   if (user || hasRecoveryCookie) {
-    await prefetchReservation(queryClient, normalized);
+    await prefetchReservation(queryClient, normalized, cookieStore);
   }
   const dehydratedState = dehydrate(queryClient);
   const initialNow = Date.now();

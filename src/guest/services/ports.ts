@@ -29,7 +29,6 @@ export type BookingDTO = {
   reservationIntervalMinutes?: number | null;
   reference?: string | null;
   source?: string | null;
-  seatingPreference?: string | null;
   allergies?: string[] | null;
   dietaryRestrictions?: string[] | null;
   tableAssignments?: {

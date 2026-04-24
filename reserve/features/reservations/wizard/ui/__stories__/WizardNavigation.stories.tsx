@@ -15,8 +15,8 @@ const steps: WizardStepMeta[] = [
 
 const summary: WizardSummary = {
   primary: 'Tuesday, Mar 15',
-  details: ['7:00 PM', '2 guests', 'Inside seating'],
-  srLabel: 'Dinner on March 15 at 7 PM for two guests. Inside seating',
+  details: ['7:00 PM', '2 guests'],
+  srLabel: 'Dinner on March 15 at 7 PM for two guests.',
 };
 
 const actions: StepAction[] = [
