@@ -1,4 +1,3 @@
-
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -64,9 +63,11 @@ describe('public restaurant marketing pages', () => {
       },
     ]);
 
-    render(await RestaurantsPage());
+    render(await RestaurantsPage({ searchParams: Promise.resolve({}) }));
 
-    expect(screen.getByRole('heading', { name: 'Find the right table fast.' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Pick the right table, then book without a detour.' }),
+    ).toBeInTheDocument();
     expect(screen.getByText('The Fox')).toBeInTheDocument();
     expect(screen.getByText('The Owl')).toBeInTheDocument();
   });
@@ -74,9 +75,9 @@ describe('public restaurant marketing pages', () => {
   it('shows empty state when no restaurants are available', async () => {
     listRestaurantsMock.mockResolvedValueOnce([]);
 
-    render(await RestaurantsPage());
+    render(await RestaurantsPage({ searchParams: Promise.resolve({}) }));
 
-    expect(screen.getByText('No restaurants found')).toBeInTheDocument();
+    expect(screen.getByText('No restaurants match that search')).toBeInTheDocument();
   });
 
   it('renders restaurant detail hero and contact info', async () => {
@@ -99,9 +100,9 @@ describe('public restaurant marketing pages', () => {
   it('returns notFound when restaurant detail is missing', async () => {
     getRestaurantBySlugMock.mockResolvedValueOnce(null);
 
-    await expect(
-      RestaurantPage({ params: Promise.resolve({ slug: 'missing' }) }),
-    ).rejects.toThrow('NEXT_NOT_FOUND');
+    await expect(RestaurantPage({ params: Promise.resolve({ slug: 'missing' }) })).rejects.toThrow(
+      'NEXT_NOT_FOUND',
+    );
     expect(notFound).toHaveBeenCalled();
   });
 
@@ -114,7 +115,9 @@ describe('public restaurant marketing pages', () => {
       address: '1 High Street',
     });
 
-    const { container } = render(await BookingPage({ params: Promise.resolve({ slug: 'the-fox' }) }));
+    const { container } = render(
+      await BookingPage({ params: Promise.resolve({ slug: 'the-fox' }) }),
+    );
 
     expect(screen.getByText('Wizard for The Fox')).toBeInTheDocument();
     expect(container.querySelector('main')).not.toBeInTheDocument();
@@ -123,9 +126,9 @@ describe('public restaurant marketing pages', () => {
   it('returns notFound when booking restaurant is missing', async () => {
     getRestaurantBySlugMock.mockResolvedValueOnce(null);
 
-    await expect(
-      BookingPage({ params: Promise.resolve({ slug: 'missing' }) }),
-    ).rejects.toThrow('NEXT_NOT_FOUND');
+    await expect(BookingPage({ params: Promise.resolve({ slug: 'missing' }) })).rejects.toThrow(
+      'NEXT_NOT_FOUND',
+    );
     expect(notFound).toHaveBeenCalled();
   });
 });

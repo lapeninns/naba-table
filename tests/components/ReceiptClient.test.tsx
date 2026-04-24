@@ -57,11 +57,15 @@ describe('ReceiptClient', () => {
 
     expect(screen.getByText('The Fox')).toBeInTheDocument();
     expect(screen.getByText('NB5678')).toBeInTheDocument();
-    expect(screen.getByText('Save this receipt for easier check-in when you arrive.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Your confirmation, arrival details, and shareable reference are ready.'),
+    ).toBeInTheDocument();
     expect(screen.getByText('receipt@example.com')).toBeInTheDocument();
     expect(screen.getByText('Party')).toBeInTheDocument();
     expect(screen.getByText('4')).toBeInTheDocument();
-    expect(screen.getByText('Sign in to manage bookings faster.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Sign in to keep receipts and manage bookings in one place.'),
+    ).toBeInTheDocument();
   });
 
   it('shows the fallback error state when the receipt cannot be loaded', () => {
@@ -73,7 +77,9 @@ describe('ReceiptClient', () => {
 
     render(<ReceiptClient reservationId={reservation.id} hasSession prefetchedStatus={null} />);
 
-    expect(screen.getByText("We couldn't load your receipt. Please try the link again.")).toBeInTheDocument();
+    expect(
+      screen.getByText("We couldn't load your receipt. Please try the link again."),
+    ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'View my bookings' })).toHaveAttribute(
       'href',
       '/guest/bookings',

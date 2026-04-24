@@ -184,16 +184,12 @@ test.describe('reserve routes', () => {
 
   test('reserve root shows plan step', async ({ page }) => {
     await page.goto('/');
-    await expect(
-      page.getByRole('heading', { name: 'When would you like to join us?' }),
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Plan your table' })).toBeVisible();
   });
 
   test('reserve new alias shows plan step', async ({ page }) => {
     await page.goto('/new');
-    await expect(
-      page.getByRole('heading', { name: 'When would you like to join us?' }),
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Plan your table' })).toBeVisible();
   });
 
   test('reserve reservation details stub renders id', async ({ page }) => {

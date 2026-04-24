@@ -1,3 +1,5 @@
+import { GuestLayout } from '@/components/layouts/GuestLayout';
+
 import { GuestBookingsDevHarness } from './ui/GuestBookingsDevHarness';
 import { enforceDevOnly } from '../_shared/enforceDevOnly';
 
@@ -8,5 +10,9 @@ export const metadata = {
 export default function GuestBookingsDevPage() {
   enforceDevOnly();
 
-  return <GuestBookingsDevHarness />;
+  return (
+    <GuestLayout>
+      <GuestBookingsDevHarness />
+    </GuestLayout>
+  );
 }
