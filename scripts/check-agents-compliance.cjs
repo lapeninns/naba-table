@@ -14,6 +14,9 @@
  
  const ROOT = process.cwd();
  const REQUIRED_TASK_FILES = ['research.md', 'plan.md', 'todo.md', 'verification.md'];
+ const ROOT_AGENTS_LINE_BUDGET = 200;
+ const NESTED_AGENTS_LINE_BUDGET = 250;
+ const BANNED_SECTIONS_IN_ROOT = ['RACI', 'CODEOWNERS', '```bash\n#', 'PR_TEMPLATE'];
  
  let hasErrors = false;
  let hasWarnings = false;
@@ -39,9 +42,19 @@
      error('Missing required root /AGENTS.md (exact casing).');
      return false;
    }
-   info('Root AGENTS.md found.');
+   const content = fs.readFileSync(rootAgentsPath, 'utf8');
+   const lineCount = content.split('\n').length;
+   if (lineCount > ROOT_AGENTS_LINE_BUDGET) {
+     warn(`Root AGENTS.md is ${lineCount} lines (budget: ${ROOT_AGENTS_LINE_BUDGET}). Consider moving detail to docs/agents/.`);
+   }
+   for (const banned of BANNED_SECTIONS_IN_ROOT) {
+     if (content.includes(banned)) {
+       warn(`Root AGENTS.md contains banned section pattern: "${banned}". Move to docs/ or canonical location.`);
+     }
+   }
+   info(`Root AGENTS.md found (${lineCount} lines).`);
    return true;
- }
+   }
  
  // 2. Validate nested AGENTS.md files
  function* walkForAgentsMd(dir) {
@@ -71,14 +84,18 @@
      const hasScope = /scope:\s*subproject\b/.test(content);
      const hasExtends = /extends:\s+(\.\.\/)+AGENTS\.md\b/.test(content);
  
+     const lineCount = content.split('\n').length;
      if (!hasScope) {
        error(`${agentsPath}: Missing 'scope: subproject' in frontmatter.`);
      }
      if (!hasExtends) {
        error(`${agentsPath}: Missing valid 'extends: ../../AGENTS.md' path in frontmatter.`);
      }
+     if (lineCount > NESTED_AGENTS_LINE_BUDGET) {
+       warn(`${agentsPath}: ${lineCount} lines (budget: ${NESTED_AGENTS_LINE_BUDGET}). Consider trimming.`);
+     }
      if (hasScope && hasExtends) {
-       info(`Nested AGENTS.md valid: ${agentsPath}`);
+       info(`Nested AGENTS.md valid: ${agentsPath} (${lineCount} lines)`);
      }
    }
    if (nestedCount === 0) {
