@@ -10,6 +10,12 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: 'bg-primary text-primary-foreground hover:bg-primary/90',
+        'guest-primary':
+          'rounded-[var(--pg-radius-pill)] border border-transparent bg-[var(--pg-action)] text-[var(--pg-action-contrast)] shadow-[var(--pg-shadow-button)] hover:bg-[var(--pg-action-hover)]',
+        'guest-outline':
+          'rounded-[var(--pg-radius-pill)] border-[color:var(--pg-border)] bg-[color:var(--pg-bg)] text-[color:var(--pg-text)] shadow-none hover:bg-[color:var(--pg-bg-muted)]',
+        'guest-ghost':
+          'rounded-[var(--pg-radius-pill)] border border-transparent bg-transparent text-[color:var(--pg-action)] shadow-none hover:bg-[color:color-mix(in_srgb,var(--pg-action)_10%,transparent)]',
         destructive:
           'bg-destructive text-white shadow-xs hover:bg-destructive/90 dark:bg-destructive/60',
         outline:
@@ -22,6 +28,8 @@ const buttonVariants = cva(
         default: 'h-9 px-4 py-2 has-[>svg]:px-3',
         sm: 'h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5',
         lg: 'h-10 rounded-md px-6 has-[>svg]:px-4',
+        'guest-sm': 'h-9 rounded-[var(--pg-radius-pill)] px-3.5 text-sm has-[>svg]:px-3',
+        'guest-lg': 'h-11 rounded-[var(--pg-radius-pill)] px-5 text-sm font-semibold has-[>svg]:px-4',
         icon: 'size-9',
         'icon-sm': 'size-8',
         'icon-lg': 'size-10',

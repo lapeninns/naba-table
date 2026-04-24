@@ -68,7 +68,7 @@ export function AuthNavbar() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="guest-boundary flex w-full max-w-4xl items-center justify-between gap-4 py-4 sm:py-5">
+      <div className="pg-container flex w-full items-center justify-between gap-4 py-4 sm:py-5">
         <BrandLogo href="/auth" size="sm" />
 
         <nav

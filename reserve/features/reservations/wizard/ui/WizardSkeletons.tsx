@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader } from '@shared/ui/card';
 
 export function PlanStepSkeleton() {
   return (
-    <Card className="mx-auto w-full max-w-[80vw]">
+    <Card className="pg-card mx-auto w-full max-w-4xl">
       <CardHeader className="space-y-4">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-4 w-72" />
@@ -25,7 +25,7 @@ export function PlanStepSkeleton() {
 
 export function DetailsStepSkeleton() {
   return (
-    <Card className="mx-auto w-full max-w-[80vw]">
+    <Card className="pg-card mx-auto w-full max-w-4xl">
       <CardHeader className="space-y-4">
         <Skeleton className="h-8 w-52" />
         <Skeleton className="h-4 w-80" />
@@ -51,7 +51,7 @@ export function DetailsStepSkeleton() {
 
 export function ReviewStepSkeleton() {
   return (
-    <Card className="mx-auto w-full max-w-[80vw]">
+    <Card className="pg-card mx-auto w-full max-w-4xl">
       <CardHeader className="space-y-4">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-4 w-64" />
@@ -73,7 +73,7 @@ export function ReviewStepSkeleton() {
 
 export function ConfirmationStepSkeleton() {
   return (
-    <Card className="mx-auto w-full max-w-[80vw]">
+    <Card className="pg-card mx-auto w-full max-w-4xl">
       <CardHeader className="space-y-4">
         <div className="flex items-center gap-3">
           <Skeleton className="h-6 w-6 rounded-full" />

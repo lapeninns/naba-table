@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useCallback, useMemo, useState, type MouseEvent, type ReactNode } from 'react';
 
-import { ThemeProvider } from '@/components/providers/ThemeProvider';
 import { Alert, AlertDescription, AlertIcon, AlertTitle } from '@/components/ui/alert';
 import {
   Sidebar,
@@ -51,52 +50,50 @@ export function OpsSidebarLayout({
   envBanner,
 }: OpsSidebarLayoutProps) {
   return (
-    <ThemeProvider theme="app">
-      <OpsUnsavedChangesProvider>
-        <SidebarProvider defaultOpen={defaultSidebarOpen} className="bg-background">
-          <OpsSidebarPanel />
-          <SidebarRail />
-          <SidebarInset className="bg-background">
-            <a
-              href="#ops-content"
-              className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[40] focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:shadow"
-            >
-              Skip to content
-            </a>
-            <div className="flex h-14 items-center gap-3 border-b border-border/60 px-4 sm:px-6">
-              <SidebarTrigger className="-ml-1" aria-label="Toggle navigation menu" />
-              {headerSlot ? (
-                <div className="flex-1 truncate text-sm font-medium text-muted-foreground">
-                  {headerSlot}
-                </div>
-              ) : null}
-            </div>
-            {envBanner ? (
-              <Alert
-                variant="warning"
-                className="mx-4 mt-3 shrink-0 sm:mx-6"
-                role="status"
-                aria-live="polite"
-              >
-                <AlertIcon>
-                  <Info className="h-4 w-4" aria-hidden />
-                </AlertIcon>
-                <AlertTitle>Environment notice</AlertTitle>
-                <AlertDescription>{envBanner}</AlertDescription>
-              </Alert>
+    <OpsUnsavedChangesProvider>
+      <SidebarProvider defaultOpen={defaultSidebarOpen} className="bg-background">
+        <OpsSidebarPanel />
+        <SidebarRail />
+        <SidebarInset className="bg-background">
+          <a
+            href="#ops-content"
+            className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[40] focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:shadow"
+          >
+            Skip to content
+          </a>
+          <div className="flex h-14 items-center gap-3 border-b border-border/60 px-4 sm:px-6">
+            <SidebarTrigger className="-ml-1" aria-label="Toggle navigation menu" />
+            {headerSlot ? (
+              <div className="flex-1 truncate text-sm font-medium text-muted-foreground">
+                {headerSlot}
+              </div>
             ) : null}
-            {/* <OpsOfflineIndicator /> */}
-            <div
-              id="ops-content"
-              tabIndex={-1}
-              className="flex min-w-0 flex-1 flex-col overflow-x-hidden"
+          </div>
+          {envBanner ? (
+            <Alert
+              variant="warning"
+              className="mx-4 mt-3 shrink-0 sm:mx-6"
+              role="status"
+              aria-live="polite"
             >
-              {children}
-            </div>
-          </SidebarInset>
-        </SidebarProvider>
-      </OpsUnsavedChangesProvider>
-    </ThemeProvider>
+              <AlertIcon>
+                <Info className="h-4 w-4" aria-hidden />
+              </AlertIcon>
+              <AlertTitle>Environment notice</AlertTitle>
+              <AlertDescription>{envBanner}</AlertDescription>
+            </Alert>
+          ) : null}
+          {/* <OpsOfflineIndicator /> */}
+          <div
+            id="ops-content"
+            tabIndex={-1}
+            className="flex min-w-0 flex-1 flex-col overflow-x-hidden"
+          >
+            {children}
+          </div>
+        </SidebarInset>
+      </SidebarProvider>
+    </OpsUnsavedChangesProvider>
   );
 }
 

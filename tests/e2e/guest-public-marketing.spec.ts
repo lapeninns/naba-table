@@ -22,14 +22,4 @@ test.describe('guest marketing pages', () => {
     await expect(page.getByText('Effective date:', { exact: false })).toBeVisible();
   });
 
-  test('restaurant thank-you redirect lands on canonical page', async ({ page }) => {
-    await page.goto(`/restaurants/${restaurantSlug}/thank-you`, { waitUntil: 'domcontentloaded' });
-
-    await page.waitForURL(
-      `${appBaseUrl}/restaurants/${restaurantSlug}/book/thank-you`,
-      { timeout: 20_000, waitUntil: 'domcontentloaded' },
-    );
-    await expect(page.getByRole('heading', { name: 'Reservation confirmed!' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'View my bookings' })).toBeVisible();
-  });
 });

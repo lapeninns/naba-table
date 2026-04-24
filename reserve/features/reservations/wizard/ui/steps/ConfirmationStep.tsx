@@ -52,9 +52,6 @@ export function ConfirmationStep(props: ConfirmationStepProps) {
         contentClassName="space-y-6"
       >
         <div className="space-y-6">
-          {/* Status Banner - REMOVED redundant GuestStatus, using WizardStep header instead */}
-
-          {/* Actions Bar (Add to Calendar, Directions) */}
           {status !== 'pending' && reservationWindow && (
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-700 delay-200">
               <BookingConfirmationActions
@@ -69,7 +66,6 @@ export function ConfirmationStep(props: ConfirmationStepProps) {
             </div>
           )}
 
-          {/* Feedback Alert - Only show if transient/error or if unrelated to main status */}
           {controller.feedback &&
             (controller.feedback.variant !== 'success' || !status.match(/confirmed|updated/)) && (
               <Alert
@@ -101,50 +97,31 @@ export function ConfirmationStep(props: ConfirmationStepProps) {
               </Alert>
             )}
 
-          {/* Reservation Details Card */}
-          <div className="pg-card animate-in fade-in slide-in-from-bottom-4 p-5 duration-700 delay-300">
-            <dl className="grid gap-6 sm:grid-cols-2">
-              <div>
-                <dt className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
-                  Reference
-                </dt>
-                <dd className="mt-1 text-lg font-mono font-semibold text-foreground tracking-tight">
-                  {controller.reference}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
-                  Guest
-                </dt>
-                <dd className="mt-1 text-base font-semibold text-foreground">
-                  {controller.guestName}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
-                  When
-                </dt>
-                <dd className="mt-1 text-base font-medium text-foreground">
-                  {controller.summaryDate}
-                  <span className="block text-sm text-muted-foreground">
-                    {controller.summaryTime}
-                  </span>
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
-                  Size
-                </dt>
-                <dd className="mt-1 text-base font-medium text-foreground">
-                  {controller.partyText}
-                </dd>
-              </div>
+          <div className="pg-panel animate-in overflow-hidden fade-in slide-in-from-bottom-4 duration-700 delay-300">
+            <div className="border-b border-border/70 bg-muted/40 px-5 py-4 sm:px-6">
+              <p className="pg-kicker">Keep this reference</p>
+              <p className="mt-1 font-[var(--pg-font-mono)] text-2xl font-semibold tracking-tight text-foreground">
+                {controller.reference}
+              </p>
+            </div>
+            <dl className="grid gap-0 divide-y divide-border/60 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+              {[
+                ['Guest', controller.guestName],
+                ['When', `${controller.summaryDate} · ${controller.summaryTime}`],
+                ['Size', controller.partyText],
+              ].map(([label, value]) => (
+                <div key={label} className="p-5 sm:p-6">
+                  <dt className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    {label}
+                  </dt>
+                  <dd className="mt-2 text-base font-semibold text-foreground">{value}</dd>
+                </div>
+              ))}
             </dl>
           </div>
 
-          {/* Links / Info */}
           {status !== 'pending' && (
-            <p className="text-center text-xs text-muted-foreground pt-4">
+            <p className="rounded-[var(--pg-radius-md)] border border-border bg-muted/40 px-4 py-3 text-center text-xs text-muted-foreground">
               Need to make changes? You can manage your booking via the link sent to your email.
             </p>
           )}

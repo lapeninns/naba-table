@@ -3,9 +3,10 @@
 import { MinusIcon, PlusIcon, UsersIcon } from 'lucide-react';
 import React from 'react';
 
+import { MAX_ONLINE_PARTY_SIZE, MIN_ONLINE_PARTY_SIZE } from '@/lib/bookings/partySize';
+import { cn } from '@shared/lib/cn';
 import { Button } from '@shared/ui/button';
 import { FormDescription, FormItem, FormMessage } from '@shared/ui/form';
-import { Label } from '@shared/ui/label';
 
 const DESCRIPTION = "Tables for 12+? Give us a call and we'll help you out.";
 
@@ -18,8 +19,18 @@ export type PartySizeFieldProps = {
 export function PartySizeField({ value, onChange, error }: PartySizeFieldProps) {
   const [isAnimating, setIsAnimating] = React.useState(false);
   const labelId = React.useId();
+  const descriptionId = React.useId();
+  const canDecrement = value > MIN_ONLINE_PARTY_SIZE;
+  const canIncrement = value < MAX_ONLINE_PARTY_SIZE;
+  const partyLabel = value === 1 ? 'guest' : 'guests';
 
   const handleChange = (direction: 'decrement' | 'increment') => {
+    if (direction === 'decrement' && !canDecrement) {
+      return;
+    }
+    if (direction === 'increment' && !canIncrement) {
+      return;
+    }
     setIsAnimating(true);
     onChange(direction);
     setTimeout(() => setIsAnimating(false), 200);
@@ -27,49 +38,65 @@ export function PartySizeField({ value, onChange, error }: PartySizeFieldProps) 
 
   return (
     <FormItem className="space-y-3">
-      <Label id={labelId} className="flex items-center gap-1.5 text-sm font-semibold sm:text-base">
+      <div
+        id={labelId}
+        className="flex items-center gap-1.5 px-1 text-sm font-semibold sm:text-base"
+      >
         <UsersIcon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
         <span>Party size</span>
-      </Label>
-      <div className="flex items-center gap-4 sm:gap-5" role="group" aria-labelledby={labelId}>
+      </div>
+      <div
+        className={cn(
+          'grid h-12 w-full grid-cols-[44px_minmax(0,1fr)_44px] items-center overflow-hidden rounded-[var(--pg-radius-md)] border border-border bg-background shadow-[var(--pg-shadow-soft)] transition-colors focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/25 sm:grid-cols-[56px_minmax(0,1fr)_56px]',
+          error && 'border-destructive ring-1 ring-destructive/20',
+        )}
+        role="group"
+        aria-labelledby={labelId}
+        aria-describedby={descriptionId}
+      >
         <Button
           type="button"
-          variant="outline"
+          variant="ghost"
           size="icon"
           onClick={() => handleChange('decrement')}
+          disabled={!canDecrement}
           aria-label="Decrease guests"
-          className="h-12 w-12 shrink-0 transition-all hover:bg-primary/10 hover:border-primary/60 active:scale-95"
+          className="h-full w-full shrink-0 rounded-none border-r border-border/70 text-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-35 active:scale-95"
         >
           <MinusIcon className="h-5 w-5" aria-hidden="true" />
         </Button>
         <div
-          className="flex min-w-[60px] items-center justify-center"
+          className="flex h-8 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap px-1.5"
           aria-live="polite"
           aria-atomic="true"
+          aria-label={`${value} ${partyLabel}`}
         >
           <span
-            className={`text-2xl font-bold text-foreground tabular-nums transition-transform duration-200 sm:text-3xl ${
+            className={`text-[1.35rem] font-semibold leading-none tabular-nums text-foreground transition-transform duration-200 sm:text-2xl ${
               isAnimating ? 'scale-110' : 'scale-100'
             }`}
           >
             {value}
           </span>
-          <span className="ml-2 text-sm text-muted-foreground font-normal sm:text-base">
-            {value === 1 ? 'guest' : 'guests'}
+          <span className="text-[0.8rem] font-medium leading-none text-muted-foreground sm:text-sm">
+            {partyLabel}
           </span>
         </div>
         <Button
           type="button"
-          variant="outline"
+          variant="ghost"
           size="icon"
           onClick={() => handleChange('increment')}
+          disabled={!canIncrement}
           aria-label="Increase guests"
-          className="h-12 w-12 shrink-0 transition-all hover:bg-primary/10 hover:border-primary/60 active:scale-95"
+          className="h-full w-full shrink-0 rounded-none border-l border-border/70 text-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-35 active:scale-95"
         >
           <PlusIcon className="h-5 w-5" aria-hidden="true" />
         </Button>
       </div>
-      <FormDescription className="text-xs sm:text-sm">{DESCRIPTION}</FormDescription>
+      <FormDescription id={descriptionId} className="px-1 text-xs sm:text-[0.8rem]">
+        {DESCRIPTION}
+      </FormDescription>
       <FormMessage>{error}</FormMessage>
     </FormItem>
   );

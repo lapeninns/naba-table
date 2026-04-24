@@ -243,7 +243,7 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
       emit('auth_magiclink_sent', { redirectedFrom: response.redirectTo ?? targetPath });
 
       setStatus({
-        message: 'Magic link sent! Check your inbox to finish signing in.',
+        message: 'Magic link sent. Check your inbox to finish signing in.',
         tone: 'success',
         live: 'assertive',
       });
@@ -283,23 +283,17 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
           onLoad={() => setCaptchaScriptReady(true)}
         />
       ) : null}
-      {/* Header */}
-      <div className="space-y-2 text-center">
-        <h2 className="pg-card-title">Sign in to your account</h2>
-        <p className="pg-caption">We&apos;ll send you a secure magic link—no password needed</p>
-      </div>
 
-      {/* Form */}
       <Form {...form}>
         <form className="space-y-5" onSubmit={onSubmit} noValidate>
           <FormField
             control={form.control}
             name="email"
             render={({ field }) => (
-              <FormItem>
+              <FormItem className="space-y-2">
                 <FormLabel
                   htmlFor="guest-signin-email"
-                  className="text-sm font-medium text-foreground"
+                  className="text-sm font-semibold text-foreground"
                 >
                   Email address
                 </FormLabel>
@@ -316,7 +310,7 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
                       inputMode="email"
                       autoComplete="email"
                       placeholder="you@example.com"
-                      className="pg-focus-ring h-12 rounded-[var(--pg-radius-md)] border-border bg-background pl-12 text-base touch-manipulation"
+                      className="pg-focus-ring h-12 rounded-[var(--pg-radius-md)] border-border bg-background pl-12 text-base shadow-[var(--pg-shadow-xs)] touch-manipulation"
                       style={{ fontSize: '16px' }}
                     />
                   </div>
@@ -326,7 +320,6 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
             )}
           />
 
-          {/* Status Message */}
           {status && (
             <div ref={statusRef} tabIndex={-1} className="focus:outline-none">
               <GuestStatus
@@ -342,7 +335,7 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
             <div className="space-y-2">
               <div
                 ref={captchaContainerRef}
-                className="min-h-[70px] rounded-[var(--pg-radius-md)] border border-border bg-muted p-2"
+                className="min-h-[70px] rounded-[var(--pg-radius-md)] border border-border/80 bg-muted/35 p-2"
                 data-testid="guest-signin-turnstile"
               />
               <p className="pg-caption">Complete verification to enable magic-link delivery.</p>
@@ -370,8 +363,7 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
         </form>
       </Form>
 
-      {/* Helper Text */}
-      <div className="text-center text-xs leading-relaxed text-muted-foreground">
+      <p className="text-center text-xs leading-relaxed text-muted-foreground">
         By signing in, you agree to receive secure sign-in emails and to our{' '}
         <a
           href="/privacy"
@@ -379,7 +371,7 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
         >
           Privacy Policy
         </a>
-      </div>
+      </p>
     </div>
   );
 }

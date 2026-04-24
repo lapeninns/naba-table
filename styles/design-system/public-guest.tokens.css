@@ -7,6 +7,8 @@
 @layer base {
   [data-theme='guest'],
   .guest-theme {
+    color-scheme: light;
+
     /* Radix Luma semantic shadcn tokens. */
     --background: 0 0% 100%;
     --foreground: 240 10% 4%;
@@ -107,13 +109,13 @@
 
     /* Type scale. */
     --font-sajilo:
-      var(--font-radix-luma-body), Inter, ui-sans-serif, system-ui, -apple-system,
+      var(--font-radix-luma-body, Inter), ui-sans-serif, system-ui, -apple-system,
       BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    --pg-font-display: var(--font-radix-luma-display), Merriweather, Georgia, serif;
+    --pg-font-display: var(--font-radix-luma-display, Merriweather), Georgia, serif;
     --pg-font-body:
-      var(--font-radix-luma-body), Inter, ui-sans-serif, system-ui, -apple-system,
+      var(--font-radix-luma-body, Inter), ui-sans-serif, system-ui, -apple-system,
       BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    --pg-font-mono: var(--font-radix-luma-mono), 'Geist Mono', ui-monospace, monospace;
+    --pg-font-mono: var(--font-radix-luma-mono, 'Geist Mono'), ui-monospace, monospace;
     --pg-text-kicker: 0.75rem;
     --pg-text-caption: 0.875rem;
     --pg-text-body: 1rem;
@@ -182,6 +184,51 @@
     --pg-ease-snap: cubic-bezier(0.34, 1.56, 0.64, 1);
     --ease-out: var(--pg-ease-spring);
     --ease-in-out: var(--pg-ease-out);
+
+    /* Legacy guest aliases retained for compatibility during cleanup. */
+    --guest-space-xs: 0.5rem;
+    --guest-space-sm: 0.75rem;
+    --guest-space-md: 1rem;
+    --guest-space-lg: 1.5rem;
+    --guest-space-xl: 2rem;
+    --guest-space-2xl: 4rem;
+    --guest-space-3xl: 6rem;
+    --guest-section-gap: var(--pg-section-y);
+    --guest-section-padding-x: var(--pg-gutter);
+    --guest-section-padding-y: var(--pg-section-y);
+    --guest-card-padding: 1.5rem;
+    --guest-content-gap: var(--pg-grid-gap);
+    --guest-text-hero: var(--pg-text-hero);
+    --guest-text-hero-lg: var(--pg-text-hero);
+    --guest-text-page: var(--pg-text-section);
+    --guest-text-section: 1.5rem;
+    --guest-text-card: 1.25rem;
+    --guest-text-body: var(--pg-text-body);
+    --guest-text-caption: var(--pg-text-caption);
+    --guest-text-micro: 0.75rem;
+    --guest-leading-tight: var(--pg-leading-tight);
+    --guest-leading-snug: 1.35;
+    --guest-leading-normal: var(--pg-leading-body);
+    --guest-leading-relaxed: var(--pg-leading-body);
+    --guest-radius-sm: var(--pg-radius-xs);
+    --guest-radius-md: var(--pg-radius-sm);
+    --guest-radius-lg: var(--pg-radius-md);
+    --guest-radius-xl: var(--pg-radius-lg);
+    --guest-radius-2xl: var(--pg-radius-xl);
+    --guest-radius-full: var(--pg-radius-pill);
+    --guest-shadow-xs: var(--pg-shadow-xs);
+    --guest-shadow-sm: var(--pg-shadow-sm);
+    --guest-shadow-md: var(--pg-shadow-md);
+    --guest-shadow-lg: var(--pg-shadow-lg);
+    --guest-shadow-xl: var(--shadow-xl);
+    --guest-shadow-glow: var(--pg-shadow-button);
+    --guest-transition-fast: var(--pg-duration-fast) var(--pg-ease-out);
+    --guest-transition-base: var(--pg-duration) var(--pg-ease-out);
+    --guest-transition-slow: var(--pg-duration-slow) var(--pg-ease-spring);
+    --guest-transition-transform: transform var(--pg-duration) var(--pg-ease-spring);
+    --guest-hover-lift: -2px;
+    --guest-hover-scale: 1.02;
+    --guest-active-scale: 0.98;
   }
 
   [data-theme='guest'].dark,

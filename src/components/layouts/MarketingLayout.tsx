@@ -1,7 +1,6 @@
 import { Footer } from '@/components/layouts/Footer';
 import { GuestBackground } from '@/components/layouts/GuestBackground';
 import { GuestNavbar } from '@/components/layouts/GuestNavbar';
-import { ThemeProvider } from '@/components/providers/ThemeProvider';
 
 type MarketingLayoutProps = {
   children: React.ReactNode;
@@ -15,17 +14,15 @@ export function MarketingLayout({
   showFooter = true,
 }: MarketingLayoutProps) {
   return (
-    <ThemeProvider theme="guest">
-      <div className="guest-theme pg-page relative min-h-[100dvh] text-foreground">
-        <GuestBackground />
-        <div className="relative z-10 flex min-h-[100dvh] flex-col">
-          {showNavbar ? <GuestNavbar /> : null}
-          <main id="main-content" className="flex-1">
-            {children}
-          </main>
-          {showFooter ? <Footer variant="marketing" /> : null}
-        </div>
+    <div className="guest-theme pg-page relative min-h-[100dvh] text-foreground">
+      <GuestBackground />
+      <div className="relative z-10 flex min-h-[100dvh] flex-col">
+        {showNavbar ? <GuestNavbar /> : null}
+        <main id="main-content" className="flex-1">
+          {children}
+        </main>
+        {showFooter ? <Footer variant="marketing" /> : null}
       </div>
-    </ThemeProvider>
+    </div>
   );
 }

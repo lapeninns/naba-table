@@ -33,6 +33,7 @@ export function NotesField({ value, onChange, onBlur, error }: NotesFieldProps) 
       <FormControl>
         <Textarea
           id={notesId}
+          name="reservation-notes"
           placeholder="Birthday, accessibility needs, allergies…"
           value={value}
           onChange={(event) => onChange(event.target.value)}

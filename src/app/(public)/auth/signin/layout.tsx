@@ -1,9 +1,5 @@
-import { EnhancedAuthLayout } from '@/components/layouts/EnhancedAuthLayout';
+import { AuthLayout } from '@/components/layouts/AuthLayout';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-  return (
-    <EnhancedAuthLayout variant="guest" defaultRedirect="/guest/dashboard">
-      {children}
-    </EnhancedAuthLayout>
-  );
+  return <AuthLayout>{children}</AuthLayout>;
 }

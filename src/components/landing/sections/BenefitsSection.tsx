@@ -49,26 +49,31 @@ const BENEFITS = [
 
 export function BenefitsSection() {
   return (
-    <section id="value-stack" className="pg-section border-b border-border bg-background">
+    <section id="value-stack" className="pg-section border-b border-border/70 bg-muted/30">
       <div className="pg-container">
-        <div className="mx-auto mb-10 flex max-w-3xl flex-col items-center gap-3 text-center sm:mb-12 sm:gap-4 md:mb-14 lg:mb-16 motion-safe:reveal-up">
-          <Badge variant="secondary" className="pg-chip">
+        <div className="pg-panel mb-6 flex flex-col items-start gap-4 rounded-[var(--pg-radius-xl)] border-primary/15 bg-background/92 p-5 text-left shadow-[var(--pg-shadow-soft)] sm:mb-8 sm:p-6 md:p-7 motion-safe:reveal-up">
+          <Badge variant="guest-chip" className="pg-chip">
             The Profit Stack
           </Badge>
-          <h2 className="pg-section-title">
-            Everything you need for record-breaking, stress-free shifts.
-          </h2>
-          <p className="pg-lead">
-            We don&apos;t just give you software; we install a complete revenue-protection system.
-          </p>
-          <div className="flex flex-wrap justify-center gap-2 pt-1">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[7fr_5fr] lg:gap-8">
+            <div>
+              <h2 className="pg-section-title">
+                Everything you need for record-breaking, stress-free shifts.
+              </h2>
+              <p className="pg-lead mt-3">
+                We don&apos;t just give you software; we install a complete revenue-protection
+                system.
+              </p>
+            </div>
+            <div className="flex flex-wrap content-start gap-2 pt-1 lg:justify-end">
             {['No lock-in contracts', 'Full transparent logging', '100% White-Glove Setup'].map(
               (item) => (
-                <Badge key={item} variant="outline" className="pg-chip bg-muted">
+                <Badge key={item} variant="guest-chip-outline" className="pg-chip bg-muted">
                   {item}
                 </Badge>
               ),
             )}
+            </div>
           </div>
         </div>
 
@@ -79,14 +84,13 @@ export function BenefitsSection() {
               <Card
                 key={benefit.title}
                 className={cn(
-                  'pg-card group motion-safe:reveal-up',
+                  'group overflow-hidden border-border/70 bg-background/96 shadow-[var(--pg-shadow-xs)] motion-safe:reveal-up',
                   isFeatured
-                    ? 'pg-panel border-primary/20 sm:col-span-2 lg:col-span-3'
-                    : 'hover:border-border/80',
+                    ? 'pg-panel border-primary/20 bg-[linear-gradient(180deg,hsl(var(--primary)/0.08),hsl(var(--background)))] sm:col-span-2 lg:col-span-3'
+                    : 'pg-card hover:border-border/80',
                 )}
-                style={{ transitionDelay: `${index * 100}ms` }}
               >
-                <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0 p-4 sm:p-5 md:p-6">
+                <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0 border-b border-border/60 bg-muted/25 p-4 sm:p-5 md:p-6">
                   <div className="pg-card flex size-12 shrink-0 items-center justify-center rounded-xl text-primary transition duration-200 ease-out group-hover:rotate-3 group-hover:scale-105 group-hover:bg-primary group-hover:text-primary-foreground">
                     <Icon name={benefit.icon} className="size-6" />
                   </div>
@@ -94,7 +98,7 @@ export function BenefitsSection() {
                     {benefit.value}
                   </Badge>
                 </CardHeader>
-                <CardContent className="flex flex-col gap-2 px-4 pb-4 pt-0 sm:px-5 sm:pb-5 md:px-6 md:pb-6">
+                <CardContent className="flex flex-col gap-2 px-4 pb-4 pt-4 sm:px-5 sm:pb-5 md:px-6 md:pb-6">
                   <CardTitle className="pg-card-title text-left">{benefit.title}</CardTitle>
                   <p className="text-sm leading-relaxed text-muted-foreground sm:text-base">
                     {benefit.description}

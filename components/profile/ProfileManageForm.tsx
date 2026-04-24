@@ -9,9 +9,8 @@ import React from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
-import { GuestCard, GuestSection, GuestStatus } from '@/components/guest/ui';
+import { GuestCard, GuestSection, GuestStatus } from '@/components/guest/ui/GuestPrimitives';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useGuestProfile } from '@/guest/hooks';
@@ -21,7 +20,6 @@ import { emit } from '@/lib/analytics/emit';
 import { HttpError } from '@/lib/http/errors';
 import { profilePhoneSchema } from '@/lib/profile/schema';
 import { queryKeys } from '@/lib/query/keys';
-import { cn } from '@/lib/utils';
 
 import type { ProfileResponse } from '@/lib/profile/schema';
 

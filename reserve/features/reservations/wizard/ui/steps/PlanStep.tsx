@@ -58,8 +58,8 @@ function getMinSelectableDate(timezone: string | null | undefined) {
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
 
-const TITLE = 'When would you like to join us?';
-const DESCRIPTION = 'Select your preferred date, time, and party size below.';
+const TITLE = 'Plan your table';
+const DESCRIPTION = 'Choose the party size, date, and time before we ask for contact details.';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types

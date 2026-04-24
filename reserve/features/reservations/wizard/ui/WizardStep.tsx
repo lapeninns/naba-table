@@ -29,7 +29,8 @@ export interface WizardStepProps {
 const STEP_CONTAINER_CLASSES = cn('mx-auto w-full', 'pg-appear');
 
 const CARD_CLASSES = cn(
-  'pg-card',
+  'pg-panel border-border/80 bg-background/92 shadow-[var(--pg-shadow-floating)]',
+  'overflow-hidden',
   'focus-visible:outline-none',
   'focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2',
 );
@@ -47,31 +48,31 @@ interface TitleSectionProps {
 
 function TitleSection({ titleId, title, description, icon }: TitleSectionProps) {
   return (
-    <div className="flex items-start gap-3 sm:items-center">
-      {/* Icon */}
-      {icon && (
+    <div className="flex items-start gap-3">
+      {icon ? (
         <span
           className={cn(
-            'shrink-0 text-primary',
-            'flex h-9 w-9 items-center justify-center',
-            'rounded-lg bg-primary/10',
-            'sm:h-10 sm:w-10',
+            'flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--pg-radius-md)] border border-primary/15 bg-primary/10 text-primary',
           )}
           aria-hidden
         >
           {icon}
         </span>
-      )}
-
-      {/* Title + Description */}
+      ) : null}
       <div className="min-w-0 flex-1">
-        <CardTitle id={titleId} role="heading" aria-level={2} className="pg-card-title">
+        <CardTitle
+          id={titleId}
+          role="heading"
+          aria-level={2}
+          className="pg-card-title text-balance"
+        >
           {title}
         </CardTitle>
-
-        {description && (
-          <CardDescription className="pg-caption mt-1">{description}</CardDescription>
-        )}
+        {description ? (
+          <CardDescription className="pg-caption mt-1 max-w-[62ch] text-pretty">
+            {description}
+          </CardDescription>
+        ) : null}
       </div>
     </div>
   );
@@ -90,7 +91,7 @@ export function WizardStep({
   contentClassName,
   icon,
 }: WizardStepProps) {
-  const { currentStep } = useWizardContext();
+  const { currentStep, totalSteps } = useWizardContext();
   const isActive = currentStep === step;
   const stepRef = React.useRef<HTMLDivElement | null>(null);
   const titleId = React.useId();
@@ -108,10 +109,10 @@ export function WizardStep({
     }
     // Delay focus slightly to ensure animations complete
     const timer = setTimeout(() => {
-      node.focus();
+      node.focus({ preventScroll: step === 1 });
     }, 100);
     return () => clearTimeout(timer);
-  }, [isActive]);
+  }, [isActive, step]);
 
   return (
     <section
@@ -121,14 +122,22 @@ export function WizardStep({
       className={STEP_CONTAINER_CLASSES}
     >
       <Card ref={stepRef} tabIndex={-1} className={cn(CARD_CLASSES, className)}>
-        {/* Header: Title + Description (no progress - it's in the nav bar) */}
-        <CardHeader className="px-4 py-4 sm:px-6 sm:py-5">
+        <CardHeader className="border-b border-border/70 bg-[linear-gradient(180deg,rgba(250,250,250,0.92),rgba(255,255,255,0.98))] px-4 py-4 sm:px-6">
           <TitleSection titleId={titleId} title={title} description={description} icon={icon} />
+          {totalSteps > 1 ? (
+            <p className="sr-only">
+              Step {step} of {totalSteps}.
+            </p>
+          ) : null}
         </CardHeader>
 
-        {/* Content Area */}
         <CardContent
-          className={cn('space-y-4 px-4 pb-5', 'sm:space-y-5 sm:px-6 sm:pb-6', contentClassName)}
+          className={cn(
+            'space-y-4 px-4 pb-5 pt-4',
+            'sm:space-y-5 sm:px-6 sm:pb-6 sm:pt-5',
+            'lg:px-7 lg:pb-7',
+            contentClassName,
+          )}
         >
           {children}
         </CardContent>

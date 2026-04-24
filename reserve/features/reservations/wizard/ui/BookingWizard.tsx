@@ -32,12 +32,15 @@ function LoadingFallback({ layoutElement = 'main' }: { layoutElement?: 'main' | 
   const Container = layoutElement === 'div' ? 'div' : 'main';
 
   return (
-    <Container className="pg-surface flex min-h-screen w-full items-center justify-center px-4 py-12">
-      <div className="pg-body space-y-3 text-center">
-        <Loader2 className="mx-auto h-8 w-8 animate-spin" aria-hidden />
-        <p className="text-base" role="status">
-          Loading reservation flow…
+    <Container className="pg-page flex min-h-[100dvh] w-full items-center justify-center px-4 py-12">
+      <div className="pg-panel w-full max-w-sm space-y-4 p-6 text-center">
+        <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <Loader2 className="h-6 w-6 animate-spin" aria-hidden />
+        </span>
+        <p className="text-base font-semibold text-foreground" role="status">
+          Preparing the booking flow
         </p>
+        <p className="pg-caption">Checking venue, availability, and guest details.</p>
       </div>
     </Container>
   );

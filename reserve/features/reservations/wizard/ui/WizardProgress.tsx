@@ -70,6 +70,7 @@ export function WizardProgress({
           <Progress
             value={progressValue}
             className="h-1.5 flex-1 rounded-full bg-muted"
+            aria-label="Booking progress"
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={Math.round(progressValue)}

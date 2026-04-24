@@ -4,6 +4,7 @@ import { type CSSProperties, type ReactNode } from 'react';
 
 import ClientLayout from '@/components/LayoutClient';
 import config from '@/config';
+import { APP_THEME_PATH_PATTERN } from '@/lib/theme/documentTheme';
 import { getSEOTags } from '@/libs/seo';
 
 import './globals.css';
@@ -48,18 +49,23 @@ const htmlStyle: CSSProperties = {
   marginRight: '0px',
 };
 
+const documentThemeBootstrapScript = `(function(){var root=document.documentElement;var path=window.location.pathname||'/';var host=window.location.hostname||'';var normalized=(path.split('?')[0]||'/').replace(/\\/+$/,'')||'/';var appThemeHostRegex=new RegExp('^app(?:\\\\.|-)');var appThemePathRegex=new RegExp(${JSON.stringify(APP_THEME_PATH_PATTERN)});var theme=(appThemeHostRegex.test(host)||appThemePathRegex.test(normalized))?'app':'guest';root.setAttribute('data-theme',theme);if(theme==='guest'){root.classList.remove('dark');root.style.colorScheme='light';}else{root.style.removeProperty('color-scheme');}})();`;
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
       lang={config.locale ?? 'en'}
+      data-theme="guest"
       className={`${radixLumaDisplay.variable} ${radixLumaBody.variable} ${radixLumaMono.variable} antialiased font-sans`}
       style={htmlStyle}
+      suppressHydrationWarning
     >
-      {config.domainName && (
-        <head>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: documentThemeBootstrapScript }} />
+        {config.domainName ? (
           <PlausibleProvider domain={config.domainName} />
-        </head>
-      )}
+        ) : null}
+      </head>
       <body className="relative font-sans" suppressHydrationWarning>
         {/* ClientLayout contains all the client wrappers (Crisp chat support, tooltips, etc.) */}
         <AppProviders initialSession={null}>

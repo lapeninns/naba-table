@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React from 'react';
 
 import { WizardDependenciesProvider, type WizardDependencies } from '../di';
 import { BookingWizard } from './BookingWizard';
@@ -32,15 +32,13 @@ export function ReservationWizard({
   className,
   contentClassName,
 }: ReservationWizardProps = {}) {
-  const normalizedReturnPath = useMemo(() => returnPath ?? '/guest/thank-you', [returnPath]);
-
   return (
     <WizardDependenciesProvider value={dependencies}>
       <BookingWizard
         initialDetails={initialDetails}
         mode={mode}
         layoutElement={layoutElement}
-        returnPath={normalizedReturnPath}
+        returnPath={returnPath}
         navigationClassName={navigationClassName}
         className={className}
         contentClassName={contentClassName}

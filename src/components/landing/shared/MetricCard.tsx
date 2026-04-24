@@ -89,8 +89,11 @@ export function MetricCard({ metric, reduceMotion }: MetricCardProps) {
   }
 
   return (
-    <Card variant="compact" className="pg-card transition-all duration-200">
-      <CardHeader className="flex flex-col gap-0 space-y-0 p-4 sm:p-5 md:p-6">
+    <Card
+      variant="compact"
+      className="pg-panel overflow-hidden border-primary/15 bg-background/95 shadow-[var(--pg-shadow-xs)] transition-all duration-200"
+    >
+      <CardHeader className="flex flex-col gap-0 space-y-0 border-b border-border/60 bg-muted/35 p-4 sm:p-5 md:p-6">
         <div className="mb-3 flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary sm:mb-4">
           <Icon name={metric.icon} className="size-6" />
         </div>
@@ -104,9 +107,11 @@ export function MetricCard({ metric, reduceMotion }: MetricCardProps) {
           {metric.label}
         </p>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3 p-4 pt-0 sm:p-5 sm:pt-0 md:p-6 md:pt-0">
+      <CardContent className="flex flex-col gap-3 p-4 sm:p-5 md:p-6">
         <Separator />
-        <p className="font-mono text-xs text-muted-foreground">{metric.detail}</p>
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
+          {metric.detail}
+        </p>
       </CardContent>
     </Card>
   );

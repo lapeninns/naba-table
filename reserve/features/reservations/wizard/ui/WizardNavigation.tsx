@@ -137,8 +137,8 @@ const ActionButton = React.memo(function ActionButton({ action, role }: ActionBu
       aria-busy={isLoading}
       data-testid={`wizard-action-${action.id}`}
       className={cn(
-        // Base: Equal flex distribution, 44px height on mobile, 48px on desktop
-        'pg-action pg-focus-ring flex-1 h-11 rounded-full sm:flex-none sm:h-12',
+        // Base: 44px height on mobile, 48px on desktop
+        'pg-action pg-focus-ring h-11 min-w-[7.25rem] flex-none rounded-full sm:h-12',
         // Typography - responsive sizing (smaller on mobile to fit)
         'text-xs font-semibold sm:text-sm',
         // GPU-accelerated transitions (transform + opacity only)
@@ -304,22 +304,22 @@ export function WizardNavigation({
 
           {/* ─────────────────────────────────────────────────────────────────
               MIDDLE/BOTTOM: Progress + Buttons
-              Mobile: Stacked (progress row, then buttons row)
-              Desktop: Inline (progress expands, buttons on right)
+              Mobile: Compact inline controls
+              Desktop: Inline with full progress treatment
           ───────────────────────────────────────────────────────────────── */}
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {/* Progress indicator with progress bar */}
             <WizardProgress
               steps={steps}
               currentStep={currentStep}
               summary={summary}
-              className="min-w-0 flex-1"
+              className="min-w-0 flex-1 [&_[role=progressbar]]:hidden [&_.tabular-nums]:hidden sm:[&_[role=progressbar]]:block sm:[&_.tabular-nums]:inline"
             />
 
-            {/* Action Buttons - fill width equally on mobile */}
+            {/* Action Buttons */}
             {hasActions && (
               <div
-                className="flex w-full items-stretch gap-2 sm:w-auto sm:shrink-0"
+                className="flex w-auto shrink-0 items-stretch gap-2"
                 role="group"
                 aria-label="Step actions"
               >

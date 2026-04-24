@@ -6,7 +6,7 @@ export default function BookingsLoading() {
       <div className="pg-container space-y-6">
         <div className="space-y-2">
           <Skeleton className="h-10 w-56" />
-          <Skeleton className="h-5 w-80" />
+          <Skeleton className="h-5 w-full max-w-xs" />
         </div>
         <div className="flex gap-3">
           <Skeleton className="h-10 w-28" />

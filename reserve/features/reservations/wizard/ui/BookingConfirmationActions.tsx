@@ -62,17 +62,22 @@ export function BookingConfirmationActions({
   };
 
   return (
-    <div className="flex flex-wrap gap-3">
-      {/* Get Directions */}
-      <Button variant="outline" className="flex-1 sm:flex-none gap-2" onClick={handleGetDirections}>
+    <div className="flex flex-wrap gap-3 rounded-[var(--pg-radius-md)] border border-border bg-muted/40 p-3">
+      <Button
+        variant="outline"
+        className="pg-action flex-1 gap-2 rounded-full bg-background sm:flex-none"
+        onClick={handleGetDirections}
+      >
         <MapPinIcon className="h-4 w-4" />
         Directions
       </Button>
 
-      {/* Add to Calendar Dropdown */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="flex-1 sm:flex-none gap-2">
+          <Button
+            variant="outline"
+            className="pg-action flex-1 gap-2 rounded-full bg-background sm:flex-none"
+          >
             <CalendarIcon className="h-4 w-4" />
             Add to Calendar
           </Button>
@@ -110,10 +115,9 @@ export function BookingConfirmationActions({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Print / More Actions */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="shrink-0">
+          <Button variant="ghost" size="icon" className="shrink-0 rounded-full">
             <MoreHorizontalIcon className="h-4 w-4" />
             <span className="sr-only">More actions</span>
           </Button>

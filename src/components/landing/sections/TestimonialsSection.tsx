@@ -61,10 +61,10 @@ export function TestimonialsSection() {
   return (
     <section
       id="testimonials"
-      className="pg-section border-b border-border bg-background text-foreground"
+      className="pg-section border-b border-border/70 bg-muted/30 text-foreground"
     >
       <div className="pg-container">
-        <div className="mb-10 flex flex-col gap-8 sm:mb-12 md:mb-14 lg:mb-16 lg:grid lg:grid-cols-[5fr_7fr] lg:items-end lg:gap-10 xl:gap-12">
+        <div className="mb-10 flex flex-col gap-8 rounded-[var(--pg-radius-xl)] border border-primary/15 bg-background/92 p-5 shadow-[var(--pg-shadow-soft)] sm:mb-12 sm:p-6 md:mb-14 lg:grid lg:grid-cols-[5fr_7fr] lg:items-end lg:gap-10 xl:gap-12">
           <div className="flex flex-col gap-3 sm:gap-4">
             <h2 className="pg-section-title">Proof it works.</h2>
             <p className="pg-lead">Food-led pubs using Nab a Table to print money.</p>
@@ -73,7 +73,7 @@ export function TestimonialsSection() {
             {OBJECTION_POINTS.map((point) => (
               <Badge
                 key={point}
-                variant="outline"
+                variant="guest-chip-outline"
                 className="pg-chip border-border bg-muted px-3 py-1.5 text-xs font-medium sm:text-sm"
               >
                 <span className="inline-flex items-center gap-1.5">
@@ -90,8 +90,10 @@ export function TestimonialsSection() {
             return (
               <Card
                 key={testimonial.venue}
-                className={cn('pg-card text-foreground motion-safe:reveal-up')}
-                style={{ transitionDelay: `${index * 80}ms` }}
+                className={cn(
+                  'overflow-hidden border-border/70 bg-background/96 text-foreground shadow-[var(--pg-shadow-xs)] motion-safe:reveal-up',
+                  index % 3 === 0 ? 'pg-panel border-primary/15' : 'pg-card',
+                )}
               >
                 <CardContent className="flex flex-col gap-4 p-5 sm:gap-5 sm:p-6 md:gap-6 md:p-7 lg:p-8">
                   <div className="flex text-primary">
@@ -107,7 +109,7 @@ export function TestimonialsSection() {
                     &quot;{testimonial.quote}&quot;
                   </blockquote>
                 </CardContent>
-                <CardFooter className="border-t border-border/70 px-5 pb-5 pt-0 sm:px-6 sm:pb-6 md:px-7 md:pb-7 lg:px-8 lg:pb-8">
+                <CardFooter className="border-t border-border/70 bg-muted/20 px-5 pb-5 pt-3 sm:px-6 sm:pb-6 md:px-7 md:pb-7 lg:px-8 lg:pb-8">
                   <p className="text-sm font-bold text-foreground sm:text-base">
                     {testimonial.venue}
                   </p>

@@ -41,7 +41,6 @@ The design system serves **two surfaces**:
 | `styles/themes/app.css`                           | App theme compact spacing and text scale                                                              |
 | `styles/design-system/public-guest.tokens.css`    | Radix Luma public/guest-scoped `--pg-*` tokens for homepage, booking, auth, and guest portal surfaces |
 | `styles/design-system/public-guest.utilities.css` | Radix Luma public/guest-scoped `pg-*` layout, type, surface, focus, and motion utilities              |
-| `styles/design-system/public-guest.bridge.css`    | Compatibility guest classes retuned to Radix Luma while existing pages migrate to `pg-*`              |
 | `tailwind.config.js`                              | Tailwind extensions — colors, typography, spacing, animations                                         |
 | `components.json`                                 | shadcn/ui configuration                                                                               |
 | `lib/utils.ts`                                    | `cn()` helper (clsx + tailwind-merge)                                                                 |
@@ -247,13 +246,13 @@ All headings (`h1`–`h6`): `font-weight: 600`, `letter-spacing: -0.02em`, `scro
 
 #### Containers
 
-| Utility                           | Max Width                  | Source                        |
-| --------------------------------- | -------------------------- | ----------------------------- |
-| `.container-narrow`               | 48rem (768px)              | `src/app/globals.css:899-902` |
-| `.container-default`              | 70rem (1120px)             | `src/app/globals.css:904-907` |
-| `.container-wide`                 | 90rem (1440px)             | `src/app/globals.css:909-912` |
-| `.guest-page` / `.guest-boundary` | 70rem + responsive padding | `src/app/globals.css:919-948` |
-| `.sr-container`                   | min(100%, 72rem)           | `styles/tokens.css:78-81`     |
+| Utility                              | Max Width                   | Source                                            |
+| ------------------------------------ | --------------------------- | ------------------------------------------------- |
+| `.container-narrow`                  | 48rem (768px)               | `src/app/globals.css:899-902`                     |
+| `.container-default`                 | 70rem (1120px)              | `src/app/globals.css:904-907`                     |
+| `.container-wide`                    | 90rem (1440px)              | `src/app/globals.css:909-912`                     |
+| `.pg-container` / `.pg-container-sm` | Radix Luma guest containers | `styles/design-system/public-guest.utilities.css` |
+| `.sr-container`                      | min(100%, 72rem)            | `styles/tokens.css:78-81`                         |
 
 #### Breakpoints
 
@@ -626,7 +625,6 @@ styles/
 ├── design-system/
 │   ├── public-guest.tokens.css  ← Public/guest token layer
 │   ├── public-guest.utilities.css ← Public/guest pg-* utility layer
-│   └── public-guest.bridge.css  ← Existing guest compatibility classes
 └── themes/
     ├── app.css                  ← App theme overrides
     ├── guest.css                ← Guest palette

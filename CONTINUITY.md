@@ -1,13 +1,57 @@
 # Continuity Ledger
 
-Last updated: 2026-04-23T12:13:37Z
+Last updated: 2026-04-24T12:15:00Z
 
 ## Goal (incl. success criteria)
 
+- Audit all guest-facing pages/routes and their shared components for responsive/mobile-first behavior.
+- Success: route inventory is rebuilt from the live `src/app` tree.
+- Success: component ownership and responsive-risk areas are categorized.
+- Success: browser breakpoint proof covers representative guest/public routes across mobile, tablet, laptop, and desktop widths.
+- Success: findings and artifacts are stored in `tasks/guest-responsive-audit-20260424-1136/`.
+- Success: confirmed responsive regressions are fixed in the canonical guest/public files and fresh 320px/375px/768px proof is recorded.
+- Polish `http://localhost:3000/restaurants/the-old-crown-girton/book` to a 10/10 focused booking page.
+- Success: the shared guest navbar/footer do not collide with the wizard on focused booking routes.
+- Success: the time select stays controlled after hydration and no Select warning appears in a fresh browser probe.
+- Success: the party-size value stays readable at a 319px mobile viewport, including the 12 guests edge case.
+- Success: mobile/tablet/desktop screenshots and Chrome DevTools MCP proof are recorded in `tasks/booking-page-component-audit-20260424-1100/`.
+- Redesign `http://localhost:3000/bookings` and `http://localhost:3000/guest/profile` using `GUEST_FACING_DESIGN_SYSTEM.md` and `AGENTS.md`.
+- Success: `/bookings` is a compact public booking hub for booking a table or signing in to manage bookings, with no internal route-map/recovery-mechanics content.
+- Success: `/guest/profile` is a compact contact-details form plus account summary, with no hero/stat treatment and preserved validation/save behavior.
+- Success: auth-gated profile behavior is preserved, with guarded `/dev/guest-profile` proof for unauthenticated DevTools.
+- Success: task artifacts and browser/Chrome DevTools proof are recorded in `tasks/bookings-profile-redesign-20260424-1024/`.
+- Redesign `http://localhost:3000/guest/dashboard` using `GUEST_FACING_DESIGN_SYSTEM.md` and `AGENTS.md`.
+- Success: `/guest/dashboard` is a compact guest booking/account home with no hero, stat grid, favorites rail, or duplicated empty-state CTAs.
+- Success: booking/profile data hooks, auth redirect behavior, loading/empty/error/success states, and guest Radix Luma styling are preserved.
+- Success: task artifacts and browser/Chrome DevTools proof are recorded in `tasks/guest-dashboard-redesign-20260424-1010/`.
+- Redesign `http://localhost:3000/auth` using `GUEST_FACING_DESIGN_SYSTEM.md` and `AGENTS.md`.
+- Success: `/auth` is a simplified Radix Luma guest-facing role-selection screen, guest sign-in is primary, owner sign-in and public browsing remain available without extra routing/trust/support content, existing redirects/search-param behavior is preserved, and browser/DevTools proof is recorded in `tasks/auth-role-selection-redesign-20260424-0939/`.
+- Success: `/auth/signin` is a compact guest magic-link sign-in screen with no hero/metric/support-panel content, copy aligned to reservation email plus bookings/receipts/profile access, and browser/DevTools proof recorded in `tasks/auth-role-selection-redesign-20260424-0939/`.
+- Analyze current guest-facing shared/owned components against the shadcn-first Radix Luma design-system contract, without runtime changes.
+- Success: canonical guest/public route entries are inventoried, reachable component categories are counted, shadcn-backed vs custom/legacy outliers are identified, and a follow-on migration order is documented in `tasks/guest-component-shadcn-audit-20260423-1833/`.
+- Migrate the identified guest-facing component outliers so owned guest/wizard compounds are composed from shadcn primitives instead of custom primitive markup.
+- Success: `src/components/guest/ui/**` feedback states and compatibility helpers are shadcn-backed; reservation wizard Plan/Details/Review panels use a shadcn `Card`-based `WizardPanel`; visible time chips use shadcn `ToggleGroup`; browser proof uses dev harness pages where auth is required.
 - Redesign the guest-facing pages from scratch using `GUEST_FACING_DESIGN_SYSTEM.md` and `AGENTS.md`.
 - Success: guest/public pages share a coherent Radix Luma page language without duplicated hero/action/card scaffolding.
 - Success: homepage/marketing, restaurants, public booking, auth, and guest portal surfaces preserve canonical route/data behavior.
 - Success: the work is documented in `tasks/guest-facing-redesign-20260423-1213/` and verified with static checks plus browser proof.
+- Replatform the guest/public frontend from the UI composition layer down while preserving auth, data, API, and booking business rules.
+- Success: guest portal dashboard, bookings list, booking detail shared components, receipt, profile, booking hub, and guest chrome use the rebuilt shared guest compounds.
+- Success: `/guest/bookings/[bookingId]/receipt` now has a dedicated redesigned frontend with a guarded `/dev/guest-receipt` proof harness.
+- Success: remaining guest/public contact, privacy, auth role/sign-in, restaurant booking wrapper, restaurant thank-you, guest loading/error states, homepage, internal booking wizard steps, and recovery edge states use the same rebuilt guest system.
+- Success: the work is documented in `tasks/guest-frontend-replatform-20260423-1232/` and verified with focused ESLint, typecheck, build, and Chrome DevTools MCP proof.
+- Success: the old guest-specific boundary layout class is removed from guest-facing runtime/styles/docs and replaced by native `pg-container` / `pg-container-sm` design-system utilities.
+- Success: the booking wizard time selector uses the compact scrollable shadcn/Radix select interaction again, styled with the current Radix Luma guest system.
+- Success: `/restaurants/[slug]/book` now behaves like a focused booking workspace with no route hero, and the step-one shell/layout has been rebuilt mobile-first inside the current guest design system.
+- Success: the guest/public shared component layer now has a broader redesign pass across shared shells, guest panels, metric/action cards, restaurant discovery cards, auth framing, booking history/detail compounds, and receipt/list micro-panels.
+- Success: representative browser proof covers the refreshed component system on `/`, `/restaurants`, `/auth/signin`, `/dev/guest-bookings`, and `/dev/guest-receipt`.
+- Success: a follow-on hardcoded-polish audit consolidated repeated inset cards, panel headers, and guest utility tiles into shared guest helpers, leaving only minimal workflow-specific local styling in the audited guest/public paths.
+- Success: the homepage is back on the older B2B “Packed House Pub System” copy and section structure while still rendering through the current guest/public design-system implementation layer.
+- Success: the focused booking flow now suppresses the shared guest navbar/footer on `/restaurants/[slug]/book` and `/restaurants/[slug]/book/thank-you`, so the wizard owns the mobile/desktop chrome without collisions.
+- Success: affected guest-facing content pages have been moved back onto the native shared `GuestPageFrame` shell, restoring mobile-first spacing and responsive layout behavior through one shared page wrapper.
+- Success: guest/public routes now get their theme from an SSR-first root `data-theme` bootstrap plus client route sync, removing the hydration-time handoff from the deleted `ThemeProvider`.
+- Success: legacy guest theme imports (`styles/themes/guest.css`, `styles/themes/guest-enhanced.css`) are no longer part of the runtime path; guest/public surfaces now rely on the canonical `styles/design-system/public-guest.*` layer.
+- Success: the homepage keeps the older B2B copy but now renders with a fuller guest-facing Radix Luma presentation across hero, blueprint, metrics, proof, guarantee, FAQ, CTA, navbar, and footer instead of a mostly monochrome placeholder treatment.
 - Apply the supplied Grand Slam Offer copy to the public Nabatable homepage.
 - Success: homepage visible sections follow Navigation, Hero, Service Cockpit, Blueprint, Profit Stack, Guarantee/Scarcity, FAQ, Final CTA, and Footer copy.
 - Success: implementation stays on canonical `src/components/landing/**` and `src/app/(public)/page.tsx` paths, with task artifacts and browser/static verification.
@@ -77,9 +121,27 @@ Last updated: 2026-04-23T12:13:37Z
 
 ## Constraints/Assumptions
 
+- User approved fixing the real responsive issues from the guest responsive audit.
+- Fix scope is limited to homepage mobile nav/hero clipping, restaurant detail hero media clipping, and guest dashboard/bookings loading skeleton overflow risk.
+- Auth-gated guest routes may use existing guarded dev harnesses for component proof while preserving real redirect behavior separately.
+- Current `/bookings` and `/guest/profile` redesign is UI/composition-only; no Supabase or production data changes are needed.
+- `/guest/profile` is auth-gated; use the real route when an authenticated browser session exists, and the guarded `/dev/guest-profile` harness for unauthenticated Chrome DevTools proof.
+- Current `/guest/dashboard` redesign is UI/composition-only; no Supabase or production data changes are needed.
+- `/guest/dashboard` is auth-gated; use the real route when an authenticated browser session exists, and the guarded `/dev/guest-dashboard` harness for unauthenticated Chrome DevTools proof.
+- The current component audit is analysis-only and scoped to guest-facing routes under `src/app/(public)/**` and `src/app/guest/**`; dev harnesses and ops routes are excluded.
+- Custom guest components are acceptable only as product-specific compounds on top of shadcn/Radix primitives and Radix Luma guest tokens; custom primitive/base systems should be folded into the guest compound layer.
 - The current guest-facing redesign request did not include an explicit page list after "following pages"; assume the broad current guest/public route set unless narrowed later.
 - This pass is a UI/composition refactor only; no Supabase or production data changes are needed.
 - Use existing Shadcn/Radix primitives and guest utilities; do not add a new primitive/base component system.
+- `.guest-theme` remains the guest token scope only; container sizing should come from `pg-container` / `pg-container-sm`, not a separate guest-specific boundary class.
+- The booking wizard time selector should remain compact; avoid exposing every available time as a full inline grid unless the user explicitly asks for that layout.
+- The booking route should prioritize the booking workspace over marketing chrome; restaurant context should be compact and embedded in the wizard shell instead of a page hero.
+- The current phase should favor redesigning shared guest/public compounds first so route wrappers stay thin and most guest-facing routes inherit the same shadcn-first Radix Luma system automatically.
+- Repeated micro-patterns on guest/public routes should keep moving into shared helpers when they appear in two or more places; single-workflow structures can stay local if they express domain-specific data rather than generic decoration.
+- Homepage direction is split from the rest of the guest-facing redesign: homepage remains B2B marketing, while restaurant discovery/booking/portal/auth remain guest-product surfaces.
+- The current frontend replatform is intentionally not a literal unsafe delete-first rewrite; canonical files are replaced in place to keep route/data contracts intact.
+- Dev harnesses are acceptable for proving auth-gated guest surfaces when a local browser session is unavailable, provided they call `enforceDevOnly()` at the server boundary.
+- For the current guest shadcn migration, auth-gated guest UI proof should use the updated guarded `/dev/guest-bookings` and `/dev/guest-receipt` harness pages, with real auth redirects kept only as secondary evidence.
 - Current public/guest design-system migration is organization-first; it preserves old `.guest-theme` compatibility classes and does not intentionally redesign visible routes.
 - Browser proof is deferred for this pass because no route has been visibly migrated to `pg-*` utilities yet; first visible route migration should capture screenshots.
 - Radix Luma adoption is scoped to guest/public surfaces only; shared ops primitives should not be retuned globally unless guarded by guest selectors.
@@ -117,10 +179,15 @@ Last updated: 2026-04-23T12:13:37Z
 
 - Add shared guest page compounds under `src/components/guest/ui/` before touching individual pages, so the redesign reduces redundancy instead of multiplying page-local markup.
 - Keep the redesign scoped to `.guest-theme` / `[data-theme='guest']` and leave ops surfaces on the app theme.
-- Public/guest design-system files now live together under `styles/design-system/`: `public-guest.tokens.css`, `public-guest.utilities.css`, and `public-guest.bridge.css`.
+- For the frontend-only replatform, keep business logic in existing hooks/routes and rebuild only composition/chrome/state presentation.
+- Use `/dev/guest-receipt` as the dev-only proof surface for the redesigned receipt because production receipt access requires auth or token.
+- Public/guest design-system files now live together under `styles/design-system/`: `public-guest.tokens.css` and `public-guest.utilities.css`.
 - Keep homepage-specific composition in `src/components/landing/**`; put reusable public/guest compounds in `src/components/guest/ui/**`; keep ops on the `app` theme.
 - The current guest/public visual source of truth is repo-root `GUEST_FACING_DESIGN_SYSTEM.md`.
 - Homepage, restaurant public pages, auth, public booking, and guest portal compositions now use the Radix Luma guest/public layer directly instead of only inheriting token overrides.
+- Guest/auth chrome now uses native `pg-container` / `pg-container-sm` utilities instead of the legacy guest-specific boundary class; the targeted runtime/style/docs search has no remaining matches.
+- The reservation wizard time field now restores the prior scrollable select interaction, but retuned with Radix Luma `pg-*` surface styling and explicit form naming/labels for DevTools compliance.
+- The booking route page no longer uses `GuestHero`; the canonical `/restaurants/[slug]/book` wrapper now hands off quickly to the wizard, while `WizardLayout`, `WizardStep`, and `PlanStepForm` own the visual hierarchy.
 - Use the existing canonical ops path helper contract as the source of truth: GBP redirects should land on the `/app`-prefixed settings route, matching the registered page and shared settings navigation.
 - Keep the menu/drink editor fix inside the panel/sheet boundary instead of adding new service abstractions; the edit flow should block on detail-query failure and surface the error inline.
 - For SMS delivery observability, treat Twilio's documented 12-hour reconciliation window as the stale threshold instead of the prior 30-minute heuristic.
@@ -138,9 +205,25 @@ Last updated: 2026-04-23T12:13:37Z
 
 ## State
 
+- `tasks/guest-responsive-audit-20260424-1136/` is active. Task scaffolding is created; current work is route/component inventory followed by browser breakpoint probes.
+- `tasks/booking-page-component-audit-20260424-1100/` now contains the booking-page polish artifacts. `GuestNavbar` suppresses shared chrome on focused booking routes, `Calendar24Time` keeps its shadcn/Radix select controlled from first render, `WizardStep` prevents initial mobile focus scrolling the context off-screen, `WizardNavigation` uses a more compact mobile sticky action bar, and `PartySizeField` keeps the 12 guests label readable at a 319px viewport. Focused ESLint, `pnpm run typecheck`, `pnpm run build`, in-app browser proof, Chrome DevTools MCP proof, 319px party-size proof, and mobile/tablet/desktop screenshots passed.
+- `tasks/bookings-profile-redesign-20260424-1024/` contains the current `/bookings` and `/guest/profile` redesign artifacts. `src/app/(public)/bookings/page.tsx` is now a compact public booking hub; `src/components/features/guest/profile/GuestProfileClient.tsx` is now a focused contact-details form plus account summary; `src/app/(public)/dev/guest-profile/**` provides guarded local-only profile proof. Focused ESLint, `pnpm run typecheck`, `pnpm run build`, in-app browser proof, and Chrome DevTools desktop/mobile proof passed.
+- `tasks/guest-dashboard-redesign-20260424-1010/` contains the current `/guest/dashboard` redesign artifacts. `src/components/features/guest/dashboard/GuestDashboardClient.tsx` now renders a compact booking-first dashboard with a current reservation panel, a short upcoming list, and account quick links. `src/app/(public)/dev/guest-dashboard/**` provides guarded local-only DevTools proof for the auth-gated dashboard. Focused ESLint, `pnpm run typecheck`, `pnpm run build`, in-app browser proof, and Chrome DevTools desktop/mobile harness proof passed.
+- `tasks/auth-role-selection-redesign-20260424-0939/` contains the current `/auth` and `/auth/signin` redesign artifacts. `src/components/auth/RoleSelectionPage.tsx` has been recomposed into a stripped-back guest-first decision screen using existing guest compounds and `pg-*` utilities. After user feedback, the routing map, trust rail, and support CTA band were removed. `src/app/(public)/auth/signin/page.tsx` and `components/auth/GuestSignInForm.tsx` now render a single compact guest magic-link panel with an operations handoff and no hero/metric/support panels. Focused ESLint and `pnpm run typecheck` passed; in-app browser and Chrome DevTools MCP smoke proof passed for `http://localhost:3000/auth` and `http://localhost:3000/auth/signin`.
+- `tasks/guest-component-shadcn-audit-20260423-1833/` now contains an analysis-only audit of guest-facing shared/owned components. Generated evidence is in `artifacts/guest-component-route-audit.json`; the human-readable summary is `artifacts/guest-component-shadcn-analysis.md`.
+- The audit inspected 33 canonical guest/public route entries, traversed 290 files, found 33 active installed shadcn primitive files, and identified `src/components/guest/ui/GuestPrimitives.tsx` plus reservation wizard internals as the main custom-compound cleanup candidates.
+- `tasks/guest-shadcn-component-migration-20260423-1843/` now contains the runtime migration artifacts and browser proof for the approved guest-facing component cleanup. Implementation uses shadcn-backed guest feedback compounds, a wizard-local `WizardPanel`, shadcn `ToggleGroup` time chips, and accessibility fixes for booking progress/date trigger naming.
 - A new task folder has been created at `tasks/guest-facing-redesign-20260423-1213/` for the guest-facing redesign.
 - Research and plan are populated from current repo inspection: root/guest AGENTS, repo-local Nabatable skills, `GUEST_FACING_DESIGN_SYSTEM.md`, `docs/design-system/public-guest.md`, and current route/component inventory.
 - Implementation and verification are complete for `tasks/guest-facing-redesign-20260423-1213/`: shared guest page compounds were added, guest/public pages were recomposed, focused ESLint/typecheck/build passed, and Chrome DevTools screenshots were captured for `/bookings`, `/restaurants`, `/auth/signin`, plus the `/guest/profile` auth redirect.
+- A new task folder has been created at `tasks/guest-frontend-replatform-20260423-1232/` for the frontend-only guest/public replatform.
+- Implementation is complete for the replatform pass: `GuestPageShell`, guest layout/nav, guest dashboard, guest bookings list, guest profile, shared booking detail components, public booking hub, and the receipt client were replaced in canonical frontend paths; `/dev/guest-receipt` was added as a guarded proof harness.
+- Verification is complete for the replatform pass: focused ESLint, `pnpm run typecheck`, and `pnpm run build` passed, with Chrome DevTools MCP artifacts captured for `/bookings`, `/restaurants`, `/auth/signin`, guest auth redirects, and `/dev/guest-receipt` desktop/mobile.
+- The follow-on remaining-page pass is complete: contact/privacy, auth role selection, sign-in composition, restaurant booking wrapper, restaurant booking thank-you, guest loading, guest error, booking wizard skeletons, and the reservation wizard wrapper were aligned to the new guest frontend system; focused lint/typecheck/build passed and DevTools artifacts were captured for `/contact`, `/privacy`, `/auth`, `/auth/signin`, `/restaurants/the-old-crown-girton/book`, and `/restaurants/the-old-crown-girton/book/thank-you`.
+- The final remaining-items pass is complete: `/` now uses a rebuilt homepage composition without nested `main` landmarks, internal reservation wizard steps were redesigned in `reserve/features/reservations/wizard/ui/**`, and `/bookings/recover/error` now has a dedicated guest recovery edge state. Focused ESLint, `pnpm run typecheck`, and `pnpm run build` passed; DevTools artifacts were captured for `/`, `/restaurants/the-old-crown-girton/book`, and `/bookings/recover/error?code=ACCESS_TOKEN_EXPIRED`.
+- The native container cleanup is complete: the legacy guest-specific boundary class has been removed from shared guest/auth navbar, footer, layouts, global CSS, and design-system docs; focused lint/typecheck/build passed, and DevTools artifacts were captured for `/auth`, `/auth/signin`, and `/restaurants`.
+- The time selector restoration is complete in `Calendar24Field.tsx`: focused ESLint/typecheck passed, Chrome DevTools shows the compact `Time` combobox and opened listbox with no console/issues, and screenshots/snapshots were captured under `tasks/guest-frontend-replatform-20260423-1232/artifacts/`.
+- The booking-shell redesign is complete for `/restaurants/[slug]/book`: focused lint/typecheck/build passed, Chrome DevTools artifacts were captured for desktop and mobile on `/restaurants/seed-perf-r024/book`, and the route no longer renders the previous public hero block.
 - Phase 4 verification is complete for `tasks/homepage-grand-slam-copy-20260423-0959/`: the supplied Grand Slam Offer homepage copy has been implemented in the canonical public landing components, focused ESLint and TypeScript passed, and Chrome DevTools MCP proof was captured on `localhost:3001`.
 - A new task folder has been created at `tasks/review-findings-menu-editors-gbp-20260422-2033/` for this focused fix pass.
 - The current accepted findings to fix are: GBP fallback redirect missing `/app`, food editor blank-form fallback on detail failure, and drink editor blank-form fallback on detail failure.
@@ -375,6 +458,9 @@ Last updated: 2026-04-23T12:13:37Z
 
 ## Done
 
+- Implemented `tasks/guest-shadcn-component-migration-20260423-1843/`: normalized `src/components/guest/ui/**`, added `reserve/features/reservations/wizard/ui/WizardPanel.tsx`, recomposed Plan/Details/Review wizard panels, moved time slot chips to shadcn `ToggleGroup`, and fixed the booking progress/date a11y findings found during proof.
+- Passed focused ESLint, `pnpm run typecheck`, and `pnpm reserve:build` for the guest shadcn migration; Vite still reports the existing large-chunk warning.
+- Captured Chrome DevTools proof for `/`, `/restaurants`, `/restaurants/the-old-crown-girton/book`, `/bookings`, `/dev/guest-bookings`, `/dev/guest-receipt`, and the `/guest/dashboard` auth redirect; mobile booking Lighthouse after fixes is Accessibility 100, Best Practices 100, SEO 100.
 - Re-read the applicable AGENTS policies plus the local `nabatable-task-harness` and `nabatable-fullstack-delivery` skills for this scoped fix pass.
 - Audited the canonical GBP callback/connect routes, menu/drink management panels, editor sheets, and focused test coverage.
 - Created `tasks/review-findings-menu-editors-gbp-20260422-2033/` with current research, plan, todo, and verification notes.
@@ -488,6 +574,8 @@ Last updated: 2026-04-23T12:13:37Z
 
 ## Now
 
+- Guest responsive audit fix pass is implemented and verified; final handoff remains.
+- Guest shadcn component migration is implemented and verified; final handoff/summary remains.
 - Focused review-finding fixes are complete; only final handoff/summary remains for this pass.
 - Repo-wide QA evidence has been captured in `tasks/full-repo-manual-qa-20260422-1614/verification.md`; no runtime fixes have been applied for the newly discovered guest/public regressions yet.
 - Local runtime is pointed at production primary; next step is to use it carefully and roll back with the backup if needed.
@@ -500,6 +588,7 @@ Last updated: 2026-04-23T12:13:37Z
 
 ## Next
 
+- Optional next tranche: address lower-priority homepage/restaurant repeated marketing cards only where patterns repeat across guest/public surfaces; keep one-off editorial sections local.
 - If another `codex/Menu` review batch is accepted, start a new scoped task folder rather than folding more unrelated fixes into this one.
 - Triage the 12 failing Playwright specs from the full-repo QA pass and decide whether to fix them on `codex/Menu` or split them into follow-on tasks.
 - If continuing repo-wide QA, restart a clean local `pnpm dev` session and do targeted reruns only for the failing guest/public routes instead of broad parallel sweeps.

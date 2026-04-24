@@ -35,7 +35,6 @@ import {
 } from '@/components/features/booking/ui/BookingComponents';
 import { GuestError } from '@/components/guest/ui';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { emit } from '@/lib/analytics/emit';
@@ -517,11 +516,9 @@ export function ReservationDetailClient({
         </div>
       </div>
 
-      {canManage && (
-        <Card className="pg-card p-4">
-          <ReservationHistory reservationId={reservationId} timezone={venue.timezone} />
-        </Card>
-      )}
+      {canManage ? (
+        <ReservationHistory reservationId={reservationId} timezone={venue.timezone} />
+      ) : null}
 
       {bookingDto && (
         <>

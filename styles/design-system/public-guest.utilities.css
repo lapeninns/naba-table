@@ -10,9 +10,17 @@
   .guest-theme.pg-page,
   .guest-theme .pg-page {
     background:
+      linear-gradient(rgb(9 9 11 / 0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(9 9 11 / 0.025) 1px, transparent 1px),
       radial-gradient(circle at 14% 0%, rgb(20 71 230 / 0.08) 0 18rem, transparent 32rem),
       radial-gradient(circle at 86% 8%, rgb(9 9 11 / 0.035) 0 14rem, transparent 28rem),
       linear-gradient(180deg, var(--pg-bg) 0%, var(--pg-bg-muted) 100%);
+    background-size:
+      40px 40px,
+      40px 40px,
+      auto,
+      auto,
+      auto;
     color: var(--pg-text);
     font-family: var(--pg-font-body);
     min-height: 100dvh;
@@ -158,10 +166,22 @@
   [data-theme='guest'] .pg-hero-band,
   .guest-theme .pg-hero-band {
     background:
+      linear-gradient(rgb(9 9 11 / 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(9 9 11 / 0.035) 1px, transparent 1px),
       radial-gradient(circle at 14% 0%, rgb(20 71 230 / 0.08) 0 18rem, transparent 32rem),
       linear-gradient(180deg, var(--pg-bg) 0%, var(--pg-bg-muted) 100%);
+    background-size:
+      48px 48px,
+      48px 48px,
+      auto,
+      auto;
     border-bottom: 1px solid color-mix(in srgb, var(--pg-border) 70%, transparent);
     color: var(--pg-text);
+  }
+
+  [data-theme='guest'] .pg-noise-overlay,
+  .guest-theme .pg-noise-overlay {
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
   }
 
   [data-theme='guest'] .pg-card,
@@ -207,6 +227,23 @@
     border-radius: var(--pg-radius-lg);
     box-shadow: var(--pg-shadow-edge);
     color: var(--pg-text);
+  }
+
+  [data-theme='guest'] .pg-glass-frame,
+  .guest-theme .pg-glass-frame {
+    background: color-mix(in srgb, var(--pg-surface-raised) 78%, transparent);
+    border: 1px solid color-mix(in srgb, var(--pg-border) 78%, transparent);
+    border-radius: calc(var(--pg-radius-lg) + 0.25rem);
+    box-shadow: var(--pg-shadow-edge);
+  }
+
+  [data-theme='guest'] .pg-image-scrim,
+  .guest-theme .pg-image-scrim {
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      color-mix(in srgb, var(--pg-text) 22%, transparent) 100%
+    );
   }
 
   [data-theme='guest'] .pg-chip,

@@ -1,26 +1,39 @@
 'use client';
 
-import { Shield, Settings, Save } from 'lucide-react';
+import { Mail, Phone, Save, UserRound } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { ZodError } from 'zod';
 
-import { GuestHero, GuestMetricCard, GuestStatus } from '@/components/guest/ui';
+import {
+  GuestContent,
+  GuestDetailList,
+  GuestPageFrame,
+  GuestPanel,
+  GuestSecondaryButton,
+  GuestStatus,
+} from '@/components/guest/ui';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useGuestProfile } from '@/guest/hooks';
 import { coerceProfileUpdatePayload, useUpdateProfile } from '@/hooks/useProfile';
 
 import type { GuestProfileViewModel } from '@/guest/routes/profile/view-model';
+import type { ReactNode } from 'react';
 
 type ProfileFormValues = {
   full_name: string;
   phone_number: string;
 };
 
-export function GuestProfileClient({ viewModel }: { viewModel: GuestProfileViewModel }) {
+export function GuestProfileClient({
+  viewModel,
+  persistChanges = true,
+}: {
+  viewModel: GuestProfileViewModel;
+  persistChanges?: boolean;
+}) {
   const { data: liveProfile } = useGuestProfile();
   const profile = liveProfile ?? viewModel.profile;
 
@@ -73,6 +86,13 @@ export function GuestProfileClient({ viewModel }: { viewModel: GuestProfileViewM
       return;
     }
 
+    if (!persistChanges) {
+      form.reset(data);
+      setFeedback({ type: 'success', message: 'Dev preview updated. No profile changes were saved.' });
+      setTimeout(() => setFeedback(null), 4000);
+      return;
+    }
+
     updateProfile.mutate(payload, {
       onSuccess: (result) => {
         form.reset({
@@ -93,113 +113,150 @@ export function GuestProfileClient({ viewModel }: { viewModel: GuestProfileViewM
   const isPristine = !form.formState.isDirty;
 
   return (
-    <div className="pg-surface min-h-[100dvh] pb-20">
-      <GuestHero
-        eyebrow="Settings"
-        title="Your profile"
-        description="Keep the details restaurants need for confirmation, arrival, and service notes accurate."
-        aside={
-          <div className="grid w-full max-w-md grid-cols-2 gap-3">
-            <GuestMetricCard
-              icon={Settings}
-              label="Account status"
-              value="Active"
-              detail="Standard"
-            />
-            <GuestMetricCard icon={Shield} label="Email verified" value="Yes" />
+    <GuestPageFrame className="pb-12 sm:pb-16">
+      <GuestContent className="space-y-6 py-7 sm:space-y-7 sm:py-10">
+        <header className="grid gap-4 border-b border-border/70 pb-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+          <div className="min-w-0 space-y-2">
+            <p className="pg-kicker">Guest profile</p>
+            <h1 className="font-[var(--pg-font-display)] text-3xl font-bold leading-tight text-foreground sm:text-4xl">
+              Profile details
+            </h1>
+            <p className="pg-body max-w-[58ch]">
+              Keep your name and phone number current for reservation updates and arrival checks.
+            </p>
           </div>
-        }
-        compact
-      />
+          <GuestSecondaryButton href="/guest/bookings">View bookings</GuestSecondaryButton>
+        </header>
 
-      <div className="mx-auto w-full max-w-4xl px-4 sm:px-6 py-6 sm:py-8 lg:py-10 space-y-6 sm:space-y-8">
-        <Card className="pg-card pg-appear p-4 sm:p-6 lg:p-8">
-          <div className="space-y-4 sm:space-y-6">
-            <div className="space-y-1 sm:space-y-2">
-              <h2 className="pg-card-title">Personal Information</h2>
-              <p className="pg-caption">Update your contact details and how we address you.</p>
+        <div className="grid gap-6 lg:grid-cols-[7fr_5fr] lg:items-start lg:gap-8">
+          <GuestPanel className="p-5 sm:p-6">
+            <div className="mb-5 space-y-2">
+              <p className="pg-kicker">Editable</p>
+              <h2 className="pg-card-title">Contact details</h2>
+              <p className="pg-body max-w-[58ch] text-sm">
+                These details are used only for your bookings and restaurant-related contact.
+              </p>
             </div>
 
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
-              <div className="grid gap-4 sm:gap-6 md:grid-cols-2">
-                <div className="space-y-1.5 sm:space-y-2">
-                  <Label htmlFor="full_name" className="text-sm">
-                    Full Name
-                  </Label>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6" noValidate>
+              <div className="grid gap-5 md:grid-cols-2">
+                <FieldShell
+                  label="Full name"
+                  htmlFor="full_name"
+                  error={form.formState.errors.full_name?.message}
+                >
                   <Input
                     id="full_name"
                     type="text"
                     autoComplete="name"
                     {...form.register('full_name')}
-                    className="pg-focus-ring h-11 rounded-lg text-base sm:h-12 sm:rounded-xl"
+                    className="pg-focus-ring h-12 rounded-[var(--pg-radius-md)] text-base"
                     disabled={isSubmitting}
                   />
-                  {form.formState.errors.full_name ? (
-                    <p className="text-xs text-destructive">
-                      {form.formState.errors.full_name.message}
-                    </p>
-                  ) : null}
-                </div>
+                </FieldShell>
 
-                <div className="space-y-1.5 sm:space-y-2">
-                  <Label htmlFor="email" className="text-sm">
-                    Email Address
-                  </Label>
+                <FieldShell label="Email address" htmlFor="email">
                   <Input
                     id="email"
                     type="email"
                     autoComplete="email"
                     value={profile.email}
                     disabled
-                    className="bg-muted rounded-lg sm:rounded-xl h-11 sm:h-12 text-base opacity-70"
+                    className="h-12 rounded-[var(--pg-radius-md)] border-border/80 bg-muted/35 text-base opacity-80"
                   />
-                  <p className="text-xs text-muted-foreground">Email cannot be changed manually.</p>
-                </div>
+                  <p className="pg-caption">Email is managed through secure sign-in.</p>
+                </FieldShell>
 
-                <div className="space-y-1.5 sm:space-y-2">
-                  <Label htmlFor="phone" className="text-sm">
-                    Phone Number
-                  </Label>
+                <FieldShell
+                  label="Phone number"
+                  htmlFor="phone"
+                  error={form.formState.errors.phone_number?.message}
+                >
                   <Input
                     id="phone"
                     type="tel"
                     autoComplete="tel"
+                    inputMode="tel"
                     {...form.register('phone_number')}
-                    className="pg-focus-ring h-11 rounded-lg text-base sm:h-12 sm:rounded-xl"
+                    className="pg-focus-ring h-12 rounded-[var(--pg-radius-md)] text-base"
                     disabled={isSubmitting}
                   />
-                  {form.formState.errors.phone_number ? (
-                    <p className="text-xs text-destructive">
-                      {form.formState.errors.phone_number.message}
-                    </p>
-                  ) : null}
-                </div>
+                </FieldShell>
               </div>
 
-              {feedback && (
+              {feedback ? (
                 <GuestStatus
-                  title={feedback.type === 'success' ? 'Saved' : 'Error'}
+                  title={feedback.type === 'success' ? 'Saved' : 'Could not save'}
                   description={feedback.message}
                   tone={feedback.type === 'success' ? 'success' : 'danger'}
                   aria-live="polite"
                 />
-              )}
+              ) : null}
 
-              <div className="flex justify-end pt-2 sm:pt-4">
+              <div className="flex justify-end">
                 <Button
                   type="submit"
-                  size="lg"
-                  className="pg-action pg-focus-ring pg-touch min-h-[44px] w-full rounded-full bg-primary px-6 text-sm text-primary-foreground hover:bg-primary/90 sm:min-h-[48px] sm:w-auto sm:px-8 sm:text-base"
+                  size="guest-lg"
+                  variant="guest-primary"
+                  className="pg-action pg-focus-ring pg-touch w-full sm:w-auto"
                   disabled={isSubmitting || isPristine}
                 >
-                  <Save className="w-4 h-4 mr-2" />
-                  {isSubmitting ? 'Saving...' : 'Save Changes'}
+                  <Save className="h-4 w-4" aria-hidden />
+                  {isSubmitting ? 'Saving...' : 'Save changes'}
                 </Button>
               </div>
             </form>
-          </div>
-        </Card>
-      </div>
+          </GuestPanel>
+
+          <aside className="space-y-3 lg:sticky lg:top-24">
+            <GuestDetailList
+              title="Account summary"
+              items={[
+                {
+                  icon: UserRound,
+                  label: 'Display name',
+                  value: profile.name || 'Not set',
+                  detail: 'Shown in your guest portal.',
+                },
+                {
+                  icon: Mail,
+                  label: 'Sign-in email',
+                  value: profile.email,
+                  detail: 'Used for secure magic links and receipts.',
+                },
+                {
+                  icon: Phone,
+                  label: 'Phone',
+                  value: profile.phone || 'Not set',
+                  detail: 'Used only for reservation-related contact.',
+                },
+              ]}
+            />
+          </aside>
+        </div>
+      </GuestContent>
+    </GuestPageFrame>
+  );
+}
+
+function FieldShell({
+  label,
+  htmlFor,
+  error,
+  children,
+}: {
+  label: string;
+  htmlFor: string;
+  error?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={htmlFor} className="text-sm font-semibold text-foreground">
+        {label}
+      </Label>
+      {children}
+      {error ? <p className="text-sm font-medium text-destructive">{error}</p> : null}
     </div>
   );
 }

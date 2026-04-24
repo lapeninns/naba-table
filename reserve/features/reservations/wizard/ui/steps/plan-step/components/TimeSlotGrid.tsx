@@ -2,7 +2,9 @@
 
 import React, { useEffect, useMemo, useRef } from 'react';
 
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@shared/lib/cn';
+import { ToggleGroup, ToggleGroupItem } from '@shared/ui/toggle-group';
 
 import type { TimeSlotDescriptor } from '@reserve/features/reservations/wizard/services';
 
@@ -63,17 +65,17 @@ export function TimeSlotGrid({
       return (
         <section className="pg-card flex flex-col gap-4 p-4">
           <div className="flex items-center justify-between">
-            <div className="h-5 w-24 animate-pulse rounded-md bg-muted/60" />
-            <div className="h-4 w-32 animate-pulse rounded-md bg-muted/60" />
+            <Skeleton className="h-5 w-24" />
+            <Skeleton className="h-4 w-32" />
           </div>
-          <div className="space-y-4">
-            <div className="space-y-2.5">
-              <div className="h-4 w-20 animate-pulse rounded-md bg-muted/60" />
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2.5">
+              <Skeleton className="h-4 w-20" />
               <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
                 {Array.from({ length: 8 }).map((_, i) => (
-                  <div
+                  <Skeleton
                     key={i}
-                    className="pg-skeleton h-14 rounded-lg"
+                    className="h-14 rounded-lg"
                     style={{ animationDelay: `${i * 50}ms` }}
                   />
                 ))}
@@ -101,7 +103,17 @@ export function TimeSlotGrid({
           {slots.length} {slots.length === 1 ? 'option' : 'options'}
         </p>
       </div>
-      <div className="space-y-4 overflow-x-auto pb-1">
+      <ToggleGroup
+        type="single"
+        value={activeValue}
+        onValueChange={(next) => {
+          if (next) {
+            onSelect(next);
+          }
+        }}
+        className="block space-y-4 overflow-x-auto pb-1"
+        aria-label="Available reservation times"
+      >
         {[...groupedSlots.entries()].map(([label, entries]) => {
           return (
             <div key={label} className="pg-appear min-w-[280px] space-y-2.5">
@@ -114,39 +126,25 @@ export function TimeSlotGrid({
                 {entries.map((slot) => {
                   const isActive = slot.value === activeValue;
                   return (
-                    <button
+                    <ToggleGroupItem
                       key={slot.value}
-                      type="button"
+                      value={slot.value}
+                      variant="outline"
+                      size="lg"
                       className={cn(
-                        // Base styles - larger on mobile for better touch targets
-                        'group relative flex h-14 min-w-[120px] items-center justify-center rounded-lg border text-sm font-semibold transition-all duration-200',
-                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-                        'touch-manipulation select-none',
-                        // Disabled state
+                        'group relative h-14 min-w-[120px] rounded-lg text-sm font-semibold touch-manipulation',
+                        'data-[state=on]:scale-[1.02] data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground',
                         slot.disabled &&
                           'cursor-not-allowed border-border/60 bg-muted/40 text-muted-foreground/60',
-                        // Active/selected state - enhanced visual feedback
-                        !slot.disabled &&
-                          isActive &&
-                          'border-primary bg-primary text-primary-foreground scale-[1.02]',
-                        // Default interactive state
                         !slot.disabled &&
                           !isActive &&
                           'border-border bg-card hover:border-primary/60 hover:bg-primary/10 active:scale-95',
-                        // Smooth scale animation on tap
                         !slot.disabled && 'active:transition-transform active:duration-100',
                       )}
-                      aria-pressed={isActive}
                       aria-label={`${slot.display}, ${label}`}
                       disabled={slot.disabled}
-                      onClick={() => onSelect(slot.value)}
                       data-slot-value={slot.value}
-                      style={{
-                        WebkitTapHighlightColor: 'rgba(0,0,0,0)',
-                        touchAction: 'manipulation',
-                      }}
                     >
-                      {/* Subtle gradient overlay for depth */}
                       {!slot.disabled && (
                         <span
                           className={cn(
@@ -159,14 +157,14 @@ export function TimeSlotGrid({
                         />
                       )}
                       <span className="relative z-10">{slot.display}</span>
-                    </button>
+                    </ToggleGroupItem>
                   );
                 })}
               </div>
             </div>
           );
         })}
-      </div>
+      </ToggleGroup>
     </section>
   );
 }

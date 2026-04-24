@@ -8,9 +8,12 @@ const FOOTER_LINK_STYLES =
 
 export function Footer() {
   return (
-    <footer className="border-t border-border bg-background text-foreground">
+    <footer className="border-t border-border/70 bg-muted/25 text-foreground">
       <div className="pg-container py-12 sm:py-14 md:py-16 lg:py-20">
-        <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 sm:gap-8 md:grid-cols-4 md:gap-10 lg:gap-12">
+        <div className="mb-6 inline-flex rounded-full border border-primary/15 bg-background/80 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.22em] text-primary shadow-[var(--pg-shadow-xs)]">
+          Packed House System
+        </div>
+        <div className="grid grid-cols-1 gap-10 rounded-[var(--pg-radius-xl)] border border-border/70 bg-background/92 p-5 shadow-[var(--pg-shadow-soft)] sm:grid-cols-2 sm:gap-8 sm:p-6 md:grid-cols-4 md:gap-10 lg:gap-12 lg:p-8">
           <div className="sm:col-span-2">
             <BrandLogo size="lg" showBeta={false} className="mb-4" />
             <p className="max-w-sm text-sm leading-relaxed text-muted-foreground sm:max-w-xs">

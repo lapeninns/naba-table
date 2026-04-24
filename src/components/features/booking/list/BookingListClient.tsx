@@ -2,12 +2,12 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  ArrowRight,
   Calendar,
+  CalendarPlus,
   Clock,
   MapPin,
   MoreHorizontal,
-  Plus,
+  ReceiptText,
   Search,
   Users,
 } from 'lucide-react';
@@ -15,10 +15,20 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
-import { GuestEmpty, GuestError, GuestHero, GuestPrimaryButton } from '@/components/guest/ui';
+import {
+  GuestContent,
+  GuestEmpty,
+  GuestError,
+  GuestHero,
+  GuestInsetCard,
+  GuestMetricCard,
+  GuestPageFrame,
+  GuestPanel,
+  GuestPrimaryButton,
+  GuestSectionHeader,
+} from '@/components/guest/ui';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,24 +54,15 @@ function getBookingStartMillis(booking: BookingDTO): number {
   return getBookingDateTimeMillis(booking.startIso, booking.restaurantTimezone) ?? Number.NaN;
 }
 
-function getBookingCardDisplay(booking: BookingDTO): {
-  monthLabel: string;
-  dayLabel: string;
-  timeLabel: string;
-} {
+function getBookingCardDisplay(booking: BookingDTO) {
   const parsed = parseBookingDateTime(booking.startIso, booking.restaurantTimezone);
-  if (parsed) {
-    return {
-      monthLabel: parsed.setLocale('en').toFormat('MMM'),
-      dayLabel: parsed.toFormat('d'),
-      timeLabel: parsed.toFormat('HH:mm'),
-    };
+  if (!parsed) {
+    return { monthLabel: 'TBC', dayLabel: '--', timeLabel: 'Time pending' };
   }
-
   return {
-    monthLabel: '—',
-    dayLabel: '—',
-    timeLabel: '—',
+    monthLabel: parsed.setLocale('en').toFormat('MMM'),
+    dayLabel: parsed.toFormat('d'),
+    timeLabel: parsed.toFormat('HH:mm'),
   };
 }
 
@@ -73,7 +74,6 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
   const { data: bookings, isLoading, isError } = useGuestBookings({ pageSize: 50 });
   const [activeTab, setActiveTab] = useState<BookingsTab>(normalizeBookingsTab(initialTab));
 
-  // Sync state with URL for back/forward/share
   useEffect(() => {
     const normalized = normalizeBookingsTab(searchParams.get('tab'));
     setActiveTab((prev) => (prev === normalized ? prev : normalized));
@@ -103,35 +103,12 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
     };
   }, [bookings?.items]);
 
-  if (isLoading) {
-    return (
-      <div className="pg-surface min-h-[100dvh] pb-20">
-        {/* Hero skeleton */}
-        <section className="pg-hero-band px-6 py-12">
-          <div className="mx-auto max-w-6xl space-y-4">
-            <Skeleton className="h-8 w-48" />
-            <Skeleton className="h-5 w-96" />
-          </div>
-        </section>
-
-        {/* Tabs skeleton */}
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8">
-          <Skeleton className="h-12 w-80 mb-8" />
-          <div className="grid gap-6 md:grid-cols-2">
-            <Skeleton className="h-56 rounded-xl" />
-            <Skeleton className="h-56 rounded-xl" />
-            <Skeleton className="h-56 rounded-xl" />
-            <Skeleton className="h-56 rounded-xl" />
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (isLoading) return <BookingsLoadingState />;
 
   if (isError) {
     return (
-      <StatusRegion focus live="assertive" className="pg-surface min-h-[100dvh] pb-20">
-        <div className="flex min-h-[60vh] items-center justify-center">
+      <StatusRegion focus live="assertive">
+        <div className="flex min-h-[60vh] items-center justify-center px-4">
           <GuestError
             description="We couldn't load your bookings. Please try again."
             onRetry={() => queryClient.invalidateQueries({ queryKey: queryKeys.bookings.all })}
@@ -145,267 +122,282 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
 
   if (!hasAnyBookings) {
     return (
-      <StatusRegion live="polite" className="pg-surface min-h-[100dvh] pb-20">
-        <GuestEmpty
-          icon={Search}
-          title="No bookings yet"
-          description="Discover amazing restaurants and book your first table."
-          actionLabel="Find a restaurant"
-          actionHref="/restaurants"
-        />
+      <StatusRegion live="polite">
+        <GuestPageFrame>
+          <GuestHero
+            eyebrow="My reservations"
+            title="Your booking archive starts here."
+            description="Once you reserve a table, upcoming plans, receipts, and manage links will appear in this portal."
+            actions={
+              <GuestPrimaryButton href="/restaurants">Find a restaurant</GuestPrimaryButton>
+            }
+            compact
+          />
+          <GuestContent narrow>
+            <GuestEmpty
+              icon={Search}
+              title="No bookings yet"
+              description="Browse live restaurants and book your first table."
+              actionLabel="Find a restaurant"
+              actionHref="/restaurants"
+            />
+          </GuestContent>
+        </GuestPageFrame>
       </StatusRegion>
     );
   }
 
   return (
-    <div className="pg-surface min-h-[100dvh] pb-20">
+    <GuestPageFrame>
       <GuestHero
         eyebrow="My reservations"
-        title="Upcoming plans and past visits."
-        description="Review reservations, open receipts, and start another booking from the same place."
+        title="Upcoming plans and saved receipts."
+        description="A clean archive for live reservations, past visits, receipt downloads, and repeat bookings."
         actions={
           <GuestPrimaryButton href="/restaurants">
-            <Plus className="h-5 w-5" />
+            <CalendarPlus className="h-5 w-5" aria-hidden />
             New booking
           </GuestPrimaryButton>
+        }
+        aside={
+          <div className="grid grid-cols-2 gap-3">
+            <GuestMetricCard icon={Calendar} label="Upcoming" value={upcoming.length} />
+            <GuestMetricCard icon={ReceiptText} label="Receipts" value={past.length} />
+          </div>
         }
         compact
       />
 
-      {/* Main Content */}
-      <div className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 sm:py-12 lg:px-10">
+      <GuestContent>
         <Tabs
           value={activeTab}
-          onValueChange={(v) => {
-            const next = normalizeBookingsTab(v);
+          onValueChange={(value) => {
+            const next = normalizeBookingsTab(value);
             setActiveTab(next);
             const params = new URLSearchParams(searchParams.toString());
             params.set('tab', next === 'past' ? 'history' : 'upcoming');
             const search = params.toString();
             router.replace(`${pathname}?${search}`);
           }}
-          className="w-full"
+          className="space-y-6"
         >
-          <TabsList className="w-full justify-start gap-1 border-b border-border bg-transparent p-0 mb-8 sm:mb-10 lg:mb-12 h-auto rounded-none overflow-x-auto flex-nowrap scrollbar-hide">
-            <TabsTrigger
-              value="upcoming"
-              className={cn(
-                'relative rounded-none border-b-2 border-transparent bg-transparent px-4 py-3 sm:px-6 text-sm sm:text-base font-semibold transition-colors min-h-[44px] whitespace-nowrap',
-                'data-[state=active]:border-primary data-[state=active]:text-foreground data-[state=active]:shadow-none',
-                'text-muted-foreground hover:text-foreground/80',
-              )}
-            >
-              Upcoming
-              <Badge variant="metric" className="ml-2">
-                {upcoming.length}
-              </Badge>
-            </TabsTrigger>
-            <TabsTrigger
-              value="past"
-              className={cn(
-                'relative rounded-none border-b-2 border-transparent bg-transparent px-4 py-3 sm:px-6 text-sm sm:text-base font-semibold transition-colors min-h-[44px] whitespace-nowrap',
-                'data-[state=active]:border-primary data-[state=active]:text-foreground data-[state=active]:shadow-none',
-                'text-muted-foreground hover:text-foreground/80',
-              )}
-            >
-              Past
-              <Badge
-                variant="secondary"
-                className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground"
-              >
-                {past.length}
-              </Badge>
-            </TabsTrigger>
-          </TabsList>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <GuestSectionHeader
+              eyebrow="Archive"
+              title="Choose a view"
+              description="Upcoming reservations stay operational. Past bookings focus on receipts and rebooking."
+            />
+            <TabsList className="grid h-auto grid-cols-2 rounded-[var(--pg-radius-pill)] border border-border/80 bg-background/90 p-1">
+              <TabsTrigger value="upcoming" className="rounded-full px-4 py-2">
+                Upcoming
+                <Badge variant="secondary" className="ml-2 rounded-full">
+                  {upcoming.length}
+                </Badge>
+              </TabsTrigger>
+              <TabsTrigger value="past" className="rounded-full px-4 py-2">
+                Past
+                <Badge variant="secondary" className="ml-2 rounded-full">
+                  {past.length}
+                </Badge>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="upcoming" className="mt-0">
             {upcoming.length === 0 ? (
-              <Card className="pg-card p-12 text-center">
-                <Calendar className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="pg-card-title mb-2">No upcoming reservations</h3>
-                <p className="pg-caption mb-6">Time to plan your next dining adventure.</p>
-                <Button
-                  asChild
-                  className="pg-action pg-focus-ring pg-touch min-h-[44px] rounded-full"
-                >
-                  <Link href="/restaurants">Find a restaurant</Link>
-                </Button>
-              </Card>
+              <GuestEmpty
+                icon={Calendar}
+                title="No upcoming reservations"
+                description="Plan the next visit and it will appear here with manage and receipt links."
+                actionLabel="Find a restaurant"
+                actionHref="/restaurants"
+              />
             ) : (
-              <div className="pg-stagger grid gap-4 sm:gap-6 md:grid-cols-2">
-                {upcoming.map((booking, index) => (
-                  <BookingCard
-                    key={booking.id}
-                    booking={booking}
-                    style={{ animationDelay: `${index * 80}ms` }}
-                  />
-                ))}
-              </div>
+              <BookingGrid bookings={upcoming} />
             )}
           </TabsContent>
 
           <TabsContent value="past" className="mt-0">
             {past.length === 0 ? (
-              <Card className="pg-card p-12 text-center">
-                <Calendar className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="pg-card-title mb-2">No past reservations</h3>
-                <p className="pg-caption">Your completed reservations will appear here.</p>
-              </Card>
+              <GuestPanel className="p-8 text-center">
+                <ReceiptText className="mx-auto mb-4 h-10 w-10 text-muted-foreground" aria-hidden />
+                <h3 className="pg-card-title">No receipts yet</h3>
+                <p className="pg-caption mt-2">Completed reservations will appear here.</p>
+              </GuestPanel>
             ) : (
-              <div className="pg-stagger grid gap-4 sm:gap-6 md:grid-cols-2">
-                {past.map((booking, index) => (
-                  <BookingCard
-                    key={booking.id}
-                    booking={booking}
-                    isPast
-                    style={{ animationDelay: `${index * 80}ms` }}
-                  />
-                ))}
-              </div>
+              <BookingGrid bookings={past} isPast />
             )}
           </TabsContent>
         </Tabs>
-      </div>
+      </GuestContent>
+    </GuestPageFrame>
+  );
+}
+
+function BookingsLoadingState() {
+  return (
+    <GuestPageFrame>
+      <section className="pg-hero-band pg-section-tight">
+        <div className="pg-container space-y-4">
+          <Skeleton className="h-5 w-40 rounded-full" />
+          <Skeleton className="h-12 w-full max-w-xl rounded-xl" />
+          <Skeleton className="h-5 w-full max-w-2xl rounded-lg" />
+        </div>
+      </section>
+      <GuestContent>
+        <Skeleton className="h-12 w-72 rounded-full" />
+        <div className="grid gap-4 md:grid-cols-2">
+          {[0, 1, 2, 3].map((item) => (
+            <Skeleton key={item} className="h-64 rounded-[var(--pg-radius-md)]" />
+          ))}
+        </div>
+      </GuestContent>
+    </GuestPageFrame>
+  );
+}
+
+function BookingGrid({ bookings, isPast = false }: { bookings: BookingDTO[]; isPast?: boolean }) {
+  return (
+    <div className="pg-stagger grid gap-4 md:grid-cols-2">
+      {bookings.map((booking) => (
+        <BookingCard key={booking.id} booking={booking} isPast={isPast} />
+      ))}
     </div>
   );
 }
 
-/* ============================================================================
-   BOOKING CARD COMPONENT
-   ============================================================================ */
-
-type BookingCardProps = {
+function BookingCard({
+  booking,
+  isPast = false,
+}: {
   booking: BookingDTO;
   isPast?: boolean;
-  style?: React.CSSProperties;
-};
-
-function BookingCard({ booking, isPast = false, style }: BookingCardProps) {
+}) {
   const { monthLabel, dayLabel, timeLabel } = useMemo(
     () => getBookingCardDisplay(booking),
     [booking],
   );
+  const restaurantHref = booking.restaurantSlug
+    ? `/restaurants/${booking.restaurantSlug}`
+    : '/restaurants';
 
   return (
-    <Card
-      variant="interactive"
-      className={cn(
-        'pg-touch overflow-hidden transition-all',
-        isPast && 'opacity-75 hover:opacity-100',
-      )}
-      style={style}
-    >
-      <div className="p-5 sm:p-6 lg:p-8">
-        {/* Card Header with Restaurant Name */}
-        <div className="flex items-start justify-between gap-4 sm:gap-5 mb-5 sm:mb-6 lg:mb-8">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-3 mb-1">
+    <GuestPanel interactive className={cn('overflow-hidden', isPast && 'opacity-80 hover:opacity-100')}>
+      <div className="flex min-h-full flex-col">
+        <div className="flex items-start justify-between gap-4 p-5 sm:p-6">
+          <div className="min-w-0 space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
               <h3 className="pg-card-title truncate">{booking.restaurantName}</h3>
               <StatusBadge status={booking.status} isPast={isPast} />
             </div>
-            {booking.restaurantSlug && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <MapPin className="h-3.5 w-3.5" />
-                <span className="truncate">{booking.restaurantSlug}</span>
-              </div>
-            )}
+            <p className="flex items-center gap-2 text-sm text-muted-foreground">
+              <MapPin className="h-4 w-4 shrink-0" aria-hidden />
+              <span className="truncate">{booking.restaurantSlug ?? 'Restaurant details'}</span>
+            </p>
           </div>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="pg-focus-ring -mr-2 h-10 w-10 text-muted-foreground/60 hover:text-foreground"
-              >
-                <MoreHorizontal className="h-5 w-5" />
-                <span className="sr-only">Open menu</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 rounded-xl p-2">
-              <DropdownMenuItem asChild className="rounded-lg cursor-pointer">
-                <Link href={`/guest/bookings/${booking.id}`} className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  View Details
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild className="rounded-lg cursor-pointer">
-                <Link
-                  href={`/restaurants/${booking.restaurantSlug || '#'}`}
-                  className="flex items-center gap-2"
-                >
-                  <MapPin className="h-4 w-4" />
-                  View Restaurant
-                </Link>
-              </DropdownMenuItem>
-              {!isPast && booking.status !== 'cancelled' && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    asChild
-                    className="text-destructive focus:text-destructive focus:bg-destructive/5 rounded-lg cursor-pointer"
-                  >
-                    <Link href={`/guest/bookings/${booking.id}?intent=cancel`}>Cancel Booking</Link>
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <BookingCardMenu booking={booking} isPast={isPast} restaurantHref={restaurantHref} />
         </div>
 
-        {/* Booking Details */}
-        <div className="flex items-center gap-4 sm:gap-5 mb-4 sm:mb-6">
-          {/* Date Box */}
-          <div
-            className={cn(
-              'flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-xl border text-center transition-colors',
-              isPast
-                ? 'border-border bg-muted text-muted-foreground'
-                : 'border-primary/10 bg-primary/5 text-primary',
-            )}
+        <div className="grid gap-3 px-5 pb-5 sm:grid-cols-[5rem_1fr] sm:px-6 sm:pb-6">
+          <div className="flex h-20 w-20 flex-col items-center justify-center rounded-[var(--pg-radius-md)] bg-primary/10 text-primary">
+            <span className="text-xs font-bold uppercase">{monthLabel}</span>
+            <span className="text-3xl font-bold leading-none">{dayLabel}</span>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <InlineDetail icon={Clock} label="Time" value={timeLabel} />
+            <InlineDetail
+              icon={Users}
+              label="Party"
+              value={`${booking.partySize} ${booking.partySize === 1 ? 'guest' : 'guests'}`}
+            />
+          </div>
+        </div>
+
+        <div className="mt-auto grid gap-2 border-t border-border/60 bg-muted/30 p-4 sm:grid-cols-2">
+          <Button asChild className="pg-action pg-focus-ring pg-touch rounded-full">
+            <Link href={`/guest/bookings/${booking.id}`}>
+              {isPast ? 'Open booking' : 'Manage booking'}
+            </Link>
+          </Button>
+          <Button
+            asChild
+            variant="outline"
+            className="pg-action pg-focus-ring pg-touch rounded-full border-border bg-background"
           >
-            <span className="text-xs font-bold uppercase leading-none mb-1">{monthLabel}</span>
-            <span className="text-2xl font-bold leading-none">{dayLabel}</span>
-          </div>
-
-          {/* Time and Party Details */}
-          <div className="flex-1 space-y-1.5">
-            <div className="flex items-center gap-2.5 text-foreground/80">
-              <Clock className="h-4 w-4 text-muted-foreground/60" />
-              <span className="font-semibold">{timeLabel}</span>
-            </div>
-            <div className="flex items-center gap-2.5 text-foreground/80">
-              <Users className="h-4 w-4 text-muted-foreground/60" />
-              <span>
-                {booking.partySize} {booking.partySize === 1 ? 'guest' : 'guests'}
-              </span>
-            </div>
-          </div>
+            <Link href={`/guest/bookings/${booking.id}/receipt`}>Receipt</Link>
+          </Button>
         </div>
-
-        {/* Footer Link */}
-        <Link
-          href={`/guest/bookings/${booking.id}`}
-          className="pg-focus-ring pg-touch group -mx-5 -mb-5 flex items-center justify-between border-t border-border/50 px-5 py-4 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-primary sm:-mx-6 sm:-mb-6 sm:px-6 sm:py-5 lg:-mx-8 lg:-mb-8 lg:px-8 lg:py-6"
-        >
-          <span>View reservation details</span>
-          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-        </Link>
       </div>
-    </Card>
+    </GuestPanel>
   );
 }
 
-/* ============================================================================
-   SUPPORTING COMPONENTS
-   ============================================================================ */
+function BookingCardMenu({
+  booking,
+  isPast,
+  restaurantHref,
+}: {
+  booking: BookingDTO;
+  isPast: boolean;
+  restaurantHref: string;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="pg-focus-ring -mr-2 h-10 w-10 rounded-full text-muted-foreground hover:text-foreground"
+        >
+          <MoreHorizontal className="h-5 w-5" aria-hidden />
+          <span className="sr-only">Open booking menu</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        className="w-52 rounded-[var(--pg-radius-md)] border-border/80 bg-background/95 p-2 shadow-[var(--pg-shadow-popover)]"
+      >
+        <DropdownMenuItem asChild className="cursor-pointer rounded-lg">
+          <Link href={`/guest/bookings/${booking.id}`}>View booking</Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild className="cursor-pointer rounded-lg">
+          <Link href={`/guest/bookings/${booking.id}/receipt`}>Open receipt</Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild className="cursor-pointer rounded-lg">
+          <Link href={restaurantHref}>View restaurant</Link>
+        </DropdownMenuItem>
+        {!isPast && booking.status !== 'cancelled' ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild className="cursor-pointer rounded-lg text-destructive">
+              <Link href={`/guest/bookings/${booking.id}?intent=cancel`}>Cancel booking</Link>
+            </DropdownMenuItem>
+          </>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
-type StatusBadgeProps = {
+function InlineDetail({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof Clock;
+  label: string;
+  value: string;
+}) {
+  return <GuestInsetCard icon={Icon} label={label} value={value} className="p-3" />;
+}
+
+function StatusBadge({
+  status,
+  isPast = false,
+}: {
   status: BookingDTO['status'];
   isPast?: boolean;
-};
-
-function StatusBadge({ status, isPast = false }: StatusBadgeProps) {
+}) {
   const labels: Record<string, string> = {
     confirmed: 'Confirmed',
     pending: 'Pending',
@@ -413,47 +405,21 @@ function StatusBadge({ status, isPast = false }: StatusBadgeProps) {
     cancelled: 'Cancelled',
     completed: 'Completed',
     checked_in: 'Live',
-    no_show: 'No Show',
+    no_show: 'No show',
     PRIORITY_WAITLIST: 'Waitlist',
   };
-
   const label = labels[status] ?? (isPast ? 'Past' : status);
+  const danger = status === 'cancelled' || status === 'no_show';
+  const active = !isPast && ['confirmed', 'checked_in'].includes(status);
 
-  // Use our new Badge variants
-  if (isPast || status === 'completed') {
-    return (
-      <Badge variant="status-completed" className="text-[10px] uppercase tracking-wider">
-        {label}
-      </Badge>
-    );
-  }
-  if (status === 'cancelled' || status === 'no_show') {
-    return (
-      <Badge variant="status-cancelled" className="text-[10px] uppercase tracking-wider">
-        {label}
-      </Badge>
-    );
-  }
-  if (status === 'confirmed' || status === 'checked_in') {
-    return (
-      <Badge variant="status-confirmed" className="text-[10px] uppercase tracking-wider">
-        {label}
-      </Badge>
-    );
-  }
-  if (status === 'pending' || status === 'pending_allocation') {
-    return (
-      <Badge variant="status-pending" className="text-[10px] uppercase tracking-wider">
-        {label}
-      </Badge>
-    );
-  }
-
-  // Default fallback
   return (
     <Badge
-      variant="secondary"
-      className="rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wider font-bold border border-border bg-muted text-muted-foreground"
+      variant={danger ? 'destructive' : 'secondary'}
+      className={cn(
+        'rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.12em]',
+        active && 'border-primary/20 bg-primary/10 text-primary',
+        isPast && !danger && 'border-border bg-muted text-muted-foreground',
+      )}
     >
       {label}
     </Badge>

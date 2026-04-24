@@ -9,6 +9,10 @@ const badgeVariants = cva(
     variants: {
       variant: {
         default: 'border-transparent bg-primary text-primary-foreground shadow hover:bg-primary/80',
+        'guest-chip':
+          'border-transparent bg-[var(--pg-bg-muted)] text-[var(--pg-text)] rounded-[var(--pg-radius-pill)] px-3 py-1 min-h-8 text-[var(--pg-text-caption)] font-medium',
+        'guest-chip-outline':
+          'border-[color:var(--pg-border)] bg-transparent text-[var(--pg-text)] rounded-[var(--pg-radius-pill)] px-3 py-1 min-h-8 text-[var(--pg-text-caption)] font-medium',
         secondary:
           'border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80',
         destructive:

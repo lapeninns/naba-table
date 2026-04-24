@@ -19,7 +19,7 @@ export function ConfirmationStep(props: LegacyConfirmationProps) {
   const router = useRouter();
 
   const handleClose = () => {
-    router.push('/guest/thank-you');
+    router.push('/guest/dashboard');
   };
 
   return (

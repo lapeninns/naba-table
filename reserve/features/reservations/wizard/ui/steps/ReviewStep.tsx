@@ -22,10 +22,18 @@ import { formatBookingLabel } from '@reserve/shared/formatting/booking';
 import { formatReservationTime } from '@reserve/shared/formatting/booking';
 import { cn } from '@shared/lib/cn';
 import { Alert, AlertDescription, AlertIcon } from '@shared/ui/alert';
+import { Badge } from '@shared/ui/badge';
 import { Button } from '@shared/ui/button';
+import { Separator } from '@shared/ui/separator';
 
 import { useWizardNavigation } from '../../context/WizardContext';
 import { StepErrorBoundary } from '../ErrorBoundary';
+import {
+  WizardPanel,
+  WizardPanelContent,
+  WizardPanelFooter,
+  WizardPanelHeader,
+} from '../WizardPanel';
 import { WizardStep } from '../WizardStep';
 
 import type { ReviewStepProps } from './review-step/types';
@@ -55,9 +63,13 @@ interface SectionHeaderProps {
 
 function SectionHeader({ title, icon, onEdit, editLabel }: SectionHeaderProps) {
   return (
-    <div className="flex items-center justify-between gap-3 mb-5 border-b border-border/40 pb-3">
+    <div className="mb-5 flex items-center justify-between gap-3 border-b border-border/60 pb-3">
       <div className="flex items-center gap-2">
-        {icon && <span className="text-primary">{icon}</span>}
+        {icon && (
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+            {icon}
+          </span>
+        )}
         <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
           {title}
         </h3>
@@ -67,10 +79,10 @@ function SectionHeader({ title, icon, onEdit, editLabel }: SectionHeaderProps) {
           variant="ghost"
           size="sm"
           onClick={onEdit}
-          className="h-7 gap-1.5 text-xs font-medium text-primary hover:text-primary/80 hover:bg-primary/5"
+          className="h-8 gap-1.5 rounded-full text-xs font-medium text-primary hover:bg-primary/5 hover:text-primary/80"
           aria-label={editLabel ?? `Edit ${title.toLowerCase()}`}
         >
-          <PencilIcon className="h-3.5 w-3.5" aria-hidden />
+          <PencilIcon data-icon="inline-start" aria-hidden />
           <span>Edit</span>
         </Button>
       )}
@@ -103,15 +115,12 @@ function DetailItem({ icon, label, value, className, valueClassName }: DetailIte
 
 function TicketPerforation() {
   return (
-    <div className="relative h-px w-full bg-border my-2" aria-hidden="true">
-      {/* Left Notch */}
+    <div className="relative my-2 w-full" aria-hidden="true">
+      <Separator />
       <div className="absolute -left-6 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-background border border-border" />
       <div className="absolute -left-6 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-background scale-90" />{' '}
-      {/* Mask border overlap */}
-      {/* Right Notch */}
       <div className="absolute -right-6 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-background border border-border" />
       <div className="absolute -right-6 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-background scale-90" />
-      {/* Dashed Line */}
       <div className="absolute inset-0 border-t-2 border-dashed border-muted-foreground/20" />
     </div>
   );
@@ -143,18 +152,16 @@ export function ReviewStep(props: ReviewStepProps) {
     >
       <WizardStep
         step={3}
-        title="Review & Confirm"
-        description="Please review your reservation details below."
+        title="Review the booking"
+        description="Check the visit, contact details, and notes before the restaurant receives it."
         contentClassName="space-y-6"
         icon={<ReceiptIcon className="h-6 w-6" />}
       >
         <div className="space-y-6">
-          {/* Screen reader summary */}
           <p className="sr-only" aria-live="polite">
             {`Review details for ${summary.summaryValue}. Press confirm to finalise your reservation.`}
           </p>
 
-          {/* Error Alert */}
           {error && (
             <Alert variant="destructive" role="alert" className="items-start animate-fade-in">
               <AlertIcon>
@@ -200,13 +207,13 @@ export function ReviewStep(props: ReviewStepProps) {
             </Alert>
           )}
 
-          {/* 
-            TICKET CONTAINER 
-            Using a clean card look with a "perforation" divider
-          */}
-          <article className="pg-card overflow-hidden">
-            {/* SECTION 1: Plan */}
-            <div className="p-6">
+          <WizardPanel className="overflow-hidden">
+            <WizardPanelHeader
+              eyebrow="Reservation draft"
+              title={summary.summaryValue}
+              actions={<Badge variant="guest-chip-outline">Review</Badge>}
+            />
+            <WizardPanelContent className="p-6">
               <SectionHeader
                 title="Your Visit"
                 icon={<SparklesIcon className="h-4 w-4" />}
@@ -238,13 +245,11 @@ export function ReviewStep(props: ReviewStepProps) {
                   value={formatBookingLabel(details.bookingType)}
                 />
               </dl>
-            </div>
+            </WizardPanelContent>
 
-            {/* Perforation Divider */}
             <TicketPerforation />
 
-            {/* SECTION 2: Details */}
-            <div className="p-6">
+            <WizardPanelContent className="p-6">
               <SectionHeader
                 title="Your Details"
                 icon={<UserIcon className="h-4 w-4" />}
@@ -275,24 +280,25 @@ export function ReviewStep(props: ReviewStepProps) {
                 />
               </dl>
 
-              {/* Notes - Full Width */}
               {details.notes && (
-                <div className="mt-6 pt-4 border-t border-border/40">
-                  <dt className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground font-medium mb-2">
+                <div className="mt-6 border-t border-border/40 pt-4">
+                  <dt className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                     <MessageSquareIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
                     <span>Special Requests</span>
                   </dt>
-                  <dd className="text-sm text-foreground/90 bg-muted/40 p-3 rounded-lg border border-border/50">
+                  <dd className="rounded-[var(--pg-radius-md)] border border-border/50 bg-muted/40 p-3 text-sm text-foreground/90">
                     &quot;{details.notes}&quot;
                   </dd>
                 </div>
               )}
-            </div>
-          </article>
+            </WizardPanelContent>
+          </WizardPanel>
 
-          <div className="text-center text-xs text-muted-foreground px-4">
-            By clicking Confirm, you agree to our Terms of Service and Privacy Policy.
-          </div>
+          <WizardPanel>
+            <WizardPanelFooter className="justify-center bg-muted/35 text-center text-xs text-muted-foreground">
+              By clicking Confirm, you agree to the reservation terms and privacy notice.
+            </WizardPanelFooter>
+          </WizardPanel>
         </div>
       </WizardStep>
     </StepErrorBoundary>

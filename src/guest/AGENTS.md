@@ -38,7 +38,6 @@ Radix Luma is the mandatory design system for guest-facing routes, guest portal 
 - Root design source: `GUEST_FACING_DESIGN_SYSTEM.md`.
 - Guest token layer: `styles/design-system/public-guest.tokens.css`.
 - Guest utility layer: `styles/design-system/public-guest.utilities.css`.
-- Guest compatibility bridge: `styles/design-system/public-guest.bridge.css`.
 - Shared guest compounds: `src/components/guest/ui/**`.
 - Shadcn primitives: `components/ui/**`.
 
@@ -69,7 +68,7 @@ Radix Luma is the mandatory design system for guest-facing routes, guest portal 
 - Before adding or updating shadcn components, run or consult `pnpm dlx shadcn@latest info`, check installed components, use `pnpm dlx shadcn@latest docs <component>` for APIs/examples, and use `--dry-run` / `--diff` for updates where local changes may exist.
 - Use shadcn MCP/plugin tooling where available for discovery, docs, registry inspection, and component generation; fall back to the shadcn CLI only when MCP/plugin tooling is unavailable or insufficient.
 - Keep token changes scoped to `.guest-theme` / `[data-theme='guest']`.
-- Prefer extending `styles/design-system/public-guest.utilities.css` for new reusable guest utilities and `styles/design-system/public-guest.bridge.css` only for compatibility with existing legacy classes.
+- Prefer extending `styles/design-system/public-guest.utilities.css` for new reusable guest utilities; avoid introducing compatibility-only legacy class layers.
 - Cards rest with border-only edge definition. Add hover lift only to interactive cards, never static informational containers.
 - Buttons are capsule-shaped and tactile. Limit prominent filled primary buttons to the main action(s) on a view; use secondary, outline, ghost, or link styles for supporting actions.
 - Inputs use static labels above fields, 36px visual height minimum, visible focus rings, and inline error text.
@@ -87,6 +86,88 @@ Radix Luma is the mandatory design system for guest-facing routes, guest portal 
 - Guest-facing copy should be specific, calm, and operationally clear. Avoid generic hype words and placeholder language.
 - Public booking and guest portal copy should preserve exact restaurant names, reservation labels, dates, prices, and route language from source data.
 - Auth-gated redirects must preserve the intended guest path via `redirectedFrom` where applicable.
+
+### Guest Webpage Usefulness Checklist
+
+For every guest/public webpage, run this as a yes/no checklist during planning and again before verification. The page should feel useful, scannable, and free of sections that do not help the user understand, decide, or act. This guidance synthesizes Apple HIG direction on clear hierarchy and labels, GOV.UK direction on user needs/plain language/journey order, and NN/g direction on visual hierarchy, progressive disclosure, accordions, and form cognitive load.
+
+#### Purpose
+
+- Is it immediately clear what this page is for?
+- Is it clear who this page is for?
+- Is there one primary action the page is trying to drive?
+- Are secondary actions clearly secondary?
+
+#### Section Usefulness
+
+- Does every section explain, reassure, or help the user act?
+- If a section disappeared, would the page still work just as well?
+- Are there any "company says about itself" blocks that do not help the user decide or complete the task?
+- Is duplicate information removed?
+
+#### Content & Copy
+
+- Does the main heading say what the page offers?
+- Do section headings help scanning?
+- Do buttons say exactly what happens next?
+- Is the copy plain, direct, and short?
+- Are clever labels replaced with obvious ones?
+
+#### Visual Hierarchy
+
+- Is the most important thing visually strongest?
+- Is the page easy to scan top to bottom?
+- Are related items grouped together with spacing?
+- Is there enough contrast between primary and secondary content?
+- Do users know where to look first, second, and third?
+
+#### Flow & Order
+
+- Is information presented in the order the user needs it?
+- Does the page answer the obvious next question before moving on?
+- Is the next step visible without hunting?
+- Are users ever left at a dead end?
+
+#### Navigation & Choice
+
+- Are the main choices limited and easy to distinguish?
+- Is navigation predictable?
+- Are advanced or rare options hidden until needed?
+- Are menus and tabs used to reduce clutter, not create it?
+
+#### Accordions, Tabs & Hidden Content
+
+- Is hidden content truly secondary?
+- Would most users need to open only one or two sections, not many?
+- Are you hiding content to reduce clutter, not to avoid making decisions?
+
+#### Forms & Conversion Points
+
+- Are you asking only for information that is necessary?
+- Are labels always visible and clear?
+- Is help text placed where it is needed?
+- Are error messages close to the field and written plainly?
+- Does the submit button say the real action?
+
+#### Final Prune Test
+
+- Does this block help the user understand?
+- Does this block help the user decide?
+- Does this block help the user do?
+- If the answer is no to all three, cut it.
+
+Compact rule: one page equals one main goal, one main CTA, clear heading, strong hierarchy, plain labels, secondary details hidden until needed, and no section without a job.
+
+Reference guidance:
+
+- Apple Human Interface Guidelines: `https://developer.apple.com/design/human-interface-guidelines`
+- Apple HIG Writing: `https://developer.apple.com/design/human-interface-guidelines/writing`
+- GOV.UK User Needs: `https://www.gov.uk/guidance/content-design/user-needs`
+- GOV.UK smooth user journeys: `https://insidegovuk.blog.gov.uk/2013/12/30/6-principles-for-smooth-user-journey/`
+- NN/g visual hierarchy: `https://www.nngroup.com/articles/visual-hierarchy-ux-definition/`
+- NN/g progressive disclosure: `https://www.nngroup.com/articles/progressive-disclosure/`
+- NN/g accordions on desktop: `https://www.nngroup.com/articles/accordions-on-desktop/`
+- NN/g reducing cognitive load in forms: `https://www.nngroup.com/articles/4-principles-reduce-cognitive-load/`
 
 ### Verification
 

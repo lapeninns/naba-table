@@ -60,12 +60,11 @@ export const buildSafeReturnPath = (params: {
 
   if (bookingId) {
     if (bookingReference) {
-      const url = new URL(`/bookings/${bookingId}/thank-you`, 'https://placeholder.local');
+      const url = new URL(`/guest/bookings/${bookingId}/receipt`, 'https://placeholder.local');
       url.searchParams.set('token', bookingReference);
       return `${url.pathname}${url.search}`;
     }
-    // Without a token, avoid the auth-gated receipt redirect
-    return '/guest/thank-you';
+    return `/guest/bookings/${bookingId}`;
   }
 
   if (restaurantSlug) {

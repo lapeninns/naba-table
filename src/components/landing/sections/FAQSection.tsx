@@ -31,16 +31,21 @@ const FAQ_ITEMS = [
 
 export function FAQSection() {
   return (
-    <section id="faq" className="pg-section border-b border-border bg-muted/40">
-      <div className="pg-container-sm">
-        <Card className="pg-card motion-safe:reveal-up">
-          <CardHeader className="flex flex-col gap-1.5 space-y-0 p-4 pb-0 text-center sm:gap-2 sm:p-6 sm:pb-0 md:p-8 md:pb-0">
+    <section id="faq" className="pg-section border-b border-border/70 bg-muted/30">
+      <div className="pg-container">
+        <Card className="pg-panel overflow-hidden border-primary/15 bg-background/95 shadow-[var(--pg-shadow-soft)] motion-safe:reveal-up">
+          <CardHeader className="flex flex-col gap-2 space-y-0 border-b border-border/60 p-5 text-center sm:p-6 md:p-8">
+            <p className="pg-kicker">Frequently Asked Questions</p>
             <CardTitle className="pg-section-title">Frequently Asked Questions</CardTitle>
           </CardHeader>
-          <CardContent className="p-2 sm:p-4 md:p-6">
+          <CardContent className="p-3 sm:p-4 md:p-6">
             <Accordion type="single" collapsible className="w-full">
               {FAQ_ITEMS.map((item) => (
-                <AccordionItem key={item.id} value={item.id} className="border-border px-1">
+                <AccordionItem
+                  key={item.id}
+                  value={item.id}
+                  className="rounded-[var(--pg-radius-md)] border border-border/70 bg-background px-4 shadow-[var(--pg-shadow-xs)] [&:not(:last-child)]:mb-3"
+                >
                   <AccordionTrigger className="text-left text-sm sm:text-base">
                     {item.question}
                   </AccordionTrigger>

@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 
 import { ReservationWizardClient } from '@/components/features/booking/wizard/ReservationWizardClient';
+import { RestaurantBookingShell } from '@/components/restaurants/PublicSections';
 import { getRestaurantBySlug } from '@/server/restaurants/getRestaurantBySlug';
 
 import type { Metadata } from 'next';
@@ -30,10 +31,11 @@ export default async function BookingPage({ params }: { params: RouteParams }) {
   }
 
   return (
-    <section className="pg-section-tight">
-      <div className="pg-container pg-card p-4 sm:p-6">
-        <ReservationWizardClient restaurant={restaurant} />
-      </div>
-    </section>
+    <RestaurantBookingShell restaurant={restaurant}>
+      <ReservationWizardClient
+        restaurant={restaurant}
+        returnPath={`/restaurants/${restaurant.slug}/book/thank-you`}
+      />
+    </RestaurantBookingShell>
   );
 }

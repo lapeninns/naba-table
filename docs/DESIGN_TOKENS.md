@@ -198,27 +198,24 @@ The theme is controlled via `data-theme` attribute on the `<html>` element.
 <html data-theme="app">
 ```
 
-### ThemeProvider Component
+### Root Theme Bootstrap
 
 ```tsx
-import { ThemeProvider } from '@/components/providers/ThemeProvider';
+import { APP_THEME_PATH_PATTERN } from '@/lib/theme/documentTheme';
 
-// In layout
-<ThemeProvider theme="guest">{children}</ThemeProvider>;
+const documentThemeBootstrapScript = `(function(){var root=document.documentElement;var path=window.location.pathname||'/';var host=window.location.hostname||'';var normalized=(path.split('?')[0]||'/').replace(/\\/+$/,'')||'/';var appThemeHostRegex=new RegExp('^app(?:\\\\.|-)');var appThemePathRegex=new RegExp(${JSON.stringify(APP_THEME_PATH_PATTERN)});var theme=(appThemeHostRegex.test(host)||appThemePathRegex.test(normalized))?'app':'guest';root.setAttribute('data-theme',theme);if(theme==='guest'){root.classList.remove('dark');root.style.colorScheme='light';}else{root.style.removeProperty('color-scheme');}})();`;
 ```
 
-### JavaScript Theme Toggle
+The root layout now sets `data-theme` before hydration so guest/public routes do not first paint with app/default tokens and then repaint after the client mounts.
+
+### Client Route Sync
 
 ```ts
-import { useTheme } from '@/components/providers/ThemeProvider';
+import { resolveDocumentThemeForPathname } from '@/lib/theme/documentTheme';
 
-const { setTheme, getTheme } = useTheme();
+const documentTheme = resolveDocumentThemeForPathname(pathname, window.location.hostname);
 
-// Set theme
-setTheme('guest');
-
-// Get current theme
-const current = getTheme(); // 'guest' | 'app'
+document.documentElement.setAttribute('data-theme', documentTheme);
 ```
 
 ### Dark Mode

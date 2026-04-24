@@ -7,8 +7,9 @@ const cardVariants = cva('rounded-xl border bg-card text-card-foreground', {
   variants: {
     variant: {
       default: 'shadow',
-      featured: 'shadow-featured p-8 bg-surface-elevated',
-      interactive: 'shadow-card card-interactive cursor-pointer',
+      featured: 'border-border/80 bg-card p-8 shadow-md',
+      interactive:
+        'cursor-pointer shadow-sm transition-transform transition-shadow hover:-translate-y-px hover:shadow-md',
       compact: 'shadow-sm',
     },
   },

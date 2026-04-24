@@ -1,14 +1,8 @@
 'use client';
 
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { InlineAlert } from '@/components/features/booking/ui/BookingComponents';
+import { GuestPanel, GuestPanelHeader } from '@/components/guest/ui';
 import { Badge } from '@/components/ui/badge';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useBookingHistory } from '@/hooks/useBookingHistory';
 import { cn } from '@/lib/utils';
@@ -133,58 +127,58 @@ export function ReservationHistory({
 
   if (historyQuery.isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">History</CardTitle>
-          <CardDescription>Loading recent changes…</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
+      <GuestPanel className="overflow-hidden">
+        <GuestPanelHeader title="History" description="Loading recent changes…" />
+        <div className="space-y-3 px-5 py-5 sm:px-6">
           {Array.from({ length: 3 }).map((_, idx) => (
             <Skeleton key={idx} className="h-20 w-full" />
           ))}
-        </CardContent>
-      </Card>
+        </div>
+      </GuestPanel>
     );
   }
 
   if (historyQuery.isError) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">History</CardTitle>
-          <CardDescription>Review how this reservation changed over time.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Alert variant="destructive">
-            <AlertTitle>Unable to load history</AlertTitle>
-            <AlertDescription>{historyQuery.error?.message ?? 'Please try again later.'}</AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
+      <GuestPanel className="overflow-hidden">
+        <GuestPanelHeader
+          title="History"
+          description="Review how this reservation changed over time."
+        />
+        <div className="px-5 py-5 sm:px-6">
+          <InlineAlert tone="danger">
+            Unable to load history. {historyQuery.error?.message ?? 'Please try again later.'}
+          </InlineAlert>
+        </div>
+      </GuestPanel>
     );
   }
 
   const events = historyQuery.data?.events ?? [];
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">History</CardTitle>
-        <CardDescription>Track edits and cancellations for this reservation.</CardDescription>
-      </CardHeader>
-      <CardContent>
+    <GuestPanel className="overflow-hidden">
+      <GuestPanelHeader
+        title="History"
+        description="Track edits and cancellations for this reservation."
+      />
+      <div className="px-5 py-5 sm:px-6">
         {events.length === 0 ? (
           <p className="text-sm text-muted-foreground">No changes recorded yet.</p>
         ) : (
           <ul className="space-y-4">
             {events.map((event) => {
-              const actorLabel = event.actor && event.actor.trim().length > 0 ? event.actor.trim() : 'system';
+              const actorLabel =
+                event.actor && event.actor.trim().length > 0 ? event.actor.trim() : 'system';
               const actorDisplay = actorLabel.toLowerCase() === 'system' ? 'System' : actorLabel;
               const changedAtLabel =
                 formatReservationDateTimeFromDate(new Date(event.changedAt), { timezone }) || '—';
 
               return (
-                <li key={event.versionId} className="space-y-3 rounded-lg border border-border/60 p-4">
+                <li
+                  key={event.versionId}
+                  className="space-y-3 rounded-[var(--pg-radius-md)] border border-border/70 bg-background/80 p-4 shadow-[var(--pg-shadow-xs)]"
+                >
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold text-foreground">{event.summary}</p>
@@ -198,7 +192,10 @@ export function ReservationHistory({
                   {event.changes.length > 0 ? (
                     <dl className="space-y-2">
                       {event.changes.map((change) => (
-                        <div key={`${event.versionId}-${change.field}`} className="grid gap-3 sm:grid-cols-[180px,1fr]">
+                        <div
+                          key={`${event.versionId}-${change.field}`}
+                          className="grid gap-3 sm:grid-cols-[180px,1fr]"
+                        >
                           <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                             {change.label}
                           </dt>
@@ -218,14 +215,16 @@ export function ReservationHistory({
                       ))}
                     </dl>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No notable field changes recorded.</p>
+                    <p className="text-sm text-muted-foreground">
+                      No notable field changes recorded.
+                    </p>
                   )}
                 </li>
               );
             })}
           </ul>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </GuestPanel>
   );
 }

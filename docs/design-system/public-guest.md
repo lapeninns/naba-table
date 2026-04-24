@@ -18,15 +18,14 @@ Do not use this design system for authenticated ops/dashboard surfaces under `sr
 
 ## File Map
 
-| Layer                    | Location                                          | Purpose                                                                                                    |
-| ------------------------ | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Public/guest tokens      | `styles/design-system/public-guest.tokens.css`    | Radix Luma color, type, rhythm, radius, elevation, and motion variables scoped to guest/public surfaces.   |
-| Public/guest utilities   | `styles/design-system/public-guest.utilities.css` | Reusable Radix Luma `pg-*` classes for public sections, containers, cards, chips, typography, and motion.  |
-| Public/guest bridge      | `styles/design-system/public-guest.bridge.css`    | Compatibility classes already used by guest pages, retuned to Radix Luma while surfaces migrate to `pg-*`. |
-| Shared shadcn primitives | `components/ui/**`                                | Base Button, Card, Badge, Dialog, Sheet, Accordion, etc. Do not fork these for public pages.               |
-| Public/guest compounds   | `src/components/guest/ui/**`                      | Reusable guest/public patterns composed from shadcn primitives and `pg-*` utilities.                       |
-| Homepage composition     | `src/components/landing/**`                       | Homepage-specific sections, proof widgets, SEO, and landing-only data.                                     |
-| Route wrappers           | `src/app/(public)/**`, `src/app/guest/**`         | Thin route composition only. Keep design logic in components and CSS layers.                               |
+| Layer                    | Location                                          | Purpose                                                                                                   |
+| ------------------------ | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Public/guest tokens      | `styles/design-system/public-guest.tokens.css`    | Radix Luma color, type, rhythm, radius, elevation, and motion variables scoped to guest/public surfaces.  |
+| Public/guest utilities   | `styles/design-system/public-guest.utilities.css` | Reusable Radix Luma `pg-*` classes for public sections, containers, cards, chips, typography, and motion. |
+| Shared shadcn primitives | `components/ui/**`                                | Base Button, Card, Badge, Dialog, Sheet, Accordion, etc. Do not fork these for public pages.              |
+| Public/guest compounds   | `src/components/guest/ui/**`                      | Reusable guest/public patterns composed from shadcn primitives and `pg-*` utilities.                      |
+| Homepage composition     | `src/components/landing/**`                       | Homepage-specific sections, proof widgets, SEO, and landing-only data.                                    |
+| Route wrappers           | `src/app/(public)/**`, `src/app/guest/**`         | Thin route composition only. Keep design logic in components and CSS layers.                              |
 
 ## Theme Boundary
 
@@ -71,7 +70,7 @@ The public/guest system follows Radix Luma:
 
 1. Add or update tokens in `public-guest.tokens.css`.
 2. Add reusable layout/type/surface utilities in `public-guest.utilities.css`.
-3. Keep compatibility-only classes in `public-guest.bridge.css` until their consuming pages have moved to `pg-*`.
+3. Keep all guest-facing composition on `pg-*` utilities and guest variants (`guest-*`) from shared primitives.
 4. Create shared public/guest compounds in `src/components/guest/ui/**` only when at least two guest/public surfaces need the pattern.
 5. Refactor homepage sections to consume `pg-*` utilities and guest compounds.
 6. Migrate public booking and guest portal pages surface by surface with browser proof.

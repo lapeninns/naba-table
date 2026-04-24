@@ -28,8 +28,11 @@ interface LiveFeedCardProps {
 
 export function LiveFeedCard({ reduceMotion }: LiveFeedCardProps) {
   return (
-    <Card variant="compact" className="pg-card flex h-full flex-col transition-all duration-200">
-      <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0 p-4 sm:p-5 md:p-6">
+    <Card
+      variant="compact"
+      className="pg-panel flex h-full flex-col overflow-hidden border-primary/15 bg-background/96 shadow-[var(--pg-shadow-soft)] transition-all duration-200"
+    >
+      <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0 border-b border-border/70 bg-muted/35 p-4 sm:p-5 md:p-6">
         <div className="flex min-w-0 items-center gap-2">
           <div className="relative flex size-2 shrink-0">
             {reduceMotion ? null : (
@@ -41,15 +44,15 @@ export function LiveFeedCard({ reduceMotion }: LiveFeedCardProps) {
             Service Live - Zero Chaos Detected
           </span>
         </div>
-        <Badge variant="secondary" className="shrink-0">
+        <Badge variant="guest-chip" className="shrink-0">
           Live
         </Badge>
       </CardHeader>
-      <CardContent className="flex flex-1 flex-col gap-2.5 p-4 pt-0 sm:gap-3 sm:p-5 sm:pt-0 md:p-6 md:pt-0">
+      <CardContent className="flex flex-1 flex-col gap-2.5 p-4 sm:gap-3 sm:p-5 md:p-6">
         {SERVICE_TIMELINE.map((item, index) => (
           <div
             key={`${item.time}-${item.party}`}
-            className="flex flex-col gap-2 rounded-lg border border-border/80 bg-muted/50 p-3 font-mono text-xs sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+            className="flex flex-col gap-2 rounded-[var(--pg-radius-md)] border border-border/80 bg-background p-3 font-mono text-xs shadow-[var(--pg-shadow-xs)] sm:flex-row sm:items-center sm:justify-between sm:gap-3"
           >
             <div className="min-w-0 flex-1">
               <div className="truncate font-semibold text-foreground">
@@ -59,12 +62,7 @@ export function LiveFeedCard({ reduceMotion }: LiveFeedCardProps) {
                 {index === 1 ? 'Reminder sequence handled automatically' : 'Floor plan synced'}
               </div>
             </div>
-            <div
-              className={cn(
-                'shrink-0 font-medium text-success',
-                item.detail ? 'sm:max-w-[11rem]' : '',
-              )}
-            >
+            <div className={cn('shrink-0 font-medium text-primary', item.detail ? 'sm:max-w-[11rem]' : '')}>
               {item.status}
               {item.detail ? (
                 <span className="block text-[11px] text-muted-foreground">({item.detail})</span>
@@ -72,7 +70,7 @@ export function LiveFeedCard({ reduceMotion }: LiveFeedCardProps) {
             </div>
           </div>
         ))}
-        <div className="mt-1 grid grid-cols-1 gap-2 rounded-lg border border-primary/20 bg-primary/5 p-3 font-mono text-xs text-muted-foreground sm:grid-cols-3">
+        <div className="mt-1 grid grid-cols-1 gap-2 rounded-[var(--pg-radius-lg)] border border-primary/20 bg-primary/[0.07] p-3 font-mono text-xs text-muted-foreground sm:grid-cols-3">
           <span>
             Total Covers: <strong className="text-foreground">42</strong>
           </span>
