@@ -13,21 +13,11 @@ Two surfaces: **operator dashboard** (`src/app/app/**`) and **guest booking** (`
 
 ---
 
-## Instruction Precedence
-
-1. Walk up from the file being edited; collect every `AGENTS.md` (exact casing).
-2. Apply root → intermediate → closest. **Closest wins** on conflicts, except non-overridables below.
-3. Nested files must declare `scope: subproject` and `extends: <relative>/AGENTS.md`.
-
----
-
-## Non-Overridable Rules
-
-These apply everywhere. Nested files cannot relax them.
+## Rules
 
 - **Secrets never in source.** Use env vars / secret stores only.
 - **Supabase is remote-only.** No local Supabase. Staging first, then production.
-- **UI verification required.** Manual browser QA for any UI change (Chrome DevTools MCP or equivalent).
+- **UI verification required.** Manual browser QA for any UI change.
 - **Accessibility baseline.** Keyboard navigation, visible focus, semantic HTML, WCAG AA contrast.
 - **Shadcn/ui first.** Use existing primitives before creating custom components.
 - **Conventional Commits.** `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`.
@@ -54,7 +44,7 @@ These apply everywhere. Nested files cannot relax them.
 | **Medium** | New feature, component, API endpoint              | Task folder required. research.md + plan.md before coding.               |
 | **High**   | DB migration, auth change, cross-cutting refactor | Full SDLC. Task folder + verification.md + artifacts. Maintainer review. |
 
-Task folder structure: `tasks/<slug>-YYYYMMDD-HHMM>/` — see [docs/agents/task-structure.md](docs/agents/task-structure.md).
+Task folder structure: `tasks/<slug>-YYYYMMDD-HHMM>/`.
 
 ---
 
@@ -92,16 +82,4 @@ pnpm run test         # Tests (Vitest)
 ## Key Design Systems
 
 - **Ops (operator dashboard):** Default shadcn/ui theme.
-- **Guest (public booking):** Radix Luma — see `GUEST_FACING_DESIGN_SYSTEM.md` and `src/guest/AGENTS.md`.
-
----
-
-## Reference Documentation
-
-Detailed procedures and templates live in `docs/agents/`:
-
-- [SDLC phases, DoR/DoD, perf budgets](docs/agents/sdlc.md)
-- [Task folder structure and templates](docs/agents/task-structure.md)
-- [UI & frontend standards](docs/agents/ui-standards.md)
-- [Database migration procedures](docs/agents/db-migrations.md)
-- [MCP tooling catalog](docs/agents/tooling.md)
+- **Guest (public booking):** Radix Luma — see `GUEST_FACING_DESIGN_SYSTEM.md`.

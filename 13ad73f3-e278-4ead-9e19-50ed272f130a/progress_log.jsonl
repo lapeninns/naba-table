@@ -1,4 +1,0 @@
-{"timestamp":"2026-04-12T18:05:20.812Z","type":"mission_accepted","title":"Guest booking journey design consistency"}
-{"timestamp":"2026-04-12T19:01:48.043Z","type":"mission_run_started","message":"Starting guest booking journey design consistency mission after artifact creation and repo .factory commit 650043c3."}
-{"timestamp":"2026-04-12T19:01:49.470Z","type":"worker_selected_feature","workerSessionId":"674f39ab-085d-41dd-8a68-0347b4ac6de5","featureId":"bookings-hub-design-consistency"}
-{"timestamp":"2026-04-12T19:01:49.473Z","type":"worker_started","workerSessionId":"674f39ab-085d-41dd-8a68-0347b4ac6de5","spawnId":"worker_9ffd26f7","featureId":"bookings-hub-design-consistency"}
