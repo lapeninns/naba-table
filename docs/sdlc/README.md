@@ -1,75 +1,59 @@
-# Nabatable SDLC Operating System
+# Nabatable SDLC OS
 
-This directory is Nabatable's repo-native operating system for software delivery.
+This operating layer coordinates agents, constrains blast radius, and forces replayable QA. It is Nabatable-native and assumes the repo truths below are non-negotiable.
 
-It is designed for both humans and coding agents. The root `AGENTS.md` stays short and global; this directory holds the deeper process that should not live in the root policy file.
+## Nabatable truths that control execution
 
-## Purpose
+- Nabatable ships two real surfaces:
+  - **ops** on the app host via `src/app/app/**`
+  - **guest/public** on the root host via `src/app/(public)/**` and `src/app/guest/**`
+- `src/proxy.ts` enforces the host split, cross-host redirects, `/app/*` transport behavior, and shared API behavior.
+- Supabase is remote-only. Staging-first is mandatory unless the task explicitly states otherwise.
+- UI work is **shadcn/ui first**.
+  - ops uses the default shadcn theme
+  - guest/public uses Radix Luma
+- `components/ui/**` is shared primitive territory by default. `src/components/ui/**` and other exported primitives also require a consumer scan before editing.
+- Root-host `/dev/**`, internal app-host `src/app/app/dev/**` reached as root-host `/app/dev/**` or app-host `/dev/**` depending on host mode, and `__dev/**` are harness entry points only. They expand state coverage but never replace shipped-route proof.
 
-Use this operating system to answer four recurring questions:
+## Mandatory route or API identity contract
 
-1. What process weight does this task require?
-2. What artifacts should be created before and during implementation?
-3. How should work move from plan to code to verification?
-4. Which specialist role should handle which part of the job?
+For any task that changes a route, handler, proxy rule, auth gate, or browser QA target, declare this table before editing and keep it current in the task folder or handoff:
 
-## System layout
+| Host context | External path | Internal file or handler | Expected proxy behavior | Auth expectation |
+| ------------ | ------------- | ------------------------ | ----------------------- | ---------------- |
 
-- `risk-tier-workflow.md` — low/medium/high process model
-- `task-harness.md` — task-folder structure and artifact expectations
-- `verification.md` — verification matrix and evidence rules
-- `subagents.md` — how Nabatable should use planner, implementer, reviewer, and UI QA roles
+Docs-only work may say `Not applicable`.
+
+## Execution order
+
+1. **Classify risk** with `risk-tier-workflow.md`.
+2. **Open the task folder** with `task-harness.md` if the work is medium or high risk.
+3. **Declare route/API identity and shared-primitive ownership** when the task touches routing, APIs, auth, proxy behavior, or reusable UI.
+4. **Plan before editing** when the tier requires it.
+5. **Implement inside scope** and keep the task folder current.
+6. **Review the result** against the plan, tier, repo invariants, and evidence quality.
+7. **Verify by change type** using `verification.md`.
+8. **Hand off with evidence** and explicit gaps only.
+
+## File map
+
+| Path                              | Contract                                                               |
+| --------------------------------- | ---------------------------------------------------------------------- |
+| `docs/sdlc/README.md`             | Entry point, repo truths, execution order, and identity gate           |
+| `docs/sdlc/risk-tier-workflow.md` | Risk classification, shared-ownership escalation, and delivery posture |
+| `docs/sdlc/task-harness.md`       | Task-folder rules, route/API identity contract, and harness matrix     |
+| `docs/sdlc/verification.md`       | QA contract, validator-coverage reality, and evidence requirements     |
+| `docs/sdlc/subagents.md`          | Agent coordination sequence and handoff packet contract                |
+| `.agents/planner.md`              | Planning role contract                                                 |
+| `.agents/implementer.md`          | Implementation role contract                                           |
+| `.agents/reviewer.md`             | Review role contract                                                   |
+| `.agents/ui-qa.md`                | Browser QA role contract                                               |
 
 ## Core operating rules
 
-- Root `AGENTS.md` is the global entrypoint. Read it first.
-- Use the smallest process that still protects quality.
-- Medium/high-risk work should live in `tasks/<slug>-YYYYMMDD-HHMM>/`.
-- Verification is part of delivery, not a follow-up.
-- Use repo scripts and tests as the source of truth for validation.
-- Prefer direct first-class changes in canonical codepaths.
-
-## Nabatable delivery model
-
-### Low risk
-
-Use for narrow bug fixes, copy changes, or isolated refactors.
-
-Default flow:
-
-1. Inspect the relevant files.
-2. Make the smallest correct change.
-3. Run focused validation.
-4. Summarize what changed and what was verified.
-
-Task folders are optional.
-
-### Medium risk
-
-Use for new features, new components, route changes, API changes, or meaningful UX work.
-
-Default flow:
-
-1. Create a task folder.
-2. Write `research.md` and `plan.md` before coding.
-3. Implement in small verified slices.
-4. Record verification in `verification.md`.
-
-### High risk
-
-Use for auth changes, database changes, cross-cutting refactors, billing, data integrity, or multi-surface workflow rewrites.
-
-Default flow:
-
-1. Create a task folder.
-2. Complete research and planning before coding.
-3. Explicitly document rollout, failure modes, and verification coverage.
-4. Capture evidence in `artifacts/`.
-5. Require maintainer-quality review before merge.
-
-## How to use this directory
-
-- Start in `risk-tier-workflow.md` to choose the correct path.
-- Use `task-harness.md` when a task folder is required.
-- Use `verification.md` before claiming work is done.
-- Use `subagents.md` when the work should be split by role.
+- Use the lowest honest tier. Escalate immediately when the blast radius expands.
+- Medium/high-risk work must leave a task folder another agent can replay.
+- Browser QA is mandatory for UI changes. Real-route evidence comes first.
+- Never substitute a harness pass for a shipped-route pass without saying so.
+- If a changed JS/TS file sits outside `pnpm run lint` coverage, run targeted eslint or explicitly record the gap.
+- Never state that a command, route check, artifact, or env safety check exists unless it was actually run or captured.

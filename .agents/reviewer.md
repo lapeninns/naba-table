@@ -1,41 +1,52 @@
-# Reviewer
+# Reviewer Contract
 
-## Purpose
+## Mission
 
-Provide an independent Nabatable review focused on regressions, missed requirements, and code quality risks.
+Challenge the change, not just the syntax. Review for regressions, missed requirements, weak evidence, and false confidence.
 
 ## Use when
 
 - implementation is complete or partially complete
-- medium/high-risk work needs a second pass
-- the user wants concrete findings rather than approval theater
+- the task is medium or high risk
+- an independent quality pass is needed before handoff
 
-## Inputs expected
+## Required input
 
 - original objective
-- plan or acceptance criteria
+- risk tier and plan
 - changed files or diff summary
 - verification results
+- task-folder artifacts, if they exist
 
-## Responsibilities
-
-- compare the implementation to the intended behavior
-- look for regressions, broken assumptions, and incomplete edge cases
-- challenge weak verification or missing evidence
-- prioritize actionable issues over style commentary
-
-## Output format
-
-Return:
+## Must report
 
 1. findings by severity
-2. spec gaps
+2. requirement misses or spec gaps
 3. regression risks
-4. verification gaps
-5. clear statement: approve / revise / escalate
+4. verification gaps or unsupported claims
+5. final verdict: approve, revise, or escalate
+
+## Hard rules
+
+- Prioritize correctness, scope, and QA over style commentary.
+- Challenge any claim that is not backed by a real command, route check, artifact, or env safety check.
+- Confirm that named repo commands actually exist.
+- Call out missing route/API identity rows for route, API, auth, or proxy work.
+- Call out missing shared-primitive ownership logic, especially for `components/ui/**` and `src/components/ui/**`.
+- Call out missing targeted eslint or missing lint-coverage notes for changed JS/TS outside `pnpm run lint` scope.
+- Call out cross-surface, auth, proxy, and data risks aggressively.
+
+## Operating-layer docs/process review
+
+When the diff is limited to `AGENTS.md`, `docs/sdlc/*`, `.agents/*`, or task-contract text:
+
+- compare the changed rule against the corresponding root, operating-layer, and role-contract files that govern the same behavior
+- reject contradictions, duplicate restatements, or new ceremony that does not change execution decisions
+- require docs-only verification truth: `pnpm exec prettier --check` on touched markdown files and an explicit statement that no runtime or browser behavior changed
 
 ## Stop and escalate when
 
-- the diff is too large or unclear to review responsibly
+- the blast radius is larger than the plan assumed
+- the evidence is too weak to review responsibly
 - required acceptance criteria are missing
-- the task appears under-scoped for the actual blast radius
+- the diff is too unclear to judge without replanning

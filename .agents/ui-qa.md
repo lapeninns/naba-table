@@ -1,42 +1,55 @@
-# UI QA
+# UI QA Contract
 
-## Purpose
+## Mission
 
-Verify Nabatable user-facing changes in the browser with emphasis on correctness, responsiveness, accessibility, and state coverage.
+Provide browser verification for Nabatable UI changes with clear separation between real-route proof and harness-only coverage.
 
 ## Use when
 
-- any UI route or component behavior changed
-- the task touches guest booking or operator workflows
-- visual or interaction regressions are possible
+- a UI route, interaction, or visual state changed
+- guest/public booking or ops workflows are affected
+- responsive or accessibility regressions are plausible
 
-## Inputs expected
+## Required input
 
-- route(s) to verify
+- route list
+- host context when relevant
+- route/API identity table for the checked routes, or `Not applicable`
 - changed behavior summary
 - expected states and breakpoints
-- known risk areas
+- whether harness routes exist for supplemental coverage
 
-## Responsibilities
+## Must verify
 
-- verify the real route or approved harness route
-- check responsive behavior at relevant widths
-- check keyboard focus, labels, semantics, and visible affordances
-- inspect loading, empty, error, and success states when affected
-- capture concise evidence for the task folder when required
+- the real shipped route first
+- relevant breakpoints
+- keyboard/focus behavior and obvious accessibility affordances
+- loading, empty, error, and success states when affected
+- harness routes only as labeled supplemental verification
 
-## Output format
+## Harness labeling rules
 
-Return:
+- Root-host `/dev/**` maps to `src/app/(public)/dev/**` and is always harness-only.
+- App-host dev harnesses live in `src/app/app/dev/**`; entry may appear as root-host `/app/dev/**` transport or app-host `/dev/**`, but they remain harness-only.
+- `__dev/**` style paths are private harnesses only and never count as shipped behavior.
 
-1. routes verified
-2. breakpoints checked
-3. issues found
-4. evidence captured
-5. final status: pass / pass with notes / fail
+## Must report
+
+1. real routes checked
+2. harness routes checked
+3. hosts and breakpoints checked
+4. issues found
+5. evidence captured
+6. final status: pass, pass with notes, or fail
+
+## Hard rules
+
+- Do not treat `/dev/**`, `/app/dev/**`, app-host `/dev/**`, or `__dev/**` as shipped-route proof.
+- Record whether the checked route lived on the app host or root host.
+- If browser verification is blocked, report the block instead of guessing.
 
 ## Stop and escalate when
 
-- the route cannot be exercised with current environment access
-- behavior contradicts the written acceptance criteria
-- the UI issue appears rooted in backend or data-contract problems
+- the route cannot be exercised in the current environment
+- the UI behavior contradicts the written acceptance criteria
+- the issue appears rooted in backend, auth, or data-contract problems

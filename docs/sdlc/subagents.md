@@ -1,85 +1,62 @@
-# Subagent Operating Model
+# Agent Coordination Contract
 
-Nabatable should use subagents when isolation, specialization, or parallelism improves quality.
+Use role handoffs when specialization improves execution quality or verification quality. The default Nabatable sequence is below.
 
-## When to use subagents
+## Standard sequence
 
-Use specialist roles when:
+1. **Planner** sets scope, tier, route/API identity, affected surfaces, and verification targets.
+2. **Implementer** edits files, keeps the task folder current, and runs required validators.
+3. **Reviewer** challenges regressions, scope drift, weak evidence, and ownership mistakes.
+4. **UI QA** verifies browser behavior for UI work on real routes first, harnesses second.
 
-- planning and implementation need different skill shapes
-- review must be independent from implementation
-- UI QA needs browser-specific attention
-- parallel research or analysis can reduce context load
+## When the full sequence is required
 
-Do not use subagents for trivial linear work that one agent can complete directly.
+- high-risk work
+- medium-risk work, except docs/process-layer rewrites limited to `docs/sdlc/*`, `.agents/*`, or task-contract text may combine roles under the rule below
+- any UI change that needs browser verification
+- any edit in `components/ui/**` or shared primitives with cross-surface impact
+- any change where review should be independent from implementation
 
-## Default role set
+## When roles may be combined
 
-- `.agents/planner.md`
-- `.agents/implementer.md`
-- `.agents/reviewer.md`
-- `.agents/ui-qa.md`
+- low-risk non-UI work with an obviously narrow blast radius
+- medium-risk docs/process-layer work only when the change is docs-only, does not alter shipped code or runtime behavior, and the same agent still preserves the full medium-risk contract: explicit tier/scope planning, required task-folder evidence, validator execution, and a factual self-review in planner → implementer → reviewer order
 
-## Role contracts
+## Mandatory handoff packet
 
-### Planner
+Every handoff should include:
 
-Best for:
-
-- requirements clarification
-- impact mapping
-- file/change planning
-- acceptance criteria
-- risk classification
-
-### Implementer
-
-Best for:
-
-- making the scoped change
-- preserving local patterns
-- running focused validation
-- updating task artifacts during execution
-
-### Reviewer
-
-Best for:
-
-- finding regressions
-- checking spec compliance
-- checking code quality and risk gaps
-- challenging assumptions
-
-### UI QA
-
-Best for:
-
-- browser verification
-- responsive checks
-- accessibility spot-checks
-- route-level UX validation
-
-## Suggested flow
-
-For medium/high-risk work:
-
-1. Planner defines scope, tier, and affected files.
-2. Implementer executes the smallest viable slice.
-3. Reviewer inspects for regressions and missed requirements.
-4. UI QA validates user-facing work when applicable.
+- objective
+- risk tier and reason
+- task-folder path, if one exists
+- affected hosts, surfaces, routes, APIs, and files
+- route/API identity table, or `Not applicable`
+- shared-primitive ownership decision when reusable UI is involved
+- required verification
+- open risks, assumptions, blocked environment access, or validator-coverage gaps
 
 ## Coordination rules
 
-- Pass explicit inputs and expected outputs to each role.
-- Keep each role narrow; avoid giant multi-purpose subagents.
-- The reviewer should not simply restate the implementer’s summary.
-- UI QA should focus on user-observable behavior, not code style.
+- Do not hand off vague goals. Hand off executable scope.
+- Keep app-host and root-host behavior explicit whenever routes are involved.
+- Keep real-route verification separate from harness verification in every handoff.
+- If `components/ui/**` is touched, assume high risk until the parent thread says otherwise.
+- If the task escalates in risk, return to planning before continuing.
 
-## Stop rules
+## Role ownership
 
-Escalate back to the main thread when:
+| Role        | Owns                                                                                  |
+| ----------- | ------------------------------------------------------------------------------------- |
+| Planner     | Scope, tiering, route/API identity, shared-ownership call, and verification plan      |
+| Implementer | File edits, task-folder upkeep, validator execution, and factual verification capture |
+| Reviewer    | Regression review, requirement coverage, ownership challenges, and evidence quality   |
+| UI QA       | Browser proof, responsive coverage, host labeling, and harness labeling               |
 
-- requirements are contradictory
-- a change crosses risk tiers unexpectedly
-- the required toolset is unavailable
-- a role discovers a repo-wide policy issue rather than a task-local problem
+## Escalation triggers
+
+Escalate back to the parent thread when:
+
+- the task crosses risk tiers
+- required verification cannot be run
+- auth, proxy, Supabase, or shared-primitive scope expands unexpectedly
+- the assigned role can no longer complete its contract responsibly

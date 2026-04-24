@@ -1,5 +1,5 @@
 ---
-agents_version: 6.0
+agents_version: 7.0
 scope: root
 extends: null
 last_updated: 2026-04-24
@@ -8,91 +8,45 @@ owner: github:@maintainers
 
 # AGENTS.md
 
-Nabatable — restaurant reservation SaaS. Next.js 16 (App Router) + Supabase + shadcn/ui + Vercel.
-Two surfaces: **operator dashboard** (`src/app/app/**`) and **guest booking** (`src/app/(public)/**`, `src/app/guest/**`).
+Nabatable global agent contract. Keep this file thin. Use `docs/sdlc/*` for delivery rules and `.agents/*` for role contracts.
 
----
+## Non-negotiables
 
-## Rules
+- Secrets never belong in source, logs, or task artifacts.
+- Supabase is remote-only. Stage on staging first, then production.
+- Do not claim verification that was not performed.
+- UI changes require browser verification on a real shipped route. `/dev/**` and `__dev/**` harnesses are supplements only.
+- Shadcn/ui-first is mandatory. Reuse existing primitives before creating new ones.
+- Ops uses the default shadcn theme. Guest/public uses Radix Luma.
+- Medium- and high-risk work requires `tasks/<slug>-YYYYMMDD-HHMM>/`.
 
-- **Secrets never in source.** Use env vars / secret stores only.
-- **Supabase is remote-only.** No local Supabase. Staging first, then production.
-- **UI verification required.** Manual browser QA for any UI change.
-- **Accessibility baseline.** Keyboard navigation, visible focus, semantic HTML, WCAG AA contrast.
-- **Shadcn/ui first.** Use existing primitives before creating custom components.
-- **Conventional Commits.** `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`.
+## Repo truths
 
----
+- Two shipped surfaces exist:
+  - ops on the app host and `src/app/app/**`
+  - guest/public on the root host via `src/app/(public)/**` and `src/app/guest/**`
+- Host and routing split is enforced in `src/proxy.ts`.
+- Shared UI spans both `components/**` and `src/components/**`.
 
-## Working Defaults
+## Operating layer
 
-- Read relevant files before editing. Understand existing code first.
-- Keep changes scoped and minimal. Don't refactor unrelated code.
-- Prefer existing patterns (DRY/KISS/YAGNI). Don't over-engineer.
-- Validate at system boundaries only. Trust internal invariants.
-- Provide loading, empty, error, and success states for UI.
-- Document assumptions and deviations in the task folder.
-- Target ≤500 LOC per file (hard cap 750; imports/types excluded).
+Read these in order when planning or executing work:
 
----
+1. `docs/sdlc/README.md`
+2. `docs/sdlc/risk-tier-workflow.md`
+3. `docs/sdlc/task-harness.md`
+4. `docs/sdlc/verification.md`
+5. `docs/sdlc/subagents.md`
+6. `.agents/*.md`
 
-## Risk-Tier Workflow
+## Validation reality
 
-| Risk       | Scope                                             | Process                                                                  |
-| ---------- | ------------------------------------------------- | ------------------------------------------------------------------------ |
-| **Low**    | Bug fix, copy change, small refactor              | Fix → test → PR. Task folder optional.                                   |
-| **Medium** | New feature, component, API endpoint              | Task folder required. research.md + plan.md before coding.               |
-| **High**   | DB migration, auth change, cross-cutting refactor | Full SDLC. Task folder + verification.md + artifacts. Maintainer review. |
+Use repo commands that actually exist:
 
-Task folder structure: `tasks/<slug>-YYYYMMDD-HHMM>/`.
+- `pnpm run lint`
+- `pnpm run typecheck`
+- `pnpm exec vitest ...`
+- `pnpm exec playwright test ...`
+- `pnpm exec prettier --check ...`
 
----
-
-## Build & Test
-
-```bash
-pnpm install          # Install dependencies
-pnpm run dev          # Dev server
-pnpm run build        # Production build
-pnpm run lint         # Lint
-pnpm run typecheck    # TypeScript check
-pnpm run test         # Tests (Vitest)
-```
-
----
-
-## Git
-
-- Branch: `task/<slug>-YYYYMMDD-HHMM` or `hotfix/<slug>-YYYYMMDD-HHMM`
-- Do not push without explicit user consent.
-- Stage only files related to the current task — never `git add -A`.
-- PR must reference task folder and include verification evidence.
-
----
-
-## Security
-
-- No secrets in code, logs, or artifacts. Env vars only.
-- Validate/sanitize untrusted input at boundaries.
-- Enforce auth/authz and tenant isolation.
-- No delete/move/overwrite files without explicit user request.
-
----
-
-## Key Design Systems
-
-- **Ops (operator dashboard):** Default shadcn/ui theme.
-- **Guest (public booking):** Radix Luma design system.
-
----
-
-## Nabatable SDLC OS
-
-For repo-native delivery workflow, task harness guidance, verification standards, and subagent role definitions, use:
-
-- `docs/sdlc/README.md`
-- `docs/sdlc/risk-tier-workflow.md`
-- `docs/sdlc/task-harness.md`
-- `docs/sdlc/verification.md`
-- `docs/sdlc/subagents.md`
-- `.agents/*.md`
+There is no package-level `pnpm test` script and no markdownlint script.
