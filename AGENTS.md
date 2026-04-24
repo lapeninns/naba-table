@@ -82,4 +82,4 @@ pnpm run test         # Tests (Vitest)
 ## Key Design Systems
 
 - **Ops (operator dashboard):** Default shadcn/ui theme.
-- **Guest (public booking):** Radix Luma — see `GUEST_FACING_DESIGN_SYSTEM.md`.
+- **Guest (public booking):** Radix Luma design system.
