@@ -83,3 +83,16 @@ pnpm run test         # Tests (Vitest)
 
 - **Ops (operator dashboard):** Default shadcn/ui theme.
 - **Guest (public booking):** Radix Luma design system.
+
+---
+
+## Nabatable SDLC OS
+
+For repo-native delivery workflow, task harness guidance, verification standards, and subagent role definitions, use:
+
+- `docs/sdlc/README.md`
+- `docs/sdlc/risk-tier-workflow.md`
+- `docs/sdlc/task-harness.md`
+- `docs/sdlc/verification.md`
+- `docs/sdlc/subagents.md`
+- `.agents/*.md`
