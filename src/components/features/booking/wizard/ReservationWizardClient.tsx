@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useMemo } from 'react';
 
-import { PlanStepSkeleton } from '@features/reservations/wizard/ui/WizardSkeletons';
+import { BookingWizardShellSkeleton } from '@features/reservations/wizard/ui/WizardSkeletons';
 
 import type { RestaurantSummary } from '@/lib/restaurants/types';
 
@@ -12,17 +12,7 @@ const ReservationWizard = dynamic(
   () =>
     import('@features/reservations/wizard/ui/ReservationWizard').then((m) => m.ReservationWizard),
   {
-    loading: () => (
-      <div
-        className="flex min-h-[40vh] items-center justify-center rounded-[var(--pg-radius-md)] bg-muted/30 p-4 sm:p-6"
-        role="status"
-        aria-busy
-      >
-        <div className="w-full max-w-4xl space-y-6 rounded-[var(--pg-radius-md)] border border-dashed border-border/70 bg-background/80 p-4 sm:p-6">
-          <PlanStepSkeleton />
-        </div>
-      </div>
-    ),
+    loading: () => <BookingWizardShellSkeleton />,
   },
 );
 

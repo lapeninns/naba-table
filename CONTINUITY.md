@@ -1,6 +1,6 @@
 # Continuity Ledger
 
-Last updated: 2026-04-24T12:15:00Z
+Last updated: 2026-04-24T14:52:05Z
 
 ## Goal (incl. success criteria)
 
@@ -10,6 +10,14 @@ Last updated: 2026-04-24T12:15:00Z
 - Success: browser breakpoint proof covers representative guest/public routes across mobile, tablet, laptop, and desktop widths.
 - Success: findings and artifacts are stored in `tasks/guest-responsive-audit-20260424-1136/`.
 - Success: confirmed responsive regressions are fixed in the canonical guest/public files and fresh 320px/375px/768px proof is recorded.
+- Final-polish the guest-facing frontend so it can be treated as a stable baseline.
+- Success: dead placeholder links are removed, transient loading states are mobile-safe, homepage contrast clears axe, and final proof is recorded in `tasks/guest-frontend-final-polish-20260424-1305/`.
+- Keep the shared guest navbar visible on focused booking routes while preserving the no-footer focused checkout feel.
+- Success: `/restaurants/[slug]/book` and `/restaurants/[slug]/book/thank-you` show the guest navbar without horizontal overflow on mobile, tablet, and desktop.
+- Reduce guest-facing Cumulative Layout Shift and make loading skeletons match their final components.
+- Success: representative guest route matrix improves from max CLS `0.03187` to `0.00111`, no probes exceed `0.02`, booking/dashboard skeletons reserve final component geometry, and evidence is recorded in `tasks/guest-cls-skeleton-polish-20260424-1326/`.
+- Suppress booking wizard progress while the mobile guest nav drawer is open.
+- Success: opening the mobile guest nav drawer records 0 layout-shift entries and the booking wizard navigation is translated below the viewport until the drawer closes.
 - Polish `http://localhost:3000/restaurants/the-old-crown-girton/book` to a 10/10 focused booking page.
 - Success: the shared guest navbar/footer do not collide with the wizard on focused booking routes.
 - Success: the time select stays controlled after hydration and no Select warning appears in a fresh browser probe.
@@ -574,7 +582,10 @@ Last updated: 2026-04-24T12:15:00Z
 
 ## Now
 
-- Guest responsive audit fix pass is implemented and verified; final handoff remains.
+- Guest CLS and skeleton polish is implemented and verified; final handoff remains.
+- Focused booking routes now keep the guest navbar visible and verified across mobile, tablet, and desktop.
+- Guest frontend final polish pass is implemented and verified.
+- Guest responsive audit fix pass is implemented and verified.
 - Guest shadcn component migration is implemented and verified; final handoff/summary remains.
 - Focused review-finding fixes are complete; only final handoff/summary remains for this pass.
 - Repo-wide QA evidence has been captured in `tasks/full-repo-manual-qa-20260422-1614/verification.md`; no runtime fixes have been applied for the newly discovered guest/public regressions yet.

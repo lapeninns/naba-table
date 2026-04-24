@@ -3,6 +3,7 @@
 import {
   AlertCircle,
   Calendar,
+  CalendarPlus,
   CheckCircle2,
   Clock,
   Download,
@@ -42,7 +43,11 @@ import {
   getPendingSelfServeGraceMinutes,
   isPendingSelfServeLocked,
 } from '@/lib/bookings/pendingLock';
-import { shareReservationDetails, type ShareResult } from '@/lib/reservations/share';
+import {
+  downloadCalendarEvent,
+  shareReservationDetails,
+  type ShareResult,
+} from '@/lib/reservations/share';
 import { useReservation } from '@features/reservations/wizard/api/useReservation';
 import {
   formatReservationDateFromDate,
@@ -54,8 +59,6 @@ import {
   parseBookingDateTime,
 } from '@reserve/shared/formatting/bookingDateTime';
 import { DEFAULT_VENUE } from '@shared/config/venue';
-
-import { ReservationHistory } from './ReservationHistory';
 
 import type { BookingDTO } from '@/hooks/useBookings';
 import type { Reservation } from '@entities/reservation/reservation.schema';
@@ -91,6 +94,17 @@ const FALLBACK_DISPLAY: ReservationDisplay = {
   shortDate: '—',
   fullDate: '—',
   time: '—',
+};
+
+const feedbackTone = (variant: ShareResult['variant']) => {
+  if (variant === 'error') return 'danger';
+  return variant;
+};
+
+const calendarStatusFromReservation = (status: string): 'confirmed' | 'cancelled' | 'pending' => {
+  if (status === 'cancelled') return 'cancelled';
+  if (status === 'pending' || status === 'pending_allocation') return 'pending';
+  return 'confirmed';
 };
 
 function buildReservationDisplay(
@@ -210,12 +224,20 @@ export function ReservationDetailClient({
       reservationId,
       reference: reservation.reference ?? null,
       guestName: reservation.customerName,
+      guestEmail: reservation.customerEmail,
       partySize: reservation.partySize,
       startAt: reservation.startAt,
       endAt: reservation.endAt ?? undefined,
       venueName: venue.name,
       venueAddress: venue.address,
       venueTimezone: venue.timezone,
+      status: calendarStatusFromReservation(reservation.status),
+      seatingPreference: reservation.seatingPreference,
+      notes: reservation.notes,
+      manageUrl:
+        typeof window === 'undefined'
+          ? null
+          : `${window.location.origin}/bookings/${reservationId}`,
     };
   }, [reservation, reservationId, venue]);
 
@@ -300,7 +322,14 @@ export function ReservationDetailClient({
   const handleShare = useCallback(() => {
     if (!sharePayload) return;
     void emit('reservation_detail_share_clicked', { reservationId });
-    void shareReservationDetails(sharePayload);
+    void shareReservationDetails(sharePayload)
+      .then((result) => setShareFeedback(result))
+      .catch(() =>
+        setShareFeedback({
+          variant: 'error',
+          message: "We couldn't share the reservation details. Please try again.",
+        }),
+      );
   }, [sharePayload, reservationId]);
 
   const handleDownload = useCallback(() => {
@@ -315,6 +344,16 @@ export function ReservationDetailClient({
     link.click();
     document.body.removeChild(link);
   }, [reservation]);
+
+  const handleAddToCalendar = useCallback(() => {
+    if (!sharePayload) {
+      setShareFeedback({ variant: 'warning', message: 'Reservation details not ready yet.' });
+      return;
+    }
+    void emit('reservation_detail_add_calendar_clicked', { reservationId });
+    const result = downloadCalendarEvent(sharePayload);
+    setShareFeedback(result);
+  }, [sharePayload, reservationId]);
 
   const closeEditDialog = useCallback((open: boolean) => setIsEditOpen(open), []);
   const closeCancelDialog = useCallback((open: boolean) => setIsCancelOpen(open), []);
@@ -411,9 +450,19 @@ export function ReservationDetailClient({
             <SecondaryButton onClick={handleShare}>
               <Share2 className="mr-2 h-4 w-4" /> Share
             </SecondaryButton>
+            <SecondaryButton onClick={handleAddToCalendar}>
+              <CalendarPlus className="mr-2 h-4 w-4" /> Add to calendar
+            </SecondaryButton>
           </SummaryActions>
         }
       />
+      {shareFeedback ? (
+        <div role="status" aria-live="polite">
+          <InlineAlert tone={feedbackTone(shareFeedback.variant)}>
+            {shareFeedback.message}
+          </InlineAlert>
+        </div>
+      ) : null}
 
       <div className="grid gap-8 xl:grid-cols-[1fr_320px]">
         <div className="space-y-8">
@@ -468,6 +517,9 @@ export function ReservationDetailClient({
             <SecondaryButton onClick={handleShare}>
               <Share2 className="mr-2 h-4 w-4" /> Share
             </SecondaryButton>
+            <SecondaryButton onClick={handleAddToCalendar}>
+              <CalendarPlus className="mr-2 h-4 w-4" /> Add to calendar
+            </SecondaryButton>
           </ActionButtonRow>
         </div>
 
@@ -515,10 +567,6 @@ export function ReservationDetailClient({
           )}
         </div>
       </div>
-
-      {canManage ? (
-        <ReservationHistory reservationId={reservationId} timezone={venue.timezone} />
-      ) : null}
 
       {bookingDto && (
         <>

@@ -1,11 +1,14 @@
 import { notFound } from 'next/navigation';
 
 import { ReservationThankYouCard } from '@/components/restaurants/PublicSections';
+import { getGuestAuthState } from '@/guest/services/auth-state.server';
 import { getRestaurantBySlug } from '@/server/restaurants/getRestaurantBySlug';
 
 import type { Metadata } from 'next';
 
 type RouteParams = Promise<{ slug: string }>;
+
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: { params: RouteParams }): Promise<Metadata> {
   const { slug } = await params;
@@ -29,5 +32,7 @@ export default async function ReservationThankYouPage({ params }: { params: Rout
     notFound();
   }
 
-  return <ReservationThankYouCard restaurant={restaurant} />;
+  const { isAuthenticated } = await getGuestAuthState();
+
+  return <ReservationThankYouCard restaurant={restaurant} isAuthenticated={isAuthenticated} />;
 }

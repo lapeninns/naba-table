@@ -1,6 +1,5 @@
 'use client';
 
-import { Loader2 } from 'lucide-react';
 import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
@@ -14,7 +13,12 @@ import { useReservationWizard } from '../hooks/useReservationWizard';
 import { ConfirmationStep } from './steps/ConfirmationStep';
 import { WizardContainer } from './WizardContainer';
 import { WizardOfflineBanner } from './WizardOfflineBanner';
-import { DetailsStepSkeleton, PlanStepSkeleton, ReviewStepSkeleton } from './WizardSkeletons';
+import {
+  BookingWizardShellSkeleton,
+  DetailsStepSkeleton,
+  PlanStepSkeleton,
+  ReviewStepSkeleton,
+} from './WizardSkeletons';
 const PlanStep = React.lazy(() =>
   import('./steps/PlanStep').then((m) => ({ default: m.PlanStep })),
 );
@@ -29,21 +33,7 @@ import type { BookingDetails, BookingWizardMode } from '../model/reducer';
 import type { CalendarMask } from '@reserve/features/reservations/wizard/services/schedule';
 
 function LoadingFallback({ layoutElement = 'main' }: { layoutElement?: 'main' | 'div' }) {
-  const Container = layoutElement === 'div' ? 'div' : 'main';
-
-  return (
-    <Container className="pg-page flex min-h-[100dvh] w-full items-center justify-center px-4 py-12">
-      <div className="pg-panel w-full max-w-sm space-y-4 p-6 text-center">
-        <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <Loader2 className="h-6 w-6 animate-spin" aria-hidden />
-        </span>
-        <p className="text-base font-semibold text-foreground" role="status">
-          Preparing the booking flow
-        </p>
-        <p className="pg-caption">Checking venue, availability, and guest details.</p>
-      </div>
-    </Container>
-  );
+  return <BookingWizardShellSkeleton layoutElement={layoutElement} />;
 }
 
 type BookingWizardContentProps = {

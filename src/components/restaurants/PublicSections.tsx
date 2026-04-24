@@ -31,6 +31,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { getReservationThankYouContent } from '@/guest/routes/auth-aware-content';
 
 import type { ReactNode } from 'react';
 
@@ -502,7 +503,15 @@ export function RestaurantBookingShell({
   return <div className="guest-theme min-h-[100dvh] bg-background">{children}</div>;
 }
 
-export function ReservationThankYouCard({ restaurant }: { restaurant: RestaurantDetail }) {
+export function ReservationThankYouCard({
+  restaurant,
+  isAuthenticated,
+}: {
+  restaurant: RestaurantDetail;
+  isAuthenticated: boolean;
+}) {
+  const content = getReservationThankYouContent(isAuthenticated, restaurant.name);
+
   return (
     <GuestPageFrame>
       <section className="pg-section-tight">
@@ -524,10 +533,7 @@ export function ReservationThankYouCard({ restaurant }: { restaurant: Restaurant
               <div className="mx-auto mt-6 max-w-xl space-y-3">
                 <p className="pg-kicker">Request received</p>
                 <h1 className="pg-hero-title">Your table request is in.</h1>
-                <p className="pg-lead text-base">
-                  We have recorded the booking journey for {restaurant.name}. Check your inbox for
-                  confirmation details, or sign in to keep this booking with your guest portal.
-                </p>
+                <p className="pg-lead text-base">{content.description}</p>
               </div>
               <div className="mx-auto mt-8 grid max-w-lg gap-3 sm:grid-cols-2">
                 <Button
@@ -536,7 +542,7 @@ export function ReservationThankYouCard({ restaurant }: { restaurant: Restaurant
                   className="pg-action pg-touch"
                   asChild
                 >
-                  <Link href="/guest/bookings">View my bookings</Link>
+                  <Link href={content.primaryAction.href}>{content.primaryAction.label}</Link>
                 </Button>
                 <Button
                   variant="guest-outline"

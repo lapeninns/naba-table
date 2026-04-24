@@ -62,7 +62,12 @@ export function LiveFeedCard({ reduceMotion }: LiveFeedCardProps) {
                 {index === 1 ? 'Reminder sequence handled automatically' : 'Floor plan synced'}
               </div>
             </div>
-            <div className={cn('shrink-0 font-medium text-primary', item.detail ? 'sm:max-w-[11rem]' : '')}>
+            <div
+              className={cn(
+                'shrink-0 font-medium text-primary',
+                item.detail ? 'sm:max-w-[11rem]' : '',
+              )}
+            >
               {item.status}
               {item.detail ? (
                 <span className="block text-[11px] text-muted-foreground">({item.detail})</span>
@@ -70,7 +75,7 @@ export function LiveFeedCard({ reduceMotion }: LiveFeedCardProps) {
             </div>
           </div>
         ))}
-        <div className="mt-1 grid grid-cols-1 gap-2 rounded-[var(--pg-radius-lg)] border border-primary/20 bg-primary/[0.07] p-3 font-mono text-xs text-muted-foreground sm:grid-cols-3">
+        <div className="mt-1 grid grid-cols-1 gap-2 rounded-[var(--pg-radius-lg)] border border-primary/20 bg-primary/[0.07] p-3 font-mono text-xs text-foreground/80 sm:grid-cols-3">
           <span>
             Total Covers: <strong className="text-foreground">42</strong>
           </span>

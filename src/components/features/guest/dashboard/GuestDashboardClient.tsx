@@ -209,18 +209,33 @@ function FeaturedBooking({
   if (isLoading) {
     return (
       <GuestPanel className="overflow-hidden">
-        <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_17rem]">
-          <div className="space-y-4 p-5 sm:p-6">
-            <Skeleton className="h-6 w-32 rounded-full" />
-            <Skeleton className="h-8 w-2/3 rounded-xl" />
+        <div className="grid lg:grid-cols-[minmax(0,1fr)_17rem]">
+          <div className="space-y-5 p-5 sm:p-6">
+            <div className="flex flex-wrap items-center gap-2">
+              <Skeleton className="h-8 w-28 rounded-full" />
+              <Skeleton className="h-8 w-24 rounded-full" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-8 w-full max-w-72 rounded-xl" />
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-full max-w-[32rem]" />
+                <Skeleton className="h-4 w-full max-w-[22rem]" />
+                <Skeleton className="h-4 w-full max-w-[18rem] sm:hidden" />
+                <Skeleton className="h-4 w-full max-w-[14rem] sm:hidden" />
+              </div>
+            </div>
             <div className="grid gap-3 sm:grid-cols-3">
-              <Skeleton className="h-16 rounded-2xl" />
-              <Skeleton className="h-16 rounded-2xl" />
-              <Skeleton className="h-16 rounded-2xl" />
+              <MiniDetailSkeleton />
+              <MiniDetailSkeleton />
+              <MiniDetailSkeleton />
             </div>
           </div>
-          <div className="border-t border-border bg-muted/30 p-5 lg:border-l lg:border-t-0">
-            <Skeleton className="h-28 rounded-2xl" />
+          <div className="flex flex-col justify-between gap-4 border-t border-border bg-muted/30 p-5 lg:border-l lg:border-t-0">
+            <div className="rounded-[var(--pg-radius-lg)] border border-border/80 bg-background p-4 shadow-[var(--pg-shadow-xs)]">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="mt-2 h-6 w-32" />
+            </div>
+            <Skeleton className="h-11 w-full rounded-full sm:h-12" />
           </div>
         </div>
       </GuestPanel>
@@ -313,6 +328,16 @@ function FeaturedBooking({
         </div>
       </div>
     </GuestPanel>
+  );
+}
+
+function MiniDetailSkeleton() {
+  return (
+    <div className="rounded-[var(--pg-radius-md)] border border-border/70 bg-background/80 p-4 shadow-[var(--pg-shadow-xs)]">
+      <Skeleton className="mb-3 h-4 w-4 rounded-full" />
+      <Skeleton className="h-3 w-14" />
+      <Skeleton className="mt-2 h-5 w-full max-w-40" />
+    </div>
   );
 }
 

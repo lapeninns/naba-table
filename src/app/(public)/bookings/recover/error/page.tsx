@@ -11,6 +11,8 @@ import {
   GuestSecondaryButton,
   GuestSplitPanel,
 } from '@/components/guest/ui/GuestPageShell';
+import { getBookingRecoveryPrimaryAction } from '@/guest/routes/auth-aware-content';
+import { getGuestAuthState } from '@/guest/services/auth-state.server';
 
 import type { Metadata } from 'next';
 
@@ -18,6 +20,8 @@ export const metadata: Metadata = {
   title: 'Booking Link Issue · Nab a Table',
   description: "We couldn't verify your booking link.",
 };
+
+export const dynamic = 'force-dynamic';
 
 type SearchParams = Promise<{ code?: string; reason?: string }>;
 
@@ -69,6 +73,8 @@ export default async function BookingRecoverErrorPage({
   const resolved = (await searchParams) ?? {};
   const code = resolved.code ?? 'INVALID_ACCESS_TOKEN';
   const content = copyByCode[code] ?? copyByCode.INVALID_ACCESS_TOKEN;
+  const { isAuthenticated } = await getGuestAuthState();
+  const primaryAction = getBookingRecoveryPrimaryAction(isAuthenticated);
 
   return (
     <GuestPageFrame>
@@ -79,7 +85,7 @@ export default async function BookingRecoverErrorPage({
         description={content.description}
         actions={
           <>
-            <GuestPrimaryButton href="/auth/signin">Sign in</GuestPrimaryButton>
+            <GuestPrimaryButton href={primaryAction.href}>{primaryAction.label}</GuestPrimaryButton>
             <GuestSecondaryButton href="/bookings">Manage another booking</GuestSecondaryButton>
           </>
         }

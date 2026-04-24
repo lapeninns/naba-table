@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { isFocusedBookingFlowPath } from '@/components/layouts/publicRouteChrome';
 import { BrandLogo } from '@/components/shared/BrandLogo';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -279,6 +278,20 @@ function MobileMenu({
     [pathname],
   );
 
+  useEffect(() => {
+    const root = document.documentElement;
+
+    if (open) {
+      root.setAttribute('data-guest-nav-open', 'true');
+      return () => {
+        root.removeAttribute('data-guest-nav-open');
+      };
+    }
+
+    root.removeAttribute('data-guest-nav-open');
+    return undefined;
+  }, [open]);
+
   const navSections: { title: string; links: AccountLink[] }[] = [
     { title: 'Explore', links: PRIMARY_LINKS.map((link) => ({ ...link })) },
   ];
@@ -319,7 +332,9 @@ function MobileMenu({
           <SheetTitle className="mt-5 text-2xl font-semibold tracking-tight">
             Guest navigation
           </SheetTitle>
-          <SheetDescription>Find restaurants, book a table, or manage your account.</SheetDescription>
+          <SheetDescription>
+            Find restaurants, book a table, or manage your account.
+          </SheetDescription>
         </SheetHeader>
 
         <div className="flex flex-1 flex-col overflow-y-auto px-6 py-5">
@@ -478,10 +493,6 @@ export function GuestNavbar({ tone = 'light', isSticky = true }: GuestNavbarProp
   useEffect(() => {
     setIsMobileOpen(false);
   }, [pathname]);
-
-  if (isFocusedBookingFlowPath(pathname)) {
-    return null;
-  }
 
   const headerToneClasses =
     tone === 'dark'

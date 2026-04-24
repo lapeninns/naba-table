@@ -423,6 +423,13 @@
     transform: translateY(0);
   }
 
+  html[data-guest-nav-open='true'] [data-booking-wizard-navigation] {
+    animation: none !important;
+    opacity: 0 !important;
+    pointer-events: none;
+    transform: translateY(calc(100% + 1rem + env(safe-area-inset-bottom, 0px))) !important;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     [data-theme='guest'] .pg-action,
     .guest-theme .pg-action,

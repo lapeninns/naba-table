@@ -10,6 +10,8 @@ import {
   GuestSecondaryButton,
 } from '@/components/guest/ui';
 import { Button } from '@/components/ui/button';
+import { getGuestBookingsLandingContent } from '@/guest/routes/auth-aware-content';
+import { getGuestAuthState } from '@/guest/services/auth-state.server';
 
 import type { LucideIcon } from 'lucide-react';
 import type { Metadata } from 'next';
@@ -19,7 +21,12 @@ export const metadata: Metadata = {
   description: 'Choose a restaurant and start a new booking, or sign in to view existing bookings.',
 };
 
-export default function BookingsLandingPage() {
+export const dynamic = 'force-dynamic';
+
+export default async function BookingsLandingPage() {
+  const { isAuthenticated } = await getGuestAuthState();
+  const content = getGuestBookingsLandingContent(isAuthenticated);
+
   return (
     <GuestPageFrame className="pb-12 sm:pb-16">
       <GuestContent className="space-y-6 py-7 sm:space-y-7 sm:py-10">
@@ -29,15 +36,12 @@ export default function BookingsLandingPage() {
             <h1 className="font-[var(--pg-font-display)] text-3xl font-bold leading-tight text-foreground sm:text-4xl">
               Start a new booking
             </h1>
-            <p className="pg-body max-w-[58ch]">
-              Choose a restaurant, pick a time, and confirm your table. Already booked? Sign in
-              with your reservation email to view your bookings and receipts.
-            </p>
+            <p className="pg-body max-w-[58ch]">{content.headerDescription}</p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
             <GuestPrimaryButton href="/restaurants">Book a table</GuestPrimaryButton>
-            <GuestSecondaryButton href="/auth/signin?redirectedFrom=/guest/bookings">
-              Sign in
+            <GuestSecondaryButton href={content.secondaryAction.href}>
+              {content.secondaryAction.label}
             </GuestSecondaryButton>
           </div>
         </header>
@@ -55,10 +59,10 @@ export default function BookingsLandingPage() {
           <PrimaryBookingPanel
             icon={CalendarCheck}
             kicker="Existing booking"
-            title="View existing bookings"
-            description="Use your reservation email to see upcoming bookings, past visits, and receipts."
-            actionHref="/guest/bookings"
-            actionLabel="Sign in to view bookings"
+            title={content.existingTitle}
+            description={content.existingDescription}
+            actionHref={content.existingAction.href}
+            actionLabel={content.existingAction.label}
           />
         </div>
 
@@ -66,10 +70,7 @@ export default function BookingsLandingPage() {
           <div className="space-y-2">
             <p className="pg-kicker">Have a message link?</p>
             <h2 className="pg-card-title">Open it from your email or SMS</h2>
-            <p className="pg-body max-w-[58ch] text-sm">
-              Confirmation links open the matching booking directly. If a link has expired, sign in
-              with the same email address and your bookings will still be available.
-            </p>
+            <p className="pg-body max-w-[58ch] text-sm">{content.messageLinkDescription}</p>
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
             <GuestInsetCard

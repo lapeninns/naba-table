@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { BrandLogo } from '@/components/shared/BrandLogo';
 import { Separator } from '@/components/ui/separator';
 
@@ -44,24 +46,24 @@ export function Footer() {
             <h4 className="text-base font-bold text-foreground">Company</h4>
             <ul className="flex flex-col gap-2 text-sm text-muted-foreground">
               <li>
-                <a href="#" className={FOOTER_LINK_STYLES}>
-                  About us
-                </a>
+                <Link href="/restaurants" className={FOOTER_LINK_STYLES}>
+                  Restaurants
+                </Link>
               </li>
               <li>
-                <a href="#" className={FOOTER_LINK_STYLES}>
-                  Careers
-                </a>
+                <Link href="/bookings" className={FOOTER_LINK_STYLES}>
+                  My bookings
+                </Link>
               </li>
               <li>
-                <a href="#" className={FOOTER_LINK_STYLES}>
-                  Legal
-                </a>
+                <Link href="/privacy" className={FOOTER_LINK_STYLES}>
+                  Privacy
+                </Link>
               </li>
               <li>
-                <a href="/contact" className={FOOTER_LINK_STYLES}>
+                <Link href="/contact" className={FOOTER_LINK_STYLES}>
                   Contact
-                </a>
+                </Link>
               </li>
             </ul>
           </div>

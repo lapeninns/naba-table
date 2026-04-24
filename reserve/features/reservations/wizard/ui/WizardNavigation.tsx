@@ -142,7 +142,7 @@ const ActionButton = React.memo(function ActionButton({ action, role }: ActionBu
         // Typography - responsive sizing (smaller on mobile to fit)
         'text-xs font-semibold sm:text-sm',
         // GPU-accelerated transitions (transform + opacity only)
-        'transition-all duration-200 ease-out',
+        'transition-transform duration-200 ease-out',
         // Role-specific styling
         isPrimary && [
           'px-3 sm:px-6',
@@ -202,6 +202,8 @@ const OUTER_CONTAINER_CLASSES = cn(
   // Desktop: Horizontal padding + bottom margin for floating effect
   'px-0 sm:px-4 lg:px-6',
   'sm:pb-4',
+  // Guest drawer state hides this fixed bar with compositor-only properties.
+  'transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none',
   // Pointer events pass through (nav re-enables them)
   'pointer-events-none',
 );
@@ -226,6 +228,8 @@ const NAV_CAPSULE_CLASSES = cn(
   'mx-auto w-full',
 
   'pg-panel backdrop-blur-xl',
+  // Reserve the settled summary + action height so the fixed bar does not grow after hydration.
+  'min-h-[5.375rem] sm:min-h-[6.125rem]',
 
   // ─── SHAPE ───────────────────────────────────────────────────────────────
   // Mobile: Attached to viewport bottom, rounded top corners
@@ -272,7 +276,7 @@ export function WizardNavigation({
   const hasSupport = support.length > 0;
 
   return (
-    <div className={cn(OUTER_CONTAINER_CLASSES, className)}>
+    <div data-booking-wizard-navigation className={cn(OUTER_CONTAINER_CLASSES, className)}>
       <nav
         ref={navRef}
         role="navigation"
@@ -292,15 +296,25 @@ export function WizardNavigation({
           {/* ─────────────────────────────────────────────────────────────────
               TOP: Centered Booking Summary
           ───────────────────────────────────────────────────────────────── */}
-          {summary.details && summary.details.length >= 3 && (
-            <p className="text-center text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">{summary.details[0]}</span>
-              {' at '}
-              <span className="font-medium text-foreground">{summary.details[1]}</span>
-              {' on '}
-              <span className="font-medium text-foreground">{summary.details[2]}</span>
-            </p>
-          )}
+          <p
+            className={cn(
+              'min-h-4 text-center text-xs text-muted-foreground',
+              !(summary.details && summary.details.length >= 3) && 'invisible',
+            )}
+            aria-hidden={!(summary.details && summary.details.length >= 3)}
+          >
+            {summary.details && summary.details.length >= 3 ? (
+              <>
+                <span className="font-medium text-foreground">{summary.details[0]}</span>
+                {' at '}
+                <span className="font-medium text-foreground">{summary.details[1]}</span>
+                {' on '}
+                <span className="font-medium text-foreground">{summary.details[2]}</span>
+              </>
+            ) : (
+              'Selection summary'
+            )}
+          </p>
 
           {/* ─────────────────────────────────────────────────────────────────
               MIDDLE/BOTTOM: Progress + Buttons

@@ -29,17 +29,21 @@ vi.mock('@/lib/analytics/emit', () => ({
 
 vi.mock('@/lib/reservations/share', () => ({
   shareReservationDetails: vi.fn(),
+  downloadCalendarEvent: vi.fn(),
 }));
 
 vi.mock('@features/reservations/wizard/api/useReservation', () => ({
   useReservation: (...args: unknown[]) => useReservationMock(...args),
 }));
 
-vi.mock('@/components/features/booking/detail/ReservationHistory', () => ({
-  ReservationHistory: () => <div data-testid="reservation-history" />,
-}));
-
 import ReservationDetailClient from '@/components/features/booking/detail/ReservationDetailClient';
+import {
+  downloadCalendarEvent,
+  shareReservationDetails,
+} from '@/lib/reservations/share';
+
+const downloadCalendarEventMock = vi.mocked(downloadCalendarEvent);
+const shareReservationDetailsMock = vi.mocked(shareReservationDetails);
 
 const reservation = {
   id: 'booking-1',
@@ -64,6 +68,16 @@ describe('ReservationDetailClient', () => {
   beforeEach(() => {
     pushMock.mockReset();
     useReservationMock.mockReset();
+    downloadCalendarEventMock.mockReset();
+    shareReservationDetailsMock.mockReset();
+    shareReservationDetailsMock.mockResolvedValue({
+      variant: 'info',
+      message: 'Reservation details copied. Paste into any app to share.',
+    });
+    downloadCalendarEventMock.mockReturnValue({
+      variant: 'success',
+      message: 'Calendar event downloaded. Check your downloads folder to import it.',
+    });
     useReservationMock.mockReturnValue({
       data: reservation,
       error: null,
@@ -90,7 +104,7 @@ describe('ReservationDetailClient', () => {
     expect(screen.getByText('NB1234')).toBeInTheDocument();
     expect(screen.getByText('Window please')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Modify Details' })).toBeEnabled();
-    expect(screen.getByTestId('reservation-history')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'History' })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Modify Details' }));
 
@@ -112,5 +126,63 @@ describe('ReservationDetailClient', () => {
     await user.click(screen.getByRole('button', { name: 'Cancel Booking' }));
 
     expect(screen.getByTestId('reservation-dialog-open')).toBeInTheDocument();
+  });
+
+  it('shares reservation details and shows feedback', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <ReservationDetailClient
+        reservationId={reservation.id}
+        restaurantName={reservation.restaurantName}
+        initialNow={Date.parse('2026-04-15T12:00:00.000Z')}
+        canManage
+      />,
+    );
+
+    await user.click(screen.getAllByRole('button', { name: 'Share' })[0]);
+
+    expect(shareReservationDetailsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reservationId: reservation.id,
+        reference: reservation.reference,
+        guestEmail: reservation.customerEmail,
+        venueName: reservation.restaurantName,
+      }),
+    );
+    expect(
+      await screen.findByText('Reservation details copied. Paste into any app to share.'),
+    ).toBeInTheDocument();
+  });
+
+  it('downloads a calendar event from the reservation details', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <ReservationDetailClient
+        reservationId={reservation.id}
+        restaurantName={reservation.restaurantName}
+        initialNow={Date.parse('2026-04-15T12:00:00.000Z')}
+        canManage
+      />,
+    );
+
+    await user.click(screen.getAllByRole('button', { name: 'Add to calendar' })[0]);
+
+    expect(downloadCalendarEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reservationId: reservation.id,
+        reference: reservation.reference,
+        guestName: reservation.customerName,
+        guestEmail: reservation.customerEmail,
+        partySize: reservation.partySize,
+        status: 'confirmed',
+        seatingPreference: reservation.seatingPreference,
+        notes: reservation.notes,
+      }),
+    );
+    expect(
+      screen.getByText('Calendar event downloaded. Check your downloads folder to import it.'),
+    ).toBeInTheDocument();
   });
 });
