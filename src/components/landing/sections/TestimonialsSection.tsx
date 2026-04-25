@@ -7,27 +7,22 @@ import { cn } from '@/lib/utils';
 import { Icon } from '../shared/Icons';
 import { LOCAL_VENUES, venueNameFromLabel } from '../shared/localVenues';
 
-const OBJECTION_POINTS = [
-  'Zero Setup Fee',
-  'Cancel Anytime',
-  '100% Satisfaction',
-  'We Import Your Data',
-];
+const OBJECTION_POINTS = ['Setup handled', 'Cancel Anytime', 'No lock-in', 'Data imported'];
 
 const TESTIMONIALS = [
   {
     quote:
-      'I was paying a host £45k/year just to answer phones. Nab a Table does it better for pennies. It paid for itself on day one.',
+      'We were losing too much manager time to phone calls and confirmations. Nabatable made the booking flow calmer almost immediately.',
     venue: venueNameFromLabel(LOCAL_VENUES[0]),
   },
   {
     quote:
-      "We used to lose 5 tables a night to no-shows. Now? Zero. That's an extra £100k a year in my pocket.",
+      'No-shows used to feel like something we just had to accept. The reminder flow gives us a much better chance of protecting the table.',
     venue: venueNameFromLabel(LOCAL_VENUES[3]),
   },
   {
     quote:
-      'The Sunday Roast Capacity Calculator saved our kitchen. No more meltdowns, just steady revenue.',
+      'Sunday lunch is easier to pace now. We can see the pressure points before the kitchen is already under it.',
     venue: venueNameFromLabel(LOCAL_VENUES[4]),
   },
   {
@@ -66,8 +61,11 @@ export function TestimonialsSection() {
       <div className="pg-container">
         <div className="mb-10 flex flex-col gap-8 rounded-[var(--pg-radius-xl)] border border-primary/15 bg-background/92 p-5 shadow-[var(--pg-shadow-soft)] sm:mb-12 sm:p-6 md:mb-14 lg:grid lg:grid-cols-[5fr_7fr] lg:items-end lg:gap-10 xl:gap-12">
           <div className="flex flex-col gap-3 sm:gap-4">
-            <h2 className="pg-section-title">Proof it works.</h2>
-            <p className="pg-lead">Food-led pubs using Nab a Table to print money.</p>
+            <h2 className="pg-section-title">Calmer service is the proof.</h2>
+            <p className="pg-lead">
+              The promise is simple: fewer loose bookings, fewer last-minute surprises, and a team
+              that can see the night clearly.
+            </p>
           </div>
           <div className="flex flex-wrap gap-2 sm:gap-3 lg:justify-end">
             {OBJECTION_POINTS.map((point) => (

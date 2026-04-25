@@ -71,7 +71,18 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
-  const { data: bookings, isLoading, isError } = useGuestBookings({ pageSize: 50 });
+  const {
+    data: bookings,
+    isLoading,
+    isError,
+  } = useGuestBookings(
+    { pageSize: 50 },
+    {
+      staleTime: 5 * 60_000,
+      refetchOnWindowFocus: false,
+      refetchInterval: false,
+    },
+  );
   const [activeTab, setActiveTab] = useState<BookingsTab>(normalizeBookingsTab(initialTab));
 
   useEffect(() => {
@@ -128,9 +139,7 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
             eyebrow="My reservations"
             title="Your booking archive starts here."
             description="Once you reserve a table, upcoming plans, receipts, and manage links will appear in this portal."
-            actions={
-              <GuestPrimaryButton href="/restaurants">Find a restaurant</GuestPrimaryButton>
-            }
+            actions={<GuestPrimaryButton href="/restaurants">Find a restaurant</GuestPrimaryButton>}
             compact
           />
           <GuestContent narrow>
@@ -266,13 +275,7 @@ function BookingGrid({ bookings, isPast = false }: { bookings: BookingDTO[]; isP
   );
 }
 
-function BookingCard({
-  booking,
-  isPast = false,
-}: {
-  booking: BookingDTO;
-  isPast?: boolean;
-}) {
+function BookingCard({ booking, isPast = false }: { booking: BookingDTO; isPast?: boolean }) {
   const { monthLabel, dayLabel, timeLabel } = useMemo(
     () => getBookingCardDisplay(booking),
     [booking],
@@ -282,7 +285,10 @@ function BookingCard({
     : '/restaurants';
 
   return (
-    <GuestPanel interactive className={cn('overflow-hidden', isPast && 'opacity-80 hover:opacity-100')}>
+    <GuestPanel
+      interactive
+      className={cn('overflow-hidden', isPast && 'opacity-80 hover:opacity-100')}
+    >
       <div className="flex min-h-full flex-col">
         <div className="flex items-start justify-between gap-4 p-5 sm:p-6">
           <div className="min-w-0 space-y-2">

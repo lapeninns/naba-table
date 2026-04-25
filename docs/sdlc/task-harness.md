@@ -15,6 +15,91 @@ Task folders are mandatory for medium- and high-risk work.
 | `todo.md`         | Live execution checklist with current status                                                                               |
 | `verification.md` | Exact commands, outcomes, route/API checks, env safety checks, evidence list, and remaining gaps                           |
 
+## Native starter packet
+
+When opening a medium- or high-risk task, create the required files with these headings before product edits. Keep the packet factual; delete headings only when they are genuinely not applicable and say why.
+
+Do not add a separate `README.md` or `checklist.md` for normal task work. `todo.md` is the checklist, and markdown-native `- [ ]` / `- [x]` checkboxes are the status format.
+
+### `research.md`
+
+```md
+## Objective
+
+## Repo facts
+
+## Constraints
+
+## Risks
+
+## Reuse notes
+
+## Non-goals
+
+## Route/API identity
+
+| Host context | External path | Internal file or handler | Expected proxy behavior | Auth expectation |
+| ------------ | ------------- | ------------------------ | ----------------------- | ---------------- |
+```
+
+Use `Not applicable` under route/API identity only when the task has no route, handler, proxy, auth, or browser-QA target impact.
+
+### `plan.md`
+
+```md
+## Risk tier
+
+## Affected surfaces and files
+
+## Route/API identity
+
+## Shared-ownership decision
+
+## Implementation sequence
+
+## Verification plan
+
+## Stop rules
+```
+
+### `todo.md`
+
+```md
+# Todo
+
+- [ ] Research and scope are current.
+- [ ] Plan is approved for the selected tier.
+- [ ] Implementation is complete inside scope.
+- [ ] Verification is complete and recorded truthfully.
+- [ ] Review or self-review is complete for the tier.
+```
+
+Maintain exactly one active item while executing. If the scope changes, update `research.md`, `plan.md`, and this checklist before continuing.
+
+### `verification.md`
+
+```md
+## Scope verified
+
+## Route/API identity rows exercised
+
+## Commands run
+
+## Real routes or APIs checked
+
+## Harness routes checked
+
+## Env safety checks
+
+## Artifacts captured
+
+## Not run
+
+## Remaining caveats or blockers
+```
+
+Record failed, skipped, or unavailable verification as plainly as passed checks. Do not backfill commands after the fact.
+
 ## Conditional file
 
 | Path         | When required                                                                                          |

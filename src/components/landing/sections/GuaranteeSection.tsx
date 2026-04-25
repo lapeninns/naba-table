@@ -15,16 +15,15 @@ export function GuaranteeSection() {
               Risk Reversal
             </Badge>
             <CardTitle className="pg-section-title">
-              The &quot;Packed Pub&quot; Conditional Guarantee
+              The &quot;calmer service&quot; onboarding promise
             </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-5 px-5 pb-6 pt-5 sm:px-8 sm:pb-8 md:grid-cols-[6fr_4fr] md:px-10 md:pb-10">
             <div className="pg-panel border-border/70 bg-background/92 p-4 sm:p-5 md:p-6">
               <p className="pg-lead text-center md:text-left">
-                We are so confident that Nabatable will eradicate your booking chaos that we offer
-                a Service Guarantee. If our system doesn&apos;t noticeably reduce your no-shows and
-                streamline your table turns in the first 30 days, we will refund your setup fee and
-                keep working for you for free until it does.
+                We do not hand you an empty system and leave your team to configure it. We build the
+                booking rules, reminders, table logic, and manager view around your actual service
+                model, then keep refining until the workflow is usable.
               </p>
             </div>
             <div className="pg-panel border-primary/20 bg-primary/[0.06] p-4 sm:p-5 md:p-6">
@@ -33,9 +32,8 @@ export function GuaranteeSection() {
                 Scarcity Notice
               </div>
               <p className="text-center text-sm leading-relaxed text-muted-foreground sm:text-base md:text-left">
-                Because we provide a &quot;Done-For-You&quot; White-Glove setup to ensure your
-                pub&apos;s rules are perfectly integrated, we can only onboard 5 new pubs per month.
-                We currently have 2 spots remaining for this month.
+                Because setup is hands-on, onboarding stays limited. We currently have 2 White-Glove
+                setup slots remaining for this month.
               </p>
             </div>
           </CardContent>

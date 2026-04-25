@@ -21,20 +21,20 @@ export function CTASection() {
         <Card className="pg-panel overflow-hidden border-primary/20 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--muted)/0.8))] shadow-[var(--pg-shadow-nav)] motion-safe:reveal-up">
           <CardHeader className="flex flex-col gap-2 space-y-0 border-b border-border/60 p-5 text-center sm:gap-3 sm:p-8 md:gap-4 md:p-10 lg:gap-5">
             <CardTitle className="pg-section-title">
-              Ready to make your next service the calmest one yet?
+              Ready to see what your next service could look like?
             </CardTitle>
             <CardDescription className="pg-lead mx-auto max-w-2xl">
-              Let us show you exactly how much time and money Nabatable will save your pub. Claim
-              one of our remaining setup spots today.
+              We will map your current booking flow, show the operational gaps, and explain what
+              Nabatable would configure before your team goes live.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-4 px-5 pb-2 pt-5 sm:px-8 md:px-10">
             <div className="flex w-full max-w-md flex-col gap-3 sm:max-w-none sm:flex-row sm:justify-center sm:gap-4">
               <Button size="guest-lg" className="w-full sm:w-auto" variant="guest-primary" asChild>
-                <Link href="/contact">Secure Your Demo &amp; Spot</Link>
+                <Link href="/contact">Claim a setup slot</Link>
               </Button>
               <Button size="guest-lg" className="w-full sm:w-auto" variant="guest-outline" asChild>
-                <Link href="#value-stack">View Value &amp; Pricing</Link>
+                <Link href="#system">Review the system</Link>
               </Button>
             </div>
           </CardContent>

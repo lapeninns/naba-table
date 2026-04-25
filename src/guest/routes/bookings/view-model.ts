@@ -21,7 +21,7 @@ export const buildGuestBookingsViewModel = async (
   });
 
   const queryClient = new QueryClient();
-  const bookingsFilters = { page: 1, pageSize: 10 } as const;
+  const bookingsFilters = { page: 1, pageSize: 50 } as const;
 
   const [bookingsResult, profileResult] = await Promise.allSettled([
     services.bookings.list(bookingsFilters),

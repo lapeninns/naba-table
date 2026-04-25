@@ -4,19 +4,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 const HOW_IT_WORKS_STEPS = [
   {
-    title: 'We Clone Your Floor',
+    title: 'We map your service',
     description:
-      'We map your tables and turn times. You do nothing. We handle the setup in < 24 hours.',
+      'Tables, turn times, service periods, booking rules, and the pressure points your team already knows.',
   },
   {
-    title: 'We Plug The Leaks',
+    title: 'We install the automations',
     description:
-      'We integrate with your site. Every booking is captured, confirmed, and locked in.',
+      'Your site, confirmations, reminders, waitlist logic, and manager views are configured around that model.',
   },
   {
-    title: 'You Scale Revenue',
+    title: 'Your team runs from one board',
     description:
-      'Fill the empty seats. Upsell the VIPs. Cut the labor costs. Watch profit margins jump.',
+      'Before service, managers see what is booked, what is at risk, and what still needs a human decision.',
   },
 ];
 
@@ -25,7 +25,8 @@ export function HowItWorksSection() {
     <section id="how-it-works" className="pg-section border-b border-border/70 bg-background">
       <div className="pg-container">
         <div className="mb-10 text-center sm:mb-12 md:mb-14 lg:mb-16 motion-safe:reveal-up">
-          <h2 className="pg-section-title">The 3-step mechanism</h2>
+          <p className="pg-kicker mb-3">White-Glove setup</p>
+          <h2 className="pg-section-title">We build it around how your pub already runs.</h2>
         </div>
         <div className="relative grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-5">
           <div className="pointer-events-none absolute left-6 top-6 bottom-6 hidden w-px bg-border md:hidden" />
