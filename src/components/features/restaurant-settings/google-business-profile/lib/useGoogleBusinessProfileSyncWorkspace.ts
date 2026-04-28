@@ -21,6 +21,7 @@ import {
   deriveInitialFieldDecisions,
   getFieldDecision,
   hasMixedDirectionSelections,
+  isReadOnlyReviewStatus,
   type FieldDecision,
   type SyncPublishDirection,
 } from './sync-review';
@@ -168,6 +169,13 @@ export function useGoogleBusinessProfileSyncWorkspace(restaurantId: string) {
       throw new Error('Generate a workflow draft before continuing.');
     }
 
+    if (isReadOnlyReviewStatus(draft.status)) {
+      await workflowQuery.refetch();
+      throw new Error(
+        'This Google Business Profile review has already been applied. Check for changes again before continuing.',
+      );
+    }
+
     const needsUpdate =
       draft.status !== 'approved' ||
       !compareBooleanRecords(draft.selectedApprovals, selectedApprovals);
@@ -183,7 +191,7 @@ export function useGoogleBusinessProfileSyncWorkspace(restaurantId: string) {
         status: 'approved',
       },
     });
-  }, [draft, selectedApprovals, updateDraftMutation]);
+  }, [draft, selectedApprovals, updateDraftMutation, workflowQuery]);
 
   const runPreflight = useCallback(async () => {
     if (!draft) {
@@ -231,6 +239,13 @@ export function useGoogleBusinessProfileSyncWorkspace(restaurantId: string) {
       setPublishErrorMessage(null);
 
       try {
+        if (isReadOnlyReviewStatus(draft.status)) {
+          await workflowQuery.refetch();
+          throw new Error(
+            'This Google Business Profile review has already been applied. Check for changes again before continuing.',
+          );
+        }
+
         await publishMutation.mutateAsync({
           draftId: draft.id,
           payload: {

@@ -1,0 +1,73 @@
+{
+  "statusCode": "service-call",
+  "restaurantId": "a050d1ad-1ee0-4ea0-abc2-22c3778aa52c",
+  "connection": {
+    "status": "linked",
+    "pushEnabled": true,
+    "externalLocationTitle": "Old Crown Girton",
+    "lastPullAt": "2026-04-28T17:15:09.984+00:00",
+    "lastPushAt": "2026-04-28T17:01:19.218+00:00"
+  },
+  "latestDraft": {
+    "id": "9bae68f8-db06-410e-b165-f643016ad153",
+    "status": "review_ready",
+    "fetchedAt": "2026-04-28T17:15:14.71+00:00",
+    "publishedAt": null
+  },
+  "profile": {
+    "status": "unchanged",
+    "summary": "No Google changes need review in this section.",
+    "items": [
+      {
+        "fieldKey": "profile.name",
+        "status": "unchanged",
+        "selected": false,
+        "currentValue": "Old Crown Girton",
+        "providerValue": "Old Crown Girton",
+        "canPublishToNabatable": true,
+        "canPushToGoogle": true,
+        "warnings": []
+      },
+      {
+        "fieldKey": "profile.contactPhone",
+        "status": "unchanged",
+        "selected": false,
+        "currentValue": "01223 277217",
+        "providerValue": "01223 277217",
+        "canPublishToNabatable": true,
+        "canPushToGoogle": true,
+        "warnings": []
+      },
+      {
+        "fieldKey": "profile.address",
+        "status": "unchanged",
+        "selected": false,
+        "currentValue": "89 High Street, Girton, Cambridge, CB3 0QD, GB",
+        "providerValue": "89 High Street, Girton, Cambridge, CB3 0QD, GB",
+        "canPublishToNabatable": true,
+        "canPushToGoogle": false,
+        "warnings": ["Address updates to Google are not available here yet."]
+      },
+      {
+        "fieldKey": "profile.googleMapUrl",
+        "status": "unchanged",
+        "selected": false,
+        "currentValue": "https://maps.google.com/maps?cid=1061258567211077540",
+        "providerValue": "https://maps.google.com/maps?cid=1061258567211077540",
+        "canPublishToNabatable": true,
+        "canPushToGoogle": false,
+        "warnings": ["Google links can be copied into Nabatable but are not sent back to Google."]
+      },
+      {
+        "fieldKey": "profile.googleReviewUrl",
+        "status": "unchanged",
+        "selected": false,
+        "currentValue": "https://search.google.com/local/writereview?placeid=ChIJr-Lmrdt22EcRpM90SQtZug4",
+        "providerValue": "https://search.google.com/local/writereview?placeid=ChIJr-Lmrdt22EcRpM90SQtZug4",
+        "canPublishToNabatable": true,
+        "canPushToGoogle": false,
+        "warnings": ["Google links can be copied into Nabatable but are not sent back to Google."]
+      }
+    ]
+  }
+}

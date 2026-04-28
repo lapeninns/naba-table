@@ -21,6 +21,7 @@ type DifferenceDetailPanelProps = {
   getDecisionForItem: (fieldKey: string) => FieldDecision;
   onDecisionChange: (fieldKey: string, decision: FieldDecision) => void;
   activePublishJob: GoogleBusinessProfileActivePublishJob | null;
+  googlePushEnabled: boolean;
 };
 
 export function DifferenceDetailPanel({
@@ -28,6 +29,7 @@ export function DifferenceDetailPanel({
   getDecisionForItem,
   onDecisionChange,
   activePublishJob,
+  googlePushEnabled,
 }: DifferenceDetailPanelProps) {
   if (!summary) {
     return (
@@ -102,6 +104,7 @@ export function DifferenceDetailPanel({
                 decision={getDecisionForItem(item.fieldKey)}
                 onDecisionChange={(decision) => onDecisionChange(item.fieldKey, decision)}
                 jobStatus={inActiveJob ? (activePublishJob?.status ?? null) : null}
+                googlePushEnabled={googlePushEnabled}
               />
             );
           })}

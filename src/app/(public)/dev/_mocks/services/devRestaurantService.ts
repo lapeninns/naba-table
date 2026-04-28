@@ -662,6 +662,7 @@ export class DevRestaurantService implements RestaurantService {
       isConfigured: true,
       provider: 'google_business_profile',
       status: 'linked',
+      pushEnabled: true,
       connectedGoogleEmail: 'ops@nabatable.dev',
       connectedGoogleName: 'Nabatable Ops',
       externalAccountId: 'acc-demo-1',

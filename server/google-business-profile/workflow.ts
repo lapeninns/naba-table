@@ -18,6 +18,7 @@ import {
   buildPullServicePeriodsPayload,
   buildServicePeriodsVerificationSummary,
   type CoreSyncDirection,
+  type ProfileVerificationField,
 } from './core-sync';
 import {
   getGoogleBusinessProfileConnectionState,
@@ -45,6 +46,7 @@ type PublishJobRow =
 const PROVIDER = 'google_business_profile';
 const EDITABLE_DRAFT_STATUSES = ['review_ready', 'approved', 'failed', 'partially_published'];
 const PUBLISHABLE_DRAFT_STATUSES = ['approved', 'failed', 'partially_published'];
+const READ_ONLY_REVIEW_DRAFT_STATUSES = ['published', 'publishing', 'archived'];
 const APPROVAL_REQUIRED_DRAFT_STATUS = 'review_ready';
 const GOOGLE_PUSH_SECTIONS = ['profile', 'operatingHours', 'servicePeriods'];
 const GOOGLE_RETRYABLE_JOB_STATUSES = ['google_failed', 'partially_published'];
@@ -451,6 +453,7 @@ function isEqualValue(left: unknown, right: unknown): boolean {
 type DraftItemInput = Omit<GoogleBusinessProfileDraftItem, 'status' | 'selected'> & {
   comparisonCurrentValue?: unknown;
   comparisonProposedValue?: unknown;
+  defaultSelected?: boolean;
 };
 
 async function findExternalProfile(
@@ -511,7 +514,7 @@ function buildCoreSnapshotHashes(
 }
 
 function makeItem(input: DraftItemInput): GoogleBusinessProfileDraftItem {
-  const { comparisonCurrentValue, comparisonProposedValue, ...item } = input;
+  const { comparisonCurrentValue, comparisonProposedValue, defaultSelected, ...item } = input;
   const changed = !isEqualValue(
     comparisonCurrentValue === undefined ? item.currentValue : comparisonCurrentValue,
     comparisonProposedValue === undefined ? item.proposedValue : comparisonProposedValue,
@@ -519,7 +522,7 @@ function makeItem(input: DraftItemInput): GoogleBusinessProfileDraftItem {
   return {
     ...item,
     status: changed ? 'ready' : 'unchanged',
-    selected: changed && item.canPublishToNabatable,
+    selected: changed && (defaultSelected ?? item.canPublishToNabatable),
   };
 }
 
@@ -556,6 +559,10 @@ function buildProfileSection(
   externalLocationTitle: string | null,
 ): GoogleBusinessProfileDraftSection {
   const providerName = normalizeText(externalLocationTitle ?? businessInfo.details?.businessName);
+  const providerPhone = primaryPhone(businessInfo);
+  const providerAddress = primaryAddress(businessInfo);
+  const providerGoogleMapUrl = primaryLink(businessInfo, 'google_map');
+  const providerGoogleReviewUrl = primaryLink(businessInfo, 'google_review');
   const items: GoogleBusinessProfileDraftItem[] = [
     makeItem({
       sectionKey: 'profile',
@@ -566,7 +573,7 @@ function buildProfileSection(
       proposedValue: providerName ?? core.profile.name,
       direction: 'pull_from_gbp',
       canPublishToNabatable: Boolean(providerName),
-      canPushToGoogle: true,
+      canPushToGoogle: Boolean(core.profile.name?.trim()),
       warnings: [],
     }),
     makeItem({
@@ -574,11 +581,12 @@ function buildProfileSection(
       fieldKey: 'profile.contactPhone',
       label: 'Primary phone',
       currentValue: core.profile.contactPhone,
-      providerValue: primaryPhone(businessInfo),
-      proposedValue: primaryPhone(businessInfo),
+      providerValue: providerPhone,
+      proposedValue: providerPhone,
       direction: 'pull_from_gbp',
       canPublishToNabatable: true,
-      canPushToGoogle: true,
+      canPushToGoogle: Boolean(core.profile.contactPhone?.trim()),
+      defaultSelected: Boolean(providerPhone),
       warnings: [],
     }),
     makeItem({
@@ -586,11 +594,12 @@ function buildProfileSection(
       fieldKey: 'profile.address',
       label: 'Address',
       currentValue: core.profile.address,
-      providerValue: primaryAddress(businessInfo),
-      proposedValue: primaryAddress(businessInfo),
+      providerValue: providerAddress,
+      proposedValue: providerAddress,
       direction: 'pull_from_gbp',
       canPublishToNabatable: true,
       canPushToGoogle: false,
+      defaultSelected: Boolean(providerAddress),
       warnings: ['Address updates to Google are not available here yet.'],
     }),
     makeItem({
@@ -598,11 +607,12 @@ function buildProfileSection(
       fieldKey: 'profile.googleMapUrl',
       label: 'Google Maps URL',
       currentValue: core.profile.googleMapUrl,
-      providerValue: primaryLink(businessInfo, 'google_map'),
-      proposedValue: primaryLink(businessInfo, 'google_map'),
+      providerValue: providerGoogleMapUrl,
+      proposedValue: providerGoogleMapUrl,
       direction: 'pull_from_gbp',
       canPublishToNabatable: true,
       canPushToGoogle: false,
+      defaultSelected: Boolean(providerGoogleMapUrl),
       warnings: ['Google links can be copied into Nabatable but are not sent back to Google.'],
     }),
     makeItem({
@@ -610,11 +620,12 @@ function buildProfileSection(
       fieldKey: 'profile.googleReviewUrl',
       label: 'Google review URL',
       currentValue: core.profile.googleReviewUrl,
-      providerValue: primaryLink(businessInfo, 'google_review'),
-      proposedValue: primaryLink(businessInfo, 'google_review'),
+      providerValue: providerGoogleReviewUrl,
+      proposedValue: providerGoogleReviewUrl,
       direction: 'pull_from_gbp',
       canPublishToNabatable: true,
       canPushToGoogle: false,
+      defaultSelected: Boolean(providerGoogleReviewUrl),
       warnings: ['Google links can be copied into Nabatable but are not sent back to Google.'],
     }),
   ];
@@ -654,6 +665,7 @@ function buildOperatingHoursSection(
         currentValue: formatHoursValue(row),
         providerValue: provider ? formatHoursValue(provider) : null,
         proposedValue: provider ? formatHoursValue(provider) : formatHoursValue(row),
+        comparisonProposedValue: provider ? formatHoursValue(provider) : null,
         direction: 'pull_from_gbp',
         canPublishToNabatable: Boolean(provider),
         canPushToGoogle: true,
@@ -676,9 +688,11 @@ function buildOperatingHoursSection(
           : current
             ? formatHoursValue(current)
             : null,
+        comparisonProposedValue: provider ? formatHoursValue(provider) : null,
         direction: 'pull_from_gbp',
-        canPublishToNabatable: Boolean(provider),
+        canPublishToNabatable: Boolean(provider || current),
         canPushToGoogle: true,
+        defaultSelected: Boolean(provider),
         warnings: normalized.warnings,
       });
     }),
@@ -693,26 +707,62 @@ function buildServicePeriodsSection(
   canPushToGoogle: boolean,
 ): GoogleBusinessProfileDraftSection {
   const normalized = businessInfo.coreNormalization.servicePeriods;
+  const syncableServicePeriodOptions = new Set(['lunch', 'dinner']);
+  const servicePeriodKey = (period: {
+    dayOfWeek: number | null;
+    bookingOption: string;
+  }): string | null => {
+    if (period.dayOfWeek === null) {
+      return null;
+    }
+    const option = period.bookingOption.trim().toLowerCase();
+    if (!syncableServicePeriodOptions.has(option)) {
+      return null;
+    }
+    return `${period.dayOfWeek}:${option}`;
+  };
+  const formatServicePeriodValue = (period: { name: string; startTime: string; endTime: string }) =>
+    `${period.name} ${period.startTime}-${period.endTime}`;
   const coreByDay = new Map(
     core.servicePeriods
-      .filter((row) => row.dayOfWeek !== null)
-      .map((row) => [`${row.dayOfWeek}:${row.bookingOption}`, row]),
+      .map((row) => [servicePeriodKey(row), row] as const)
+      .filter((entry): entry is [string, (typeof core.servicePeriods)[number]] =>
+        Boolean(entry[0]),
+      ),
+  );
+  const providerByDay = new Map(
+    normalized.periods
+      .map((row) => [servicePeriodKey(row), row] as const)
+      .filter((entry): entry is [string, (typeof normalized.periods)[number]] => Boolean(entry[0])),
   );
 
-  const items = normalized.periods.map((provider) => {
-    const key = `${provider.dayOfWeek}:${provider.bookingOption}`;
+  const servicePeriodKeys = [...new Set([...coreByDay.keys(), ...providerByDay.keys()])].sort(
+    (left, right) => {
+      const [leftDay, leftOption] = left.split(':');
+      const [rightDay, rightOption] = right.split(':');
+      const dayOrder = Number(leftDay) - Number(rightDay);
+      return dayOrder === 0 ? leftOption.localeCompare(rightOption) : dayOrder;
+    },
+  );
+
+  const items = servicePeriodKeys.map((key) => {
     const current = coreByDay.get(key);
-    const providerValue = `${provider.name} ${provider.startTime}-${provider.endTime}`;
+    const provider = providerByDay.get(key);
+    const [dayPart, option] = key.split(':');
+    const providerValue = provider ? formatServicePeriodValue(provider) : null;
+    const currentValue = current ? formatServicePeriodValue(current) : null;
     return makeItem({
       sectionKey: 'servicePeriods',
-      fieldKey: `servicePeriods.${provider.dayOfWeek ?? 'all'}.${provider.bookingOption}`,
-      label: `${provider.bookingOption} day ${provider.dayOfWeek ?? 'all'}`,
-      currentValue: current ? `${current.name} ${current.startTime}-${current.endTime}` : null,
+      fieldKey: `servicePeriods.${dayPart}.${option}`,
+      label: `${option} day ${dayPart}`,
+      currentValue,
       providerValue,
-      proposedValue: providerValue,
+      proposedValue: providerValue ?? currentValue,
+      comparisonProposedValue: providerValue,
       direction: 'pull_from_gbp',
       canPublishToNabatable: true,
       canPushToGoogle,
+      defaultSelected: Boolean(provider),
       warnings: normalized.warnings,
     });
   });
@@ -737,7 +787,8 @@ function buildBusinessContextSection<T>(
     warnings?: string[];
   } = {},
 ): GoogleBusinessProfileDraftSection {
-  const canPublishToNabatable = options.canPublishToNabatable ?? providerRows.length > 0;
+  const canPublishToNabatable =
+    options.canPublishToNabatable ?? (providerRows.length > 0 || coreRows.length > 0);
   const item = makeItem({
     sectionKey,
     fieldKey: sectionKey,
@@ -750,6 +801,7 @@ function buildBusinessContextSection<T>(
     direction: 'pull_from_gbp',
     canPublishToNabatable,
     canPushToGoogle,
+    defaultSelected: providerRows.length > 0,
     warnings: options.warnings ?? [],
   });
 
@@ -787,6 +839,27 @@ function normalizeBusinessContextRowForComparison(
   );
 }
 
+function normalizeProviderValueForStaleCheck(
+  sectionKey: GoogleBusinessProfileDraftSectionKey,
+  value: unknown,
+): unknown {
+  if (!sectionKey.startsWith('businessContext.') || !Array.isArray(value)) {
+    return value;
+  }
+
+  return normalizeBusinessContextRowsForComparison(sectionKey, value);
+}
+
+function providerValueChangedForStaleCheck(
+  item: GoogleBusinessProfileDraftItem,
+  refreshedItem: GoogleBusinessProfileDraftItem,
+): boolean {
+  return !isEqualValue(
+    normalizeProviderValueForStaleCheck(item.sectionKey, item.providerValue),
+    normalizeProviderValueForStaleCheck(refreshedItem.sectionKey, refreshedItem.providerValue),
+  );
+}
+
 function summarizeSection(
   sectionKey: GoogleBusinessProfileDraftSectionKey,
   label: string,
@@ -797,7 +870,7 @@ function summarizeSection(
     ...new Set(
       items
         .filter((item) => item.status === 'ready' && !item.canPublishToNabatable)
-        .map((item) => `${item.label} cannot update Nabatable from here yet.`),
+        .map((item) => `${item.label} cannot be updated in Nabatable from this review yet.`),
     ),
   ];
 
@@ -941,6 +1014,35 @@ function reconcileDraftWithCurrentSections(
     ...draft,
     staleSections: remainingStaleSections,
     sectionDiffs,
+  };
+}
+
+function suppressActionsForReadOnlyReview(
+  draft: GoogleBusinessProfileWorkflowDraft,
+): GoogleBusinessProfileWorkflowDraft {
+  if (!READ_ONLY_REVIEW_DRAFT_STATUSES.includes(draft.status)) {
+    return draft;
+  }
+
+  return {
+    ...draft,
+    selectedApprovals: Object.fromEntries(
+      Object.keys(draft.selectedApprovals).map((fieldKey) => [fieldKey, false]),
+    ),
+    staleSections: [],
+    sectionDiffs: draft.sectionDiffs.map((section) => ({
+      ...section,
+      status: 'unchanged',
+      summary: 'Check for changes to review new differences.',
+      canPublishToNabatable: false,
+      canPushToGoogle: section.items.some((item) => item.canPushToGoogle),
+      blockedReasons: [],
+      items: section.items.map((item) => ({
+        ...item,
+        status: 'unchanged',
+        selected: false,
+      })),
+    })),
   };
 }
 
@@ -1146,20 +1248,20 @@ export async function getGoogleBusinessProfileWorkflow(
       readCoreSnapshots(restaurantId, resolvedClient),
       readGoogleBusinessProfileBusinessInfo(restaurantId, resolvedClient),
     ]);
-    latestDraft = reconcileDraftWithCurrentSections(
-      latestDraft,
-      buildDraftSections({
+    const currentSections = buildDraftSections({
+      core,
+      businessInfo,
+      externalLocationTitle: externalProfile?.external_location_title ?? null,
+      canPushServicePeriods: resolveCanPushServicePeriods({
         core,
         businessInfo,
-        externalLocationTitle: externalProfile?.external_location_title ?? null,
-        canPushServicePeriods: resolveCanPushServicePeriods({
-          core,
-          businessInfo,
-          lastPulledAt: externalProfile?.last_pull_at ?? null,
-          lastPushedAt: externalProfile?.last_push_at ?? null,
-        }),
+        lastPulledAt: externalProfile?.last_pull_at ?? null,
+        lastPushedAt: externalProfile?.last_push_at ?? null,
       }),
-    );
+    });
+    latestDraft = READ_ONLY_REVIEW_DRAFT_STATUSES.includes(latestDraft.status)
+      ? suppressActionsForReadOnlyReview(latestDraft)
+      : reconcileDraftWithCurrentSections(latestDraft, currentSections);
   }
 
   return buildWorkflowResponse(latestDraft, events, activePublishJob);
@@ -1472,6 +1574,102 @@ function profileFieldsForDraft(
   return fields.length > 0 ? fields : undefined;
 }
 
+type ProfileProjectionCleanupTarget = {
+  table: 'restaurant_addresses' | 'restaurant_phone_numbers' | 'restaurant_links';
+  filters: Record<string, string | boolean>;
+  anyOf?: Record<string, string | boolean>;
+};
+
+function profileProjectionCleanupTargets(
+  fields: ProfileVerificationField[] | undefined,
+): ProfileProjectionCleanupTarget[] {
+  const selected = new Set(fields ?? []);
+  const targets: ProfileProjectionCleanupTarget[] = [];
+
+  if (selected.has('contactPhone')) {
+    targets.push({
+      table: 'restaurant_phone_numbers',
+      filters: {
+        source: 'nabatable',
+        managed_by: 'nabatable',
+      },
+      anyOf: {
+        phone_kind: 'primary',
+        is_primary: true,
+      },
+    });
+  }
+
+  if (selected.has('address')) {
+    targets.push({
+      table: 'restaurant_addresses',
+      filters: {
+        source: 'nabatable',
+        managed_by: 'nabatable',
+      },
+      anyOf: {
+        address_type: 'storefront',
+        is_primary: true,
+      },
+    });
+  }
+
+  if (selected.has('googleMapUrl')) {
+    targets.push({
+      table: 'restaurant_links',
+      filters: {
+        source: 'nabatable',
+        managed_by: 'nabatable',
+        link_type: 'google_map',
+        link_status: 'current',
+      },
+    });
+  }
+
+  if (selected.has('googleReviewUrl')) {
+    targets.push({
+      table: 'restaurant_links',
+      filters: {
+        source: 'nabatable',
+        managed_by: 'nabatable',
+        link_type: 'google_review',
+        link_status: 'current',
+      },
+    });
+  }
+
+  return targets;
+}
+
+function serializeOrFilters(filters: Record<string, string | boolean>): string {
+  return Object.entries(filters)
+    .map(([key, value]) => `${key}.eq.${String(value)}`)
+    .join(',');
+}
+
+async function clearProjectedProfileRowsForPulledFields(params: {
+  restaurantId: string;
+  fields: ProfileVerificationField[] | undefined;
+  client: DbClient;
+}): Promise<void> {
+  for (const target of profileProjectionCleanupTargets(params.fields)) {
+    let query = params.client.from(target.table).delete().eq('restaurant_id', params.restaurantId);
+
+    for (const [key, value] of Object.entries(target.filters)) {
+      query = query.eq(key, value);
+    }
+
+    if (target.anyOf) {
+      query = query.or(serializeOrFilters(target.anyOf));
+    }
+
+    const { error } = await query;
+    if (error) {
+      throw error;
+    }
+  }
+}
+
 function operatingHoursSelectionForDraft(
   draft: GoogleBusinessProfileWorkflowDraft,
   mode: GoogleBusinessProfilePublishMode = 'nabatable_only',
@@ -1667,7 +1865,7 @@ async function detectProviderStaleItems(params: {
 
   return selected.filter((item) => {
     const refreshedItem = refreshedItemsByKey.get(item.fieldKey);
-    return refreshedItem ? !isEqualValue(item.providerValue, refreshedItem.providerValue) : false;
+    return refreshedItem ? providerValueChangedForStaleCheck(item, refreshedItem) : false;
   });
 }
 
@@ -2030,16 +2228,22 @@ async function publishDraftToNabatable(params: {
         params.restaurantId,
         params.client,
       );
+      const profileFields = profileFieldsForDraft(params.draft);
       const patch = {
         timezone: params.currentCore.profile.timezone,
         ...buildPullProfilePatch({
           businessInfo: connection.businessInfo,
           externalLocationTitle:
             connection.externalLocationTitle ?? connection.externalLocationName ?? null,
-          fields: profileFieldsForDraft(params.draft),
+          fields: profileFields,
         }),
       };
       await updateRestaurantDetails(params.restaurantId, patch, params.client);
+      await clearProjectedProfileRowsForPulledFields({
+        restaurantId: params.restaurantId,
+        fields: profileFields,
+        client: params.client,
+      });
     }
 
     if (selectedSectionKeys(params.draft).includes('operatingHours')) {
@@ -2758,6 +2962,8 @@ export const googleBusinessProfileWorkflowTestUtils = {
   assertGooglePushEnabled,
   assertApprovalWorkflowDirectionSupported,
   assertApprovalWorkflowOneWay,
+  buildOperatingHoursSection,
+  buildServicePeriodsSection,
   buildBusinessContextSection,
   buildFailedPublishErrors,
   businessContextPayloadForDraft,
@@ -2766,8 +2972,11 @@ export const googleBusinessProfileWorkflowTestUtils = {
   googleMasksForDraft,
   isUniqueConstraintError,
   normalizePublishDirectionIntent,
+  profileProjectionCleanupTargets,
+  providerValueChangedForStaleCheck,
   publishModeForDirectionIntent,
   pushToGoogleForDirectionIntent,
   reconcileDraftWithCurrentSections,
+  suppressActionsForReadOnlyReview,
   restoreCoreSnapshotAfterFailedPublish,
 };

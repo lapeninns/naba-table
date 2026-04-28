@@ -27,6 +27,7 @@ import {
   directionShortLabel,
   formatValuePreview,
   humanFieldLabel,
+  itemActionLabel,
   type SyncPublishDirection,
 } from '../lib/sync-review';
 
@@ -107,10 +108,11 @@ export function PreflightReviewDialog({
 
               {selectedItems.length > 0 ? (
                 <div className="mt-4 overflow-x-auto rounded-md border bg-background">
-                  <Table className="min-w-[720px]">
+                  <Table className="min-w-[820px]">
                     <TableHeader>
                       <TableRow>
                         <TableHead>Field</TableHead>
+                        <TableHead>Action</TableHead>
                         <TableHead>Section</TableHead>
                         <TableHead>Nabatable</TableHead>
                         <TableHead>Google</TableHead>
@@ -120,6 +122,7 @@ export function PreflightReviewDialog({
                       {selectedItems.map((item) => (
                         <TableRow key={item.fieldKey}>
                           <TableCell className="font-medium">{humanFieldLabel(item)}</TableCell>
+                          <TableCell>{itemActionLabel(item, direction)}</TableCell>
                           <TableCell>{item.sectionLabel}</TableCell>
                           <TableCell className="max-w-[220px] whitespace-pre-wrap break-words text-muted-foreground">
                             {formatValuePreview(item.currentValue)}

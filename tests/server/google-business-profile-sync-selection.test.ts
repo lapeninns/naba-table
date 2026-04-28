@@ -15,7 +15,9 @@ import type { OperatingHoursSnapshot } from '@/server/restaurants/operatingHours
 import type { RestaurantDetails } from '@/server/restaurants/details';
 import type { ServicePeriod } from '@/server/restaurants/servicePeriods';
 
-function buildBusinessInfo(overrides: Partial<GoogleBusinessProfileBusinessInfo>): GoogleBusinessProfileBusinessInfo {
+function buildBusinessInfo(
+  overrides: Partial<GoogleBusinessProfileBusinessInfo>,
+): GoogleBusinessProfileBusinessInfo {
   return {
     details: null,
     addresses: [],
@@ -132,9 +134,7 @@ describe('google business profile sync selection', () => {
         },
         fields: ['address'],
       }),
-    ).toThrow(
-      'Selected GBP export fields are not safely pushable from Nabatable yet: address.',
-    );
+    ).toThrow('Selected GBP export fields are not safely pushable from Nabatable yet: address.');
   });
 
   it('pulls only the selected operating-hours rows and preserves the rest', () => {
@@ -198,11 +198,29 @@ describe('google business profile sync selection', () => {
             summary: 'Operating hours differ.',
             warnings: [],
             weekly: [
-              { dayOfWeek: 0, opensAt: '12:00', closesAt: '21:00', isClosed: false, matchesCore: false },
-              { dayOfWeek: 1, opensAt: '11:00', closesAt: '22:00', isClosed: false, matchesCore: false },
+              {
+                dayOfWeek: 0,
+                opensAt: '12:00',
+                closesAt: '21:00',
+                isClosed: false,
+                matchesCore: false,
+              },
+              {
+                dayOfWeek: 1,
+                opensAt: '11:00',
+                closesAt: '22:00',
+                isClosed: false,
+                matchesCore: false,
+              },
             ],
             overrides: [
-              { effectiveDate: '2026-12-25', opensAt: '12:00', closesAt: '20:00', isClosed: false, matchesCore: false },
+              {
+                effectiveDate: '2026-12-25',
+                opensAt: '12:00',
+                closesAt: '20:00',
+                isClosed: false,
+                matchesCore: false,
+              },
             ],
           },
           servicePeriods: {
@@ -327,6 +345,49 @@ describe('google business profile sync selection', () => {
     });
   });
 
+  it('removes selected Google special-hour dates when Nabatable has no override', () => {
+    const patch = buildPushOperatingHoursLocationPatch({
+      snapshot: {
+        weekly: [],
+        overrides: [],
+        updatedAt: '2026-04-18T13:00:00.000Z',
+      },
+      location: {
+        name: 'locations/123',
+        specialHours: {
+          specialHourPeriods: [
+            {
+              startDate: { year: 2026, month: 12, day: 24 },
+              endDate: { year: 2026, month: 12, day: 24 },
+              openTime: '10:00',
+              closeTime: '18:00',
+              closed: false,
+            },
+            {
+              startDate: { year: 2026, month: 12, day: 25 },
+              endDate: { year: 2026, month: 12, day: 25 },
+              openTime: '09:00',
+              closeTime: '15:00',
+              closed: false,
+            },
+          ],
+        },
+      },
+      selection: {
+        overrideDates: ['2026-12-25'],
+      },
+    });
+
+    expect(patch.updateMask).toEqual(['specialHours']);
+    expect(patch.payload.specialHours).toEqual({
+      specialHourPeriods: [
+        expect.objectContaining({
+          startDate: { year: 2026, month: 12, day: 24 },
+        }),
+      ],
+    });
+  });
+
   it('pulls only the selected service-period days and preserves non-selected plus custom periods', () => {
     const currentPeriods: ServicePeriod[] = [
       {
@@ -385,8 +446,22 @@ describe('google business profile sync selection', () => {
             summary: 'Service periods differ.',
             warnings: [],
             periods: [
-              { bookingOption: 'lunch', name: 'Lunch', dayOfWeek: 1, startTime: '11:30', endTime: '15:30', matchesCore: false },
-              { bookingOption: 'dinner', name: 'Dinner', dayOfWeek: 1, startTime: '17:00', endTime: '22:00', matchesCore: false },
+              {
+                bookingOption: 'lunch',
+                name: 'Lunch',
+                dayOfWeek: 1,
+                startTime: '11:30',
+                endTime: '15:30',
+                matchesCore: false,
+              },
+              {
+                bookingOption: 'dinner',
+                name: 'Dinner',
+                dayOfWeek: 1,
+                startTime: '17:00',
+                endTime: '22:00',
+                matchesCore: false,
+              },
             ],
           },
           bookingHours: {
@@ -405,6 +480,67 @@ describe('google business profile sync selection', () => {
       expect.objectContaining({ bookingOption: 'lunch', dayOfWeek: 1, startTime: '11:30' }),
       expect.objectContaining({ bookingOption: 'dinner', dayOfWeek: 1, endTime: '22:00' }),
     ]);
+  });
+
+  it('removes selected Nabatable service-period days when Google has no kitchen periods', () => {
+    const currentPeriods: ServicePeriod[] = [
+      {
+        id: 'lunch-mon',
+        restaurantId: 'rest-1',
+        name: 'Lunch',
+        dayOfWeek: 1,
+        startTime: '12:00',
+        endTime: '15:00',
+        bookingOption: 'lunch',
+        createdAt: '2026-04-18T12:00:00.000Z',
+        updatedAt: '2026-04-18T12:00:00.000Z',
+      },
+      {
+        id: 'dinner-tue',
+        restaurantId: 'rest-1',
+        name: 'Dinner',
+        dayOfWeek: 2,
+        startTime: '17:00',
+        endTime: '21:00',
+        bookingOption: 'dinner',
+        createdAt: '2026-04-18T12:00:00.000Z',
+        updatedAt: '2026-04-18T12:00:00.000Z',
+      },
+    ];
+
+    const payload = buildPullServicePeriodsPayload({
+      currentPeriods,
+      selection: {
+        dayOfWeeks: [1],
+      },
+      businessInfo: buildBusinessInfo({
+        coreNormalization: {
+          operatingHours: {
+            source: 'public',
+            matchStatus: 'unavailable',
+            summary: 'n/a',
+            warnings: [],
+            weekly: [],
+            overrides: [],
+          },
+          servicePeriods: {
+            source: 'more_hours',
+            matchStatus: 'drifted',
+            summary: 'Service periods differ.',
+            warnings: [],
+            periods: [],
+          },
+          bookingHours: {
+            matchStatus: 'partial',
+            summary: 'n/a',
+            warnings: [],
+            missingInputs: [],
+          },
+        },
+      }),
+    });
+
+    expect(payload).toEqual([expect.objectContaining({ bookingOption: 'dinner', dayOfWeek: 2 })]);
   });
 
   it('pushes only the selected service-period days and preserves provider kitchen rows outside the selection', () => {
@@ -450,7 +586,9 @@ describe('google business profile sync selection', () => {
         },
         {
           hoursTypeId: 'DRIVE_THROUGH',
-          periods: [{ openDay: 'SUNDAY', closeDay: 'SUNDAY', openTime: '08:00', closeTime: '12:00' }],
+          periods: [
+            { openDay: 'SUNDAY', closeDay: 'SUNDAY', openTime: '08:00', closeTime: '12:00' },
+          ],
         },
       ],
     };
@@ -472,11 +610,53 @@ describe('google business profile sync selection', () => {
           hoursTypeId: 'KITCHEN_HOURS',
           periods: expect.arrayContaining([
             expect.objectContaining({ openDay: 'TUESDAY', closeDay: 'TUESDAY' }),
-            expect.objectContaining({ openDay: 'MONDAY', closeDay: 'MONDAY', openTime: { hours: 12, minutes: 0 } }),
-            expect.objectContaining({ openDay: 'MONDAY', closeDay: 'MONDAY', openTime: { hours: 17, minutes: 0 } }),
+            expect.objectContaining({
+              openDay: 'MONDAY',
+              closeDay: 'MONDAY',
+              openTime: { hours: 12, minutes: 0 },
+            }),
+            expect.objectContaining({
+              openDay: 'MONDAY',
+              closeDay: 'MONDAY',
+              openTime: { hours: 17, minutes: 0 },
+            }),
           ]),
         }),
       ]),
     );
+  });
+
+  it('removes selected Google service-period days when Nabatable has no lunch or dinner rows', () => {
+    const patch = buildPushServicePeriodsLocationPatch({
+      periods: [],
+      location: {
+        name: 'locations/123',
+        categories: {
+          primaryCategory: {
+            moreHoursTypes: [{ hoursTypeId: 'KITCHEN_HOURS' }],
+          },
+        },
+        moreHours: [
+          {
+            hoursTypeId: 'KITCHEN_HOURS',
+            periods: [
+              { openDay: 'MONDAY', closeDay: 'MONDAY', openTime: '10:00', closeTime: '20:00' },
+              { openDay: 'TUESDAY', closeDay: 'TUESDAY', openTime: '11:00', closeTime: '21:00' },
+            ],
+          },
+        ],
+      },
+      selection: {
+        dayOfWeeks: [1],
+      },
+    });
+
+    expect(patch?.updateMask).toEqual(['moreHours']);
+    expect(patch?.payload.moreHours).toEqual([
+      {
+        hoursTypeId: 'KITCHEN_HOURS',
+        periods: [expect.objectContaining({ openDay: 'TUESDAY', closeDay: 'TUESDAY' })],
+      },
+    ]);
   });
 });

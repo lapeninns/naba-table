@@ -47,6 +47,8 @@ export function GoogleBusinessProfileSyncPageShell({
   const workspace = useGoogleBusinessProfileSyncWorkspace(restaurantId);
   const workflow = workspace.workflowQuery.data;
   const draft = workspace.draft;
+  const googlePushEnabled = connection.pushEnabled;
+  const pushDirectionBlocked = workspace.direction === 'nabatable_to_google' && !googlePushEnabled;
   const statsByDirection = {
     google_to_nabatable: buildDirectionStats(
       draft,
@@ -106,7 +108,19 @@ export function GoogleBusinessProfileSyncPageShell({
         onDirectionChange={workspace.setDirection}
         stats={statsByDirection}
         hasMixedSelections={workspace.mixedDirectionSelections}
+        googlePushEnabled={googlePushEnabled}
       />
+
+      {!googlePushEnabled ? (
+        <Alert>
+          <ShieldAlert className="size-4" />
+          <AlertTitle>Google updates are disabled</AlertTitle>
+          <AlertDescription>
+            This linked Business Profile can still be reviewed and pulled into Nabatable, but Google
+            write-back is disabled for this location.
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       <Card className="min-w-0 border-border/70 shadow-sm">
         <CardContent className="min-w-0 space-y-4 p-3 sm:p-4">
@@ -123,7 +137,11 @@ export function GoogleBusinessProfileSyncPageShell({
               <Button
                 type="button"
                 className="w-full sm:w-auto"
-                disabled={!draft || statsByDirection[workspace.direction].selectedCount === 0}
+                disabled={
+                  !draft ||
+                  pushDirectionBlocked ||
+                  statsByDirection[workspace.direction].selectedCount === 0
+                }
                 onClick={() => {
                   workspace.resetPreflight();
                   workspace.setPreflightDialogOpen(true);
@@ -176,6 +194,7 @@ export function GoogleBusinessProfileSyncPageShell({
                     workspace.updateDecision(item, decision);
                   }}
                   activePublishJob={workspace.activePublishJob}
+                  googlePushEnabled={googlePushEnabled}
                 />
               </div>
             </div>
@@ -202,7 +221,7 @@ export function GoogleBusinessProfileSyncPageShell({
         }
         isPreflightPending={workspace.preflightMutation.isPending}
         onRunPreflight={async () => {
-          await workspace.runPreflight();
+          await workspace.runPreflight().catch(() => undefined);
         }}
         onContinue={() => workspace.setPublishDialogOpen(true)}
       />

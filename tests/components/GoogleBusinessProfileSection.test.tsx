@@ -172,6 +172,7 @@ function buildConnection(
     isConfigured: true,
     provider: 'google_business_profile',
     status: 'unlinked',
+    pushEnabled: true,
     connectedGoogleEmail: null,
     connectedGoogleName: null,
     externalAccountId: null,
@@ -346,6 +347,7 @@ describe('GoogleBusinessProfileSection', () => {
 
     connectionResult.data = buildConnection({
       status: 'linked',
+      pushEnabled: true,
       externalLocationId: 'l-1',
       externalLocationTitle: 'Nabatable Main',
     });
@@ -424,9 +426,72 @@ describe('GoogleBusinessProfileSection', () => {
     await user.click(pushTab);
 
     expect(screen.getByRole('button', { name: /review selected changes \(0\)/i })).toBeDisabled();
-    await user.click(screen.getByRole('button', { name: /send to google/i }));
+    await user.click(screen.getByRole('button', { name: /update google/i }));
     expect(screen.getByRole('button', { name: /review selected changes \(1\)/i })).toBeEnabled();
     expect(screen.getByTestId('gbp-retry-google-push-button')).toBeInTheDocument();
+  });
+
+  it('blocks Google write-back controls when the linked location has push disabled', () => {
+    connectionResult.data = buildConnection({
+      status: 'linked',
+      pushEnabled: false,
+      externalLocationId: 'l-1',
+      externalLocationTitle: 'Nabatable Main',
+    });
+    workflowResult.data = {
+      latestDraft: {
+        id: 'draft-pull-only',
+        status: 'approved',
+        fetchedAt: '2026-04-25T10:00:00.000Z',
+        approvedAt: '2026-04-25T10:05:00.000Z',
+        publishedAt: null,
+        staleSections: [],
+        conflictMetadata: {},
+        selectedApprovals: {},
+        sourceSnapshotRefs: {},
+        coreSnapshotHashes: {},
+        createdAt: '2026-04-25T10:00:00.000Z',
+        updatedAt: '2026-04-25T10:05:00.000Z',
+        sectionDiffs: [
+          {
+            sectionKey: 'profile',
+            label: 'Profile',
+            status: 'ready',
+            summary: '1 change ready',
+            canPublishToNabatable: true,
+            canPushToGoogle: true,
+            blockedReasons: [],
+            items: [
+              {
+                fieldKey: 'profile.contactPhone',
+                label: 'Primary phone',
+                sectionKey: 'profile',
+                currentValue: '+44 20 9999 0000',
+                providerValue: '+44 20 1234 5678',
+                proposedValue: '+44 20 1234 5678',
+                direction: 'pull_from_gbp',
+                status: 'ready',
+                selected: false,
+                canPublishToNabatable: true,
+                canPushToGoogle: true,
+                warnings: [],
+              },
+            ],
+          },
+        ],
+      },
+      sectionSummaries: [],
+      publishableSections: ['profile'],
+      blockedReasons: [],
+      auditEvents: [],
+      activePublishJob: null,
+    };
+
+    render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
+
+    expect(screen.getByText(/google updates are disabled/i)).toBeInTheDocument();
+    expect(screen.getByTestId('gbp-direction-tab-nabatable_to_google')).toBeDisabled();
+    expect(screen.getByRole('button', { name: /update google/i })).toBeDisabled();
   });
 
   it('shows a refresh-required state when the workflow draft is stale', () => {

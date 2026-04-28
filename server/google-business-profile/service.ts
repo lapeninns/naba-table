@@ -63,6 +63,7 @@ export type GoogleBusinessProfileConnectionState = {
   isConfigured: boolean;
   provider: 'google_business_profile';
   status: 'pending_auth' | 'authorized' | 'linked' | 'unlinked' | 'reauth_required' | 'sync_error';
+  pushEnabled: boolean;
   connectedGoogleEmail: string | null;
   connectedGoogleName: string | null;
   externalAccountId: string | null;
@@ -455,6 +456,7 @@ function buildConnectionState(
     status:
       (externalProfile?.connection_status as GoogleBusinessProfileConnectionState['status']) ??
       'unlinked',
+    pushEnabled: Boolean(externalProfile?.push_enabled),
     connectedGoogleEmail: credential?.connected_google_email ?? null,
     connectedGoogleName: credential?.connected_google_name ?? null,
     externalAccountId: externalProfile?.external_account_id ?? null,

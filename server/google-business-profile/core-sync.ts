@@ -160,7 +160,7 @@ function pickLatestTimestamp(
     return firstValue ?? null;
   }
 
-  return secondTime > firstTime ? secondValue ?? null : firstValue ?? null;
+  return secondTime > firstTime ? (secondValue ?? null) : (firstValue ?? null);
 }
 
 function pickRecommendedDirection(params: {
@@ -270,7 +270,9 @@ function googleDayNameToIndex(value: string | null | undefined): number | null {
   return index >= 0 ? index : null;
 }
 
-function formatGoogleDate(value: { year?: number; month?: number; day?: number } | null | undefined) {
+function formatGoogleDate(
+  value: { year?: number; month?: number; day?: number } | null | undefined,
+) {
   if (!value) {
     return null;
   }
@@ -286,19 +288,15 @@ function formatGoogleDate(value: { year?: number; month?: number; day?: number }
   return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
-function normalizeNumericSelection(
-  requested: number[] | undefined,
-  available: number[],
-): number[] {
+function normalizeNumericSelection(requested: number[] | undefined, available: number[]): number[] {
   const availableSet = new Set(available);
   const source = requested && requested.length > 0 ? requested : available;
-  return [...new Set(source.filter((value) => availableSet.has(value)))].sort((left, right) => left - right);
+  return [...new Set(source.filter((value) => availableSet.has(value)))].sort(
+    (left, right) => left - right,
+  );
 }
 
-function normalizeDateSelection(
-  requested: string[] | undefined,
-  available: string[],
-): string[] {
+function normalizeDateSelection(requested: string[] | undefined, available: string[]): string[] {
   const availableSet = new Set(available);
   const source = requested && requested.length > 0 ? requested : available;
   return [...new Set(source.filter((value) => availableSet.has(value)))].sort();
@@ -315,7 +313,9 @@ function buildRegularHoursPeriod(dayOfWeek: number, opensAt: string, closesAt: s
   const closeTime = toGoogleTimeOfDay(closesAt);
 
   if (!openTime || !closeTime) {
-    throw new Error('Selected operating-hours rows must include valid open and close times before pushing to Google Business Profile.');
+    throw new Error(
+      'Selected operating-hours rows must include valid open and close times before pushing to Google Business Profile.',
+    );
   }
 
   return {
@@ -347,7 +347,9 @@ function buildSpecialHoursPeriod(params: {
   const openTime = toGoogleTimeOfDay(params.opensAt);
   const closeTime = toGoogleTimeOfDay(params.closesAt);
   if (!openTime || !closeTime) {
-    throw new Error('Selected holiday overrides must include valid open and close times before pushing to Google Business Profile.');
+    throw new Error(
+      'Selected holiday overrides must include valid open and close times before pushing to Google Business Profile.',
+    );
   }
 
   return {
@@ -666,10 +668,12 @@ export function buildPullOperatingHoursPayload(params: {
   selection?: OperatingHoursSyncSelection;
 }): UpdateOperatingHoursPayload {
   const normalized = params.businessInfo.coreNormalization.operatingHours;
-  const availableOverrideDates = [...new Set([
-    ...params.currentSnapshot.overrides.map((row) => row.effectiveDate),
-    ...normalized.overrides.map((row) => row.effectiveDate),
-  ])].sort();
+  const availableOverrideDates = [
+    ...new Set([
+      ...params.currentSnapshot.overrides.map((row) => row.effectiveDate),
+      ...normalized.overrides.map((row) => row.effectiveDate),
+    ]),
+  ].sort();
   const selectedWeeklyDays = normalizeNumericSelection(
     params.selection?.weeklyDays,
     params.currentSnapshot.weekly.map((row) => row.dayOfWeek),
@@ -678,10 +682,7 @@ export function buildPullOperatingHoursPayload(params: {
     params.selection?.overrideDates,
     availableOverrideDates,
   );
-  ensureSelectionNotEmpty(
-    [...selectedWeeklyDays, ...selectedOverrideDates],
-    'operating-hours',
-  );
+  ensureSelectionNotEmpty([...selectedWeeklyDays, ...selectedOverrideDates], 'operating-hours');
 
   const currentOverridesByDate = new Map(
     params.currentSnapshot.overrides.map((row) => [row.effectiveDate, row]),
@@ -714,9 +715,7 @@ export function buildPullOperatingHoursPayload(params: {
   });
 
   const overrides: UpdateOperatingHoursPayload['overrides'] = params.currentSnapshot.overrides
-    .filter(
-    (row) => !selectedOverrideDateSet.has(row.effectiveDate),
-  )
+    .filter((row) => !selectedOverrideDateSet.has(row.effectiveDate))
     .map((row) => ({
       ...(row.id ? { id: row.id } : {}),
       effectiveDate: row.effectiveDate,
@@ -747,7 +746,12 @@ export function buildPullOperatingHoursPayload(params: {
     });
   }
 
-  return { weekly, overrides: overrides.sort((left, right) => left.effectiveDate.localeCompare(right.effectiveDate)) };
+  return {
+    weekly,
+    overrides: overrides.sort((left, right) =>
+      left.effectiveDate.localeCompare(right.effectiveDate),
+    ),
+  };
 }
 
 export function buildPushOperatingHoursLocationPatch(params: {
@@ -758,12 +762,14 @@ export function buildPushOperatingHoursLocationPatch(params: {
   payload: Record<string, unknown>;
   updateMask: string[];
 } {
-  const availableOverrideDates = [...new Set([
-    ...params.snapshot.overrides.map((row) => row.effectiveDate),
-    ...(params.location.specialHours?.specialHourPeriods ?? [])
-      .map((row) => formatGoogleDate(row.startDate))
-      .filter((value): value is string => Boolean(value)),
-  ])].sort();
+  const availableOverrideDates = [
+    ...new Set([
+      ...params.snapshot.overrides.map((row) => row.effectiveDate),
+      ...(params.location.specialHours?.specialHourPeriods ?? [])
+        .map((row) => formatGoogleDate(row.startDate))
+        .filter((value): value is string => Boolean(value)),
+    ]),
+  ].sort();
   const selectedWeeklyDays = normalizeNumericSelection(
     params.selection?.weeklyDays,
     params.snapshot.weekly.map((row) => row.dayOfWeek),
@@ -772,10 +778,7 @@ export function buildPushOperatingHoursLocationPatch(params: {
     params.selection?.overrideDates,
     availableOverrideDates,
   );
-  ensureSelectionNotEmpty(
-    [...selectedWeeklyDays, ...selectedOverrideDates],
-    'operating-hours',
-  );
+  ensureSelectionNotEmpty([...selectedWeeklyDays, ...selectedOverrideDates], 'operating-hours');
 
   const selectedWeeklyDaySet = new Set(selectedWeeklyDays);
   const selectedOverrideDateSet = new Set(selectedOverrideDates);
@@ -792,12 +795,12 @@ export function buildPushOperatingHoursLocationPatch(params: {
     .filter((row) => !row.isClosed)
     .map((row) => buildRegularHoursPeriod(row.dayOfWeek, row.opensAt ?? '', row.closesAt ?? ''));
 
-  const preservedSpecialHourPeriods = (params.location.specialHours?.specialHourPeriods ?? []).filter(
-    (row) => {
-      const effectiveDate = formatGoogleDate(row.startDate) ?? formatGoogleDate(row.endDate);
-      return !effectiveDate || !selectedOverrideDateSet.has(effectiveDate);
-    },
-  );
+  const preservedSpecialHourPeriods = (
+    params.location.specialHours?.specialHourPeriods ?? []
+  ).filter((row) => {
+    const effectiveDate = formatGoogleDate(row.startDate) ?? formatGoogleDate(row.endDate);
+    return !effectiveDate || !selectedOverrideDateSet.has(effectiveDate);
+  });
   const replacementSpecialHourPeriods = params.snapshot.overrides
     .filter((row) => selectedOverrideDateSet.has(row.effectiveDate))
     .map((row) =>
@@ -838,15 +841,14 @@ export function buildPullServicePeriodsPayload(params: {
   selection?: ServicePeriodsSyncSelection;
 }): UpdateServicePeriod[] {
   const normalizedPeriods = params.businessInfo.coreNormalization.servicePeriods.periods;
-  const selectedDayOfWeeks = normalizeNumericSelection(
-    params.selection?.dayOfWeeks,
-    [...new Set(
+  const selectedDayOfWeeks = normalizeNumericSelection(params.selection?.dayOfWeeks, [
+    ...new Set(
       params.currentPeriods
         .map((period) => period.dayOfWeek)
         .concat(normalizedPeriods.map((period) => period.dayOfWeek))
         .filter((value): value is number => value !== null),
-    )],
-  );
+    ),
+  ]);
   ensureSelectionNotEmpty(selectedDayOfWeeks, 'service-period');
   const selectedDaySet = new Set(selectedDayOfWeeks);
   const preserved = params.currentPeriods.filter((period) => {
@@ -914,20 +916,21 @@ export function buildPushServicePeriodsLocationPatch(params: {
     return null;
   }
 
-  const selectedDayOfWeeks = normalizeNumericSelection(
-    params.selection?.dayOfWeeks,
-    [...new Set(
+  const selectedDayOfWeeks = normalizeNumericSelection(params.selection?.dayOfWeeks, [
+    ...new Set(
       params.periods
         .map((period) => period.dayOfWeek)
         .concat(
           (params.location.moreHours ?? [])
             .filter((entry) => isKitchenHoursType(entry.hoursTypeId))
-            .flatMap((entry) => (entry.periods ?? []).map((period) => googleDayNameToIndex(period.openDay)))
+            .flatMap((entry) =>
+              (entry.periods ?? []).map((period) => googleDayNameToIndex(period.openDay)),
+            )
             .filter((value): value is number => value !== null),
         )
         .filter((value): value is number => value !== null),
-    )],
-  );
+    ),
+  ]);
   ensureSelectionNotEmpty(selectedDayOfWeeks, 'service-period');
   const selectedDaySet = new Set(selectedDayOfWeeks);
 
@@ -947,7 +950,9 @@ export function buildPushServicePeriodsLocationPatch(params: {
       }
       return left.startTime.localeCompare(right.startTime);
     })
-    .map((period) => buildRegularHoursPeriod(period.dayOfWeek ?? 0, period.startTime, period.endTime));
+    .map((period) =>
+      buildRegularHoursPeriod(period.dayOfWeek ?? 0, period.startTime, period.endTime),
+    );
 
   const preservedMoreHours = (params.location.moreHours ?? []).filter(
     (entry) => !isKitchenHoursType(entry.hoursTypeId),

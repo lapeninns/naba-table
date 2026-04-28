@@ -38,6 +38,12 @@ export type DirectionStats = {
   ignoredCount: number;
 };
 
+const READ_ONLY_REVIEW_STATUSES = new Set(['published', 'publishing', 'archived']);
+
+export function isReadOnlyReviewStatus(status: string | null | undefined): boolean {
+  return Boolean(status && READ_ONLY_REVIEW_STATUSES.has(status));
+}
+
 export const SYNC_DIRECTION_OPTIONS: Array<{
   value: SyncPublishDirection;
   label: string;
@@ -191,6 +197,14 @@ export function deriveInitialFieldDecisions(
     return {};
   }
 
+  if (isReadOnlyReviewStatus(draft.status)) {
+    return Object.fromEntries(
+      draft.sectionDiffs.flatMap((section) =>
+        section.items.map((item) => [item.fieldKey, 'keep_nabatable' as const]),
+      ),
+    );
+  }
+
   return Object.fromEntries(
     draft.sectionDiffs.flatMap((section) =>
       section.items.map((item) => {
@@ -228,6 +242,14 @@ export function buildSelectedApprovalsForDirection(
     return {};
   }
 
+  if (isReadOnlyReviewStatus(draft.status)) {
+    return Object.fromEntries(
+      draft.sectionDiffs.flatMap((section) =>
+        section.items.map((item) => [item.fieldKey, false] as const),
+      ),
+    );
+  }
+
   return Object.fromEntries(
     draft.sectionDiffs.flatMap((section) =>
       section.items.map((item) => [
@@ -245,7 +267,7 @@ export function buildDirectionStats(
   decisions: Record<string, FieldDecision>,
   direction: SyncPublishDirection,
 ): DirectionStats {
-  if (!draft) {
+  if (!draft || isReadOnlyReviewStatus(draft.status)) {
     return { selectedCount: 0, actionableCount: 0, blockedCount: 0, ignoredCount: 0 };
   }
 
@@ -289,7 +311,7 @@ export function buildDirectionSectionSummaries(
   decisions: Record<string, FieldDecision>,
   direction: SyncPublishDirection,
 ): DirectionSectionSummary[] {
-  if (!draft) {
+  if (!draft || isReadOnlyReviewStatus(draft.status)) {
     return [];
   }
 
@@ -346,7 +368,7 @@ export function buildSelectedItemsForDirection(
   decisions: Record<string, FieldDecision>,
   direction: SyncPublishDirection,
 ): Array<GoogleBusinessProfileDraftItem & { sectionLabel: string }> {
-  if (!draft) {
+  if (!draft || isReadOnlyReviewStatus(draft.status)) {
     return [];
   }
 
@@ -446,27 +468,53 @@ export function formatAuditFlowLabel(event: GoogleBusinessProfileWorkflow['audit
 
 export function itemEligibilityLabel(item: GoogleBusinessProfileDraftItem): string {
   if (item.canPublishToNabatable && item.canPushToGoogle) {
-    return 'Can update both';
+    return 'Two-way action';
   }
   if (item.canPublishToNabatable) {
-    return 'Nabatable only';
+    return 'Can update Nabatable';
   }
   if (item.canPushToGoogle) {
-    return 'Google update available';
+    return 'Can update Google';
   }
-  return 'Manual review';
+  return 'Needs manual update';
 }
 
 export function itemChangeLabel(item: GoogleBusinessProfileDraftItem): string {
   if (isEmptyValue(item.currentValue) && !isEmptyValue(item.providerValue)) {
-    return 'New from Google';
+    return 'Only in Google';
   }
 
   if (!isEmptyValue(item.currentValue) && isEmptyValue(item.providerValue)) {
-    return 'Changed in Nabatable';
+    return 'Only in Nabatable';
   }
 
   return 'Values differ';
+}
+
+export function itemActionLabel(
+  item: GoogleBusinessProfileDraftItem,
+  direction: SyncPublishDirection,
+): string {
+  const hasCurrent = !isEmptyValue(item.currentValue);
+  const hasGoogle = !isEmptyValue(item.providerValue);
+
+  if (direction === 'google_to_nabatable') {
+    if (!hasCurrent && hasGoogle) {
+      return 'Create in Nabatable';
+    }
+    if (hasCurrent && !hasGoogle) {
+      return 'Remove from Nabatable';
+    }
+    return 'Update Nabatable';
+  }
+
+  if (hasCurrent && !hasGoogle) {
+    return 'Create in Google';
+  }
+  if (!hasCurrent && hasGoogle) {
+    return 'Remove from Google';
+  }
+  return 'Update Google';
 }
 
 export function decisionLabel(decision: FieldDecision): string {
@@ -485,25 +533,44 @@ export function decisionLabel(decision: FieldDecision): string {
   }
 }
 
+export function decisionLabelForItem(
+  item: GoogleBusinessProfileDraftItem,
+  decision: FieldDecision,
+): string {
+  switch (decision) {
+    case 'pull_from_google':
+      return itemActionLabel(item, 'google_to_nabatable');
+    case 'push_to_google':
+      return itemActionLabel(item, 'nabatable_to_google');
+    default:
+      return decisionLabel(decision);
+  }
+}
+
 export function itemActionDisabledReason(
   item: GoogleBusinessProfileDraftItem,
   section: GoogleBusinessProfileDraftSection,
   decision: FieldDecision,
+  googlePushEnabled = true,
 ): string | null {
   if (section.status === 'stale') {
     return 'Check for changes again before changing this section.';
   }
 
   if (decision === 'pull_from_google' && !item.canPublishToNabatable) {
-    return 'This field cannot be updated in Nabatable from here yet.';
+    return 'This field cannot be changed in Nabatable from this review yet.';
   }
 
   if (decision === 'push_to_google' && !item.canPushToGoogle) {
-    return 'This field cannot be sent to Google from here yet.';
+    return 'This field cannot be changed in Google from this review yet.';
+  }
+
+  if (decision === 'push_to_google' && !googlePushEnabled) {
+    return 'Google updates are disabled for this linked Business Profile location.';
   }
 
   if (decision === 'manual') {
-    return 'Manual conflict resolution is not available here yet.';
+    return 'Handle this field outside this review, then check for changes again.';
   }
 
   return null;

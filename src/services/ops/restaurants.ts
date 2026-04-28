@@ -317,6 +317,7 @@ export type GoogleBusinessProfileConnection = {
   isConfigured: boolean;
   provider: 'google_business_profile';
   status: 'pending_auth' | 'authorized' | 'linked' | 'unlinked' | 'reauth_required' | 'sync_error';
+  pushEnabled: boolean;
   connectedGoogleEmail: string | null;
   connectedGoogleName: string | null;
   externalAccountId: string | null;

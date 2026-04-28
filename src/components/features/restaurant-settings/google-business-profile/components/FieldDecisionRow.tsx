@@ -7,10 +7,11 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 import {
-  decisionLabel,
+  decisionLabelForItem,
   formatValuePreview,
   humanFieldLabel,
   isStructuredValue,
+  itemActionLabel,
   itemActionDisabledReason,
   itemChangeLabel,
   itemEligibilityLabel,
@@ -30,6 +31,7 @@ type FieldDecisionRowProps = {
   decision: FieldDecision;
   onDecisionChange: (decision: FieldDecision) => void;
   jobStatus?: string | null;
+  googlePushEnabled: boolean;
 };
 
 function DecisionButton({
@@ -69,20 +71,21 @@ export function FieldDecisionRow({
   decision,
   onDecisionChange,
   jobStatus,
+  googlePushEnabled,
 }: FieldDecisionRowProps) {
-  const disabledReason = itemActionDisabledReason(item, section, decision);
+  const disabledReason = itemActionDisabledReason(item, section, decision, googlePushEnabled);
   const pullDisabled = section.status === 'stale' || !item.canPublishToNabatable;
-  const pushDisabled = section.status === 'stale' || !item.canPushToGoogle;
+  const pushDisabled = section.status === 'stale' || !item.canPushToGoogle || !googlePushEnabled;
   const decisionButtons = [
     {
       key: 'pull_from_google' as const,
-      label: 'Use Google value',
+      label: itemActionLabel(item, 'google_to_nabatable'),
       disabled: pullDisabled,
       icon: <CornerDownLeft className="mr-2 size-3.5" />,
     },
     {
       key: 'push_to_google' as const,
-      label: 'Send to Google',
+      label: itemActionLabel(item, 'nabatable_to_google'),
       disabled: pushDisabled,
       icon: <Send className="mr-2 size-3.5" />,
     },
@@ -118,7 +121,7 @@ export function FieldDecisionRow({
               <Badge variant="outline">{itemChangeLabel(item)}</Badge>
               <Badge variant="secondary">{itemEligibilityLabel(item)}</Badge>
               <Badge variant={decision === 'ignore_suggestion' ? 'secondary' : 'outline'}>
-                {decisionLabel(decision)}
+                {decisionLabelForItem(item, decision)}
               </Badge>
               {jobStatus ? (
                 <Badge variant={workflowStatusVariant(jobStatus)}>{jobStatus}</Badge>

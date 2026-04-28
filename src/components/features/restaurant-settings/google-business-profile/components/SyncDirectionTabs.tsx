@@ -17,6 +17,7 @@ type SyncDirectionTabsProps = {
   onDirectionChange: (direction: SyncPublishDirection) => void;
   stats: Record<SyncPublishDirection, DirectionStats>;
   hasMixedSelections: boolean;
+  googlePushEnabled: boolean;
 };
 
 export function SyncDirectionTabs({
@@ -24,6 +25,7 @@ export function SyncDirectionTabs({
   onDirectionChange,
   stats,
   hasMixedSelections,
+  googlePushEnabled,
 }: SyncDirectionTabsProps) {
   return (
     <div className="space-y-3">
@@ -40,6 +42,7 @@ export function SyncDirectionTabs({
               <TabsTrigger
                 key={option.value}
                 value={option.value}
+                disabled={option.value === 'nabatable_to_google' && !googlePushEnabled}
                 className="h-auto items-start justify-between rounded-lg border border-border/70 bg-background px-4 py-3 text-left data-[state=active]:border-foreground/20 data-[state=active]:shadow-sm"
                 data-testid={`gbp-direction-tab-${option.value}`}
               >

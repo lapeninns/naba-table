@@ -379,6 +379,71 @@ describe('google business profile approval workflow helpers', () => {
     }
   });
 
+  it('allows clearing local business-context rows when Google has no matching rows', () => {
+    const section = googleBusinessProfileWorkflowTestUtils.buildBusinessContextSection(
+      'businessContext.attributes',
+      'Attributes',
+      [
+        {
+          attributeKey: 'outdoor_seating',
+          valueType: 'boolean',
+          boolValue: true,
+        },
+      ],
+      [],
+      false,
+    );
+
+    expect(section).toMatchObject({
+      status: 'ready',
+      canPublishToNabatable: false,
+      blockedReasons: [],
+    });
+    expect(section.items[0]).toMatchObject({
+      status: 'ready',
+      selected: false,
+      canPublishToNabatable: true,
+      canPushToGoogle: false,
+      providerValue: [],
+    });
+  });
+
+  it('shows local-only service periods so they can be created in Google or removed locally', () => {
+    const section = googleBusinessProfileWorkflowTestUtils.buildServicePeriodsSection(
+      {
+        servicePeriods: [
+          {
+            name: 'Lunch',
+            dayOfWeek: 1,
+            startTime: '12:00',
+            endTime: '15:00',
+            bookingOption: 'lunch',
+          },
+        ],
+      } as never,
+      {
+        coreNormalization: {
+          servicePeriods: {
+            periods: [],
+            warnings: [],
+          },
+        },
+      } as never,
+      true,
+    );
+
+    expect(section.items).toHaveLength(1);
+    expect(section.items[0]).toMatchObject({
+      fieldKey: 'servicePeriods.1.lunch',
+      status: 'ready',
+      selected: false,
+      currentValue: 'Lunch 12:00-15:00',
+      providerValue: null,
+      canPublishToNabatable: true,
+      canPushToGoogle: true,
+    });
+  });
+
   it('classifies Google push errors without preserving token values', () => {
     expect(
       googleBusinessProfileWorkflowTestUtils.classifyGoogleBusinessProfilePushError({
@@ -401,6 +466,209 @@ describe('google business profile approval workflow helpers', () => {
         new Error('Unsupported update mask: moreHours'),
       ).classification,
     ).toBe('unsupported_field');
+  });
+
+  it('marks a Nabatable-only special-hours override as ready for Google update', () => {
+    const section = googleBusinessProfileWorkflowTestUtils.buildOperatingHoursSection(
+      {
+        operatingHours: {
+          weekly: [],
+          overrides: [
+            {
+              effectiveDate: '2026-06-02',
+              opensAt: '12:00',
+              closesAt: '22:30',
+              isClosed: false,
+            },
+          ],
+        },
+      } as never,
+      {
+        coreNormalization: {
+          operatingHours: {
+            weekly: [],
+            overrides: [],
+            warnings: [],
+          },
+        },
+      } as never,
+    );
+
+    expect(section.items).toHaveLength(1);
+    expect(section.items[0]).toMatchObject({
+      fieldKey: 'operatingHours.override.2026-06-02',
+      status: 'ready',
+      selected: false,
+      currentValue: '12:00-22:30',
+      providerValue: null,
+      proposedValue: '12:00-22:30',
+      canPublishToNabatable: true,
+      canPushToGoogle: true,
+    });
+  });
+
+  it('keeps published reviews read-only even when current data has later drift', () => {
+    const draft = {
+      id: 'draft-published',
+      status: 'published',
+      fetchedAt: '2026-04-28T10:00:00.000Z',
+      approvedAt: '2026-04-28T10:05:00.000Z',
+      publishedAt: '2026-04-28T10:06:00.000Z',
+      staleSections: [],
+      conflictMetadata: {},
+      selectedApprovals: {
+        'operatingHours.override.2026-06-02': true,
+      },
+      sourceSnapshotRefs: {},
+      coreSnapshotHashes: {},
+      sectionDiffs: [
+        {
+          sectionKey: 'operatingHours',
+          label: 'Operating hours and special hours',
+          status: 'ready',
+          summary: '1 change ready to review.',
+          canPublishToNabatable: false,
+          canPushToGoogle: true,
+          blockedReasons: ['Special hours 2026-06-02 cannot update Nabatable from here yet.'],
+          items: [
+            {
+              sectionKey: 'operatingHours',
+              fieldKey: 'operatingHours.override.2026-06-02',
+              label: 'Special hours 2026-06-02',
+              status: 'ready',
+              selected: true,
+              currentValue: '12:00-22:30',
+              providerValue: null,
+              proposedValue: '12:00-22:30',
+              direction: 'pull_from_gbp',
+              canPublishToNabatable: false,
+              canPushToGoogle: true,
+              warnings: [],
+            },
+          ],
+        },
+      ],
+      createdAt: '2026-04-28T10:00:00.000Z',
+      updatedAt: '2026-04-28T10:06:00.000Z',
+    } satisfies GoogleBusinessProfileWorkflowDraft;
+
+    const readOnly = googleBusinessProfileWorkflowTestUtils.suppressActionsForReadOnlyReview(draft);
+
+    expect(readOnly.selectedApprovals['operatingHours.override.2026-06-02']).toBe(false);
+    expect(readOnly.sectionDiffs[0]).toMatchObject({
+      status: 'unchanged',
+      canPublishToNabatable: false,
+      blockedReasons: [],
+    });
+    expect(readOnly.sectionDiffs[0].items[0]).toMatchObject({
+      status: 'unchanged',
+      selected: false,
+    });
+  });
+
+  it('clears only selected Nabatable-managed profile projection rows after pulling Google values', () => {
+    expect(
+      googleBusinessProfileWorkflowTestUtils.profileProjectionCleanupTargets([
+        'contactPhone',
+        'address',
+        'googleMapUrl',
+      ]),
+    ).toEqual([
+      {
+        table: 'restaurant_phone_numbers',
+        filters: {
+          source: 'nabatable',
+          managed_by: 'nabatable',
+        },
+        anyOf: {
+          phone_kind: 'primary',
+          is_primary: true,
+        },
+      },
+      {
+        table: 'restaurant_addresses',
+        filters: {
+          source: 'nabatable',
+          managed_by: 'nabatable',
+        },
+        anyOf: {
+          address_type: 'storefront',
+          is_primary: true,
+        },
+      },
+      {
+        table: 'restaurant_links',
+        filters: {
+          source: 'nabatable',
+          managed_by: 'nabatable',
+          link_type: 'google_map',
+          link_status: 'current',
+        },
+      },
+    ]);
+  });
+
+  it('ignores volatile business-context row metadata when checking provider staleness', () => {
+    const baseItem = {
+      sectionKey: 'businessContext.attributes',
+      fieldKey: 'businessContext.attributes',
+      label: 'Attributes',
+      currentValue: [],
+      providerValue: [
+        {
+          id: 'before-sync-row-id',
+          source: 'gbp',
+          managedBy: 'gbp',
+          updatedAt: '2026-04-28T15:49:03.490Z',
+          attributeKey: 'serves_beer',
+          attributeName: 'attributes/serves_beer',
+          displayText: 'Serves Beer',
+          valueType: 'boolean',
+          boolValue: null,
+          textValue: null,
+          uriValue: null,
+          uriValues: [],
+          enumValues: [],
+          unsetEnumValues: [],
+        },
+      ],
+      proposedValue: [],
+      direction: 'pull_from_gbp',
+      status: 'ready',
+      selected: true,
+      canPublishToNabatable: true,
+      canPushToGoogle: false,
+      warnings: [],
+    } satisfies GoogleBusinessProfileWorkflowDraft['sectionDiffs'][number]['items'][number];
+
+    expect(
+      googleBusinessProfileWorkflowTestUtils.providerValueChangedForStaleCheck(baseItem, {
+        ...baseItem,
+        providerValue: [
+          {
+            ...(baseItem.providerValue[0] as Record<string, unknown>),
+            id: 'after-sync-row-id',
+            updatedAt: '2026-04-28T16:00:37.642Z',
+          },
+        ],
+      }),
+    ).toBe(false);
+
+    expect(
+      googleBusinessProfileWorkflowTestUtils.providerValueChangedForStaleCheck(baseItem, {
+        ...baseItem,
+        providerValue: [
+          {
+            ...(baseItem.providerValue[0] as Record<string, unknown>),
+            id: 'after-sync-row-id',
+            attributeKey: 'serves_wine',
+            attributeName: 'attributes/serves_wine',
+            displayText: 'Serves Wine',
+            updatedAt: '2026-04-28T16:00:37.642Z',
+          },
+        ],
+      }),
+    ).toBe(true);
   });
 
   it('only includes Google masks for selected fields that can push to Google', () => {
