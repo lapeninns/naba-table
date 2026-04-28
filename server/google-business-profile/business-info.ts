@@ -1536,7 +1536,7 @@ async function upsertBusinessDetails(
   }
 
   const { error } = await client.from('restaurant_business_details').upsert(details, {
-    onConflict: 'restaurant_id',
+    onConflict: 'restaurant_id,source,managed_by',
   });
 
   if (error) {
@@ -1800,23 +1800,31 @@ export async function readGoogleBusinessProfileBusinessInfo(
       .from('restaurant_business_details')
       .select('*')
       .eq('restaurant_id', restaurantId)
+      .eq('source', GBP_SOURCE)
+      .eq('managed_by', GBP_MANAGED_BY)
       .maybeSingle(),
     client
       .from('restaurant_addresses')
       .select('*')
       .eq('restaurant_id', restaurantId)
+      .eq('source', GBP_SOURCE)
+      .eq('managed_by', GBP_MANAGED_BY)
       .order('is_primary', { ascending: false })
       .order('display_order', { ascending: true }),
     client
       .from('restaurant_phone_numbers')
       .select('*')
       .eq('restaurant_id', restaurantId)
+      .eq('source', GBP_SOURCE)
+      .eq('managed_by', GBP_MANAGED_BY)
       .order('is_primary', { ascending: false })
       .order('display_order', { ascending: true }),
     client
       .from('restaurant_links')
       .select('*')
       .eq('restaurant_id', restaurantId)
+      .eq('source', GBP_SOURCE)
+      .eq('managed_by', GBP_MANAGED_BY)
       .order('is_primary', { ascending: false })
       .order('display_order', { ascending: true }),
     client
@@ -1824,6 +1832,7 @@ export async function readGoogleBusinessProfileBusinessInfo(
       .select('*')
       .eq('restaurant_id', restaurantId)
       .eq('source', GBP_SOURCE)
+      .eq('managed_by', GBP_MANAGED_BY)
       .order('is_primary', { ascending: false })
       .order('display_order', { ascending: true }),
     client
@@ -1831,11 +1840,14 @@ export async function readGoogleBusinessProfileBusinessInfo(
       .select('*')
       .eq('restaurant_id', restaurantId)
       .eq('source', GBP_SOURCE)
+      .eq('managed_by', GBP_MANAGED_BY)
       .order('display_order', { ascending: true }),
     client
       .from('restaurant_hours')
       .select('*')
       .eq('restaurant_id', restaurantId)
+      .eq('source', GBP_SOURCE)
+      .eq('managed_by', GBP_MANAGED_BY)
       .order('hours_type', { ascending: true })
       .order('display_order', { ascending: true }),
     client
@@ -1843,6 +1855,7 @@ export async function readGoogleBusinessProfileBusinessInfo(
       .select('*')
       .eq('restaurant_id', restaurantId)
       .eq('source', GBP_SOURCE)
+      .eq('managed_by', GBP_MANAGED_BY)
       .order('attribute_group', { ascending: true })
       .order('display_order', { ascending: true }),
     client
@@ -1850,6 +1863,7 @@ export async function readGoogleBusinessProfileBusinessInfo(
       .select('*')
       .eq('restaurant_id', restaurantId)
       .eq('source', GBP_SOURCE)
+      .eq('managed_by', GBP_MANAGED_BY)
       .order('display_order', { ascending: true }),
     client
       .from('restaurant_field_sync_statuses')
@@ -2376,4 +2390,5 @@ export const businessInfoTestUtils = {
   normalizeGoogleDate,
   normalizeGoogleTime,
   replaceProviderFieldSyncStatuses,
+  upsertBusinessDetails,
 };

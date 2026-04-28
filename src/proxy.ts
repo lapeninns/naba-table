@@ -21,9 +21,7 @@ const OPS_API_SERVICES = new Set([
   'zones',
 ]);
 
-const PUBLIC_OPS_API_PATHS = new Set([
-  '/api/ops/google-business-profile/callback',
-]);
+const PUBLIC_OPS_API_PATHS = new Set(['/api/ops/google-business-profile/callback']);
 
 export const config = {
   matcher: ['/((?!_next/|_static/|_vercel|[\\w-]+\\.\\w+).*)'],
@@ -134,7 +132,10 @@ function getOpsRewritePath(pathname: string) {
 }
 
 function isPublicOpsApiPath(pathname: string) {
-  return PUBLIC_OPS_API_PATHS.has(pathname);
+  return (
+    PUBLIC_OPS_API_PATHS.has(pathname) ||
+    /^\/api\/ops\/restaurants\/[^/]+\/google-business\/callback$/.test(pathname)
+  );
 }
 
 export async function handleRouting(req: NextRequest): Promise<NextResponse> {

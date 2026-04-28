@@ -1,0 +1,124 @@
+DEV
+Restaurant
+Dev harness for the restaurant settings shell, subnav, and sections.
+Editing
+Dev Restaurant (Ops Harness)
+Use the sidebar restaurant switcher to change restaurants.
+Restaurant Profile
+Name, branding, contact details, booking policy, reminders.
+Google Business Profile
+Connect Google, link a location, and prepare business info sync.
+Availability & Occasions
+Weekly hours, overrides, meal windows, occasions, and dining-duration bands in one place.
+Menu
+Manage menu items, modifiers, and imports.
+Tables
+Manage table inventory, zones, and capacity.
+Team
+Invite and manage restaurant staff access.
+
+View selector is local to this harness; the left subnav is rendered for responsive layout verification but links to authenticated routes.
+
+Select a restaurant settings view
+Profile
+Identity & contact
+Booking experience
+Staff notifications
+Advanced
+Restaurant Profile
+Update core restaurant details and contact information.
+Review GBP draft
+
+5 profile fields differ from Google Business Profile.
+
+Google Maps and Google Review links are Google-owned and can only be pulled into Nabatable.
+
+Address verification compares Nabatable’s flat address string with GBP, but address export stays disabled until Nabatable stores structured postal address fields.
+
+DR
+Email branding
+
+Guests will see this logo inside booking emails and other notifications.
+
+Recommended: 320×320px PNG, JPG, WEBP or SVG under 2 MB.
+
+Upload logo
+Remove
+
+Images are cropped to square automatically.
+
+Restaurant identity
+
+Keep the guest-facing details, timezone, and contact information aligned with what staff actually manage day to day.
+
+Restaurant Name
+*
+DRIFTED FROM GBP
+Timezone
+*
+London (GMT+1)
+
+Search by city, region, or UTC offset to keep schedules and reminders accurate.
+
+Contact Email
+Contact Phone
+DRIFTED FROM GBP
+Address
+DRIFTED FROM GBP
+
+Guest booking experience
+
+These rules shape what guests see during booking and in follow-up communications.
+
+Reservation Interval (minutes)
+*
+
+Controls slot spacing; must be between 1 and 180 minutes.
+
+Default Reservation Duration (minutes)
+*
+
+Default booking length; must be between 15 and 300 minutes.
+
+Last Seating Buffer (minutes)
+*
+
+Controls the latest start time relative to closing; choose a value between 15 and 300 minutes.
+
+Lifecycle Grace Period (minutes)
+*
+
+Extra time after a booking ends before it is hidden; usually 0-120 mins.
+
+Google Review URL
+DRIFTED FROM GBP
+
+Optional link sent to customers to ask for a review.
+
+Google Maps URL
+DRIFTED FROM GBP
+
+Optional link shared with guests for directions.
+
+Booking Policy
+
+Staff notifications
+
+Daily manager summaries can be configured here. Guest reminder and review emails are always on for every restaurant, so staff do not need to manage them individually.
+
+Manager Notification Number
+
+Used for the daily manager summary recipient. Keep it in E.164 format for production SMS delivery.
+
+Daily Manager SMS Summary
+
+Sends the booking summary to the manager at 10:00 local restaurant time.
+
+Advanced settings
+Save Changes
+Advanced
+Low-frequency structured metadata and specialist setup for discovery, integrations, and future sync-aware flows.
+Business Context
+ADVANCED
+
+Categories, service areas, attributes, and service items that shape structured restaurant metadata.

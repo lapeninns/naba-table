@@ -1,11 +1,6 @@
 'use client';
 
-import {
-  AlertTriangle,
-  ArrowUpRight,
-  CheckCircle2,
-  Info,
-} from 'lucide-react';
+import { AlertTriangle, ArrowUpRight, CheckCircle2, Info } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
@@ -117,8 +112,7 @@ function ComparisonPill({ status }: { status: DriftRowStatus }) {
       </Badge>
     );
   }
-  const mapped =
-    status === 'verified' ? 'verified' : status === 'drift' ? 'drifted' : 'partial';
+  const mapped = status === 'verified' ? 'verified' : status === 'drift' ? 'drifted' : 'partial';
   return <GoogleBusinessProfileComparisonBadge status={mapped} />;
 }
 
@@ -260,20 +254,14 @@ export function AlignmentCard({
 
   const weeklyContext = hasWeeklyScheduleContext(connection, operatingHours);
 
-  const hoursGroupRows = useMemo(
-    () => groups.find((g) => g.id === 'hours')?.rows ?? [],
-    [groups],
-  );
+  const hoursGroupRows = useMemo(() => groups.find((g) => g.id === 'hours')?.rows ?? [], [groups]);
   const overrideRows = useMemo(
     () => groups.find((g) => g.id === 'overrides')?.rows ?? [],
     [groups],
   );
 
   const serviceDayCounts = useMemo(
-    () =>
-      servicePeriodsDayCounts(
-        connection.businessInfo.coreNormalization.servicePeriods.periods,
-      ),
+    () => servicePeriodsDayCounts(connection.businessInfo.coreNormalization.servicePeriods.periods),
     [connection.businessInfo.coreNormalization.servicePeriods.periods],
   );
 
@@ -312,9 +300,7 @@ export function AlignmentCard({
         !hasServicePeriodsData;
       const disabled = isHoursTab ? hoursDisabled : rows.length === 0;
       const editHref =
-        meta.id === 'profile'
-          ? (source?.editHref ?? null)
-          : AVAILABILITY_WORKSPACE_HREF;
+        meta.id === 'profile' ? (source?.editHref ?? null) : AVAILABILITY_WORKSPACE_HREF;
       const counts = isHoursTab ? availabilityCombinedCounts : countsFor(rows);
       return {
         meta,
@@ -341,13 +327,9 @@ export function AlignmentCard({
       const nabWeekly = operatingHours?.weekly.find((w) => w.dayOfWeek === dayOfWeek);
       const periods = norm.servicePeriods.periods;
       const googleLunch =
-        periods.find(
-          (p) => p.bookingOption === 'lunch' && p.dayOfWeek === dayOfWeek,
-        ) ?? null;
+        periods.find((p) => p.bookingOption === 'lunch' && p.dayOfWeek === dayOfWeek) ?? null;
       const googleDinner =
-        periods.find(
-          (p) => p.bookingOption === 'dinner' && p.dayOfWeek === dayOfWeek,
-        ) ?? null;
+        periods.find((p) => p.bookingOption === 'dinner' && p.dayOfWeek === dayOfWeek) ?? null;
       const nabLunch = servicePeriods?.find(
         (p) => p.bookingOption === 'lunch' && p.dayOfWeek === dayOfWeek,
       );
@@ -388,7 +370,7 @@ export function AlignmentCard({
         totalTracked > 0 ? (
           <span
             className={cn(
-              'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium',
+              'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-medium',
               summaryTone === 'success'
                 ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
                 : 'border-amber-200 bg-amber-50 text-amber-800',
@@ -401,7 +383,7 @@ export function AlignmentCard({
               </span>
             ) : (
               <span>
-                <span className="font-semibold">{needsReview}</span> of {totalTracked} need review
+                <span className="font-semibold">{needsReview}</span>/{totalTracked} need review
               </span>
             )}
           </span>
@@ -424,9 +406,7 @@ export function AlignmentCard({
               <TabsList className="h-auto flex-wrap gap-1 p-1">
                 {tabsWithData.map(({ meta, rows, counts, disabled }) => {
                   const countLabel =
-                    meta.id === 'hours'
-                      ? DAY_INDICES.length + overrideRows.length
-                      : rows.length;
+                    meta.id === 'hours' ? DAY_INDICES.length + overrideRows.length : rows.length;
                   return (
                     <TabsTrigger
                       key={meta.id}
@@ -445,12 +425,7 @@ export function AlignmentCard({
               {(() => {
                 const active = tabsWithData.find((t) => t.meta.id === activeTab);
                 return active?.editHref ? (
-                  <Button
-                    asChild
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 gap-1 px-2 text-xs"
-                  >
+                  <Button asChild size="sm" variant="ghost" className="h-7 gap-1 px-2 text-xs">
                     <Link href={active.editHref}>
                       Edit in Nabatable
                       <ArrowUpRight className="size-3.5" aria-hidden />
@@ -474,10 +449,16 @@ export function AlignmentCard({
                       <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed border-border/70 bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground">
                         <span className="max-w-xl">
                           Mirrors Availability &amp; Occasions: weekly hours, lunch/dinner service
-                          windows with <span className="font-medium text-foreground">Matches GBP</span>{' '}
-                          badges, plus date overrides below when present.
+                          windows with{' '}
+                          <span className="font-medium text-foreground">Matches GBP</span> badges,
+                          plus date overrides below when present.
                         </span>
-                        <Button asChild variant="outline" size="sm" className="h-7 shrink-0 text-xs">
+                        <Button
+                          asChild
+                          variant="outline"
+                          size="sm"
+                          className="h-7 shrink-0 text-xs"
+                        >
                           <Link href={AVAILABILITY_WORKSPACE_HREF}>
                             Open workspace
                             <ArrowUpRight className="ml-1 size-3.5" aria-hidden />
@@ -501,7 +482,9 @@ export function AlignmentCard({
                       {overrideRows.length > 0 ? (
                         <div className="space-y-2 border-t border-border/60 pt-4">
                           <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-                            <h3 className="text-sm font-semibold text-foreground">Date overrides</h3>
+                            <h3 className="text-sm font-semibold text-foreground">
+                              Date overrides
+                            </h3>
                             <p className="text-xs text-muted-foreground">
                               Same tab as Availability → Date overrides · Google vs Nabatable per
                               date.

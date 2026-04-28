@@ -8,12 +8,12 @@ Task folders are mandatory for medium- and high-risk work.
 
 ## Required files
 
-| File              | Required content                                                                                                           |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `research.md`     | Objective, repo facts, constraints, risks, reuse notes, non-goals, and route/API identity rows when applicable             |
-| `plan.md`         | Risk tier, affected surfaces/files, implementation sequence, verification plan, stop rules, and shared-ownership decisions |
-| `todo.md`         | Live execution checklist with current status                                                                               |
-| `verification.md` | Exact commands, outcomes, route/API checks, env safety checks, evidence list, and remaining gaps                           |
+| File              | Required content                                                                                                                             |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `research.md`     | Objective, repo facts, assumptions/tradeoffs, constraints, risks, reuse notes, non-goals, and route/API identity rows when applicable        |
+| `plan.md`         | Risk tier, affected surfaces/files, success criteria, implementation sequence, verification plan, stop rules, and shared-ownership decisions |
+| `todo.md`         | Live execution checklist with current status                                                                                                 |
+| `verification.md` | Exact commands, outcomes, route/API checks, env safety checks, evidence list, and remaining gaps                                             |
 
 ## Native starter packet
 
@@ -27,6 +27,8 @@ Do not add a separate `README.md` or `checklist.md` for normal task work. `todo.
 ## Objective
 
 ## Repo facts
+
+## Assumptions and tradeoffs
 
 ## Constraints
 
@@ -54,6 +56,8 @@ Use `Not applicable` under route/API identity only when the task has no route, h
 ## Route/API identity
 
 ## Shared-ownership decision
+
+## Success criteria
 
 ## Implementation sequence
 

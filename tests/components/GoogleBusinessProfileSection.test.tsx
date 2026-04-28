@@ -1,8 +1,14 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { GoogleBusinessProfileSection } from '@/components/features/restaurant-settings/google-business-profile/GoogleBusinessProfileSection';
+import { deriveProfileVerification } from '@/components/features/restaurant-settings/google-business-profile/googleBusinessProfileVerification';
+import { buildDriftReport } from '@/components/features/restaurant-settings/google-business-profile/lib/drift';
 
 import type {
   GoogleBusinessProfileConnection,
+  GoogleBusinessProfileWorkflow,
   RestaurantProfile,
 } from '@/services/ops/restaurants';
 
@@ -32,6 +38,49 @@ const profileResult = {
   error: null as Error | null,
 };
 
+const workflowResult = {
+  data: {
+    latestDraft: null,
+    sectionSummaries: [],
+    publishableSections: [],
+    blockedReasons: [],
+    auditEvents: [],
+    activePublishJob: null,
+  } as GoogleBusinessProfileWorkflow,
+  isLoading: false,
+  error: null as Error | null,
+  refetch: vi.fn(),
+};
+
+const updateDraftMutation = {
+  mutate: vi.fn(),
+  mutateAsync: vi.fn(),
+  isPending: false,
+  error: null,
+};
+
+const publishMutation = {
+  mutate: vi.fn(),
+  mutateAsync: vi.fn(),
+  isPending: false,
+  error: null,
+};
+
+const preflightMutation = {
+  mutate: vi.fn(),
+  mutateAsync: vi.fn(),
+  reset: vi.fn(),
+  isPending: false,
+  error: null as Error | null,
+};
+
+const retryMutation = {
+  mutate: vi.fn(),
+  mutateAsync: vi.fn(),
+  isPending: false,
+  error: null,
+};
+
 vi.mock('@/hooks/ops/useOpsGoogleBusinessProfile', () => ({
   useOpsGoogleBusinessProfileConnection: () => connectionResult,
   useOpsLinkGoogleBusinessProfileLocation: () => ({
@@ -44,6 +93,16 @@ vi.mock('@/hooks/ops/useOpsGoogleBusinessProfile', () => ({
     isPending: false,
     error: null,
   }),
+  useOpsCreateGoogleBusinessProfileDraft: () => ({
+    mutate: vi.fn(),
+    isPending: false,
+    error: null,
+  }),
+  useOpsGoogleBusinessProfileWorkflow: () => workflowResult,
+  useOpsUpdateGoogleBusinessProfileDraft: () => updateDraftMutation,
+  useOpsPublishGoogleBusinessProfileDraft: () => publishMutation,
+  useOpsPreflightGoogleBusinessProfileDraftPublish: () => preflightMutation,
+  useOpsRetryGoogleBusinessProfileDraftGooglePush: () => retryMutation,
   useOpsSyncGoogleBusinessProfile: () => ({
     mutate: vi.fn(),
     isPending: false,
@@ -68,10 +127,6 @@ vi.mock('@/hooks/ops/useOpsServicePeriods', () => ({
     isLoading: false,
   }),
 }));
-
-import { GoogleBusinessProfileSection } from '@/components/features/restaurant-settings/google-business-profile/GoogleBusinessProfileSection';
-import { buildDriftReport } from '@/components/features/restaurant-settings/google-business-profile/lib/drift';
-import { deriveProfileVerification } from '@/components/features/restaurant-settings/google-business-profile/googleBusinessProfileVerification';
 
 function emptyBusinessInfo(): GoogleBusinessProfileConnection['businessInfo'] {
   return {
@@ -134,6 +189,17 @@ function buildConnection(
   };
 }
 
+function emptyWorkflow(): GoogleBusinessProfileWorkflow {
+  return {
+    latestDraft: null,
+    sectionSummaries: [],
+    publishableSections: [],
+    blockedReasons: [],
+    auditEvents: [],
+    activePublishJob: null,
+  };
+}
+
 beforeEach(() => {
   connectionResult.data = undefined;
   connectionResult.error = null;
@@ -141,6 +207,17 @@ beforeEach(() => {
   connectionResult.isFetching = false;
   profileResult.data = undefined;
   profileResult.error = null;
+  workflowResult.data = emptyWorkflow();
+  updateDraftMutation.mutate.mockReset();
+  updateDraftMutation.mutateAsync.mockReset();
+  publishMutation.mutate.mockReset();
+  publishMutation.mutateAsync.mockReset();
+  preflightMutation.mutate.mockReset();
+  preflightMutation.mutateAsync.mockReset();
+  preflightMutation.reset.mockReset();
+  preflightMutation.error = null;
+  retryMutation.mutate.mockReset();
+  retryMutation.mutateAsync.mockReset();
 });
 
 describe('GoogleBusinessProfileSection', () => {
@@ -148,10 +225,12 @@ describe('GoogleBusinessProfileSection', () => {
     connectionResult.data = buildConnection({ status: 'unlinked' });
     render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 
-    expect(screen.getByRole('heading', { level: 1, name: /google business profile/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 1, name: /google business profile/i }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /connect google/i })).toBeInTheDocument();
     expect(screen.queryByText(/choose a business profile location/i)).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /sync now/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/google profile changes/i)).not.toBeInTheDocument();
   });
 
   it('renders the location picker card when the status is authorized', () => {
@@ -178,7 +257,7 @@ describe('GoogleBusinessProfileSection', () => {
     expect(screen.getByRole('button', { name: /link location/i })).toBeInTheDocument();
   });
 
-  it('renders the linked summary, alignment, and snapshot cards when status is linked', () => {
+  it('renders the Google profile changes workspace and secondary analysis when linked', () => {
     connectionResult.data = buildConnection({
       status: 'linked',
       connectedGoogleEmail: 'ops@example.com',
@@ -202,26 +281,219 @@ describe('GoogleBusinessProfileSection', () => {
         },
       ],
     });
+    workflowResult.data = {
+      latestDraft: {
+        id: 'draft-1',
+        status: 'review_ready',
+        fetchedAt: '2026-04-25T10:00:00.000Z',
+        approvedAt: null,
+        publishedAt: null,
+        staleSections: [],
+        conflictMetadata: {},
+        selectedApprovals: { 'profile.name': true },
+        sourceSnapshotRefs: {},
+        coreSnapshotHashes: {},
+        createdAt: '2026-04-25T10:00:00.000Z',
+        updatedAt: '2026-04-25T10:00:00.000Z',
+        sectionDiffs: [
+          {
+            sectionKey: 'profile',
+            label: 'Profile',
+            status: 'ready',
+            summary: '1 change ready',
+            canPublishToNabatable: true,
+            canPushToGoogle: true,
+            blockedReasons: [],
+            items: [
+              {
+                fieldKey: 'profile.name',
+                label: 'Business name',
+                sectionKey: 'profile',
+                currentValue: 'Old',
+                providerValue: 'New',
+                proposedValue: 'New',
+                direction: 'pull_from_gbp',
+                status: 'ready',
+                selected: true,
+                canPublishToNabatable: true,
+                canPushToGoogle: true,
+                warnings: [],
+              },
+            ],
+          },
+        ],
+      },
+      sectionSummaries: [],
+      publishableSections: ['profile'],
+      blockedReasons: [],
+      auditEvents: [],
+      activePublishJob: null,
+    };
+
     render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 
-    expect(screen.getByRole('heading', { level: 1, name: /google business profile/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /sync now/i })).toBeInTheDocument();
-    expect(screen.getByText('Alignment')).toBeInTheDocument();
-    expect(screen.getByText(/google snapshot/i)).toBeInTheDocument();
+    expect(screen.getByText(/google profile changes/i)).toBeInTheDocument();
+    expect(screen.getByTestId('gbp-direction-tab-google_to_nabatable')).toBeInTheDocument();
+    expect(screen.getByTestId('gbp-direction-tab-nabatable_to_google')).toBeInTheDocument();
+    expect(screen.getByText(/change groups/i)).toBeInTheDocument();
+    expect(screen.getByText('Business name')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /review selected changes \(1\)/i })).toBeEnabled();
+    expect(screen.getByTestId('gbp-secondary-analysis')).toBeInTheDocument();
   });
 
-  it('surfaces the last sync error inside the linked summary when status is sync_error', () => {
+  it('lets ops move a field into the push direction and exposes retry state for failed google pushes', async () => {
+    const user = userEvent.setup();
+
     connectionResult.data = buildConnection({
-      status: 'sync_error',
+      status: 'linked',
       externalLocationId: 'l-1',
       externalLocationTitle: 'Nabatable Main',
-      lastError: 'Temporary sync failure',
     });
+    workflowResult.data = {
+      latestDraft: {
+        id: 'draft-2',
+        status: 'approved',
+        fetchedAt: '2026-04-25T10:00:00.000Z',
+        approvedAt: '2026-04-25T10:05:00.000Z',
+        publishedAt: null,
+        staleSections: [],
+        conflictMetadata: {},
+        selectedApprovals: {},
+        sourceSnapshotRefs: {},
+        coreSnapshotHashes: {},
+        createdAt: '2026-04-25T10:00:00.000Z',
+        updatedAt: '2026-04-25T10:05:00.000Z',
+        sectionDiffs: [
+          {
+            sectionKey: 'profile',
+            label: 'Profile',
+            status: 'ready',
+            summary: '1 change ready',
+            canPublishToNabatable: true,
+            canPushToGoogle: true,
+            blockedReasons: [],
+            items: [
+              {
+                fieldKey: 'profile.contactPhone',
+                label: 'Primary phone',
+                sectionKey: 'profile',
+                currentValue: '+44 20 9999 0000',
+                providerValue: '+44 20 1234 5678',
+                proposedValue: '+44 20 1234 5678',
+                direction: 'pull_from_gbp',
+                status: 'ready',
+                selected: false,
+                canPublishToNabatable: true,
+                canPushToGoogle: true,
+                warnings: [],
+              },
+            ],
+          },
+        ],
+      },
+      sectionSummaries: [],
+      publishableSections: ['profile'],
+      blockedReasons: [],
+      auditEvents: [],
+      activePublishJob: {
+        id: 'job-1',
+        draftId: 'draft-2',
+        idempotencyKey: 'idem-1',
+        mode: 'google_only',
+        directionIntent: 'nabatable_to_google',
+        status: 'google_failed',
+        selectedApprovals: { 'profile.contactPhone': true },
+        nabatableSections: ['profile'],
+        googleUpdateMasks: ['phoneNumbers'],
+        postNabatableCoreHashes: {},
+        errorClassification: 'permission',
+        errors: [{ message: 'Permission denied' }],
+        nabatableEventId: 'event-1',
+        googleEventId: 'event-2',
+        canRetryGooglePush: true,
+        retryBlockedReason: null,
+        createdAt: '2026-04-25T10:00:00.000Z',
+        updatedAt: '2026-04-25T10:06:00.000Z',
+      },
+    };
+
     render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 
-    expect(screen.getByText(/sync needs attention/i)).toBeInTheDocument();
-    expect(screen.getByText(/temporary sync failure/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /sync now/i })).toBeInTheDocument();
+    const pushTab = screen.getByTestId('gbp-direction-tab-nabatable_to_google');
+    expect(pushTab).toBeInTheDocument();
+    await user.click(pushTab);
+
+    expect(screen.getByRole('button', { name: /review selected changes \(0\)/i })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: /send to google/i }));
+    expect(screen.getByRole('button', { name: /review selected changes \(1\)/i })).toBeEnabled();
+    expect(screen.getByTestId('gbp-retry-google-push-button')).toBeInTheDocument();
+  });
+
+  it('shows a refresh-required state when the workflow draft is stale', () => {
+    connectionResult.data = buildConnection({
+      status: 'linked',
+      externalLocationId: 'l-1',
+      externalLocationTitle: 'Nabatable Main',
+    });
+    workflowResult.data = {
+      latestDraft: {
+        id: 'draft-stale',
+        status: 'stale',
+        fetchedAt: '2026-04-25T10:00:00.000Z',
+        approvedAt: '2026-04-25T10:05:00.000Z',
+        publishedAt: null,
+        staleSections: ['profile'],
+        conflictMetadata: {
+          staleFieldKeys: ['profile.name'],
+        },
+        selectedApprovals: { 'profile.name': true },
+        sourceSnapshotRefs: {},
+        coreSnapshotHashes: {},
+        createdAt: '2026-04-25T10:00:00.000Z',
+        updatedAt: '2026-04-25T10:05:00.000Z',
+        sectionDiffs: [
+          {
+            sectionKey: 'profile',
+            label: 'Profile',
+            status: 'stale',
+            summary: 'Refresh required',
+            canPublishToNabatable: false,
+            canPushToGoogle: true,
+            blockedReasons: [
+              'Restaurant details changed after this review was created. Check for changes again before applying this section.',
+            ],
+            items: [
+              {
+                fieldKey: 'profile.name',
+                label: 'Business name',
+                sectionKey: 'profile',
+                currentValue: 'Old',
+                providerValue: 'New',
+                proposedValue: 'New',
+                direction: 'pull_from_gbp',
+                status: 'ready',
+                selected: true,
+                canPublishToNabatable: true,
+                canPushToGoogle: true,
+                warnings: [],
+              },
+            ],
+          },
+        ],
+      },
+      sectionSummaries: [],
+      publishableSections: [],
+      blockedReasons: [
+        'Some profile sections changed since review. Check for changes again before applying.',
+      ],
+      auditEvents: [],
+      activePublishJob: null,
+    };
+
+    render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
+
+    expect(screen.getAllByText(/check for changes again/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/changed fields: profile.name/i)).toBeInTheDocument();
   });
 });
 
@@ -302,31 +574,35 @@ describe('buildDriftReport', () => {
     const profile: RestaurantProfile = {
       id: 'rest-1',
       name: 'Nabatable Main',
+      slug: 'nabatable-main',
+      timezone: 'Europe/London',
+      capacity: null,
+      contactEmail: null,
       contactPhone: '+44 20 9999 0000',
       address: '1 Test St',
+      managerDailySummaryEnabled: false,
+      managerNotificationPhone: null,
       googleMapUrl: null,
       googleReviewUrl: null,
-      website: null,
+      bookingPolicy: null,
       logoUrl: null,
-      heroImageUrl: null,
-      timezone: 'Europe/London',
-      currency: 'GBP',
-      bookingEmail: null,
-      supportEmail: null,
-      description: null,
-      bookingLeadMinutes: null,
-      maxPartySize: null,
-      minPartySize: null,
-      defaultTurnTimeMinutes: null,
-      createdAt: null,
+      emailSendReminder24h: true,
+      emailSendReminderShort: true,
+      emailSendReviewRequest: true,
+      reservationIntervalMinutes: 15,
+      reservationDefaultDurationMinutes: 90,
+      reservationLastSeatingBufferMinutes: 15,
+      reservationLifecycleGraceMinutes: 15,
       updatedAt: null,
-    } as RestaurantProfile;
+    };
 
     const verification = deriveProfileVerification({ profile, connection });
     const report = buildDriftReport({ profile, connection, verification });
 
     expect(report.totals.drift).toBeGreaterThanOrEqual(3);
-    expect(report.warnings).toEqual(expect.arrayContaining(['Warning A', 'Warning B', 'Warning C']));
+    expect(report.warnings).toEqual(
+      expect.arrayContaining(['Warning A', 'Warning B', 'Warning C']),
+    );
     expect(report.hasAnyData).toBe(true);
   });
 });

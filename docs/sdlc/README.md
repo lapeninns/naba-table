@@ -26,32 +26,36 @@ Docs-only work may say `Not applicable`.
 
 ## Execution order
 
-1. **Classify risk** with `risk-tier-workflow.md`.
-2. **Open the task folder** with `task-harness.md` if the work is medium or high risk.
-3. **Declare route/API identity and shared-primitive ownership** when the task touches routing, APIs, auth, proxy behavior, or reusable UI.
-4. **Plan before editing** when the tier requires it.
-5. **Implement inside scope** and keep the task folder current.
-6. **Review the result** against the plan, tier, repo invariants, and evidence quality.
-7. **Verify by change type** using `verification.md`.
-8. **Hand off with evidence** and explicit gaps only.
+1. **Frame the work** with `native-execution-loop.md`: assumptions, non-goals, success criteria, and the smallest useful diff.
+2. **Classify risk** with `risk-tier-workflow.md`.
+3. **Open the task folder** with `task-harness.md` if the work is medium or high risk.
+4. **Declare route/API identity and shared-primitive ownership** when the task touches routing, APIs, auth, proxy behavior, or reusable UI.
+5. **Plan before editing** when the tier requires it.
+6. **Implement inside scope** and keep the task folder current.
+7. **Review the result** against the plan, tier, repo invariants, and evidence quality.
+8. **Verify by change type** using `verification.md`.
+9. **Hand off with evidence** and explicit gaps only.
 
 ## File map
 
-| Path                              | Contract                                                               |
-| --------------------------------- | ---------------------------------------------------------------------- |
-| `docs/sdlc/README.md`             | Entry point, repo truths, execution order, and identity gate           |
-| `docs/sdlc/risk-tier-workflow.md` | Risk classification, shared-ownership escalation, and delivery posture |
-| `docs/sdlc/task-harness.md`       | Task-folder rules, route/API identity contract, and harness matrix     |
-| `docs/sdlc/verification.md`       | QA contract, validator-coverage reality, and evidence requirements     |
-| `docs/sdlc/subagents.md`          | Agent coordination sequence and handoff packet contract                |
-| `.agents/planner.md`              | Planning role contract                                                 |
-| `.agents/implementer.md`          | Implementation role contract                                           |
-| `.agents/reviewer.md`             | Review role contract                                                   |
-| `.agents/ui-qa.md`                | Browser QA role contract                                               |
+| Path                                 | Contract                                                                             |
+| ------------------------------------ | ------------------------------------------------------------------------------------ |
+| `docs/sdlc/README.md`                | Entry point, repo truths, execution order, and identity gate                         |
+| `docs/sdlc/native-execution-loop.md` | Assumption, simplicity, surgical-diff, success-criteria, and evidence loop           |
+| `docs/sdlc/risk-tier-workflow.md`    | Risk classification, shared-ownership escalation, and delivery posture               |
+| `docs/sdlc/task-harness.md`          | Task-folder rules, route/API identity contract, success criteria, and harness matrix |
+| `docs/sdlc/verification.md`          | QA contract, validator-coverage reality, and evidence requirements                   |
+| `docs/sdlc/subagents.md`             | Agent coordination sequence and handoff packet contract                              |
+| `.agents/planner.md`                 | Planning role contract                                                               |
+| `.agents/implementer.md`             | Implementation role contract                                                         |
+| `.agents/reviewer.md`                | Review role contract                                                                 |
+| `.agents/ui-qa.md`                   | Browser QA role contract                                                             |
 
 ## Core operating rules
 
 - Use the lowest honest tier. Escalate immediately when the blast radius expands.
+- Convert non-trivial requests into observable success criteria before editing.
+- Keep each changed line traceable to the task's success contract.
 - Medium/high-risk work must leave a task folder another agent can replay.
 - Browser QA is mandatory for UI changes. Real-route evidence comes first.
 - Never substitute a harness pass for a shipped-route pass without saying so.

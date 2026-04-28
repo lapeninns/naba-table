@@ -14,9 +14,9 @@ import type { GoogleBusinessProfileConnection } from '@/services/ops/restaurants
 type LinkedSummaryCardProps = {
   data: GoogleBusinessProfileConnection;
   manageOnGoogleHref: string | null;
-  onSyncNow: () => void;
+  onGenerateDraft: () => void;
   onChangeLocation: () => void;
-  isSyncing: boolean;
+  isGeneratingDraft: boolean;
 };
 
 function DetailRow({ label, value }: { label: string; value: string }) {
@@ -31,9 +31,9 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 export function LinkedSummaryCard({
   data,
   manageOnGoogleHref,
-  onSyncNow,
+  onGenerateDraft,
   onChangeLocation,
-  isSyncing,
+  isGeneratingDraft,
 }: LinkedSummaryCardProps) {
   const hasSyncError = data.status === 'sync_error';
   const multipleLocations = data.availableLocations.length > 1;
@@ -49,7 +49,7 @@ export function LinkedSummaryCard({
             <>
               Linked through{' '}
               <span className="font-medium text-foreground">{data.connectedGoogleEmail}</span>.
-              Refresh Nabatable&apos;s snapshot of this Business Profile at any time.
+              Generate a review draft before publishing any Business Profile changes.
             </>
           ) : (
             'Nabatable keeps a cached snapshot of this Business Profile for verification.'
@@ -80,9 +80,9 @@ export function LinkedSummaryCard({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" onClick={onSyncNow} disabled={isSyncing} size="lg">
-            <RefreshCcw className={cn('mr-2 size-4', isSyncing && 'animate-spin')} />
-            {isSyncing ? 'Syncing...' : 'Sync now'}
+          <Button type="button" onClick={onGenerateDraft} disabled={isGeneratingDraft} size="lg">
+            <RefreshCcw className={cn('mr-2 size-4', isGeneratingDraft && 'animate-spin')} />
+            {isGeneratingDraft ? 'Generating...' : 'Generate review draft'}
           </Button>
 
           {manageOnGoogleHref ? (

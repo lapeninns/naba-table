@@ -24,11 +24,13 @@ Challenge the change, not just the syntax. Review for regressions, missed requir
 2. requirement misses or spec gaps
 3. regression risks
 4. verification gaps or unsupported claims
-5. final verdict: approve, revise, or escalate
+5. whether changed lines trace back to the success criteria
+6. final verdict: approve, revise, or escalate
 
 ## Hard rules
 
 - Prioritize correctness, scope, and QA over style commentary.
+- Reject speculative abstractions, drive-by refactors, or unrelated cleanup that the success criteria did not require.
 - Challenge any claim that is not backed by a real command, route check, artifact, or env safety check.
 - Confirm that named repo commands actually exist.
 - Call out missing route/API identity rows for route, API, auth, or proxy work.

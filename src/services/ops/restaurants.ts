@@ -332,6 +332,218 @@ export type GoogleBusinessProfileConnection = {
   businessInfo: GoogleBusinessProfileBusinessInfo;
 };
 
+export type GoogleBusinessProfileDraftSectionKey =
+  | 'profile'
+  | 'operatingHours'
+  | 'servicePeriods'
+  | 'businessContext.categories'
+  | 'businessContext.serviceAreas'
+  | 'businessContext.attributes'
+  | 'businessContext.serviceItems';
+
+export type GoogleBusinessProfileDraftItem = {
+  fieldKey: string;
+  label: string;
+  sectionKey: GoogleBusinessProfileDraftSectionKey;
+  currentValue: unknown;
+  providerValue: unknown;
+  proposedValue: unknown;
+  direction: CoreSyncDirection;
+  status: 'ready' | 'unchanged' | 'unsupported' | 'warning';
+  selected: boolean;
+  canPublishToNabatable: boolean;
+  canPushToGoogle: boolean;
+  warnings: string[];
+};
+
+export type GoogleBusinessProfileDraftSection = {
+  sectionKey: GoogleBusinessProfileDraftSectionKey;
+  label: string;
+  status: 'ready' | 'unchanged' | 'stale' | 'blocked';
+  summary: string;
+  items: GoogleBusinessProfileDraftItem[];
+  canPublishToNabatable: boolean;
+  canPushToGoogle: boolean;
+  blockedReasons: string[];
+};
+
+export type GoogleBusinessProfileWorkflowDraft = {
+  id: string;
+  status: string;
+  fetchedAt: string | null;
+  approvedAt: string | null;
+  publishedAt: string | null;
+  staleSections: string[];
+  conflictMetadata: unknown;
+  selectedApprovals: Record<string, boolean>;
+  sourceSnapshotRefs: unknown;
+  coreSnapshotHashes: Record<string, string>;
+  sectionDiffs: GoogleBusinessProfileDraftSection[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type GoogleBusinessProfileWorkflowAuditEvent = {
+  id: string;
+  draftId: string | null;
+  direction: string;
+  flow: GoogleBusinessProfileAuditFlow;
+  directionLabel: string;
+  affectedSections: string[];
+  googleUpdateMasks: unknown;
+  result: string;
+  errors: unknown;
+  createdAt: string;
+};
+
+export type GoogleBusinessProfilePublishMode =
+  | 'nabatable_only'
+  | 'nabatable_and_google'
+  | 'google_only';
+
+export type GoogleBusinessProfilePublishDirectionIntent =
+  | 'google_to_nabatable'
+  | 'google_to_nabatable_with_google_sync'
+  | 'nabatable_to_google';
+
+export type GoogleBusinessProfileAuditFlow =
+  | 'google_to_nabatable_apply'
+  | 'nabatable_to_google_sync';
+
+export type GoogleBusinessProfileGoogleUpdateMask =
+  | 'title'
+  | 'phoneNumbers'
+  | 'regularHours'
+  | 'specialHours'
+  | 'moreHours';
+
+export type GoogleBusinessProfileGoogleErrorClassification =
+  | 'retryable'
+  | 'permission'
+  | 'validation'
+  | 'unsupported_field'
+  | 'quota';
+
+export type GoogleBusinessProfilePublishPreflightNotice = {
+  code: string;
+  message: string;
+  fieldKey?: string;
+  sectionKey?: GoogleBusinessProfileDraftSectionKey;
+  googleUpdateMask?: GoogleBusinessProfileGoogleUpdateMask;
+};
+
+export type GoogleBusinessProfileActivePublishJob = {
+  id: string;
+  draftId: string;
+  idempotencyKey: string;
+  mode: GoogleBusinessProfilePublishMode;
+  directionIntent: GoogleBusinessProfilePublishDirectionIntent;
+  status: string;
+  selectedApprovals: Record<string, boolean>;
+  nabatableSections: string[];
+  googleUpdateMasks: GoogleBusinessProfileGoogleUpdateMask[];
+  postNabatableCoreHashes: Record<string, string>;
+  errorClassification: GoogleBusinessProfileGoogleErrorClassification | null;
+  errors: unknown;
+  nabatableEventId: string | null;
+  googleEventId: string | null;
+  canRetryGooglePush: boolean;
+  retryBlockedReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type GoogleBusinessProfileWorkflow = {
+  latestDraft: GoogleBusinessProfileWorkflowDraft | null;
+  sectionSummaries: Array<{
+    sectionKey: GoogleBusinessProfileDraftSectionKey;
+    label: string;
+    status: GoogleBusinessProfileDraftSection['status'];
+    selectedCount: number;
+    itemCount: number;
+  }>;
+  publishableSections: GoogleBusinessProfileDraftSectionKey[];
+  blockedReasons: string[];
+  auditEvents: GoogleBusinessProfileWorkflowAuditEvent[];
+  activePublishJob: GoogleBusinessProfileActivePublishJob | null;
+};
+
+/**
+ * Two-step approval workflow stage derived from the latest draft + active
+ * publish job. Used by the WorkflowCard stepper to gate UI affordances.
+ */
+export type GoogleBusinessProfileWorkflowStage =
+  | 'no_draft'
+  | 'review'
+  | 'approved'
+  | 'preflighted'
+  | 'publishing'
+  | 'published'
+  | 'partial_failure';
+
+export function deriveGoogleBusinessProfileWorkflowStage(
+  workflow: GoogleBusinessProfileWorkflow | null | undefined,
+): GoogleBusinessProfileWorkflowStage {
+  const draft = workflow?.latestDraft;
+  if (!draft) return 'no_draft';
+  const job = workflow?.activePublishJob;
+  if (
+    job &&
+    job.draftId === draft.id &&
+    (job.status === 'google_failed' ||
+      job.status === 'partially_published' ||
+      draft.status === 'partially_published')
+  ) {
+    return 'partial_failure';
+  }
+  if (draft.status === 'published') return 'published';
+  if (draft.status === 'publishing') return 'publishing';
+  if (draft.status === 'failed' || draft.status === 'partially_published') return 'partial_failure';
+  if (draft.status === 'approved') {
+    if (job && job.draftId === draft.id && job.status === 'preflight_ready') {
+      return 'preflighted';
+    }
+    return 'approved';
+  }
+  return 'review';
+}
+
+export type GoogleBusinessProfileDraftPatchPayload = {
+  selectedApprovals?: Record<string, boolean>;
+  status?: 'review_ready' | 'approved';
+};
+
+export type GoogleBusinessProfileDraftPublishPayload =
+  GoogleBusinessProfileProtectedActionPayload & {
+    publishJobId: string;
+    idempotencyKey: string;
+    selectedApprovals?: Record<string, boolean>;
+    directionIntent?: GoogleBusinessProfilePublishDirectionIntent;
+    pushToGoogle?: boolean;
+  };
+
+export type GoogleBusinessProfileDraftPublishPreflightPayload = {
+  selectedApprovals: Record<string, boolean>;
+  directionIntent?: GoogleBusinessProfilePublishDirectionIntent;
+  pushToGoogle?: boolean;
+};
+
+export type GoogleBusinessProfileDraftPublishPreflight = {
+  publishJobId: string;
+  idempotencyKey: string;
+  mode: GoogleBusinessProfilePublishMode;
+  directionIntent: GoogleBusinessProfilePublishDirectionIntent;
+  selectedApprovals: Record<string, boolean>;
+  nabatableUpdates: GoogleBusinessProfileDraftItem[];
+  pullOnlyItems: GoogleBusinessProfileDraftItem[];
+  googleUpdateMasks: GoogleBusinessProfileGoogleUpdateMask[];
+  warnings: GoogleBusinessProfilePublishPreflightNotice[];
+  errors: GoogleBusinessProfilePublishPreflightNotice[];
+  canPublish: boolean;
+  canPushToGoogle: boolean;
+  activePublishJob: GoogleBusinessProfileActivePublishJob;
+};
+
 export type RestaurantBusinessContextMoreHoursType = {
   hoursTypeId: string | null;
   displayName: string | null;
@@ -688,6 +900,29 @@ export interface RestaurantService {
   getGoogleBusinessProfileConnection(
     restaurantId: string,
   ): Promise<GoogleBusinessProfileConnection>;
+  getGoogleBusinessProfileWorkflow(restaurantId: string): Promise<GoogleBusinessProfileWorkflow>;
+  createGoogleBusinessProfileDraft(restaurantId: string): Promise<GoogleBusinessProfileWorkflow>;
+  updateGoogleBusinessProfileDraft(
+    restaurantId: string,
+    draftId: string,
+    payload: GoogleBusinessProfileDraftPatchPayload,
+  ): Promise<GoogleBusinessProfileWorkflow>;
+  preflightGoogleBusinessProfileDraftPublish(
+    restaurantId: string,
+    draftId: string,
+    payload: GoogleBusinessProfileDraftPublishPreflightPayload,
+  ): Promise<GoogleBusinessProfileDraftPublishPreflight>;
+  publishGoogleBusinessProfileDraft(
+    restaurantId: string,
+    draftId: string,
+    payload: GoogleBusinessProfileDraftPublishPayload,
+  ): Promise<GoogleBusinessProfileWorkflow>;
+  retryGoogleBusinessProfileDraftGooglePush(
+    restaurantId: string,
+    draftId: string,
+    publishJobId: string,
+    payload: GoogleBusinessProfileProtectedActionPayload,
+  ): Promise<GoogleBusinessProfileWorkflow>;
   linkGoogleBusinessProfileLocation(
     restaurantId: string,
     payload: LinkGoogleBusinessProfileLocationInput,
@@ -793,6 +1028,30 @@ export class NotImplementedRestaurantService implements RestaurantService {
 
   getGoogleBusinessProfileConnection(): Promise<GoogleBusinessProfileConnection> {
     this.error('getGoogleBusinessProfileConnection not implemented');
+  }
+
+  getGoogleBusinessProfileWorkflow(): Promise<GoogleBusinessProfileWorkflow> {
+    this.error('getGoogleBusinessProfileWorkflow not implemented');
+  }
+
+  createGoogleBusinessProfileDraft(): Promise<GoogleBusinessProfileWorkflow> {
+    this.error('createGoogleBusinessProfileDraft not implemented');
+  }
+
+  updateGoogleBusinessProfileDraft(): Promise<GoogleBusinessProfileWorkflow> {
+    this.error('updateGoogleBusinessProfileDraft not implemented');
+  }
+
+  preflightGoogleBusinessProfileDraftPublish(): Promise<GoogleBusinessProfileDraftPublishPreflight> {
+    this.error('preflightGoogleBusinessProfileDraftPublish not implemented');
+  }
+
+  publishGoogleBusinessProfileDraft(): Promise<GoogleBusinessProfileWorkflow> {
+    this.error('publishGoogleBusinessProfileDraft not implemented');
+  }
+
+  retryGoogleBusinessProfileDraftGooglePush(): Promise<GoogleBusinessProfileWorkflow> {
+    this.error('retryGoogleBusinessProfileDraftGooglePush not implemented');
   }
 
   linkGoogleBusinessProfileLocation(): Promise<GoogleBusinessProfileConnection> {
@@ -1062,6 +1321,82 @@ export function createBrowserRestaurantService(): RestaurantService {
     async getGoogleBusinessProfileConnection(restaurantId: string) {
       return fetchJson<GoogleBusinessProfileConnection>(
         `${OPS_RESTAURANTS_BASE}/${restaurantId}/google-business-profile`,
+      );
+    },
+
+    async getGoogleBusinessProfileWorkflow(restaurantId: string) {
+      return fetchJson<GoogleBusinessProfileWorkflow>(
+        `${OPS_RESTAURANTS_BASE}/${restaurantId}/google-business-profile/workflow`,
+      );
+    },
+
+    async createGoogleBusinessProfileDraft(restaurantId: string) {
+      return fetchJson<GoogleBusinessProfileWorkflow>(
+        `${OPS_RESTAURANTS_BASE}/${restaurantId}/google-business-profile/drafts`,
+        {
+          method: 'POST',
+        },
+      );
+    },
+
+    async updateGoogleBusinessProfileDraft(
+      restaurantId: string,
+      draftId: string,
+      payload: GoogleBusinessProfileDraftPatchPayload,
+    ) {
+      return fetchJson<GoogleBusinessProfileWorkflow>(
+        `${OPS_RESTAURANTS_BASE}/${restaurantId}/google-business-profile/drafts/${draftId}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        },
+      );
+    },
+
+    async preflightGoogleBusinessProfileDraftPublish(
+      restaurantId: string,
+      draftId: string,
+      payload: GoogleBusinessProfileDraftPublishPreflightPayload,
+    ) {
+      return fetchJson<GoogleBusinessProfileDraftPublishPreflight>(
+        `${OPS_RESTAURANTS_BASE}/${restaurantId}/google-business-profile/drafts/${draftId}/publish/preflight`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        },
+      );
+    },
+
+    async publishGoogleBusinessProfileDraft(
+      restaurantId: string,
+      draftId: string,
+      payload: GoogleBusinessProfileDraftPublishPayload,
+    ) {
+      return fetchJson<GoogleBusinessProfileWorkflow>(
+        `${OPS_RESTAURANTS_BASE}/${restaurantId}/google-business-profile/drafts/${draftId}/publish`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        },
+      );
+    },
+
+    async retryGoogleBusinessProfileDraftGooglePush(
+      restaurantId: string,
+      draftId: string,
+      publishJobId: string,
+      payload: GoogleBusinessProfileProtectedActionPayload,
+    ) {
+      return fetchJson<GoogleBusinessProfileWorkflow>(
+        `${OPS_RESTAURANTS_BASE}/${restaurantId}/google-business-profile/drafts/${draftId}/publish-jobs/${publishJobId}/retry-google-push`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        },
       );
     },
 

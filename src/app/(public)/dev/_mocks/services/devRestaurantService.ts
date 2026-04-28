@@ -13,6 +13,12 @@ import { DEV_RESTAURANT_ID } from '../devIds';
 
 import type {
   GoogleBusinessProfileConnection,
+  GoogleBusinessProfileDraftPatchPayload,
+  GoogleBusinessProfileDraftPublishPayload,
+  GoogleBusinessProfileDraftPublishPreflight,
+  GoogleBusinessProfileDraftPublishPreflightPayload,
+  GoogleBusinessProfilePublishDirectionIntent,
+  GoogleBusinessProfileWorkflow,
   RestaurantBusinessContextSnapshot,
   UpdateRestaurantBusinessContextInput,
   GoogleBusinessProfileOperatingHoursSyncPayload,
@@ -35,6 +41,16 @@ import type {
 } from '@/services/ops/restaurants';
 
 const SECOND_DEV_RESTAURANT_ID = '22222222-2222-4222-8222-222222222222';
+
+function resolvePublishDirectionIntent(payload: {
+  directionIntent?: GoogleBusinessProfilePublishDirectionIntent;
+  pushToGoogle?: boolean;
+}): GoogleBusinessProfilePublishDirectionIntent {
+  return (
+    payload.directionIntent ??
+    (payload.pushToGoogle ? 'google_to_nabatable_with_google_sync' : 'google_to_nabatable')
+  );
+}
 
 type RestaurantSnapshot = {
   profile: RestaurantProfile;
@@ -1057,6 +1073,363 @@ export class DevRestaurantService implements RestaurantService {
         },
       },
     };
+  }
+
+  async getGoogleBusinessProfileWorkflow(): Promise<GoogleBusinessProfileWorkflow> {
+    const connection = await this.getGoogleBusinessProfileConnection();
+    const fetchedAt = '2026-04-25T09:30:00.000Z';
+    return {
+      latestDraft: {
+        id: 'dev-gbp-draft-review',
+        status: 'review_ready',
+        fetchedAt,
+        approvedAt: null,
+        publishedAt: null,
+        staleSections: [],
+        conflictMetadata: {},
+        selectedApprovals: {
+          'profile.name': true,
+          'operatingHours.weekly.0': true,
+          'servicePeriods.2.dinner': false,
+        },
+        sourceSnapshotRefs: { lastPullAt: connection.lastPullAt },
+        coreSnapshotHashes: {},
+        createdAt: fetchedAt,
+        updatedAt: fetchedAt,
+        sectionDiffs: [
+          {
+            sectionKey: 'profile',
+            label: 'Profile, contact and links',
+            status: 'ready',
+            summary: '1 of 2 changes selected.',
+            canPublishToNabatable: true,
+            canPushToGoogle: true,
+            blockedReasons: [],
+            items: [
+              {
+                fieldKey: 'profile.name',
+                label: 'Business name',
+                sectionKey: 'profile',
+                currentValue: 'Nabatable Demo',
+                providerValue: 'Nabatable Demo Cafe',
+                proposedValue: 'Nabatable Demo Cafe',
+                direction: 'pull_from_gbp',
+                status: 'ready',
+                selected: true,
+                canPublishToNabatable: true,
+                canPushToGoogle: true,
+                warnings: [],
+              },
+              {
+                fieldKey: 'profile.contactPhone',
+                label: 'Primary phone',
+                sectionKey: 'profile',
+                currentValue: '+44 1223 555010',
+                providerValue: '+44 1223 555010',
+                proposedValue: '+44 1223 555010',
+                direction: 'pull_from_gbp',
+                status: 'unchanged',
+                selected: false,
+                canPublishToNabatable: true,
+                canPushToGoogle: true,
+                warnings: [],
+              },
+            ],
+          },
+          {
+            sectionKey: 'operatingHours',
+            label: 'Operating hours',
+            status: 'ready',
+            summary: '1 weekly change ready.',
+            canPublishToNabatable: true,
+            canPushToGoogle: true,
+            blockedReasons: [],
+            items: [
+              {
+                fieldKey: 'operatingHours.weekly.0',
+                label: 'Weekly day 0',
+                sectionKey: 'operatingHours',
+                currentValue: '09:00–17:00',
+                providerValue: '10:00–18:00',
+                proposedValue: '10:00–18:00',
+                direction: 'pull_from_gbp',
+                status: 'ready',
+                selected: true,
+                canPublishToNabatable: true,
+                canPushToGoogle: true,
+                warnings: ['Sunday opening is one hour later than current.'],
+              },
+              {
+                fieldKey: 'operatingHours.weekly.1',
+                label: 'Weekly day 1',
+                sectionKey: 'operatingHours',
+                currentValue: '09:00–17:00',
+                providerValue: '09:00–17:00',
+                proposedValue: '09:00–17:00',
+                direction: 'pull_from_gbp',
+                status: 'unchanged',
+                selected: false,
+                canPublishToNabatable: true,
+                canPushToGoogle: true,
+                warnings: [],
+              },
+            ],
+          },
+          {
+            sectionKey: 'businessContext.serviceItems',
+            label: 'Service items',
+            status: 'ready',
+            summary: '1 service window suggestion.',
+            canPublishToNabatable: true,
+            canPushToGoogle: false,
+            blockedReasons: [],
+            items: [
+              {
+                fieldKey: 'servicePeriods.2.dinner',
+                label: 'dinner day 2',
+                sectionKey: 'businessContext.serviceItems',
+                currentValue: '17:00–22:00',
+                providerValue: '18:00–22:00',
+                proposedValue: '18:00–22:00',
+                direction: 'pull_from_gbp',
+                status: 'ready',
+                selected: false,
+                canPublishToNabatable: true,
+                canPushToGoogle: false,
+                warnings: [],
+              },
+            ],
+          },
+          {
+            sectionKey: 'businessContext.attributes',
+            label: 'Attributes',
+            status: 'unchanged',
+            summary: 'No attribute changes.',
+            canPublishToNabatable: true,
+            canPushToGoogle: true,
+            blockedReasons: [],
+            items: [],
+          },
+        ],
+      },
+      sectionSummaries: [
+        {
+          sectionKey: 'profile',
+          label: 'Profile, contact and links',
+          status: 'ready',
+          selectedCount: 1,
+          itemCount: 2,
+        },
+        {
+          sectionKey: 'operatingHours',
+          label: 'Operating hours',
+          status: 'ready',
+          selectedCount: 1,
+          itemCount: 2,
+        },
+      ],
+      publishableSections: ['profile', 'operatingHours'],
+      blockedReasons: [],
+      auditEvents: [
+        {
+          id: 'dev-gbp-event-recent',
+          draftId: 'dev-gbp-draft-review',
+          direction: 'pull_from_gbp_to_nabatable',
+          flow: 'google_to_nabatable_apply',
+          directionLabel: 'Google -> Nabatable apply',
+          affectedSections: ['profile'],
+          googleUpdateMasks: [],
+          result: 'success',
+          errors: [],
+          createdAt: '2026-04-24T16:00:00.000Z',
+        },
+      ],
+      activePublishJob: null,
+    };
+  }
+
+  async createGoogleBusinessProfileDraft(): Promise<GoogleBusinessProfileWorkflow> {
+    const connection = await this.getGoogleBusinessProfileConnection();
+    const now = new Date().toISOString();
+    return {
+      latestDraft: {
+        id: 'dev-gbp-draft-1',
+        status: 'review_ready',
+        fetchedAt: now,
+        approvedAt: null,
+        publishedAt: null,
+        staleSections: [],
+        conflictMetadata: {},
+        selectedApprovals: {
+          'profile.name': true,
+          'profile.contactPhone': true,
+        },
+        sourceSnapshotRefs: { lastPullAt: connection.lastPullAt },
+        coreSnapshotHashes: {},
+        createdAt: now,
+        updatedAt: now,
+        sectionDiffs: [
+          {
+            sectionKey: 'profile',
+            label: 'Profile, contact and links',
+            status: 'ready',
+            summary: '2 approval items ready.',
+            canPublishToNabatable: true,
+            canPushToGoogle: true,
+            blockedReasons: [],
+            items: [
+              {
+                fieldKey: 'profile.name',
+                label: 'Business name',
+                sectionKey: 'profile',
+                currentValue: 'Nabatable Demo',
+                providerValue: connection.externalLocationTitle,
+                proposedValue: connection.externalLocationTitle,
+                direction: 'pull_from_gbp',
+                status: 'ready',
+                selected: true,
+                canPublishToNabatable: true,
+                canPushToGoogle: true,
+                warnings: [],
+              },
+              {
+                fieldKey: 'profile.contactPhone',
+                label: 'Primary phone',
+                sectionKey: 'profile',
+                currentValue: '+44 7700 900123',
+                providerValue: '+44 1223 555010',
+                proposedValue: '+44 1223 555010',
+                direction: 'pull_from_gbp',
+                status: 'ready',
+                selected: true,
+                canPublishToNabatable: true,
+                canPushToGoogle: true,
+                warnings: [],
+              },
+            ],
+          },
+        ],
+      },
+      sectionSummaries: [
+        {
+          sectionKey: 'profile',
+          label: 'Profile, contact and links',
+          status: 'ready',
+          selectedCount: 2,
+          itemCount: 2,
+        },
+      ],
+      publishableSections: ['profile'],
+      blockedReasons: [],
+      auditEvents: [],
+      activePublishJob: null,
+    };
+  }
+
+  async updateGoogleBusinessProfileDraft(
+    _restaurantId: string,
+    _draftId: string,
+    _payload: GoogleBusinessProfileDraftPatchPayload,
+  ): Promise<GoogleBusinessProfileWorkflow> {
+    return this.createGoogleBusinessProfileDraft();
+  }
+
+  async preflightGoogleBusinessProfileDraftPublish(
+    _restaurantId: string,
+    draftId: string,
+    payload: GoogleBusinessProfileDraftPublishPreflightPayload,
+  ): Promise<GoogleBusinessProfileDraftPublishPreflight> {
+    const workflow = await this.createGoogleBusinessProfileDraft();
+    const selectedItems =
+      workflow.latestDraft?.sectionDiffs.flatMap((section) =>
+        section.items.filter((item) => payload.selectedApprovals[item.fieldKey]),
+      ) ?? [];
+    const directionIntent = resolvePublishDirectionIntent(payload);
+    const wantsGoogleSync = directionIntent !== 'google_to_nabatable';
+    const isGoogleOnly = directionIntent === 'nabatable_to_google';
+    const googleUpdateMasks: GoogleBusinessProfileDraftPublishPreflight['googleUpdateMasks'] =
+      wantsGoogleSync ? ['title', 'phoneNumbers'] : [];
+    return {
+      publishJobId: 'dev-gbp-publish-job-1',
+      idempotencyKey: `dev-${draftId}-${wantsGoogleSync ? 'google' : 'nabatable'}`,
+      mode: isGoogleOnly
+        ? 'google_only'
+        : wantsGoogleSync
+          ? 'nabatable_and_google'
+          : 'nabatable_only',
+      directionIntent,
+      selectedApprovals: payload.selectedApprovals,
+      nabatableUpdates: isGoogleOnly ? [] : selectedItems,
+      pullOnlyItems: wantsGoogleSync
+        ? selectedItems.filter((item) => !item.canPushToGoogle)
+        : selectedItems,
+      googleUpdateMasks,
+      warnings: [],
+      errors: [],
+      canPublish: selectedItems.length > 0,
+      canPushToGoogle: googleUpdateMasks.length > 0,
+      activePublishJob: {
+        id: 'dev-gbp-publish-job-1',
+        draftId,
+        idempotencyKey: `dev-${draftId}-${wantsGoogleSync ? 'google' : 'nabatable'}`,
+        mode: isGoogleOnly
+          ? 'google_only'
+          : wantsGoogleSync
+            ? 'nabatable_and_google'
+            : 'nabatable_only',
+        directionIntent,
+        status: 'preflight_ready',
+        selectedApprovals: payload.selectedApprovals,
+        nabatableSections: ['profile'],
+        googleUpdateMasks,
+        postNabatableCoreHashes: {},
+        errorClassification: null,
+        errors: [],
+        nabatableEventId: null,
+        googleEventId: null,
+        canRetryGooglePush: false,
+        retryBlockedReason: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    };
+  }
+
+  async publishGoogleBusinessProfileDraft(
+    _restaurantId: string,
+    _draftId: string,
+    _payload: GoogleBusinessProfileDraftPublishPayload,
+  ): Promise<GoogleBusinessProfileWorkflow> {
+    const workflow = await this.createGoogleBusinessProfileDraft();
+    if (workflow.latestDraft) {
+      workflow.latestDraft.status = 'published';
+      workflow.latestDraft.publishedAt = new Date().toISOString();
+    }
+    workflow.auditEvents = [
+      {
+        id: 'dev-gbp-event-1',
+        draftId: workflow.latestDraft?.id ?? null,
+        direction: 'pull_from_gbp_to_nabatable',
+        flow: 'google_to_nabatable_apply',
+        directionLabel: 'Google -> Nabatable apply',
+        affectedSections: ['profile'],
+        googleUpdateMasks: [],
+        result: 'success',
+        errors: [],
+        createdAt: new Date().toISOString(),
+      },
+    ];
+    return workflow;
+  }
+
+  async retryGoogleBusinessProfileDraftGooglePush(): Promise<GoogleBusinessProfileWorkflow> {
+    const workflow = await this.createGoogleBusinessProfileDraft();
+    if (workflow.latestDraft) {
+      workflow.latestDraft.status = 'published';
+      workflow.latestDraft.publishedAt = new Date().toISOString();
+    }
+    workflow.activePublishJob = null;
+    return workflow;
   }
 
   async linkGoogleBusinessProfileLocation(

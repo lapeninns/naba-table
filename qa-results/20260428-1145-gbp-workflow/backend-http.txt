@@ -1,0 +1,45 @@
+## GET /workflow
+HTTP/1.1 401 Unauthorized
+content-security-policy: base-uri 'self'; frame-ancestors 'none'; object-src 'none'; form-action 'self'
+content-type: application/json
+referrer-policy: strict-origin-when-cross-origin
+set-cookie: sr-csrf-token=7854bae71d47460d85396e60d55d890e; Path=/; Expires=Fri, 01 May 2026 11:46:36 GMT; Max-Age=259200; SameSite=lax
+x-content-type-options: nosniff
+x-frame-options: DENY
+Vary: Accept-Encoding
+Date: Tue, 28 Apr 2026 11:46:36 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Transfer-Encoding: chunked
+
+{"error":"Authentication required","code":"UNAUTHENTICATED"}
+## POST /publish/preflight
+HTTP/1.1 401 Unauthorized
+content-security-policy: base-uri 'self'; frame-ancestors 'none'; object-src 'none'; form-action 'self'
+content-type: application/json
+referrer-policy: strict-origin-when-cross-origin
+set-cookie: sr-csrf-token=6e1856a841744528b14e701ecf8a242a; Path=/; Expires=Fri, 01 May 2026 11:46:36 GMT; Max-Age=259200; SameSite=lax
+x-content-type-options: nosniff
+x-frame-options: DENY
+Vary: Accept-Encoding
+Date: Tue, 28 Apr 2026 11:46:36 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Transfer-Encoding: chunked
+
+{"error":"Authentication required","code":"UNAUTHENTICATED"}
+## POST /publish
+HTTP/1.1 401 Unauthorized
+content-security-policy: base-uri 'self'; frame-ancestors 'none'; object-src 'none'; form-action 'self'
+content-type: application/json
+referrer-policy: strict-origin-when-cross-origin
+set-cookie: sr-csrf-token=adcb4a62146749c494a1f8d9bac058a0; Path=/; Expires=Fri, 01 May 2026 11:46:36 GMT; Max-Age=259200; SameSite=lax
+x-content-type-options: nosniff
+x-frame-options: DENY
+Vary: Accept-Encoding
+Date: Tue, 28 Apr 2026 11:46:36 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Transfer-Encoding: chunked
+
+{"error":"Authentication required","code":"UNAUTHENTICATED"}

@@ -43,7 +43,6 @@ import {
 import { decryptGoogleBusinessProfileSecret, encryptGoogleBusinessProfileSecret } from './crypto';
 import { GoogleBusinessProfileError, isGoogleBusinessProfileError } from './errors';
 
-
 import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -52,10 +51,11 @@ type ExternalProfileRow = Database['public']['Tables']['restaurant_external_prof
 type CredentialRow = Database['public']['Tables']['restaurant_external_profile_credentials']['Row'];
 type OAuthStateRow =
   Database['public']['Tables']['restaurant_external_profile_oauth_states']['Row'];
+type SyncRunInsert =
+  Database['public']['Tables']['restaurant_external_profile_sync_runs']['Insert'];
 
 const PROVIDER = 'google_business_profile';
 const DEFAULT_RETURN_PATH = '/app/settings/restaurant/google-business-profile';
-const ACCESS_TOKEN_EXPIRY_SKEW_MS = 60_000;
 const OAUTH_STATE_TTL_MS = 15 * 60 * 1000;
 const gbpLogger = logger.child({ module: 'gbp' });
 
@@ -83,6 +83,47 @@ export type LinkGoogleBusinessProfileLocationInput = {
   accountId: string;
   locationName: string;
   locationId: string;
+};
+
+export type GoogleBusinessProfileFieldDiff = {
+  field: 'name' | 'contactPhone' | 'address' | 'googleMapUrl' | 'googleReviewUrl';
+  label: string;
+  localValue: string | null;
+  googleValue: string | null;
+  status: 'matches' | 'different' | 'missing_google' | 'missing_local' | 'unavailable';
+  suggestion: string | null;
+};
+
+export type GoogleBusinessProfileBusinessDetailsStatus = {
+  connection: {
+    isConfigured: boolean;
+    provider: 'google_business_profile';
+    status: 'not_connected' | 'connected' | 'pending_auth' | 'needs_reauth' | 'sync_failed';
+    rawStatus: GoogleBusinessProfileConnectionState['status'];
+    connectedGoogleEmail: string | null;
+    connectedGoogleName: string | null;
+    lastError: string | null;
+  };
+  selectedLocation: {
+    accountId: string | null;
+    accountName: string | null;
+    locationId: string | null;
+    locationName: string | null;
+    title: string | null;
+    address: string | null;
+    phone: string | null;
+    websiteUri: string | null;
+    primaryCategory: string | null;
+    placeId: string | null;
+    mapsUri: string | null;
+    newReviewUri: string | null;
+  } | null;
+  lastSync: {
+    pulledAt: string | null;
+    pushedAt: string | null;
+  };
+  fieldDiffs: GoogleBusinessProfileFieldDiff[];
+  availableLocations: GoogleBusinessProfileAvailableLocation[];
 };
 
 function getClient(client?: DbClient): DbClient {
@@ -193,19 +234,12 @@ async function saveCredentials(
     );
   }
 
-  const expiresAt =
-    typeof tokens.expiresIn === 'number'
-      ? new Date(Date.now() + tokens.expiresIn * 1000).toISOString()
-      : null;
-
   const { error } = await client.from('restaurant_external_profile_credentials').upsert({
     external_profile_id: externalProfile.id,
     provider_user_id: identity.providerUserId,
     connected_google_email: identity.email,
     connected_google_name: identity.name,
-    access_token_encrypted: encryptGoogleBusinessProfileSecret(tokens.accessToken),
     refresh_token_encrypted: encryptGoogleBusinessProfileSecret(refreshToken),
-    access_token_expires_at: expiresAt,
     granted_scopes: tokens.grantedScopes,
     token_type: tokens.tokenType,
     last_refreshed_at: nowIso(),
@@ -304,39 +338,19 @@ async function getUsableAccessToken(
     );
   }
 
-  const accessTokenStillValid =
-    credential.access_token_encrypted &&
-    credential.access_token_expires_at &&
-    new Date(credential.access_token_expires_at).getTime() >
-      Date.now() + ACCESS_TOKEN_EXPIRY_SKEW_MS;
-
-  if (accessTokenStillValid) {
-    return {
-      accessToken: decryptGoogleBusinessProfileSecret(credential.access_token_encrypted!),
-      credential,
-    };
-  }
-
   try {
     const refreshed = await refreshGoogleBusinessProfileAccessToken(
       decryptGoogleBusinessProfileSecret(credential.refresh_token_encrypted),
     );
 
-    const updatedAccessTokenEncrypted = encryptGoogleBusinessProfileSecret(refreshed.accessToken);
     const updatedRefreshTokenEncrypted = refreshed.refreshToken
       ? encryptGoogleBusinessProfileSecret(refreshed.refreshToken)
       : credential.refresh_token_encrypted;
-    const refreshedExpiresAt =
-      typeof refreshed.expiresIn === 'number'
-        ? new Date(Date.now() + refreshed.expiresIn * 1000).toISOString()
-        : null;
 
     const { error } = await client
       .from('restaurant_external_profile_credentials')
       .update({
-        access_token_encrypted: updatedAccessTokenEncrypted,
         refresh_token_encrypted: updatedRefreshTokenEncrypted,
-        access_token_expires_at: refreshedExpiresAt,
         granted_scopes:
           refreshed.grantedScopes.length > 0 ? refreshed.grantedScopes : credential.granted_scopes,
         token_type: refreshed.tokenType ?? credential.token_type,
@@ -364,9 +378,7 @@ async function getUsableAccessToken(
       accessToken: refreshed.accessToken,
       credential: {
         ...credential,
-        access_token_encrypted: updatedAccessTokenEncrypted,
         refresh_token_encrypted: updatedRefreshTokenEncrypted,
-        access_token_expires_at: refreshedExpiresAt,
         granted_scopes:
           refreshed.grantedScopes.length > 0 ? refreshed.grantedScopes : credential.granted_scopes,
         token_type: refreshed.tokenType ?? credential.token_type,
@@ -389,6 +401,16 @@ async function getUsableAccessToken(
   }
 }
 
+async function recordSyncRun(
+  payload: Omit<SyncRunInsert, 'id' | 'created_at' | 'updated_at'>,
+  client: DbClient,
+): Promise<void> {
+  const { error } = await client.from('restaurant_external_profile_sync_runs').insert(payload);
+  if (error) {
+    gbpLogger.warn('sync run audit insert failed', { error });
+  }
+}
+
 async function discoverLocationsForProfile(
   externalProfile: ExternalProfileRow,
   client: DbClient,
@@ -408,6 +430,17 @@ async function discoverLocationsForProfile(
     credential,
     availableLocations: batches.flat(),
   };
+}
+
+function assertGooglePushEnabled(externalProfile: ExternalProfileRow): void {
+  if (externalProfile.push_enabled) {
+    return;
+  }
+
+  throw new GoogleBusinessProfileError(
+    'Optional Nabatable -> Google sync is disabled for this linked Google Business Profile location. Enable GBP push before choosing Google sync.',
+    { code: 'GBP_GOOGLE_PUSH_DISABLED', status: 409 },
+  );
 }
 
 function buildConnectionState(
@@ -435,6 +468,193 @@ function buildConnectionState(
     lastError: externalProfile?.last_error ?? null,
     availableLocations,
     businessInfo,
+  };
+}
+
+function mapBusinessDetailsConnectionStatus(
+  status: GoogleBusinessProfileConnectionState['status'],
+): GoogleBusinessProfileBusinessDetailsStatus['connection']['status'] {
+  switch (status) {
+    case 'pending_auth':
+      return 'pending_auth';
+    case 'authorized':
+    case 'linked':
+      return 'connected';
+    case 'reauth_required':
+      return 'needs_reauth';
+    case 'sync_error':
+      return 'sync_failed';
+    case 'unlinked':
+    default:
+      return 'not_connected';
+  }
+}
+
+function normalizeComparableText(value: string | null | undefined): string | null {
+  const normalized = value?.trim().replace(/\s+/g, ' ').toLowerCase() ?? '';
+  return normalized.length > 0 ? normalized : null;
+}
+
+function buildFieldDiff(params: {
+  field: GoogleBusinessProfileFieldDiff['field'];
+  label: string;
+  localValue: string | null;
+  googleValue: string | null;
+}): GoogleBusinessProfileFieldDiff {
+  const localComparable = normalizeComparableText(params.localValue);
+  const googleComparable = normalizeComparableText(params.googleValue);
+
+  if (!localComparable && !googleComparable) {
+    return {
+      ...params,
+      status: 'unavailable',
+      suggestion: null,
+    };
+  }
+
+  if (!googleComparable) {
+    return {
+      ...params,
+      status: 'missing_google',
+      suggestion: null,
+    };
+  }
+
+  if (!localComparable) {
+    return {
+      ...params,
+      status: 'missing_local',
+      suggestion: params.googleValue,
+    };
+  }
+
+  if (localComparable === googleComparable) {
+    return {
+      ...params,
+      status: 'matches',
+      suggestion: null,
+    };
+  }
+
+  return {
+    ...params,
+    status: 'different',
+    suggestion: params.googleValue,
+  };
+}
+
+function getPrimaryBusinessInfoValues(state: GoogleBusinessProfileConnectionState) {
+  const primaryAddress =
+    state.businessInfo.addresses.find((address) => address.isPrimary) ??
+    state.businessInfo.addresses[0] ??
+    null;
+  const primaryPhone =
+    state.businessInfo.phoneNumbers.find((phone) => phone.isPrimary) ??
+    state.businessInfo.phoneNumbers[0] ??
+    null;
+  const primaryCategory =
+    state.businessInfo.categories.find((category) => category.isPrimary) ??
+    state.businessInfo.categories[0] ??
+    null;
+  const websiteLink = state.businessInfo.links.find((link) => link.linkType === 'website');
+  const mapsLink = state.businessInfo.links.find((link) => link.linkType === 'google_map');
+  const reviewLink = state.businessInfo.links.find((link) => link.linkType === 'google_review');
+
+  return {
+    address: primaryAddress?.formattedAddress ?? null,
+    phone: primaryPhone?.phoneNumber ?? null,
+    primaryCategory: primaryCategory?.displayName ?? null,
+    websiteUri: websiteLink?.url ?? null,
+    mapsUri: mapsLink?.url ?? null,
+    newReviewUri: reviewLink?.url ?? null,
+  };
+}
+
+function buildSelectedLocation(
+  state: GoogleBusinessProfileConnectionState,
+): GoogleBusinessProfileBusinessDetailsStatus['selectedLocation'] {
+  if (!state.externalLocationId && !state.externalLocationName) {
+    return null;
+  }
+
+  const values = getPrimaryBusinessInfoValues(state);
+  return {
+    accountId: state.externalAccountId,
+    accountName: state.externalAccountName,
+    locationId: state.externalLocationId,
+    locationName: state.externalLocationName,
+    title: state.externalLocationTitle,
+    address: values.address,
+    phone: values.phone,
+    websiteUri: values.websiteUri,
+    primaryCategory: values.primaryCategory,
+    placeId: state.externalPlaceId,
+    mapsUri: values.mapsUri,
+    newReviewUri: values.newReviewUri,
+  };
+}
+
+export async function getGoogleBusinessProfileBusinessDetailsStatus(
+  restaurantId: string,
+  client?: DbClient,
+): Promise<GoogleBusinessProfileBusinessDetailsStatus> {
+  const resolvedClient = getClient(client);
+  const [state, profile] = await Promise.all([
+    getGoogleBusinessProfileConnectionState(restaurantId, resolvedClient),
+    getRestaurantDetails(restaurantId, resolvedClient),
+  ]);
+  const values = getPrimaryBusinessInfoValues(state);
+  const googleName =
+    state.externalLocationTitle ?? state.businessInfo.details?.businessName ?? null;
+
+  return {
+    connection: {
+      isConfigured: state.isConfigured,
+      provider: state.provider,
+      status: mapBusinessDetailsConnectionStatus(state.status),
+      rawStatus: state.status,
+      connectedGoogleEmail: state.connectedGoogleEmail,
+      connectedGoogleName: state.connectedGoogleName,
+      lastError: state.lastError,
+    },
+    selectedLocation: buildSelectedLocation(state),
+    lastSync: {
+      pulledAt: state.lastPullAt,
+      pushedAt: state.lastPushAt,
+    },
+    fieldDiffs: [
+      buildFieldDiff({
+        field: 'name',
+        label: 'Business name',
+        localValue: profile.name,
+        googleValue: googleName,
+      }),
+      buildFieldDiff({
+        field: 'contactPhone',
+        label: 'Phone',
+        localValue: profile.contactPhone,
+        googleValue: values.phone,
+      }),
+      buildFieldDiff({
+        field: 'address',
+        label: 'Address',
+        localValue: profile.address,
+        googleValue: values.address,
+      }),
+      buildFieldDiff({
+        field: 'googleMapUrl',
+        label: 'Google Maps URL',
+        localValue: profile.googleMapUrl,
+        googleValue: values.mapsUri,
+      }),
+      buildFieldDiff({
+        field: 'googleReviewUrl',
+        label: 'Google review URL',
+        localValue: profile.googleReviewUrl,
+        googleValue: values.newReviewUri,
+      }),
+    ],
+    availableLocations: state.availableLocations,
   };
 }
 
@@ -496,10 +716,7 @@ function resolveRequestedDirection(params: {
 }
 
 export function getProviderReferenceUpdatedAt(
-  externalProfile:
-    | Pick<ExternalProfileRow, 'last_pull_at' | 'last_push_at'>
-    | null
-    | undefined,
+  externalProfile: Pick<ExternalProfileRow, 'last_pull_at' | 'last_push_at'> | null | undefined,
 ): string | null {
   const timestamps = [externalProfile?.last_pull_at ?? null, externalProfile?.last_push_at ?? null]
     .map((value) => ({
@@ -570,7 +787,20 @@ export async function completeGoogleBusinessProfileAuthorization(params: {
 
   try {
     const tokens = await exchangeGoogleBusinessProfileCode(params.code);
-    const identity = await fetchGoogleBusinessProfileIdentity(tokens.accessToken);
+    let identity: GoogleBusinessProfileIdentity = {
+      providerUserId: null,
+      email: null,
+      name: null,
+    };
+
+    try {
+      identity = await fetchGoogleBusinessProfileIdentity(tokens.accessToken);
+    } catch (error) {
+      gbpLogger.warn('oauth identity lookup skipped', {
+        restaurantId: state.restaurant_id,
+        error,
+      });
+    }
 
     await saveCredentials(externalProfile, tokens, identity, client);
     await updateExternalProfile(
@@ -654,9 +884,11 @@ export async function getGoogleBusinessProfileConnectionState(
 export async function syncGoogleBusinessProfileBusinessInformation(
   restaurantId: string,
   client?: DbClient,
+  options: { runKind?: 'manual' | 'location_selection' | 'core_sync' } = {},
 ): Promise<GoogleBusinessProfileConnectionState> {
   const resolvedClient = getClient(client);
   const externalProfile = await ensureExternalProfile(restaurantId, resolvedClient);
+  const startedAt = nowIso();
 
   if (!externalProfile.external_location_id && !externalProfile.external_resource_name) {
     throw new GoogleBusinessProfileError(
@@ -724,12 +956,44 @@ export async function syncGoogleBusinessProfileBusinessInformation(
       resolvedClient,
     );
 
+    await recordSyncRun(
+      {
+        external_profile_id: externalProfile.id,
+        restaurant_id: restaurantId,
+        provider: PROVIDER,
+        run_kind: options.runKind ?? 'manual',
+        status: 'success',
+        started_at: startedAt,
+        finished_at: syncedAt,
+        error_code: null,
+        error_message: attributeWarning,
+        metadata: {
+          locationName: location.name,
+          attributeSyncSkipped: attributes === null,
+        },
+      },
+      resolvedClient,
+    );
+
     return getGoogleBusinessProfileConnectionState(restaurantId, resolvedClient);
   } catch (error) {
     const message =
       error instanceof Error ? error.message : 'Google Business Profile sync failed unexpectedly.';
+    const errorCode = isGoogleBusinessProfileError(error) ? error.code : null;
 
-    if (!isGoogleBusinessProfileError(error) || error.code !== 'GBP_REAUTH_REQUIRED') {
+    if (
+      isGoogleBusinessProfileError(error) &&
+      (error.code === 'GBP_REAUTH_REQUIRED' || error.code === 'GBP_FORBIDDEN')
+    ) {
+      await updateExternalProfile(
+        externalProfile.id,
+        {
+          connection_status: 'reauth_required',
+          last_error: message,
+        },
+        resolvedClient,
+      );
+    } else {
       await updateExternalProfile(
         externalProfile.id,
         {
@@ -739,6 +1003,22 @@ export async function syncGoogleBusinessProfileBusinessInformation(
         resolvedClient,
       );
     }
+
+    await recordSyncRun(
+      {
+        external_profile_id: externalProfile.id,
+        restaurant_id: restaurantId,
+        provider: PROVIDER,
+        run_kind: options.runKind ?? 'manual',
+        status: 'failed',
+        started_at: startedAt,
+        finished_at: nowIso(),
+        error_code: errorCode,
+        error_message: message,
+        metadata: null,
+      },
+      resolvedClient,
+    );
 
     throw error;
   }
@@ -779,6 +1059,7 @@ export async function syncRestaurantProfileWithGoogleBusinessProfile(params: {
 
   const { externalProfile, accessToken, locationResourceName, location } =
     await getLinkedExternalProfileWithLocation(params.restaurantId, resolvedClient);
+  assertGooglePushEnabled(externalProfile);
   const patch = buildPushProfileLocationPatch({
     profile,
     location,
@@ -794,11 +1075,20 @@ export async function syncRestaurantProfileWithGoogleBusinessProfile(params: {
     locationResourceName,
     patch.payload,
     patch.updateMask,
+    { validateOnly: true },
+  );
+  await patchGoogleBusinessProfileLocation(
+    accessToken,
+    locationResourceName,
+    patch.payload,
+    patch.updateMask,
   );
 
   const pushedAt = nowIso();
   await markGooglePushSuccess(externalProfile.id, pushedAt, resolvedClient);
-  await syncGoogleBusinessProfileBusinessInformation(params.restaurantId, resolvedClient);
+  await syncGoogleBusinessProfileBusinessInformation(params.restaurantId, resolvedClient, {
+    runKind: 'core_sync',
+  });
 
   return getRestaurantDetails(params.restaurantId, resolvedClient);
 }
@@ -833,6 +1123,7 @@ export async function syncRestaurantOperatingHoursWithGoogleBusinessProfile(para
 
   const { externalProfile, accessToken, locationResourceName, location } =
     await getLinkedExternalProfileWithLocation(params.restaurantId, resolvedClient);
+  assertGooglePushEnabled(externalProfile);
   const patch = buildPushOperatingHoursLocationPatch({
     snapshot,
     location,
@@ -844,11 +1135,20 @@ export async function syncRestaurantOperatingHoursWithGoogleBusinessProfile(para
     locationResourceName,
     patch.payload,
     patch.updateMask,
+    { validateOnly: true },
+  );
+  await patchGoogleBusinessProfileLocation(
+    accessToken,
+    locationResourceName,
+    patch.payload,
+    patch.updateMask,
   );
 
   const pushedAt = nowIso();
   await markGooglePushSuccess(externalProfile.id, pushedAt, resolvedClient);
-  await syncGoogleBusinessProfileBusinessInformation(params.restaurantId, resolvedClient);
+  await syncGoogleBusinessProfileBusinessInformation(params.restaurantId, resolvedClient, {
+    runKind: 'core_sync',
+  });
 
   return getOperatingHours(params.restaurantId, resolvedClient);
 }
@@ -891,6 +1191,7 @@ export async function syncRestaurantServicePeriodsWithGoogleBusinessProfile(para
 
   const { externalProfile, accessToken, locationResourceName, location } =
     await getLinkedExternalProfileWithLocation(params.restaurantId, resolvedClient);
+  assertGooglePushEnabled(externalProfile);
 
   if (!canPushServicePeriodsToGoogle(location)) {
     throw new GoogleBusinessProfileError(
@@ -917,11 +1218,20 @@ export async function syncRestaurantServicePeriodsWithGoogleBusinessProfile(para
     locationResourceName,
     patch.payload,
     patch.updateMask,
+    { validateOnly: true },
+  );
+  await patchGoogleBusinessProfileLocation(
+    accessToken,
+    locationResourceName,
+    patch.payload,
+    patch.updateMask,
   );
 
   const pushedAt = nowIso();
   await markGooglePushSuccess(externalProfile.id, pushedAt, resolvedClient);
-  await syncGoogleBusinessProfileBusinessInformation(params.restaurantId, resolvedClient);
+  await syncGoogleBusinessProfileBusinessInformation(params.restaurantId, resolvedClient, {
+    runKind: 'core_sync',
+  });
 
   return getServicePeriods(params.restaurantId, resolvedClient);
 }

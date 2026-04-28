@@ -1,0 +1,335 @@
+DEV
+Restaurant
+Dev harness for the restaurant settings shell, subnav, and sections.
+Editing
+Dev Restaurant (Ops Harness)
+Use the sidebar restaurant switcher to change restaurants.
+Restaurant Profile
+Name, branding, contact details, booking policy, reminders.
+Google Business Profile
+Connect Google, link a location, and prepare business info sync.
+Availability & Occasions
+Weekly hours, overrides, meal windows, occasions, and dining-duration bands in one place.
+Menu
+Manage menu items, modifiers, and imports.
+Tables
+Manage table inventory, zones, and capacity.
+Team
+Invite and manage restaurant staff access.
+
+View selector is local to this harness; the left subnav is rendered for responsive layout verification but links to authenticated routes.
+
+Select a restaurant settings view
+Availability & occasions
+Canonical workspace
+Availability & Occasions
+Configure the restaurant's operating week, special-date overrides, meal windows, and bookable occasions without bouncing between separate settings pages.
+Schedule
+Occasions
+Weekly schedule
+Operating hours and service windows together
+Edit the outer open-close window, the nested lunch and dinner windows, and special date overrides from one working surface.
+
+Additional service periods are preserved
+
+2 custom service periods sit outside the lunch-dinner layout. They will be preserved unchanged by this command center.
+
+How this command center works
+
+This page owns the day-to-day availability workflow. Weekly hours, service windows, overrides, and booking occasions (with per-party-size turn times) now live in one editable surface with one save action.
+Weekly schedule
+Date overrides
+Turn times per party size are set on each booking occasion — including Lunch and Dinner.
+Jump to Occasions ↓
+
+Sunday
+
+Open
+
+Set the day boundary first, then the service windows inside it.
+
+OPEN DAY
+Operating hours
+OPENS
+CLOSES
+Booking rules
+INTERVAL (MIN)
+SLOT TIMES
+
+Optional comma-separated fixed slots.
+
+NOTES
+Service windows
+
+Lunch
+
+Booked inside the operating window.
+
+Active
+START
+END
+
+Dinner
+
+Booked inside the operating window.
+
+Active
+START
+END
+
+Monday
+
+Open
+
+Set the day boundary first, then the service windows inside it.
+
+OPEN DAY
+Operating hours
+OPENS
+CLOSES
+Booking rules
+INTERVAL (MIN)
+SLOT TIMES
+
+Optional comma-separated fixed slots.
+
+NOTES
+Service windows
+
+Lunch
+
+Booked inside the operating window.
+
+Active
+START
+END
+
+Dinner
+
+Booked inside the operating window.
+
+Active
+START
+END
+
+Tuesday
+
+Open
+
+Set the day boundary first, then the service windows inside it.
+
+OPEN DAY
+Operating hours
+OPENS
+CLOSES
+Booking rules
+INTERVAL (MIN)
+SLOT TIMES
+
+Optional comma-separated fixed slots.
+
+NOTES
+Service windows
+
+Lunch
+
+Booked inside the operating window.
+
+Active
+START
+END
+
+Dinner
+
+Booked inside the operating window.
+
+Active
+START
+END
+
+Wednesday
+
+Open
+
+Set the day boundary first, then the service windows inside it.
+
+OPEN DAY
+Operating hours
+OPENS
+CLOSES
+Booking rules
+INTERVAL (MIN)
+SLOT TIMES
+
+Optional comma-separated fixed slots.
+
+NOTES
+Service windows
+
+Lunch
+
+Booked inside the operating window.
+
+Active
+START
+END
+
+Dinner
+
+Booked inside the operating window.
+
+Active
+START
+END
+
+Thursday
+
+Open
+
+Set the day boundary first, then the service windows inside it.
+
+OPEN DAY
+Operating hours
+OPENS
+CLOSES
+Booking rules
+INTERVAL (MIN)
+SLOT TIMES
+
+Optional comma-separated fixed slots.
+
+NOTES
+Service windows
+
+Lunch
+
+Booked inside the operating window.
+
+Active
+START
+END
+
+Dinner
+
+Booked inside the operating window.
+
+Active
+START
+END
+
+Friday
+
+Open
+
+Set the day boundary first, then the service windows inside it.
+
+OPEN DAY
+Operating hours
+OPENS
+CLOSES
+Booking rules
+INTERVAL (MIN)
+SLOT TIMES
+
+Optional comma-separated fixed slots.
+
+NOTES
+Service windows
+
+Lunch
+
+Booked inside the operating window.
+
+Active
+START
+END
+
+Dinner
+
+Booked inside the operating window.
+
+Active
+START
+END
+
+Saturday
+
+Open
+
+Set the day boundary first, then the service windows inside it.
+
+OPEN DAY
+Operating hours
+OPENS
+CLOSES
+Booking rules
+INTERVAL (MIN)
+SLOT TIMES
+
+Optional comma-separated fixed slots.
+
+NOTES
+Service windows
+
+Lunch
+
+Booked inside the operating window.
+
+Active
+START
+END
+
+Dinner
+
+Booked inside the operating window.
+
+Active
+START
+END
+
+Booking occasions
+
+Control the guest-facing occasion tags without leaving the availability workflow.
+
+New occasion
+Label	Availability	Status	Dining duration	Actions
+
+Dining
+Builtin
+
+Dining
+
+	Always available	
+Active
+	90 min (default)	EditDelete
+
+Lunch
+Service window
+Builtin
+
+Lunch
+
+	Always available	
+Active
+	90 min (default)	EditDelete
+
+Dinner
+Service window
+Builtin
+
+Dinner
+
+	Always available	
+Active
+	120 min (default)	EditDelete
+
+Chef’s Tasting Menu (Long Title That Wraps On Mobile)
+
+Tasting
+
+	Always available	
+Active
+	150 min (default)	EditDelete
+Save once to persist the full availability workflow: weekly hours, service windows, date overrides, and booking occasions (with their turn times).
+Reset
+Save configuration

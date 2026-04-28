@@ -70,7 +70,91 @@ function buildServicePeriodRow(
 }
 
 describe('google business profile core normalization', () => {
-  it('prefers public hours for operating-hours normalization and keeps kitchen hours for service periods', () => {
+  it('uses public hours for the operating envelope and kitchen windows for service periods', () => {
+    const normalization = buildGoogleBusinessProfileCoreNormalization({
+      gbpHoursRows: [
+        buildHourRow({
+          hours_type: 'public',
+          open_day: 1,
+          close_day: 1,
+          open_time: '12:00',
+          close_time: '22:00',
+        }),
+        buildHourRow({
+          hours_type: 'service',
+          period_label: 'Kitchen',
+          open_day: 1,
+          close_day: 1,
+          open_time: '12:00',
+          close_time: '15:00',
+        }),
+        buildHourRow({
+          hours_type: 'service',
+          period_label: 'Kitchen',
+          open_day: 1,
+          close_day: 1,
+          open_time: '17:00',
+          close_time: '22:00',
+          display_order: 1,
+        }),
+      ],
+      coreOperatingHoursRows: [
+        buildOperatingHoursRow({
+          day_of_week: 1,
+          opens_at: '12:00:00',
+          closes_at: '22:00:00',
+          is_closed: false,
+        }),
+      ],
+      coreServicePeriodRows: [
+        buildServicePeriodRow({
+          name: 'Lunch',
+          booking_option: 'lunch',
+          day_of_week: 1,
+          start_time: '12:00:00',
+          end_time: '15:00:00',
+        }),
+        buildServicePeriodRow({
+          name: 'Dinner',
+          booking_option: 'dinner',
+          day_of_week: 1,
+          start_time: '17:00:00',
+          end_time: '22:00:00',
+        }),
+      ],
+    });
+
+    expect(normalization.operatingHours.source).toBe('public');
+    expect(normalization.operatingHours.matchStatus).toBe('matched');
+    expect(normalization.operatingHours.warnings).toEqual([]);
+    expect(normalization.operatingHours.weekly.find((row) => row.dayOfWeek === 1)).toMatchObject({
+      opensAt: '12:00',
+      closesAt: '22:00',
+      matchesCore: true,
+    });
+    expect(normalization.servicePeriods.matchStatus).toBe('matched');
+    expect(normalization.servicePeriods.periods).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          bookingOption: 'lunch',
+          dayOfWeek: 1,
+          startTime: '12:00',
+          endTime: '15:00',
+          matchesCore: true,
+        }),
+        expect.objectContaining({
+          bookingOption: 'dinner',
+          dayOfWeek: 1,
+          startTime: '17:00',
+          endTime: '22:00',
+          matchesCore: true,
+        }),
+      ]),
+    );
+    expect(normalization.bookingHours.matchStatus).toBe('partial');
+  });
+
+  it('normalizes special hours without treating kitchen more-hours as operating drift', () => {
     const normalization = buildGoogleBusinessProfileCoreNormalization({
       gbpHoursRows: [
         buildHourRow({
@@ -78,14 +162,14 @@ describe('google business profile core normalization', () => {
           open_day: 0,
           close_day: 0,
           open_time: '12:00',
-          close_time: '22:00',
+          close_time: '21:00',
         }),
         buildHourRow({
           hours_type: 'service',
           period_label: 'Kitchen',
           open_day: 0,
           close_day: 0,
-          open_time: '11:00',
+          open_time: '12:00',
           close_time: '21:00',
         }),
         buildHourRow({
@@ -99,7 +183,7 @@ describe('google business profile core normalization', () => {
         buildOperatingHoursRow({
           day_of_week: 0,
           opens_at: '12:00:00',
-          closes_at: '22:00:00',
+          closes_at: '21:00:00',
           is_closed: false,
         }),
         buildOperatingHoursRow({
@@ -113,10 +197,11 @@ describe('google business profile core normalization', () => {
     });
 
     expect(normalization.operatingHours.source).toBe('public');
-    expect(normalization.operatingHours.matchStatus).toBe('partial');
+    expect(normalization.operatingHours.matchStatus).toBe('matched');
+    expect(normalization.operatingHours.warnings).toEqual([]);
     expect(normalization.operatingHours.weekly.find((row) => row.dayOfWeek === 0)).toMatchObject({
       opensAt: '12:00',
-      closesAt: '22:00',
+      closesAt: '21:00',
       matchesCore: true,
     });
     expect(normalization.operatingHours.overrides[0]).toMatchObject({
@@ -124,16 +209,13 @@ describe('google business profile core normalization', () => {
       isClosed: true,
       matchesCore: true,
     });
-    expect(normalization.operatingHours.warnings).toContain(
-      'GBP kitchen more-hours were kept for service-period normalization; operating-hours comparison uses GBP public storefront hours.',
-    );
     expect(normalization.servicePeriods.matchStatus).toBe('drifted');
     expect(normalization.servicePeriods.periods).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           bookingOption: 'lunch',
           dayOfWeek: 0,
-          startTime: '11:00',
+          startTime: '12:00',
           endTime: '17:00',
           matchesCore: false,
         }),

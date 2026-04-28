@@ -10,12 +10,7 @@ const GOOGLE_ACCOUNT_MANAGEMENT_BASE_URL = 'https://mybusinessaccountmanagement.
 const GOOGLE_BUSINESS_INFORMATION_BASE_URL =
   'https://mybusinessbusinessinformation.googleapis.com/v1';
 
-const GOOGLE_BUSINESS_PROFILE_SCOPES = [
-  'https://www.googleapis.com/auth/business.manage',
-  'openid',
-  'email',
-  'profile',
-] as const;
+const GOOGLE_BUSINESS_PROFILE_SCOPES = ['https://www.googleapis.com/auth/business.manage'] as const;
 
 type GoogleAccountResponse = {
   accounts?: Array<{
@@ -285,11 +280,13 @@ async function googleFetchJson<T>(
   accessToken: string,
   init?: RequestInit,
 ): Promise<T> {
+  const quotaProject = env.googleBusinessProfile.quotaProject;
   const response = await fetch(url, {
     ...init,
     headers: {
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
+      ...(quotaProject ? { 'X-Goog-User-Project': quotaProject } : {}),
       ...(init?.headers ?? {}),
     },
   });
@@ -311,7 +308,12 @@ async function googleFetchJson<T>(
     });
   }
 
-  return (await response.json()) as T;
+  const text = await response.text();
+  if (!text.trim()) {
+    return {} as T;
+  }
+
+  return JSON.parse(text) as T;
 }
 
 function normalizeLocationResourceName(locationNameOrId: string): string {
@@ -601,10 +603,14 @@ export async function patchGoogleBusinessProfileLocation(
   locationNameOrId: string,
   payload: Record<string, unknown>,
   updateMask: string[],
+  options: { validateOnly?: boolean } = {},
 ): Promise<GoogleBusinessProfileLocationProfile> {
   const locationName = normalizeLocationResourceName(locationNameOrId);
   const url = new URL(`${GOOGLE_BUSINESS_INFORMATION_BASE_URL}/${locationName}`);
   url.searchParams.set('updateMask', updateMask.join(','));
+  if (options.validateOnly) {
+    url.searchParams.set('validateOnly', 'true');
+  }
 
   return googleFetchJson<GoogleBusinessProfileLocationProfile>(url.toString(), accessToken, {
     method: 'PATCH',

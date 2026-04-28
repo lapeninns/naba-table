@@ -372,17 +372,23 @@ export const env = {
 
   get googleBusinessProfile() {
     const parsed = parseEnv();
+    const clientId =
+      parsed.GOOGLE_BUSINESS_CLIENT_ID ?? parsed.GOOGLE_BUSINESS_PROFILE_CLIENT_ID ?? null;
+    const clientSecret =
+      parsed.GOOGLE_BUSINESS_CLIENT_SECRET ?? parsed.GOOGLE_BUSINESS_PROFILE_CLIENT_SECRET ?? null;
+    const redirectUri =
+      parsed.GOOGLE_BUSINESS_REDIRECT_URI ?? parsed.GOOGLE_BUSINESS_PROFILE_REDIRECT_URI ?? null;
+    const tokenEncryptionKey =
+      parsed.GOOGLE_BUSINESS_TOKEN_ENCRYPTION_KEY ??
+      parsed.GOOGLE_BUSINESS_PROFILE_TOKEN_ENCRYPTION_KEY ??
+      null;
     return {
-      clientId: parsed.GOOGLE_BUSINESS_PROFILE_CLIENT_ID ?? null,
-      clientSecret: parsed.GOOGLE_BUSINESS_PROFILE_CLIENT_SECRET ?? null,
-      redirectUri: parsed.GOOGLE_BUSINESS_PROFILE_REDIRECT_URI ?? null,
-      tokenEncryptionKey: parsed.GOOGLE_BUSINESS_PROFILE_TOKEN_ENCRYPTION_KEY ?? null,
-      configured: Boolean(
-        parsed.GOOGLE_BUSINESS_PROFILE_CLIENT_ID &&
-          parsed.GOOGLE_BUSINESS_PROFILE_CLIENT_SECRET &&
-          parsed.GOOGLE_BUSINESS_PROFILE_REDIRECT_URI &&
-          parsed.GOOGLE_BUSINESS_PROFILE_TOKEN_ENCRYPTION_KEY,
-      ),
+      clientId,
+      clientSecret,
+      redirectUri,
+      tokenEncryptionKey,
+      quotaProject: parsed.GOOGLE_CLOUD_QUOTA_PROJECT ?? null,
+      configured: Boolean(clientId && clientSecret && redirectUri && tokenEncryptionKey),
     } as const;
   },
 

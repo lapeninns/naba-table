@@ -9,10 +9,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
+  useOpsCreateGoogleBusinessProfileDraft,
   useOpsDisconnectGoogleBusinessProfile,
   useOpsGoogleBusinessProfileConnection,
   useOpsLinkGoogleBusinessProfileLocation,
-  useOpsSyncGoogleBusinessProfile,
 } from '@/hooks/ops/useOpsGoogleBusinessProfile';
 import { useOpsOperatingHours } from '@/hooks/ops/useOpsOperatingHours';
 import { useOpsRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
@@ -20,16 +20,14 @@ import { useOpsServicePeriods } from '@/hooks/ops/useOpsServicePeriods';
 import {
   OPS_RESTAURANTS_BASE,
   type GoogleBusinessProfileAvailableLocation,
-  type GoogleBusinessProfileConnection,
 } from '@/services/ops/restaurants';
 
 import { AlignmentCard } from './components/AlignmentCard';
 import { ConnectCard } from './components/ConnectCard';
-import { LinkedSummaryCard } from './components/LinkedSummaryCard';
+import { GoogleBusinessProfileSyncPageShell } from './components/GoogleBusinessProfileSyncPageShell';
 import { LocationPickerCard } from './components/LocationPickerCard';
 import { PageHeader } from './components/PageHeader';
 import { SnapshotCard } from './components/SnapshotCard';
-import { GoogleBusinessProfileSyncActionDialog } from './GoogleBusinessProfileSyncActionDialog';
 import { deriveProfileVerification } from './googleBusinessProfileVerification';
 import { buildDriftReport } from './lib/drift';
 
@@ -66,16 +64,17 @@ export function GoogleBusinessProfileSection({ restaurantId }: GoogleBusinessPro
   const servicePeriodsQuery = useOpsServicePeriods(restaurantId);
   const linkMutation = useOpsLinkGoogleBusinessProfileLocation(restaurantId);
   const disconnectMutation = useOpsDisconnectGoogleBusinessProfile(restaurantId);
-  const syncMutation = useOpsSyncGoogleBusinessProfile(restaurantId);
+  const createDraftMutation = useOpsCreateGoogleBusinessProfileDraft(restaurantId);
 
   const [selectedLocationValue, setSelectedLocationValue] = useState('');
-  const [syncDialogOpen, setSyncDialogOpen] = useState(false);
   const [wantsRelink, setWantsRelink] = useState(false);
 
   useEffect(() => {
     const gbpStatus = searchParams.get('gbp');
     const message = searchParams.get('message');
-    if (!gbpStatus) return;
+    if (!gbpStatus) {
+      return;
+    }
 
     if (gbpStatus === 'connected') {
       toast.success('Google Business Profile connected. Choose a location to finish linking.');
@@ -94,7 +93,9 @@ export function GoogleBusinessProfileSection({ restaurantId }: GoogleBusinessPro
   const data = connectionQuery.data;
 
   useEffect(() => {
-    if (!data) return;
+    if (!data) {
+      return;
+    }
 
     if (data.externalLocationName && data.externalAccountName && !wantsRelink) {
       const linkedLocation = data.availableLocations.find(
@@ -114,7 +115,10 @@ export function GoogleBusinessProfileSection({ restaurantId }: GoogleBusinessPro
   }, [data, selectedLocationValue, wantsRelink]);
 
   const selectedLocation = useMemo<GoogleBusinessProfileAvailableLocation | null>(() => {
-    if (!data) return null;
+    if (!data) {
+      return null;
+    }
+
     return (
       data.availableLocations.find(
         (location) => buildLocationValue(location) === selectedLocationValue,
@@ -170,19 +174,17 @@ export function GoogleBusinessProfileSection({ restaurantId }: GoogleBusinessPro
     : null;
   const hasLinkedLocation = Boolean(data.externalLocationId);
   const isLinked = data.status === 'linked' || data.status === 'sync_error';
-
   const showPicker =
-    data.status === 'authorized' ||
-    data.status === 'reauth_required' ||
-    (isLinked && wantsRelink);
-
+    data.status === 'authorized' || data.status === 'reauth_required' || (isLinked && wantsRelink);
   const showConnect = !isLinked && !showPicker && data.status !== 'authorized';
+  const showChangeLocation = data.availableLocations.length > 1;
 
   const handleLinkLocation = () => {
     if (!selectedLocation) {
       toast.error('Choose a location before linking.');
       return;
     }
+
     linkMutation.mutate(
       {
         accountName: selectedLocation.accountName,
@@ -249,61 +251,55 @@ export function GoogleBusinessProfileSection({ restaurantId }: GoogleBusinessPro
 
       {isLinked ? (
         <>
-          <LinkedSummaryCard
-            data={data}
+          <GoogleBusinessProfileSyncPageShell
+            restaurantId={restaurantId}
+            connection={data}
             manageOnGoogleHref={manageOnGoogleHref}
-            onSyncNow={() => setSyncDialogOpen(true)}
+            onGenerateDraft={() =>
+              createDraftMutation.mutate(undefined, {
+                onSuccess: () => toast.success('GBP review draft generated.'),
+                onError: (error) => toast.error(error.message),
+              })
+            }
             onChangeLocation={() => setWantsRelink(true)}
-            isSyncing={syncMutation.isPending}
+            isGeneratingDraft={createDraftMutation.isPending}
+            showChangeLocation={showChangeLocation}
           />
-          <AlignmentCard
-            report={buildDriftReport({
-              profile: profileQuery.data,
-              connection: data,
-              verification: deriveProfileVerification({
+
+          <section
+            aria-label="Secondary analysis"
+            className="space-y-4 rounded-lg border border-dashed border-border bg-muted/20 p-4"
+            data-testid="gbp-secondary-analysis"
+          >
+            <div className="space-y-1">
+              <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                Secondary analysis
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Reference alignment and snapshot data for deeper operational review.
+              </p>
+            </div>
+            <AlignmentCard
+              report={buildDriftReport({
                 profile: profileQuery.data,
                 connection: data,
-              }),
-            })}
-            connection={data}
-            operatingHours={operatingHoursQuery.data}
-            servicePeriods={servicePeriodsQuery.data}
-            isScheduleDataLoading={
-              (operatingHoursQuery.isLoading && !operatingHoursQuery.data) ||
-              (servicePeriodsQuery.isLoading && !servicePeriodsQuery.data)
-            }
-          />
-          <SnapshotCard businessInfo={data.businessInfo} />
+                verification: deriveProfileVerification({
+                  profile: profileQuery.data,
+                  connection: data,
+                }),
+              })}
+              connection={data}
+              operatingHours={operatingHoursQuery.data}
+              servicePeriods={servicePeriodsQuery.data}
+              isScheduleDataLoading={
+                (operatingHoursQuery.isLoading && !operatingHoursQuery.data) ||
+                (servicePeriodsQuery.isLoading && !servicePeriodsQuery.data)
+              }
+            />
+            <SnapshotCard businessInfo={data.businessInfo} />
+          </section>
         </>
       ) : null}
-
-      <GoogleBusinessProfileSyncActionDialog
-        open={syncDialogOpen}
-        onOpenChange={setSyncDialogOpen}
-        title="Fetch latest GBP business information"
-        description="Refresh Nabatable's canonical GBP business-information snapshot. This updates the fetched GBP data and verification metadata, but it does not overwrite core profile, hours, or service-period values."
-        confirmLabel="Fetch from GBP"
-        isPending={syncMutation.isPending}
-        errorMessage={syncMutation.error?.message ?? null}
-        onConfirm={({ password }) => {
-          syncMutation.mutate(
-            { password },
-            {
-              onSuccess: (state: GoogleBusinessProfileConnection) => {
-                setSyncDialogOpen(false);
-                const warning = state.lastError;
-                if (warning) {
-                  toast.success('Business information synced, with a partial warning.');
-                  toast.warning(warning);
-                  return;
-                }
-                toast.success('Google Business Profile business information synced.');
-              },
-              onError: (error) => toast.error(error.message),
-            },
-          );
-        }}
-      />
     </div>
   );
 }

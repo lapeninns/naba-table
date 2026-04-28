@@ -22,17 +22,20 @@ Convert a Nabatable request into an execution-ready contract. Planning must be s
 
 1. objective
 2. risk tier and reason
-3. affected hosts, surfaces, routes, APIs, and files
-4. route/API identity table, or `Not applicable`
-5. shared-primitive ownership decision when reusable UI is involved
-6. constraints and repo truths that matter
-7. implementation sequence
-8. verification plan, including validator coverage notes when relevant
-9. escalation or stop triggers
+3. assumptions, tradeoffs, and non-goals that affect scope
+4. affected hosts, surfaces, routes, APIs, and files
+5. route/API identity table, or `Not applicable`
+6. shared-primitive ownership decision when reusable UI is involved
+7. observable success criteria
+8. constraints and repo truths that matter
+9. implementation sequence
+10. verification plan, including validator coverage notes when relevant
+11. escalation or stop triggers
 
 ## Hard rules
 
 - Classify tier honestly.
+- Surface material ambiguity before implementation. Ask only when repo evidence cannot safely narrow the request.
 - Call out `src/proxy.ts` whenever host/routing behavior matters.
 - Call out staging-first, remote-only Supabase whenever data work matters.
 - Distinguish real-route QA from harness QA whenever UI is involved.

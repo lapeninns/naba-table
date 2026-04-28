@@ -33,11 +33,12 @@ Nabatable global agent contract. Keep this file thin. Use `docs/sdlc/*` for deli
 Read these in order when planning or executing work:
 
 1. `docs/sdlc/README.md`
-2. `docs/sdlc/risk-tier-workflow.md`
-3. `docs/sdlc/task-harness.md`
-4. `docs/sdlc/verification.md`
-5. `docs/sdlc/subagents.md`
-6. `.agents/*.md`
+2. `docs/sdlc/native-execution-loop.md`
+3. `docs/sdlc/risk-tier-workflow.md`
+4. `docs/sdlc/task-harness.md`
+5. `docs/sdlc/verification.md`
+6. `docs/sdlc/subagents.md`
+7. `.agents/*.md`
 
 ## Validation reality
 

@@ -15,7 +15,6 @@ import { cn } from '@/lib/utils';
 import { StatusBadge, connectionStatusBadge } from './StatusBadge';
 import { formatLastSync } from '../lib/formatters';
 
-
 import type { GoogleBusinessProfileConnection } from '@/services/ops/restaurants';
 
 type PageHeaderProps = {
@@ -52,7 +51,7 @@ export function PageHeader({
           <StatusBadge tone={badge.tone} label={badge.label} />
         </div>
         <p className="text-sm text-muted-foreground">
-          Last sync: <span className="text-foreground">{formatLastSync(lastPullAt)}</span>
+          Last checked: <span className="text-foreground">{formatLastSync(lastPullAt)}</span>
         </p>
       </div>
 
@@ -65,7 +64,7 @@ export function PageHeader({
           disabled={isRefreshing}
         >
           <RefreshCcw className={cn('mr-2 size-4', isRefreshing && 'animate-spin')} />
-          Refresh
+          Refresh Google
         </Button>
 
         {showOverflow ? (

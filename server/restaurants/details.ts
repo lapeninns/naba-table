@@ -189,7 +189,9 @@ export async function updateRestaurantDetails(
     googleReviewUrl: hasInput('googleReviewUrl')
       ? (input.googleReviewUrl ?? null)
       : current.googleReviewUrl,
-    bookingPolicy: hasInput('bookingPolicy') ? (input.bookingPolicy ?? null) : current.bookingPolicy,
+    bookingPolicy: hasInput('bookingPolicy')
+      ? (input.bookingPolicy ?? null)
+      : current.bookingPolicy,
     logoUrl: hasInput('logoUrl') ? (input.logoUrl ?? null) : current.logoUrl,
   };
 
@@ -206,8 +208,8 @@ export async function updateRestaurantDetails(
     managerNotificationPhone: validated.managerNotificationPhone,
     bookingPolicy: validated.bookingPolicy,
     logoUrl: validated.logoUrl,
-    ...(validated.googleMapUrl !== null ? { googleMapUrl: validated.googleMapUrl } : {}),
-    ...(validated.googleReviewUrl !== null ? { googleReviewUrl: validated.googleReviewUrl } : {}),
+    googleMapUrl: validated.googleMapUrl,
+    googleReviewUrl: validated.googleReviewUrl,
   };
   const updated = await updateRestaurant(restaurantId, payload, client);
 

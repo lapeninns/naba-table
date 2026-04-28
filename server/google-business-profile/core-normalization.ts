@@ -416,12 +416,6 @@ function buildOperatingHoursNormalization(params: {
   const source: GoogleBusinessProfileOperatingHoursNormalization['source'] =
     publicRows.length > 0 ? 'public' : kitchenRows.length > 0 ? 'kitchen' : 'unavailable';
 
-  if (source === 'public' && kitchenRows.length > 0) {
-    warnings.push(
-      'GBP kitchen more-hours were kept for service-period normalization; operating-hours comparison uses GBP public storefront hours.',
-    );
-  }
-
   const coreWeeklyRows = params.coreOperatingHoursRows.filter((row) => row.effective_date === null);
   const coreOverrideRows = params.coreOperatingHoursRows.filter(
     (row) => row.effective_date !== null,

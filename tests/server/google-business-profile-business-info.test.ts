@@ -1,6 +1,11 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import { businessInfoTestUtils } from '@/server/google-business-profile/business-info';
+import {
+  businessInfoTestUtils,
+  readGoogleBusinessProfileBusinessInfo,
+} from '@/server/google-business-profile/business-info';
 
 describe('google business profile business info mapping', () => {
   it('maps core location and attribute families into canonical rows', () => {
@@ -266,6 +271,136 @@ describe('google business profile business info mapping', () => {
 
     expect(combined?.syncStatus).toBe('drifted');
     expect(combined?.isVerified).toBe(false);
+  });
+
+  it('upserts GBP business details by provider ownership key', async () => {
+    const calls: Array<{
+      table: string;
+      options: unknown;
+    }> = [];
+    const client = {
+      from(table: string) {
+        return {
+          upsert(_payload: unknown, options: unknown) {
+            calls.push({ table, options });
+            return { error: null };
+          },
+        };
+      },
+    };
+
+    await businessInfoTestUtils.upsertBusinessDetails(
+      'rest-1',
+      {
+        restaurant_id: 'rest-1',
+        business_name: 'Old Crown Girton',
+        description: null,
+        language_code: 'en-GB',
+        opening_date: null,
+        business_status: 'open',
+        is_service_area_business: false,
+        can_reopen: null,
+        source: 'gbp',
+        managed_by: 'gbp',
+        source_record_id: 'locations/456',
+        last_synced_at: '2026-04-25T12:00:00.000Z',
+      },
+      client as Parameters<typeof businessInfoTestUtils.upsertBusinessDetails>[2],
+    );
+
+    expect(calls).toEqual([
+      {
+        table: 'restaurant_business_details',
+        options: { onConflict: 'restaurant_id,source,managed_by' },
+      },
+    ]);
+  });
+
+  it('reads only GBP-owned provider rows for business information snapshots', async () => {
+    const eqCalls: Array<{ table: string; column: string; value: unknown }> = [];
+    class Query {
+      constructor(private readonly table: string) {}
+
+      select() {
+        return this;
+      }
+
+      eq(column: string, value: unknown) {
+        eqCalls.push({ table: this.table, column, value });
+        return this;
+      }
+
+      order() {
+        return this;
+      }
+
+      maybeSingle() {
+        return Promise.resolve({ data: null, error: null });
+      }
+
+      then<TResult1 = { data: unknown[]; error: null }, TResult2 = never>(
+        onfulfilled?:
+          | ((value: { data: unknown[]; error: null }) => TResult1 | PromiseLike<TResult1>)
+          | null,
+        _onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
+      ) {
+        return Promise.resolve({ data: [], error: null }).then(onfulfilled);
+      }
+    }
+
+    const client = {
+      from(table: string) {
+        return new Query(table);
+      },
+    };
+
+    await readGoogleBusinessProfileBusinessInfo(
+      'rest-1',
+      client as Parameters<typeof readGoogleBusinessProfileBusinessInfo>[1],
+    );
+
+    for (const table of [
+      'restaurant_business_details',
+      'restaurant_addresses',
+      'restaurant_phone_numbers',
+      'restaurant_links',
+      'restaurant_categories',
+      'restaurant_service_areas',
+      'restaurant_hours',
+      'restaurant_attributes',
+      'restaurant_service_items',
+    ]) {
+      expect(eqCalls).toEqual(
+        expect.arrayContaining([
+          { table, column: 'source', value: 'gbp' },
+          { table, column: 'managed_by', value: 'gbp' },
+        ]),
+      );
+    }
+  });
+
+  it('keeps provider and Nabatable primary rows separated in the foundation migration', () => {
+    const migration = readFileSync(
+      join(
+        process.cwd(),
+        'supabase/migrations/20260425124700_align_gbp_provider_core_foundation.sql',
+      ),
+      'utf8',
+    );
+
+    expect(migration).toContain('UNIQUE (restaurant_id, source, managed_by)');
+    expect(migration).toContain(
+      'ON public.restaurant_addresses (restaurant_id, source, managed_by)',
+    );
+    expect(migration).toContain(
+      'UNIQUE (restaurant_id, phone_kind, phone_number, source, managed_by)',
+    );
+    expect(migration).toContain(
+      'UNIQUE (restaurant_id, link_type, url, link_status, source, managed_by)',
+    );
+    expect(migration).toContain(
+      'ON public.restaurant_categories (restaurant_id, source, managed_by)',
+    );
   });
 
   it('skips provider verification persistence when the field sync status table is unavailable', async () => {

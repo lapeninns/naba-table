@@ -23,6 +23,9 @@ Execute the approved Nabatable scope with the smallest correct diff, accurate ta
 
 - read relevant files before editing
 - preserve Nabatable invariants: two surfaces, host split, remote-only Supabase, staging-first data work, shadcn/ui-first guidance, and the ops/guest design split
+- choose the smallest useful diff that satisfies the approved success criteria
+- avoid drive-by refactors, adjacent formatting churn, speculative abstractions, and cleanup of pre-existing dead code
+- remove only the unused imports, variables, tests, docs, or routes created by the current change
 - keep the route/API identity contract current whenever the task touches routes, APIs, auth, proxy behavior, or browser QA targets
 - inspect both `components/**` and `src/components/**` before changing shared UI
 - treat `components/ui/**` as shared by default and escalate if the consumer set is cross-surface or uncertain
@@ -36,9 +39,10 @@ Execute the approved Nabatable scope with the smallest correct diff, accurate ta
 
 1. files changed
 2. behavior or contract change
-3. commands run and outcomes
-4. task-folder files updated
-5. remaining risks, gaps, or blockers
+3. how the change satisfies the success criteria
+4. commands run and outcomes
+5. task-folder files updated
+6. remaining risks, gaps, or blockers
 
 ## Stop and escalate when
 

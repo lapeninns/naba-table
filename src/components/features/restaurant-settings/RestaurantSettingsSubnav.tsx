@@ -125,8 +125,8 @@ export function RestaurantSettingsSubnav() {
   );
 
   return (
-    <nav aria-label="Restaurant settings" className="overflow-x-auto">
-      <div className="inline-flex min-w-full gap-2 rounded-lg border border-border/60 bg-muted/40 p-1">
+    <nav aria-label="Restaurant settings" className="min-w-0">
+      <div className="grid min-w-0 grid-cols-1 gap-2 rounded-lg border border-border/60 bg-muted/40 p-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
         {RESTAURANT_SETTINGS_NAV_ITEMS.map((item) => {
           const active =
             pathname != null
@@ -140,14 +140,14 @@ export function RestaurantSettingsSubnav() {
               onMouseEnter={() => void prefetchSettingsView(item.href)}
               onFocus={() => void prefetchSettingsView(item.href)}
               className={cn(
-                'group flex min-w-[180px] flex-col gap-1 rounded-md px-3 py-2 text-left text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                'group flex min-w-0 flex-col gap-1 rounded-md px-3 py-2 text-left text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
                 active
                   ? 'bg-background text-foreground shadow-sm ring-1 ring-border'
                   : 'text-muted-foreground hover:text-foreground hover:ring-1 hover:ring-border',
               )}
             >
-              <span className="leading-5">{item.title}</span>
-              <span className="text-xs font-normal text-muted-foreground/90">
+              <span className="min-w-0 text-wrap leading-5">{item.title}</span>
+              <span className="min-w-0 text-wrap text-xs font-normal text-muted-foreground/90">
                 {item.description}
               </span>
             </Link>

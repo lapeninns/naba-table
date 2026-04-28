@@ -3377,6 +3377,295 @@ export type Database = {
           },
         ];
       };
+      restaurant_external_profile_drafts: {
+        Row: {
+          approved_at: string | null;
+          approved_by_user_id: string | null;
+          conflict_metadata: Json;
+          core_snapshot_hashes: Json;
+          created_at: string;
+          created_by_user_id: string | null;
+          external_profile_id: string | null;
+          fetched_at: string | null;
+          id: string;
+          provider: string;
+          published_at: string | null;
+          published_by_user_id: string | null;
+          restaurant_id: string;
+          section_diffs: Json;
+          selected_approvals: Json;
+          source_snapshot_refs: Json;
+          stale_sections: string[];
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          approved_at?: string | null;
+          approved_by_user_id?: string | null;
+          conflict_metadata?: Json;
+          core_snapshot_hashes?: Json;
+          created_at?: string;
+          created_by_user_id?: string | null;
+          external_profile_id?: string | null;
+          fetched_at?: string | null;
+          id?: string;
+          provider?: string;
+          published_at?: string | null;
+          published_by_user_id?: string | null;
+          restaurant_id: string;
+          section_diffs?: Json;
+          selected_approvals?: Json;
+          source_snapshot_refs?: Json;
+          stale_sections?: string[];
+          status?: string;
+          updated_at?: string;
+        };
+        Update: {
+          approved_at?: string | null;
+          approved_by_user_id?: string | null;
+          conflict_metadata?: Json;
+          core_snapshot_hashes?: Json;
+          created_at?: string;
+          created_by_user_id?: string | null;
+          external_profile_id?: string | null;
+          fetched_at?: string | null;
+          id?: string;
+          provider?: string;
+          published_at?: string | null;
+          published_by_user_id?: string | null;
+          restaurant_id?: string;
+          section_diffs?: Json;
+          selected_approvals?: Json;
+          source_snapshot_refs?: Json;
+          stale_sections?: string[];
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'restaurant_external_profile_drafts_external_profile_id_fkey';
+            columns: ['external_profile_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurant_external_profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'restaurant_external_profile_drafts_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      restaurant_external_profile_publish_events: {
+        Row: {
+          actor_user_id: string | null;
+          affected_sections: string[];
+          created_at: string;
+          direction: string;
+          draft_id: string | null;
+          errors: Json;
+          external_profile_id: string | null;
+          google_update_masks: Json;
+          id: string;
+          new_values: Json;
+          old_values: Json;
+          provider: string;
+          restaurant_id: string;
+          result: string;
+        };
+        Insert: {
+          actor_user_id?: string | null;
+          affected_sections?: string[];
+          created_at?: string;
+          direction: string;
+          draft_id?: string | null;
+          errors?: Json;
+          external_profile_id?: string | null;
+          google_update_masks?: Json;
+          id?: string;
+          new_values?: Json;
+          old_values?: Json;
+          provider?: string;
+          restaurant_id: string;
+          result?: string;
+        };
+        Update: {
+          actor_user_id?: string | null;
+          affected_sections?: string[];
+          created_at?: string;
+          direction?: string;
+          draft_id?: string | null;
+          errors?: Json;
+          external_profile_id?: string | null;
+          google_update_masks?: Json;
+          id?: string;
+          new_values?: Json;
+          old_values?: Json;
+          provider?: string;
+          restaurant_id?: string;
+          result?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'restaurant_external_profile_publish_events_draft_id_fkey';
+            columns: ['draft_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurant_external_profile_drafts';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'restaurant_external_profile_publish_events_external_profile_id_fkey';
+            columns: ['external_profile_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurant_external_profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'restaurant_external_profile_publish_events_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      restaurant_external_profile_publish_jobs: {
+        Row: {
+          created_at: string;
+          created_by_user_id: string | null;
+          draft_id: string;
+          error_classification: string | null;
+          errors: Json;
+          external_profile_id: string | null;
+          failed_at: string | null;
+          google_publish_event_id: string | null;
+          google_pushed_at: string | null;
+          google_retry_by_user_id: string | null;
+          google_update_masks: string[];
+          id: string;
+          idempotency_key: string;
+          mode: string;
+          nabatable_publish_event_id: string | null;
+          nabatable_published_at: string | null;
+          nabatable_sections: string[];
+          post_nabatable_core_hashes: Json;
+          preflight_errors: Json;
+          preflight_nabatable_updates: Json;
+          preflight_pull_only_items: Json;
+          preflight_warnings: Json;
+          preflighted_at: string;
+          provider: string;
+          published_by_user_id: string | null;
+          restaurant_id: string;
+          retried_at: string | null;
+          selected_approvals: Json;
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by_user_id?: string | null;
+          draft_id: string;
+          error_classification?: string | null;
+          errors?: Json;
+          external_profile_id?: string | null;
+          failed_at?: string | null;
+          google_publish_event_id?: string | null;
+          google_pushed_at?: string | null;
+          google_retry_by_user_id?: string | null;
+          google_update_masks?: string[];
+          id?: string;
+          idempotency_key: string;
+          mode?: string;
+          nabatable_publish_event_id?: string | null;
+          nabatable_published_at?: string | null;
+          nabatable_sections?: string[];
+          post_nabatable_core_hashes?: Json;
+          preflight_errors?: Json;
+          preflight_nabatable_updates?: Json;
+          preflight_pull_only_items?: Json;
+          preflight_warnings?: Json;
+          preflighted_at?: string;
+          provider?: string;
+          published_by_user_id?: string | null;
+          restaurant_id: string;
+          retried_at?: string | null;
+          selected_approvals?: Json;
+          status?: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by_user_id?: string | null;
+          draft_id?: string;
+          error_classification?: string | null;
+          errors?: Json;
+          external_profile_id?: string | null;
+          failed_at?: string | null;
+          google_publish_event_id?: string | null;
+          google_pushed_at?: string | null;
+          google_retry_by_user_id?: string | null;
+          google_update_masks?: string[];
+          id?: string;
+          idempotency_key?: string;
+          mode?: string;
+          nabatable_publish_event_id?: string | null;
+          nabatable_published_at?: string | null;
+          nabatable_sections?: string[];
+          post_nabatable_core_hashes?: Json;
+          preflight_errors?: Json;
+          preflight_nabatable_updates?: Json;
+          preflight_pull_only_items?: Json;
+          preflight_warnings?: Json;
+          preflighted_at?: string;
+          provider?: string;
+          published_by_user_id?: string | null;
+          restaurant_id?: string;
+          retried_at?: string | null;
+          selected_approvals?: Json;
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'restaurant_external_profile_publish_jobs_draft_id_fkey';
+            columns: ['draft_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurant_external_profile_drafts';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'restaurant_external_profile_publish_jobs_external_profile_id_fkey';
+            columns: ['external_profile_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurant_external_profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'restaurant_external_profile_publish_jobs_google_publish_event_id_fkey';
+            columns: ['google_publish_event_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurant_external_profile_publish_events';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'restaurant_external_profile_publish_jobs_nabatable_publish_event_id_fkey';
+            columns: ['nabatable_publish_event_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurant_external_profile_publish_events';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'restaurant_external_profile_publish_jobs_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       restaurant_field_sync_statuses: {
         Row: {
           created_at: string;
@@ -3450,8 +3739,6 @@ export type Database = {
       };
       restaurant_external_profile_credentials: {
         Row: {
-          access_token_encrypted: string | null;
-          access_token_expires_at: string | null;
           connected_google_email: string | null;
           connected_google_name: string | null;
           created_at: string;
@@ -3465,8 +3752,6 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
-          access_token_encrypted?: string | null;
-          access_token_expires_at?: string | null;
           connected_google_email?: string | null;
           connected_google_name?: string | null;
           created_at?: string;
@@ -3480,8 +3765,6 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
-          access_token_encrypted?: string | null;
-          access_token_expires_at?: string | null;
           connected_google_email?: string | null;
           connected_google_name?: string | null;
           created_at?: string;
@@ -3544,6 +3827,69 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: 'restaurant_external_profile_oauth_states_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      restaurant_external_profile_sync_runs: {
+        Row: {
+          created_at: string;
+          error_code: string | null;
+          error_message: string | null;
+          external_profile_id: string;
+          finished_at: string | null;
+          id: string;
+          metadata: Json | null;
+          provider: string;
+          restaurant_id: string;
+          run_kind: string;
+          started_at: string;
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          error_code?: string | null;
+          error_message?: string | null;
+          external_profile_id: string;
+          finished_at?: string | null;
+          id?: string;
+          metadata?: Json | null;
+          provider?: string;
+          restaurant_id: string;
+          run_kind?: string;
+          started_at?: string;
+          status: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          error_code?: string | null;
+          error_message?: string | null;
+          external_profile_id?: string;
+          finished_at?: string | null;
+          id?: string;
+          metadata?: Json | null;
+          provider?: string;
+          restaurant_id?: string;
+          run_kind?: string;
+          started_at?: string;
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'restaurant_external_profile_sync_runs_external_profile_id_fkey';
+            columns: ['external_profile_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurant_external_profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'restaurant_external_profile_sync_runs_restaurant_id_fkey';
             columns: ['restaurant_id'];
             isOneToOne: false;
             referencedRelation: 'restaurants';
@@ -3819,6 +4165,7 @@ export type Database = {
           can_reopen: boolean | null;
           created_at: string;
           description: string | null;
+          id: string;
           is_service_area_business: boolean;
           last_manual_override_at: string | null;
           last_synced_at: string | null;
@@ -3836,6 +4183,7 @@ export type Database = {
           can_reopen?: boolean | null;
           created_at?: string;
           description?: string | null;
+          id?: string;
           is_service_area_business?: boolean;
           last_manual_override_at?: string | null;
           last_synced_at?: string | null;
@@ -3853,6 +4201,7 @@ export type Database = {
           can_reopen?: boolean | null;
           created_at?: string;
           description?: string | null;
+          id?: string;
           is_service_area_business?: boolean;
           last_manual_override_at?: string | null;
           last_synced_at?: string | null;
@@ -3868,7 +4217,7 @@ export type Database = {
           {
             foreignKeyName: 'restaurant_business_details_restaurant_id_fkey';
             columns: ['restaurant_id'];
-            isOneToOne: true;
+            isOneToOne: false;
             referencedRelation: 'restaurants';
             referencedColumns: ['id'];
           },

@@ -22,29 +22,17 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useRegisterOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
 import { useOpsGoogleBusinessProfileConnection } from '@/hooks/ops/useOpsGoogleBusinessProfile';
 import {
-  useOpsSyncRestaurantDetailsWithGoogleBusinessProfile,
   useOpsRestaurantDetails,
   useOpsUpdateRestaurantDetails,
 } from '@/hooks/ops/useOpsRestaurantDetails';
 import { DEFAULT_RESERVATION_INTERVAL_MINUTES } from '@reserve/shared/config/reservations';
 
-import { GoogleBusinessProfileSyncActionDialog } from './google-business-profile/GoogleBusinessProfileSyncActionDialog';
 import { deriveProfileVerification } from './google-business-profile/googleBusinessProfileVerification';
-import { GoogleBusinessProfileVerificationControls } from './google-business-profile/GoogleBusinessProfileVerificationControls';
 import { RestaurantBusinessContextSection } from './RestaurantBusinessContextSection';
 import { RestaurantLogoUploader } from './RestaurantLogoUploader';
-import { SettingsJumpNav, type SettingsJumpNavItem } from './SettingsJumpNav';
 import { SettingsCard } from './shared/SettingsCard';
 
-const PROFILE_JUMP_ITEMS: SettingsJumpNavItem[] = [
-  { id: 'profile-identity', label: 'Identity & contact' },
-  { id: 'profile-booking', label: 'Booking experience' },
-  { id: 'profile-notifications', label: 'Staff notifications' },
-  { id: 'profile-advanced', label: 'Advanced' },
-];
-
 import type { UpdateRestaurantInput } from '@/app/api/ops/restaurants/schema';
-import type { GoogleBusinessProfileProfileField } from '@/services/ops/restaurants';
 
 const EMPTY_VALUES: RestaurantDetailsFormValues = {
   name: '',
@@ -72,8 +60,6 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
   const { data, error, isLoading, refetch } = useOpsRestaurantDetails(restaurantId);
   const gbpConnectionQuery = useOpsGoogleBusinessProfileConnection(restaurantId);
   const updateMutation = useOpsUpdateRestaurantDetails(restaurantId);
-  const syncMutation = useOpsSyncRestaurantDetailsWithGoogleBusinessProfile(restaurantId);
-  const [syncDialogMode, setSyncDialogMode] = useState<null | 'pull' | 'push'>(null);
   const [formDirty, setFormDirty] = useState(false);
 
   useRegisterOpsUnsavedChanges(
@@ -115,59 +101,6 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
       }),
     [data, gbpConnectionQuery.data],
   );
-  const pullSelectionItems = useMemo(
-    () =>
-      (
-        [
-          ['name', 'Business name'],
-          ['contactPhone', 'Phone number'],
-          ['address', 'Address'],
-          ['googleMapUrl', 'Google Maps URL'],
-          ['googleReviewUrl', 'Google review URL'],
-        ] as const
-      )
-        .map(([field, label]) => {
-          const verification = profileVerification.fields[field];
-          return {
-            id: field,
-            label,
-            description:
-              verification.providerValue ?? 'Google Business Profile does not currently expose a value.',
-            details: verification.tooltipLines,
-            defaultChecked: verification.canPull && verification.status !== 'verified',
-            disabled: !verification.canPull,
-          };
-        })
-        .filter((item) => !item.disabled),
-    [profileVerification.fields],
-  );
-  const pushSelectionItems = useMemo(
-    () =>
-      (
-        [
-          ['name', 'Business name'],
-          ['contactPhone', 'Phone number'],
-          ['address', 'Address'],
-        ] as const
-      )
-        .map(([field, label]) => {
-          const verification = profileVerification.fields[field];
-          return {
-            id: field,
-            label,
-            description:
-              verification.providerValue ?? 'GBP currently has no value for this field.',
-            details: verification.tooltipLines,
-            defaultChecked: verification.canPush && verification.status !== 'verified',
-            disabled: !verification.canPush,
-          };
-        })
-        .filter((item) => !item.disabled),
-    [profileVerification.fields],
-  );
-  const activeSyncItems = syncDialogMode === 'push' ? pushSelectionItems : pullSelectionItems;
-  const activeDirection = syncDialogMode === 'push' ? 'push_to_gbp' : 'pull_from_gbp';
-
   const handleSubmit = async (values: UpdateRestaurantInput) => {
     try {
       await updateMutation.mutateAsync({
@@ -240,28 +173,14 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
   }
 
   return (
-    <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-      <SettingsJumpNav items={PROFILE_JUMP_ITEMS} ariaLabel="Restaurant profile sections" />
-
-      <div className="min-w-0 flex-1 space-y-6">
+    <div className="space-y-6">
       <SettingsCard
         title="Restaurant Profile"
         description="Update core restaurant details and contact information."
         headerAction={
-          <GoogleBusinessProfileVerificationControls
-            status={profileVerification.status}
-            recommendedDirection={profileVerification.recommendedDirection}
-            canPull={profileVerification.canPull}
-            canPush={profileVerification.canPush}
-            onPull={() => setSyncDialogMode('pull')}
-            onPush={() => setSyncDialogMode('push')}
-            isPulling={
-              syncMutation.isPending && syncMutation.variables?.direction === 'pull_from_gbp'
-            }
-            isPushing={
-              syncMutation.isPending && syncMutation.variables?.direction === 'push_to_gbp'
-            }
-          />
+          <Button type="button" variant="outline" asChild>
+            <a href="/app/settings/restaurant/google-business-profile">Review GBP draft</a>
+          </Button>
         }
       >
         <div className="space-y-6">
@@ -272,9 +191,6 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
                 {warning}
               </p>
             ))}
-            {syncMutation.error ? (
-              <p className="text-xs text-destructive">{syncMutation.error.message}</p>
-            ) : null}
           </div>
           <RestaurantLogoUploader
             restaurantId={restaurantId}
@@ -291,40 +207,6 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
             gbpFieldVerifications={profileVerification.fields}
           />
         </div>
-        <GoogleBusinessProfileSyncActionDialog
-          open={syncDialogMode !== null}
-          onOpenChange={(open) => {
-            if (!open) {
-              setSyncDialogMode(null);
-            }
-          }}
-          title={
-            syncDialogMode === 'push' ? 'Push profile fields to GBP' : 'Import profile fields from GBP'
-          }
-          description={
-            syncDialogMode === 'push'
-              ? 'Choose which canonical Nabatable profile fields to export to Google Business Profile, then confirm the action with your login password.'
-              : 'Choose which Google Business Profile fields to import into the canonical Nabatable profile, then confirm the action with your login password.'
-          }
-          confirmLabel={syncDialogMode === 'push' ? 'Push selected fields' : 'Import selected fields'}
-          items={activeSyncItems}
-          isPending={syncMutation.isPending}
-          errorMessage={syncMutation.error?.message ?? null}
-          onConfirm={({ password, selectedIds }) => {
-            syncMutation.mutate(
-              {
-                direction: activeDirection,
-                password,
-                fields: selectedIds as GoogleBusinessProfileProfileField[],
-              },
-              {
-                onSuccess: () => {
-                  setSyncDialogMode(null);
-                },
-              },
-            );
-          }}
-        />
       </SettingsCard>
 
       <div id="profile-advanced" className="scroll-mt-28">
@@ -332,7 +214,11 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
           title="Advanced"
           description="Low-frequency structured metadata and specialist setup for discovery, integrations, and future sync-aware flows."
         >
-          <Accordion type="single" collapsible className="rounded-xl border border-border/60 bg-muted/10">
+          <Accordion
+            type="single"
+            collapsible
+            className="rounded-xl border border-border/60 bg-muted/10"
+          >
             <AccordionItem value="business-context" className="border-none">
               <AccordionTrigger className="rounded-xl px-4 py-4 hover:bg-muted/30">
                 <div className="flex min-w-0 flex-1 items-start gap-3 text-left">
@@ -341,7 +227,9 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
                   </div>
                   <div className="min-w-0 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-semibold text-foreground">Business Context</span>
+                      <span className="text-sm font-semibold text-foreground">
+                        Business Context
+                      </span>
                       <Badge variant="outline" className="text-[11px] uppercase tracking-[0.16em]">
                         Advanced
                       </Badge>
@@ -359,7 +247,6 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
             </AccordionItem>
           </Accordion>
         </SettingsCard>
-      </div>
       </div>
     </div>
   );

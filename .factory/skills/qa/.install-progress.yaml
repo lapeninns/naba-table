@@ -1,0 +1,47 @@
+project: nabatable-platform
+updated_at: 2026-04-28T11:55:00Z
+analysis:
+  monorepo: false
+  apps:
+    - name: web
+      kind: nextjs
+      surfaces:
+        - guest-public
+        - ops
+        - shared-api
+    - name: reserve
+      kind: vite
+      surfaces:
+        - reserve-widget
+    - name: cloudflare-workers
+      kind: worker
+      surfaces:
+        - email-queue-gateway
+        - sms-summary-gateway
+        - booking-short-links
+  auth:
+    provider: Supabase
+    methods:
+      - magic-link
+      - email-password
+  ci:
+    github_directory_present: false
+answers:
+  default_target:
+    environment: development
+    restrictions: []
+  personas:
+    baseline: guest-and-ops-owner
+    credential_strategy: manual-placeholders
+  critical_flows:
+    mode: all-detected
+  external_services:
+    policy: sandbox-or-test-where-available
+    notifications: manual-inbox-or-phone-checks
+    gbp: run-only-when-creds-exist
+  cleanup:
+    strategy: delete-via-api-or-admin
+    default_instruction: use-admin-ui-cleanup
+  imagemagick: true
+  failure_learning: suggest_in_report
+pending_categories: []
