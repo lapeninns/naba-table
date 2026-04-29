@@ -14,7 +14,11 @@ import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 type RestaurantRow = Database['public']['Tables']['restaurants']['Row'];
+type BusinessDetailsRow = Database['public']['Tables']['restaurant_business_details']['Row'];
 type DbClient = SupabaseClient<Database>;
+
+const CORE_SOURCE = 'nabatable';
+const CORE_MANAGED_BY = 'nabatable';
 
 export type RestaurantDetails = {
   restaurantId: string;
@@ -25,6 +29,7 @@ export type RestaurantDetails = {
   contactEmail: string | null;
   contactPhone: string | null;
   address: string | null;
+  businessDescription: string | null;
   managerDailySummaryEnabled: boolean;
   managerNotificationPhone: string | null;
   googleMapUrl: string | null;
@@ -42,6 +47,7 @@ export type UpdateRestaurantDetailsInput = {
   contactEmail?: string | null;
   contactPhone?: string | null;
   address?: string | null;
+  businessDescription?: string | null;
   managerDailySummaryEnabled?: boolean;
   managerNotificationPhone?: string | null;
   googleMapUrl?: string | null;
@@ -68,6 +74,7 @@ type NormalizedDetailsInput = {
   contactEmail: string | null;
   contactPhone: string | null;
   address: string | null;
+  businessDescription: string | null;
   managerDailySummaryEnabled: boolean;
   managerNotificationPhone: string | null;
   googleMapUrl: string | null;
@@ -106,6 +113,7 @@ function validateDetailsInput(input: NormalizedDetailsInput): NormalizedDetailsI
     contactEmail: sanitizeString(input.contactEmail),
     contactPhone: sanitizeString(input.contactPhone),
     address: sanitizeString(input.address),
+    businessDescription: sanitizeString(input.businessDescription),
     managerDailySummaryEnabled: input.managerDailySummaryEnabled ?? false,
     managerNotificationPhone: sanitizeString(input.managerNotificationPhone),
     googleMapUrl: sanitizeString(input.googleMapUrl),
@@ -113,6 +121,54 @@ function validateDetailsInput(input: NormalizedDetailsInput): NormalizedDetailsI
     bookingPolicy: sanitizeString(input.bookingPolicy),
     logoUrl: sanitizeString(input.logoUrl),
   };
+}
+
+export async function getRestaurantBusinessDescription(
+  restaurantId: string,
+  client: DbClient = getServiceSupabaseClient(),
+): Promise<string | null> {
+  const { data, error } = await client
+    .from('restaurant_business_details')
+    .select('description')
+    .eq('restaurant_id', restaurantId)
+    .eq('source', CORE_SOURCE)
+    .eq('managed_by', CORE_MANAGED_BY)
+    .maybeSingle<Pick<BusinessDetailsRow, 'description'>>();
+
+  if (error) {
+    throw error;
+  }
+
+  return data?.description ?? null;
+}
+
+export async function upsertRestaurantBusinessDescription(
+  restaurantId: string,
+  description: string | null | undefined,
+  client: DbClient = getServiceSupabaseClient(),
+): Promise<string | null> {
+  const normalizedDescription = sanitizeString(description);
+  const { error } = await client.from('restaurant_business_details').upsert(
+    {
+      restaurant_id: restaurantId,
+      description: normalizedDescription,
+      source: CORE_SOURCE,
+      managed_by: CORE_MANAGED_BY,
+      last_manual_override_at: new Date().toISOString(),
+      change_origin: 'owner',
+      changed_via: 'ops_restaurant_profile',
+      change_reason: 'Owner/admin restaurant profile update.',
+    },
+    {
+      onConflict: 'restaurant_id,source,managed_by',
+    },
+  );
+
+  if (error) {
+    throw error;
+  }
+
+  return normalizedDescription;
 }
 
 export async function getRestaurantDetails(
@@ -143,6 +199,7 @@ export async function getRestaurantDetails(
   }
 
   const restaurant = ensureLogoColumnOnRow(data);
+  const businessDescription = await getRestaurantBusinessDescription(restaurantId, client);
   return {
     restaurantId: restaurant.id,
     name: restaurant.name,
@@ -152,6 +209,7 @@ export async function getRestaurantDetails(
     contactEmail: restaurant.contact_email,
     contactPhone: restaurant.contact_phone,
     address: restaurant.address,
+    businessDescription,
     managerDailySummaryEnabled: restaurant.manager_daily_summary_enabled ?? false,
     managerNotificationPhone: restaurant.manager_notification_phone,
     googleMapUrl: restaurant.google_map_url,
@@ -179,6 +237,9 @@ export async function updateRestaurantDetails(
     contactEmail: hasInput('contactEmail') ? (input.contactEmail ?? null) : current.contactEmail,
     contactPhone: hasInput('contactPhone') ? (input.contactPhone ?? null) : current.contactPhone,
     address: hasInput('address') ? (input.address ?? null) : current.address,
+    businessDescription: hasInput('businessDescription')
+      ? (input.businessDescription ?? null)
+      : current.businessDescription,
     managerDailySummaryEnabled: hasInput('managerDailySummaryEnabled')
       ? (input.managerDailySummaryEnabled ?? false)
       : current.managerDailySummaryEnabled,
@@ -212,6 +273,13 @@ export async function updateRestaurantDetails(
     googleReviewUrl: validated.googleReviewUrl,
   };
   const updated = await updateRestaurant(restaurantId, payload, client);
+  const businessDescription = hasInput('businessDescription')
+    ? await upsertRestaurantBusinessDescription(
+        restaurantId,
+        validated.businessDescription,
+        client,
+      )
+    : current.businessDescription;
 
   return {
     restaurantId: updated.id,
@@ -222,6 +290,7 @@ export async function updateRestaurantDetails(
     contactEmail: updated.contactEmail,
     contactPhone: updated.contactPhone,
     address: updated.address,
+    businessDescription,
     managerDailySummaryEnabled: updated.managerDailySummaryEnabled,
     managerNotificationPhone: updated.managerNotificationPhone,
     googleMapUrl: updated.googleMapUrl,

@@ -19,6 +19,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { useOpsUpdateRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
 import {
   RESERVATION_INTERVAL_MAX,
   RESERVATION_INTERVAL_MIN,
@@ -27,6 +28,7 @@ import { cn } from '@/lib/utils';
 
 import type { UpdateRestaurantInput } from '@/app/api/ops/restaurants/schema';
 import type { ProfileFieldVerification } from '@/components/features/restaurant-settings/google-business-profile/googleBusinessProfileVerification';
+import type { RestaurantProfile } from '@/services/ops/restaurants';
 import type { PropsWithChildren } from 'react';
 
 export type RestaurantDetailsFormValues = {
@@ -36,6 +38,7 @@ export type RestaurantDetailsFormValues = {
   contactEmail: string | null;
   contactPhone: string | null;
   address: string | null;
+  businessDescription: string | null;
   managerDailySummaryEnabled: boolean;
   managerNotificationPhone: string | null;
   googleMapUrl: string | null;
@@ -65,6 +68,7 @@ type FormState = {
   contactEmail: string;
   contactPhone: string;
   address: string;
+  businessDescription: string;
   managerDailySummaryEnabled: boolean;
   managerNotificationPhone: string;
   googleMapUrl: string;
@@ -77,15 +81,23 @@ type FormState = {
 };
 
 type FormErrors = Partial<Record<keyof FormState, string>>;
-type GbpComparableField = 'name' | 'contactPhone' | 'address' | 'googleMapUrl' | 'googleReviewUrl';
+type GbpComparableField =
+  | 'name'
+  | 'businessDescription'
+  | 'contactPhone'
+  | 'address'
+  | 'googleMapUrl'
+  | 'googleReviewUrl';
 type GbpFieldStatus = 'verified' | 'drifted' | 'unavailable';
 
 const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 const FIELD_TOOLTIPS = {
-  slug: 'Lowercase identifier used in booking links and exports. Only letters, numbers, and hyphens are allowed.',
+  slug: 'Lowercase text used in booking links. Only letters, numbers, and hyphens are allowed.',
   timezone:
-    'Determines how operating hours, reservations, and reminders are interpreted across the product.',
+    'Keeps opening hours, reservations, and reminders aligned to the restaurant’s local time.',
+  businessDescription:
+    'Public copy guests may see when they find or book this restaurant. Keep it clear and current.',
   reservationInterval:
     'Spacing between available reservation slots. Shorter intervals create more options but increase booking traffic.',
   reservationDuration:
@@ -182,6 +194,7 @@ function compareFieldValue(
       return Boolean(currentUrl) && currentUrl === providerUrl;
     }
     case 'name':
+    case 'businessDescription':
     case 'address': {
       const currentText = normalizeComparableText(currentValue);
       const providerText = normalizeComparableText(gbpValue);
@@ -192,7 +205,10 @@ function compareFieldValue(
   }
 }
 
-function GbpStatusBadge(props: { verification?: ProfileFieldVerification; status: GbpFieldStatus }) {
+function GbpStatusBadge(props: {
+  verification?: ProfileFieldVerification;
+  status: GbpFieldStatus;
+}) {
   if (props.status === 'unavailable' || !props.verification) {
     return null;
   }
@@ -216,6 +232,7 @@ function mapInitialValues(values: RestaurantDetailsFormValues): FormState {
     contactEmail: values.contactEmail ?? '',
     contactPhone: values.contactPhone ?? '',
     address: values.address ?? '',
+    businessDescription: values.businessDescription ?? '',
     managerDailySummaryEnabled: values.managerDailySummaryEnabled ?? false,
     managerNotificationPhone: values.managerNotificationPhone ?? '',
     bookingPolicy: values.bookingPolicy ?? '',
@@ -270,6 +287,7 @@ function sanitizePayload(state: FormState): UpdateRestaurantInput {
   const trimmedEmail = trim(state.contactEmail);
   const trimmedPhone = trim(state.contactPhone);
   const trimmedAddress = trim(state.address);
+  const trimmedBusinessDescription = trim(state.businessDescription);
   const trimmedManagerNotificationPhone = trim(state.managerNotificationPhone);
   const trimmedMapUrl = trim(state.googleMapUrl);
   const trimmedReviewUrl = trim(state.googleReviewUrl);
@@ -286,6 +304,7 @@ function sanitizePayload(state: FormState): UpdateRestaurantInput {
     contactEmail: trimmedEmail.length > 0 ? trimmedEmail : null,
     contactPhone: trimmedPhone.length > 0 ? trimmedPhone : null,
     address: trimmedAddress.length > 0 ? trimmedAddress : null,
+    businessDescription: trimmedBusinessDescription.length > 0 ? trimmedBusinessDescription : null,
     managerDailySummaryEnabled: state.managerDailySummaryEnabled,
     managerNotificationPhone:
       trimmedManagerNotificationPhone.length > 0 ? trimmedManagerNotificationPhone : null,
@@ -312,9 +331,9 @@ function validate(state: FormState): FormErrors {
 
   const slug = state.slug.trim();
   if (!slug) {
-    errors.slug = 'Slug is required';
+    errors.slug = 'Booking link slug is required';
   } else if (!SLUG_PATTERN.test(slug)) {
-    errors.slug = 'Slug must contain only lowercase letters, numbers, and hyphens';
+    errors.slug = 'Booking link slug must contain only lowercase letters, numbers, and hyphens';
   }
 
   if (!state.timezone.trim()) {
@@ -409,7 +428,1024 @@ function validate(state: FormState): FormErrors {
     }
   }
 
+  if (state.businessDescription.length > 4096) {
+    errors.businessDescription = 'Business description must be 4096 characters or fewer';
+  }
+
   return errors;
+}
+
+type RestaurantDetailsSubformProps = {
+  restaurantId: string | null;
+  initialValues: RestaurantDetailsFormValues;
+  onDirtyChange?: (dirty: boolean) => void;
+  gbpFieldVerifications?: Partial<Record<GbpComparableField, ProfileFieldVerification>>;
+};
+
+type DetailsField = keyof FormState;
+
+function pickState(state: FormState, fields: readonly DetailsField[]): Partial<FormState> {
+  return fields.reduce<Partial<FormState>>((result, field) => {
+    result[field] = state[field] as never;
+    return result;
+  }, {});
+}
+
+function filterErrors(errors: FormErrors, fields: readonly DetailsField[]): FormErrors {
+  return fields.reduce<FormErrors>((result, field) => {
+    if (errors[field]) {
+      result[field] = errors[field];
+    }
+    return result;
+  }, {});
+}
+
+function getGbpStatuses(
+  state: FormState,
+  gbpFieldVerifications?: Partial<Record<GbpComparableField, ProfileFieldVerification>>,
+) {
+  return {
+    name: compareFieldValue('name', state.name, gbpFieldVerifications?.name?.providerValue)
+      ? ('verified' as const)
+      : gbpFieldVerifications?.name?.providerValue || state.name
+        ? ('drifted' as const)
+        : ('unavailable' as const),
+    businessDescription: compareFieldValue(
+      'businessDescription',
+      state.businessDescription,
+      gbpFieldVerifications?.businessDescription?.providerValue,
+    )
+      ? ('verified' as const)
+      : gbpFieldVerifications?.businessDescription?.providerValue || state.businessDescription
+        ? ('drifted' as const)
+        : ('unavailable' as const),
+    contactPhone: compareFieldValue(
+      'contactPhone',
+      state.contactPhone,
+      gbpFieldVerifications?.contactPhone?.providerValue,
+    )
+      ? ('verified' as const)
+      : gbpFieldVerifications?.contactPhone?.providerValue || state.contactPhone
+        ? ('drifted' as const)
+        : ('unavailable' as const),
+    address: compareFieldValue(
+      'address',
+      state.address,
+      gbpFieldVerifications?.address?.providerValue,
+    )
+      ? ('verified' as const)
+      : gbpFieldVerifications?.address?.providerValue || state.address
+        ? ('drifted' as const)
+        : ('unavailable' as const),
+    googleMapUrl: compareFieldValue(
+      'googleMapUrl',
+      state.googleMapUrl,
+      gbpFieldVerifications?.googleMapUrl?.providerValue,
+    )
+      ? ('verified' as const)
+      : gbpFieldVerifications?.googleMapUrl?.providerValue || state.googleMapUrl
+        ? ('drifted' as const)
+        : ('unavailable' as const),
+    googleReviewUrl: compareFieldValue(
+      'googleReviewUrl',
+      state.googleReviewUrl,
+      gbpFieldVerifications?.googleReviewUrl?.providerValue,
+    )
+      ? ('verified' as const)
+      : gbpFieldVerifications?.googleReviewUrl?.providerValue || state.googleReviewUrl
+        ? ('drifted' as const)
+        : ('unavailable' as const),
+  };
+}
+
+function useRestaurantDetailsSubform({
+  initialValues,
+  fields,
+  onDirtyChange,
+  restaurantId,
+}: {
+  initialValues: RestaurantDetailsFormValues;
+  fields: readonly DetailsField[];
+  onDirtyChange?: (dirty: boolean) => void;
+  restaurantId: string | null;
+}) {
+  const updateMutation = useOpsUpdateRestaurantDetails(restaurantId);
+  const [state, setState] = useState<FormState>(() => mapInitialValues(initialValues));
+  const [errors, setErrors] = useState<FormErrors>({});
+  const initialFormState = useMemo(() => mapInitialValues(initialValues), [initialValues]);
+  const serializedInitialValues = useMemo(
+    () => JSON.stringify(pickState(initialFormState, fields)),
+    [fields, initialFormState],
+  );
+  const serializedCurrentState = useMemo(
+    () => JSON.stringify(pickState(state, fields)),
+    [fields, state],
+  );
+  const isDirty = serializedCurrentState !== serializedInitialValues;
+
+  useEffect(() => {
+    if (isDirty) {
+      return;
+    }
+    setState(initialFormState);
+    setErrors({});
+  }, [initialFormState, isDirty]);
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
+
+  const handleChange = (field: keyof FormState, value: string) => {
+    setState((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: undefined }));
+    }
+  };
+
+  const handleToggle = (
+    field: keyof Pick<FormState, 'managerDailySummaryEnabled'>,
+    value: boolean,
+  ) => {
+    setState((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: undefined }));
+    }
+  };
+
+  const submitPartial = async (
+    event: React.FormEvent,
+    payloadBuilder: (nextState: FormState) => Partial<RestaurantProfile>,
+    errorLogLabel: string,
+  ) => {
+    event.preventDefault();
+    const nextErrors = filterErrors(validate(state), fields);
+    if (Object.values(nextErrors).some(Boolean)) {
+      setErrors(nextErrors);
+      return;
+    }
+
+    try {
+      await updateMutation.mutateAsync(payloadBuilder(state));
+      setErrors({});
+    } catch (error) {
+      console.error(`[${errorLogLabel}] submit failed`, error);
+    }
+  };
+
+  return {
+    state,
+    errors,
+    isSubmitting: updateMutation.isPending,
+    handleChange,
+    handleToggle,
+    submitPartial,
+  };
+}
+
+function SubformActions({
+  isSubmitting,
+  submitLabel,
+}: {
+  isSubmitting: boolean;
+  submitLabel: string;
+}) {
+  return (
+    <div className="flex justify-end">
+      <Button type="submit" disabled={isSubmitting}>
+        {isSubmitting ? 'Saving…' : submitLabel}
+      </Button>
+    </div>
+  );
+}
+
+const BRAND_FIELDS = ['name', 'businessDescription'] as const satisfies readonly DetailsField[];
+const CONTACT_FIELDS = [
+  'timezone',
+  'contactEmail',
+  'contactPhone',
+  'address',
+  'googleMapUrl',
+  'googleReviewUrl',
+] as const satisfies readonly DetailsField[];
+const NOTIFICATION_FIELDS = [
+  'managerNotificationPhone',
+  'managerDailySummaryEnabled',
+] as const satisfies readonly DetailsField[];
+const ADVANCED_FIELDS = ['slug'] as const satisfies readonly DetailsField[];
+const BOOKING_RULE_FIELDS = [
+  'bookingPolicy',
+  'reservationIntervalMinutes',
+  'reservationDefaultDurationMinutes',
+  'reservationLastSeatingBufferMinutes',
+  'reservationLifecycleGraceMinutes',
+] as const satisfies readonly DetailsField[];
+
+export function BrandIdentitySubform({
+  restaurantId,
+  initialValues,
+  onDirtyChange,
+  gbpFieldVerifications,
+}: RestaurantDetailsSubformProps) {
+  const { state, errors, isSubmitting, handleChange, submitPartial } = useRestaurantDetailsSubform({
+    initialValues,
+    fields: BRAND_FIELDS,
+    onDirtyChange,
+    restaurantId,
+  });
+  const gbpStatuses = getGbpStatuses(state, gbpFieldVerifications);
+
+  return (
+    <TooltipProvider delayDuration={100}>
+      <form
+        className="flex flex-col gap-4"
+        onSubmit={(event) =>
+          submitPartial(
+            event,
+            (nextState) => {
+              const payload = sanitizePayload(nextState);
+              return {
+                name: payload.name,
+                businessDescription: payload.businessDescription,
+              };
+            },
+            'BrandIdentitySubform',
+          )
+        }
+      >
+        <div className="flex flex-col gap-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <Label htmlFor="restaurant-name">
+              Restaurant Name <span className="text-destructive">*</span>
+            </Label>
+            <GbpStatusBadge status={gbpStatuses.name} verification={gbpFieldVerifications?.name} />
+          </div>
+          <Input
+            id="restaurant-name"
+            value={state.name}
+            onChange={(event) => handleChange('name', event.target.value)}
+            aria-invalid={Boolean(errors.name)}
+            aria-describedby={errors.name ? 'restaurant-name-error' : undefined}
+            className={cn(errors.name && 'border-destructive focus-visible:ring-destructive/60')}
+          />
+          {errors.name ? (
+            <p id="restaurant-name-error" className="text-xs text-destructive" role="alert">
+              {errors.name}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <Label htmlFor="restaurant-business-description">Business description</Label>
+            <GbpStatusBadge
+              status={gbpStatuses.businessDescription}
+              verification={gbpFieldVerifications?.businessDescription}
+            />
+            <HelpTooltip
+              description={FIELD_TOOLTIPS.businessDescription}
+              ariaLabel="Business description details"
+            />
+          </div>
+          <Textarea
+            id="restaurant-business-description"
+            value={state.businessDescription}
+            rows={6}
+            onChange={(event) => handleChange('businessDescription', event.target.value)}
+            aria-invalid={Boolean(errors.businessDescription)}
+            aria-describedby={
+              errors.businessDescription
+                ? 'restaurant-business-description-error'
+                : 'restaurant-business-description-help'
+            }
+            className={cn(
+              errors.businessDescription && 'border-destructive focus-visible:ring-destructive/60',
+            )}
+          />
+          <p id="restaurant-business-description-help" className="text-xs text-muted-foreground">
+            Write this for guests. It should describe the restaurant clearly and naturally.
+          </p>
+          {errors.businessDescription ? (
+            <p
+              id="restaurant-business-description-error"
+              className="text-xs text-destructive"
+              role="alert"
+            >
+              {errors.businessDescription}
+            </p>
+          ) : null}
+        </div>
+
+        <SubformActions isSubmitting={isSubmitting} submitLabel="Save brand & identity" />
+      </form>
+    </TooltipProvider>
+  );
+}
+
+export function ContactLocationSubform({
+  restaurantId,
+  initialValues,
+  onDirtyChange,
+  gbpFieldVerifications,
+}: RestaurantDetailsSubformProps) {
+  const { state, errors, isSubmitting, handleChange, submitPartial } = useRestaurantDetailsSubform({
+    initialValues,
+    fields: CONTACT_FIELDS,
+    onDirtyChange,
+    restaurantId,
+  });
+  const [timezonePickerOpen, setTimezonePickerOpen] = useState(false);
+  const [timezoneSearch, setTimezoneSearch] = useState('');
+  const filteredTimezones = useMemo(() => {
+    const query = timezoneSearch.trim().toLowerCase();
+    if (!query) {
+      return ALL_TIMEZONES;
+    }
+
+    return ALL_TIMEZONES.filter((timezone) => {
+      const normalized = timezone.toLowerCase();
+      const label = buildTimezoneLabel(timezone).toLowerCase();
+      return normalized.includes(query) || label.includes(query);
+    });
+  }, [timezoneSearch]);
+  const gbpStatuses = getGbpStatuses(state, gbpFieldVerifications);
+
+  return (
+    <TooltipProvider delayDuration={100}>
+      <form
+        className="flex flex-col gap-4"
+        onSubmit={(event) =>
+          submitPartial(
+            event,
+            (nextState) => {
+              const payload = sanitizePayload(nextState);
+              return {
+                timezone: payload.timezone,
+                contactEmail: payload.contactEmail,
+                contactPhone: payload.contactPhone,
+                address: payload.address,
+                googleMapUrl: payload.googleMapUrl,
+                googleReviewUrl: payload.googleReviewUrl,
+              };
+            },
+            'ContactLocationSubform',
+          )
+        }
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-1">
+              <Label htmlFor="restaurant-timezone" className="inline-flex items-center gap-1">
+                Timezone <span className="text-destructive">*</span>
+              </Label>
+              <HelpTooltip
+                description={FIELD_TOOLTIPS.timezone}
+                ariaLabel="Why does timezone matter?"
+              />
+            </div>
+            <Popover open={timezonePickerOpen} onOpenChange={setTimezonePickerOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  id="restaurant-timezone"
+                  type="button"
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={timezonePickerOpen}
+                  aria-invalid={Boolean(errors.timezone)}
+                  aria-describedby={
+                    errors.timezone ? 'restaurant-timezone-error' : 'restaurant-timezone-help'
+                  }
+                  className={cn(
+                    'h-10 w-full justify-between text-left font-normal',
+                    !state.timezone && 'text-muted-foreground',
+                    errors.timezone && 'border-destructive focus-visible:ring-destructive/60',
+                  )}
+                >
+                  <span className="truncate">
+                    {state.timezone ? buildTimezoneLabel(state.timezone) : 'Select timezone'}
+                  </span>
+                  <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[360px] p-3" align="start">
+                <div className="flex flex-col gap-3">
+                  <Input
+                    value={timezoneSearch}
+                    onChange={(event) => setTimezoneSearch(event.target.value)}
+                    placeholder="Search city, region, or UTC offset"
+                  />
+                  <ScrollArea className="h-64 pr-3">
+                    <div className="flex flex-col gap-1">
+                      {filteredTimezones.map((timezone) => (
+                        <button
+                          key={timezone}
+                          type="button"
+                          className={cn(
+                            'flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition hover:bg-muted',
+                            state.timezone === timezone && 'bg-muted text-foreground',
+                          )}
+                          onClick={() => {
+                            handleChange('timezone', timezone);
+                            setTimezonePickerOpen(false);
+                            setTimezoneSearch('');
+                          }}
+                        >
+                          <span className="min-w-0">
+                            <span className="block truncate font-medium">
+                              {buildTimezoneLabel(timezone)}
+                            </span>
+                            <span className="block truncate text-xs text-muted-foreground">
+                              {timezone}
+                            </span>
+                          </span>
+                          {state.timezone === timezone ? (
+                            <Check className="ml-3 size-4 shrink-0 text-primary" />
+                          ) : null}
+                        </button>
+                      ))}
+                      {filteredTimezones.length === 0 ? (
+                        <p className="px-3 py-2 text-sm text-muted-foreground">
+                          No matching timezones found.
+                        </p>
+                      ) : null}
+                    </div>
+                  </ScrollArea>
+                </div>
+              </PopoverContent>
+            </Popover>
+            <p id="restaurant-timezone-help" className="text-xs text-muted-foreground">
+              Search by city, region, or UTC offset.
+            </p>
+            {errors.timezone ? (
+              <p id="restaurant-timezone-error" className="text-xs text-destructive" role="alert">
+                {errors.timezone}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="restaurant-email">Contact Email</Label>
+            <Input
+              id="restaurant-email"
+              type="email"
+              value={state.contactEmail}
+              onChange={(event) => handleChange('contactEmail', event.target.value)}
+              aria-invalid={Boolean(errors.contactEmail)}
+              aria-describedby={errors.contactEmail ? 'restaurant-email-error' : undefined}
+              className={cn(
+                errors.contactEmail && 'border-destructive focus-visible:ring-destructive/60',
+              )}
+            />
+            {errors.contactEmail ? (
+              <p id="restaurant-email-error" className="text-xs text-destructive" role="alert">
+                {errors.contactEmail}
+              </p>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <Label htmlFor="restaurant-phone">Contact Phone</Label>
+              <GbpStatusBadge
+                status={gbpStatuses.contactPhone}
+                verification={gbpFieldVerifications?.contactPhone}
+              />
+            </div>
+            <Input
+              id="restaurant-phone"
+              type="tel"
+              value={state.contactPhone}
+              onChange={(event) => handleChange('contactPhone', event.target.value)}
+              aria-invalid={Boolean(errors.contactPhone)}
+              aria-describedby={errors.contactPhone ? 'restaurant-phone-error' : undefined}
+              className={cn(
+                errors.contactPhone && 'border-destructive focus-visible:ring-destructive/60',
+              )}
+            />
+            {errors.contactPhone ? (
+              <p id="restaurant-phone-error" className="text-xs text-destructive" role="alert">
+                {errors.contactPhone}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <Label htmlFor="restaurant-address">Address</Label>
+              <GbpStatusBadge
+                status={gbpStatuses.address}
+                verification={gbpFieldVerifications?.address}
+              />
+            </div>
+            <Input
+              id="restaurant-address"
+              value={state.address}
+              onChange={(event) => handleChange('address', event.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <Label htmlFor="restaurant-google-map">Google Maps URL</Label>
+              <GbpStatusBadge
+                status={gbpStatuses.googleMapUrl}
+                verification={gbpFieldVerifications?.googleMapUrl}
+              />
+              <HelpTooltip
+                description={FIELD_TOOLTIPS.googleMapUrl}
+                ariaLabel="Why add a Google Maps link?"
+              />
+            </div>
+            <Input
+              id="restaurant-google-map"
+              type="url"
+              inputMode="url"
+              placeholder="https://maps.google.com/..."
+              value={state.googleMapUrl}
+              onChange={(event) => handleChange('googleMapUrl', event.target.value)}
+              aria-invalid={Boolean(errors.googleMapUrl)}
+              aria-describedby={
+                errors.googleMapUrl ? 'restaurant-google-map-error' : 'restaurant-google-map-help'
+              }
+              className={cn(
+                errors.googleMapUrl && 'border-destructive focus-visible:ring-destructive/60',
+              )}
+            />
+            <p id="restaurant-google-map-help" className="text-xs text-muted-foreground">
+              Optional directions link guests can open from booking messages and public profiles.
+            </p>
+            {errors.googleMapUrl ? (
+              <p id="restaurant-google-map-error" className="text-xs text-destructive" role="alert">
+                {errors.googleMapUrl}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <Label htmlFor="restaurant-google-review">Google Review URL</Label>
+              <GbpStatusBadge
+                status={gbpStatuses.googleReviewUrl}
+                verification={gbpFieldVerifications?.googleReviewUrl}
+              />
+              <HelpTooltip
+                description={FIELD_TOOLTIPS.googleReviewUrl}
+                ariaLabel="Why add a Google review link?"
+              />
+            </div>
+            <Input
+              id="restaurant-google-review"
+              type="url"
+              inputMode="url"
+              placeholder="https://g.page/r/YourRestaurant/review"
+              value={state.googleReviewUrl}
+              onChange={(event) => handleChange('googleReviewUrl', event.target.value)}
+              aria-invalid={Boolean(errors.googleReviewUrl)}
+              aria-describedby={
+                errors.googleReviewUrl
+                  ? 'restaurant-google-review-error'
+                  : 'restaurant-google-review-help'
+              }
+              className={cn(
+                errors.googleReviewUrl && 'border-destructive focus-visible:ring-destructive/60',
+              )}
+            />
+            <p id="restaurant-google-review-help" className="text-xs text-muted-foreground">
+              Optional review link sent after a visit.
+            </p>
+            {errors.googleReviewUrl ? (
+              <p
+                id="restaurant-google-review-error"
+                className="text-xs text-destructive"
+                role="alert"
+              >
+                {errors.googleReviewUrl}
+              </p>
+            ) : null}
+          </div>
+        </div>
+
+        <SubformActions isSubmitting={isSubmitting} submitLabel="Save contact details" />
+      </form>
+    </TooltipProvider>
+  );
+}
+
+export function ManagerNotificationsSubform({
+  restaurantId,
+  initialValues,
+  onDirtyChange,
+}: RestaurantDetailsSubformProps) {
+  const { state, errors, isSubmitting, handleChange, handleToggle, submitPartial } =
+    useRestaurantDetailsSubform({
+      initialValues,
+      fields: NOTIFICATION_FIELDS,
+      onDirtyChange,
+      restaurantId,
+    });
+
+  return (
+    <TooltipProvider delayDuration={100}>
+      <form
+        className="flex flex-col gap-4"
+        onSubmit={(event) =>
+          submitPartial(
+            event,
+            (nextState) => {
+              const payload = sanitizePayload(nextState);
+              return {
+                managerNotificationPhone: payload.managerNotificationPhone,
+                managerDailySummaryEnabled: payload.managerDailySummaryEnabled,
+              };
+            },
+            'ManagerNotificationsSubform',
+          )
+        }
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-1">
+              <Label
+                htmlFor="restaurant-manager-notification-phone"
+                className="inline-flex items-center gap-1"
+              >
+                Manager Notification Number
+              </Label>
+              <HelpTooltip
+                description={FIELD_TOOLTIPS.managerNotificationPhone}
+                ariaLabel="What is the manager notification number?"
+              />
+            </div>
+            <Input
+              id="restaurant-manager-notification-phone"
+              type="tel"
+              inputMode="tel"
+              placeholder="+447700900000"
+              value={state.managerNotificationPhone}
+              onChange={(event) => handleChange('managerNotificationPhone', event.target.value)}
+              aria-invalid={Boolean(errors.managerNotificationPhone)}
+              aria-describedby={
+                errors.managerNotificationPhone
+                  ? 'restaurant-manager-notification-phone-error'
+                  : 'restaurant-manager-notification-phone-help'
+              }
+              className={cn(
+                errors.managerNotificationPhone &&
+                  'border-destructive focus-visible:ring-destructive/60',
+              )}
+            />
+            <p
+              id="restaurant-manager-notification-phone-help"
+              className="text-xs text-muted-foreground"
+            >
+              Enter the phone number that should receive the daily booking summary. Use E.164
+              format, such as +447700900000.
+            </p>
+            {errors.managerNotificationPhone ? (
+              <p
+                id="restaurant-manager-notification-phone-error"
+                className="text-xs text-destructive"
+                role="alert"
+              >
+                {errors.managerNotificationPhone}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="rounded-lg border border-border/70 bg-muted/20 p-3">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-1">
+                  <Label
+                    htmlFor="restaurant-manager-daily-summary-enabled"
+                    className="inline-flex items-center gap-1"
+                  >
+                    Daily Manager SMS Summary
+                  </Label>
+                  <HelpTooltip
+                    description={FIELD_TOOLTIPS.managerDailySummaryEnabled}
+                    ariaLabel="What does the daily manager SMS summary toggle do?"
+                  />
+                </div>
+                <p
+                  id="restaurant-manager-daily-summary-enabled-help"
+                  className="text-xs text-muted-foreground"
+                >
+                  Send the booking summary at 10:00 in the restaurant’s local time.
+                </p>
+              </div>
+              <Switch
+                id="restaurant-manager-daily-summary-enabled"
+                checked={state.managerDailySummaryEnabled}
+                onCheckedChange={(checked) => handleToggle('managerDailySummaryEnabled', checked)}
+                aria-describedby="restaurant-manager-daily-summary-enabled-help"
+              />
+            </div>
+          </div>
+        </div>
+
+        <SubformActions isSubmitting={isSubmitting} submitLabel="Save notifications" />
+      </form>
+    </TooltipProvider>
+  );
+}
+
+export function AdvancedIdentitySubform({
+  restaurantId,
+  initialValues,
+  onDirtyChange,
+}: RestaurantDetailsSubformProps) {
+  const { state, errors, isSubmitting, handleChange, submitPartial } = useRestaurantDetailsSubform({
+    initialValues,
+    fields: ADVANCED_FIELDS,
+    onDirtyChange,
+    restaurantId,
+  });
+
+  return (
+    <TooltipProvider delayDuration={100}>
+      <form
+        className="flex flex-col gap-4"
+        onSubmit={(event) =>
+          submitPartial(
+            event,
+            (nextState) => ({ slug: sanitizePayload(nextState).slug }),
+            'AdvancedIdentitySubform',
+          )
+        }
+      >
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-1">
+            <Label htmlFor="restaurant-slug" className="inline-flex items-center gap-1">
+              Booking link slug <span className="text-destructive">*</span>
+            </Label>
+            <HelpTooltip
+              description={FIELD_TOOLTIPS.slug}
+              ariaLabel="What is a booking link slug?"
+            />
+          </div>
+          <Input
+            id="restaurant-slug"
+            value={state.slug}
+            onChange={(event) => handleChange('slug', event.target.value)}
+            aria-invalid={Boolean(errors.slug)}
+            aria-describedby={errors.slug ? 'restaurant-slug-error' : 'restaurant-slug-help'}
+            className={cn(errors.slug && 'border-destructive focus-visible:ring-destructive/60')}
+          />
+          <p id="restaurant-slug-help" className="text-xs text-muted-foreground">
+            This appears in shared booking links. Change it only when the public URL should change.
+          </p>
+          {errors.slug ? (
+            <p id="restaurant-slug-error" className="text-xs text-destructive" role="alert">
+              {errors.slug}
+            </p>
+          ) : null}
+        </div>
+
+        <SubformActions isSubmitting={isSubmitting} submitLabel="Save booking link" />
+      </form>
+    </TooltipProvider>
+  );
+}
+
+export function BookingRulesSubform({
+  restaurantId,
+  initialValues,
+  onDirtyChange,
+}: RestaurantDetailsSubformProps) {
+  const { state, errors, isSubmitting, handleChange, submitPartial } = useRestaurantDetailsSubform({
+    initialValues,
+    fields: BOOKING_RULE_FIELDS,
+    onDirtyChange,
+    restaurantId,
+  });
+
+  return (
+    <TooltipProvider delayDuration={100}>
+      <form
+        className="flex flex-col gap-4"
+        onSubmit={(event) =>
+          submitPartial(
+            event,
+            (nextState) => {
+              const payload = sanitizePayload(nextState);
+              return {
+                bookingPolicy: payload.bookingPolicy,
+                reservationIntervalMinutes: payload.reservationIntervalMinutes,
+                reservationDefaultDurationMinutes: payload.reservationDefaultDurationMinutes,
+                reservationLastSeatingBufferMinutes: payload.reservationLastSeatingBufferMinutes,
+                reservationLifecycleGraceMinutes: payload.reservationLifecycleGraceMinutes,
+              };
+            },
+            'BookingRulesSubform',
+          )
+        }
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-1">
+              <Label htmlFor="restaurant-interval" className="inline-flex items-center gap-1">
+                Reservation Interval (minutes) <span className="text-destructive">*</span>
+              </Label>
+              <HelpTooltip
+                description={FIELD_TOOLTIPS.reservationInterval}
+                ariaLabel="Reservation interval details"
+              />
+            </div>
+            <Input
+              id="restaurant-interval"
+              type="number"
+              inputMode="numeric"
+              min={RESERVATION_INTERVAL_MIN}
+              max={RESERVATION_INTERVAL_MAX}
+              step={1}
+              value={state.reservationIntervalMinutes}
+              onChange={(event) => handleChange('reservationIntervalMinutes', event.target.value)}
+              aria-invalid={Boolean(errors.reservationIntervalMinutes)}
+              aria-describedby={
+                errors.reservationIntervalMinutes
+                  ? 'restaurant-interval-error'
+                  : 'restaurant-interval-help'
+              }
+              className={cn(
+                errors.reservationIntervalMinutes &&
+                  'border-destructive focus-visible:ring-destructive/60',
+              )}
+            />
+            <p id="restaurant-interval-help" className="text-xs text-muted-foreground">
+              Controls slot spacing; must be between {RESERVATION_INTERVAL_MIN} and{' '}
+              {RESERVATION_INTERVAL_MAX} minutes.
+            </p>
+            {errors.reservationIntervalMinutes ? (
+              <p id="restaurant-interval-error" className="text-xs text-destructive" role="alert">
+                {errors.reservationIntervalMinutes}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-1">
+              <Label htmlFor="restaurant-duration" className="inline-flex items-center gap-1">
+                Default Reservation Duration (minutes) <span className="text-destructive">*</span>
+              </Label>
+              <HelpTooltip
+                description={FIELD_TOOLTIPS.reservationDuration}
+                ariaLabel="Reservation duration details"
+              />
+            </div>
+            <Input
+              id="restaurant-duration"
+              type="number"
+              inputMode="numeric"
+              min={15}
+              max={300}
+              step={1}
+              value={state.reservationDefaultDurationMinutes}
+              onChange={(event) =>
+                handleChange('reservationDefaultDurationMinutes', event.target.value)
+              }
+              aria-invalid={Boolean(errors.reservationDefaultDurationMinutes)}
+              aria-describedby={
+                errors.reservationDefaultDurationMinutes
+                  ? 'restaurant-duration-error'
+                  : 'restaurant-duration-help'
+              }
+              className={cn(
+                errors.reservationDefaultDurationMinutes &&
+                  'border-destructive focus-visible:ring-destructive/60',
+              )}
+            />
+            <p id="restaurant-duration-help" className="text-xs text-muted-foreground">
+              Default booking length; must be between 15 and 300 minutes.
+            </p>
+            {errors.reservationDefaultDurationMinutes ? (
+              <p id="restaurant-duration-error" className="text-xs text-destructive" role="alert">
+                {errors.reservationDefaultDurationMinutes}
+              </p>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-1">
+              <Label htmlFor="restaurant-last-seating" className="inline-flex items-center gap-1">
+                Last Seating Buffer (minutes) <span className="text-destructive">*</span>
+              </Label>
+              <HelpTooltip
+                description={FIELD_TOOLTIPS.lastSeatingBuffer}
+                ariaLabel="Last seating buffer details"
+              />
+            </div>
+            <Input
+              id="restaurant-last-seating"
+              type="number"
+              inputMode="numeric"
+              min={15}
+              max={300}
+              step={1}
+              value={state.reservationLastSeatingBufferMinutes}
+              onChange={(event) =>
+                handleChange('reservationLastSeatingBufferMinutes', event.target.value)
+              }
+              aria-invalid={Boolean(errors.reservationLastSeatingBufferMinutes)}
+              aria-describedby={
+                errors.reservationLastSeatingBufferMinutes
+                  ? 'restaurant-last-seating-error'
+                  : 'restaurant-last-seating-help'
+              }
+              className={cn(
+                errors.reservationLastSeatingBufferMinutes &&
+                  'border-destructive focus-visible:ring-destructive/60',
+              )}
+            />
+            <p id="restaurant-last-seating-help" className="text-xs text-muted-foreground">
+              Controls the latest start time relative to closing; choose 15 to 300 minutes.
+            </p>
+            {errors.reservationLastSeatingBufferMinutes ? (
+              <p
+                id="restaurant-last-seating-error"
+                className="text-xs text-destructive"
+                role="alert"
+              >
+                {errors.reservationLastSeatingBufferMinutes}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-1">
+              <Label
+                htmlFor="restaurant-lifecycle-grace"
+                className="inline-flex items-center gap-1"
+              >
+                Lifecycle Grace Period (minutes) <span className="text-destructive">*</span>
+              </Label>
+              <HelpTooltip
+                description={FIELD_TOOLTIPS.lifecycleGrace}
+                ariaLabel="Lifecycle grace period details"
+              />
+            </div>
+            <Input
+              id="restaurant-lifecycle-grace"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={120}
+              step={1}
+              value={state.reservationLifecycleGraceMinutes}
+              onChange={(event) =>
+                handleChange('reservationLifecycleGraceMinutes', event.target.value)
+              }
+              aria-invalid={Boolean(errors.reservationLifecycleGraceMinutes)}
+              aria-describedby={
+                errors.reservationLifecycleGraceMinutes
+                  ? 'restaurant-lifecycle-grace-error'
+                  : 'restaurant-lifecycle-grace-help'
+              }
+              className={cn(
+                errors.reservationLifecycleGraceMinutes &&
+                  'border-destructive focus-visible:ring-destructive/60',
+              )}
+            />
+            <p id="restaurant-lifecycle-grace-help" className="text-xs text-muted-foreground">
+              Extra time after a booking ends before it is hidden; usually 0-120 mins.
+            </p>
+            {errors.reservationLifecycleGraceMinutes ? (
+              <p
+                id="restaurant-lifecycle-grace-error"
+                className="text-xs text-destructive"
+                role="alert"
+              >
+                {errors.reservationLifecycleGraceMinutes}
+              </p>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-1">
+            <Label htmlFor="restaurant-policy">Booking Policy</Label>
+            <HelpTooltip
+              description={FIELD_TOOLTIPS.bookingPolicy}
+              ariaLabel="Booking policy guidance"
+            />
+          </div>
+          <Textarea
+            id="restaurant-policy"
+            value={state.bookingPolicy}
+            onChange={(event) => handleChange('bookingPolicy', event.target.value)}
+            rows={3}
+          />
+        </div>
+
+        <SubformActions isSubmitting={isSubmitting} submitLabel="Save booking rules" />
+      </form>
+    </TooltipProvider>
+  );
 }
 
 export function RestaurantDetailsForm({
@@ -429,7 +1465,10 @@ export function RestaurantDetailsForm({
   const [timezoneSearch, setTimezoneSearch] = useState('');
 
   const initialFormState = useMemo(() => mapInitialValues(initialValues), [initialValues]);
-  const serializedInitialValues = useMemo(() => JSON.stringify(initialFormState), [initialFormState]);
+  const serializedInitialValues = useMemo(
+    () => JSON.stringify(initialFormState),
+    [initialFormState],
+  );
   const serializedCurrentState = useMemo(() => JSON.stringify(state), [state]);
   const isDirty = serializedCurrentState !== serializedInitialValues;
 
@@ -465,6 +1504,15 @@ export function RestaurantDetailsForm({
         : gbpFieldVerifications?.name?.providerValue || state.name
           ? ('drifted' as const)
           : ('unavailable' as const),
+      businessDescription: compareFieldValue(
+        'businessDescription',
+        state.businessDescription,
+        gbpFieldVerifications?.businessDescription?.providerValue,
+      )
+        ? ('verified' as const)
+        : gbpFieldVerifications?.businessDescription?.providerValue || state.businessDescription
+          ? ('drifted' as const)
+          : ('unavailable' as const),
       contactPhone: compareFieldValue(
         'contactPhone',
         state.contactPhone,
@@ -474,7 +1522,11 @@ export function RestaurantDetailsForm({
         : gbpFieldVerifications?.contactPhone?.providerValue || state.contactPhone
           ? ('drifted' as const)
           : ('unavailable' as const),
-      address: compareFieldValue('address', state.address, gbpFieldVerifications?.address?.providerValue)
+      address: compareFieldValue(
+        'address',
+        state.address,
+        gbpFieldVerifications?.address?.providerValue,
+      )
         ? ('verified' as const)
         : gbpFieldVerifications?.address?.providerValue || state.address
           ? ('drifted' as const)
@@ -500,11 +1552,13 @@ export function RestaurantDetailsForm({
     }),
     [
       gbpFieldVerifications?.address?.providerValue,
+      gbpFieldVerifications?.businessDescription?.providerValue,
       gbpFieldVerifications?.contactPhone?.providerValue,
       gbpFieldVerifications?.googleMapUrl?.providerValue,
       gbpFieldVerifications?.googleReviewUrl?.providerValue,
       gbpFieldVerifications?.name?.providerValue,
       state.address,
+      state.businessDescription,
       state.contactPhone,
       state.googleMapUrl,
       state.googleReviewUrl,
@@ -585,6 +1639,48 @@ export function RestaurantDetailsForm({
             )}
           </div>
 
+          <div className="space-y-1.5 sm:col-span-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Label htmlFor="restaurant-business-description">Business description</Label>
+              <GbpStatusBadge
+                status={gbpStatuses.businessDescription}
+                verification={gbpFieldVerifications?.businessDescription}
+              />
+              <HelpTooltip
+                description={FIELD_TOOLTIPS.businessDescription}
+                ariaLabel="Business description details"
+              />
+            </div>
+            <Textarea
+              id="restaurant-business-description"
+              value={state.businessDescription}
+              rows={6}
+              onChange={(event) => handleChange('businessDescription', event.target.value)}
+              aria-invalid={Boolean(errors.businessDescription)}
+              aria-describedby={
+                errors.businessDescription
+                  ? 'restaurant-business-description-error'
+                  : 'restaurant-business-description-help'
+              }
+              className={cn(
+                errors.businessDescription &&
+                  'border-destructive focus-visible:ring-destructive/60',
+              )}
+            />
+            <p id="restaurant-business-description-help" className="text-xs text-muted-foreground">
+              Write this for guests. It should describe the restaurant clearly and naturally.
+            </p>
+            {errors.businessDescription && (
+              <p
+                id="restaurant-business-description-error"
+                className="text-xs text-destructive"
+                role="alert"
+              >
+                {errors.businessDescription}
+              </p>
+            )}
+          </div>
+
           <div className="space-y-1.5">
             <div className="flex items-center gap-1">
               <Label htmlFor="restaurant-timezone" className="inline-flex items-center gap-1">
@@ -604,7 +1700,9 @@ export function RestaurantDetailsForm({
                   role="combobox"
                   aria-expanded={timezonePickerOpen}
                   aria-invalid={Boolean(errors.timezone)}
-                  aria-describedby={errors.timezone ? 'restaurant-timezone-error' : 'restaurant-timezone-help'}
+                  aria-describedby={
+                    errors.timezone ? 'restaurant-timezone-error' : 'restaurant-timezone-help'
+                  }
                   className={cn(
                     'h-10 w-full justify-between text-left font-normal',
                     !state.timezone && 'text-muted-foreground',
@@ -1114,17 +2212,17 @@ export function RestaurantDetailsForm({
             <Accordion type="single" collapsible className="rounded-lg border border-border/70">
               <AccordionItem value="advanced-settings" className="border-none">
                 <AccordionTrigger className="px-4 text-left text-sm font-medium">
-                  Advanced settings
+                  Booking link
                 </AccordionTrigger>
                 <AccordionContent className="space-y-4 px-4 pb-4">
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-1">
                       <Label htmlFor="restaurant-slug" className="inline-flex items-center gap-1">
-                        Slug <span className="text-destructive">*</span>
+                        Booking link slug <span className="text-destructive">*</span>
                       </Label>
                       <HelpTooltip
                         description={FIELD_TOOLTIPS.slug}
-                        ariaLabel="What is a restaurant slug?"
+                        ariaLabel="What is a booking link slug?"
                       />
                     </div>
                     <Input
@@ -1132,17 +2230,23 @@ export function RestaurantDetailsForm({
                       value={state.slug}
                       onChange={(event) => handleChange('slug', event.target.value)}
                       aria-invalid={Boolean(errors.slug)}
-                      aria-describedby={errors.slug ? 'restaurant-slug-error' : 'restaurant-slug-help'}
+                      aria-describedby={
+                        errors.slug ? 'restaurant-slug-error' : 'restaurant-slug-help'
+                      }
                       className={cn(
                         errors.slug && 'border-destructive focus-visible:ring-destructive/60',
                       )}
                     />
                     <p id="restaurant-slug-help" className="text-xs text-muted-foreground">
-                      This powers booking links and exports. Change it carefully to avoid breaking
-                      shared URLs.
+                      This appears in shared booking links. Change it only when the public URL
+                      should change.
                     </p>
                     {errors.slug && (
-                      <p id="restaurant-slug-error" className="text-xs text-destructive" role="alert">
+                      <p
+                        id="restaurant-slug-error"
+                        className="text-xs text-destructive"
+                        role="alert"
+                      >
                         {errors.slug}
                       </p>
                     )}

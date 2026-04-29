@@ -8,10 +8,22 @@ import {
 import { googleBusinessProfileWorkflowErrorResponse } from '@/app/api/ops/restaurants/[id]/google-business-profile/_shared';
 import { updateGoogleBusinessProfileWorkflowDraft } from '@/server/google-business-profile/workflow';
 
+import type { GoogleBusinessProfileFieldDecisionInput } from '@/server/google-business-profile/workflow';
 import type { NextRequest } from 'next/server';
 
 const patchSchema = z.object({
   selectedApprovals: z.record(z.string(), z.boolean()).optional(),
+  decisions: z
+    .array(
+      z.object({
+        sectionKey: z.string().trim().min(1),
+        fieldKey: z.string().trim().min(1),
+        action: z.enum(['import_from_google', 'export_to_google', 'ignore']),
+        reviewedNabatableValueHash: z.string().trim().min(1),
+        reviewedGoogleValueHash: z.string().trim().min(1),
+      }),
+    )
+    .optional(),
   status: z.enum(['review_ready', 'approved']).optional(),
 });
 
@@ -20,7 +32,9 @@ type RouteContext = {
 };
 
 function getDraftErrorStatus(error: unknown): number {
-  return error instanceof Error && error.name === 'GBP_DRAFT_INVALID_STATE' ? 409 : 500;
+  if (error instanceof Error && error.name === 'GBP_DRAFT_INVALID_STATE') return 409;
+  if (error instanceof Error && error.name === 'GBP_DECISION_INVALID') return 400;
+  return 500;
 }
 
 async function resolveDraftId(paramsPromise: RouteContext['params']): Promise<string | null> {
@@ -65,6 +79,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
         draftId,
         actorUserId: access.userId,
         selectedApprovals: payload.selectedApprovals,
+        decisions: payload.decisions as GoogleBusinessProfileFieldDecisionInput[] | undefined,
         status: payload.status,
       }),
     );

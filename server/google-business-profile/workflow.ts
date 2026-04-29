@@ -61,6 +61,29 @@ export type GoogleBusinessProfilePublishDirectionIntent =
   | 'google_to_nabatable_with_google_sync'
   | 'nabatable_to_google';
 
+export type GoogleBusinessProfileSyncDecisionAction =
+  | 'import_from_google'
+  | 'export_to_google'
+  | 'ignore';
+
+export type GoogleBusinessProfileFieldDecision = {
+  sectionKey: GoogleBusinessProfileDraftSectionKey;
+  fieldKey: string;
+  action: GoogleBusinessProfileSyncDecisionAction;
+  decidedByUserId: string;
+  decidedAt: string;
+  reviewedNabatableValueHash: string;
+  reviewedGoogleValueHash: string;
+};
+
+export type GoogleBusinessProfileFieldDecisionInput = {
+  sectionKey: GoogleBusinessProfileDraftSectionKey;
+  fieldKey: string;
+  action: GoogleBusinessProfileSyncDecisionAction;
+  reviewedNabatableValueHash: string;
+  reviewedGoogleValueHash: string;
+};
+
 export type GoogleBusinessProfileAuditFlow =
   | 'google_to_nabatable_apply'
   | 'nabatable_to_google_sync';
@@ -106,6 +129,16 @@ export type GoogleBusinessProfileDraftItem = {
   direction: CoreSyncDirection;
   status: 'ready' | 'unchanged' | 'unsupported' | 'warning';
   selected: boolean;
+  normalizedNabatableValue: Json;
+  normalizedGoogleValue: Json;
+  nabatableValueHash: string;
+  googleValueHash: string;
+  capabilities: {
+    canImportFromGoogle: boolean;
+    canExportToGoogle: boolean;
+    canIgnore: boolean;
+  };
+  blockedReasons: string[];
   canPublishToNabatable: boolean;
   canPushToGoogle: boolean;
   warnings: string[];
@@ -131,6 +164,7 @@ export type GoogleBusinessProfileWorkflowDraft = {
   staleSections: string[];
   conflictMetadata: Json;
   selectedApprovals: Record<string, boolean>;
+  decisions: GoogleBusinessProfileFieldDecision[];
   sourceSnapshotRefs: Json;
   coreSnapshotHashes: Record<string, string>;
   sectionDiffs: GoogleBusinessProfileDraftSection[];
@@ -146,6 +180,7 @@ export type GoogleBusinessProfileActivePublishJob = {
   directionIntent: GoogleBusinessProfilePublishDirectionIntent;
   status: PublishJobRow['status'];
   selectedApprovals: Record<string, boolean>;
+  decisions: GoogleBusinessProfileFieldDecision[];
   nabatableSections: string[];
   googleUpdateMasks: GoogleBusinessProfileGoogleUpdateMask[];
   postNabatableCoreHashes: Record<string, string>;
@@ -189,11 +224,14 @@ export type GoogleBusinessProfileWorkflowResponse = {
 
 export type GoogleBusinessProfilePublishPreflight = {
   publishJobId: string;
+  publishPlanId: string;
   idempotencyKey: string;
   mode: GoogleBusinessProfilePublishMode;
   directionIntent: GoogleBusinessProfilePublishDirectionIntent;
   selectedApprovals: Record<string, boolean>;
+  decisions: GoogleBusinessProfileFieldDecision[];
   nabatableUpdates: GoogleBusinessProfileDraftItem[];
+  googleUpdates: GoogleBusinessProfileDraftItem[];
   pullOnlyItems: GoogleBusinessProfileDraftItem[];
   googleUpdateMasks: GoogleBusinessProfileGoogleUpdateMask[];
   warnings: GoogleBusinessProfilePublishPreflightNotice[];
@@ -344,6 +382,75 @@ function toStringRecord(value: Json | null): Record<string, string> {
   );
 }
 
+const FIELD_DECISIONS_METADATA_KEY = '__fieldDecisions';
+
+function isGoogleProfileSyncDecisionAction(
+  value: unknown,
+): value is GoogleBusinessProfileSyncDecisionAction {
+  return value === 'import_from_google' || value === 'export_to_google' || value === 'ignore';
+}
+
+function normalizeFieldDecision(value: unknown): GoogleBusinessProfileFieldDecision | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  if (
+    typeof record.sectionKey !== 'string' ||
+    typeof record.fieldKey !== 'string' ||
+    !isGoogleProfileSyncDecisionAction(record.action) ||
+    typeof record.reviewedNabatableValueHash !== 'string' ||
+    typeof record.reviewedGoogleValueHash !== 'string'
+  ) {
+    return null;
+  }
+
+  return {
+    sectionKey: record.sectionKey as GoogleBusinessProfileDraftSectionKey,
+    fieldKey: record.fieldKey,
+    action: record.action,
+    decidedByUserId:
+      typeof record.decidedByUserId === 'string' ? record.decidedByUserId : 'unknown',
+    decidedAt: typeof record.decidedAt === 'string' ? record.decidedAt : nowIso(),
+    reviewedNabatableValueHash: record.reviewedNabatableValueHash,
+    reviewedGoogleValueHash: record.reviewedGoogleValueHash,
+  };
+}
+
+function normalizeFieldDecisions(value: unknown): GoogleBusinessProfileFieldDecision[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const byFieldKey = new Map<string, GoogleBusinessProfileFieldDecision>();
+  for (const entry of value) {
+    const decision = normalizeFieldDecision(entry);
+    if (decision) {
+      byFieldKey.set(decision.fieldKey, decision);
+    }
+  }
+  return [...byFieldKey.values()];
+}
+
+function extractFieldDecisions(value: Json | null): GoogleBusinessProfileFieldDecision[] {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return [];
+  }
+
+  return normalizeFieldDecisions((value as Record<string, unknown>)[FIELD_DECISIONS_METADATA_KEY]);
+}
+
+function selectedApprovalsWithDecisions(
+  selectedApprovals: Record<string, boolean>,
+  decisions: GoogleBusinessProfileFieldDecision[],
+): Json {
+  return toJson({
+    ...selectedApprovals,
+    ...(decisions.length > 0 ? { [FIELD_DECISIONS_METADATA_KEY]: decisions } : {}),
+  });
+}
+
 function normalizeGoogleMasks(
   value: string[] | null | undefined,
 ): GoogleBusinessProfileGoogleUpdateMask[] {
@@ -450,7 +557,17 @@ function isEqualValue(left: unknown, right: unknown): boolean {
   return stableStringify(left ?? null) === stableStringify(right ?? null);
 }
 
-type DraftItemInput = Omit<GoogleBusinessProfileDraftItem, 'status' | 'selected'> & {
+type DraftItemInput = Omit<
+  GoogleBusinessProfileDraftItem,
+  | 'status'
+  | 'selected'
+  | 'normalizedNabatableValue'
+  | 'normalizedGoogleValue'
+  | 'nabatableValueHash'
+  | 'googleValueHash'
+  | 'capabilities'
+  | 'blockedReasons'
+> & {
   comparisonCurrentValue?: unknown;
   comparisonProposedValue?: unknown;
   defaultSelected?: boolean;
@@ -515,14 +632,32 @@ function buildCoreSnapshotHashes(
 
 function makeItem(input: DraftItemInput): GoogleBusinessProfileDraftItem {
   const { comparisonCurrentValue, comparisonProposedValue, defaultSelected, ...item } = input;
-  const changed = !isEqualValue(
-    comparisonCurrentValue === undefined ? item.currentValue : comparisonCurrentValue,
-    comparisonProposedValue === undefined ? item.proposedValue : comparisonProposedValue,
-  );
+  const normalizedNabatableValue =
+    comparisonCurrentValue === undefined ? item.currentValue : comparisonCurrentValue;
+  const normalizedGoogleValue =
+    comparisonProposedValue === undefined ? item.providerValue : comparisonProposedValue;
+  const changed = !isEqualValue(normalizedNabatableValue, normalizedGoogleValue);
+  const blockedReasons = [
+    ...(!item.canPublishToNabatable
+      ? [`${item.label} cannot be imported from Google automatically.`]
+      : []),
+    ...(!item.canPushToGoogle ? [`${item.label} cannot be exported to Google automatically.`] : []),
+  ];
+
   return {
     ...item,
     status: changed ? 'ready' : 'unchanged',
     selected: changed && (defaultSelected ?? item.canPublishToNabatable),
+    normalizedNabatableValue: toJson(normalizedNabatableValue),
+    normalizedGoogleValue: toJson(normalizedGoogleValue),
+    nabatableValueHash: hashJson(normalizedNabatableValue),
+    googleValueHash: hashJson(normalizedGoogleValue),
+    capabilities: {
+      canImportFromGoogle: item.canPublishToNabatable,
+      canExportToGoogle: item.canPushToGoogle,
+      canIgnore: true,
+    },
+    blockedReasons,
   };
 }
 
@@ -889,18 +1024,67 @@ function summarizeSection(
   };
 }
 
+function ensureDraftItemV2(item: GoogleBusinessProfileDraftItem): GoogleBusinessProfileDraftItem {
+  const record = item as GoogleBusinessProfileDraftItem & Partial<GoogleBusinessProfileDraftItem>;
+  const normalizedNabatableValue = record.normalizedNabatableValue ?? item.currentValue;
+  const normalizedGoogleValue = record.normalizedGoogleValue ?? item.providerValue;
+
+  return {
+    ...item,
+    normalizedNabatableValue: toJson(normalizedNabatableValue),
+    normalizedGoogleValue: toJson(normalizedGoogleValue),
+    nabatableValueHash: record.nabatableValueHash ?? hashJson(normalizedNabatableValue),
+    googleValueHash: record.googleValueHash ?? hashJson(normalizedGoogleValue),
+    capabilities: record.capabilities ?? {
+      canImportFromGoogle: item.canPublishToNabatable,
+      canExportToGoogle: item.canPushToGoogle,
+      canIgnore: true,
+    },
+    blockedReasons: record.blockedReasons ?? [
+      ...(!item.canPublishToNabatable
+        ? [`${item.label} cannot be imported from Google automatically.`]
+        : []),
+      ...(!item.canPushToGoogle
+        ? [`${item.label} cannot be exported to Google automatically.`]
+        : []),
+    ],
+  };
+}
+
+function decisionMap(decisions: GoogleBusinessProfileFieldDecision[] = []) {
+  return new Map(decisions.map((decision) => [decision.fieldKey, decision]));
+}
+
+function selectedApprovalsFromDecisions(
+  decisions: GoogleBusinessProfileFieldDecision[],
+): Record<string, boolean> {
+  return Object.fromEntries(
+    decisions.map((decision) => [
+      decision.fieldKey,
+      decision.action === 'import_from_google' || decision.action === 'export_to_google',
+    ]),
+  );
+}
+
 function applySelectedApprovals(
   sections: GoogleBusinessProfileDraftSection[],
   selectedApprovals: Record<string, boolean>,
   staleSections: string[],
+  decisions: GoogleBusinessProfileFieldDecision[] = [],
 ): GoogleBusinessProfileDraftSection[] {
   const staleSet = new Set(staleSections);
+  const decisionsByField = decisionMap(decisions);
   return sections.map((section) => {
-    const items = section.items.map((item) => ({
-      ...item,
-      selected:
-        selectedApprovals[item.fieldKey] ?? (item.status === 'ready' && item.canPublishToNabatable),
-    }));
+    const items = section.items.map((rawItem) => {
+      const item = ensureDraftItemV2(rawItem);
+      const decision = decisionsByField.get(item.fieldKey);
+      return {
+        ...item,
+        selected: decision
+          ? decision.action === 'import_from_google' || decision.action === 'export_to_google'
+          : (selectedApprovals[item.fieldKey] ?? false),
+      };
+    });
     const isStale = staleSet.has(section.sectionKey);
     return {
       ...section,
@@ -920,8 +1104,10 @@ function applySelectedApprovals(
 function mapDraft(
   row: DraftRow,
   selectedApprovalsOverride?: Record<string, boolean>,
+  decisionsOverride?: GoogleBusinessProfileFieldDecision[],
 ): GoogleBusinessProfileWorkflowDraft {
   const selectedApprovals = selectedApprovalsOverride ?? toObjectRecord(row.selected_approvals);
+  const decisions = decisionsOverride ?? extractFieldDecisions(row.selected_approvals);
   const rawSections = Array.isArray(row.section_diffs)
     ? (row.section_diffs as unknown as GoogleBusinessProfileDraftSection[])
     : [];
@@ -935,6 +1121,7 @@ function mapDraft(
     staleSections: row.stale_sections ?? [],
     conflictMetadata: row.conflict_metadata,
     selectedApprovals,
+    decisions,
     sourceSnapshotRefs: row.source_snapshot_refs,
     coreSnapshotHashes:
       row.core_snapshot_hashes &&
@@ -942,7 +1129,12 @@ function mapDraft(
       !Array.isArray(row.core_snapshot_hashes)
         ? (row.core_snapshot_hashes as Record<string, string>)
         : {},
-    sectionDiffs: applySelectedApprovals(rawSections, selectedApprovals, row.stale_sections ?? []),
+    sectionDiffs: applySelectedApprovals(
+      rawSections,
+      selectedApprovals,
+      row.stale_sections ?? [],
+      decisions,
+    ),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -964,14 +1156,17 @@ function reconcileDraftWithCurrentSections(
   >(currentSections.map((section) => [section.sectionKey, section]));
   const staleSections = new Set(draft.staleSections);
   const selectedApprovals = draft.selectedApprovals;
+  const decisionsByField = decisionMap(draft.decisions);
 
   const sectionDiffs = currentSections.map((currentSection) => {
     const wasStale = staleSections.has(currentSection.sectionKey);
     const items = currentSection.items.map((item) => {
+      const decision = decisionsByField.get(item.fieldKey);
       const selected = Boolean(
         item.status === 'ready' &&
-        item.canPublishToNabatable &&
-        (selectedApprovals[item.fieldKey] ?? item.selected),
+        (decision
+          ? decision.action === 'import_from_google' || decision.action === 'export_to_google'
+          : (selectedApprovals[item.fieldKey] ?? item.selected)),
       );
 
       return {
@@ -1029,6 +1224,7 @@ function suppressActionsForReadOnlyReview(
     selectedApprovals: Object.fromEntries(
       Object.keys(draft.selectedApprovals).map((fieldKey) => [fieldKey, false]),
     ),
+    decisions: [],
     staleSections: [],
     sectionDiffs: draft.sectionDiffs.map((section) => ({
       ...section,
@@ -1082,6 +1278,7 @@ function mapPublishJob(row: PublishJobRow): GoogleBusinessProfileActivePublishJo
     directionIntent: directionIntentForPublishMode(mode),
     status: row.status,
     selectedApprovals: toObjectRecord(row.selected_approvals),
+    decisions: extractFieldDecisions(row.selected_approvals),
     nabatableSections: row.nabatable_sections ?? [],
     googleUpdateMasks,
     postNabatableCoreHashes: toStringRecord(row.post_nabatable_core_hashes),
@@ -1362,7 +1559,7 @@ export async function createGoogleBusinessProfileWorkflowDraft(params: {
     canPushServicePeriods,
   });
   const selectedApprovals = Object.fromEntries(
-    sections.flatMap((section) => section.items.map((item) => [item.fieldKey, item.selected])),
+    sections.flatMap((section) => section.items.map((item) => [item.fieldKey, false])),
   );
   const fetchedAt = nowIso();
 
@@ -1411,11 +1608,82 @@ export async function createGoogleBusinessProfileWorkflowDraft(params: {
   return buildWorkflowResponse(mapDraft(data), events, activePublishJob);
 }
 
+function draftItemLookup(draft: GoogleBusinessProfileWorkflowDraft) {
+  return new Map<string, GoogleBusinessProfileDraftItem>(
+    draft.sectionDiffs.flatMap((section) =>
+      section.items.map((item) => [`${section.sectionKey}:${item.fieldKey}`, item] as const),
+    ),
+  );
+}
+
+function validateAndStampFieldDecisions(params: {
+  draft: GoogleBusinessProfileWorkflowDraft;
+  decisions: GoogleBusinessProfileFieldDecisionInput[];
+  actorUserId: string;
+}): GoogleBusinessProfileFieldDecision[] {
+  const itemsByKey = draftItemLookup(params.draft);
+  const decidedAt = nowIso();
+  const result: GoogleBusinessProfileFieldDecision[] = [];
+  const seen = new Set<string>();
+
+  for (const decision of params.decisions) {
+    const decisionKey = `${decision.sectionKey}:${decision.fieldKey}`;
+    if (seen.has(decisionKey)) {
+      continue;
+    }
+    seen.add(decisionKey);
+
+    const item = itemsByKey.get(decisionKey);
+    if (!item || item.status === 'unchanged') {
+      throw createWorkflowNamedError(
+        'GBP_DECISION_INVALID',
+        `Decision field is no longer reviewable: ${decision.fieldKey}.`,
+      );
+    }
+    if (decision.reviewedNabatableValueHash !== item.nabatableValueHash) {
+      throw createWorkflowNamedError(
+        'GBP_DECISION_INVALID',
+        `${item.label} changed in Nabatable since it was reviewed.`,
+      );
+    }
+    if (decision.reviewedGoogleValueHash !== item.googleValueHash) {
+      throw createWorkflowNamedError(
+        'GBP_DECISION_INVALID',
+        `${item.label} changed in Google since it was reviewed.`,
+      );
+    }
+    if (decision.action === 'import_from_google' && !item.capabilities.canImportFromGoogle) {
+      throw createWorkflowNamedError(
+        'GBP_DECISION_INVALID',
+        `${item.label} cannot be imported from Google.`,
+      );
+    }
+    if (decision.action === 'export_to_google' && !item.capabilities.canExportToGoogle) {
+      throw createWorkflowNamedError(
+        'GBP_DECISION_INVALID',
+        `${item.label} cannot be exported to Google.`,
+      );
+    }
+    if (decision.action === 'ignore' && !item.capabilities.canIgnore) {
+      throw createWorkflowNamedError('GBP_DECISION_INVALID', `${item.label} cannot be ignored.`);
+    }
+
+    result.push({
+      ...decision,
+      decidedByUserId: params.actorUserId,
+      decidedAt,
+    });
+  }
+
+  return result;
+}
+
 export async function updateGoogleBusinessProfileWorkflowDraft(params: {
   restaurantId: string;
   draftId: string;
   actorUserId: string;
   selectedApprovals?: Record<string, boolean>;
+  decisions?: GoogleBusinessProfileFieldDecisionInput[];
   status?: 'review_ready' | 'approved';
   client?: DbClient;
 }): Promise<GoogleBusinessProfileWorkflowResponse> {
@@ -1425,10 +1693,23 @@ export async function updateGoogleBusinessProfileWorkflowDraft(params: {
     throw new Error('Google Business Profile review was not found.');
   }
   assertDraftEditable(currentDraft.status);
+  const mappedDraft = mapDraft(currentDraft);
+  const decisions =
+    params.decisions !== undefined
+      ? validateAndStampFieldDecisions({
+          draft: mappedDraft,
+          decisions: params.decisions,
+          actorUserId: params.actorUserId,
+        })
+      : extractFieldDecisions(currentDraft.selected_approvals);
+  const selectedApprovals =
+    params.decisions !== undefined
+      ? selectedApprovalsFromDecisions(decisions)
+      : params.selectedApprovals;
 
   const patch: Database['public']['Tables']['restaurant_external_profile_drafts']['Update'] = {};
-  if (params.selectedApprovals) {
-    patch.selected_approvals = toJson(params.selectedApprovals);
+  if (selectedApprovals) {
+    patch.selected_approvals = selectedApprovalsWithDecisions(selectedApprovals, decisions);
   }
   if (params.status) {
     patch.status = params.status;
@@ -1462,7 +1743,23 @@ export async function updateGoogleBusinessProfileWorkflowDraft(params: {
   return buildWorkflowResponse(mapDraft(data), events, activePublishJob);
 }
 
+function decisionActionForItem(
+  draft: GoogleBusinessProfileWorkflowDraft,
+  item: GoogleBusinessProfileDraftItem,
+): GoogleBusinessProfileSyncDecisionAction | null {
+  return draft.decisions?.find((decision) => decision.fieldKey === item.fieldKey)?.action ?? null;
+}
+
 function selectedDraftItems(draft: GoogleBusinessProfileWorkflowDraft) {
+  if ((draft.decisions?.length ?? 0) > 0) {
+    return draft.sectionDiffs.flatMap((section) =>
+      section.items.filter((item) => {
+        const action = decisionActionForItem(draft, item);
+        return action === 'import_from_google' || action === 'export_to_google';
+      }),
+    );
+  }
+
   return draft.sectionDiffs.flatMap((section) => section.items.filter((item) => item.selected));
 }
 
@@ -1470,6 +1767,24 @@ function selectedItems(
   draft: GoogleBusinessProfileWorkflowDraft,
   mode: GoogleBusinessProfilePublishMode = 'nabatable_only',
 ): GoogleBusinessProfileDraftItem[] {
+  if ((draft.decisions?.length ?? 0) > 0) {
+    return draft.sectionDiffs.flatMap((section) =>
+      section.items.filter((item) => {
+        const action = decisionActionForItem(draft, item);
+        if (mode === 'google_only') {
+          return action === 'export_to_google' && item.canPushToGoogle;
+        }
+        if (mode === 'nabatable_only') {
+          return action === 'import_from_google' && item.canPublishToNabatable;
+        }
+        return (
+          (action === 'import_from_google' && item.canPublishToNabatable) ||
+          (action === 'export_to_google' && item.canPushToGoogle)
+        );
+      }),
+    );
+  }
+
   return draft.sectionDiffs.flatMap((section) =>
     section.items.filter((item) => {
       if (!item.selected) {
@@ -1774,8 +2089,10 @@ type PublishPreflightContext = {
   mode: GoogleBusinessProfilePublishMode;
   directionIntent: GoogleBusinessProfilePublishDirectionIntent;
   selectedApprovals: Record<string, boolean>;
+  decisions: GoogleBusinessProfileFieldDecision[];
   sections: GoogleBusinessProfileDraftSectionKey[];
   nabatableUpdates: GoogleBusinessProfileDraftItem[];
+  googleUpdates: GoogleBusinessProfileDraftItem[];
   pullOnlyItems: GoogleBusinessProfileDraftItem[];
   googleUpdateMasks: GoogleBusinessProfileGoogleUpdateMask[];
   warnings: GoogleBusinessProfilePublishPreflightNotice[];
@@ -1874,13 +2191,38 @@ function buildPublishJobIdempotencyKey(input: {
   draftId: string;
   mode: GoogleBusinessProfilePublishMode;
   selectedApprovals: Record<string, boolean>;
+  decisions: GoogleBusinessProfileFieldDecision[];
   currentHashes: Record<string, string>;
 }): string {
   return `gbp-publish:${input.restaurantId}:${input.draftId}:${hashJson({
     mode: input.mode,
     selectedApprovals: input.selectedApprovals,
+    decisions: input.decisions.map((decision) => ({
+      sectionKey: decision.sectionKey,
+      fieldKey: decision.fieldKey,
+      action: decision.action,
+      reviewedNabatableValueHash: decision.reviewedNabatableValueHash,
+      reviewedGoogleValueHash: decision.reviewedGoogleValueHash,
+    })),
     currentHashes: input.currentHashes,
   })}`;
+}
+
+function publishModeForDecisions(
+  decisions: GoogleBusinessProfileFieldDecision[],
+): GoogleBusinessProfilePublishMode | null {
+  const imports = decisions.some((decision) => decision.action === 'import_from_google');
+  const exports = decisions.some((decision) => decision.action === 'export_to_google');
+  if (imports && exports) {
+    return 'nabatable_and_google';
+  }
+  if (exports) {
+    return 'google_only';
+  }
+  if (imports) {
+    return 'nabatable_only';
+  }
+  return null;
 }
 
 function buildPreflightWarnings(input: {
@@ -1925,23 +2267,42 @@ async function buildPublishPreflightContext(params: {
   restaurantId: string;
   draftId: string;
   selectedApprovals: Record<string, boolean>;
+  decisions?: GoogleBusinessProfileFieldDecisionInput[];
+  actorUserId?: string;
   directionIntent?: GoogleBusinessProfilePublishDirectionIntent;
   pushToGoogle?: boolean;
   client: DbClient;
 }): Promise<PublishPreflightContext> {
-  const directionIntent = normalizePublishDirectionIntent({
-    directionIntent: params.directionIntent,
-    pushToGoogle: params.pushToGoogle,
-  });
-  assertApprovalWorkflowDirectionSupported(directionIntent);
-  const mode = publishModeForDirectionIntent(directionIntent);
   const latestDraft = await readLatestDraft(params.restaurantId, params.client);
   if (!latestDraft || latestDraft.id !== params.draftId) {
     throw new Error('Active Google Business Profile review was not found.');
   }
   assertDraftPublishable(latestDraft.status);
 
-  const draft = mapDraft(latestDraft, params.selectedApprovals);
+  const baseDraft = mapDraft(latestDraft);
+  const decisions =
+    params.decisions && params.actorUserId
+      ? validateAndStampFieldDecisions({
+          draft: baseDraft,
+          decisions: params.decisions,
+          actorUserId: params.actorUserId,
+        })
+      : extractFieldDecisions(latestDraft.selected_approvals);
+  const selectedApprovals =
+    decisions.length > 0 ? selectedApprovalsFromDecisions(decisions) : params.selectedApprovals;
+  const decisionMode = publishModeForDecisions(decisions);
+  const directionIntent =
+    params.directionIntent || params.pushToGoogle !== undefined
+      ? normalizePublishDirectionIntent({
+          directionIntent: params.directionIntent,
+          pushToGoogle: params.pushToGoogle,
+        })
+      : decisionMode
+        ? directionIntentForPublishMode(decisionMode)
+        : 'google_to_nabatable';
+  assertApprovalWorkflowDirectionSupported(directionIntent);
+  const mode = decisionMode ?? publishModeForDirectionIntent(directionIntent);
+  const draft = mapDraft(latestDraft, selectedApprovals, decisions);
   const currentCore = await readCoreSnapshots(params.restaurantId, params.client);
   const currentHashes = buildCoreSnapshotHashes(currentCore);
   const staleSections = detectStaleSections(draft, currentHashes, mode);
@@ -1954,8 +2315,9 @@ async function buildPublishPreflightContext(params: {
     });
   }
 
-  const selectedForMode = selectedItems(draft, mode);
-  if (selectedForMode.length === 0) {
+  const importItems = selectedItems(draft, 'nabatable_only');
+  const exportItems = selectedItems(draft, 'google_only');
+  if (importItems.length === 0 && exportItems.length === 0) {
     throw createWorkflowNamedError(
       'GBP_DRAFT_NO_SELECTION',
       mode === 'google_only'
@@ -1983,7 +2345,7 @@ async function buildPublishPreflightContext(params: {
 
   const selectedDraftItemsForWarnings = selectedDraftItems(draft);
   const sections = selectedSectionKeys(draft, mode);
-  const nabatableUpdates = mode === 'google_only' ? [] : selectedForMode;
+  const nabatableUpdates = mode === 'google_only' ? [] : importItems;
   const googleUpdateMasks =
     mode === 'nabatable_only' ? [] : googleMasksForDraft(draft, 'google_only');
   const pullOnlyItems =
@@ -2008,9 +2370,11 @@ async function buildPublishPreflightContext(params: {
     externalProfile,
     mode,
     directionIntent,
-    selectedApprovals: params.selectedApprovals,
+    selectedApprovals,
+    decisions,
     sections,
     nabatableUpdates,
+    googleUpdates: mode === 'nabatable_only' ? [] : exportItems,
     pullOnlyItems,
     googleUpdateMasks,
     warnings,
@@ -2019,7 +2383,8 @@ async function buildPublishPreflightContext(params: {
       restaurantId: params.restaurantId,
       draftId: params.draftId,
       mode,
-      selectedApprovals: params.selectedApprovals,
+      selectedApprovals,
+      decisions,
       currentHashes,
     }),
   };
@@ -2054,7 +2419,10 @@ async function upsertPublishJobFromPreflight(params: {
       idempotency_key: params.context.idempotencyKey,
       mode: params.context.mode,
       status: 'preflight_ready',
-      selected_approvals: toJson(params.context.selectedApprovals),
+      selected_approvals: selectedApprovalsWithDecisions(
+        params.context.selectedApprovals,
+        params.context.decisions,
+      ),
       nabatable_sections: params.context.sections,
       preflight_nabatable_updates: toJson(params.context.nabatableUpdates),
       preflight_pull_only_items: toJson(params.context.pullOnlyItems),
@@ -2095,11 +2463,14 @@ function buildPreflightResponse(
 ): GoogleBusinessProfilePublishPreflight {
   return {
     publishJobId: job.id,
+    publishPlanId: job.id,
     idempotencyKey: job.idempotency_key,
     mode: context.mode,
     directionIntent: context.directionIntent,
     selectedApprovals: context.selectedApprovals,
+    decisions: context.decisions,
     nabatableUpdates: context.nabatableUpdates,
+    googleUpdates: context.googleUpdates,
     pullOnlyItems: context.pullOnlyItems,
     googleUpdateMasks: context.googleUpdateMasks,
     warnings: context.warnings,
@@ -2119,6 +2490,7 @@ export async function preflightGoogleBusinessProfileWorkflowDraft(params: {
   draftId: string;
   actorUserId: string;
   selectedApprovals: Record<string, boolean>;
+  decisions?: GoogleBusinessProfileFieldDecisionInput[];
   directionIntent?: GoogleBusinessProfilePublishDirectionIntent;
   pushToGoogle?: boolean;
   client?: DbClient;
@@ -2128,6 +2500,8 @@ export async function preflightGoogleBusinessProfileWorkflowDraft(params: {
     restaurantId: params.restaurantId,
     draftId: params.draftId,
     selectedApprovals: params.selectedApprovals,
+    decisions: params.decisions,
+    actorUserId: params.actorUserId,
     directionIntent: params.directionIntent,
     pushToGoogle: params.pushToGoogle,
     client,
@@ -2208,6 +2582,7 @@ async function publishDraftToNabatable(params: {
   currentCore: CoreSnapshots;
   externalProfile: ExternalProfileRow | null;
   actorUserId: string;
+  publishJobId: string;
   client: DbClient;
 }): Promise<string> {
   const nabatableEvent = await insertPublishEvent({
@@ -2277,7 +2652,22 @@ async function publishDraftToNabatable(params: {
       params.currentCore.businessContext,
     );
     if (Object.keys(businessPayload).length > 0) {
-      await updateRestaurantBusinessContext(params.restaurantId, businessPayload, params.client);
+      await updateRestaurantBusinessContext(
+        params.restaurantId,
+        businessPayload,
+        params.client,
+        {
+          changeOrigin: 'google',
+          changedByUserId: params.actorUserId,
+          changedVia: 'gbp_workflow_publish',
+          changeReason: 'Applied approved Google Business Profile draft to Nabatable.',
+          externalProfileId: params.externalProfile?.id ?? null,
+          externalProvider: PROVIDER,
+          draftId: params.draft.id,
+          publishJobId: params.publishJobId,
+          publishEventId: nabatableEvent.id,
+        },
+      );
     }
 
     await updatePublishEvent(nabatableEvent.id, 'success', [], params.client);
@@ -2523,17 +2913,20 @@ export async function publishGoogleBusinessProfileWorkflowDraft(params: {
   directionIntent?: GoogleBusinessProfilePublishDirectionIntent;
   pushToGoogle?: boolean;
   publishJobId?: string;
+  publishPlanId?: string;
   idempotencyKey?: string;
   selectedApprovals?: Record<string, boolean>;
+  decisions?: GoogleBusinessProfileFieldDecisionInput[];
   client?: DbClient;
 }): Promise<PublishGoogleBusinessProfileDraftResult> {
   const client = getClient(params.client);
   let job: PublishJobRow | null = null;
-  if (params.publishJobId) {
+  const publishJobId = params.publishPlanId ?? params.publishJobId;
+  if (publishJobId) {
     job = await readPublishJobById({
       restaurantId: params.restaurantId,
       draftId: params.draftId,
-      publishJobId: params.publishJobId,
+      publishJobId,
       client,
     });
     if (!job) {
@@ -2562,6 +2955,7 @@ export async function publishGoogleBusinessProfileWorkflowDraft(params: {
 
   const selectedApprovals =
     params.selectedApprovals ?? (job ? toObjectRecord(job.selected_approvals) : {});
+  const jobDecisions = job ? extractFieldDecisions(job.selected_approvals) : [];
   const directionIntent = job
     ? directionIntentForPublishMode(job.mode as GoogleBusinessProfilePublishMode)
     : normalizePublishDirectionIntent({
@@ -2572,6 +2966,8 @@ export async function publishGoogleBusinessProfileWorkflowDraft(params: {
     restaurantId: params.restaurantId,
     draftId: params.draftId,
     selectedApprovals,
+    decisions: jobDecisions.length > 0 ? jobDecisions : params.decisions,
+    actorUserId: params.actorUserId,
     directionIntent,
     client,
   });
@@ -2618,7 +3014,10 @@ export async function publishGoogleBusinessProfileWorkflowDraft(params: {
   const draftPublishingPatch: Database['public']['Tables']['restaurant_external_profile_drafts']['Update'] =
     {
       status: 'publishing',
-      selected_approvals: toJson(context.selectedApprovals),
+      selected_approvals: selectedApprovalsWithDecisions(
+        context.selectedApprovals,
+        context.decisions,
+      ),
     };
   // Preserve the Step 1 approval timestamp/actor when present; only stamp them
   // here if recovery flows reach publish without an explicit approval row (e.g.
@@ -2644,7 +3043,10 @@ export async function publishGoogleBusinessProfileWorkflowDraft(params: {
     .update({
       status: 'publishing',
       published_by_user_id: params.actorUserId,
-      selected_approvals: toJson(context.selectedApprovals),
+      selected_approvals: selectedApprovalsWithDecisions(
+        context.selectedApprovals,
+        context.decisions,
+      ),
       nabatable_sections: context.sections,
       preflight_nabatable_updates: toJson(context.nabatableUpdates),
       preflight_pull_only_items: toJson(context.pullOnlyItems),
@@ -2678,6 +3080,7 @@ export async function publishGoogleBusinessProfileWorkflowDraft(params: {
         currentCore: context.currentCore,
         externalProfile: context.externalProfile,
         actorUserId: params.actorUserId,
+        publishJobId: job.id,
         client,
       });
       postNabatableHashes = buildCoreSnapshotHashes(
@@ -2864,7 +3267,11 @@ export async function retryGoogleBusinessProfileWorkflowGooglePush(params: {
     throw new Error('Google Business Profile review was not found.');
   }
   const selectedApprovals = toObjectRecord(job.selected_approvals);
-  const draft = mapDraft(draftRow, selectedApprovals);
+  const draft = mapDraft(
+    draftRow,
+    selectedApprovals,
+    extractFieldDecisions(job.selected_approvals),
+  );
   const currentHashes: Record<string, string> = buildCoreSnapshotHashes(
     await readCoreSnapshots(params.restaurantId, client),
   );

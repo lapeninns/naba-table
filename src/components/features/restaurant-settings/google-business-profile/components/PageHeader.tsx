@@ -20,6 +20,7 @@ import type { GoogleBusinessProfileConnection } from '@/services/ops/restaurants
 type PageHeaderProps = {
   status: GoogleBusinessProfileConnection['status'];
   lastPullAt: string | null;
+  providerTimezone?: string | null;
   onRefresh: () => void;
   isRefreshing: boolean;
   manageOnGoogleHref: string | null;
@@ -31,6 +32,7 @@ type PageHeaderProps = {
 export function PageHeader({
   status,
   lastPullAt,
+  providerTimezone,
   onRefresh,
   isRefreshing,
   manageOnGoogleHref,
@@ -50,9 +52,15 @@ export function PageHeader({
           </h1>
           <StatusBadge tone={badge.tone} label={badge.label} />
         </div>
-        <p className="text-sm text-muted-foreground">
-          Last checked: <span className="text-foreground">{formatLastSync(lastPullAt)}</span>
-        </p>
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+          <p>
+            Last checked: <span className="text-foreground">{formatLastSync(lastPullAt)}</span>
+          </p>
+          <p>
+            Provider timezone:{' '}
+            <span className="text-foreground">{providerTimezone ?? 'Inherited'}</span>
+          </p>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">

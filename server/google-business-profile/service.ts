@@ -24,9 +24,11 @@ import {
   parseGoogleLocationId,
   refreshGoogleBusinessProfileAccessToken,
   revokeGoogleBusinessProfileToken,
+  updateGoogleBusinessProfileLocationAttributes,
   type GoogleBusinessProfileAvailableLocation,
   type GoogleBusinessProfileAttributesResponse,
   type GoogleBusinessProfileIdentity,
+  type GoogleBusinessProfileLocationProfile,
 } from './client';
 import {
   buildPullOperatingHoursPayload,
@@ -72,6 +74,7 @@ export type GoogleBusinessProfileConnectionState = {
   externalLocationName: string | null;
   externalLocationTitle: string | null;
   externalPlaceId: string | null;
+  providerTimezone: string | null;
   lastPullAt: string | null;
   lastPushAt: string | null;
   lastError: string | null;
@@ -133,6 +136,23 @@ function getClient(client?: DbClient): DbClient {
 
 function nowIso(): string {
   return new Date().toISOString();
+}
+
+function normalizeText(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function pickProviderTimezone(location: GoogleBusinessProfileLocationProfile): string | null {
+  return (
+    normalizeText(location.timezone) ??
+    normalizeText(location.timeZone) ??
+    normalizeText(location.metadata?.timezone) ??
+    normalizeText(location.metadata?.timeZone)
+  );
 }
 
 function isConfigured(): boolean {
@@ -465,6 +485,7 @@ function buildConnectionState(
     externalLocationName: externalProfile?.external_location_name ?? null,
     externalLocationTitle: externalProfile?.external_location_title ?? null,
     externalPlaceId: externalProfile?.external_place_id ?? null,
+    providerTimezone: externalProfile?.provider_timezone ?? null,
     lastPullAt: externalProfile?.last_pull_at ?? null,
     lastPushAt: externalProfile?.last_push_at ?? null,
     lastError: externalProfile?.last_error ?? null,
@@ -951,6 +972,7 @@ export async function syncGoogleBusinessProfileBusinessInformation(
         external_location_title: location.title?.trim() || externalProfile.external_location_title,
         external_place_id: location.metadata?.placeId?.trim() || externalProfile.external_place_id,
         external_resource_name: location.name,
+        provider_timezone: pickProviderTimezone(location) ?? externalProfile.provider_timezone,
         connection_status: 'linked',
         last_pull_at: syncedAt,
         last_error: attributeWarning,
@@ -1236,6 +1258,57 @@ export async function syncRestaurantServicePeriodsWithGoogleBusinessProfile(para
   });
 
   return getServicePeriods(params.restaurantId, resolvedClient);
+}
+
+export async function patchRestaurantGoogleBusinessProfileLocationFields(params: {
+  restaurantId: string;
+  locationPatch?: Record<string, unknown>;
+  updateMask?: string[];
+  attributesPatch?: {
+    attributes: Array<Record<string, unknown>>;
+    attributeMask: string[];
+  };
+  client?: DbClient;
+}) {
+  const resolvedClient = getClient(params.client);
+  const { externalProfile, accessToken, locationResourceName } =
+    await getLinkedExternalProfileWithLocation(params.restaurantId, resolvedClient);
+  assertGooglePushEnabled(externalProfile);
+
+  const updateMask = [...new Set(params.updateMask ?? [])].filter(Boolean);
+  if (params.locationPatch && updateMask.length > 0) {
+    await patchGoogleBusinessProfileLocation(
+      accessToken,
+      locationResourceName,
+      params.locationPatch,
+      updateMask,
+      { validateOnly: true },
+    );
+    await patchGoogleBusinessProfileLocation(
+      accessToken,
+      locationResourceName,
+      params.locationPatch,
+      updateMask,
+    );
+  }
+
+  const attributeMask = [...new Set(params.attributesPatch?.attributeMask ?? [])].filter(Boolean);
+  if (params.attributesPatch && attributeMask.length > 0) {
+    await updateGoogleBusinessProfileLocationAttributes(
+      accessToken,
+      locationResourceName,
+      { attributes: params.attributesPatch.attributes },
+      attributeMask,
+    );
+  }
+
+  const pushedAt = nowIso();
+  await markGooglePushSuccess(externalProfile.id, pushedAt, resolvedClient);
+  await syncGoogleBusinessProfileBusinessInformation(params.restaurantId, resolvedClient, {
+    runKind: 'core_sync',
+  });
+
+  return readGoogleBusinessProfileBusinessInfo(params.restaurantId, resolvedClient);
 }
 
 export async function linkGoogleBusinessProfileLocation(

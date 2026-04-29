@@ -3,7 +3,9 @@ import { formatGbpDay } from './formatters';
 import type {
   GoogleBusinessProfileDraftItem,
   GoogleBusinessProfileDraftSection,
+  GoogleBusinessProfileFieldDecisionInput,
   GoogleBusinessProfilePublishDirectionIntent,
+  GoogleBusinessProfileSyncDecisionAction,
   GoogleBusinessProfileWorkflow,
   GoogleBusinessProfileWorkflowDraft,
 } from '@/services/ops/restaurants';
@@ -13,12 +15,7 @@ export type SyncPublishDirection = Exclude<
   'google_to_nabatable_with_google_sync'
 >;
 
-export type FieldDecision =
-  | 'pull_from_google'
-  | 'push_to_google'
-  | 'keep_nabatable'
-  | 'ignore_suggestion'
-  | 'manual';
+export type FieldDecision = GoogleBusinessProfileSyncDecisionAction | 'manual';
 
 export type DirectionSectionSummary = {
   section: GoogleBusinessProfileDraftSection;
@@ -31,11 +28,33 @@ export type DirectionSectionSummary = {
   unchangedCount: number;
 };
 
+export type ConflictSectionSummary = {
+  section: GoogleBusinessProfileDraftSection;
+  changedItems: GoogleBusinessProfileDraftItem[];
+  actionableCount: number;
+  resolvedCount: number;
+  importCount: number;
+  exportCount: number;
+  blockedCount: number;
+  manualCount: number;
+  unchangedCount: number;
+};
+
 export type DirectionStats = {
   selectedCount: number;
   actionableCount: number;
   blockedCount: number;
   ignoredCount: number;
+};
+
+export type ConflictStats = {
+  totalCount: number;
+  actionableCount: number;
+  resolvedCount: number;
+  importCount: number;
+  exportCount: number;
+  blockedCount: number;
+  manualCount: number;
 };
 
 const READ_ONLY_REVIEW_STATUSES = new Set(['published', 'publishing', 'archived']);
@@ -102,13 +121,29 @@ export function decisionMatchesDirection(
   direction: SyncPublishDirection,
 ): boolean {
   return (
-    (direction === 'google_to_nabatable' && decision === 'pull_from_google') ||
-    (direction === 'nabatable_to_google' && decision === 'push_to_google')
+    (direction === 'google_to_nabatable' && decision === 'import_from_google') ||
+    (direction === 'nabatable_to_google' && decision === 'export_to_google')
   );
 }
 
 export function directionDecision(direction: SyncPublishDirection): FieldDecision {
-  return direction === 'google_to_nabatable' ? 'pull_from_google' : 'push_to_google';
+  return direction === 'google_to_nabatable' ? 'import_from_google' : 'export_to_google';
+}
+
+export function decisionDirection(decision: FieldDecision): SyncPublishDirection | null {
+  if (decision === 'import_from_google') {
+    return 'google_to_nabatable';
+  }
+
+  if (decision === 'export_to_google') {
+    return 'nabatable_to_google';
+  }
+
+  return null;
+}
+
+export function isResolutionDecision(decision: FieldDecision): boolean {
+  return decisionDirection(decision) !== null;
 }
 
 export function formatValuePreview(value: unknown): string {
@@ -200,7 +235,21 @@ export function deriveInitialFieldDecisions(
   if (isReadOnlyReviewStatus(draft.status)) {
     return Object.fromEntries(
       draft.sectionDiffs.flatMap((section) =>
-        section.items.map((item) => [item.fieldKey, 'keep_nabatable' as const]),
+        section.items.map((item) => [item.fieldKey, 'ignore' as const]),
+      ),
+    );
+  }
+
+  if ((draft.decisions?.length ?? 0) > 0) {
+    const storedDecisions = new Map(
+      draft.decisions?.map((decision) => [decision.fieldKey, decision.action]),
+    );
+    return Object.fromEntries(
+      draft.sectionDiffs.flatMap((section) =>
+        section.items.map((item) => [
+          item.fieldKey,
+          (storedDecisions.get(item.fieldKey) ?? 'ignore') as FieldDecision,
+        ]),
       ),
     );
   }
@@ -209,18 +258,18 @@ export function deriveInitialFieldDecisions(
     draft.sectionDiffs.flatMap((section) =>
       section.items.map((item) => {
         if (!isChangedItem(item)) {
-          return [item.fieldKey, 'keep_nabatable' as const];
+          return [item.fieldKey, 'ignore' as const];
         }
 
         if (draft.selectedApprovals[item.fieldKey] && item.canPublishToNabatable) {
-          return [item.fieldKey, 'pull_from_google' as const];
+          return [item.fieldKey, 'import_from_google' as const];
         }
 
         if (!item.canPublishToNabatable && !item.canPushToGoogle) {
           return [item.fieldKey, 'manual' as const];
         }
 
-        return [item.fieldKey, 'keep_nabatable' as const];
+        return [item.fieldKey, 'ignore' as const];
       }),
     ),
   );
@@ -230,7 +279,7 @@ export function getFieldDecision(
   item: GoogleBusinessProfileDraftItem,
   decisions: Record<string, FieldDecision>,
 ): FieldDecision {
-  return decisions[item.fieldKey] ?? 'keep_nabatable';
+  return decisions[item.fieldKey] ?? 'ignore';
 }
 
 export function buildSelectedApprovalsForDirection(
@@ -262,6 +311,61 @@ export function buildSelectedApprovalsForDirection(
   );
 }
 
+export function buildSelectedApprovalsForDecisions(
+  draft: GoogleBusinessProfileWorkflowDraft | null,
+  decisions: Record<string, FieldDecision>,
+): Record<string, boolean> {
+  if (!draft || isReadOnlyReviewStatus(draft.status)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    draft.sectionDiffs.flatMap((section) =>
+      section.items.map((item) => {
+        const decision = getFieldDecision(item, decisions);
+        return [
+          item.fieldKey,
+          isChangedItem(item) &&
+            section.status !== 'stale' &&
+            (decision === 'import_from_google' || decision === 'export_to_google'),
+        ];
+      }),
+    ),
+  );
+}
+
+export function buildFieldDecisionPayload(
+  draft: GoogleBusinessProfileWorkflowDraft | null,
+  decisions: Record<string, FieldDecision>,
+): GoogleBusinessProfileFieldDecisionInput[] {
+  if (!draft || isReadOnlyReviewStatus(draft.status)) {
+    return [];
+  }
+
+  return draft.sectionDiffs.flatMap((section) =>
+    section.items.flatMap((item) => {
+      if (!isChangedItem(item) || section.status === 'stale') {
+        return [];
+      }
+
+      const action = getFieldDecision(item, decisions);
+      if (action === 'manual') {
+        return [];
+      }
+
+      return [
+        {
+          sectionKey: section.sectionKey,
+          fieldKey: item.fieldKey,
+          action,
+          reviewedNabatableValueHash: item.nabatableValueHash ?? `${item.fieldKey}:nabatable`,
+          reviewedGoogleValueHash: item.googleValueHash ?? `${item.fieldKey}:google`,
+        },
+      ];
+    }),
+  );
+}
+
 export function buildDirectionStats(
   draft: GoogleBusinessProfileWorkflowDraft | null,
   decisions: Record<string, FieldDecision>,
@@ -289,7 +393,7 @@ export function buildDirectionStats(
         blockedCount += 1;
       }
 
-      if (decision === 'ignore_suggestion') {
+      if (decision === 'ignore') {
         ignoredCount += 1;
       }
 
@@ -344,7 +448,7 @@ export function buildDirectionSectionSummaries(
           oppositeDirectionCount += 1;
         }
 
-        if (decision === 'ignore_suggestion') {
+        if (decision === 'ignore') {
           ignoredCount += 1;
         }
       }
@@ -361,6 +465,105 @@ export function buildDirectionSectionSummaries(
       } satisfies DirectionSectionSummary;
     })
     .filter((summary) => summary.changedItems.length > 0 || summary.section.status === 'stale');
+}
+
+export function buildConflictSectionSummaries(
+  draft: GoogleBusinessProfileWorkflowDraft | null,
+  decisions: Record<string, FieldDecision>,
+  googlePushEnabled = true,
+): ConflictSectionSummary[] {
+  if (!draft || isReadOnlyReviewStatus(draft.status)) {
+    return [];
+  }
+
+  return draft.sectionDiffs
+    .map((section) => {
+      const changedItems = section.items.filter(isChangedItem);
+      let actionableCount = 0;
+      let resolvedCount = 0;
+      let importCount = 0;
+      let exportCount = 0;
+      let blockedCount = 0;
+      let manualCount = 0;
+
+      for (const item of changedItems) {
+        const canImport = section.status !== 'stale' && item.canPublishToNabatable;
+        const canExport = section.status !== 'stale' && item.canPushToGoogle && googlePushEnabled;
+        const decision = getFieldDecision(item, decisions);
+
+        if (canImport || canExport) {
+          actionableCount += 1;
+        } else {
+          blockedCount += 1;
+        }
+
+        if (decision === 'manual') {
+          manualCount += 1;
+        }
+
+        if (decision === 'import_from_google' && canImport) {
+          resolvedCount += 1;
+          importCount += 1;
+        }
+
+        if (decision === 'export_to_google' && canExport) {
+          resolvedCount += 1;
+          exportCount += 1;
+        }
+      }
+
+      return {
+        section,
+        changedItems,
+        actionableCount,
+        resolvedCount,
+        importCount,
+        exportCount,
+        blockedCount,
+        manualCount,
+        unchangedCount: section.items.length - changedItems.length,
+      } satisfies ConflictSectionSummary;
+    })
+    .filter((summary) => summary.changedItems.length > 0 || summary.section.status === 'stale');
+}
+
+export function buildConflictStats(
+  draft: GoogleBusinessProfileWorkflowDraft | null,
+  decisions: Record<string, FieldDecision>,
+  googlePushEnabled = true,
+): ConflictStats {
+  if (!draft || isReadOnlyReviewStatus(draft.status)) {
+    return {
+      totalCount: 0,
+      actionableCount: 0,
+      resolvedCount: 0,
+      importCount: 0,
+      exportCount: 0,
+      blockedCount: 0,
+      manualCount: 0,
+    };
+  }
+
+  return buildConflictSectionSummaries(draft, decisions, googlePushEnabled).reduce<ConflictStats>(
+    (stats, summary) => ({
+      totalCount: stats.totalCount + summary.changedItems.length,
+      actionableCount: stats.actionableCount + summary.actionableCount,
+      resolvedCount: stats.resolvedCount + summary.resolvedCount,
+      importCount: stats.importCount + summary.importCount,
+      exportCount: stats.exportCount + summary.exportCount,
+      blockedCount: stats.blockedCount + summary.blockedCount,
+      manualCount: stats.manualCount + summary.manualCount,
+    }),
+    {
+      totalCount: 0,
+      actionableCount: 0,
+      resolvedCount: 0,
+      importCount: 0,
+      exportCount: 0,
+      blockedCount: 0,
+      manualCount: 0,
+    },
+  );
 }
 
 export function buildSelectedItemsForDirection(
@@ -382,6 +585,33 @@ export function buildSelectedItemsForDirection(
           decisionMatchesDirection(getFieldDecision(item, decisions), direction),
       )
       .map((item) => ({ ...item, sectionLabel: section.label })),
+  );
+}
+
+export function buildSelectedItemsForDecisions(
+  draft: GoogleBusinessProfileWorkflowDraft | null,
+  decisions: Record<string, FieldDecision>,
+): Array<GoogleBusinessProfileDraftItem & { sectionLabel: string; decisionAction: FieldDecision }> {
+  if (!draft || isReadOnlyReviewStatus(draft.status)) {
+    return [];
+  }
+
+  return draft.sectionDiffs.flatMap((section) =>
+    section.items
+      .filter((item) => {
+        const decision = getFieldDecision(item, decisions);
+        return (
+          isChangedItem(item) &&
+          section.status !== 'stale' &&
+          ((decision === 'import_from_google' && item.canPublishToNabatable) ||
+            (decision === 'export_to_google' && item.canPushToGoogle))
+        );
+      })
+      .map((item) => ({
+        ...item,
+        sectionLabel: section.label,
+        decisionAction: getFieldDecision(item, decisions),
+      })),
   );
 }
 
@@ -519,17 +749,16 @@ export function itemActionLabel(
 
 export function decisionLabel(decision: FieldDecision): string {
   switch (decision) {
-    case 'pull_from_google':
-      return 'Use Google value';
-    case 'push_to_google':
-      return 'Send to Google';
-    case 'ignore_suggestion':
+    case 'import_from_google':
+      return 'Import from Google';
+    case 'export_to_google':
+      return 'Export to Google';
+    case 'ignore':
       return 'Ignored';
     case 'manual':
       return 'Manual';
-    case 'keep_nabatable':
     default:
-      return 'Keep Nabatable';
+      return 'Ignored';
   }
 }
 
@@ -538,9 +767,9 @@ export function decisionLabelForItem(
   decision: FieldDecision,
 ): string {
   switch (decision) {
-    case 'pull_from_google':
+    case 'import_from_google':
       return itemActionLabel(item, 'google_to_nabatable');
-    case 'push_to_google':
+    case 'export_to_google':
       return itemActionLabel(item, 'nabatable_to_google');
     default:
       return decisionLabel(decision);
@@ -557,15 +786,15 @@ export function itemActionDisabledReason(
     return 'Check for changes again before changing this section.';
   }
 
-  if (decision === 'pull_from_google' && !item.canPublishToNabatable) {
+  if (decision === 'import_from_google' && !item.canPublishToNabatable) {
     return 'This field cannot be changed in Nabatable from this review yet.';
   }
 
-  if (decision === 'push_to_google' && !item.canPushToGoogle) {
+  if (decision === 'export_to_google' && !item.canPushToGoogle) {
     return 'This field cannot be changed in Google from this review yet.';
   }
 
-  if (decision === 'push_to_google' && !googlePushEnabled) {
+  if (decision === 'export_to_google' && !googlePushEnabled) {
     return 'Google updates are disabled for this linked Business Profile location.';
   }
 

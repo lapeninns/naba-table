@@ -85,6 +85,83 @@ describe('restaurant business-context routes', () => {
     expect(updateRestaurantBusinessContextMock).not.toHaveBeenCalled();
   });
 
+  it('accepts provider-safe service-area and attribute payload fields', async () => {
+    resolveRestaurantIdMock.mockResolvedValue('rest-1');
+    ensureRestaurantAdminAccessMock.mockResolvedValue({ userId: 'user-1' });
+    updateRestaurantBusinessContextMock.mockResolvedValue({
+      core: {
+        categories: [],
+        serviceAreas: [],
+        attributes: [],
+        serviceItems: [],
+      },
+      providerSnapshot: {
+        categories: [],
+        serviceAreas: [],
+        attributes: [],
+        serviceItems: [],
+      },
+    });
+
+    const body = {
+      serviceAreas: [
+        {
+          displayName: 'Cambridge',
+          areaType: 'region',
+          regionCode: 'GB',
+          googlePlaceId: 'ChIJLQEq84ld2EcRIT1eo-Ego2M',
+          googlePlaceResourceName: 'places/ChIJLQEq84ld2EcRIT1eo-Ego2M',
+          placeData: { placeId: 'ChIJLQEq84ld2EcRIT1eo-Ego2M' },
+        },
+      ],
+      attributes: [
+        {
+          attributeKey: 'planning_reservation_recommended',
+          valueType: 'REPEATED_ENUM',
+          enumValues: ['RESERVATION_RECOMMENDED'],
+          rawValue: { repeatedEnumValue: { setValues: ['RESERVATION_RECOMMENDED'] } },
+          rawEnumValues: { setValues: ['RESERVATION_RECOMMENDED'] },
+          displayValue: { setLabels: ['Reservations recommended'] },
+        },
+      ],
+    };
+
+    const response = await PUT(
+      new NextRequest('https://example.com/api/ops/restaurants/rest-1/business-context', {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      }),
+      { params: Promise.resolve({ id: 'rest-1' }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(updateRestaurantBusinessContextMock).toHaveBeenCalledWith(
+      'rest-1',
+      expect.objectContaining({
+        serviceAreas: [
+          expect.objectContaining({
+            googlePlaceId: 'ChIJLQEq84ld2EcRIT1eo-Ego2M',
+            googlePlaceResourceName: 'places/ChIJLQEq84ld2EcRIT1eo-Ego2M',
+          }),
+        ],
+        attributes: [
+          expect.objectContaining({
+            enumValues: ['RESERVATION_RECOMMENDED'],
+            rawValue: { repeatedEnumValue: { setValues: ['RESERVATION_RECOMMENDED'] } },
+            rawEnumValues: { setValues: ['RESERVATION_RECOMMENDED'] },
+            displayValue: { setLabels: ['Reservations recommended'] },
+          }),
+        ],
+      }),
+      undefined,
+      expect.objectContaining({
+        changeOrigin: 'owner',
+        changedByUserId: 'user-1',
+        changedVia: 'ops_business_context_api',
+      }),
+    );
+  });
+
   it('returns shared auth responses without calling the business-context service', async () => {
     resolveRestaurantIdMock.mockResolvedValue('rest-1');
     ensureRestaurantAdminAccessMock.mockResolvedValue(

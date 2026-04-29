@@ -11,8 +11,8 @@ import {
 
 import type { GoogleBusinessProfileBusinessInfo } from '@/server/google-business-profile/business-info';
 import type { GoogleBusinessProfileLocationProfile } from '@/server/google-business-profile/client';
-import type { OperatingHoursSnapshot } from '@/server/restaurants/operatingHours';
 import type { RestaurantDetails } from '@/server/restaurants/details';
+import type { OperatingHoursSnapshot } from '@/server/restaurants/operatingHours';
 import type { ServicePeriod } from '@/server/restaurants/servicePeriods';
 
 function buildBusinessInfo(
@@ -64,6 +64,7 @@ function buildRestaurantProfile(overrides: Partial<RestaurantDetails>): Restaura
     contactEmail: 'hello@example.com',
     contactPhone: '01223 277217',
     address: '89 High Street, Girton, Cambridge CB3 0QD',
+    businessDescription: null,
     managerDailySummaryEnabled: false,
     managerNotificationPhone: null,
     googleMapUrl: null,

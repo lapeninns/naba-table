@@ -23,6 +23,7 @@ type RestaurantsListResponse = {
     contactEmail: string | null;
     contactPhone: string | null;
     address: string | null;
+    businessDescription: string | null;
     managerDailySummaryEnabled: boolean;
     managerNotificationPhone: string | null;
     googleMapUrl: string | null;
@@ -51,6 +52,7 @@ type RestaurantResponse = {
     contactEmail: string | null;
     contactPhone: string | null;
     address: string | null;
+    businessDescription: string | null;
     managerDailySummaryEnabled: boolean;
     managerNotificationPhone: string | null;
     googleMapUrl: string | null;
@@ -158,6 +160,8 @@ export type GoogleBusinessProfileBusinessInfo = {
       latitude?: number;
       longitude?: number;
     } | null;
+    latitude: number | null;
+    longitude: number | null;
     isPrimary: boolean;
     lastSyncedAt: string | null;
     verificationStatus?: GoogleBusinessProfileFieldVerification | null;
@@ -198,6 +202,8 @@ export type GoogleBusinessProfileBusinessInfo = {
     displayName: string;
     areaType: string;
     regionCode: string | null;
+    googlePlaceId: string | null;
+    googlePlaceResourceName: string | null;
     placeData: Record<string, unknown> | null;
     lastSyncedAt: string | null;
     verificationStatus?: GoogleBusinessProfileFieldVerification | null;
@@ -234,6 +240,9 @@ export type GoogleBusinessProfileBusinessInfo = {
     uriValues: string[];
     enumValues: string[];
     unsetEnumValues: string[];
+    rawValue: Record<string, unknown> | null;
+    rawEnumValues: Record<string, unknown> | null;
+    displayValue: Record<string, unknown> | null;
     valueMetadata: Array<{
       value: boolean | string | null;
       displayName: string | null;
@@ -326,6 +335,7 @@ export type GoogleBusinessProfileConnection = {
   externalLocationName: string | null;
   externalLocationTitle: string | null;
   externalPlaceId: string | null;
+  providerTimezone?: string | null;
   lastPullAt: string | null;
   lastPushAt: string | null;
   lastError: string | null;
@@ -342,6 +352,29 @@ export type GoogleBusinessProfileDraftSectionKey =
   | 'businessContext.attributes'
   | 'businessContext.serviceItems';
 
+export type GoogleBusinessProfileSyncDecisionAction =
+  | 'import_from_google'
+  | 'export_to_google'
+  | 'ignore';
+
+export type GoogleBusinessProfileFieldDecision = {
+  sectionKey: GoogleBusinessProfileDraftSectionKey;
+  fieldKey: string;
+  action: GoogleBusinessProfileSyncDecisionAction;
+  decidedByUserId: string;
+  decidedAt: string;
+  reviewedNabatableValueHash: string;
+  reviewedGoogleValueHash: string;
+};
+
+export type GoogleBusinessProfileFieldDecisionInput = {
+  sectionKey: GoogleBusinessProfileDraftSectionKey;
+  fieldKey: string;
+  action: GoogleBusinessProfileSyncDecisionAction;
+  reviewedNabatableValueHash: string;
+  reviewedGoogleValueHash: string;
+};
+
 export type GoogleBusinessProfileDraftItem = {
   fieldKey: string;
   label: string;
@@ -352,6 +385,16 @@ export type GoogleBusinessProfileDraftItem = {
   direction: CoreSyncDirection;
   status: 'ready' | 'unchanged' | 'unsupported' | 'warning';
   selected: boolean;
+  normalizedNabatableValue?: unknown;
+  normalizedGoogleValue?: unknown;
+  nabatableValueHash?: string;
+  googleValueHash?: string;
+  capabilities?: {
+    canImportFromGoogle: boolean;
+    canExportToGoogle: boolean;
+    canIgnore: boolean;
+  };
+  blockedReasons?: string[];
   canPublishToNabatable: boolean;
   canPushToGoogle: boolean;
   warnings: string[];
@@ -377,6 +420,7 @@ export type GoogleBusinessProfileWorkflowDraft = {
   staleSections: string[];
   conflictMetadata: unknown;
   selectedApprovals: Record<string, boolean>;
+  decisions?: GoogleBusinessProfileFieldDecision[];
   sourceSnapshotRefs: unknown;
   coreSnapshotHashes: Record<string, string>;
   sectionDiffs: GoogleBusinessProfileDraftSection[];
@@ -441,6 +485,7 @@ export type GoogleBusinessProfileActivePublishJob = {
   directionIntent: GoogleBusinessProfilePublishDirectionIntent;
   status: string;
   selectedApprovals: Record<string, boolean>;
+  decisions?: GoogleBusinessProfileFieldDecision[];
   nabatableSections: string[];
   googleUpdateMasks: GoogleBusinessProfileGoogleUpdateMask[];
   postNabatableCoreHashes: Record<string, string>;
@@ -511,31 +556,38 @@ export function deriveGoogleBusinessProfileWorkflowStage(
 
 export type GoogleBusinessProfileDraftPatchPayload = {
   selectedApprovals?: Record<string, boolean>;
+  decisions?: GoogleBusinessProfileFieldDecisionInput[];
   status?: 'review_ready' | 'approved';
 };
 
 export type GoogleBusinessProfileDraftPublishPayload =
   GoogleBusinessProfileProtectedActionPayload & {
-    publishJobId: string;
+    publishJobId?: string;
+    publishPlanId?: string;
     idempotencyKey: string;
     selectedApprovals?: Record<string, boolean>;
+    decisions?: GoogleBusinessProfileFieldDecisionInput[];
     directionIntent?: GoogleBusinessProfilePublishDirectionIntent;
     pushToGoogle?: boolean;
   };
 
 export type GoogleBusinessProfileDraftPublishPreflightPayload = {
   selectedApprovals: Record<string, boolean>;
+  decisions?: GoogleBusinessProfileFieldDecisionInput[];
   directionIntent?: GoogleBusinessProfilePublishDirectionIntent;
   pushToGoogle?: boolean;
 };
 
 export type GoogleBusinessProfileDraftPublishPreflight = {
   publishJobId: string;
+  publishPlanId: string;
   idempotencyKey: string;
   mode: GoogleBusinessProfilePublishMode;
   directionIntent: GoogleBusinessProfilePublishDirectionIntent;
   selectedApprovals: Record<string, boolean>;
+  decisions: GoogleBusinessProfileFieldDecision[];
   nabatableUpdates: GoogleBusinessProfileDraftItem[];
+  googleUpdates: GoogleBusinessProfileDraftItem[];
   pullOnlyItems: GoogleBusinessProfileDraftItem[];
   googleUpdateMasks: GoogleBusinessProfileGoogleUpdateMask[];
   warnings: GoogleBusinessProfilePublishPreflightNotice[];
@@ -556,6 +608,28 @@ export type RestaurantBusinessContextAttributeValueMetadata = {
   displayName: string | null;
 };
 
+export type RestaurantBusinessContextBusinessDetails = {
+  id: string;
+  openingDate: string | null;
+  businessStatus: string | null;
+  isServiceAreaBusiness: boolean;
+  source: string;
+  managedBy: string;
+  updatedAt: string | null;
+};
+
+export type RestaurantBusinessContextLink = {
+  id: string;
+  linkType: string;
+  linkStatus: string;
+  label: string | null;
+  url: string;
+  isPrimary: boolean;
+  source: string;
+  managedBy: string;
+  updatedAt: string | null;
+};
+
 export type RestaurantBusinessContextCategory = {
   id: string;
   displayName: string;
@@ -572,6 +646,8 @@ export type RestaurantBusinessContextServiceArea = {
   displayName: string;
   areaType: string;
   regionCode: string | null;
+  googlePlaceId: string | null;
+  googlePlaceResourceName: string | null;
   placeData: Record<string, unknown> | null;
   source: string;
   managedBy: string;
@@ -595,6 +671,9 @@ export type RestaurantBusinessContextAttribute = {
   uriValues: string[];
   enumValues: string[];
   unsetEnumValues: string[];
+  rawValue: Record<string, unknown> | null;
+  rawEnumValues: Record<string, unknown> | null;
+  displayValue: Record<string, unknown> | null;
   valueMetadata: RestaurantBusinessContextAttributeValueMetadata[];
   source: string;
   managedBy: string;
@@ -614,6 +693,8 @@ export type RestaurantBusinessContextServiceItem = {
 };
 
 export type RestaurantBusinessContextFamily = {
+  businessDetails?: RestaurantBusinessContextBusinessDetails | null;
+  links?: RestaurantBusinessContextLink[];
   categories: RestaurantBusinessContextCategory[];
   serviceAreas: RestaurantBusinessContextServiceArea[];
   attributes: RestaurantBusinessContextAttribute[];
@@ -626,6 +707,19 @@ export type RestaurantBusinessContextSnapshot = {
 };
 
 export type UpdateRestaurantBusinessContextInput = Partial<{
+  businessDetails: {
+    openingDate?: string | null;
+    businessStatus?: string | null;
+    isServiceAreaBusiness?: boolean;
+  };
+  links: Array<{
+    id?: string;
+    linkType: string;
+    linkStatus?: string | null;
+    label?: string | null;
+    url: string;
+    isPrimary?: boolean;
+  }>;
   categories: Array<{
     id?: string;
     displayName: string;
@@ -638,6 +732,8 @@ export type UpdateRestaurantBusinessContextInput = Partial<{
     displayName: string;
     areaType?: string;
     regionCode?: string | null;
+    googlePlaceId?: string | null;
+    googlePlaceResourceName?: string | null;
     placeData?: Record<string, unknown> | null;
   }>;
   attributes: Array<{
@@ -657,6 +753,9 @@ export type UpdateRestaurantBusinessContextInput = Partial<{
     uriValues?: string[];
     enumValues?: string[];
     unsetEnumValues?: string[];
+    rawValue?: Record<string, unknown> | null;
+    rawEnumValues?: Record<string, unknown> | null;
+    displayValue?: Record<string, unknown> | null;
     valueMetadata?: RestaurantBusinessContextAttributeValueMetadata[];
   }>;
   serviceItems: Array<{
@@ -686,6 +785,7 @@ export type RestaurantProfile = {
   contactEmail: string | null;
   contactPhone: string | null;
   address: string | null;
+  businessDescription: string | null;
   managerDailySummaryEnabled: boolean;
   managerNotificationPhone: string | null;
   googleMapUrl: string | null;
@@ -1097,6 +1197,7 @@ function mapRestaurant(dto: RestaurantResponse['restaurant']): RestaurantProfile
     contactEmail: dto.contactEmail ?? null,
     contactPhone: dto.contactPhone ?? null,
     address: dto.address ?? null,
+    businessDescription: dto.businessDescription ?? null,
     managerDailySummaryEnabled: dto.managerDailySummaryEnabled ?? false,
     managerNotificationPhone: dto.managerNotificationPhone ?? null,
     googleMapUrl: dto.googleMapUrl ?? null,

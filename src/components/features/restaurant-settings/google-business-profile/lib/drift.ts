@@ -1,6 +1,11 @@
 import { opsHref } from '@/lib/url/opsHref';
 
-import { formatGbpDate, formatGbpDay, formatOperatingWindow, formatServiceWindow } from './formatters';
+import {
+  formatGbpDate,
+  formatGbpDay,
+  formatOperatingWindow,
+  formatServiceWindow,
+} from './formatters';
 
 import type { deriveProfileVerification } from '../googleBusinessProfileVerification';
 import type {
@@ -50,12 +55,17 @@ const PROFILE_LABELS: Record<GoogleBusinessProfileProfileField, string> = {
   googleReviewUrl: 'Google review URL',
 };
 
+const AVAILABILITY_HOURS_HREF = opsHref('/settings/restaurant/availability#availability-hours');
+const SERVICE_PERIODS_HREF = opsHref('/settings/restaurant/availability#service-periods');
+
 function displayText(value: string | null | undefined, fallback: string): string {
   const normalized = value?.trim();
   return normalized && normalized.length > 0 ? normalized : fallback;
 }
 
-function statusFromProfile(status: 'verified' | 'drifted' | 'partial' | 'unavailable'): DriftRowStatus {
+function statusFromProfile(
+  status: 'verified' | 'drifted' | 'partial' | 'unavailable',
+): DriftRowStatus {
   switch (status) {
     case 'verified':
       return 'verified';
@@ -107,7 +117,7 @@ function buildHoursRows(
     { opensAt: string | null; closesAt: string | null; isClosed: boolean }
   > | null,
 ): DriftRow[] {
-  const editHref = opsHref('/settings/restaurant/operating-hours');
+  const editHref = AVAILABILITY_HOURS_HREF;
   return normalization.weekly.map((row) => {
     const nabatableRow = nabatableByDay?.get(row.dayOfWeek) ?? null;
     return {
@@ -125,7 +135,7 @@ function buildHoursRows(
 function buildOverrideRows(
   normalization: GoogleBusinessProfileConnection['businessInfo']['coreNormalization']['operatingHours'],
 ): DriftRow[] {
-  const editHref = opsHref('/settings/restaurant/operating-hours');
+  const editHref = AVAILABILITY_HOURS_HREF;
   return normalization.overrides.map((row) => ({
     id: `override-${row.effectiveDate}`,
     group: 'overrides' as const,
@@ -140,7 +150,7 @@ function buildOverrideRows(
 function buildServiceRows(
   normalization: GoogleBusinessProfileConnection['businessInfo']['coreNormalization']['servicePeriods'],
 ): DriftRow[] {
-  const editHref = opsHref('/settings/restaurant/service-periods');
+  const editHref = SERVICE_PERIODS_HREF;
   return normalization.periods.map((period) => {
     const label = `${formatGbpDay(period.dayOfWeek ?? 0) ?? 'Day'} · ${period.bookingOption === 'lunch' ? 'Lunch' : 'Dinner'}`;
     return {
@@ -180,7 +190,7 @@ export function buildDriftReport(params: {
       id: 'hours',
       title: 'Operating hours',
       rows: hoursRows,
-      editHref: opsHref('/settings/restaurant/operating-hours'),
+      editHref: AVAILABILITY_HOURS_HREF,
     },
   ];
 
@@ -189,7 +199,7 @@ export function buildDriftReport(params: {
       id: 'overrides',
       title: 'Special-date overrides',
       rows: overrideRows,
-      editHref: opsHref('/settings/restaurant/operating-hours'),
+      editHref: AVAILABILITY_HOURS_HREF,
     });
   }
 
@@ -197,7 +207,7 @@ export function buildDriftReport(params: {
     id: 'service',
     title: 'Service periods',
     rows: serviceRows,
-    editHref: opsHref('/settings/restaurant/service-periods'),
+    editHref: SERVICE_PERIODS_HREF,
   });
 
   const allRows = groups.flatMap((group) => group.rows);

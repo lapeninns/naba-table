@@ -13,8 +13,8 @@ export const RESTAURANT_SETTINGS_ROUTES: RestaurantSettingsRoute[] = [
   {
     view: 'profile',
     href: opsHref('/settings/restaurant/profile'),
-    title: 'Restaurant Profile',
-    description: 'Name, branding, contact details, booking policy, reminders.',
+    title: 'Restaurant profile',
+    description: 'Brand, contact details, team alerts, and public discovery.',
   },
   {
     view: 'google-business-profile',
@@ -27,7 +27,7 @@ export const RESTAURANT_SETTINGS_ROUTES: RestaurantSettingsRoute[] = [
     href: opsHref('/settings/restaurant/availability'),
     title: 'Availability & Occasions',
     description:
-      'Weekly hours, overrides, meal windows, occasions, and dining-duration bands in one place.',
+      'Booking rules, weekly hours, overrides, meal windows, occasions, and dining-duration bands.',
   },
   {
     view: 'team',

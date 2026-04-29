@@ -37,9 +37,7 @@ const OPS_REDIRECT_PREFIXES = [
   // the ops dashboard (app.nabatable.com/bookings). Guest recovery links
   // should stay on the public domain.
   '/customers',
-  '/seating',
   '/settings',
-  '/management',
   '/new-bookings',
 ] as const;
 

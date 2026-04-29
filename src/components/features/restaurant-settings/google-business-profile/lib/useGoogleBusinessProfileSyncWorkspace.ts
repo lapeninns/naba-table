@@ -12,12 +12,15 @@ import {
 import { HttpError } from '@/lib/http/errors';
 
 import {
+  buildConflictSectionSummaries,
+  buildConflictStats,
   buildDirectionSectionSummaries,
   buildDirectionStats,
-  buildSelectedApprovalsForDirection,
-  buildSelectedItemsForDirection,
-  compareBooleanRecords,
+  buildFieldDecisionPayload,
+  buildSelectedApprovalsForDecisions,
+  buildSelectedItemsForDecisions,
   countSelectionsByDirection,
+  decisionDirection,
   deriveInitialFieldDecisions,
   getFieldDecision,
   hasMixedDirectionSelections,
@@ -52,7 +55,10 @@ function shouldRefreshWorkflow(error: unknown): boolean {
   );
 }
 
-export function useGoogleBusinessProfileSyncWorkspace(restaurantId: string) {
+export function useGoogleBusinessProfileSyncWorkspace(
+  restaurantId: string,
+  googlePushEnabled = true,
+) {
   const workflowQuery = useOpsGoogleBusinessProfileWorkflow(restaurantId);
   const updateDraftMutation = useOpsUpdateGoogleBusinessProfileDraft(restaurantId);
   const preflightMutation = useOpsPreflightGoogleBusinessProfileDraftPublish(restaurantId);
@@ -63,10 +69,11 @@ export function useGoogleBusinessProfileSyncWorkspace(restaurantId: string) {
   const activePublishJob = workflowQuery.data?.activePublishJob ?? null;
 
   const [direction, setDirection] = useState<SyncPublishDirection>('google_to_nabatable');
+  const [reviewDirection, setReviewDirection] =
+    useState<SyncPublishDirection>('google_to_nabatable');
   const [fieldDecisions, setFieldDecisions] = useState<Record<string, FieldDecision>>(() =>
     deriveInitialFieldDecisions(draft),
   );
-  const [selectedSectionKey, setSelectedSectionKey] = useState<string | null>(null);
   const [preflightDialogOpen, setPreflightDialogOpen] = useState(false);
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
   const [retryDialogOpen, setRetryDialogOpen] = useState(false);
@@ -79,29 +86,41 @@ export function useGoogleBusinessProfileSyncWorkspace(restaurantId: string) {
   const previousDraftIdRef = useRef<string | null>(draft?.id ?? null);
 
   useEffect(() => {
-    if (activePublishJob?.directionIntent === 'nabatable_to_google') {
-      setDirection('nabatable_to_google');
-    } else {
-      setDirection('google_to_nabatable');
-    }
-
     const currentDraftId = draft?.id ?? null;
-    if (previousDraftIdRef.current === currentDraftId) {
+    const jobDirection =
+      activePublishJob?.directionIntent === 'nabatable_to_google'
+        ? 'nabatable_to_google'
+        : activePublishJob?.directionIntent
+          ? 'google_to_nabatable'
+          : null;
+
+    if (previousDraftIdRef.current !== currentDraftId) {
+      const initialDirection = jobDirection ?? 'google_to_nabatable';
+      setDirection(initialDirection);
+      setReviewDirection(initialDirection);
+      previousDraftIdRef.current = currentDraftId;
+      setFieldDecisions(deriveInitialFieldDecisions(draft));
+      setPreflightResult(null);
+      setPreflightErrorMessage(null);
+      setPublishErrorMessage(null);
+      setRetryErrorMessage(null);
       return;
     }
 
-    previousDraftIdRef.current = currentDraftId;
-    setFieldDecisions(deriveInitialFieldDecisions(draft));
-    setSelectedSectionKey(null);
-    setPreflightResult(null);
-    setPreflightErrorMessage(null);
-    setPublishErrorMessage(null);
-    setRetryErrorMessage(null);
+    if (jobDirection) {
+      setDirection(jobDirection);
+      setReviewDirection(jobDirection);
+    }
   }, [activePublishJob?.directionIntent, draft]);
 
   const selectedApprovals = useMemo(
-    () => buildSelectedApprovalsForDirection(draft, fieldDecisions, direction),
-    [draft, fieldDecisions, direction],
+    () => buildSelectedApprovalsForDecisions(draft, fieldDecisions),
+    [draft, fieldDecisions],
+  );
+
+  const decisionPayload = useMemo(
+    () => buildFieldDecisionPayload(draft, fieldDecisions),
+    [draft, fieldDecisions],
   );
 
   const sectionSummaries = useMemo(
@@ -109,20 +128,24 @@ export function useGoogleBusinessProfileSyncWorkspace(restaurantId: string) {
     [draft, fieldDecisions, direction],
   );
 
-  const selectedSectionSummary = useMemo(
-    () =>
-      sectionSummaries.find((summary) => summary.section.sectionKey === selectedSectionKey) ?? null,
-    [sectionSummaries, selectedSectionKey],
-  );
-
-  const selectedItems = useMemo(
-    () => buildSelectedItemsForDirection(draft, fieldDecisions, direction),
-    [draft, fieldDecisions, direction],
-  );
-
   const directionStats = useMemo(
     () => buildDirectionStats(draft, fieldDecisions, direction),
     [draft, fieldDecisions, direction],
+  );
+
+  const conflictStats = useMemo(
+    () => buildConflictStats(draft, fieldDecisions, googlePushEnabled),
+    [draft, fieldDecisions, googlePushEnabled],
+  );
+
+  const conflictSectionSummaries = useMemo(
+    () => buildConflictSectionSummaries(draft, fieldDecisions, googlePushEnabled),
+    [draft, fieldDecisions, googlePushEnabled],
+  );
+
+  const selectedItems = useMemo(
+    () => buildSelectedItemsForDecisions(draft, fieldDecisions),
+    [draft, fieldDecisions],
   );
 
   const directionCounts = useMemo(
@@ -135,17 +158,6 @@ export function useGoogleBusinessProfileSyncWorkspace(restaurantId: string) {
     [draft, fieldDecisions],
   );
 
-  useEffect(() => {
-    if (
-      selectedSectionKey &&
-      sectionSummaries.some((summary) => summary.section.sectionKey === selectedSectionKey)
-    ) {
-      return;
-    }
-
-    setSelectedSectionKey(sectionSummaries[0]?.section.sectionKey ?? null);
-  }, [sectionSummaries, selectedSectionKey]);
-
   const resetPreflight = useCallback(() => {
     setPreflightResult(null);
     setPreflightErrorMessage(null);
@@ -156,6 +168,11 @@ export function useGoogleBusinessProfileSyncWorkspace(restaurantId: string) {
   const updateDecision = useCallback(
     (item: GoogleBusinessProfileDraftItem, decision: FieldDecision) => {
       resetPreflight();
+      const nextDirection = decisionDirection(decision);
+      if (nextDirection) {
+        setDirection(nextDirection);
+        setReviewDirection(nextDirection);
+      }
       setFieldDecisions((current) => ({
         ...current,
         [item.fieldKey]: decision,
@@ -178,7 +195,8 @@ export function useGoogleBusinessProfileSyncWorkspace(restaurantId: string) {
 
     const needsUpdate =
       draft.status !== 'approved' ||
-      !compareBooleanRecords(draft.selectedApprovals, selectedApprovals);
+      JSON.stringify((draft.decisions ?? []).map((decision) => decision.action)) !==
+        JSON.stringify(decisionPayload.map((decision) => decision.action));
 
     if (!needsUpdate) {
       return;
@@ -188,10 +206,11 @@ export function useGoogleBusinessProfileSyncWorkspace(restaurantId: string) {
       draftId: draft.id,
       payload: {
         selectedApprovals,
+        decisions: decisionPayload,
         status: 'approved',
       },
     });
-  }, [draft, selectedApprovals, updateDraftMutation, workflowQuery]);
+  }, [decisionPayload, draft, selectedApprovals, updateDraftMutation, workflowQuery]);
 
   const runPreflight = useCallback(async () => {
     if (!draft) {
@@ -207,7 +226,8 @@ export function useGoogleBusinessProfileSyncWorkspace(restaurantId: string) {
         draftId: draft.id,
         payload: {
           selectedApprovals,
-          directionIntent: direction,
+          decisions: decisionPayload,
+          directionIntent: reviewDirection,
         },
       });
       setPreflightResult(result);
@@ -223,9 +243,10 @@ export function useGoogleBusinessProfileSyncWorkspace(restaurantId: string) {
     }
   }, [
     draft,
-    direction,
+    decisionPayload,
     ensureDraftSelectionsApproved,
     preflightMutation,
+    reviewDirection,
     selectedApprovals,
     workflowQuery,
   ]);
@@ -251,9 +272,11 @@ export function useGoogleBusinessProfileSyncWorkspace(restaurantId: string) {
           payload: {
             password,
             publishJobId: preflightResult.publishJobId,
+            publishPlanId: preflightResult.publishPlanId,
             idempotencyKey: preflightResult.idempotencyKey,
             selectedApprovals,
-            directionIntent: direction,
+            decisions: decisionPayload,
+            directionIntent: preflightResult.directionIntent,
           },
         });
         setPublishDialogOpen(false);
@@ -269,8 +292,21 @@ export function useGoogleBusinessProfileSyncWorkspace(restaurantId: string) {
         throw error;
       }
     },
-    [direction, draft, preflightResult, publishMutation, selectedApprovals, workflowQuery],
+    [decisionPayload, draft, preflightResult, publishMutation, selectedApprovals, workflowQuery],
   );
+
+  const beginReview = useCallback(() => {
+    resetPreflight();
+
+    const nextDirection =
+      countSelectionsByDirection(draft, fieldDecisions).google_to_nabatable > 0
+        ? 'google_to_nabatable'
+        : 'nabatable_to_google';
+
+    setDirection(nextDirection);
+    setReviewDirection(nextDirection);
+    setPreflightDialogOpen(true);
+  }, [draft, fieldDecisions, resetPreflight]);
 
   const retryGooglePushWithPassword = useCallback(
     async (password: string) => {
@@ -308,18 +344,25 @@ export function useGoogleBusinessProfileSyncWorkspace(restaurantId: string) {
     setDirection: (value: SyncPublishDirection) => {
       resetPreflight();
       setDirection(value);
+      setReviewDirection(value);
+    },
+    reviewDirection,
+    setReviewDirection: (value: SyncPublishDirection) => {
+      resetPreflight();
+      setDirection(value);
+      setReviewDirection(value);
     },
     fieldDecisions,
     sectionSummaries,
-    selectedSectionSummary,
-    selectedSectionKey,
-    setSelectedSectionKey,
+    conflictSectionSummaries,
     directionStats,
+    conflictStats,
     directionCounts,
     mixedDirectionSelections,
     selectedApprovals,
     selectedItems,
     updateDecision,
+    beginReview,
     getDecisionForItem: (item: GoogleBusinessProfileDraftItem) =>
       getFieldDecision(item, fieldDecisions),
     preflightDialogOpen,

@@ -17,6 +17,11 @@ type ExternalProfileRow = Database['public']['Tables']['restaurant_external_prof
 
 const GBP_SOURCE = 'gbp';
 const GBP_MANAGED_BY = 'gbp';
+const GBP_CHANGE_PROVENANCE = {
+  change_origin: 'google',
+  changed_via: 'gbp_sync',
+  change_reason: 'Imported from Google Business Profile sync.',
+} as const;
 
 const DAY_NUMBERS: Record<string, number> = {
   SUNDAY: 0,
@@ -40,9 +45,15 @@ type RestaurantAttributeRow = Database['public']['Tables']['restaurant_attribute
 type RestaurantServiceItemRow = Database['public']['Tables']['restaurant_service_items']['Row'];
 type RestaurantFieldSyncStatusRow =
   Database['public']['Tables']['restaurant_field_sync_statuses']['Row'];
+type RestaurantAttributeDefinitionRow =
+  Database['public']['Tables']['restaurant_attribute_definitions']['Row'];
+type RestaurantProfileChangeLogInsert =
+  Database['public']['Tables']['restaurant_profile_change_log']['Insert'];
 type RestaurantOperatingHoursRow =
   Database['public']['Tables']['restaurant_operating_hours']['Row'];
 type RestaurantServicePeriodRow = Database['public']['Tables']['restaurant_service_periods']['Row'];
+type GoogleBusinessProfileAttribute =
+  NonNullable<GoogleBusinessProfileAttributesResponse['attributes']>[number];
 type ProviderRowTable =
   | 'restaurant_addresses'
   | 'restaurant_phone_numbers'
@@ -113,6 +124,8 @@ export type GoogleBusinessProfileBusinessInfo = {
       latitude?: number;
       longitude?: number;
     } | null;
+    latitude: number | null;
+    longitude: number | null;
     isPrimary: boolean;
     lastSyncedAt: string | null;
     verificationStatus?: GoogleBusinessProfileFieldVerification | null;
@@ -153,6 +166,8 @@ export type GoogleBusinessProfileBusinessInfo = {
     displayName: string;
     areaType: string;
     regionCode: string | null;
+    googlePlaceId: string | null;
+    googlePlaceResourceName: string | null;
     placeData: Record<string, unknown> | null;
     lastSyncedAt: string | null;
     verificationStatus?: GoogleBusinessProfileFieldVerification | null;
@@ -189,6 +204,9 @@ export type GoogleBusinessProfileBusinessInfo = {
     uriValues: string[];
     enumValues: string[];
     unsetEnumValues: string[];
+    rawValue: Record<string, unknown> | null;
+    rawEnumValues: Record<string, unknown> | null;
+    displayValue: Record<string, unknown> | null;
     valueMetadata: Array<{
       value: boolean | string | null;
       displayName: string | null;
@@ -241,6 +259,10 @@ function normalizeStringArray(
     .filter((item): item is string => Boolean(item));
 }
 
+function uniqueStrings(values: string[]): string[] {
+  return values.filter((value, index, all) => all.indexOf(value) === index);
+}
+
 function normalizeRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return null;
@@ -249,17 +271,58 @@ function normalizeRecord(value: unknown): Record<string, unknown> | null {
   return value as Record<string, unknown>;
 }
 
-function normalizeJsonArray<T>(
-  value: unknown,
-  mapItem: (item: unknown) => T | null,
-): T[] {
+function pickNestedText(record: Record<string, unknown> | null, keys: string[]): string | null {
+  let current: unknown = record;
+  for (const key of keys) {
+    if (!current || typeof current !== 'object' || Array.isArray(current)) {
+      return null;
+    }
+    current = (current as Record<string, unknown>)[key];
+  }
+
+  return typeof current === 'string' ? normalizeText(current) : null;
+}
+
+function pickGooglePlaceResourceName(record: Record<string, unknown>): string | null {
+  const resourceName =
+    pickNestedText(record, ['resourceName']) ??
+    pickNestedText(record, ['name']) ??
+    pickNestedText(record, ['place', 'resourceName']) ??
+    pickNestedText(record, ['place', 'name']);
+  if (resourceName) {
+    return resourceName;
+  }
+
+  const placeId =
+    pickNestedText(record, ['placeId']) ??
+    pickNestedText(record, ['place_id']) ??
+    pickNestedText(record, ['place', 'placeId']) ??
+    pickNestedText(record, ['place', 'place_id']);
+  return placeId ? `places/${placeId}` : null;
+}
+
+function pickGooglePlaceId(record: Record<string, unknown>): string | null {
+  const direct =
+    pickNestedText(record, ['placeId']) ??
+    pickNestedText(record, ['place_id']) ??
+    pickNestedText(record, ['place', 'placeId']) ??
+    pickNestedText(record, ['place', 'place_id']) ??
+    pickNestedText(record, ['metadata', 'placeId']) ??
+    pickNestedText(record, ['place', 'metadata', 'placeId']);
+  if (direct) {
+    return direct;
+  }
+
+  const resourceName = pickGooglePlaceResourceName(record);
+  return resourceName?.startsWith('places/') ? (resourceName.split('/')[1] ?? null) : null;
+}
+
+function normalizeJsonArray<T>(value: unknown, mapItem: (item: unknown) => T | null): T[] {
   if (!Array.isArray(value)) {
     return [];
   }
 
-  return value
-    .map((item) => mapItem(item))
-    .filter((item): item is T => item !== null);
+  return value.map((item) => mapItem(item)).filter((item): item is T => item !== null);
 }
 
 function normalizeMoreHoursTypes(
@@ -333,14 +396,51 @@ function normalizeAttributeValueMetadata(
     );
 }
 
+function buildRawAttributeValueJson(attribute: GoogleBusinessProfileAttribute) {
+  return {
+    valueType: attribute.valueType ?? null,
+    values: attribute.values ?? [],
+    repeatedEnumValue: attribute.repeatedEnumValue ?? null,
+    uriValue: attribute.uriValue ?? null,
+    uriValues: attribute.uriValues ?? [],
+    valueMetadata: attribute.valueMetadata ?? [],
+  };
+}
+
+function buildRawEnumValuesJson(input: {
+  setValues: string[];
+  unsetValues: string[];
+  valueEnumValues: string[];
+}) {
+  return {
+    setValues: input.setValues,
+    unsetValues: input.unsetValues,
+    valueEnumValues: input.valueEnumValues,
+  };
+}
+
+function buildDisplayValueJson(input: {
+  displayName: string | null;
+  displayStrings: GoogleBusinessProfileAttribute['displayStrings'] | undefined;
+  enumValues: string[];
+  unsetEnumValues: string[];
+  valueDisplays: string[];
+  uriValues: string[];
+  valueMetadata: ReturnType<typeof normalizeAttributeValueMetadata>;
+}) {
+  return {
+    displayName: input.displayName,
+    displayStrings: input.displayStrings ?? null,
+    enumValues: input.enumValues,
+    unsetEnumValues: input.unsetEnumValues,
+    valueDisplays: input.valueDisplays,
+    uriValues: input.uriValues,
+    valueMetadata: input.valueMetadata,
+  };
+}
+
 function pickServiceItemDisplayName(item: Record<string, unknown>): string | null {
-  const directCandidates = [
-    item.displayName,
-    item.name,
-    item.serviceName,
-    item.label,
-    item.title,
-  ];
+  const directCandidates = [item.displayName, item.name, item.serviceName, item.label, item.title];
 
   for (const candidate of directCandidates) {
     const normalized = normalizeText(typeof candidate === 'string' ? candidate : null);
@@ -379,12 +479,7 @@ function pickServiceItemDescription(item: Record<string, unknown>): string | nul
 }
 
 function deriveServiceItemKey(item: Record<string, unknown>, index: number): string {
-  const candidates = [
-    item.structuredServiceItemId,
-    item.serviceItemId,
-    item.itemId,
-    item.name,
-  ];
+  const candidates = [item.structuredServiceItemId, item.serviceItemId, item.itemId, item.name];
 
   for (const candidate of candidates) {
     const normalized = normalizeText(typeof candidate === 'string' ? candidate : null);
@@ -532,7 +627,7 @@ function buildPayloadHash(payload: unknown): string {
   return createHash('sha256').update(JSON.stringify(payload)).digest('hex');
 }
 
-function isMissingFieldSyncStatusesTableError(error: unknown): boolean {
+function isMissingOptionalProfileTableError(error: unknown, tableName: string): boolean {
   if (!error || typeof error !== 'object') {
     return false;
   }
@@ -540,10 +635,11 @@ function isMissingFieldSyncStatusesTableError(error: unknown): boolean {
   const code = 'code' in error && typeof error.code === 'string' ? error.code : null;
   const message = 'message' in error && typeof error.message === 'string' ? error.message : null;
 
-  return (
-    Boolean(message?.includes('restaurant_field_sync_statuses')) &&
-    (code === '42P01' || code === 'PGRST205')
-  );
+  return Boolean(message?.includes(tableName)) && (code === '42P01' || code === 'PGRST205');
+}
+
+function isMissingFieldSyncStatusesTableError(error: unknown): boolean {
+  return isMissingOptionalProfileTableError(error, 'restaurant_field_sync_statuses');
 }
 
 function buildFieldStatusLookupKey(
@@ -759,6 +855,20 @@ function buildFieldSyncStatuses(input: {
       providerRecordId,
       value: row.country_code,
     });
+    pushStatus({
+      entityTable: 'restaurant_addresses',
+      entityKey,
+      fieldKey: 'latitude',
+      providerRecordId,
+      value: row.latitude,
+    });
+    pushStatus({
+      entityTable: 'restaurant_addresses',
+      entityKey,
+      fieldKey: 'longitude',
+      providerRecordId,
+      value: row.longitude,
+    });
   });
 
   input.rows.phoneNumbers.forEach((row) => {
@@ -910,6 +1020,9 @@ function buildFieldSyncStatuses(input: {
       enum_values: row.enum_values,
       unset_enum_values: row.unset_enum_values,
       value_metadata_json: row.value_metadata_json,
+      raw_value_json: row.raw_value_json,
+      raw_enum_values_json: row.raw_enum_values_json,
+      display_value_json: row.display_value_json,
     };
 
     for (const [fieldKey, value] of Object.entries(fieldValues)) {
@@ -1107,6 +1220,7 @@ function buildCanonicalRows(input: {
           source_record_id: sourceRecordId,
           managed_by: GBP_MANAGED_BY,
           last_synced_at: syncedAt,
+          ...GBP_CHANGE_PROVENANCE,
         }
       : null;
 
@@ -1126,6 +1240,14 @@ function buildCanonicalRows(input: {
           sublocality: normalizeText(location.storefrontAddress.sublocality),
           organization: normalizeText(location.storefrontAddress.organization),
           recipients: location.storefrontAddress.recipients ?? [],
+          latitude:
+            location.latlng && typeof location.latlng.latitude === 'number'
+              ? location.latlng.latitude
+              : null,
+          longitude:
+            location.latlng && typeof location.latlng.longitude === 'number'
+              ? location.latlng.longitude
+              : null,
           latlng_json:
             location.latlng &&
             typeof location.latlng.latitude === 'number' &&
@@ -1138,6 +1260,7 @@ function buildCanonicalRows(input: {
           source_record_id: sourceRecordId,
           managed_by: GBP_MANAGED_BY,
           last_synced_at: syncedAt,
+          ...GBP_CHANGE_PROVENANCE,
         },
       ]
     : [];
@@ -1155,6 +1278,7 @@ function buildCanonicalRows(input: {
       source_record_id: sourceRecordId,
       managed_by: GBP_MANAGED_BY,
       last_synced_at: syncedAt,
+      ...GBP_CHANGE_PROVENANCE,
     });
   }
 
@@ -1169,6 +1293,7 @@ function buildCanonicalRows(input: {
       source_record_id: sourceRecordId,
       managed_by: GBP_MANAGED_BY,
       last_synced_at: syncedAt,
+      ...GBP_CHANGE_PROVENANCE,
     });
   });
 
@@ -1187,6 +1312,7 @@ function buildCanonicalRows(input: {
       source_record_id: sourceRecordId,
       managed_by: GBP_MANAGED_BY,
       last_synced_at: syncedAt,
+      ...GBP_CHANGE_PROVENANCE,
     });
   }
 
@@ -1204,6 +1330,7 @@ function buildCanonicalRows(input: {
       source_record_id: sourceRecordId,
       managed_by: GBP_MANAGED_BY,
       last_synced_at: syncedAt,
+      ...GBP_CHANGE_PROVENANCE,
     });
   }
 
@@ -1221,6 +1348,7 @@ function buildCanonicalRows(input: {
       source_record_id: sourceRecordId,
       managed_by: GBP_MANAGED_BY,
       last_synced_at: syncedAt,
+      ...GBP_CHANGE_PROVENANCE,
     });
   }
 
@@ -1241,6 +1369,7 @@ function buildCanonicalRows(input: {
       source_record_id: normalizeText(primaryCategory?.name) ?? sourceRecordId,
       managed_by: GBP_MANAGED_BY,
       last_synced_at: syncedAt,
+      ...GBP_CHANGE_PROVENANCE,
     });
   }
 
@@ -1262,13 +1391,15 @@ function buildCanonicalRows(input: {
       source_record_id: normalizeText(category.name) ?? sourceRecordId,
       managed_by: GBP_MANAGED_BY,
       last_synced_at: syncedAt,
+      ...GBP_CHANGE_PROVENANCE,
     });
   });
 
   const serviceAreas: CanonicalSyncRows['serviceAreas'] = [];
   const placeInfos = location.serviceArea?.places?.placeInfos ?? [];
   placeInfos.forEach((place, index) => {
-    const placeDisplayName = pickPlaceDisplayName(place as Record<string, unknown>);
+    const placeRecord = place as Record<string, unknown>;
+    const placeDisplayName = pickPlaceDisplayName(placeRecord);
     if (!placeDisplayName) {
       return;
     }
@@ -1278,12 +1409,16 @@ function buildCanonicalRows(input: {
       display_name: placeDisplayName,
       area_type: 'place',
       region_code: normalizeText(location.serviceArea?.regionCode),
-      place_data_json: place as Database['public']['Tables']['restaurant_service_areas']['Insert']['place_data_json'],
+      place_data_json:
+        place as Database['public']['Tables']['restaurant_service_areas']['Insert']['place_data_json'],
+      google_place_id: pickGooglePlaceId(placeRecord),
+      google_place_resource_name: pickGooglePlaceResourceName(placeRecord),
       display_order: index,
       source: GBP_SOURCE,
       source_record_id: sourceRecordId,
       managed_by: GBP_MANAGED_BY,
       last_synced_at: syncedAt,
+      ...GBP_CHANGE_PROVENANCE,
     });
   });
 
@@ -1304,6 +1439,7 @@ function buildCanonicalRows(input: {
         source_record_id: sourceRecordId,
         managed_by: GBP_MANAGED_BY,
         last_synced_at: syncedAt,
+        ...GBP_CHANGE_PROVENANCE,
       });
     }
   }
@@ -1326,6 +1462,7 @@ function buildCanonicalRows(input: {
       source_record_id: sourceRecordId,
       managed_by: GBP_MANAGED_BY,
       last_synced_at: syncedAt,
+      ...GBP_CHANGE_PROVENANCE,
     });
   });
 
@@ -1346,6 +1483,7 @@ function buildCanonicalRows(input: {
       source_record_id: sourceRecordId,
       managed_by: GBP_MANAGED_BY,
       last_synced_at: syncedAt,
+      ...GBP_CHANGE_PROVENANCE,
     });
   });
 
@@ -1368,6 +1506,7 @@ function buildCanonicalRows(input: {
         source_record_id: sourceRecordId,
         managed_by: GBP_MANAGED_BY,
         last_synced_at: syncedAt,
+        ...GBP_CHANGE_PROVENANCE,
       });
     });
   });
@@ -1379,29 +1518,31 @@ function buildCanonicalRows(input: {
       extractLastSegment(attribute.name) ??
       `attribute_${index}`;
     const displayName = normalizeText(attribute.displayName) ?? humanizeIdentifier(attributeKey);
-    const enumValues = [
-      ...normalizeStringArray(
-        (attribute.repeatedEnumValue?.setValues ?? []).map(
-          (value) => humanizeIdentifier(extractLastSegment(value)) ?? value,
-        ),
-      ),
+    const rawSetEnumValues = normalizeStringArray(attribute.repeatedEnumValue?.setValues);
+    const rawUnsetEnumValues = normalizeStringArray(attribute.repeatedEnumValue?.unsetValues);
+    const rawValueEnumValues = normalizeStringArray(
+      (attribute.values ?? []).map((value) => value?.enumValue?.value ?? null),
+    );
+    const enumValues = uniqueStrings([...rawSetEnumValues, ...rawValueEnumValues]);
+    const displayEnumValues = uniqueStrings([
+      ...rawSetEnumValues.map((value) => humanizeIdentifier(extractLastSegment(value)) ?? value),
       ...normalizeStringArray(
         (attribute.values ?? [])
           .map((value) => {
             if (typeof value?.displayName === 'string') {
               return value.displayName;
             }
-            if (typeof value?.stringValue === 'string') {
-              return value.stringValue;
-            }
             if (value?.enumValue?.displayName) {
               return value.enumValue.displayName;
+            }
+            if (typeof value?.stringValue === 'string') {
+              return value.stringValue;
             }
             return null;
           })
           .filter((value): value is string => Boolean(value)),
       ),
-    ].filter((value, itemIndex, all) => all.indexOf(value) === itemIndex);
+    ]);
 
     const boolValue =
       typeof attribute.values?.[0]?.boolValue === 'boolean'
@@ -1415,11 +1556,12 @@ function buildCanonicalRows(input: {
       null;
     const uriValue =
       normalizeText(attribute.uriValue) ?? normalizeText(attribute.uriValues?.[0]?.uri) ?? null;
-    const uriValues = normalizeStringArray((attribute.uriValues ?? []).map((item) => item.uri ?? null));
-    const unsetEnumValues = normalizeStringArray(
-      (attribute.repeatedEnumValue?.unsetValues ?? []).map(
-        (value) => humanizeIdentifier(extractLastSegment(value)) ?? value,
-      ),
+    const uriValues = normalizeStringArray(
+      (attribute.uriValues ?? []).map((item) => item.uri ?? null),
+    );
+    const unsetEnumValues = rawUnsetEnumValues;
+    const displayUnsetEnumValues = rawUnsetEnumValues.map(
+      (value) => humanizeIdentifier(extractLastSegment(value)) ?? value,
     );
     const valueMetadata = normalizeAttributeValueMetadata(attribute.valueMetadata);
     const valueType = normalizeAttributeValueType(attribute.valueType);
@@ -1432,7 +1574,7 @@ function buildCanonicalRows(input: {
       boolValue,
       textValue: boolValue === null ? textValue : null,
       uriValue,
-      enumValues,
+      enumValues: displayEnumValues,
       positiveLabel,
       negativeLabel,
     });
@@ -1452,6 +1594,26 @@ function buildCanonicalRows(input: {
       enum_values: enumValues,
       unset_enum_values: unsetEnumValues,
       value_metadata_json: valueMetadata,
+      raw_value_json:
+        buildRawAttributeValueJson(
+          attribute,
+        ) as Database['public']['Tables']['restaurant_attributes']['Insert']['raw_value_json'],
+      raw_enum_values_json:
+        buildRawEnumValuesJson({
+          setValues: rawSetEnumValues,
+          unsetValues: rawUnsetEnumValues,
+          valueEnumValues: rawValueEnumValues,
+        }) as Database['public']['Tables']['restaurant_attributes']['Insert']['raw_enum_values_json'],
+      display_value_json:
+        buildDisplayValueJson({
+          displayName,
+          displayStrings: attribute.displayStrings,
+          enumValues: displayEnumValues,
+          unsetEnumValues: displayUnsetEnumValues,
+          valueDisplays: displayEnumValues,
+          uriValues,
+          valueMetadata,
+        }) as Database['public']['Tables']['restaurant_attributes']['Insert']['display_value_json'],
       display_text: displayText,
       display_text_standalone: positiveLabel,
       display_text_negative: negativeLabel,
@@ -1461,6 +1623,7 @@ function buildCanonicalRows(input: {
         normalizeText(attribute.name) ?? normalizeText(attribute.attributeId) ?? sourceRecordId,
       managed_by: GBP_MANAGED_BY,
       last_synced_at: syncedAt,
+      ...GBP_CHANGE_PROVENANCE,
     });
 
     if (uriValue) {
@@ -1477,6 +1640,7 @@ function buildCanonicalRows(input: {
           normalizeText(attribute.name) ?? normalizeText(attribute.attributeId) ?? sourceRecordId,
         managed_by: GBP_MANAGED_BY,
         last_synced_at: syncedAt,
+        ...GBP_CHANGE_PROVENANCE,
       });
     }
   }
@@ -1499,6 +1663,7 @@ function buildCanonicalRows(input: {
         source_record_id: itemKey,
         managed_by: GBP_MANAGED_BY,
         last_synced_at: syncedAt,
+        ...GBP_CHANGE_PROVENANCE,
       };
     },
   );
@@ -1544,9 +1709,7 @@ async function upsertBusinessDetails(
   }
 }
 
-async function replaceProviderRows<
-  TTable extends ProviderRowTable,
->(
+async function replaceProviderRows<TTable extends ProviderRowTable>(
   table: TTable,
   restaurantId: string,
   rows: Database['public']['Tables'][TTable]['Insert'][],
@@ -1577,6 +1740,138 @@ async function replaceProviderRows<
       return;
     }
     throw insertError;
+  }
+}
+
+async function linkAttributeDefinitions(
+  rows: CanonicalSyncRows['attributes'],
+  client: DbClient,
+): Promise<CanonicalSyncRows['attributes']> {
+  if (rows.length === 0) {
+    return rows;
+  }
+
+  const attributeKeys = [...new Set(rows.map((row) => row.attribute_key).filter(Boolean))];
+  if (attributeKeys.length === 0) {
+    return rows;
+  }
+
+  const { data, error } = await client
+    .from('restaurant_attribute_definitions')
+    .select('id, attribute_key, provider_attribute_id')
+    .eq('provider', 'google_business_profile')
+    .in('attribute_key', attributeKeys);
+
+  if (error) {
+    if (isMissingOptionalProfileTableError(error, 'restaurant_attribute_definitions')) {
+      return rows;
+    }
+    throw error;
+  }
+
+  const byAttributeKey = new Map<string, RestaurantAttributeDefinitionRow>();
+  for (const definition of data ?? []) {
+    byAttributeKey.set(definition.attribute_key, definition as RestaurantAttributeDefinitionRow);
+  }
+
+  return rows.map((row) => ({
+    ...row,
+    attribute_definition_id: byAttributeKey.get(row.attribute_key)?.id ?? null,
+  }));
+}
+
+function buildProfileChangeLogRows(params: {
+  restaurantId: string;
+  externalProfileId: string;
+  syncedAt: string;
+  rows: CanonicalSyncRows;
+  syncAttributes: boolean;
+}): RestaurantProfileChangeLogInsert[] {
+  const tableRows: Array<{
+    table: ProviderRowTable | 'restaurant_business_details';
+    value: unknown;
+    rowCount: number;
+  }> = [
+    {
+      table: 'restaurant_business_details',
+      value: params.rows.details,
+      rowCount: params.rows.details ? 1 : 0,
+    },
+    {
+      table: 'restaurant_addresses',
+      value: params.rows.addresses,
+      rowCount: params.rows.addresses.length,
+    },
+    {
+      table: 'restaurant_phone_numbers',
+      value: params.rows.phoneNumbers,
+      rowCount: params.rows.phoneNumbers.length,
+    },
+    { table: 'restaurant_links', value: params.rows.links, rowCount: params.rows.links.length },
+    {
+      table: 'restaurant_categories',
+      value: params.rows.categories,
+      rowCount: params.rows.categories.length,
+    },
+    {
+      table: 'restaurant_service_areas',
+      value: params.rows.serviceAreas,
+      rowCount: params.rows.serviceAreas.length,
+    },
+    { table: 'restaurant_hours', value: params.rows.hours, rowCount: params.rows.hours.length },
+    ...(params.syncAttributes
+      ? [
+          {
+            table: 'restaurant_attributes' as const,
+            value: params.rows.attributes,
+            rowCount: params.rows.attributes.length,
+          },
+        ]
+      : []),
+    {
+      table: 'restaurant_service_items',
+      value: params.rows.serviceItems,
+      rowCount: params.rows.serviceItems.length,
+    },
+  ];
+
+  return tableRows
+    .filter((entry) => entry.rowCount > 0)
+    .map((entry) => ({
+      restaurant_id: params.restaurantId,
+      entity_table: entry.table,
+      field_path: '$',
+      old_value: null,
+      new_value: entry.value as RestaurantProfileChangeLogInsert['new_value'],
+      change_origin: GBP_CHANGE_PROVENANCE.change_origin,
+      changed_via: GBP_CHANGE_PROVENANCE.changed_via,
+      change_reason: GBP_CHANGE_PROVENANCE.change_reason,
+      external_profile_id: params.externalProfileId,
+      external_provider: 'google_business_profile',
+      status: 'applied',
+      detected_at: params.syncedAt,
+      applied_at: params.syncedAt,
+      metadata: {
+        syncWriter: 'syncGoogleBusinessProfileCanonicalBusinessInfo',
+        rowCount: entry.rowCount,
+      },
+    }));
+}
+
+async function insertProfileChangeLogRows(
+  rows: RestaurantProfileChangeLogInsert[],
+  client: DbClient,
+): Promise<void> {
+  if (rows.length === 0) {
+    return;
+  }
+
+  const { error } = await client.from('restaurant_profile_change_log').insert(rows);
+  if (error) {
+    if (isMissingOptionalProfileTableError(error, 'restaurant_profile_change_log')) {
+      return;
+    }
+    throw error;
   }
 }
 
@@ -1692,6 +1987,9 @@ export async function syncGoogleBusinessProfileCanonicalBusinessInfo(params: {
     attributes: params.syncAttributes ? params.attributes : null,
     syncedAt: params.syncedAt,
   });
+  if (params.syncAttributes) {
+    rows.attributes = await linkAttributeDefinitions(rows.attributes, params.client);
+  }
   const fieldSyncStatuses = buildFieldSyncStatuses({
     restaurantId: params.restaurantId,
     rows,
@@ -1774,6 +2072,17 @@ export async function syncGoogleBusinessProfileCanonicalBusinessInfo(params: {
       'restaurant_service_items',
       ...(params.syncAttributes ? ['restaurant_attributes'] : []),
     ],
+    params.client,
+  );
+
+  await insertProfileChangeLogRows(
+    buildProfileChangeLogRows({
+      restaurantId: params.restaurantId,
+      externalProfileId: params.externalProfile.id,
+      syncedAt: params.syncedAt,
+      rows,
+      syncAttributes: params.syncAttributes,
+    }),
     params.client,
   );
 }
@@ -2005,6 +2314,12 @@ function mapAddress(row: RestaurantAddressRow, lookup: Map<string, RestaurantFie
     addressType: row.address_type,
     displayOrder: row.display_order,
   });
+  const latitude = typeof row.latitude === 'number' ? row.latitude : null;
+  const longitude = typeof row.longitude === 'number' ? row.longitude : null;
+  const latlngJson = normalizeRecord(row.latlng_json) as {
+    latitude?: number;
+    longitude?: number;
+  } | null;
 
   return {
     id: row.id,
@@ -2023,7 +2338,9 @@ function mapAddress(row: RestaurantAddressRow, lookup: Map<string, RestaurantFie
     recipients: Array.isArray(row.recipients)
       ? row.recipients.filter((value): value is string => typeof value === 'string')
       : [],
-    latlng: normalizeRecord(row.latlng_json) as { latitude?: number; longitude?: number } | null,
+    latlng: latlngJson ?? (latitude !== null && longitude !== null ? { latitude, longitude } : null),
+    latitude,
+    longitude,
     isPrimary: row.is_primary,
     lastSyncedAt: row.last_synced_at,
     verificationStatus: combineFieldVerifications([
@@ -2157,6 +2474,8 @@ function mapServiceArea(
     displayName: row.display_name,
     areaType: row.area_type,
     regionCode: row.region_code,
+    googlePlaceId: row.google_place_id,
+    googlePlaceResourceName: row.google_place_resource_name,
     placeData: normalizeRecord(row.place_data_json),
     lastSyncedAt: row.last_synced_at,
     verificationStatus: combineFieldVerifications([
@@ -2264,6 +2583,9 @@ function mapAttribute(
     unsetEnumValues: Array.isArray(row.unset_enum_values)
       ? row.unset_enum_values.filter((value): value is string => typeof value === 'string')
       : [],
+    rawValue: normalizeRecord(row.raw_value_json),
+    rawEnumValues: normalizeRecord(row.raw_enum_values_json),
+    displayValue: normalizeRecord(row.display_value_json),
     valueMetadata: normalizeJsonArray(row.value_metadata_json, (item) => {
       const record = normalizeRecord(item);
       if (!record) {
@@ -2271,9 +2593,7 @@ function mapAttribute(
       }
 
       const value =
-        typeof record.value === 'boolean' || typeof record.value === 'string'
-          ? record.value
-          : null;
+        typeof record.value === 'boolean' || typeof record.value === 'string' ? record.value : null;
       const displayName =
         typeof record.displayName === 'string' ? normalizeText(record.displayName) : null;
 
@@ -2340,6 +2660,18 @@ function mapAttribute(
         lookup.get(buildFieldStatusLookupKey(entityTable, entityKey, 'value_metadata_json')),
         row.value_metadata_json,
       ),
+      resolveFieldVerification(
+        lookup.get(buildFieldStatusLookupKey(entityTable, entityKey, 'raw_value_json')),
+        row.raw_value_json,
+      ),
+      resolveFieldVerification(
+        lookup.get(buildFieldStatusLookupKey(entityTable, entityKey, 'raw_enum_values_json')),
+        row.raw_enum_values_json,
+      ),
+      resolveFieldVerification(
+        lookup.get(buildFieldStatusLookupKey(entityTable, entityKey, 'display_value_json')),
+        row.display_value_json,
+      ),
     ]),
   };
 }
@@ -2387,8 +2719,11 @@ export const businessInfoTestUtils = {
   buildFieldSyncStatuses,
   combineFieldVerifications,
   humanizeIdentifier,
+  linkAttributeDefinitions,
   normalizeGoogleDate,
   normalizeGoogleTime,
+  pickGooglePlaceId,
   replaceProviderFieldSyncStatuses,
+  insertProfileChangeLogRows,
   upsertBusinessDetails,
 };

@@ -32,9 +32,7 @@ const ALLOWED_REDIRECT_PREFIXES = [
   '/dashboard',
   '/bookings',
   '/customers',
-  '/seating',
   '/settings',
-  '/management',
   '/new-bookings',
 ] as const;
 

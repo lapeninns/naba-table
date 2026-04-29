@@ -140,11 +140,16 @@ export function SyncStatusHeader({
           </Alert>
         ) : null}
 
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           <MetricCard
             label="Last checked"
             value={formatGbpDateTime(lastCheckedAt) ?? 'Not checked yet'}
             detail="Latest Google profile details compared with Nabatable"
+          />
+          <MetricCard
+            label="Provider timezone"
+            value={connection.providerTimezone ?? 'Inherited'}
+            detail="Timezone stored from Google when available"
           />
           <MetricCard
             label="Latest review"

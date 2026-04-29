@@ -64,11 +64,12 @@ export function LinkedSummaryCard({
           </Alert>
         ) : null}
 
-        <div className="grid gap-4 rounded-lg border bg-muted/40 p-4 sm:grid-cols-3">
+        <div className="grid gap-4 rounded-lg border bg-muted/40 p-4 sm:grid-cols-2 lg:grid-cols-4">
           <DetailRow
             label="Location ID"
             value={data.externalLocationId ?? 'Unknown'}
           />
+          <DetailRow label="Provider timezone" value={data.providerTimezone ?? 'Inherited'} />
           <DetailRow
             label="Last fetched"
             value={formatGbpDateTime(data.lastPullAt) ?? 'Never'}

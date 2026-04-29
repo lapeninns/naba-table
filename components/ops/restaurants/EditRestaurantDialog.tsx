@@ -31,7 +31,7 @@ export function EditRestaurantDialog({
     try {
       await updateMutation.mutateAsync({ id: restaurant.id, data: input });
       onOpenChange(false);
-    } catch (error) {
+    } catch {
       // Presentation handled by mutation hook
     }
   };
@@ -58,6 +58,7 @@ export function EditRestaurantDialog({
             contactEmail: restaurant.contactEmail,
             contactPhone: restaurant.contactPhone,
             address: restaurant.address,
+            businessDescription: restaurant.businessDescription,
             managerDailySummaryEnabled: restaurant.managerDailySummaryEnabled,
             managerNotificationPhone: restaurant.managerNotificationPhone,
             googleMapUrl: restaurant.googleMapUrl,

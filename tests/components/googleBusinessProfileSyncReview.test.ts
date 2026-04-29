@@ -90,7 +90,7 @@ describe('google business profile sync review state', () => {
     const draft = buildDraft('published');
     const decisions = deriveInitialFieldDecisions(draft);
 
-    expect(decisions['operatingHours.override.2026-06-02']).toBe('keep_nabatable');
+    expect(decisions['operatingHours.override.2026-06-02']).toBe('ignore');
     expect(buildDirectionStats(draft, decisions, 'nabatable_to_google')).toEqual({
       selectedCount: 0,
       actionableCount: 0,

@@ -23,11 +23,11 @@ import {
 } from '@/components/ui/table';
 
 import {
-  directionLabel,
+  decisionLabelForItem,
   directionShortLabel,
   formatValuePreview,
   humanFieldLabel,
-  itemActionLabel,
+  type FieldDecision,
   type SyncPublishDirection,
 } from '../lib/sync-review';
 
@@ -36,12 +36,16 @@ import type {
   GoogleBusinessProfileDraftItem,
 } from '@/services/ops/restaurants';
 
-type SelectedItem = GoogleBusinessProfileDraftItem & { sectionLabel: string };
+type SelectedItem = GoogleBusinessProfileDraftItem & {
+  sectionLabel: string;
+  decisionAction: FieldDecision;
+};
 
 type PreflightReviewDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   direction: SyncPublishDirection;
+  directionCounts?: Record<SyncPublishDirection, number>;
   selectedItems: SelectedItem[];
   preflight: GoogleBusinessProfileDraftPublishPreflight | null;
   preflightErrorMessage?: string | null;
@@ -54,6 +58,7 @@ export function PreflightReviewDialog({
   open,
   onOpenChange,
   direction,
+  directionCounts,
   selectedItems,
   preflight,
   preflightErrorMessage,
@@ -62,6 +67,12 @@ export function PreflightReviewDialog({
   onContinue,
 }: PreflightReviewDialogProps) {
   const canContinue = Boolean(preflight?.canPublish);
+  const safeDirectionCounts = directionCounts ?? {
+    google_to_nabatable: 0,
+    nabatable_to_google: 0,
+  };
+  const hasMixedDecisions =
+    safeDirectionCounts.google_to_nabatable > 0 && safeDirectionCounts.nabatable_to_google > 0;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -72,22 +83,31 @@ export function PreflightReviewDialog({
             <Badge variant="outline">{directionShortLabel(direction)}</Badge>
           </div>
           <SheetDescription>
-            Review the selected fields for {directionLabel(direction).toLowerCase()} before you
-            enter your password.
+            Review selected imports and exports before the server freezes the publish plan.
           </SheetDescription>
         </SheetHeader>
 
         <div className="min-w-0 flex-1 overflow-y-auto p-3 sm:p-4">
           <div className="min-w-0 space-y-4">
             <div className="min-w-0 rounded-lg border border-border/70 bg-muted/20 p-3 sm:p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
                   <p className="text-sm font-medium text-foreground">Chosen fields</p>
                   <p className="text-xs text-muted-foreground">
                     {selectedItems.length} field{selectedItems.length === 1 ? '' : 's'} ready for
-                    this update path.
+                    final preflight.
                   </p>
                 </div>
+                {hasMixedDecisions ? (
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="outline">
+                      Imports ({safeDirectionCounts.google_to_nabatable})
+                    </Badge>
+                    <Badge variant="outline">
+                      Exports ({safeDirectionCounts.nabatable_to_google})
+                    </Badge>
+                  </div>
+                ) : null}
                 <Button
                   type="button"
                   size="sm"
@@ -122,7 +142,7 @@ export function PreflightReviewDialog({
                       {selectedItems.map((item) => (
                         <TableRow key={item.fieldKey}>
                           <TableCell className="font-medium">{humanFieldLabel(item)}</TableCell>
-                          <TableCell>{itemActionLabel(item, direction)}</TableCell>
+                          <TableCell>{decisionLabelForItem(item, item.decisionAction)}</TableCell>
                           <TableCell>{item.sectionLabel}</TableCell>
                           <TableCell className="max-w-[220px] whitespace-pre-wrap break-words text-muted-foreground">
                             {formatValuePreview(item.currentValue)}

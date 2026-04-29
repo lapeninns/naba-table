@@ -3913,6 +3913,7 @@ export type Database = {
           last_push_at: string | null;
           last_error: string | null;
           provider: string;
+          provider_timezone: string | null;
           pull_enabled: boolean;
           push_enabled: boolean;
           restaurant_id: string;
@@ -3934,6 +3935,7 @@ export type Database = {
           last_push_at?: string | null;
           last_error?: string | null;
           provider: string;
+          provider_timezone?: string | null;
           pull_enabled?: boolean;
           push_enabled?: boolean;
           restaurant_id: string;
@@ -3955,6 +3957,7 @@ export type Database = {
           last_push_at?: string | null;
           last_error?: string | null;
           provider?: string;
+          provider_timezone?: string | null;
           pull_enabled?: boolean;
           push_enabled?: boolean;
           restaurant_id?: string;
@@ -3977,6 +3980,10 @@ export type Database = {
           address_lines: Json;
           administrative_area: string | null;
           country_code: string | null;
+          change_origin: string | null;
+          change_reason: string | null;
+          changed_by_user_id: string | null;
+          changed_via: string | null;
           created_at: string;
           display_order: number;
           formatted_address: string | null;
@@ -3985,7 +3992,9 @@ export type Database = {
           last_manual_override_at: string | null;
           last_synced_at: string | null;
           language_code: string | null;
+          latitude: number | null;
           latlng_json: Json;
+          longitude: number | null;
           locality: string | null;
           managed_by: string;
           organization: string | null;
@@ -4004,6 +4013,10 @@ export type Database = {
           address_lines?: Json;
           administrative_area?: string | null;
           country_code?: string | null;
+          change_origin?: string | null;
+          change_reason?: string | null;
+          changed_by_user_id?: string | null;
+          changed_via?: string | null;
           created_at?: string;
           display_order?: number;
           formatted_address?: string | null;
@@ -4012,7 +4025,9 @@ export type Database = {
           last_manual_override_at?: string | null;
           last_synced_at?: string | null;
           language_code?: string | null;
+          latitude?: number | null;
           latlng_json?: Json;
+          longitude?: number | null;
           locality?: string | null;
           managed_by?: string;
           organization?: string | null;
@@ -4031,6 +4046,10 @@ export type Database = {
           address_lines?: Json;
           administrative_area?: string | null;
           country_code?: string | null;
+          change_origin?: string | null;
+          change_reason?: string | null;
+          changed_by_user_id?: string | null;
+          changed_via?: string | null;
           created_at?: string;
           display_order?: number;
           formatted_address?: string | null;
@@ -4039,7 +4058,9 @@ export type Database = {
           last_manual_override_at?: string | null;
           last_synced_at?: string | null;
           language_code?: string | null;
+          latitude?: number | null;
           latlng_json?: Json;
+          longitude?: number | null;
           locality?: string | null;
           managed_by?: string;
           organization?: string | null;
@@ -4063,25 +4084,90 @@ export type Database = {
           },
         ];
       };
+      restaurant_attribute_definitions: {
+        Row: {
+          allowed_values: Json;
+          attribute_key: string;
+          category_ids: string[];
+          country_code: string | null;
+          created_at: string;
+          display_name: string | null;
+          expected_value_type: string;
+          first_seen_at: string;
+          group_name: string | null;
+          id: string;
+          is_deprecated: boolean;
+          last_seen_at: string;
+          provider: string;
+          provider_attribute_id: string | null;
+          raw_definition_json: Json;
+          updated_at: string;
+        };
+        Insert: {
+          allowed_values?: Json;
+          attribute_key: string;
+          category_ids?: string[];
+          country_code?: string | null;
+          created_at?: string;
+          display_name?: string | null;
+          expected_value_type?: string;
+          first_seen_at?: string;
+          group_name?: string | null;
+          id?: string;
+          is_deprecated?: boolean;
+          last_seen_at?: string;
+          provider?: string;
+          provider_attribute_id?: string | null;
+          raw_definition_json?: Json;
+          updated_at?: string;
+        };
+        Update: {
+          allowed_values?: Json;
+          attribute_key?: string;
+          category_ids?: string[];
+          country_code?: string | null;
+          created_at?: string;
+          display_name?: string | null;
+          expected_value_type?: string;
+          first_seen_at?: string;
+          group_name?: string | null;
+          id?: string;
+          is_deprecated?: boolean;
+          last_seen_at?: string;
+          provider?: string;
+          provider_attribute_id?: string | null;
+          raw_definition_json?: Json;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       restaurant_attributes: {
         Row: {
+          attribute_definition_id: string | null;
           attribute_id: string | null;
           attribute_name: string | null;
           attribute_group: string | null;
           attribute_key: string;
           bool_value: boolean | null;
+          change_origin: string | null;
+          change_reason: string | null;
+          changed_by_user_id: string | null;
+          changed_via: string | null;
           created_at: string;
           display_name: string | null;
           display_order: number;
           display_text_negative: string | null;
           display_text_standalone: string | null;
           display_text: string | null;
+          display_value_json: Json;
           enum_values: Json;
           id: string;
           last_manual_override_at: string | null;
           last_synced_at: string | null;
           managed_by: string;
           restaurant_id: string;
+          raw_enum_values_json: Json;
+          raw_value_json: Json;
           source: string;
           source_record_id: string | null;
           text_value: string | null;
@@ -4093,23 +4179,31 @@ export type Database = {
           value_type: string;
         };
         Insert: {
+          attribute_definition_id?: string | null;
           attribute_id?: string | null;
           attribute_name?: string | null;
           attribute_group?: string | null;
           attribute_key: string;
           bool_value?: boolean | null;
+          change_origin?: string | null;
+          change_reason?: string | null;
+          changed_by_user_id?: string | null;
+          changed_via?: string | null;
           created_at?: string;
           display_name?: string | null;
           display_order?: number;
           display_text_negative?: string | null;
           display_text_standalone?: string | null;
           display_text?: string | null;
+          display_value_json?: Json;
           enum_values?: Json;
           id?: string;
           last_manual_override_at?: string | null;
           last_synced_at?: string | null;
           managed_by?: string;
           restaurant_id: string;
+          raw_enum_values_json?: Json;
+          raw_value_json?: Json;
           source?: string;
           source_record_id?: string | null;
           text_value?: string | null;
@@ -4121,23 +4215,31 @@ export type Database = {
           value_type: string;
         };
         Update: {
+          attribute_definition_id?: string | null;
           attribute_id?: string | null;
           attribute_name?: string | null;
           attribute_group?: string | null;
           attribute_key?: string;
           bool_value?: boolean | null;
+          change_origin?: string | null;
+          change_reason?: string | null;
+          changed_by_user_id?: string | null;
+          changed_via?: string | null;
           created_at?: string;
           display_name?: string | null;
           display_order?: number;
           display_text_negative?: string | null;
           display_text_standalone?: string | null;
           display_text?: string | null;
+          display_value_json?: Json;
           enum_values?: Json;
           id?: string;
           last_manual_override_at?: string | null;
           last_synced_at?: string | null;
           managed_by?: string;
           restaurant_id?: string;
+          raw_enum_values_json?: Json;
+          raw_value_json?: Json;
           source?: string;
           source_record_id?: string | null;
           text_value?: string | null;
@@ -4149,6 +4251,13 @@ export type Database = {
           value_type?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: 'restaurant_attributes_attribute_definition_id_fkey';
+            columns: ['attribute_definition_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurant_attribute_definitions';
+            referencedColumns: ['id'];
+          },
           {
             foreignKeyName: 'restaurant_attributes_restaurant_id_fkey';
             columns: ['restaurant_id'];
@@ -4163,6 +4272,10 @@ export type Database = {
           business_name: string | null;
           business_status: string | null;
           can_reopen: boolean | null;
+          change_origin: string | null;
+          change_reason: string | null;
+          changed_by_user_id: string | null;
+          changed_via: string | null;
           created_at: string;
           description: string | null;
           id: string;
@@ -4181,6 +4294,10 @@ export type Database = {
           business_name?: string | null;
           business_status?: string | null;
           can_reopen?: boolean | null;
+          change_origin?: string | null;
+          change_reason?: string | null;
+          changed_by_user_id?: string | null;
+          changed_via?: string | null;
           created_at?: string;
           description?: string | null;
           id?: string;
@@ -4199,6 +4316,10 @@ export type Database = {
           business_name?: string | null;
           business_status?: string | null;
           can_reopen?: boolean | null;
+          change_origin?: string | null;
+          change_reason?: string | null;
+          changed_by_user_id?: string | null;
+          changed_via?: string | null;
           created_at?: string;
           description?: string | null;
           id?: string;
@@ -4226,6 +4347,10 @@ export type Database = {
       restaurant_categories: {
         Row: {
           category_code: string | null;
+          change_origin: string | null;
+          change_reason: string | null;
+          changed_by_user_id: string | null;
+          changed_via: string | null;
           created_at: string;
           display_order: number;
           display_name: string;
@@ -4242,6 +4367,10 @@ export type Database = {
         };
         Insert: {
           category_code?: string | null;
+          change_origin?: string | null;
+          change_reason?: string | null;
+          changed_by_user_id?: string | null;
+          changed_via?: string | null;
           created_at?: string;
           display_name: string;
           display_order?: number;
@@ -4258,6 +4387,10 @@ export type Database = {
         };
         Update: {
           category_code?: string | null;
+          change_origin?: string | null;
+          change_reason?: string | null;
+          changed_by_user_id?: string | null;
+          changed_via?: string | null;
           created_at?: string;
           display_name?: string;
           display_order?: number;
@@ -4286,6 +4419,10 @@ export type Database = {
         Row: {
           close_day: number | null;
           close_time: string | null;
+          change_origin: string | null;
+          change_reason: string | null;
+          changed_by_user_id: string | null;
+          changed_via: string | null;
           created_at: string;
           display_order: number;
           end_date: string | null;
@@ -4308,6 +4445,10 @@ export type Database = {
         Insert: {
           close_day?: number | null;
           close_time?: string | null;
+          change_origin?: string | null;
+          change_reason?: string | null;
+          changed_by_user_id?: string | null;
+          changed_via?: string | null;
           created_at?: string;
           display_order?: number;
           end_date?: string | null;
@@ -4330,6 +4471,10 @@ export type Database = {
         Update: {
           close_day?: number | null;
           close_time?: string | null;
+          change_origin?: string | null;
+          change_reason?: string | null;
+          changed_by_user_id?: string | null;
+          changed_via?: string | null;
           created_at?: string;
           display_order?: number;
           end_date?: string | null;
@@ -4361,6 +4506,10 @@ export type Database = {
       };
       restaurant_links: {
         Row: {
+          change_origin: string | null;
+          change_reason: string | null;
+          changed_by_user_id: string | null;
+          changed_via: string | null;
           created_at: string;
           display_order: number;
           id: string;
@@ -4378,6 +4527,10 @@ export type Database = {
           url: string;
         };
         Insert: {
+          change_origin?: string | null;
+          change_reason?: string | null;
+          changed_by_user_id?: string | null;
+          changed_via?: string | null;
           created_at?: string;
           display_order?: number;
           id?: string;
@@ -4395,6 +4548,10 @@ export type Database = {
           url: string;
         };
         Update: {
+          change_origin?: string | null;
+          change_reason?: string | null;
+          changed_by_user_id?: string | null;
+          changed_via?: string | null;
           created_at?: string;
           display_order?: number;
           id?: string;
@@ -4423,6 +4580,10 @@ export type Database = {
       };
       restaurant_phone_numbers: {
         Row: {
+          change_origin: string | null;
+          change_reason: string | null;
+          changed_by_user_id: string | null;
+          changed_via: string | null;
           created_at: string;
           display_order: number;
           id: string;
@@ -4438,6 +4599,10 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          change_origin?: string | null;
+          change_reason?: string | null;
+          changed_by_user_id?: string | null;
+          changed_via?: string | null;
           created_at?: string;
           display_order?: number;
           id?: string;
@@ -4453,6 +4618,10 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          change_origin?: string | null;
+          change_reason?: string | null;
+          changed_by_user_id?: string | null;
+          changed_via?: string | null;
           created_at?: string;
           display_order?: number;
           id?: string;
@@ -4480,10 +4649,16 @@ export type Database = {
       restaurant_service_areas: {
         Row: {
           area_type: string;
+          change_origin: string | null;
+          change_reason: string | null;
+          changed_by_user_id: string | null;
+          changed_via: string | null;
           created_at: string;
           display_order: number;
           display_name: string;
           id: string;
+          google_place_id: string | null;
+          google_place_resource_name: string | null;
           last_manual_override_at: string | null;
           last_synced_at: string | null;
           managed_by: string;
@@ -4496,10 +4671,16 @@ export type Database = {
         };
         Insert: {
           area_type?: string;
+          change_origin?: string | null;
+          change_reason?: string | null;
+          changed_by_user_id?: string | null;
+          changed_via?: string | null;
           created_at?: string;
           display_order?: number;
           display_name: string;
           id?: string;
+          google_place_id?: string | null;
+          google_place_resource_name?: string | null;
           last_manual_override_at?: string | null;
           last_synced_at?: string | null;
           managed_by?: string;
@@ -4512,10 +4693,16 @@ export type Database = {
         };
         Update: {
           area_type?: string;
+          change_origin?: string | null;
+          change_reason?: string | null;
+          changed_by_user_id?: string | null;
+          changed_via?: string | null;
           created_at?: string;
           display_order?: number;
           display_name?: string;
           id?: string;
+          google_place_id?: string | null;
+          google_place_resource_name?: string | null;
           last_manual_override_at?: string | null;
           last_synced_at?: string | null;
           managed_by?: string;
@@ -4538,6 +4725,10 @@ export type Database = {
       };
       restaurant_service_items: {
         Row: {
+          change_origin: string | null;
+          change_reason: string | null;
+          changed_by_user_id: string | null;
+          changed_via: string | null;
           created_at: string;
           description: string | null;
           display_name: string | null;
@@ -4555,6 +4746,10 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          change_origin?: string | null;
+          change_reason?: string | null;
+          changed_by_user_id?: string | null;
+          changed_via?: string | null;
           created_at?: string;
           description?: string | null;
           display_name?: string | null;
@@ -4572,6 +4767,10 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          change_origin?: string | null;
+          change_reason?: string | null;
+          changed_by_user_id?: string | null;
+          changed_via?: string | null;
           created_at?: string;
           description?: string | null;
           display_name?: string | null;
@@ -4591,6 +4790,115 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: 'restaurant_service_items_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      restaurant_profile_change_log: {
+        Row: {
+          applied_at: string | null;
+          change_origin: string | null;
+          change_reason: string | null;
+          changed_by_user_id: string | null;
+          changed_via: string | null;
+          created_at: string;
+          decision_id: string | null;
+          detected_at: string;
+          draft_id: string | null;
+          entity_id: string | null;
+          entity_table: string;
+          external_profile_id: string | null;
+          external_provider: string | null;
+          external_sync_run_id: string | null;
+          field_path: string;
+          id: string;
+          metadata: Json;
+          new_value: Json | null;
+          old_value: Json | null;
+          publish_event_id: string | null;
+          publish_job_id: string | null;
+          restaurant_id: string;
+          status: string;
+          updated_at: string;
+          valid_from: string | null;
+          valid_to: string | null;
+        };
+        Insert: {
+          applied_at?: string | null;
+          change_origin?: string | null;
+          change_reason?: string | null;
+          changed_by_user_id?: string | null;
+          changed_via?: string | null;
+          created_at?: string;
+          decision_id?: string | null;
+          detected_at?: string;
+          draft_id?: string | null;
+          entity_id?: string | null;
+          entity_table: string;
+          external_profile_id?: string | null;
+          external_provider?: string | null;
+          external_sync_run_id?: string | null;
+          field_path: string;
+          id?: string;
+          metadata?: Json;
+          new_value?: Json | null;
+          old_value?: Json | null;
+          publish_event_id?: string | null;
+          publish_job_id?: string | null;
+          restaurant_id: string;
+          status?: string;
+          updated_at?: string;
+          valid_from?: string | null;
+          valid_to?: string | null;
+        };
+        Update: {
+          applied_at?: string | null;
+          change_origin?: string | null;
+          change_reason?: string | null;
+          changed_by_user_id?: string | null;
+          changed_via?: string | null;
+          created_at?: string;
+          decision_id?: string | null;
+          detected_at?: string;
+          draft_id?: string | null;
+          entity_id?: string | null;
+          entity_table?: string;
+          external_profile_id?: string | null;
+          external_provider?: string | null;
+          external_sync_run_id?: string | null;
+          field_path?: string;
+          id?: string;
+          metadata?: Json;
+          new_value?: Json | null;
+          old_value?: Json | null;
+          publish_event_id?: string | null;
+          publish_job_id?: string | null;
+          restaurant_id?: string;
+          status?: string;
+          updated_at?: string;
+          valid_from?: string | null;
+          valid_to?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'restaurant_profile_change_log_external_profile_id_fkey';
+            columns: ['external_profile_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurant_external_profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'restaurant_profile_change_log_external_sync_run_id_fkey';
+            columns: ['external_sync_run_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurant_external_profile_sync_runs';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'restaurant_profile_change_log_restaurant_id_fkey';
             columns: ['restaurant_id'];
             isOneToOne: false;
             referencedRelation: 'restaurants';

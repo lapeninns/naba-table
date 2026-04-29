@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { getRestaurantBusinessContext, updateRestaurantBusinessContext } from '@/server/restaurants/businessContext';
+import {
+  getRestaurantBusinessContext,
+  updateRestaurantBusinessContext,
+} from '@/server/restaurants/businessContext';
 
 import { ensureRestaurantAdminAccess, resolveRestaurantId } from '../_shared';
 
@@ -21,9 +24,50 @@ const valueMetadataSchema = z.object({
   value: z.union([z.boolean(), z.string(), z.null()]).optional().default(null),
   displayName: nullableTextSchema,
 });
+const linkTypeSchema = z.enum([
+  'website',
+  'menu_or_services',
+  'reservation',
+  'order',
+  'chat',
+  'facebook',
+  'instagram',
+  'x',
+  'youtube',
+  'tiktok',
+  'linkedin',
+  'other',
+]);
 
 const updateBusinessContextSchema = z
   .object({
+    businessDetails: z
+      .object({
+        openingDate: z
+          .string()
+          .trim()
+          .regex(/^\d{4}-\d{2}-\d{2}$/, 'Opening date must use YYYY-MM-DD format')
+          .nullable()
+          .optional(),
+        businessStatus: z
+          .enum(['open', 'closed_permanently', 'closed_temporarily'])
+          .nullable()
+          .optional(),
+        isServiceAreaBusiness: z.boolean().optional().default(false),
+      })
+      .optional(),
+    links: z
+      .array(
+        z.object({
+          id: z.string().trim().min(1).optional(),
+          linkType: linkTypeSchema,
+          linkStatus: z.enum(['current', 'previous']).nullable().optional().default('current'),
+          label: nullableTextSchema,
+          url: z.string().trim().url('Link URL must be valid'),
+          isPrimary: z.boolean().optional().default(false),
+        }),
+      )
+      .optional(),
     categories: z
       .array(
         z.object({
@@ -42,6 +86,8 @@ const updateBusinessContextSchema = z
           displayName: z.string().trim().min(1),
           areaType: z.string().trim().optional().default('region'),
           regionCode: nullableTextSchema,
+          googlePlaceId: nullableTextSchema,
+          googlePlaceResourceName: nullableTextSchema,
           placeData: z.record(z.string(), z.unknown()).nullable().optional(),
         }),
       )
@@ -65,6 +111,9 @@ const updateBusinessContextSchema = z
           uriValues: z.array(z.string().trim()).optional().default([]),
           enumValues: z.array(z.string().trim()).optional().default([]),
           unsetEnumValues: z.array(z.string().trim()).optional().default([]),
+          rawValue: z.record(z.string(), z.unknown()).nullable().optional(),
+          rawEnumValues: z.record(z.string(), z.unknown()).nullable().optional(),
+          displayValue: z.record(z.string(), z.unknown()).nullable().optional(),
           valueMetadata: z.array(valueMetadataSchema).optional().default([]),
         }),
       )
@@ -84,6 +133,8 @@ const updateBusinessContextSchema = z
   })
   .refine(
     (value) =>
+      value.businessDetails !== undefined ||
+      value.links !== undefined ||
       value.categories !== undefined ||
       value.serviceAreas !== undefined ||
       value.attributes !== undefined ||
@@ -109,7 +160,10 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
     return NextResponse.json(snapshot);
   } catch (error) {
     console.error('[ops][restaurants][business-context][GET] failed', error);
-    return NextResponse.json({ error: 'Unable to load restaurant business context' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Unable to load restaurant business context' },
+      { status: 500 },
+    );
   }
 }
 
@@ -141,12 +195,22 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
     const snapshot = await updateRestaurantBusinessContext(
       restaurantId,
       parsed.data as Parameters<typeof updateRestaurantBusinessContext>[1],
+      undefined,
+      {
+        changeOrigin: 'owner',
+        changedByUserId: auth.userId,
+        changedVia: 'ops_business_context_api',
+        changeReason: 'Owner/admin business-context update from ops settings.',
+      },
     );
     return NextResponse.json(snapshot);
   } catch (error) {
     console.error('[ops][restaurants][business-context][PUT] failed', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unable to update restaurant business context' },
+      {
+        error:
+          error instanceof Error ? error.message : 'Unable to update restaurant business context',
+      },
       { status: 400 },
     );
   }

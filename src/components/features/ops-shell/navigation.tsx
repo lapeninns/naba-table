@@ -45,7 +45,7 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
     items: [
       {
         title: 'Dashboard',
-        description: 'Today\'s service overview',
+        description: "Today's service overview",
         href: path('/dashboard'),
         icon: BarChart3,
         match: (pathname) => pathname === path('/dashboard') || pathname === OPS_BASE_PATH,
@@ -55,7 +55,8 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         description: 'Manage reservations',
         href: path('/bookings'),
         icon: CalendarDays,
-        match: (pathname) => pathname === path('/bookings') || pathname.startsWith(path('/bookings/')),
+        match: (pathname) =>
+          pathname === path('/bookings') || pathname.startsWith(path('/bookings/')),
       },
       {
         title: 'New Bookings',
@@ -122,7 +123,8 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         description: 'Connect Google and review sync alignment',
         href: path('/settings/restaurant/google-business-profile'),
         icon: Globe2,
-        match: (pathname) => pathname.startsWith(path('/settings/restaurant/google-business-profile')),
+        match: (pathname) =>
+          pathname.startsWith(path('/settings/restaurant/google-business-profile')),
       },
       {
         title: 'Availability & Occasions',
@@ -143,9 +145,7 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         description: 'Manage table inventory',
         href: path('/settings/restaurant/tables'),
         icon: LayoutGrid,
-        match: (pathname) =>
-          pathname.startsWith(path('/settings/restaurant/tables')) ||
-          pathname.startsWith(path('/settings/tables')),
+        match: (pathname) => pathname.startsWith(path('/settings/restaurant/tables')),
       },
       {
         title: 'Team',
@@ -156,7 +156,6 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
       },
     ],
   },
-
 ];
 
 export const OPS_SUPPORT_ITEM: OpsNavigationItem = {

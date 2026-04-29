@@ -60,13 +60,6 @@ export function RestaurantSettingsSubnav() {
             queryFn: () => restaurantService.getProfile(id),
             enabled: true,
           });
-        case '/settings/restaurant/operating-hours':
-          return prefetchIfStale({
-            queryClient,
-            queryKey: queryKeys.opsRestaurants.hours(id),
-            queryFn: () => restaurantService.getOperatingHours(id),
-            enabled: true,
-          });
         case '/settings/restaurant/google-business-profile':
           return prefetchIfStale({
             queryClient,
@@ -74,25 +67,11 @@ export function RestaurantSettingsSubnav() {
             queryFn: () => restaurantService.getGoogleBusinessProfileConnection(id),
             enabled: true,
           });
-        case '/settings/restaurant/service-periods':
-          return prefetchIfStale({
-            queryClient,
-            queryKey: queryKeys.opsRestaurants.servicePeriods(id),
-            queryFn: () => restaurantService.getServicePeriods(id),
-            enabled: true,
-          });
         case '/settings/restaurant/menu':
           return prefetchIfStale({
             queryClient,
             queryKey: queryKeys.opsMenu.list(id, {}),
             queryFn: () => menuService.listItems(id, {}),
-            enabled: true,
-          });
-        case '/settings/restaurant/occasions':
-          return prefetchIfStale({
-            queryClient,
-            queryKey: queryKeys.opsOccasions.list(),
-            queryFn: () => occasionService.listOccasions(),
             enabled: true,
           });
         case '/settings/restaurant/team':

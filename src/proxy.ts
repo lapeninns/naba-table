@@ -292,7 +292,7 @@ export async function handleRouting(req: NextRequest): Promise<NextResponse> {
 
   // 3. Legacy /ops route redirect
   if (!isSingleHost && url.pathname.startsWith('/ops')) {
-    return buildRedirect(req, appHost, '/app/management', searchParams);
+    return buildRedirect(req, appHost, '/dashboard', searchParams);
   }
 
   // 4. All other routes pass through (guest pages, public APIs, etc.)

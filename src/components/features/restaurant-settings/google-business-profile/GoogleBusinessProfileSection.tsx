@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-  useOpsCreateGoogleBusinessProfileDraft,
   useOpsDisconnectGoogleBusinessProfile,
   useOpsGoogleBusinessProfileConnection,
   useOpsLinkGoogleBusinessProfileLocation,
@@ -24,12 +23,12 @@ import {
 
 import { AlignmentCard } from './components/AlignmentCard';
 import { ConnectCard } from './components/ConnectCard';
-import { GoogleBusinessProfileSyncPageShell } from './components/GoogleBusinessProfileSyncPageShell';
 import { LocationPickerCard } from './components/LocationPickerCard';
 import { PageHeader } from './components/PageHeader';
 import { SnapshotCard } from './components/SnapshotCard';
 import { deriveProfileVerification } from './googleBusinessProfileVerification';
 import { buildDriftReport } from './lib/drift';
+import { SyncV2Shell } from './v2/SyncV2Shell';
 
 type GoogleBusinessProfileSectionProps = {
   restaurantId: string | null;
@@ -64,7 +63,6 @@ export function GoogleBusinessProfileSection({ restaurantId }: GoogleBusinessPro
   const servicePeriodsQuery = useOpsServicePeriods(restaurantId);
   const linkMutation = useOpsLinkGoogleBusinessProfileLocation(restaurantId);
   const disconnectMutation = useOpsDisconnectGoogleBusinessProfile(restaurantId);
-  const createDraftMutation = useOpsCreateGoogleBusinessProfileDraft(restaurantId);
 
   const [selectedLocationValue, setSelectedLocationValue] = useState('');
   const [wantsRelink, setWantsRelink] = useState(false);
@@ -177,7 +175,6 @@ export function GoogleBusinessProfileSection({ restaurantId }: GoogleBusinessPro
   const showPicker =
     data.status === 'authorized' || data.status === 'reauth_required' || (isLinked && wantsRelink);
   const showConnect = !isLinked && !showPicker && data.status !== 'authorized';
-  const showChangeLocation = data.availableLocations.length > 1;
 
   const handleLinkLocation = () => {
     if (!selectedLocation) {
@@ -218,6 +215,7 @@ export function GoogleBusinessProfileSection({ restaurantId }: GoogleBusinessPro
       <PageHeader
         status={data.status}
         lastPullAt={data.lastPullAt}
+        providerTimezone={data.providerTimezone}
         onRefresh={() => void connectionQuery.refetch()}
         isRefreshing={connectionQuery.isFetching}
         manageOnGoogleHref={manageOnGoogleHref}
@@ -251,20 +249,7 @@ export function GoogleBusinessProfileSection({ restaurantId }: GoogleBusinessPro
 
       {isLinked ? (
         <>
-          <GoogleBusinessProfileSyncPageShell
-            restaurantId={restaurantId}
-            connection={data}
-            manageOnGoogleHref={manageOnGoogleHref}
-            onGenerateDraft={() =>
-              createDraftMutation.mutate(undefined, {
-                onSuccess: () => toast.success('GBP review draft generated.'),
-                onError: (error) => toast.error(error.message),
-              })
-            }
-            onChangeLocation={() => setWantsRelink(true)}
-            isGeneratingDraft={createDraftMutation.isPending}
-            showChangeLocation={showChangeLocation}
-          />
+          <SyncV2Shell restaurantId={restaurantId} draftId={searchParams.get('v2DraftId')} />
 
           <section
             aria-label="Secondary analysis"

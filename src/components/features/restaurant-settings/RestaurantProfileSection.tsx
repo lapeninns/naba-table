@@ -1,23 +1,20 @@
 'use client';
 
-import { Settings2 } from 'lucide-react';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useState } from 'react';
 
 import {
-  RestaurantDetailsForm,
-  type RestaurantDetailsFormValues,
+  AdvancedIdentitySubform,
+  BrandIdentitySubform,
+  ContactLocationSubform,
   COMMON_TIMEZONES,
+  ManagerNotificationsSubform,
+  type RestaurantDetailsFormValues,
 } from '@/components/ops/restaurants/RestaurantDetailsForm';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRegisterOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
 import { useOpsGoogleBusinessProfileConnection } from '@/hooks/ops/useOpsGoogleBusinessProfile';
@@ -32,8 +29,6 @@ import { RestaurantBusinessContextSection } from './RestaurantBusinessContextSec
 import { RestaurantLogoUploader } from './RestaurantLogoUploader';
 import { SettingsCard } from './shared/SettingsCard';
 
-import type { UpdateRestaurantInput } from '@/app/api/ops/restaurants/schema';
-
 const EMPTY_VALUES: RestaurantDetailsFormValues = {
   name: '',
   slug: '',
@@ -41,6 +36,7 @@ const EMPTY_VALUES: RestaurantDetailsFormValues = {
   contactEmail: null,
   contactPhone: null,
   address: null,
+  businessDescription: null,
   managerDailySummaryEnabled: false,
   managerNotificationPhone: null,
   googleMapUrl: null,
@@ -56,11 +52,19 @@ type RestaurantProfileSectionProps = {
   restaurantId: string | null;
 };
 
+type ProfileDirtyKey = 'brand' | 'contact' | 'notifications' | 'advanced';
+
 export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSectionProps) {
   const { data, error, isLoading, refetch } = useOpsRestaurantDetails(restaurantId);
   const gbpConnectionQuery = useOpsGoogleBusinessProfileConnection(restaurantId);
   const updateMutation = useOpsUpdateRestaurantDetails(restaurantId);
-  const [formDirty, setFormDirty] = useState(false);
+  const [dirtyState, setDirtyState] = useState<Record<ProfileDirtyKey, boolean>>({
+    brand: false,
+    contact: false,
+    notifications: false,
+    advanced: false,
+  });
+  const formDirty = Object.values(dirtyState).some(Boolean);
 
   useRegisterOpsUnsavedChanges(
     'restaurant-profile',
@@ -80,6 +84,7 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
       contactEmail: data.contactEmail,
       contactPhone: data.contactPhone,
       address: data.address,
+      businessDescription: data.businessDescription,
       managerDailySummaryEnabled: data.managerDailySummaryEnabled,
       managerNotificationPhone: data.managerNotificationPhone,
       googleMapUrl: data.googleMapUrl,
@@ -101,39 +106,22 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
       }),
     [data, gbpConnectionQuery.data],
   );
-  const handleSubmit = async (values: UpdateRestaurantInput) => {
-    try {
-      await updateMutation.mutateAsync({
-        name: values.name,
-        slug: values.slug,
-        timezone: values.timezone,
-        contactEmail: values.contactEmail ?? null,
-        contactPhone: values.contactPhone ?? null,
-        address: values.address ?? null,
-        managerDailySummaryEnabled: values.managerDailySummaryEnabled,
-        managerNotificationPhone: values.managerNotificationPhone ?? null,
-        googleMapUrl: values.googleMapUrl ?? null,
-        googleReviewUrl: values.googleReviewUrl ?? null,
-        bookingPolicy: values.bookingPolicy ?? null,
-        reservationIntervalMinutes: values.reservationIntervalMinutes,
-        reservationDefaultDurationMinutes: values.reservationDefaultDurationMinutes,
-        reservationLastSeatingBufferMinutes: values.reservationLastSeatingBufferMinutes,
-        reservationLifecycleGraceMinutes: values.reservationLifecycleGraceMinutes,
-      });
-    } catch (submitError) {
-      console.error('[restaurant-profile] update failed', submitError);
-    }
-  };
+  const setSubformDirty = useCallback(
+    (key: ProfileDirtyKey) => (dirty: boolean) => {
+      setDirtyState((current) => (current[key] === dirty ? current : { ...current, [key]: dirty }));
+    },
+    [],
+  );
 
   if (!restaurantId) {
     return (
       <SettingsCard
-        title="Restaurant Profile"
-        description="Select a restaurant to manage its profile details."
+        title="Restaurant profile"
+        description="Select a restaurant to manage what guests and staff see."
       >
         <p className="text-sm text-muted-foreground">
-          Choose a restaurant using the sidebar switcher to view and update its name, slug, contact
-          information, and booking policy.
+          Choose a restaurant using the sidebar switcher to update its public details and team
+          alerts.
         </p>
       </SettingsCard>
     );
@@ -142,8 +130,8 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
   if (isLoading && !data) {
     return (
       <SettingsCard
-        title="Restaurant Profile"
-        description="Update core details, contact information, and booking policy."
+        title="Restaurant profile"
+        description="Loading the restaurant details staff use day to day."
       >
         <div className="space-y-4">
           <Skeleton className="h-6 w-40" />
@@ -156,8 +144,8 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
   if (error) {
     return (
       <SettingsCard
-        title="Restaurant Profile"
-        description="Update core details, contact information, and booking policy."
+        title="Restaurant profile"
+        description="Update public details and team alerts."
       >
         <Alert variant="destructive">
           <AlertTitle>Unable to load restaurant details</AlertTitle>
@@ -173,79 +161,97 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
   }
 
   return (
-    <div className="space-y-6">
-      <SettingsCard
-        title="Restaurant Profile"
-        description="Update core restaurant details and contact information."
-        headerAction={
-          <Button type="button" variant="outline" asChild>
-            <a href="/app/settings/restaurant/google-business-profile">Review GBP draft</a>
-          </Button>
-        }
-      >
-        <div className="space-y-6">
-          <div className="space-y-2 rounded-lg border border-border/70 bg-muted/30 p-4">
-            <p className="text-sm font-medium text-foreground">{profileVerification.summary}</p>
-            {profileVerification.warnings.map((warning) => (
-              <p key={warning} className="text-xs text-muted-foreground">
-                {warning}
-              </p>
-            ))}
+    <div className="flex flex-col gap-6">
+      <Card className="border-border/70">
+        <CardHeader className="gap-4 sm:flex-row sm:items-end sm:justify-between sm:space-y-0">
+          <div className="flex flex-col gap-2">
+            <Badge
+              variant={profileVerification.warnings.length > 0 ? 'secondary' : 'outline'}
+              className="w-fit"
+            >
+              {profileVerification.summary}
+            </Badge>
+            <div className="flex flex-col gap-1">
+              <CardTitle className="text-2xl">Restaurant profile</CardTitle>
+              <CardDescription className="max-w-3xl">
+                Keep guest-facing details, team alerts, and public discovery information in one
+                place.
+              </CardDescription>
+            </div>
           </div>
-          <RestaurantLogoUploader
-            restaurantId={restaurantId}
-            restaurantName={derivedRestaurantName}
-            logoUrl={data?.logoUrl ?? null}
-            updateMutation={updateMutation}
-            isLoading={isLoading && !data}
-          />
-          <RestaurantDetailsForm
-            initialValues={initialValues}
-            onSubmit={handleSubmit}
-            isSubmitting={updateMutation.isPending}
-            onDirtyChange={setFormDirty}
-            gbpFieldVerifications={profileVerification.fields}
-          />
-        </div>
+          <Button type="button" variant="outline" asChild>
+            <a href="/app/settings/restaurant/google-business-profile">Review Google changes</a>
+          </Button>
+        </CardHeader>
+      </Card>
+
+      <div id="profile-identity" className="scroll-mt-28">
+        <SettingsCard
+          title="Brand and public description"
+          description="Set the name, logo, and short description guests should recognise."
+        >
+          <div className="flex flex-col gap-6">
+            <RestaurantLogoUploader
+              restaurantId={restaurantId}
+              restaurantName={derivedRestaurantName}
+              logoUrl={data?.logoUrl ?? null}
+              updateMutation={updateMutation}
+              isLoading={isLoading && !data}
+            />
+            <BrandIdentitySubform
+              restaurantId={restaurantId}
+              initialValues={initialValues}
+              onDirtyChange={setSubformDirty('brand')}
+              gbpFieldVerifications={profileVerification.fields}
+            />
+          </div>
+        </SettingsCard>
+      </div>
+
+      <SettingsCard
+        title="Contact and location"
+        description="Keep the public phone, email, address, directions, and review links current."
+      >
+        <ContactLocationSubform
+          restaurantId={restaurantId}
+          initialValues={initialValues}
+          onDirtyChange={setSubformDirty('contact')}
+          gbpFieldVerifications={profileVerification.fields}
+        />
       </SettingsCard>
+
+      <div id="profile-notifications" className="scroll-mt-28">
+        <SettingsCard
+          title="Daily manager summary"
+          description="Choose where the daily booking summary SMS should go."
+        >
+          <ManagerNotificationsSubform
+            restaurantId={restaurantId}
+            initialValues={initialValues}
+            onDirtyChange={setSubformDirty('notifications')}
+          />
+        </SettingsCard>
+      </div>
+
+      <div id="profile-discovery" className="scroll-mt-28">
+        <SettingsCard
+          title="Guest discovery essentials"
+          description="Set the profile basics, dining categories, and public links guests use when discovering this restaurant."
+        >
+          <RestaurantBusinessContextSection restaurantId={restaurantId} embedded />
+        </SettingsCard>
+      </div>
 
       <div id="profile-advanced" className="scroll-mt-28">
         <SettingsCard
-          title="Advanced"
-          description="Low-frequency structured metadata and specialist setup for discovery, integrations, and future sync-aware flows."
+          title="Booking link"
+          description="Edit the short link used in guest booking URLs."
         >
-          <Accordion
-            type="single"
-            collapsible
-            className="rounded-xl border border-border/60 bg-muted/10"
-          >
-            <AccordionItem value="business-context" className="border-none">
-              <AccordionTrigger className="rounded-xl px-4 py-4 hover:bg-muted/30">
-                <div className="flex min-w-0 flex-1 items-start gap-3 text-left">
-                  <div className="rounded-lg border border-border/60 bg-background p-2">
-                    <Settings2 className="size-4 text-muted-foreground" />
-                  </div>
-                  <div className="min-w-0 space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-semibold text-foreground">
-                        Business Context
-                      </span>
-                      <Badge variant="outline" className="text-[11px] uppercase tracking-[0.16em]">
-                        Advanced
-                      </Badge>
-                    </div>
-                    <p className="text-sm font-normal leading-6 text-muted-foreground">
-                      Categories, service areas, attributes, and service items that shape structured
-                      restaurant metadata.
-                    </p>
-                  </div>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent className="px-4 pb-4">
-                <RestaurantBusinessContextSection restaurantId={restaurantId} embedded />
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
+          <AdvancedIdentitySubform
+            restaurantId={restaurantId}
+            initialValues={initialValues}
+            onDirtyChange={setSubformDirty('advanced')}
+          />
         </SettingsCard>
       </div>
     </div>

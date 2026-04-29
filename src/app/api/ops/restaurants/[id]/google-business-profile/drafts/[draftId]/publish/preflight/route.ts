@@ -8,6 +8,7 @@ import {
 import { googleBusinessProfileWorkflowErrorResponse } from '@/app/api/ops/restaurants/[id]/google-business-profile/_shared';
 import { preflightGoogleBusinessProfileWorkflowDraft } from '@/server/google-business-profile/workflow';
 
+import type { GoogleBusinessProfileFieldDecisionInput } from '@/server/google-business-profile/workflow';
 import type { NextRequest } from 'next/server';
 
 const directionIntentSchema = z.enum([
@@ -18,6 +19,17 @@ const directionIntentSchema = z.enum([
 
 const preflightSchema = z.object({
   selectedApprovals: z.record(z.string(), z.boolean()).default({}),
+  decisions: z
+    .array(
+      z.object({
+        sectionKey: z.string().trim().min(1),
+        fieldKey: z.string().trim().min(1),
+        action: z.enum(['import_from_google', 'export_to_google', 'ignore']),
+        reviewedNabatableValueHash: z.string().trim().min(1),
+        reviewedGoogleValueHash: z.string().trim().min(1),
+      }),
+    )
+    .optional(),
   directionIntent: directionIntentSchema.optional(),
   pushToGoogle: z.boolean().optional(),
 });
@@ -41,6 +53,7 @@ function getPreflightErrorStatus(error: unknown): number {
     if (error.name === 'GBP_GOOGLE_PUSH_DISABLED') return 409;
     if (error.name === 'GBP_DRAFT_NO_SELECTION') return 400;
     if (error.name === 'GBP_DIRECTION_CONFLICT') return 400;
+    if (error.name === 'GBP_DECISION_INVALID') return 400;
   }
   return 500;
 }
@@ -82,6 +95,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
         draftId,
         actorUserId: access.userId,
         selectedApprovals: payload.selectedApprovals,
+        decisions: payload.decisions as GoogleBusinessProfileFieldDecisionInput[] | undefined,
         directionIntent: payload.directionIntent,
         pushToGoogle: payload.pushToGoogle,
       }),

@@ -47,6 +47,10 @@ function DefinitionList({
   );
 }
 
+function formatCoordinate(value: number | null | undefined): string | null {
+  return typeof value === 'number' ? value.toFixed(6) : null;
+}
+
 function CategoryList({ businessInfo }: { businessInfo: GoogleBusinessProfileBusinessInfo }) {
   if (businessInfo.categories.length === 0) {
     return null;
@@ -240,6 +244,12 @@ function LocationPanel({ businessInfo }: { businessInfo: GoogleBusinessProfileBu
                   {address.addressType}
                   {address.isPrimary ? ' · primary' : null}
                 </p>
+                {address.latitude !== null || address.longitude !== null ? (
+                  <p className="text-xs text-muted-foreground">
+                    Lat/lng: {formatCoordinate(address.latitude) ?? 'unknown'},{' '}
+                    {formatCoordinate(address.longitude) ?? 'unknown'}
+                  </p>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -250,9 +260,20 @@ function LocationPanel({ businessInfo }: { businessInfo: GoogleBusinessProfileBu
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Service areas
           </p>
-          <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+          <ul className="space-y-2 text-sm text-muted-foreground">
             {businessInfo.serviceAreas.map((area) => (
-              <li key={area.id}>{area.displayName}</li>
+              <li key={area.id} className="rounded-md border bg-muted/30 px-3 py-2">
+                <p className="font-medium text-foreground">{area.displayName}</p>
+                <p className="text-xs text-muted-foreground">
+                  {area.areaType}
+                  {area.googlePlaceId ? ` · ${area.googlePlaceId}` : ''}
+                </p>
+                {area.googlePlaceResourceName ? (
+                  <p className="truncate text-xs text-muted-foreground">
+                    {area.googlePlaceResourceName}
+                  </p>
+                ) : null}
+              </li>
             ))}
           </ul>
         </div>

@@ -357,7 +357,13 @@ function inferServicePeriodsByDay(
 }
 
 function compareFieldValue(
-  field: 'name' | 'contactPhone' | 'address' | 'googleMapUrl' | 'googleReviewUrl',
+  field:
+    | 'name'
+    | 'businessDescription'
+    | 'contactPhone'
+    | 'address'
+    | 'googleMapUrl'
+    | 'googleReviewUrl',
   currentValue: string | null | undefined,
   providerValue: string | null | undefined,
 ): boolean {
@@ -374,6 +380,7 @@ function compareFieldValue(
       return Boolean(currentUrl) && currentUrl === googleUrl;
     }
     case 'name':
+    case 'businessDescription':
     case 'address': {
       const currentText = normalizeComparableText(currentValue);
       const googleText = normalizeComparableText(providerValue);
@@ -475,6 +482,7 @@ function getProfileProviderValues(connection: GoogleBusinessProfileConnection) {
 
   return {
     name: connection.externalLocationTitle ?? connection.externalLocationName ?? null,
+    businessDescription: connection.businessInfo.details?.description ?? null,
     contactPhone: primaryPhone?.phoneNumber ?? null,
     address: primaryAddress?.formattedAddress ?? null,
     googleMapUrl: googleMapLink?.url ?? null,
@@ -487,7 +495,12 @@ export function deriveProfileVerification(params: {
   connection: GoogleBusinessProfileConnection | null | undefined;
 }): VerificationSummary & {
   fields: Record<
-    'name' | 'contactPhone' | 'address' | 'googleMapUrl' | 'googleReviewUrl',
+    | 'name'
+    | 'businessDescription'
+    | 'contactPhone'
+    | 'address'
+    | 'googleMapUrl'
+    | 'googleReviewUrl',
     ProfileFieldVerification
   >;
 } {
@@ -501,6 +514,16 @@ export function deriveProfileVerification(params: {
       warnings: [],
       fields: {
         name: {
+          status: 'unavailable',
+          canPull: false,
+          canPush: false,
+          providerValue: null,
+          googleManaged: false,
+          tooltipTitle: 'Google Business Profile',
+          tooltipLines: ['No GBP value is available for this field yet.'],
+          tooltipFooter: null,
+        },
+        businessDescription: {
           status: 'unavailable',
           canPull: false,
           canPush: false,
@@ -575,6 +598,36 @@ export function deriveProfileVerification(params: {
         canPull: Boolean(providerValues.name),
         canPush: Boolean(providerValues.name),
         providerValue: providerValues.name,
+        googleManaged: false,
+      }),
+    },
+    businessDescription: {
+      status: compareFieldValue(
+        'businessDescription',
+        params.profile.businessDescription,
+        providerValues.businessDescription,
+      )
+        ? 'verified'
+        : providerValues.businessDescription || params.profile.businessDescription
+          ? 'drifted'
+          : 'unavailable',
+      canPull: Boolean(providerValues.businessDescription),
+      canPush: false,
+      providerValue: providerValues.businessDescription,
+      googleManaged: false,
+      ...buildProfileFieldTooltip('description', {
+        status: compareFieldValue(
+          'businessDescription',
+          params.profile.businessDescription,
+          providerValues.businessDescription,
+        )
+          ? 'verified'
+          : providerValues.businessDescription || params.profile.businessDescription
+            ? 'drifted'
+            : 'unavailable',
+        canPull: Boolean(providerValues.businessDescription),
+        canPush: false,
+        providerValue: providerValues.businessDescription,
         googleManaged: false,
       }),
     },
@@ -691,7 +744,12 @@ export function deriveProfileVerification(params: {
       }),
     },
   } satisfies Record<
-    'name' | 'contactPhone' | 'address' | 'googleMapUrl' | 'googleReviewUrl',
+    | 'name'
+    | 'businessDescription'
+    | 'contactPhone'
+    | 'address'
+    | 'googleMapUrl'
+    | 'googleReviewUrl',
     ProfileFieldVerification
   >;
 

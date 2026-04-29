@@ -73,6 +73,13 @@ export const createRestaurantSchema = z.object({
     .nullable()
     .optional()
     .transform((val) => val || null),
+  businessDescription: z
+    .string()
+    .trim()
+    .max(4096, 'Business description must be 4096 characters or fewer')
+    .nullable()
+    .optional()
+    .transform((val) => val || null),
   managerDailySummaryEnabled: z.boolean().optional(),
   managerNotificationPhone: z
     .string()
@@ -144,6 +151,13 @@ export const updateRestaurantSchema = z.object({
     .nullable()
     .optional()
     .transform((val) => val || null),
+  businessDescription: z
+    .string()
+    .trim()
+    .max(4096, 'Business description must be 4096 characters or fewer')
+    .nullable()
+    .optional()
+    .transform((val) => val || null),
   managerDailySummaryEnabled: z.boolean().optional(),
   managerNotificationPhone: z
     .string()
@@ -194,6 +208,7 @@ export type RestaurantDTO = {
   contactEmail: string | null;
   contactPhone: string | null;
   address: string | null;
+  businessDescription: string | null;
   managerDailySummaryEnabled: boolean;
   managerNotificationPhone: string | null;
   googleMapUrl: string | null;

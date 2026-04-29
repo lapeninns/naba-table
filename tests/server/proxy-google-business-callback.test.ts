@@ -45,4 +45,12 @@ describe('proxy GBP callback public API routing', () => {
     expect(response.status).toBe(401);
     expect(requireOpsAuthMock).toHaveBeenCalledTimes(1);
   });
+
+  it('redirects legacy root-host ops paths to the app dashboard', async () => {
+    const response = await handleRouting(new NextRequest('http://localhost/ops?from=legacy'));
+
+    expect(response.status).toBe(308);
+    expect(response.headers.get('location')).toBe('http://app.localhost/dashboard?from=legacy');
+    expect(requireOpsAuthMock).not.toHaveBeenCalled();
+  });
 });

@@ -112,6 +112,8 @@ type GoogleAttributeValueMetadata = {
 export type GoogleBusinessProfileLocationProfile = {
   name: string;
   languageCode?: string;
+  timezone?: string;
+  timeZone?: string;
   title?: string;
   storefrontAddress?: {
     addressLines?: string[];
@@ -186,6 +188,8 @@ export type GoogleBusinessProfileLocationProfile = {
     placeId?: string;
     mapsUri?: string;
     newReviewUri?: string;
+    timezone?: string;
+    timeZone?: string;
   };
   profile?: {
     description?: string;
@@ -226,6 +230,11 @@ export type GoogleBusinessProfileAttributesResponse = {
       negativeText?: string;
     };
   }>;
+};
+
+export type GoogleBusinessProfileAttributesPatch = {
+  name?: string;
+  attributes?: Array<Record<string, unknown>>;
 };
 
 const REQUIRED_LOCATION_PROFILE_MASK = [
@@ -596,6 +605,27 @@ export async function getGoogleBusinessProfileLocationAttributes(
     `${GOOGLE_BUSINESS_INFORMATION_BASE_URL}/locations/${normalizedLocationId}/attributes`,
     accessToken,
   );
+}
+
+export async function updateGoogleBusinessProfileLocationAttributes(
+  accessToken: string,
+  locationId: string,
+  payload: GoogleBusinessProfileAttributesPatch,
+  attributeMask: string[],
+): Promise<GoogleBusinessProfileAttributesResponse> {
+  const normalizedLocationId = parseGoogleLocationId(normalizeLocationResourceName(locationId));
+  const url = new URL(
+    `${GOOGLE_BUSINESS_INFORMATION_BASE_URL}/locations/${normalizedLocationId}/attributes`,
+  );
+  url.searchParams.set('attributeMask', attributeMask.join(','));
+
+  return googleFetchJson<GoogleBusinessProfileAttributesResponse>(url.toString(), accessToken, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      name: `locations/${normalizedLocationId}/attributes`,
+      ...payload,
+    }),
+  });
 }
 
 export async function patchGoogleBusinessProfileLocation(

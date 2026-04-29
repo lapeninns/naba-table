@@ -189,6 +189,7 @@ export function CreateRestaurantDialog({ open, onOpenChange }: CreateRestaurantD
       contactEmail: formData.contactEmail.trim() || null,
       contactPhone: formData.contactPhone.trim() || null,
       address: formData.address.trim() || null,
+      businessDescription: null,
       managerDailySummaryEnabled: false,
       managerNotificationPhone: null,
       googleMapUrl: formData.googleMapUrl.trim() || null,

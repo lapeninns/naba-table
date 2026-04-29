@@ -12,22 +12,39 @@ import {
 } from '@/server/auth/password-confirmation';
 import { publishGoogleBusinessProfileWorkflowDraft } from '@/server/google-business-profile/workflow';
 
+import type { GoogleBusinessProfileFieldDecisionInput } from '@/server/google-business-profile/workflow';
 import type { NextRequest } from 'next/server';
-
 const directionIntentSchema = z.enum([
   'google_to_nabatable',
   'google_to_nabatable_with_google_sync',
   'nabatable_to_google',
 ]);
 
-const publishSchema = z.object({
-  password: z.string().trim().min(1, 'Enter your password to confirm this GBP publish.'),
-  publishJobId: z.string().trim().min(1, 'Run preflight before publishing.'),
-  idempotencyKey: z.string().trim().min(1, 'Run preflight before publishing.'),
-  selectedApprovals: z.record(z.string(), z.boolean()).optional(),
-  directionIntent: directionIntentSchema.optional(),
-  pushToGoogle: z.boolean().optional(),
-});
+const publishSchema = z
+  .object({
+    password: z.string().trim().min(1, 'Enter your password to confirm this GBP publish.'),
+    publishJobId: z.string().trim().min(1, 'Run preflight before publishing.').optional(),
+    publishPlanId: z.string().trim().min(1, 'Run preflight before publishing.').optional(),
+    idempotencyKey: z.string().trim().min(1, 'Run preflight before publishing.'),
+    selectedApprovals: z.record(z.string(), z.boolean()).optional(),
+    decisions: z
+      .array(
+        z.object({
+          sectionKey: z.string().trim().min(1),
+          fieldKey: z.string().trim().min(1),
+          action: z.enum(['import_from_google', 'export_to_google', 'ignore']),
+          reviewedNabatableValueHash: z.string().trim().min(1),
+          reviewedGoogleValueHash: z.string().trim().min(1),
+        }),
+      )
+      .optional(),
+    directionIntent: directionIntentSchema.optional(),
+    pushToGoogle: z.boolean().optional(),
+  })
+  .refine((payload) => payload.publishJobId || payload.publishPlanId, {
+    message: 'Run preflight before publishing.',
+    path: ['publishPlanId'],
+  });
 
 function getPublishErrorStatus(error: unknown): number {
   if (
@@ -38,10 +55,13 @@ function getPublishErrorStatus(error: unknown): number {
       error.name === 'GBP_GOOGLE_PUSH_DISABLED' ||
       error.name === 'GBP_GOOGLE_PUSH_FAILED' ||
       error.name === 'GBP_DIRECTION_CONFLICT' ||
+      error.name === 'GBP_DECISION_INVALID' ||
       error.name === 'GBP_PUBLISH_JOB_MISMATCH' ||
       error.name === 'GBP_PUBLISH_JOB_INVALID_STATE')
   ) {
-    return error.name === 'GBP_DIRECTION_CONFLICT' ? 400 : 409;
+    return error.name === 'GBP_DIRECTION_CONFLICT' || error.name === 'GBP_DECISION_INVALID'
+      ? 400
+      : 409;
   }
   if (error instanceof Error && error.name === 'GBP_PUBLISH_JOB_NOT_FOUND') {
     return 404;
@@ -101,8 +121,10 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
         draftId,
         actorUserId: access.userId,
         publishJobId: payload.publishJobId,
+        publishPlanId: payload.publishPlanId,
         idempotencyKey: payload.idempotencyKey,
         selectedApprovals: payload.selectedApprovals,
+        decisions: payload.decisions as GoogleBusinessProfileFieldDecisionInput[] | undefined,
         directionIntent: payload.directionIntent,
         pushToGoogle: payload.pushToGoogle,
       }),

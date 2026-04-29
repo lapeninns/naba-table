@@ -78,6 +78,7 @@ function buildRestaurantSnapshot(
     contactEmail: overrides.contactEmail ?? 'ops@example.com',
     contactPhone: overrides.contactPhone ?? '+44 7700 900123',
     address: overrides.address ?? '1 Example Street, London',
+    businessDescription: overrides.businessDescription ?? null,
     managerDailySummaryEnabled: overrides.managerDailySummaryEnabled ?? true,
     managerNotificationPhone: overrides.managerNotificationPhone ?? '+44 7700 900123',
     googleMapUrl: overrides.googleMapUrl ?? null,
@@ -251,6 +252,8 @@ export class DevRestaurantService implements RestaurantService {
           displayName: row.displayName,
           areaType: row.areaType,
           regionCode: row.regionCode,
+          googlePlaceId: row.googlePlaceId,
+          googlePlaceResourceName: row.googlePlaceResourceName,
           placeData: row.placeData,
           source: 'gbp',
           managedBy: 'gbp',
@@ -273,6 +276,9 @@ export class DevRestaurantService implements RestaurantService {
           uriValues: row.uriValues,
           enumValues: row.enumValues,
           unsetEnumValues: row.unsetEnumValues,
+          rawValue: row.rawValue,
+          rawEnumValues: row.rawEnumValues,
+          displayValue: row.displayValue,
           valueMetadata: row.valueMetadata,
           source: 'gbp',
           managedBy: 'gbp',
@@ -319,6 +325,8 @@ export class DevRestaurantService implements RestaurantService {
         displayName: row.displayName,
         areaType: row.areaType ?? 'region',
         regionCode: row.regionCode ?? null,
+        googlePlaceId: row.googlePlaceId ?? null,
+        googlePlaceResourceName: row.googlePlaceResourceName ?? null,
         placeData: row.placeData ?? null,
         source: 'nabatable',
         managedBy: 'nabatable',
@@ -344,6 +352,9 @@ export class DevRestaurantService implements RestaurantService {
         uriValues: row.uriValues ?? [],
         enumValues: row.enumValues ?? [],
         unsetEnumValues: row.unsetEnumValues ?? [],
+        rawValue: row.rawValue ?? null,
+        rawEnumValues: row.rawEnumValues ?? null,
+        displayValue: row.displayValue ?? null,
         valueMetadata: row.valueMetadata ?? [],
         source: 'nabatable',
         managedBy: 'nabatable',
@@ -739,6 +750,8 @@ export class DevRestaurantService implements RestaurantService {
               latitude: 52.2053,
               longitude: 0.1218,
             },
+            latitude: 52.2053,
+            longitude: 0.1218,
             isPrimary: true,
             lastSyncedAt: '2026-04-18T10:30:00Z',
             verificationStatus: verification,
@@ -822,7 +835,22 @@ export class DevRestaurantService implements RestaurantService {
             verificationStatus: verification,
           },
         ],
-        serviceAreas: [],
+        serviceAreas: [
+          {
+            id: 'gbp-service-area-1',
+            displayName: 'Cambridge',
+            areaType: 'region',
+            regionCode: 'GB',
+            googlePlaceId: 'ChIJLQEq84ld2EcRIT1eo-Ego2M',
+            googlePlaceResourceName: 'places/ChIJLQEq84ld2EcRIT1eo-Ego2M',
+            placeData: {
+              placeId: 'ChIJLQEq84ld2EcRIT1eo-Ego2M',
+              displayName: 'Cambridge',
+            },
+            lastSyncedAt: '2026-04-18T10:30:00Z',
+            verificationStatus: verification,
+          },
+        ],
         hours: [
           {
             id: 'gbp-hours-1',
@@ -903,6 +931,9 @@ export class DevRestaurantService implements RestaurantService {
             uriValues: [],
             enumValues: [],
             unsetEnumValues: [],
+            rawValue: { boolValue: true },
+            rawEnumValues: null,
+            displayValue: { displayText: 'Outdoor seating: Yes' },
             valueMetadata: [],
             lastSyncedAt: '2026-04-18T10:30:00Z',
             verificationStatus: verification,
@@ -924,6 +955,9 @@ export class DevRestaurantService implements RestaurantService {
             uriValues: [],
             enumValues: [],
             unsetEnumValues: [],
+            rawValue: { textValue: 'Recommended for peak dinner service' },
+            rawEnumValues: null,
+            displayValue: { displayText: 'Reservations required' },
             valueMetadata: [],
             lastSyncedAt: '2026-04-18T10:30:00Z',
             verificationStatus: verification,
@@ -1330,9 +1364,21 @@ export class DevRestaurantService implements RestaurantService {
   async updateGoogleBusinessProfileDraft(
     _restaurantId: string,
     _draftId: string,
-    _payload: GoogleBusinessProfileDraftPatchPayload,
+    payload: GoogleBusinessProfileDraftPatchPayload,
   ): Promise<GoogleBusinessProfileWorkflow> {
-    return this.createGoogleBusinessProfileDraft();
+    const workflow = await this.getGoogleBusinessProfileWorkflow();
+    if (workflow.latestDraft) {
+      workflow.latestDraft.status = payload.status ?? workflow.latestDraft.status;
+      workflow.latestDraft.selectedApprovals =
+        payload.selectedApprovals ?? workflow.latestDraft.selectedApprovals;
+      workflow.latestDraft.decisions =
+        payload.decisions?.map((decision) => ({
+          ...decision,
+          decidedByUserId: 'dev-user',
+          decidedAt: new Date().toISOString(),
+        })) ?? workflow.latestDraft.decisions;
+    }
+    return workflow;
   }
 
   async preflightGoogleBusinessProfileDraftPublish(
@@ -1345,13 +1391,28 @@ export class DevRestaurantService implements RestaurantService {
       workflow.latestDraft?.sectionDiffs.flatMap((section) =>
         section.items.filter((item) => payload.selectedApprovals[item.fieldKey]),
       ) ?? [];
-    const directionIntent = resolvePublishDirectionIntent(payload);
+    const decisionsByField = new Map(
+      payload.decisions?.map((decision) => [decision.fieldKey, decision.action]),
+    );
+    const importItems = selectedItems.filter(
+      (item) => decisionsByField.get(item.fieldKey) !== 'export_to_google',
+    );
+    const exportItems = selectedItems.filter(
+      (item) => decisionsByField.get(item.fieldKey) === 'export_to_google',
+    );
+    const directionIntent =
+      importItems.length > 0 && exportItems.length > 0
+        ? 'google_to_nabatable_with_google_sync'
+        : exportItems.length > 0
+          ? 'nabatable_to_google'
+          : resolvePublishDirectionIntent(payload);
     const wantsGoogleSync = directionIntent !== 'google_to_nabatable';
     const isGoogleOnly = directionIntent === 'nabatable_to_google';
     const googleUpdateMasks: GoogleBusinessProfileDraftPublishPreflight['googleUpdateMasks'] =
-      wantsGoogleSync ? ['title', 'phoneNumbers'] : [];
+      exportItems.length > 0 ? ['title'] : [];
     return {
       publishJobId: 'dev-gbp-publish-job-1',
+      publishPlanId: 'dev-gbp-publish-job-1',
       idempotencyKey: `dev-${draftId}-${wantsGoogleSync ? 'google' : 'nabatable'}`,
       mode: isGoogleOnly
         ? 'google_only'
@@ -1360,10 +1421,17 @@ export class DevRestaurantService implements RestaurantService {
           : 'nabatable_only',
       directionIntent,
       selectedApprovals: payload.selectedApprovals,
-      nabatableUpdates: isGoogleOnly ? [] : selectedItems,
+      decisions:
+        payload.decisions?.map((decision) => ({
+          ...decision,
+          decidedByUserId: 'dev-user',
+          decidedAt: new Date().toISOString(),
+        })) ?? [],
+      nabatableUpdates: isGoogleOnly ? [] : importItems,
+      googleUpdates: wantsGoogleSync ? exportItems.filter((item) => item.canPushToGoogle) : [],
       pullOnlyItems: wantsGoogleSync
-        ? selectedItems.filter((item) => !item.canPushToGoogle)
-        : selectedItems,
+        ? importItems.filter((item) => !item.canPushToGoogle)
+        : importItems,
       googleUpdateMasks,
       warnings: [],
       errors: [],

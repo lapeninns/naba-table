@@ -10,7 +10,7 @@ This project serves two audiences from the same codebase:
 - **Root host**
   - `/api/bookings` (and other non-ops APIs) are public/guest-facing.
   - `/app/*` requests are redirected to `https://app.{ROOT_DOMAIN}/app/*` (single `/app` prefix preserved).
-  - `/ops*` requests are redirected to `https://app.{ROOT_DOMAIN}/app/management`.
+  - `/ops*` requests are redirected to `https://app.{ROOT_DOMAIN}/dashboard`.
 - **App host**
   - Non-app, non-api paths (e.g. `/auth/*`, `/guest/*`) are redirected back to the root host with the same path/query.
   - `/app/app*` is normalized to `/app*` to prevent double prefixes.

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { createRestaurant, listRestaurantsForOps } from '@/server/restaurants';
+import { upsertRestaurantBusinessDescription } from '@/server/restaurants/details';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 
 import {
@@ -74,6 +75,7 @@ export async function GET(req: NextRequest) {
       contactEmail: restaurant.contactEmail,
       contactPhone: restaurant.contactPhone,
       address: restaurant.address,
+      businessDescription: null,
       managerDailySummaryEnabled: restaurant.managerDailySummaryEnabled,
       managerNotificationPhone: restaurant.managerNotificationPhone,
       googleMapUrl: restaurant.googleMapUrl,
@@ -174,6 +176,14 @@ export async function POST(req: NextRequest) {
       user.id,
       serviceSupabase,
     );
+    const businessDescription =
+      input.businessDescription !== undefined
+        ? await upsertRestaurantBusinessDescription(
+            restaurant.id,
+            input.businessDescription,
+            serviceSupabase,
+          )
+        : null;
 
     const response: RestaurantResponse = {
       restaurant: {
@@ -186,6 +196,7 @@ export async function POST(req: NextRequest) {
         contactEmail: restaurant.contactEmail,
         contactPhone: restaurant.contactPhone,
         address: restaurant.address,
+        businessDescription,
         managerDailySummaryEnabled: restaurant.managerDailySummaryEnabled,
         managerNotificationPhone: restaurant.managerNotificationPhone,
         googleMapUrl: restaurant.googleMapUrl,
