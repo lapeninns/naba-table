@@ -51,6 +51,7 @@ export type SyncV2DecisionAction = 'import_from_google' | 'export_to_google' | '
  */
 export type SyncV2GoogleUpdateMask =
   | 'title'
+  | 'profile'
   | 'phoneNumbers'
   | 'storefrontAddress'
   | 'regularHours'

@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -51,6 +52,7 @@ import type {
 type RestaurantBusinessContextSectionProps = {
   restaurantId: string | null;
   embedded?: boolean;
+  onDirtyChange?: (dirty: boolean) => void;
 };
 
 type FamilyKey =
@@ -146,7 +148,13 @@ const DISCOVERY_SECTION_ORDER: FamilyKey[] = [
   'serviceItems',
   'links',
 ];
-const EMBEDDED_DISCOVERY_PRIMARY_ORDER: FamilyKey[] = ['businessDetails', 'categories', 'links'];
+const EMBEDDED_DISCOVERY_PRIMARY_ORDER: FamilyKey[] = [
+  'businessDetails',
+  'categories',
+  'attributes',
+  'links',
+];
+const EMBEDDED_DISCOVERY_MORE_ORDER: FamilyKey[] = ['serviceAreas', 'serviceItems'];
 
 const DISCOVERY_SECTION_DESCRIPTIONS: Record<FamilyKey, string> = {
   businessDetails: 'Opening status and whether this restaurant also serves guests off-site.',
@@ -182,6 +190,114 @@ const LINK_TYPE_OPTIONS = [
   { value: 'other', label: 'Other' },
 ] as const;
 const EDITABLE_LINK_TYPES = new Set(LINK_TYPE_OPTIONS.map((option) => option.value));
+
+type AmenityAttributeDefinition = {
+  key: string;
+  label: string;
+};
+
+type AmenityAttributeGroup = {
+  title: string;
+  description: string;
+  keys: AmenityAttributeDefinition[];
+};
+
+const AMENITY_ATTRIBUTE_GROUPS: AmenityAttributeGroup[] = [
+  {
+    title: 'Accessibility',
+    description: 'Access details guests often check before visiting.',
+    keys: [
+      { key: 'has_wheelchair_accessible_entrance', label: 'Wheelchair-accessible entrance' },
+      { key: 'has_wheelchair_accessible_restroom', label: 'Wheelchair-accessible toilet' },
+      { key: 'has_wheelchair_accessible_parking', label: 'Wheelchair-accessible car park' },
+    ],
+  },
+  {
+    title: 'Amenities & crowd',
+    description: 'Facilities and welcome signals for guests.',
+    keys: [
+      { key: 'has_restroom', label: 'Has toilet' },
+      { key: 'has_wifi', label: 'Free Wi-Fi' },
+      { key: 'good_for_kids', label: 'Good for kids' },
+      { key: 'lgbtq_friendly', label: 'LGBTQ+ friendly' },
+    ],
+  },
+  {
+    title: 'Dining options',
+    description: 'How guests can eat or spend time at the venue.',
+    keys: [
+      { key: 'seating', label: 'Has seating' },
+      { key: 'outdoor_seating', label: 'Has outdoor seating' },
+      { key: 'table_service', label: 'Has table service' },
+      { key: 'dine_in', label: 'Serves dine-in' },
+    ],
+  },
+  {
+    title: 'Highlights',
+    description: 'Reasons guests may choose this venue.',
+    keys: [
+      { key: 'live_performances', label: 'Live performances' },
+      { key: 'watching_sport', label: 'Good for watching sport' },
+      { key: 'live_music', label: 'Live music' },
+      { key: 'karaoke', label: 'Karaoke' },
+      { key: 'bar_games', label: 'Has bar games' },
+      { key: 'rooftop_seating', label: 'Rooftop seating' },
+    ],
+  },
+  {
+    title: 'Offerings',
+    description: 'Food and drink options guests can expect.',
+    keys: [
+      { key: 'serves_spirits', label: 'Serves spirits' },
+      { key: 'serves_beer', label: 'Serves beer' },
+      { key: 'serves_food', label: 'Serves food' },
+      { key: 'serves_alcohol', label: 'Serves alcohol' },
+      { key: 'serves_food_at_bar', label: 'Serves food at bar' },
+      { key: 'serves_wine', label: 'Serves wine' },
+      { key: 'serves_cocktails', label: 'Serves cocktails' },
+      { key: 'happy_hour_drinks', label: 'Happy-hour drinks' },
+      { key: 'happy_hour_food', label: 'Happy-hour food' },
+    ],
+  },
+  {
+    title: 'Parking',
+    description: 'Parking options around the venue.',
+    keys: [
+      { key: 'free_parking_lot', label: 'Free parking lot' },
+      { key: 'free_street_parking', label: 'Free street parking' },
+      { key: 'paid_parking_lot', label: 'Paid parking lot' },
+    ],
+  },
+  {
+    title: 'Payments',
+    description: 'Payment methods accepted on site.',
+    keys: [
+      { key: 'accepts_debit_cards', label: 'Accepts debit cards' },
+      { key: 'nfc_mobile_payments', label: 'NFC mobile payments' },
+      { key: 'accepts_credit_cards', label: 'Accepts credit cards' },
+      { key: 'cash_only', label: 'Cash-only' },
+      { key: 'accepts_visa', label: 'Visa' },
+      { key: 'accepts_amex', label: 'American Express' },
+      { key: 'accepts_mastercard', label: 'Mastercard' },
+    ],
+  },
+  {
+    title: 'Service options & planning',
+    description: 'Booking and fulfilment details for guests.',
+    keys: [
+      { key: 'dogs_allowed', label: 'Dogs allowed' },
+      { key: 'reservations_required', label: 'Reservations required' },
+      { key: 'reservations', label: 'Accepts reservations' },
+      { key: 'delivery', label: 'Delivery' },
+      { key: 'takeout', label: 'Offers takeaway' },
+      { key: 'drive_through', label: 'Drive-through' },
+      { key: 'no_contact_delivery', label: 'No-contact delivery' },
+    ],
+  },
+];
+const AMENITY_ATTRIBUTE_KEYS = new Set(
+  AMENITY_ATTRIBUTE_GROUPS.flatMap((group) => group.keys.map((item) => item.key)),
+);
 
 const EMPTY_BUSINESS_DETAILS: BusinessDetailsEditor = {
   openingDate: '',
@@ -245,6 +361,22 @@ function formatCategoryTitle(row: CategoryEditor): string {
     return displayName;
   }
   return row.isPrimary ? 'Primary category' : 'New category';
+}
+
+function humanizeAttributeKey(value: string): string {
+  return value
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function formatAttributeTitle(row: AttributeEditor): string {
+  return row.displayName.trim() || humanizeAttributeKey(row.attributeKey) || 'New attribute';
+}
+
+function formatServiceAreaTitle(row: ServiceAreaEditor): string {
+  return row.displayName.trim() || 'New service area';
 }
 
 function formatMoreHoursTypeLabel(row: RestaurantBusinessContextMoreHoursType): string {
@@ -413,30 +545,24 @@ function toLinkEditors(input: RestaurantBusinessContextLink[]): LinkEditor[] {
     }));
 }
 
-function SummaryBadges({
+function DiscoveryStatusLine({
+  family,
   coreCount,
   providerCount,
   seedSource,
 }: {
+  family: FamilyKey;
   coreCount: number;
   providerCount: number;
   seedSource: SeedSource[FamilyKey];
 }) {
   return (
-    <div className="flex flex-wrap gap-2">
-      <Badge variant="outline">
-        {coreCount} saved row{coreCount === 1 ? '' : 's'}
-      </Badge>
-      <Badge variant="outline">
-        {providerCount} Google suggestion{providerCount === 1 ? '' : 's'}
-      </Badge>
-      <Badge variant="secondary">
-        {seedSource === 'provider'
-          ? 'Pre-filled'
-          : seedSource === 'core'
-            ? 'Saved'
-            : 'Ready to add'}
-      </Badge>
+    <div className="flex flex-col gap-2 rounded-lg bg-muted/30 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+      <p className="text-sm font-medium text-foreground">{SYNC_POSTURE[family]}</p>
+      <p className="text-xs text-muted-foreground">
+        Saved {coreCount} · Suggested {providerCount} ·{' '}
+        {formatSeedSource(seedSource, providerCount)}
+      </p>
     </div>
   );
 }
@@ -460,15 +586,42 @@ function DiscoveryPanelsFrame({
           isValidElement<{ family: FamilyKey }>(child) && child.props.family === family,
       );
     const primaryChildren = EMBEDDED_DISCOVERY_PRIMARY_ORDER.map(findChild).filter(Boolean);
+    const moreChildren = EMBEDDED_DISCOVERY_MORE_ORDER.map(findChild).filter(Boolean);
 
     return (
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-0">
         {primaryChildren}
+        {moreChildren.length > 0 ? (
+          <Collapsible className="border-t border-border/60 py-5">
+            <CollapsibleTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                className="group h-auto w-full items-start justify-between whitespace-normal px-0 py-0 text-left hover:bg-transparent"
+              >
+                <span className="flex min-w-0 flex-col gap-1">
+                  <span className="text-base font-semibold text-foreground">More settings</span>
+                  <span className="text-sm font-normal text-muted-foreground">
+                    Service areas, service items, and provider-level details are collapsed until
+                    needed.
+                  </span>
+                </span>
+                <ChevronDown className="ml-4 size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-5">
+              <div className="flex flex-col gap-0">{moreChildren}</div>
+            </CollapsibleContent>
+          </Collapsible>
+        ) : null}
         <Alert>
           <AlertTitle>Need advanced discovery metadata?</AlertTitle>
           <AlertDescription>
-            Service areas, amenities, and provider-level service metadata are available in the{' '}
-            <Link href={opsHref('/settings/restaurant/google-business-profile')} className="underline">
+            Provider-level services and raw Google metadata remain available in the{' '}
+            <Link
+              href={opsHref('/settings/restaurant/google-business-profile')}
+              className="underline"
+            >
               Google Business Profile workspace
             </Link>
             .
@@ -509,7 +662,7 @@ function DiscoveryFamilyPanel({
     return (
       <section
         aria-labelledby={`profile-discovery-${family}`}
-        className="flex flex-col gap-4 rounded-xl border border-border/60 p-4"
+        className="flex flex-col gap-4 border-t border-border/60 py-5 first:border-t-0 first:pt-0 last:pb-0"
       >
         <div className="flex flex-col gap-1">
           <h3
@@ -535,6 +688,7 @@ function DiscoveryFamilyPanel({
 export function RestaurantBusinessContextSection({
   restaurantId,
   embedded = false,
+  onDirtyChange,
 }: RestaurantBusinessContextSectionProps) {
   const contextQuery = useOpsRestaurantBusinessContext(restaurantId);
   const updateMutation = useOpsUpdateRestaurantBusinessContext(restaurantId);
@@ -544,6 +698,7 @@ export function RestaurantBusinessContextSection({
   const [links, setLinks] = useState<LinkEditor[]>([]);
   const [categories, setCategories] = useState<CategoryEditor[]>([]);
   const [serviceAreas, setServiceAreas] = useState<ServiceAreaEditor[]>([]);
+  const [serviceAreaDraft, setServiceAreaDraft] = useState('');
   const [attributes, setAttributes] = useState<AttributeEditor[]>([]);
   const [serviceItems, setServiceItems] = useState<ServiceItemEditor[]>([]);
   const [seedSource, setSeedSource] = useState<SeedSource>({
@@ -564,6 +719,10 @@ export function RestaurantBusinessContextSection({
   });
   const [errors, setErrors] = useState<ErrorState>({});
   const [savingFamily, setSavingFamily] = useState<FamilyKey | null>(null);
+
+  useEffect(() => {
+    onDirtyChange?.(Object.values(dirty).some(Boolean));
+  }, [dirty, onDirtyChange]);
 
   useEffect(() => {
     const data = contextQuery.data;
@@ -601,6 +760,7 @@ export function RestaurantBusinessContextSection({
     setLinks(toLinkEditors(nextLinks.rows));
     setCategories(toCategoryEditors(nextCategories.rows));
     setServiceAreas(toServiceAreaEditors(nextServiceAreas.rows));
+    setServiceAreaDraft('');
     setAttributes(toAttributeEditors(nextAttributes.rows));
     setServiceItems(toServiceItemEditors(nextServiceItems.rows));
     setSeedSource({
@@ -655,6 +815,89 @@ export function RestaurantBusinessContextSection({
   const markDirty = (family: FamilyKey) => {
     setDirty((current) => ({ ...current, [family]: true }));
     setErrors((current) => ({ ...current, [family]: null }));
+  };
+
+  const updateServiceArea = (rowId: string, field: keyof ServiceAreaEditor, value: string) => {
+    setServiceAreas((current) =>
+      current.map((item) => (item.id === rowId ? { ...item, [field]: value } : item)),
+    );
+    markDirty('serviceAreas');
+  };
+
+  const addServiceAreaFromDraft = () => {
+    const displayName = serviceAreaDraft.trim();
+    if (!displayName) {
+      return;
+    }
+    setServiceAreas((current) => [
+      ...current,
+      {
+        id: makeEditorId('service-area'),
+        displayName,
+        areaType: 'region',
+        regionCode: '',
+        googlePlaceId: '',
+        googlePlaceResourceName: '',
+        placeDataJson: '',
+      },
+    ]);
+    setServiceAreaDraft('');
+    markDirty('serviceAreas');
+  };
+
+  const toggleAmenityAttribute = (
+    definition: AmenityAttributeDefinition,
+    groupTitle: string,
+    checked: boolean,
+  ) => {
+    setAttributes((current) => {
+      const existing = current.find((item) => item.attributeKey === definition.key);
+      if (existing) {
+        return current.map((item) =>
+          item.id === existing.id
+            ? {
+                ...item,
+                attributeGroup: item.attributeGroup || groupTitle,
+                attributeId: item.attributeId || definition.key,
+                displayName: item.displayName || definition.label,
+                valueType: item.valueType || 'boolean',
+                boolValue: checked ? 'true' : 'false',
+              }
+            : item,
+        );
+      }
+
+      if (!checked) {
+        return current;
+      }
+
+      return [
+        ...current,
+        {
+          id: makeEditorId('attribute'),
+          attributeGroup: groupTitle,
+          attributeKey: definition.key,
+          attributeName: '',
+          attributeId: definition.key,
+          displayName: definition.label,
+          displayText: '',
+          displayTextStandalone: '',
+          displayTextNegative: '',
+          valueType: 'boolean',
+          boolValue: 'true',
+          textValue: '',
+          uriValue: '',
+          uriValuesText: '',
+          enumValuesText: '',
+          unsetEnumValuesText: '',
+          rawValueJson: '',
+          rawEnumValuesJson: '',
+          displayValueJson: '',
+          valueMetadataJson: '',
+        },
+      ];
+    });
+    markDirty('attributes');
   };
 
   const updateMoreHoursDraft = (rowId: string, value: string) => {
@@ -987,21 +1230,12 @@ export function RestaurantBusinessContextSection({
           onActiveTabChange={setActiveTab}
         >
           <DiscoveryFamilyPanel embedded={embedded} family="businessDetails">
-            <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-4">
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-foreground">
-                  {SYNC_POSTURE.businessDetails}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {formatSeedSource(seedSource.businessDetails, providerCounts.businessDetails)}
-                </p>
-              </div>
-              <SummaryBadges
-                coreCount={coreCounts.businessDetails}
-                providerCount={providerCounts.businessDetails}
-                seedSource={seedSource.businessDetails}
-              />
-            </div>
+            <DiscoveryStatusLine
+              family="businessDetails"
+              coreCount={coreCounts.businessDetails}
+              providerCount={providerCounts.businessDetails}
+              seedSource={seedSource.businessDetails}
+            />
 
             <div className="space-y-4 rounded-xl border border-border/60 p-4">
               <div className="grid gap-4 md:grid-cols-2">
@@ -1098,31 +1332,24 @@ export function RestaurantBusinessContextSection({
           </DiscoveryFamilyPanel>
 
           <DiscoveryFamilyPanel embedded={embedded} family="links">
-            <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-4">
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-foreground">{SYNC_POSTURE.links}</p>
-                <p className="text-xs text-muted-foreground">
-                  {formatSeedSource(seedSource.links, providerCounts.links)}
-                </p>
-              </div>
-              <SummaryBadges
-                coreCount={coreCounts.links}
-                providerCount={providerCounts.links}
-                seedSource={seedSource.links}
-              />
-            </div>
+            <DiscoveryStatusLine
+              family="links"
+              coreCount={coreCounts.links}
+              providerCount={providerCounts.links}
+              seedSource={seedSource.links}
+            />
 
             {links.map((row) => (
-              <div key={row.id} className="space-y-4 rounded-xl border border-border/60 p-4">
+              <div
+                key={row.id}
+                className="flex flex-col gap-3 rounded-lg border border-border/60 p-3"
+              >
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 space-y-1">
+                  <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-foreground">
                       {row.label ||
                         LINK_TYPE_OPTIONS.find((option) => option.value === row.linkType)?.label ||
                         'New link'}
-                    </p>
-                    <p className="text-xs leading-5 text-muted-foreground">
-                      Website, menu, ordering, chat, and social links guests may use.
                     </p>
                   </div>
                   <Button
@@ -1264,34 +1491,26 @@ export function RestaurantBusinessContextSection({
           </DiscoveryFamilyPanel>
 
           <DiscoveryFamilyPanel embedded={embedded} family="categories">
-            <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-4">
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-foreground">{SYNC_POSTURE.categories}</p>
-                <p className="text-xs text-muted-foreground">
-                  {formatSeedSource(seedSource.categories, providerCounts.categories)}
-                </p>
-              </div>
-              <SummaryBadges
-                coreCount={coreCounts.categories}
-                providerCount={providerCounts.categories}
-                seedSource={seedSource.categories}
-              />
-            </div>
+            <DiscoveryStatusLine
+              family="categories"
+              coreCount={coreCounts.categories}
+              providerCount={providerCounts.categories}
+              seedSource={seedSource.categories}
+            />
 
             {categories.map((row) => (
-              <div key={row.id} className="space-y-5 rounded-lg border border-border/60 p-4">
+              <div
+                key={row.id}
+                className="flex flex-col gap-4 rounded-lg border border-border/60 p-3"
+              >
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 space-y-1">
+                  <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="truncate text-sm font-semibold text-foreground">
                         {formatCategoryTitle(row)}
                       </p>
                       {row.isPrimary ? <Badge variant="secondary">Primary</Badge> : null}
                     </div>
-                    <p className="text-xs leading-5 text-muted-foreground">
-                      Categories help guests and Google understand what this restaurant is best
-                      known for.
-                    </p>
                   </div>
                   <Button
                     type="button"
@@ -1501,118 +1720,218 @@ export function RestaurantBusinessContextSection({
           </DiscoveryFamilyPanel>
 
           <DiscoveryFamilyPanel embedded={embedded} family="serviceAreas">
-            <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-4">
-              <p className="text-sm font-medium text-foreground">{SYNC_POSTURE.serviceAreas}</p>
-              <p className="text-xs text-muted-foreground">
-                {formatSeedSource(seedSource.serviceAreas, providerCounts.serviceAreas)}
-              </p>
-              <SummaryBadges
-                coreCount={coreCounts.serviceAreas}
-                providerCount={providerCounts.serviceAreas}
-                seedSource={seedSource.serviceAreas}
-              />
+            <DiscoveryStatusLine
+              family="serviceAreas"
+              coreCount={coreCounts.serviceAreas}
+              providerCount={providerCounts.serviceAreas}
+              seedSource={seedSource.serviceAreas}
+            />
+
+            <div className="flex flex-col gap-4 rounded-lg border border-border/60 p-4">
+              <div className="flex flex-col gap-2">
+                <p className="text-sm font-medium text-foreground">Service areas</p>
+                <p className="text-xs leading-5 text-muted-foreground">
+                  Add the places or regions guests can reasonably associate with this restaurant.
+                </p>
+              </div>
+
+              {serviceAreas.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {serviceAreas.map((row) => (
+                    <Badge
+                      key={row.id}
+                      variant="secondary"
+                      className="gap-1.5 rounded-md py-1 pl-2 pr-1"
+                    >
+                      <span>{formatServiceAreaTitle(row)}</span>
+                      <button
+                        type="button"
+                        aria-label={`Remove ${formatServiceAreaTitle(row)}`}
+                        className="inline-flex size-5 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        onClick={() => {
+                          setServiceAreas((current) =>
+                            current.filter((item) => item.id !== row.id),
+                          );
+                          markDirty('serviceAreas');
+                        }}
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No service areas have been added.</p>
+              )}
+
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Input
+                  value={serviceAreaDraft}
+                  placeholder="Add an area, e.g. Cambridge, UK"
+                  aria-label="New service area"
+                  onChange={(event) => setServiceAreaDraft(event.target.value)}
+                  onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      addServiceAreaFromDraft();
+                    }
+                  }}
+                />
+                <Button type="button" variant="outline" onClick={addServiceAreaFromDraft}>
+                  <Plus className="size-4" />
+                  Add area
+                </Button>
+              </div>
             </div>
 
-            {serviceAreas.map((row) => (
-              <div key={row.id} className="space-y-4 rounded-xl border border-border/60 p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-medium text-foreground">
-                    {row.displayName || 'New service area'}
-                  </p>
+            {serviceAreas.length > 0 ? (
+              <Collapsible className="rounded-lg border border-border/60 bg-muted/20 p-3">
+                <CollapsibleTrigger asChild>
                   <Button
                     type="button"
                     variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setServiceAreas((current) => current.filter((item) => item.id !== row.id));
-                      markDirty('serviceAreas');
-                    }}
+                    className="group h-auto w-full items-start justify-between whitespace-normal px-0 py-0 text-left hover:bg-transparent"
                   >
-                    <Trash2 className="size-4" />
-                    Remove
+                    <span className="flex min-w-0 flex-col gap-1">
+                      <span className="text-sm font-medium text-foreground">
+                        Advanced service-area details
+                      </span>
+                      <span className="text-xs font-normal text-muted-foreground">
+                        Edit provider IDs and structured place data only when needed.
+                      </span>
+                    </span>
+                    <ChevronDown className="ml-4 size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
                   </Button>
-                </div>
-                <div className="grid gap-4 md:grid-cols-3">
-                  <div className="space-y-2">
-                    <Label htmlFor={makeFieldId('serviceAreas', row.id, 'displayName')}>
-                      Area name
-                    </Label>
-                    <Input
-                      id={makeFieldId('serviceAreas', row.id, 'displayName')}
-                      value={row.displayName}
-                      onChange={(event) => {
-                        setServiceAreas((current) =>
-                          current.map((item) =>
-                            item.id === row.id
-                              ? { ...item, displayName: event.target.value }
-                              : item,
-                          ),
-                        );
-                        markDirty('serviceAreas');
-                      }}
-                    />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-4">
+                  <div className="flex flex-col gap-4">
+                    {serviceAreas.map((row) => (
+                      <div
+                        key={row.id}
+                        className="flex flex-col gap-4 rounded-lg border border-border/60 bg-background p-4"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-foreground">
+                              {formatServiceAreaTitle(row)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {row.areaType || 'region'}
+                              {row.regionCode ? ` · ${row.regionCode}` : ''}
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label={`Remove ${formatServiceAreaTitle(row)}`}
+                            title="Remove service area"
+                            className="text-muted-foreground hover:text-destructive"
+                            onClick={() => {
+                              setServiceAreas((current) =>
+                                current.filter((item) => item.id !== row.id),
+                              );
+                              markDirty('serviceAreas');
+                            }}
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </div>
+                        <div className="grid gap-4 md:grid-cols-3">
+                          <div className="space-y-2">
+                            <Label htmlFor={makeFieldId('serviceAreas', row.id, 'displayName')}>
+                              Area name
+                            </Label>
+                            <Input
+                              id={makeFieldId('serviceAreas', row.id, 'displayName')}
+                              value={row.displayName}
+                              onChange={(event) =>
+                                updateServiceArea(row.id, 'displayName', event.target.value)
+                              }
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor={makeFieldId('serviceAreas', row.id, 'areaType')}>
+                              Area type
+                            </Label>
+                            <Input
+                              id={makeFieldId('serviceAreas', row.id, 'areaType')}
+                              value={row.areaType}
+                              onChange={(event) =>
+                                updateServiceArea(row.id, 'areaType', event.target.value)
+                              }
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor={makeFieldId('serviceAreas', row.id, 'regionCode')}>
+                              Country or region
+                            </Label>
+                            <Input
+                              id={makeFieldId('serviceAreas', row.id, 'regionCode')}
+                              value={row.regionCode}
+                              onChange={(event) =>
+                                updateServiceArea(row.id, 'regionCode', event.target.value)
+                              }
+                            />
+                          </div>
+                        </div>
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div className="space-y-2">
+                            <Label htmlFor={makeFieldId('serviceAreas', row.id, 'googlePlaceId')}>
+                              Google place ID
+                            </Label>
+                            <Input
+                              id={makeFieldId('serviceAreas', row.id, 'googlePlaceId')}
+                              value={row.googlePlaceId}
+                              onChange={(event) =>
+                                updateServiceArea(row.id, 'googlePlaceId', event.target.value)
+                              }
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label
+                              htmlFor={makeFieldId(
+                                'serviceAreas',
+                                row.id,
+                                'googlePlaceResourceName',
+                              )}
+                            >
+                              Place resource
+                            </Label>
+                            <Input
+                              id={makeFieldId('serviceAreas', row.id, 'googlePlaceResourceName')}
+                              value={row.googlePlaceResourceName}
+                              onChange={(event) =>
+                                updateServiceArea(
+                                  row.id,
+                                  'googlePlaceResourceName',
+                                  event.target.value,
+                                )
+                              }
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor={makeFieldId('serviceAreas', row.id, 'placeDataJson')}>
+                            Place data
+                          </Label>
+                          <Textarea
+                            id={makeFieldId('serviceAreas', row.id, 'placeDataJson')}
+                            value={row.placeDataJson}
+                            rows={4}
+                            onChange={(event) =>
+                              updateServiceArea(row.id, 'placeDataJson', event.target.value)
+                            }
+                          />
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor={makeFieldId('serviceAreas', row.id, 'areaType')}>
-                      Area type
-                    </Label>
-                    <Input
-                      id={makeFieldId('serviceAreas', row.id, 'areaType')}
-                      value={row.areaType}
-                      onChange={(event) => {
-                        setServiceAreas((current) =>
-                          current.map((item) =>
-                            item.id === row.id ? { ...item, areaType: event.target.value } : item,
-                          ),
-                        );
-                        markDirty('serviceAreas');
-                      }}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor={makeFieldId('serviceAreas', row.id, 'regionCode')}>
-                      Country or region
-                    </Label>
-                    <Input
-                      id={makeFieldId('serviceAreas', row.id, 'regionCode')}
-                      value={row.regionCode}
-                      onChange={(event) => {
-                        setServiceAreas((current) =>
-                          current.map((item) =>
-                            item.id === row.id ? { ...item, regionCode: event.target.value } : item,
-                          ),
-                        );
-                        markDirty('serviceAreas');
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
+                </CollapsibleContent>
+              </Collapsible>
+            ) : null}
 
             <div className="flex flex-wrap gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setServiceAreas((current) => [
-                    ...current,
-                    {
-                      id: makeEditorId('service-area'),
-                      displayName: '',
-                      areaType: 'region',
-                      regionCode: '',
-                      googlePlaceId: '',
-                      googlePlaceResourceName: '',
-                      placeDataJson: '',
-                    },
-                  ]);
-                  markDirty('serviceAreas');
-                }}
-              >
-                <Plus className="size-4" />
-                Add service area
-              </Button>
               <Button
                 type="button"
                 variant="outline"
@@ -1636,212 +1955,204 @@ export function RestaurantBusinessContextSection({
           </DiscoveryFamilyPanel>
 
           <DiscoveryFamilyPanel embedded={embedded} family="attributes">
-            <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-4">
-              <p className="text-sm font-medium text-foreground">{SYNC_POSTURE.attributes}</p>
-              <p className="text-xs text-muted-foreground">
-                {formatSeedSource(seedSource.attributes, providerCounts.attributes)}
-              </p>
-              <SummaryBadges
-                coreCount={coreCounts.attributes}
-                providerCount={providerCounts.attributes}
-                seedSource={seedSource.attributes}
-              />
+            <DiscoveryStatusLine
+              family="attributes"
+              coreCount={coreCounts.attributes}
+              providerCount={providerCounts.attributes}
+              seedSource={seedSource.attributes}
+            />
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              {AMENITY_ATTRIBUTE_GROUPS.map((group) => {
+                const selectedCount = group.keys.filter(
+                  (definition) =>
+                    attributes.find((row) => row.attributeKey === definition.key)?.boolValue ===
+                    'true',
+                ).length;
+
+                return (
+                  <div
+                    key={group.title}
+                    className="flex flex-col gap-4 rounded-lg border border-border/60 p-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground">{group.title}</p>
+                        <p className="text-xs leading-5 text-muted-foreground">
+                          {group.description}
+                        </p>
+                      </div>
+                      <Badge variant="outline">
+                        {selectedCount}/{group.keys.length}
+                      </Badge>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {group.keys.map((definition) => {
+                        const row = attributes.find((item) => item.attributeKey === definition.key);
+                        const checked = row?.boolValue === 'true';
+
+                        return (
+                          <label
+                            key={definition.key}
+                            htmlFor={makeFieldId('attributes', definition.key, 'amenity')}
+                            className="flex cursor-pointer items-start gap-3 rounded-md border border-border/50 bg-background p-3 transition-colors hover:bg-muted/30"
+                          >
+                            <Checkbox
+                              id={makeFieldId('attributes', definition.key, 'amenity')}
+                              checked={checked}
+                              onCheckedChange={(value) =>
+                                toggleAmenityAttribute(definition, group.title, value === true)
+                              }
+                            />
+                            <span className="flex min-w-0 flex-col gap-1">
+                              <span className="text-sm leading-5 text-foreground">
+                                {definition.label}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {row
+                                  ? row.boolValue === 'false'
+                                    ? 'Saved as no'
+                                    : 'Saved detail'
+                                  : 'Not set'}
+                              </span>
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
-            {attributes.map((row) => (
-              <div key={row.id} className="space-y-4 rounded-xl border border-border/60 p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-medium text-foreground">
-                    {row.displayName || row.attributeKey || 'New attribute'}
-                  </p>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setAttributes((current) => current.filter((item) => item.id !== row.id));
-                      markDirty('attributes');
-                    }}
-                  >
-                    <Trash2 className="size-4" />
-                    Remove
-                  </Button>
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  {[
-                    ['Group', 'attributeGroup'],
-                    ['Key', 'attributeKey'],
-                    ['Name', 'attributeName'],
-                    ['Reference ID', 'attributeId'],
-                    ['Display name', 'displayName'],
-                    ['Value type', 'valueType'],
-                  ].map(([label, field]) => (
-                    <div key={field} className="space-y-2">
-                      <Label htmlFor={makeFieldId('attributes', row.id, field)}>{label}</Label>
-                      <Input
-                        id={makeFieldId('attributes', row.id, field)}
-                        value={row[field as keyof AttributeEditor] as string}
-                        onChange={(event) => {
-                          setAttributes((current) =>
-                            current.map((item) =>
-                              item.id === row.id ? { ...item, [field]: event.target.value } : item,
-                            ),
-                          );
-                          markDirty('attributes');
-                        }}
-                      />
-                    </div>
-                  ))}
-                </div>
-                <div className="grid gap-4 md:grid-cols-3">
-                  <div className="space-y-2">
-                    <Label htmlFor={makeFieldId('attributes', row.id, 'boolValue')}>
-                      Boolean value
-                    </Label>
-                    <Select
-                      value={row.boolValue}
-                      onValueChange={(value) => {
-                        setAttributes((current) =>
-                          current.map((item) =>
-                            item.id === row.id
-                              ? { ...item, boolValue: value as AttributeEditor['boolValue'] }
-                              : item,
-                          ),
-                        );
-                        markDirty('attributes');
-                      }}
-                    >
-                      <SelectTrigger
-                        id={makeFieldId('attributes', row.id, 'boolValue')}
-                        aria-label="Boolean value"
+            <Collapsible className="rounded-lg border border-border/60 bg-muted/20 p-3">
+              <CollapsibleTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="group h-auto w-full items-start justify-between whitespace-normal px-0 py-0 text-left hover:bg-transparent"
+                >
+                  <span className="flex min-w-0 flex-col gap-1">
+                    <span className="text-sm font-medium text-foreground">
+                      Advanced attribute rows
+                    </span>
+                    <span className="text-xs font-normal text-muted-foreground">
+                      Review provider keys, text values, enum values, and raw payloads.
+                    </span>
+                  </span>
+                  <ChevronDown className="ml-4 size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pt-4">
+                {attributes.length > 0 ? (
+                  <div className="flex flex-col gap-4">
+                    {attributes.map((row) => (
+                      <div
+                        key={row.id}
+                        className="flex flex-col gap-4 rounded-lg border border-border/60 bg-background p-4"
                       >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="unset">Unset</SelectItem>
-                        <SelectItem value="true">True</SelectItem>
-                        <SelectItem value="false">False</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor={makeFieldId('attributes', row.id, 'textValue')}>
-                      Text value
-                    </Label>
-                    <Input
-                      id={makeFieldId('attributes', row.id, 'textValue')}
-                      value={row.textValue}
-                      onChange={(event) => {
-                        setAttributes((current) =>
-                          current.map((item) =>
-                            item.id === row.id ? { ...item, textValue: event.target.value } : item,
-                          ),
-                        );
-                        markDirty('attributes');
-                      }}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor={makeFieldId('attributes', row.id, 'uriValue')}>
-                      Primary URI
-                    </Label>
-                    <Input
-                      id={makeFieldId('attributes', row.id, 'uriValue')}
-                      value={row.uriValue}
-                      onChange={(event) => {
-                        setAttributes((current) =>
-                          current.map((item) =>
-                            item.id === row.id ? { ...item, uriValue: event.target.value } : item,
-                          ),
-                        );
-                        markDirty('attributes');
-                      }}
-                    />
-                  </div>
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  {[
-                    ['Guest-facing text', 'displayText'],
-                    ['Standalone text', 'displayTextStandalone'],
-                    ['Text when unavailable', 'displayTextNegative'],
-                    ['Link values, comma separated', 'uriValuesText'],
-                    ['Selected values, comma separated', 'enumValuesText'],
-                    ['Excluded values, comma separated', 'unsetEnumValuesText'],
-                  ].map(([label, field]) => (
-                    <div key={field} className="space-y-2">
-                      <Label htmlFor={makeFieldId('attributes', row.id, field)}>{label}</Label>
-                      <Input
-                        id={makeFieldId('attributes', row.id, field)}
-                        value={row[field as keyof AttributeEditor] as string}
-                        onChange={(event) => {
-                          setAttributes((current) =>
-                            current.map((item) =>
-                              item.id === row.id ? { ...item, [field]: event.target.value } : item,
-                            ),
-                          );
-                          markDirty('attributes');
-                        }}
-                      />
-                    </div>
-                  ))}
-                </div>
-                <Collapsible className="rounded-lg border border-border/60 bg-muted/20 p-3">
-                  <CollapsibleTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="group h-auto w-full items-start justify-between whitespace-normal px-0 py-0 text-left hover:bg-transparent"
-                    >
-                      <span className="flex min-w-0 flex-col gap-1">
-                        <span className="text-sm font-medium text-foreground">Advanced values</span>
-                        <span className="text-xs font-normal text-muted-foreground">
-                          Keep these collapsed unless a profile provider sends structured values.
-                        </span>
-                      </span>
-                      <ChevronDown className="ml-4 size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
-                    </Button>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="pt-4">
-                    <div className="flex flex-col gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor={makeFieldId('attributes', row.id, 'valueMetadataJson')}>
-                          Value details
-                        </Label>
-                        <Textarea
-                          id={makeFieldId('attributes', row.id, 'valueMetadataJson')}
-                          value={row.valueMetadataJson}
-                          rows={5}
-                          onChange={(event) => {
-                            setAttributes((current) =>
-                              current.map((item) =>
-                                item.id === row.id
-                                  ? { ...item, valueMetadataJson: event.target.value }
-                                  : item,
-                              ),
-                            );
-                            markDirty('attributes');
-                          }}
-                        />
-                      </div>
-                      <div className="grid gap-4 lg:grid-cols-3">
-                        {[
-                          ['Raw value', 'rawValueJson'],
-                          ['Raw selected values', 'rawEnumValuesJson'],
-                          ['Display value', 'displayValueJson'],
-                        ].map(([label, field]) => (
-                          <div key={field} className="space-y-2">
-                            <Label htmlFor={makeFieldId('attributes', row.id, field)}>
-                              {label}
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-foreground">
+                              {formatAttributeTitle(row)}
+                            </p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {AMENITY_ATTRIBUTE_KEYS.has(row.attributeKey)
+                                ? 'Shown in grouped amenities'
+                                : row.attributeKey || 'No key set'}
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setAttributes((current) =>
+                                current.filter((item) => item.id !== row.id),
+                              );
+                              markDirty('attributes');
+                            }}
+                          >
+                            <Trash2 className="size-4" />
+                            Remove
+                          </Button>
+                        </div>
+                        <div className="grid gap-4 md:grid-cols-2">
+                          {[
+                            ['Group', 'attributeGroup'],
+                            ['Key', 'attributeKey'],
+                            ['Name', 'attributeName'],
+                            ['Reference ID', 'attributeId'],
+                            ['Display name', 'displayName'],
+                            ['Value type', 'valueType'],
+                          ].map(([label, field]) => (
+                            <div key={field} className="space-y-2">
+                              <Label htmlFor={makeFieldId('attributes', row.id, field)}>
+                                {label}
+                              </Label>
+                              <Input
+                                id={makeFieldId('attributes', row.id, field)}
+                                value={row[field as keyof AttributeEditor] as string}
+                                onChange={(event) => {
+                                  setAttributes((current) =>
+                                    current.map((item) =>
+                                      item.id === row.id
+                                        ? { ...item, [field]: event.target.value }
+                                        : item,
+                                    ),
+                                  );
+                                  markDirty('attributes');
+                                }}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                        <div className="grid gap-4 md:grid-cols-3">
+                          <div className="space-y-2">
+                            <Label htmlFor={makeFieldId('attributes', row.id, 'boolValue')}>
+                              Boolean value
                             </Label>
-                            <Textarea
-                              id={makeFieldId('attributes', row.id, field)}
-                              value={row[field as keyof AttributeEditor] as string}
-                              rows={5}
+                            <Select
+                              value={row.boolValue}
+                              onValueChange={(value) => {
+                                setAttributes((current) =>
+                                  current.map((item) =>
+                                    item.id === row.id
+                                      ? {
+                                          ...item,
+                                          boolValue: value as AttributeEditor['boolValue'],
+                                        }
+                                      : item,
+                                  ),
+                                );
+                                markDirty('attributes');
+                              }}
+                            >
+                              <SelectTrigger
+                                id={makeFieldId('attributes', row.id, 'boolValue')}
+                                aria-label="Boolean value"
+                              >
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="unset">Unset</SelectItem>
+                                <SelectItem value="true">True</SelectItem>
+                                <SelectItem value="false">False</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor={makeFieldId('attributes', row.id, 'textValue')}>
+                              Text value
+                            </Label>
+                            <Input
+                              id={makeFieldId('attributes', row.id, 'textValue')}
+                              value={row.textValue}
                               onChange={(event) => {
                                 setAttributes((current) =>
                                   current.map((item) =>
                                     item.id === row.id
-                                      ? { ...item, [field]: event.target.value }
+                                      ? { ...item, textValue: event.target.value }
                                       : item,
                                   ),
                                 );
@@ -1849,13 +2160,114 @@ export function RestaurantBusinessContextSection({
                               }}
                             />
                           </div>
-                        ))}
+                          <div className="space-y-2">
+                            <Label htmlFor={makeFieldId('attributes', row.id, 'uriValue')}>
+                              Primary URI
+                            </Label>
+                            <Input
+                              id={makeFieldId('attributes', row.id, 'uriValue')}
+                              value={row.uriValue}
+                              onChange={(event) => {
+                                setAttributes((current) =>
+                                  current.map((item) =>
+                                    item.id === row.id
+                                      ? { ...item, uriValue: event.target.value }
+                                      : item,
+                                  ),
+                                );
+                                markDirty('attributes');
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <div className="grid gap-4 md:grid-cols-2">
+                          {[
+                            ['Guest-facing text', 'displayText'],
+                            ['Standalone text', 'displayTextStandalone'],
+                            ['Text when unavailable', 'displayTextNegative'],
+                            ['Link values, comma separated', 'uriValuesText'],
+                            ['Selected values, comma separated', 'enumValuesText'],
+                            ['Excluded values, comma separated', 'unsetEnumValuesText'],
+                          ].map(([label, field]) => (
+                            <div key={field} className="space-y-2">
+                              <Label htmlFor={makeFieldId('attributes', row.id, field)}>
+                                {label}
+                              </Label>
+                              <Input
+                                id={makeFieldId('attributes', row.id, field)}
+                                value={row[field as keyof AttributeEditor] as string}
+                                onChange={(event) => {
+                                  setAttributes((current) =>
+                                    current.map((item) =>
+                                      item.id === row.id
+                                        ? { ...item, [field]: event.target.value }
+                                        : item,
+                                    ),
+                                  );
+                                  markDirty('attributes');
+                                }}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex flex-col gap-4 rounded-lg border border-border/60 bg-muted/20 p-3">
+                          <div className="space-y-2">
+                            <Label htmlFor={makeFieldId('attributes', row.id, 'valueMetadataJson')}>
+                              Value details
+                            </Label>
+                            <Textarea
+                              id={makeFieldId('attributes', row.id, 'valueMetadataJson')}
+                              value={row.valueMetadataJson}
+                              rows={5}
+                              onChange={(event) => {
+                                setAttributes((current) =>
+                                  current.map((item) =>
+                                    item.id === row.id
+                                      ? { ...item, valueMetadataJson: event.target.value }
+                                      : item,
+                                  ),
+                                );
+                                markDirty('attributes');
+                              }}
+                            />
+                          </div>
+                          <div className="grid gap-4 lg:grid-cols-3">
+                            {[
+                              ['Raw value', 'rawValueJson'],
+                              ['Raw selected values', 'rawEnumValuesJson'],
+                              ['Display value', 'displayValueJson'],
+                            ].map(([label, field]) => (
+                              <div key={field} className="space-y-2">
+                                <Label htmlFor={makeFieldId('attributes', row.id, field)}>
+                                  {label}
+                                </Label>
+                                <Textarea
+                                  id={makeFieldId('attributes', row.id, field)}
+                                  value={row[field as keyof AttributeEditor] as string}
+                                  rows={5}
+                                  onChange={(event) => {
+                                    setAttributes((current) =>
+                                      current.map((item) =>
+                                        item.id === row.id
+                                          ? { ...item, [field]: event.target.value }
+                                          : item,
+                                      ),
+                                    );
+                                    markDirty('attributes');
+                                  }}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
-              </div>
-            ))}
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No attribute rows yet.</p>
+                )}
+              </CollapsibleContent>
+            </Collapsible>
 
             <div className="flex flex-wrap gap-3">
               <Button
@@ -1916,17 +2328,12 @@ export function RestaurantBusinessContextSection({
           </DiscoveryFamilyPanel>
 
           <DiscoveryFamilyPanel embedded={embedded} family="serviceItems">
-            <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-4">
-              <p className="text-sm font-medium text-foreground">{SYNC_POSTURE.serviceItems}</p>
-              <p className="text-xs text-muted-foreground">
-                {formatSeedSource(seedSource.serviceItems, providerCounts.serviceItems)}
-              </p>
-              <SummaryBadges
-                coreCount={coreCounts.serviceItems}
-                providerCount={providerCounts.serviceItems}
-                seedSource={seedSource.serviceItems}
-              />
-            </div>
+            <DiscoveryStatusLine
+              family="serviceItems"
+              coreCount={coreCounts.serviceItems}
+              providerCount={providerCounts.serviceItems}
+              seedSource={seedSource.serviceItems}
+            />
 
             {serviceItems.map((row) => (
               <div key={row.id} className="space-y-4 rounded-xl border border-border/60 p-4">

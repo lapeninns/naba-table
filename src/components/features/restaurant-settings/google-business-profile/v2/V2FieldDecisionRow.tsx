@@ -29,6 +29,7 @@ export interface V2FieldDecisionRowProps {
 
 const FIELD_LABELS: Record<string, string> = {
   address: 'Address',
+  businessDescription: 'Business description',
   contactPhone: 'Contact phone',
   googleMapUrl: 'Google Maps link',
   googleReviewUrl: 'Google review link',

@@ -13,6 +13,7 @@
 
 export interface SyncV2ProfileSectionValue {
   readonly name: string | null;
+  readonly businessDescription: string | null;
   readonly contactPhone: string | null;
   readonly address: string | null;
   readonly storefrontAddress: {

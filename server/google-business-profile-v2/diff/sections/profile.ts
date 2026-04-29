@@ -7,8 +7,9 @@
  *  - `address` is push-capable when Google already has enough storefront
  *    address structure for us to preserve region/locality fields while
  *    replacing address lines with Nabatable's reviewed value.
+ *  - `businessDescription` is writable through the Google `profile` patch.
  *  - `googleMapUrl` and `googleReviewUrl` are Google-owned metadata links.
- *  - All five fields are pull-capable into Nabatable when Google has a value.
+ *  - All profile fields are pull-capable into Nabatable when Google has a value.
  */
 
 import { buildDiffItem, valuesEqual } from '../util';
@@ -25,6 +26,7 @@ const PROFILE_FIELDS: ReadonlyArray<{
   readonly blockedReason?: string;
 }> = [
   { fieldKey: 'name', canExport: true, googleUpdateMask: 'title' },
+  { fieldKey: 'businessDescription', canExport: true, googleUpdateMask: 'profile' },
   { fieldKey: 'contactPhone', canExport: true, googleUpdateMask: 'phoneNumbers' },
   {
     fieldKey: 'address',
@@ -57,7 +59,9 @@ export function diffProfile(
     const canExport =
       spec.fieldKey === 'address'
         ? Boolean(spec.canExport && nabValue !== null && google.storefrontAddress?.regionCode)
-        : spec.canExport && nabValue !== null;
+        : spec.fieldKey === 'businessDescription'
+          ? spec.canExport
+          : spec.canExport && nabValue !== null;
     items.push(
       buildDiffItem<string | null, string | null>({
         sectionKey: 'profile',

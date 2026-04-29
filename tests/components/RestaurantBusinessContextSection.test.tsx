@@ -94,10 +94,7 @@ describe('RestaurantBusinessContextSection', () => {
     render(<RestaurantBusinessContextSection restaurantId="rest-1" />);
 
     expect(screen.getByDisplayValue('Restaurant')).toBeInTheDocument();
-    expect(
-      screen.getByText(/started from the latest google business profile data until you save/i),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/started from google/i)).toBeInTheDocument();
+    expect(screen.getByText(/pre-filled from google until you save/i)).toBeInTheDocument();
 
     await user.clear(screen.getByLabelText(/category name/i));
     await user.type(screen.getByLabelText(/category name/i), 'Neighbourhood Bistro');
@@ -159,7 +156,7 @@ describe('RestaurantBusinessContextSection', () => {
 
     await user.click(screen.getByRole('button', { name: /add category/i }));
     await user.type(screen.getByLabelText(/category name/i), 'Wine Bar');
-    await user.type(screen.getByLabelText(/google category code/i), 'wine_bar');
+    await user.type(screen.getByLabelText(/category code/i), 'wine_bar');
     await user.type(screen.getByLabelText(/more-hours types/i), 'BAR_HOURS{Enter}');
     await user.type(screen.getByLabelText(/more-hours types/i), 'LATE_NIGHT{Enter}');
     await user.click(screen.getByRole('button', { name: /remove late_night/i }));
@@ -222,14 +219,14 @@ describe('RestaurantBusinessContextSection', () => {
       .getAllByRole('heading', { level: 3 })
       .map((heading) => heading.textContent);
 
-    expect(headings).toEqual([
-      'Profile basics',
-      'Dining categories',
-      'Online links',
-    ]);
+    expect(headings).toEqual(['Profile basics', 'Dining categories', 'Amenities', 'Online links']);
     expect(screen.getByRole('button', { name: /save profile basics/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /add category/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /save attributes/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /add link/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /more settings/i }));
+    expect(screen.getByRole('button', { name: /save service areas/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /save service items/i })).toBeInTheDocument();
     expect(screen.getByText(/need advanced discovery metadata/i)).toBeInTheDocument();
   });
 
@@ -297,7 +294,8 @@ describe('RestaurantBusinessContextSection', () => {
 
     render(<RestaurantBusinessContextSection restaurantId="rest-1" />);
 
-    await user.click(screen.getByRole('tab', { name: /service areas/i }));
+    await user.click(screen.getByRole('tab', { name: /where you serve/i }));
+    await user.click(screen.getByRole('button', { name: /advanced service-area details/i }));
     await user.clear(screen.getByLabelText(/google place id/i));
     await user.type(screen.getByLabelText(/google place id/i), 'ChIJ-new');
     await user.clear(screen.getByLabelText(/place resource/i));
@@ -320,13 +318,14 @@ describe('RestaurantBusinessContextSection', () => {
       }),
     );
 
-    await user.click(screen.getByRole('tab', { name: /attributes/i }));
-    await user.clear(screen.getByLabelText(/^Enum values/i));
-    await user.type(screen.getByLabelText(/^Enum values/i), 'RESERVATION_REQUIRED');
-    fireEvent.change(screen.getByLabelText(/raw enum values json/i), {
+    await user.click(screen.getByRole('tab', { name: /amenities/i }));
+    await user.click(screen.getByRole('button', { name: /advanced attribute rows/i }));
+    await user.clear(screen.getByLabelText(/^Selected values/i));
+    await user.type(screen.getByLabelText(/^Selected values/i), 'RESERVATION_REQUIRED');
+    fireEvent.change(screen.getByLabelText(/raw selected values/i), {
       target: { value: '{"setValues":["RESERVATION_REQUIRED"]}' },
     });
-    fireEvent.change(screen.getByLabelText(/display value json/i), {
+    fireEvent.change(screen.getByLabelText(/^Display value$/i), {
       target: { value: '{"setLabels":["Reservations required"]}' },
     });
     await user.click(screen.getByRole('button', { name: /save attributes/i }));
@@ -341,6 +340,77 @@ describe('RestaurantBusinessContextSection', () => {
             enumValues: ['RESERVATION_REQUIRED'],
             rawEnumValues: { setValues: ['RESERVATION_REQUIRED'] },
             displayValue: { setLabels: ['Reservations required'] },
+          }),
+        ],
+      }),
+    );
+  });
+
+  it('adds service-area chips and grouped amenity attributes from the embedded editor', async () => {
+    const user = userEvent.setup();
+
+    useOpsRestaurantBusinessContextMock.mockReturnValue({
+      data: {
+        core: {
+          businessDetails: null,
+          links: [],
+          categories: [],
+          serviceAreas: [],
+          attributes: [],
+          serviceItems: [],
+        },
+        providerSnapshot: {
+          businessDetails: null,
+          links: [],
+          categories: [],
+          serviceAreas: [],
+          attributes: [],
+          serviceItems: [],
+        },
+      },
+      error: null,
+      isLoading: false,
+      refetch: vi.fn(),
+    });
+
+    render(<RestaurantBusinessContextSection restaurantId="rest-1" embedded />);
+
+    await user.click(screen.getByRole('button', { name: /more settings/i }));
+    await user.type(screen.getByLabelText(/new service area/i), 'Cambridge, UK');
+    await user.click(screen.getByRole('button', { name: /add area/i }));
+    expect(screen.getByText('Cambridge, UK')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /save service areas/i }));
+    await waitFor(() =>
+      expect(mutateAsyncMock).toHaveBeenCalledWith({
+        serviceAreas: [
+          {
+            id: undefined,
+            displayName: 'Cambridge, UK',
+            areaType: 'region',
+            regionCode: null,
+            googlePlaceId: null,
+            googlePlaceResourceName: null,
+            placeData: null,
+          },
+        ],
+      }),
+    );
+
+    await user.click(screen.getByLabelText(/free wi-fi/i));
+    await user.click(screen.getByRole('button', { name: /save attributes/i }));
+
+    await waitFor(() =>
+      expect(mutateAsyncMock).toHaveBeenLastCalledWith({
+        attributes: [
+          expect.objectContaining({
+            id: undefined,
+            attributeGroup: 'Amenities & crowd',
+            attributeKey: 'has_wifi',
+            attributeId: 'has_wifi',
+            displayName: 'Free Wi-Fi',
+            valueType: 'boolean',
+            boolValue: true,
           }),
         ],
       }),

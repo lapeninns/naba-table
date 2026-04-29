@@ -65,6 +65,7 @@ function extractProfile(
 ): SyncV2ProfileSectionValue {
   return {
     name: details.name ?? null,
+    businessDescription: details.businessDescription ?? null,
     contactPhone: details.contactPhone ?? null,
     address: details.address ?? null,
     storefrontAddress: null,

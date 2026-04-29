@@ -107,7 +107,7 @@ describe('RestaurantDetailsForm subforms', () => {
     await user.click(screen.getByRole('button', { name: /save notifications/i }));
 
     expect(mutateAsyncMock).not.toHaveBeenCalled();
-    expect(screen.getByText(/use e\.164 format/i)).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(/use e\.164 format/i);
 
     await user.clear(screen.getByRole('textbox', { name: /manager notification number/i }));
     await user.type(

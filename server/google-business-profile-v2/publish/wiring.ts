@@ -12,10 +12,9 @@
  *   Import-to-Nabatable is wired for profile, weekly operating hours, service
  *   periods, and business-context rows through existing core writers.
  *   Export-to-Google is wired for the Google write paths that already exist
- *   in the legacy service layer: profile title/phone, regular hours, and
- *   kitchen more-hours/service periods. Business-context export stays blocked
- *   at the diff capability layer until a safe Google patch adapter exists for
- *   categories, service areas, attributes, and service items.
+ *   in the legacy service layer plus V2 location patch adapters: profile
+ *   title/phone/description/address, regular hours, kitchen more-hours/service
+ *   periods, categories, service areas, attributes, and service items.
  */
 
 import {
@@ -449,6 +448,9 @@ async function applyImportToNabatable(input: {
         ...(profileFields.has('name') && googleBefore.canonical.profile.name
           ? { name: googleBefore.canonical.profile.name }
           : {}),
+        ...(profileFields.has('businessDescription')
+          ? { businessDescription: googleBefore.canonical.profile.businessDescription }
+          : {}),
         ...(profileFields.has('contactPhone')
           ? { contactPhone: googleBefore.canonical.profile.contactPhone }
           : {}),
@@ -655,7 +657,11 @@ async function applyExportToGoogle(input: {
     (field): field is 'name' | 'contactPhone' => field === 'name' || field === 'contactPhone',
   );
   const unsupportedProfileFields = profileFields.filter(
-    (field) => field !== 'name' && field !== 'contactPhone' && field !== 'address',
+    (field) =>
+      field !== 'name' &&
+      field !== 'businessDescription' &&
+      field !== 'contactPhone' &&
+      field !== 'address',
   );
   if (unsupportedProfileFields.length > 0) {
     return unsupportedWriter('Selected profile fields include Google read-only fields.');
@@ -677,6 +683,13 @@ async function applyExportToGoogle(input: {
     updateMask.add('storefrontAddress');
     affected.add('profile');
   }
+  if (profileFields.includes('businessDescription')) {
+    locationPatch.profile = {
+      description: nabBefore.canonical.profile.businessDescription ?? '',
+    };
+    updateMask.add('profile');
+    affected.add('profile');
+  }
 
   const operatingDays = [...selectedFieldSet(decisions, 'operatingHours')]
     .map((fieldKey) => DAY_BY_LABEL.get(fieldKey))
@@ -693,14 +706,15 @@ async function applyExportToGoogle(input: {
 
   const servicePeriodKeys = selectedFieldSet(decisions, 'servicePeriods');
   if (servicePeriodKeys.size > 0) {
-    const dayOfWeeks = [
-      ...new Set(
-        nabBefore.canonical.servicePeriods.periods
-          .filter((period) => servicePeriodKeys.has(period.stableKey))
-          .map((period) => period.dayOfWeek)
-          .filter((day): day is number => day !== null),
-      ),
-    ];
+    const selectedNabatableDays = nabBefore.canonical.servicePeriods.periods
+      .filter((period) => servicePeriodKeys.has(period.stableKey))
+      .map((period) => period.dayOfWeek);
+    const selectedGoogleDays = googleBefore.canonical.servicePeriods.periods
+      .filter((period) => servicePeriodKeys.has(period.stableKey))
+      .map((period) => period.dayOfWeek);
+    const dayOfWeeks = [...new Set([...selectedNabatableDays, ...selectedGoogleDays])].filter(
+      (day): day is number => day !== null,
+    );
     if (dayOfWeeks.length === 0) {
       return unsupportedWriter('Selected service periods do not map to a Google writable weekday.');
     }

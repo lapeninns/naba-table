@@ -27,6 +27,7 @@ import { DEFAULT_RESERVATION_INTERVAL_MINUTES } from '@reserve/shared/config/res
 import { deriveProfileVerification } from './google-business-profile/googleBusinessProfileVerification';
 import { RestaurantBusinessContextSection } from './RestaurantBusinessContextSection';
 import { RestaurantLogoUploader } from './RestaurantLogoUploader';
+import { ProfileSectionShell } from './shared/ProfileSectionShell';
 import { SettingsCard } from './shared/SettingsCard';
 
 const EMPTY_VALUES: RestaurantDetailsFormValues = {
@@ -52,7 +53,7 @@ type RestaurantProfileSectionProps = {
   restaurantId: string | null;
 };
 
-type ProfileDirtyKey = 'brand' | 'contact' | 'notifications' | 'advanced';
+type ProfileDirtyKey = 'brand' | 'contact' | 'notifications' | 'discovery' | 'advanced';
 
 export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSectionProps) {
   const { data, error, isLoading, refetch } = useOpsRestaurantDetails(restaurantId);
@@ -62,9 +63,21 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
     brand: false,
     contact: false,
     notifications: false,
+    discovery: false,
     advanced: false,
   });
   const formDirty = Object.values(dirtyState).some(Boolean);
+  const dirtySections = useMemo(
+    () =>
+      [
+        { key: 'brand', label: 'Brand and identity', href: '#profile-identity' },
+        { key: 'contact', label: 'Contact and location', href: '#profile-contact' },
+        { key: 'notifications', label: 'Manager notifications', href: '#profile-notifications' },
+        { key: 'discovery', label: 'Guest discovery', href: '#profile-discovery' },
+        { key: 'advanced', label: 'Advanced link', href: '#profile-advanced' },
+      ].filter((item) => dirtyState[item.key as ProfileDirtyKey]),
+    [dirtyState],
+  );
 
   useRegisterOpsUnsavedChanges(
     'restaurant-profile',
@@ -143,10 +156,7 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
 
   if (error) {
     return (
-      <SettingsCard
-        title="Restaurant profile"
-        description="Update public details and team alerts."
-      >
+      <SettingsCard title="Restaurant profile" description="Update public details and team alerts.">
         <Alert variant="destructive">
           <AlertTitle>Unable to load restaurant details</AlertTitle>
           <AlertDescription className="flex items-center justify-between gap-4">
@@ -185,32 +195,51 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
         </CardHeader>
       </Card>
 
-      <div id="profile-identity" className="scroll-mt-28">
-        <SettingsCard
-          title="Brand and public description"
-          description="Set the name, logo, and short description guests should recognise."
-        >
-          <div className="flex flex-col gap-6">
-            <RestaurantLogoUploader
-              restaurantId={restaurantId}
-              restaurantName={derivedRestaurantName}
-              logoUrl={data?.logoUrl ?? null}
-              updateMutation={updateMutation}
-              isLoading={isLoading && !data}
-            />
-            <BrandIdentitySubform
-              restaurantId={restaurantId}
-              initialValues={initialValues}
-              onDirtyChange={setSubformDirty('brand')}
-              gbpFieldVerifications={profileVerification.fields}
-            />
-          </div>
-        </SettingsCard>
-      </div>
+      {dirtySections.length > 0 ? (
+        <Alert className="sticky top-4 border-primary/30 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+          <AlertTitle>
+            {dirtySections.length} unsaved profile section
+            {dirtySections.length === 1 ? '' : 's'}
+          </AlertTitle>
+          <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <span>Save each section before leaving this page.</span>
+            <div className="flex flex-wrap gap-2">
+              {dirtySections.map((section) => (
+                <Button key={section.key} type="button" variant="outline" size="sm" asChild>
+                  <a href={section.href}>{section.label}</a>
+                </Button>
+              ))}
+            </div>
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
-      <SettingsCard
+      <ProfileSectionShell
+        id="profile-identity"
+        eyebrow="1"
+        title="Brand and identity"
+        description="Name, logo, and short public description guests should recognise first."
+      >
+        <RestaurantLogoUploader
+          restaurantId={restaurantId}
+          restaurantName={derivedRestaurantName}
+          logoUrl={data?.logoUrl ?? null}
+          updateMutation={updateMutation}
+          isLoading={isLoading && !data}
+        />
+        <BrandIdentitySubform
+          restaurantId={restaurantId}
+          initialValues={initialValues}
+          onDirtyChange={setSubformDirty('brand')}
+          gbpFieldVerifications={profileVerification.fields}
+        />
+      </ProfileSectionShell>
+
+      <ProfileSectionShell
+        id="profile-contact"
+        eyebrow="2"
         title="Contact and location"
-        description="Keep the public phone, email, address, directions, and review links current."
+        description="Public phone, email, address, directions, and review links."
       >
         <ContactLocationSubform
           restaurantId={restaurantId}
@@ -218,42 +247,47 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
           onDirtyChange={setSubformDirty('contact')}
           gbpFieldVerifications={profileVerification.fields}
         />
-      </SettingsCard>
+      </ProfileSectionShell>
 
-      <div id="profile-notifications" className="scroll-mt-28">
-        <SettingsCard
-          title="Daily manager summary"
-          description="Choose where the daily booking summary SMS should go."
-        >
-          <ManagerNotificationsSubform
-            restaurantId={restaurantId}
-            initialValues={initialValues}
-            onDirtyChange={setSubformDirty('notifications')}
-          />
-        </SettingsCard>
-      </div>
+      <ProfileSectionShell
+        id="profile-notifications"
+        eyebrow="3"
+        title="Manager notifications"
+        description="Daily booking summary delivery for the management team."
+      >
+        <ManagerNotificationsSubform
+          restaurantId={restaurantId}
+          initialValues={initialValues}
+          onDirtyChange={setSubformDirty('notifications')}
+        />
+      </ProfileSectionShell>
 
-      <div id="profile-discovery" className="scroll-mt-28">
-        <SettingsCard
-          title="Guest discovery essentials"
-          description="Set the profile basics, dining categories, and public links guests use when discovering this restaurant."
-        >
-          <RestaurantBusinessContextSection restaurantId={restaurantId} embedded />
-        </SettingsCard>
-      </div>
+      <ProfileSectionShell
+        id="profile-discovery"
+        eyebrow="4"
+        title="Guest discovery essentials"
+        description="Profile basics, dining categories, amenities, service areas, and public links."
+        contentClassName="gap-0"
+      >
+        <RestaurantBusinessContextSection
+          restaurantId={restaurantId}
+          embedded
+          onDirtyChange={setSubformDirty('discovery')}
+        />
+      </ProfileSectionShell>
 
-      <div id="profile-advanced" className="scroll-mt-28">
-        <SettingsCard
-          title="Booking link"
-          description="Edit the short link used in guest booking URLs."
-        >
-          <AdvancedIdentitySubform
-            restaurantId={restaurantId}
-            initialValues={initialValues}
-            onDirtyChange={setSubformDirty('advanced')}
-          />
-        </SettingsCard>
-      </div>
+      <ProfileSectionShell
+        id="profile-advanced"
+        eyebrow="5"
+        title="Advanced"
+        description="Low-frequency booking URL fields used in guest booking links."
+      >
+        <AdvancedIdentitySubform
+          restaurantId={restaurantId}
+          initialValues={initialValues}
+          onDirtyChange={setSubformDirty('advanced')}
+        />
+      </ProfileSectionShell>
     </div>
   );
 }

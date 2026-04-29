@@ -8,6 +8,7 @@ function emptySnapshot(): SyncV2CanonicalSnapshot {
   return {
     profile: {
       name: null,
+      businessDescription: null,
       contactPhone: null,
       address: null,
       storefrontAddress: null,
@@ -56,6 +57,47 @@ describe('buildSyncV2Diff', () => {
     expect(item.capabilities.canExport).toBe(true);
     expect(item.capabilities.googleUpdateMask).toBe('title');
     expect(item.nabatableValueHash).not.toBe(item.googleValueHash);
+  });
+
+  it('covers profile description as an importable and exportable Google profile field', () => {
+    const nab = emptySnapshot();
+    const goo = emptySnapshot();
+    const result = buildSyncV2Diff({
+      nabatable: {
+        ...nab,
+        profile: { ...nab.profile, businessDescription: 'Local dining and Sunday roasts.' },
+      },
+      google: {
+        ...goo,
+        profile: { ...goo.profile, businessDescription: 'Google dining description.' },
+      },
+    });
+
+    const item = result.bySection.profile.find((i) => i.fieldKey === 'businessDescription');
+    expect(item).toBeDefined();
+    expect(item?.capabilities.canImport).toBe(true);
+    expect(item?.capabilities.canExport).toBe(true);
+    expect(item?.capabilities.googleUpdateMask).toBe('profile');
+  });
+
+  it('allows exporting an empty Nabatable profile description as a Google clear', () => {
+    const nab = emptySnapshot();
+    const goo = emptySnapshot();
+    const result = buildSyncV2Diff({
+      nabatable: nab,
+      google: {
+        ...goo,
+        profile: { ...goo.profile, businessDescription: 'Google dining description.' },
+      },
+    });
+
+    const item = result.bySection.profile.find((i) => i.fieldKey === 'businessDescription');
+    expect(item).toBeDefined();
+    expect(item?.normalizedNabatableValue).toBeNull();
+    expect(item?.capabilities.canImport).toBe(true);
+    expect(item?.capabilities.canExport).toBe(true);
+    expect(item?.capabilities.blockedReasons).toBeUndefined();
+    expect(item?.capabilities.googleUpdateMask).toBe('profile');
   });
 
   it('marks read-only profile fields as not exportable', () => {
@@ -131,6 +173,37 @@ describe('buildSyncV2Diff', () => {
     expect(item).toBeDefined();
     expect(item?.capabilities.canExport).toBe(true);
     expect(item?.capabilities.googleUpdateMask).toBe('storefrontAddress');
+  });
+
+  it('allows exporting Google-only service periods as Google deletes', () => {
+    const nab = emptySnapshot();
+    const goo = emptySnapshot();
+    const result = buildSyncV2Diff({
+      nabatable: nab,
+      google: {
+        ...goo,
+        servicePeriods: {
+          periods: [
+            {
+              stableKey: '1|12:00|15:00|lunch|lunch',
+              dayOfWeek: 1,
+              startTime: '12:00',
+              endTime: '15:00',
+              bookingOption: 'lunch',
+              name: 'Lunch',
+            },
+          ],
+        },
+      },
+    });
+
+    const [item] = result.bySection.servicePeriods;
+    expect(item?.fieldKey).toBe('1|12:00|15:00|lunch|lunch');
+    expect(item?.normalizedNabatableValue).toBeNull();
+    expect(item?.capabilities.canImport).toBe(true);
+    expect(item?.capabilities.canExport).toBe(true);
+    expect(item?.capabilities.blockedReasons).toBeUndefined();
+    expect(item?.capabilities.googleUpdateMask).toBe('moreHours');
   });
 
   it('allows API-shaped business context values to export to Google', () => {

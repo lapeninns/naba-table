@@ -9,7 +9,16 @@
 
 'use client';
 
-import { AlertCircle, CheckCircle2, RefreshCw, RotateCcw, Save, Send } from 'lucide-react';
+import {
+  AlertCircle,
+  CheckCircle2,
+  CornerDownLeft,
+  RefreshCw,
+  RotateCcw,
+  Save,
+  Send,
+  ShieldAlert,
+} from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -85,6 +94,18 @@ function formatSnapshotTime(value: string | null | undefined): string {
 
 function directionLabel(direction: SyncV2DirectionIntent): string {
   return direction === 'import_to_nabatable' ? 'Import to Nabatable' : 'Export to Google';
+}
+
+function bulkActionLabel(action: SyncV2DecisionAction): string {
+  if (action === 'import_from_google') return 'Import';
+  if (action === 'export_to_google') return 'Export';
+  return 'Ignore';
+}
+
+function canApplyAction(item: SyncV2DiffItem, action: SyncV2DecisionAction): boolean {
+  if (action === 'import_from_google') return item.capabilities.canImport;
+  if (action === 'export_to_google') return item.capabilities.canExport;
+  return item.capabilities.canIgnore;
 }
 
 function goToDraft(draftId: string): void {
@@ -188,6 +209,31 @@ export function SyncV2Shell({ restaurantId, draftId }: SyncV2ShellProps) {
 
   const handleAction = (item: SyncV2DiffItem, action: SyncV2DecisionAction) => {
     setPendingDecisions((prev) => ({ ...prev, [diffKey(item)]: action }));
+  };
+
+  const handleBulkAction = (
+    items: ReadonlyArray<SyncV2DiffItem>,
+    action: SyncV2DecisionAction,
+    label: string,
+  ) => {
+    const eligible = items.filter((item) => canApplyAction(item, action));
+    if (eligible.length === 0) {
+      toast.info(
+        `No ${label.toLowerCase()} fields can be set to ${bulkActionLabel(action).toLowerCase()}.`,
+      );
+      return;
+    }
+
+    setPendingDecisions((prev) => {
+      const next = { ...prev };
+      for (const item of eligible) {
+        next[diffKey(item)] = action;
+      }
+      return next;
+    });
+    toast.success(
+      `${bulkActionLabel(action)} set for ${pluralize(eligible.length, 'field')} in ${label}.`,
+    );
   };
 
   const dirty = Object.keys(pendingDecisions).length > 0;
@@ -427,6 +473,62 @@ export function SyncV2Shell({ restaurantId, draftId }: SyncV2ShellProps) {
               </TabsList>
             </Tabs>
           </div>
+
+          <div className="flex flex-col gap-3 rounded-lg bg-muted/35 p-3 ring-1 ring-border/70 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-sm font-medium text-foreground">Bulk decisions</p>
+              <p className="text-sm text-muted-foreground">
+                Apply a decision to every eligible field in this draft, then save before preflight.
+              </p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-3 lg:w-auto">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => handleBulkAction(diffItems, 'import_from_google', 'All sections')}
+                disabled={
+                  diffItems.every((item) => !item.capabilities.canImport) ||
+                  state.isUpsertingDecisions ||
+                  state.isPreflighting ||
+                  state.isPublishing
+                }
+              >
+                <CornerDownLeft data-icon="inline-start" />
+                Import all
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => handleBulkAction(diffItems, 'export_to_google', 'All sections')}
+                disabled={
+                  diffItems.every((item) => !item.capabilities.canExport) ||
+                  state.isUpsertingDecisions ||
+                  state.isPreflighting ||
+                  state.isPublishing
+                }
+              >
+                <Send data-icon="inline-start" />
+                Export all
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => handleBulkAction(diffItems, 'ignore', 'All sections')}
+                disabled={
+                  diffItems.every((item) => !item.capabilities.canIgnore) ||
+                  state.isUpsertingDecisions ||
+                  state.isPreflighting ||
+                  state.isPublishing
+                }
+              >
+                <ShieldAlert data-icon="inline-start" />
+                Ignore all
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -471,6 +573,73 @@ export function SyncV2Shell({ restaurantId, draftId }: SyncV2ShellProps) {
                 </AccordionTrigger>
                 <AccordionContent className="px-4 pb-4 sm:px-5">
                   <div className="flex flex-col gap-3">
+                    <div className="flex flex-col gap-3 rounded-lg bg-muted/30 p-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">
+                          Bulk decisions for {SECTION_LABELS[sectionKey]}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Applies only to eligible rows in this section.
+                        </p>
+                      </div>
+                      <div className="grid gap-2 sm:grid-cols-3">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            handleBulkAction(
+                              items,
+                              'import_from_google',
+                              SECTION_LABELS[sectionKey],
+                            )
+                          }
+                          disabled={
+                            items.every((item) => !item.capabilities.canImport) ||
+                            state.isUpsertingDecisions ||
+                            state.isPreflighting ||
+                            state.isPublishing
+                          }
+                        >
+                          <CornerDownLeft data-icon="inline-start" />
+                          Import section
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            handleBulkAction(items, 'export_to_google', SECTION_LABELS[sectionKey])
+                          }
+                          disabled={
+                            items.every((item) => !item.capabilities.canExport) ||
+                            state.isUpsertingDecisions ||
+                            state.isPreflighting ||
+                            state.isPublishing
+                          }
+                        >
+                          <Send data-icon="inline-start" />
+                          Export section
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            handleBulkAction(items, 'ignore', SECTION_LABELS[sectionKey])
+                          }
+                          disabled={
+                            items.every((item) => !item.capabilities.canIgnore) ||
+                            state.isUpsertingDecisions ||
+                            state.isPreflighting ||
+                            state.isPublishing
+                          }
+                        >
+                          <ShieldAlert data-icon="inline-start" />
+                          Ignore section
+                        </Button>
+                      </div>
+                    </div>
                     {items.map((item) => {
                       const action = effectiveDecisions[diffKey(item)] ?? null;
                       return (

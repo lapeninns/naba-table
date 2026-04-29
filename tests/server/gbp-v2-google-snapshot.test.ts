@@ -102,6 +102,31 @@ describe('readGoogleSnapshot', () => {
     );
   });
 
+  it('includes the Google profile description in V2 profile snapshots', async () => {
+    readGoogleBusinessProfileBusinessInfo.mockResolvedValue(
+      businessInfo({
+        details: {
+          businessName: 'Old Crown Girton',
+          description: 'Family friendly pub with dining rooms.',
+          languageCode: null,
+          openingDate: null,
+          businessStatus: null,
+          isServiceAreaBusiness: false,
+          canReopen: null,
+          source: 'gbp',
+          managedBy: 'gbp',
+          lastSyncedAt: null,
+        },
+      }),
+    );
+
+    const result = await readGoogleSnapshot({ client: {} as never, restaurantId: 'restaurant-1' });
+
+    expect(result.canonical.profile.businessDescription).toBe(
+      'Family friendly pub with dining rooms.',
+    );
+  });
+
   it('uses core-normalized public hours and meal service periods for V2 comparison', async () => {
     readGoogleBusinessProfileBusinessInfo.mockResolvedValue(
       businessInfo({

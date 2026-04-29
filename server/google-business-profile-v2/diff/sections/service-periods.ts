@@ -33,7 +33,7 @@ export function diffServicePeriods(
         nabatable: nab,
         google: gle,
         canImport: gle !== null,
-        canExport: nab !== null,
+        canExport: true,
         googleUpdateMask: 'moreHours',
         sortOrder,
       }),

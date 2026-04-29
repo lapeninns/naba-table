@@ -114,6 +114,7 @@ function pickLink(
 function extractProfile(info: GoogleBusinessProfileBusinessInfo): SyncV2ProfileSectionValue {
   return {
     name: info.details?.businessName ?? null,
+    businessDescription: info.details?.description ?? null,
     contactPhone: pickPrimaryPhone(info),
     address: pickPrimaryAddress(info),
     storefrontAddress: pickPrimaryStorefrontAddress(info),
