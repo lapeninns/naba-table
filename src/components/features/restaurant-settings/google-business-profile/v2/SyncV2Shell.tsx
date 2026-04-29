@@ -158,6 +158,12 @@ export function SyncV2Shell({ restaurantId, draftId }: SyncV2ShellProps) {
     () => (draft?.diffItems ?? []) as ReadonlyArray<SyncV2DiffItem>,
     [draft?.diffItems],
   );
+  const diffItemsByKey = useMemo(() => {
+    // Save decisions after bulk actions in O(pending + rows) instead of scanning all rows per decision.
+    const indexed = new Map<string, SyncV2DiffItem>();
+    for (const item of diffItems) indexed.set(diffKey(item), item);
+    return indexed;
+  }, [diffItems]);
   const itemsBySection = useMemo(() => {
     const grouped: Partial<Record<SyncV2SectionKey, SyncV2DiffItem[]>> = {};
     for (const item of diffItems) {
@@ -242,7 +248,7 @@ export function SyncV2Shell({ restaurantId, draftId }: SyncV2ShellProps) {
     if (!dirty) return;
     const inputs: SyncV2DecisionInput[] = Object.entries(pendingDecisions)
       .map(([key, action]) => {
-        const item = diffItems.find((i) => diffKey(i) === key);
+        const item = diffItemsByKey.get(key);
         if (!item) return null;
         return {
           sectionKey: item.sectionKey,

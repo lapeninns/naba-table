@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { AvailabilityScheduleManager } from '@/components/features/restaurant-settings/AvailabilityScheduleManager';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -72,6 +72,8 @@ function toDetailsFormValues(
 function BookingRulesCard({ restaurantId }: { restaurantId: string | null }) {
   const detailsQuery = useOpsRestaurantDetails(restaurantId);
   const [isDirty, setIsDirty] = useState(false);
+  // Memoize derived form defaults so unrelated route renders do not hand the subform a fresh object.
+  const initialValues = useMemo(() => toDetailsFormValues(detailsQuery.data), [detailsQuery.data]);
 
   useRegisterOpsUnsavedChanges(
     'restaurant-booking-rules',
@@ -139,7 +141,7 @@ function BookingRulesCard({ restaurantId }: { restaurantId: string | null }) {
       >
         <BookingRulesSubform
           restaurantId={restaurantId}
-          initialValues={toDetailsFormValues(detailsQuery.data)}
+          initialValues={initialValues}
           onDirtyChange={setIsDirty}
         />
       </SettingsCard>

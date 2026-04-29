@@ -119,11 +119,22 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
       }),
     [data, gbpConnectionQuery.data],
   );
-  const setSubformDirty = useCallback(
-    (key: ProfileDirtyKey) => (dirty: boolean) => {
+  const updateDirtyState = useCallback(
+    (key: ProfileDirtyKey, dirty: boolean) => {
       setDirtyState((current) => (current[key] === dirty ? current : { ...current, [key]: dirty }));
     },
     [],
+  );
+  const dirtyHandlers = useMemo<Record<ProfileDirtyKey, (dirty: boolean) => void>>(
+    () => ({
+      // Stable handlers prevent every subform dirty-effect from rerunning on unrelated profile renders.
+      brand: (dirty) => updateDirtyState('brand', dirty),
+      contact: (dirty) => updateDirtyState('contact', dirty),
+      notifications: (dirty) => updateDirtyState('notifications', dirty),
+      discovery: (dirty) => updateDirtyState('discovery', dirty),
+      advanced: (dirty) => updateDirtyState('advanced', dirty),
+    }),
+    [updateDirtyState],
   );
 
   if (!restaurantId) {
@@ -230,7 +241,7 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
         <BrandIdentitySubform
           restaurantId={restaurantId}
           initialValues={initialValues}
-          onDirtyChange={setSubformDirty('brand')}
+          onDirtyChange={dirtyHandlers.brand}
           gbpFieldVerifications={profileVerification.fields}
         />
       </ProfileSectionShell>
@@ -244,7 +255,7 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
         <ContactLocationSubform
           restaurantId={restaurantId}
           initialValues={initialValues}
-          onDirtyChange={setSubformDirty('contact')}
+          onDirtyChange={dirtyHandlers.contact}
           gbpFieldVerifications={profileVerification.fields}
         />
       </ProfileSectionShell>
@@ -258,7 +269,7 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
         <ManagerNotificationsSubform
           restaurantId={restaurantId}
           initialValues={initialValues}
-          onDirtyChange={setSubformDirty('notifications')}
+          onDirtyChange={dirtyHandlers.notifications}
         />
       </ProfileSectionShell>
 
@@ -272,7 +283,7 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
         <RestaurantBusinessContextSection
           restaurantId={restaurantId}
           embedded
-          onDirtyChange={setSubformDirty('discovery')}
+          onDirtyChange={dirtyHandlers.discovery}
         />
       </ProfileSectionShell>
 
@@ -285,7 +296,7 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
         <AdvancedIdentitySubform
           restaurantId={restaurantId}
           initialValues={initialValues}
-          onDirtyChange={setSubformDirty('advanced')}
+          onDirtyChange={dirtyHandlers.advanced}
         />
       </ProfileSectionShell>
     </div>

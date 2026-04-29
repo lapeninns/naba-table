@@ -2,8 +2,6 @@ import ZoneService, { type Zone } from '@/services/ops/zones';
 
 import { DEV_RESTAURANT_ID, DEV_ZONE_MAIN_ID, DEV_ZONE_PATIO_ID } from '../devIds';
 
-
-
 import type {
   CreateTablePayload,
   ListTablesParams,
@@ -13,7 +11,6 @@ import type {
   UpdateTablePayload,
 } from '@/services/ops/tables';
 import type { TableTimelineResponse, TableTimelineRow, TableTimelineSegment } from '@/types/ops';
-
 
 type MutableTablesState = {
   zones: Zone[];
@@ -135,7 +132,12 @@ export class DevZoneService extends ZoneService {
     return this.state.zones;
   }
 
-  async create(restaurantId: string, name: string, sortOrder?: number, active?: boolean): Promise<Zone> {
+  async create(
+    restaurantId: string,
+    name: string,
+    sortOrder?: number,
+    active?: boolean,
+  ): Promise<Zone> {
     if (restaurantId !== DEV_RESTAURANT_ID) {
       throw new Error('[dev][zoneService] unknown restaurant');
     }
@@ -145,7 +147,10 @@ export class DevZoneService extends ZoneService {
     return zone;
   }
 
-  async update(zoneId: string, payload: { name?: string; sortOrder?: number; active?: boolean }): Promise<Zone> {
+  async update(
+    zoneId: string,
+    payload: { name?: string; sortOrder?: number; active?: boolean },
+  ): Promise<Zone> {
     const idx = this.state.zones.findIndex((z) => z.id === zoneId);
     if (idx === -1) throw new Error('[dev][zoneService] zone not found');
     const existing = this.state.zones[idx]!;
@@ -183,7 +188,12 @@ export class DevTableInventoryService implements TableInventoryService {
 
     const totalCapacity = tables.reduce((sum, t) => sum + t.capacity, 0);
     const availableTables = tables.filter((t) => t.active && t.status === 'available').length;
-    const zones = this.state.zones.map((z) => ({ id: z.id, name: z.name, active: z.active }));
+    const zones = this.state.zones.map((z) => ({
+      id: z.id,
+      name: z.name,
+      active: z.active,
+      sortOrder: z.sortOrder,
+    }));
 
     return {
       tables,
@@ -200,7 +210,12 @@ export class DevTableInventoryService implements TableInventoryService {
             tablesConsidered: tables.length,
             turnsPerTable: 2,
             seatsPerTurn: totalCapacity,
-            assumptions: { windowMinutes: 180, turnMinutes: 75, bufferMinutes: 15, intervalMinutes: 15 },
+            assumptions: {
+              windowMinutes: 180,
+              turnMinutes: 75,
+              bufferMinutes: 15,
+              intervalMinutes: 15,
+            },
           },
           {
             key: 'dinner',
@@ -209,7 +224,12 @@ export class DevTableInventoryService implements TableInventoryService {
             tablesConsidered: tables.length,
             turnsPerTable: 3,
             seatsPerTurn: totalCapacity,
-            assumptions: { windowMinutes: 300, turnMinutes: 90, bufferMinutes: 15, intervalMinutes: 15 },
+            assumptions: {
+              windowMinutes: 300,
+              turnMinutes: 90,
+              bufferMinutes: 15,
+              intervalMinutes: 15,
+            },
           },
         ],
       },
@@ -281,7 +301,10 @@ export class DevTableInventoryService implements TableInventoryService {
     this.state.tables = this.state.tables.filter((t) => t.id !== tableId);
   }
 
-  async timeline(restaurantId: string, params?: { date?: string | null; zoneId?: string | null; service?: 'lunch' | 'dinner' | 'all' }): Promise<TableTimelineResponse> {
+  async timeline(
+    restaurantId: string,
+    params?: { date?: string | null; zoneId?: string | null; service?: 'lunch' | 'dinner' | 'all' },
+  ): Promise<TableTimelineResponse> {
     if (restaurantId !== DEV_RESTAURANT_ID) {
       throw new Error('[dev][tables] unknown restaurant');
     }
@@ -290,12 +313,17 @@ export class DevTableInventoryService implements TableInventoryService {
     const zoneId = params?.zoneId ?? null;
     const service = params?.service ?? 'all';
 
-    const tables = zoneId ? this.state.tables.filter((t) => t.zoneId === zoneId) : this.state.tables;
+    const tables = zoneId
+      ? this.state.tables.filter((t) => t.zoneId === zoneId)
+      : this.state.tables;
 
     const windowStart = '11:00';
     const windowEnd = '23:00';
 
-    const makeSegment = (input: Partial<TableTimelineSegment> & Pick<TableTimelineSegment, 'start' | 'end' | 'state' | 'serviceKey'>): TableTimelineSegment => ({
+    const makeSegment = (
+      input: Partial<TableTimelineSegment> &
+        Pick<TableTimelineSegment, 'start' | 'end' | 'state' | 'serviceKey'>,
+    ): TableTimelineSegment => ({
       booking: null,
       hold: null,
       ...input,
@@ -303,14 +331,45 @@ export class DevTableInventoryService implements TableInventoryService {
 
     const rows: TableTimelineRow[] = tables.slice(0, 40).map((t, i) => {
       const status: TableTimelineRow['table']['status'] =
-        i % 12 === 0 ? 'out_of_service' : i % 7 === 0 ? 'occupied' : i % 5 === 0 ? 'reserved' : 'available';
+        i % 12 === 0
+          ? 'out_of_service'
+          : i % 7 === 0
+            ? 'occupied'
+            : i % 5 === 0
+              ? 'reserved'
+              : 'available';
       const zone = this.state.zones.find((z) => z.id === t.zoneId) ?? null;
       const segments: TableTimelineSegment[] = [
-        makeSegment({ start: `${date}T12:00:00Z`, end: `${date}T13:30:00Z`, state: 'available', serviceKey: 'lunch' }),
-        makeSegment({ start: `${date}T13:30:00Z`, end: `${date}T15:00:00Z`, state: 'reserved', serviceKey: 'lunch' }),
-        makeSegment({ start: `${date}T17:00:00Z`, end: `${date}T18:30:00Z`, state: 'available', serviceKey: 'dinner' }),
-        makeSegment({ start: `${date}T18:30:00Z`, end: `${date}T20:00:00Z`, state: 'hold', serviceKey: 'dinner' }),
-        makeSegment({ start: `${date}T20:00:00Z`, end: `${date}T22:30:00Z`, state: 'reserved', serviceKey: 'dinner' }),
+        makeSegment({
+          start: `${date}T12:00:00Z`,
+          end: `${date}T13:30:00Z`,
+          state: 'available',
+          serviceKey: 'lunch',
+        }),
+        makeSegment({
+          start: `${date}T13:30:00Z`,
+          end: `${date}T15:00:00Z`,
+          state: 'reserved',
+          serviceKey: 'lunch',
+        }),
+        makeSegment({
+          start: `${date}T17:00:00Z`,
+          end: `${date}T18:30:00Z`,
+          state: 'available',
+          serviceKey: 'dinner',
+        }),
+        makeSegment({
+          start: `${date}T18:30:00Z`,
+          end: `${date}T20:00:00Z`,
+          state: 'hold',
+          serviceKey: 'dinner',
+        }),
+        makeSegment({
+          start: `${date}T20:00:00Z`,
+          end: `${date}T22:30:00Z`,
+          state: 'reserved',
+          serviceKey: 'dinner',
+        }),
       ];
 
       return {
@@ -320,7 +379,14 @@ export class DevTableInventoryService implements TableInventoryService {
           capacity: t.capacity,
           zoneId: zone?.id ?? null,
           zoneName: zone?.name ?? null,
-          status: status === 'occupied' ? 'occupied' : status === 'out_of_service' ? 'out_of_service' : status === 'reserved' ? 'reserved' : 'available',
+          status:
+            status === 'occupied'
+              ? 'occupied'
+              : status === 'out_of_service'
+                ? 'out_of_service'
+                : status === 'reserved'
+                  ? 'reserved'
+                  : 'available',
           active: t.active,
         },
         stats: {
@@ -358,7 +424,12 @@ export class DevTableInventoryService implements TableInventoryService {
             tablesConsidered: tables.length,
             turnsPerTable: 2,
             seatsPerTurn: totalCapacity,
-            assumptions: { windowMinutes: 180, turnMinutes: 75, bufferMinutes: 15, intervalMinutes: 15 },
+            assumptions: {
+              windowMinutes: 180,
+              turnMinutes: 75,
+              bufferMinutes: 15,
+              intervalMinutes: 15,
+            },
           },
           {
             key: 'dinner',
@@ -367,7 +438,12 @@ export class DevTableInventoryService implements TableInventoryService {
             tablesConsidered: tables.length,
             turnsPerTable: 3,
             seatsPerTurn: totalCapacity,
-            assumptions: { windowMinutes: 300, turnMinutes: 90, bufferMinutes: 15, intervalMinutes: 15 },
+            assumptions: {
+              windowMinutes: 300,
+              turnMinutes: 90,
+              bufferMinutes: 15,
+              intervalMinutes: 15,
+            },
           },
         ],
       },
@@ -379,4 +455,3 @@ export class DevTableInventoryService implements TableInventoryService {
 export function createDevTablesState(): MutableTablesState {
   return buildInitialState();
 }
-

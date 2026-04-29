@@ -2,7 +2,7 @@
 
 import { Beer, UtensilsCrossed } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { Button } from '@/components/ui/button';
@@ -24,20 +24,28 @@ export function OpsMenuManagementClient() {
     return current === 'drinks' ? 'drinks' : 'food';
   }, [searchParams]);
 
-  const setCatalogMode = (nextMode: CatalogMode) => {
-    if (!pathname) {
-      return;
-    }
-    const nextQuery = new URLSearchParams(searchParams?.toString() ?? '');
-    nextQuery.set('catalog', nextMode);
-    router.replace(`${pathname}?${nextQuery.toString()}`, { scroll: false });
-  };
+  const setCatalogMode = useCallback(
+    (nextMode: CatalogMode) => {
+      if (!pathname) {
+        return;
+      }
+      const nextQuery = new URLSearchParams(searchParams?.toString() ?? '');
+      nextQuery.set('catalog', nextMode);
+      router.replace(`${pathname}?${nextQuery.toString()}`, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
 
-  const restaurantId =
-    activeMembership?.restaurantId ??
-    memberships.find((membership) => membership.restaurantId === activeRestaurantId)?.restaurantId ??
-    memberships[0]?.restaurantId ??
-    null;
+  // Avoid rescanning memberships on incidental renders; only recompute when session identity changes.
+  const restaurantId = useMemo(
+    () =>
+      activeMembership?.restaurantId ??
+      memberships.find((membership) => membership.restaurantId === activeRestaurantId)
+        ?.restaurantId ??
+      memberships[0]?.restaurantId ??
+      null,
+    [activeMembership?.restaurantId, activeRestaurantId, memberships],
+  );
 
   if (memberships.length === 0) {
     return (

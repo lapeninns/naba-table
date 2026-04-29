@@ -52,6 +52,15 @@ export function TeamInvitesTable({ restaurantId, canManage }: TeamInvitesTablePr
   const revokeInvite = useOpsRevokeTeamInvite();
 
   const hasInvites = useMemo(() => (invites?.length ?? 0) > 0, [invites]);
+  // Cache formatted invite row state so filter/loading updates do not reparse dates for every row.
+  const inviteRows = useMemo(() => {
+    const now = Date.now();
+    return (invites ?? []).map((invite) => ({
+      invite,
+      expiresLabel: formatTimestamp(invite.expiresAt),
+      isExpiredPending: invite.status === 'pending' && new Date(invite.expiresAt).getTime() < now,
+    }));
+  }, [invites]);
 
   const handleRevoke = (invite: TeamInvite) => {
     revokeInvite.mutate({ restaurantId, inviteId: invite.id });
@@ -63,14 +72,12 @@ export function TeamInvitesTable({ restaurantId, canManage }: TeamInvitesTablePr
         <div>
           <h2 className="text-lg font-semibold text-foreground">Pending invitations</h2>
           <p className="text-sm text-muted-foreground">
-            Track outstanding invites and revoke access if someone joins the team early or by mistake.
+            Track outstanding invites and revoke access if someone joins the team early or by
+            mistake.
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Select
-            value={status}
-            onValueChange={(value) => setStatus(value as TeamInviteStatus)}
-          >
+          <Select value={status} onValueChange={(value) => setStatus(value as TeamInviteStatus)}>
             <SelectTrigger className="h-9 w-[160px]" aria-label="Filter invitations by status">
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
@@ -102,7 +109,7 @@ export function TeamInvitesTable({ restaurantId, canManage }: TeamInvitesTablePr
           </div>
         ) : hasInvites ? (
           <ul className="divide-y divide-border/60">
-            {invites!.map((invite) => (
+            {inviteRows.map(({ invite, expiresLabel, isExpiredPending }) => (
               <li
                 key={invite.id}
                 className="grid grid-cols-1 gap-2 px-4 py-3 text-sm text-foreground md:grid-cols-[2fr_1fr_1fr_1fr_auto] md:items-center"
@@ -111,11 +118,11 @@ export function TeamInvitesTable({ restaurantId, canManage }: TeamInvitesTablePr
                 <span className="capitalize text-muted-foreground">{invite.role}</span>
                 <div className="flex items-center gap-2">
                   <StatusBadge invite={invite} />
-                  {invite.status === 'pending' && new Date(invite.expiresAt).getTime() < Date.now() ? (
+                  {isExpiredPending ? (
                     <span className="text-xs text-amber-600">Expired</span>
                   ) : null}
                 </div>
-                <span className="text-muted-foreground">{formatTimestamp(invite.expiresAt)}</span>
+                <span className="text-muted-foreground">{expiresLabel}</span>
                 <div className="flex items-center justify-start gap-2 md:justify-end">
                   {invite.status === 'pending' && canManage ? (
                     <Button
@@ -143,7 +150,9 @@ export function TeamInvitesTable({ restaurantId, canManage }: TeamInvitesTablePr
         )}
 
         {isFetching ? (
-          <div className="border-t border-border/60 bg-muted px-4 py-2 text-xs text-muted-foreground">Refreshing…</div>
+          <div className="border-t border-border/60 bg-muted px-4 py-2 text-xs text-muted-foreground">
+            Refreshing…
+          </div>
         ) : null}
       </div>
     </div>
