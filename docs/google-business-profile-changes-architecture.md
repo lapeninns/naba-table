@@ -1,31 +1,51 @@
-# Google Business Profile Sync V2 Architecture
+# Google Business Profile sync — architecture
 
 ## Purpose
 
-Google Business Profile Sync V2 is the replacement architecture for GBP review and publish workflows. It introduces a versioned, decision-first engine for both supported directions:
+The unified **dual-sync engine** is the canonical bidirectional sync surface
+between Nabatable Core and Google Business Profile. It powers the three
+restaurant settings pages (profile, availability, Google Business Profile)
+through a single field registry with explicit per-field state, decision, and
+publish semantics.
 
-- `import_to_nabatable`: Google is the winner; apply reviewed Google values to Nabatable.
-- `export_to_google`: Nabatable is the winner; patch reviewed Nabatable values to Google.
+The earlier `gbp_sync_v2_*` engine (decision-first review with a preflight
+dialog) was retired in favour of dual-sync; see the **Decommissioned V2**
+section below for the historical pointer.
 
-Legacy workflow routes stay alive during rollout, but V2 has isolated schema, API routes, service contracts, hooks, UI state, preflight locks, publish jobs, and audit events.
+## Code map
 
-## Data Model
+| Concern            | Location                                                                        |
+| ------------------ | ------------------------------------------------------------------------------- |
+| Schema (canonical) | `supabase/migrations/20260429210000_add_unified_dual_sync_domain.sql`           |
+| Schema (drop V2)   | `supabase/migrations/20260430120000_drop_gbp_sync_v2.sql`                       |
+| Server core        | `server/dual-sync/`                                                             |
+| API routes         | `src/app/api/ops/restaurants/[id]/dual-sync/**`                                 |
+| Cron               | `src/app/api/cron/dual-sync/auto-export/route.ts`, `vercel.json` `*/30 * * * *` |
+| Service / hook     | `src/services/ops/dual-sync.ts`, `src/hooks/ops/useOpsDualSync.ts`              |
+| UI shell           | `src/components/features/restaurant-settings/dual-sync/`                        |
+| Page mount         | `src/components/features/restaurant-settings/OpsRestaurantSettingsClient.tsx`   |
+| Server flag        | `server/dual-sync/flag.ts` (`NABATABLE_DUAL_SYNC_ENABLED`)                      |
+| Client flag        | `lib/feature-flags/dual-sync.ts` (`NEXT_PUBLIC_NABATABLE_DUAL_SYNC_ENABLED`)    |
 
-V2 uses additive tables with the `gbp_sync_v2_*` namespace:
+## Data model
 
-| Table                        | Purpose                                                                                                  |
-| ---------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `gbp_sync_v2_workflows`      | One workflow root per restaurant/provider.                                                               |
-| `gbp_sync_v2_drafts`         | Canonical Nabatable and Google snapshots plus deterministic diff items.                                  |
-| `gbp_sync_v2_decisions`      | Field-level operator decisions; this is the only selection source of truth.                              |
-| `gbp_sync_v2_publish_jobs`   | Frozen preflight contract with idempotency key, direction intent, snapshot hashes, and frozen decisions. |
-| `gbp_sync_v2_publish_events` | Immutable audit trail for Nabatable apply, Google patch, and rollback legs.                              |
+Four additive tables under the `dual_sync_*` namespace:
 
-The migration is additive and does not mutate legacy GBP workflow tables.
+| Table                           | Purpose                                                            |
+| ------------------------------- | ------------------------------------------------------------------ |
+| `dual_sync_field_states`        | Per-field state row (one per restaurant × provider × field).       |
+| `dual_sync_snapshot_runs`       | Transactional snapshot log; only `succeeded` runs are read.        |
+| `dual_sync_outbound_candidates` | Open Core-side changes awaiting export decision.                   |
+| `dual_sync_publish_operations`  | One row per (publish_job, field) pair; carries audit + retry data. |
 
-## Snapshot And Diff Contract
+The migration is additive over the legacy GBP workflow tables, which remain
+unchanged. The retired V2 tables are dropped by
+`20260430120000_drop_gbp_sync_v2.sql`.
 
-Snapshot readers normalize both systems into the same section shapes before diffing:
+## Snapshots and field registry
+
+Snapshot readers normalise both systems into a single canonical shape per
+section:
 
 - `profile`
 - `operatingHours`
@@ -35,159 +55,170 @@ Snapshot readers normalize both systems into the same section shapes before diff
 - `businessContext.attributes`
 - `businessContext.serviceItems`
 
-Every diff item carries:
+Every registry field carries:
 
-- `sectionKey`
-- `fieldKey`
-- `normalizedNabatableValue`
-- `normalizedGoogleValue`
-- `nabatableValueHash`
-- `googleValueHash`
-- capability flags: `canImport`, `canExport`, `canIgnore`, optional `googleUpdateMask`
+- `sectionKey`, `fieldKey`
+- core / GBP normalisers and canonicalisers
+- `conflictPolicy` (`manual` / `core_wins` / `gbp_wins` / `unsupported`)
+- `deletePolicy` (`manual` / `clear_remote` / `clear_core` / `ignore`)
+- `importable` / `exportable` flags
+- optional Google update mask + write capability metadata
 
-Hashes are SHA-256 over canonical JSON. Preflight and publish use those hashes to reject stale or tampered decisions.
+Hashes are SHA-256 over canonical JSON; preflight reuses these to reject
+stale or tampered decisions.
 
-## Decision Semantics
+## Field state machine
 
-Operators choose one action per field:
+Every syncable field carries one of:
 
-| UI action           | Decision action      | Publish direction     |
+| State            | Meaning                                       |
+| ---------------- | --------------------------------------------- |
+| `in_sync`        | Core and GBP values match after normalisation |
+| `core_dirty`     | Core changed after the last successful sync   |
+| `gbp_dirty`      | GBP changed after the last successful pull    |
+| `drifted`        | Core and GBP differ                           |
+| `conflict`       | Core and GBP both changed since the last sync |
+| `pending_import` | User chose GBP → Core                         |
+| `pending_export` | User chose Core → GBP                         |
+| `import_failed`  | GBP → Core failed                             |
+| `export_failed`  | Core → GBP failed                             |
+| `ignored`        | User intentionally ignored the difference     |
+| `unsupported`    | Field cannot currently sync                   |
+
+Core CRUD writes mark touched syncable fields `core_dirty` and create or
+update an `dual_sync_outbound_candidates` row for review.
+
+## Snapshot freshness
+
+The state response surfaces a top-level `lastSnapshot` block (run id, kind,
+started/finished timestamps). The shell renders a freshness chip
+("Verified Xm ago") next to the title with three tones: < 1h fresh,
+< 24h recent, ≥ 24h stale.
+
+Per-field freshness chips render the most informative timestamp for the
+state: `lastInSyncAt` for in-sync, `lastCoreChangeAt` / `lastGbpChangeAt`
+for drift / conflict / pending / failed states.
+
+## Decisions
+
+Operators choose one action per field via `DualSyncFieldRow`:
+
+| UI action           | Decision action      | Direction             |
 | ------------------- | -------------------- | --------------------- |
 | Import to Nabatable | `import_from_google` | `import_to_nabatable` |
 | Export to Google    | `export_to_google`   | `export_to_google`    |
-| Ignore              | `ignore`             | Not publishable       |
+| Ignore              | `ignore`             | not publishable       |
 
-V2 does not publish mixed directions in one job. A publish job is either an import job or an export job.
+A publish job carries decisions across mixed sections, but per-field
+operations are recorded individually so partial failures can be retried
+without re-running the whole job.
 
-## API Surface
+## API surface
 
-V2 API routes live under:
+```
+/api/ops/restaurants/:id/dual-sync
+  GET  /state
+  POST /refresh
+  POST /publish
+  POST /auto-export
+  GET  /operations
+  GET  /publish-jobs
+  GET  /publish-jobs/:jobId
 
-```txt
-/api/ops/restaurants/:id/google-business-profile/v2
+/api/cron
+  GET /dual-sync/auto-export   # vercel cron */30 * * * *
 ```
 
-Routes:
+All API bodies are validated and gated by `isDualSyncEnabled` server-side.
 
-| Route                        | Method  | Contract                                                  |
-| ---------------------------- | ------- | --------------------------------------------------------- |
-| `/drafts`                    | `POST`  | Compose a fresh V2 draft from live snapshots.             |
-| `/drafts/:draftId`           | `GET`   | Read draft and current decisions.                         |
-| `/drafts/:draftId`           | `PATCH` | Upsert decisions after zod validation.                    |
-| `/drafts/:draftId/preflight` | `POST`  | Validate decisions and persist a frozen publish job.      |
-| `/drafts/:draftId/publish`   | `POST`  | Verify password, re-check contract lock, execute publish. |
+## Publish orchestration
 
-All route bodies are validated with zod in `_v2-schemas.ts`. Legacy route contracts are not mixed into V2 responses.
+`runPublish(client, input, options)` executes per-field operations
+serially, recording before / after Core and GBP hashes for audit.
 
-## Preflight Contract
+### Section-level batch coalescing
 
-Preflight verifies:
+For sections that support batched Google writes, the orchestrator
+accumulates consecutive same-section export decisions and offers them to
+the section's `applyExportBatchToGoogle` port (one Google call for N
+fields). All seven sections expose batch ports:
 
-- Draft exists and belongs to the restaurant.
-- At least one selected item is publishable.
-- Every selected action matches the requested direction.
-- Selected decision hashes still match the draft diff item hashes.
-- Selected field capabilities allow the requested action.
-- Export jobs require Google write eligibility.
+- profile (name + contactPhone share a simple-push call; address +
+  businessDescription share a location-patch call)
+- operatingHours (single push call for N days)
+- servicePeriods (deduped day list, single push call)
+- businessContext.{categories,serviceAreas,serviceItems} (single
+  merged-list location patch each)
+- businessContext.attributes (one combined `attributesPatch` call)
 
-Successful preflight persists:
+`{ supported: false }` falls back to per-field exports; `throw` poisons
+the group with `PORT_FAILURE`. Per-field operation rows + state
+transitions are unchanged so audit semantics are preserved.
 
-- `publishPlanId`
-- `idempotencyKey`
-- `directionIntent`
-- `frozenDecisions`
-- `frozenDecisionsHash`
-- `frozenNabatableSnapshotHash`
-- `frozenGoogleSnapshotHash`
-- `googleUpdateMasks`
-- full `preflightResult`
+## Auto-export and cron
 
-Publish must use the frozen job and cannot proceed if live snapshots or field hashes drift.
+`scheduling/auto-export.ts` runs on the `*/30 * * * *` cron. The runner
+reads open candidates per tenant, drift-pins each decision against
+`baselineGbpHash`, and submits the export to `runPublish`.
 
-## Publish Orchestration
+Failures emit a `DualSyncNotificationEvent` (`tenant_run_failed` on
+exception, `tenant_run_partial` on per-field failures); the default port
+logs to console and additionally posts to
+`DUAL_SYNC_FAILURE_WEBHOOK_URL` when configured.
 
-`PublishOrchestratorV2` has two pipelines.
+## Operator UI
 
-### Import To Nabatable
+`DualSyncShell` mounts on each settings page filtered by section:
 
-The import pipeline applies reviewed Google winners through existing core writers:
+| Page                    | Sections                           |
+| ----------------------- | ---------------------------------- |
+| Profile                 | `profile`                          |
+| Availability            | `operatingHours`, `servicePeriods` |
+| Google Business Profile | all seven                          |
 
-- profile fields through `updateRestaurantDetails`
-- weekly operating hours through `updateOperatingHours`
-- service periods through `updateServicePeriods`
-- business-context rows through `updateRestaurantBusinessContext`
+Header surfaces:
 
-The pipeline records a `nabatable_apply` audit event with old and new selected values.
+- "N pending" badge when outbound candidates exist
+- "Verified Xm ago" snapshot freshness chip
+- whole-restaurant heatmap (per-bucket counts: in_sync, drift, conflict,
+  pending, failed, inactive)
+- "Pull from Google" / "Auto-publish (N)" / "Publish (N)" actions
 
-### Export To Google
+Per-section accordion triggers carry their own heatmap; per-field rows
+show the state badge plus a state-aware freshness chip.
 
-The export pipeline uses existing verified Google write paths:
+Two observability panels live below the field accordions:
 
-- profile title/phone through `syncRestaurantProfileWithGoogleBusinessProfile`
-- profile storefront address through a V2 `storefrontAddress` patch when Google already has structured address metadata to preserve
-- regular hours through `syncRestaurantOperatingHoursWithGoogleBusinessProfile`
-- service periods/more hours through `syncRestaurantServicePeriodsWithGoogleBusinessProfile`
-- categories, service areas, and service items through V2 `locations.patch` payload builders
-- attributes through V2 `locations.updateAttributes`
+- **Recent publishes** — one row per `publishJobId`, status badge,
+  duration, succeeded / failed / skipped counts, sections touched, error
+  codes; chevron expands the full operation list inline.
+- **Recent operations** — flat list of recent per-field operations.
 
-Business-context export is capability-gated per row. V2 only offers Export to Google when the canonical Nabatable value contains the API-shaped data required for the Google request, such as category codes, service-area region/place payloads, attribute resource names and values, or service-item payloads.
+## Conflict and delete defaults
 
-The pipeline records a `google_patch` audit event with update masks and selected old/new values.
+Public Google fields default to `conflictPolicy: 'manual'` so the system
+never overwrites operator-managed data without an explicit decision.
+Delete defaults are `manual` for public business data, `ignore` for
+Google-owned read-only fields (Maps URL, review URL).
 
-## Sync Capability Matrix
+## Tests
 
-| Section/field             | Import Google to Nabatable | Export Nabatable to Google                                  | Current blocker when not both-direction                                                                                                                          |
-| ------------------------- | -------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Profile name              | Yes                        | Yes                                                         | None. Uses Google `title`.                                                                                                                                       |
-| Profile phone             | Yes                        | Yes                                                         | None. Uses Google `phoneNumbers`.                                                                                                                                |
-| Profile address           | Yes                        | Yes, when Google has structured address metadata            | Uses the reviewed Nabatable address as Google `addressLines` while preserving Google's existing region/locality fields.                                          |
-| Profile Google Maps URL   | Yes                        | No                                                          | Google returns this as output-only metadata; it is not directly writable.                                                                                        |
-| Profile Google review URL | Yes                        | No                                                          | Google returns this as generated link metadata; it is not directly writable.                                                                                     |
-| Operating hours           | Yes                        | Yes                                                         | None for regular weekly hours.                                                                                                                                   |
-| Service periods           | Yes                        | Yes, when Google exposes a writable kitchen more-hours type | Google write availability depends on the location's `moreHoursTypes`.                                                                                            |
-| Categories                | Yes                        | Yes, when category codes exist                              | Google requires category resource names/codes and a valid primary category.                                                                                      |
-| Service areas             | Yes                        | Yes, when region or place payload exists                    | Google requires a valid `serviceArea` payload.                                                                                                                   |
-| Attributes                | Yes                        | Yes, when a writable value exists                           | Google attributes use `locations.updateAttributes`; repeated-enum exports require raw Google enum IDs. Deletes use `attributeMask` without a matching body item. |
-| Service items             | Yes                        | Yes, when canonical service-item payload exists             | Free-text display rows without the original Google service-item payload remain import-only.                                                                      |
+Unit + integration tests live under `tests/server/dual-sync-*.test.ts`
+and `tests/components/dual-sync-*.test.ts`. The suite covers hashing,
+the registry, state compute / recompute, all seven import + per-field +
+batch export ports, the publish orchestrator, auto-export
+(per-tenant + cross-tenant), operations / publish-jobs / publish-job
+detail listings, notifications (console + webhook + combinator), the
+freshness helpers, and the heatmap aggregator.
 
-## Idempotency And Conflict Safety
+## Decommissioned V2
 
-Idempotency is enforced by `gbp_sync_v2_publish_jobs.idempotency_key` and the orchestrator status guard. A job that is no longer `preflight_locked` is not re-run.
+The earlier engine (`server/google-business-profile-v2/`,
+`/api/ops/restaurants/:id/google-business-profile/v2/**`,
+`SyncV2Shell.tsx`, `useOpsGoogleBusinessProfileV2.ts`, the matching
+`gbp_sync_v2_*` tables, and `tests/server/gbp-v2-*.test.ts`) has been
+removed. Its history is preserved in the Git log under the
+`gbp-dual-sync-architecture-*` task slugs.
 
-Publish re-checks:
-
-- frozen decision hash equals the persisted frozen decision set
-- live Nabatable snapshot hash equals the preflight hash
-- live Google snapshot hash equals the preflight hash
-- every frozen decision still exists in the live diff
-- every frozen decision still has matching Nabatable and Google value hashes
-
-Any mismatch fails the job with contract-lock errors before writers run.
-
-## UI Contract
-
-The ops UI renders `SyncV2Shell` directly for linked Google Business Profile locations.
-
-State model:
-
-- persisted decisions from the API
-- pending local decision edits
-- derived progress and publish enablement
-
-The UI does not keep an independent selected state. It sends decision rows with reviewed value hashes, then preflight/publish operate on persisted decisions.
-
-## Rollout
-
-Rollout sequence:
-
-1. Validate import and export jobs on staging before production.
-2. Keep legacy route modules available only for rollback during the stable window.
-3. Remove legacy routes, UI components, and tables after the stable window.
-
-## Current Boundaries
-
-- V2 schema is additive and must be applied to staging before production.
-- Business-context import and export are supported where the row has enough API-shaped data for Google.
-- Google-owned profile links such as Maps URL and review URL are import-only.
-- No publish is allowed without a successful preflight job and password confirmation.
-- Browser verification on the real ops route is required before claiming UI completion.
+Rollback path: revert the deletion commit and re-apply
+`20260428232200_add_gbp_sync_v2.sql`.

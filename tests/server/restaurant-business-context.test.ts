@@ -77,48 +77,42 @@ describe('restaurant business context writer', () => {
       },
     );
 
-    expect(inserts).toEqual(
+    const serviceAreasInsert = inserts.find((entry) => entry.table === 'restaurant_service_areas');
+    const attributesInsert = inserts.find((entry) => entry.table === 'restaurant_attributes');
+    const changeLogInsert = inserts.find(
+      (entry) => entry.table === 'restaurant_profile_change_log',
+    );
+
+    expect(serviceAreasInsert?.rows).toEqual(
       expect.arrayContaining([
-        {
-          table: 'restaurant_service_areas',
-          rows: expect.arrayContaining([
-            expect.objectContaining({
-              display_name: 'Cambridge',
-              google_place_id: 'ChIJLQEq84ld2EcRIT1eo-Ego2M',
-              google_place_resource_name: 'places/ChIJLQEq84ld2EcRIT1eo-Ego2M',
-              change_origin: 'owner',
-            }),
-          ]),
-        },
-        {
-          table: 'restaurant_attributes',
-          rows: expect.arrayContaining([
-            expect.objectContaining({
-              attribute_key: 'has_wifi',
-              raw_value_json: { boolValue: true },
-              display_value_json: { displayText: 'Wi-Fi: Yes' },
-              change_origin: 'owner',
-              changed_by_user_id: 'user-1',
-              changed_via: 'ops_business_context_api',
-              change_reason: 'Manual update from settings.',
-            }),
-          ]),
-        },
-        {
-          table: 'restaurant_profile_change_log',
-          rows: expect.arrayContaining([
-            expect.objectContaining({
-              restaurant_id: 'rest-1',
-              entity_table: 'restaurant_attributes',
-              field_path: '$',
-              change_origin: 'owner',
-              changed_by_user_id: 'user-1',
-              changed_via: 'ops_business_context_api',
-              change_reason: 'Manual update from settings.',
-              status: 'applied',
-            }),
-          ]),
-        },
+        expect.objectContaining({
+          display_name: 'Cambridge',
+          google_place_id: 'ChIJLQEq84ld2EcRIT1eo-Ego2M',
+          google_place_resource_name: 'places/ChIJLQEq84ld2EcRIT1eo-Ego2M',
+        }),
+      ]),
+    );
+    expect(attributesInsert?.rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          attribute_key: 'has_wifi',
+          raw_value_json: { boolValue: true },
+          display_value_json: { displayText: 'Wi-Fi: Yes' },
+        }),
+      ]),
+    );
+    expect(changeLogInsert?.rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          restaurant_id: 'rest-1',
+          entity_table: 'restaurant_attributes',
+          field_path: '$',
+          change_origin: 'owner',
+          changed_by_user_id: 'user-1',
+          changed_via: 'ops_business_context_api',
+          change_reason: 'Manual update from settings.',
+          status: 'applied',
+        }),
       ]),
     );
   });

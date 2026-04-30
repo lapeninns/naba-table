@@ -6,11 +6,17 @@ import { useEffect, type ReactNode } from 'react';
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
+import { isDualSyncUiEnabled } from '@/lib/feature-flags/dual-sync';
 
 import type { RestaurantSettingsView } from './types';
+import type { DualSyncSectionKey } from '@/server/dual-sync';
 
 const SettingsSectionSkeleton = ({ title }: { title: string }) => (
-  <div className="rounded-lg border border-border/60 bg-muted/30 p-6" aria-busy="true" role="status">
+  <div
+    className="rounded-lg border border-border/60 bg-muted/30 p-6"
+    aria-busy="true"
+    role="status"
+  >
     <p className="text-sm font-medium text-foreground">{title}</p>
     <div className="mt-3 space-y-3">
       <Skeleton className="h-4 w-40" />
@@ -20,9 +26,12 @@ const SettingsSectionSkeleton = ({ title }: { title: string }) => (
   </div>
 );
 
-const RestaurantProfileSection = dynamic(() => import('./RestaurantProfileSection').then((m) => m.RestaurantProfileSection), {
-  loading: () => <SettingsSectionSkeleton title="Loading profile" />,
-});
+const RestaurantProfileSection = dynamic(
+  () => import('./RestaurantProfileSection').then((m) => m.RestaurantProfileSection),
+  {
+    loading: () => <SettingsSectionSkeleton title="Loading profile" />,
+  },
+);
 
 const GoogleBusinessProfileSection = dynamic(
   () =>
@@ -36,22 +45,49 @@ const GoogleBusinessProfileSection = dynamic(
 
 const AvailabilityOccasionsCommandCenter = dynamic(
   () =>
-    import('./AvailabilityOccasionsCommandCenter').then((m) => m.AvailabilityOccasionsCommandCenter),
+    import('./AvailabilityOccasionsCommandCenter').then(
+      (m) => m.AvailabilityOccasionsCommandCenter,
+    ),
   {
     loading: () => <SettingsSectionSkeleton title="Loading availability and occasions" />,
   },
 );
 
-const OpsTeamManagementClient = dynamic(() => import('../team').then((m) => m.OpsTeamManagementClient), {
-  loading: () => <SettingsSectionSkeleton title="Loading team" />,
+const OpsTeamManagementClient = dynamic(
+  () => import('../team').then((m) => m.OpsTeamManagementClient),
+  {
+    loading: () => <SettingsSectionSkeleton title="Loading team" />,
+  },
+);
+
+const DualSyncShell = dynamic(() => import('./dual-sync').then((m) => m.DualSyncShell), {
+  loading: () => <SettingsSectionSkeleton title="Loading sync state" />,
+  ssr: false,
 });
+
+const DUAL_SYNC_SECTIONS_BY_VIEW: Partial<
+  Record<RestaurantSettingsView, ReadonlyArray<DualSyncSectionKey>>
+> = {
+  'google-business-profile': [
+    'profile',
+    'operatingHours',
+    'servicePeriods',
+    'businessContext.categories',
+    'businessContext.serviceAreas',
+    'businessContext.attributes',
+    'businessContext.serviceItems',
+  ],
+};
 
 export type OpsRestaurantSettingsClientProps = {
   defaultRestaurantId?: string | null;
   view: RestaurantSettingsView;
 };
 
-export function OpsRestaurantSettingsClient({ defaultRestaurantId, view }: OpsRestaurantSettingsClientProps) {
+export function OpsRestaurantSettingsClient({
+  defaultRestaurantId,
+  view,
+}: OpsRestaurantSettingsClientProps) {
   const { memberships, activeRestaurantId, setActiveRestaurantId } = useOpsSession();
   const activeMembership = useOpsActiveMembership();
 
@@ -87,14 +123,29 @@ export function OpsRestaurantSettingsClient({ defaultRestaurantId, view }: OpsRe
 
   const selectedRestaurantId = selectedMembership?.restaurantId ?? null;
 
-  const renderByView: Record<RestaurantSettingsView, (context: { restaurantId: string | null }) => ReactNode> = {
+  const renderByView: Record<
+    RestaurantSettingsView,
+    (context: { restaurantId: string | null }) => ReactNode
+  > = {
     profile: ({ restaurantId }) => <RestaurantProfileSection restaurantId={restaurantId} />,
     'google-business-profile': ({ restaurantId }) => (
       <GoogleBusinessProfileSection restaurantId={restaurantId} />
     ),
-    availability: ({ restaurantId }) => <AvailabilityOccasionsCommandCenter restaurantId={restaurantId} />,
+    availability: ({ restaurantId }) => (
+      <AvailabilityOccasionsCommandCenter restaurantId={restaurantId} />
+    ),
     team: () => <OpsTeamManagementClient />,
   };
 
-  return <div className="space-y-6">{renderByView[view]({ restaurantId: selectedRestaurantId })}</div>;
+  const dualSyncSections = DUAL_SYNC_SECTIONS_BY_VIEW[view];
+  const dualSyncEnabled = isDualSyncUiEnabled();
+
+  return (
+    <div className="space-y-6">
+      {renderByView[view]({ restaurantId: selectedRestaurantId })}
+      {dualSyncEnabled && dualSyncSections && selectedRestaurantId ? (
+        <DualSyncShell restaurantId={selectedRestaurantId} sections={dualSyncSections} />
+      ) : null}
+    </div>
+  );
 }

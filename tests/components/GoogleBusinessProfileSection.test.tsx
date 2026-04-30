@@ -1,5 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { GoogleBusinessProfileSection } from '@/components/features/restaurant-settings/google-business-profile/GoogleBusinessProfileSection';
@@ -8,7 +7,6 @@ import { buildDriftReport } from '@/components/features/restaurant-settings/goog
 
 import type {
   GoogleBusinessProfileConnection,
-  GoogleBusinessProfileWorkflow,
   RestaurantProfile,
 } from '@/services/ops/restaurants';
 
@@ -38,49 +36,6 @@ const profileResult = {
   error: null as Error | null,
 };
 
-const workflowResult = {
-  data: {
-    latestDraft: null,
-    sectionSummaries: [],
-    publishableSections: [],
-    blockedReasons: [],
-    auditEvents: [],
-    activePublishJob: null,
-  } as GoogleBusinessProfileWorkflow,
-  isLoading: false,
-  error: null as Error | null,
-  refetch: vi.fn(),
-};
-
-const updateDraftMutation = {
-  mutate: vi.fn(),
-  mutateAsync: vi.fn(),
-  isPending: false,
-  error: null,
-};
-
-const publishMutation = {
-  mutate: vi.fn(),
-  mutateAsync: vi.fn(),
-  isPending: false,
-  error: null,
-};
-
-const preflightMutation = {
-  mutate: vi.fn(),
-  mutateAsync: vi.fn(),
-  reset: vi.fn(),
-  isPending: false,
-  error: null as Error | null,
-};
-
-const retryMutation = {
-  mutate: vi.fn(),
-  mutateAsync: vi.fn(),
-  isPending: false,
-  error: null,
-};
-
 vi.mock('@/hooks/ops/useOpsGoogleBusinessProfile', () => ({
   useOpsGoogleBusinessProfileConnection: () => connectionResult,
   useOpsLinkGoogleBusinessProfileLocation: () => ({
@@ -93,16 +48,6 @@ vi.mock('@/hooks/ops/useOpsGoogleBusinessProfile', () => ({
     isPending: false,
     error: null,
   }),
-  useOpsCreateGoogleBusinessProfileDraft: () => ({
-    mutate: vi.fn(),
-    isPending: false,
-    error: null,
-  }),
-  useOpsGoogleBusinessProfileWorkflow: () => workflowResult,
-  useOpsUpdateGoogleBusinessProfileDraft: () => updateDraftMutation,
-  useOpsPublishGoogleBusinessProfileDraft: () => publishMutation,
-  useOpsPreflightGoogleBusinessProfileDraftPublish: () => preflightMutation,
-  useOpsRetryGoogleBusinessProfileDraftGooglePush: () => retryMutation,
   useOpsSyncGoogleBusinessProfile: () => ({
     mutate: vi.fn(),
     isPending: false,
@@ -190,17 +135,6 @@ function buildConnection(
   };
 }
 
-function emptyWorkflow(): GoogleBusinessProfileWorkflow {
-  return {
-    latestDraft: null,
-    sectionSummaries: [],
-    publishableSections: [],
-    blockedReasons: [],
-    auditEvents: [],
-    activePublishJob: null,
-  };
-}
-
 beforeEach(() => {
   connectionResult.data = undefined;
   connectionResult.error = null;
@@ -208,20 +142,16 @@ beforeEach(() => {
   connectionResult.isFetching = false;
   profileResult.data = undefined;
   profileResult.error = null;
-  workflowResult.data = emptyWorkflow();
-  updateDraftMutation.mutate.mockReset();
-  updateDraftMutation.mutateAsync.mockReset();
-  publishMutation.mutate.mockReset();
-  publishMutation.mutateAsync.mockReset();
-  preflightMutation.mutate.mockReset();
-  preflightMutation.mutateAsync.mockReset();
-  preflightMutation.reset.mockReset();
-  preflightMutation.error = null;
-  retryMutation.mutate.mockReset();
-  retryMutation.mutateAsync.mockReset();
+  connectionResult.refetch.mockReset();
 });
 
 describe('GoogleBusinessProfileSection', () => {
+  it('renders a switcher hint when no restaurant is selected', () => {
+    render(<GoogleBusinessProfileSection restaurantId={null} />);
+
+    expect(screen.getByText(/select a restaurant using the sidebar switcher/i)).toBeInTheDocument();
+  });
+
   it('renders the connect card when the status is unlinked', () => {
     connectionResult.data = buildConnection({ status: 'unlinked' });
     render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
@@ -258,7 +188,7 @@ describe('GoogleBusinessProfileSection', () => {
     expect(screen.getByRole('button', { name: /link location/i })).toBeInTheDocument();
   });
 
-  it('renders the Google profile changes workspace and secondary analysis when linked', () => {
+  it('renders secondary analysis when linked and does not render the retired V2 workspace', () => {
     connectionResult.data = buildConnection({
       status: 'linked',
       connectedGoogleEmail: 'ops@example.com',
@@ -282,456 +212,21 @@ describe('GoogleBusinessProfileSection', () => {
         },
       ],
     });
-    workflowResult.data = {
-      latestDraft: {
-        id: 'draft-1',
-        status: 'review_ready',
-        fetchedAt: '2026-04-25T10:00:00.000Z',
-        approvedAt: null,
-        publishedAt: null,
-        staleSections: [],
-        conflictMetadata: {},
-        selectedApprovals: { 'profile.name': true },
-        sourceSnapshotRefs: {},
-        coreSnapshotHashes: {},
-        createdAt: '2026-04-25T10:00:00.000Z',
-        updatedAt: '2026-04-25T10:00:00.000Z',
-        sectionDiffs: [
-          {
-            sectionKey: 'profile',
-            label: 'Profile',
-            status: 'ready',
-            summary: '1 change ready',
-            canPublishToNabatable: true,
-            canPushToGoogle: true,
-            blockedReasons: [],
-            items: [
-              {
-                fieldKey: 'profile.name',
-                label: 'Business name',
-                sectionKey: 'profile',
-                currentValue: 'Old',
-                providerValue: 'New',
-                proposedValue: 'New',
-                direction: 'pull_from_gbp',
-                status: 'ready',
-                selected: true,
-                canPublishToNabatable: true,
-                canPushToGoogle: true,
-                warnings: [],
-              },
-            ],
-          },
-        ],
-      },
-      sectionSummaries: [],
-      publishableSections: ['profile'],
-      blockedReasons: [],
-      auditEvents: [],
-      activePublishJob: null,
-    };
 
     render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 
-    expect(screen.getByText(/google profile changes/i)).toBeInTheDocument();
-    expect(screen.getByText(/section review/i)).toBeInTheDocument();
-    expect(screen.getByText('Business name')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /review & apply/i })).toBeEnabled();
     expect(screen.getByTestId('gbp-secondary-analysis')).toBeInTheDocument();
+    expect(screen.getByText(/secondary analysis/i)).toBeInTheDocument();
+    expect(screen.queryByText(/google profile changes/i)).not.toBeInTheDocument();
   });
 
-  it('renders section cards as a single-open accordion with bulk selection controls', async () => {
-    const user = userEvent.setup();
-
-    connectionResult.data = buildConnection({
-      status: 'linked',
-      pushEnabled: true,
-      externalLocationId: 'l-1',
-      externalLocationTitle: 'Nabatable Main',
-    });
-    workflowResult.data = {
-      latestDraft: {
-        id: 'draft-accordion',
-        status: 'review_ready',
-        fetchedAt: '2026-04-25T10:00:00.000Z',
-        approvedAt: null,
-        publishedAt: null,
-        staleSections: [],
-        conflictMetadata: {},
-        selectedApprovals: {},
-        sourceSnapshotRefs: {},
-        coreSnapshotHashes: {},
-        createdAt: '2026-04-25T10:00:00.000Z',
-        updatedAt: '2026-04-25T10:00:00.000Z',
-        sectionDiffs: [
-          {
-            sectionKey: 'profile',
-            label: 'Profile, contact and links',
-            status: 'ready',
-            summary: '2 changes ready to review.',
-            canPublishToNabatable: true,
-            canPushToGoogle: true,
-            blockedReasons: [],
-            items: [
-              {
-                fieldKey: 'profile.name',
-                label: 'Business name',
-                sectionKey: 'profile',
-                currentValue: 'Old name',
-                providerValue: 'New name',
-                proposedValue: 'New name',
-                direction: 'pull_from_gbp',
-                status: 'ready',
-                selected: false,
-                canPublishToNabatable: true,
-                canPushToGoogle: true,
-                warnings: [],
-              },
-              {
-                fieldKey: 'profile.contactPhone',
-                label: 'Primary phone',
-                sectionKey: 'profile',
-                currentValue: '+44 20 0000 0000',
-                providerValue: '+44 20 1111 1111',
-                proposedValue: '+44 20 1111 1111',
-                direction: 'pull_from_gbp',
-                status: 'ready',
-                selected: false,
-                canPublishToNabatable: true,
-                canPushToGoogle: true,
-                warnings: [],
-              },
-            ],
-          },
-          {
-            sectionKey: 'operatingHours',
-            label: 'Operating hours',
-            status: 'ready',
-            summary: '1 change ready to review.',
-            canPublishToNabatable: true,
-            canPushToGoogle: true,
-            blockedReasons: [],
-            items: [
-              {
-                fieldKey: 'operatingHours.weekly.1',
-                label: 'Weekly day 1',
-                sectionKey: 'operatingHours',
-                currentValue: '10:00-20:00',
-                providerValue: '11:00-21:00',
-                proposedValue: '11:00-21:00',
-                direction: 'pull_from_gbp',
-                status: 'ready',
-                selected: false,
-                canPublishToNabatable: true,
-                canPushToGoogle: true,
-                warnings: [],
-              },
-            ],
-          },
-        ],
-      },
-      sectionSummaries: [],
-      publishableSections: ['profile', 'operatingHours'],
-      blockedReasons: [],
-      auditEvents: [],
-      activePublishJob: null,
-    };
+  it('renders an error card when the connection query fails', () => {
+    connectionResult.error = new Error('boom');
 
     render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 
-    const profileTrigger = await screen.findByRole('button', {
-      name: /profile, contact and links/i,
-    });
-    const hoursTrigger = screen.getByRole('button', { name: /operating hours/i });
-    expect(profileTrigger).toHaveAttribute('aria-expanded', 'true');
-    expect(hoursTrigger).toHaveAttribute('aria-expanded', 'false');
-
-    await user.click(hoursTrigger);
-    expect(profileTrigger).toHaveAttribute('aria-expanded', 'false');
-    expect(hoursTrigger).toHaveAttribute('aria-expanded', 'true');
-
-    await user.click(hoursTrigger);
-    expect(hoursTrigger).toHaveAttribute('aria-expanded', 'false');
-
-    await user.click(profileTrigger);
-    expect(profileTrigger).toHaveAttribute('aria-expanded', 'true');
-    await user.click(screen.getByRole('button', { name: /import all \(2\)/i }));
-
-    expect(screen.getAllByText('Selected')).toHaveLength(2);
-    expect(screen.getByRole('button', { name: /review & apply/i })).toBeEnabled();
-  });
-
-  it('lets ops move a field into the push direction and exposes retry state for failed google pushes', async () => {
-    const user = userEvent.setup();
-
-    connectionResult.data = buildConnection({
-      status: 'linked',
-      pushEnabled: true,
-      externalLocationId: 'l-1',
-      externalLocationTitle: 'Nabatable Main',
-    });
-    workflowResult.data = {
-      latestDraft: {
-        id: 'draft-2',
-        status: 'approved',
-        fetchedAt: '2026-04-25T10:00:00.000Z',
-        approvedAt: '2026-04-25T10:05:00.000Z',
-        publishedAt: null,
-        staleSections: [],
-        conflictMetadata: {},
-        selectedApprovals: {},
-        sourceSnapshotRefs: {},
-        coreSnapshotHashes: {},
-        createdAt: '2026-04-25T10:00:00.000Z',
-        updatedAt: '2026-04-25T10:05:00.000Z',
-        sectionDiffs: [
-          {
-            sectionKey: 'profile',
-            label: 'Profile',
-            status: 'ready',
-            summary: '1 change ready',
-            canPublishToNabatable: true,
-            canPushToGoogle: true,
-            blockedReasons: [],
-            items: [
-              {
-                fieldKey: 'profile.contactPhone',
-                label: 'Primary phone',
-                sectionKey: 'profile',
-                currentValue: '+44 20 9999 0000',
-                providerValue: '+44 20 1234 5678',
-                proposedValue: '+44 20 1234 5678',
-                direction: 'pull_from_gbp',
-                status: 'ready',
-                selected: false,
-                canPublishToNabatable: true,
-                canPushToGoogle: true,
-                warnings: [],
-              },
-            ],
-          },
-        ],
-      },
-      sectionSummaries: [],
-      publishableSections: ['profile'],
-      blockedReasons: [],
-      auditEvents: [],
-      activePublishJob: {
-        id: 'job-1',
-        draftId: 'draft-2',
-        idempotencyKey: 'idem-1',
-        mode: 'google_only',
-        directionIntent: 'nabatable_to_google',
-        status: 'google_failed',
-        selectedApprovals: { 'profile.contactPhone': true },
-        nabatableSections: ['profile'],
-        googleUpdateMasks: ['phoneNumbers'],
-        postNabatableCoreHashes: {},
-        errorClassification: 'permission',
-        errors: [{ message: 'Permission denied' }],
-        nabatableEventId: 'event-1',
-        googleEventId: 'event-2',
-        canRetryGooglePush: true,
-        retryBlockedReason: null,
-        createdAt: '2026-04-25T10:00:00.000Z',
-        updatedAt: '2026-04-25T10:06:00.000Z',
-      },
-    };
-
-    render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
-
-    expect(screen.queryByTestId('gbp-review-apply-bar')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /export to google/i }));
-    expect(screen.getByTestId('gbp-review-apply-bar')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /review & apply/i })).toBeEnabled();
-    await user.click(screen.getByRole('button', { name: /ignore for now/i }));
-    expect(screen.queryByTestId('gbp-review-apply-bar')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /export to google/i }));
-
-    updateDraftMutation.mutateAsync.mockResolvedValue(workflowResult.data);
-    preflightMutation.mutateAsync.mockResolvedValue({
-      publishJobId: 'job-export',
-      idempotencyKey: 'idem-export',
-      mode: 'google_only',
-      directionIntent: 'nabatable_to_google',
-      selectedApprovals: { 'profile.contactPhone': true },
-      nabatableUpdates: [],
-      pullOnlyItems: [],
-      googleUpdateMasks: ['phoneNumbers'],
-      warnings: [],
-      errors: [],
-      canPublish: true,
-      canPushToGoogle: true,
-      activePublishJob: {
-        id: 'job-export',
-        draftId: 'draft-2',
-        idempotencyKey: 'idem-export',
-        mode: 'google_only',
-        directionIntent: 'nabatable_to_google',
-        status: 'preflight_ready',
-        selectedApprovals: { 'profile.contactPhone': true },
-        nabatableSections: ['profile'],
-        googleUpdateMasks: ['phoneNumbers'],
-        postNabatableCoreHashes: {},
-        errorClassification: null,
-        errors: [],
-        nabatableEventId: null,
-        googleEventId: null,
-        canRetryGooglePush: false,
-        retryBlockedReason: null,
-        createdAt: '2026-04-25T10:00:00.000Z',
-        updatedAt: '2026-04-25T10:06:00.000Z',
-      },
-    });
-    publishMutation.mutateAsync.mockResolvedValue(workflowResult.data);
-
-    await user.click(screen.getByRole('button', { name: /review & apply/i }));
-    await user.click(await screen.findByTestId('gbp-run-preflight-button'));
-    await user.click(await screen.findByRole('button', { name: /continue to apply/i }));
-    await user.type(await screen.findByLabelText(/confirm with your login password/i), 'password');
-    await user.click(screen.getByRole('button', { name: /apply reviewed changes/i }));
-
-    await waitFor(() => {
-      expect(publishMutation.mutateAsync).toHaveBeenCalledWith({
-        draftId: 'draft-2',
-        payload: expect.objectContaining({
-          publishJobId: 'job-export',
-          idempotencyKey: 'idem-export',
-          selectedApprovals: { 'profile.contactPhone': true },
-          directionIntent: 'nabatable_to_google',
-        }),
-      });
-    });
-    expect(screen.getByTestId('gbp-retry-google-push-button')).toBeInTheDocument();
-  });
-
-  it('blocks Google write-back controls when the linked location has push disabled', () => {
-    connectionResult.data = buildConnection({
-      status: 'linked',
-      pushEnabled: false,
-      externalLocationId: 'l-1',
-      externalLocationTitle: 'Nabatable Main',
-    });
-    workflowResult.data = {
-      latestDraft: {
-        id: 'draft-pull-only',
-        status: 'approved',
-        fetchedAt: '2026-04-25T10:00:00.000Z',
-        approvedAt: '2026-04-25T10:05:00.000Z',
-        publishedAt: null,
-        staleSections: [],
-        conflictMetadata: {},
-        selectedApprovals: {},
-        sourceSnapshotRefs: {},
-        coreSnapshotHashes: {},
-        createdAt: '2026-04-25T10:00:00.000Z',
-        updatedAt: '2026-04-25T10:05:00.000Z',
-        sectionDiffs: [
-          {
-            sectionKey: 'profile',
-            label: 'Profile',
-            status: 'ready',
-            summary: '1 change ready',
-            canPublishToNabatable: true,
-            canPushToGoogle: true,
-            blockedReasons: [],
-            items: [
-              {
-                fieldKey: 'profile.contactPhone',
-                label: 'Primary phone',
-                sectionKey: 'profile',
-                currentValue: '+44 20 9999 0000',
-                providerValue: '+44 20 1234 5678',
-                proposedValue: '+44 20 1234 5678',
-                direction: 'pull_from_gbp',
-                status: 'ready',
-                selected: false,
-                canPublishToNabatable: true,
-                canPushToGoogle: true,
-                warnings: [],
-              },
-            ],
-          },
-        ],
-      },
-      sectionSummaries: [],
-      publishableSections: ['profile'],
-      blockedReasons: [],
-      auditEvents: [],
-      activePublishJob: null,
-    };
-
-    render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
-
-    expect(screen.getByText(/google updates are disabled/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /export to google/i })).toBeDisabled();
-  });
-
-  it('shows a refresh-required state when the workflow draft is stale', () => {
-    connectionResult.data = buildConnection({
-      status: 'linked',
-      externalLocationId: 'l-1',
-      externalLocationTitle: 'Nabatable Main',
-    });
-    workflowResult.data = {
-      latestDraft: {
-        id: 'draft-stale',
-        status: 'stale',
-        fetchedAt: '2026-04-25T10:00:00.000Z',
-        approvedAt: '2026-04-25T10:05:00.000Z',
-        publishedAt: null,
-        staleSections: ['profile'],
-        conflictMetadata: {
-          staleFieldKeys: ['profile.name'],
-        },
-        selectedApprovals: { 'profile.name': true },
-        sourceSnapshotRefs: {},
-        coreSnapshotHashes: {},
-        createdAt: '2026-04-25T10:00:00.000Z',
-        updatedAt: '2026-04-25T10:05:00.000Z',
-        sectionDiffs: [
-          {
-            sectionKey: 'profile',
-            label: 'Profile',
-            status: 'stale',
-            summary: 'Refresh required',
-            canPublishToNabatable: false,
-            canPushToGoogle: true,
-            blockedReasons: [
-              'Restaurant details changed after this review was created. Check for changes again before applying this section.',
-            ],
-            items: [
-              {
-                fieldKey: 'profile.name',
-                label: 'Business name',
-                sectionKey: 'profile',
-                currentValue: 'Old',
-                providerValue: 'New',
-                proposedValue: 'New',
-                direction: 'pull_from_gbp',
-                status: 'ready',
-                selected: true,
-                canPublishToNabatable: true,
-                canPushToGoogle: true,
-                warnings: [],
-              },
-            ],
-          },
-        ],
-      },
-      sectionSummaries: [],
-      publishableSections: [],
-      blockedReasons: [
-        'Some profile sections changed since review. Check for changes again before applying.',
-      ],
-      auditEvents: [],
-      activePublishJob: null,
-    };
-
-    render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
-
-    expect(screen.getAllByText(/check for changes again/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/changed fields: profile.name/i)).toBeInTheDocument();
+    expect(screen.getByText(/unable to load google business profile/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
   });
 });
 

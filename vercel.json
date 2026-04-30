@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/auto-complete-bookings",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/dual-sync/auto-export",
+      "schedule": "*/30 * * * *"
     }
   ]
 }

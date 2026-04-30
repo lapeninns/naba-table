@@ -13,22 +13,14 @@ import {
   useOpsGoogleBusinessProfileConnection,
   useOpsLinkGoogleBusinessProfileLocation,
 } from '@/hooks/ops/useOpsGoogleBusinessProfile';
-import { useOpsOperatingHours } from '@/hooks/ops/useOpsOperatingHours';
-import { useOpsRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
-import { useOpsServicePeriods } from '@/hooks/ops/useOpsServicePeriods';
 import {
   OPS_RESTAURANTS_BASE,
   type GoogleBusinessProfileAvailableLocation,
 } from '@/services/ops/restaurants';
 
-import { AlignmentCard } from './components/AlignmentCard';
 import { ConnectCard } from './components/ConnectCard';
 import { LocationPickerCard } from './components/LocationPickerCard';
 import { PageHeader } from './components/PageHeader';
-import { SnapshotCard } from './components/SnapshotCard';
-import { deriveProfileVerification } from './googleBusinessProfileVerification';
-import { buildDriftReport } from './lib/drift';
-import { SyncV2Shell } from './v2/SyncV2Shell';
 
 type GoogleBusinessProfileSectionProps = {
   restaurantId: string | null;
@@ -58,9 +50,6 @@ function LoadingSkeleton() {
 export function GoogleBusinessProfileSection({ restaurantId }: GoogleBusinessProfileSectionProps) {
   const searchParams = useSearchParams();
   const connectionQuery = useOpsGoogleBusinessProfileConnection(restaurantId);
-  const profileQuery = useOpsRestaurantDetails(restaurantId);
-  const operatingHoursQuery = useOpsOperatingHours(restaurantId);
-  const servicePeriodsQuery = useOpsServicePeriods(restaurantId);
   const linkMutation = useOpsLinkGoogleBusinessProfileLocation(restaurantId);
   const disconnectMutation = useOpsDisconnectGoogleBusinessProfile(restaurantId);
 
@@ -247,44 +236,6 @@ export function GoogleBusinessProfileSection({ restaurantId }: GoogleBusinessPro
         />
       ) : null}
 
-      {isLinked ? (
-        <>
-          <SyncV2Shell restaurantId={restaurantId} draftId={searchParams.get('v2DraftId')} />
-
-          <section
-            aria-label="Secondary analysis"
-            className="space-y-4 rounded-lg border border-dashed border-border bg-muted/20 p-4"
-            data-testid="gbp-secondary-analysis"
-          >
-            <div className="space-y-1">
-              <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Secondary analysis
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                Reference alignment and snapshot data for deeper operational review.
-              </p>
-            </div>
-            <AlignmentCard
-              report={buildDriftReport({
-                profile: profileQuery.data,
-                connection: data,
-                verification: deriveProfileVerification({
-                  profile: profileQuery.data,
-                  connection: data,
-                }),
-              })}
-              connection={data}
-              operatingHours={operatingHoursQuery.data}
-              servicePeriods={servicePeriodsQuery.data}
-              isScheduleDataLoading={
-                (operatingHoursQuery.isLoading && !operatingHoursQuery.data) ||
-                (servicePeriodsQuery.isLoading && !servicePeriodsQuery.data)
-              }
-            />
-            <SnapshotCard businessInfo={data.businessInfo} />
-          </section>
-        </>
-      ) : null}
     </div>
   );
 }
