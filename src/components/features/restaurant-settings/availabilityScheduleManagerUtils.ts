@@ -7,7 +7,13 @@ import {
 import { normalizeTime } from '@reserve/shared/time';
 
 import { type DayServiceConfig, type WeeklyHoursEntry } from './servicePeriodsMapper';
-import { DAYS_OF_WEEK, type OverrideErrors, type OverrideRow, type WeeklyErrors, type WeeklyRow } from './types';
+import {
+  DAYS_OF_WEEK,
+  type OverrideErrors,
+  type OverrideRow,
+  type WeeklyErrors,
+  type WeeklyRow,
+} from './types';
 
 import type { OperatingHoursSnapshot } from '@/services/ops/restaurants';
 
@@ -19,6 +25,45 @@ export type MealError = {
 };
 
 export type DayErrors = Record<number, Partial<Record<MealKey, MealError>>>;
+
+export const MEAL_LABELS: Record<MealKey, string> = {
+  lunch: 'Lunch',
+  dinner: 'Dinner',
+};
+
+export const MEAL_TOOLTIPS: Record<MealKey, string> = {
+  lunch: 'Defines when lunch reservations can be booked within the kitchen operating window.',
+  dinner:
+    'Defines when dinner reservations can be booked. Keep times inside the kitchen open/close window.',
+};
+
+export type RequiredOccasionSpec = {
+  key: MealKey;
+  label: string;
+  shortLabel: string;
+  description: string;
+  defaultDurationMinutes: number;
+  displayOrder: number;
+};
+
+export const REQUIRED_SERVICE_OCCASIONS: readonly RequiredOccasionSpec[] = [
+  {
+    key: 'lunch',
+    label: 'Lunch',
+    shortLabel: 'Lunch',
+    description: 'Lunch reservation occasion.',
+    defaultDurationMinutes: 90,
+    displayOrder: 10,
+  },
+  {
+    key: 'dinner',
+    label: 'Dinner',
+    shortLabel: 'Dinner',
+    description: 'Dinner reservation occasion.',
+    defaultDurationMinutes: 120,
+    displayOrder: 20,
+  },
+];
 
 export const defaultWeeklyRows = (): WeeklyRow[] =>
   DAYS_OF_WEEK.map((_, index) => ({
@@ -158,9 +203,7 @@ export function parseSlotTimesInput(value: string): { value: string[] | null; er
   return { value: normalized };
 }
 
-export const buildWeeklyHoursMap = (
-  weeklyRows: WeeklyRow[],
-): Record<number, WeeklyHoursEntry> =>
+export const buildWeeklyHoursMap = (weeklyRows: WeeklyRow[]): Record<number, WeeklyHoursEntry> =>
   weeklyRows.reduce<Record<number, WeeklyHoursEntry>>((acc, row) => {
     acc[row.dayOfWeek] = {
       opensAt: row.isClosed ? null : toComparableTime(row.opensAt),
@@ -180,6 +223,17 @@ export const extractRequiredOccasionKeys = (options: Array<{ key: string }>) => 
   });
   return map;
 };
+
+export function buildMissingRequiredOccasions(keys: { lunch?: string; dinner?: string }) {
+  return REQUIRED_SERVICE_OCCASIONS.filter((occasion) => !keys[occasion.key]);
+}
+
+export function formatKitchenRange(start?: string | null, end?: string | null): string {
+  if (!start || !end) {
+    return 'Not set';
+  }
+  return `${start} – ${end}`;
+}
 
 export function validateHours(
   weeklyRows: WeeklyRow[],
@@ -324,13 +378,13 @@ export function validateServices(dayConfigs: DayServiceConfig[]): {
       if (!meal.startTime) {
         mealErrors.start = 'Required';
       } else if (!openComparable || !startComparable || startComparable < openComparable) {
-        mealErrors.start = 'Before opening time';
+        mealErrors.start = 'Before kitchen opens';
       }
 
       if (!meal.endTime) {
         mealErrors.end = 'Required';
       } else if (!closeComparable || !endComparable || endComparable > closeComparable) {
-        mealErrors.end = 'After closing time';
+        mealErrors.end = 'After kitchen closes';
       }
 
       if (
@@ -364,11 +418,7 @@ export function buildOperatingHoursPayload(
     weekly: weeklyRows.map((row) => ({
       dayOfWeek: row.dayOfWeek,
       opensAt: row.isClosed ? null : row.opensAt ? canonicalizeRequiredTime(row.opensAt) : null,
-      closesAt: row.isClosed
-        ? null
-        : row.closesAt
-          ? canonicalizeRequiredTime(row.closesAt)
-          : null,
+      closesAt: row.isClosed ? null : row.closesAt ? canonicalizeRequiredTime(row.closesAt) : null,
       isClosed: row.isClosed,
       notes: row.notes || null,
       reservationIntervalMinutes: row.isClosed
@@ -382,11 +432,7 @@ export function buildOperatingHoursPayload(
       id: row.id,
       effectiveDate: row.effectiveDate,
       opensAt: row.isClosed ? null : row.opensAt ? canonicalizeRequiredTime(row.opensAt) : null,
-      closesAt: row.isClosed
-        ? null
-        : row.closesAt
-          ? canonicalizeRequiredTime(row.closesAt)
-          : null,
+      closesAt: row.isClosed ? null : row.closesAt ? canonicalizeRequiredTime(row.closesAt) : null,
       isClosed: row.isClosed,
       notes: row.notes || null,
       reservationIntervalMinutes: row.isClosed

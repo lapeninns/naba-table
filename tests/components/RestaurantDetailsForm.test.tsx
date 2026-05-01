@@ -3,6 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mutateAsyncMock = vi.hoisted(() => vi.fn());
+const analyticsTrackMock = vi.hoisted(() => vi.fn());
+const analyticsEmitMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/hooks/ops/useOpsRestaurantDetails', () => ({
   useOpsUpdateRestaurantDetails: () => ({
@@ -10,14 +12,32 @@ vi.mock('@/hooks/ops/useOpsRestaurantDetails', () => ({
     isPending: false,
   }),
 }));
+vi.mock('@/lib/analytics', () => ({
+  track: analyticsTrackMock,
+}));
+vi.mock('@/lib/analytics/emit', () => ({
+  emit: analyticsEmitMock,
+}));
 
 import {
   BookingRulesSubform,
   BrandIdentitySubform,
   ContactLocationSubform,
   ManagerNotificationsSubform,
+  RestaurantDetailsForm,
   type RestaurantDetailsFormValues,
 } from '../../components/ops/restaurants/RestaurantDetailsForm';
+import {
+  buildProfileCompletionAnalytics,
+  buildTimezoneLabel,
+  compareFieldValue,
+  FIELD_TOOLTIPS,
+  getGbpStatuses,
+  mapInitialValues,
+  pickDraftValues,
+  sanitizePayload,
+  validateRestaurantDetails,
+} from '../../components/ops/restaurants/restaurantDetailsFormModel';
 
 describe('RestaurantDetailsForm subforms', () => {
   const initialValues = {
@@ -42,17 +62,27 @@ describe('RestaurantDetailsForm subforms', () => {
   beforeEach(() => {
     mutateAsyncMock.mockReset();
     mutateAsyncMock.mockResolvedValue(initialValues);
+    analyticsTrackMock.mockReset();
+    analyticsEmitMock.mockReset();
   });
 
   it('saves brand and identity fields as a partial payload', async () => {
     const user = userEvent.setup();
     const onDirtyChange = vi.fn();
+    const onDraftChange = vi.fn();
+    mutateAsyncMock.mockResolvedValueOnce({
+      ...initialValues,
+      businessDescription: 'Family friendly pub and Nepalese dining.',
+      updatedAt: '2026-04-30T19:53:00.000Z',
+    });
 
     render(
       <BrandIdentitySubform
         restaurantId="rest-1"
         initialValues={initialValues}
+        formId="profile-brand-form"
         onDirtyChange={onDirtyChange}
+        onDraftChange={onDraftChange}
       />,
     );
 
@@ -69,6 +99,44 @@ describe('RestaurantDetailsForm subforms', () => {
       }),
     );
     expect(onDirtyChange).toHaveBeenCalledWith(true);
+    expect(onDraftChange).toHaveBeenCalledWith(
+      {
+        name: 'Old Crown Girton',
+        businessDescription: '  Family friendly pub and Nepalese dining.  ',
+      },
+      true,
+    );
+    await waitFor(() => {
+      expect(onDraftChange).toHaveBeenLastCalledWith({}, false);
+      expect(onDirtyChange).toHaveBeenLastCalledWith(false);
+    });
+    expect(screen.getByRole('status')).toHaveTextContent('Brand and identity saved.');
+    expect(screen.getByRole('status')).toHaveTextContent(/last updated/i);
+    expect(analyticsTrackMock).toHaveBeenCalledWith(
+      'restaurant_profile_section_saved',
+      expect.objectContaining({
+        restaurant_id: 'rest-1',
+        section: 'brand_identity',
+        changed_field_count: 1,
+        changed_fields: ['businessDescription'],
+        required_field_count: 3,
+        completed_required_field_count: 3,
+        required_fields_complete: true,
+        profile_completion_score: 100,
+        missing_profile_fields: [],
+        saved_at: '2026-04-30T19:53:00.000Z',
+      }),
+    );
+    expect(analyticsEmitMock).toHaveBeenCalledWith(
+      'restaurant_profile_section_saved',
+      expect.objectContaining({
+        restaurant_id: 'rest-1',
+        section: 'brand_identity',
+      }),
+    );
+    expect(
+      screen.getByRole('textbox', { name: /restaurant name/i }).closest('form'),
+    ).toHaveAttribute('id', 'profile-brand-form');
   });
 
   it('saves contact and location fields without booking rules', async () => {
@@ -107,7 +175,16 @@ describe('RestaurantDetailsForm subforms', () => {
     await user.click(screen.getByRole('button', { name: /save notifications/i }));
 
     expect(mutateAsyncMock).not.toHaveBeenCalled();
-    expect(screen.getByRole('alert')).toHaveTextContent(/use e\.164 format/i);
+    expect(screen.getByText('Use E.164 format such as +447700900000')).toBeInTheDocument();
+    expect(screen.getByText(/fix the highlighted fields/i)).toBeInTheDocument();
+    expect(analyticsTrackMock).toHaveBeenCalledWith(
+      'restaurant_profile_validation_error',
+      expect.objectContaining({
+        restaurant_id: 'rest-1',
+        section: 'manager_notifications',
+        fields: ['managerNotificationPhone'],
+      }),
+    );
 
     await user.clear(screen.getByRole('textbox', { name: /manager notification number/i }));
     await user.type(
@@ -218,5 +295,131 @@ describe('RestaurantDetailsForm subforms', () => {
     );
 
     expect(screen.getAllByText(/matches gbp/i)).toHaveLength(5);
+  });
+
+  it('shows required or optional status and why-it-matters helper copy on the full form', async () => {
+    const user = userEvent.setup();
+
+    render(<RestaurantDetailsForm initialValues={initialValues} onSubmit={vi.fn()} />);
+
+    expect(screen.getAllByText('Required').length).toBeGreaterThanOrEqual(6);
+    expect(screen.getAllByText('Optional').length).toBeGreaterThanOrEqual(8);
+    expect(screen.getByText('Required if on')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /shown on the guest booking page, booking confirmations, and public-facing previews/i,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/public inbox for guest questions/i)).toBeInTheDocument();
+    expect(screen.getByText(/public fallback number guests can trust/i)).toBeInTheDocument();
+    expect(screen.getByText(/helps guests plan arrival/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/optional message shown to guests during booking/i),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /booking link/i }));
+    expect(screen.getByText(/controls the public booking url/i)).toBeInTheDocument();
+  });
+
+  it('normalizes GBP comparisons and timezone labels in the form model', () => {
+    expect(compareFieldValue('name', ' Old   Crown Girton ', 'old crown girton')).toBe(true);
+    expect(compareFieldValue('contactPhone', '+44 1223 277217', '0044 1223 277217')).toBe(false);
+    expect(compareFieldValue('contactPhone', '+44 1223 277217', '+44 (1223) 277217')).toBe(true);
+    expect(
+      compareFieldValue(
+        'googleMapUrl',
+        'https://maps.google.com/demo-venue/',
+        'https://maps.google.com/demo-venue',
+      ),
+    ).toBe(true);
+    expect(buildTimezoneLabel('Europe/London')).toMatch(/^London \(/);
+    expect(FIELD_TOOLTIPS.googleMapUrl).toMatch(/directions/i);
+  });
+
+  it('derives GBP field statuses from local and provider values', () => {
+    expect(
+      getGbpStatuses(
+        {
+          name: initialValues.name,
+          businessDescription: '',
+          contactPhone: initialValues.contactPhone ?? '',
+          address: initialValues.address ?? '',
+          googleMapUrl: initialValues.googleMapUrl ?? '',
+          googleReviewUrl: '',
+        },
+        {
+          name: {
+            status: 'verified',
+            canPull: true,
+            canPush: true,
+            providerValue: 'Old Crown Girton',
+            googleManaged: false,
+            tooltipTitle: 'Google Business Profile',
+            tooltipLines: [],
+            tooltipFooter: null,
+          },
+          googleReviewUrl: {
+            status: 'verified',
+            canPull: true,
+            canPush: false,
+            providerValue: '',
+            googleManaged: false,
+            tooltipTitle: 'Google Business Profile',
+            tooltipLines: [],
+            tooltipFooter: null,
+          },
+        },
+      ),
+    ).toMatchObject({
+      name: 'verified',
+      businessDescription: 'unavailable',
+      contactPhone: 'drifted',
+      googleMapUrl: 'drifted',
+      googleReviewUrl: 'unavailable',
+    });
+  });
+
+  it('maps, validates, sanitizes, and summarizes restaurant detail form state', () => {
+    const state = mapInitialValues({
+      ...initialValues,
+      contactEmail: null,
+      contactPhone: null,
+      address: null,
+      businessDescription: '  Pub classics and Nepalese dishes.  ',
+      bookingPolicy: null,
+    });
+
+    expect(state).toMatchObject({
+      name: 'Old Crown Girton',
+      contactEmail: '',
+      reservationIntervalMinutes: '15',
+      businessDescription: '  Pub classics and Nepalese dishes.  ',
+    });
+    expect(validateRestaurantDetails({ ...state, slug: 'Bad Slug' })).toMatchObject({
+      slug: 'Booking link slug must contain only lowercase letters, numbers, and hyphens',
+    });
+    expect(
+      sanitizePayload({
+        ...state,
+        contactEmail: ' ops@example.com ',
+        contactPhone: ' +447700900000 ',
+        bookingPolicy: ' Cancel 24 hours before arrival. ',
+      }),
+    ).toMatchObject({
+      contactEmail: 'ops@example.com',
+      contactPhone: '+447700900000',
+      businessDescription: 'Pub classics and Nepalese dishes.',
+      bookingPolicy: 'Cancel 24 hours before arrival.',
+      emailSendReminder24h: true,
+      emailSendReminderShort: true,
+      emailSendReviewRequest: true,
+    });
+    expect(pickDraftValues(state, ['name', 'reservationIntervalMinutes'])).toEqual({
+      name: 'Old Crown Girton',
+      reservationIntervalMinutes: 15,
+    });
+    expect(buildProfileCompletionAnalytics({ ...initialValues, address: null })).toMatchObject({
+      required_fields_complete: true,
+      missing_profile_fields: ['businessDescription', 'address'],
+    });
   });
 });

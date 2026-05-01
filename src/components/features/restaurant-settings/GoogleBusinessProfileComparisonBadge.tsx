@@ -3,6 +3,7 @@
 import { Check, Info, ShieldAlert, ShieldQuestion } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
@@ -84,13 +85,15 @@ export function GoogleBusinessProfileComparisonBadge({
       {hasTooltip ? (
         <Tooltip>
           <TooltipTrigger asChild>
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               className="inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
               aria-label={ariaLabel}
             >
               <Info className="size-3.5" aria-hidden />
-            </button>
+            </Button>
           </TooltipTrigger>
           <TooltipContent side="top" align="start" className="max-w-sm space-y-2 px-3 py-2">
             {tooltipTitle ? <p className="text-xs font-semibold">{tooltipTitle}</p> : null}

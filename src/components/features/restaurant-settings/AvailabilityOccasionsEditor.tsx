@@ -15,67 +15,42 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 
-import { ConfirmDialog } from './ConfirmDialog';
 import {
-  TurnBandsEditor,
-  describeTurnBands,
-  type TurnBandRowError,
-} from './TurnBandsEditor';
+  MONTH_OPTIONS,
+  buildAvailabilityRules,
+  createEmptyOccasionForm,
+  createRuleDraft,
+  describeRuleDraft,
+  formatAvailabilitySummary,
+  isServiceWindowOccasion,
+  toRuleDrafts,
+  type OccasionFormErrors,
+  type OccasionFormState,
+  type RuleDraft,
+} from './availabilityOccasionsModel';
+import { ConfirmDialog } from './ConfirmDialog';
+import { TurnBandsEditor, describeTurnBands, type TurnBandRowError } from './TurnBandsEditor';
 
 import type { OpsOccasion } from '@/services/ops/occasions';
 import type { TurnBandInput, TurnBandsPayload } from '@/services/ops/restaurants';
-import type {
-  OccasionAvailabilityRule,
-  OccasionDefinition,
-} from '@reserve/shared/occasions';
-
-const SERVICE_WINDOW_KEYS = new Set<string>(['lunch', 'dinner']);
-
-const MONTH_OPTIONS = [
-  { value: 1, label: 'Jan' },
-  { value: 2, label: 'Feb' },
-  { value: 3, label: 'Mar' },
-  { value: 4, label: 'Apr' },
-  { value: 5, label: 'May' },
-  { value: 6, label: 'Jun' },
-  { value: 7, label: 'Jul' },
-  { value: 8, label: 'Aug' },
-  { value: 9, label: 'Sep' },
-  { value: 10, label: 'Oct' },
-  { value: 11, label: 'Nov' },
-  { value: 12, label: 'Dec' },
-] as const;
-
-type RuleDraft = {
-  id: string;
-  kind: OccasionAvailabilityRule['kind'];
-  start: string;
-  end: string;
-  months: number[];
-  rangeStart: string;
-  rangeEnd: string;
-  specificDates: string[];
-  pendingDate: string;
-};
-
-type FormState = {
-  key: string;
-  label: string;
-  shortLabel: string;
-  description: string;
-  defaultDurationMinutes: number;
-  displayOrder: number;
-  availabilityRules: RuleDraft[];
-  isActive: boolean;
-  turnBands: TurnBandInput[];
-};
-
-type FormErrors = Partial<Record<'key' | 'label' | 'availability', string>>;
 
 type AvailabilityOccasionsEditorProps = {
   occasions: OpsOccasion[];
@@ -86,35 +61,6 @@ type AvailabilityOccasionsEditorProps = {
   onTurnBandsChange?: (optionKey: string, next: TurnBandInput[]) => void;
 };
 
-const buildRuleId = () =>
-  typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-    ? crypto.randomUUID()
-    : `rule-${Math.random().toString(36).slice(2, 10)}`;
-
-const createRuleDraft = (kind: OccasionAvailabilityRule['kind'] = 'anytime'): RuleDraft => ({
-  id: buildRuleId(),
-  kind,
-  start: '',
-  end: '',
-  months: [],
-  rangeStart: '',
-  rangeEnd: '',
-  specificDates: [],
-  pendingDate: '',
-});
-
-const createEmptyForm = (): FormState => ({
-  key: '',
-  label: '',
-  shortLabel: '',
-  description: '',
-  defaultDurationMinutes: 90,
-  displayOrder: 10,
-  availabilityRules: [createRuleDraft('anytime')],
-  isActive: true,
-  turnBands: [],
-});
-
 export function AvailabilityOccasionsEditor({
   occasions,
   onChange,
@@ -124,13 +70,14 @@ export function AvailabilityOccasionsEditor({
   onTurnBandsChange,
 }: AvailabilityOccasionsEditorProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState<FormState>(() => createEmptyForm());
-  const [formErrors, setFormErrors] = useState<FormErrors>({});
+  const [form, setForm] = useState<OccasionFormState>(() => createEmptyOccasionForm());
+  const [formErrors, setFormErrors] = useState<OccasionFormErrors>({});
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [pendingDeleteKey, setPendingDeleteKey] = useState<string | null>(null);
 
   const sortedOccasions = useMemo(
-    () => [...occasions].sort((left, right) => (left.displayOrder ?? 0) - (right.displayOrder ?? 0)),
+    () =>
+      [...occasions].sort((left, right) => (left.displayOrder ?? 0) - (right.displayOrder ?? 0)),
     [occasions],
   );
   const availabilityPreview = useMemo(() => {
@@ -146,7 +93,7 @@ export function AvailabilityOccasionsEditor({
         ? Math.max(...sortedOccasions.map((item) => item.displayOrder)) + 10
         : 10;
     setEditingKey(null);
-    setForm({ ...createEmptyForm(), displayOrder: nextOrder });
+    setForm({ ...createEmptyOccasionForm(), displayOrder: nextOrder });
     setFormErrors({});
     setDialogOpen(true);
   };
@@ -170,7 +117,7 @@ export function AvailabilityOccasionsEditor({
 
   const closeDialog = () => {
     setDialogOpen(false);
-    setForm(createEmptyForm());
+    setForm(createEmptyOccasionForm());
     setEditingKey(null);
     setFormErrors({});
   };
@@ -178,7 +125,7 @@ export function AvailabilityOccasionsEditor({
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const errors: FormErrors = {};
+    const errors: OccasionFormErrors = {};
     if (!form.label.trim()) {
       errors.label = 'Label is required';
     }
@@ -264,7 +211,7 @@ export function AvailabilityOccasionsEditor({
   };
 
   const pendingDeleteOccasion = pendingDeleteKey
-    ? sortedOccasions.find((item) => item.key === pendingDeleteKey) ?? null
+    ? (sortedOccasions.find((item) => item.key === pendingDeleteKey) ?? null)
     : null;
 
   const toggleOccasion = (targetKey: string, nextActive: boolean) => {
@@ -284,7 +231,7 @@ export function AvailabilityOccasionsEditor({
     }));
   };
 
-  const replaceRuleKind = (ruleId: string, kind: OccasionAvailabilityRule['kind']) => {
+  const replaceRuleKind = (ruleId: string, kind: RuleDraft['kind']) => {
     setForm((current) => ({
       ...current,
       availabilityRules: current.availabilityRules.map((rule) =>
@@ -383,58 +330,64 @@ export function AvailabilityOccasionsEditor({
             </TableHeader>
             <TableBody>
               {sortedOccasions.map((occasion) => {
-                const isServiceWindow = SERVICE_WINDOW_KEYS.has(occasion.key);
+                const isServiceWindow = isServiceWindowOccasion(occasion.key);
                 return (
-                <TableRow key={occasion.key} id={`occasion-row-${occasion.key}`} className="scroll-mt-28">
-                  <TableCell className="space-y-1 font-medium">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span>{occasion.label}</span>
-                      {isServiceWindow ? (
-                        <Badge variant="outline" className="border-primary/40 text-primary">
-                          Service window
-                        </Badge>
-                      ) : null}
-                      {occasion.isBuiltin ? <Badge variant="secondary">Builtin</Badge> : null}
-                    </div>
-                    <p className="text-xs font-normal text-muted-foreground">{occasion.shortLabel}</p>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {formatAvailabilitySummary(occasion.availability)}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Switch
-                        id={`occasion-${occasion.key}-active`}
-                        aria-label={`Toggle ${occasion.label}`}
-                        checked={occasion.isActive}
-                        onCheckedChange={(checked) => toggleOccasion(occasion.key, checked)}
-                      />
-                      <span className="text-sm text-muted-foreground">
-                        {occasion.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {describeTurnBands(
-                      turnBands?.[occasion.key],
-                      `${occasion.defaultDurationMinutes} min (default)`,
-                    )}
-                  </TableCell>
-                  <TableCell className="space-x-2 text-right">
-                    <Button variant="outline" size="sm" onClick={() => openForEdit(occasion)}>
-                      Edit
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={occasion.isBuiltin}
-                      onClick={() => handleDelete(occasion)}
-                      className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
-                    >
-                      Delete
-                    </Button>
-                  </TableCell>
-                </TableRow>
+                  <TableRow
+                    key={occasion.key}
+                    id={`occasion-row-${occasion.key}`}
+                    className="scroll-mt-28"
+                  >
+                    <TableCell className="space-y-1 font-medium">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span>{occasion.label}</span>
+                        {isServiceWindow ? (
+                          <Badge variant="outline" className="border-primary/40 text-primary">
+                            Service window
+                          </Badge>
+                        ) : null}
+                        {occasion.isBuiltin ? <Badge variant="secondary">Builtin</Badge> : null}
+                      </div>
+                      <p className="text-xs font-normal text-muted-foreground">
+                        {occasion.shortLabel}
+                      </p>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {formatAvailabilitySummary(occasion.availability)}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          id={`occasion-${occasion.key}-active`}
+                          aria-label={`Toggle ${occasion.label}`}
+                          checked={occasion.isActive}
+                          onCheckedChange={(checked) => toggleOccasion(occasion.key, checked)}
+                        />
+                        <span className="text-sm text-muted-foreground">
+                          {occasion.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {describeTurnBands(
+                        turnBands?.[occasion.key],
+                        `${occasion.defaultDurationMinutes} min (default)`,
+                      )}
+                    </TableCell>
+                    <TableCell className="space-x-2 text-right">
+                      <Button variant="outline" size="sm" onClick={() => openForEdit(occasion)}>
+                        Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={occasion.isBuiltin}
+                        onClick={() => handleDelete(occasion)}
+                        className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+                      >
+                        Delete
+                      </Button>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
             </TableBody>
@@ -442,12 +395,15 @@ export function AvailabilityOccasionsEditor({
         </div>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={(open) => (!open ? closeDialog() : setDialogOpen(true))}>
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={(open) => (!open ? closeDialog() : setDialogOpen(true))}
+      >
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>{editingKey ? 'Edit occasion' : 'New occasion'}</DialogTitle>
             <DialogDescription>
-              {editingKey && SERVICE_WINDOW_KEYS.has(editingKey)
+              {editingKey && isServiceWindowOccasion(editingKey)
                 ? 'This occasion also defines a service window. Adjust its label, turn times, and related settings here — the window itself (day-by-day on/off and start/end) lives in the Weekly schedule tab above.'
                 : 'Define how the occasion appears in booking flows and when guests can select it.'}
             </DialogDescription>
@@ -463,7 +419,9 @@ export function AvailabilityOccasionsEditor({
                   placeholder="e.g., birthday"
                   aria-invalid={Boolean(formErrors.key)}
                 />
-                {formErrors.key ? <p className="text-xs text-destructive">{formErrors.key}</p> : null}
+                {formErrors.key ? (
+                  <p className="text-xs text-destructive">{formErrors.key}</p>
+                ) : null}
               </div>
             ) : null}
 
@@ -476,7 +434,9 @@ export function AvailabilityOccasionsEditor({
                   onChange={(event) => setForm((prev) => ({ ...prev, label: event.target.value }))}
                   aria-invalid={Boolean(formErrors.label)}
                 />
-                {formErrors.label ? <p className="text-xs text-destructive">{formErrors.label}</p> : null}
+                {formErrors.label ? (
+                  <p className="text-xs text-destructive">{formErrors.label}</p>
+                ) : null}
               </div>
 
               <div className="space-y-1">
@@ -484,7 +444,9 @@ export function AvailabilityOccasionsEditor({
                 <Input
                   id="availability-occasion-short"
                   value={form.shortLabel}
-                  onChange={(event) => setForm((prev) => ({ ...prev, shortLabel: event.target.value }))}
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, shortLabel: event.target.value }))
+                  }
                 />
               </div>
             </div>
@@ -494,7 +456,9 @@ export function AvailabilityOccasionsEditor({
               <Textarea
                 id="availability-occasion-description"
                 value={form.description}
-                onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, description: event.target.value }))
+                }
                 rows={3}
               />
             </div>
@@ -554,7 +518,10 @@ export function AvailabilityOccasionsEditor({
 
               <div className="space-y-3">
                 {form.availabilityRules.map((rule, index) => (
-                  <div key={rule.id} className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-4">
+                  <div
+                    key={rule.id}
+                    className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-4"
+                  >
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <p className="text-sm font-medium text-foreground">Rule {index + 1}</p>
                       <Button
@@ -571,7 +538,12 @@ export function AvailabilityOccasionsEditor({
 
                     <div className="space-y-1">
                       <Label>Rule type</Label>
-                      <Select value={rule.kind} onValueChange={(value) => replaceRuleKind(rule.id, value as OccasionAvailabilityRule['kind'])}>
+                      <Select
+                        value={rule.kind}
+                        onValueChange={(value) =>
+                          replaceRuleKind(rule.id, value as RuleDraft['kind'])
+                        }
+                      >
                         <SelectTrigger aria-label={`Rule ${index + 1} type`}>
                           <SelectValue placeholder="Choose a rule type" />
                         </SelectTrigger>
@@ -587,7 +559,8 @@ export function AvailabilityOccasionsEditor({
 
                     {rule.kind === 'anytime' ? (
                       <p className="text-sm text-muted-foreground">
-                        Guests can choose this occasion at any time the restaurant is taking bookings.
+                        Guests can choose this occasion at any time the restaurant is taking
+                        bookings.
                       </p>
                     ) : null}
 
@@ -651,7 +624,9 @@ export function AvailabilityOccasionsEditor({
                           <Input
                             type="date"
                             value={rule.rangeEnd}
-                            onChange={(event) => updateRule(rule.id, { rangeEnd: event.target.value })}
+                            onChange={(event) =>
+                              updateRule(rule.id, { rangeEnd: event.target.value })
+                            }
                           />
                         </div>
                       </div>
@@ -670,20 +645,26 @@ export function AvailabilityOccasionsEditor({
                               }
                             />
                           </div>
-                          <Button type="button" variant="outline" onClick={() => addSpecificDate(rule.id)}>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => addSpecificDate(rule.id)}
+                          >
                             Add date
                           </Button>
                         </div>
                         <div className="flex flex-wrap gap-2">
                           {rule.specificDates.map((date) => (
-                            <button
+                            <Button
                               key={date}
                               type="button"
+                              variant="outline"
+                              size="sm"
                               onClick={() => removeSpecificDate(rule.id, date)}
-                              className="rounded-full border border-border/70 px-3 py-1 text-sm text-foreground transition hover:border-destructive/40 hover:bg-destructive/5"
+                              className="h-auto rounded-full px-3 py-1 text-sm text-foreground hover:border-destructive/40 hover:bg-destructive/5"
                             >
                               {date}
-                            </button>
+                            </Button>
                           ))}
                         </div>
                       </div>
@@ -715,7 +696,7 @@ export function AvailabilityOccasionsEditor({
                     Dining durations by party size
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {editingKey && SERVICE_WINDOW_KEYS.has(editingKey)
+                    {editingKey && isServiceWindowOccasion(editingKey)
                       ? `How long tables are held for each party size inside the ${form.label || editingKey} service window. Leave empty to fall back to `
                       : 'Override the default duration above with per-party-size bands. Leave empty to fall back to '}
                     <span className="font-medium text-foreground">
@@ -726,12 +707,8 @@ export function AvailabilityOccasionsEditor({
                 </div>
                 <TurnBandsEditor
                   bands={form.turnBands}
-                  defaults={
-                    editingKey ? turnBandDefaults?.[editingKey] ?? [] : undefined
-                  }
-                  errors={
-                    editingKey ? turnBandErrors?.[editingKey] : undefined
-                  }
+                  defaults={editingKey ? (turnBandDefaults?.[editingKey] ?? []) : undefined}
+                  errors={editingKey ? turnBandErrors?.[editingKey] : undefined}
                   fallbackLabel={`Defaults to ${form.defaultDurationMinutes} min for every party size.`}
                   onChange={(next) => setForm((prev) => ({ ...prev, turnBands: next }))}
                   dense
@@ -777,141 +754,4 @@ export function AvailabilityOccasionsEditor({
       />
     </section>
   );
-}
-
-function toRuleDrafts(availability: OccasionDefinition['availability']): RuleDraft[] {
-  if (!availability || availability.length === 0) {
-    return [createRuleDraft('anytime')];
-  }
-
-  return availability.map((rule) => {
-    switch (rule.kind) {
-      case 'anytime':
-        return createRuleDraft('anytime');
-      case 'time_window':
-        return { ...createRuleDraft('time_window'), start: rule.start, end: rule.end };
-      case 'month_only':
-        return { ...createRuleDraft('month_only'), months: [...rule.months] };
-      case 'date_range':
-        return {
-          ...createRuleDraft('date_range'),
-          rangeStart: rule.start,
-          rangeEnd: rule.end,
-        };
-      case 'specific_dates':
-        return {
-          ...createRuleDraft('specific_dates'),
-          specificDates: [...rule.dates],
-        };
-      default:
-        return createRuleDraft('anytime');
-    }
-  });
-}
-
-function buildAvailabilityRules(
-  drafts: RuleDraft[],
-): { valid: true; rules: OccasionDefinition['availability'] } | { valid: false; error: string } {
-  const rules: OccasionDefinition['availability'] = [];
-
-  for (const draft of drafts) {
-    switch (draft.kind) {
-      case 'anytime':
-        rules.push({ kind: 'anytime' });
-        break;
-      case 'time_window': {
-        if (!draft.start || !draft.end) {
-          return { valid: false, error: 'Add both a start and end time for each time-window rule.' };
-        }
-        if (draft.end <= draft.start) {
-          return { valid: false, error: 'Time-window end times must be later than start times.' };
-        }
-        rules.push({ kind: 'time_window', start: draft.start, end: draft.end });
-        break;
-      }
-      case 'month_only': {
-        if (draft.months.length === 0) {
-          return { valid: false, error: 'Select at least one month for each month-based rule.' };
-        }
-        rules.push({ kind: 'month_only', months: draft.months });
-        break;
-      }
-      case 'date_range': {
-        if (!draft.rangeStart || !draft.rangeEnd) {
-          return { valid: false, error: 'Add both dates for each date-range rule.' };
-        }
-        rules.push({
-          kind: 'date_range',
-          start: draft.rangeStart,
-          end: draft.rangeEnd,
-        });
-        break;
-      }
-      case 'specific_dates': {
-        if (draft.specificDates.length === 0) {
-          return { valid: false, error: 'Add at least one date for each specific-date rule.' };
-        }
-        rules.push({ kind: 'specific_dates', dates: draft.specificDates });
-        break;
-      }
-      default:
-        return { valid: false, error: 'Choose a valid availability rule type.' };
-    }
-  }
-
-  return { valid: true, rules };
-}
-
-function describeRuleDraft(rule: RuleDraft): string {
-  switch (rule.kind) {
-    case 'anytime':
-      return 'Available any time guests can book.';
-    case 'time_window':
-      return rule.start && rule.end
-        ? `Available between ${rule.start} and ${rule.end}.`
-        : 'Choose the start and end time for this window.';
-    case 'month_only':
-      return rule.months.length > 0
-        ? `Available in ${rule.months
-            .map((month) => MONTH_OPTIONS.find((option) => option.value === month)?.label ?? month)
-            .join(', ')}.`
-        : 'Select the months when this occasion should appear.';
-    case 'date_range':
-      return rule.rangeStart && rule.rangeEnd
-        ? `Available from ${rule.rangeStart} through ${rule.rangeEnd}.`
-        : 'Choose the date range when this occasion should appear.';
-    case 'specific_dates':
-      return rule.specificDates.length > 0
-        ? `Available on ${rule.specificDates.join(', ')}.`
-        : 'Add one or more individual dates for this occasion.';
-    default:
-      return 'Choose when guests can select this occasion.';
-  }
-}
-
-function formatAvailabilitySummary(availability: OccasionDefinition['availability']): string {
-  if (!availability || availability.length === 0) {
-    return 'Always available';
-  }
-
-  return availability
-    .map((rule) => {
-      switch (rule.kind) {
-        case 'anytime':
-          return 'Always available';
-        case 'time_window':
-          return `${rule.start}-${rule.end}`;
-        case 'month_only':
-          return `Months: ${rule.months
-            .map((month) => MONTH_OPTIONS.find((option) => option.value === month)?.label ?? month)
-            .join(', ')}`;
-        case 'date_range':
-          return `${rule.start} to ${rule.end}`;
-        case 'specific_dates':
-          return rule.dates.join(', ');
-        default:
-          return 'Custom rule';
-      }
-    })
-    .join(' · ');
 }

@@ -8,10 +8,28 @@ import { SettingsCard } from '@/components/features/restaurant-settings/shared/S
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { opsHref } from '@/lib/url/opsHref';
 import { cn } from '@/lib/utils';
 
+import {
+  ALIGNMENT_TAB_ORDER,
+  AVAILABILITY_WORKSPACE_HREF,
+  GBP_ALIGNMENT_DAY_INDICES,
+  countsFor,
+  hasWeeklyScheduleContext,
+  servicePeriodsDayCounts,
+  tabTone,
+  type AlignmentCounts,
+  type AlignmentTabId,
+} from './alignmentModel';
 import { GbpReadOnlyScheduleDayCard } from './GbpReadOnlyScheduleDayCard';
 import { GoogleBusinessProfileComparisonBadge } from '../../GoogleBusinessProfileComparisonBadge';
 import { formatGbpDay } from '../lib/formatters';
@@ -31,55 +49,7 @@ type AlignmentCardProps = {
   isScheduleDataLoading: boolean;
 };
 
-type TabId = 'profile' | 'hours';
-
-type TabMeta = {
-  id: TabId;
-  label: string;
-  sourceId: DriftGroupSummary['id'];
-};
-
-const TAB_ORDER: TabMeta[] = [
-  { id: 'profile', label: 'Profile', sourceId: 'profile' },
-  { id: 'hours', label: 'Weekly availability', sourceId: 'hours' },
-];
-
-const AVAILABILITY_WORKSPACE_HREF = opsHref('/settings/restaurant/availability');
-
-function hasWeeklyScheduleContext(
-  connection: GoogleBusinessProfileConnection,
-  operatingHours: OperatingHoursSnapshot | null | undefined,
-) {
-  const g = connection.businessInfo.coreNormalization.operatingHours.weekly.length;
-  const n = operatingHours?.weekly?.length ?? 0;
-  return g > 0 || n > 0;
-}
-
-const DAY_INDICES = [0, 1, 2, 3, 4, 5, 6] as const;
-
-function countsFor(rows: DriftGroupSummary['rows']) {
-  return rows.reduce(
-    (acc, row) => {
-      if (row.status === 'drift') acc.drift += 1;
-      else if (row.status === 'partial') acc.partial += 1;
-      else if (row.status === 'verified') acc.verified += 1;
-      else acc.unavailable += 1;
-      return acc;
-    },
-    { drift: 0, partial: 0, verified: 0, unavailable: 0 },
-  );
-}
-
-type TabCounts = ReturnType<typeof countsFor>;
-
-function tabTone(counts: TabCounts): 'drift' | 'partial' | 'verified' | 'muted' {
-  if (counts.drift > 0) return 'drift';
-  if (counts.partial > 0) return 'partial';
-  if (counts.verified > 0) return 'verified';
-  return 'muted';
-}
-
-function TabCountDot({ counts }: { counts: TabCounts }) {
+function TabCountDot({ counts }: { counts: AlignmentCounts }) {
   const tone = tabTone(counts);
   if (tone === 'muted') return null;
   const count = counts.drift + counts.partial;
@@ -116,44 +86,6 @@ function ComparisonPill({ status }: { status: DriftRowStatus }) {
   return <GoogleBusinessProfileComparisonBadge status={mapped} />;
 }
 
-type GoogleServicePeriod =
-  GoogleBusinessProfileConnection['businessInfo']['coreNormalization']['servicePeriods']['periods'][number];
-
-const STATUS_RANK: Record<DriftRowStatus, number> = {
-  drift: 3,
-  partial: 2,
-  unavailable: 1,
-  verified: 0,
-};
-
-function worstDriftStatus(a: DriftRowStatus, b: DriftRowStatus): DriftRowStatus {
-  return STATUS_RANK[a] >= STATUS_RANK[b] ? a : b;
-}
-
-function mealDriftStatus(google: GoogleServicePeriod | null): DriftRowStatus {
-  if (!google) return 'unavailable';
-  if (google.matchesCore === null) return 'unavailable';
-  return google.matchesCore ? 'verified' : 'drift';
-}
-
-function servicePeriodsDayCounts(periods: GoogleServicePeriod[]): TabCounts {
-  return DAY_INDICES.reduce(
-    (acc, dayOfWeek) => {
-      const gLunch =
-        periods.find((p) => p.bookingOption === 'lunch' && p.dayOfWeek === dayOfWeek) ?? null;
-      const gDinner =
-        periods.find((p) => p.bookingOption === 'dinner' && p.dayOfWeek === dayOfWeek) ?? null;
-      const dayStatus = worstDriftStatus(mealDriftStatus(gLunch), mealDriftStatus(gDinner));
-      if (dayStatus === 'drift') acc.drift += 1;
-      else if (dayStatus === 'partial') acc.partial += 1;
-      else if (dayStatus === 'verified') acc.verified += 1;
-      else acc.unavailable += 1;
-      return acc;
-    },
-    { drift: 0, partial: 0, verified: 0, unavailable: 0 },
-  );
-}
-
 function CompactDriftTable({
   rows,
   emptyLabel,
@@ -171,72 +103,62 @@ function CompactDriftTable({
 
   return (
     <div className="overflow-hidden rounded-lg border border-border/60">
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-border/70">
-          <thead className="bg-muted/50 text-[11px] uppercase tracking-wide text-muted-foreground">
-            <tr>
-              <th scope="col" className="px-3 py-1.5 text-left font-medium">
-                Item
-              </th>
-              <th scope="col" className="px-3 py-1.5 text-left font-medium">
-                Google
-              </th>
-              <th scope="col" className="px-3 py-1.5 text-left font-medium">
-                Nabatable
-              </th>
-              <th scope="col" className="w-px px-3 py-1.5 text-right font-medium">
-                Status
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border/60 text-sm">
-            {rows.map((row) => {
-              const needsAttention = row.status === 'drift' || row.status === 'partial';
-              return (
-                <tr
-                  key={row.id}
-                  className={cn(needsAttention ? 'bg-amber-50/40' : 'bg-background')}
+      <Table>
+        <TableHeader className="bg-muted/50 text-[11px] uppercase tracking-wide text-muted-foreground">
+          <TableRow>
+            <TableHead className="h-auto px-3 py-1.5 text-left font-medium">Item</TableHead>
+            <TableHead className="h-auto px-3 py-1.5 text-left font-medium">Google</TableHead>
+            <TableHead className="h-auto px-3 py-1.5 text-left font-medium">Nabatable</TableHead>
+            <TableHead className="h-auto w-px px-3 py-1.5 text-right font-medium">Status</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody className="divide-y divide-border/60 text-sm">
+          {rows.map((row) => {
+            const needsAttention = row.status === 'drift' || row.status === 'partial';
+            return (
+              <TableRow
+                key={row.id}
+                className={cn(needsAttention ? 'bg-amber-50/40' : 'bg-background')}
+              >
+                <TableHead
+                  scope="row"
+                  className="h-auto whitespace-nowrap px-3 py-2 text-left align-middle text-sm font-medium text-foreground"
                 >
-                  <th
-                    scope="row"
-                    className="whitespace-nowrap px-3 py-2 text-left align-middle text-sm font-medium text-foreground"
-                  >
-                    {row.label}
-                  </th>
-                  <td className="px-3 py-2 align-middle text-sm text-foreground/80">
-                    <span className="block max-w-[28ch] truncate" title={row.googleValue}>
-                      {row.googleValue}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 align-middle text-sm font-medium text-foreground">
-                    <span className="block max-w-[28ch] truncate" title={row.nabatableValue}>
-                      {row.nabatableValue}
-                    </span>
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2 align-middle text-right">
-                    <div className="inline-flex items-center gap-1">
-                      <ComparisonPill status={row.status} />
-                      {row.editHref && needsAttention ? (
-                        <Button
-                          asChild
-                          size="sm"
-                          variant="ghost"
-                          className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-                          aria-label={`Edit ${row.label} in Nabatable`}
-                        >
-                          <Link href={row.editHref}>
-                            <ArrowUpRight className="size-3.5" aria-hidden />
-                          </Link>
-                        </Button>
-                      ) : null}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                  {row.label}
+                </TableHead>
+                <TableCell className="px-3 py-2 align-middle text-sm text-foreground/80">
+                  <span className="block max-w-[28ch] truncate" title={row.googleValue}>
+                    {row.googleValue}
+                  </span>
+                </TableCell>
+                <TableCell className="px-3 py-2 align-middle text-sm font-medium text-foreground">
+                  <span className="block max-w-[28ch] truncate" title={row.nabatableValue}>
+                    {row.nabatableValue}
+                  </span>
+                </TableCell>
+                <TableCell className="whitespace-nowrap px-3 py-2 align-middle text-right">
+                  <div className="inline-flex items-center gap-1">
+                    <ComparisonPill status={row.status} />
+                    {row.editHref && needsAttention ? (
+                      <Button
+                        asChild
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                        aria-label={`Edit ${row.label} in Nabatable`}
+                      >
+                        <Link href={row.editHref}>
+                          <ArrowUpRight className="size-3.5" aria-hidden />
+                        </Link>
+                      </Button>
+                    ) : null}
+                  </div>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
     </div>
   );
 }
@@ -289,7 +211,7 @@ export function AlignmentCard({
     for (const group of groups) {
       bySource.set(group.id, group);
     }
-    return TAB_ORDER.map((meta) => {
+    return ALIGNMENT_TAB_ORDER.map((meta) => {
       const source = bySource.get(meta.sourceId);
       const rows = source?.rows ?? [];
       const isHoursTab = meta.id === 'hours';
@@ -321,7 +243,7 @@ export function AlignmentCard({
 
   const dayCards = useMemo(() => {
     const norm = connection.businessInfo.coreNormalization;
-    return DAY_INDICES.map((dayOfWeek) => {
+    return GBP_ALIGNMENT_DAY_INDICES.map((dayOfWeek) => {
       const googleWeekly =
         norm.operatingHours.weekly.find((w) => w.dayOfWeek === dayOfWeek) ?? null;
       const nabWeekly = operatingHours?.weekly.find((w) => w.dayOfWeek === dayOfWeek);
@@ -349,7 +271,7 @@ export function AlignmentCard({
     });
   }, [connection.businessInfo.coreNormalization, operatingHours, servicePeriods]);
 
-  const [activeTab, setActiveTab] = useState<TabId>(() => {
+  const [activeTab, setActiveTab] = useState<AlignmentTabId>(() => {
     const attention = tabsWithData.find((t) => t.counts.drift > 0 || t.counts.partial > 0);
     if (attention && !attention.disabled) return attention.meta.id;
     const firstNonEmpty = tabsWithData.find((t) => t.rows.length > 0 && !t.disabled);
@@ -401,12 +323,14 @@ export function AlignmentCard({
         </div>
       ) : (
         <div className="space-y-4">
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabId)}>
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as AlignmentTabId)}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <TabsList className="h-auto flex-wrap gap-1 p-1">
                 {tabsWithData.map(({ meta, rows, counts, disabled }) => {
                   const countLabel =
-                    meta.id === 'hours' ? DAY_INDICES.length + overrideRows.length : rows.length;
+                    meta.id === 'hours'
+                      ? GBP_ALIGNMENT_DAY_INDICES.length + overrideRows.length
+                      : rows.length;
                   return (
                     <TabsTrigger
                       key={meta.id}

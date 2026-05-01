@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -240,11 +240,13 @@ function createDrinkMenuService(overrides: Partial<DrinkMenuService> = {}): Drin
 }
 
 function renderClient(options?: {
+  memberships?: OpsMembership[];
   menuService?: MenuService;
   drinkMenuService?: DrinkMenuService;
   searchParams?: string;
 }) {
   navigationMocks.searchParams = options?.searchParams ?? '';
+  const activeMemberships = options?.memberships ?? memberships;
 
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -260,7 +262,11 @@ function renderClient(options?: {
           drinkMenuService: () => options?.drinkMenuService ?? createDrinkMenuService(),
         }}
       >
-        <OpsSessionProvider user={user} memberships={memberships} initialRestaurantId="rest-1">
+        <OpsSessionProvider
+          user={activeMemberships.length > 0 ? user : null}
+          memberships={activeMemberships}
+          initialRestaurantId={activeMemberships[0]?.restaurantId ?? null}
+        >
           <OpsMenuManagementClient />
         </OpsSessionProvider>
       </OpsServicesProvider>
@@ -274,6 +280,25 @@ afterEach(() => {
 });
 
 describe('OpsMenuManagementClient', () => {
+  it('shows a no-access state when the operator has no restaurant memberships', () => {
+    renderClient({ memberships: [] });
+
+    expect(screen.getByText('No restaurant access')).toBeInTheDocument();
+    expect(screen.queryByText('Food menu')).not.toBeInTheDocument();
+  });
+
+  it('switches catalog mode through the route query string', async () => {
+    const user = userEvent.setup();
+    renderClient();
+
+    await user.click(screen.getByRole('tab', { name: 'Drinks menu' }));
+
+    expect(navigationMocks.routerReplaceMock).toHaveBeenCalledWith(
+      '/app/settings/restaurant/menu?catalog=drinks',
+      { scroll: false },
+    );
+  });
+
   it('renders menu rows and opens the edit sheet', async () => {
     const user = userEvent.setup();
     renderClient();
@@ -288,13 +313,46 @@ describe('OpsMenuManagementClient', () => {
 
   it('captures search input changes', async () => {
     const user = userEvent.setup();
-    renderClient();
+    const menuService = createMenuService();
+    renderClient({ menuService });
 
     expect(await screen.findByText('Burrata')).toBeInTheDocument();
 
     await user.type(screen.getByPlaceholderText('Search name, category, subcategory'), 'Burr');
 
     expect(screen.getByDisplayValue('Burr')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(menuService.listItems).toHaveBeenLastCalledWith(
+        'rest-1',
+        expect.objectContaining({
+          search: 'Burr',
+          status: 'all',
+        }),
+      ),
+    );
+  });
+
+  it('shows a food list error state', async () => {
+    renderClient({
+      menuService: createMenuService({
+        listItems: vi.fn().mockRejectedValue(new Error('Food list request failed.')),
+      }),
+    });
+
+    expect(await screen.findByText('Unable to load food items.')).toBeInTheDocument();
+  });
+
+  it('shows an empty food list state', async () => {
+    renderClient({
+      menuService: createMenuService({
+        listItems: vi.fn().mockResolvedValue({
+          items: [],
+          facets: { categories: [], serviceTimes: [], subcategories: [] },
+        }),
+      }),
+    });
+
+    expect(await screen.findByText('No food items match the current filters.')).toBeInTheDocument();
   });
 
   it('shows an error state instead of a blank create form when food item loading fails', async () => {

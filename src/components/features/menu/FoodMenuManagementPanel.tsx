@@ -1,7 +1,7 @@
 'use client';
 
 import { Loader2, Plus, Upload } from 'lucide-react';
-import { cloneElement, isValidElement, useId, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 import { ConfirmDialog } from '@/components/features/restaurant-settings/ConfirmDialog';
@@ -16,15 +16,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useOpsCreateMenuItem, useOpsMenuItem, useOpsMenuList, useOpsUpdateMenuItem } from '@/hooks/ops/useOpsMenu';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  useOpsCreateMenuItem,
+  useOpsMenuItem,
+  useOpsMenuList,
+  useOpsUpdateMenuItem,
+} from '@/hooks/ops/useOpsMenu';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 
+import { MENU_STATUS_FILTER_OPTIONS, MenuFilterField } from './MenuFilterControls';
 import { MenuImportDialog } from './MenuImportDialog';
 import { MenuItemSheet } from './MenuItemSheet';
 
 import type { MenuItemUpsertInput, MenuListStatusFilter } from '@/server/menu/types';
-import type { ReactElement, ReactNode } from 'react';
 
 const EMPTY_FACETS = {
   categories: [],
@@ -32,11 +44,7 @@ const EMPTY_FACETS = {
   serviceTimes: [],
 };
 
-export function FoodMenuManagementPanel({
-  restaurantId,
-}: {
-  restaurantId: string | null;
-}) {
+export function FoodMenuManagementPanel({ restaurantId }: { restaurantId: string | null }) {
   const [searchInput, setSearchInput] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [subcategoryFilter, setSubcategoryFilter] = useState<string>('');
@@ -111,26 +119,30 @@ export function FoodMenuManagementPanel({
       }
     >
       <div className="grid gap-4 lg:grid-cols-[2fr,1fr,1fr,1fr]">
-        <Field label="Search">
-          <Input value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="Search name, category, subcategory" />
-        </Field>
-        <Field label="Category">
+        <MenuFilterField label="Search">
+          <Input
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+            placeholder="Search name, category, subcategory"
+          />
+        </MenuFilterField>
+        <MenuFilterField label="Category">
           <Input
             list="menu-filter-category-options"
             value={categoryFilter}
             onChange={(event) => setCategoryFilter(event.target.value)}
             placeholder="All categories"
           />
-        </Field>
-        <Field label="Subcategory">
+        </MenuFilterField>
+        <MenuFilterField label="Subcategory">
           <Input
             list="menu-filter-subcategory-options"
             value={subcategoryFilter}
             onChange={(event) => setSubcategoryFilter(event.target.value)}
             placeholder="All subcategories"
           />
-        </Field>
-        <Field label="Status">
+        </MenuFilterField>
+        <MenuFilterField label="Status">
           <Select
             value={statusFilter}
             onValueChange={(value) => setStatusFilter(value as MenuListStatusFilter)}
@@ -139,15 +151,14 @@ export function FoodMenuManagementPanel({
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="inactive">Inactive</SelectItem>
-              <SelectItem value="sold-out">Sold out</SelectItem>
-              <SelectItem value="available">Available</SelectItem>
-              <SelectItem value="unavailable">Unavailable</SelectItem>
+              {MENU_STATUS_FILTER_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
-        </Field>
+        </MenuFilterField>
       </div>
 
       {listQuery.isError ? (
@@ -187,21 +198,27 @@ export function FoodMenuManagementPanel({
                   </TableCell>
                   <TableCell>
                     <div>{item.category}</div>
-                    <div className="text-xs text-muted-foreground">{item.subcategory ?? 'No subcategory'}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {item.subcategory ?? 'No subcategory'}
+                    </div>
                   </TableCell>
                   <TableCell>
                     {item.currency} {item.basePrice.toFixed(2)}
                   </TableCell>
                   <TableCell>{item.serviceTime ?? 'Not set'}</TableCell>
                   <TableCell>
-                    <Badge variant={item.availabilityStatus === 'available' ? 'default' : 'secondary'}>
+                    <Badge
+                      variant={item.availabilityStatus === 'available' ? 'default' : 'secondary'}
+                    >
                       {item.availabilityStatus}
                     </Badge>
                   </TableCell>
                   <TableCell>{item.modifierGroupCount}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-2">
-                      <Badge variant={item.active ? 'default' : 'secondary'}>{item.active ? 'Active' : 'Inactive'}</Badge>
+                      <Badge variant={item.active ? 'default' : 'secondary'}>
+                        {item.active ? 'Active' : 'Inactive'}
+                      </Badge>
                       {item.soldOut ? <Badge variant="outline">Sold out</Badge> : null}
                     </div>
                   </TableCell>
@@ -243,8 +260,8 @@ export function FoodMenuManagementPanel({
           }
         }}
         isExistingItem={Boolean(selectedItemId)}
-        item={selectedItemId ? detailQuery.data ?? null : null}
-        loadError={selectedItemId ? detailQuery.error?.message ?? null : null}
+        item={selectedItemId ? (detailQuery.data ?? null) : null}
+        loadError={selectedItemId ? (detailQuery.error?.message ?? null) : null}
         isLoading={Boolean(selectedItemId) && detailQuery.isLoading}
         isSaving={createMutation.isPending || updateMutation.isPending}
         facets={facets}
@@ -252,7 +269,11 @@ export function FoodMenuManagementPanel({
         onSubmit={handleSubmit}
       />
 
-      <MenuImportDialog open={importOpen} onOpenChange={setImportOpen} restaurantId={restaurantId} />
+      <MenuImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        restaurantId={restaurantId}
+      />
 
       <ConfirmDialog
         open={pendingItemId !== null}
@@ -274,35 +295,5 @@ export function FoodMenuManagementPanel({
         }}
       />
     </SettingsCard>
-  );
-}
-
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
-  const childElement = isValidElement(children) ? (children as ReactElement<Record<string, unknown>>) : null;
-  const labelId = useId();
-  const controlId = `${labelId}-control`;
-  const controlName = label.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-  const isGroupedContent = childElement && typeof childElement.type === 'string' && childElement.type === 'div';
-  const labelledChild = childElement
-    ? cloneElement(childElement, {
-        id: isGroupedContent ? childElement.props.id : childElement.props.id ?? controlId,
-        name: isGroupedContent ? childElement.props.name : childElement.props.name ?? controlName,
-        'aria-labelledby': childElement.props['aria-labelledby'] ?? labelId,
-      })
-    : children;
-
-  return (
-    <div className="space-y-2">
-      <label id={labelId} htmlFor={isGroupedContent ? undefined : controlId} className="text-sm font-medium text-foreground">
-        {label}
-      </label>
-      {labelledChild}
-    </div>
   );
 }

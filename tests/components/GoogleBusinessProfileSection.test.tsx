@@ -1,6 +1,22 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import {
+  countsFor,
+  servicePeriodsDayCounts,
+  tabTone,
+  worstDriftStatus,
+} from '@/components/features/restaurant-settings/google-business-profile/components/alignmentModel';
+import {
+  formatCoordinate,
+  formatDisplayUrl,
+  getLinkLabel,
+  getPhoneLabel,
+} from '@/components/features/restaurant-settings/google-business-profile/components/snapshotModel';
+import {
+  buildGoogleMapsPlaceHref,
+  buildLocationValue,
+} from '@/components/features/restaurant-settings/google-business-profile/googleBusinessProfileConnectionModel';
 import { GoogleBusinessProfileSection } from '@/components/features/restaurant-settings/google-business-profile/GoogleBusinessProfileSection';
 import { deriveProfileVerification } from '@/components/features/restaurant-settings/google-business-profile/googleBusinessProfileVerification';
 import { buildDriftReport } from '@/components/features/restaurant-settings/google-business-profile/lib/drift';
@@ -217,6 +233,8 @@ describe('GoogleBusinessProfileSection', () => {
 
     expect(screen.getByTestId('gbp-secondary-analysis')).toBeInTheDocument();
     expect(screen.getByText(/secondary analysis/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /generate review draft/i })).toBeInTheDocument();
+    expect(screen.getByText(/google snapshot/i)).toBeInTheDocument();
     expect(screen.queryByText(/google profile changes/i)).not.toBeInTheDocument();
   });
 
@@ -338,5 +356,107 @@ describe('buildDriftReport', () => {
       expect.arrayContaining(['Warning A', 'Warning B', 'Warning C']),
     );
     expect(report.hasAnyData).toBe(true);
+  });
+});
+
+describe('GBP alignment model', () => {
+  it('counts row states and resolves tab tone by severity', () => {
+    const counts = countsFor([
+      {
+        id: 'one',
+        label: 'One',
+        googleValue: 'A',
+        nabatableValue: 'B',
+        status: 'verified',
+      },
+      {
+        id: 'two',
+        label: 'Two',
+        googleValue: 'A',
+        nabatableValue: 'B',
+        status: 'partial',
+      },
+      {
+        id: 'three',
+        label: 'Three',
+        googleValue: 'A',
+        nabatableValue: 'B',
+        status: 'drift',
+      },
+    ]);
+
+    expect(counts).toEqual({ drift: 1, partial: 1, verified: 1, unavailable: 0 });
+    expect(tabTone(counts)).toBe('drift');
+    expect(tabTone({ drift: 0, partial: 0, verified: 1, unavailable: 6 })).toBe('verified');
+    expect(tabTone({ drift: 0, partial: 0, verified: 0, unavailable: 7 })).toBe('muted');
+  });
+
+  it('summarizes service-period day drift using lunch and dinner severity', () => {
+    expect(worstDriftStatus('verified', 'drift')).toBe('drift');
+    expect(
+      servicePeriodsDayCounts([
+        {
+          bookingOption: 'lunch',
+          name: 'Lunch',
+          dayOfWeek: 1,
+          startTime: '12:00',
+          endTime: '15:00',
+          matchesCore: true,
+        },
+        {
+          bookingOption: 'dinner',
+          name: 'Dinner',
+          dayOfWeek: 1,
+          startTime: '17:00',
+          endTime: '22:00',
+          matchesCore: false,
+        },
+      ]),
+    ).toEqual({ drift: 1, partial: 0, verified: 0, unavailable: 6 });
+  });
+});
+
+describe('GBP snapshot model', () => {
+  it('formats coordinates and display URLs for compact snapshot rows', () => {
+    expect(formatCoordinate(51.501364)).toBe('51.501364');
+    expect(formatCoordinate(null)).toBeNull();
+    expect(formatDisplayUrl('https://example.com/path/?a=1')).toBe('example.com/path/?a=1');
+    expect(formatDisplayUrl('not a url')).toBe('not a url');
+  });
+
+  it('resolves public labels while preserving explicit Google labels', () => {
+    expect(getPhoneLabel('primary')).toBe('Primary');
+    expect(getPhoneLabel('fax')).toBe('fax');
+    expect(getLinkLabel('website', null)).toBe('Website');
+    expect(getLinkLabel('website', 'Bookings')).toBe('Bookings');
+    expect(getLinkLabel('booking', null)).toBe('booking');
+  });
+});
+
+describe('GBP connection model', () => {
+  it('builds stable location select values and Google Maps URLs', () => {
+    expect(
+      buildLocationValue({
+        accountName: 'accounts/1',
+        accountId: 'a-1',
+        accountDisplayName: 'Ops Account',
+        locationName: 'locations/2',
+        locationId: 'l-2',
+        title: 'Nabatable Main',
+        addressText: '1 Test St',
+        placeId: 'place 2',
+      }),
+    ).toBe(
+      JSON.stringify({
+        accountName: 'accounts/1',
+        accountId: 'a-1',
+        locationName: 'locations/2',
+        locationId: 'l-2',
+      }),
+    );
+    expect(buildGoogleMapsPlaceHref('place 2')).toBe(
+      'https://www.google.com/maps/search/?api=1&query_place_id=place%202',
+    );
+    expect(buildGoogleMapsPlaceHref(null)).toBeNull();
   });
 });

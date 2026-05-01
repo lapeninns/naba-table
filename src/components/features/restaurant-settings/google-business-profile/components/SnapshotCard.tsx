@@ -1,6 +1,6 @@
 'use client';
 
-import { ExternalLink, Globe, MapPin, Phone, Star } from 'lucide-react';
+import { Phone } from 'lucide-react';
 import { Fragment } from 'react';
 
 import {
@@ -13,10 +13,16 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 
+import {
+  formatCoordinate,
+  formatDisplayUrl,
+  getLinkIcon,
+  getLinkLabel,
+  getPhoneLabel,
+} from './snapshotModel';
 import { formatGbpDate } from '../lib/formatters';
 
 import type { GoogleBusinessProfileBusinessInfo } from '@/services/ops/restaurants';
-import type { LucideIcon } from 'lucide-react';
 
 type SnapshotCardProps = {
   businessInfo: GoogleBusinessProfileBusinessInfo;
@@ -45,10 +51,6 @@ function DefinitionList({
       ))}
     </dl>
   );
-}
-
-function formatCoordinate(value: number | null | undefined): string | null {
-  return typeof value === 'number' ? value.toFixed(6) : null;
 }
 
 function CategoryList({ businessInfo }: { businessInfo: GoogleBusinessProfileBusinessInfo }) {
@@ -102,34 +104,6 @@ function AboutPanel({ businessInfo }: { businessInfo: GoogleBusinessProfileBusin
   );
 }
 
-const LINK_ICONS: Record<string, LucideIcon> = {
-  website: Globe,
-  google_map: MapPin,
-  google_review: Star,
-};
-
-const LINK_LABELS: Record<string, string> = {
-  website: 'Website',
-  google_map: 'Google Maps',
-  google_review: 'Google reviews',
-};
-
-const PHONE_LABELS: Record<string, string> = {
-  primary: 'Primary',
-  additional: 'Additional',
-  mobile: 'Mobile',
-};
-
-function formatDisplayUrl(raw: string): string {
-  try {
-    const parsed = new URL(raw);
-    const path = parsed.pathname === '/' ? '' : parsed.pathname;
-    return `${parsed.hostname}${path}${parsed.search}`.replace(/\/$/, '');
-  } catch {
-    return raw;
-  }
-}
-
 function ContactPanel({ businessInfo }: { businessInfo: GoogleBusinessProfileBusinessInfo }) {
   const hasPhones = businessInfo.phoneNumbers.length > 0;
   const hasLinks = businessInfo.links.length > 0;
@@ -164,7 +138,7 @@ function ContactPanel({ businessInfo }: { businessInfo: GoogleBusinessProfileBus
                     {phone.phoneNumber}
                   </a>
                   <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-                    <span>{PHONE_LABELS[phone.phoneKind] ?? phone.phoneKind}</span>
+                    <span>{getPhoneLabel(phone.phoneKind)}</span>
                     {phone.isPrimary ? (
                       <Badge variant="secondary" className="h-4 px-1 text-[10px]">
                         Primary
@@ -184,8 +158,8 @@ function ContactPanel({ businessInfo }: { businessInfo: GoogleBusinessProfileBus
         {hasLinks ? (
           <ul className="space-y-2">
             {businessInfo.links.map((link) => {
-              const Icon = LINK_ICONS[link.linkType] ?? ExternalLink;
-              const label = link.label ?? LINK_LABELS[link.linkType] ?? link.linkType;
+              const Icon = getLinkIcon(link.linkType);
+              const label = getLinkLabel(link.linkType, link.label);
               return (
                 <li
                   key={link.id}

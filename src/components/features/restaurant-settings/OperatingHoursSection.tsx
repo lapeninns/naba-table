@@ -10,20 +10,32 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useOpsGoogleBusinessProfileConnection } from '@/hooks/ops/useOpsGoogleBusinessProfile';
-import {
-  useOpsOperatingHours,
-  useOpsUpdateOperatingHours,
-} from '@/hooks/ops/useOpsOperatingHours';
+import { useOpsOperatingHours, useOpsUpdateOperatingHours } from '@/hooks/ops/useOpsOperatingHours';
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
 import {
   RESERVATION_INTERVAL_MAX,
   RESERVATION_INTERVAL_MIN,
 } from '@/lib/restaurants/reservation-interval';
 import { cn } from '@/lib/utils';
-import { normalizeTime } from '@reserve/shared/time';
 
+import {
+  buildOperatingHoursPayload,
+  defaultOverrideRow,
+  defaultWeeklyRows,
+  mapOverridesFromResponse,
+  mapWeeklyFromResponse,
+  validateHours,
+} from './availabilityScheduleManagerUtils';
 import {
   deriveOperatingHoursRowComparisons,
   deriveOperatingHoursVerification,
@@ -34,143 +46,17 @@ import { SettingsCard, SettingsSectionHeader } from './shared';
 import { DAYS_OF_WEEK } from './types';
 
 import type { OverrideErrors, OverrideRow, WeeklyErrors, WeeklyRow } from './types';
-import type { OperatingHoursSnapshot } from '@/services/ops/restaurants';
 
 type OperatingHoursSectionProps = {
   restaurantId: string | null;
 };
-
-function mapWeeklyFromResponse(snapshot: OperatingHoursSnapshot['weekly']): WeeklyRow[] {
-  return DAYS_OF_WEEK.map((_, index) => {
-    const found = snapshot.find((row) => row.dayOfWeek === index);
-    return {
-      dayOfWeek: index,
-      opensAt: toInputTime(found?.opensAt ?? null),
-      closesAt: toInputTime(found?.closesAt ?? null),
-      isClosed: found?.isClosed ?? true,
-      notes: found?.notes ?? '',
-      reservationIntervalMinutes:
-        found?.reservationIntervalMinutes !== undefined &&
-        found?.reservationIntervalMinutes !== null
-          ? String(found.reservationIntervalMinutes)
-          : '',
-      reservationSlotTimes: Array.isArray(found?.reservationSlotTimes)
-        ? found.reservationSlotTimes.join(', ')
-        : '',
-    };
-  });
-}
-
-function mapOverridesFromResponse(overrides: OperatingHoursSnapshot['overrides']): OverrideRow[] {
-  return overrides.map((row) => ({
-    id: row.id,
-    effectiveDate: row.effectiveDate,
-    opensAt: toInputTime(row.opensAt ?? null),
-    closesAt: toInputTime(row.closesAt ?? null),
-    isClosed: row.isClosed,
-    notes: row.notes ?? '',
-    reservationIntervalMinutes:
-      row.reservationIntervalMinutes !== undefined && row.reservationIntervalMinutes !== null
-        ? String(row.reservationIntervalMinutes)
-        : '',
-    reservationSlotTimes: Array.isArray(row.reservationSlotTimes)
-      ? row.reservationSlotTimes.join(', ')
-      : '',
-  }));
-}
-
-function canonicalizeRequiredTime(value: string): string {
-  const normalized = normalizeTime(value);
-  if (normalized) {
-    return normalized;
-  }
-  const trimmed = value.trim();
-  return trimmed.length >= 5 ? trimmed.slice(0, 5) : trimmed;
-}
-
-function toInputTime(value: string | null | undefined): string {
-  if (value === null || value === undefined) {
-    return '';
-  }
-  return canonicalizeRequiredTime(value);
-}
-
-function toComparableTime(value: string | null | undefined): string | null {
-  if (value === null || value === undefined || value === '') {
-    return null;
-  }
-  const normalized = normalizeTime(value);
-  if (normalized) {
-    return normalized;
-  }
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return null;
-  }
-  return trimmed.length >= 5 ? trimmed.slice(0, 5) : trimmed;
-}
-
-function parseIntervalInput(value: string): { value: number | null; error?: string } {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return { value: null };
-  }
-  const parsed = Number(trimmed);
-  if (!Number.isInteger(parsed)) {
-    return { value: null, error: 'Must be a whole number' };
-  }
-  if (parsed < RESERVATION_INTERVAL_MIN || parsed > RESERVATION_INTERVAL_MAX) {
-    return {
-      value: null,
-      error: `Must be between ${RESERVATION_INTERVAL_MIN}-${RESERVATION_INTERVAL_MAX}`,
-    };
-  }
-  return { value: parsed };
-}
-
-function parseSlotTimesInput(value: string): { value: string[] | null; error?: string } {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return { value: null };
-  }
-  const parts = trimmed
-    .split(',')
-    .map((part) => part.trim())
-    .filter(Boolean);
-  if (parts.length === 0) {
-    return { value: null };
-  }
-  const normalized: string[] = [];
-  const seen = new Set<string>();
-  for (const part of parts) {
-    const time = normalizeTime(part);
-    if (!time) {
-      return { value: null, error: 'Use HH:MM format (e.g., 16:00)' };
-    }
-    if (!seen.has(time)) {
-      seen.add(time);
-      normalized.push(time);
-    }
-  }
-  return { value: normalized };
-}
 
 export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionProps) {
   const { data, error, isLoading } = useOpsOperatingHours(restaurantId);
   const gbpConnectionQuery = useOpsGoogleBusinessProfileConnection(restaurantId);
   const updateMutation = useOpsUpdateOperatingHours(restaurantId);
 
-  const [weeklyRows, setWeeklyRows] = useState<WeeklyRow[]>(
-    DAYS_OF_WEEK.map((_, i) => ({
-      dayOfWeek: i,
-      opensAt: '',
-      closesAt: '',
-      isClosed: true,
-      notes: '',
-      reservationIntervalMinutes: '',
-      reservationSlotTimes: '',
-    })),
-  );
+  const [weeklyRows, setWeeklyRows] = useState<WeeklyRow[]>(defaultWeeklyRows);
   const [overrideRows, setOverrideRows] = useState<OverrideRow[]>([]);
   const [weeklyErrors, setWeeklyErrors] = useState<WeeklyErrors>({});
   const [overrideErrors, setOverrideErrors] = useState<OverrideErrors>([]);
@@ -211,19 +97,7 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
   }, []);
 
   const addOverride = () => {
-    const today = new Date().toISOString().slice(0, 10);
-    setOverrideRows((current) => [
-      ...current,
-      {
-        effectiveDate: today,
-        opensAt: '',
-        closesAt: '',
-        isClosed: true,
-        notes: '',
-        reservationIntervalMinutes: '',
-        reservationSlotTimes: '',
-      },
-    ]);
+    setOverrideRows((current) => [...current, defaultOverrideRow()]);
     setOverrideErrors((current) => [...current, {}]);
     setIsDirty(true);
   };
@@ -235,112 +109,10 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
   };
 
   const validate = (): boolean => {
-    let valid = true;
-    const wErrors: WeeklyErrors = {};
-
-    weeklyRows.forEach((row) => {
-      if (row.isClosed) return;
-      const errors: WeeklyErrors[number] = {};
-      const openComparable = toComparableTime(row.opensAt);
-      const closeComparable = toComparableTime(row.closesAt);
-      const intervalResult = parseIntervalInput(row.reservationIntervalMinutes);
-      const slotResult = parseSlotTimesInput(row.reservationSlotTimes);
-
-      if (!row.opensAt) {
-        errors.opensAt = 'Required';
-      } else if (!openComparable) {
-        errors.opensAt = 'Invalid time';
-      }
-
-      if (!row.closesAt) {
-        errors.closesAt = 'Required';
-      } else if (!closeComparable) {
-        errors.closesAt = 'Invalid time';
-      }
-
-      if (
-        !errors.opensAt &&
-        !errors.closesAt &&
-        openComparable &&
-        closeComparable &&
-        openComparable >= closeComparable
-      ) {
-        errors.closesAt = 'Must be after open';
-      }
-
-      if (intervalResult.error) {
-        errors.reservationIntervalMinutes = intervalResult.error;
-      }
-      if (slotResult.error) {
-        errors.reservationSlotTimes = slotResult.error;
-      }
-
-      if (Object.keys(errors).length > 0) {
-        wErrors[row.dayOfWeek] = errors;
-        valid = false;
-      }
-    });
-
-    const oErrors: OverrideErrors = overrideRows.map(() => ({}));
-    const seenDates = new Map<string, number>();
-
-    overrideRows.forEach((row, index) => {
-      const errors: OverrideErrors[number] = {};
-      const intervalResult = parseIntervalInput(row.reservationIntervalMinutes);
-      const slotResult = parseSlotTimesInput(row.reservationSlotTimes);
-      if (!row.effectiveDate) {
-        errors.effectiveDate = 'Required';
-      } else if (seenDates.has(row.effectiveDate)) {
-        errors.effectiveDate = 'Duplicate date';
-        const dupIdx = seenDates.get(row.effectiveDate)!;
-        oErrors[dupIdx].effectiveDate = 'Duplicate date';
-      } else {
-        seenDates.set(row.effectiveDate, index);
-      }
-
-      if (!row.isClosed) {
-        const openComparable = toComparableTime(row.opensAt);
-        const closeComparable = toComparableTime(row.closesAt);
-
-        if (!row.opensAt) {
-          errors.opensAt = 'Required';
-        } else if (!openComparable) {
-          errors.opensAt = 'Invalid time';
-        }
-
-        if (!row.closesAt) {
-          errors.closesAt = 'Required';
-        } else if (!closeComparable) {
-          errors.closesAt = 'Invalid time';
-        }
-
-        if (
-          !errors.opensAt &&
-          !errors.closesAt &&
-          openComparable &&
-          closeComparable &&
-          openComparable >= closeComparable
-        ) {
-          errors.closesAt = 'Must be after open';
-        }
-      }
-
-      if (intervalResult.error) {
-        errors.reservationIntervalMinutes = intervalResult.error;
-      }
-      if (slotResult.error) {
-        errors.reservationSlotTimes = slotResult.error;
-      }
-
-      if (Object.keys(errors).length > 0) {
-        oErrors[index] = errors;
-        valid = false;
-      }
-    });
-
-    setWeeklyErrors(wErrors);
-    setOverrideErrors(oErrors);
-    return valid;
+    const result = validateHours(weeklyRows, overrideRows);
+    setWeeklyErrors(result.weeklyErrors);
+    setOverrideErrors(result.overrideErrors);
+    return result.isValid;
   };
 
   const handleSave = async () => {
@@ -348,46 +120,8 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
       return;
     }
 
-    const payload: OperatingHoursSnapshot = {
-      weekly: weeklyRows.map((row) => ({
-        dayOfWeek: row.dayOfWeek,
-        opensAt: row.isClosed ? null : row.opensAt ? canonicalizeRequiredTime(row.opensAt) : null,
-        closesAt: row.isClosed
-          ? null
-          : row.closesAt
-            ? canonicalizeRequiredTime(row.closesAt)
-            : null,
-        isClosed: row.isClosed,
-        notes: row.notes || null,
-        reservationIntervalMinutes: row.isClosed
-          ? null
-          : parseIntervalInput(row.reservationIntervalMinutes).value,
-        reservationSlotTimes: row.isClosed
-          ? null
-          : parseSlotTimesInput(row.reservationSlotTimes).value,
-      })),
-      overrides: overrideRows.map((row) => ({
-        id: row.id,
-        effectiveDate: row.effectiveDate,
-        opensAt: row.isClosed ? null : row.opensAt ? canonicalizeRequiredTime(row.opensAt) : null,
-        closesAt: row.isClosed
-          ? null
-          : row.closesAt
-            ? canonicalizeRequiredTime(row.closesAt)
-            : null,
-        isClosed: row.isClosed,
-        notes: row.notes || null,
-        reservationIntervalMinutes: row.isClosed
-          ? null
-          : parseIntervalInput(row.reservationIntervalMinutes).value,
-        reservationSlotTimes: row.isClosed
-          ? null
-          : parseSlotTimesInput(row.reservationSlotTimes).value,
-      })),
-    };
-
     try {
-      await updateMutation.mutateAsync(payload);
+      await updateMutation.mutateAsync(buildOperatingHoursPayload(weeklyRows, overrideRows));
       setIsDirty(false);
     } catch (error) {
       console.error('[operating-hours] save failed', error);
@@ -528,164 +262,162 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
               description="Set default open/close windows for each day. Mark a day closed to block bookings."
             />
             <div className="overflow-hidden rounded-xl border">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-border">
-                  <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
-                    <tr>
-                      <th className="px-4 py-3 text-left">Day</th>
-                      <th className="px-4 py-3 text-left">Open</th>
-                      <th className="px-4 py-3 text-left">Close</th>
-                      <th className="px-4 py-3 text-left">Interval (min)</th>
-                      <th className="px-4 py-3 text-left">Slots (HH:MM)</th>
-                      <th className="px-4 py-3 text-left">Closed</th>
-                      <th className="px-4 py-3 text-left">Notes</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border/70 text-sm">
-                    {weeklyRows.map((row, index) => {
-                      const errors = weeklyErrors[row.dayOfWeek] ?? {};
-                      const comparison = rowComparisons.weeklyByDay[row.dayOfWeek];
-                      return (
-                        <tr key={row.dayOfWeek} className={cn(row.isClosed && 'bg-muted/40')}>
-                          <th
-                            scope="row"
-                            className="px-4 py-3 font-medium text-foreground whitespace-nowrap"
-                          >
-                            <div className="flex flex-col gap-1">
-                              <span>{DAYS_OF_WEEK[row.dayOfWeek]}</span>
-                              {comparison && comparison.status !== 'unavailable' ? (
-                                <GoogleBusinessProfileComparisonBadge
-                                  status={comparison.status}
-                                  tooltipTitle={comparison.tooltipTitle}
-                                  tooltipLines={comparison.tooltipLines}
-                                  tooltipFooter={comparison.tooltipFooter}
-                                  ariaLabel={`Show GBP hours for ${DAYS_OF_WEEK[row.dayOfWeek]}`}
-                                  className="w-fit"
-                                />
-                              ) : null}
-                            </div>
-                          </th>
-                          <td className="px-4 py-3">
-                            <Input
-                              type="time"
-                              value={row.opensAt}
-                              disabled={isDisabled || row.isClosed}
-                              onChange={(event) =>
-                                handleWeeklyChange(index, { opensAt: event.target.value })
-                              }
-                              aria-invalid={Boolean(errors.opensAt)}
-                              className={cn(
-                                'h-9 min-w-[100px]',
-                                errors.opensAt && 'border-destructive',
-                              )}
-                            />
-                            {errors.opensAt && (
-                              <p className="mt-1 text-xs text-destructive">{errors.opensAt}</p>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            <Input
-                              type="time"
-                              value={row.closesAt}
-                              disabled={isDisabled || row.isClosed}
-                              onChange={(event) =>
-                                handleWeeklyChange(index, { closesAt: event.target.value })
-                              }
-                              aria-invalid={Boolean(errors.closesAt)}
-                              className={cn(
-                                'h-9 min-w-[100px]',
-                                errors.closesAt && 'border-destructive',
-                              )}
-                            />
-                            {errors.closesAt && (
-                              <p className="mt-1 text-xs text-destructive">{errors.closesAt}</p>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            <Input
-                              type="number"
-                              inputMode="numeric"
-                              min={RESERVATION_INTERVAL_MIN}
-                              max={RESERVATION_INTERVAL_MAX}
-                              step={1}
-                              value={row.reservationIntervalMinutes}
-                              disabled={isDisabled || row.isClosed}
-                              onChange={(event) =>
-                                handleWeeklyChange(index, {
-                                  reservationIntervalMinutes: event.target.value,
-                                })
-                              }
-                              aria-invalid={Boolean(errors.reservationIntervalMinutes)}
-                              className={cn(
-                                'h-9 min-w-[120px]',
-                                errors.reservationIntervalMinutes && 'border-destructive',
-                              )}
-                              placeholder="Default"
-                            />
-                            {errors.reservationIntervalMinutes && (
-                              <p className="mt-1 text-xs text-destructive">
-                                {errors.reservationIntervalMinutes}
-                              </p>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            <Input
-                              value={row.reservationSlotTimes}
-                              placeholder="16:00, 18:00, 20:00"
-                              disabled={isDisabled || row.isClosed}
-                              onChange={(event) =>
-                                handleWeeklyChange(index, {
-                                  reservationSlotTimes: event.target.value,
-                                })
-                              }
-                              aria-invalid={Boolean(errors.reservationSlotTimes)}
-                              className={cn(
-                                'h-9 min-w-[180px]',
-                                errors.reservationSlotTimes && 'border-destructive',
-                              )}
-                            />
-                            {errors.reservationSlotTimes && (
-                              <p className="mt-1 text-xs text-destructive">
-                                {errors.reservationSlotTimes}
-                              </p>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center justify-center">
-                              <Checkbox
-                                id={`weekly-${row.dayOfWeek}-closed`}
-                                checked={row.isClosed}
-                                disabled={isDisabled}
-                                onCheckedChange={(checked) =>
-                                  handleWeeklyChange(index, {
-                                    isClosed: checked === true,
-                                    opensAt: checked === true ? '' : row.opensAt || '09:00',
-                                    closesAt: checked === true ? '' : row.closesAt || '18:00',
-                                  })
-                                }
+              <Table>
+                <TableHeader className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
+                  <TableRow>
+                    <TableHead className="px-4 py-3 text-left">Day</TableHead>
+                    <TableHead className="px-4 py-3 text-left">Open</TableHead>
+                    <TableHead className="px-4 py-3 text-left">Close</TableHead>
+                    <TableHead className="px-4 py-3 text-left">Interval (min)</TableHead>
+                    <TableHead className="px-4 py-3 text-left">Slots (HH:MM)</TableHead>
+                    <TableHead className="px-4 py-3 text-left">Closed</TableHead>
+                    <TableHead className="px-4 py-3 text-left">Notes</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="divide-y divide-border/70 text-sm">
+                  {weeklyRows.map((row, index) => {
+                    const errors = weeklyErrors[row.dayOfWeek] ?? {};
+                    const comparison = rowComparisons.weeklyByDay[row.dayOfWeek];
+                    return (
+                      <TableRow key={row.dayOfWeek} className={cn(row.isClosed && 'bg-muted/40')}>
+                        <TableHead
+                          scope="row"
+                          className="whitespace-nowrap px-4 py-3 font-medium text-foreground"
+                        >
+                          <div className="flex flex-col gap-1">
+                            <span>{DAYS_OF_WEEK[row.dayOfWeek]}</span>
+                            {comparison && comparison.status !== 'unavailable' ? (
+                              <GoogleBusinessProfileComparisonBadge
+                                status={comparison.status}
+                                tooltipTitle={comparison.tooltipTitle}
+                                tooltipLines={comparison.tooltipLines}
+                                tooltipFooter={comparison.tooltipFooter}
+                                ariaLabel={`Show GBP hours for ${DAYS_OF_WEEK[row.dayOfWeek]}`}
+                                className="w-fit"
                               />
-                              <Label htmlFor={`weekly-${row.dayOfWeek}-closed`} className="sr-only">
-                                Closed all day
-                              </Label>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <Input
-                              value={row.notes}
-                              placeholder="Optional"
+                            ) : null}
+                          </div>
+                        </TableHead>
+                        <TableCell className="px-4 py-3">
+                          <Input
+                            type="time"
+                            value={row.opensAt}
+                            disabled={isDisabled || row.isClosed}
+                            onChange={(event) =>
+                              handleWeeklyChange(index, { opensAt: event.target.value })
+                            }
+                            aria-invalid={Boolean(errors.opensAt)}
+                            className={cn(
+                              'h-9 min-w-[100px]',
+                              errors.opensAt && 'border-destructive',
+                            )}
+                          />
+                          {errors.opensAt && (
+                            <p className="mt-1 text-xs text-destructive">{errors.opensAt}</p>
+                          )}
+                        </TableCell>
+                        <TableCell className="px-4 py-3">
+                          <Input
+                            type="time"
+                            value={row.closesAt}
+                            disabled={isDisabled || row.isClosed}
+                            onChange={(event) =>
+                              handleWeeklyChange(index, { closesAt: event.target.value })
+                            }
+                            aria-invalid={Boolean(errors.closesAt)}
+                            className={cn(
+                              'h-9 min-w-[100px]',
+                              errors.closesAt && 'border-destructive',
+                            )}
+                          />
+                          {errors.closesAt && (
+                            <p className="mt-1 text-xs text-destructive">{errors.closesAt}</p>
+                          )}
+                        </TableCell>
+                        <TableCell className="px-4 py-3">
+                          <Input
+                            type="number"
+                            inputMode="numeric"
+                            min={RESERVATION_INTERVAL_MIN}
+                            max={RESERVATION_INTERVAL_MAX}
+                            step={1}
+                            value={row.reservationIntervalMinutes}
+                            disabled={isDisabled || row.isClosed}
+                            onChange={(event) =>
+                              handleWeeklyChange(index, {
+                                reservationIntervalMinutes: event.target.value,
+                              })
+                            }
+                            aria-invalid={Boolean(errors.reservationIntervalMinutes)}
+                            className={cn(
+                              'h-9 min-w-[120px]',
+                              errors.reservationIntervalMinutes && 'border-destructive',
+                            )}
+                            placeholder="Default"
+                          />
+                          {errors.reservationIntervalMinutes && (
+                            <p className="mt-1 text-xs text-destructive">
+                              {errors.reservationIntervalMinutes}
+                            </p>
+                          )}
+                        </TableCell>
+                        <TableCell className="px-4 py-3">
+                          <Input
+                            value={row.reservationSlotTimes}
+                            placeholder="16:00, 18:00, 20:00"
+                            disabled={isDisabled || row.isClosed}
+                            onChange={(event) =>
+                              handleWeeklyChange(index, {
+                                reservationSlotTimes: event.target.value,
+                              })
+                            }
+                            aria-invalid={Boolean(errors.reservationSlotTimes)}
+                            className={cn(
+                              'h-9 min-w-[180px]',
+                              errors.reservationSlotTimes && 'border-destructive',
+                            )}
+                          />
+                          {errors.reservationSlotTimes && (
+                            <p className="mt-1 text-xs text-destructive">
+                              {errors.reservationSlotTimes}
+                            </p>
+                          )}
+                        </TableCell>
+                        <TableCell className="px-4 py-3">
+                          <div className="flex items-center justify-center">
+                            <Checkbox
+                              id={`weekly-${row.dayOfWeek}-closed`}
+                              checked={row.isClosed}
                               disabled={isDisabled}
-                              onChange={(event) =>
-                                handleWeeklyChange(index, { notes: event.target.value })
+                              onCheckedChange={(checked) =>
+                                handleWeeklyChange(index, {
+                                  isClosed: checked === true,
+                                  opensAt: checked === true ? '' : row.opensAt || '09:00',
+                                  closesAt: checked === true ? '' : row.closesAt || '18:00',
+                                })
                               }
-                              className="h-9 min-w-[150px]"
                             />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                            <Label htmlFor={`weekly-${row.dayOfWeek}-closed`} className="sr-only">
+                              Closed all day
+                            </Label>
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-4 py-3">
+                          <Input
+                            value={row.notes}
+                            placeholder="Optional"
+                            disabled={isDisabled}
+                            onChange={(event) =>
+                              handleWeeklyChange(index, { notes: event.target.value })
+                            }
+                            className="h-9 min-w-[150px]"
+                          />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
             </div>
           </div>
 

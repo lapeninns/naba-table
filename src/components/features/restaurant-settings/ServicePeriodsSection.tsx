@@ -21,6 +21,19 @@ import {
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
 import { cn } from '@/lib/utils';
 
+import {
+  buildWeeklyHoursMap,
+  canonicalizeRequiredTime,
+  extractRequiredOccasionKeys,
+  formatKitchenRange,
+  mapWeeklyFromResponse,
+  MEAL_LABELS,
+  MEAL_TOOLTIPS,
+  type DayErrors,
+  type MealError,
+  type MealKey,
+  validateServices,
+} from './availabilityScheduleManagerUtils';
 import { GoogleBusinessProfileSyncActionDialog } from './google-business-profile/GoogleBusinessProfileSyncActionDialog';
 import {
   deriveServicePeriodDayComparisons,
@@ -33,91 +46,12 @@ import {
   buildServicePeriodState,
   type DayServiceConfig,
   type MealConfig,
-  type WeeklyHoursEntry,
 } from './servicePeriodsMapper';
 import { SettingsCard } from './shared/SettingsCard';
 import { DAYS_OF_WEEK, type ServicePeriodRow } from './types';
 
-import type { OccasionDefinition } from '@reserve/shared/occasions';
-
 type ServicePeriodsSectionProps = {
   restaurantId: string | null;
-};
-
-type MealKey = 'lunch' | 'dinner';
-
-type MealError = {
-  start?: string;
-  end?: string;
-};
-
-type DayErrors = Record<number, Partial<Record<MealKey, MealError>>>;
-
-const MEAL_LABELS: Record<MealKey, string> = {
-  lunch: 'Lunch',
-  dinner: 'Dinner',
-};
-
-const MEAL_TOOLTIPS: Record<MealKey, string> = {
-  lunch: 'Defines when lunch reservations can be booked within the kitchen operating window.',
-  dinner:
-    'Defines when dinner reservations can be booked. Keep times inside the kitchen open/close window.',
-};
-
-function canonicalizeRequiredTime(value: string): string {
-  const normalized = value?.trim();
-  if (!normalized) {
-    return '';
-  }
-  return normalized.length >= 5 ? normalized.slice(0, 5) : normalized;
-}
-
-function toComparableTime(value: string | null | undefined): string | null {
-  if (value === null || value === undefined || value === '') {
-    return null;
-  }
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return null;
-  }
-  return trimmed.length >= 5 ? trimmed.slice(0, 5) : trimmed;
-}
-
-const buildWeeklyHoursMap = (
-  weekly?: Array<{
-    dayOfWeek: number;
-    opensAt: string | null;
-    closesAt: string | null;
-    isClosed: boolean;
-  }>,
-): Record<number, WeeklyHoursEntry> => {
-  if (!weekly) {
-    return {};
-  }
-  return weekly.reduce<Record<number, WeeklyHoursEntry>>((acc, row) => {
-    acc[row.dayOfWeek] = {
-      opensAt: row.opensAt,
-      closesAt: row.closesAt,
-      isClosed: row.isClosed,
-    };
-    return acc;
-  }, {});
-};
-
-const extractRequiredOccasionKeys = (options: OccasionDefinition[]) => {
-  const map: { lunch?: string; dinner?: string } = {};
-  options.forEach((definition) => {
-    const lower = definition.key.toLowerCase();
-    if (lower === 'lunch' || lower === 'dinner') {
-      map[lower] = definition.key;
-    }
-  });
-  return map;
-};
-
-const formatRange = (start?: string | null, end?: string | null): string => {
-  if (!start || !end) return 'Not set';
-  return `${start} – ${end}`;
 };
 
 function MealEditor({
@@ -215,14 +149,9 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
 
   const weeklyHoursMap = useMemo(
     () =>
-      buildWeeklyHoursMap(
-        hoursQuery.data?.weekly?.map((row) => ({
-          dayOfWeek: row.dayOfWeek,
-          opensAt: row.opensAt,
-          closesAt: row.closesAt,
-          isClosed: row.isClosed,
-        })),
-      ),
+      hoursQuery.data?.weekly
+        ? buildWeeklyHoursMap(mapWeeklyFromResponse(hoursQuery.data.weekly))
+        : {},
     [hoursQuery.data?.weekly],
   );
 
@@ -326,54 +255,9 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
     if (dayConfigs.length === 0) {
       return false;
     }
-    let valid = true;
-    const nextErrors: DayErrors = {};
-    dayConfigs.forEach((day) => {
-      if (day.isClosed) {
-        return;
-      }
-
-      (['lunch', 'dinner'] as MealKey[]).forEach((mealKey) => {
-        const meal = day[mealKey];
-        if (!meal.enabled) {
-          return;
-        }
-        const mealErrors: MealError = {};
-        const startComparable = toComparableTime(meal.startTime);
-        const endComparable = toComparableTime(meal.endTime);
-        const openComparable = toComparableTime(day.opensAt);
-        const closeComparable = toComparableTime(day.closesAt);
-
-        if (!meal.startTime) {
-          mealErrors.start = 'Required';
-        } else if (!openComparable || !startComparable || startComparable < openComparable) {
-          mealErrors.start = 'Before kitchen opens';
-        }
-        if (!meal.endTime) {
-          mealErrors.end = 'Required';
-        } else if (!closeComparable || !endComparable || endComparable > closeComparable) {
-          mealErrors.end = 'After kitchen closes';
-        }
-        if (
-          !mealErrors.start &&
-          !mealErrors.end &&
-          startComparable &&
-          endComparable &&
-          startComparable >= endComparable
-        ) {
-          mealErrors.end = 'Must be after start';
-        }
-        if (Object.keys(mealErrors).length > 0) {
-          valid = false;
-          nextErrors[day.dayOfWeek] = {
-            ...(nextErrors[day.dayOfWeek] ?? {}),
-            [mealKey]: mealErrors,
-          };
-        }
-      });
-    });
-    setErrors(nextErrors);
-    return valid;
+    const result = validateServices(dayConfigs);
+    setErrors(result.serviceErrors);
+    return result.isValid;
   };
 
   const handleSave = async () => {
@@ -439,7 +323,7 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
             comparison?.tooltipLines.join(' | ') ||
             (day.isClosed
               ? 'Kitchen is closed on this day.'
-              : `Kitchen window: ${formatRange(day.opensAt, day.closesAt)}`),
+              : `Kitchen window: ${formatKitchenRange(day.opensAt, day.closesAt)}`),
           defaultChecked: comparison ? comparison.status !== 'verified' : true,
         };
       }),
@@ -624,7 +508,7 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
                       <p className="text-xs text-muted-foreground">
                         {day.isClosed
                           ? 'Closed'
-                          : `Kitchen can operate between ${formatRange(day.opensAt, day.closesAt)}`}
+                          : `Kitchen can operate between ${formatKitchenRange(day.opensAt, day.closesAt)}`}
                       </p>
                     </div>
                   </div>
@@ -664,7 +548,11 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
               setSyncDialogMode(null);
             }
           }}
-          title={syncDialogMode === 'push' ? 'Push service-period days to GBP' : 'Import service-period days from GBP'}
+          title={
+            syncDialogMode === 'push'
+              ? 'Push service-period days to GBP'
+              : 'Import service-period days from GBP'
+          }
           description={
             syncDialogMode === 'push'
               ? 'Choose which day-level lunch and dinner windows should be exported from Nabatable to Google Business Profile.'

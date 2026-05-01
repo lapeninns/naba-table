@@ -30,6 +30,18 @@ export const RESTAURANT_SETTINGS_ROUTES: RestaurantSettingsRoute[] = [
       'Booking rules, weekly hours, overrides, meal windows, occasions, and dining-duration bands.',
   },
   {
+    view: 'menu',
+    href: opsHref('/settings/restaurant/menu'),
+    title: 'Menu',
+    description: 'Manage menu items, modifiers, and imports.',
+  },
+  {
+    view: 'tables',
+    href: opsHref('/settings/restaurant/tables'),
+    title: 'Tables',
+    description: 'Manage table inventory, zones, and capacity.',
+  },
+  {
     view: 'team',
     href: opsHref('/settings/restaurant/team'),
     title: 'Team',
@@ -52,16 +64,8 @@ export const RESTAURANT_SETTINGS_NAV_ITEMS: RestaurantSettingsNavItem[] = [
   getRoute('profile'),
   getRoute('google-business-profile'),
   getRoute('availability'),
-  {
-    href: opsHref('/settings/restaurant/menu'),
-    title: 'Menu',
-    description: 'Manage menu items, modifiers, and imports.',
-  },
-  {
-    href: opsHref('/settings/restaurant/tables'),
-    title: 'Tables',
-    description: 'Manage table inventory, zones, and capacity.',
-  },
+  getRoute('menu'),
+  getRoute('tables'),
   getRoute('team'),
 ];
 

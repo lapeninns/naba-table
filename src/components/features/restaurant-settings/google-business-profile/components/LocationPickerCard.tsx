@@ -13,6 +13,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+import {
+  buildGoogleMapsPlaceHref,
+  buildLocationValue,
+} from '../googleBusinessProfileConnectionModel';
+
 import type {
   GoogleBusinessProfileAvailableLocation,
   GoogleBusinessProfileConnection,
@@ -24,7 +29,6 @@ type LocationPickerCardProps = {
   selectedLocation: GoogleBusinessProfileAvailableLocation | null;
   selectedLocationValue: string;
   onSelectedLocationValueChange: (value: string) => void;
-  buildLocationValue: (location: GoogleBusinessProfileAvailableLocation) => string;
   onLinkLocation: () => void;
   isLinking: boolean;
   hasLinkedLocation: boolean;
@@ -45,13 +49,13 @@ export function LocationPickerCard({
   selectedLocation,
   selectedLocationValue,
   onSelectedLocationValueChange,
-  buildLocationValue,
   onLinkLocation,
   isLinking,
   hasLinkedLocation,
 }: LocationPickerCardProps) {
   const needsReauth = data.status === 'reauth_required';
   const hasLocations = data.availableLocations.length > 0;
+  const selectedLocationGoogleHref = buildGoogleMapsPlaceHref(selectedLocation?.placeId);
 
   return (
     <Card>
@@ -96,16 +100,10 @@ export function LocationPickerCard({
         ) : (
           <div className="space-y-4">
             <div className="space-y-2">
-              <label
-                htmlFor="gbp-location-select"
-                className="text-sm font-medium text-foreground"
-              >
+              <label htmlFor="gbp-location-select" className="text-sm font-medium text-foreground">
                 Available locations
               </label>
-              <Select
-                value={selectedLocationValue}
-                onValueChange={onSelectedLocationValueChange}
-              >
+              <Select value={selectedLocationValue} onValueChange={onSelectedLocationValueChange}>
                 <SelectTrigger id="gbp-location-select" className="w-full">
                   <SelectValue placeholder="Select a location" />
                 </SelectTrigger>
@@ -147,13 +145,9 @@ export function LocationPickerCard({
                         ? 'Relink location'
                         : 'Link location'}
                   </Button>
-                  {selectedLocation.placeId ? (
+                  {selectedLocationGoogleHref ? (
                     <Button type="button" variant="outline" asChild>
-                      <a
-                        href={`https://www.google.com/maps/search/?api=1&query_place_id=${encodeURIComponent(selectedLocation.placeId)}`}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
+                      <a href={selectedLocationGoogleHref} target="_blank" rel="noreferrer">
                         <ExternalLink className="mr-2 size-4" />
                         Preview on Google
                       </a>

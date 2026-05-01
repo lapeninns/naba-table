@@ -17,7 +17,8 @@ export function OpsTeamManagementClient() {
       <Alert variant="destructive">
         <AlertTitle>No restaurant access</AlertTitle>
         <AlertDescription>
-          Your account is not linked to any restaurants yet. Ask an owner or manager to send you an invitation.
+          Your account is not linked to any restaurants yet. Ask an owner or manager to send you an
+          invitation.
         </AlertDescription>
       </Alert>
     );
@@ -30,17 +31,18 @@ export function OpsTeamManagementClient() {
   const canManage = permissions.canManageTeam || isRestaurantAdminRole(activeMembership.role);
 
   return (
-    <div className="space-y-10">
+    <div className="flex flex-col gap-6">
       {!canManage ? (
         <Alert>
           <AlertTitle>Limited permissions</AlertTitle>
           <AlertDescription>
-            Only owners and managers can send invitations. Contact an owner if you need to add teammates.
+            Only owners and managers can send invitations. Contact an owner if you need to add
+            teammates.
           </AlertDescription>
         </Alert>
       ) : null}
 
-      <section className="space-y-12">
+      <section className="flex flex-col gap-6">
         {canManage ? <TeamInviteForm restaurantId={activeRestaurantId} /> : null}
         <TeamInvitesTable restaurantId={activeRestaurantId} canManage={canManage} />
       </section>

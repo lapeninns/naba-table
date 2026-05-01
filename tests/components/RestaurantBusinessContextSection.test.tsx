@@ -20,6 +20,15 @@ vi.mock('sonner', () => ({
   },
 }));
 
+import {
+  cloneFamily,
+  csvToArray,
+  formatCategoryTitle,
+  formatSeedSource,
+  parseJsonArray,
+  parseJsonRecord,
+  serializeMoreHoursTypes,
+} from '@/components/features/restaurant-settings/businessContextModel';
 import { RestaurantBusinessContextSection } from '@/components/features/restaurant-settings/RestaurantBusinessContextSection';
 
 describe('RestaurantBusinessContextSection', () => {
@@ -415,5 +424,52 @@ describe('RestaurantBusinessContextSection', () => {
         ],
       }),
     );
+  });
+});
+
+describe('business context model', () => {
+  it('formats seed state and clones provider rows only when local rows are empty', () => {
+    expect(formatSeedSource('core', 2)).toBe('Showing saved values');
+    expect(formatSeedSource('provider', 1)).toBe('Pre-filled from Google until you save');
+    expect(formatSeedSource('provider', 0)).toBe('No values yet');
+
+    expect(cloneFamily(['local'], ['provider'])).toEqual({ rows: ['local'], source: 'core' });
+    expect(cloneFamily([], ['provider'])).toEqual({ rows: ['provider'], source: 'provider' });
+    expect(cloneFamily([], [])).toEqual({ rows: [], source: 'empty' });
+  });
+
+  it('serializes discovery editor values without changing API shapes', () => {
+    expect(csvToArray(' alpha, , beta ')).toEqual(['alpha', 'beta']);
+    expect(parseJsonRecord('{"placeId":"abc"}', 'Place data')).toEqual({ placeId: 'abc' });
+    expect(parseJsonArray<string>('["one","two"]', 'Value metadata')).toEqual(['one', 'two']);
+    expect(
+      serializeMoreHoursTypes([
+        { hoursTypeId: ' KITCHEN ', displayName: '', localizedDisplayName: null },
+        { hoursTypeId: null, displayName: null, localizedDisplayName: null },
+      ]),
+    ).toEqual([{ hoursTypeId: 'KITCHEN', displayName: null, localizedDisplayName: null }]);
+  });
+
+  it('formats editor row titles from labels or safe fallbacks', () => {
+    expect(
+      formatCategoryTitle({
+        id: 'category-1',
+        displayName: '  Bistro  ',
+        categoryCode: '',
+        isPrimary: false,
+        moreHoursTypes: [],
+        moreHoursTypeDraft: '',
+      }),
+    ).toBe('Bistro');
+    expect(
+      formatCategoryTitle({
+        id: 'category-2',
+        displayName: '',
+        categoryCode: '',
+        isPrimary: true,
+        moreHoursTypes: [],
+        moreHoursTypeDraft: '',
+      }),
+    ).toBe('Primary category');
   });
 });

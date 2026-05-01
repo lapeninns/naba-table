@@ -53,6 +53,20 @@ const AvailabilityOccasionsCommandCenter = dynamic(
   },
 );
 
+const OpsMenuManagementClient = dynamic(
+  () => import('../menu').then((m) => m.OpsMenuManagementClient),
+  {
+    loading: () => <SettingsSectionSkeleton title="Loading menu" />,
+  },
+);
+
+const TableInventoryClient = dynamic(
+  () => import('../tables/TableInventoryClient').then((m) => m.default),
+  {
+    loading: () => <SettingsSectionSkeleton title="Loading tables" />,
+  },
+);
+
 const OpsTeamManagementClient = dynamic(
   () => import('../team').then((m) => m.OpsTeamManagementClient),
   {
@@ -134,6 +148,8 @@ export function OpsRestaurantSettingsClient({
     availability: ({ restaurantId }) => (
       <AvailabilityOccasionsCommandCenter restaurantId={restaurantId} />
     ),
+    menu: () => <OpsMenuManagementClient />,
+    tables: () => <TableInventoryClient />,
     team: () => <OpsTeamManagementClient />,
   };
 

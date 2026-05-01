@@ -25,6 +25,8 @@ const VIEW_OPTIONS: Array<{ value: RestaurantSettingsView; label: string }> = [
   { value: 'profile', label: 'Profile' },
   { value: 'google-business-profile', label: 'Google Business Profile' },
   { value: 'availability', label: 'Availability & occasions' },
+  { value: 'menu', label: 'Menu' },
+  { value: 'tables', label: 'Tables' },
   { value: 'team', label: 'Team' },
 ];
 
@@ -54,7 +56,10 @@ export function OpsRestaurantSettingsDevHarness() {
               <Label htmlFor="ops-restaurant-settings-view" className="sr-only">
                 Select a restaurant settings view
               </Label>
-              <Select value={view} onValueChange={(next) => setView(next as RestaurantSettingsView)}>
+              <Select
+                value={view}
+                onValueChange={(next) => setView(next as RestaurantSettingsView)}
+              >
                 <SelectTrigger id="ops-restaurant-settings-view" className="h-11 sm:h-9">
                   <SelectValue placeholder="Select view" />
                 </SelectTrigger>

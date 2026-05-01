@@ -7,20 +7,21 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useOccasionService } from '@/contexts/ops-services';
 import { useRegisterOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
 import { useOpsOccasions } from '@/hooks/ops/useOccasions';
-import {
-  useOpsOperatingHours,
-  useOpsUpdateOperatingHours,
-} from '@/hooks/ops/useOpsOperatingHours';
-import {
-  useOpsServicePeriods,
-  useOpsUpdateServicePeriods,
-} from '@/hooks/ops/useOpsServicePeriods';
+import { useOpsOperatingHours, useOpsUpdateOperatingHours } from '@/hooks/ops/useOpsOperatingHours';
+import { useOpsServicePeriods, useOpsUpdateServicePeriods } from '@/hooks/ops/useOpsServicePeriods';
 import { useOpsTurnBands, useOpsUpdateTurnBands } from '@/hooks/ops/useOpsTurnBands';
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
 import { queryKeys } from '@/lib/query/keys';
@@ -30,6 +31,7 @@ import { AvailabilityOverridesEditor } from './AvailabilityOverridesEditor';
 import { AvailabilityScheduleDayCard } from './AvailabilityScheduleDayCard';
 import {
   buildOperatingHoursPayload,
+  buildMissingRequiredOccasions,
   buildWeeklyHoursMap,
   canonicalizeRequiredTime,
   defaultOverrideRow,
@@ -41,9 +43,19 @@ import {
   validateHours,
   validateServices,
 } from './availabilityScheduleManagerUtils';
-import { buildServicePeriodPayload, buildServicePeriodState, type DayServiceConfig } from './servicePeriodsMapper';
+import {
+  buildServicePeriodPayload,
+  buildServicePeriodState,
+  type DayServiceConfig,
+} from './servicePeriodsMapper';
 import { validateTurnBandRows, type TurnBandRowError } from './TurnBandsEditor';
-import { type OverrideErrors, type OverrideRow, type WeeklyErrors, type WeeklyRow } from './types';
+import {
+  DAYS_OF_WEEK,
+  type OverrideErrors,
+  type OverrideRow,
+  type WeeklyErrors,
+  type WeeklyRow,
+} from './types';
 
 import type { OpsOccasion } from '@/services/ops/occasions';
 import type { ServicePeriodRow, TurnBandInput, TurnBandsPayload } from '@/services/ops/restaurants';
@@ -52,18 +64,14 @@ type AvailabilityScheduleManagerProps = {
   restaurantId: string | null;
 };
 
-type SaveState =
-  | {
-      variant: 'destructive' | 'success' | 'warning';
-      title: string;
-      message: string;
-      details?: string[];
-    }
-  | null;
+type SaveState = {
+  variant: 'destructive' | 'success' | 'warning';
+  title: string;
+  message: string;
+  details?: string[];
+} | null;
 
-export function AvailabilityScheduleManager({
-  restaurantId,
-}: AvailabilityScheduleManagerProps) {
+export function AvailabilityScheduleManager({ restaurantId }: AvailabilityScheduleManagerProps) {
   const operatingHoursQuery = useOpsOperatingHours(restaurantId);
   const servicePeriodsQuery = useOpsServicePeriods(restaurantId);
   const occasionsQuery = useOpsOccasions();
@@ -98,46 +106,44 @@ export function AvailabilityScheduleManager({
     [occasionOptions],
   );
 
-  const initializeState = useCallback(() => {
-    if (
-      !operatingHoursQuery.data ||
-      !servicePeriodsQuery.data ||
-      !occasionsQuery.data ||
-      !turnBandsQuery.data
-    ) {
-      return;
-    }
-    const nextWeeklyRows = mapWeeklyFromResponse(operatingHoursQuery.data.weekly);
-    const { custom, days } = buildServicePeriodState({
-      periods: servicePeriodsQuery.data,
-      weeklyHours: buildWeeklyHoursMap(nextWeeklyRows),
-      dayLabels: nextWeeklyRows.map((row) => row.dayOfWeek).map((dayOfWeek) =>
-        ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dayOfWeek],
-      ),
-    });
+  const initializeState = useCallback(
+    (resetSaveState = true) => {
+      if (
+        !operatingHoursQuery.data ||
+        !servicePeriodsQuery.data ||
+        !occasionsQuery.data ||
+        !turnBandsQuery.data
+      ) {
+        return;
+      }
+      const nextWeeklyRows = mapWeeklyFromResponse(operatingHoursQuery.data.weekly);
+      const { custom, days } = buildServicePeriodState({
+        periods: servicePeriodsQuery.data,
+        weeklyHours: buildWeeklyHoursMap(nextWeeklyRows),
+        dayLabels: nextWeeklyRows.map((row) => DAYS_OF_WEEK[row.dayOfWeek]),
+      });
 
-    setWeeklyRows(nextWeeklyRows);
-    setOverrideRows(mapOverridesFromResponse(operatingHoursQuery.data.overrides));
-    setDayConfigs(days);
-    setCustomRows(custom);
-    setOccasionDrafts(occasionsQuery.data);
-    setTurnBandsDraft(turnBandsQuery.data.bands ?? {});
-    setTurnBandErrors({});
-    setWeeklyErrors({});
-    setOverrideErrors([]);
-    setServiceErrors({});
-    setHoursDirty(false);
-    setServicesDirty(false);
-    setOccasionsDirty(false);
-    setTurnBandsDirty(false);
-    setSaveState(null);
-    setHasInitialized(true);
-  }, [
-    occasionsQuery.data,
-    operatingHoursQuery.data,
-    servicePeriodsQuery.data,
-    turnBandsQuery.data,
-  ]);
+      setWeeklyRows(nextWeeklyRows);
+      setOverrideRows(mapOverridesFromResponse(operatingHoursQuery.data.overrides));
+      setDayConfigs(days);
+      setCustomRows(custom);
+      setOccasionDrafts(occasionsQuery.data);
+      setTurnBandsDraft(turnBandsQuery.data.bands ?? {});
+      setTurnBandErrors({});
+      setWeeklyErrors({});
+      setOverrideErrors([]);
+      setServiceErrors({});
+      setHoursDirty(false);
+      setServicesDirty(false);
+      setOccasionsDirty(false);
+      setTurnBandsDirty(false);
+      if (resetSaveState) {
+        setSaveState(null);
+      }
+      setHasInitialized(true);
+    },
+    [occasionsQuery.data, operatingHoursQuery.data, servicePeriodsQuery.data, turnBandsQuery.data],
+  );
 
   const isSaving =
     isSavingConfiguration ||
@@ -162,8 +168,12 @@ export function AvailabilityScheduleManager({
     ) {
       return;
     }
-    if (!hasInitialized || (!hasLocalChanges && !isSaving)) {
+    if (!hasInitialized) {
       initializeState();
+      return;
+    }
+    if (!hasLocalChanges && !isSaving) {
+      initializeState(false);
     }
   }, [
     hasInitialized,
@@ -179,36 +189,7 @@ export function AvailabilityScheduleManager({
   const clearSaveState = () => setSaveState(null);
 
   const createRequiredOccasions = async () => {
-    const missingOccasions: Array<{
-      key: string;
-      label: string;
-      shortLabel: string;
-      description: string;
-      defaultDurationMinutes: number;
-      displayOrder: number;
-    }> = [];
-
-    if (!occasionKeys.lunch) {
-      missingOccasions.push({
-        key: 'lunch',
-        label: 'Lunch',
-        shortLabel: 'Lunch',
-        description: 'Lunch reservation occasion.',
-        defaultDurationMinutes: 90,
-        displayOrder: 10,
-      });
-    }
-
-    if (!occasionKeys.dinner) {
-      missingOccasions.push({
-        key: 'dinner',
-        label: 'Dinner',
-        shortLabel: 'Dinner',
-        description: 'Dinner reservation occasion.',
-        defaultDurationMinutes: 120,
-        displayOrder: 20,
-      });
-    }
+    const missingOccasions = buildMissingRequiredOccasions(occasionKeys);
 
     if (missingOccasions.length === 0) {
       return;
@@ -308,11 +289,7 @@ export function AvailabilityScheduleManager({
     clearSaveState();
   };
 
-  const handleMealToggle = (
-    dayIndex: number,
-    mealKey: 'lunch' | 'dinner',
-    value: boolean,
-  ) => {
+  const handleMealToggle = (dayIndex: number, mealKey: 'lunch' | 'dinner', value: boolean) => {
     setDayConfigs((current) =>
       current.map((day, index) =>
         index === dayIndex
@@ -486,7 +463,9 @@ export function AvailabilityScheduleManager({
 
       if (occasionsDirty) {
         const originalOccasions = occasionsQuery.data ?? [];
-        const originalByKey = new Map(originalOccasions.map((occasion) => [occasion.key, occasion]));
+        const originalByKey = new Map(
+          originalOccasions.map((occasion) => [occasion.key, occasion]),
+        );
         const nextByKey = new Map(occasionDrafts.map((occasion) => [occasion.key, occasion]));
 
         for (const occasion of occasionDrafts) {
@@ -581,7 +560,8 @@ export function AvailabilityScheduleManager({
           ? {
               variant: 'warning',
               title: 'Partial save completed',
-              message: 'Some availability changes were saved, but another section still needs attention.',
+              message:
+                'Some availability changes were saved, but another section still needs attention.',
               details: [...savedSections, `Needs attention: ${message}`],
             }
           : {
