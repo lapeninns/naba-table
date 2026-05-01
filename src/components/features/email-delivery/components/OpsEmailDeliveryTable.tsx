@@ -52,7 +52,10 @@ function StatusBadge({ status }: { status: EmailDeliveryStatus }) {
   return (
     <Badge
       variant={tone.variant}
-      className={cn('text-[10px] font-bold uppercase tracking-wide whitespace-nowrap', tone.className)}
+      className={cn(
+        'text-[10px] font-bold uppercase tracking-wide whitespace-nowrap',
+        tone.className,
+      )}
     >
       {EMAIL_DELIVERY_STATUS_LABELS[status] ?? status}
     </Badge>
@@ -75,12 +78,7 @@ function CopyMessageIdButton({ text }: { text: string }) {
   );
 
   return (
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={handleCopy}
-      aria-label="Copy message id"
-    >
+    <Button variant="outline" size="sm" onClick={handleCopy} aria-label="Copy message id">
       <Copy className="h-4 w-4" aria-hidden />
       <Check className="sr-only" aria-hidden />
       <span className="sr-only">Copy message id</span>
@@ -118,7 +116,10 @@ function ExpandedRowDetail({
           <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Message ID
           </div>
-          <div className="max-w-full break-all font-mono text-xs text-slate-600" title={attempt.messageId}>
+          <div
+            className="max-w-full break-all font-mono text-xs text-muted-foreground"
+            title={attempt.messageId}
+          >
             {attempt.messageId}
           </div>
         </div>
@@ -141,9 +142,11 @@ function ExpandedRowDetail({
 
       {/* Error message */}
       {errorEvent?.error ? (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2">
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-rose-700">Error</div>
-          <div className="text-xs text-rose-800">{errorEvent.error}</div>
+        <div className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-destructive">
+            Error
+          </div>
+          <div className="text-xs text-destructive">{errorEvent.error}</div>
         </div>
       ) : null}
 
@@ -154,13 +157,14 @@ function ExpandedRowDetail({
         </div>
         <div className="space-y-1.5">
           {attempt.events.map((event) => {
-            const eventWhen = formatEmailDeliveryOccurredAt(event.occurredAt, timezone) ?? event.occurredAt;
+            const eventWhen =
+              formatEmailDeliveryOccurredAt(event.occurredAt, timezone) ?? event.occurredAt;
             return (
               <div key={event.id} className="flex items-center gap-2 text-xs">
                 <StatusBadge status={event.status} />
-                <span className="text-slate-600">{eventWhen}</span>
+                <span className="text-muted-foreground">{eventWhen}</span>
                 {event.error ? (
-                  <span className="truncate text-rose-700" title={event.error}>
+                  <span className="truncate text-destructive" title={event.error}>
                     {event.error}
                   </span>
                 ) : null}
@@ -226,24 +230,18 @@ export function OpsEmailDeliveryTable({
   });
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
 
-  const handleSort = useCallback(
-    (column: SortColumn) => {
-      setSortState((prev) => {
-        if (prev.column === column) {
-          return { column, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
-        }
-        return { column, direction: 'asc' };
-      });
-    },
-    [],
-  );
+  const handleSort = useCallback((column: SortColumn) => {
+    setSortState((prev) => {
+      if (prev.column === column) {
+        return { column, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+      }
+      return { column, direction: 'asc' };
+    });
+  }, []);
 
-  const handleRowClick = useCallback(
-    (key: string) => {
-      setExpandedKey((prev) => (prev === key ? null : key));
-    },
-    [],
-  );
+  const handleRowClick = useCallback((key: string) => {
+    setExpandedKey((prev) => (prev === key ? null : key));
+  }, []);
 
   const sortedRows = useMemo(() => {
     const sorted = [...rows];
@@ -267,14 +265,20 @@ export function OpsEmailDeliveryTable({
   }
 
   return (
-    <div className="rounded-lg border border-slate-200/60 bg-white">
+    <div className="rounded-lg border border-border bg-background">
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead
               className="cursor-pointer select-none"
               onClick={() => handleSort('status')}
-              aria-sort={sortState.column === 'status' ? (sortState.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+              aria-sort={
+                sortState.column === 'status'
+                  ? sortState.direction === 'asc'
+                    ? 'ascending'
+                    : 'descending'
+                  : 'none'
+              }
             >
               Status
               <SortIndicator column="status" sortState={sortState} />
@@ -287,7 +291,13 @@ export function OpsEmailDeliveryTable({
             <TableHead
               className="cursor-pointer select-none"
               onClick={() => handleSort('sentAt')}
-              aria-sort={sortState.column === 'sentAt' ? (sortState.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+              aria-sort={
+                sortState.column === 'sentAt'
+                  ? sortState.direction === 'asc'
+                    ? 'ascending'
+                    : 'descending'
+                  : 'none'
+              }
             >
               Sent At
               <SortIndicator column="sentAt" sortState={sortState} />
@@ -303,10 +313,7 @@ export function OpsEmailDeliveryTable({
             const rows = [
               <TableRow
                 key={key}
-                className={cn(
-                  'cursor-pointer',
-                  isExpanded && 'bg-muted/30',
-                )}
+                className={cn('cursor-pointer', isExpanded && 'bg-muted/30')}
                 onClick={() => handleRowClick(key)}
                 data-state={isExpanded ? 'expanded' : undefined}
               >
@@ -324,19 +331,13 @@ export function OpsEmailDeliveryTable({
                   </span>
                 </TableCell>
                 <TableCell>
-                  <span className="text-xs text-muted-foreground">
-                    {row.emailType ?? '—'}
-                  </span>
+                  <span className="text-xs text-muted-foreground">{row.emailType ?? '—'}</span>
                 </TableCell>
                 <TableCell>
-                  <span className="font-mono text-xs">
-                    {row.bookingReference ?? '—'}
-                  </span>
+                  <span className="font-mono text-xs">{row.bookingReference ?? '—'}</span>
                 </TableCell>
                 <TableCell>
-                  <span className="text-xs">
-                    {row.customerName ?? '—'}
-                  </span>
+                  <span className="text-xs">{row.customerName ?? '—'}</span>
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center justify-between gap-2">
@@ -377,7 +378,11 @@ export function OpsEmailDeliveryTable({
               rows.push(
                 <TableRow key={`${key}__detail`} className="hover:bg-transparent">
                   <TableCell colSpan={7} className="p-0">
-                    <ExpandedRowDetail attempt={attempt} timezone={timezone} restaurantId={_restaurantId} />
+                    <ExpandedRowDetail
+                      attempt={attempt}
+                      timezone={timezone}
+                      restaurantId={_restaurantId}
+                    />
                   </TableCell>
                 </TableRow>,
               );
@@ -393,26 +398,28 @@ export function OpsEmailDeliveryTable({
           <AlertDialogHeader>
             <AlertDialogTitle>Retry email delivery?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will resend the original email to the recipient. Use retry only for failed or bounced emails.
+              This will resend the original email to the recipient. Use retry only for failed or
+              bounced emails.
             </AlertDialogDescription>
           </AlertDialogHeader>
 
           {pendingRetryRow ? (
-            <div className="space-y-3 rounded-lg border border-slate-200/70 bg-slate-50/70 p-4 text-sm">
+            <div className="space-y-3 rounded-lg border border-border bg-muted/40 p-4 text-sm">
               <div>
-                <p className="font-medium text-slate-900">Recipient</p>
-                <p className="text-slate-600">{pendingRetryRow.recipientEmail}</p>
+                <p className="font-medium text-foreground">Recipient</p>
+                <p className="text-muted-foreground">{pendingRetryRow.recipientEmail}</p>
               </div>
               <div>
-                <p className="font-medium text-slate-900">Subject</p>
-                <p className="text-slate-600">{pendingRetryRow.subject}</p>
+                <p className="font-medium text-foreground">Subject</p>
+                <p className="text-muted-foreground">{pendingRetryRow.subject}</p>
               </div>
               <div>
-                <p className="font-medium text-slate-900">Email type</p>
-                <p className="text-slate-600">{pendingRetryRow.emailType ?? '—'}</p>
+                <p className="font-medium text-foreground">Email type</p>
+                <p className="text-muted-foreground">{pendingRetryRow.emailType ?? '—'}</p>
               </div>
-              <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900">
-                Warning: retrying will create a new delivery attempt and may send a duplicate email if the original eventually succeeds.
+              <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-foreground">
+                Warning: retrying will create a new delivery attempt and may send a duplicate email
+                if the original eventually succeeds.
               </p>
             </div>
           ) : null}

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
+import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import {
   SETTINGS_COMPACT_ACTION_BAR_CLASS,
   SETTINGS_COMPACT_STATUS_ROW_CLASS,
@@ -71,40 +72,23 @@ function applyDialogTitle(direction: 'google_to_nabatable' | 'nabatable_to_googl
 
 function EmptyReviewState() {
   return (
-    <div className="flex min-h-[380px] items-center justify-center p-8 text-center">
-      <div className="flex max-w-md flex-col items-center gap-5">
-        <div className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-muted/60 shadow-sm ring-1 ring-border/70">
-          <GitPullRequestArrow className="size-7 text-primary/70" />
-        </div>
-        <div className="flex flex-col gap-2">
-          <p className="text-lg font-semibold tracking-tight text-foreground">
-            No changes checked yet
-          </p>
-          <p className="text-pretty text-sm leading-6 text-muted-foreground">
-            Check for changes to compare the latest Google profile details with Nabatable.
-          </p>
-        </div>
-      </div>
-    </div>
+    <OpsEmptyState
+      title="No changes checked yet"
+      description="Check for changes to compare the latest Google profile details with Nabatable."
+      icon={<GitPullRequestArrow className="size-7 text-primary/70" aria-hidden />}
+      className="min-h-[380px] border-0 bg-transparent p-8"
+    />
   );
 }
 
 function NoReviewableSections() {
   return (
-    <div className="flex min-h-[320px] items-center justify-center rounded-lg border border-dashed bg-muted/20 p-8 text-center">
-      <div className="flex max-w-md flex-col items-center gap-4">
-        <div className="flex size-12 items-center justify-center rounded-full bg-muted/60">
-          <Eye className="size-5 text-muted-foreground" />
-        </div>
-        <div className="flex flex-col gap-1">
-          <p className="text-sm font-medium text-foreground">No section cards to review</p>
-          <p className="text-sm leading-6 text-muted-foreground">
-            The latest draft has no actionable differences. Check for changes again when Google or
-            Nabatable data changes.
-          </p>
-        </div>
-      </div>
-    </div>
+    <OpsEmptyState
+      title="No section cards to review"
+      description="The latest draft has no actionable differences. Check for changes again when Google or Nabatable data changes."
+      icon={<Eye className="size-5" aria-hidden />}
+      className="min-h-[320px] rounded-lg bg-muted/20 p-8"
+    />
   );
 }
 

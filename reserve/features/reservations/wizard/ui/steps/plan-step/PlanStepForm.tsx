@@ -7,7 +7,8 @@ import { useController } from 'react-hook-form';
 import { formatDateForInput } from '@reserve/shared/formatting/booking';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@shared/ui/accordion';
 import { Alert, AlertDescription, AlertIcon } from '@shared/ui/alert';
-import { Form, FormField } from '@shared/ui/form';
+import { Button } from '@shared/ui/button';
+import { Form, FormField, FormRoot } from '@shared/ui/form';
 
 import { Calendar24Date, Calendar24Time, NotesField, PartySizeField } from './components';
 import { usePlanStepForm } from '../../../hooks/usePlanStepForm';
@@ -70,12 +71,12 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
   }, [state.currentUnavailabilityReason]);
 
   return (
-    <form
+    <FormRoot
       className="space-y-5 sm:space-y-6"
       onSubmit={handleSubmit(state.submitForm, state.handleError)}
       noValidate
     >
-      <button type="submit" className="hidden" aria-hidden />
+      <Button type="submit" className="hidden" aria-hidden />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-6 lg:grid-cols-12">
         <WizardPanel interactive className="order-1 md:col-span-3 lg:col-span-3">
@@ -185,7 +186,7 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
           <AlertDescription aria-live="polite">{state.advisoryMessage}</AlertDescription>
         </Alert>
       )}
-    </form>
+    </FormRoot>
   );
 }
 

@@ -12,6 +12,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
+import { FormRoot } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -347,7 +348,7 @@ export function BrandIdentitySubform({
 
   return (
     <TooltipProvider delayDuration={100}>
-      <form
+      <FormRoot
         id={formId}
         className="flex flex-col gap-4"
         onSubmit={(event) =>
@@ -438,7 +439,7 @@ export function BrandIdentitySubform({
           submitLabel="Save brand & identity"
           status={status}
         />
-      </form>
+      </FormRoot>
     </TooltipProvider>
   );
 }
@@ -478,7 +479,7 @@ export function ContactLocationSubform({
 
   return (
     <TooltipProvider delayDuration={100}>
-      <form
+      <FormRoot
         id={formId}
         className="flex flex-col gap-4"
         onSubmit={(event) =>
@@ -765,7 +766,7 @@ export function ContactLocationSubform({
           submitLabel="Save contact details"
           status={status}
         />
-      </form>
+      </FormRoot>
     </TooltipProvider>
   );
 }
@@ -789,7 +790,7 @@ export function ManagerNotificationsSubform({
 
   return (
     <TooltipProvider delayDuration={100}>
-      <form
+      <FormRoot
         id={formId}
         className="flex flex-col gap-4"
         onSubmit={(event) =>
@@ -895,7 +896,7 @@ export function ManagerNotificationsSubform({
           submitLabel="Save notifications"
           status={status}
         />
-      </form>
+      </FormRoot>
     </TooltipProvider>
   );
 }
@@ -919,7 +920,7 @@ export function AdvancedIdentitySubform({
 
   return (
     <TooltipProvider delayDuration={100}>
-      <form
+      <FormRoot
         id={formId}
         className="flex flex-col gap-4"
         onSubmit={(event) =>
@@ -965,7 +966,7 @@ export function AdvancedIdentitySubform({
           submitLabel="Save booking link"
           status={status}
         />
-      </form>
+      </FormRoot>
     </TooltipProvider>
   );
 }
@@ -989,7 +990,7 @@ export function BookingRulesSubform({
 
   return (
     <TooltipProvider delayDuration={100}>
-      <form
+      <FormRoot
         id={formId}
         className="flex flex-col gap-4"
         onSubmit={(event) =>
@@ -1221,7 +1222,7 @@ export function BookingRulesSubform({
           submitLabel="Save booking rules"
           status={status}
         />
-      </form>
+      </FormRoot>
     </TooltipProvider>
   );
 }
@@ -1311,7 +1312,7 @@ export function RestaurantDetailsForm({
 
   return (
     <TooltipProvider delayDuration={100}>
-      <form onSubmit={handleSubmit} className={cn('space-y-4', className)}>
+      <FormRoot onSubmit={handleSubmit} className={cn('space-y-4', className)}>
         <div className="grid gap-4 sm:grid-cols-2">
           <div
             id="profile-identity"
@@ -2016,7 +2017,7 @@ export function RestaurantDetailsForm({
             {isSubmitting ? 'Saving…' : submitLabel}
           </Button>
         </div>
-      </form>
+      </FormRoot>
     </TooltipProvider>
   );
 }

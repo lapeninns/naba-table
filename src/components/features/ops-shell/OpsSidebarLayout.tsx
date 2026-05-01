@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useCallback, useMemo, useState, type MouseEvent, type ReactNode } from 'react';
 
 import { Alert, AlertDescription, AlertIcon, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import {
   Sidebar,
   SidebarContent,
@@ -55,12 +56,13 @@ export function OpsSidebarLayout({
         <OpsSidebarPanel />
         <SidebarRail />
         <SidebarInset className="bg-background">
-          <a
-            href="#ops-content"
-            className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[40] focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:shadow"
+          <Button
+            asChild
+            variant="link"
+            className="sr-only h-auto p-0 focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[40] focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:shadow"
           >
-            Skip to content
-          </a>
+            <a href="#ops-content">Skip to content</a>
+          </Button>
           <div className="flex h-14 items-center gap-3 border-b border-border/60 px-4 sm:px-6">
             <SidebarTrigger className="-ml-1" aria-label="Toggle navigation menu" />
             {headerSlot ? (
@@ -240,7 +242,9 @@ function OpsAccountActions() {
 
   const handleSignOut = useCallback(async () => {
     if (isSigningOut) return;
-    if (!confirmNavigation('You have unsaved changes in this workspace. Log out and discard them?')) {
+    if (
+      !confirmNavigation('You have unsaved changes in this workspace. Log out and discard them?')
+    ) {
       return;
     }
     try {
@@ -262,21 +266,20 @@ function OpsAccountActions() {
       <SidebarGroupContent>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="Sign out of operations">
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 touch-manipulation"
-                onClick={handleSignOut}
-                disabled={isSigningOut}
-                aria-busy={isSigningOut}
-              >
-                {isSigningOut ? (
-                  <Loader2 className="size-4 animate-spin" aria-hidden />
-                ) : (
-                  <LogOut className="size-4" aria-hidden />
-                )}
-                <span className="truncate">{isSigningOut ? 'Signing out…' : 'Log out'}</span>
-              </button>
+            <SidebarMenuButton
+              type="button"
+              className="touch-manipulation"
+              tooltip="Sign out of operations"
+              onClick={handleSignOut}
+              disabled={isSigningOut}
+              aria-busy={isSigningOut}
+            >
+              {isSigningOut ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+              ) : (
+                <LogOut className="size-4" aria-hidden />
+              )}
+              <span className="truncate">{isSigningOut ? 'Signing out…' : 'Log out'}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

@@ -3,6 +3,7 @@
 import { Plus, Trash2 } from 'lucide-react';
 import { useMemo, useState, type FormEvent } from 'react';
 
+import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { FormRoot } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -310,12 +312,11 @@ export function AvailabilityOccasionsEditor({
       </div>
 
       {sortedOccasions.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 px-6 py-10 text-center">
-          <p className="text-sm font-medium text-foreground">No occasions configured yet</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Add the booking moments guests can choose from during reservation.
-          </p>
-        </div>
+        <OpsEmptyState
+          title="No occasions configured yet"
+          description="Add the booking moments guests can choose from during reservation."
+          className="min-h-[180px] bg-muted/20 px-6 py-10"
+        />
       ) : (
         <div className="rounded-lg border">
           <Table>
@@ -382,7 +383,7 @@ export function AvailabilityOccasionsEditor({
                         size="sm"
                         disabled={occasion.isBuiltin}
                         onClick={() => handleDelete(occasion)}
-                        className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+                        className="border-destructive/20 text-destructive hover:bg-destructive/10 hover:text-destructive"
                       >
                         Delete
                       </Button>
@@ -408,7 +409,7 @@ export function AvailabilityOccasionsEditor({
                 : 'Define how the occasion appears in booking flows and when guests can select it.'}
             </DialogDescription>
           </DialogHeader>
-          <form className="space-y-5" onSubmit={handleSubmit}>
+          <FormRoot className="space-y-5" onSubmit={handleSubmit}>
             {!editingKey ? (
               <div className="space-y-1">
                 <Label htmlFor="availability-occasion-key">Key</Label>
@@ -733,7 +734,7 @@ export function AvailabilityOccasionsEditor({
               </Button>
               <Button type="submit">{editingKey ? 'Update occasion' : 'Add occasion'}</Button>
             </DialogFooter>
-          </form>
+          </FormRoot>
         </DialogContent>
       </Dialog>
 

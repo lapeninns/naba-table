@@ -105,7 +105,11 @@ export function buildOpsCustomersQueryString(
   };
 
   applyParam('search', nextState.search, '');
-  applyParam('marketingOptIn', nextState.marketingOptIn, DEFAULT_CUSTOMERS_FILTER_STATE.marketingOptIn);
+  applyParam(
+    'marketingOptIn',
+    nextState.marketingOptIn,
+    DEFAULT_CUSTOMERS_FILTER_STATE.marketingOptIn,
+  );
   applyParam('lastVisit', nextState.lastVisit, DEFAULT_CUSTOMERS_FILTER_STATE.lastVisit);
   applyParam('minBookings', nextState.minBookings, DEFAULT_CUSTOMERS_FILTER_STATE.minBookings);
   applyParam('sortBy', nextState.sortBy, DEFAULT_CUSTOMERS_FILTER_STATE.sortBy);
@@ -127,7 +131,10 @@ export function buildOpsCustomersFilterBadges({
   marketingOptIn,
   lastVisit,
   minBookings,
-}: Pick<OpsCustomersFilterState, 'searchTerm' | 'marketingOptIn' | 'lastVisit' | 'minBookings'>): OpsCustomersFilterBadge[] {
+}: Pick<
+  OpsCustomersFilterState,
+  'searchTerm' | 'marketingOptIn' | 'lastVisit' | 'minBookings'
+>): OpsCustomersFilterBadge[] {
   const trimmedSearch = searchTerm.trim();
 
   return [
@@ -158,7 +165,10 @@ export function buildOpsCustomersFilterBadges({
   ].filter((badge): badge is OpsCustomersFilterBadge => Boolean(badge));
 }
 
-function getDateFormatter(localeKey: string, options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+function getDateFormatter(
+  localeKey: string,
+  options: Intl.DateTimeFormatOptions,
+): Intl.DateTimeFormat {
   const key = `${localeKey}:${JSON.stringify(options)}`;
   const cached = formatterCache.get(key);
   if (cached) return cached;
@@ -242,9 +252,9 @@ export function buildOpsGuestRowViewModels(customers: OpsCustomer[]): OpsGuestRo
       railClass: isVip
         ? 'border-l-primary'
         : isReturning
-          ? 'border-l-emerald-500'
+          ? 'border-l-primary'
           : neverVisited
-            ? 'border-l-amber-300'
+            ? 'border-l-muted-foreground'
             : 'border-l-border',
       visitStatusLabel: neverVisited ? 'Never visited' : isReturning ? 'Returning' : 'New',
       marketingLabel: customer.marketingOptIn ? 'Opted in' : 'Opted out',

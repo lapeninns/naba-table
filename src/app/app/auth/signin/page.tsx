@@ -1,8 +1,13 @@
-import { AlertCircle, BarChart3, Users, Calendar, Shield } from 'lucide-react';
+import { AlertCircle, ArrowRight, BarChart3, Calendar, Shield, Users } from 'lucide-react';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 import { OpsSignInForm } from '@/components/auth/OpsSignInForm';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { ensureCsrfCookie } from '@/server/security/csrf';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
 
@@ -53,6 +58,24 @@ function resolveRedirectTarget(raw: string | string[] | undefined): string {
 
 const INVALID_CLIENT_ID_SAFE_MESSAGE =
   'Sign-in is temporarily unavailable due to an authentication provider setup issue. Please contact support or try again later.';
+
+const OPS_SIGNIN_FEATURES = [
+  {
+    title: 'Real-time bookings',
+    description: 'Manage all reservations with live updates',
+    icon: Calendar,
+  },
+  {
+    title: 'Powerful analytics',
+    description: 'Track covers, peak hours, and revenue trends',
+    icon: BarChart3,
+  },
+  {
+    title: 'Team collaboration',
+    description: 'Role-based access with activity logs',
+    icon: Users,
+  },
+] as const;
 
 function safeDecodeURIComponent(value: string): string {
   try {
@@ -132,134 +155,107 @@ export default async function OpsAuthSignInPage({ searchParams }: OpsLoginPagePr
 
   return (
     <div className="w-full">
-      {/* Hero Section */}
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
         <div className="grid gap-8 lg:grid-cols-2 lg:gap-12">
-          {/* Left Column - Value Proposition */}
-          <div className="order-2 flex flex-col justify-center space-y-6 lg:order-1">
-            <div className="space-y-4">
-              <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-4 py-1.5 text-sm font-medium text-blue-700">
-                <Shield className="h-4 w-4" />
+          <section className="order-2 flex flex-col justify-center gap-6 lg:order-1">
+            <div className="flex flex-col gap-4">
+              <Badge variant="secondary" className="w-fit gap-2 px-3 py-1.5 text-sm">
+                <Shield className="size-4" aria-hidden />
                 Trusted by 200+ restaurants
-              </div>
+              </Badge>
 
-              <h1 className="text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">
+              <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
                 Streamline your restaurant operations
               </h1>
 
-              <p className="text-lg text-slate-600">
+              <p className="text-lg text-muted-foreground">
                 Access your operations console to manage bookings, optimize seating, and keep your
                 team aligned—all in real-time.
               </p>
             </div>
 
-            {/* Features Grid */}
-            <div className="space-y-3">
-              <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-3.5">
-                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-blue-100">
-                  <Calendar className="h-5 w-5 text-blue-600" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-sm font-semibold text-slate-900">Real-time bookings</h3>
-                  <p className="mt-0.5 text-xs text-slate-600">
-                    Manage all reservations with live updates
-                  </p>
-                </div>
-              </div>
+            <div className="flex flex-col gap-3">
+              {OPS_SIGNIN_FEATURES.map((feature) => {
+                const Icon = feature.icon;
 
-              <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-3.5">
-                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-green-100">
-                  <BarChart3 className="h-5 w-5 text-green-600" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-sm font-semibold text-slate-900">Powerful analytics</h3>
-                  <p className="mt-0.5 text-xs text-slate-600">
-                    Track covers, peak hours, and revenue trends
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-3.5">
-                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-purple-100">
-                  <Users className="h-5 w-5 text-purple-600" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-sm font-semibold text-slate-900">Team collaboration</h3>
-                  <p className="mt-0.5 text-xs text-slate-600">
-                    Role-based access with activity logs
-                  </p>
-                </div>
-              </div>
+                return (
+                  <Card key={feature.title} className="border-border/70 bg-card/95 shadow-sm">
+                    <CardContent className="flex items-start gap-3 p-3.5">
+                      <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-primary">
+                        <Icon className="size-5" aria-hidden />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-semibold text-foreground">
+                          {feature.title}
+                        </span>
+                        <span className="mt-0.5 block text-xs text-muted-foreground">
+                          {feature.description}
+                        </span>
+                      </span>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
 
-            {/* Trust Indicators */}
-            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 p-4">
-              <Shield className="h-4 w-4 flex-shrink-0 text-blue-600" />
-              <span className="text-xs font-semibold text-blue-900">Enterprise Security:</span>
-              <span className="text-xs text-blue-800">SOC 2 Type II</span>
-              <span className="text-blue-400">•</span>
-              <span className="text-xs text-blue-800">99.9% uptime</span>
-              <span className="text-blue-400">•</span>
-              <span className="text-xs text-blue-800">End-to-end encryption</span>
-            </div>
-          </div>
+            <Alert variant="info">
+              <Shield className="size-4" aria-hidden />
+              <AlertTitle>Enterprise security</AlertTitle>
+              <AlertDescription>
+                <span className="flex flex-wrap gap-x-2 gap-y-1 text-xs">
+                  <span>SOC 2 Type II</span>
+                  <span aria-hidden>•</span>
+                  <span>99.9% uptime</span>
+                  <span aria-hidden>•</span>
+                  <span>End-to-end encryption</span>
+                </span>
+              </AlertDescription>
+            </Alert>
+          </section>
 
-          {/* Right Column - Sign In Form */}
-          <div className="order-1 flex flex-col justify-center lg:order-2">
-            {/* Error Alert */}
+          <section className="order-1 flex flex-col justify-center lg:order-2">
             {hasError && errorMessage && (
-              <div
-                role="alert"
-                className="mb-6 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800"
-              >
-                <AlertCircle className="h-5 w-5 flex-shrink-0 text-red-500" aria-hidden="true" />
-                <div className="text-sm">
-                  <p className="font-medium">Unable to sign in</p>
-                  <p className="mt-1 text-red-700">{errorMessage}</p>
-                </div>
-              </div>
+              <Alert variant="destructive" className="mb-6">
+                <AlertCircle className="size-4" aria-hidden />
+                <AlertTitle>Unable to sign in</AlertTitle>
+                <AlertDescription>{errorMessage}</AlertDescription>
+              </Alert>
             )}
 
-            {/* Sign-in Card */}
-            <div className="rounded-2xl border border-slate-200 bg-white shadow-xl">
-              <div className="p-6 sm:p-8">
+            <Card className="border-border/70 bg-card shadow-lg shadow-primary/5">
+              <CardHeader className="p-6 sm:p-8">
                 <OpsSignInForm redirectedFrom={redirectTarget} />
-              </div>
+              </CardHeader>
 
-              {/* Divider */}
-              <div className="relative px-6">
+              <CardContent className="px-6 py-0">
                 <div className="relative flex items-center">
-                  <div className="flex-grow border-t border-slate-200"></div>
-                  <span className="mx-4 flex-shrink text-sm text-slate-500">or</span>
-                  <div className="flex-grow border-t border-slate-200"></div>
+                  <Separator />
+                  <span className="absolute left-1/2 -translate-x-1/2 bg-card px-3 text-sm text-muted-foreground">
+                    or
+                  </span>
                 </div>
-              </div>
+              </CardContent>
 
-              {/* Guest CTA */}
-              <div className="rounded-b-2xl bg-slate-50 p-6">
-                <p className="mb-3 text-center text-sm text-slate-600">
+              <CardFooter className="flex flex-col gap-3 bg-muted/35 p-6">
+                <p className="text-center text-sm text-muted-foreground">
                   Looking to make a reservation?
                 </p>
-                <a
-                  href={guestSignInUrl}
-                  className="flex w-full items-center justify-center rounded-xl border-2 border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition-all hover:border-blue-400 hover:bg-blue-50"
-                >
-                  Sign in as a guest →
-                </a>
-              </div>
-            </div>
+                <Button asChild variant="outline" className="w-full">
+                  <a href={guestSignInUrl}>
+                    Sign in as a guest
+                    <ArrowRight data-icon="inline-end" aria-hidden />
+                  </a>
+                </Button>
+              </CardFooter>
+            </Card>
 
-            {/* Support Link */}
-            <div className="mt-6 text-center text-sm text-slate-600">
+            <p className="mt-6 text-center text-sm text-muted-foreground">
               Need help?{' '}
-              <a
-                href="mailto:support@sajiloreserve.com"
-                className="font-medium text-blue-600 hover:text-blue-700"
-              >
-                Contact support
-              </a>
-            </div>
-          </div>
+              <Button asChild variant="link" className="h-auto p-0 align-baseline">
+                <a href="mailto:support@sajiloreserve.com">Contact support</a>
+              </Button>
+            </p>
+          </section>
         </div>
       </div>
     </div>

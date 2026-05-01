@@ -1,12 +1,14 @@
 'use client';
 
 import { AlertCircle, Mail, Phone, ShieldCheck, UserRound } from 'lucide-react';
+import Link from 'next/link';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useWatch } from 'react-hook-form';
 
 import { cn } from '@/lib/utils';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@shared/ui/accordion';
 import { Alert, AlertDescription, AlertIcon } from '@shared/ui/alert';
+import { Button } from '@shared/ui/button';
 import { Checkbox } from '@shared/ui/checkbox';
 import {
   Form,
@@ -16,6 +18,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormRoot,
 } from '@shared/ui/form';
 import { Input } from '@shared/ui/input';
 import { Label } from '@shared/ui/label';
@@ -97,12 +100,12 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
         contentClassName="space-y-6 md:space-y-8"
       >
         <Form {...form}>
-          <form
+          <FormRoot
             className="space-y-6 md:space-y-8"
             onSubmit={form.handleSubmit(handleSubmit, handleError)}
             noValidate
           >
-            <button type="submit" className="hidden" aria-hidden />
+            <Button type="submit" className="hidden" aria-hidden />
 
             <WizardPanel>
               <WizardPanelHeader
@@ -358,13 +361,13 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
                                     </span>
                                     <span>
                                       Required to confirm your booking. View our
-                                      <a
+                                      <Link
                                         href="/privacy"
                                         className="ml-1 text-foreground underline underline-offset-4"
                                         onClick={(event) => event.stopPropagation()}
                                       >
                                         privacy notice
-                                      </a>
+                                      </Link>
                                       .
                                     </span>
                                   </div>
@@ -394,7 +397,7 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
                 </Accordion>
               </WizardPanelContent>
             </WizardPanel>
-          </form>
+          </FormRoot>
         </Form>
       </WizardStep>
     </StepErrorBoundary>

@@ -34,14 +34,7 @@ export const OpsBookingCard = memo(function OpsBookingCard({
   onCheckOut,
   onMarkNoShow,
 }: OpsBookingCardProps) {
-  const {
-    booking,
-    meta,
-    disableActions: viewDisabled,
-    header,
-    details,
-    actions,
-  } = viewModel;
+  const { booking, meta, disableActions: viewDisabled, header, details, actions } = viewModel;
   const [isOpen, setIsOpen] = useState(false);
   const isMobile = useMediaQuery('(max-width: 639px)');
 
@@ -63,8 +56,8 @@ export const OpsBookingCard = memo(function OpsBookingCard({
   const railClass = useMemo(() => {
     const ui = getOpsBookingStatusUi(booking.status);
     // Urgency is a contextual override on top of status rails.
-    if (header.urgency?.variant === 'destructive') return 'border-l-rose-400';
-    if (header.urgency?.variant === 'warning') return 'border-l-amber-400/70';
+    if (header.urgency?.variant === 'destructive') return 'border-l-destructive';
+    if (header.urgency?.variant === 'warning') return 'border-l-primary';
     return ui.railClass;
   }, [booking.status, header.urgency?.variant]);
 

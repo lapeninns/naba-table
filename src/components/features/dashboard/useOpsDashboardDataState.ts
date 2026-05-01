@@ -32,7 +32,7 @@ export function useOpsDashboardDataState(params: {
 
   const restaurantSlug = restaurantDetails.data?.slug ?? membership?.restaurantSlug ?? null;
   const restaurantTimezone =
-    restaurantDetails.data?.timezone ?? (!isSummaryMismatch ? summary?.timezone ?? null : null);
+    restaurantDetails.data?.timezone ?? (!isSummaryMismatch ? (summary?.timezone ?? null) : null);
   const restaurantName = membership?.restaurantName ?? 'Restaurant';
 
   const heatmapRange = useMemo(() => {

@@ -93,7 +93,9 @@ export function VirtualizedAllTablesSection({
     let rowIndex = 0;
 
     groupedTables.forEach((sectionTables, section) => {
-      const conflictCount = sectionTables.filter((table) => conflictedTableIds.has(table.id)).length;
+      const conflictCount = sectionTables.filter((table) =>
+        conflictedTableIds.has(table.id),
+      ).length;
       nextRows.push({
         kind: 'header',
         section,
@@ -265,7 +267,7 @@ export function VirtualizedAllTablesSection({
                     {item.conflictCount > 0 ? (
                       <Badge
                         variant="outline"
-                        className="gap-1 border-amber-300 bg-amber-50 text-amber-800"
+                        className="gap-1 border-primary/30 bg-primary/10 text-primary"
                       >
                         <Clock className="h-3 w-3" aria-hidden />
                         {item.conflictCount} conflict{item.conflictCount > 1 ? 's' : ''}

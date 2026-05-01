@@ -51,10 +51,10 @@ export const HEATMAP_BUCKET_LABEL: Record<DualSyncHeatmapBucket, string> = {
 };
 
 export const HEATMAP_BUCKET_TONE: Record<DualSyncHeatmapBucket, string> = {
-  in_sync: 'bg-emerald-500',
-  drift: 'bg-amber-500',
-  conflict: 'bg-orange-500',
-  pending: 'bg-sky-500',
+  in_sync: 'bg-primary/10',
+  drift: 'bg-primary/10',
+  conflict: 'bg-destructive',
+  pending: 'bg-primary',
   failed: 'bg-destructive',
   inactive: 'bg-muted-foreground/40',
 };
@@ -118,7 +118,6 @@ export function summarizeFieldsToHeatmap(
     pending,
     failed,
     inactive,
-    hasActionableState:
-      drift > 0 || conflict > 0 || pending > 0 || failed > 0,
+    hasActionableState: drift > 0 || conflict > 0 || pending > 0 || failed > 0,
   };
 }

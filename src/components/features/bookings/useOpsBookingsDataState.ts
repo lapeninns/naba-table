@@ -79,14 +79,18 @@ export function useOpsBookingsDataState(params: {
       selectedStatuses: visibleSelectedStatuses,
       tableId: resolvedTableId,
     });
-  }, [appliedDateRange, deferredSearch, resolvedTableId, restaurantId, view, visibleSelectedStatuses]);
+  }, [
+    appliedDateRange,
+    deferredSearch,
+    resolvedTableId,
+    restaurantId,
+    view,
+    visibleSelectedStatuses,
+  ]);
 
   const bookingsQuery = useOpsBookingsList(filters);
   const bookingsPages = useMemo(() => bookingsQuery.data?.pages ?? [], [bookingsQuery.data?.pages]);
-  const bookingsItems = useMemo(
-    () => bookingsPages.flatMap((page) => page.items),
-    [bookingsPages],
-  );
+  const bookingsItems = useMemo(() => bookingsPages.flatMap((page) => page.items), [bookingsPages]);
   const bookingsTotal = bookingsPages[0]?.pageInfo.total ?? 0;
 
   const derivedData = useMemo(

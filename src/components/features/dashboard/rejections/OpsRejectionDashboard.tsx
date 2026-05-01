@@ -1,6 +1,13 @@
 'use client';
 
-import { AlertTriangle, BarChart3, RefreshCw, Settings2, FlaskConical, TrendingDown } from 'lucide-react';
+import {
+  AlertTriangle,
+  BarChart3,
+  RefreshCw,
+  Settings2,
+  FlaskConical,
+  TrendingDown,
+} from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
@@ -9,16 +16,47 @@ import { OpsPageToolbar } from '@/components/features/ops-shell/patterns/OpsPage
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { FormRoot } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { useOpsSession } from '@/contexts/ops-session';
 import { useOpsRejectionAnalytics } from '@/hooks/ops/useOpsRejectionAnalytics';
-import { useOpsStrategicSettings, useUpdateOpsStrategicSettings } from '@/hooks/ops/useOpsStrategicSettings';
+import {
+  useOpsStrategicSettings,
+  useUpdateOpsStrategicSettings,
+} from '@/hooks/ops/useOpsStrategicSettings';
 import { CSRF_HEADER_NAME, getBrowserCsrfToken } from '@/lib/security/csrf';
 import { cn } from '@/lib/utils';
 
@@ -32,7 +70,12 @@ type RangeState = {
   bucket: 'hour' | 'day';
 };
 
-const RANGE_PRESETS: Array<{ key: RangePresetKey; label: string; durationMs: number; bucket: 'hour' | 'day' }> = [
+const RANGE_PRESETS: Array<{
+  key: RangePresetKey;
+  label: string;
+  durationMs: number;
+  bucket: 'hour' | 'day';
+}> = [
   { key: '24h', label: 'Last 24 hours', durationMs: 24 * 60 * 60 * 1000, bucket: 'hour' },
   { key: '7d', label: 'Last 7 days', durationMs: 7 * 24 * 60 * 60 * 1000, bucket: 'day' },
 ];
@@ -46,10 +89,10 @@ const PENALTY_LABELS: Record<OpsStrategicPenaltyKey, string> = {
 };
 
 const PENALTY_BADGE_VARIANTS: Record<OpsStrategicPenaltyKey, string> = {
-  slack: 'bg-blue-100 text-blue-900',
-  scarcity: 'bg-amber-100 text-amber-900',
-  future_conflict: 'bg-rose-100 text-rose-900',
-  structural: 'bg-purple-100 text-purple-900',
+  slack: 'bg-primary/10 text-primary',
+  scarcity: 'bg-primary/10 text-primary',
+  future_conflict: 'bg-destructive/10 text-destructive',
+  structural: 'bg-primary/10 text-primary',
   unknown: 'bg-muted text-muted-foreground',
 };
 
@@ -108,7 +151,15 @@ type StrategicSettingsDialogProps = {
   readOnly?: boolean;
 };
 
-function StrategicSettingsDialog({ restaurantName, open, onOpenChange, settings, onSubmit, isSubmitting, readOnly }: StrategicSettingsDialogProps) {
+function StrategicSettingsDialog({
+  restaurantName,
+  open,
+  onOpenChange,
+  settings,
+  onSubmit,
+  isSubmitting,
+  readOnly,
+}: StrategicSettingsDialogProps) {
   const [scarcity, setScarcity] = useState<string>('');
   const [demandMultiplier, setDemandMultiplier] = useState<string>('');
   const [futurePenalty, setFuturePenalty] = useState<string>('');
@@ -117,10 +168,18 @@ function StrategicSettingsDialog({ restaurantName, open, onOpenChange, settings,
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
       if (nextOpen) {
-        const baseline = settings?.weights ?? { scarcity: 22, demandMultiplier: null, futureConflictPenalty: null };
+        const baseline = settings?.weights ?? {
+          scarcity: 22,
+          demandMultiplier: null,
+          futureConflictPenalty: null,
+        };
         setScarcity(baseline.scarcity.toString());
-        setDemandMultiplier(baseline.demandMultiplier === null ? '' : baseline.demandMultiplier.toString());
-        setFuturePenalty(baseline.futureConflictPenalty === null ? '' : baseline.futureConflictPenalty.toString());
+        setDemandMultiplier(
+          baseline.demandMultiplier === null ? '' : baseline.demandMultiplier.toString(),
+        );
+        setFuturePenalty(
+          baseline.futureConflictPenalty === null ? '' : baseline.futureConflictPenalty.toString(),
+        );
         setError(null);
       }
       onOpenChange(nextOpen);
@@ -141,14 +200,22 @@ function StrategicSettingsDialog({ restaurantName, open, onOpenChange, settings,
         return;
       }
 
-      const demandValue = demandMultiplier.trim().length === 0 ? null : Number.parseFloat(demandMultiplier);
-      if (demandValue !== null && (!Number.isFinite(demandValue) || demandValue < 0 || demandValue > 10)) {
+      const demandValue =
+        demandMultiplier.trim().length === 0 ? null : Number.parseFloat(demandMultiplier);
+      if (
+        demandValue !== null &&
+        (!Number.isFinite(demandValue) || demandValue < 0 || demandValue > 10)
+      ) {
         setError('Demand multiplier override must be between 0 and 10.');
         return;
       }
 
-      const futureValue = futurePenalty.trim().length === 0 ? null : Number.parseFloat(futurePenalty);
-      if (futureValue !== null && (!Number.isFinite(futureValue) || futureValue < 0 || futureValue > 100000)) {
+      const futureValue =
+        futurePenalty.trim().length === 0 ? null : Number.parseFloat(futurePenalty);
+      if (
+        futureValue !== null &&
+        (!Number.isFinite(futureValue) || futureValue < 0 || futureValue > 100000)
+      ) {
         setError('Future conflict penalty must be between 0 and 100000.');
         return;
       }
@@ -170,8 +237,8 @@ function StrategicSettingsDialog({ restaurantName, open, onOpenChange, settings,
         <DialogHeader>
           <DialogTitle>Adjust strategic weights</DialogTitle>
           <DialogDescription>
-            Tune the selector weights for {restaurantName ?? 'this restaurant'}. When settings are code-defined, changes
-            require a deploy.
+            Tune the selector weights for {restaurantName ?? 'this restaurant'}. When settings are
+            code-defined, changes require a deploy.
           </DialogDescription>
         </DialogHeader>
 
@@ -179,12 +246,13 @@ function StrategicSettingsDialog({ restaurantName, open, onOpenChange, settings,
           <Alert variant="default" className="border-border/60 bg-muted/40 text-sm">
             <AlertTitle>Read-only configuration</AlertTitle>
             <AlertDescription>
-              Strategic weights now live in code/env. Update deployment configuration to change these values.
+              Strategic weights now live in code/env. Update deployment configuration to change
+              these values.
             </AlertDescription>
           </Alert>
         ) : null}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <FormRoot onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="scarcity-weight">Scarcity weight</Label>
             <Input
@@ -199,7 +267,9 @@ function StrategicSettingsDialog({ restaurantName, open, onOpenChange, settings,
               disabled={readOnly}
               inputMode="decimal"
             />
-            <p className="text-xs text-muted-foreground">Higher scarcity increases preference for freeing rare tables.</p>
+            <p className="text-xs text-muted-foreground">
+              Higher scarcity increases preference for freeing rare tables.
+            </p>
           </div>
 
           <div className="space-y-2">
@@ -216,7 +286,9 @@ function StrategicSettingsDialog({ restaurantName, open, onOpenChange, settings,
               placeholder="Use fallback profile"
               disabled={readOnly}
             />
-            <p className="text-xs text-muted-foreground">Leave blank to use demand profile rules for this restaurant.</p>
+            <p className="text-xs text-muted-foreground">
+              Leave blank to use demand profile rules for this restaurant.
+            </p>
           </div>
 
           <div className="space-y-2">
@@ -233,7 +305,9 @@ function StrategicSettingsDialog({ restaurantName, open, onOpenChange, settings,
               placeholder="Default"
               disabled={readOnly}
             />
-            <p className="text-xs text-muted-foreground">Penalty applied when a placement creates conflicts with future bookings.</p>
+            <p className="text-xs text-muted-foreground">
+              Penalty applied when a placement creates conflicts with future bookings.
+            </p>
           </div>
 
           {error ? (
@@ -244,14 +318,19 @@ function StrategicSettingsDialog({ restaurantName, open, onOpenChange, settings,
           ) : null}
 
           <DialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={isSubmitting}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleOpenChange(false)}
+              disabled={isSubmitting}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting || readOnly}>
               {isSubmitting ? 'Saving…' : readOnly ? 'Read-only' : 'Save changes'}
             </Button>
           </DialogFooter>
-        </form>
+        </FormRoot>
       </DialogContent>
     </Dialog>
   );
@@ -277,14 +356,14 @@ export function OpsRejectionDashboard() {
   const settingsQuery = useOpsStrategicSettings({ restaurantId, enabled: Boolean(restaurantId) });
   const updateSettings = useUpdateOpsStrategicSettings();
 
-  const activePreset = useMemo(() => RANGE_PRESETS.find((preset) => preset.key === range.key) ?? RANGE_PRESETS[0], [range.key]);
-
-  const handleChangeRange = useCallback(
-    (nextKey: RangePresetKey) => {
-      setRange(computeRangeState(nextKey));
-    },
-    [],
+  const activePreset = useMemo(
+    () => RANGE_PRESETS.find((preset) => preset.key === range.key) ?? RANGE_PRESETS[0],
+    [range.key],
   );
+
+  const handleChangeRange = useCallback((nextKey: RangePresetKey) => {
+    setRange(computeRangeState(nextKey));
+  }, []);
 
   const handleRefresh = useCallback(() => {
     setRange((prev) => computeRangeState(prev.key));
@@ -371,13 +450,20 @@ export function OpsRejectionDashboard() {
       <OpsPageHeader
         title="Rejections"
         subtitle="Review rejection analytics and strategic settings for your restaurant."
-        meta={<Badge variant="secondary" className="rounded-md font-medium">{restaurantName}</Badge>}
+        meta={
+          <Badge variant="secondary" className="rounded-md font-medium">
+            {restaurantName}
+          </Badge>
+        }
       />
 
       <OpsPageToolbar
         sticky
         filters={
-          <Select value={range.key} onValueChange={(value) => handleChangeRange(value as RangePresetKey)}>
+          <Select
+            value={range.key}
+            onValueChange={(value) => handleChangeRange(value as RangePresetKey)}
+          >
             <SelectTrigger className="w-full sm:w-48">
               <SelectValue placeholder="Select range" />
             </SelectTrigger>
@@ -392,7 +478,10 @@ export function OpsRejectionDashboard() {
         }
         actions={
           <Button variant="outline" onClick={handleRefresh} disabled={analyticsQuery.isRefetching}>
-            <RefreshCw className={cn('mr-2 size-4', analyticsQuery.isRefetching && 'animate-spin')} aria-hidden />
+            <RefreshCw
+              className={cn('mr-2 size-4', analyticsQuery.isRefetching && 'animate-spin')}
+              aria-hidden
+            />
             Refresh
           </Button>
         }
@@ -405,7 +494,8 @@ export function OpsRejectionDashboard() {
             Rejection analytics
           </CardTitle>
           <CardDescription>
-            Understand why bookings were unassigned. Data shown for {restaurantName} ({activePreset.label}).
+            Understand why bookings were unassigned. Data shown for {restaurantName} (
+            {activePreset.label}).
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -418,11 +508,17 @@ export function OpsRejectionDashboard() {
           ) : error ? (
             <Alert variant="destructive" className="border-border/60">
               <AlertTitle>Unable to load analytics</AlertTitle>
-              <AlertDescription>{error.message ?? 'An unexpected error occurred.'}</AlertDescription>
+              <AlertDescription>
+                {error.message ?? 'An unexpected error occurred.'}
+              </AlertDescription>
             </Alert>
           ) : hasData && analytics ? (
             <div className="grid gap-3 sm:grid-cols-3">
-              <SummaryCard label="Total skipped" value={formatCount(analytics.summary.total)} description="Unassigned bookings" />
+              <SummaryCard
+                label="Total skipped"
+                value={formatCount(analytics.summary.total)}
+                description="Unassigned bookings"
+              />
               <SummaryCard
                 label="Hard rejections"
                 value={`${formatCount(analytics.summary.hard.count)} · ${formatPercent(analytics.summary.hard.percent)}`}
@@ -438,7 +534,9 @@ export function OpsRejectionDashboard() {
             <Alert className="border-border/60 bg-muted/20">
               <AlertTriangle className="size-4" aria-hidden />
               <AlertTitle>No rejection data available</AlertTitle>
-              <AlertDescription>Selector did not reject any bookings for the selected range.</AlertDescription>
+              <AlertDescription>
+                Selector did not reject any bookings for the selected range.
+              </AlertDescription>
             </Alert>
           )}
 
@@ -446,12 +544,18 @@ export function OpsRejectionDashboard() {
             <div className="grid gap-6 lg:grid-cols-2">
               <Card className="border-border/60 lg:col-span-2">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base font-medium">Trend by {analytics.range.bucket}</CardTitle>
-                  <CardDescription>Volume of skipped bookings over the selected window.</CardDescription>
+                  <CardTitle className="text-base font-medium">
+                    Trend by {analytics.range.bucket}
+                  </CardTitle>
+                  <CardDescription>
+                    Volume of skipped bookings over the selected window.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   {analytics.series.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No data to plot for this period.</p>
+                    <p className="text-sm text-muted-foreground">
+                      No data to plot for this period.
+                    </p>
                   ) : (
                     <ul className="space-y-2">
                       {analytics.series.slice(-12).map((point) => {
@@ -472,7 +576,9 @@ export function OpsRejectionDashboard() {
                               />
                               <div
                                 className="bg-foreground/70"
-                                style={{ width: `${Math.max(0, Math.min(100, strategicPercent))}%` }}
+                                style={{
+                                  width: `${Math.max(0, Math.min(100, strategicPercent))}%`,
+                                }}
                                 aria-hidden
                               />
                             </div>
@@ -485,44 +591,68 @@ export function OpsRejectionDashboard() {
               </Card>
               <Card className="border-border/60">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base font-medium">Top hard rejection reasons</CardTitle>
-                  <CardDescription>Operational blockers that prevented immediate seating.</CardDescription>
+                  <CardTitle className="text-base font-medium">
+                    Top hard rejection reasons
+                  </CardTitle>
+                  <CardDescription>
+                    Operational blockers that prevented immediate seating.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {analytics.summary.hard.topReasons.length > 0 ? (
                     <ul className="space-y-2">
                       {analytics.summary.hard.topReasons.map((reason) => (
-                        <li key={reason.label} className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/10 px-3 py-2 text-sm">
+                        <li
+                          key={reason.label}
+                          className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/10 px-3 py-2 text-sm"
+                        >
                           <span className="font-medium text-foreground">{reason.label}</span>
                           <span className="text-muted-foreground">{formatCount(reason.count)}</span>
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No hard rejection reasons recorded.</p>
+                    <p className="text-sm text-muted-foreground">
+                      No hard rejection reasons recorded.
+                    </p>
                   )}
                 </CardContent>
               </Card>
 
               <Card className="border-border/60">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base font-medium">Dominant strategic penalties</CardTitle>
-                  <CardDescription>Which penalty contributed most when scoring rejected plans.</CardDescription>
+                  <CardTitle className="text-base font-medium">
+                    Dominant strategic penalties
+                  </CardTitle>
+                  <CardDescription>
+                    Which penalty contributed most when scoring rejected plans.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {analytics.summary.strategic.topPenalties.length > 0 ? (
                     <ul className="space-y-2">
                       {analytics.summary.strategic.topPenalties.map((penalty) => (
-                        <li key={penalty.penalty} className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/10 px-3 py-2 text-sm">
+                        <li
+                          key={penalty.penalty}
+                          className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/10 px-3 py-2 text-sm"
+                        >
                           <div className="flex items-center gap-2">
-                            <Badge className={cn('capitalize', PENALTY_BADGE_VARIANTS[penalty.penalty])}>{PENALTY_LABELS[penalty.penalty]}</Badge>
+                            <Badge
+                              className={cn('capitalize', PENALTY_BADGE_VARIANTS[penalty.penalty])}
+                            >
+                              {PENALTY_LABELS[penalty.penalty]}
+                            </Badge>
                           </div>
-                          <span className="text-muted-foreground">{formatCount(penalty.count)}</span>
+                          <span className="text-muted-foreground">
+                            {formatCount(penalty.count)}
+                          </span>
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No strategic penalties recorded.</p>
+                    <p className="text-sm text-muted-foreground">
+                      No strategic penalties recorded.
+                    </p>
                   )}
                 </CardContent>
               </Card>
@@ -536,7 +666,9 @@ export function OpsRejectionDashboard() {
                   <TrendingDown className="size-4" aria-hidden />
                   Recent strategic rejection samples
                 </CardTitle>
-                <CardDescription>Inspect planner telemetry for the most recent strategic skips.</CardDescription>
+                <CardDescription>
+                  Inspect planner telemetry for the most recent strategic skips.
+                </CardDescription>
               </CardHeader>
               <CardContent className="overflow-hidden rounded-xl border border-border/60">
                 <Table>
@@ -552,10 +684,19 @@ export function OpsRejectionDashboard() {
                   <TableBody>
                     {analytics.strategicSamples.map((sample) => (
                       <TableRow key={`${sample.bookingId ?? 'unknown'}-${sample.createdAt}`}>
-                        <TableCell className="whitespace-nowrap text-sm">{formatDateTime(sample.createdAt)}</TableCell>
-                        <TableCell className="font-mono text-xs text-muted-foreground">{sample.bookingId ?? '—'}</TableCell>
+                        <TableCell className="whitespace-nowrap text-sm">
+                          {formatDateTime(sample.createdAt)}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs text-muted-foreground">
+                          {sample.bookingId ?? '—'}
+                        </TableCell>
                         <TableCell>
-                          <Badge className={cn('capitalize', PENALTY_BADGE_VARIANTS[sample.dominantPenalty])}>
+                          <Badge
+                            className={cn(
+                              'capitalize',
+                              PENALTY_BADGE_VARIANTS[sample.dominantPenalty],
+                            )}
+                          >
                             {PENALTY_LABELS[sample.dominantPenalty]}
                           </Badge>
                         </TableCell>
@@ -563,7 +704,9 @@ export function OpsRejectionDashboard() {
                           {sample.skipReason ?? 'Unspecified'}
                         </TableCell>
                         <TableCell className="text-right text-xs text-muted-foreground">
-                          slack {formatPenaltyValue(sample.penalties.slack)} · scarcity {formatPenaltyValue(sample.penalties.scarcity)} · future {formatPenaltyValue(sample.penalties.futureConflict)}
+                          slack {formatPenaltyValue(sample.penalties.slack)} · scarcity{' '}
+                          {formatPenaltyValue(sample.penalties.scarcity)} · future{' '}
+                          {formatPenaltyValue(sample.penalties.futureConflict)}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -577,7 +720,8 @@ export function OpsRejectionDashboard() {
         {analytics?.range ? (
           <CardFooter className="flex flex-col gap-1 border-t border-border/60 bg-muted/20 px-6 py-4 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
             <span>
-              Window: {formatDateTime(analytics.range.from)} → {formatDateTime(analytics.range.to)} (bucket: {analytics.range.bucket})
+              Window: {formatDateTime(analytics.range.from)} → {formatDateTime(analytics.range.to)}{' '}
+              (bucket: {analytics.range.bucket})
             </span>
             {analyticsQuery.isRefetching ? <span>Refreshing data…</span> : null}
           </CardFooter>
@@ -592,16 +736,24 @@ export function OpsRejectionDashboard() {
               Strategic configuration
             </CardTitle>
             <CardDescription>
-              Current weights for {restaurantName}. Adjust to balance occupancy and revenue outcomes.
+              Current weights for {restaurantName}. Adjust to balance occupancy and revenue
+              outcomes.
             </CardDescription>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setSettingsOpen(true)} disabled={settingsQuery.isLoading}>
+            <Button
+              variant="outline"
+              onClick={() => setSettingsOpen(true)}
+              disabled={settingsQuery.isLoading}
+            >
               <Settings2 className="mr-2 size-4" aria-hidden />
               Edit weights
             </Button>
             <Button onClick={handleRunSimulation} disabled={simulationStatus === 'running'}>
-              <FlaskConical className={cn('mr-2 size-4', simulationStatus === 'running' && 'animate-spin')} aria-hidden />
+              <FlaskConical
+                className={cn('mr-2 size-4', simulationStatus === 'running' && 'animate-spin')}
+                aria-hidden
+              />
               {simulationStatus === 'running' ? 'Queuing…' : 'Run simulation'}
             </Button>
           </div>
@@ -616,19 +768,33 @@ export function OpsRejectionDashboard() {
           ) : settingsQuery.error ? (
             <Alert variant="destructive" className="border-border/60">
               <AlertTitle>Unable to load settings</AlertTitle>
-              <AlertDescription>{(settingsQuery.error as Error).message ?? 'Unknown error.'}</AlertDescription>
+              <AlertDescription>
+                {(settingsQuery.error as Error).message ?? 'Unknown error.'}
+              </AlertDescription>
             </Alert>
           ) : settingsQuery.data ? (
             <div className="grid gap-4 sm:grid-cols-3">
-              <SettingsMetric label="Scarcity" value={formatCount(settingsQuery.data.weights.scarcity)} tooltip="Weight applied to scarcity scoring" />
+              <SettingsMetric
+                label="Scarcity"
+                value={formatCount(settingsQuery.data.weights.scarcity)}
+                tooltip="Weight applied to scarcity scoring"
+              />
               <SettingsMetric
                 label="Demand multiplier"
-                value={settingsQuery.data.weights.demandMultiplier === null ? 'Fallback' : settingsQuery.data.weights.demandMultiplier.toFixed(2)}
+                value={
+                  settingsQuery.data.weights.demandMultiplier === null
+                    ? 'Fallback'
+                    : settingsQuery.data.weights.demandMultiplier.toFixed(2)
+                }
                 tooltip="Override applied to demand multiplier"
               />
               <SettingsMetric
                 label="Future conflict penalty"
-                value={settingsQuery.data.weights.futureConflictPenalty === null ? 'Default' : settingsQuery.data.weights.futureConflictPenalty.toFixed(0)}
+                value={
+                  settingsQuery.data.weights.futureConflictPenalty === null
+                    ? 'Default'
+                    : settingsQuery.data.weights.futureConflictPenalty.toFixed(0)
+                }
                 tooltip="Penalty applied when seating blocks future bookings"
               />
             </div>
@@ -637,7 +803,9 @@ export function OpsRejectionDashboard() {
         {settingsQuery.data ? (
           <CardFooter className="border-t border-border/60 bg-muted/20 px-6 py-4 text-xs text-muted-foreground">
             <span>
-              Source: {settingsQuery.data.source === 'db' ? 'Supabase overrides' : 'Code/env defaults'} · Last updated {formatDateTime(settingsQuery.data.updatedAt)}
+              Source:{' '}
+              {settingsQuery.data.source === 'db' ? 'Supabase overrides' : 'Code/env defaults'} ·
+              Last updated {formatDateTime(settingsQuery.data.updatedAt)}
             </span>
           </CardFooter>
         ) : null}

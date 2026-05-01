@@ -189,9 +189,9 @@ export function PreflightReviewDialog({
                     </p>
                     <div className="mt-2 flex items-center gap-2 text-sm font-medium text-foreground">
                       {preflight.canPublish ? (
-                        <CheckCircle2 className="size-4 text-emerald-600" />
+                        <CheckCircle2 className="size-4 text-primary" />
                       ) : (
-                        <AlertTriangle className="size-4 text-amber-600" />
+                        <AlertTriangle className="size-4 text-primary" />
                       )}
                       {preflight.canPublish ? 'Ready to apply' : 'Blocked'}
                     </div>

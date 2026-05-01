@@ -1,6 +1,7 @@
 'use client';
 
-import { Icon } from '@reserve/shared/ui/icons';
+import { AlertCircle } from 'lucide-react';
+
 import { cn } from '@shared/lib/cn';
 import { Label } from '@shared/ui/label';
 
@@ -19,12 +20,12 @@ export function Field({ id, label, required, error, className, children }: Field
     <div className={cn('grid w-full items-center gap-1.5', className)}>
       <Label htmlFor={id} className="flex items-center">
         {label}
-        {required ? <span className="ml-1 text-red-500">*</span> : null}
+        {required ? <span className="ml-1 text-destructive">*</span> : null}
       </Label>
       {children}
       {error ? (
-        <p className="flex items-center gap-1 text-sm text-red-600" role="alert">
-          <Icon.AlertCircle className="h-4 w-4" />
+        <p className="flex items-center gap-1 text-sm text-destructive" role="alert">
+          <AlertCircle className="h-4 w-4" aria-hidden />
           {error}
         </p>
       ) : null}

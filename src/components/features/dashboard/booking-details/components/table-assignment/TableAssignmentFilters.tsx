@@ -4,7 +4,14 @@ import { Filter } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
@@ -47,7 +54,7 @@ export function TableAssignmentFilters({
   onResetFilters,
 }: TableAssignmentFiltersProps) {
   return (
-    <Card className="border-slate-200/60 bg-white shadow-sm">
+    <Card className="border-border bg-background shadow-sm">
       <CardContent className="space-y-3 p-4">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -61,7 +68,7 @@ export function TableAssignmentFilters({
 
         <div className="flex flex-wrap items-center gap-2">
           <Select value={zoneFilter} onValueChange={onZoneFilterChange}>
-            <SelectTrigger aria-label="Zone filter" className="h-9 w-[140px] text-sm bg-white">
+            <SelectTrigger aria-label="Zone filter" className="h-9 w-[140px] text-sm bg-background">
               <SelectValue placeholder="Zone" />
             </SelectTrigger>
             <SelectContent>
@@ -74,7 +81,7 @@ export function TableAssignmentFilters({
           </Select>
 
           <Select value={sortBy} onValueChange={(value) => onSortByChange(value as SortOption)}>
-            <SelectTrigger aria-label="Sort tables" className="h-9 w-[140px] text-sm bg-white">
+            <SelectTrigger aria-label="Sort tables" className="h-9 w-[140px] text-sm bg-background">
               <SelectValue placeholder="Sort" />
             </SelectTrigger>
             <SelectContent>
@@ -90,18 +97,18 @@ export function TableAssignmentFilters({
             </SelectContent>
           </Select>
 
-          <div className="flex items-center gap-2 rounded-md border border-input bg-white px-3 py-2">
+          <div className="flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2">
             <Switch
               id="availability-only"
               checked={availabilityOnly}
               onCheckedChange={onAvailabilityOnlyChange}
             />
-            <label
+            <Label
               htmlFor="availability-only"
               className="text-sm font-medium text-muted-foreground cursor-pointer select-none"
             >
               Available only
-            </label>
+            </Label>
           </div>
         </div>
 

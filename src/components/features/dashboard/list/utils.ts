@@ -27,8 +27,12 @@ function compareBookings(
   let comparison = 0;
 
   if (sortKey === 'time') {
-    const tA = a.sortTimeMs ?? (a.startTime ? new Date(`1970-01-01T${a.startTime}`).getTime() : Number.MAX_SAFE_INTEGER);
-    const tB = b.sortTimeMs ?? (b.startTime ? new Date(`1970-01-01T${b.startTime}`).getTime() : Number.MAX_SAFE_INTEGER);
+    const tA =
+      a.sortTimeMs ??
+      (a.startTime ? new Date(`1970-01-01T${a.startTime}`).getTime() : Number.MAX_SAFE_INTEGER);
+    const tB =
+      b.sortTimeMs ??
+      (b.startTime ? new Date(`1970-01-01T${b.startTime}`).getTime() : Number.MAX_SAFE_INTEGER);
     comparison = tA - tB;
   } else if (sortKey === 'party') {
     comparison = a.partySize - b.partySize;

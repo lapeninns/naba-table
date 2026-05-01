@@ -4,6 +4,7 @@ import { AlertTriangle, ArrowUpRight, CheckCircle2, Info } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
+import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { SettingsCard } from '@/components/features/restaurant-settings/shared/SettingsCard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -54,14 +55,14 @@ function TabCountDot({ counts }: { counts: AlignmentCounts }) {
   if (tone === 'muted') return null;
   const count = counts.drift + counts.partial;
   const classes = {
-    drift: 'bg-amber-500',
-    partial: 'bg-sky-500',
-    verified: 'bg-emerald-500',
+    drift: 'bg-primary/10',
+    partial: 'bg-primary',
+    verified: 'bg-primary/10',
   }[tone];
   return (
     <span
       className={cn(
-        'ml-1.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full px-1 text-[10px] font-semibold text-white',
+        'ml-1.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full px-1 text-[10px] font-semibold text-primary-foreground',
         classes,
       )}
       aria-hidden
@@ -95,9 +96,10 @@ function CompactDriftTable({
 }) {
   if (rows.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-border/60 bg-muted/20 px-4 py-6 text-center text-xs text-muted-foreground">
-        {emptyLabel}
-      </div>
+      <OpsEmptyState
+        title={emptyLabel}
+        className="min-h-[120px] rounded-lg bg-muted/20 px-4 py-6 text-xs"
+      />
     );
   }
 
@@ -118,7 +120,7 @@ function CompactDriftTable({
             return (
               <TableRow
                 key={row.id}
-                className={cn(needsAttention ? 'bg-amber-50/40' : 'bg-background')}
+                className={cn(needsAttention ? 'bg-primary/10' : 'bg-background')}
               >
                 <TableHead
                   scope="row"
@@ -294,8 +296,8 @@ export function AlignmentCard({
             className={cn(
               'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-medium',
               summaryTone === 'success'
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                : 'border-amber-200 bg-amber-50 text-amber-800',
+                ? 'border-primary/30 bg-primary/10 text-primary'
+                : 'border-primary/30 bg-primary/10 text-primary',
             )}
           >
             <SummaryIcon className="size-3.5" aria-hidden />
@@ -313,14 +315,11 @@ export function AlignmentCard({
       }
     >
       {!hasAnyData ? (
-        <div className="rounded-lg border border-dashed border-border/60 bg-muted/20 p-6 text-center">
-          <p className="text-sm font-medium text-foreground">
-            Google has not exposed comparable values yet.
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Run a sync to refresh the snapshot, then come back here to review alignment.
-          </p>
-        </div>
+        <OpsEmptyState
+          title="Google has not exposed comparable values yet."
+          description="Run a sync to refresh the snapshot, then come back here to review alignment."
+          className="min-h-[160px] rounded-lg bg-muted/20 p-6"
+        />
       ) : (
         <div className="space-y-4">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as AlignmentTabId)}>

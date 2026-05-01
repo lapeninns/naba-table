@@ -5,7 +5,6 @@ import { BOOKING_TYPES_UI, type BookingType } from '@shared/config/booking';
 
 import type { BookingOption } from '@reserve/shared/booking';
 import type { BookingSubmissionUiError } from '@reserve/shared/error';
-import type { IconKey } from '@reserve/shared/ui/icons';
 
 export type ApiBooking = {
   id: string;
@@ -36,7 +35,7 @@ export type StepAction = {
   variant?: 'default' | 'outline' | 'ghost' | 'destructive';
   disabled?: boolean;
   loading?: boolean;
-  icon?: IconKey;
+  icon?: string;
   ariaLabel?: string;
   role?: 'primary' | 'secondary' | 'support';
   fullWidth?: boolean;

@@ -309,14 +309,16 @@ export function OpsCustomersClient({
               activeFilterBadges.map((badge) => (
                 <Badge key={badge.key} variant="secondary" className="flex items-center gap-1 py-1">
                   <span>{badge.label}</span>
-                  <button
+                  <Button
                     type="button"
-                    className="rounded-full p-0.5 text-muted-foreground transition hover:bg-background/60"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="size-5 rounded-full p-0 text-muted-foreground hover:bg-background/60"
                     onClick={() => clearFilterBadge(badge.key)}
                     aria-label={`Remove ${badge.label} filter`}
                   >
-                    <X className="h-3 w-3" aria-hidden />
-                  </button>
+                    <X aria-hidden />
+                  </Button>
                 </Badge>
               ))
             ) : (

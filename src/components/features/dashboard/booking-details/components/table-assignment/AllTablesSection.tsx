@@ -103,10 +103,15 @@ export function AllTablesSection({
                       <span className="text-xs font-semibold uppercase tracking-wide text-foreground">
                         {section}
                       </span>
-                      <span className="text-xs text-muted-foreground">({sectionTables.length})</span>
+                      <span className="text-xs text-muted-foreground">
+                        ({sectionTables.length})
+                      </span>
                     </div>
                     {conflictedInZone.length > 0 ? (
-                      <Badge variant="outline" className="gap-1 border-amber-300 bg-amber-50 text-amber-800">
+                      <Badge
+                        variant="outline"
+                        className="gap-1 border-primary/30 bg-primary/10 text-primary"
+                      >
                         <Clock className="h-3 w-3" aria-hidden />
                         {conflictedInZone.length} conflict{conflictedInZone.length > 1 ? 's' : ''}
                       </Badge>

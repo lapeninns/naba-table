@@ -3,7 +3,6 @@
 import { MailCheck, MailWarning } from 'lucide-react';
 import { useMemo } from 'react';
 
-
 import {
   Accordion,
   AccordionContent,
@@ -31,7 +30,10 @@ import type { CSSProperties, ReactElement } from 'react';
 function StatusBadge({ status }: { status: EmailDeliveryStatus }) {
   const tone = getEmailDeliveryStatusBadgeTone(status);
   return (
-    <Badge variant={tone.variant} className={cn('text-[10px] font-bold uppercase tracking-wide', tone.className)}>
+    <Badge
+      variant={tone.variant}
+      className={cn('text-[10px] font-bold uppercase tracking-wide', tone.className)}
+    >
       {EMAIL_DELIVERY_STATUS_LABELS[status] ?? status}
     </Badge>
   );
@@ -47,10 +49,10 @@ function GroupHeader({ group, timezone }: { group: EmailDeliveryGroup; timezone:
         <StatusBadge status={group.currentStatus} />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="text-sm font-semibold text-slate-900 truncate" title={subject}>
+        <div className="truncate text-sm font-semibold text-foreground" title={subject}>
           {subject}
         </div>
-        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
           {group.variantName ? (
             <Badge variant="secondary" className="h-5 rounded-full px-2 text-[10px]">
               {group.variantName}
@@ -87,13 +89,13 @@ export function EmailDeliveryPanel({ bookingId, timezone, limit = 50 }: EmailDel
 
   if (query.isLoading) {
     return wrapCard(
-      <Card className="border-slate-200/60 bg-white">
-        <CardContent className="p-3 space-y-3">
+      <Card className="border-border bg-background">
+        <CardContent className="space-y-3 p-3">
           <div className="flex items-center justify-between">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Email Delivery
             </div>
-            <MailCheck className="h-4 w-4 text-slate-400" aria-hidden />
+            <MailCheck className="h-4 w-4 text-muted-foreground" aria-hidden />
           </div>
           <div className="space-y-2">
             <Skeleton className="h-10 w-full" />
@@ -106,18 +108,19 @@ export function EmailDeliveryPanel({ bookingId, timezone, limit = 50 }: EmailDel
 
   if (query.unavailable) {
     return wrapCard(
-      <Card className="border-slate-200/60 bg-white">
-        <CardContent className="p-3 space-y-2">
+      <Card className="border-border bg-background">
+        <CardContent className="space-y-2 p-3">
           <div className="flex items-center justify-between">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Email Delivery
             </div>
-            <MailWarning className="h-4 w-4 text-amber-500" aria-hidden />
+            <MailWarning className="h-4 w-4 text-primary" aria-hidden />
           </div>
-          <Alert className="border-amber-200/70 bg-amber-50/60">
+          <Alert className="border-border bg-muted/40">
             <AlertTitle>Delivery tracking unavailable</AlertTitle>
             <AlertDescription>
-              This environment is not currently recording or exposing delivery events. Email sending can still work normally.
+              This environment is not currently recording or exposing delivery events. Email sending
+              can still work normally.
             </AlertDescription>
           </Alert>
         </CardContent>
@@ -127,13 +130,13 @@ export function EmailDeliveryPanel({ bookingId, timezone, limit = 50 }: EmailDel
 
   if (query.apiError) {
     return wrapCard(
-      <Card className="border-slate-200/60 bg-white">
-        <CardContent className="p-3 space-y-2">
+      <Card className="border-border bg-background">
+        <CardContent className="space-y-2 p-3">
           <div className="flex items-center justify-between">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Email Delivery
             </div>
-            <MailWarning className="h-4 w-4 text-rose-500" aria-hidden />
+            <MailWarning className="h-4 w-4 text-destructive" aria-hidden />
           </div>
           <Alert variant="destructive">
             <AlertTitle>Unable to load delivery events</AlertTitle>
@@ -146,13 +149,13 @@ export function EmailDeliveryPanel({ bookingId, timezone, limit = 50 }: EmailDel
 
   if (query.error) {
     return wrapCard(
-      <Card className="border-slate-200/60 bg-white">
-        <CardContent className="p-3 space-y-2">
+      <Card className="border-border bg-background">
+        <CardContent className="space-y-2 p-3">
           <div className="flex items-center justify-between">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Email Delivery
             </div>
-            <MailWarning className="h-4 w-4 text-rose-500" aria-hidden />
+            <MailWarning className="h-4 w-4 text-destructive" aria-hidden />
           </div>
           <Alert variant="destructive">
             <AlertTitle>Unexpected error</AlertTitle>
@@ -165,15 +168,15 @@ export function EmailDeliveryPanel({ bookingId, timezone, limit = 50 }: EmailDel
 
   if (groups.length === 0) {
     return wrapCard(
-      <Card className="border-slate-200/60 bg-white">
-        <CardContent className="p-3 space-y-2">
+      <Card className="border-border bg-background">
+        <CardContent className="space-y-2 p-3">
           <div className="flex items-center justify-between">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Email Delivery
             </div>
-            <MailCheck className="h-4 w-4 text-slate-400" aria-hidden />
+            <MailCheck className="h-4 w-4 text-muted-foreground" aria-hidden />
           </div>
-          <div className="text-sm text-slate-600">
+          <div className="text-sm text-muted-foreground">
             No delivery events recorded for this booking yet.
           </div>
         </CardContent>
@@ -182,20 +185,20 @@ export function EmailDeliveryPanel({ bookingId, timezone, limit = 50 }: EmailDel
   }
 
   return wrapCard(
-    <Card className="border-slate-200/60 bg-white">
+    <Card className="border-border bg-background">
       <CardContent className="p-3 space-y-3">
         <div className="flex items-center justify-between">
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Email Delivery
           </div>
-          <MailCheck className="h-4 w-4 text-slate-400" aria-hidden />
+          <MailCheck className="h-4 w-4 text-muted-foreground" aria-hidden />
         </div>
         <Separator />
         <Accordion type="multiple" className="space-y-2">
           {groups.map((group) => {
             const key = `${group.messageId}__${group.recipientEmail.toLowerCase()}`;
             return (
-              <AccordionItem key={key} value={key} className="border-none rounded-lg bg-slate-50/60">
+              <AccordionItem key={key} value={key} className="rounded-lg border-none bg-muted/40">
                 <AccordionTrigger className="px-3 py-2 hover:no-underline">
                   <GroupHeader group={group} timezone={timezone} />
                 </AccordionTrigger>
@@ -204,17 +207,21 @@ export function EmailDeliveryPanel({ bookingId, timezone, limit = 50 }: EmailDel
                     {group.events.map((event) => {
                       const eventKey = `${event.id}`;
                       const when =
-                        formatEmailDeliveryOccurredAt(event.occurredAt, timezone) ?? event.occurredAt;
+                        formatEmailDeliveryOccurredAt(event.occurredAt, timezone) ??
+                        event.occurredAt;
                       return (
                         <div key={eventKey} className="flex items-start justify-between gap-3">
                           <div className="flex items-center gap-2">
                             <StatusBadge status={event.status} />
-                            <span className="text-xs text-slate-600">
+                            <span className="text-xs text-muted-foreground">
                               {when ?? 'Unknown time'}
                             </span>
                           </div>
                           {event.error ? (
-                            <span className="text-xs text-rose-700 truncate max-w-[50%]" title={event.error}>
+                            <span
+                              className="max-w-[50%] truncate text-xs text-destructive"
+                              title={event.error}
+                            >
                               {event.error}
                             </span>
                           ) : null}

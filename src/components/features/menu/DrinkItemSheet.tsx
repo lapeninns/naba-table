@@ -33,8 +33,13 @@ import {
   createEmptyDrinkModifierOptionFormState,
   type DrinkItemFormState,
 } from './drinkFormState';
+import { MenuSuggestionInput } from './MenuSuggestionInput';
 
-import type { DrinkFacetSet, DrinkItemDetail, DrinkItemUpsertInput } from '@/server/drinks-menu/types';
+import type {
+  DrinkFacetSet,
+  DrinkItemDetail,
+  DrinkItemUpsertInput,
+} from '@/server/drinks-menu/types';
 import type { ReactElement, ReactNode } from 'react';
 
 export function DrinkItemSheet({
@@ -65,7 +70,7 @@ export function DrinkItemSheet({
   const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
   const loadedSourceKeyRef = useRef<string>('new');
   const baselineSnapshotRef = useRef<string>(JSON.stringify(createEmptyDrinkItemFormState()));
-  const sourceKey = isExistingItem ? item?.id ?? 'edit-pending' : 'new';
+  const sourceKey = isExistingItem ? (item?.id ?? 'edit-pending') : 'new';
   const currentSnapshot = useMemo(() => JSON.stringify(form), [form]);
   const isDirty = currentSnapshot !== baselineSnapshotRef.current;
   const hasLoadError = Boolean(loadError);
@@ -92,7 +97,10 @@ export function DrinkItemSheet({
     onDirtyChange?.(open && isDirty);
   }, [isDirty, onDirtyChange, open]);
 
-  const updateField = <K extends keyof DrinkItemFormState>(key: K, value: DrinkItemFormState[K]) => {
+  const updateField = <K extends keyof DrinkItemFormState>(
+    key: K,
+    value: DrinkItemFormState[K],
+  ) => {
     setForm((current) => ({ ...current, [key]: value }));
   };
 
@@ -158,28 +166,51 @@ export function DrinkItemSheet({
               <FormSection title="Basics" description="Identity, pricing, and availability.">
                 <div className="grid gap-4 md:grid-cols-2">
                   <Field label="Drink name">
-                    <Input value={form.drinkName} onChange={(event) => updateField('drinkName', event.target.value)} />
+                    <Input
+                      value={form.drinkName}
+                      onChange={(event) => updateField('drinkName', event.target.value)}
+                    />
                   </Field>
                   <Field label="Category">
-                    <Input list="drink-category-options" value={form.category} onChange={(event) => updateField('category', event.target.value)} />
+                    <MenuSuggestionInput
+                      value={form.category}
+                      suggestions={facets.categories}
+                      onValueChange={(value) => updateField('category', value)}
+                    />
                   </Field>
                   <Field label="Subcategory">
-                    <Input list="drink-subcategory-options" value={form.subcategory} onChange={(event) => updateField('subcategory', event.target.value)} />
+                    <MenuSuggestionInput
+                      value={form.subcategory}
+                      suggestions={facets.subcategories}
+                      onValueChange={(value) => updateField('subcategory', value)}
+                    />
                   </Field>
                   <Field label="Drink type">
-                    <Input list="drink-type-options" value={form.drinkType} onChange={(event) => updateField('drinkType', event.target.value)} />
+                    <MenuSuggestionInput
+                      value={form.drinkType}
+                      suggestions={facets.drinkTypes}
+                      onValueChange={(value) => updateField('drinkType', value)}
+                    />
                   </Field>
                   <Field label="Base price">
-                    <Input value={form.basePrice} onChange={(event) => updateField('basePrice', event.target.value)} />
+                    <Input
+                      value={form.basePrice}
+                      onChange={(event) => updateField('basePrice', event.target.value)}
+                    />
                   </Field>
                   <Field label="Currency">
-                    <Input value={form.currency} onChange={(event) => updateField('currency', event.target.value.toUpperCase())} />
+                    <Input
+                      value={form.currency}
+                      onChange={(event) =>
+                        updateField('currency', event.target.value.toUpperCase())
+                      }
+                    />
                   </Field>
                   <Field label="Service time">
-                    <Input
-                      list="drink-service-time-options"
+                    <MenuSuggestionInput
                       value={form.serviceTime}
-                      onChange={(event) => updateField('serviceTime', event.target.value)}
+                      suggestions={facets.serviceTimes}
+                      onValueChange={(value) => updateField('serviceTime', value)}
                     />
                   </Field>
                   <Field label="Availability status">
@@ -206,119 +237,249 @@ export function DrinkItemSheet({
               <FormSection title="Descriptions" description="Guest-facing copy and serving notes.">
                 <div className="grid gap-4">
                   <Field label="Short description">
-                    <Textarea value={form.shortDescription} onChange={(event) => updateField('shortDescription', event.target.value)} rows={2} />
+                    <Textarea
+                      value={form.shortDescription}
+                      onChange={(event) => updateField('shortDescription', event.target.value)}
+                      rows={2}
+                    />
                   </Field>
                   <Field label="Full description">
-                    <Textarea value={form.fullDescription} onChange={(event) => updateField('fullDescription', event.target.value)} rows={4} />
+                    <Textarea
+                      value={form.fullDescription}
+                      onChange={(event) => updateField('fullDescription', event.target.value)}
+                      rows={4}
+                    />
                   </Field>
                   <Field label="Customization rules">
-                    <Textarea value={form.customizationRules} onChange={(event) => updateField('customizationRules', event.target.value)} rows={3} />
+                    <Textarea
+                      value={form.customizationRules}
+                      onChange={(event) => updateField('customizationRules', event.target.value)}
+                      rows={3}
+                    />
                   </Field>
                 </div>
               </FormSection>
 
-              <FormSection title="Style and Service" description="Alcohol profile, serve style, and provenance.">
+              <FormSection
+                title="Style and Service"
+                description="Alcohol profile, serve style, and provenance."
+              >
                 <div className="grid gap-4 md:grid-cols-2">
-                  <ToggleField label="Alcoholic" checked={form.alcoholic} onCheckedChange={(checked) => updateField('alcoholic', checked)} />
+                  <ToggleField
+                    label="Alcoholic"
+                    checked={form.alcoholic}
+                    onCheckedChange={(checked) => updateField('alcoholic', checked)}
+                  />
                   <Field label="ABV">
-                    <Input value={form.abv} onChange={(event) => updateField('abv', event.target.value)} />
+                    <Input
+                      value={form.abv}
+                      onChange={(event) => updateField('abv', event.target.value)}
+                    />
                   </Field>
                   <Field label="Volume (ml)">
-                    <Input value={form.volumeMl} onChange={(event) => updateField('volumeMl', event.target.value)} />
+                    <Input
+                      value={form.volumeMl}
+                      onChange={(event) => updateField('volumeMl', event.target.value)}
+                    />
                   </Field>
                   <Field label="Serving size">
-                    <Input value={form.servingSize} onChange={(event) => updateField('servingSize', event.target.value)} />
+                    <Input
+                      value={form.servingSize}
+                      onChange={(event) => updateField('servingSize', event.target.value)}
+                    />
                   </Field>
                   <Field label="Served style">
-                    <Input value={form.servedStyle} onChange={(event) => updateField('servedStyle', event.target.value)} />
+                    <Input
+                      value={form.servedStyle}
+                      onChange={(event) => updateField('servedStyle', event.target.value)}
+                    />
                   </Field>
                   <Field label="Temperature">
-                    <Input value={form.temperature} onChange={(event) => updateField('temperature', event.target.value)} />
+                    <Input
+                      value={form.temperature}
+                      onChange={(event) => updateField('temperature', event.target.value)}
+                    />
                   </Field>
                   <Field label="Base spirit">
-                    <Input value={form.baseSpirit} onChange={(event) => updateField('baseSpirit', event.target.value)} />
+                    <Input
+                      value={form.baseSpirit}
+                      onChange={(event) => updateField('baseSpirit', event.target.value)}
+                    />
                   </Field>
                   <Field label="Beer style">
-                    <Input value={form.beerStyle} onChange={(event) => updateField('beerStyle', event.target.value)} />
+                    <Input
+                      value={form.beerStyle}
+                      onChange={(event) => updateField('beerStyle', event.target.value)}
+                    />
                   </Field>
                   <Field label="Wine type">
-                    <Input value={form.wineType} onChange={(event) => updateField('wineType', event.target.value)} />
+                    <Input
+                      value={form.wineType}
+                      onChange={(event) => updateField('wineType', event.target.value)}
+                    />
                   </Field>
                   <Field label="Grape varietal">
-                    <Input value={form.grapeVarietal} onChange={(event) => updateField('grapeVarietal', event.target.value)} />
+                    <Input
+                      value={form.grapeVarietal}
+                      onChange={(event) => updateField('grapeVarietal', event.target.value)}
+                    />
                   </Field>
                   <Field label="Region">
-                    <Input value={form.region} onChange={(event) => updateField('region', event.target.value)} />
+                    <Input
+                      value={form.region}
+                      onChange={(event) => updateField('region', event.target.value)}
+                    />
                   </Field>
                   <Field label="Country">
-                    <Input value={form.country} onChange={(event) => updateField('country', event.target.value)} />
+                    <Input
+                      value={form.country}
+                      onChange={(event) => updateField('country', event.target.value)}
+                    />
                   </Field>
                 </div>
               </FormSection>
 
-              <FormSection title="Flavor and Composition" description="Profile, ingredients, garnish, and pairing guidance.">
+              <FormSection
+                title="Flavor and Composition"
+                description="Profile, ingredients, garnish, and pairing guidance."
+              >
                 <div className="grid gap-4 md:grid-cols-2">
                   <Field label="Roast level">
-                    <Input value={form.roastLevel} onChange={(event) => updateField('roastLevel', event.target.value)} />
+                    <Input
+                      value={form.roastLevel}
+                      onChange={(event) => updateField('roastLevel', event.target.value)}
+                    />
                   </Field>
                   <Field label="Caffeine level">
-                    <Input value={form.caffeineLevel} onChange={(event) => updateField('caffeineLevel', event.target.value)} />
+                    <Input
+                      value={form.caffeineLevel}
+                      onChange={(event) => updateField('caffeineLevel', event.target.value)}
+                    />
                   </Field>
                   <Field label="Sweetness level">
-                    <Input value={form.sweetnessLevel} onChange={(event) => updateField('sweetnessLevel', event.target.value)} />
+                    <Input
+                      value={form.sweetnessLevel}
+                      onChange={(event) => updateField('sweetnessLevel', event.target.value)}
+                    />
                   </Field>
                   <Field label="Bitterness level">
-                    <Input value={form.bitternessLevel} onChange={(event) => updateField('bitternessLevel', event.target.value)} />
+                    <Input
+                      value={form.bitternessLevel}
+                      onChange={(event) => updateField('bitternessLevel', event.target.value)}
+                    />
                   </Field>
                   <Field label="Acidity level">
-                    <Input value={form.acidityLevel} onChange={(event) => updateField('acidityLevel', event.target.value)} />
+                    <Input
+                      value={form.acidityLevel}
+                      onChange={(event) => updateField('acidityLevel', event.target.value)}
+                    />
                   </Field>
                   <Field label="Body level">
-                    <Input value={form.bodyLevel} onChange={(event) => updateField('bodyLevel', event.target.value)} />
+                    <Input
+                      value={form.bodyLevel}
+                      onChange={(event) => updateField('bodyLevel', event.target.value)}
+                    />
                   </Field>
                   <Field label="Flavor profile">
-                    <Input value={form.flavorProfile} onChange={(event) => updateField('flavorProfile', event.target.value)} />
+                    <Input
+                      value={form.flavorProfile}
+                      onChange={(event) => updateField('flavorProfile', event.target.value)}
+                    />
                   </Field>
                   <Field label="Garnish">
-                    <Input value={form.garnish} onChange={(event) => updateField('garnish', event.target.value)} />
+                    <Input
+                      value={form.garnish}
+                      onChange={(event) => updateField('garnish', event.target.value)}
+                    />
                   </Field>
                   <Field label="Key ingredients">
-                    <Textarea value={form.keyIngredients} onChange={(event) => updateField('keyIngredients', event.target.value)} rows={3} />
+                    <Textarea
+                      value={form.keyIngredients}
+                      onChange={(event) => updateField('keyIngredients', event.target.value)}
+                      rows={3}
+                    />
                   </Field>
                   <Field label="Pairings">
-                    <Textarea value={form.pairings} onChange={(event) => updateField('pairings', event.target.value)} rows={3} />
+                    <Textarea
+                      value={form.pairings}
+                      onChange={(event) => updateField('pairings', event.target.value)}
+                      rows={3}
+                    />
                   </Field>
                   <Field label="Recommendation tags">
-                    <Textarea value={form.recommendationTags} onChange={(event) => updateField('recommendationTags', event.target.value)} rows={3} />
+                    <Textarea
+                      value={form.recommendationTags}
+                      onChange={(event) => updateField('recommendationTags', event.target.value)}
+                      rows={3}
+                    />
                   </Field>
                 </div>
               </FormSection>
 
-              <FormSection title="Dietary and Allergens" description="Contains flags, dietary tags, and allergen arrays.">
+              <FormSection
+                title="Dietary and Allergens"
+                description="Contains flags, dietary tags, and allergen arrays."
+              >
                 <div className="grid gap-4 md:grid-cols-2">
                   <Field label="Dietary tags">
-                    <Textarea value={form.dietaryTags} onChange={(event) => updateField('dietaryTags', event.target.value)} rows={3} />
+                    <Textarea
+                      value={form.dietaryTags}
+                      onChange={(event) => updateField('dietaryTags', event.target.value)}
+                      rows={3}
+                    />
                   </Field>
                   <Field label="Contains allergens">
-                    <Textarea value={form.allergensContains} onChange={(event) => updateField('allergensContains', event.target.value)} rows={3} />
+                    <Textarea
+                      value={form.allergensContains}
+                      onChange={(event) => updateField('allergensContains', event.target.value)}
+                      rows={3}
+                    />
                   </Field>
                   <Field label="May contain allergens">
-                    <Textarea value={form.allergensMayContain} onChange={(event) => updateField('allergensMayContain', event.target.value)} rows={3} />
+                    <Textarea
+                      value={form.allergensMayContain}
+                      onChange={(event) => updateField('allergensMayContain', event.target.value)}
+                      rows={3}
+                    />
                   </Field>
-                  <ToggleField label="Contains dairy" checked={form.containsDairy} onCheckedChange={(checked) => updateField('containsDairy', checked)} />
-                  <ToggleField label="Contains nuts" checked={form.containsNuts} onCheckedChange={(checked) => updateField('containsNuts', checked)} />
-                  <ToggleField label="Contains gluten" checked={form.containsGluten} onCheckedChange={(checked) => updateField('containsGluten', checked)} />
-                  <ToggleField label="Contains caffeine" checked={form.containsCaffeine} onCheckedChange={(checked) => updateField('containsCaffeine', checked)} />
+                  <ToggleField
+                    label="Contains dairy"
+                    checked={form.containsDairy}
+                    onCheckedChange={(checked) => updateField('containsDairy', checked)}
+                  />
+                  <ToggleField
+                    label="Contains nuts"
+                    checked={form.containsNuts}
+                    onCheckedChange={(checked) => updateField('containsNuts', checked)}
+                  />
+                  <ToggleField
+                    label="Contains gluten"
+                    checked={form.containsGluten}
+                    onCheckedChange={(checked) => updateField('containsGluten', checked)}
+                  />
+                  <ToggleField
+                    label="Contains caffeine"
+                    checked={form.containsCaffeine}
+                    onCheckedChange={(checked) => updateField('containsCaffeine', checked)}
+                  />
                   <ToggleField
                     label="Can be made non-alcoholic"
                     checked={form.canBeMadeNonAlcoholic}
                     onCheckedChange={(checked) => updateField('canBeMadeNonAlcoholic', checked)}
                   />
-                  <ToggleField label="Can be made decaf" checked={form.canBeMadeDecaf} onCheckedChange={(checked) => updateField('canBeMadeDecaf', checked)} />
+                  <ToggleField
+                    label="Can be made decaf"
+                    checked={form.canBeMadeDecaf}
+                    onCheckedChange={(checked) => updateField('canBeMadeDecaf', checked)}
+                  />
                 </div>
               </FormSection>
 
-              <Accordion type="single" collapsible className="rounded-lg border border-border/60 px-4">
+              <Accordion
+                type="single"
+                collapsible
+                className="rounded-lg border border-border/60 px-4"
+              >
                 <AccordionItem value="advanced-metadata" className="border-none">
                   <AccordionTrigger className="text-left text-sm font-medium">
                     Advanced metadata
@@ -360,12 +521,20 @@ export function DrinkItemSheet({
                 </AccordionItem>
               </Accordion>
 
-              <FormSection title="Modifiers" description="Variations such as mixers, milk choice, extra shot, or garnish swaps.">
+              <FormSection
+                title="Modifiers"
+                description="Variations such as mixers, milk choice, extra shot, or garnish swaps."
+              >
                 <div className="space-y-4">
                   {form.modifierGroups.map((group, groupIndex) => (
-                    <div key={`${group.externalModifierGroupId}-${groupIndex}`} className="rounded-lg border border-border/60 p-4">
+                    <div
+                      key={`${group.externalModifierGroupId}-${groupIndex}`}
+                      className="rounded-lg border border-border/60 p-4"
+                    >
                       <div className="flex items-center justify-between gap-2">
-                        <div className="text-sm font-medium text-foreground">Modifier group {groupIndex + 1}</div>
+                        <div className="text-sm font-medium text-foreground">
+                          Modifier group {groupIndex + 1}
+                        </div>
                         <Button
                           type="button"
                           variant="ghost"
@@ -373,7 +542,9 @@ export function DrinkItemSheet({
                           onClick={() =>
                             setForm((current) => ({
                               ...current,
-                              modifierGroups: current.modifierGroups.filter((_, index) => index !== groupIndex),
+                              modifierGroups: current.modifierGroups.filter(
+                                (_, index) => index !== groupIndex,
+                              ),
                             }))
                           }
                         >
@@ -384,28 +555,86 @@ export function DrinkItemSheet({
 
                       <div className="mt-4 grid gap-4 md:grid-cols-2">
                         <Field label="External group ID">
-                          <Input value={group.externalModifierGroupId} onChange={(event) => setForm((current) => updateGroup(current, groupIndex, 'externalModifierGroupId', event.target.value))} />
+                          <Input
+                            value={group.externalModifierGroupId}
+                            onChange={(event) =>
+                              setForm((current) =>
+                                updateGroup(
+                                  current,
+                                  groupIndex,
+                                  'externalModifierGroupId',
+                                  event.target.value,
+                                ),
+                              )
+                            }
+                          />
                         </Field>
                         <Field label="Group name">
-                          <Input value={group.groupName} onChange={(event) => setForm((current) => updateGroup(current, groupIndex, 'groupName', event.target.value))} />
+                          <Input
+                            value={group.groupName}
+                            onChange={(event) =>
+                              setForm((current) =>
+                                updateGroup(current, groupIndex, 'groupName', event.target.value),
+                              )
+                            }
+                          />
                         </Field>
                         <Field label="Min select">
-                          <Input value={group.minSelect} onChange={(event) => setForm((current) => updateGroup(current, groupIndex, 'minSelect', event.target.value))} />
+                          <Input
+                            value={group.minSelect}
+                            onChange={(event) =>
+                              setForm((current) =>
+                                updateGroup(current, groupIndex, 'minSelect', event.target.value),
+                              )
+                            }
+                          />
                         </Field>
                         <Field label="Max select">
-                          <Input value={group.maxSelect} onChange={(event) => setForm((current) => updateGroup(current, groupIndex, 'maxSelect', event.target.value))} />
+                          <Input
+                            value={group.maxSelect}
+                            onChange={(event) =>
+                              setForm((current) =>
+                                updateGroup(current, groupIndex, 'maxSelect', event.target.value),
+                              )
+                            }
+                          />
                         </Field>
                         <Field label="Display order">
-                          <Input value={group.displayOrder} onChange={(event) => setForm((current) => updateGroup(current, groupIndex, 'displayOrder', event.target.value))} />
+                          <Input
+                            value={group.displayOrder}
+                            onChange={(event) =>
+                              setForm((current) =>
+                                updateGroup(
+                                  current,
+                                  groupIndex,
+                                  'displayOrder',
+                                  event.target.value,
+                                ),
+                              )
+                            }
+                          />
                         </Field>
-                        <ToggleField label="Required" checked={group.required} onCheckedChange={(checked) => setForm((current) => updateGroup(current, groupIndex, 'required', checked))} />
+                        <ToggleField
+                          label="Required"
+                          checked={group.required}
+                          onCheckedChange={(checked) =>
+                            setForm((current) =>
+                              updateGroup(current, groupIndex, 'required', checked),
+                            )
+                          }
+                        />
                       </div>
 
                       <div className="mt-4 space-y-3">
                         {group.options.map((option, optionIndex) => (
-                          <div key={`${option.externalModifierOptionId}-${optionIndex}`} className="rounded-md border border-border/50 p-3">
+                          <div
+                            key={`${option.externalModifierOptionId}-${optionIndex}`}
+                            className="rounded-md border border-border/50 p-3"
+                          >
                             <div className="flex items-center justify-between gap-2">
-                              <div className="text-sm font-medium text-foreground">Option {optionIndex + 1}</div>
+                              <div className="text-sm font-medium text-foreground">
+                                Option {optionIndex + 1}
+                              </div>
                               <Button
                                 type="button"
                                 variant="ghost"
@@ -415,7 +644,9 @@ export function DrinkItemSheet({
                                     const groups = [...current.modifierGroups];
                                     groups[groupIndex] = {
                                       ...groups[groupIndex],
-                                      options: groups[groupIndex].options.filter((_, index) => index !== optionIndex),
+                                      options: groups[groupIndex].options.filter(
+                                        (_, index) => index !== optionIndex,
+                                      ),
                                     };
                                     return { ...current, modifierGroups: groups };
                                   })
@@ -428,35 +659,125 @@ export function DrinkItemSheet({
 
                             <div className="mt-3 grid gap-4 md:grid-cols-2">
                               <Field label="External option ID">
-                                <Input value={option.externalModifierOptionId} onChange={(event) => setForm((current) => updateOption(current, groupIndex, optionIndex, 'externalModifierOptionId', event.target.value))} />
+                                <Input
+                                  value={option.externalModifierOptionId}
+                                  onChange={(event) =>
+                                    setForm((current) =>
+                                      updateOption(
+                                        current,
+                                        groupIndex,
+                                        optionIndex,
+                                        'externalModifierOptionId',
+                                        event.target.value,
+                                      ),
+                                    )
+                                  }
+                                />
                               </Field>
                               <Field label="Option name">
-                                <Input value={option.optionName} onChange={(event) => setForm((current) => updateOption(current, groupIndex, optionIndex, 'optionName', event.target.value))} />
+                                <Input
+                                  value={option.optionName}
+                                  onChange={(event) =>
+                                    setForm((current) =>
+                                      updateOption(
+                                        current,
+                                        groupIndex,
+                                        optionIndex,
+                                        'optionName',
+                                        event.target.value,
+                                      ),
+                                    )
+                                  }
+                                />
                               </Field>
                               <Field label="Price delta">
-                                <Input value={option.priceDelta} onChange={(event) => setForm((current) => updateOption(current, groupIndex, optionIndex, 'priceDelta', event.target.value))} />
+                                <Input
+                                  value={option.priceDelta}
+                                  onChange={(event) =>
+                                    setForm((current) =>
+                                      updateOption(
+                                        current,
+                                        groupIndex,
+                                        optionIndex,
+                                        'priceDelta',
+                                        event.target.value,
+                                      ),
+                                    )
+                                  }
+                                />
                               </Field>
                               <Field label="Display order">
-                                <Input value={option.displayOrder} onChange={(event) => setForm((current) => updateOption(current, groupIndex, optionIndex, 'displayOrder', event.target.value))} />
+                                <Input
+                                  value={option.displayOrder}
+                                  onChange={(event) =>
+                                    setForm((current) =>
+                                      updateOption(
+                                        current,
+                                        groupIndex,
+                                        optionIndex,
+                                        'displayOrder',
+                                        event.target.value,
+                                      ),
+                                    )
+                                  }
+                                />
                               </Field>
                               <ToggleField
                                 label="Default selected"
                                 checked={option.defaultSelected}
-                                onCheckedChange={(checked) => setForm((current) => updateOption(current, groupIndex, optionIndex, 'defaultSelected', checked))}
+                                onCheckedChange={(checked) =>
+                                  setForm((current) =>
+                                    updateOption(
+                                      current,
+                                      groupIndex,
+                                      optionIndex,
+                                      'defaultSelected',
+                                      checked,
+                                    ),
+                                  )
+                                }
                               />
                               <Field label="Availability">
                                 <div className="flex gap-2">
                                   <Button
                                     type="button"
-                                    variant={option.availabilityStatus === 'available' ? 'default' : 'outline'}
-                                    onClick={() => setForm((current) => updateOption(current, groupIndex, optionIndex, 'availabilityStatus', 'available'))}
+                                    variant={
+                                      option.availabilityStatus === 'available'
+                                        ? 'default'
+                                        : 'outline'
+                                    }
+                                    onClick={() =>
+                                      setForm((current) =>
+                                        updateOption(
+                                          current,
+                                          groupIndex,
+                                          optionIndex,
+                                          'availabilityStatus',
+                                          'available',
+                                        ),
+                                      )
+                                    }
                                   >
                                     Available
                                   </Button>
                                   <Button
                                     type="button"
-                                    variant={option.availabilityStatus === 'unavailable' ? 'default' : 'outline'}
-                                    onClick={() => setForm((current) => updateOption(current, groupIndex, optionIndex, 'availabilityStatus', 'unavailable'))}
+                                    variant={
+                                      option.availabilityStatus === 'unavailable'
+                                        ? 'default'
+                                        : 'outline'
+                                    }
+                                    onClick={() =>
+                                      setForm((current) =>
+                                        updateOption(
+                                          current,
+                                          groupIndex,
+                                          optionIndex,
+                                          'availabilityStatus',
+                                          'unavailable',
+                                        ),
+                                      )
+                                    }
                                   >
                                     Unavailable
                                   </Button>
@@ -474,7 +795,10 @@ export function DrinkItemSheet({
                               const groups = [...current.modifierGroups];
                               groups[groupIndex] = {
                                 ...groups[groupIndex],
-                                options: [...groups[groupIndex].options, createEmptyDrinkModifierOptionFormState()],
+                                options: [
+                                  ...groups[groupIndex].options,
+                                  createEmptyDrinkModifierOptionFormState(),
+                                ],
                               };
                               return { ...current, modifierGroups: groups };
                             })
@@ -493,7 +817,10 @@ export function DrinkItemSheet({
                     onClick={() =>
                       setForm((current) => ({
                         ...current,
-                        modifierGroups: [...current.modifierGroups, createEmptyDrinkModifierGroupFormState()],
+                        modifierGroups: [
+                          ...current.modifierGroups,
+                          createEmptyDrinkModifierGroupFormState(),
+                        ],
                       }))
                     }
                   >
@@ -505,33 +832,28 @@ export function DrinkItemSheet({
 
               <FormSection title="Status" description="Lifecycle and merchandising flags.">
                 <div className="grid gap-4 md:grid-cols-2">
-                  <ToggleField label="Seasonal" checked={form.seasonal} onCheckedChange={(checked) => updateField('seasonal', checked)} />
-                  <ToggleField label="Limited time" checked={form.limitedTime} onCheckedChange={(checked) => updateField('limitedTime', checked)} />
-                  <ToggleField label="Sold out" checked={form.soldOut} onCheckedChange={(checked) => updateField('soldOut', checked)} />
-                  <ToggleField label="Active" checked={form.active} onCheckedChange={(checked) => updateField('active', checked)} />
+                  <ToggleField
+                    label="Seasonal"
+                    checked={form.seasonal}
+                    onCheckedChange={(checked) => updateField('seasonal', checked)}
+                  />
+                  <ToggleField
+                    label="Limited time"
+                    checked={form.limitedTime}
+                    onCheckedChange={(checked) => updateField('limitedTime', checked)}
+                  />
+                  <ToggleField
+                    label="Sold out"
+                    checked={form.soldOut}
+                    onCheckedChange={(checked) => updateField('soldOut', checked)}
+                  />
+                  <ToggleField
+                    label="Active"
+                    checked={form.active}
+                    onCheckedChange={(checked) => updateField('active', checked)}
+                  />
                 </div>
               </FormSection>
-
-              <datalist id="drink-category-options">
-                {facets.categories.map((category) => (
-                  <option key={category} value={category} />
-                ))}
-              </datalist>
-              <datalist id="drink-subcategory-options">
-                {facets.subcategories.map((subcategory) => (
-                  <option key={subcategory} value={subcategory} />
-                ))}
-              </datalist>
-              <datalist id="drink-service-time-options">
-                {facets.serviceTimes.map((serviceTime) => (
-                  <option key={serviceTime} value={serviceTime} />
-                ))}
-              </datalist>
-              <datalist id="drink-type-options">
-                {facets.drinkTypes.map((drinkType) => (
-                  <option key={drinkType} value={drinkType} />
-                ))}
-              </datalist>
             </div>
           )}
         </div>
@@ -636,22 +958,29 @@ function Field({
   children: ReactNode;
   className?: string;
 }) {
-  const childElement = isValidElement(children) ? (children as ReactElement<Record<string, unknown>>) : null;
+  const childElement = isValidElement(children)
+    ? (children as ReactElement<Record<string, unknown>>)
+    : null;
   const labelId = useId();
   const controlId = `${labelId}-control`;
   const controlName = label.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-  const isGroupedContent = childElement && typeof childElement.type === 'string' && childElement.type === 'div';
+  const isGroupedContent =
+    childElement && typeof childElement.type === 'string' && childElement.type === 'div';
   const labelledChild = childElement
     ? cloneElement(childElement, {
-        id: isGroupedContent ? childElement.props.id : childElement.props.id ?? controlId,
-        name: isGroupedContent ? childElement.props.name : childElement.props.name ?? controlName,
+        id: isGroupedContent ? childElement.props.id : (childElement.props.id ?? controlId),
+        name: isGroupedContent ? childElement.props.name : (childElement.props.name ?? controlName),
         'aria-labelledby': childElement.props['aria-labelledby'] ?? labelId,
       })
     : children;
 
   return (
     <div className={className}>
-      <Label id={labelId} htmlFor={isGroupedContent ? undefined : controlId} className="text-sm font-medium text-foreground">
+      <Label
+        id={labelId}
+        htmlFor={isGroupedContent ? undefined : controlId}
+        className="text-sm font-medium text-foreground"
+      >
         {label}
       </Label>
       <div className="mt-2">{labelledChild}</div>

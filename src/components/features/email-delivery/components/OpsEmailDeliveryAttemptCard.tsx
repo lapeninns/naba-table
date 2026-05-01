@@ -16,7 +16,11 @@ import {
   getEmailDeliveryStatusBadgeTone,
 } from '@src/lib/email-delivery/presentation';
 
-import type { EmailDeliveryEventDTO, EmailDeliveryStatus, OpsEmailDeliveryAttemptDTO } from '@/types/emailDelivery';
+import type {
+  EmailDeliveryEventDTO,
+  EmailDeliveryStatus,
+  OpsEmailDeliveryAttemptDTO,
+} from '@/types/emailDelivery';
 
 function parseIsoMs(value: string): number | null {
   const ms = Date.parse(value);
@@ -53,7 +57,10 @@ function resolveVariantName(events: EmailDeliveryEventDTO[]): string | null {
   return null;
 }
 
-function resolveCurrentEvent(events: EmailDeliveryEventDTO[], fallbackStatus: EmailDeliveryStatus): EmailDeliveryEventDTO | null {
+function resolveCurrentEvent(
+  events: EmailDeliveryEventDTO[],
+  fallbackStatus: EmailDeliveryStatus,
+): EmailDeliveryEventDTO | null {
   let current: EmailDeliveryEventDTO | null = null;
   let currentMs: number | null = null;
   for (const event of events) {
@@ -67,7 +74,9 @@ function resolveCurrentEvent(events: EmailDeliveryEventDTO[], fallbackStatus: Em
   }
 
   if (current) return current;
-  return events.find((event) => event.status === fallbackStatus) ?? events[events.length - 1] ?? null;
+  return (
+    events.find((event) => event.status === fallbackStatus) ?? events[events.length - 1] ?? null
+  );
 }
 
 function formatBookingStart(
@@ -94,25 +103,26 @@ function StatusBadge({ status }: { status: EmailDeliveryStatus }) {
 
 function statusRailClass(status: EmailDeliveryStatus, isStale: boolean): string {
   if (isStale) {
-    return 'border-l-4 border-amber-600';
+    return 'border-l-4 border-primary';
   }
   switch (status) {
     case 'delivered':
-      return 'border-l-4 border-emerald-500';
+      return 'border-l-4 border-primary';
     case 'delivery_delayed':
-      return 'border-l-4 border-amber-500';
+      return 'border-l-4 border-muted-foreground';
     case 'bounced':
     case 'complained':
     case 'failed':
-      return 'border-l-4 border-rose-500';
+      return 'border-l-4 border-destructive';
     case 'sent':
     default:
-      return 'border-l-4 border-slate-300';
+      return 'border-l-4 border-border';
   }
 }
 
 function formatStuckForHint(stuckForMs: number | null | undefined): string | null {
-  if (typeof stuckForMs !== 'number' || !Number.isFinite(stuckForMs) || stuckForMs <= 0) return null;
+  if (typeof stuckForMs !== 'number' || !Number.isFinite(stuckForMs) || stuckForMs <= 0)
+    return null;
   const hours = Math.floor(stuckForMs / (60 * 60 * 1000));
   if (hours >= 48) {
     const days = Math.floor(hours / 24);
@@ -129,7 +139,11 @@ export type OpsEmailDeliveryAttemptCardProps = {
   restaurantId: string;
 };
 
-export function OpsEmailDeliveryAttemptCard({ attempt, timezone, restaurantId }: OpsEmailDeliveryAttemptCardProps) {
+export function OpsEmailDeliveryAttemptCard({
+  attempt,
+  timezone,
+  restaurantId,
+}: OpsEmailDeliveryAttemptCardProps) {
   const subject =
     resolveSubject(attempt.events) ?? attempt.templateType ?? attempt.emailType ?? 'Email';
   const variantName = resolveVariantName(attempt.events);
@@ -138,8 +152,9 @@ export function OpsEmailDeliveryAttemptCard({ attempt, timezone, restaurantId }:
   const bookingStart = booking ? formatBookingStart(booking, timezone) : null;
   const currentEvent = resolveCurrentEvent(attempt.events, attempt.currentStatus);
 
-  const bookingHref =
-    attempt.bookingId ? `/app/bookings?restaurantId=${restaurantId}&focus=${attempt.bookingId}` : null;
+  const bookingHref = attempt.bookingId
+    ? `/app/bookings?restaurantId=${restaurantId}&focus=${attempt.bookingId}`
+    : null;
 
   const isLongRecipient = attempt.recipientEmail.length > 38;
 
@@ -149,9 +164,9 @@ export function OpsEmailDeliveryAttemptCard({ attempt, timezone, restaurantId }:
   return (
     <Card
       className={cn(
-        'border-slate-200/60 bg-white',
+        'border-border bg-background',
         statusRailClass(attempt.currentStatus, isStale),
-        isStale && 'bg-amber-50/40',
+        isStale && 'bg-primary/10',
       )}
       data-attempt-key={`${attempt.messageId}__${attempt.recipientEmail.toLowerCase()}`}
       data-stale={isStale ? 'true' : undefined}
@@ -165,7 +180,7 @@ export function OpsEmailDeliveryAttemptCard({ attempt, timezone, restaurantId }:
                 {isStale ? (
                   <Badge
                     variant="outline"
-                    className="border-amber-400 bg-amber-100 text-[10px] font-bold uppercase tracking-wide text-amber-900"
+                    className="border-primary/30 bg-primary/10 text-[10px] font-bold uppercase tracking-wide text-primary"
                     title="Accepted by the provider but no delivery receipt received"
                   >
                     Stuck{stuckHint ? ` · ${stuckHint}` : ''}
@@ -175,7 +190,7 @@ export function OpsEmailDeliveryAttemptCard({ attempt, timezone, restaurantId }:
 
               <div className="min-w-0">
                 <div className="flex min-w-0 items-center gap-2">
-                  <div className="truncate text-sm font-semibold text-slate-900" title={subject}>
+                  <div className="truncate text-sm font-semibold text-foreground" title={subject}>
                     {subject}
                   </div>
                   {variantName ? (
@@ -190,7 +205,7 @@ export function OpsEmailDeliveryAttemptCard({ attempt, timezone, restaurantId }:
                   ) : null}
                 </div>
 
-                <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+                <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                   <span
                     className={cn('max-w-full break-all', isLongRecipient ? null : 'sm:truncate')}
                     title={attempt.recipientEmail}
@@ -208,7 +223,10 @@ export function OpsEmailDeliveryAttemptCard({ attempt, timezone, restaurantId }:
                   ) : null}
                   {bookingStart ? <span className="whitespace-nowrap">{bookingStart}</span> : null}
                   {currentEvent?.error ? (
-                    <span className="max-w-full truncate text-rose-700" title={currentEvent.error}>
+                    <span
+                      className="max-w-full truncate text-destructive"
+                      title={currentEvent.error}
+                    >
                       {currentEvent.error}
                     </span>
                   ) : null}
@@ -255,7 +273,10 @@ export function OpsEmailDeliveryAttemptCard({ attempt, timezone, restaurantId }:
                 <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Message id
                 </div>
-                <div className="max-w-full break-all font-mono text-xs text-slate-600" title={attempt.messageId}>
+                <div
+                  className="max-w-full break-all font-mono text-xs text-muted-foreground"
+                  title={attempt.messageId}
+                >
                   {attempt.messageId}
                 </div>
               </div>
@@ -264,15 +285,21 @@ export function OpsEmailDeliveryAttemptCard({ attempt, timezone, restaurantId }:
 
             <div className="space-y-2">
               {attempt.events.map((event) => {
-                const eventWhen = formatEmailDeliveryOccurredAt(event.occurredAt, timezone) ?? event.occurredAt;
+                const eventWhen =
+                  formatEmailDeliveryOccurredAt(event.occurredAt, timezone) ?? event.occurredAt;
                 return (
                   <div key={event.id} className="flex min-w-0 items-start justify-between gap-3">
                     <div className="flex items-center gap-2">
                       <StatusBadge status={event.status} />
-                      <span className="text-xs text-slate-600">{eventWhen ?? 'Unknown time'}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {eventWhen ?? 'Unknown time'}
+                      </span>
                     </div>
                     {event.error ? (
-                      <span className="min-w-0 max-w-[55%] truncate text-xs text-rose-700" title={event.error}>
+                      <span
+                        className="min-w-0 max-w-[55%] truncate text-xs text-destructive"
+                        title={event.error}
+                      >
                         {event.error}
                       </span>
                     ) : null}

@@ -12,7 +12,12 @@ export function DashboardErrorState({ onRetry }: DashboardErrorStateProps) {
       <AlertDescription className="flex flex-col gap-3 text-sm sm:gap-4">
         <span>Check your connection and try again. If the issue persists, contact support.</span>
         {onRetry ? (
-          <Button variant="outline" size="sm" onClick={onRetry} className="h-11 w-fit touch-manipulation">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onRetry}
+            className="h-11 w-fit touch-manipulation"
+          >
             Retry
           </Button>
         ) : null}

@@ -272,7 +272,7 @@ export function GoogleBusinessProfileSyncActionDialog({
                           );
                         }
                         return (
-                          <label
+                          <Label
                             key={item.id}
                             className={cn(
                               'flex cursor-pointer gap-3 rounded-lg border border-border/60 bg-background/80 p-3',
@@ -304,7 +304,7 @@ export function GoogleBusinessProfileSyncActionDialog({
                                 </div>
                               ) : null}
                             </div>
-                          </label>
+                          </Label>
                         );
                       })}
                     </div>
@@ -318,10 +318,10 @@ export function GoogleBusinessProfileSyncActionDialog({
             <div className="space-y-3 rounded-xl border border-border/70 bg-card/60 p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="space-y-1">
-	                  <p className="text-sm font-medium text-foreground">Preflight</p>
-	                  <p className="text-xs text-muted-foreground">
-	                    Confirm the approved Nabatable updates before entering a password.
-	                  </p>
+                  <p className="text-sm font-medium text-foreground">Preflight</p>
+                  <p className="text-xs text-muted-foreground">
+                    Confirm the approved Nabatable updates before entering a password.
+                  </p>
                 </div>
                 <Button
                   type="button"
@@ -336,12 +336,12 @@ export function GoogleBusinessProfileSyncActionDialog({
                   {isPreflightPending ? 'Checking...' : preflightLabel}
                 </Button>
               </div>
-	              {preflight ? (
-	                <div className="space-y-2 text-xs text-muted-foreground">
-	                  <div className="flex flex-wrap gap-2">
-	                    <Badge variant="secondary">Google → Nabatable</Badge>
-	                    <Badge variant="outline">No Google write</Badge>
-	                  </div>
+              {preflight ? (
+                <div className="space-y-2 text-xs text-muted-foreground">
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="secondary">Google → Nabatable</Badge>
+                    <Badge variant="outline">No Google write</Badge>
+                  </div>
                   {preflight.warnings.map((warning) => (
                     <p key={warning.message}>{warning.message}</p>
                   ))}

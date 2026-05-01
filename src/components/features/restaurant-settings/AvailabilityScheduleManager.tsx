@@ -789,12 +789,9 @@ export function AvailabilityScheduleManager({ restaurantId }: AvailabilitySchedu
                 <span className="font-medium text-foreground">Lunch</span> and{' '}
                 <span className="font-medium text-foreground">Dinner</span>.
               </span>
-              <a
-                href="#booking-occasions"
-                className="font-medium text-primary underline-offset-4 hover:underline"
-              >
-                Jump to Occasions ↓
-              </a>
+              <Button asChild variant="link" className="h-auto p-0 font-medium">
+                <a href="#booking-occasions">Jump to Occasions ↓</a>
+              </Button>
             </div>
             {weeklyRows.map((row, index) => (
               <AvailabilityScheduleDayCard

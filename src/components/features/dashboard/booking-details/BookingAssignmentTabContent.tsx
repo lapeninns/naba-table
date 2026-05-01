@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useBookingService } from '@/contexts/ops-services';
 import { useAssignmentContext } from '@/hooks/ops/useAssignmentContext';
 import { HttpError } from '@/lib/http/errors';
@@ -311,7 +312,6 @@ export function BookingAssignmentTabContent({
 
       // Notify parent component
       onAssignmentComplete?.();
-
     } catch (error) {
       console.error('[BookingAssignmentTabContent] Failed to unassign tables', error);
     } finally {
@@ -451,7 +451,7 @@ export function BookingAssignmentTabContent({
             <div className="p-6" role="status" aria-live="polite">
               <div className="grid gap-4 grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
                 {Array.from({ length: 18 }).map((_, i) => (
-                  <div
+                  <Skeleton
                     key={i}
                     className="aspect-square rounded-xl bg-muted/50 animate-pulse"
                     style={{ animationDelay: `${i * 30}ms` }}
@@ -510,8 +510,8 @@ export function BookingAssignmentTabContent({
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-50 dark:from-emerald-900/40 dark:to-emerald-900/20 border-2 border-emerald-200/50 dark:border-emerald-800/50 shadow-sm">
-                  <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" aria-hidden />
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl border-2 border-primary/30 bg-primary/10 shadow-sm">
+                  <CheckCircle2 className="h-5 w-5 text-primary dark:text-primary" aria-hidden />
                 </div>
                 <div>
                   <h4 className="text-base font-semibold text-foreground">Assigned Tables</h4>
@@ -596,9 +596,9 @@ export function BookingAssignmentTabContent({
             </div>
 
             {assignedTables.length > 1 && (
-              <Alert className="border-blue-200 bg-gradient-to-r from-blue-50 to-blue-50/50 dark:from-blue-900/20 dark:to-blue-900/10 dark:border-blue-800/50">
-                <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                <AlertDescription className="text-sm text-blue-900 dark:text-blue-100 leading-relaxed">
+              <Alert className="border-primary/30 bg-primary/10">
+                <Info className="h-4 w-4 text-primary dark:text-primary" />
+                <AlertDescription className="text-sm text-primary dark:text-primary leading-relaxed">
                   💡 <strong>Merged tables:</strong> These tables are combined to meet capacity
                   requirements. Use &quot;Remove All&quot; to unassign and select fresh tables.
                 </AlertDescription>

@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { cloneElement, useMemo, useState, type ReactElement, type ReactNode } from "react";
+import { cloneElement, useMemo, useState, type ReactElement, type ReactNode } from 'react';
 
 import {
   AlertDialog,
@@ -12,12 +12,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+} from '@/components/ui/alert-dialog';
 
 export type TriggerProps = {
   onClick?: (event?: unknown) => void;
   disabled?: boolean;
-  "aria-disabled"?: boolean;
+  'aria-disabled'?: boolean;
 };
 
 type ConfirmationDialogProps = {
@@ -38,8 +38,8 @@ export function ConfirmationDialog({
   trigger,
   title,
   description,
-  confirmLabel = "Confirm",
-  cancelLabel = "Cancel",
+  confirmLabel = 'Confirm',
+  cancelLabel = 'Cancel',
   pending = false,
   onConfirm,
   onOpenChange,
@@ -54,7 +54,7 @@ export function ConfirmationDialog({
     const originalOnClick = trigger.props.onClick;
     return cloneElement(trigger, {
       onClick: (event?: unknown) => {
-        if (typeof originalOnClick === "function") {
+        if (typeof originalOnClick === 'function') {
           originalOnClick(event);
         }
         if (!disabled) {
@@ -62,7 +62,7 @@ export function ConfirmationDialog({
           onOpenChange?.(true);
         }
       },
-      "aria-disabled": trigger.props["aria-disabled"] ?? disabled,
+      'aria-disabled': trigger.props['aria-disabled'] ?? disabled,
       disabled: trigger.props.disabled ?? disabled,
     });
   }, [trigger, disabled, onOpenChange]);

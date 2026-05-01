@@ -64,7 +64,7 @@ export function TableAssignmentAlerts({
               {validation.warnings.map((warning) => (
                 <li key={warning}>
                   <span className="inline-flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-amber-600" aria-hidden />
+                    <AlertTriangle className="h-4 w-4 text-primary" aria-hidden />
                     {warning}
                   </span>
                 </li>
@@ -78,4 +78,3 @@ export function TableAssignmentAlerts({
 }
 
 export default TableAssignmentAlerts;
-

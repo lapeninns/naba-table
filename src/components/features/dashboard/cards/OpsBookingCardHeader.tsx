@@ -1,12 +1,6 @@
 'use client';
 
-import {
-  Calendar,
-  ChevronDown,
-  Clock,
-  FileText,
-  Users,
-} from 'lucide-react';
+import { Calendar, ChevronDown, Clock, FileText, Users } from 'lucide-react';
 import { memo } from 'react';
 
 import { BookingStatusBadge } from '@/components/features/booking-state-machine';
@@ -97,11 +91,7 @@ export const OpsBookingCardHeader = memo(function OpsBookingCardHeader({
 
         <div className="flex shrink-0 flex-col items-end gap-1.5">
           <div className="flex items-center gap-2">
-            <BookingStatusBadge
-              status={status as OpsBookingStatus}
-              size="sm"
-              showTooltip={false}
-            />
+            <BookingStatusBadge status={status as OpsBookingStatus} size="sm" showTooltip={false} />
             {showCollapseToggle ? (
               <CollapsibleTrigger asChild className="sm:hidden">
                 <Button
@@ -124,10 +114,7 @@ export const OpsBookingCardHeader = memo(function OpsBookingCardHeader({
             ) : null}
           </div>
           {showCollapseToggle && !isOpen && hasNotes ? (
-            <Badge
-              variant="secondary"
-              className="sm:hidden"
-            >
+            <Badge variant="secondary" className="sm:hidden">
               <FileText className="mr-1 h-3 w-3" aria-hidden />
               Notes
               <span className="sr-only"> available. Expand details to read.</span>
@@ -138,7 +125,7 @@ export const OpsBookingCardHeader = memo(function OpsBookingCardHeader({
               variant={urgency.variant === 'destructive' ? 'destructive' : 'outline'}
               className={cn(
                 'py-0.5 text-xs uppercase tracking-wider',
-                urgency.variant === 'warning' && 'border-amber-200 bg-amber-50 text-amber-700',
+                urgency.variant === 'warning' && 'border-primary/30 bg-primary/10 text-primary',
               )}
             >
               <Clock className="mr-1 h-3 w-3" aria-hidden /> {urgency.label}

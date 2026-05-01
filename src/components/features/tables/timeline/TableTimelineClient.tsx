@@ -23,11 +23,23 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -36,7 +48,11 @@ import { useOpsTableTimeline } from '@/hooks/ops/useOpsTableTimeline';
 import { isRealtimeFloorplanEnabled } from '@/lib/feature-flags/realtime';
 import { cn } from '@/lib/utils';
 
-import type { TableTimelineResponse, TableTimelineSegment, TableTimelineSegmentState } from '@/types/ops';
+import type {
+  TableTimelineResponse,
+  TableTimelineSegment,
+  TableTimelineSegmentState,
+} from '@/types/ops';
 type SelectedSegment = {
   table: TableTimelineResponse['tables'][number]['table'];
   segment: TableTimelineSegment;
@@ -54,13 +70,38 @@ const STATUS_OPTIONS: Array<{
   dot: string;
   pill: string;
 }> = [
-    { value: 'reserved', label: 'Reserved', dot: 'bg-emerald-500', pill: 'bg-emerald-600 text-white shadow-sm' },
-    { value: 'hold', label: 'Hold', dot: 'bg-amber-500', pill: 'bg-amber-500 text-slate-950 shadow-sm' },
-    { value: 'available', label: 'Available', dot: 'bg-slate-300', pill: 'bg-white border border-border text-foreground' },
-    { value: 'out_of_service', label: 'Out of service', dot: 'bg-slate-500', pill: 'bg-slate-500 text-white shadow-sm' },
-  ];
+  {
+    value: 'reserved',
+    label: 'Reserved',
+    dot: 'bg-primary/10',
+    pill: 'bg-primary/10 text-primary shadow-sm hover:bg-primary/10 hover:text-primary',
+  },
+  {
+    value: 'hold',
+    label: 'Hold',
+    dot: 'bg-primary/10',
+    pill: 'bg-primary/10 text-foreground shadow-sm hover:bg-primary/10 hover:text-foreground',
+  },
+  {
+    value: 'available',
+    label: 'Available',
+    dot: 'bg-muted/40',
+    pill: 'border border-border bg-background text-foreground hover:bg-background hover:text-foreground',
+  },
+  {
+    value: 'out_of_service',
+    label: 'Out of service',
+    dot: 'bg-muted/40',
+    pill: 'bg-muted/40 text-muted-foreground shadow-sm hover:bg-muted hover:text-muted-foreground',
+  },
+];
 
-const DEFAULT_STATUS_FILTERS: TableTimelineSegmentState[] = ['reserved', 'hold', 'available', 'out_of_service'];
+const DEFAULT_STATUS_FILTERS: TableTimelineSegmentState[] = [
+  'reserved',
+  'hold',
+  'available',
+  'out_of_service',
+];
 
 const STATUS_META: Record<
   TableTimelineSegmentState,
@@ -75,19 +116,19 @@ const STATUS_META: Record<
 > = {
   reserved: {
     label: 'Reserved',
-    bg: 'bg-emerald-50',
-    border: 'border-emerald-200',
-    text: 'text-emerald-900',
-    chip: 'bg-emerald-500 text-white',
-    muted: 'text-emerald-700',
+    bg: 'bg-primary/10',
+    border: 'border-primary/30',
+    text: 'text-primary',
+    chip: 'bg-primary/10 text-primary',
+    muted: 'text-primary',
   },
   hold: {
     label: 'Hold',
-    bg: 'bg-amber-50',
-    border: 'border-amber-200',
-    text: 'text-amber-900',
-    chip: 'bg-amber-500 text-slate-950',
-    muted: 'text-amber-700',
+    bg: 'bg-primary/10',
+    border: 'border-primary/30',
+    text: 'text-primary',
+    chip: 'bg-primary/10 text-foreground',
+    muted: 'text-primary',
   },
   available: {
     label: 'Available',
@@ -99,11 +140,11 @@ const STATUS_META: Record<
   },
   out_of_service: {
     label: 'Out of service',
-    bg: 'bg-slate-100',
-    border: 'border-slate-300',
-    text: 'text-slate-900',
-    chip: 'bg-slate-500 text-white',
-    muted: 'text-slate-700',
+    bg: 'bg-muted/40',
+    border: 'border-border',
+    text: 'text-foreground',
+    chip: 'bg-muted/40 text-muted-foreground',
+    muted: 'text-muted-foreground',
   },
 };
 
@@ -148,7 +189,8 @@ export function TableTimelineClient() {
   const [service, setService] = useState<'all' | 'lunch' | 'dinner'>('all');
   const [search, setSearch] = useState('');
   const [selectedSegment, setSelectedSegment] = useState<SelectedSegment | null>(null);
-  const [statusFilters, setStatusFilters] = useState<TableTimelineSegmentState[]>(DEFAULT_STATUS_FILTERS);
+  const [statusFilters, setStatusFilters] =
+    useState<TableTimelineSegmentState[]>(DEFAULT_STATUS_FILTERS);
   const [actionState, setActionState] = useState<{ releasing: boolean; error: string | null }>({
     releasing: false,
     error: null,
@@ -192,14 +234,19 @@ export function TableTimelineClient() {
   }, [timeline?.window?.start, timeline?.window?.end]);
 
   const zones = useMemo(() => timeline?.summary?.zones ?? [], [timeline?.summary?.zones]);
-  const statusFilterSet = useMemo(() => new Set<TableTimelineSegmentState>(statusFilters), [statusFilters]);
+  const statusFilterSet = useMemo(
+    () => new Set<TableTimelineSegmentState>(statusFilters),
+    [statusFilters],
+  );
   const filteredTables = useMemo(() => {
     if (!timeline) return [];
     const query = search.trim().toLowerCase();
     return timeline.tables.filter((row) => {
       const matchesSearch =
         !query ||
-        String(row.table.tableNumber ?? '').toLowerCase().includes(query) ||
+        String(row.table.tableNumber ?? '')
+          .toLowerCase()
+          .includes(query) ||
         (row.table.zoneName ?? '').toLowerCase().includes(query);
       const hasVisibleSegments = row.segments.some((segment) => statusFilterSet.has(segment.state));
       return matchesSearch && hasVisibleSegments;
@@ -214,14 +261,19 @@ export function TableTimelineClient() {
 
   const toggleStatusFilter = (status: TableTimelineSegmentState) => {
     setStatusFilters((prev) => {
-      const next = prev.includes(status) ? prev.filter((value) => value !== status) : [...prev, status];
+      const next = prev.includes(status)
+        ? prev.filter((value) => value !== status)
+        : [...prev, status];
       return next.length > 0 ? next : DEFAULT_STATUS_FILTERS;
     });
   };
 
   const handleReleaseHold = async (holdId: string, bookingId: string | null) => {
     if (!holdId || !bookingId) {
-      setActionState({ releasing: false, error: 'Cannot release hold without a booking reference.' });
+      setActionState({
+        releasing: false,
+        error: 'Cannot release hold without a booking reference.',
+      });
       return;
     }
     setActionState({ releasing: true, error: null });
@@ -290,21 +342,36 @@ export function TableTimelineClient() {
                 />
               </div>
 
-              <Button variant="outline" size="icon" aria-label="Filters" className="h-10 w-10" disabled>
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label="Filters"
+                className="h-10 w-10"
+                disabled
+              >
                 <Filter className="h-4 w-4" />
               </Button>
 
               <Separator orientation="vertical" className="hidden h-8 sm:block" />
 
               <div className="flex items-center rounded-lg bg-muted p-1">
-                <Button variant="ghost" size="icon" aria-label="Previous day" className="h-8 w-8" disabled>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Previous day"
+                  className="h-8 w-8"
+                  disabled
+                >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant="ghost"
-                      className={cn('h-8 px-2 text-xs font-semibold', !displayDate && 'text-muted-foreground')}
+                      className={cn(
+                        'h-8 px-2 text-xs font-semibold',
+                        !displayDate && 'text-muted-foreground',
+                      )}
                       aria-label="Select date"
                     >
                       <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
@@ -320,7 +387,13 @@ export function TableTimelineClient() {
                     />
                   </PopoverContent>
                 </Popover>
-                <Button variant="ghost" size="icon" aria-label="Next day" className="h-8 w-8" disabled>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Next day"
+                  className="h-8 w-8"
+                  disabled
+                >
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
@@ -330,10 +403,20 @@ export function TableTimelineClient() {
 
         <main className="mx-auto w-full max-w-[1600px] space-y-6 px-4 py-6 sm:px-6">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard icon={Users} label="Current Occupancy" value="—" color="bg-blue-500" />
-            <StatCard icon={Timer} label="Avg. Turn Time" value="—" color="bg-amber-500" />
-            <StatCard icon={CheckCircle2} label="Upcoming Arrivals" value="—" color="bg-emerald-500" />
-            <StatCard icon={AlertCircle} label="Table Conflicts" value="—" color="bg-rose-500" />
+            <StatCard icon={Users} label="Current Occupancy" value="—" color="bg-primary/10" />
+            <StatCard icon={Timer} label="Avg. Turn Time" value="—" color="bg-primary/10" />
+            <StatCard
+              icon={CheckCircle2}
+              label="Upcoming Arrivals"
+              value="—"
+              color="bg-primary/10"
+            />
+            <StatCard
+              icon={AlertCircle}
+              label="Table Conflicts"
+              value="—"
+              color="bg-destructive/10"
+            />
           </div>
 
           <div className="flex flex-col gap-6 lg:flex-row">
@@ -342,44 +425,48 @@ export function TableTimelineClient() {
                 <CardContent className="p-0">
                   <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-muted/20 p-4">
                     <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => setSelectedZone(null)}
                         aria-pressed={!selectedZone}
                         className={cn(
-                          'rounded-full px-4 py-1.5 text-xs font-semibold transition-colors',
+                          'h-auto rounded-full px-4 py-1.5 text-xs font-semibold transition-colors',
                           !selectedZone
-                            ? 'bg-foreground text-background'
+                            ? 'bg-foreground text-background hover:bg-foreground hover:text-background'
                             : 'bg-muted text-muted-foreground hover:bg-muted/70',
                         )}
                       >
                         All Zones
-                      </button>
+                      </Button>
                       {zones.map((zone) => (
-                        <button
+                        <Button
                           key={zone.id}
-                          type="button"
+                          variant="ghost"
+                          size="sm"
                           onClick={() => setSelectedZone(zone.id)}
                           aria-pressed={selectedZone === zone.id}
                           className={cn(
-                            'rounded-full px-4 py-1.5 text-xs font-semibold transition-colors',
+                            'h-auto rounded-full px-4 py-1.5 text-xs font-semibold transition-colors',
                             selectedZone === zone.id
-                              ? 'bg-foreground text-background'
+                              ? 'bg-foreground text-background hover:bg-foreground hover:text-background'
                               : 'bg-muted text-muted-foreground hover:bg-muted/70',
                           )}
                         >
                           {zone.name || 'Unnamed zone'}
-                        </button>
+                        </Button>
                       ))}
                     </div>
 
                     <div className="hidden flex-wrap items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground md:flex">
-                      {STATUS_OPTIONS.filter((option) => option.value !== 'available').map((option) => (
-                        <div key={option.value} className="flex items-center gap-1.5">
-                          <span className={cn('h-2.5 w-2.5 rounded-full', option.dot)} />
-                          {option.label}
-                        </div>
-                      ))}
+                      {STATUS_OPTIONS.filter((option) => option.value !== 'available').map(
+                        (option) => (
+                          <div key={option.value} className="flex items-center gap-1.5">
+                            <span className={cn('h-2.5 w-2.5 rounded-full', option.dot)} />
+                            {option.label}
+                          </div>
+                        ),
+                      )}
                     </div>
                   </div>
 
@@ -388,7 +475,10 @@ export function TableTimelineClient() {
                       <Label htmlFor="timeline-service" className="sr-only">
                         Service
                       </Label>
-                      <Select value={service} onValueChange={(value) => setService(value as 'all' | 'lunch' | 'dinner')}>
+                      <Select
+                        value={service}
+                        onValueChange={(value) => setService(value as 'all' | 'lunch' | 'dinner')}
+                      >
                         <SelectTrigger id="timeline-service" className="h-9">
                           <SelectValue placeholder="All services" />
                         </SelectTrigger>
@@ -403,23 +493,34 @@ export function TableTimelineClient() {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Status</span>
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                        Status
+                      </span>
                       {STATUS_OPTIONS.map((option) => {
                         const active = statusFilters.includes(option.value);
                         return (
-                          <button
+                          <Button
                             key={option.value}
-                            type="button"
+                            variant="ghost"
+                            size="sm"
                             onClick={() => toggleStatusFilter(option.value)}
                             aria-pressed={active}
                             className={cn(
-                              'flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
-                              active ? option.pill : 'bg-muted text-foreground border border-border hover:border-primary/40',
+                              'h-auto rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
+                              active
+                                ? option.pill
+                                : 'bg-muted text-foreground border border-border hover:border-primary/40',
                             )}
                           >
-                            <span className={cn('h-2.5 w-2.5 rounded-full', option.dot, !active && 'opacity-60')} />
+                            <span
+                              className={cn(
+                                'h-2.5 w-2.5 rounded-full',
+                                option.dot,
+                                !active && 'opacity-60',
+                              )}
+                            />
                             {option.label}
-                          </button>
+                          </Button>
                         );
                       })}
                     </div>
@@ -427,7 +528,9 @@ export function TableTimelineClient() {
                     <div className="ml-auto flex items-center gap-2">
                       <span>
                         Last updated{' '}
-                        {timelineQuery.dataUpdatedAt ? new Date(timelineQuery.dataUpdatedAt).toLocaleTimeString() : '—'}
+                        {timelineQuery.dataUpdatedAt
+                          ? new Date(timelineQuery.dataUpdatedAt).toLocaleTimeString()
+                          : '—'}
                       </span>
                       <Button
                         variant="outline"
@@ -435,7 +538,9 @@ export function TableTimelineClient() {
                         onClick={() => timelineQuery.refetch()}
                         disabled={timelineQuery.isFetching}
                       >
-                        <RotateCw className={cn('mr-2 h-4 w-4', timelineQuery.isFetching && 'animate-spin')} />
+                        <RotateCw
+                          className={cn('mr-2 h-4 w-4', timelineQuery.isFetching && 'animate-spin')}
+                        />
                         Refresh
                       </Button>
                     </div>
@@ -465,7 +570,9 @@ export function TableTimelineClient() {
                       <Info className="h-4 w-4" />
                       Drag blocks to reassign tables. Right-click for quick actions.
                     </div>
-                    <div className="hidden sm:block">Live updates {isRealtimeEnabled() ? 'on' : 'polling'}</div>
+                    <div className="hidden sm:block">
+                      Live updates {isRealtimeEnabled() ? 'on' : 'polling'}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -476,11 +583,13 @@ export function TableTimelineClient() {
                 <CardContent className="p-5">
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold">Action Required</h3>
-                    <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-semibold text-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
+                    <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold text-destructive dark:bg-destructive/10 dark:text-destructive">
                       — Alerts
                     </span>
                   </div>
-                  <p className="mt-3 text-xs text-muted-foreground">Alerts will appear here once live data is loaded.</p>
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Alerts will appear here once live data is loaded.
+                  </p>
                   <Button className="mt-4 w-full" variant="secondary" disabled>
                     View All Notifications
                   </Button>
@@ -490,7 +599,9 @@ export function TableTimelineClient() {
               <Card>
                 <CardContent className="p-5">
                   <h3 className="text-sm font-semibold">Capacity Breakdown</h3>
-                  <p className="mt-2 text-xs text-muted-foreground">Breakdown will be computed from table inventory and bookings.</p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Breakdown will be computed from table inventory and bookings.
+                  </p>
                   <div className="mt-4 space-y-4">
                     {[
                       { label: '2-Tops', current: 0, total: 0 },
@@ -500,10 +611,17 @@ export function TableTimelineClient() {
                       <div key={item.label} className="space-y-1.5">
                         <div className="flex justify-between text-xs">
                           <span className="text-muted-foreground">{item.label}</span>
-                          <span className="font-semibold text-foreground">{item.total ? `${item.current}/${item.total}` : '—'}</span>
+                          <span className="font-semibold text-foreground">
+                            {item.total ? `${item.current}/${item.total}` : '—'}
+                          </span>
                         </div>
                         <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                          <div className="h-full bg-primary" style={{ width: item.total ? `${(item.current / item.total) * 100}%` : '0%' }} />
+                          <div
+                            className="h-full bg-primary"
+                            style={{
+                              width: item.total ? `${(item.current / item.total) * 100}%` : '0%',
+                            }}
+                          />
                         </div>
                       </div>
                     ))}
@@ -574,25 +692,36 @@ function PrototypeTimelineGrid({
 }: {
   timeline: TableTimelineResponse;
   tables: TableTimelineResponse['tables'];
-  onSelectSegment: (table: TableTimelineResponse['tables'][number]['table'], segment: TableTimelineSegment) => void;
+  onSelectSegment: (
+    table: TableTimelineResponse['tables'][number]['table'],
+    segment: TableTimelineSegment,
+  ) => void;
   now: Date;
   scrollRef: React.MutableRefObject<HTMLDivElement | null>;
 }) {
   if (!timeline.window.start || !timeline.window.end) {
-    return <div className="p-6 text-sm text-muted-foreground">Timeline window is unavailable for the selected date.</div>;
+    return (
+      <div className="p-6 text-sm text-muted-foreground">
+        Timeline window is unavailable for the selected date.
+      </div>
+    );
   }
 
   const windowStartHHMM = toHHMM(timeline.window.start);
   const windowEndHHMM = toHHMM(timeline.window.end);
   const widthPx = Math.max(1, timeToPositionPx(windowEndHHMM) - timeToPositionPx(windowStartHHMM));
   const nowHHMM = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-  const nowPx = clampToServiceWindow(timeToPositionPx(nowHHMM), windowStartHHMM, windowEndHHMM) - timeToPositionPx(windowStartHHMM);
+  const nowPx =
+    clampToServiceWindow(timeToPositionPx(nowHHMM), windowStartHHMM, windowEndHHMM) -
+    timeToPositionPx(windowStartHHMM);
 
   return (
     <div className="flex flex-col">
       <div className="sticky top-0 z-20 flex border-b border-border bg-muted/20">
         <div className="w-48 shrink-0 border-r border-border px-4 py-3">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Table / Cap</div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Table / Cap
+          </div>
         </div>
         <div className="min-w-0 flex-1 overflow-hidden">
           <div className="flex" style={{ width: `${TIME_SLOTS.length * SLOT_WIDTH_PX}px` }}>
@@ -663,7 +792,10 @@ function PrototypeTableRow({
         </div>
       </div>
 
-      <div className="relative h-14 flex-1" style={{ minWidth: `${TIME_SLOTS.length * SLOT_WIDTH_PX}px` }}>
+      <div
+        className="relative h-14 flex-1"
+        style={{ minWidth: `${TIME_SLOTS.length * SLOT_WIDTH_PX}px` }}
+      >
         <div className="absolute inset-0 flex">
           {TIME_SLOTS.map((slot) => (
             <div
@@ -675,8 +807,12 @@ function PrototypeTableRow({
           ))}
         </div>
 
-        <div className="absolute inset-y-0 z-20 w-px bg-rose-500" style={{ left: `${nowPx}px` }} aria-hidden>
-          <div className="absolute -top-1 -left-1 h-2 w-2 rounded-full bg-rose-500 shadow" />
+        <div
+          className="absolute inset-y-0 z-20 w-px bg-destructive/10"
+          style={{ left: `${nowPx}px` }}
+          aria-hidden
+        >
+          <div className="absolute -top-1 -left-1 h-2 w-2 rounded-full bg-destructive/10 shadow" />
         </div>
 
         {segments
@@ -711,17 +847,21 @@ function PrototypeReservationBlock({
 }) {
   const state = segment.state;
   const statusStyle: Record<TableTimelineSegmentState, string> = {
-    reserved: 'bg-blue-600 text-white border-blue-700',
-    hold: 'bg-amber-500 text-slate-950 border-amber-600',
+    reserved: 'bg-primary/10 text-primary border-primary/30',
+    hold: 'bg-primary/10 text-foreground border-primary/30',
     available: 'bg-muted text-muted-foreground border-border',
-    out_of_service: 'bg-slate-500 text-white border-slate-600',
+    out_of_service: 'bg-muted/40 text-muted-foreground border-border',
   };
 
   const start = toHHMM(segment.start);
   const end = toHHMM(segment.end);
 
-  const left = clampToServiceWindow(timeToPositionPx(start), windowStart, windowEnd) - timeToPositionPx(windowStart);
-  const right = clampToServiceWindow(timeToPositionPx(end), windowStart, windowEnd) - timeToPositionPx(windowStart);
+  const left =
+    clampToServiceWindow(timeToPositionPx(start), windowStart, windowEnd) -
+    timeToPositionPx(windowStart);
+  const right =
+    clampToServiceWindow(timeToPositionPx(end), windowStart, windowEnd) -
+    timeToPositionPx(windowStart);
   const width = Math.max(0, right - left);
   if (width <= 0) return null;
 
@@ -729,11 +869,11 @@ function PrototypeReservationBlock({
   const partySize = segment.booking?.partySize ?? null;
 
   return (
-    <button
-      type="button"
+    <Button
+      variant="ghost"
       onClick={onClick}
       className={cn(
-        'absolute top-2 h-10 rounded-lg border-l-4 px-3 text-left shadow-sm transition hover:brightness-110',
+        'absolute top-2 h-10 flex-col items-stretch justify-start gap-0 rounded-lg border-l-4 px-3 py-0 text-left shadow-sm transition hover:brightness-110',
         statusStyle[state],
       )}
       style={{ left, width: Math.min(width, timelineWidthPx - left) }}
@@ -750,7 +890,7 @@ function PrototypeReservationBlock({
       <div className="truncate text-[10px] opacity-80">
         {start} – {end}
       </div>
-    </button>
+    </Button>
   );
 }
 
@@ -779,7 +919,12 @@ function SegmentDialog({
   const meta = STATUS_META[segment.state];
 
   return (
-    <Dialog open onOpenChange={(next) => { if (!next) onClose(); }}>
+    <Dialog
+      open
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+    >
       <DialogContent className="sm:max-w-lg">
         <DialogHeader className="space-y-2">
           <div className="flex items-center gap-3">
@@ -810,13 +955,19 @@ function SegmentDialog({
             <div className="space-y-1 text-sm">
               {segment.booking ? (
                 <>
-                  <p className="font-semibold text-foreground">{segment.booking.customerName ?? 'Guest'}</p>
-                  <p className="text-muted-foreground">Party of {segment.booking.partySize} · {segment.booking.status}</p>
+                  <p className="font-semibold text-foreground">
+                    {segment.booking.customerName ?? 'Guest'}
+                  </p>
+                  <p className="text-muted-foreground">
+                    Party of {segment.booking.partySize} · {segment.booking.status}
+                  </p>
                 </>
               ) : segment.state === 'hold' ? (
                 <>
                   <p className="font-semibold text-foreground">Table is on hold</p>
-                  <p className="text-muted-foreground">Linked booking ID: {bookingId ?? 'unknown'}</p>
+                  <p className="text-muted-foreground">
+                    Linked booking ID: {bookingId ?? 'unknown'}
+                  </p>
                 </>
               ) : segment.state === 'out_of_service' ? (
                 <>

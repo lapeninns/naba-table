@@ -2,6 +2,8 @@
 
 import { memo, useMemo } from 'react';
 
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 import type {
@@ -66,7 +68,9 @@ function formatTableTitle(entry: DerivedTable): string {
     lines.push(`Held by ${holdOther.createdByName ?? 'another staff member'}`);
   }
   if (conflicts.length > 0) {
-    lines.push(`Blocked (${conflicts.length} overlapping booking${conflicts.length === 1 ? '' : 's'})`);
+    lines.push(
+      `Blocked (${conflicts.length} overlapping booking${conflicts.length === 1 ? '' : 's'})`,
+    );
   }
   if (!table.active || (table.status && table.status !== 'available')) {
     lines.push(`Status: ${table.status ?? 'inactive'}`);
@@ -74,7 +78,11 @@ function formatTableTitle(entry: DerivedTable): string {
   return lines.join('\n');
 }
 
-function formatTableAriaLabel(entry: DerivedTable, isSelected: boolean, isBlocked: boolean): string {
+function formatTableAriaLabel(
+  entry: DerivedTable,
+  isSelected: boolean,
+  isBlocked: boolean,
+): string {
   const parts: string[] = [];
   // Start with the table number to keep accessible name compatible with tests and screen reader expectations
   if (entry.table.name) {
@@ -87,7 +95,8 @@ function formatTableAriaLabel(entry: DerivedTable, isSelected: boolean, isBlocke
   if (isBlocked) parts.push('unavailable');
   if (entry.holdOwned) parts.push('held by you');
   if (entry.holdOther) parts.push('held by another booking');
-  if (entry.conflicts.length > 0) parts.push(`${entry.conflicts.length} conflict${entry.conflicts.length === 1 ? '' : 's'}`);
+  if (entry.conflicts.length > 0)
+    parts.push(`${entry.conflicts.length} conflict${entry.conflicts.length === 1 ? '' : 's'}`);
   return parts.join(', ');
 }
 
@@ -129,8 +138,10 @@ function computeLayout(
     }
   }
 
-  const positionedEntities: Array<{ table: ManualAssignmentTable; position: { x: number; y: number; rotation: number } }>
-    = [];
+  const positionedEntities: Array<{
+    table: ManualAssignmentTable;
+    position: { x: number; y: number; rotation: number };
+  }> = [];
   const fallback: ManualAssignmentTable[] = [];
 
   for (const table of tables) {
@@ -164,7 +175,8 @@ function computeLayout(
   const derived: DerivedTable[] = positionedEntities.map(({ table, position }) => {
     const tableHolds = holdMap.get(table.id) ?? [];
     const holdOwned = tableHolds.find((hold) => hold.bookingId === bookingId) ?? null;
-    const holdOther = tableHolds.find((hold) => hold.bookingId && hold.bookingId !== bookingId) ?? null;
+    const holdOther =
+      tableHolds.find((hold) => hold.bookingId && hold.bookingId !== bookingId) ?? null;
 
     return {
       table,
@@ -179,14 +191,16 @@ function computeLayout(
       isInactive:
         !table.active ||
         table.zoneActive === false ||
-        ((table.status ?? '').toString().toLowerCase() !== 'available'),
+        (table.status ?? '').toString().toLowerCase() !== 'available',
     };
   });
 
   return { positioned: derived, unpositioned: fallback };
 }
 
-function getVariant(entry: DerivedTable): 'selected' | 'owned' | 'blocked' | 'assigned' | 'inactive' | 'default' {
+function getVariant(
+  entry: DerivedTable,
+): 'selected' | 'owned' | 'blocked' | 'assigned' | 'inactive' | 'default' {
   if (entry.isInactive) {
     return 'inactive';
   }
@@ -210,11 +224,11 @@ function getVariantClasses(variant: ReturnType<typeof getVariant>): string {
     case 'selected':
       return 'bg-primary text-primary-foreground border-primary shadow-sm';
     case 'owned':
-      return 'bg-blue-100 text-blue-900 border-blue-300';
+      return 'bg-primary/10 text-primary border-primary/30';
     case 'assigned':
-      return 'bg-emerald-100 text-emerald-900 border-emerald-300';
+      return 'bg-primary/10 text-primary border-primary/30';
     case 'blocked':
-      return 'bg-amber-50 text-amber-900 border-amber-400';
+      return 'bg-primary/10 text-primary border-primary/30';
     case 'inactive':
       return 'bg-muted text-muted-foreground border-muted-foreground/30 opacity-70';
     default:
@@ -239,7 +253,14 @@ export const TableFloorPlan = memo(function TableFloorPlan({
   const conflictTableIds = useMemo(() => new Set(conflicts.map((c) => c.tableId)), [conflicts]);
 
   const { positioned, unpositioned } = useMemo(() => {
-    const computed = computeLayout(bookingId, tables, holds, conflicts, bookingAssignmentSet, selectionSet);
+    const computed = computeLayout(
+      bookingId,
+      tables,
+      holds,
+      conflicts,
+      bookingAssignmentSet,
+      selectionSet,
+    );
     if (!onlyAvailable) return computed;
 
     const filteredPositioned = computed.positioned.filter((entry) => {
@@ -253,10 +274,11 @@ export const TableFloorPlan = memo(function TableFloorPlan({
       const isInactive =
         !table.active ||
         table.zoneActive === false ||
-        ((table.status ?? '').toString().toLowerCase() !== 'available');
+        (table.status ?? '').toString().toLowerCase() !== 'available';
       const tableHolds = holds.filter((hold) => hold.tableIds.includes(table.id));
       const holdOwned = tableHolds.find((hold) => hold.bookingId === bookingId) ?? null;
-      const holdOther = tableHolds.find((hold) => hold.bookingId && hold.bookingId !== bookingId) ?? null;
+      const holdOther =
+        tableHolds.find((hold) => hold.bookingId && hold.bookingId !== bookingId) ?? null;
       const assigned = bookingAssignmentSet.has(table.id);
       if (assigned || holdOwned) return true;
       if (isInactive || holdOther) return false;
@@ -264,7 +286,16 @@ export const TableFloorPlan = memo(function TableFloorPlan({
     });
 
     return { positioned: filteredPositioned, unpositioned: filteredUnpositioned };
-  }, [bookingId, tables, holds, conflicts, bookingAssignmentSet, selectionSet, onlyAvailable, conflictTableIds]);
+  }, [
+    bookingId,
+    tables,
+    holds,
+    conflicts,
+    bookingAssignmentSet,
+    selectionSet,
+    onlyAvailable,
+    conflictTableIds,
+  ]);
 
   const groupedUnpositioned = useMemo(() => {
     const groups = new Map<
@@ -292,10 +323,18 @@ export const TableFloorPlan = memo(function TableFloorPlan({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="text-sm font-semibold text-foreground">Tables</div>
         <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-wide text-muted-foreground">
-          <span className="rounded-full bg-primary/10 px-2.5 py-1 font-semibold text-primary">Selected</span>
-          <span className="rounded-full bg-emerald-100 px-2.5 py-1 font-semibold text-emerald-700">Assigned</span>
-          <span className="rounded-full bg-amber-100 px-2.5 py-1 font-semibold text-amber-800">Held/Blocked</span>
-          <span className="rounded-full bg-gray-100 px-2.5 py-1 font-semibold text-gray-700">Inactive</span>
+          <Badge variant="secondary" className="px-2.5 py-1 text-[11px] font-semibold uppercase">
+            Selected
+          </Badge>
+          <Badge variant="secondary" className="px-2.5 py-1 text-[11px] font-semibold uppercase">
+            Assigned
+          </Badge>
+          <Badge variant="secondary" className="px-2.5 py-1 text-[11px] font-semibold uppercase">
+            Held/Blocked
+          </Badge>
+          <Badge variant="outline" className="px-2.5 py-1 text-[11px] font-semibold uppercase">
+            Inactive
+          </Badge>
         </div>
       </div>
 
@@ -315,22 +354,28 @@ export const TableFloorPlan = memo(function TableFloorPlan({
                   ? formatCountdown(entry.holdOther.countdownSeconds)
                   : null;
               const isBlocked =
-                disabled || entry.isInactive || Boolean(entry.holdOther) || entry.conflicts.length > 0;
+                disabled ||
+                entry.isInactive ||
+                Boolean(entry.holdOther) ||
+                entry.conflicts.length > 0;
 
               return (
-                <button
+                <Button
                   key={entry.table.id}
                   type="button"
+                  variant="ghost"
                   className={cn(
-                    'absolute flex h-16 w-16 flex-col items-center justify-center rounded-xl border text-xs font-semibold transition',
+                    'absolute flex h-16 w-16 flex-col items-center justify-center whitespace-normal rounded-xl border p-0 text-xs font-semibold transition',
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
                     getVariantClasses(variant),
-                    isBlocked && variant === 'default' ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
+                    isBlocked && variant === 'default'
+                      ? 'cursor-not-allowed opacity-60'
+                      : 'cursor-pointer',
                   )}
                   style={{
                     left: `${entry.xPercent}%`,
                     top: `${entry.yPercent}%`,
-                    transform: `translate(-50%, -50%) rotate(${entry.rotation}deg)`
+                    transform: `translate(-50%, -50%) rotate(${entry.rotation}deg)`,
                   }}
                   onClick={() => {
                     if (disabled || entry.isInactive) return;
@@ -345,13 +390,20 @@ export const TableFloorPlan = memo(function TableFloorPlan({
                 >
                   <span className="text-sm font-semibold">{entry.table.tableNumber}</span>
                   <span className="text-[11px] font-medium">{entry.table.capacity} seats</span>
-                  {countdown ? <span className="mt-0.5 text-[10px] font-semibold">{countdown}</span> : null}
-                  {!countdown && (entry.holdOther || !entry.table.active || entry.conflicts.length > 0) ? (
+                  {countdown ? (
+                    <span className="mt-0.5 text-[10px] font-semibold">{countdown}</span>
+                  ) : null}
+                  {!countdown &&
+                  (entry.holdOther || !entry.table.active || entry.conflicts.length > 0) ? (
                     <span className="mt-0.5 text-[10px] font-semibold">
-                      {entry.holdOther ? 'Held' : entry.conflicts.length > 0 ? 'Conflict' : 'Inactive'}
+                      {entry.holdOther
+                        ? 'Held'
+                        : entry.conflicts.length > 0
+                          ? 'Conflict'
+                          : 'Inactive'}
                     </span>
                   ) : null}
-                </button>
+                </Button>
               );
             })}
           </div>
@@ -376,7 +428,9 @@ export const TableFloorPlan = memo(function TableFloorPlan({
                 {group.tables.map((table) => {
                   const isSelected = selectionSet.has(table.id);
                   const tableHolds = holds.filter((hold) => hold.tableIds.includes(table.id));
-                  const holdOther = tableHolds.find((hold) => hold.bookingId && hold.bookingId !== bookingId);
+                  const holdOther = tableHolds.find(
+                    (hold) => hold.bookingId && hold.bookingId !== bookingId,
+                  );
                   const hasConflict = conflictTableIds.has(table.id);
                   const isBlocked =
                     disabled ||
@@ -386,28 +440,37 @@ export const TableFloorPlan = memo(function TableFloorPlan({
                     hasConflict;
 
                   return (
-                    <button
+                    <Button
                       key={table.id}
                       type="button"
+                      variant="ghost"
                       className={cn(
-                        'flex flex-col items-start gap-1 rounded-xl border-2 px-3 py-2.5 text-left transition-[transform,box-shadow,border-color,background-color,color] hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
+                        'flex h-auto flex-col items-start gap-1 whitespace-normal rounded-xl border-2 px-3 py-2.5 text-left transition-[transform,box-shadow,border-color,background-color,color] hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
                         isSelected
                           ? 'bg-primary/10 text-primary border-primary shadow-sm'
                           : 'bg-background text-foreground border-border hover:border-primary/30',
-                        isBlocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:-translate-y-0.5',
+                        isBlocked
+                          ? 'cursor-not-allowed opacity-60'
+                          : 'cursor-pointer hover:-translate-y-0.5',
                       )}
                       onClick={() => {
                         if (isBlocked) return;
                         onToggle(table.id);
                       }}
-                      title={table.name ? `Table ${table.tableNumber} - ${table.name} · ${table.capacity} seats` : `Table ${table.tableNumber} · ${table.capacity} seats`}
+                      title={
+                        table.name
+                          ? `Table ${table.tableNumber} - ${table.name} · ${table.capacity} seats`
+                          : `Table ${table.tableNumber} · ${table.capacity} seats`
+                      }
                       aria-label={`Table ${table.tableNumber}${table.name ? `, ${table.name}` : ''}, ${table.capacity} seats${isSelected ? ', selected' : ''}${isBlocked ? ', unavailable' : ''}${holdOther ? ', held' : ''}${hasConflict ? ', conflict' : ''}${!table.active || (table.status && table.status !== 'available') ? ', inactive' : ''}`}
                       aria-pressed={isSelected ? true : undefined}
                       disabled={isBlocked}
                       aria-disabled={isBlocked || undefined}
                     >
                       <div className="flex items-baseline gap-1.5">
-                        <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Table</span>
+                        <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                          Table
+                        </span>
                         <span className="text-lg font-bold tabular-nums">{table.tableNumber}</span>
                       </div>
                       {table.name && (
@@ -418,18 +481,27 @@ export const TableFloorPlan = memo(function TableFloorPlan({
                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <span className="font-medium">{table.capacity} seats</span>
                       </div>
-                      {(holdOther || hasConflict || !table.active || (table.status && table.status !== 'available')) && (
+                      {(holdOther ||
+                        hasConflict ||
+                        !table.active ||
+                        (table.status && table.status !== 'available')) && (
                         <div className="mt-1 flex items-center gap-1">
                           {holdOther ? (
-                            <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-900">Held</span>
+                            <span className="rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                              Held
+                            </span>
                           ) : hasConflict ? (
-                            <span className="rounded-md bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-900">Conflict</span>
+                            <span className="rounded-md bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold text-destructive">
+                              Conflict
+                            </span>
                           ) : !table.active || (table.status && table.status !== 'available') ? (
-                            <span className="rounded-md bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-700">Inactive</span>
+                            <span className="rounded-md bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                              Inactive
+                            </span>
                           ) : null}
                         </div>
                       )}
-                    </button>
+                    </Button>
                   );
                 })}
               </div>

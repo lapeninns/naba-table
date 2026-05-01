@@ -34,7 +34,11 @@ const SECONDARY_METRICS: Array<{
   { key: 'neverVisited', label: 'Never visited' },
 ];
 
-export function GuestsSummaryMetrics({ summary, isLoading, isUpdating }: GuestsSummaryMetricsProps) {
+export function GuestsSummaryMetrics({
+  summary,
+  isLoading,
+  isUpdating,
+}: GuestsSummaryMetricsProps) {
   if (!summary && !isLoading) {
     return (
       <Alert className="border-border/60 bg-muted/20 text-foreground" role="status">
@@ -100,7 +104,10 @@ export function GuestsSummaryMetrics({ summary, isLoading, isUpdating }: GuestsS
           aria-label="Toggle more metrics"
         >
           More metrics
-          <ChevronDown className="h-3.5 w-3.5 transition-transform group-data-[state=open]:rotate-180" aria-hidden />
+          <ChevronDown
+            className="h-3.5 w-3.5 transition-transform group-data-[state=open]:rotate-180"
+            aria-hidden
+          />
         </CollapsibleTrigger>
         <CollapsibleContent className="mt-3">
           <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">

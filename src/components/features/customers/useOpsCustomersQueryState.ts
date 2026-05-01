@@ -70,10 +70,12 @@ export function useOpsCustomersQueryState() {
   const displaySearch = state.searchTerm.trim();
 
   const updateQueryParams = useCallback(
-    (nextState: Pick<
-      OpsCustomersFilterState,
-      'marketingOptIn' | 'lastVisit' | 'minBookings' | 'sort' | 'sortBy'
-    > & { search: string | null }) => {
+    (
+      nextState: Pick<
+        OpsCustomersFilterState,
+        'marketingOptIn' | 'lastVisit' | 'minBookings' | 'sort' | 'sortBy'
+      > & { search: string | null },
+    ) => {
       if (!isOnline) {
         return;
       }
@@ -134,7 +136,9 @@ export function useOpsCustomersQueryState() {
   );
 
   const setSearchTerm = useCallback((searchTerm: string) => {
-    setState((current) => (current.searchTerm === searchTerm ? current : { ...current, searchTerm }));
+    setState((current) =>
+      current.searchTerm === searchTerm ? current : { ...current, searchTerm },
+    );
   }, []);
 
   const setMarketingOptIn = useCallback((marketingOptIn: MarketingFilter) => {
@@ -155,9 +159,7 @@ export function useOpsCustomersQueryState() {
 
   const setSortState = useCallback((sortBy: SortBy, sort: SortDirection) => {
     setState((current) =>
-      current.sortBy === sortBy && current.sort === sort
-        ? current
-        : { ...current, sortBy, sort },
+      current.sortBy === sortBy && current.sort === sort ? current : { ...current, sortBy, sort },
     );
   }, []);
 

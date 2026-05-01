@@ -55,7 +55,7 @@ function CompareCell({
     <div
       className={cn(
         'grid grid-cols-2 gap-x-3 gap-y-0.5 text-sm',
-        drifted && 'rounded-md bg-amber-50/60 px-2 py-1',
+        drifted && 'rounded-md bg-primary/10 px-2 py-1',
       )}
     >
       <div>
@@ -91,14 +91,13 @@ function ReadOnlyMealCard({
   const nEnd = nab ? formatTime(nab.endTime) : '—';
   const gActive = Boolean(google && (google.startTime || google.endTime));
   const nActive = Boolean(nab && (nab.startTime || nab.endTime));
-  const blockDrift =
-    google?.matchesCore === false || gActive !== nActive;
+  const blockDrift = google?.matchesCore === false || gActive !== nActive;
 
   return (
     <div
       className={cn(
         'rounded-lg border border-border/60 bg-background/80 p-3',
-        blockDrift && 'border-amber-200/80 bg-amber-50/30',
+        blockDrift && 'border-primary/30 bg-primary/10',
       )}
     >
       <div className="flex items-start justify-between gap-2">
@@ -202,7 +201,7 @@ export function GbpReadOnlyScheduleDayCard({
               {primaryOpen ? 'Open' : 'Closed'}
             </Badge>
             {dayMismatch ? (
-              <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-800">
+              <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
                 Day mismatch
               </Badge>
             ) : null}
@@ -251,8 +250,8 @@ export function GbpReadOnlyScheduleDayCard({
                     googleWeekly?.matchesCore === false ||
                     Boolean(
                       googleWeekly &&
-                        nabWeekly &&
-                        (googleWeekly.opensAt ?? '') !== (nabWeekly.opensAt ?? ''),
+                      nabWeekly &&
+                      (googleWeekly.opensAt ?? '') !== (nabWeekly.opensAt ?? ''),
                     )
                   }
                 />
@@ -268,8 +267,8 @@ export function GbpReadOnlyScheduleDayCard({
                     googleWeekly?.matchesCore === false ||
                     Boolean(
                       googleWeekly &&
-                        nabWeekly &&
-                        (googleWeekly.closesAt ?? '') !== (nabWeekly.closesAt ?? ''),
+                      nabWeekly &&
+                      (googleWeekly.closesAt ?? '') !== (nabWeekly.closesAt ?? ''),
                     )
                   }
                 />

@@ -50,10 +50,10 @@ function GroupHeader({ group, timezone }: { group: SmsDeliveryGroup; timezone: s
         <StatusBadge status={group.currentStatus} />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-semibold text-slate-900" title={label}>
+        <div className="truncate text-sm font-semibold text-foreground" title={label}>
           {label}
         </div>
-        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
           <span className="truncate" title={group.recipientPhone}>
             {group.recipientPhone}
           </span>
@@ -85,13 +85,13 @@ export function SmsDeliveryPanel({ bookingId, timezone, limit = 50 }: SmsDeliver
 
   if (query.isLoading) {
     return wrapCard(
-      <Card className="border-slate-200/60 bg-white">
+      <Card className="border-border bg-background">
         <CardContent className="space-y-3 p-3">
           <div className="flex items-center justify-between">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               SMS Delivery
             </div>
-            <MessageSquare className="h-4 w-4 text-slate-400" aria-hidden />
+            <MessageSquare className="h-4 w-4 text-muted-foreground" aria-hidden />
           </div>
           <div className="space-y-2">
             <Skeleton className="h-10 w-full" />
@@ -104,18 +104,19 @@ export function SmsDeliveryPanel({ bookingId, timezone, limit = 50 }: SmsDeliver
 
   if (query.unavailable) {
     return wrapCard(
-      <Card className="border-slate-200/60 bg-white">
+      <Card className="border-border bg-background">
         <CardContent className="space-y-2 p-3">
           <div className="flex items-center justify-between">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               SMS Delivery
             </div>
-            <MessageSquareWarning className="h-4 w-4 text-amber-500" aria-hidden />
+            <MessageSquareWarning className="h-4 w-4 text-primary" aria-hidden />
           </div>
-          <Alert className="border-amber-200/70 bg-amber-50/60">
+          <Alert className="border-border bg-muted/40">
             <AlertTitle>Delivery tracking unavailable</AlertTitle>
             <AlertDescription>
-              This environment is not currently recording or exposing SMS delivery events. SMS sending can still work normally.
+              This environment is not currently recording or exposing SMS delivery events. SMS
+              sending can still work normally.
             </AlertDescription>
           </Alert>
         </CardContent>
@@ -125,13 +126,13 @@ export function SmsDeliveryPanel({ bookingId, timezone, limit = 50 }: SmsDeliver
 
   if (query.apiError) {
     return wrapCard(
-      <Card className="border-slate-200/60 bg-white">
+      <Card className="border-border bg-background">
         <CardContent className="space-y-2 p-3">
           <div className="flex items-center justify-between">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               SMS Delivery
             </div>
-            <AlertCircle className="h-4 w-4 text-rose-500" aria-hidden />
+            <AlertCircle className="h-4 w-4 text-destructive" aria-hidden />
           </div>
           <Alert variant="destructive">
             <AlertTitle>Unable to load delivery events</AlertTitle>
@@ -144,13 +145,13 @@ export function SmsDeliveryPanel({ bookingId, timezone, limit = 50 }: SmsDeliver
 
   if (query.error) {
     return wrapCard(
-      <Card className="border-slate-200/60 bg-white">
+      <Card className="border-border bg-background">
         <CardContent className="space-y-2 p-3">
           <div className="flex items-center justify-between">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               SMS Delivery
             </div>
-            <AlertCircle className="h-4 w-4 text-rose-500" aria-hidden />
+            <AlertCircle className="h-4 w-4 text-destructive" aria-hidden />
           </div>
           <Alert variant="destructive">
             <AlertTitle>Unexpected error</AlertTitle>
@@ -163,39 +164,37 @@ export function SmsDeliveryPanel({ bookingId, timezone, limit = 50 }: SmsDeliver
 
   if (groups.length === 0) {
     return wrapCard(
-      <Card className="border-slate-200/60 bg-white">
+      <Card className="border-border bg-background">
         <CardContent className="space-y-2 p-3">
           <div className="flex items-center justify-between">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               SMS Delivery
             </div>
-            <MessageSquare className="h-4 w-4 text-slate-400" aria-hidden />
+            <MessageSquare className="h-4 w-4 text-muted-foreground" aria-hidden />
           </div>
-          <div className="text-sm text-slate-600">No delivery events recorded for this booking yet.</div>
+          <div className="text-sm text-muted-foreground">
+            No delivery events recorded for this booking yet.
+          </div>
         </CardContent>
       </Card>,
     );
   }
 
   return wrapCard(
-    <Card className="border-slate-200/60 bg-white">
+    <Card className="border-border bg-background">
       <CardContent className="space-y-3 p-3">
         <div className="flex items-center justify-between">
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             SMS Delivery
           </div>
-          <MessageSquare className="h-4 w-4 text-slate-400" aria-hidden />
+          <MessageSquare className="h-4 w-4 text-muted-foreground" aria-hidden />
         </div>
         <Separator />
         <Accordion type="multiple" className="space-y-2">
           {groups.map((group) => {
             const key = `${group.messageSid}__${group.recipientPhone}`;
             return (
-              <AccordionItem
-                key={key}
-                value={key}
-                className="rounded-lg border-none bg-slate-50/60"
-              >
+              <AccordionItem key={key} value={key} className="rounded-lg border-none bg-muted/40">
                 <AccordionTrigger className="px-3 py-2 hover:no-underline">
                   <GroupHeader group={group} timezone={timezone} />
                 </AccordionTrigger>
@@ -208,13 +207,13 @@ export function SmsDeliveryPanel({ bookingId, timezone, limit = 50 }: SmsDeliver
                         <div key={event.id} className="flex items-start justify-between gap-3">
                           <div className="flex items-center gap-2">
                             <StatusBadge status={event.status} />
-                            <span className="text-xs text-slate-600">
+                            <span className="text-xs text-muted-foreground">
                               {when ?? 'Unknown time'}
                             </span>
                           </div>
                           {event.error ? (
                             <span
-                              className="max-w-[50%] truncate text-xs text-rose-700"
+                              className="max-w-[50%] truncate text-xs text-destructive"
                               title={event.error}
                             >
                               {event.error}

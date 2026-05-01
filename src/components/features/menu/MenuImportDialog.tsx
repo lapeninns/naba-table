@@ -60,10 +60,7 @@ export function MenuImportDialog({
 
   const isBusy = previewMutation.isPending || applyMutation.isPending;
 
-  const handleFileChange = (
-    setter: Dispatch<SetStateAction<File | null>>,
-    file: File | null,
-  ) => {
+  const handleFileChange = (setter: Dispatch<SetStateAction<File | null>>, file: File | null) => {
     setPreview(null);
     setter(file);
   };
@@ -123,19 +120,20 @@ export function MenuImportDialog({
         <DialogHeader>
           <DialogTitle>Import menu CSVs</DialogTitle>
           <DialogDescription>
-            Upload the required items CSV and, if needed, the optional modifier group and modifier option CSVs.
+            Upload the required items CSV and, if needed, the optional modifier group and modifier
+            option CSVs.
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4">
           <div className="grid gap-2">
             <Label htmlFor="menu-import-items">Items CSV</Label>
-              <Input
-                id="menu-import-items"
-                type="file"
-                accept=".csv,text/csv"
-                onChange={(event) => handleFileChange(setItemsFile, event.target.files?.[0] ?? null)}
-              />
+            <Input
+              id="menu-import-items"
+              type="file"
+              accept=".csv,text/csv"
+              onChange={(event) => handleFileChange(setItemsFile, event.target.files?.[0] ?? null)}
+            />
           </div>
           <div className="grid gap-2 md:grid-cols-2">
             <div className="grid gap-2">
@@ -182,7 +180,10 @@ export function MenuImportDialog({
                   <div className="text-sm font-medium text-foreground">Validation issues</div>
                   <div className="max-h-56 space-y-2 overflow-y-auto rounded-md border border-destructive/30 bg-background p-3">
                     {preview.errors.map((error, index) => (
-                      <div key={`${error.file}-${error.row}-${error.column ?? 'none'}-${index}`} className="text-sm text-muted-foreground">
+                      <div
+                        key={`${error.file}-${error.row}-${error.column ?? 'none'}-${index}`}
+                        className="text-sm text-muted-foreground"
+                      >
                         <span className="font-medium text-foreground">
                           {error.file} row {error.row}
                           {error.column ? ` (${error.column})` : ''}
@@ -206,7 +207,12 @@ export function MenuImportDialog({
         </div>
 
         <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-between">
-          <Button type="button" variant="outline" onClick={handlePreview} disabled={isBusy || !payload}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handlePreview}
+            disabled={isBusy || !payload}
+          >
             {previewMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Preview import
           </Button>

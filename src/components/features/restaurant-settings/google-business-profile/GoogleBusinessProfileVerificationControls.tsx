@@ -34,19 +34,19 @@ function statusBadge(status: GoogleBusinessProfileVerificationControlsProps['sta
       return {
         label: 'GBP Verified',
         icon: ShieldCheck,
-        className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+        className: 'border-primary/30 bg-primary/10 text-primary',
       };
     case 'drifted':
       return {
         label: 'GBP Drifted',
         icon: ShieldAlert,
-        className: 'border-amber-200 bg-amber-50 text-amber-700',
+        className: 'border-primary/30 bg-primary/10 text-primary',
       };
     case 'partial':
       return {
         label: 'GBP Partial',
         icon: CheckCheck,
-        className: 'border-sky-200 bg-sky-50 text-sky-700',
+        className: 'border-primary/20 bg-primary/10 text-primary',
       };
     case 'unavailable':
     default:

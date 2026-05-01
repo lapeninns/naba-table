@@ -256,9 +256,15 @@ function inferKitchenSplitWindow(row: {
   };
 }
 
-function inferServicePeriodsByDay(
-  connection: GoogleBusinessProfileConnection,
-): Map<number, { lunch: ComparableMealWindow | null; dinner: ComparableMealWindow | null; partialReason: string | null; sourceLines: string[] }> {
+function inferServicePeriodsByDay(connection: GoogleBusinessProfileConnection): Map<
+  number,
+  {
+    lunch: ComparableMealWindow | null;
+    dinner: ComparableMealWindow | null;
+    partialReason: string | null;
+    sourceLines: string[];
+  }
+> {
   const result = new Map<
     number,
     {
@@ -415,7 +421,7 @@ function latestTimestamp(
     return firstValue ?? null;
   }
 
-  return secondTime > firstTime ? secondValue ?? null : firstValue ?? null;
+  return secondTime > firstTime ? (secondValue ?? null) : (firstValue ?? null);
 }
 
 function recommendedDirection(params: {
@@ -880,8 +886,18 @@ export function deriveServicePeriodsVerification(params: {
 }
 
 export function deriveOperatingHoursRowComparisons(params: {
-  weekly: Array<{ dayOfWeek: number; opensAt: string | null; closesAt: string | null; isClosed: boolean }>;
-  overrides: Array<{ effectiveDate: string; opensAt: string | null; closesAt: string | null; isClosed: boolean }>;
+  weekly: Array<{
+    dayOfWeek: number;
+    opensAt: string | null;
+    closesAt: string | null;
+    isClosed: boolean;
+  }>;
+  overrides: Array<{
+    effectiveDate: string;
+    opensAt: string | null;
+    closesAt: string | null;
+    isClosed: boolean;
+  }>;
   connection: GoogleBusinessProfileConnection | null | undefined;
 }): {
   weeklyByDay: Record<number, OperatingHoursRowComparison>;

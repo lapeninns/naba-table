@@ -244,7 +244,9 @@ export function buildMenuItemPayload(form: MenuItemFormState): MenuItemUpsertInp
     recommendationTags: fieldToList(form.recommendationTags),
     pairings: fieldToList(form.pairings),
     signatureScore: nullable(form.signatureScore) ? Number.parseInt(form.signatureScore, 10) : null,
-    popularityScore: nullable(form.popularityScore) ? Number.parseInt(form.popularityScore, 10) : null,
+    popularityScore: nullable(form.popularityScore)
+      ? Number.parseInt(form.popularityScore, 10)
+      : null,
     dietaryTags: fieldToList(form.dietaryTags),
     allergensContains: fieldToList(form.allergensContains),
     allergensMayContain: fieldToList(form.allergensMayContain),

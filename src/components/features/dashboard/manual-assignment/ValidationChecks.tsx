@@ -16,15 +16,15 @@ type ValidationChecksProps = {
 const statusConfig = {
   ok: {
     icon: CheckCircle2,
-    color: 'text-emerald-600',
-    bgColor: 'bg-emerald-50',
-    borderColor: 'border-emerald-200',
+    color: 'text-primary',
+    bgColor: 'bg-primary/10',
+    borderColor: 'border-primary/30',
   },
   warn: {
     icon: AlertTriangle,
-    color: 'text-amber-600',
-    bgColor: 'bg-amber-50',
-    borderColor: 'border-amber-200',
+    color: 'text-primary',
+    bgColor: 'bg-primary/10',
+    borderColor: 'border-primary/30',
   },
   error: {
     icon: XCircle,
@@ -73,12 +73,12 @@ export function ValidationChecks({ checks, className }: ValidationChecksProps) {
               </span>
             )}
             {warnCount > 0 && (
-              <span className="text-xs font-medium text-amber-600">
+              <span className="text-xs font-medium text-primary">
                 {warnCount} warning{warnCount === 1 ? '' : 's'}
               </span>
             )}
             {okCount > 0 && errorCount === 0 && warnCount === 0 && (
-              <span className="text-xs font-medium text-emerald-600">All checks passed</span>
+              <span className="text-xs font-medium text-primary">All checks passed</span>
             )}
           </div>
         </div>
@@ -103,7 +103,7 @@ export function ValidationChecks({ checks, className }: ValidationChecksProps) {
                 className={cn(
                   'flex items-start gap-3 rounded-md border p-3',
                   config.bgColor,
-                  config.borderColor
+                  config.borderColor,
                 )}
                 role="alert"
                 aria-live="polite"
@@ -116,9 +116,7 @@ export function ValidationChecks({ checks, className }: ValidationChecksProps) {
                       <span className="text-xs text-muted-foreground">✓</span>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    {check.message}
-                  </p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{check.message}</p>
                   {check.details && Object.keys(check.details).length > 0 && (
                     <div className="mt-2 pt-2 border-t border-current/10">
                       <code className="text-xs text-muted-foreground/80">

@@ -41,7 +41,7 @@ export function ConnectCard({
         <ul className="space-y-2 text-sm text-muted-foreground">
           {BENEFITS.map((benefit) => (
             <li key={benefit} className="flex items-start gap-2">
-              <ShieldCheck className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-hidden />
+              <ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
               <span>{benefit}</span>
             </li>
           ))}

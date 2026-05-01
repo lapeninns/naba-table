@@ -31,7 +31,11 @@ export function parseBookingDateTime(params: {
   return dt.isValid ? dt : null;
 }
 
-export function formatBookingTime(time: string | null, date: string | null, timezone: string): string {
+export function formatBookingTime(
+  time: string | null,
+  date: string | null,
+  timezone: string,
+): string {
   if (!time) return '--:--';
   if (/^\d{2}:\d{2}$/.test(time)) return time;
 
@@ -85,14 +89,27 @@ export function getStatusLabel(status: OpsBookingStatus | string): string {
 }
 
 export function canCheckIn(status: OpsBookingStatus): boolean {
-  return status === 'confirmed' || status === 'pending' || status === 'pending_allocation' || status === 'PRIORITY_WAITLIST';
+  return (
+    status === 'confirmed' ||
+    status === 'pending' ||
+    status === 'pending_allocation' ||
+    status === 'PRIORITY_WAITLIST'
+  );
 }
 
 export function canMarkNoShow(status: OpsBookingStatus): boolean {
-  return status === 'confirmed' || status === 'pending' || status === 'pending_allocation' || status === 'PRIORITY_WAITLIST';
+  return (
+    status === 'confirmed' ||
+    status === 'pending' ||
+    status === 'pending_allocation' ||
+    status === 'PRIORITY_WAITLIST'
+  );
 }
 
-export function shouldShowCountdown(status: OpsBookingStatus, minutesRemaining: number | null): boolean {
+export function shouldShowCountdown(
+  status: OpsBookingStatus,
+  minutesRemaining: number | null,
+): boolean {
   if (minutesRemaining === null) return false;
   const excluded: OpsBookingStatus[] = ['completed', 'cancelled', 'no_show', 'checked_in'];
   if (excluded.includes(status)) return false;
@@ -171,12 +188,17 @@ export function calculateTotalCapacity(tables: FlattenedTable[]): number {
   return tables.reduce((sum, table) => sum + table.capacity, 0);
 }
 
-export function calculateCapacityPercent(currentCapacity: number, requiredCapacity: number): number {
+export function calculateCapacityPercent(
+  currentCapacity: number,
+  requiredCapacity: number,
+): number {
   if (requiredCapacity <= 0) return 0;
   return Math.min(100, (currentCapacity / requiredCapacity) * 100);
 }
 
-export function groupTablesBySection(tables: ManualAssignmentTable[]): Map<string, ManualAssignmentTable[]> {
+export function groupTablesBySection(
+  tables: ManualAssignmentTable[],
+): Map<string, ManualAssignmentTable[]> {
   const map = new Map<string, ManualAssignmentTable[]>();
   for (const table of tables) {
     const section = table.section || 'Main';
@@ -218,7 +240,13 @@ export function validateTableSelection(params: {
   }
 
   const status: AssignmentValidation['status'] =
-    errors.length > 0 ? 'error' : warnings.length > 0 ? 'warn' : selectedTables.length > 0 ? 'ok' : 'idle';
+    errors.length > 0
+      ? 'error'
+      : warnings.length > 0
+        ? 'warn'
+        : selectedTables.length > 0
+          ? 'ok'
+          : 'idle';
 
   return {
     status,

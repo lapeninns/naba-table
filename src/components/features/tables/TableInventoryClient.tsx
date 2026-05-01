@@ -29,6 +29,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { FormRoot } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -170,7 +171,7 @@ function TableForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+    <FormRoot onSubmit={handleSubmit} className="flex flex-col gap-6">
       <DialogHeader>
         <DialogTitle>{table ? 'Edit table' : 'Add new table'}</DialogTitle>
         <DialogDescription>
@@ -264,7 +265,7 @@ function TableForm({
               </SelectContent>
             </Select>
             {selectedZone && selectedZone.active === false && (
-              <p className="text-xs text-amber-600">
+              <p className="text-xs text-primary">
                 Zone is inactive. Reactivate it to bring these tables back into service.
               </p>
             )}
@@ -382,7 +383,7 @@ function TableForm({
           {isSaving ? 'Saving…' : 'Save table'}
         </Button>
       </DialogFooter>
-    </form>
+    </FormRoot>
   );
 }
 
@@ -1159,7 +1160,7 @@ export default function TableInventoryClient() {
         }}
       >
         <DialogContent className="sm:max-w-md">
-          <form onSubmit={handleZoneSubmit} className="flex flex-col gap-5">
+          <FormRoot onSubmit={handleZoneSubmit} className="flex flex-col gap-5">
             <DialogHeader>
               <DialogTitle>{editingZone ? 'Edit zone' : 'Add zone'}</DialogTitle>
               <DialogDescription>
@@ -1205,7 +1206,7 @@ export default function TableInventoryClient() {
                   : 'Save zone'}
               </Button>
             </DialogFooter>
-          </form>
+          </FormRoot>
         </DialogContent>
       </Dialog>
     </div>

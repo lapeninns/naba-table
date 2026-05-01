@@ -39,7 +39,7 @@ export function OpsEmailDeliveryResultsCard({
     <section aria-label="Email delivery attempts" className="space-y-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Attempts
           </div>
           <Badge variant="secondary">{attempts.length}</Badge>
@@ -71,4 +71,3 @@ export function OpsEmailDeliveryResultsCard({
     </section>
   );
 }
-

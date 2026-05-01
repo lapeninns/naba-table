@@ -12,7 +12,10 @@ import {
 } from '@/lib/ops/session';
 import { resolveOpsEnvBanner } from '@/server/ops/resolve-ops-env-banner';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
-import { fetchUserMembershipsCached, type RestaurantMembershipWithDetails } from '@/server/team/access';
+import {
+  fetchUserMembershipsCached,
+  type RestaurantMembershipWithDetails,
+} from '@/server/team/access';
 
 import type { RestaurantRole } from '@/lib/owner/auth/roles';
 import type { OpsMembership, OpsUser } from '@/types/ops';
@@ -89,7 +92,10 @@ export default async function OpsAppLayout({ children }: OpsAppLayoutProps) {
     try {
       memberships = await membershipsPromise;
     } catch (membershipError) {
-      console.error('[app/layout] failed to load memberships', describeSupabaseError(membershipError));
+      console.error(
+        '[app/layout] failed to load memberships',
+        describeSupabaseError(membershipError),
+      );
       memberships = [];
     }
   }

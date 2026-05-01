@@ -20,6 +20,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormRoot,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import {
@@ -103,7 +104,7 @@ export function TeamInviteForm({ restaurantId }: TeamInviteFormProps) {
         ) : null}
 
         <Form {...form}>
-          <form
+          <FormRoot
             onSubmit={form.handleSubmit(onSubmit)}
             className="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto] md:items-end"
           >
@@ -164,7 +165,7 @@ export function TeamInviteForm({ restaurantId }: TeamInviteFormProps) {
                 'Send invite'
               )}
             </Button>
-          </form>
+          </FormRoot>
         </Form>
 
         {lastInvite ? (

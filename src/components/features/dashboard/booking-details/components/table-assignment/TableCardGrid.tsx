@@ -104,10 +104,7 @@ export function TableCardGrid({
   };
 
   return (
-    <ul
-      ref={gridRef}
-      className={cn('grid gap-2', className)}
-    >
+    <ul ref={gridRef} className={cn('grid gap-2', className)}>
       {tables.map((table, index) => {
         const isConflicted = conflictedTableIds.has(table.id) || table.status === 'conflicted';
         const describedById = `${baseId}-${table.id}`;

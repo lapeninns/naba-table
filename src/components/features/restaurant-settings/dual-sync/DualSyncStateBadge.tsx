@@ -31,7 +31,10 @@ const STATE_LABELS: Record<DualSyncFieldState, string> = {
   unsupported: 'Core only',
 };
 
-const STATE_VARIANT: Record<DualSyncFieldState, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+const STATE_VARIANT: Record<
+  DualSyncFieldState,
+  'default' | 'secondary' | 'destructive' | 'outline'
+> = {
   in_sync: 'secondary',
   core_dirty: 'default',
   gbp_dirty: 'default',

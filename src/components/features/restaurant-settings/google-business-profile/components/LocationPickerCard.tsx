@@ -5,6 +5,7 @@ import { ExternalLink, Link2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -100,9 +101,9 @@ export function LocationPickerCard({
         ) : (
           <div className="space-y-4">
             <div className="space-y-2">
-              <label htmlFor="gbp-location-select" className="text-sm font-medium text-foreground">
+              <Label htmlFor="gbp-location-select" className="text-sm font-medium text-foreground">
                 Available locations
-              </label>
+              </Label>
               <Select value={selectedLocationValue} onValueChange={onSelectedLocationValueChange}>
                 <SelectTrigger id="gbp-location-select" className="w-full">
                   <SelectValue placeholder="Select a location" />

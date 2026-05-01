@@ -83,13 +83,13 @@ type PrimaryAction =
   | null;
 
 const HEADER_TONES: Record<string, string> = {
-  checked_in: 'border-l-4 border-emerald-500 bg-emerald-50/60',
-  confirmed: 'border-l-4 border-blue-500 bg-blue-50/60',
-  late: 'border-l-4 border-rose-500 bg-rose-50/60',
+  checked_in: 'border-l-4 border-primary/30 bg-primary/10',
+  confirmed: 'border-l-4 border-primary/30 bg-primary/10',
+  late: 'border-l-4 border-destructive/20 bg-destructive/10',
 };
 
 const getHeaderTone = (status: string) =>
-  HEADER_TONES[status] ?? 'border-l-4 border-slate-200 bg-background';
+  HEADER_TONES[status] ?? 'border-l-4 border-border bg-background';
 
 export function BookingDialog({
   booking,
@@ -125,9 +125,7 @@ export function BookingDialog({
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const wasOpenRef = useRef(false);
 
-  const [copySummaryStatus, setCopySummaryStatus] = useState<'idle' | 'copied' | 'failed'>(
-    'idle',
-  );
+  const [copySummaryStatus, setCopySummaryStatus] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [srStatusMessage, setSrStatusMessage] = useState<string>('');
 
   useEffect(() => {
@@ -311,14 +309,7 @@ export function BookingDialog({
     const ok = await copyToClipboard(summaryText);
     setCopySummaryStatus(ok ? 'copied' : 'failed');
     setSrStatusMessage(ok ? 'Summary copied to clipboard.' : 'Unable to copy summary.');
-  }, [
-    assignedTableRows,
-    booking,
-    formattedDate,
-    formattedEndTime,
-    formattedStartTime,
-    summary,
-  ]);
+  }, [assignedTableRows, booking, formattedDate, formattedEndTime, formattedStartTime, summary]);
 
   const handleCancel = useCallback(async () => {
     if (!onCancel) return;
@@ -337,7 +328,7 @@ export function BookingDialog({
         id: 'assign-table',
         label: 'Assign table',
         icon: LayoutGrid,
-        tone: 'bg-indigo-600 hover:bg-indigo-700',
+        tone: 'bg-primary hover:bg-primary/90',
         onClick: () => {
           shouldFocusTablePanelRef.current = true;
           if (isMobile) {
@@ -352,7 +343,7 @@ export function BookingDialog({
         id: 'check-out',
         label: 'Complete visit',
         icon: LogOut,
-        tone: 'bg-blue-600 hover:bg-blue-700',
+        tone: 'bg-primary/10 hover:bg-primary/10',
         onClick: () => handleAction('check-out'),
       };
     }
@@ -362,7 +353,7 @@ export function BookingDialog({
         id: 'undo-no-show',
         label: 'Undo no-show',
         icon: RotateCcw,
-        tone: 'bg-orange-600 hover:bg-orange-700',
+        tone: 'bg-primary hover:bg-primary/90',
         onClick: () => handleAction('undo-no-show'),
       };
     }
@@ -372,7 +363,7 @@ export function BookingDialog({
         id: 'check-in',
         label: 'Mark arrived',
         icon: LogIn,
-        tone: 'bg-emerald-600 hover:bg-emerald-700',
+        tone: 'bg-primary/10 hover:bg-primary/10',
         onClick: () => handleAction('check-in'),
       };
     }
@@ -478,7 +469,7 @@ export function BookingDialog({
                       size="sm"
                       onClick={primaryAction.onClick}
                       disabled={isActionPending}
-                      className={cn('text-white', primaryAction.tone)}
+                      className={primaryAction.tone}
                     >
                       <PrimaryIcon className="h-4 w-4 mr-1.5" />
                       {primaryAction.label}
@@ -521,14 +512,14 @@ export function BookingDialog({
                     className="gap-2"
                   >
                     {copySummaryStatus === 'copied' ? (
-                      <Check className="h-4 w-4 text-emerald-600" aria-hidden />
+                      <Check className="h-4 w-4 text-primary" aria-hidden />
                     ) : (
                       <Copy className="h-4 w-4" aria-hidden />
                     )}
                     {copySummaryStatus === 'copied' ? 'Copied summary' : 'Copy summary'}
                   </DropdownMenuItem>
 
-                  {booking.reference ?? booking.id ? (
+                  {(booking.reference ?? booking.id) ? (
                     <DropdownMenuItem
                       onSelect={(event) => {
                         event.preventDefault();
@@ -547,7 +538,7 @@ export function BookingDialog({
                     </DropdownMenuItem>
                   ) : null}
 
-                  {(shouldShowNoShow || (onCancel && canCancel)) ? <DropdownMenuSeparator /> : null}
+                  {shouldShowNoShow || (onCancel && canCancel) ? <DropdownMenuSeparator /> : null}
 
                   {shouldShowNoShow ? (
                     <DropdownMenuItem
@@ -555,7 +546,7 @@ export function BookingDialog({
                         event.preventDefault();
                         setConfirmNoShow(true);
                       }}
-                      className="gap-2 text-rose-700 focus:text-rose-700"
+                      className="gap-2 text-destructive focus:text-destructive"
                     >
                       <UserX className="h-4 w-4" aria-hidden />
                       Mark no-show
@@ -625,7 +616,7 @@ export function BookingDialog({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => handleAction('no-show')}
-              className="bg-rose-600 hover:bg-rose-700"
+              className="bg-destructive/10 hover:bg-destructive/10"
             >
               Confirm no-show
             </AlertDialogAction>

@@ -13,10 +13,11 @@ export type OpsStatusBadgeProps = {
 
 const toneClasses: Record<NonNullable<OpsStatusBadgeProps['tone']>, string> = {
   default: 'bg-primary/10 text-primary border-primary/20',
-  info: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300',
-  success: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300',
-  warning: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300',
-  danger: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/30 dark:text-rose-300',
+  info: 'bg-primary/10 text-primary border-primary/30 dark:bg-primary/10 dark:text-primary',
+  success: 'bg-primary/10 text-primary border-primary/30 dark:bg-primary/10 dark:text-primary',
+  warning: 'bg-primary/10 text-primary border-primary/30 dark:bg-primary/10 dark:text-primary',
+  danger:
+    'bg-destructive/10 text-destructive border-destructive/20 dark:bg-destructive/10 dark:text-destructive',
   muted: 'bg-muted text-muted-foreground border-border/60',
 };
 

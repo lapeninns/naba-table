@@ -39,6 +39,7 @@ import { cn } from '@/lib/utils';
 import { DrinkImportDialog } from './DrinkImportDialog';
 import { DrinkItemSheet } from './DrinkItemSheet';
 import { MENU_STATUS_FILTER_OPTIONS, MenuFilterField } from './MenuFilterControls';
+import { MenuSuggestionInput } from './MenuSuggestionInput';
 
 import type { DrinkItemUpsertInput, DrinkListStatusFilter } from '@/server/drinks-menu/types';
 
@@ -132,18 +133,18 @@ export function DrinkMenuManagementPanel({ restaurantId }: { restaurantId: strin
           />
         </MenuFilterField>
         <MenuFilterField label="Category">
-          <Input
-            list="drink-filter-category-options"
+          <MenuSuggestionInput
             value={categoryFilter}
-            onChange={(event) => setCategoryFilter(event.target.value)}
+            suggestions={facets.categories}
+            onValueChange={setCategoryFilter}
             placeholder="All categories"
           />
         </MenuFilterField>
         <MenuFilterField label="Subcategory">
-          <Input
-            list="drink-filter-subcategory-options"
+          <MenuSuggestionInput
             value={subcategoryFilter}
-            onChange={(event) => setSubcategoryFilter(event.target.value)}
+            suggestions={facets.subcategories}
+            onValueChange={setSubcategoryFilter}
             placeholder="All subcategories"
           />
         </MenuFilterField>
@@ -246,17 +247,6 @@ export function DrinkMenuManagementPanel({ restaurantId }: { restaurantId: strin
           </Table>
         </div>
       )}
-
-      <datalist id="drink-filter-category-options">
-        {facets.categories.map((category) => (
-          <option key={category} value={category} />
-        ))}
-      </datalist>
-      <datalist id="drink-filter-subcategory-options">
-        {facets.subcategories.map((subcategory) => (
-          <option key={subcategory} value={subcategory} />
-        ))}
-      </datalist>
 
       <DrinkItemSheet
         open={sheetOpen}

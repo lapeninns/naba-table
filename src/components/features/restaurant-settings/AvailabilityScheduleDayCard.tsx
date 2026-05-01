@@ -276,10 +276,7 @@ export function AvailabilityScheduleDayCard({
                       })
                     }
                     aria-invalid={Boolean(rowErrors?.reservationSlotTimes)}
-                    className={cn(
-                      'mt-1',
-                      rowErrors?.reservationSlotTimes && 'border-destructive',
-                    )}
+                    className={cn('mt-1', rowErrors?.reservationSlotTimes && 'border-destructive')}
                   />
                   {rowErrors?.reservationSlotTimes ? (
                     <p className="mt-1 text-xs text-destructive">
@@ -333,9 +330,7 @@ export function AvailabilityScheduleDayCard({
                 disabled={!day || day.isClosed || !hasRequiredOccasions}
                 errors={dayError?.dinner}
                 onToggle={(value) => onMealToggle(row.dayOfWeek, 'dinner', value)}
-                onChange={(field, value) =>
-                  onMealTimeChange(row.dayOfWeek, 'dinner', field, value)
-                }
+                onChange={(field, value) => onMealTimeChange(row.dayOfWeek, 'dinner', field, value)}
               />
             </div>
           </div>

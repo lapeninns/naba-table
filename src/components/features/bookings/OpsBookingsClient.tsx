@@ -74,12 +74,13 @@ export function OpsBookingsClient(props: OpsBookingsClientProps) {
       <BookingStateRegistrar bookings={dataState.derivedData.bookings} />
       <div className="min-h-screen bg-background font-sans text-foreground">
         <main className="mx-auto w-full max-w-6xl space-y-4 px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
-          <a
-            href="#ops-bookings-list"
-            className="sr-only focus:not-sr-only focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          <Button
+            asChild
+            variant="link"
+            className="sr-only h-auto p-0 focus:not-sr-only focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           >
-            Skip to bookings list
-          </a>
+            <a href="#ops-bookings-list">Skip to bookings list</a>
+          </Button>
           <OpsPageHeader
             title="Manage bookings"
             meta={
@@ -261,7 +262,9 @@ export function OpsBookingsClient(props: OpsBookingsClientProps) {
             open={dialogs.isEditOpen}
             onOpenChange={dialogs.onEditOpenChange}
             restaurantSlug={restaurantSlug ?? dialogs.editBooking?.restaurantSlug ?? null}
-            restaurantTimezone={restaurantTimezone ?? dialogs.editBooking?.restaurantTimezone ?? null}
+            restaurantTimezone={
+              restaurantTimezone ?? dialogs.editBooking?.restaurantTimezone ?? null
+            }
             mode="ops"
           />
           <OpsCancelBookingAlertDialog

@@ -136,14 +136,17 @@ function ProfileConfidencePanel({
           {readiness.missing.length > 0 ? (
             <div className="flex flex-col gap-2">
               {readiness.missing.slice(0, 4).map((item) => (
-                <a
+                <Button
                   key={item.key}
-                  href={item.sectionHref}
-                  className="rounded-md bg-muted/45 px-3 py-2 text-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  asChild
+                  variant="ghost"
+                  className="h-auto justify-start rounded-md bg-muted/45 px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
                 >
-                  <span className="block font-medium text-foreground">{item.label}</span>
-                  <span className="block text-muted-foreground">{item.impact}</span>
-                </a>
+                  <a href={item.sectionHref}>
+                    <span className="block font-medium text-foreground">{item.label}</span>
+                    <span className="block text-muted-foreground">{item.impact}</span>
+                  </a>
+                </Button>
               ))}
             </div>
           ) : (
@@ -158,14 +161,17 @@ function ProfileConfidencePanel({
             <p className="text-sm font-medium text-foreground">Profile sections</p>
             <div className="grid gap-2 sm:grid-cols-2">
               {PROFILE_SECTION_MAP.map((item) => (
-                <a
+                <Button
                   key={item.label}
-                  href={item.href}
-                  className="rounded-md bg-muted/45 px-3 py-2 text-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  asChild
+                  variant="ghost"
+                  className="h-auto justify-start rounded-md bg-muted/45 px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
                 >
-                  <span className="block font-medium text-foreground">{item.label}</span>
-                  <span className="block text-xs text-muted-foreground">{item.detail}</span>
-                </a>
+                  <a href={item.href}>
+                    <span className="block font-medium text-foreground">{item.label}</span>
+                    <span className="block text-xs text-muted-foreground">{item.detail}</span>
+                  </a>
+                </Button>
               ))}
             </div>
           </div>

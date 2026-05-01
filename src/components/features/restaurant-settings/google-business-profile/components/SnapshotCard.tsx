@@ -10,6 +10,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 
@@ -131,12 +132,9 @@ function ContactPanel({ businessInfo }: { businessInfo: GoogleBusinessProfileBus
               >
                 <Phone className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
                 <div className="min-w-0 space-y-0.5">
-                  <a
-                    href={`tel:${phone.phoneNumber}`}
-                    className="block truncate text-sm font-medium text-foreground hover:underline"
-                  >
-                    {phone.phoneNumber}
-                  </a>
+                  <Button asChild variant="link" className="h-auto justify-start p-0 text-sm">
+                    <a href={`tel:${phone.phoneNumber}`}>{phone.phoneNumber}</a>
+                  </Button>
                   <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
                     <span>{getPhoneLabel(phone.phoneKind)}</span>
                     {phone.isPrimary ? (
@@ -175,15 +173,11 @@ function ContactPanel({ businessInfo }: { businessInfo: GoogleBusinessProfileBus
                         </Badge>
                       ) : null}
                     </div>
-                    <a
-                      href={link.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="block truncate text-xs text-primary underline-offset-2 hover:underline"
-                      title={link.url}
-                    >
-                      {formatDisplayUrl(link.url)}
-                    </a>
+                    <Button asChild variant="link" className="h-auto justify-start p-0 text-xs">
+                      <a href={link.url} target="_blank" rel="noreferrer" title={link.url}>
+                        {formatDisplayUrl(link.url)}
+                      </a>
+                    </Button>
                   </div>
                 </li>
               );

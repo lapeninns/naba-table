@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 export type SettingsJumpNavItem = {
@@ -122,19 +123,25 @@ export function SettingsJumpNav({
             const isActive = activeId === item.id;
             return (
               <li key={item.id} className="shrink-0">
-                <a
-                  href={`#${item.id}`}
-                  onClick={(event) => handleClick(event, item.id)}
-                  aria-current={isActive ? 'location' : undefined}
+                <Button
+                  asChild
+                  variant="outline"
+                  size="sm"
                   className={cn(
-                    'inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+                    'h-auto rounded-full px-3 py-1.5 text-xs',
                     isActive
-                      ? 'border-primary bg-primary text-primary-foreground shadow-sm'
+                      ? 'border-primary bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground'
                       : 'border-border bg-background text-muted-foreground hover:border-border hover:text-foreground',
                   )}
                 >
-                  {item.label}
-                </a>
+                  <a
+                    href={`#${item.id}`}
+                    onClick={(event) => handleClick(event, item.id)}
+                    aria-current={isActive ? 'location' : undefined}
+                  >
+                    {item.label}
+                  </a>
+                </Button>
               </li>
             );
           })}
@@ -144,29 +151,32 @@ export function SettingsJumpNav({
       {/* Desktop: sticky vertical rail */}
       <nav
         aria-label={ariaLabel}
-        className={cn(
-          'hidden lg:sticky lg:top-24 lg:block lg:w-56 lg:self-start',
-          className,
-        )}
+        className={cn('hidden lg:sticky lg:top-24 lg:block lg:w-56 lg:self-start', className)}
       >
         <ul className="space-y-1 border-l border-border/60 pl-3">
           {items.map((item) => {
             const isActive = activeId === item.id;
             return (
               <li key={item.id}>
-                <a
-                  href={`#${item.id}`}
-                  onClick={(event) => handleClick(event, item.id)}
-                  aria-current={isActive ? 'location' : undefined}
+                <Button
+                  asChild
+                  variant="ghost"
+                  size="sm"
                   className={cn(
-                    'group -ml-px flex items-center border-l-2 py-1.5 pl-3 text-sm transition-colors',
+                    'h-auto w-full justify-start rounded-none border-l-2 px-3 py-1.5 text-sm',
                     isActive
                       ? 'border-primary font-medium text-foreground'
                       : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground',
                   )}
                 >
-                  {item.label}
-                </a>
+                  <a
+                    href={`#${item.id}`}
+                    onClick={(event) => handleClick(event, item.id)}
+                    aria-current={isActive ? 'location' : undefined}
+                  >
+                    {item.label}
+                  </a>
+                </Button>
               </li>
             );
           })}

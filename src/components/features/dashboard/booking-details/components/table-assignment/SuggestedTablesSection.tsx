@@ -49,12 +49,15 @@ export function SuggestedTablesSection({
     <section className="space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-indigo-50">
-            <Sparkles className="h-4 w-4 text-indigo-700" aria-hidden />
+          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10">
+            <Sparkles className="h-4 w-4 text-primary" aria-hidden />
           </div>
           <span className="text-sm font-semibold text-foreground">Suggested tables</span>
         </div>
-        <Badge variant="secondary" className="text-[10px] bg-indigo-50 text-indigo-800 border border-indigo-100">
+        <Badge
+          variant="secondary"
+          className="border border-primary/20 bg-primary/10 text-[10px] text-primary"
+        >
           Suggested
         </Badge>
       </div>
@@ -82,4 +85,3 @@ export function SuggestedTablesSection({
 }
 
 export default SuggestedTablesSection;
-

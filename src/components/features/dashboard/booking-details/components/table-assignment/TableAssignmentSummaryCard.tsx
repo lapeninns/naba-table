@@ -43,11 +43,14 @@ export function TableAssignmentSummaryCard({
   initialFocusRef,
 }: TableAssignmentSummaryCardProps) {
   const totalSeated = selectedCapacity + assignedCapacity;
-  const percent = useMemo(() => Math.min((totalSeated / Math.max(1, partySize)) * 100, 100), [partySize, totalSeated]);
+  const percent = useMemo(
+    () => Math.min((totalSeated / Math.max(1, partySize)) * 100, 100),
+    [partySize, totalSeated],
+  );
   const helperId = useId();
 
   return (
-    <Card className="border-slate-200/60 bg-white shadow-sm">
+    <Card className="border-border bg-background shadow-sm">
       <CardContent className="space-y-4 p-4">
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-3">
@@ -55,15 +58,21 @@ export function TableAssignmentSummaryCard({
               <div
                 className={cn(
                   'flex h-10 w-10 items-center justify-center rounded-lg shadow-sm',
-                  totalSeated >= partySize ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700',
+                  totalSeated >= partySize
+                    ? 'bg-primary/10 text-primary'
+                    : 'bg-primary/10 text-primary',
                 )}
               >
                 <Users className="h-5 w-5" aria-hidden />
               </div>
               <div>
-                <div className="text-base font-bold text-foreground leading-none">{partySize} Covers</div>
+                <div className="text-base font-bold text-foreground leading-none">
+                  {partySize} Covers
+                </div>
                 <div className="text-xs text-muted-foreground">
-                  {totalSeated >= partySize ? 'Capacity met' : `Need ${partySize - totalSeated} more`}
+                  {totalSeated >= partySize
+                    ? 'Capacity met'
+                    : `Need ${partySize - totalSeated} more`}
                 </div>
               </div>
             </div>
@@ -80,7 +89,7 @@ export function TableAssignmentSummaryCard({
             aria-label="Seating capacity progress"
             className={cn(
               'h-2.5 bg-muted',
-              totalSeated >= partySize ? '[&>div]:bg-emerald-600' : '[&>div]:bg-amber-600',
+              totalSeated >= partySize ? '[&>div]:bg-primary/10' : '[&>div]:bg-primary/10',
             )}
           />
         </div>
@@ -95,17 +104,12 @@ export function TableAssignmentSummaryCard({
               disabled={isPending}
               className="gap-2"
             >
-              <Sparkles className="h-4 w-4 text-indigo-600" aria-hidden />
+              <Sparkles className="h-4 w-4 text-primary" aria-hidden />
               Smart assign
             </Button>
 
             {selectedCount > 0 ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onClearSelected}
-                disabled={isPending}
-              >
+              <Button variant="ghost" size="sm" onClick={onClearSelected} disabled={isPending}>
                 Clear ({selectedCount})
               </Button>
             ) : null}
@@ -116,7 +120,7 @@ export function TableAssignmentSummaryCard({
                 size="sm"
                 onClick={onResetAssigned}
                 disabled={isPending}
-                className="text-rose-700 hover:text-rose-800 hover:bg-rose-50"
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
               >
                 <Trash2 className="mr-1.5 h-4 w-4" aria-hidden />
                 Reset ({assignedCount})
@@ -130,7 +134,7 @@ export function TableAssignmentSummaryCard({
               onClick={onConfirmApply}
               disabled={isApplyDisabled || isPending}
               aria-describedby={isApplyBlocked && applyDisabledReason ? helperId : undefined}
-              className="h-9 w-full bg-emerald-600 font-semibold hover:bg-emerald-700 sm:w-auto"
+              className="h-9 w-full bg-primary/10 font-semibold hover:bg-primary/10 sm:w-auto"
             >
               {isPending ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />

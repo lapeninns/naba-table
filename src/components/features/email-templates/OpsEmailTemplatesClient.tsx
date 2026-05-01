@@ -58,10 +58,10 @@ export function OpsEmailTemplatesClient() {
     state.previewMutation.error instanceof Error ? state.previewMutation.error.message : null;
 
   return (
-    <section className="relative flex h-[calc(100vh-3.5rem)] min-h-[720px] w-full min-w-0 overflow-hidden bg-zinc-50 text-zinc-900">
+    <section className="relative flex h-[calc(100vh-3.5rem)] min-h-[720px] w-full min-w-0 overflow-hidden bg-muted/40 text-foreground">
       {showSkeleton ? (
         <div className="grid h-full w-full min-w-0 gap-0 lg:grid-cols-[20rem,minmax(0,1fr)]">
-          <div className="hidden border-r border-zinc-200 bg-white p-4 lg:block">
+          <div className="hidden border-r border-border bg-background p-4 lg:block">
             <Skeleton className="h-7 w-44 rounded-xl" />
             <Skeleton className="mt-2 h-4 w-56 rounded-xl" />
             <Skeleton className="mt-4 h-11 w-full rounded-xl" />

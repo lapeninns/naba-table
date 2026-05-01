@@ -4,6 +4,14 @@ import { DateTime } from 'luxon';
 import { useEffect, useMemo, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { useOpsActiveMembership } from '@/contexts/ops-session';
 import { useOpsTodaySummary } from '@/hooks/ops/useOpsTodaySummary';
 import { formatDateReadable, formatTimeRange, getTodayInTimezone } from '@/lib/utils/datetime';
@@ -82,8 +90,12 @@ function compareBookings(
   let comparison = 0;
 
   if (sortKey === 'time') {
-    const tA = a.startTime ? new Date(`1970-01-01T${a.startTime}`).getTime() : Number.MAX_SAFE_INTEGER;
-    const tB = b.startTime ? new Date(`1970-01-01T${b.startTime}`).getTime() : Number.MAX_SAFE_INTEGER;
+    const tA = a.startTime
+      ? new Date(`1970-01-01T${a.startTime}`).getTime()
+      : Number.MAX_SAFE_INTEGER;
+    const tB = b.startTime
+      ? new Date(`1970-01-01T${b.startTime}`).getTime()
+      : Number.MAX_SAFE_INTEGER;
     comparison = tA - tB;
   } else if (sortKey === 'party') {
     comparison = a.partySize - b.partySize;
@@ -181,9 +193,10 @@ export function OpsBookingsPrintView({ params }: OpsBookingsPrintViewProps) {
 
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      result = result.filter((booking) =>
-        booking.customerName.toLowerCase().includes(q) ||
-        (booking.reference && booking.reference.toLowerCase().includes(q)),
+      result = result.filter(
+        (booking) =>
+          booking.customerName.toLowerCase().includes(q) ||
+          (booking.reference && booking.reference.toLowerCase().includes(q)),
       );
     }
 
@@ -213,7 +226,9 @@ export function OpsBookingsPrintView({ params }: OpsBookingsPrintViewProps) {
       <div className="flex min-h-[60vh] items-center justify-center px-6 text-center">
         <div className="max-w-md space-y-2">
           <h1 className="text-lg font-semibold text-foreground">No restaurant access</h1>
-          <p className="text-sm text-muted-foreground">Sign in with an account that has ops access.</p>
+          <p className="text-sm text-muted-foreground">
+            Sign in with an account that has ops access.
+          </p>
         </div>
       </div>
     );
@@ -261,7 +276,12 @@ export function OpsBookingsPrintView({ params }: OpsBookingsPrintViewProps) {
             </p>
           </div>
           <div className={`${styles.printControls} ${styles.headerActions}`}>
-            <Button variant="outline" size="sm" onClick={() => window.print()} aria-label="Print bookings">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.print()}
+              aria-label="Print bookings"
+            >
               Print
             </Button>
           </div>
@@ -285,37 +305,49 @@ export function OpsBookingsPrintView({ params }: OpsBookingsPrintViewProps) {
           </div>
         ) : (
           <div className={styles.tableWrap}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th className={`${styles.th} ${styles.nameCell}`}>Name</th>
-                  <th className={`${styles.th} ${styles.tableCell}`}>Table #</th>
-                  <th className={`${styles.th} ${styles.notesCell}`}>Notes</th>
-                  <th className={`${styles.th} ${styles.partyCell}`}>Party</th>
-                  <th className={`${styles.th} ${styles.timeCell}`}>Time</th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table className={styles.table}>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className={`${styles.th} ${styles.nameCell}`}>Name</TableHead>
+                  <TableHead className={`${styles.th} ${styles.tableCell}`}>Table #</TableHead>
+                  <TableHead className={`${styles.th} ${styles.notesCell}`}>Notes</TableHead>
+                  <TableHead className={`${styles.th} ${styles.partyCell}`}>Party</TableHead>
+                  <TableHead className={`${styles.th} ${styles.timeCell}`}>Time</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {sortedBookings.map((booking) => {
                   const tableLabel = buildTableLabel(booking);
                   const nameLabel = booking.customerName?.trim() || 'Walk-in Guest';
                   const notesLabel = booking.notes?.trim() || '-';
-                  const timeLabel = formatTimeRange(booking.startTime, booking.endTime, summary.timezone);
+                  const timeLabel = formatTimeRange(
+                    booking.startTime,
+                    booking.endTime,
+                    summary.timezone,
+                  );
 
                   return (
-                    <tr key={booking.id} className={styles.row}>
-                      <td className={`${styles.td} ${styles.nameCell}`}>{nameLabel}</td>
-                      <td className={`${styles.td} ${styles.tableCell}`}>{tableLabel}</td>
-                      <td className={`${styles.td} ${styles.notesCell}`}>
+                    <TableRow key={booking.id} className={styles.row}>
+                      <TableCell className={`${styles.td} ${styles.nameCell}`}>
+                        {nameLabel}
+                      </TableCell>
+                      <TableCell className={`${styles.td} ${styles.tableCell}`}>
+                        {tableLabel}
+                      </TableCell>
+                      <TableCell className={`${styles.td} ${styles.notesCell}`}>
                         <p className={styles.notesCopy}>{notesLabel}</p>
-                      </td>
-                      <td className={`${styles.td} ${styles.partyCell}`}>{booking.partySize}</td>
-                      <td className={`${styles.td} ${styles.timeCell}`}>{timeLabel}</td>
-                    </tr>
+                      </TableCell>
+                      <TableCell className={`${styles.td} ${styles.partyCell}`}>
+                        {booking.partySize}
+                      </TableCell>
+                      <TableCell className={`${styles.td} ${styles.timeCell}`}>
+                        {timeLabel}
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
       </div>

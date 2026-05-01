@@ -1,12 +1,13 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Eye, EyeOff, Info, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React, { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -15,6 +16,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormRoot,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -24,7 +26,6 @@ import { HttpError } from '@/lib/http/errors';
 import { fetchJson } from '@/lib/http/fetchJson';
 import { passwordPolicySchema, validatePasswordStrength } from '@/lib/security/passwordPolicy';
 import { getSupabaseBrowserClient } from '@/lib/supabase/browser';
-import { cn } from '@/lib/utils';
 
 const passwordFieldSchema = z
   .union([passwordPolicySchema, z.literal('').transform(() => undefined)])
@@ -60,11 +61,17 @@ type StatusState = {
 
 type FormValues = z.infer<typeof formSchema>;
 
-const STATUS_TONE_CLASSES: Record<StatusTone, string> = {
-  info: 'text-muted-foreground',
-  success: 'text-emerald-600',
-  error: 'text-red-600',
+const STATUS_ALERT_VARIANT: Record<StatusTone, 'info' | 'success' | 'destructive'> = {
+  info: 'info',
+  success: 'success',
+  error: 'destructive',
 };
+
+const STATUS_ICON = {
+  info: Info,
+  success: CheckCircle2,
+  error: AlertCircle,
+} satisfies Record<StatusTone, React.ComponentType<{ className?: string; 'aria-hidden'?: true }>>;
 
 const MAGIC_LINK_COOLDOWN_SECONDS = 60;
 
@@ -85,7 +92,7 @@ export function OpsSignInForm({ redirectedFrom }: OpsSignInFormProps) {
   const [magicCooldown, setMagicCooldown] = useState(0);
   const [status, setStatus] = useState<StatusState | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const statusRef = useRef<HTMLParagraphElement | null>(null);
+  const statusRef = useRef<HTMLDivElement | null>(null);
   const [mode, setMode] = useState<AuthMode>(AUTH_MODES.PASSWORD);
 
   const targetPath = redirectedFrom && redirectedFrom.startsWith('/') ? redirectedFrom : '/app';
@@ -279,44 +286,43 @@ export function OpsSignInForm({ redirectedFrom }: OpsSignInFormProps) {
         : 'Send magic link'
       : 'Sign in with password';
 
+  const StatusIcon = status ? STATUS_ICON[status.tone] : null;
+
   return (
-    <div id="ops-signin-form" className="space-y-6">
-      {/* Header */}
-      <div className="space-y-2 text-center">
-        <h2 className="text-2xl font-bold tracking-tight text-slate-900">Restaurant operations</h2>
-        <p className="text-sm text-slate-600">
+    <div id="ops-signin-form" className="flex flex-col gap-6">
+      <div className="flex flex-col gap-2 text-center">
+        <h2 className="text-2xl font-bold tracking-tight text-foreground">Restaurant operations</h2>
+        <p className="text-sm text-muted-foreground">
           Sign in with a magic link or password to access your console
         </p>
       </div>
 
       <Tabs value={mode} onValueChange={(value) => setMode(value as AuthMode)} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 h-auto p-1.5 bg-slate-100">
+        <TabsList className="grid h-auto w-full grid-cols-2 p-1.5">
           <TabsTrigger
             value={AUTH_MODES.MAGIC_LINK}
-            className="flex flex-col items-start gap-0.5 px-4 py-2.5 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+            className="flex flex-col items-start gap-0.5 px-4 py-2.5"
           >
             <span className="text-sm font-semibold">Magic link</span>
-            <span className="text-xs font-normal text-slate-500">One-time secure link</span>
+            <span className="text-xs font-normal text-muted-foreground">One-time secure link</span>
           </TabsTrigger>
           <TabsTrigger
             value={AUTH_MODES.PASSWORD}
-            className="flex flex-col items-start gap-0.5 px-4 py-2.5 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+            className="flex flex-col items-start gap-0.5 px-4 py-2.5"
           >
             <span className="text-sm font-semibold">Password</span>
-            <span className="text-xs font-normal text-slate-500">Your credentials</span>
+            <span className="text-xs font-normal text-muted-foreground">Your credentials</span>
           </TabsTrigger>
         </TabsList>
 
         <Form {...form}>
-          <form className="mt-6 space-y-5" onSubmit={onSubmit} noValidate>
+          <FormRoot className="mt-6 flex flex-col gap-5" onSubmit={onSubmit} noValidate>
             <FormField
               control={form.control}
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-sm font-medium text-slate-700">
-                    Email address
-                  </FormLabel>
+                  <FormLabel>Email address</FormLabel>
                   <FormControl>
                     <Input
                       {...field}
@@ -324,22 +330,21 @@ export function OpsSignInForm({ redirectedFrom }: OpsSignInFormProps) {
                       inputMode="email"
                       autoComplete="email"
                       placeholder="you@example.com"
-                      className="h-12 rounded-xl border-slate-300 bg-white text-base transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 touch-manipulation"
-                      style={{ fontSize: '16px' }}
+                      className="h-11 touch-manipulation text-base"
                     />
                   </FormControl>
-                  <FormMessage className="text-sm" />
+                  <FormMessage />
                 </FormItem>
               )}
             />
 
-            <TabsContent value={AUTH_MODES.PASSWORD} className="mt-5 space-y-5">
+            <TabsContent value={AUTH_MODES.PASSWORD} className="mt-0">
               <FormField
                 control={form.control}
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-sm font-medium text-slate-700">Password</FormLabel>
+                    <FormLabel>Password</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <Input
@@ -347,24 +352,25 @@ export function OpsSignInForm({ redirectedFrom }: OpsSignInFormProps) {
                           type={showPassword ? 'text' : 'password'}
                           autoComplete="current-password"
                           placeholder="Enter your password"
-                          className="h-12 rounded-xl border-slate-300 bg-white pr-12 text-base transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 touch-manipulation"
-                          style={{ fontSize: '16px' }}
+                          className="h-11 touch-manipulation pr-11 text-base"
                         />
-                        <button
+                        <Button
                           type="button"
+                          variant="ghost"
+                          size="icon-sm"
                           onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-slate-400 transition-colors hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                          className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground"
                           aria-label={showPassword ? 'Hide password' : 'Show password'}
                         >
                           {showPassword ? (
-                            <EyeOff className="h-5 w-5" aria-hidden="true" />
+                            <EyeOff aria-hidden="true" />
                           ) : (
-                            <Eye className="h-5 w-5" aria-hidden="true" />
+                            <Eye aria-hidden="true" />
                           )}
-                        </button>
+                        </Button>
                       </div>
                     </FormControl>
-                    <FormMessage className="text-sm" />
+                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -375,40 +381,36 @@ export function OpsSignInForm({ redirectedFrom }: OpsSignInFormProps) {
             </TabsContent>
 
             {status && (
-              <p
+              <Alert
                 ref={statusRef}
                 tabIndex={-1}
-                role="status"
+                role={status.tone === 'error' ? 'alert' : 'status'}
                 aria-live={status.live}
                 aria-atomic="true"
-                className={cn(
-                  'rounded-lg px-4 py-3 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2',
-                  status.tone === 'success' &&
-                    'border border-emerald-200 bg-emerald-50 text-emerald-700',
-                  status.tone === 'error' && 'border border-red-200 bg-red-50 text-red-700',
-                  status.tone === 'info' && 'border border-blue-200 bg-blue-50 text-blue-700',
-                )}
+                variant={STATUS_ALERT_VARIANT[status.tone]}
+                className="focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
-                {status.message}
-              </p>
+                {StatusIcon ? <StatusIcon className="size-4" aria-hidden /> : null}
+                <AlertDescription>{status.message}</AlertDescription>
+              </Alert>
             )}
 
             <Button
               type="submit"
               size="lg"
-              className="h-12 w-full rounded-xl bg-blue-600 text-base font-semibold shadow-lg shadow-blue-600/25 transition-all hover:bg-blue-700 hover:shadow-xl hover:shadow-blue-600/30 active:scale-[0.98] disabled:active:scale-100 touch-manipulation"
+              className="h-11 w-full touch-manipulation text-base font-semibold"
               disabled={submitDisabled}
             >
               {isSubmitting ? (
                 <span className="flex items-center justify-center gap-2">
-                  <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+                  <Loader2 className="animate-spin" data-icon="inline-start" aria-hidden="true" />
                   {mode === AUTH_MODES.PASSWORD ? 'Signing in...' : 'Sending...'}
                 </span>
               ) : (
                 submitLabel
               )}
             </Button>
-          </form>
+          </FormRoot>
         </Form>
       </Tabs>
     </div>

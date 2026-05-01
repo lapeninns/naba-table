@@ -39,6 +39,7 @@ import { cn } from '@/lib/utils';
 import { MENU_STATUS_FILTER_OPTIONS, MenuFilterField } from './MenuFilterControls';
 import { MenuImportDialog } from './MenuImportDialog';
 import { MenuItemSheet } from './MenuItemSheet';
+import { MenuSuggestionInput } from './MenuSuggestionInput';
 
 import type { MenuItemUpsertInput, MenuListStatusFilter } from '@/server/menu/types';
 
@@ -131,18 +132,18 @@ export function FoodMenuManagementPanel({ restaurantId }: { restaurantId: string
           />
         </MenuFilterField>
         <MenuFilterField label="Category">
-          <Input
-            list="menu-filter-category-options"
+          <MenuSuggestionInput
             value={categoryFilter}
-            onChange={(event) => setCategoryFilter(event.target.value)}
+            suggestions={facets.categories}
+            onValueChange={setCategoryFilter}
             placeholder="All categories"
           />
         </MenuFilterField>
         <MenuFilterField label="Subcategory">
-          <Input
-            list="menu-filter-subcategory-options"
+          <MenuSuggestionInput
             value={subcategoryFilter}
-            onChange={(event) => setSubcategoryFilter(event.target.value)}
+            suggestions={facets.subcategories}
+            onValueChange={setSubcategoryFilter}
             placeholder="All subcategories"
           />
         </MenuFilterField>
@@ -242,17 +243,6 @@ export function FoodMenuManagementPanel({ restaurantId }: { restaurantId: string
           </Table>
         </div>
       )}
-
-      <datalist id="menu-filter-category-options">
-        {facets.categories.map((category) => (
-          <option key={category} value={category} />
-        ))}
-      </datalist>
-      <datalist id="menu-filter-subcategory-options">
-        {facets.subcategories.map((subcategory) => (
-          <option key={subcategory} value={subcategory} />
-        ))}
-      </datalist>
 
       <MenuItemSheet
         open={sheetOpen}

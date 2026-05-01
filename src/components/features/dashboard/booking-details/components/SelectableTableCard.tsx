@@ -9,8 +9,8 @@
 import { AlertTriangle, Check, Users } from 'lucide-react';
 import { memo } from 'react';
 
-
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 import { getCapacityFit, getCapacityFitLabel } from '../utils';
@@ -117,8 +117,9 @@ export const SelectableTableCard = memo(function SelectableTableCard({
         : 'Available.');
 
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
       ref={buttonRef}
       onClick={handleToggle}
       onFocus={onFocus}
@@ -128,58 +129,58 @@ export const SelectableTableCard = memo(function SelectableTableCard({
       aria-describedby={describedById}
       tabIndex={tabIndex}
       className={cn(
-        'group relative flex flex-col items-start justify-between p-3 text-left touch-manipulation',
+        'group relative flex h-auto flex-col items-start justify-between whitespace-normal p-3 text-left touch-manipulation',
         'min-h-[110px] rounded-xl border transition-[transform,box-shadow,border-color,background-color,color] duration-200',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         'motion-reduce:transition-none motion-reduce:transform-none',
         isAssigned
-          ? 'bg-emerald-50 border-emerald-300 cursor-default'
+          ? 'cursor-default border-primary/30 bg-primary/10'
           : isSelected
-            ? 'bg-blue-50 border-blue-400 shadow-sm'
+            ? 'border-primary bg-primary/10 shadow-sm'
             : isUnavailable
-              ? 'bg-slate-100 border-slate-200 opacity-60 cursor-not-allowed'
-              : 'bg-white border-slate-200 hover:border-blue-300 hover:shadow-sm cursor-pointer',
+              ? 'cursor-not-allowed border-border bg-muted opacity-60'
+              : 'cursor-pointer border-border bg-background hover:border-primary/30 hover:shadow-sm',
       )}
     >
       {(isSelected || isAssigned) && (
         <div
           className={cn(
             'absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full shadow-sm',
-            isAssigned ? 'bg-emerald-500' : 'bg-blue-500',
+            isAssigned ? 'bg-primary' : 'bg-primary',
           )}
         >
-          <Check className="h-3 w-3 text-white" aria-hidden />
+          <Check className="h-3 w-3 text-primary-foreground" aria-hidden />
         </div>
       )}
 
       <div className="flex w-full items-start justify-between">
         <div>
           <span
-            className={cn(
-              'text-base font-semibold text-slate-800',
-              isAssigned && 'text-emerald-700',
-            )}
+            className={cn('text-base font-semibold text-foreground', isAssigned && 'text-primary')}
           >
             Table {table.tableNumber}
           </span>
           {table.name ? (
-            <div className="text-xs text-slate-500 truncate max-w-[10rem]" title={table.name}>
+            <div
+              className="max-w-[10rem] truncate text-xs text-muted-foreground"
+              title={table.name}
+            >
               {table.name}
             </div>
           ) : null}
         </div>
         {isConflicted ? (
-          <Badge variant="outline" className="border-amber-300 text-amber-700 bg-amber-50">
+          <Badge variant="outline" className="border-border bg-muted/40 text-foreground">
             <AlertTriangle className="h-3 w-3 mr-1" aria-hidden />
             Conflict
           </Badge>
         ) : null}
       </div>
 
-      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
-        <Users className="h-3.5 w-3.5 text-slate-400" aria-hidden />
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <Users className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
         <span>{table.capacity} seats</span>
-        {table.section ? <span className="text-slate-400">· {table.section}</span> : null}
+        {table.section ? <span className="text-muted-foreground">· {table.section}</span> : null}
       </div>
 
       <div className="mt-2 flex flex-wrap gap-1">
@@ -188,12 +189,12 @@ export const SelectableTableCard = memo(function SelectableTableCard({
           className={cn(
             'text-[10px]',
             fit === 'exact'
-              ? 'bg-emerald-50 text-emerald-700'
+              ? 'bg-primary/10 text-primary'
               : fit === 'within'
-                ? 'bg-blue-50 text-blue-700'
+                ? 'bg-primary/10 text-primary'
                 : fit === 'oversized'
-                  ? 'bg-slate-100 text-slate-600'
-                  : 'bg-rose-50 text-rose-700',
+                  ? 'bg-muted text-muted-foreground'
+                  : 'bg-destructive/10 text-destructive',
           )}
         >
           {getCapacityFitLabel(fit)}
@@ -215,19 +216,19 @@ export const SelectableTableCard = memo(function SelectableTableCard({
           <div
             className={cn(
               'relative h-2 w-full rounded-full border',
-              conflictTone ? 'bg-rose-100 border-rose-200' : 'bg-slate-100 border-slate-200',
+              conflictTone ? 'border-destructive/20 bg-destructive/10' : 'border-border bg-muted',
             )}
             aria-hidden
           >
             {bookingStart !== null && (
               <div
-                className="absolute top-0 h-full rounded-full bg-blue-500"
+                className="absolute top-0 h-full rounded-full bg-primary"
                 style={{ left: `${blockLeft}%`, width: `${blockWidth}%` }}
                 aria-hidden
               />
             )}
           </div>
-          <div className="mt-1 flex items-center justify-between text-[10px] text-slate-500">
+          <div className="mt-1 flex items-center justify-between text-[10px] text-muted-foreground">
             <span>{conflictTone ? 'Busy' : 'Unknown'}</span>
             {bookingStart !== null ? <span>Current booking</span> : null}
           </div>
@@ -239,6 +240,6 @@ export const SelectableTableCard = memo(function SelectableTableCard({
           {srSummary}
         </span>
       ) : null}
-    </button>
+    </Button>
   );
 });

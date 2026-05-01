@@ -13,11 +13,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { FormRoot } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { useOccasionService } from '@/contexts/ops-services';
 import { useOpsOccasions } from '@/hooks/ops/useOccasions';
@@ -56,7 +64,8 @@ export function OccasionsSection() {
 
   const occasions = useMemo(() => occasionQuery.data ?? [], [occasionQuery.data]);
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: queryKeys.opsOccasions.list() });
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.opsOccasions.list() });
 
   const createMutation = useMutation({
     mutationFn: async (payload: FormState) => {
@@ -126,7 +135,9 @@ export function OccasionsSection() {
       if (previous) {
         queryClient.setQueryData<OpsOccasion[]>(queryKeys.opsOccasions.list(), (current) =>
           (current ?? []).map((occasion) =>
-            occasion.key === variables.key ? { ...occasion, isActive: variables.isActive } : occasion,
+            occasion.key === variables.key
+              ? { ...occasion, isActive: variables.isActive }
+              : occasion,
           ),
         );
       }
@@ -142,7 +153,8 @@ export function OccasionsSection() {
   });
 
   const openForCreate = () => {
-    const nextOrder = occasions.length > 0 ? Math.max(...occasions.map((item) => item.displayOrder)) + 10 : 10;
+    const nextOrder =
+      occasions.length > 0 ? Math.max(...occasions.map((item) => item.displayOrder)) + 10 : 10;
     setEditingKey(null);
     setForm({ ...emptyForm, displayOrder: nextOrder });
     setFormErrors({});
@@ -177,7 +189,8 @@ export function OccasionsSection() {
     const errors: FormErrors = {};
     if (!form.label.trim()) errors.label = 'Label is required';
     if (!editingKey && !form.key.trim()) errors.key = 'Key is required';
-    if (!editingKey && !/^[a-z0-9_-]+$/.test(form.key.trim())) errors.key = 'Use lowercase letters, numbers, dashes, underscores';
+    if (!editingKey && !/^[a-z0-9_-]+$/.test(form.key.trim()))
+      errors.key = 'Use lowercase letters, numbers, dashes, underscores';
 
     const availabilityResult = tryValidateAvailability(form.availability);
     if (!availabilityResult.valid) {
@@ -207,9 +220,7 @@ export function OccasionsSection() {
     <SettingsCard
       title="Booking occasions"
       description="Control which booking occasions are available to staff and guests."
-      headerAction={
-        <Button onClick={openForCreate}>New occasion</Button>
-      }
+      headerAction={<Button onClick={openForCreate}>New occasion</Button>}
     >
       {occasionQuery.isLoading ? (
         <LoadingRows />
@@ -240,9 +251,13 @@ export function OccasionsSection() {
                       <Switch
                         aria-label={`Toggle ${occasion.label}`}
                         checked={occasion.isActive}
-                        onCheckedChange={(checked) => toggleMutation.mutate({ key: occasion.key, isActive: checked })}
+                        onCheckedChange={(checked) =>
+                          toggleMutation.mutate({ key: occasion.key, isActive: checked })
+                        }
                       />
-                      <span className="text-sm text-muted-foreground">{occasion.isActive ? 'Active' : 'Inactive'}</span>
+                      <span className="text-sm text-muted-foreground">
+                        {occasion.isActive ? 'Active' : 'Inactive'}
+                      </span>
                     </div>
                   </TableCell>
                   <TableCell>{occasion.defaultDurationMinutes} min</TableCell>
@@ -267,13 +282,16 @@ export function OccasionsSection() {
         </div>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={(open) => (!open ? closeDialog() : setDialogOpen(true))}>
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={(open) => (!open ? closeDialog() : setDialogOpen(true))}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingKey ? 'Edit occasion' : 'New occasion'}</DialogTitle>
             <DialogDescription>Define how the occasion appears in booking flows.</DialogDescription>
           </DialogHeader>
-          <form className="space-y-4" onSubmit={handleSubmit}>
+          <FormRoot className="space-y-4" onSubmit={handleSubmit}>
             {!editingKey && (
               <div className="space-y-1">
                 <Label htmlFor="occasion-key">Key</Label>
@@ -322,7 +340,9 @@ export function OccasionsSection() {
                   type="number"
                   min={1}
                   value={form.defaultDurationMinutes}
-                  onChange={(e) => setForm((prev) => ({ ...prev, defaultDurationMinutes: Number(e.target.value) }))}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, defaultDurationMinutes: Number(e.target.value) }))
+                  }
                 />
               </div>
               <div className="space-y-1">
@@ -331,7 +351,9 @@ export function OccasionsSection() {
                   id="occasion-order"
                   type="number"
                   value={form.displayOrder}
-                  onChange={(e) => setForm((prev) => ({ ...prev, displayOrder: Number(e.target.value) }))}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, displayOrder: Number(e.target.value) }))
+                  }
                 />
               </div>
             </div>
@@ -344,9 +366,13 @@ export function OccasionsSection() {
                 rows={5}
                 aria-invalid={Boolean(formErrors.availability)}
               />
-              {formErrors.availability && <p className="text-xs text-destructive">{formErrors.availability}</p>}
+              {formErrors.availability && (
+                <p className="text-xs text-destructive">{formErrors.availability}</p>
+              )}
               <p className="text-xs text-muted-foreground">
-                {'Use rules like { kind: "anytime" } or time_window/month_only/specific_dates. Leave empty for always available.'}
+                {
+                  'Use rules like { kind: "anytime" } or time_window/month_only/specific_dates. Leave empty for always available.'
+                }
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -355,7 +381,9 @@ export function OccasionsSection() {
                 checked={form.isActive}
                 onCheckedChange={(checked) => setForm((prev) => ({ ...prev, isActive: checked }))}
               />
-              <Label htmlFor="occasion-active" className="text-sm">Active</Label>
+              <Label htmlFor="occasion-active" className="text-sm">
+                Active
+              </Label>
             </div>
             <DialogFooter className="flex gap-2 sm:gap-2">
               <Button type="button" variant="ghost" onClick={closeDialog}>
@@ -365,7 +393,7 @@ export function OccasionsSection() {
                 {editingKey ? 'Save changes' : 'Create'}
               </Button>
             </DialogFooter>
-          </form>
+          </FormRoot>
         </DialogContent>
       </Dialog>
     </SettingsCard>
@@ -378,7 +406,10 @@ function safeParseAvailability(raw: string): unknown[] {
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
   } catch (error) {
-    console.warn('[OccasionsSection] failed to parse availability, defaulting to empty array', error);
+    console.warn(
+      '[OccasionsSection] failed to parse availability, defaulting to empty array',
+      error,
+    );
     return [];
   }
 }

@@ -1,13 +1,6 @@
 'use client';
 
-import {
-  AlertTriangle,
-  Armchair,
-  FileText,
-  Mail,
-  Phone,
-  Users,
-} from 'lucide-react';
+import { AlertTriangle, Armchair, FileText, Mail, Phone, Users } from 'lucide-react';
 import { memo } from 'react';
 
 import { CollapsibleContent } from '@/components/ui/collapsible';
@@ -58,7 +51,7 @@ export const OpsBookingCardDetails = memo(function OpsBookingCardDetails({
         ) : table.state === 'done-empty' ? (
           <span className="italic text-muted-foreground">N/A</span>
         ) : (
-          <span className="flex items-center gap-1 font-semibold text-amber-600">
+          <span className="flex items-center gap-1 font-semibold text-primary">
             <AlertTriangle className="h-3.5 w-3.5" aria-hidden /> {table.label}
           </span>
         )}
@@ -94,7 +87,7 @@ export const OpsBookingCardDetails = memo(function OpsBookingCardDetails({
       <InfoTile
         label={notes.label}
         icon={FileText}
-        className={cn(notes.highlighted && 'border-amber-200/70 bg-amber-50/40')}
+        className={cn(notes.highlighted && 'border-primary/30 bg-primary/10')}
       >
         <p className="break-words text-xs italic text-muted-foreground">{notes.value}</p>
       </InfoTile>

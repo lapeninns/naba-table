@@ -1,15 +1,15 @@
-import { Suspense } from "react";
+import { Suspense } from 'react';
 
-import { BookingErrorBoundary } from "@/components/features/booking-state-machine";
-import { OpsPageHeader } from "@/components/features/ops-shell/patterns/OpsPageHeader";
+import { BookingErrorBoundary } from '@/components/features/booking-state-machine';
+import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
 
-import { WalkInWizardClient } from "./_components/WalkInWizardClient";
+import { WalkInWizardClient } from './_components/WalkInWizardClient';
 
-import type { Metadata } from "next";
+import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: "New Booking · Nab a Table Ops",
-  description: "Create a new reservation using the standard booking flow with ops controls.",
+  title: 'New Booking · Nab a Table Ops',
+  description: 'Create a new reservation using the standard booking flow with ops controls.',
 };
 
 export default async function WalkInPage() {
@@ -20,7 +20,11 @@ export default async function WalkInPage() {
         subtitle="Create a walk-in or reservation with full ops controls."
       />
       <BookingErrorBoundary>
-        <Suspense fallback={<div className="p-8 text-center text-muted-foreground">Loading booking wizard...</div>}>
+        <Suspense
+          fallback={
+            <div className="p-8 text-center text-muted-foreground">Loading booking wizard...</div>
+          }
+        >
           <WalkInWizardClient />
         </Suspense>
       </BookingErrorBoundary>

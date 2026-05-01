@@ -1,12 +1,6 @@
 'use client';
 
-import {
-  Check,
-  Loader2,
-  LogIn,
-  LogOut,
-  MoreHorizontal,
-} from 'lucide-react';
+import { Check, Loader2, LogIn, LogOut, MoreHorizontal } from 'lucide-react';
 import { memo, useCallback, useState } from 'react';
 
 import {
@@ -93,7 +87,7 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
-              <DropdownMenuLabel className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+              <DropdownMenuLabel className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                 Manage
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
@@ -125,10 +119,10 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
               size="sm"
               disabled={primaryButton.disabled}
               className={cn(
-                'h-11 min-w-[120px] px-6 font-semibold text-white shadow-sm transition-[box-shadow,background-color] duration-150 ease-out hover:shadow-sm motion-reduce:transition-none sm:h-9',
+                'h-11 min-w-[120px] px-6 font-semibold shadow-sm transition-[box-shadow,background-color] duration-150 ease-out hover:shadow-sm motion-reduce:transition-none sm:h-9',
                 primaryButton.id === 'check-out'
-                  ? 'bg-slate-700 hover:bg-slate-800'
-                  : 'bg-emerald-600 hover:bg-emerald-700',
+                  ? 'bg-muted/40 text-muted-foreground hover:bg-muted'
+                  : 'bg-primary/10 text-primary hover:bg-primary/10',
               )}
               onClick={() =>
                 primaryButton.id === 'check-out'
@@ -152,10 +146,10 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
             </Button>
           ) : (
             <div
-              className="flex items-center gap-1.5 px-3 text-xs font-bold text-slate-400"
+              className="flex items-center gap-1.5 px-3 text-xs font-bold text-muted-foreground"
               role="status"
             >
-              <Check className="h-4 w-4 text-emerald-500" aria-hidden />
+              <Check className="h-4 w-4 text-primary" aria-hidden />
               {actions.primary.label}
             </div>
           )}
@@ -171,8 +165,7 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
               <span className="font-semibold text-foreground">
                 {actions.noShowConfirmation.description.customerLabel}
               </span>{' '}
-              as a no-show for{' '}
-              <span className="font-semibold text-foreground">{partySize}</span>{' '}
+              as a no-show for <span className="font-semibold text-foreground">{partySize}</span>{' '}
               cover{partySize === 1 ? '' : 's'} on{' '}
               <span className="font-semibold text-foreground">
                 {actions.noShowConfirmation.description.dateLabel} ·{' '}
@@ -187,7 +180,7 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => void handleConfirmNoShow()}
-              className="bg-rose-600 hover:bg-rose-700"
+              className="bg-destructive/10 hover:bg-destructive/10"
               disabled={actions.noShowConfirmation.disabled || isNoShowPending}
             >
               {isNoShowPending ? 'Marking…' : actions.noShowConfirmation.confirmLabel}

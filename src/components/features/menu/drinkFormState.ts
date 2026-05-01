@@ -297,7 +297,9 @@ export function buildDrinkItemPayload(form: DrinkItemFormState): DrinkItemUpsert
     customizationRules: nullable(form.customizationRules),
     pairings: fieldToList(form.pairings),
     signatureScore: nullable(form.signatureScore) ? Number.parseInt(form.signatureScore, 10) : null,
-    popularityScore: nullable(form.popularityScore) ? Number.parseInt(form.popularityScore, 10) : null,
+    popularityScore: nullable(form.popularityScore)
+      ? Number.parseInt(form.popularityScore, 10)
+      : null,
     recommendationTags: fieldToList(form.recommendationTags),
     seasonal: form.seasonal,
     limitedTime: form.limitedTime,

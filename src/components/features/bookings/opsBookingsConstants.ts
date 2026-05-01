@@ -19,4 +19,3 @@ export const OPS_LISTABLE_STATUSES: OpsBookingStatus[] = [
   'no_show',
   'cancelled',
 ];
-

@@ -105,7 +105,7 @@ export function PageHeader({
                     onDisconnect();
                   }}
                   disabled={isDisconnecting}
-                  className="text-red-600 focus:text-red-700"
+                  className="text-destructive focus:text-destructive"
                 >
                   <Unplug className="mr-2 size-4" />
                   {isDisconnecting ? 'Disconnecting...' : 'Disconnect Google'}

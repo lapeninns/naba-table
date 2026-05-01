@@ -43,11 +43,7 @@ function formatDepositGBP(value: unknown): string | null {
   if (value === null || value === undefined) return null;
 
   const parsed =
-    typeof value === 'number'
-      ? value
-      : typeof value === 'string'
-        ? Number(value)
-        : Number.NaN;
+    typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : Number.NaN;
 
   if (!Number.isNaN(parsed) && Number.isFinite(parsed)) {
     return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(parsed);
@@ -114,13 +110,16 @@ export function GuestProfilePanel({
       ) : null}
 
       {isLate ? (
-        <Badge variant="outline" className="border-rose-200 bg-rose-50 text-rose-800">
+        <Badge
+          variant="outline"
+          className="border-destructive/20 bg-destructive/10 text-destructive"
+        >
           Late
         </Badge>
       ) : null}
 
       {booking.requiresTableAssignment && assignedTableRows.length === 0 ? (
-        <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-900">
+        <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
           No table assigned
         </Badge>
       ) : null}
@@ -131,8 +130,8 @@ export function GuestProfilePanel({
     minutesRemaining !== null && minutesRemaining > -120 ? (
       <Card
         className={cn(
-          'border-slate-200/60 bg-white shadow-sm',
-          isLate && 'border-rose-200 bg-rose-50/40',
+          'border-border bg-background shadow-sm',
+          isLate && 'border-destructive/20 bg-destructive/10',
         )}
       >
         <CardContent className="p-4">
@@ -223,7 +222,10 @@ export function GuestProfilePanel({
         seatingPreference={booking.seatingPreference ?? null}
       />
       <GuestTimelineCard status={status} booking={booking} timezone={timezone} />
-      <GuestNotesCard bookingNotes={booking.notes ?? null} profileNotes={booking.profileNotes ?? null} />
+      <GuestNotesCard
+        bookingNotes={booking.notes ?? null}
+        profileNotes={booking.profileNotes ?? null}
+      />
       <GuestDepositCard depositLabel={depositLabel} />
     </div>
   );

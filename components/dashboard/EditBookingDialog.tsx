@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2 } from 'lucide-react';
+import { Loader2, MinusIcon, PlusIcon, UsersIcon } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Controller, useForm, type Resolver } from 'react-hook-form';
 import { z } from 'zod';
@@ -18,16 +18,26 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Form, FormField } from '@/components/ui/form';
+import {
+  Form,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormMessage,
+  FormRoot,
+} from '@/components/ui/form';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useOpsUpdateBooking } from '@/hooks/ops/useOpsUpdateBooking';
 import { useUpdateBooking } from '@/hooks/useUpdateBooking';
 import { emit } from '@/lib/analytics/emit';
 import { BOOKING_IN_PAST_DASHBOARD_MESSAGE } from '@/lib/bookings/messages';
-import { MAX_ONLINE_PARTY_SIZE, MIN_ONLINE_PARTY_SIZE, ONLINE_PARTY_SIZE_LIMIT_COPY } from '@/lib/bookings/partySize';
+import {
+  MAX_ONLINE_PARTY_SIZE,
+  MIN_ONLINE_PARTY_SIZE,
+  ONLINE_PARTY_SIZE_LIMIT_COPY,
+} from '@/lib/bookings/partySize';
 import { cn } from '@/lib/utils';
-import { PartySizeField } from '@features/reservations/wizard/ui/steps/plan-step/components/PartySizeField';
 
 import type { BookingDTO } from '@/hooks/useBookings';
 import type { HttpError } from '@/lib/http/errors';
@@ -42,10 +52,12 @@ const errorCopy: Record<string, string> = {
   FORBIDDEN: 'You don’t have permission to modify this booking.',
   UNAUTHENTICATED: 'Please sign in again to continue.',
   SESSION_RESOLUTION_FAILED: 'We couldn’t confirm your session. Refresh the page and try again.',
-  MEMBERSHIP_VALIDATION_FAILED: 'We hit a problem checking your access. Try again or contact an admin.',
+  MEMBERSHIP_VALIDATION_FAILED:
+    'We hit a problem checking your access. Try again or contact an admin.',
   INVALID_INPUT: 'Please check the fields and try again.',
   INVALID_TIME: 'Enter a valid time and try again.',
-  OUTSIDE_HOURS: 'Selected time is outside operating hours. Pick a time between opening and closing.',
+  OUTSIDE_HOURS:
+    'Selected time is outside operating hours. Pick a time between opening and closing.',
   SERVICE_PERIOD: 'Selected time isn’t available for this service. Try another slot.',
   CAPACITY_EXCEEDED: 'No availability at that time. Please choose a different time.',
   PAST_TIME: 'That time has already passed. Choose an upcoming slot.',
@@ -55,6 +67,80 @@ const errorCopy: Record<string, string> = {
 
 const NOTES_LIMIT = 500;
 
+function DialogPartySizeField({
+  value,
+  onChange,
+  error,
+}: {
+  value: number;
+  onChange: (direction: 'decrement' | 'increment') => void;
+  error?: string;
+}) {
+  const labelId = React.useId();
+  const descriptionId = React.useId();
+  const canDecrement = value > MIN_ONLINE_PARTY_SIZE;
+  const canIncrement = value < MAX_ONLINE_PARTY_SIZE;
+  const partyLabel = value === 1 ? 'guest' : 'guests';
+
+  return (
+    <FormItem className="flex flex-col gap-3">
+      <div id={labelId} className="flex items-center gap-1.5 px-1 text-sm font-semibold">
+        <UsersIcon className="size-4 text-muted-foreground" aria-hidden="true" />
+        <span>Party size</span>
+      </div>
+      <div
+        className={cn(
+          'grid h-12 w-full grid-cols-[44px_minmax(0,1fr)_44px] items-center overflow-hidden rounded-md border border-input bg-background transition-colors focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/25 sm:grid-cols-[56px_minmax(0,1fr)_56px]',
+          error && 'border-destructive ring-1 ring-destructive/20',
+        )}
+        role="group"
+        aria-labelledby={labelId}
+        aria-describedby={descriptionId}
+      >
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={() => onChange('decrement')}
+          disabled={!canDecrement}
+          aria-label="Decrease guests"
+          className="h-full w-full shrink-0 rounded-none border-r border-border/70 text-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-35"
+        >
+          <MinusIcon data-icon="icon" aria-hidden="true" />
+        </Button>
+        <div
+          className="flex h-8 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap px-1.5"
+          aria-live="polite"
+          aria-atomic="true"
+          aria-label={`${value} ${partyLabel}`}
+        >
+          <span className="text-xl font-semibold leading-none tabular-nums text-foreground sm:text-2xl">
+            {value}
+          </span>
+          <span className="text-xs font-medium leading-none text-muted-foreground sm:text-sm">
+            {partyLabel}
+          </span>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={() => onChange('increment')}
+          disabled={!canIncrement}
+          aria-label="Increase guests"
+          className="h-full w-full shrink-0 rounded-none border-l border-border/70 text-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-35"
+        >
+          <PlusIcon data-icon="icon" aria-hidden="true" />
+        </Button>
+      </div>
+      <FormDescription id={descriptionId} className="px-1 text-xs">
+        {ONLINE_PARTY_SIZE_LIMIT_COPY}
+      </FormDescription>
+      <FormMessage>{error}</FormMessage>
+    </FormItem>
+  );
+}
+
 const schema = z.object({
   start: z
     .string()
@@ -63,8 +149,8 @@ const schema = z.object({
       const date = new Date(value);
       return !Number.isNaN(date.getTime());
     }, 'Select a valid start time'),
-  partySize: z
-    .coerce.number()
+  partySize: z.coerce
+    .number()
     .int()
     .min(MIN_ONLINE_PARTY_SIZE, 'Party size must be at least 1')
     .max(MAX_ONLINE_PARTY_SIZE, ONLINE_PARTY_SIZE_LIMIT_COPY),
@@ -105,12 +191,22 @@ const deriveFallbackDurationMinutes = (booking: BookingDTO | null): number => {
 
 const deriveEndState = (startValue: string | null | undefined, fallbackDurationMinutes: number) => {
   if (!startValue) {
-    return { endDate: null, endIso: null, durationLabel: `${fallbackDurationMinutes}m`, endDisplay: 'Select a start time to see the end time' };
+    return {
+      endDate: null,
+      endIso: null,
+      durationLabel: `${fallbackDurationMinutes}m`,
+      endDisplay: 'Select a start time to see the end time',
+    };
   }
 
   const startDate = new Date(startValue);
   if (Number.isNaN(startDate.getTime())) {
-    return { endDate: null, endIso: null, durationLabel: `${fallbackDurationMinutes}m`, endDisplay: 'Select a valid start time' };
+    return {
+      endDate: null,
+      endIso: null,
+      durationLabel: `${fallbackDurationMinutes}m`,
+      endDisplay: 'Select a valid start time',
+    };
   }
 
   const endDate = new Date(startDate.getTime() + fallbackDurationMinutes * 60_000);
@@ -207,7 +303,8 @@ function useEditBookingDialogState({
   const [formError, setFormError] = useState<{ message: string; code?: string } | null>(null);
   // eslint-disable-next-line react-hooks/incompatible-library
   const startValue = watch('start');
-  const hasCommittedStart = typeof startValue === 'string' ? startValue.trim().length > 0 : Boolean(startValue);
+  const hasCommittedStart =
+    typeof startValue === 'string' ? startValue.trim().length > 0 : Boolean(startValue);
 
   const effectiveRestaurantSlug = useMemo(
     () => restaurantSlugOverride ?? booking?.restaurants?.slug ?? booking?.restaurantSlug ?? null,
@@ -215,7 +312,11 @@ function useEditBookingDialogState({
   );
 
   const effectiveRestaurantTimezone = useMemo(
-    () => restaurantTimezoneOverride ?? booking?.restaurants?.timezone ?? booking?.restaurantTimezone ?? null,
+    () =>
+      restaurantTimezoneOverride ??
+      booking?.restaurants?.timezone ??
+      booking?.restaurantTimezone ??
+      null,
     [booking?.restaurants?.timezone, booking?.restaurantTimezone, restaurantTimezoneOverride],
   );
 
@@ -228,7 +329,11 @@ function useEditBookingDialogState({
   }, []);
 
   const fallbackDurationMinutes = useMemo(() => deriveFallbackDurationMinutes(booking), [booking]);
-  const { endIso: derivedEndIso, endDisplay: derivedEndDisplay, durationLabel: derivedDurationLabel } = useMemo(
+  const {
+    endIso: derivedEndIso,
+    endDisplay: derivedEndDisplay,
+    durationLabel: derivedDurationLabel,
+  } = useMemo(
     () => deriveEndState(startValue, fallbackDurationMinutes),
     [fallbackDurationMinutes, startValue],
   );
@@ -328,8 +433,11 @@ function useEditBookingDialogState({
   );
 
   const mutationError = mutation.error as HttpError | null;
-  const fallbackMessage = mutationError?.code ? errorCopy[mutationError.code] ?? mutationError.message : mutationError?.message;
-  const activeError = formError ?? (fallbackMessage ? { message: fallbackMessage, code: mutationError?.code } : null);
+  const fallbackMessage = mutationError?.code
+    ? (errorCopy[mutationError.code] ?? mutationError.message)
+    : mutationError?.message;
+  const activeError =
+    formError ?? (fallbackMessage ? { message: fallbackMessage, code: mutationError?.code } : null);
   const isPastTimeError = activeError?.code === 'BOOKING_IN_PAST';
   const alertTitle = isPastTimeError ? 'Booking time is in the past' : 'Unable to save changes';
   const notesValue = watch('notes') ?? '';
@@ -337,7 +445,9 @@ function useEditBookingDialogState({
     const start = booking?.startIso;
     if (!start) return 'Not set';
     try {
-      return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(start));
+      return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(
+        new Date(start),
+      );
     } catch {
       return start;
     }
@@ -452,15 +562,20 @@ function EditBookingDialogBase({
         onInteractOutside={(event) => event.preventDefault()}
       >
         <Form {...form}>
-          <form onSubmit={handleSubmit} className="flex flex-1 min-h-0 flex-col" noValidate>
+          <FormRoot onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col" noValidate>
             {/* DialogHeader outside the scrollable area */}
             <DialogHeader className="px-6 pt-5 sm:px-8 sm:pt-6 space-y-2 shrink-0">
-              <DialogTitle className="text-xl font-semibold text-foreground">Edit booking</DialogTitle>
+              <DialogTitle className="text-xl font-semibold text-foreground">
+                Edit booking
+              </DialogTitle>
               <DialogDescription className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                 Adjust booking details · Service timezone: {timezoneLabel}
               </DialogDescription>
               <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-muted-foreground">
-                <Badge variant="secondary" className="rounded-full px-3 py-1 text-[12px] font-semibold text-foreground">
+                <Badge
+                  variant="secondary"
+                  className="rounded-full px-3 py-1 text-[12px] font-semibold text-foreground"
+                >
                   Current start: {currentStartDisplay}
                 </Badge>
                 <Badge variant="outline" className="rounded-full px-3 py-1 text-[12px]">
@@ -478,7 +593,8 @@ function EditBookingDialogBase({
                 <Alert variant="warning" role="status" aria-live="polite">
                   <AlertTitle>Heads up</AlertTitle>
                   <AlertDescription>
-                    Changing time or party size may release the current table and reassign availability.
+                    Changing time or party size may release the current table and reassign
+                    availability.
                   </AlertDescription>
                 </Alert>
               ) : null}
@@ -487,7 +603,8 @@ function EditBookingDialogBase({
                 <Alert variant="destructive" role="alert">
                   <AlertTitle>Availability unavailable</AlertTitle>
                   <AlertDescription>
-                    We need restaurant schedule data to edit this booking. Try refreshing or contact support.
+                    We need restaurant schedule data to edit this booking. Try refreshing or contact
+                    support.
                   </AlertDescription>
                 </Alert>
               ) : null}
@@ -521,7 +638,7 @@ function EditBookingDialogBase({
                         control={control}
                         name="partySize"
                         render={({ field: partyField }) => (
-                          <PartySizeField
+                          <DialogPartySizeField
                             value={partyField.value ?? MIN_ONLINE_PARTY_SIZE}
                             onChange={handlePartySizeChange}
                             error={errors.partySize?.message}
@@ -550,7 +667,11 @@ function EditBookingDialogBase({
                   )}
                 />
                 <div className="flex justify-between text-xs text-muted-foreground">
-                  {errors.notes ? <span className="text-destructive">{errors.notes.message}</span> : <span>Optional context for the team.</span>}
+                  {errors.notes ? (
+                    <span className="text-destructive">{errors.notes.message}</span>
+                  ) : (
+                    <span>Optional context for the team.</span>
+                  )}
                   <span>{notesRemaining} chars left</span>
                 </div>
               </div>
@@ -585,7 +706,7 @@ function EditBookingDialogBase({
                 </Button>
               </DialogFooter>
             </div>
-          </form>
+          </FormRoot>
         </Form>
       </DialogContent>
     </Dialog>

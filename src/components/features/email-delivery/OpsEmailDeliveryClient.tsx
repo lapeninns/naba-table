@@ -107,10 +107,10 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
         onValueChange={state.queryState.handleTabChange}
         className="mt-6"
       >
-        <div className="mb-4 rounded-xl border border-slate-200/70 bg-slate-50/70 p-4">
+        <div className="mb-4 rounded-xl border border-border bg-muted/40 p-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="space-y-2">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                 Auto-refresh
               </div>
               <ToggleGroup
@@ -121,14 +121,14 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
                     return;
                   state.queryState.applyRefresh(value);
                 }}
-                className="justify-start rounded-full border border-slate-200 bg-white p-1"
+                className="justify-start rounded-full border border-border bg-background p-1"
                 aria-label="Auto-refresh interval"
               >
                 {['off', '30s', '1m', '5m'].map((option) => (
                   <ToggleGroupItem
                     key={option}
                     value={option}
-                    className="rounded-full px-4 text-xs font-semibold data-[state=on]:bg-slate-900 data-[state=on]:text-white"
+                    className="rounded-full px-4 text-xs font-semibold data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
                     aria-label={`Refresh every ${state.formatRefreshLabel(option as 'off' | '30s' | '1m' | '5m')}`}
                   >
                     {option === 'off'
@@ -142,22 +142,21 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
             <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
               {state.autoRefreshActive ? (
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge
-                    variant="outline"
-                    className="border-emerald-200 bg-emerald-50 text-emerald-700"
-                  >
+                  <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
                     Auto-refresh {state.formatRefreshLabel(state.queryState.refresh)}
                   </Badge>
-                  <span className="text-sm text-slate-600">{state.refreshIndicatorText}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {state.refreshIndicatorText}
+                  </span>
                 </div>
               ) : (
-                <span className="text-sm text-slate-500">Auto-refresh is off.</span>
+                <span className="text-sm text-muted-foreground">Auto-refresh is off.</span>
               )}
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+                className="border-border bg-background text-foreground hover:bg-muted"
                 onClick={state.handleManualRefresh}
                 disabled={state.manualRefreshBusy}
                 aria-label="Refresh current tab"
@@ -180,7 +179,7 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
         <TabsContent value="delivery-log">
           <OpsPageToolbar className="space-y-4">
             {state.canInjectDeliveryLogError ? (
-              <Alert className="border-dashed border-slate-300/80 bg-slate-50/80">
+              <Alert className="border-dashed border-border bg-muted/40">
                 <AlertCircle className="h-4 w-4" aria-hidden />
                 <AlertTitle>Dev/test validation control</AlertTitle>
                 <AlertDescription className="space-y-3">
@@ -219,7 +218,7 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
 
           <section className="mt-4 space-y-4">
             {state.dataState.feedQuery.unavailable ? (
-              <Alert className="border-amber-200/70 bg-amber-50/60">
+              <Alert className="border-border bg-muted/40">
                 <MailWarning className="h-4 w-4" aria-hidden />
                 <AlertTitle>Delivery tracking unavailable</AlertTitle>
                 <AlertDescription>
@@ -262,18 +261,18 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
             )}
 
             {state.shouldShowEmptyGuidance ? (
-              <div className="rounded-lg border border-slate-200/60 bg-white p-8 text-center">
-                <p className="text-base font-semibold text-slate-900">No email deliveries found</p>
-                <p className="mt-2 text-sm text-slate-600">
+              <div className="rounded-lg border border-border bg-background p-8 text-center">
+                <p className="text-base font-semibold text-foreground">No email deliveries found</p>
+                <p className="mt-2 text-sm text-muted-foreground">
                   Adjust the filters or try a wider date range to see more results.
                 </p>
               </div>
             ) : null}
 
             {state.shouldShowPagination ? (
-              <div className="flex flex-col gap-3 rounded-lg border border-slate-200/60 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-3 rounded-lg border border-border bg-background px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex flex-col gap-1">
-                  <p className="text-sm font-medium text-slate-900">
+                  <p className="text-sm font-medium text-foreground">
                     Showing {state.startResult}-{state.endResult} of {state.totalResults} results
                   </p>
                   <p className="text-xs text-muted-foreground">Page {state.currentPage}</p>

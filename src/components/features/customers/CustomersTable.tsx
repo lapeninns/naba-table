@@ -5,6 +5,7 @@ import { Loader2 } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { useEffect, useRef } from 'react';
 
+import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -26,18 +27,15 @@ const skeletonRows = Array.from({ length: 5 }, (_, index) => index);
 
 function EmptyState({ hasActiveFilters }: { hasActiveFilters?: boolean }) {
   return (
-    <div className="flex min-h-[400px] items-center justify-center rounded-lg border border-dashed border-border/60 bg-muted/20 p-8 text-center">
-      <div className="max-w-md">
-        <h3 className="text-lg font-semibold text-foreground">
-          {hasActiveFilters ? 'No guests match these filters' : 'No guests yet'}
-        </h3>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {hasActiveFilters
-            ? 'Try widening the date window or clearing filters to see more guests.'
-            : 'Guests who make bookings will appear here. Their booking history will be tracked automatically.'}
-        </p>
-      </div>
-    </div>
+    <OpsEmptyState
+      title={hasActiveFilters ? 'No guests match these filters' : 'No guests yet'}
+      description={
+        hasActiveFilters
+          ? 'Try widening the date window or clearing filters to see more guests.'
+          : 'Guests who make bookings will appear here. Their booking history will be tracked automatically.'
+      }
+      className="min-h-[400px]"
+    />
   );
 }
 

@@ -11,10 +11,24 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  FormRoot,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { track } from '@/lib/analytics';
@@ -83,7 +97,11 @@ const accountSchema = z
   })
   .superRefine((values, ctx) => {
     if (values.mode === 'password' && !values.password) {
-      ctx.addIssue({ code: 'custom', path: ['password'], message: 'Password is required for password sign-up' });
+      ctx.addIssue({
+        code: 'custom',
+        path: ['password'],
+        message: 'Password is required for password sign-up',
+      });
     }
   });
 
@@ -159,7 +177,7 @@ function AccountStep({ onComplete }: { onComplete: () => void }) {
 
   return (
     <Form {...form}>
-      <form className="space-y-6" onSubmit={onSubmit}>
+      <FormRoot className="space-y-6" onSubmit={onSubmit}>
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField
             control={form.control}
@@ -205,7 +223,12 @@ function AccountStep({ onComplete }: { onComplete: () => void }) {
               <FormItem>
                 <FormLabel>Password</FormLabel>
                 <FormControl>
-                  <Input type="password" autoComplete="new-password" placeholder="At least 8 characters" {...field} />
+                  <Input
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder="At least 8 characters"
+                    {...field}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -221,7 +244,7 @@ function AccountStep({ onComplete }: { onComplete: () => void }) {
           busy={state.loading}
           nextLabel="Continue"
         />
-      </form>
+      </FormRoot>
     </Form>
   );
 }
@@ -273,7 +296,7 @@ function ProfileStep({ onComplete }: { onComplete: () => void }) {
 
   return (
     <Form {...form}>
-      <form className="space-y-6" onSubmit={onSubmit}>
+      <FormRoot className="space-y-6" onSubmit={onSubmit}>
         <div className="grid gap-4 md:grid-cols-2">
           <FormField
             control={form.control}
@@ -314,11 +337,13 @@ function ProfileStep({ onComplete }: { onComplete: () => void }) {
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {['Europe/London', 'America/New_York', 'Asia/Tokyo', 'Australia/Sydney'].map((tz) => (
-                      <SelectItem key={tz} value={tz}>
-                        {tz}
-                      </SelectItem>
-                    ))}
+                    {['Europe/London', 'America/New_York', 'Asia/Tokyo', 'Australia/Sydney'].map(
+                      (tz) => (
+                        <SelectItem key={tz} value={tz}>
+                          {tz}
+                        </SelectItem>
+                      ),
+                    )}
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -373,7 +398,7 @@ function ProfileStep({ onComplete }: { onComplete: () => void }) {
           onNext={onSubmit}
           busy={state.loading}
         />
-      </form>
+      </FormRoot>
     </Form>
   );
 }
@@ -383,7 +408,9 @@ function HoursStep({ onComplete }: { onComplete: () => void }) {
   const [hours, setHours] = useState<OperatingHour[]>(state.operatingHours);
 
   const updateHour = (day: number, patch: Partial<OperatingHour>) => {
-    setHours((current) => current.map((row) => (row.dayOfWeek === day ? { ...row, ...patch } : row)));
+    setHours((current) =>
+      current.map((row) => (row.dayOfWeek === day ? { ...row, ...patch } : row)),
+    );
   };
 
   const save = async () => {
@@ -419,7 +446,9 @@ function HoursStep({ onComplete }: { onComplete: () => void }) {
               <div className="flex items-center justify-between">
                 <div className="font-semibold">Day {row.dayOfWeek}</div>
                 <div className="flex items-center gap-2">
-                  <Label htmlFor={`closed-${row.dayOfWeek}`} className="text-xs">Closed</Label>
+                  <Label htmlFor={`closed-${row.dayOfWeek}`} className="text-xs">
+                    Closed
+                  </Label>
                   <Switch
                     id={`closed-${row.dayOfWeek}`}
                     checked={row.isClosed}
@@ -434,7 +463,9 @@ function HoursStep({ onComplete }: { onComplete: () => void }) {
                     <Input
                       placeholder={timeInputPlaceholder}
                       value={row.opensAt ?? ''}
-                      onChange={(event) => updateHour(row.dayOfWeek, { opensAt: event.target.value })}
+                      onChange={(event) =>
+                        updateHour(row.dayOfWeek, { opensAt: event.target.value })
+                      }
                     />
                   </div>
                   <div>
@@ -442,7 +473,9 @@ function HoursStep({ onComplete }: { onComplete: () => void }) {
                     <Input
                       placeholder={timeInputPlaceholder}
                       value={row.closesAt ?? ''}
-                      onChange={(event) => updateHour(row.dayOfWeek, { closesAt: event.target.value })}
+                      onChange={(event) =>
+                        updateHour(row.dayOfWeek, { closesAt: event.target.value })
+                      }
                     />
                   </div>
                 </div>
@@ -476,10 +509,19 @@ function ServicePeriodsStep({ onComplete }: { onComplete: () => void }) {
     resolver: zodResolver(servicePeriodsFormSchema),
     defaultValues: { servicePeriods: state.servicePeriods.length ? state.servicePeriods : [] },
   });
-  const { fields, append, remove } = useFieldArray({ control: form.control, name: 'servicePeriods' });
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: 'servicePeriods',
+  });
 
   const addPeriod = () =>
-    append({ name: 'Dinner Service', dayOfWeek: null, startTime: '17:00', endTime: '21:00', bookingOption: 'dinner' });
+    append({
+      name: 'Dinner Service',
+      dayOfWeek: null,
+      startTime: '17:00',
+      endTime: '21:00',
+      bookingOption: 'dinner',
+    });
 
   const save = form.handleSubmit(async (values) => {
     if (!state.restaurantId) {
@@ -507,7 +549,7 @@ function ServicePeriodsStep({ onComplete }: { onComplete: () => void }) {
 
   return (
     <Form {...form}>
-      <form className="space-y-4" onSubmit={save}>
+      <FormRoot className="space-y-4" onSubmit={save}>
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-lg font-semibold">Service windows</h3>
@@ -525,7 +567,13 @@ function ServicePeriodsStep({ onComplete }: { onComplete: () => void }) {
               <CardContent className="space-y-3 pt-4">
                 <div className="flex items-center justify-between">
                   <div className="font-semibold">Service {index + 1}</div>
-                  <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} aria-label="Remove">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => remove(index)}
+                    aria-label="Remove"
+                  >
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
@@ -549,7 +597,10 @@ function ServicePeriodsStep({ onComplete }: { onComplete: () => void }) {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Booking option</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value ?? DEFAULT_BOOKING_OPTIONS[0]}>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value ?? DEFAULT_BOOKING_OPTIONS[0]}
+                        >
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue />
@@ -572,7 +623,11 @@ function ServicePeriodsStep({ onComplete }: { onComplete: () => void }) {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Day of week</FormLabel>
-                        <Select onValueChange={(val) => field.onChange(val === 'all' ? null : Number(val))}>
+                        <Select
+                          onValueChange={(val) =>
+                            field.onChange(val === 'all' ? null : Number(val))
+                          }
+                        >
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="All days" />
@@ -625,7 +680,9 @@ function ServicePeriodsStep({ onComplete }: { onComplete: () => void }) {
         {fields.length === 0 && (
           <Alert>
             <AlertTitle>No service periods yet</AlertTitle>
-            <AlertDescription>Start by adding lunch or dinner windows to open booking slots.</AlertDescription>
+            <AlertDescription>
+              Start by adding lunch or dinner windows to open booking slots.
+            </AlertDescription>
           </Alert>
         )}
 
@@ -636,14 +693,16 @@ function ServicePeriodsStep({ onComplete }: { onComplete: () => void }) {
           onNext={save}
           busy={state.loading}
         />
-      </form>
+      </FormRoot>
     </Form>
   );
 }
 
 function TablesStep({ onComplete }: { onComplete: () => void }) {
   const { state, setZones, setTables, setStep, setError, setLoading } = useOnboarding();
-  const [zones, updateZones] = useState<Zone[]>(state.zones.length ? state.zones : [{ name: 'Main Dining', areaType: 'indoor' }]);
+  const [zones, updateZones] = useState<Zone[]>(
+    state.zones.length ? state.zones : [{ name: 'Main Dining', areaType: 'indoor' }],
+  );
   const tablesForm = useForm<TablesFormValues>({
     resolver: zodResolver(tablesFormSchema),
     defaultValues: {
@@ -715,7 +774,9 @@ function TablesStep({ onComplete }: { onComplete: () => void }) {
         <Button
           type="button"
           variant="outline"
-          onClick={() => updateZones((current) => [...current, { name: `Zone ${current.length + 1}` }])}
+          onClick={() =>
+            updateZones((current) => [...current, { name: `Zone ${current.length + 1}` }])
+          }
         >
           Add zone
         </Button>
@@ -729,7 +790,7 @@ function TablesStep({ onComplete }: { onComplete: () => void }) {
       </div>
 
       <Form {...tablesForm}>
-        <form className="space-y-3" onSubmit={save}>
+        <FormRoot className="space-y-3" onSubmit={save}>
           {fields.map((field, index) => (
             <Card key={field.id} className="border-border/70">
               <CardContent className="grid gap-3 pt-4 md:grid-cols-3">
@@ -777,7 +838,13 @@ function TablesStep({ onComplete }: { onComplete: () => void }) {
                   }}
                 />
                 <div className="flex items-end justify-end">
-                  <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} aria-label="Remove table">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => remove(index)}
+                    aria-label="Remove table"
+                  >
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
@@ -785,7 +852,11 @@ function TablesStep({ onComplete }: { onComplete: () => void }) {
             </Card>
           ))}
 
-          <Button type="button" variant="outline" onClick={() => append({ tableNumber: `T${fields.length + 1}`, capacity: 2 })}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => append({ tableNumber: `T${fields.length + 1}`, capacity: 2 })}
+          >
             <Plus className="h-4 w-4" />
             Add table
           </Button>
@@ -797,7 +868,7 @@ function TablesStep({ onComplete }: { onComplete: () => void }) {
             onNext={save}
             busy={state.loading}
           />
-        </form>
+        </FormRoot>
       </Form>
     </div>
   );
@@ -823,7 +894,9 @@ function ReviewStep() {
     setLoading(true);
     setError(null);
     try {
-      await fetchJson(`/api/onboarding/restaurant/${state.restaurantId}/complete`, { method: 'POST' });
+      await fetchJson(`/api/onboarding/restaurant/${state.restaurantId}/complete`, {
+        method: 'POST',
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to finish onboarding';
       setError(message);
@@ -877,7 +950,7 @@ function OnboardingContent() {
   const maxAccessibleStep = getMaxAccessibleStep(state);
   const lastHandledPathRef = useRef<string | null>(null);
 
-  const noop = () => { };
+  const noop = () => {};
 
   useEffect(() => {
     if (lastHandledPathRef.current === pathname) {

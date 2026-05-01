@@ -82,9 +82,7 @@ function formatDuration(ms: number | null): string {
   return `${(ms / 60_000).toFixed(1)}m`;
 }
 
-function jobStatus(
-  job: DualSyncPublishJobRollup,
-): 'success' | 'partial' | 'failed' | 'in-flight' {
+function jobStatus(job: DualSyncPublishJobRollup): 'success' | 'partial' | 'failed' | 'in-flight' {
   if (job.otherCount > 0 || !job.finishedAt) return 'in-flight';
   if (job.failedCount === 0) return 'success';
   if (job.succeededCount > 0) return 'partial';
@@ -142,10 +140,7 @@ export interface DualSyncPublishJobsPanelProps {
    */
   readonly selectedJobId?: string | null;
   readonly onSelectJob?: (jobId: string | null) => void;
-  readonly publishJobDetailQuery?: UseQueryResult<
-    GetDualSyncPublishJobDetailResponse,
-    Error
-  >;
+  readonly publishJobDetailQuery?: UseQueryResult<GetDualSyncPublishJobDetailResponse, Error>;
   readonly className?: string;
 }
 
@@ -156,10 +151,7 @@ export function DualSyncPublishJobsPanel({
   publishJobDetailQuery,
   className,
 }: DualSyncPublishJobsPanelProps) {
-  const jobs = useMemo(
-    () => publishJobsQuery.data?.jobs ?? [],
-    [publishJobsQuery.data],
-  );
+  const jobs = useMemo(() => publishJobsQuery.data?.jobs ?? [], [publishJobsQuery.data]);
   const detailEnabled = typeof onSelectJob === 'function';
 
   if (publishJobsQuery.isLoading) {
@@ -182,9 +174,7 @@ export function DualSyncPublishJobsPanel({
       >
         <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
         <div className="space-y-1">
-          <div className="font-semibold">
-            Couldn&apos;t load publish jobs.
-          </div>
+          <div className="font-semibold">Couldn&apos;t load publish jobs.</div>
           <div className="text-xs opacity-80">
             {publishJobsQuery.error?.message ?? 'Unknown error.'}
           </div>
@@ -258,10 +248,7 @@ interface PublishJobRowProps {
   readonly isSelected: boolean;
   readonly detailEnabled: boolean;
   readonly onSelectJob?: (jobId: string | null) => void;
-  readonly publishJobDetailQuery?: UseQueryResult<
-    GetDualSyncPublishJobDetailResponse,
-    Error
-  >;
+  readonly publishJobDetailQuery?: UseQueryResult<GetDualSyncPublishJobDetailResponse, Error>;
   readonly colSpan: number;
 }
 
@@ -313,63 +300,51 @@ function PublishJobRow({
           {job.errorCodes.length > 0 ? (
             <div className="mt-1 flex flex-wrap gap-1">
               {job.errorCodes.map((code) => (
-                <span
-                  key={code}
-                  className="font-mono text-[10px] text-destructive"
-                >
+                <span key={code} className="font-mono text-[10px] text-destructive">
                   {code}
                 </span>
               ))}
             </div>
           ) : null}
         </TableCell>
-                <TableCell>
-                  <span
-                    className="font-mono text-[10px]"
-                    title={job.publishJobId}
-                  >
-                    {shortenJobId(job.publishJobId)}
-                  </span>
-                  <div className="mt-0.5 flex gap-2 text-[10px] text-muted-foreground">
-                    {job.importCount > 0 ? (
-                      <span className="inline-flex items-center gap-0.5">
-                        <ArrowDownToLine className="h-3 w-3" />
-                        {job.importCount}
-                      </span>
-                    ) : null}
-                    {job.exportCount > 0 ? (
-                      <span className="inline-flex items-center gap-0.5">
-                        <ArrowUpFromLine className="h-3 w-3" />
-                        {job.exportCount}
-                      </span>
-                    ) : null}
-                  </div>
-                </TableCell>
-                <TableCell className="font-mono text-[10px]">
-                  {formatTimestamp(job.startedAt)}
-                </TableCell>
-                <TableCell className="text-right font-mono text-[10px]">
-                  {formatDuration(durationMs(job))}
-                </TableCell>
-                <TableCell className="text-right font-mono text-[10px]">
-                  <span className="text-green-600">{job.succeededCount}✓</span>
-                  {' / '}
-                  <span className="text-red-600">{job.failedCount}✗</span>
-                  {job.skippedCount > 0 ? (
-                    <span className="text-muted-foreground">
-                      {' / '}
-                      {job.skippedCount}–
-                    </span>
-                  ) : null}
-                </TableCell>
+        <TableCell>
+          <span className="font-mono text-[10px]" title={job.publishJobId}>
+            {shortenJobId(job.publishJobId)}
+          </span>
+          <div className="mt-0.5 flex gap-2 text-[10px] text-muted-foreground">
+            {job.importCount > 0 ? (
+              <span className="inline-flex items-center gap-0.5">
+                <ArrowDownToLine className="h-3 w-3" />
+                {job.importCount}
+              </span>
+            ) : null}
+            {job.exportCount > 0 ? (
+              <span className="inline-flex items-center gap-0.5">
+                <ArrowUpFromLine className="h-3 w-3" />
+                {job.exportCount}
+              </span>
+            ) : null}
+          </div>
+        </TableCell>
+        <TableCell className="font-mono text-[10px]">{formatTimestamp(job.startedAt)}</TableCell>
+        <TableCell className="text-right font-mono text-[10px]">
+          {formatDuration(durationMs(job))}
+        </TableCell>
+        <TableCell className="text-right font-mono text-[10px]">
+          <span className="text-primary">{job.succeededCount}✓</span>
+          {' / '}
+          <span className="text-destructive">{job.failedCount}✗</span>
+          {job.skippedCount > 0 ? (
+            <span className="text-muted-foreground">
+              {' / '}
+              {job.skippedCount}–
+            </span>
+          ) : null}
+        </TableCell>
         <TableCell>
           <div className="flex flex-wrap gap-1">
             {job.sections.map((section) => (
-              <Badge
-                key={section}
-                variant="outline"
-                className="font-mono text-[10px]"
-              >
+              <Badge key={section} variant="outline" className="font-mono text-[10px]">
                 {SECTION_LABEL[section] ?? section}
               </Badge>
             ))}
@@ -401,25 +376,14 @@ const OP_STATUS_VARIANTS: Record<string, 'default' | 'secondary' | 'destructive'
 
 interface PublishJobDetailContentProps {
   readonly jobId: string;
-  readonly publishJobDetailQuery?: UseQueryResult<
-    GetDualSyncPublishJobDetailResponse,
-    Error
-  >;
+  readonly publishJobDetailQuery?: UseQueryResult<GetDualSyncPublishJobDetailResponse, Error>;
 }
 
-function PublishJobDetailContent({
-  jobId,
-  publishJobDetailQuery,
-}: PublishJobDetailContentProps) {
+function PublishJobDetailContent({ jobId, publishJobDetailQuery }: PublishJobDetailContentProps) {
   if (!publishJobDetailQuery) {
-    return (
-      <div className="p-3 text-xs text-muted-foreground">
-        Detail loader not configured.
-      </div>
-    );
+    return <div className="p-3 text-xs text-muted-foreground">Detail loader not configured.</div>;
   }
-  const isThisJob =
-    publishJobDetailQuery.data?.rollup.publishJobId === jobId;
+  const isThisJob = publishJobDetailQuery.data?.rollup.publishJobId === jobId;
   if (publishJobDetailQuery.isLoading || (!isThisJob && publishJobDetailQuery.isFetching)) {
     return (
       <div className="space-y-2 p-3">
@@ -438,11 +402,7 @@ function PublishJobDetailContent({
           <div className="opacity-80">
             {publishJobDetailQuery.error?.message ?? 'Unknown error.'}
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => publishJobDetailQuery.refetch()}
-          >
+          <Button variant="outline" size="sm" onClick={() => publishJobDetailQuery.refetch()}>
             Retry
           </Button>
         </div>
@@ -451,18 +411,12 @@ function PublishJobDetailContent({
   }
   const detail = isThisJob ? publishJobDetailQuery.data : undefined;
   if (!detail) {
-    return (
-      <div className="p-3 text-xs text-muted-foreground">
-        Loading detail…
-      </div>
-    );
+    return <div className="p-3 text-xs text-muted-foreground">Loading detail…</div>;
   }
   const operations = detail.operations;
   if (operations.length === 0) {
     return (
-      <div className="p-3 text-xs text-muted-foreground">
-        No operations recorded for this job.
-      </div>
+      <div className="p-3 text-xs text-muted-foreground">No operations recorded for this job.</div>
     );
   }
   return (
@@ -492,9 +446,7 @@ function PublishJobDetailContent({
                     {op.status}
                   </Badge>
                 </TableCell>
-                <TableCell className="font-mono text-[10px]">
-                  {op.fieldKey}
-                </TableCell>
+                <TableCell className="font-mono text-[10px]">{op.fieldKey}</TableCell>
                 <TableCell className="font-mono text-[10px]">
                   {op.direction === 'export_to_google' ? (
                     <span className="inline-flex items-center gap-0.5">
@@ -511,9 +463,7 @@ function PublishJobDetailContent({
                 </TableCell>
                 <TableCell className="text-[11px]">
                   {op.errorCode ? (
-                    <span className="font-mono text-destructive">
-                      {op.errorCode}
-                    </span>
+                    <span className="font-mono text-destructive">{op.errorCode}</span>
                   ) : (
                     <span className="text-muted-foreground">—</span>
                   )}

@@ -64,7 +64,7 @@ export function OpsGuestCard({ guest }: OpsGuestCardProps) {
                 variant="outline"
                 className={cn(
                   'border-dashed',
-                  guest.visitStatusLabel === 'Never visited' ? 'text-amber-700' : undefined,
+                  guest.visitStatusLabel === 'Never visited' ? 'text-primary' : undefined,
                 )}
               >
                 {guest.visitStatusLabel}

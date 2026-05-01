@@ -20,7 +20,7 @@ export function GuestNotesCard({ bookingNotes, profileNotes }: GuestNotesCardPro
   if (!bookingNotes && !profileNotes) return null;
 
   return (
-    <Card className="border-slate-200/60 bg-white shadow-sm">
+    <Card className="border-border bg-background shadow-sm">
       <CardContent className="p-4">
         <Accordion type="single" collapsible>
           {bookingNotes ? (

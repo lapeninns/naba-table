@@ -14,6 +14,7 @@ import {
   GuestStatus,
 } from '@/components/guest/ui';
 import { Button } from '@/components/ui/button';
+import { FormRoot } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useGuestProfile } from '@/guest/hooks';
@@ -88,7 +89,10 @@ export function GuestProfileClient({
 
     if (!persistChanges) {
       form.reset(data);
-      setFeedback({ type: 'success', message: 'Dev preview updated. No profile changes were saved.' });
+      setFeedback({
+        type: 'success',
+        message: 'Dev preview updated. No profile changes were saved.',
+      });
       setTimeout(() => setFeedback(null), 4000);
       return;
     }
@@ -138,7 +142,7 @@ export function GuestProfileClient({
               </p>
             </div>
 
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6" noValidate>
+            <FormRoot onSubmit={form.handleSubmit(onSubmit)} className="space-y-6" noValidate>
               <div className="grid gap-5 md:grid-cols-2">
                 <FieldShell
                   label="Full name"
@@ -205,7 +209,7 @@ export function GuestProfileClient({
                   {isSubmitting ? 'Saving...' : 'Save changes'}
                 </Button>
               </div>
-            </form>
+            </FormRoot>
           </GuestPanel>
 
           <aside className="space-y-3 lg:sticky lg:top-24">

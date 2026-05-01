@@ -1,20 +1,19 @@
-"use client";
+'use client';
 
-import { useMemo, useState, type ReactElement, type ReactNode } from "react";
+import { useMemo, useState, type ReactElement, type ReactNode } from 'react';
 
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useBookingOfflineQueue } from "@/contexts/booking-offline-queue";
-import { useOptionalBookingState } from "@/contexts/booking-state-machine";
-import { cn } from "@/lib/utils";
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useBookingOfflineQueue } from '@/contexts/booking-offline-queue';
+import { useOptionalBookingState } from '@/contexts/booking-state-machine';
+import { cn } from '@/lib/utils';
 
-import { ConfirmationDialog, type TriggerProps } from "./ConfirmationDialog";
+import { ConfirmationDialog, type TriggerProps } from './ConfirmationDialog';
 
+import type { OpsBookingStatus } from '@/types/ops';
 
-import type { OpsBookingStatus } from "@/types/ops";
-
-export type BookingAction = "check-in" | "check-out" | "no-show" | "undo-no-show";
+export type BookingAction = 'check-in' | 'check-out' | 'no-show' | 'undo-no-show';
 
 export type BookingActionSubject = {
   id: string;
@@ -28,7 +27,10 @@ type BookingActionButtonProps = {
   pendingAction: BookingAction | null;
   onCheckIn: (options?: { performedAt?: string | null }) => Promise<void>;
   onCheckOut: (options?: { performedAt?: string | null }) => Promise<void>;
-  onMarkNoShow: (options?: { performedAt?: string | null; reason?: string | null }) => Promise<void>;
+  onMarkNoShow: (options?: {
+    performedAt?: string | null;
+    reason?: string | null;
+  }) => Promise<void>;
   onUndoNoShow: (reason?: string | null) => Promise<void>;
   showConfirmation?: boolean;
   className?: string;
@@ -39,17 +41,17 @@ type BookingActionButtonProps = {
 };
 
 type ButtonConfig = {
-  action: BookingAction | "completed" | "unavailable";
+  action: BookingAction | 'completed' | 'unavailable';
   label: string;
-  variant: "default" | "secondary" | "destructive";
+  variant: 'default' | 'secondary' | 'destructive';
   tooltip?: string | null;
 };
 
 const DISABLED_REASON: Record<BookingAction, string> = {
-  "check-in": "Guest must be in confirmed status to check in.",
-  "check-out": "Guest must be checked in before you can check out.",
-  "no-show": "Only confirmed bookings can be marked as no-show.",
-  "undo-no-show": "Undo is available only for no-show bookings.",
+  'check-in': 'Guest must be in confirmed status to check in.',
+  'check-out': 'Guest must be checked in before you can check out.',
+  'no-show': 'Only confirmed bookings can be marked as no-show.',
+  'undo-no-show': 'Undo is available only for no-show bookings.',
 };
 
 export function BookingActionButton({
@@ -70,43 +72,59 @@ export function BookingActionButton({
   const queuedActionType = queuedAction?.action ?? null;
   const isQueued = Boolean(queuedActionType);
 
-  const [noShowReason, setNoShowReason] = useState("");
-  const [undoReason, setUndoReason] = useState("");
+  const [noShowReason, setNoShowReason] = useState('');
+  const [undoReason, setUndoReason] = useState('');
 
   const availability = lifecycleAvailability ?? { isToday: true };
   const isLifecycleRestricted = !availability.isToday;
   const availabilityTooltip =
-    availability.reason ?? "Lifecycle actions are only available on the reservation date.";
+    availability.reason ?? 'Lifecycle actions are only available on the reservation date.';
 
   const primaryConfig: ButtonConfig = useMemo(() => {
     switch (effectiveStatus) {
-      case "confirmed":
-      case "PRIORITY_WAITLIST":
-        return { action: "check-in", label: "Seat Guest", variant: "default" };
-      case "checked_in":
-        return { action: "check-out", label: "Check out", variant: "default" };
-      case "completed":
-        return { action: "completed", label: "Checked out", variant: "default", tooltip: "Guest already checked out." };
-      case "cancelled":
-        return { action: "unavailable", label: "Cancelled", variant: "secondary", tooltip: "Cancelled bookings cannot change status." };
-      case "no_show":
-        return { action: "unavailable", label: "No show", variant: "secondary", tooltip: "Use undo no show to restore booking." };
+      case 'confirmed':
+      case 'PRIORITY_WAITLIST':
+        return { action: 'check-in', label: 'Seat Guest', variant: 'default' };
+      case 'checked_in':
+        return { action: 'check-out', label: 'Check out', variant: 'default' };
+      case 'completed':
+        return {
+          action: 'completed',
+          label: 'Checked out',
+          variant: 'default',
+          tooltip: 'Guest already checked out.',
+        };
+      case 'cancelled':
+        return {
+          action: 'unavailable',
+          label: 'Cancelled',
+          variant: 'secondary',
+          tooltip: 'Cancelled bookings cannot change status.',
+        };
+      case 'no_show':
+        return {
+          action: 'unavailable',
+          label: 'No show',
+          variant: 'secondary',
+          tooltip: 'Use undo no show to restore booking.',
+        };
       default:
-        return { action: "unavailable", label: "Unavailable", variant: "secondary" };
+        return { action: 'unavailable', label: 'Unavailable', variant: 'secondary' };
     }
   }, [effectiveStatus]);
 
   const secondaryConfig: ButtonConfig | null = useMemo(() => {
-    if (effectiveStatus === "confirmed" || effectiveStatus === "PRIORITY_WAITLIST") {
-      return { action: "no-show", label: "Mark no show", variant: "destructive" };
+    if (effectiveStatus === 'confirmed' || effectiveStatus === 'PRIORITY_WAITLIST') {
+      return { action: 'no-show', label: 'Mark no show', variant: 'destructive' };
     }
-    if (effectiveStatus === "no_show") {
-      return { action: "undo-no-show", label: "Undo no show", variant: "secondary" };
+    if (effectiveStatus === 'no_show') {
+      return { action: 'undo-no-show', label: 'Undo no show', variant: 'secondary' };
     }
     return null;
   }, [effectiveStatus]);
 
-  const isPrimaryPending = pendingAction === primaryConfig.action || queuedActionType === primaryConfig.action;
+  const isPrimaryPending =
+    pendingAction === primaryConfig.action || queuedActionType === primaryConfig.action;
   const isSecondaryPending = secondaryConfig
     ? pendingAction === secondaryConfig.action || queuedActionType === secondaryConfig.action
     : false;
@@ -115,7 +133,7 @@ export function BookingActionButton({
     if (isQueued) {
       return true;
     }
-    if (primaryConfig.action === "completed" || primaryConfig.action === "unavailable") {
+    if (primaryConfig.action === 'completed' || primaryConfig.action === 'unavailable') {
       return true;
     }
     if (pendingAction && pendingAction !== primaryConfig.action) {
@@ -135,10 +153,10 @@ export function BookingActionButton({
     return false;
   })();
 
-  const checkInRestricted = isLifecycleRestricted && primaryConfig.action === "check-in";
-  const checkOutRestricted = isLifecycleRestricted && primaryConfig.action === "check-out";
-  const noShowRestricted = isLifecycleRestricted && secondaryConfig?.action === "no-show";
-  const undoNoShowRestricted = isLifecycleRestricted && secondaryConfig?.action === "undo-no-show";
+  const checkInRestricted = isLifecycleRestricted && primaryConfig.action === 'check-in';
+  const checkOutRestricted = isLifecycleRestricted && primaryConfig.action === 'check-out';
+  const noShowRestricted = isLifecycleRestricted && secondaryConfig?.action === 'no-show';
+  const undoNoShowRestricted = isLifecycleRestricted && secondaryConfig?.action === 'undo-no-show';
 
   const primaryDisabled = basePrimaryDisabled;
   const secondaryDisabled = baseSecondaryDisabled;
@@ -161,16 +179,17 @@ export function BookingActionButton({
         }
       }
       if (isQueued) {
-        reason = queuedActionType === ariaLabel
-          ? 'Action queued while offline. It will sync automatically.'
-          : reason ?? 'Another action for this booking is queued while offline.';
+        reason =
+          queuedActionType === ariaLabel
+            ? 'Action queued while offline. It will sync automatically.'
+            : (reason ?? 'Another action for this booking is queued while offline.');
       }
     }
     const button = (
       <Button
         variant={variant}
         size="sm"
-        className={cn("h-11 min-w-[140px] touch-manipulation font-semibold", className)}
+        className={cn('h-11 min-w-[140px] touch-manipulation font-semibold', className)}
         disabled={disabled}
         onClick={() => {
           if (disabled) return;
@@ -196,9 +215,9 @@ export function BookingActionButton({
   };
 
   const handlePrimary = async () => {
-    if (primaryConfig.action === "check-in") {
+    if (primaryConfig.action === 'check-in') {
       await onCheckIn();
-    } else if (primaryConfig.action === "check-out") {
+    } else if (primaryConfig.action === 'check-out') {
       await onCheckOut();
     }
   };
@@ -206,7 +225,10 @@ export function BookingActionButton({
   const primaryTooltip = primaryConfig.tooltip;
 
   const primaryElement = (() => {
-    if ((checkInRestricted && primaryConfig.action === "check-in") || (checkOutRestricted && primaryConfig.action === "check-out")) {
+    if (
+      (checkInRestricted && primaryConfig.action === 'check-in') ||
+      (checkOutRestricted && primaryConfig.action === 'check-out')
+    ) {
       return renderButton(
         { ...primaryConfig, tooltip: availabilityTooltip },
         true,
@@ -216,7 +238,7 @@ export function BookingActionButton({
       );
     }
 
-    if (primaryConfig.action !== "unavailable") {
+    if (primaryConfig.action !== 'unavailable') {
       return renderButton(
         { ...primaryConfig, tooltip: primaryTooltip },
         primaryDisabled,
@@ -226,14 +248,14 @@ export function BookingActionButton({
       );
     }
 
-    return renderButton(primaryConfig, true, () => {}, false, "unavailable");
+    return renderButton(primaryConfig, true, () => {}, false, 'unavailable');
   })();
 
   let secondaryElement: ReactNode = null;
   if (secondaryConfig) {
     if (
-      (noShowRestricted && secondaryConfig.action === "no-show")
-      || (undoNoShowRestricted && secondaryConfig.action === "undo-no-show")
+      (noShowRestricted && secondaryConfig.action === 'no-show') ||
+      (undoNoShowRestricted && secondaryConfig.action === 'undo-no-show')
     ) {
       secondaryElement = renderButton(
         { ...secondaryConfig, tooltip: availabilityTooltip },
@@ -243,12 +265,18 @@ export function BookingActionButton({
         secondaryConfig.action,
       );
     } else if (!showConfirmation) {
-      const handler = secondaryConfig.action === "no-show"
-        ? () => { void onMarkNoShow(); }
-        : () => { void onUndoNoShow(); };
-      const tooltip = secondaryConfig.action === "no-show" && noShowRestricted
-        ? availabilityTooltip
-        : DISABLED_REASON[secondaryConfig.action as BookingAction];
+      const handler =
+        secondaryConfig.action === 'no-show'
+          ? () => {
+              void onMarkNoShow();
+            }
+          : () => {
+              void onUndoNoShow();
+            };
+      const tooltip =
+        secondaryConfig.action === 'no-show' && noShowRestricted
+          ? availabilityTooltip
+          : DISABLED_REASON[secondaryConfig.action as BookingAction];
       secondaryElement = renderButton(
         { ...secondaryConfig, tooltip },
         secondaryDisabled,
@@ -257,9 +285,10 @@ export function BookingActionButton({
         secondaryConfig.action,
       );
     } else if (secondaryDisabled) {
-      const tooltip = secondaryConfig.action === "no-show" && noShowRestricted
-        ? availabilityTooltip
-        : DISABLED_REASON[secondaryConfig.action as BookingAction];
+      const tooltip =
+        secondaryConfig.action === 'no-show' && noShowRestricted
+          ? availabilityTooltip
+          : DISABLED_REASON[secondaryConfig.action as BookingAction];
       secondaryElement = renderButton(
         { ...secondaryConfig, tooltip },
         true,
@@ -267,11 +296,11 @@ export function BookingActionButton({
         isSecondaryPending,
         secondaryConfig.action,
       );
-    } else if (secondaryConfig.action === "no-show") {
+    } else if (secondaryConfig.action === 'no-show') {
       const trigger = renderButton(
         {
           ...secondaryConfig,
-          tooltip: noShowRestricted ? availabilityTooltip : DISABLED_REASON["no-show"],
+          tooltip: noShowRestricted ? availabilityTooltip : DISABLED_REASON['no-show'],
         },
         false,
         () => {},
@@ -290,10 +319,10 @@ export function BookingActionButton({
             await onMarkNoShow({
               reason: noShowReason.trim().length > 0 ? noShowReason.trim() : null,
             });
-            setNoShowReason("");
+            setNoShowReason('');
           }}
           onAfterClose={() => {
-            setNoShowReason("");
+            setNoShowReason('');
           }}
         >
           <Textarea
@@ -304,9 +333,9 @@ export function BookingActionButton({
           />
         </ConfirmationDialog>
       );
-    } else if (secondaryConfig.action === "undo-no-show") {
+    } else if (secondaryConfig.action === 'undo-no-show') {
       const trigger = renderButton(
-        { ...secondaryConfig, tooltip: DISABLED_REASON["undo-no-show"] },
+        { ...secondaryConfig, tooltip: DISABLED_REASON['undo-no-show'] },
         false,
         () => {},
         isSecondaryPending,
@@ -322,10 +351,10 @@ export function BookingActionButton({
           pending={isSecondaryPending}
           onConfirm={async () => {
             await onUndoNoShow(undoReason.trim().length > 0 ? undoReason.trim() : null);
-            setUndoReason("");
+            setUndoReason('');
           }}
           onAfterClose={() => {
-            setUndoReason("");
+            setUndoReason('');
           }}
         >
           <Textarea

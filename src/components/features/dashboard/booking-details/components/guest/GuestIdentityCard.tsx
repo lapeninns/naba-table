@@ -17,13 +17,12 @@ export function GuestIdentityCard({ booking }: GuestIdentityCardProps) {
   const initials = useMemo(() => getGuestInitials(booking.customerName), [booking.customerName]);
 
   return (
-    <Card className="border-slate-200/60 bg-white shadow-sm">
+    <Card className="border-border bg-background shadow-sm">
       <CardContent className="flex items-start gap-3 p-4">
         <div
           className={cn(
-            'flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-white text-lg font-bold',
-            'bg-gradient-to-br',
-            'from-slate-500 to-slate-700',
+            'flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-lg font-bold',
+            'bg-primary text-primary-foreground',
           )}
           aria-hidden
         >

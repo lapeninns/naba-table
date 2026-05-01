@@ -8,10 +8,7 @@ import { getTodayInTimezone } from '@/lib/utils/datetime';
 
 import { OpsDashboardToolbar } from './OpsDashboardToolbar';
 
-import type {
-  DashboardBookingActionHandlers,
-  DashboardListControls,
-} from './types';
+import type { DashboardBookingActionHandlers, DashboardListControls } from './types';
 import type { OpsTodayBookingsSummary } from '@/types/ops';
 
 const NO_BOOKINGS_TITLE = 'Bookings unavailable';

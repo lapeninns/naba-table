@@ -14,8 +14,8 @@ import { cn } from '@/lib/utils';
 import { freshnessAge, type DualSyncFreshness } from './freshness';
 
 const TONE_CLASS: Record<DualSyncFreshness['tone'], string> = {
-  fresh: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-  recent: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+  fresh: 'border-primary/30 bg-primary/10 text-primary dark:text-primary',
+  recent: 'border-primary/30 bg-primary/10 text-primary dark:text-primary',
   stale: 'border-destructive/50 bg-destructive/10 text-destructive',
   never: 'border-muted-foreground/30 bg-muted/40 text-muted-foreground',
 };
@@ -48,7 +48,7 @@ export function DualSyncFreshnessChip({
   const { tone, label } = freshnessAge(timestamp, now);
   const text =
     tone === 'never'
-      ? neverLabel ?? 'Never'
+      ? (neverLabel ?? 'Never')
       : prefix
         ? `${prefix} ${label} ${TONE_SUFFIX[tone]}`.trim()
         : `${label} ${TONE_SUFFIX[tone]}`.trim();

@@ -92,7 +92,10 @@ export function useBookingsListState({
     if (normalizedSearch && hasSearch) {
       const q = normalizedSearch;
       result = result.filter((booking) =>
-        (booking.searchText ?? `${booking.customerName ?? ''} ${booking.reference ?? ''}`.toLowerCase()).includes(q),
+        (
+          booking.searchText ??
+          `${booking.customerName ?? ''} ${booking.reference ?? ''}`.toLowerCase()
+        ).includes(q),
       );
     }
 

@@ -2,6 +2,7 @@
 
 import { Plus, Trash2 } from 'lucide-react';
 
+import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -41,12 +42,11 @@ export function AvailabilityOverridesEditor({
       </div>
 
       {rows.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 px-6 py-10 text-center">
-          <p className="text-sm font-medium text-foreground">No date overrides yet</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Add special closures or modified hours when the regular weekly pattern does not apply.
-          </p>
-        </div>
+        <OpsEmptyState
+          title="No date overrides yet"
+          description="Add special closures or modified hours when the regular weekly pattern does not apply."
+          className="min-h-[180px] bg-muted/20 px-6 py-10"
+        />
       ) : (
         rows.map((row, index) => {
           const errors = rowErrors[index] ?? {};
@@ -201,10 +201,7 @@ export function AvailabilityOverridesEditor({
                           onChange(index, { reservationSlotTimes: event.target.value })
                         }
                         aria-invalid={Boolean(errors.reservationSlotTimes)}
-                        className={cn(
-                          'mt-1',
-                          errors.reservationSlotTimes && 'border-destructive',
-                        )}
+                        className={cn('mt-1', errors.reservationSlotTimes && 'border-destructive')}
                       />
                       {errors.reservationSlotTimes ? (
                         <p className="mt-1 text-xs text-destructive">

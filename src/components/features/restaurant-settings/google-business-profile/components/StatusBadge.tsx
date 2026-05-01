@@ -15,19 +15,19 @@ type ToneConfig = {
 
 const TONES: Record<StatusTone, ToneConfig> = {
   verified: {
-    className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    className: 'border-primary/30 bg-primary/10 text-primary',
     icon: CheckCircle2,
   },
   drift: {
-    className: 'border-amber-200 bg-amber-50 text-amber-800',
+    className: 'border-primary/30 bg-primary/10 text-primary',
     icon: AlertTriangle,
   },
   error: {
-    className: 'border-red-200 bg-red-50 text-red-700',
+    className: 'border-destructive/20 bg-destructive/10 text-destructive',
     icon: ShieldAlert,
   },
   pending: {
-    className: 'border-sky-200 bg-sky-50 text-sky-700',
+    className: 'border-primary/20 bg-primary/10 text-primary',
     icon: CircleDashed,
   },
   muted: {
@@ -62,9 +62,10 @@ export function StatusBadge({ tone, label, className, showIcon = true }: StatusB
   );
 }
 
-export function connectionStatusBadge(
-  status: GoogleBusinessProfileConnection['status'],
-): { tone: StatusTone; label: string } {
+export function connectionStatusBadge(status: GoogleBusinessProfileConnection['status']): {
+  tone: StatusTone;
+  label: string;
+} {
   switch (status) {
     case 'linked':
       return { tone: 'verified', label: 'Linked' };
@@ -82,9 +83,10 @@ export function connectionStatusBadge(
   }
 }
 
-export function alignmentToneForMatch(
-  status: 'matched' | 'partial' | 'drifted' | 'unavailable',
-): { tone: StatusTone; label: string } {
+export function alignmentToneForMatch(status: 'matched' | 'partial' | 'drifted' | 'unavailable'): {
+  tone: StatusTone;
+  label: string;
+} {
   switch (status) {
     case 'matched':
       return { tone: 'verified', label: 'In sync' };

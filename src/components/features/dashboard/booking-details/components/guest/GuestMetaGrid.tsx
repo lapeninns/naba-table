@@ -23,7 +23,7 @@ function MetaCard({
 }) {
   const Icon = icon;
   return (
-    <Card className="border-slate-200/60 bg-white shadow-sm">
+    <Card className="border-border bg-background shadow-sm">
       <CardContent className="flex items-center gap-3 p-4">
         <div className="flex h-9 w-9 items-center justify-center rounded-md bg-muted text-muted-foreground">
           <Icon className="h-4 w-4" aria-hidden />
@@ -63,4 +63,3 @@ export function GuestMetaGrid({
 }
 
 export default GuestMetaGrid;
-

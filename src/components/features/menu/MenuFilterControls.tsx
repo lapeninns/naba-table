@@ -2,6 +2,8 @@
 
 import { cloneElement, isValidElement, useId } from 'react';
 
+import { Label } from '@/components/ui/label';
+
 import type { ReactElement, ReactNode } from 'react';
 
 export const MENU_STATUS_FILTER_OPTIONS = [
@@ -32,13 +34,13 @@ export function MenuFilterField({ label, children }: { label: string; children: 
 
   return (
     <div className="space-y-2">
-      <label
+      <Label
         id={labelId}
         htmlFor={isGroupedContent ? undefined : controlId}
         className="text-sm font-medium text-foreground"
       >
         {label}
-      </label>
+      </Label>
       {labelledChild}
     </div>
   );

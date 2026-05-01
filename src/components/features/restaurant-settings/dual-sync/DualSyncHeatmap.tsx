@@ -45,9 +45,9 @@ export function DualSyncHeatmap({ counts, className, showLabels = true }: DualSy
       <div
         className="flex h-2 w-32 overflow-hidden rounded-sm border border-border/50"
         role="img"
-        aria-label={`Field state breakdown: ${HEATMAP_BUCKETS
-          .map((b) => `${HEATMAP_BUCKET_LABEL[b]} ${counts[b]}`)
-          .join(', ')}`}
+        aria-label={`Field state breakdown: ${HEATMAP_BUCKETS.map(
+          (b) => `${HEATMAP_BUCKET_LABEL[b]} ${counts[b]}`,
+        ).join(', ')}`}
       >
         {HEATMAP_BUCKETS.map((bucket) => {
           const value = counts[bucket];
@@ -73,11 +73,7 @@ function HeatmapLegend({ counts }: { counts: DualSyncHeatmapCounts }) {
   const visible = HEATMAP_BUCKETS.filter((b) => counts[b] > 0 && b !== 'inactive');
   if (visible.length === 0) {
     if (counts.inactive === counts.total) {
-      return (
-        <span className="font-mono text-[10px] text-muted-foreground">
-          all inactive
-        </span>
-      );
+      return <span className="font-mono text-[10px] text-muted-foreground">all inactive</span>;
     }
     return null;
   }
@@ -90,13 +86,7 @@ function HeatmapLegend({ counts }: { counts: DualSyncHeatmapCounts }) {
   );
 }
 
-function LegendChip({
-  bucket,
-  value,
-}: {
-  bucket: DualSyncHeatmapBucket;
-  value: number;
-}) {
+function LegendChip({ bucket, value }: { bucket: DualSyncHeatmapBucket; value: number }) {
   return (
     <span className="inline-flex items-center gap-1">
       <span

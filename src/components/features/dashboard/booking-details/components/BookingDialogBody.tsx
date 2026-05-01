@@ -10,6 +10,7 @@
 import { ChevronDown } from 'lucide-react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -119,7 +120,7 @@ export function BookingDialogBody({
 
   if (isMobile) {
     return (
-      <ScrollArea className="h-full bg-slate-50/30">
+      <ScrollArea className="h-full bg-muted/40">
         <div className="flex flex-col gap-6 p-4 pb-20">
           <GuestProfilePanel
             booking={booking}
@@ -133,7 +134,7 @@ export function BookingDialogBody({
             enableDesktopTabs={false}
           />
 
-          <div ref={tablePanelRef} className="pt-4 border-t border-dashed border-slate-200">
+          <div ref={tablePanelRef} className="pt-4 border-t border-dashed border-border">
             <Collapsible
               open={isTableAssignmentOpen}
               onOpenChange={onTableAssignmentOpenChange}
@@ -146,21 +147,26 @@ export function BookingDialogBody({
                 >
                   <div className="text-left">
                     <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-1">
+                      <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-1">
                         Table Assignment
                       </h3>
                       {needsAssignment && !isTableAssignmentOpen ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white motion-reduce:animate-none">
-                          <span className="h-1.5 w-1.5 rounded-full bg-white/90" aria-hidden />
+                        <Badge
+                          variant="destructive"
+                          className="gap-1 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide motion-reduce:animate-none"
+                        >
+                          <span className="h-1.5 w-1.5 rounded-full bg-destructive" aria-hidden />
                           Action required
-                        </span>
+                        </Badge>
                       ) : null}
                     </div>
-                    <p className="text-xs text-slate-500 font-normal">Manage seating and capacity.</p>
+                    <p className="text-xs text-muted-foreground font-normal">
+                      Manage seating and capacity.
+                    </p>
                   </div>
                   <ChevronDown
                     className={cn(
-                      'h-4 w-4 text-slate-500 transition-transform duration-200',
+                      'h-4 w-4 text-muted-foreground transition-transform duration-200',
                       isTableAssignmentOpen && 'rotate-180',
                     )}
                   />
@@ -201,7 +207,7 @@ export function BookingDialogBody({
 
   return (
     <div className="grid h-full overflow-hidden grid-cols-1 lg:grid-cols-2">
-      <ScrollArea className="h-full border-b border-stone-200/70 lg:border-b-0 lg:border-r bg-gradient-to-b from-stone-50/80 via-white to-stone-50/60 overflow-x-hidden">
+      <ScrollArea className="h-full overflow-x-hidden border-b border-border bg-muted/40 lg:border-b-0 lg:border-r">
         <div className="p-5 lg:p-6 space-y-5 overflow-x-hidden">
           <GuestProfilePanel
             booking={booking}
@@ -216,10 +222,10 @@ export function BookingDialogBody({
           />
         </div>
       </ScrollArea>
-      <ScrollArea className="h-full overflow-x-hidden bg-white">
+      <ScrollArea className="h-full overflow-x-hidden bg-background">
         <div ref={tablePanelRef} className="p-4 lg:p-6 overflow-x-hidden h-full">
           <div className="mb-4 lg:hidden">
-            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+            <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">
               Table Assignment
             </h3>
           </div>

@@ -32,20 +32,20 @@ function statusPresentation(props: {
       return {
         label: props.verifiedLabel,
         icon: Check,
-        className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+        className: 'border-primary/30 bg-primary/10 text-primary',
       };
     case 'drifted':
       return {
         label: props.driftedLabel,
         icon: ShieldAlert,
-        className: 'border-amber-200 bg-amber-50 text-amber-700',
+        className: 'border-primary/30 bg-primary/10 text-primary',
       };
     case 'partial':
     default:
       return {
         label: props.partialLabel,
         icon: ShieldQuestion,
-        className: 'border-sky-200 bg-sky-50 text-sky-700',
+        className: 'border-primary/20 bg-primary/10 text-primary',
       };
   }
 }

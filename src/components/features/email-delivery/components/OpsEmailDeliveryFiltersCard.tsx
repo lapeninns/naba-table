@@ -68,12 +68,15 @@ export function OpsEmailDeliveryFiltersCard({
   );
 
   return (
-    <Card className="border-slate-200/60 bg-white">
+    <Card className="border-border bg-background">
       <CardContent className="p-4 space-y-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center">
           <div className="flex-1">
             <div className="relative">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" aria-hidden />
+              <Search
+                className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground"
+                aria-hidden
+              />
               <Input
                 name="email_delivery_search"
                 type="search"

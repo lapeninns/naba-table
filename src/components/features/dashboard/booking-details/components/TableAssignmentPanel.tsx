@@ -180,15 +180,7 @@ export function TableAssignmentPanel({
     }
 
     return result;
-  }, [
-    availabilityOnly,
-    conflictedTableIds,
-    fitFilter,
-    partySize,
-    sortBy,
-    tables,
-    zoneFilter,
-  ]);
+  }, [availabilityOnly, conflictedTableIds, fitFilter, partySize, sortBy, tables, zoneFilter]);
 
   const groupedTables = useMemo(() => groupTablesBySection(filteredTables), [filteredTables]);
 
@@ -380,12 +372,12 @@ export function TableAssignmentPanel({
         parsedServiceEnd={parsedTimes.parsedWindowEnd}
       />
 
-          <AllTablesSection
-            groupedTables={groupedTables}
-            filteredTables={filteredTables}
-            totalCount={filteredTables.length}
-            partySize={partySize}
-            selectedTableIds={selectedTableIds}
+      <AllTablesSection
+        groupedTables={groupedTables}
+        filteredTables={filteredTables}
+        totalCount={filteredTables.length}
+        partySize={partySize}
+        selectedTableIds={selectedTableIds}
         assignedTableIds={assignedTableIds}
         conflictedTableIds={conflictedTableIds}
         disabled={isPending}
@@ -410,9 +402,9 @@ export function TableAssignmentPanel({
             </AlertDialogDescription>
           </AlertDialogHeader>
           {validation.warnings.length > 0 && (
-            <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            <div className="rounded-md border border-primary/30 bg-primary/10 p-3 text-sm text-primary">
               <div className="flex items-center gap-2 font-semibold">
-                <AlertTriangle className="h-4 w-4 text-amber-700" aria-hidden />
+                <AlertTriangle className="h-4 w-4 text-primary" aria-hidden />
                 Warnings
               </div>
               <ul className="mt-2 list-disc space-y-1 pl-4 text-xs">
@@ -426,7 +418,7 @@ export function TableAssignmentPanel({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmApply}
-              className="bg-emerald-600 hover:bg-emerald-700"
+              className="bg-primary/10 hover:bg-primary/10"
             >
               Confirm assignment
             </AlertDialogAction>
@@ -446,7 +438,7 @@ export function TableAssignmentPanel({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmUnassign}
-              className="bg-rose-600 hover:bg-rose-700"
+              className="bg-destructive/10 hover:bg-destructive/10"
             >
               Remove tables
             </AlertDialogAction>

@@ -40,10 +40,8 @@ export function OpsOfflineIndicator({ className }: OpsOfflineIndicatorProps) {
             <WifiOff className="h-4 w-4" aria-hidden />
           </AlertIcon>
           <div className="space-y-1">
-            <AlertTitle className="text-sm font-semibold text-amber-900">
-              You are offline
-            </AlertTitle>
-            <AlertDescription className="text-sm text-amber-900/80">
+            <AlertTitle className="text-sm font-semibold text-primary">You are offline</AlertTitle>
+            <AlertDescription className="text-sm text-primary">
               Navigation is paused until you reconnect. We will keep showing cached data where
               available.
             </AlertDescription>

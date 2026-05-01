@@ -2,6 +2,8 @@
 
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useMinimumDelay } from '@/hooks/use-minimum-delay';
 import { cn } from '@/lib/utils';
@@ -58,7 +60,12 @@ export function OpsDashboardHeader({
 }: OpsDashboardHeaderProps) {
   const showRefetching = useMinimumDelay(isRefetching, { delayMs: 120, minDurationMs: 250 });
   const subtitle = (
-    <div className={cn('text-xs transition-opacity duration-300 sm:text-sm', showRefetching && 'opacity-50')}>
+    <div
+      className={cn(
+        'text-xs transition-opacity duration-300 sm:text-sm',
+        showRefetching && 'opacity-50',
+      )}
+    >
       {isSummaryLoading ? (
         <div className="flex flex-wrap items-center gap-2">
           <Skeleton className="h-4 w-32 sm:w-40" />
@@ -72,7 +79,7 @@ export function OpsDashboardHeader({
           <span className="mx-1.5 text-muted-foreground/50">·</span>
           <span className="font-semibold text-foreground">{guestStats.seated} seated</span> now
           {showRefetching ? (
-            <span className="ml-2 animate-pulse text-xs text-amber-600">(Updating…)</span>
+            <span className="ml-2 animate-pulse text-xs text-primary">(Updating…)</span>
           ) : null}
         </>
       )}
@@ -90,17 +97,26 @@ export function OpsDashboardHeader({
       const totalCovers = summary.totals.covers;
       return totalBookings > 0 ? (
         <>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700 transition-[transform,box-shadow,background-color,color] duration-200 ease-out hover:scale-105 hover:shadow-md active:scale-95 dark:bg-blue-900/30 dark:text-blue-300 motion-reduce:transition-none motion-reduce:hover:scale-100 sm:px-3 sm:py-1.5 sm:text-xs">
+          <Badge
+            variant="secondary"
+            className="gap-1.5 px-2.5 py-1 text-[11px] font-semibold text-primary transition-[transform,box-shadow] duration-200 ease-out hover:scale-105 hover:shadow-md active:scale-95 motion-reduce:transition-none motion-reduce:hover:scale-100 sm:px-3 sm:py-1.5 sm:text-xs"
+          >
             {totalBookings} {totalBookings === 1 ? 'booking' : 'bookings'}
-          </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 transition-[transform,box-shadow,background-color,color] duration-200 ease-out hover:scale-105 hover:shadow-md active:scale-95 dark:bg-emerald-900/30 dark:text-emerald-300 motion-reduce:transition-none motion-reduce:hover:scale-100 sm:px-3 sm:py-1.5 sm:text-xs">
+          </Badge>
+          <Badge
+            variant="secondary"
+            className="gap-1.5 px-2.5 py-1 text-[11px] font-semibold text-primary transition-[transform,box-shadow] duration-200 ease-out hover:scale-105 hover:shadow-md active:scale-95 motion-reduce:transition-none motion-reduce:hover:scale-100 sm:px-3 sm:py-1.5 sm:text-xs"
+          >
             {totalCovers} {totalCovers === 1 ? 'cover' : 'covers'}
-          </span>
+          </Badge>
         </>
       ) : (
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-50 px-2.5 py-1 text-[11px] font-medium text-gray-500 dark:bg-gray-800/50 dark:text-gray-400 sm:px-3 sm:py-1.5 sm:text-xs">
+        <Badge
+          variant="secondary"
+          className="gap-1.5 px-2.5 py-1 text-[11px] font-medium sm:px-3 sm:py-1.5 sm:text-xs"
+        >
           No bookings
-        </span>
+        </Badge>
       );
     })()
   );
@@ -122,13 +138,16 @@ export function OpsDashboardHeader({
           hasSummaryError={hasSummaryError}
         />
       }
-      ref={headerSwipeRef}
+      headerRef={headerSwipeRef}
       secondaryActions={
         <div className="flex flex-col gap-3 sm:gap-4 xl:items-end">
           <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 sm:justify-start xl:justify-end">
-            <div className="inline-flex items-center gap-1 rounded-full bg-muted/70 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground transition-colors duration-200 ease-out hover:bg-muted motion-reduce:transition-none sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs">
+            <Badge
+              variant="outline"
+              className="gap-1 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider transition-colors duration-200 ease-out motion-reduce:transition-none sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs"
+            >
               Service Date
-            </div>
+            </Badge>
             {serviceMeta}
           </div>
 
@@ -141,14 +160,16 @@ export function OpsDashboardHeader({
             </div>
 
             <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-card/80 p-1 shadow-sm backdrop-blur-sm transition-shadow hover:shadow-md sm:rounded-xl sm:p-1.5">
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={onPrevDate}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-[transform,background-color,color,box-shadow] duration-200 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95 motion-reduce:active:scale-100 sm:h-9 sm:w-9"
+                className="size-10 text-muted-foreground hover:text-foreground active:scale-95 motion-reduce:active:scale-100 sm:size-9"
                 aria-label="Previous day"
               >
-                <ChevronLeft className="h-4 w-4" aria-hidden />
-              </button>
+                <ChevronLeft aria-hidden />
+              </Button>
 
               <HeatmapCalendar
                 summary={summary}
@@ -160,14 +181,16 @@ export function OpsDashboardHeader({
                 onOpenChange={onCalendarOpenChange}
               />
 
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={onNextDate}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-[transform,background-color,color,box-shadow] duration-200 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95 motion-reduce:active:scale-100 sm:h-9 sm:w-9"
+                className="size-10 text-muted-foreground hover:text-foreground active:scale-95 motion-reduce:active:scale-100 sm:size-9"
                 aria-label="Next day"
               >
-                <ChevronRight className="h-4 w-4" aria-hidden />
-              </button>
+                <ChevronRight aria-hidden />
+              </Button>
             </div>
 
             <div

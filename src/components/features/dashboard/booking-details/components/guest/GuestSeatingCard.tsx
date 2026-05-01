@@ -25,15 +25,18 @@ export function GuestSeatingCard({
   partySize,
   seatingPreference,
 }: GuestSeatingCardProps) {
-  const tableLabels = useMemo(() => assignedTableRows.map((t) => t.tableNumber), [assignedTableRows]);
+  const tableLabels = useMemo(
+    () => assignedTableRows.map((t) => t.tableNumber),
+    [assignedTableRows],
+  );
   const visibleTables = tableLabels.slice(0, 3);
   const overflowCount = Math.max(0, tableLabels.length - visibleTables.length);
 
   if (assignedTableRows.length === 0) {
     return (
-      <Alert className="border-amber-200 bg-warning/10 text-warning-foreground">
-        <AlertTitle className="text-amber-900">No table assigned</AlertTitle>
-        <AlertDescription className="text-amber-800/90">
+      <Alert className="border-primary/30 bg-warning/10 text-warning-foreground">
+        <AlertTitle className="text-primary">No table assigned</AlertTitle>
+        <AlertDescription className="text-primary">
           Assign a table to complete the seating plan.
         </AlertDescription>
       </Alert>
@@ -41,7 +44,7 @@ export function GuestSeatingCard({
   }
 
   return (
-    <Card className="border-slate-200/60 bg-white shadow-sm">
+    <Card className="border-border bg-background shadow-sm">
       <CardContent className="space-y-3 p-4">
         <div className="flex items-center justify-between gap-3">
           <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -69,9 +72,9 @@ export function GuestSeatingCard({
             className={cn(
               'font-semibold',
               capacityPercent >= 100
-                ? 'text-emerald-700'
+                ? 'text-primary'
                 : capacityPercent >= 80
-                  ? 'text-amber-700'
+                  ? 'text-primary'
                   : 'text-muted-foreground',
             )}
           >
@@ -81,7 +84,7 @@ export function GuestSeatingCard({
 
         {seatingPreference ? (
           <div className="pt-1">
-            <Badge variant="outline" className="border-indigo-200 bg-indigo-50 text-indigo-800">
+            <Badge variant="outline" className="border-primary/20 bg-primary/10 text-primary">
               {seatingPreference}
             </Badge>
           </div>
@@ -92,4 +95,3 @@ export function GuestSeatingCard({
 }
 
 export default GuestSeatingCard;
-

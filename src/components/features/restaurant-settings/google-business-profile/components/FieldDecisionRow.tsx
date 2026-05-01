@@ -86,10 +86,10 @@ function ValueCard({
       <div className="mb-2 flex items-center justify-between gap-2 text-xs uppercase tracking-[0.18em] text-muted-foreground">
         <span>{label}</span>
         {isWinner ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-primary">
+          <Badge variant="secondary" className="gap-1 px-2 py-0.5 text-primary">
             <CheckCircle2 className="size-3" />
             Selected
-          </span>
+          </Badge>
         ) : isLoser ? (
           <span className="text-[10px] font-medium normal-case tracking-normal text-muted-foreground">
             Will be replaced
@@ -171,7 +171,7 @@ export function FieldDecisionRow({
               ) : null}
             </div>
             {item.warnings.length > 0 ? (
-              <p className="mt-2 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
+              <p className="mt-2 flex items-start gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-sm text-primary dark:border-primary/30 dark:bg-primary/10 dark:text-primary">
                 <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
                 {item.warnings.join(' ')}
               </p>

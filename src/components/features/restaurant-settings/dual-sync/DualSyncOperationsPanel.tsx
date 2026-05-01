@@ -36,10 +36,7 @@ import {
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 
-import type {
-  DualSyncPublishOperation,
-  DualSyncPublishOperationStatus,
-} from '@/server/dual-sync';
+import type { DualSyncPublishOperation, DualSyncPublishOperationStatus } from '@/server/dual-sync';
 import type { ListDualSyncOperationsResponse } from '@/services/ops/dual-sync';
 import type { UseQueryResult } from '@tanstack/react-query';
 
@@ -68,16 +65,16 @@ function StatusIcon({ status }: { status: DualSyncPublishOperationStatus }) {
   const cls = 'h-3.5 w-3.5';
   switch (status) {
     case 'succeeded':
-      return <CheckCircle2 className={cn(cls, 'text-green-600')} />;
+      return <CheckCircle2 className={cn(cls, 'text-primary')} />;
     case 'failed':
-      return <XCircle className={cn(cls, 'text-red-600')} />;
+      return <XCircle className={cn(cls, 'text-destructive')} />;
     case 'skipped':
       return <CircleDashed className={cn(cls, 'text-muted-foreground')} />;
     case 'retrying':
     case 'running':
     case 'pending':
     default:
-      return <Clock className={cn(cls, 'text-amber-600')} />;
+      return <Clock className={cn(cls, 'text-primary')} />;
   }
 }
 
@@ -115,10 +112,7 @@ export function DualSyncOperationsPanel({
   operationsQuery,
   className,
 }: DualSyncOperationsPanelProps) {
-  const operations = useMemo(
-    () => operationsQuery.data?.operations ?? [],
-    [operationsQuery.data],
-  );
+  const operations = useMemo(() => operationsQuery.data?.operations ?? [], [operationsQuery.data]);
 
   if (operationsQuery.isLoading) {
     return (
@@ -140,9 +134,7 @@ export function DualSyncOperationsPanel({
       >
         <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
         <div className="space-y-1">
-          <div className="font-semibold">
-            Couldn&apos;t load the operation history.
-          </div>
+          <div className="font-semibold">Couldn&apos;t load the operation history.</div>
           <div className="text-xs opacity-80">
             {operationsQuery.error?.message ?? 'Unknown error.'}
           </div>

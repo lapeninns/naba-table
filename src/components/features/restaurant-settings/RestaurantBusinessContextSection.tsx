@@ -1646,7 +1646,7 @@ export function RestaurantBusinessContextSection({
                         const checked = row?.boolValue === 'true';
 
                         return (
-                          <label
+                          <Label
                             key={definition.key}
                             htmlFor={makeFieldId('attributes', definition.key, 'amenity')}
                             className="flex cursor-pointer items-start gap-3 rounded-md border border-border/50 bg-background p-3 transition-colors hover:bg-muted/30"
@@ -1670,7 +1670,7 @@ export function RestaurantBusinessContextSection({
                                   : 'Not set'}
                               </span>
                             </span>
-                          </label>
+                          </Label>
                         );
                       })}
                     </div>

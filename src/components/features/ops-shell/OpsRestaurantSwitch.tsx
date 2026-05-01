@@ -4,6 +4,7 @@ import { Check, ChevronsUpDown, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -62,7 +63,8 @@ type OpsRestaurantSwitchProps = {
 };
 
 export function OpsRestaurantSwitch({ className }: OpsRestaurantSwitchProps) {
-  const { memberships, activeMembership, activeRestaurantId, setActiveRestaurantId } = useOpsSession();
+  const { memberships, activeMembership, activeRestaurantId, setActiveRestaurantId } =
+    useOpsSession();
   const account = useOpsAccountSnapshot();
   const { confirmNavigation } = useOpsUnsavedChanges();
 
@@ -78,10 +80,10 @@ export function OpsRestaurantSwitch({ className }: OpsRestaurantSwitchProps) {
     [],
   );
 
-  const initials = useMemo(() => computeInitials(activeMembership?.restaurantName ?? account.restaurantName), [
-    activeMembership?.restaurantName,
-    account.restaurantName,
-  ]);
+  const initials = useMemo(
+    () => computeInitials(activeMembership?.restaurantName ?? account.restaurantName),
+    [activeMembership?.restaurantName, account.restaurantName],
+  );
 
   const metaLine = useMemo(() => {
     const email = account.userEmail?.trim();
@@ -95,10 +97,9 @@ export function OpsRestaurantSwitch({ className }: OpsRestaurantSwitchProps) {
     return role ?? 'Operations';
   }, [account.role, account.userEmail, activeMembership?.role]);
 
-  const restaurantName =
-    normalizeRestaurantName(
-      activeMembership?.restaurantName ?? account.restaurantName ?? memberships[0]?.restaurantName,
-    );
+  const restaurantName = normalizeRestaurantName(
+    activeMembership?.restaurantName ?? account.restaurantName ?? memberships[0]?.restaurantName,
+  );
 
   const filteredMemberships = useMemo(() => {
     if (!debouncedSearch.trim()) {
@@ -114,7 +115,9 @@ export function OpsRestaurantSwitch({ className }: OpsRestaurantSwitchProps) {
   const handleSelect = (restaurantId: string) => {
     if (
       restaurantId !== activeRestaurantId &&
-      !confirmNavigation('You have unsaved changes for the current restaurant. Switch restaurants and discard them?')
+      !confirmNavigation(
+        'You have unsaved changes for the current restaurant. Switch restaurants and discard them?',
+      )
     ) {
       return;
     }
@@ -149,10 +152,11 @@ export function OpsRestaurantSwitch({ className }: OpsRestaurantSwitchProps) {
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
-        <button
+        <Button
           type="button"
+          variant="ghost"
           className={cn(
-            'flex w-full items-center gap-3 rounded-lg border border-sidebar-border bg-sidebar p-3 text-left text-sidebar-foreground shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar touch-manipulation',
+            'h-auto w-full justify-start gap-3 whitespace-normal rounded-lg border border-sidebar-border bg-sidebar p-3 text-left text-sidebar-foreground shadow-sm touch-manipulation hover:bg-sidebar',
             className,
           )}
           aria-haspopup="listbox"
@@ -165,12 +169,15 @@ export function OpsRestaurantSwitch({ className }: OpsRestaurantSwitchProps) {
             <p className="truncate text-sm font-semibold tracking-tight" title={restaurantName}>
               {restaurantName}
             </p>
-            <p className="truncate text-xs text-sidebar-foreground/70" title={metaLine ?? undefined}>
+            <p
+              className="truncate text-xs text-sidebar-foreground/70"
+              title={metaLine ?? undefined}
+            >
               {metaLine}
             </p>
           </div>
           <ChevronsUpDown className="size-4 shrink-0 text-sidebar-foreground/80" aria-hidden />
-        </button>
+        </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"
@@ -180,7 +187,9 @@ export function OpsRestaurantSwitch({ className }: OpsRestaurantSwitchProps) {
         aria-label="Switch restaurant"
         forceMount
       >
-        <DropdownMenuLabel className="px-3 py-2 text-xs text-sidebar-foreground/70">Switch restaurant</DropdownMenuLabel>
+        <DropdownMenuLabel className="px-3 py-2 text-xs text-sidebar-foreground/70">
+          Switch restaurant
+        </DropdownMenuLabel>
         <div className="flex items-center gap-2 px-3 pb-2">
           <Search className="size-4 text-muted-foreground" aria-hidden />
           <Input
@@ -199,9 +208,15 @@ export function OpsRestaurantSwitch({ className }: OpsRestaurantSwitchProps) {
           />
         </div>
         <DropdownMenuSeparator />
-        <div role="listbox" aria-activedescendant={activeRestaurantId ?? undefined} className="max-h-64 overflow-y-auto">
+        <div
+          role="listbox"
+          aria-activedescendant={activeRestaurantId ?? undefined}
+          className="max-h-64 overflow-y-auto"
+        >
           {filteredMemberships.length === 0 ? (
-            <div className="px-3 py-4 text-sm text-muted-foreground">No matches. Try a different search.</div>
+            <div className="px-3 py-4 text-sm text-muted-foreground">
+              No matches. Try a different search.
+            </div>
           ) : (
             filteredMemberships.map((membership) => {
               const selected = membership.restaurantId === activeRestaurantId;
@@ -219,7 +234,10 @@ export function OpsRestaurantSwitch({ className }: OpsRestaurantSwitchProps) {
                   id={membership.restaurantId}
                 >
                   <Check
-                    className={cn('size-4 shrink-0 text-sidebar-primary', selected ? 'opacity-100' : 'opacity-0')}
+                    className={cn(
+                      'size-4 shrink-0 text-sidebar-primary',
+                      selected ? 'opacity-100' : 'opacity-0',
+                    )}
                     aria-hidden
                   />
                   <span className="flex-1 truncate">

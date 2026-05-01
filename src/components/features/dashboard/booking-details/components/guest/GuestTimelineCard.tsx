@@ -4,7 +4,6 @@ import { Ban, Calendar, CheckCircle2, LogIn, LogOut, UserX } from 'lucide-react'
 import { DateTime } from 'luxon';
 import { useMemo } from 'react';
 
-
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
@@ -85,7 +84,7 @@ export function GuestTimelineCard({ status, booking, timezone }: GuestTimelineCa
 
   return (
     <div style={heavyPanelStyle}>
-      <Card className="border-slate-200/60 bg-white shadow-sm">
+      <Card className="border-border bg-background shadow-sm">
         <CardContent className="space-y-3 p-4">
           <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             History
@@ -102,31 +101,41 @@ export function GuestTimelineCard({ status, booking, timezone }: GuestTimelineCa
               const dotTone =
                 step.tone === 'danger'
                   ? isDone
-                    ? 'bg-rose-600 text-white'
+                    ? 'bg-destructive/10 text-destructive'
                     : 'bg-muted text-muted-foreground'
                   : isDone
-                    ? 'bg-emerald-600 text-white'
+                    ? 'bg-primary/10 text-primary'
                     : 'bg-muted text-muted-foreground';
 
               const lineTone =
                 step.tone === 'danger'
                   ? isDone
-                    ? 'bg-rose-200'
+                    ? 'bg-destructive/10'
                     : 'bg-border'
                   : isDone
-                    ? 'bg-emerald-200'
+                    ? 'bg-primary/10'
                     : 'bg-border';
 
               return (
                 <div key={step.key} className="flex items-start gap-3">
                   <div className="flex flex-col items-center">
-                    <div className={cn('flex h-8 w-8 items-center justify-center rounded-full', dotTone)}>
+                    <div
+                      className={cn(
+                        'flex h-8 w-8 items-center justify-center rounded-full',
+                        dotTone,
+                      )}
+                    >
                       <Icon className="h-4 w-4" aria-hidden />
                     </div>
                     {!isLast ? <div className={cn('h-6 w-0.5', lineTone)} aria-hidden /> : null}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className={cn('text-sm font-medium', isDone ? 'text-foreground' : 'text-muted-foreground')}>
+                    <div
+                      className={cn(
+                        'text-sm font-medium',
+                        isDone ? 'text-foreground' : 'text-muted-foreground',
+                      )}
+                    >
                       {step.label}
                     </div>
                     {step.time ? (

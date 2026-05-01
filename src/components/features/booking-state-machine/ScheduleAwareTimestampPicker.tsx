@@ -1,9 +1,27 @@
-"use client";
+'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
+import { endOfDay } from 'date-fns';
+import { CalendarIcon, ChevronDownIcon, ClockIcon } from 'lucide-react';
 import { DateTime } from 'luxon';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import {
   calendarMaskQueryKey,
@@ -18,13 +36,16 @@ import {
   type ReservationSchedule,
   type TimeSlotDescriptor,
 } from '@reserve/features/reservations/wizard/services/timeSlots';
-import { Calendar24Date, Calendar24Time } from '@reserve/features/reservations/wizard/ui/steps/plan-step/components';
 import { DEFAULT_RESERVATION_INTERVAL_MINUTES } from '@reserve/shared/config/reservations';
-import { formatDateForInput } from '@reserve/shared/formatting/booking';
-import { getLatestStartMinutes, hasCapacity, type UnavailabilityReason } from '@reserve/shared/schedule/availability';
+import { formatDateForInput, formatReservationDateShort } from '@reserve/shared/formatting/booking';
+import {
+  getLatestStartMinutes,
+  hasCapacity,
+  type UnavailabilityReason,
+} from '@reserve/shared/schedule/availability';
 import { MINUTES_PER_DAY, normalizeTime, toMinutes } from '@reserve/shared/time';
 
-
+import type { ComponentProps } from 'react';
 
 type DateParts = {
   date: string | null;
@@ -59,28 +80,33 @@ export type ScheduleAwareTimestampPickerProps = {
 const DEFAULT_MINUTES_STEP = DEFAULT_RESERVATION_INTERVAL_MINUTES;
 const DEFAULT_TIMEZONE = 'UTC';
 
-const CLOSED_COPY =
-  'We’re closed on this date. Please choose a different day.';
+const CLOSED_COPY = 'We’re closed on this date. Please choose a different day.';
 const NO_SLOTS_COPY =
   'All reservation times are taken on this date. Please choose a different day.';
-const UNKNOWN_COPY = 'We couldn’t load availability right now. Please try again or choose another date.';
+const UNKNOWN_COPY =
+  'We couldn’t load availability right now. Please try again or choose another date.';
 const UNAVAILABLE_SELECTION_COPY =
   'Selected time is no longer available. Please choose another slot.';
 const OVERRIDE_SELECTION_COPY =
   'There are no regular slots for this date at this time, but you can still save changes to override availability.';
+const DATE_DESCRIPTION = 'Pick a date to see available times.';
+const TIME_DESCRIPTION = 'Choose the time that works best for this booking.';
 
 /**
  * Build a full interval grid from opening → latest configured slot,
  * filling in missing slots so edit flows don't "lose" times when booking_slots is sparse.
  */
-const mergeWithSyntheticSlots = (schedule: ReservationSchedule | null): ReservationSchedule | null => {
+const mergeWithSyntheticSlots = (
+  schedule: ReservationSchedule | null,
+): ReservationSchedule | null => {
   if (!schedule || schedule.isClosed) {
     return schedule;
   }
 
-  const interval = Number.isFinite(schedule.intervalMinutes) && schedule.intervalMinutes > 0
-    ? schedule.intervalMinutes
-    : DEFAULT_MINUTES_STEP;
+  const interval =
+    Number.isFinite(schedule.intervalMinutes) && schedule.intervalMinutes > 0
+      ? schedule.intervalMinutes
+      : DEFAULT_MINUTES_STEP;
 
   const opensAt = normalizeTime(schedule.window?.opensAt ?? null);
   const latestStartMinutes = getLatestStartMinutes(schedule);
@@ -94,7 +120,8 @@ const mergeWithSyntheticSlots = (schedule: ReservationSchedule | null): Reservat
   }
 
   const existingByValue = new Map(schedule.slots.map((slot) => [slot.value, slot]));
-  const defaultBookingOption = schedule.availableBookingOptions[0] ?? schedule.slots[0]?.bookingOption ?? 'lunch';
+  const defaultBookingOption =
+    schedule.availableBookingOptions[0] ?? schedule.slots[0]?.bookingOption ?? 'lunch';
 
   const synthetic: RawScheduleSlot[] = [];
   for (let m = openingMinutes; m <= latestStartMinutes; m += interval) {
@@ -128,7 +155,9 @@ const mergeWithSyntheticSlots = (schedule: ReservationSchedule | null): Reservat
     return schedule;
   }
 
-  const mergedSlots = [...schedule.slots, ...synthetic].sort((a, b) => a.value.localeCompare(b.value));
+  const mergedSlots = [...schedule.slots, ...synthetic].sort((a, b) =>
+    a.value.localeCompare(b.value),
+  );
   return { ...schedule, slots: mergedSlots };
 };
 
@@ -171,7 +200,8 @@ const isWithinScheduleWindow = (
   const openingMinutes = toMinutes(opensAt);
   const latestStartMinutes = getLatestStartMinutes(schedule);
   const closingMinutes = toMinutes(closesAt);
-  const latestAllowed = typeof latestStartMinutes === 'number' ? latestStartMinutes : closingMinutes;
+  const latestAllowed =
+    typeof latestStartMinutes === 'number' ? latestStartMinutes : closingMinutes;
 
   return minutes >= openingMinutes && minutes <= latestAllowed;
 };
@@ -219,6 +249,330 @@ const buildMonthPrefetchTargets = (monthStart: Date, normalizedMinTimestamp: num
   return targets;
 };
 
+function ScheduleDateControl({
+  value,
+  minDate,
+  onSelect,
+  onBlur,
+  error,
+  onMonthChange,
+  isDateUnavailable,
+  loadingDates,
+}: {
+  value: string;
+  minDate: Date;
+  onSelect: (value: Date | undefined | null) => void;
+  onBlur?: () => void;
+  error?: string;
+  onMonthChange?: (month: Date) => void;
+  isDateUnavailable?: (date: Date) => boolean;
+  loadingDates?: Set<string>;
+}) {
+  const [open, setOpen] = useState(false);
+  const baseId = useId();
+  const dateButtonId = `${baseId}-button`;
+  const dateLabelId = `${baseId}-label`;
+  const dateValueId = `${baseId}-value`;
+  const dateDescriptionId = `${baseId}-description`;
+  const dateErrorId = error ? `${baseId}-error` : undefined;
+  const selectedDate = useMemo(() => (value ? new Date(value) : undefined), [value]);
+  const label = useMemo(() => (value ? formatReservationDateShort(value) : 'Select date'), [value]);
+  const initialMonth = useMemo(() => {
+    const base = selectedDate ?? minDate;
+    return new Date(base.getFullYear(), base.getMonth(), 1);
+  }, [minDate, selectedDate]);
+  const initialMonthTime = initialMonth.getTime();
+
+  useEffect(() => {
+    onMonthChange?.(new Date(initialMonthTime));
+  }, [initialMonthTime, onMonthChange]);
+
+  const disabledMatcher = useCallback(
+    (day?: Date) => {
+      if (!day) {
+        return false;
+      }
+      if (endOfDay(day) < minDate) {
+        return true;
+      }
+      const dayKey = formatDateForInput(day);
+      if (loadingDates?.has(dayKey)) {
+        return true;
+      }
+      return isDateUnavailable?.(day) ?? false;
+    },
+    [isDateUnavailable, loadingDates, minDate],
+  );
+
+  const calendarModifiers = useMemo(() => {
+    if (!loadingDates || loadingDates.size === 0) {
+      return undefined;
+    }
+
+    return {
+      loading: (day: Date) => loadingDates.has(formatDateForInput(day)),
+    } satisfies ComponentProps<typeof Calendar>['modifiers'];
+  }, [loadingDates]);
+
+  const calendarModifiersClassNames = useMemo(() => {
+    if (!loadingDates || loadingDates.size === 0) {
+      return undefined;
+    }
+
+    return {
+      loading:
+        'relative after:absolute after:left-1/2 after:top-1/2 after:size-1.5 after:-translate-x-1/2 after:-translate-y-1/2 after:rounded-full after:bg-primary after:animate-pulse',
+    } satisfies ComponentProps<typeof Calendar>['modifiersClassNames'];
+  }, [loadingDates]);
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div id={dateLabelId} className="flex items-center gap-1.5 px-1 text-sm font-semibold">
+        <CalendarIcon className="size-4 text-muted-foreground" aria-hidden="true" />
+        <span>Date</span>
+      </div>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            id={dateButtonId}
+            variant="outline"
+            className={cn(
+              'h-12 w-full justify-between text-base font-normal',
+              !value && 'text-muted-foreground',
+              error && 'border-destructive focus-visible:ring-destructive',
+            )}
+            aria-haspopup="dialog"
+            aria-expanded={open}
+            aria-invalid={Boolean(error)}
+            aria-labelledby={`${dateLabelId} ${dateValueId}`}
+            aria-describedby={
+              [dateDescriptionId, dateErrorId].filter(Boolean).join(' ') || undefined
+            }
+          >
+            <span id={dateValueId} className="truncate">
+              {label}
+            </span>
+            <ChevronDownIcon data-icon="inline-end" aria-hidden="true" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto overflow-hidden p-0" align="start">
+          <Calendar
+            mode="single"
+            selected={selectedDate}
+            defaultMonth={initialMonth}
+            fromDate={minDate}
+            onSelect={(next) => {
+              onSelect(next);
+              onBlur?.();
+              setOpen(false);
+            }}
+            onMonthChange={(month) => onMonthChange?.(month)}
+            disabled={disabledMatcher}
+            modifiers={calendarModifiers}
+            modifiersClassNames={calendarModifiersClassNames}
+            initialFocus
+          />
+        </PopoverContent>
+      </Popover>
+      <p id={dateDescriptionId} className="px-1 text-xs text-muted-foreground">
+        {DATE_DESCRIPTION}
+      </p>
+      {error ? (
+        <p
+          id={dateErrorId}
+          className="rounded-md bg-destructive/10 px-3 py-2 text-sm font-medium leading-tight text-destructive"
+          role="alert"
+        >
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function ScheduleTimeControl({
+  value,
+  onChange,
+  onBlur,
+  error,
+  suggestions,
+  intervalMinutes,
+  isTimeDisabled,
+  isTimeLoading,
+  unavailableMessage,
+}: {
+  value: string;
+  onChange: (value: string, options?: { commit?: boolean }) => void;
+  onBlur?: () => void;
+  error?: string;
+  suggestions: TimeSlotDescriptor[];
+  intervalMinutes?: number;
+  isTimeDisabled?: boolean;
+  isTimeLoading?: boolean;
+  unavailableMessage?: string;
+}) {
+  const [hasHydrated, setHasHydrated] = useState(false);
+  const baseId = useId();
+  const timeInputId = `${baseId}-input`;
+  const timeDescriptionId = `${baseId}-description`;
+  const timeErrorId = error ? `${baseId}-error` : undefined;
+  const timeLabelId = `${baseId}-label`;
+  const resolvedIntervalMinutes =
+    typeof intervalMinutes === 'number' && intervalMinutes > 0 ? intervalMinutes : undefined;
+  const timeStepSeconds = hasHydrated
+    ? Math.max(60, Math.round((resolvedIntervalMinutes ?? 1) * 60))
+    : 60;
+  const enabledSuggestions = useMemo(
+    () => suggestions.filter((slot) => !slot.disabled),
+    [suggestions],
+  );
+  const groupedSuggestions = useMemo(() => {
+    const groups = new Map<string, TimeSlotDescriptor[]>();
+    enabledSuggestions.forEach((slot) => {
+      const existing = groups.get(slot.label);
+      if (existing) {
+        existing.push(slot);
+      } else {
+        groups.set(slot.label, [slot]);
+      }
+    });
+    return groups;
+  }, [enabledSuggestions]);
+  const showSuggestions = hasHydrated && !isTimeDisabled && enabledSuggestions.length > 0;
+  const inputValue = value ?? '';
+
+  useEffect(() => {
+    setHasHydrated(true);
+  }, []);
+
+  return (
+    <div className={cn('flex flex-col gap-3', isTimeLoading && 'opacity-50')}>
+      <Label
+        htmlFor={timeInputId}
+        id={timeLabelId}
+        className="flex items-center gap-1.5 px-1 text-sm font-semibold"
+      >
+        <ClockIcon className="size-4 text-muted-foreground" aria-hidden="true" />
+        <span>Time</span>
+      </Label>
+      <div className="flex flex-col gap-2">
+        <div className="relative">
+          {showSuggestions ? (
+            <Select
+              name="reservation-time"
+              value={inputValue}
+              onValueChange={(next) => onChange(next, { commit: true })}
+              disabled={isTimeDisabled || isTimeLoading}
+            >
+              <SelectTrigger
+                id={timeInputId}
+                className={cn(
+                  'h-12 w-full bg-background px-4 text-base font-semibold text-foreground',
+                  !inputValue && 'text-muted-foreground',
+                  error && 'border-destructive focus-visible:ring-destructive',
+                )}
+                aria-invalid={Boolean(error)}
+                aria-labelledby={timeLabelId}
+                aria-describedby={
+                  [timeDescriptionId, timeErrorId].filter(Boolean).join(' ') || undefined
+                }
+              >
+                <SelectValue placeholder="--:--" />
+              </SelectTrigger>
+              <SelectContent
+                className="max-h-[min(22rem,var(--radix-select-content-available-height))] w-[var(--radix-select-trigger-width)] min-w-[var(--radix-select-trigger-width)]"
+                position="popper"
+                sideOffset={8}
+              >
+                {[...groupedSuggestions.entries()].map(([label, slots], index) => (
+                  <Fragment key={label}>
+                    {index > 0 ? <SelectSeparator /> : null}
+                    <SelectGroup>
+                      <SelectLabel>{label}</SelectLabel>
+                      {slots.map((slot) => (
+                        <SelectItem key={slot.value} value={slot.value}>
+                          {slot.display}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </Fragment>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <>
+              <Input
+                id={timeInputId}
+                name="reservation-time"
+                type="time"
+                value={isTimeDisabled && unavailableMessage ? '' : inputValue}
+                step={timeStepSeconds}
+                onChange={(event) => {
+                  if (isTimeDisabled) {
+                    return;
+                  }
+                  onChange(event.target.value, { commit: false });
+                }}
+                onBlur={(event) => {
+                  if (isTimeDisabled) {
+                    onBlur?.();
+                    return;
+                  }
+                  onBlur?.();
+                  onChange(event.target.value, { commit: true });
+                }}
+                aria-invalid={Boolean(error)}
+                aria-labelledby={timeLabelId}
+                aria-describedby={
+                  [timeDescriptionId, timeErrorId].filter(Boolean).join(' ') || undefined
+                }
+                placeholder="--:--"
+                className={cn(
+                  'h-12 appearance-none bg-background text-base font-normal [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none',
+                  error && 'border-destructive focus-visible:ring-destructive',
+                )}
+                disabled={isTimeDisabled || isTimeLoading}
+              />
+              {!inputValue && !isTimeLoading && !isTimeDisabled ? (
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-base text-muted-foreground"
+                >
+                  --:--
+                </span>
+              ) : null}
+            </>
+          )}
+
+          {isTimeLoading && !inputValue ? (
+            <div className="pointer-events-none absolute inset-0 flex items-center px-3">
+              <Skeleton className="h-5 w-20" />
+            </div>
+          ) : null}
+        </div>
+
+        {!showSuggestions ? (
+          <p className="px-1 text-xs text-muted-foreground" aria-live="polite">
+            {unavailableMessage ?? 'No available times for the selected date.'}
+          </p>
+        ) : null}
+      </div>
+      <p id={timeDescriptionId} className="px-1 text-xs text-muted-foreground">
+        {TIME_DESCRIPTION}
+      </p>
+      {error ? (
+        <p
+          id={timeErrorId}
+          className="rounded-md bg-destructive/10 px-3 py-2 text-sm font-medium leading-tight text-destructive"
+          role="alert"
+        >
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 const deriveMaskAvailability = (
   mask: CalendarMask,
   normalizedMinTimestamp: number,
@@ -255,7 +609,9 @@ const deriveMaskAvailability = (
   return results;
 };
 
-const deriveScheduleUnavailability = (schedule: ReservationSchedule | null): UnavailabilityReason | null => {
+const deriveScheduleUnavailability = (
+  schedule: ReservationSchedule | null,
+): UnavailabilityReason | null => {
   if (!schedule) {
     return 'unknown';
   }
@@ -311,35 +667,45 @@ export function ScheduleAwareTimestampPicker({
 }: ScheduleAwareTimestampPickerProps) {
   const queryClient = useQueryClient();
 
-  const [scheduleStateByDate, setScheduleStateByDate] = useState<Map<string, ScheduleRecord>>(() => new Map());
+  const [scheduleStateByDate, setScheduleStateByDate] = useState<Map<string, ScheduleRecord>>(
+    () => new Map(),
+  );
   const scheduleStateRef = useRef(scheduleStateByDate);
   const selectionModeRef = useRef<'initial' | 'user-change'>('initial');
   const maskPrefetchedMonthsRef = useRef<Set<string>>(new Set());
-  const [unavailableDates, setUnavailableDates] = useState<Map<string, UnavailabilityReason>>(() => new Map());
+  const [unavailableDates, setUnavailableDates] = useState<Map<string, UnavailabilityReason>>(
+    () => new Map(),
+  );
   const [loadingDates, setLoadingDates] = useState<Set<string>>(() => new Set());
 
   const fallbackMinDate = useMemo(() => toStartOfDay(minDate ?? new Date()), [minDate]);
   const normalizedMinDate = useMemo(() => toStartOfDay(fallbackMinDate), [fallbackMinDate]);
   const normalizedMinTimestamp = useMemo(() => normalizedMinDate.getTime(), [normalizedMinDate]);
 
-  const updateUnavailableDate = useCallback((dateKey: string, reason: UnavailabilityReason | null) => {
-    setUnavailableDates((prev) => {
-      const existing = prev.get(dateKey) ?? null;
-      if (existing === reason) {
-        return prev;
-      }
-      const next = new Map(prev);
-      if (reason) {
-        next.set(dateKey, reason);
-      } else {
-        next.delete(dateKey);
-      }
-      return next;
-    });
-  }, []);
+  const updateUnavailableDate = useCallback(
+    (dateKey: string, reason: UnavailabilityReason | null) => {
+      setUnavailableDates((prev) => {
+        const existing = prev.get(dateKey) ?? null;
+        if (existing === reason) {
+          return prev;
+        }
+        const next = new Map(prev);
+        if (reason) {
+          next.set(dateKey, reason);
+        } else {
+          next.delete(dateKey);
+        }
+        return next;
+      });
+    },
+    [],
+  );
 
   const initialTimezone = restaurantTimezone ?? DEFAULT_TIMEZONE;
-  const initialParts = useMemo(() => extractDateParts(value, initialTimezone), [initialTimezone, value]);
+  const initialParts = useMemo(
+    () => extractDateParts(value, initialTimezone),
+    [initialTimezone, value],
+  );
   const initialDate = initialParts.date ?? formatDateForInput(fallbackMinDate);
   const initialTime = initialParts.time ?? '';
 
@@ -364,7 +730,6 @@ export function ScheduleAwareTimestampPicker({
   useEffect(() => {
     scheduleStateRef.current = scheduleStateByDate;
   }, [scheduleStateByDate]);
-
 
   const applyCalendarMask = useCallback(
     (mask: CalendarMask) => {
@@ -450,7 +815,7 @@ export function ScheduleAwareTimestampPicker({
     [normalizedMinTimestamp, prefetchCalendarMask],
   );
 
-  const activeRecord = activeDate ? scheduleStateByDate.get(activeDate) ?? null : null;
+  const activeRecord = activeDate ? (scheduleStateByDate.get(activeDate) ?? null) : null;
   const activeRecordStatus = activeRecord?.status ?? 'idle';
   const currentSchedule = activeRecord?.schedule ?? null;
   const isScheduleLoading = activeRecordStatus === 'loading';
@@ -469,7 +834,7 @@ export function ScheduleAwareTimestampPicker({
         return;
       }
 
-      const record = dateKey ? scheduleStateRef.current.get(dateKey) ?? null : null;
+      const record = dateKey ? (scheduleStateRef.current.get(dateKey) ?? null) : null;
       const schedule = record?.schedule ?? null;
       const timezone = schedule?.timezone ?? scheduleTimezone;
       const iso = toIsoString(dateKey, timeValue, timezone);
@@ -494,7 +859,11 @@ export function ScheduleAwareTimestampPicker({
       setSelectedTime(parts.time);
     }
     lastCommittedRef.current =
-      parts.date && parts.time ? `${parts.date}|${parts.time}` : parts.date ? `${parts.date}|null` : null;
+      parts.date && parts.time
+        ? `${parts.date}|${parts.time}`
+        : parts.date
+          ? `${parts.date}|null`
+          : null;
   }, [scheduleTimezone, value]);
 
   useEffect(() => {
@@ -630,8 +999,6 @@ export function ScheduleAwareTimestampPicker({
     }
   }, [activeDate, prefetchVisibleMonths]);
 
-
-
   const unavailabilityReason = useMemo<UnavailabilityReason | null>(() => {
     if (!activeDate) {
       return null;
@@ -671,10 +1038,6 @@ export function ScheduleAwareTimestampPicker({
       }),
     [slots, targetService],
   );
-
-
-
-
 
   useEffect(() => {
     if (!currentSchedule) {
@@ -817,10 +1180,17 @@ export function ScheduleAwareTimestampPicker({
       selectionModeRef.current = 'initial';
       onBlur?.();
     },
-    [activeDate, availableSlots, commitChange, currentSchedule, intervalMinutes, isScheduleLoading, onBlur, selectedTime],
+    [
+      activeDate,
+      availableSlots,
+      commitChange,
+      currentSchedule,
+      intervalMinutes,
+      isScheduleLoading,
+      onBlur,
+      selectedTime,
+    ],
   );
-
-
 
   const handleMonthPrefetch = useCallback(
     (month: Date) => {
@@ -856,51 +1226,43 @@ export function ScheduleAwareTimestampPicker({
 
   // Provide a concrete message whenever the time picker is disabled so the input can clear
   // stale values in lockstep with the "No available times" UI.
-  const unavailableMessageForTime = resolvedUnavailableMessage ?? (isTimeDisabled ? 'No available times for the selected date.' : undefined);
-
-
-
-
+  const unavailableMessageForTime =
+    resolvedUnavailableMessage ??
+    (isTimeDisabled ? 'No available times for the selected date.' : undefined);
 
   const resolvedTimeErrorMessage = errorMessage ?? timeValidationError ?? undefined;
 
   return (
     <div className={cn('space-y-6', className)}>
       <div className="space-y-3">
-        {label ? <span className="text-xs font-semibold uppercase text-muted-foreground">{label}</span> : null}
+        {label ? (
+          <span className="text-xs font-semibold uppercase text-muted-foreground">{label}</span>
+        ) : null}
         {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
 
         <div className="overflow-hidden rounded-2xl border border-border/70 bg-background/70 shadow-sm">
           <div className="grid gap-px bg-border/40 md:grid-cols-3">
             <div className="bg-card p-4">
-              <Calendar24Date
-                date={{
-                  value: activeDate,
-                  minDate: fallbackMinDate,
-                  onSelect: handleDateSelect,
-                  onBlur,
-                  error: errorMessage ?? undefined,
-                }}
+              <ScheduleDateControl
+                value={activeDate}
+                minDate={fallbackMinDate}
+                onSelect={handleDateSelect}
+                onBlur={onBlur}
+                error={errorMessage ?? undefined}
                 onMonthChange={handleMonthPrefetch}
                 isDateUnavailable={isDateDisabled}
                 loadingDates={loadingDates}
               />
             </div>
 
-            {children ? (
-              <div className="bg-card p-4">
-                {children}
-              </div>
-            ) : null}
+            {children ? <div className="bg-card p-4">{children}</div> : null}
 
             <div className="bg-card p-4">
-              <Calendar24Time
-                time={{
-                  value: draftTime,
-                  onChange: handleTimeChange,
-                  onBlur,
-                  error: resolvedTimeErrorMessage,
-                }}
+              <ScheduleTimeControl
+                value={draftTime}
+                onChange={handleTimeChange}
+                onBlur={onBlur}
+                error={resolvedTimeErrorMessage}
                 suggestions={availableSlots}
                 intervalMinutes={intervalMinutes}
                 isTimeDisabled={isTimeDisabled}
@@ -911,7 +1273,6 @@ export function ScheduleAwareTimestampPicker({
           </div>
         </div>
       </div>
-
     </div>
   );
 }

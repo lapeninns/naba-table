@@ -24,7 +24,7 @@ export function GuestContactCard({ booking }: GuestContactCardProps) {
   const hasAnyContact = Boolean(booking.customerPhone || booking.customerEmail);
 
   return (
-    <Card className="border-slate-200/60 bg-white">
+    <Card className="border-border bg-background">
       <CardContent className="space-y-2 p-4">
         <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Contact
@@ -73,4 +73,3 @@ export function GuestContactCard({ booking }: GuestContactCardProps) {
 }
 
 export default GuestContactCard;
-

@@ -37,7 +37,8 @@ import {
 } from '@/types/smsDelivery';
 
 function formatSmsStuckForHint(stuckForMs: number | null | undefined): string | null {
-  if (typeof stuckForMs !== 'number' || !Number.isFinite(stuckForMs) || stuckForMs <= 0) return null;
+  if (typeof stuckForMs !== 'number' || !Number.isFinite(stuckForMs) || stuckForMs <= 0)
+    return null;
   const mins = Math.floor(stuckForMs / 60000);
   if (mins >= 120) {
     const hours = Math.floor(mins / 60);
@@ -147,7 +148,15 @@ export function OpsSmsDeliveryClient({
   const timezone = restaurantDetails.data?.timezone ?? 'UTC';
 
   const feedQuery = useQuery({
-    queryKey: ['ops', 'sms-delivery', restaurantId ?? 'none', range, page, pageSize, selectedStatuses.join(',')],
+    queryKey: [
+      'ops',
+      'sms-delivery',
+      restaurantId ?? 'none',
+      range,
+      page,
+      pageSize,
+      selectedStatuses.join(','),
+    ],
     queryFn: () =>
       bookingService.getRestaurantSmsDeliveryFeed({
         restaurantId: restaurantId ?? undefined,
@@ -161,10 +170,12 @@ export function OpsSmsDeliveryClient({
   });
 
   const feed = feedQuery.data && feedQuery.data.ok ? feedQuery.data : null;
-  const unavailable = feedQuery.data && !feedQuery.data.ok && feedQuery.data.code === 'DELIVERY_LOG_UNAVAILABLE';
-  const apiError = feedQuery.data && !feedQuery.data.ok && feedQuery.data.code !== 'DELIVERY_LOG_UNAVAILABLE'
-    ? feedQuery.data.error
-    : null;
+  const unavailable =
+    feedQuery.data && !feedQuery.data.ok && feedQuery.data.code === 'DELIVERY_LOG_UNAVAILABLE';
+  const apiError =
+    feedQuery.data && !feedQuery.data.ok && feedQuery.data.code !== 'DELIVERY_LOG_UNAVAILABLE'
+      ? feedQuery.data.error
+      : null;
 
   if (memberships.length === 0) {
     return (
@@ -230,23 +241,27 @@ export function OpsSmsDeliveryClient({
             }}
             disabled={feedQuery.isFetching}
           >
-            <RefreshCw className={cn('mr-2 h-4 w-4', feedQuery.isFetching && 'animate-spin')} aria-hidden />
+            <RefreshCw
+              className={cn('mr-2 h-4 w-4', feedQuery.isFetching && 'animate-spin')}
+              aria-hidden
+            />
             Refresh
           </Button>
         }
       />
 
       {feed && (feed.summary.stuckInFlight ?? 0) > 0 ? (
-        <Alert className="mt-4 border-amber-300 bg-amber-50/70 text-amber-900">
+        <Alert className="mt-4 border-border bg-muted/40 text-foreground">
           <AlertTitle className="text-sm font-semibold">
             {feed.summary.stuckInFlight} SMS still awaiting terminal status
           </AlertTitle>
           <AlertDescription className="text-xs">
             These SMS attempts are still at <code>queued</code> or <code>sent</code> more than{' '}
-            {SMS_DELIVERY_STALE_THRESHOLD_HOURS}h after Twilio accepted them. Twilio recommends polling the Message
-            resource when a message has not reached <code>delivered</code> or <code>undelivered</code> within that
-            window because a status callback may have been missed. Likely causes: a missed callback, carrier delay, or
-            a message that never progressed beyond queueing/sending. Any row below flagged &ldquo;Stuck&rdquo; warrants
+            {SMS_DELIVERY_STALE_THRESHOLD_HOURS}h after Twilio accepted them. Twilio recommends
+            polling the Message resource when a message has not reached <code>delivered</code> or{' '}
+            <code>undelivered</code> within that window because a status callback may have been
+            missed. Likely causes: a missed callback, carrier delay, or a message that never
+            progressed beyond queueing/sending. Any row below flagged &ldquo;Stuck&rdquo; warrants
             Twilio log review or reconciliation.
           </AlertDescription>
         </Alert>
@@ -255,40 +270,96 @@ export function OpsSmsDeliveryClient({
       <section className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {feedQuery.isLoading || !feed ? (
           <>
-            <Card><CardContent className="p-4"><Skeleton className="h-12 w-full" /></CardContent></Card>
-            <Card><CardContent className="p-4"><Skeleton className="h-12 w-full" /></CardContent></Card>
-            <Card><CardContent className="p-4"><Skeleton className="h-12 w-full" /></CardContent></Card>
-            <Card><CardContent className="p-4"><Skeleton className="h-12 w-full" /></CardContent></Card>
+            <Card>
+              <CardContent className="p-4">
+                <Skeleton className="h-12 w-full" />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <Skeleton className="h-12 w-full" />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <Skeleton className="h-12 w-full" />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <Skeleton className="h-12 w-full" />
+              </CardContent>
+            </Card>
           </>
         ) : (
           <>
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-500">Total attempts</p><p className="text-2xl font-semibold">{feed.summary.total}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-500">Delivered rate</p><p className="text-2xl font-semibold">{Math.round(feed.summary.deliveredRate * 100)}%</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-500">Failures</p><p className="text-2xl font-semibold">{feed.summary.failed + feed.summary.undelivered}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-500">Unique recipients</p><p className="text-2xl font-semibold">{feed.summary.uniqueRecipients}</p></CardContent></Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">Total attempts</p>
+                <p className="text-2xl font-semibold">{feed.summary.total}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">Delivered rate</p>
+                <p className="text-2xl font-semibold">
+                  {Math.round(feed.summary.deliveredRate * 100)}%
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">Failures</p>
+                <p className="text-2xl font-semibold">
+                  {feed.summary.failed + feed.summary.undelivered}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">Unique recipients</p>
+                <p className="text-2xl font-semibold">{feed.summary.uniqueRecipients}</p>
+              </CardContent>
+            </Card>
           </>
         )}
       </section>
 
-      <section className="mt-4 rounded-xl border border-slate-200/70 bg-slate-50/70 p-4">
+      <section className="mt-4 rounded-xl border border-border bg-muted/40 p-4">
         <div className="flex flex-wrap items-center gap-3">
-          <Select value={range} onValueChange={(value) => { setRange(value as OpsSmsDeliveryRange); setPage(1); }}>
+          <Select
+            value={range}
+            onValueChange={(value) => {
+              setRange(value as OpsSmsDeliveryRange);
+              setPage(1);
+            }}
+          >
             <SelectTrigger className="h-9 w-[170px]" aria-label="Select date range">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {RANGE_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <Select value={String(pageSize)} onValueChange={(value) => { setPageSize(Number(value)); setPage(1); }}>
+          <Select
+            value={String(pageSize)}
+            onValueChange={(value) => {
+              setPageSize(Number(value));
+              setPage(1);
+            }}
+          >
             <SelectTrigger className="h-9 w-[140px]" aria-label="Rows per page">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {PAGE_SIZE_OPTIONS.map((option) => (
-                <SelectItem key={option} value={String(option)}>{option} rows</SelectItem>
+                <SelectItem key={option} value={String(option)}>
+                  {option} rows
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -314,7 +385,9 @@ export function OpsSmsDeliveryClient({
                 onClick={() => {
                   setSelectedStatuses((current) => {
                     const exists = current.includes(status);
-                    return exists ? current.filter((item) => item !== status) : [...current, status];
+                    return exists
+                      ? current.filter((item) => item !== status)
+                      : [...current, status];
                   });
                   setPage(1);
                 }}
@@ -328,7 +401,7 @@ export function OpsSmsDeliveryClient({
 
       <section className="mt-4">
         {unavailable ? (
-          <Alert className="border-amber-200/70 bg-amber-50/60">
+          <Alert className="border-border bg-muted/40">
             <AlertTitle>Delivery tracking unavailable</AlertTitle>
             <AlertDescription>
               This environment is not currently recording or exposing SMS delivery events.
@@ -356,52 +429,60 @@ export function OpsSmsDeliveryClient({
             </CardHeader>
             <CardContent>
               {feed.attempts.length === 0 ? (
-                <p className="text-sm text-slate-600">No SMS attempts found for this range/filter.</p>
+                <p className="text-sm text-muted-foreground">
+                  No SMS attempts found for this range/filter.
+                </p>
               ) : (
                 <div className="space-y-3">
                   {feed.attempts.map((attempt) => {
                     const isStale = attempt.isStale === true;
                     const stuckHint = isStale ? formatSmsStuckForHint(attempt.stuckForMs) : null;
                     return (
-                    <div
-                      key={`${attempt.messageSid}__${attempt.recipientPhone}`}
-                      className={cn(
-                        'rounded-lg border p-3',
-                        isStale ? 'border-amber-300 bg-amber-50/40' : 'border-slate-200/70',
-                      )}
-                      data-stale={isStale ? 'true' : undefined}
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <div className="min-w-0 space-y-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <StatusBadge status={attempt.currentStatus} />
-                            {isStale ? (
-                              <Badge
-                                variant="outline"
-                                className="border-amber-400 bg-amber-100 text-[10px] font-bold uppercase tracking-wide text-amber-900"
-                                title="In flight for longer than the expected Twilio callback window"
-                              >
-                                Stuck{stuckHint ? ` · ${stuckHint}` : ''}
-                              </Badge>
-                            ) : null}
-                            <span className="text-sm font-medium text-slate-900">{formatSmsTypeLabel(attempt.smsType)}</span>
+                      <div
+                        key={`${attempt.messageSid}__${attempt.recipientPhone}`}
+                        className={cn(
+                          'rounded-lg border p-3',
+                          isStale ? 'border-primary/30 bg-primary/10' : 'border-border',
+                        )}
+                        data-stale={isStale ? 'true' : undefined}
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div className="min-w-0 space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <StatusBadge status={attempt.currentStatus} />
+                              {isStale ? (
+                                <Badge
+                                  variant="outline"
+                                  className="border-primary/30 bg-primary/10 text-[10px] font-bold uppercase tracking-wide text-primary"
+                                  title="In flight for longer than the expected Twilio callback window"
+                                >
+                                  Stuck{stuckHint ? ` · ${stuckHint}` : ''}
+                                </Badge>
+                              ) : null}
+                              <span className="text-sm font-medium text-foreground">
+                                {formatSmsTypeLabel(attempt.smsType)}
+                              </span>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              {attempt.recipientPhone} ·{' '}
+                              {attempt.booking?.reference
+                                ? `Ref ${attempt.booking.reference}`
+                                : 'No booking link'}
+                            </p>
                           </div>
-                          <p className="text-xs text-slate-600">
-                            {attempt.recipientPhone} · {attempt.booking?.reference ? `Ref ${attempt.booking.reference}` : 'No booking link'}
+                          <p className="text-xs text-muted-foreground">
+                            {formatSmsDeliveryOccurredAt(attempt.currentOccurredAt, timezone) ??
+                              'Unknown time'}
                           </p>
                         </div>
-                        <p className="text-xs text-slate-500">
-                          {formatSmsDeliveryOccurredAt(attempt.currentOccurredAt, timezone) ?? 'Unknown time'}
-                        </p>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          {attempt.events.map((event) => (
+                            <Badge key={event.id} variant="outline" className="text-[10px]">
+                              {SMS_DELIVERY_STATUS_LABELS[event.status]}
+                            </Badge>
+                          ))}
+                        </div>
                       </div>
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        {attempt.events.map((event) => (
-                          <Badge key={event.id} variant="outline" className="text-[10px]">
-                            {SMS_DELIVERY_STATUS_LABELS[event.status]}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
                     );
                   })}
                 </div>
@@ -410,10 +491,22 @@ export function OpsSmsDeliveryClient({
               <div className="mt-4 flex items-center justify-between">
                 <p className="text-xs text-muted-foreground">Page {feed.pageInfo.page}</p>
                 <div className="flex items-center gap-2">
-                  <Button type="button" variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={page <= 1}
+                    onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  >
                     Prev
                   </Button>
-                  <Button type="button" variant="outline" size="sm" disabled={!feed.pageInfo.hasNext} onClick={() => setPage((current) => current + 1)}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={!feed.pageInfo.hasNext}
+                    onClick={() => setPage((current) => current + 1)}
+                  >
                     Next
                   </Button>
                 </div>

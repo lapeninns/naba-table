@@ -30,9 +30,7 @@ const sortRows = (rows: TurnBandInput[]): TurnBandInput[] =>
 
 export function describeTurnBands(bands: TurnBandInput[] | undefined, fallback: string): string {
   if (!bands || bands.length === 0) return fallback;
-  return bands
-    .map((band) => `≤${band.maxPartySize}: ${band.durationMinutes} min`)
-    .join(' · ');
+  return bands.map((band) => `≤${band.maxPartySize}: ${band.durationMinutes} min`).join(' · ');
 }
 
 export function validateTurnBandRows(rows: TurnBandInput[]): {
@@ -94,15 +92,11 @@ export function TurnBandsEditor({
     () =>
       effectiveDefaults.length > 0
         ? describeTurnBands(effectiveDefaults, fallbackLabel ?? 'No defaults configured')
-        : fallbackLabel ?? 'Defaults will apply until bands are configured.',
+        : (fallbackLabel ?? 'Defaults will apply until bands are configured.'),
     [effectiveDefaults, fallbackLabel],
   );
 
-  const handleUpdate = (
-    index: number,
-    field: keyof TurnBandInput,
-    rawValue: string,
-  ) => {
+  const handleUpdate = (index: number, field: keyof TurnBandInput, rawValue: string) => {
     const parsed = rawValue === '' ? 0 : Number(rawValue);
     const next = bands.map((row, rowIndex) =>
       rowIndex === index ? { ...row, [field]: parsed } : row,
@@ -118,7 +112,7 @@ export function TurnBandsEditor({
   const handleAddRow = () => {
     const last = bands[bands.length - 1];
     const defaultSeed = effectiveDefaults[0] ?? null;
-    const nextMax = last?.maxPartySize ? last.maxPartySize + 2 : defaultSeed?.maxPartySize ?? 2;
+    const nextMax = last?.maxPartySize ? last.maxPartySize + 2 : (defaultSeed?.maxPartySize ?? 2);
     const nextDuration = last?.durationMinutes ?? defaultSeed?.durationMinutes ?? 90;
     onChange(sortRows([...bands, { maxPartySize: nextMax, durationMinutes: nextDuration }]));
   };
@@ -139,12 +133,24 @@ export function TurnBandsEditor({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-end gap-2">
-        <Button type="button" variant="outline" size="sm" onClick={handleAddRow} disabled={disabled}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleAddRow}
+          disabled={disabled}
+        >
           <Plus className="mr-2 h-4 w-4" aria-hidden />
           Add band
         </Button>
         {!hasOverrides && effectiveDefaults.length > 0 ? (
-          <Button type="button" variant="ghost" size="sm" onClick={handleUseDefaults} disabled={disabled}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={handleUseDefaults}
+            disabled={disabled}
+          >
             Use defaults
           </Button>
         ) : null}
@@ -186,7 +192,11 @@ export function TurnBandsEditor({
                     inputMode="numeric"
                     min={1}
                     disabled={disabled}
-                    value={Number.isFinite(row.maxPartySize) && row.maxPartySize !== 0 ? row.maxPartySize : ''}
+                    value={
+                      Number.isFinite(row.maxPartySize) && row.maxPartySize !== 0
+                        ? row.maxPartySize
+                        : ''
+                    }
                     aria-invalid={Boolean(error.maxPartySize)}
                     onChange={(event) => handleUpdate(index, 'maxPartySize', event.target.value)}
                     onBlur={handleSortOnBlur}
@@ -206,7 +216,11 @@ export function TurnBandsEditor({
                     inputMode="numeric"
                     min={1}
                     disabled={disabled}
-                    value={Number.isFinite(row.durationMinutes) && row.durationMinutes !== 0 ? row.durationMinutes : ''}
+                    value={
+                      Number.isFinite(row.durationMinutes) && row.durationMinutes !== 0
+                        ? row.durationMinutes
+                        : ''
+                    }
                     aria-invalid={Boolean(error.durationMinutes)}
                     onChange={(event) => handleUpdate(index, 'durationMinutes', event.target.value)}
                   />

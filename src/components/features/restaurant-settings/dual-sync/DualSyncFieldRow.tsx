@@ -119,11 +119,7 @@ export function DualSyncFieldRow({
             >
               Export to Google
             </ToggleGroupItem>
-            <ToggleGroupItem
-              value="ignore"
-              disabled={disabled}
-              aria-label="Ignore field"
-            >
+            <ToggleGroupItem value="ignore" disabled={disabled} aria-label="Ignore field">
               Ignore
             </ToggleGroupItem>
           </ToggleGroup>
@@ -160,43 +156,27 @@ function FieldFreshness({ field }: { field: DualSyncFieldSummary }) {
     case 'drifted': {
       const t = field.lastCoreChangeAt ?? field.lastGbpChangeAt ?? field.lastInSyncAt;
       return t ? (
-        <DualSyncFreshnessChip
-          timestamp={t}
-          prefix="Drifted"
-          neverLabel="No history"
-        />
+        <DualSyncFreshnessChip timestamp={t} prefix="Drifted" neverLabel="No history" />
       ) : null;
     }
     case 'conflict': {
       const t = field.lastCoreChangeAt ?? field.lastGbpChangeAt ?? field.lastInSyncAt;
       return t ? (
-        <DualSyncFreshnessChip
-          timestamp={t}
-          prefix="In conflict"
-          neverLabel="No history"
-        />
+        <DualSyncFreshnessChip timestamp={t} prefix="In conflict" neverLabel="No history" />
       ) : null;
     }
     case 'pending_import':
     case 'pending_export': {
       const t = field.lastCoreChangeAt ?? field.lastGbpChangeAt ?? field.lastInSyncAt;
       return t ? (
-        <DualSyncFreshnessChip
-          timestamp={t}
-          prefix="Pending"
-          neverLabel="No history"
-        />
+        <DualSyncFreshnessChip timestamp={t} prefix="Pending" neverLabel="No history" />
       ) : null;
     }
     case 'import_failed':
     case 'export_failed': {
       const t = field.lastCoreChangeAt ?? field.lastGbpChangeAt ?? field.lastInSyncAt;
       return t ? (
-        <DualSyncFreshnessChip
-          timestamp={t}
-          prefix="Failed"
-          neverLabel="No history"
-        />
+        <DualSyncFreshnessChip timestamp={t} prefix="Failed" neverLabel="No history" />
       ) : null;
     }
     case null:

@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Select,
@@ -81,12 +82,12 @@ export type OpsEmailDeliveryFilterBarProps = {
 };
 
 const STATUS_BADGE_COLORS: Record<EmailDeliveryStatus, string> = {
-  sent: 'border-slate-200 bg-slate-50 text-slate-700',
-  delivered: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-  delivery_delayed: 'border-amber-200 bg-amber-50 text-amber-700',
-  bounced: 'border-rose-200 bg-rose-50 text-rose-700',
-  complained: 'border-rose-200 bg-rose-50 text-rose-700',
-  failed: 'border-rose-200 bg-rose-50 text-rose-700',
+  sent: 'border-border bg-muted/40 text-muted-foreground',
+  delivered: 'border-primary/30 bg-primary/10 text-primary',
+  delivery_delayed: 'border-primary/30 bg-primary/10 text-primary',
+  bounced: 'border-destructive/20 bg-destructive/10 text-destructive',
+  complained: 'border-destructive/20 bg-destructive/10 text-destructive',
+  failed: 'border-destructive/20 bg-destructive/10 text-destructive',
 };
 
 export function OpsEmailDeliveryFilterBar({
@@ -184,9 +185,7 @@ export function OpsEmailDeliveryFilterBar({
         {/* Template type dropdown */}
         <Select
           value={templateType ?? '__all__'}
-          onValueChange={(value) =>
-            onTemplateTypeChange(value === '__all__' ? null : value)
-          }
+          onValueChange={(value) => onTemplateTypeChange(value === '__all__' ? null : value)}
         >
           <SelectTrigger className="w-full sm:w-[180px]" aria-label="Filter by template type">
             <SelectValue placeholder="Template type" />
@@ -204,9 +203,7 @@ export function OpsEmailDeliveryFilterBar({
         {/* Email type dropdown */}
         <Select
           value={emailType ?? '__all__'}
-          onValueChange={(value) =>
-            onEmailTypeChange(value === '__all__' ? null : value)
-          }
+          onValueChange={(value) => onEmailTypeChange(value === '__all__' ? null : value)}
         >
           <SelectTrigger className="w-full sm:w-[160px]" aria-label="Filter by email type">
             <SelectValue placeholder="Email type" />
@@ -243,10 +240,7 @@ export function OpsEmailDeliveryFilterBar({
                 const checked = statuses.includes(status);
                 const count = statusCounts?.[status];
                 return (
-                  <label
-                    key={status}
-                    className="flex cursor-pointer items-center gap-2"
-                  >
+                  <Label key={status} className="flex cursor-pointer items-center gap-2">
                     <Checkbox
                       checked={checked}
                       onCheckedChange={(val) => onToggleStatus(status, Boolean(val))}
@@ -263,7 +257,7 @@ export function OpsEmailDeliveryFilterBar({
                         {count}
                       </span>
                     )}
-                  </label>
+                  </Label>
                 );
               })}
             </div>
