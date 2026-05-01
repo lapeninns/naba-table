@@ -3,10 +3,10 @@
 import { MinusIcon, PlusIcon, UsersIcon } from 'lucide-react';
 import React from 'react';
 
+import { Button } from '@/components/ui/button';
+import { FormDescription, FormItem, FormMessage } from '@/components/ui/form';
 import { MAX_ONLINE_PARTY_SIZE, MIN_ONLINE_PARTY_SIZE } from '@/lib/bookings/partySize';
 import { cn } from '@shared/lib/cn';
-import { Button } from '@shared/ui/button';
-import { FormDescription, FormItem, FormMessage } from '@shared/ui/form';
 
 const DESCRIPTION = "Tables for 12+? Give us a call and we'll help you out.";
 

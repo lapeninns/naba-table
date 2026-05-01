@@ -106,7 +106,7 @@ const TIMEOUT_RECOVERY_DELAY_MS = 2_000;
 export function useReservationWizard(
   initialDetails?: Partial<BookingDetails>,
   mode: BookingWizardMode = 'customer',
-  options?: { returnPath?: string },
+  options?: { returnPath?: string; redirectOnSuccess?: boolean },
 ) {
   const { state, actions } = useWizardStore(initialDetails);
   const draftHydratedRef = useRef(false);
@@ -119,6 +119,7 @@ export function useReservationWizard(
   const isOnline = useOnlineStatus();
   const { preferences, savePreferences } = useGuestPreferences();
   const returnPath = options?.returnPath;
+  const redirectOnSuccess = options?.redirectOnSuccess === true;
   // Build safe return path - user is closing the confirmation (thank you) step
   // The wizard step 4 IS the thank you experience, so we redirect to:
   // - Explicit returnPath if provided
@@ -489,6 +490,10 @@ export function useReservationWizard(
         context: mode,
         recovered: false,
       });
+
+      if (mode === 'ops' && redirectOnSuccess) {
+        navigator.replace(safeReturnPath);
+      }
     } catch (error) {
       if (isRequestAbortedError(error)) {
         actions.setLoading(false);
@@ -585,6 +590,9 @@ export function useReservationWizard(
     isOnline,
     mode,
     mutation,
+    navigator,
+    redirectOnSuccess,
+    safeReturnPath,
     state.details,
     state.editingId,
     state.loading,

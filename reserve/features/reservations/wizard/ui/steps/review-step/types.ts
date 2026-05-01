@@ -1,4 +1,4 @@
-import type { State, StepAction } from '../../../model/reducer';
+import type { BookingWizardMode, State, StepAction } from '../../../model/reducer';
 import type { WizardActions } from '../../../model/store';
 
 export interface ReviewStepProps {
@@ -8,6 +8,7 @@ export interface ReviewStepProps {
   >;
   onConfirm: () => void | Promise<void>;
   onActionsChange: (actions: StepAction[]) => void;
+  mode?: BookingWizardMode;
 }
 
 export type ReviewSummary = {

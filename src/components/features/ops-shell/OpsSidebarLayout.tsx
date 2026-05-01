@@ -115,21 +115,20 @@ function OpsSidebarPanel() {
   return (
     <Sidebar
       collapsible="icon"
-      className="border-r border-border/40 bg-sidebar text-sidebar-foreground"
     >
-      <SidebarHeader className="px-3 pt-4">
+      <SidebarHeader>
         <OpsRestaurantSwitch />
       </SidebarHeader>
-      <SidebarContent className="gap-4 px-2">
+      <SidebarContent>
         {!pathname ? (
           <OpsSidebarSkeleton />
         ) : (
           <OpsSidebarNav sections={sections} pathname={pathname} />
         )}
       </SidebarContent>
-      <SidebarFooter className="px-3 pb-4">
+      <SidebarFooter>
         <OpsAccountActions />
-        <SidebarSeparator className="my-4 border-sidebar-border" />
+        <SidebarSeparator />
         <OpsSupportLink />
       </SidebarFooter>
     </Sidebar>
@@ -171,8 +170,8 @@ function OpsSidebarNav({
   return (
     <>
       {sections.map((section) => (
-        <SidebarGroup key={section.label} className="gap-1">
-          <SidebarGroupLabel className="text-[0.68rem] uppercase tracking-wide text-sidebar-foreground/70">
+        <SidebarGroup key={section.label}>
+          <SidebarGroupLabel>
             {section.label}
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -186,7 +185,7 @@ function OpsSidebarNav({
                       asChild
                       isActive={active}
                       tooltip={item.title}
-                      className={cn('touch-manipulation', !isOnline && 'opacity-60')}
+                      className={cn(!isOnline && 'opacity-60')}
                     >
                       <Link
                         href={item.href}
@@ -199,10 +198,7 @@ function OpsSidebarNav({
                           }
                         }}
                       >
-                        <Icon
-                          aria-hidden
-                          className={cn('size-4', active && 'text-sidebar-accent-foreground')}
-                        />
+                        <Icon aria-hidden />
                         <span className="truncate">{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
@@ -219,10 +215,8 @@ function OpsSidebarNav({
 
 function OpsSidebarSkeleton() {
   return (
-    <SidebarGroup className="gap-2">
-      <SidebarGroupLabel className="text-[0.68rem] uppercase tracking-wide text-sidebar-foreground/50">
-        Loading
-      </SidebarGroupLabel>
+    <SidebarGroup>
+      <SidebarGroupLabel>Loading</SidebarGroupLabel>
       <SidebarGroupContent>
         <SidebarMenu>
           {Array.from({ length: 5 }).map((_, index) => (
@@ -261,14 +255,13 @@ function OpsAccountActions() {
   }, [confirmNavigation, isSigningOut]);
 
   return (
-    <SidebarGroup>
+    <SidebarGroup className="p-0">
       <SidebarGroupLabel>Account</SidebarGroupLabel>
       <SidebarGroupContent>
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
               type="button"
-              className="touch-manipulation"
               tooltip="Sign out of operations"
               onClick={handleSignOut}
               disabled={isSigningOut}
@@ -292,7 +285,7 @@ function OpsSupportLink() {
   const SupportIcon = OPS_SUPPORT_ITEM.icon;
 
   return (
-    <SidebarGroup>
+    <SidebarGroup className="p-0">
       <SidebarGroupLabel>Need help?</SidebarGroupLabel>
       <SidebarGroupContent>
         <SidebarMenu>
@@ -300,10 +293,9 @@ function OpsSupportLink() {
             <SidebarMenuButton
               asChild
               tooltip="Contact Nab a Table support"
-              className="touch-manipulation"
             >
               <a href={OPS_SUPPORT_ITEM.href}>
-                <SupportIcon className="size-4" aria-hidden />
+                <SupportIcon aria-hidden />
                 <span className="truncate">{OPS_SUPPORT_ITEM.title}</span>
               </a>
             </SidebarMenuButton>

@@ -49,4 +49,28 @@ describe('buildReservationDraft', () => {
 
     expect(result.draft.bookingType).toBe('lunch');
   });
+
+  it('allows nullable contact fields for ops drafts', () => {
+    const details = getInitialDetails({
+      restaurantId: 'rest-1',
+      restaurantSlug: 'the-fox',
+      date: '2026-03-29',
+      time: '18:30',
+      party: 2,
+      bookingType: 'dinner',
+      name: 'Walk In Guest',
+      email: '',
+      phone: '',
+    });
+
+    const result = buildReservationDraft(details, 'ops');
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error(result.error);
+    }
+
+    expect(result.draft.email).toBeNull();
+    expect(result.draft.phone).toBeNull();
+  });
 });

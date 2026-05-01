@@ -3,6 +3,7 @@
 import { CalendarIcon, MapPinIcon, PrinterIcon, MoreHorizontalIcon } from 'lucide-react';
 import React from 'react';
 
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,7 +12,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Button } from '@shared/ui/button';
 
 interface BookingConfirmationActionsProps {
   restaurantName: string;

@@ -2,8 +2,8 @@
 
 import * as React from 'react';
 
+import { Progress } from '@/components/ui/progress';
 import { cn } from '@shared/lib/cn';
-import { Progress } from '@shared/ui/progress';
 
 export interface WizardStepMeta {
   id: number;

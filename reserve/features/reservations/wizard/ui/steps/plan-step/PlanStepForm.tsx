@@ -4,11 +4,16 @@ import { AlertCircle } from 'lucide-react';
 import React, { useCallback, useMemo } from 'react';
 import { useController } from 'react-hook-form';
 
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
+import { Alert, AlertDescription, AlertIcon } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Form, FormField, FormRoot } from '@/components/ui/form';
 import { formatDateForInput } from '@reserve/shared/formatting/booking';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@shared/ui/accordion';
-import { Alert, AlertDescription, AlertIcon } from '@shared/ui/alert';
-import { Button } from '@shared/ui/button';
-import { Form, FormField, FormRoot } from '@shared/ui/form';
 
 import { Calendar24Date, Calendar24Time, NotesField, PartySizeField } from './components';
 import { usePlanStepForm } from '../../../hooks/usePlanStepForm';

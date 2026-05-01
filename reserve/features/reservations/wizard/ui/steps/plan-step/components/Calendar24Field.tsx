@@ -4,13 +4,11 @@ import { endOfDay } from 'date-fns';
 import { CalendarIcon, ChevronDownIcon, ClockIcon } from 'lucide-react';
 import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
 
-import { formatDateForInput, formatReservationDateShort } from '@reserve/shared/formatting/booking';
-import { cn } from '@shared/lib/cn';
-import { Button } from '@shared/ui/button';
-import { Calendar } from '@shared/ui/calendar';
-import { Input } from '@shared/ui/input';
-import { Label } from '@shared/ui/label';
-import { Popover, PopoverContent, PopoverTrigger } from '@shared/ui/popover';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Select,
   SelectContent,
@@ -20,7 +18,9 @@ import {
   SelectSeparator,
   SelectTrigger,
   SelectValue,
-} from '@shared/ui/select';
+} from '@/components/ui/select';
+import { formatDateForInput, formatReservationDateShort } from '@reserve/shared/formatting/booking';
+import { cn } from '@shared/lib/cn';
 
 import type { TimeSlotDescriptor } from '@reserve/features/reservations/wizard/services';
 

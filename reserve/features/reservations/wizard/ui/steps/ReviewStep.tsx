@@ -17,14 +17,14 @@ import {
 } from 'lucide-react';
 import React from 'react';
 
+import { Alert, AlertDescription, AlertIcon } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
 import { useReviewStep } from '@features/reservations/wizard/hooks/useReviewStep';
 import { formatBookingLabel } from '@reserve/shared/formatting/booking';
 import { formatReservationTime } from '@reserve/shared/formatting/booking';
 import { cn } from '@shared/lib/cn';
-import { Alert, AlertDescription, AlertIcon } from '@shared/ui/alert';
-import { Badge } from '@shared/ui/badge';
-import { Button } from '@shared/ui/button';
-import { Separator } from '@shared/ui/separator';
 
 import { useWizardNavigation } from '../../context/WizardContext';
 import { StepErrorBoundary } from '../ErrorBoundary';
@@ -134,6 +134,7 @@ export function ReviewStep(props: ReviewStepProps) {
   const { details, summary, error, submissionError, handleAlternativeSelect } =
     useReviewStep(props);
   const { goToStep } = useWizardNavigation();
+  const isOpsMode = props.mode === 'ops';
 
   const emailDisplay = details.email?.trim() ? details.email : 'Not provided';
   const phoneDisplay = details.phone?.trim() ? details.phone : 'Not provided';
@@ -251,7 +252,7 @@ export function ReviewStep(props: ReviewStepProps) {
 
             <WizardPanelContent className="p-6">
               <SectionHeader
-                title="Your Details"
+                title={isOpsMode ? 'Guest Details' : 'Your Details'}
                 icon={<UserIcon className="h-4 w-4" />}
                 onEdit={handleEditDetails}
                 editLabel="Edit guest details"
@@ -273,11 +274,13 @@ export function ReviewStep(props: ReviewStepProps) {
                   label="Phone"
                   value={phoneDisplay}
                 />
-                <DetailItem
-                  icon={<BellIcon className="h-4 w-4" />}
-                  label="Marketing"
-                  value={details.marketingOptIn ? 'Subscribed' : 'Not subscribed'}
-                />
+                {!isOpsMode ? (
+                  <DetailItem
+                    icon={<BellIcon className="h-4 w-4" />}
+                    label="Marketing"
+                    value={details.marketingOptIn ? 'Subscribed' : 'Not subscribed'}
+                  />
+                ) : null}
               </dl>
 
               {details.notes && (
@@ -294,11 +297,13 @@ export function ReviewStep(props: ReviewStepProps) {
             </WizardPanelContent>
           </WizardPanel>
 
-          <WizardPanel>
-            <WizardPanelFooter className="justify-center bg-muted/35 text-center text-xs text-muted-foreground">
-              By clicking Confirm, you agree to the reservation terms and privacy notice.
-            </WizardPanelFooter>
-          </WizardPanel>
+          {!isOpsMode ? (
+            <WizardPanel>
+              <WizardPanelFooter className="justify-center bg-muted/35 text-center text-xs text-muted-foreground">
+                By clicking Confirm, you agree to the reservation terms and privacy notice.
+              </WizardPanelFooter>
+            </WizardPanel>
+          ) : null}
         </div>
       </WizardStep>
     </StepErrorBoundary>

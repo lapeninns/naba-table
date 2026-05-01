@@ -20,6 +20,22 @@ type OpsReservationError = {
   status?: number;
 };
 
+export function buildOpsBookingPayload(draft: ReservationDraft) {
+  return {
+    restaurantId: draft.restaurantId,
+    date: draft.date,
+    time: draft.time,
+    party: draft.party,
+    bookingType: draft.bookingType,
+    seating: DEFAULT_OPS_SEATING_PREFERENCE,
+    notes: draft.notes ?? undefined,
+    name: draft.name,
+    email: draft.email ?? null,
+    phone: draft.phone ?? null,
+    marketingOptIn: draft.marketingOptIn,
+  } as const;
+}
+
 export function useCreateOpsReservation() {
   const queryClient = useQueryClient();
   const idempotencyKeyRef = useRef<string | null>(null);
@@ -38,20 +54,7 @@ export function useCreateOpsReservation() {
         });
       }
 
-      const payload = {
-        restaurantId: draft.restaurantId,
-        restaurantSlug: draft.restaurantSlug,
-        date: draft.date,
-        time: draft.time,
-        party: draft.party,
-        bookingType: draft.bookingType,
-        seating: DEFAULT_OPS_SEATING_PREFERENCE,
-        notes: draft.notes ?? undefined,
-        name: draft.name,
-        email: draft.email ?? undefined,
-        phone: draft.phone ?? undefined,
-        marketingOptIn: draft.marketingOptIn,
-      } as const;
+      const payload = buildOpsBookingPayload(draft);
 
       const idempotencyKey =
         idempotencyKeyRef.current ??
@@ -69,11 +72,7 @@ export function useCreateOpsReservation() {
           'Content-Type': 'application/json',
           'Idempotency-Key': idempotencyKey,
         },
-        body: JSON.stringify({
-          ...payload,
-          email: draft.email ?? null,
-          phone: draft.phone ?? null,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const booking = response?.booking ? reservationAdapter(response.booking) : null;

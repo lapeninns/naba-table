@@ -3,8 +3,14 @@
 import { MessageSquareIcon } from 'lucide-react';
 import React, { useId, useMemo } from 'react';
 
-import { FormControl, FormDescription, FormItem, FormLabel, FormMessage } from '@shared/ui/form';
-import { Textarea } from '@shared/ui/textarea';
+import {
+  FormControl,
+  FormDescription,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Textarea } from '@/components/ui/textarea';
 
 const DESCRIPTION = 'Optional. Share anything we should know before you arrive.';
 const MAX_LENGTH = 500;

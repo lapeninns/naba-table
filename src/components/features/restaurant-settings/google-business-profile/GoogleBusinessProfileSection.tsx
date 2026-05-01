@@ -6,33 +6,25 @@ import { toast } from 'sonner';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   useOpsDisconnectGoogleBusinessProfile,
   useOpsGoogleBusinessProfileConnection,
   useOpsLinkGoogleBusinessProfileLocation,
 } from '@/hooks/ops/useOpsGoogleBusinessProfile';
-import { useOpsOperatingHours } from '@/hooks/ops/useOpsOperatingHours';
-import { useOpsRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
-import { useOpsServicePeriods } from '@/hooks/ops/useOpsServicePeriods';
 import {
   OPS_RESTAURANTS_BASE,
   type GoogleBusinessProfileAvailableLocation,
 } from '@/services/ops/restaurants';
 
-import { AlignmentCard } from './components/AlignmentCard';
 import { ConnectCard } from './components/ConnectCard';
-import { LinkedSummaryCard } from './components/LinkedSummaryCard';
 import { LocationPickerCard } from './components/LocationPickerCard';
 import { PageHeader } from './components/PageHeader';
-import { SnapshotCard } from './components/SnapshotCard';
 import {
   buildGoogleMapsPlaceHref,
   buildLocationValue,
 } from './googleBusinessProfileConnectionModel';
-import { deriveProfileVerification } from './googleBusinessProfileVerification';
-import { buildDriftReport } from './lib/drift';
 
 type GoogleBusinessProfileSectionProps = {
   restaurantId: string | null;
@@ -53,14 +45,10 @@ function LoadingSkeleton() {
 export function GoogleBusinessProfileSection({ restaurantId }: GoogleBusinessProfileSectionProps) {
   const searchParams = useSearchParams();
   const connectionQuery = useOpsGoogleBusinessProfileConnection(restaurantId);
-  const profileQuery = useOpsRestaurantDetails(restaurantId);
-  const operatingHoursQuery = useOpsOperatingHours(restaurantId);
-  const servicePeriodsQuery = useOpsServicePeriods(restaurantId);
   const linkMutation = useOpsLinkGoogleBusinessProfileLocation(restaurantId);
   const disconnectMutation = useOpsDisconnectGoogleBusinessProfile(restaurantId);
 
   const [selectedLocationValue, setSelectedLocationValue] = useState('');
-  const [wantsRelink, setWantsRelink] = useState(false);
 
   useEffect(() => {
     const gbpStatus = searchParams.get('gbp');
@@ -90,7 +78,7 @@ export function GoogleBusinessProfileSection({ restaurantId }: GoogleBusinessPro
       return;
     }
 
-    if (data.externalLocationName && data.externalAccountName && !wantsRelink) {
+    if (data.externalLocationName && data.externalAccountName) {
       const linkedLocation = data.availableLocations.find(
         (location) =>
           location.locationName === data.externalLocationName &&
@@ -105,7 +93,7 @@ export function GoogleBusinessProfileSection({ restaurantId }: GoogleBusinessPro
     if (!selectedLocationValue && data.availableLocations[0]) {
       setSelectedLocationValue(buildLocationValue(data.availableLocations[0]));
     }
-  }, [data, selectedLocationValue, wantsRelink]);
+  }, [data, selectedLocationValue]);
 
   const selectedLocation = useMemo<GoogleBusinessProfileAvailableLocation | null>(() => {
     if (!data) {
@@ -165,20 +153,8 @@ export function GoogleBusinessProfileSection({ restaurantId }: GoogleBusinessPro
   const manageOnGoogleHref = buildGoogleMapsPlaceHref(data.externalPlaceId);
   const hasLinkedLocation = Boolean(data.externalLocationId);
   const isLinked = data.status === 'linked' || data.status === 'sync_error';
-  const showPicker =
-    data.status === 'authorized' || data.status === 'reauth_required' || (isLinked && wantsRelink);
+  const showPicker = data.status === 'authorized' || data.status === 'reauth_required';
   const showConnect = !isLinked && !showPicker && data.status !== 'authorized';
-  const profileVerification = profileQuery.data
-    ? deriveProfileVerification({ profile: profileQuery.data, connection: data })
-    : null;
-  const driftReport =
-    profileQuery.data && profileVerification
-      ? buildDriftReport({
-          profile: profileQuery.data,
-          connection: data,
-          verification: profileVerification,
-        })
-      : null;
 
   const handleLinkLocation = () => {
     if (!selectedLocation) {
@@ -195,7 +171,6 @@ export function GoogleBusinessProfileSection({ restaurantId }: GoogleBusinessPro
       },
       {
         onSuccess: () => {
-          setWantsRelink(false);
           toast.success('Google Business Profile location linked.');
         },
         onError: (error) => toast.error(error.message),
@@ -207,7 +182,6 @@ export function GoogleBusinessProfileSection({ restaurantId }: GoogleBusinessPro
     disconnectMutation.mutate(undefined, {
       onSuccess: () => {
         setSelectedLocationValue('');
-        setWantsRelink(false);
         toast.success('Google Business Profile disconnected.');
       },
       onError: (error) => toast.error(error.message),
@@ -250,46 +224,6 @@ export function GoogleBusinessProfileSection({ restaurantId }: GoogleBusinessPro
         />
       ) : null}
 
-      {isLinked ? (
-        <section className="space-y-4" data-testid="gbp-secondary-analysis">
-          <Card>
-            <CardHeader>
-              <CardTitle>Secondary analysis</CardTitle>
-              <CardDescription>
-                Review the linked Google location, cached snapshot, and read-only drift signals
-                before changing any local restaurant settings.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
-          <LinkedSummaryCard
-            data={data}
-            manageOnGoogleHref={manageOnGoogleHref}
-            onGenerateDraft={() => void connectionQuery.refetch()}
-            onChangeLocation={() => setWantsRelink(true)}
-            isGeneratingDraft={connectionQuery.isFetching}
-          />
-
-          {profileQuery.isLoading && !profileQuery.data ? (
-            <Card>
-              <CardContent className="space-y-3 py-6">
-                <Skeleton className="h-4 w-48" />
-                <Skeleton className="h-24 w-full" />
-              </CardContent>
-            </Card>
-          ) : driftReport ? (
-            <AlignmentCard
-              report={driftReport}
-              connection={data}
-              operatingHours={operatingHoursQuery.data}
-              servicePeriods={servicePeriodsQuery.data}
-              isScheduleDataLoading={operatingHoursQuery.isLoading || servicePeriodsQuery.isLoading}
-            />
-          ) : null}
-
-          <SnapshotCard businessInfo={data.businessInfo} />
-        </section>
-      ) : null}
     </div>
   );
 }

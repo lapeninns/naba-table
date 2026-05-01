@@ -3,9 +3,9 @@
 import { CheckCircle2, Info, AlertTriangle, XCircle } from 'lucide-react';
 import React, { useMemo } from 'react';
 
+import { Alert, AlertDescription, AlertIcon } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import { useConfirmationStep } from '@features/reservations/wizard/hooks/useConfirmationStep';
-import { Alert, AlertDescription, AlertIcon } from '@shared/ui/alert';
-import { Button } from '@shared/ui/button';
 
 import { useWizardNavigation } from '../../context/WizardContext';
 import { BookingConfirmationActions } from '../BookingConfirmationActions';

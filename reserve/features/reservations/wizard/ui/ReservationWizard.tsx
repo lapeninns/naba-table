@@ -12,6 +12,7 @@ type ReservationWizardProps = {
   mode?: BookingWizardMode;
   layoutElement?: 'main' | 'div';
   returnPath?: string;
+  redirectOnSuccess?: boolean;
   /**
    * Optional dependency overrides (navigation, analytics, etc.). If omitted,
    * defaults are used, which rely on window navigation.
@@ -27,6 +28,7 @@ export function ReservationWizard({
   mode = 'customer',
   layoutElement = 'main',
   returnPath,
+  redirectOnSuccess,
   dependencies,
   navigationClassName,
   className,
@@ -39,6 +41,7 @@ export function ReservationWizard({
         mode={mode}
         layoutElement={layoutElement}
         returnPath={returnPath}
+        redirectOnSuccess={redirectOnSuccess}
         navigationClassName={navigationClassName}
         className={className}
         contentClassName={contentClassName}

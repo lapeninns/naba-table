@@ -3,7 +3,7 @@
 import { AlertTriangle } from 'lucide-react';
 import React, { useMemo } from 'react';
 
-import { Alert, AlertDescription, AlertIcon } from '@shared/ui/alert';
+import { Alert, AlertDescription, AlertIcon } from '@/components/ui/alert';
 
 import { useWizardActions, useWizardState } from '../../context/WizardContext';
 import { StepErrorBoundary } from '../ErrorBoundary';

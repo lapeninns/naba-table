@@ -5,11 +5,15 @@ import Link from 'next/link';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useWatch } from 'react-hook-form';
 
-import { cn } from '@/lib/utils';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@shared/ui/accordion';
-import { Alert, AlertDescription, AlertIcon } from '@shared/ui/alert';
-import { Button } from '@shared/ui/button';
-import { Checkbox } from '@shared/ui/checkbox';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
+import { Alert, AlertDescription, AlertIcon } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Form,
   FormControl,
@@ -19,9 +23,10 @@ import {
   FormLabel,
   FormMessage,
   FormRoot,
-} from '@shared/ui/form';
-import { Input } from '@shared/ui/input';
-import { Label } from '@shared/ui/label';
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
 
 import { useWizardNavigation } from '../../context/WizardContext';
 import { useWizardDependencies } from '../../di';
@@ -56,6 +61,7 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
   });
   const { form, handleSubmit, handleError, handlers } = controller;
   const { errors } = form.formState;
+  const isOpsMode = mode === 'ops';
   const rememberDetailsValue = useWatch({ control: form.control, name: 'rememberDetails' });
   const marketingOptInValue = useWatch({ control: form.control, name: 'marketingOptIn' });
   const agreeValue = useWatch({ control: form.control, name: 'agree' });
@@ -81,10 +87,12 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
     }
   }, [errors.agree]);
 
-  const description =
-    mode === 'ops'
-      ? 'Add contact details if you want confirmations. Leave blank for in-venue walk-ins.'
-      : 'We’ll send confirmation and any updates to the contact details below.';
+  const description = isOpsMode
+    ? 'Add the guest name and the best contact method for booking updates.'
+    : 'We’ll send confirmation and any updates to the contact details below.';
+  const confirmationDescription = isOpsMode
+    ? 'These details are saved through the ops booking workflow and used for service updates.'
+    : 'We only use these details for this reservation, service updates, and guest account history where enabled.';
 
   return (
     <StepErrorBoundary
@@ -111,7 +119,7 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
               <WizardPanelHeader
                 icon={ShieldCheck}
                 title="Confirmation details"
-                description="We only use these details for this reservation, service updates, and guest account history where enabled."
+                description={confirmationDescription}
                 className="border-b-0"
               />
             </WizardPanel>
@@ -123,7 +131,7 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
                 description="Your name and the best way to send updates."
               />
               <WizardPanelContent className="space-y-4">
-                {mode === 'ops' ? (
+                {isOpsMode ? (
                   <p className="text-sm text-muted-foreground">
                     At least one contact method (email or phone) is required.
                   </p>
@@ -164,7 +172,7 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
                       <FormItem>
                         <FormLabel className="flex items-center gap-2">
                           <Mail className="h-3.5 w-3.5 text-primary" aria-hidden />
-                          Email address{mode === 'ops' ? ' (optional)' : ''}
+                          Email address{isOpsMode ? ' (optional)' : ''}
                         </FormLabel>
                         <FormControl>
                           <Input
@@ -185,7 +193,7 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
                             Email is linked to your account. Update it from your profile to change
                             it.
                           </FormDescription>
-                        ) : mode === 'ops' && !errors.email ? (
+                        ) : isOpsMode && !errors.email ? (
                           <FormDescription className="text-xs text-muted-foreground">
                             Optional if phone number is provided
                           </FormDescription>
@@ -202,7 +210,7 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
                       <FormItem>
                         <FormLabel className="flex items-center gap-2">
                           <Phone className="h-3.5 w-3.5 text-primary" aria-hidden />
-                          UK phone number{mode === 'ops' ? ' (optional)' : ''}
+                          UK phone number{isOpsMode ? ' (optional)' : ''}
                         </FormLabel>
                         <FormControl>
                           <Input
@@ -219,7 +227,7 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
                             }}
                           />
                         </FormControl>
-                        {mode === 'ops' && !errors.phone ? (
+                        {isOpsMode && !errors.phone ? (
                           <FormDescription className="text-xs text-muted-foreground">
                             Optional if email address is provided
                           </FormDescription>
@@ -232,171 +240,175 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
               </WizardPanelContent>
             </WizardPanel>
 
-            <WizardPanel interactive>
-              <WizardPanelContent>
-                <Accordion
-                  type="single"
-                  collapsible
-                  value={accordionValue}
-                  onValueChange={(next) => setAccordionValue(next ?? undefined)}
-                  className="w-full"
-                >
-                  <AccordionItem value="preferences">
-                    <AccordionTrigger>
-                      <span className="flex flex-col text-left">
-                        <span className="text-base font-semibold text-foreground">Preferences</span>
-                        <span
-                          className={
-                            agreeValue
-                              ? 'text-sm text-muted-foreground'
-                              : 'text-sm text-destructive'
-                          }
-                        >
-                          {preferenceSummary}
+            {!isOpsMode ? (
+              <WizardPanel interactive>
+                <WizardPanelContent>
+                  <Accordion
+                    type="single"
+                    collapsible
+                    value={accordionValue}
+                    onValueChange={(next) => setAccordionValue(next ?? undefined)}
+                    className="w-full"
+                  >
+                    <AccordionItem value="preferences">
+                      <AccordionTrigger>
+                        <span className="flex flex-col text-left">
+                          <span className="text-base font-semibold text-foreground">
+                            Preferences
+                          </span>
+                          <span
+                            className={
+                              agreeValue
+                                ? 'text-sm text-muted-foreground'
+                                : 'text-sm text-destructive'
+                            }
+                          >
+                            {preferenceSummary}
+                          </span>
                         </span>
-                      </span>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="space-y-4 pt-4">
-                        <FormField
-                          control={form.control}
-                          name="rememberDetails"
-                          render={({ field }) => {
-                            const checkboxId = 'remember-details';
-                            return (
-                              <FormItem className="space-y-1">
-                                <Label
-                                  htmlFor={checkboxId}
-                                  className={optionalPreferenceLabelClass(Boolean(field.value))}
-                                >
-                                  <FormControl>
-                                    <Checkbox
-                                      id={checkboxId}
-                                      checked={field.value}
-                                      onCheckedChange={(next) => {
-                                        const value = next === true;
-                                        field.onChange(value);
-                                        handlers.toggleRemember(value);
-                                      }}
-                                      className="h-4 w-4 rounded-[4px] border border-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
-                                    />
-                                  </FormControl>
-                                  <div className="space-y-1">
-                                    <span className="text-sm font-semibold text-foreground">
-                                      Save contact details for next time
-                                    </span>
-                                    <p className="text-sm text-muted-foreground">
-                                      Stores on this device for 6 hours; uncheck to remove sooner.
-                                    </p>
-                                  </div>
-                                </Label>
-                              </FormItem>
-                            );
-                          }}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="marketingOptIn"
-                          render={({ field }) => {
-                            const checkboxId = 'marketing-opt-in';
-                            return (
-                              <FormItem className="space-y-1">
-                                <Label
-                                  htmlFor={checkboxId}
-                                  className={optionalPreferenceLabelClass(Boolean(field.value))}
-                                >
-                                  <FormControl>
-                                    <Checkbox
-                                      id={checkboxId}
-                                      checked={field.value}
-                                      onCheckedChange={(next) => {
-                                        const value = next === true;
-                                        field.onChange(value);
-                                        handlers.toggleMarketing(value);
-                                      }}
-                                      className="h-4 w-4 rounded-[4px] border border-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
-                                    />
-                                  </FormControl>
-                                  <div className="space-y-1">
-                                    <span className="text-sm font-semibold text-foreground">
-                                      Send me occasional updates
-                                    </span>
-                                    <p className="text-sm text-muted-foreground">
-                                      News on seasonal menus, experiences, and exclusive events.
-                                    </p>
-                                  </div>
-                                </Label>
-                              </FormItem>
-                            );
-                          }}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="agree"
-                          render={({ field }) => {
-                            const checkboxId = 'agree-terms';
-                            return (
-                              <FormItem className="space-y-3">
-                                <Label
-                                  htmlFor={checkboxId}
-                                  className={requiredPreferenceLabelClass(Boolean(field.value))}
-                                >
-                                  <FormControl>
-                                    <Checkbox
-                                      id={checkboxId}
-                                      checked={field.value}
-                                      onCheckedChange={(next) => {
-                                        const value = next === true;
-                                        field.onChange(value);
-                                        handlers.toggleAgree(value);
-                                      }}
-                                      className="h-4 w-4 rounded-[4px] border border-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
-                                    />
-                                  </FormControl>
-                                  <div className="space-y-1 text-sm text-muted-foreground">
-                                    <span className="text-foreground font-semibold">
-                                      I agree to the terms and privacy notice
-                                    </span>
-                                    <span>
-                                      Required to confirm your booking. View our
-                                      <Link
-                                        href="/privacy"
-                                        className="ml-1 text-foreground underline underline-offset-4"
-                                        onClick={(event) => event.stopPropagation()}
-                                      >
-                                        privacy notice
-                                      </Link>
-                                      .
-                                    </span>
-                                  </div>
-                                </Label>
-                                <FormMessage className="sr-only">
-                                  {errors.agree?.message}
-                                </FormMessage>
-                                {errors.agree ? (
-                                  <Alert
-                                    variant="destructive"
-                                    role="alert"
-                                    className="flex items-start gap-3"
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="space-y-4 pt-4">
+                          <FormField
+                            control={form.control}
+                            name="rememberDetails"
+                            render={({ field }) => {
+                              const checkboxId = 'remember-details';
+                              return (
+                                <FormItem className="space-y-1">
+                                  <Label
+                                    htmlFor={checkboxId}
+                                    className={optionalPreferenceLabelClass(Boolean(field.value))}
                                   >
-                                    <AlertIcon>
-                                      <AlertCircle className="h-4 w-4" aria-hidden />
-                                    </AlertIcon>
-                                    <AlertDescription>{errors.agree.message}</AlertDescription>
-                                  </Alert>
-                                ) : null}
-                              </FormItem>
-                            );
-                          }}
-                        />
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
-              </WizardPanelContent>
-            </WizardPanel>
+                                    <FormControl>
+                                      <Checkbox
+                                        id={checkboxId}
+                                        checked={field.value}
+                                        onCheckedChange={(next) => {
+                                          const value = next === true;
+                                          field.onChange(value);
+                                          handlers.toggleRemember(value);
+                                        }}
+                                        className="h-4 w-4 rounded-[4px] border border-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
+                                      />
+                                    </FormControl>
+                                    <div className="space-y-1">
+                                      <span className="text-sm font-semibold text-foreground">
+                                        Save contact details for next time
+                                      </span>
+                                      <p className="text-sm text-muted-foreground">
+                                        Stores on this device for 6 hours; uncheck to remove sooner.
+                                      </p>
+                                    </div>
+                                  </Label>
+                                </FormItem>
+                              );
+                            }}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="marketingOptIn"
+                            render={({ field }) => {
+                              const checkboxId = 'marketing-opt-in';
+                              return (
+                                <FormItem className="space-y-1">
+                                  <Label
+                                    htmlFor={checkboxId}
+                                    className={optionalPreferenceLabelClass(Boolean(field.value))}
+                                  >
+                                    <FormControl>
+                                      <Checkbox
+                                        id={checkboxId}
+                                        checked={field.value}
+                                        onCheckedChange={(next) => {
+                                          const value = next === true;
+                                          field.onChange(value);
+                                          handlers.toggleMarketing(value);
+                                        }}
+                                        className="h-4 w-4 rounded-[4px] border border-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
+                                      />
+                                    </FormControl>
+                                    <div className="space-y-1">
+                                      <span className="text-sm font-semibold text-foreground">
+                                        Send me occasional updates
+                                      </span>
+                                      <p className="text-sm text-muted-foreground">
+                                        News on seasonal menus, experiences, and exclusive events.
+                                      </p>
+                                    </div>
+                                  </Label>
+                                </FormItem>
+                              );
+                            }}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="agree"
+                            render={({ field }) => {
+                              const checkboxId = 'agree-terms';
+                              return (
+                                <FormItem className="space-y-3">
+                                  <Label
+                                    htmlFor={checkboxId}
+                                    className={requiredPreferenceLabelClass(Boolean(field.value))}
+                                  >
+                                    <FormControl>
+                                      <Checkbox
+                                        id={checkboxId}
+                                        checked={field.value}
+                                        onCheckedChange={(next) => {
+                                          const value = next === true;
+                                          field.onChange(value);
+                                          handlers.toggleAgree(value);
+                                        }}
+                                        className="h-4 w-4 rounded-[4px] border border-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
+                                      />
+                                    </FormControl>
+                                    <div className="space-y-1 text-sm text-muted-foreground">
+                                      <span className="text-foreground font-semibold">
+                                        I agree to the terms and privacy notice
+                                      </span>
+                                      <span>
+                                        Required to confirm your booking. View our
+                                        <Link
+                                          href="/privacy"
+                                          className="ml-1 text-foreground underline underline-offset-4"
+                                          onClick={(event) => event.stopPropagation()}
+                                        >
+                                          privacy notice
+                                        </Link>
+                                        .
+                                      </span>
+                                    </div>
+                                  </Label>
+                                  <FormMessage className="sr-only">
+                                    {errors.agree?.message}
+                                  </FormMessage>
+                                  {errors.agree ? (
+                                    <Alert
+                                      variant="destructive"
+                                      role="alert"
+                                      className="flex items-start gap-3"
+                                    >
+                                      <AlertIcon>
+                                        <AlertCircle className="h-4 w-4" aria-hidden />
+                                      </AlertIcon>
+                                      <AlertDescription>{errors.agree.message}</AlertDescription>
+                                    </Alert>
+                                  ) : null}
+                                </FormItem>
+                              );
+                            }}
+                          />
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+                </WizardPanelContent>
+              </WizardPanel>
+            ) : null}
           </FormRoot>
         </Form>
       </WizardStep>

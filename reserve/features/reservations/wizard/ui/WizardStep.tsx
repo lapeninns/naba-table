@@ -2,8 +2,8 @@
 
 import * as React from 'react';
 
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@shared/lib/cn';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@shared/ui/card';
 
 import { useWizardContext } from './WizardContainer';
 

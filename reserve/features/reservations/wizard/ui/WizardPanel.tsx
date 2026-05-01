@@ -2,7 +2,6 @@
 
 import React from 'react';
 
-import { cn } from '@shared/lib/cn';
 import {
   Card,
   CardContent,
@@ -10,7 +9,8 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '@shared/ui/card';
+} from '@/components/ui/card';
+import { cn } from '@shared/lib/cn';
 
 import type { LucideIcon } from 'lucide-react';
 import type { ComponentPropsWithoutRef, ReactNode } from 'react';

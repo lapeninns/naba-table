@@ -80,17 +80,50 @@ const buildPhoneSchema = (mode: BookingWizardMode) =>
       }
     });
 
-export const createDetailsFormSchema = (mode: BookingWizardMode = 'customer') =>
-  z.object({
-    name: nameSchema,
-    email: buildEmailSchema(mode),
-    phone: buildPhoneSchema(mode),
-    rememberDetails: z.boolean().default(true),
-    marketingOptIn: z.boolean().default(true),
-    agree: z.boolean().refine((value) => value, {
-      message: 'Please accept the terms to continue.',
-    }),
+const buildAgreeSchema = (mode: BookingWizardMode) => {
+  if (mode === 'ops') {
+    return z.boolean().default(false);
+  }
+
+  return z.boolean().refine((value) => value, {
+    message: 'Please accept the terms to continue.',
   });
+};
+
+export const createDetailsFormSchema = (mode: BookingWizardMode = 'customer') =>
+  z
+    .object({
+      name: nameSchema,
+      email: buildEmailSchema(mode),
+      phone: buildPhoneSchema(mode),
+      rememberDetails: z.boolean().default(mode !== 'ops'),
+      marketingOptIn: z.boolean().default(mode !== 'ops'),
+      agree: buildAgreeSchema(mode),
+    })
+    .superRefine((values, ctx) => {
+      if (mode !== 'ops') {
+        return;
+      }
+
+      const hasEmail = values.email.trim().length > 0;
+      const hasPhone = values.phone.trim().length > 0;
+
+      if (hasEmail || hasPhone) {
+        return;
+      }
+
+      const message = 'Add an email address or phone number.';
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['email'],
+        message,
+      });
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['phone'],
+        message,
+      });
+    });
 
 export const detailsFormSchema = createDetailsFormSchema('customer');
 

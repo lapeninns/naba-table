@@ -42,6 +42,7 @@ type BookingWizardContentProps = {
   layoutElement?: 'main' | 'div';
   initialCalendarMask?: CalendarMask | null;
   returnPath?: string;
+  redirectOnSuccess?: boolean;
   navigationClassName?: string;
   className?: string;
   contentClassName?: string;
@@ -53,6 +54,7 @@ function BookingWizardContent({
   layoutElement = 'main',
   initialCalendarMask,
   returnPath,
+  redirectOnSuccess,
   navigationClassName,
   className,
   contentClassName,
@@ -72,7 +74,7 @@ function BookingWizardContent({
     handleNewBooking,
     handleClose,
     planAlert,
-  } = useReservationWizard(initialDetails, mode, { returnPath });
+  } = useReservationWizard(initialDetails, mode, { returnPath, redirectOnSuccess });
   const { analytics } = useWizardDependencies();
   const { user, status: sessionStatus } = useSupabaseSession();
   const isAuthenticated = sessionStatus === 'authenticated' && Boolean(user);
@@ -248,7 +250,11 @@ function BookingWizardContent({
       case 3:
         return (
           <Suspense fallback={<ReviewStepSkeleton />}>
-            <ReviewStep onConfirm={handleConfirm} onActionsChange={handleActionsChange} />
+            <ReviewStep
+              mode={mode}
+              onConfirm={handleConfirm}
+              onActionsChange={handleActionsChange}
+            />
           </Suspense>
         );
       case 4:
@@ -295,6 +301,7 @@ type BookingWizardProps = {
   layoutElement?: 'main' | 'div';
   initialCalendarMask?: CalendarMask | null;
   returnPath?: string;
+  redirectOnSuccess?: boolean;
   navigationClassName?: string;
   className?: string;
   contentClassName?: string;
@@ -306,6 +313,7 @@ export function BookingWizard({
   layoutElement = 'main',
   initialCalendarMask,
   returnPath,
+  redirectOnSuccess,
   navigationClassName,
   className,
   contentClassName,
@@ -318,6 +326,7 @@ export function BookingWizard({
         layoutElement={layoutElement}
         initialCalendarMask={initialCalendarMask}
         returnPath={returnPath}
+        redirectOnSuccess={redirectOnSuccess}
         navigationClassName={navigationClassName}
         className={className}
         contentClassName={contentClassName}

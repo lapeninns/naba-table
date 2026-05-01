@@ -206,7 +206,7 @@ describe('GoogleBusinessProfileSection', () => {
     expect(screen.getByRole('button', { name: /link location/i })).toBeInTheDocument();
   });
 
-  it('renders secondary analysis when linked and does not render the retired V2 workspace', () => {
+  it('does not render secondary analysis when linked and does not render the retired V2 workspace', () => {
     connectionResult.data = buildConnection({
       status: 'linked',
       connectedGoogleEmail: 'ops@example.com',
@@ -233,10 +233,10 @@ describe('GoogleBusinessProfileSection', () => {
 
     render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 
-    expect(screen.getByTestId('gbp-secondary-analysis')).toBeInTheDocument();
-    expect(screen.getByText(/secondary analysis/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /generate review draft/i })).toBeInTheDocument();
-    expect(screen.getByText(/google snapshot/i)).toBeInTheDocument();
+    expect(screen.queryByTestId('gbp-secondary-analysis')).not.toBeInTheDocument();
+    expect(screen.queryByText(/secondary analysis/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /generate review draft/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/google snapshot/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/google profile changes/i)).not.toBeInTheDocument();
   });
 

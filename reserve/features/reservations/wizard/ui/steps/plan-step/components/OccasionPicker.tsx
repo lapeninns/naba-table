@@ -3,8 +3,8 @@
 import { SparklesIcon } from 'lucide-react';
 import React from 'react';
 
-import { FormDescription, FormItem, FormLabel, FormMessage } from '@shared/ui/form';
-import { ToggleGroup, ToggleGroupItem } from '@shared/ui/toggle-group';
+import { FormDescription, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 import type { ServiceAvailability } from '@reserve/features/reservations/wizard/services';
 import type { OccasionKey } from '@reserve/shared/occasions';

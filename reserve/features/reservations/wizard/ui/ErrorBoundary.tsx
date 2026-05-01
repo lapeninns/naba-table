@@ -1,8 +1,8 @@
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import React, { Component } from 'react';
 
-import { Alert, AlertDescription, AlertIcon, AlertTitle } from '@shared/ui/alert';
-import { Button } from '@shared/ui/button';
+import { Alert, AlertDescription, AlertIcon, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;

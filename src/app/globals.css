@@ -311,6 +311,16 @@
     min-height: 44px;
   }
 
+  /* Keep shadcn sidebar icon-collapse geometry intact. */
+  [data-sidebar='trigger'],
+  [data-sidebar='rail'],
+  [data-sidebar='menu-button'],
+  [data-sidebar='menu-action'],
+  [data-sidebar='group-action'] {
+    min-width: 0;
+    min-height: 0;
+  }
+
   /* ---------------------------------------------------------------------------
      ACCESSIBILITY
      --------------------------------------------------------------------------- */

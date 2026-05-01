@@ -3,8 +3,8 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 
 import { Skeleton } from '@/components/ui/skeleton';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@shared/lib/cn';
-import { ToggleGroup, ToggleGroupItem } from '@shared/ui/toggle-group';
 
 import type { TimeSlotDescriptor } from '@reserve/features/reservations/wizard/services';
 
