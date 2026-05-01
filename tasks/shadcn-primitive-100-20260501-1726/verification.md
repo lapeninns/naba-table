@@ -100,3 +100,13 @@ Rechecked on 2026-05-01 after inspecting the existing dirty worktree:
 | `curl -I --max-time 20 http://localhost:3000/restaurants` | Passed; HTTP 200. |
 | `curl -I --max-time 20 http://localhost:3000/restaurants/the-old-crown-girton` | Passed; HTTP 200. |
 | `curl -I --max-time 20 http://app.localhost:3000/settings/restaurant/team` | Passed; HTTP 307 to `/auth/signin?redirectedFrom=%2Fsettings%2Frestaurant%2Fteam`. |
+
+## PR workflow evidence
+
+- Pull request: `https://github.com/lapeninns/nabatable/pull/54`
+- Base branch: `codex/shadcn-primitive-gate-base`
+- Head branch: `codex/shadcn-primitive-gate-audit`
+- First green CI workflow run: `Shadcn primitives`, run `25225943551`, job `73969411391`, triggered by `pull_request` for PR #54 on 2026-05-01.
+- Run URL: `https://github.com/lapeninns/nabatable/actions/runs/25225943551`
+- Job URL: `https://github.com/lapeninns/nabatable/actions/runs/25225943551/job/73969411391`
+- Outcome: passed; `Primitive coverage` completed successfully and ran `pnpm node scripts/check-no-shadcn.mjs --primitives-only`.
