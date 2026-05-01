@@ -4,7 +4,7 @@ overview: 'Path to 100% shadcn primitive coverage across the whole repo (Ops + G
 todos:
   - id: harness-bootstrap
     content: 'PR #0 — Create tasks/shadcn-primitive-100-YYYYMMDD-HHMM/ harness (plan.md, verification.md, baseline.json) per AGENTS.md task-harness rule'
-    status: pending
+    status: completed
   - id: canonical-root
     content: "PR #1 — Collapse to a single shadcn UI root: move src/components/ui/{calendar,copy-button}.tsx into components/ui, delete components/ui/calendar.tsx.removed-20251003-163739, update ALLOWED_UI_ROOTS in scripts/check-no-shadcn.mjs to ['components/ui'] only"
     status: pending
