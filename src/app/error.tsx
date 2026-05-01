@@ -1,5 +1,10 @@
 'use client';
 
+import Link from 'next/link';
+
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+
 export default function GlobalError({
   error,
   reset,
@@ -10,30 +15,28 @@ export default function GlobalError({
   return (
     <html>
       <body>
-        <main className="flex min-h-screen min-h-[100svh] flex-col items-center justify-center bg-slate-50 px-6 py-24 text-center">
-          <div className="mx-auto max-w-md space-y-4">
-            <h1 className="text-3xl font-bold tracking-tight text-slate-800">
-              Something went wrong
-            </h1>
-            <p className="text-slate-600">We couldn’t load this page. Please try again.</p>
-            <div className="flex items-center justify-center gap-3">
-              <button
-                onClick={() => reset()}
-                className="inline-flex items-center justify-center rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700"
-              >
+        <main className="flex min-h-screen min-h-[100svh] flex-col items-center justify-center bg-background px-6 py-24 text-center">
+          <Card className="mx-auto w-full max-w-md">
+            <CardHeader>
+              <CardTitle className="text-3xl">Something went wrong</CardTitle>
+            </CardHeader>
+            <CardContent className="text-muted-foreground">
+              We couldn’t load this page. Please try again.
+            </CardContent>
+            <CardFooter className="flex justify-center gap-3">
+              <Button type="button" onClick={() => reset()}>
                 Try again
-              </button>
-              <a
-                href="/guest/dashboard"
-                className="inline-flex items-center justify-center rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-              >
-                Go to Dashboard
-              </a>
-            </div>
+              </Button>
+              <Button variant="outline" asChild>
+                <Link href="/guest/dashboard">Go to Dashboard</Link>
+              </Button>
+            </CardFooter>
             {process.env.NODE_ENV !== 'production' && error?.digest && (
-              <p className="text-xs text-slate-400">Error ID: {error.digest}</p>
+              <CardContent className="pt-0 text-xs text-muted-foreground">
+                Error ID: {error.digest}
+              </CardContent>
             )}
-          </div>
+          </Card>
         </main>
       </body>
     </html>

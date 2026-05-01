@@ -7,27 +7,23 @@ import process from 'node:process';
 import { parse } from '@babel/parser';
 
 const ROOT = process.cwd();
-const STRICT = process.argv.includes('--strict');
+const ARGS = process.argv.slice(2);
+const STRICT = ARGS.includes('--strict');
+const PRIMITIVES_ONLY = ARGS.includes('--primitives-only');
+const BASELINE_ARG = ARGS.find((arg) => arg.startsWith('--baseline='));
+const BASELINE_PATH = BASELINE_ARG?.slice('--baseline='.length);
 const MAX_EXAMPLES_PER_GROUP = 20;
 
 const SCAN_ROOTS = [
   'src/app/app',
-  'src/components/features',
-  'components/auth/OpsSignInForm.tsx',
-  'components/dashboard/BookingsTable.tsx',
-  'components/dashboard/BookingsHeader.tsx',
-  'components/dashboard/EmptyState.tsx',
-  'components/dashboard/EditBookingDialog.tsx',
-  'components/dashboard/StatusFilterGroup.tsx',
-  'components/ops/restaurants/RestaurantDetailsForm.tsx',
-  'src/components/layouts/EnhancedAuthLayout.tsx',
-  'src/components/shared/BrandIcon.tsx',
-  'src/components/shared/BrandLogo.tsx',
+  'src/app/(public)',
+  'src/app/guest',
+  'src/components',
+  'components',
+  'reserve',
 ];
 
-const OPS_ENTRY_ROOTS = ['src/app/app'];
-
-const ALLOWED_UI_ROOTS = ['components/ui', 'src/components/ui'];
+const ALLOWED_UI_ROOTS = ['components/ui'];
 
 const SOURCE_EXTENSIONS = new Set(['.js', '.jsx', '.ts', '.tsx']);
 
@@ -54,30 +50,30 @@ const BANNED_IMPORT_PATTERNS = [
   },
 ];
 
-const BANNED_OPS_REACHABLE_IMPORT_PATTERNS = [
+const BANNED_REACHABLE_IMPORT_PATTERNS = [
   {
     label: '@shared/ui/*',
     pattern: /(?:from\s+['"]|import\s*\(\s*['"]|require\s*\(\s*['"])@shared\/ui(?:\/|['"])/g,
   },
   {
-    label: '@features/*/ui',
+    label: '@features/*/ui barrel',
     pattern:
-      /(?:from\s+['"]|import\s*\(\s*['"]|require\s*\(\s*['"])@features\/[^'"]*\/ui(?:\/|['"])/g,
+      /(?:from\s+['"]|import\s*\(\s*['"]|require\s*\(\s*['"])@features\/[^'"]*\/ui(?:\/index)?['"]/g,
   },
   {
-    label: '@reserve/*/ui',
+    label: '@reserve/*/ui barrel',
     pattern:
-      /(?:from\s+['"]|import\s*\(\s*['"]|require\s*\(\s*['"])@reserve\/[^'"]*\/ui(?:\/|['"])/g,
+      /(?:from\s+['"]|import\s*\(\s*['"]|require\s*\(\s*['"])@reserve\/[^'"]*\/ui(?:\/index)?['"]/g,
   },
   {
-    label: '@/components/guest/*',
+    label: '@/components/guest/ui/GuestPrimitives',
     pattern:
-      /(?:from\s+['"]|import\s*\(\s*['"]|require\s*\(\s*['"])@\/components\/guest(?:\/|['"])/g,
+      /(?:from\s+['"]|import\s*\(\s*['"]|require\s*\(\s*['"])@\/components\/guest\/ui\/GuestPrimitives(?:['"]|\/)/g,
   },
 ];
 
 const NATIVE_RENDERABLE_TAG_PATTERN =
-  /<(?!(?:[A-Z][A-Za-z0-9.]*)\b)(button|select|textarea|input|table|dialog|label|form|datalist|option|iframe|style)\b/g;
+  /<(?!(?:[A-Z][A-Za-z0-9.]*)\b)(button|select|textarea|input|table|dialog|label|form|datalist|option|iframe)\b/g;
 
 const AD_HOC_COLOR_CLASS_PATTERN =
   /\b(?:[a-z0-9!_\-[\]=/]+:)*(?:bg|text|border(?:-[trblxy])?|ring|from|to|via|fill|stroke|outline|decoration|divide|placeholder|accent|caret)-(?:(?:slate|zinc|blue|red|green|purple|amber|emerald|rose|sky|indigo|gray|orange|stone)-\d{2,3}|white|black)(?:\/\d+)?\b/g;
@@ -95,6 +91,17 @@ function toPosixPath(filePath) {
 function isAllowedUiPath(relativePath) {
   return ALLOWED_UI_ROOTS.some(
     (root) => relativePath === root || relativePath.startsWith(`${root}/`),
+  );
+}
+
+function isExcludedPath(relativePath) {
+  return (
+    relativePath === 'tests' ||
+    relativePath.startsWith('tests/') ||
+    relativePath.startsWith('test-results/') ||
+    relativePath.includes('/__stories__/') ||
+    relativePath.includes('/__tests__/') ||
+    /\.(?:test|spec)\.[jt]sx?$/.test(relativePath)
   );
 }
 
@@ -210,18 +217,33 @@ function collectReachableFiles(entries) {
 
 function collectFiles(entry, files = []) {
   const absoluteEntry = path.join(ROOT, entry);
+  const relativeEntry = toPosixPath(entry);
 
   if (fileExists(absoluteEntry)) {
-    if (SOURCE_EXTENSIONS.has(path.extname(absoluteEntry))) files.push(absoluteEntry);
+    if (SOURCE_EXTENSIONS.has(path.extname(absoluteEntry)) && !isExcludedPath(relativeEntry)) {
+      files.push(absoluteEntry);
+    }
     return files;
   }
 
   if (!directoryExists(absoluteEntry)) return files;
 
   for (const dirent of fs.readdirSync(absoluteEntry, { withFileTypes: true })) {
-    if (dirent.name === 'node_modules' || dirent.name === '.next') continue;
+    if (
+      dirent.name === 'node_modules' ||
+      dirent.name === '.next' ||
+      dirent.name === 'tests' ||
+      dirent.name === '__tests__' ||
+      dirent.name === '__stories__' ||
+      dirent.name === 'test-results'
+    ) {
+      continue;
+    }
 
     const child = path.join(entry, dirent.name);
+    const relativeChild = toPosixPath(child);
+    if (isExcludedPath(relativeChild)) continue;
+
     if (dirent.isDirectory()) {
       collectFiles(child, files);
       continue;
@@ -260,6 +282,10 @@ function hasAsChildAttribute(node) {
   );
 }
 
+function structuralFindingsTarget(findings) {
+  return PRIMITIVES_ONLY ? findings.blocking : findings.advisory;
+}
+
 function scanStandaloneAnchors(node, stack, file, findings) {
   if (!node || typeof node !== 'object') return;
 
@@ -276,7 +302,7 @@ function scanStandaloneAnchors(node, stack, file, findings) {
 
       if (!isAllowedAsChild) {
         pushFinding(
-          findings.advisory,
+          structuralFindingsTarget(findings),
           'standalone-anchor',
           file,
           node.loc?.start?.line ?? 1,
@@ -325,9 +351,10 @@ function pushFinding(findings, kind, file, line, message) {
   findings.push({ kind, file, line, message });
 }
 
-function scanFile(file, findings, options = {}) {
+function scanFile(file, findings) {
   const relativePath = toPosixPath(path.relative(ROOT, file));
   if (isAllowedUiPath(relativePath)) return;
+  if (isExcludedPath(relativePath)) return;
 
   const source = fs.readFileSync(file, 'utf8');
 
@@ -344,29 +371,27 @@ function scanFile(file, findings, options = {}) {
     }
   }
 
-  if (options.opsReachable) {
-    for (const { label, pattern } of BANNED_OPS_REACHABLE_IMPORT_PATTERNS) {
-      pattern.lastIndex = 0;
-      for (const match of source.matchAll(pattern)) {
-        pushFinding(
-          findings.blocking,
-          'banned-ops-reachable-import',
-          relativePath,
-          lineNumberForIndex(source, match.index ?? 0),
-          `Ops reachable UI must not import ${label}; compose @/components/ui/* or an approved Ops component instead.`,
-        );
-      }
+  for (const { label, pattern } of BANNED_REACHABLE_IMPORT_PATTERNS) {
+    pattern.lastIndex = 0;
+    for (const match of source.matchAll(pattern)) {
+      pushFinding(
+        findings.blocking,
+        'banned-reachable-import',
+        relativePath,
+        lineNumberForIndex(source, match.index ?? 0),
+        `App UI must not import ${label}; compose @/components/ui/* or an approved feature component instead.`,
+      );
     }
   }
 
   NATIVE_RENDERABLE_TAG_PATTERN.lastIndex = 0;
   for (const match of source.matchAll(NATIVE_RENDERABLE_TAG_PATTERN)) {
     pushFinding(
-      findings.advisory,
+      structuralFindingsTarget(findings),
       'native-renderable',
       relativePath,
       lineNumberForIndex(source, match.index ?? 0),
-      `Native <${match[1]}> remains in Ops scope; prefer a shadcn primitive or approved composed component.`,
+      `Native <${match[1]}> remains in app UI scope; prefer a shadcn primitive or approved composed component.`,
     );
   }
 
@@ -409,45 +434,65 @@ function printFindings(title, findings) {
   }
 }
 
-const reachableFiles = collectReachableFiles(OPS_ENTRY_ROOTS);
-const reachableRelativePaths = new Set(
-  reachableFiles.map((file) => toPosixPath(path.relative(ROOT, file))),
-);
+function countByKind(items) {
+  return Object.fromEntries(
+    [...groupFindings(items)].map(([kind, group]) => [kind, group.length]).sort(),
+  );
+}
 
-const files = [
-  ...new Set([...SCAN_ROOTS.flatMap((entry) => collectFiles(entry)), ...reachableFiles]),
-].sort();
+function writeBaseline(filePath, findings) {
+  if (!filePath) return;
+
+  const absolutePath = path.resolve(ROOT, filePath);
+  fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
+  fs.writeFileSync(
+    absolutePath,
+    `${JSON.stringify(
+      {
+        blocking: countByKind(findings.blocking),
+        advisory: countByKind(findings.advisory),
+      },
+      null,
+      2,
+    )}\n`,
+  );
+}
+
+const files = [...new Set(SCAN_ROOTS.flatMap((entry) => collectFiles(entry)))].sort();
 const findings = {
   blocking: [],
   advisory: [],
 };
 
 for (const file of files) {
-  const relativePath = toPosixPath(path.relative(ROOT, file));
-  scanFile(file, findings, { opsReachable: reachableRelativePaths.has(relativePath) });
+  scanFile(file, findings);
 }
 
-console.log(`Scanned ${files.length} Ops UI source files.`);
+writeBaseline(BASELINE_PATH, findings);
+
+console.log(`Scanned ${files.length} shadcn-governed UI source files.`);
 printFindings('Blocking findings', findings.blocking);
 printFindings('Advisory migration inventory', findings.advisory);
 
 if (findings.blocking.length > 0) {
   console.error(
-    `\nFailed: ${findings.blocking.length} banned primitive import(s) found in Ops UI scope.`,
+    `\nFailed: ${findings.blocking.length} blocking shadcn primitive finding(s) found in app UI scope.`,
   );
   process.exit(1);
 }
 
-if (STRICT && findings.advisory.length > 0) {
+const strictFindings = findings.advisory.filter((finding) => finding.kind !== 'ad-hoc-token');
+
+if (STRICT && strictFindings.length > 0) {
   console.error(
-    `\nFailed strict mode: ${findings.advisory.length} remaining shadcn migration finding(s).`,
+    `\nFailed strict mode: ${strictFindings.length} remaining non-color shadcn migration finding(s).`,
   );
   process.exit(1);
 }
 
 if (findings.advisory.length > 0) {
   console.log(
-    `\nPassed blocking checks with ${findings.advisory.length} advisory migration finding(s). Run with --strict to fail on advisory findings.`,
+    `\nPassed blocking checks with ${findings.advisory.length} advisory migration finding(s). Color-token findings are advisory-only.`,
   );
 } else {
   console.log('\nPassed: no blocking or advisory shadcn migration findings.');

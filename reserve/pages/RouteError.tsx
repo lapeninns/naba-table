@@ -1,8 +1,10 @@
 'use client';
 
+import { AlertCircle } from 'lucide-react';
 import { isRouteErrorResponse, useRouteError } from 'react-router-dom';
 
-import { Icon } from '@reserve/shared/ui/icons';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { env } from '@shared/config/env';
 
 export function ReserveErrorBoundary() {
@@ -17,17 +19,19 @@ export function ReserveErrorBoundary() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4 py-16 text-center text-slate-700">
-      <Icon.AlertCircle className="mb-4 h-10 w-10 text-red-500" aria-hidden />
-      <h1 className="text-2xl font-semibold">{title}</h1>
-      <p className="mt-2 max-w-md text-base text-slate-600">{description}</p>
-      <button
-        type="button"
-        onClick={() => window.location.assign(env.ROUTER_BASE_PATH)}
-        className="mt-6 rounded-md bg-srx-ink-strong px-4 py-2 text-white hover:bg-srx-ink-strong/90"
-      >
-        Retry
-      </button>
+    <main className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-16 text-center text-foreground">
+      <Card className="w-full max-w-md">
+        <CardHeader className="items-center">
+          <AlertCircle className="size-10 text-destructive" aria-hidden />
+          <CardTitle className="text-2xl">{title}</CardTitle>
+          <CardDescription className="text-base">{description}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button type="button" onClick={() => window.location.assign(env.ROUTER_BASE_PATH)}>
+            Retry
+          </Button>
+        </CardContent>
+      </Card>
     </main>
   );
 }

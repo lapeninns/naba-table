@@ -38,13 +38,15 @@ function NavLinkList({
         )}
       >
         {NAV_LINKS.map((link) => (
-          <a
+          <Button
             key={link.href}
-            href={link.href}
-            className="rounded-full px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-primary/[0.08] hover:text-foreground sm:px-4 sm:text-sm"
+            variant="guest-ghost"
+            size="guest-sm"
+            className="px-3 text-xs font-medium text-muted-foreground hover:text-foreground sm:px-4 sm:text-sm"
+            asChild
           >
-            {link.label}
-          </a>
+            <a href={link.href}>{link.label}</a>
+          </Button>
         ))}
       </div>
     );
@@ -52,14 +54,16 @@ function NavLinkList({
   return (
     <nav className={cn('flex flex-col gap-1', className)}>
       {NAV_LINKS.map((link) => (
-        <a
+        <Button
           key={link.href}
-          href={link.href}
-          onClick={onNavigate}
-          className="rounded-2xl px-3 py-3 text-base font-medium text-foreground transition-colors hover:bg-primary/[0.08]"
+          variant="guest-ghost"
+          className="h-auto justify-start rounded-2xl px-3 py-3 text-base font-medium text-foreground"
+          asChild
         >
-          {link.label}
-        </a>
+          <a href={link.href} onClick={onNavigate}>
+            {link.label}
+          </a>
+        </Button>
       ))}
     </nav>
   );

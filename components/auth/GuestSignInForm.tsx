@@ -16,6 +16,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormRoot,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { track } from '@/lib/analytics';
@@ -285,7 +286,7 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
       ) : null}
 
       <Form {...form}>
-        <form className="space-y-5" onSubmit={onSubmit} noValidate>
+        <FormRoot className="space-y-5" onSubmit={onSubmit} noValidate>
           <FormField
             control={form.control}
             name="email"
@@ -360,17 +361,18 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
               </span>
             )}
           </Button>
-        </form>
+        </FormRoot>
       </Form>
 
       <p className="text-center text-xs leading-relaxed text-muted-foreground">
         By signing in, you agree to receive secure sign-in emails and to our{' '}
-        <a
-          href="/privacy"
-          className="pg-focus-ring rounded-sm font-medium text-primary underline-offset-2 hover:underline"
+        <Button
+          variant="link"
+          className="pg-focus-ring h-auto rounded-sm p-0 text-xs font-medium text-primary underline-offset-2"
+          asChild
         >
-          Privacy Policy
-        </a>
+          <a href="/privacy">Privacy Policy</a>
+        </Button>
       </p>
     </div>
   );

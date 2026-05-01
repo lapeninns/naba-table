@@ -9,6 +9,7 @@ import {
   GuestPanel,
   GuestSectionHeader,
 } from '@/components/guest/ui';
+import { Button } from '@/components/ui/button';
 import appConfig from '@/config/app.config';
 
 import type { Metadata } from 'next';
@@ -116,9 +117,11 @@ export default function PrivacyPolicyPage() {
                   icon: Mail,
                   label: 'Contact',
                   value: (
-                    <a className="text-primary underline underline-offset-4" href={`mailto:${appConfig.email.supportEmail}`}>
-                      {appConfig.email.supportEmail}
-                    </a>
+                    <Button variant="link" className="h-auto p-0 text-primary" asChild>
+                      <a href={`mailto:${appConfig.email.supportEmail}`}>
+                        {appConfig.email.supportEmail}
+                      </a>
+                    </Button>
                   ),
                 },
               ]}
@@ -127,13 +130,14 @@ export default function PrivacyPolicyPage() {
               <p className="text-sm font-semibold text-foreground">Sections</p>
               <nav aria-label="Privacy policy sections" className="mt-3 grid gap-2 text-sm">
                 {sections.map((section) => (
-                  <a
+                  <Button
                     key={section.id}
-                    className="rounded-full px-3 py-2 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                    href={`#${section.id}`}
+                    variant="ghost"
+                    className="justify-start rounded-full px-3 py-2 text-muted-foreground hover:text-foreground"
+                    asChild
                   >
-                    {section.title}
-                  </a>
+                    <a href={`#${section.id}`}>{section.title}</a>
+                  </Button>
                 ))}
               </nav>
             </GuestPanel>

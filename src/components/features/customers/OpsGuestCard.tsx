@@ -6,8 +6,8 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { CopyButton } from '@/components/ui/copy-button';
 import { cn } from '@/lib/utils';
-import { CopyButton } from '@src/components/ui/copy-button';
 
 import type { OpsGuestRowViewModel } from './opsCustomersTypes';
 

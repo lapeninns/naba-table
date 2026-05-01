@@ -30,7 +30,9 @@ import {
 } from '@/components/guest/ui';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { FormRoot } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { getReservationThankYouContent } from '@/guest/routes/auth-aware-content';
 
 import type { ReactNode } from 'react';
@@ -160,10 +162,10 @@ export function RestaurantsHeroSection({
         </div>
 
         <GuestPanel className="p-4 sm:p-5">
-          <form action="/restaurants" className="space-y-3">
-            <label className="pg-kicker" htmlFor="restaurant-search">
+          <FormRoot action="/restaurants" className="space-y-3">
+            <Label className="pg-kicker" htmlFor="restaurant-search">
               Search restaurants
-            </label>
+            </Label>
             <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
               <div className="relative">
                 <Search
@@ -188,7 +190,7 @@ export function RestaurantsHeroSection({
                 Search
               </Button>
             </div>
-          </form>
+          </FormRoot>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             <GuestInsetCard
               icon={ShieldCheck}

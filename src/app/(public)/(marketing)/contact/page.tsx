@@ -72,24 +72,27 @@ export default function ContactPage() {
 
         <section className="grid gap-4 md:grid-cols-2" aria-label="Sales contact methods">
           {contactCards.map(({ title, description, href, value, Icon }) => (
-            <a
+            <Button
               key={title}
-              href={href}
-              className="pg-panel pg-card-interactive group block border-border/80 bg-[color:color-mix(in_srgb,var(--pg-surface-raised)_88%,white)] p-5 shadow-[var(--pg-shadow-edge)] hover:border-primary/40 sm:p-6"
+              asChild
+              variant="ghost"
+              className="pg-panel pg-card-interactive group block h-auto whitespace-normal border-border/80 bg-[color:color-mix(in_srgb,var(--pg-surface-raised)_88%,white)] p-5 text-left shadow-[var(--pg-shadow-edge)] hover:border-primary/40 sm:p-6"
             >
-              <div className="flex items-start gap-4">
-                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-border/80 bg-background text-primary shadow-[var(--pg-shadow-xs)]">
-                  <Icon className="h-5 w-5" aria-hidden="true" />
-                </span>
-                <div className="min-w-0 space-y-2">
-                  <p className="text-sm font-semibold text-foreground">{title}</p>
-                  <p className="break-words text-lg font-semibold text-foreground sm:text-xl">
-                    {value}
-                  </p>
-                  <p className="pg-caption">{description}</p>
+              <a href={href}>
+                <div className="flex items-start gap-4">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-border/80 bg-background text-primary shadow-[var(--pg-shadow-xs)]">
+                    <Icon className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0 space-y-2">
+                    <p className="text-sm font-semibold text-foreground">{title}</p>
+                    <p className="break-words text-lg font-semibold text-foreground sm:text-xl">
+                      {value}
+                    </p>
+                    <p className="pg-caption">{description}</p>
+                  </div>
                 </div>
-              </div>
-            </a>
+              </a>
+            </Button>
           ))}
         </section>
 

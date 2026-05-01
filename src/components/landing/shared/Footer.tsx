@@ -3,6 +3,7 @@
 import Link from 'next/link';
 
 import { BrandLogo } from '@/components/shared/BrandLogo';
+import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 
 const FOOTER_LINK_STYLES =
@@ -26,19 +27,19 @@ export function Footer() {
             <h4 className="text-base font-bold text-foreground">Product</h4>
             <ul className="flex flex-col gap-2 text-sm text-muted-foreground">
               <li>
-                <a href="#system" className={FOOTER_LINK_STYLES}>
-                  The System
-                </a>
+                <Button variant="link" className={`h-auto p-0 ${FOOTER_LINK_STYLES}`} asChild>
+                  <a href="#system">The System</a>
+                </Button>
               </li>
               <li>
-                <a href="#value-stack" className={FOOTER_LINK_STYLES}>
-                  Value Stack
-                </a>
+                <Button variant="link" className={`h-auto p-0 ${FOOTER_LINK_STYLES}`} asChild>
+                  <a href="#value-stack">Value Stack</a>
+                </Button>
               </li>
               <li>
-                <a href="#guarantee" className={FOOTER_LINK_STYLES}>
-                  Guarantee
-                </a>
+                <Button variant="link" className={`h-auto p-0 ${FOOTER_LINK_STYLES}`} asChild>
+                  <a href="#guarantee">Guarantee</a>
+                </Button>
               </li>
             </ul>
           </div>
