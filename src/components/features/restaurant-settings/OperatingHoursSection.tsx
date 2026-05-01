@@ -42,7 +42,12 @@ import {
 } from './google-business-profile/googleBusinessProfileVerification';
 import { GoogleBusinessProfileComparisonBadge } from './GoogleBusinessProfileComparisonBadge';
 import { OperatingHoursOverrideDateField } from './OperatingHoursOverrideDateField';
-import { SettingsCard, SettingsSectionHeader } from './shared';
+import {
+  SETTINGS_COMPACT_HELPER_TEXT_CLASS,
+  SettingsCard,
+  SettingsSecondaryActions,
+  SettingsSectionHeader,
+} from './shared';
 import { DAYS_OF_WEEK } from './types';
 
 import type { OverrideErrors, OverrideRow, WeeklyErrors, WeeklyRow } from './types';
@@ -193,7 +198,7 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
   if (isLoading && !data) {
     return (
       <SettingsCard title="Operating Hours" description="Loading…">
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4">
           <Skeleton className="h-6 w-40" />
           <Skeleton className="h-4 w-72" />
           <div className="grid gap-3 sm:grid-cols-2">
@@ -217,11 +222,11 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
           </Button>
         }
         footer={
-          <div className="flex w-full items-center justify-between">
-            <div className="text-xs text-muted-foreground hidden sm:block">
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className={cn(SETTINGS_COMPACT_HELPER_TEXT_CLASS, 'hidden sm:block')}>
               Changes are saved per restaurant. Remember to keep staff informed about special hours.
             </div>
-            <div className="flex items-center gap-2 ml-auto">
+            <div className="ml-auto flex items-center gap-2">
               <Button
                 type="button"
                 variant="outline"
@@ -236,27 +241,28 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
             </div>
           </div>
         }
+        stickyFooter
       >
-        <div className="space-y-8">
-          <div className="space-y-2 rounded-lg border border-border/70 bg-muted/30 p-4">
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-2 rounded-lg border border-border/70 bg-muted/30 p-3">
             <p className="text-sm font-medium text-foreground">{gbpVerification.summary}</p>
-            <p className="text-xs text-muted-foreground">
+            <p className={SETTINGS_COMPACT_HELPER_TEXT_CLASS}>
               GBP sync aligns the outer open/close window and holiday overrides. Nabatable keeps
               reservation intervals and slot times as core booking-hour controls.
             </p>
             {isDirty ? (
-              <p className="text-xs text-muted-foreground">
+              <p className={SETTINGS_COMPACT_HELPER_TEXT_CLASS}>
                 Save or reset local changes before running a GBP sync for this section.
               </p>
             ) : null}
             {gbpVerification.warnings.map((warning) => (
-              <p key={warning} className="text-xs text-muted-foreground">
+              <p key={warning} className={SETTINGS_COMPACT_HELPER_TEXT_CLASS}>
                 {warning}
               </p>
             ))}
           </div>
           {/* Weekly Schedule */}
-          <div className="space-y-3">
+          <div className="flex flex-col gap-3">
             <SettingsSectionHeader
               title="Weekly Schedule"
               description="Set default open/close windows for each day. Mark a day closed to block bookings."
@@ -421,211 +427,215 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
             </div>
           </div>
 
-          {/* Overrides */}
-          <div className="space-y-3">
-            <SettingsSectionHeader
-              title="Overrides"
-              description="Create one-off changes for holidays or events. Overrides apply on their date only."
-              action={
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addOverride}
-                  disabled={isDisabled}
-                >
-                  <Plus className="mr-2 h-4 w-4" aria-hidden /> Add override
-                </Button>
-              }
-            />
+          <SettingsSecondaryActions
+            label={overrideRows.length > 0 ? `Overrides (${overrideRows.length})` : 'Overrides'}
+            contentClassName="sm:min-w-full"
+          >
+            <div className="flex flex-col gap-3">
+              <SettingsSectionHeader
+                title="Overrides"
+                description="Create one-off changes for holidays or events. Overrides apply on their date only."
+                action={
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addOverride}
+                    disabled={isDisabled}
+                  >
+                    <Plus data-icon="inline-start" aria-hidden /> Add override
+                  </Button>
+                }
+              />
 
-            {overrideRows.length === 0 ? (
-              <div className="rounded-lg border border-dashed p-8 text-center">
-                <p className="text-sm text-muted-foreground">
-                  No overrides configured. Use overrides to adjust hours for special events or
-                  holidays.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {overrideRows.map((row, index) => {
-                  const errors = overrideErrors[index] ?? {};
-                  const comparison = rowComparisons.overridesByDate[row.effectiveDate];
-                  return (
-                    <div
-                      key={row.id ?? index}
-                      className="grid gap-3 rounded-lg border border-border/60 p-4 text-sm md:grid-cols-[repeat(7,minmax(0,1fr))_auto]"
-                    >
-                      <div>
-                        <div className="mb-2 flex items-center gap-2">
-                          {comparison && comparison.status !== 'unavailable' ? (
-                            <GoogleBusinessProfileComparisonBadge
-                              status={comparison.status}
-                              tooltipTitle={comparison.tooltipTitle}
-                              tooltipLines={comparison.tooltipLines}
-                              tooltipFooter={comparison.tooltipFooter}
-                              ariaLabel={`Show GBP special-hours comparison for ${row.effectiveDate}`}
-                            />
-                          ) : null}
-                        </div>
-                        <OperatingHoursOverrideDateField
-                          value={row.effectiveDate}
-                          onChange={(value) =>
-                            handleOverrideChange(index, { effectiveDate: value })
-                          }
-                          disabled={isDisabled}
-                          error={errors.effectiveDate}
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                          Open
-                        </Label>
-                        <Input
-                          type="time"
-                          value={row.opensAt}
-                          disabled={isDisabled || row.isClosed}
-                          onChange={(event) =>
-                            handleOverrideChange(index, { opensAt: event.target.value })
-                          }
-                          className={cn('mt-1 h-9', errors.opensAt && 'border-destructive')}
-                        />
-                        {errors.opensAt && (
-                          <p className="mt-1 text-xs text-destructive">{errors.opensAt}</p>
-                        )}
-                      </div>
-                      <div>
-                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                          Close
-                        </Label>
-                        <Input
-                          type="time"
-                          value={row.closesAt}
-                          disabled={isDisabled || row.isClosed}
-                          onChange={(event) =>
-                            handleOverrideChange(index, { closesAt: event.target.value })
-                          }
-                          className={cn('mt-1 h-9', errors.closesAt && 'border-destructive')}
-                        />
-                        {errors.closesAt && (
-                          <p className="mt-1 text-xs text-destructive">{errors.closesAt}</p>
-                        )}
-                      </div>
-                      <div>
-                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                          Interval (min)
-                        </Label>
-                        <Input
-                          type="number"
-                          inputMode="numeric"
-                          min={RESERVATION_INTERVAL_MIN}
-                          max={RESERVATION_INTERVAL_MAX}
-                          step={1}
-                          value={row.reservationIntervalMinutes}
-                          disabled={isDisabled || row.isClosed}
-                          onChange={(event) =>
-                            handleOverrideChange(index, {
-                              reservationIntervalMinutes: event.target.value,
-                            })
-                          }
-                          className={cn(
-                            'mt-1 h-9',
-                            errors.reservationIntervalMinutes && 'border-destructive',
-                          )}
-                          placeholder="Default"
-                        />
-                        {errors.reservationIntervalMinutes && (
-                          <p className="mt-1 text-xs text-destructive">
-                            {errors.reservationIntervalMinutes}
-                          </p>
-                        )}
-                      </div>
-                      <div>
-                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                          Slots (HH:MM)
-                        </Label>
-                        <Input
-                          value={row.reservationSlotTimes}
-                          placeholder="16:00, 18:00, 20:00"
-                          disabled={isDisabled || row.isClosed}
-                          onChange={(event) =>
-                            handleOverrideChange(index, {
-                              reservationSlotTimes: event.target.value,
-                            })
-                          }
-                          className={cn(
-                            'mt-1 h-9',
-                            errors.reservationSlotTimes && 'border-destructive',
-                          )}
-                        />
-                        {errors.reservationSlotTimes && (
-                          <p className="mt-1 text-xs text-destructive">
-                            {errors.reservationSlotTimes}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex flex-col justify-center gap-2">
-                        <div className="flex items-center gap-1">
-                          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                            Closed
-                          </Label>
-                          <HelpTooltip
-                            description="Enable to close the restaurant for the entire override date. Leave off to set custom hours."
-                            ariaLabel="Override closed help"
-                            align="center"
+              {overrideRows.length === 0 ? (
+                <div className="rounded-lg border border-dashed p-8 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    No overrides configured. Use overrides to adjust hours for special events or
+                    holidays.
+                  </p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {overrideRows.map((row, index) => {
+                    const errors = overrideErrors[index] ?? {};
+                    const comparison = rowComparisons.overridesByDate[row.effectiveDate];
+                    return (
+                      <div
+                        key={row.id ?? index}
+                        className="grid gap-3 rounded-lg border border-border/60 p-4 text-sm md:grid-cols-[repeat(7,minmax(0,1fr))_auto]"
+                      >
+                        <div>
+                          <div className="mb-2 flex items-center gap-2">
+                            {comparison && comparison.status !== 'unavailable' ? (
+                              <GoogleBusinessProfileComparisonBadge
+                                status={comparison.status}
+                                tooltipTitle={comparison.tooltipTitle}
+                                tooltipLines={comparison.tooltipLines}
+                                tooltipFooter={comparison.tooltipFooter}
+                                ariaLabel={`Show GBP special-hours comparison for ${row.effectiveDate}`}
+                              />
+                            ) : null}
+                          </div>
+                          <OperatingHoursOverrideDateField
+                            value={row.effectiveDate}
+                            onChange={(value) =>
+                              handleOverrideChange(index, { effectiveDate: value })
+                            }
+                            disabled={isDisabled}
+                            error={errors.effectiveDate}
                           />
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Checkbox
-                            id={`override-${index}-closed`}
-                            checked={row.isClosed}
-                            disabled={isDisabled}
-                            onCheckedChange={(checked) =>
+                        <div>
+                          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                            Open
+                          </Label>
+                          <Input
+                            type="time"
+                            value={row.opensAt}
+                            disabled={isDisabled || row.isClosed}
+                            onChange={(event) =>
+                              handleOverrideChange(index, { opensAt: event.target.value })
+                            }
+                            className={cn('mt-1 h-9', errors.opensAt && 'border-destructive')}
+                          />
+                          {errors.opensAt && (
+                            <p className="mt-1 text-xs text-destructive">{errors.opensAt}</p>
+                          )}
+                        </div>
+                        <div>
+                          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                            Close
+                          </Label>
+                          <Input
+                            type="time"
+                            value={row.closesAt}
+                            disabled={isDisabled || row.isClosed}
+                            onChange={(event) =>
+                              handleOverrideChange(index, { closesAt: event.target.value })
+                            }
+                            className={cn('mt-1 h-9', errors.closesAt && 'border-destructive')}
+                          />
+                          {errors.closesAt && (
+                            <p className="mt-1 text-xs text-destructive">{errors.closesAt}</p>
+                          )}
+                        </div>
+                        <div>
+                          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                            Interval (min)
+                          </Label>
+                          <Input
+                            type="number"
+                            inputMode="numeric"
+                            min={RESERVATION_INTERVAL_MIN}
+                            max={RESERVATION_INTERVAL_MAX}
+                            step={1}
+                            value={row.reservationIntervalMinutes}
+                            disabled={isDisabled || row.isClosed}
+                            onChange={(event) =>
                               handleOverrideChange(index, {
-                                isClosed: checked === true,
-                                opensAt: checked === true ? '' : row.opensAt || '09:00',
-                                closesAt: checked === true ? '' : row.closesAt || '18:00',
+                                reservationIntervalMinutes: event.target.value,
                               })
                             }
+                            className={cn(
+                              'mt-1 h-9',
+                              errors.reservationIntervalMinutes && 'border-destructive',
+                            )}
+                            placeholder="Default"
                           />
-                          <Label htmlFor={`override-${index}-closed`} className="text-sm">
-                            Closed all day
+                          {errors.reservationIntervalMinutes && (
+                            <p className="mt-1 text-xs text-destructive">
+                              {errors.reservationIntervalMinutes}
+                            </p>
+                          )}
+                        </div>
+                        <div>
+                          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                            Slots (HH:MM)
                           </Label>
+                          <Input
+                            value={row.reservationSlotTimes}
+                            placeholder="16:00, 18:00, 20:00"
+                            disabled={isDisabled || row.isClosed}
+                            onChange={(event) =>
+                              handleOverrideChange(index, {
+                                reservationSlotTimes: event.target.value,
+                              })
+                            }
+                            className={cn(
+                              'mt-1 h-9',
+                              errors.reservationSlotTimes && 'border-destructive',
+                            )}
+                          />
+                          {errors.reservationSlotTimes && (
+                            <p className="mt-1 text-xs text-destructive">
+                              {errors.reservationSlotTimes}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex flex-col justify-center gap-2">
+                          <div className="flex items-center gap-1">
+                            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                              Closed
+                            </Label>
+                            <HelpTooltip
+                              description="Enable to close the restaurant for the entire override date. Leave off to set custom hours."
+                              ariaLabel="Override closed help"
+                              align="center"
+                            />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              id={`override-${index}-closed`}
+                              checked={row.isClosed}
+                              disabled={isDisabled}
+                              onCheckedChange={(checked) =>
+                                handleOverrideChange(index, {
+                                  isClosed: checked === true,
+                                  opensAt: checked === true ? '' : row.opensAt || '09:00',
+                                  closesAt: checked === true ? '' : row.closesAt || '18:00',
+                                })
+                              }
+                            />
+                            <Label htmlFor={`override-${index}-closed`} className="text-sm">
+                              Closed all day
+                            </Label>
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                            Notes
+                          </Label>
+                          <Input
+                            value={row.notes}
+                            placeholder="Optional"
+                            disabled={isDisabled}
+                            onChange={(event) =>
+                              handleOverrideChange(index, { notes: event.target.value })
+                            }
+                            className="mt-1 h-9"
+                          />
+                        </div>
+                        <div className="flex items-center justify-end">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeOverride(index)}
+                            disabled={isDisabled}
+                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          >
+                            <Trash2 aria-hidden />
+                            <span className="sr-only">Remove override</span>
+                          </Button>
                         </div>
                       </div>
-                      <div>
-                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                          Notes
-                        </Label>
-                        <Input
-                          value={row.notes}
-                          placeholder="Optional"
-                          disabled={isDisabled}
-                          onChange={(event) =>
-                            handleOverrideChange(index, { notes: event.target.value })
-                          }
-                          className="mt-1 h-9"
-                        />
-                      </div>
-                      <div className="flex items-center justify-end">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeOverride(index)}
-                          disabled={isDisabled}
-                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" aria-hidden />
-                          <span className="sr-only">Remove override</span>
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </SettingsSecondaryActions>
         </div>
       </SettingsCard>
     </TooltipProvider>

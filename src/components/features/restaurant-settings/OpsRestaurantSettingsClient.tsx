@@ -8,17 +8,19 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 import { isDualSyncUiEnabled } from '@/lib/feature-flags/dual-sync';
 
+import { SETTINGS_COMPACT_ROUTE_STACK_CLASS } from './shared';
+
 import type { RestaurantSettingsView } from './types';
 import type { DualSyncSectionKey } from '@/server/dual-sync';
 
 const SettingsSectionSkeleton = ({ title }: { title: string }) => (
   <div
-    className="rounded-lg border border-border/60 bg-muted/30 p-6"
+    className="rounded-lg border border-border/60 bg-muted/30 p-4"
     aria-busy="true"
     role="status"
   >
     <p className="text-sm font-medium text-foreground">{title}</p>
-    <div className="mt-3 space-y-3">
+    <div className="mt-3 flex flex-col gap-3">
       <Skeleton className="h-4 w-40" />
       <Skeleton className="h-10 w-full" />
       <Skeleton className="h-10 w-3/4" />
@@ -157,7 +159,7 @@ export function OpsRestaurantSettingsClient({
   const dualSyncEnabled = isDualSyncUiEnabled();
 
   return (
-    <div className="space-y-6">
+    <div className={SETTINGS_COMPACT_ROUTE_STACK_CLASS}>
       {renderByView[view]({ restaurantId: selectedRestaurantId })}
       {dualSyncEnabled && dualSyncSections && selectedRestaurantId ? (
         <DualSyncShell restaurantId={selectedRestaurantId} sections={dualSyncSections} />

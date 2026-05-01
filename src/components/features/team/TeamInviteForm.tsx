@@ -5,6 +5,11 @@ import { Copy, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 
+import {
+  SETTINGS_COMPACT_CARD_CLASS,
+  SETTINGS_COMPACT_CARD_CONTENT_CLASS,
+  SETTINGS_COMPACT_CARD_HEADER_CLASS,
+} from '@/components/features/restaurant-settings/shared';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,6 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useOpsCreateTeamInvite } from '@/hooks/ops/useOpsTeamInvitations';
+import { cn } from '@/lib/utils';
 
 import {
   TEAM_INVITE_ROLE_OPTIONS,
@@ -81,14 +87,14 @@ export function TeamInviteForm({ restaurantId }: TeamInviteFormProps) {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Invite a team member</CardTitle>
-        <CardDescription>
+    <Card className={SETTINGS_COMPACT_CARD_CLASS}>
+      <CardHeader className={SETTINGS_COMPACT_CARD_HEADER_CLASS}>
+        <CardTitle className="text-base leading-6">Invite a team member</CardTitle>
+        <CardDescription className="text-xs leading-5">
           Owners and managers can invite teammates to manage reservations and guest communication.
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4">
+      <CardContent className={cn(SETTINGS_COMPACT_CARD_CONTENT_CLASS, 'flex flex-col gap-4')}>
         {createInvite.error ? (
           <Alert variant="destructive">
             <AlertTitle>Invitation was not sent</AlertTitle>

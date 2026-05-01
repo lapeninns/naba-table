@@ -10,6 +10,7 @@ import { normalizeOpsPathname } from '@/lib/url/opsHref';
 
 import { RestaurantSettingsSubnav } from './RestaurantSettingsSubnav';
 import { RESTAURANT_SETTINGS_NAV_ITEMS } from './routes';
+import { SETTINGS_COMPACT_PAGE_CONTENT_CLASS } from './shared';
 
 export type RestaurantSettingsPageShellProps = {
   /**
@@ -58,7 +59,7 @@ export function RestaurantSettingsPageShell({
     null;
 
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+    <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-3 py-4 sm:px-5 sm:py-5 lg:px-6">
       <OpsPageHeader
         eyebrow={eyebrow}
         title={resolvedTitle}
@@ -70,19 +71,17 @@ export function RestaurantSettingsPageShell({
               <Badge variant="outline" className="font-medium text-foreground">
                 {restaurantName}
               </Badge>
-              <span className="hidden sm:inline">
-                Use the sidebar restaurant switcher to change restaurants.
-              </span>
+              <span className="hidden sm:inline">Change restaurant from the sidebar.</span>
             </span>
           ) : null
         }
         headingLevel="h1"
-        titleClassName="text-3xl"
+        titleClassName="text-2xl"
       />
 
       <RestaurantSettingsSubnav />
 
-      <div className="pb-8">{children}</div>
+      <div className={SETTINGS_COMPACT_PAGE_CONTENT_CLASS}>{children}</div>
     </main>
   );
 }

@@ -27,6 +27,7 @@ import {
 } from '@/hooks/ops/useOpsRestaurantDetails';
 import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';
+import { cn } from '@/lib/utils';
 
 import { deriveProfileVerification } from './google-business-profile/googleBusinessProfileVerification';
 import { RestaurantBusinessContextSection } from './RestaurantBusinessContextSection';
@@ -45,8 +46,18 @@ import {
   type ProfileDirtyKey,
   type ProfileDirtySection,
 } from './restaurantProfileModel';
+import {
+  SETTINGS_COMPACT_ACTION_BAR_CLASS,
+  SETTINGS_COMPACT_CARD_CLASS,
+  SETTINGS_COMPACT_CARD_CONTENT_CLASS,
+  SETTINGS_COMPACT_CARD_HEADER_CLASS,
+  SETTINGS_COMPACT_HELPER_TEXT_CLASS,
+  SETTINGS_COMPACT_STATUS_ROW_CLASS,
+  SETTINGS_COMPACT_STICKY_ACTION_ROW_CLASS,
+  SettingsCard,
+  SettingsSecondaryActions,
+} from './shared';
 import { ProfileSectionShell } from './shared/ProfileSectionShell';
-import { SettingsCard } from './shared/SettingsCard';
 
 type RestaurantProfileSectionProps = {
   restaurantId: string | null;
@@ -94,8 +105,8 @@ function ProfileConfidencePanel({
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-      <Card className="border-border/70 shadow-none">
-        <CardHeader className="gap-3">
+      <Card className={SETTINGS_COMPACT_CARD_CLASS}>
+        <CardHeader className={cn(SETTINGS_COMPACT_CARD_HEADER_CLASS, 'gap-3')}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="flex flex-col gap-1">
               <CardTitle className="text-lg">Profile readiness</CardTitle>
@@ -109,8 +120,8 @@ function ProfileConfidencePanel({
           </div>
           <Progress value={readiness.score} aria-label="Profile completeness score" />
         </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
+        <CardContent className={cn(SETTINGS_COMPACT_CARD_CONTENT_CLASS, 'flex flex-col gap-4')}>
+          <div className={SETTINGS_COMPACT_STATUS_ROW_CLASS}>
             <span>{readiness.completed.length} complete</span>
             <span aria-hidden="true">/</span>
             <span>{readiness.missing.length} suggested</span>
@@ -161,8 +172,7 @@ function ProfileConfidencePanel({
 
           <Separator />
 
-          <div className="flex flex-col gap-3">
-            <p className="text-sm font-medium text-foreground">Common edits</p>
+          <SettingsSecondaryActions label="Common edits" contentClassName="sm:min-w-full">
             <div className="grid gap-2 sm:grid-cols-2">
               {QUICK_EDIT_ACTIONS.map((action) => {
                 const Icon = action.icon;
@@ -188,7 +198,7 @@ function ProfileConfidencePanel({
                         })
                       }
                     >
-                      <Icon className="size-4 shrink-0" aria-hidden="true" />
+                      <Icon data-icon="inline-start" className="shrink-0" aria-hidden="true" />
                       <span className="min-w-0">
                         <span className="block truncate">{action.label}</span>
                         <span className="block truncate text-xs font-normal text-muted-foreground">
@@ -200,12 +210,12 @@ function ProfileConfidencePanel({
                 );
               })}
             </div>
-          </div>
+          </SettingsSecondaryActions>
 
           <Separator />
 
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-muted-foreground">
+          <div className={SETTINGS_COMPACT_ACTION_BAR_CLASS}>
+            <p className={SETTINGS_COMPACT_HELPER_TEXT_CLASS}>
               Opening hours are managed in Availability so schedule rules stay together.
             </p>
             <Button type="button" variant="outline" size="sm" asChild>
@@ -215,8 +225,8 @@ function ProfileConfidencePanel({
         </CardContent>
       </Card>
 
-      <Card className="border-border/70 shadow-none">
-        <CardHeader className="gap-3">
+      <Card className={SETTINGS_COMPACT_CARD_CLASS}>
+        <CardHeader className={cn(SETTINGS_COMPACT_CARD_HEADER_CLASS, 'gap-3')}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="flex flex-col gap-1">
               <CardTitle className="text-lg">Guest preview</CardTitle>
@@ -229,7 +239,7 @@ function ProfileConfidencePanel({
             </Badge>
           </div>
         </CardHeader>
-        <CardContent className="flex flex-col gap-4">
+        <CardContent className={cn(SETTINGS_COMPACT_CARD_CONTENT_CLASS, 'flex flex-col gap-4')}>
           <div className="rounded-lg bg-muted/35 p-4">
             <div className="flex items-start gap-4">
               <div className="relative size-16 shrink-0 overflow-hidden rounded-md bg-background shadow-sm ring-1 ring-border">
@@ -283,7 +293,7 @@ function ProfileConfidencePanel({
               </AlertDescription>
             </Alert>
           ) : dirtySections.length > 0 ? null : (
-            <p className="text-sm text-muted-foreground">
+            <p className={SETTINGS_COMPACT_HELPER_TEXT_CLASS}>
               This preview is based on the latest saved profile data.
             </p>
           )}
@@ -519,7 +529,7 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
         title="Restaurant profile"
         description="Loading the restaurant details staff use day to day."
       >
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4">
           <Skeleton className="h-6 w-40" />
           <Skeleton className="h-24 w-full" />
         </div>
@@ -545,8 +555,13 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
 
   return (
     <div className="flex flex-col gap-6">
-      <Card className="border-border/70">
-        <CardHeader className="gap-4 sm:flex-row sm:items-end sm:justify-between sm:space-y-0">
+      <Card className={SETTINGS_COMPACT_CARD_CLASS}>
+        <CardHeader
+          className={cn(
+            SETTINGS_COMPACT_CARD_HEADER_CLASS,
+            'gap-4 sm:flex-row sm:items-end sm:justify-between',
+          )}
+        >
           <div className="flex flex-col gap-2">
             <Badge
               variant={profileVerification.warnings.length > 0 ? 'secondary' : 'outline'}
@@ -562,7 +577,7 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
               </CardDescription>
             </div>
           </div>
-          <Button type="button" variant="outline" asChild>
+          <Button type="button" variant="outline" size="sm" asChild>
             <a href="/app/settings/restaurant/google-business-profile">Review Google changes</a>
           </Button>
         </CardHeader>
@@ -578,7 +593,9 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
       />
 
       {dirtySections.length > 0 ? (
-        <Alert className="sticky bottom-4 z-20 border-primary/30 bg-background/95 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <Alert
+          className={cn(SETTINGS_COMPACT_STICKY_ACTION_ROW_CLASS, 'border-primary/30 shadow-lg')}
+        >
           <AlertTitle>
             {dirtySections.length} unsaved profile section
             {dirtySections.length === 1 ? '' : 's'}

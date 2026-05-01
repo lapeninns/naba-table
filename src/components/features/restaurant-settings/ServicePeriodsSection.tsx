@@ -47,7 +47,7 @@ import {
   type DayServiceConfig,
   type MealConfig,
 } from './servicePeriodsMapper';
-import { SettingsCard } from './shared/SettingsCard';
+import { SETTINGS_COMPACT_HELPER_TEXT_CLASS, SettingsCard } from './shared';
 import { DAYS_OF_WEEK, type ServicePeriodRow } from './types';
 
 type ServicePeriodsSectionProps = {
@@ -379,7 +379,7 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
   ) {
     return (
       <SettingsCard title="Service Periods" description="Loading…">
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4">
           <Skeleton className="h-6 w-44" />
           <Skeleton className="h-4 w-72" />
           <div className="grid gap-3 sm:grid-cols-2">
@@ -425,7 +425,7 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
             <p className="text-xs text-muted-foreground">
               Lunch & dinner availability follows kitchen windows.
             </p>
-            <div className="flex items-center gap-2 ml-auto">
+            <div className="ml-auto flex items-center gap-2">
               <Button
                 type="button"
                 variant="outline"
@@ -440,21 +440,22 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
             </div>
           </div>
         }
+        stickyFooter
       >
-        <div className="space-y-4">
-          <div className="space-y-2 rounded-lg border border-border/70 bg-muted/30 p-4">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2 rounded-lg border border-border/70 bg-muted/30 p-3">
             <p className="text-sm font-medium text-foreground">{gbpVerification.summary}</p>
-            <p className="text-xs text-muted-foreground">
+            <p className={SETTINGS_COMPACT_HELPER_TEXT_CLASS}>
               GBP sync maps meal windows through kitchen more-hours so split days like `12:00–15:00`
               and `17:00–22:00` stay aligned with lunch and dinner.
             </p>
             {isDirty ? (
-              <p className="text-xs text-muted-foreground">
+              <p className={SETTINGS_COMPACT_HELPER_TEXT_CLASS}>
                 Save or reset local changes before running a GBP sync for this section.
               </p>
             ) : null}
             {gbpVerification.warnings.map((warning) => (
-              <p key={warning} className="text-xs text-muted-foreground">
+              <p key={warning} className={SETTINGS_COMPACT_HELPER_TEXT_CLASS}>
                 {warning}
               </p>
             ))}
@@ -481,7 +482,7 @@ export function ServicePeriodsSection({ restaurantId }: ServicePeriodsSectionPro
             </Alert>
           )}
 
-          <div className="space-y-4">
+          <div className="flex flex-col gap-3">
             {dayConfigs.map((day, index) => {
               const comparison = dayComparisons[day.dayOfWeek];
 

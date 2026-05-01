@@ -12,7 +12,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Edit, Loader2, Plus, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { SettingsCard } from '@/components/features/restaurant-settings/shared';
+import {
+  SETTINGS_COMPACT_FILTER_BAR_CLASS,
+  SETTINGS_COMPACT_ROUTE_STACK_CLASS,
+  SettingsCard,
+  SettingsSecondaryActions,
+} from '@/components/features/restaurant-settings/shared';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -51,6 +56,7 @@ import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
 import { isRestaurantAdminRole } from '@/lib/owner/auth/roles';
 import { queryKeys } from '@/lib/query/keys';
+import { cn } from '@/lib/utils';
 
 import {
   ALL_ZONES_VALUE,
@@ -164,7 +170,7 @@ function TableForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-6">
       <DialogHeader>
         <DialogTitle>{table ? 'Edit table' : 'Add new table'}</DialogTitle>
         <DialogDescription>
@@ -789,7 +795,7 @@ export default function TableInventoryClient() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className={SETTINGS_COMPACT_ROUTE_STACK_CLASS}>
       {/* ... (Summary card section remains the same) ... */}
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {summaryCards ? (
@@ -816,23 +822,25 @@ export default function TableInventoryClient() {
         title="Zones"
         description="Group tables by areas of your floor plan. Add or rename zones as your layout changes."
         headerAction={
-          <div className="flex flex-wrap items-center gap-2">
-            <Label htmlFor="zone-status-filter" className="text-sm text-muted-foreground">
-              Show
-            </Label>
-            <Select
-              value={zoneStatusFilter}
-              onValueChange={(value) => setZoneStatusFilter(value as ZoneStatusFilter)}
-            >
-              <SelectTrigger id="zone-status-filter" className="w-[170px]">
-                <SelectValue placeholder="All zones" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">Active zones</SelectItem>
-                <SelectItem value="inactive">Inactive zones</SelectItem>
-                <SelectItem value="all">All zones</SelectItem>
-              </SelectContent>
-            </Select>
+          <SettingsSecondaryActions label="Zone options" contentClassName="sm:min-w-80">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="zone-status-filter" className="text-sm text-muted-foreground">
+                Show
+              </Label>
+              <Select
+                value={zoneStatusFilter}
+                onValueChange={(value) => setZoneStatusFilter(value as ZoneStatusFilter)}
+              >
+                <SelectTrigger id="zone-status-filter">
+                  <SelectValue placeholder="All zones" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active zones</SelectItem>
+                  <SelectItem value="inactive">Inactive zones</SelectItem>
+                  <SelectItem value="all">All zones</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <Button
               variant="outline"
               size="sm"
@@ -841,10 +849,10 @@ export default function TableInventoryClient() {
                 setIsZoneDialogOpen(true);
               }}
             >
-              <Plus className="mr-2 h-4 w-4" />
+              <Plus data-icon="inline-start" aria-hidden />
               Add zone
             </Button>
-          </div>
+          </SettingsSecondaryActions>
         }
       >
         {isLoadingZones ? (
@@ -924,7 +932,7 @@ export default function TableInventoryClient() {
                         }}
                         aria-label={`Edit zone ${zone.name}`}
                       >
-                        <Edit className="h-4 w-4" />
+                        <Edit aria-hidden />
                       </Button>
                       <Button
                         type="button"
@@ -934,7 +942,7 @@ export default function TableInventoryClient() {
                         onClick={() => handleZoneDelete(zone)}
                         aria-label={`Delete zone ${zone.name}`}
                       >
-                        <Trash2 className="h-4 w-4 text-destructive" />
+                        <Trash2 className="text-destructive" aria-hidden />
                       </Button>
                     </div>
                   </div>
@@ -951,18 +959,24 @@ export default function TableInventoryClient() {
         description="Manage your tables, capacities, and settings."
         headerAction={
           <Button
+            size="sm"
             onClick={() => {
               openNewTableDialog();
             }}
             disabled={isZoneSelectDisabled && !isLoadingZones}
           >
-            <Plus className="mr-2 h-4 w-4" />
+            <Plus data-icon="inline-start" aria-hidden />
             Add table
           </Button>
         }
       >
-        <div className="space-y-4">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-6">
+        <div className="flex flex-col gap-4">
+          <div
+            className={cn(
+              SETTINGS_COMPACT_FILTER_BAR_CLASS,
+              'md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]',
+            )}
+          >
             <div className="flex items-center gap-3">
               <Label htmlFor="table-zone-filter" className="text-sm">
                 Filter by Zone
@@ -1023,7 +1037,7 @@ export default function TableInventoryClient() {
                   <TableRow>
                     <TableCell colSpan={9} className="py-6 text-center text-muted-foreground">
                       <div className="flex items-center justify-center gap-2">
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="size-4 animate-spin" />
                         <span>Loading tables…</span>
                       </div>
                     </TableCell>
@@ -1084,7 +1098,7 @@ export default function TableInventoryClient() {
                               setIsDialogOpen(true);
                             }}
                           >
-                            <Edit className="h-4 w-4" />
+                            <Edit data-icon="inline-start" aria-hidden />
                             <span className="sr-only">Edit table</span>
                           </Button>
                           <Button
@@ -1102,7 +1116,11 @@ export default function TableInventoryClient() {
                               }
                             }}
                           >
-                            <Trash2 className="h-4 w-4 text-destructive" />
+                            <Trash2
+                              data-icon="inline-start"
+                              className="text-destructive"
+                              aria-hidden
+                            />
                             <span className="sr-only">Delete table</span>
                           </Button>
                         </div>
@@ -1141,7 +1159,7 @@ export default function TableInventoryClient() {
         }}
       >
         <DialogContent className="sm:max-w-md">
-          <form onSubmit={handleZoneSubmit} className="space-y-5">
+          <form onSubmit={handleZoneSubmit} className="flex flex-col gap-5">
             <DialogHeader>
               <DialogTitle>{editingZone ? 'Edit zone' : 'Add zone'}</DialogTitle>
               <DialogDescription>

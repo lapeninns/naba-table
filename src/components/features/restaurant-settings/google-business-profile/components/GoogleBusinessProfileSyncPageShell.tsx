@@ -16,6 +16,11 @@ import {
 import { useEffect, useRef, useState } from 'react';
 
 import {
+  SETTINGS_COMPACT_ACTION_BAR_CLASS,
+  SETTINGS_COMPACT_STATUS_ROW_CLASS,
+  SETTINGS_COMPACT_STICKY_ACTION_ROW_CLASS,
+} from '@/components/features/restaurant-settings/shared';
+import {
   Accordion,
   AccordionContent,
   AccordionItem,
@@ -25,6 +30,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { cn } from '@/lib/utils';
 
 import { AuditTimeline } from './AuditTimeline';
 import { FieldDecisionRow } from './FieldDecisionRow';
@@ -202,7 +208,7 @@ function SectionReviewCard({
           </Alert>
         ) : null}
 
-        <div className="mb-4 flex flex-col gap-3 rounded-lg border border-border/70 bg-card p-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className={cn(SETTINGS_COMPACT_ACTION_BAR_CLASS, 'mb-4')}>
           <div className="min-w-0">
             <p className="text-sm font-medium text-foreground">Bulk select this section</p>
             <p className="text-xs leading-5 text-muted-foreground">
@@ -466,7 +472,10 @@ export function GoogleBusinessProfileSyncPageShell({
 
         {draft && hasSelectedChanges ? (
           <div
-            className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-7xl rounded-2xl bg-background/95 p-4 shadow-xl shadow-muted-foreground/10 ring-1 ring-border/70 backdrop-blur sm:right-6 md:left-[calc(var(--sidebar-width)+1.5rem)] lg:left-[calc(var(--sidebar-width)+2rem)] lg:right-8"
+            className={cn(
+              SETTINGS_COMPACT_STICKY_ACTION_ROW_CLASS,
+              'rounded-lg border-primary/20 shadow-xl shadow-muted-foreground/10',
+            )}
             data-testid="gbp-review-apply-bar"
           >
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -476,7 +485,7 @@ export function GoogleBusinessProfileSyncPageShell({
                     {workspace.conflictStats.resolvedCount} of{' '}
                     {workspace.conflictStats.actionableCount} conflicts resolved
                   </p>
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <div className={SETTINGS_COMPACT_STATUS_ROW_CLASS}>
                     <span className="inline-flex items-center gap-1">
                       <Download className="size-3" aria-hidden />
                       {workspace.conflictStats.importCount} imports

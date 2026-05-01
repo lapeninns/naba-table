@@ -264,6 +264,13 @@ describe('AvailabilityScheduleManager', () => {
     expect(screen.getByRole('tab', { name: 'Weekly schedule' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Date overrides' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Save configuration' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Save configuration' }).closest('.sticky'),
+    ).toHaveClass('bottom-0');
+    expect(screen.getByText(/Turn times per party size/i).parentElement).toHaveClass(
+      'rounded-md',
+      'bg-muted/20',
+    );
     expect(screen.queryByText('Lunch and dinner occasions are required')).not.toBeInTheDocument();
   });
 

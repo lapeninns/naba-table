@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import TableInventoryClient from '@/components/features/tables/TableInventoryClient';
@@ -177,6 +178,7 @@ describe('TableInventoryClient', () => {
   });
 
   it('uses zones from the tables summary instead of issuing a duplicate initial zones request', async () => {
+    const user = userEvent.setup();
     const tableService = createTableService();
     const zoneService = createZoneService();
 
@@ -184,6 +186,9 @@ describe('TableInventoryClient', () => {
 
     expect(await screen.findByText('Table Inventory')).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: 'Patio' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add zone' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Zone options' }));
+    expect(screen.getByRole('button', { name: 'Add zone' })).toBeInTheDocument();
 
     await waitFor(() => {
       expect(tableService.list).toHaveBeenCalledTimes(1);

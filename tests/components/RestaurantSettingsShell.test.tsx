@@ -49,6 +49,7 @@ vi.mock('@/lib/prefetchers', () => ({
 }));
 
 import { OpsRestaurantSettingsClient } from '@/components/features/restaurant-settings/OpsRestaurantSettingsClient';
+import { RestaurantSettingsPageShell } from '@/components/features/restaurant-settings/RestaurantSettingsPageShell';
 import { RestaurantSettingsSubnav } from '@/components/features/restaurant-settings/RestaurantSettingsSubnav';
 import {
   RESTAURANT_SETTINGS_NAV_ITEMS,
@@ -144,6 +145,43 @@ function renderSubnav(pathname: string, serviceCalls = makePrefetchServiceCalls(
   );
 }
 
+function renderPageShell(pathname: string, serviceCalls = makePrefetchServiceCalls()) {
+  navigationState.pathname = pathname;
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, refetchOnWindowFocus: false },
+    },
+  });
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <OpsServicesProvider
+        factories={
+          {
+            menuService: () => ({ listItems: serviceCalls.listItems }),
+            occasionService: () => ({ listOccasions: serviceCalls.listOccasions }),
+            restaurantService: () => ({
+              getGoogleBusinessProfileConnection: serviceCalls.getGoogleBusinessProfileConnection,
+              getOperatingHours: serviceCalls.getOperatingHours,
+              getProfile: serviceCalls.getProfile,
+              getServicePeriods: serviceCalls.getServicePeriods,
+              getTurnBands: serviceCalls.getTurnBands,
+            }),
+            tableInventoryService: () => ({ list: serviceCalls.listTables }),
+            teamService: () => ({ listInvites: serviceCalls.listInvites }),
+          } as never
+        }
+      >
+        <OpsSessionProvider user={user} memberships={[membership]} initialRestaurantId="rest-1">
+          <RestaurantSettingsPageShell>
+            <div>Route content</div>
+          </RestaurantSettingsPageShell>
+        </OpsSessionProvider>
+      </OpsServicesProvider>
+    </QueryClientProvider>,
+  );
+}
+
 beforeEach(() => {
   navigationState.pathname = '/app/settings/restaurant/profile';
   prefetchState.prefetchIfStale.mockClear();
@@ -186,9 +224,32 @@ describe('OpsRestaurantSettingsClient', () => {
       'rest-1',
     );
   });
+
+  it('wraps routed settings views in the dense settings class convention', () => {
+    renderWithOpsSession(<OpsRestaurantSettingsClient view="profile" />);
+
+    expect(screen.getByTestId('settings-view-profile').parentElement).toHaveClass(
+      'restaurant-settings-dense',
+      'gap-4',
+    );
+  });
 });
 
 describe('RestaurantSettingsSubnav', () => {
+  it('uses the compact page and navigation baseline across settings routes', () => {
+    renderPageShell('/app/settings/restaurant/profile');
+
+    expect(screen.getByRole('main')).toHaveClass('gap-4', 'px-3', 'py-4');
+    expect(screen.getByRole('heading', { level: 1, name: 'Restaurant profile' })).toHaveClass(
+      'text-2xl',
+    );
+    expect(screen.getByRole('link', { name: 'Restaurant profile' })).toHaveClass(
+      'min-w-[176px]',
+      'py-1.5',
+    );
+    expect(screen.getByText('Change restaurant from the sidebar.')).toBeInTheDocument();
+  });
+
   it('renders every shipped settings route from the shared nav contract', () => {
     renderSubnav('/app/settings/restaurant/tables');
 

@@ -2,10 +2,15 @@
 
 import { ExternalLink, PencilLine, RefreshCcw } from 'lucide-react';
 
+import {
+  SETTINGS_COMPACT_ACTION_BAR_CLASS,
+  SettingsSecondaryActions,
+} from '@/components/features/restaurant-settings/shared';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 import { StatusBadge, connectionStatusBadge } from './StatusBadge';
 import { formatGbpDateTime } from '../lib/formatters';
@@ -63,12 +68,13 @@ export function SyncStatusHeader({
   const activePublishJob = workflow?.activePublishJob ?? null;
   const lastCheckedAt = draft?.fetchedAt ?? connection.lastPullAt;
   const publishUpdatedAt = activePublishJob?.updatedAt ?? draft?.publishedAt ?? null;
+  const hasSecondaryActions = Boolean(manageOnGoogleHref) || showChangeLocation;
 
   return (
     <Card className="border-border/70 shadow-sm">
       <CardHeader className="gap-4 border-b bg-muted/20">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="space-y-3">
+          <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-2">
               <CardTitle className="text-xl">Google profile changes</CardTitle>
               <StatusBadge tone={connectionBadge.tone} label={connectionBadge.label} />
@@ -83,7 +89,7 @@ export function SyncStatusHeader({
                 </Badge>
               ) : null}
             </div>
-            <div className="space-y-1 text-sm text-muted-foreground">
+            <div className="flex flex-col gap-1 text-sm text-muted-foreground">
               <p>
                 Review differences between Google Business Profile and Nabatable before applying
                 changes.
@@ -97,32 +103,38 @@ export function SyncStatusHeader({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <Button type="button" onClick={onGenerateDraft} disabled={isGeneratingDraft}>
+          <div className={SETTINGS_COMPACT_ACTION_BAR_CLASS}>
+            <Button type="button" size="sm" onClick={onGenerateDraft} disabled={isGeneratingDraft}>
               <RefreshCcw
-                className={isGeneratingDraft ? 'mr-2 size-4 animate-spin' : 'mr-2 size-4'}
+                data-icon="inline-start"
+                className={cn(isGeneratingDraft && 'animate-spin')}
+                aria-hidden
               />
               {isGeneratingDraft ? 'Checking…' : 'Check for changes'}
             </Button>
-            {manageOnGoogleHref ? (
-              <Button type="button" variant="outline" asChild>
-                <a href={manageOnGoogleHref} target="_blank" rel="noreferrer">
-                  <ExternalLink className="mr-2 size-4" />
-                  View on Google Maps
-                </a>
-              </Button>
-            ) : null}
-            {showChangeLocation ? (
-              <Button type="button" variant="ghost" onClick={onChangeLocation}>
-                <PencilLine className="mr-2 size-4" />
-                Change location
-              </Button>
+            {hasSecondaryActions ? (
+              <SettingsSecondaryActions label="More Google actions">
+                {manageOnGoogleHref ? (
+                  <Button type="button" variant="outline" size="sm" asChild>
+                    <a href={manageOnGoogleHref} target="_blank" rel="noreferrer">
+                      <ExternalLink data-icon="inline-start" aria-hidden />
+                      View on Google Maps
+                    </a>
+                  </Button>
+                ) : null}
+                {showChangeLocation ? (
+                  <Button type="button" variant="ghost" size="sm" onClick={onChangeLocation}>
+                    <PencilLine data-icon="inline-start" aria-hidden />
+                    Change location
+                  </Button>
+                ) : null}
+              </SettingsSecondaryActions>
             ) : null}
           </div>
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4 p-4">
+      <CardContent className="flex flex-col gap-4 p-4">
         {connection.status === 'sync_error' && connection.lastError ? (
           <Alert variant="destructive">
             <AlertTitle>Connection needs attention</AlertTitle>

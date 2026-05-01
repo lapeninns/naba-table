@@ -2,6 +2,12 @@
 
 import { useMemo, useState } from 'react';
 
+import {
+  SETTINGS_COMPACT_CARD_CLASS,
+  SETTINGS_COMPACT_CARD_CONTENT_CLASS,
+  SETTINGS_COMPACT_CARD_FOOTER_CLASS,
+  SETTINGS_COMPACT_CARD_HEADER_CLASS,
+} from '@/components/features/restaurant-settings/shared';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -32,6 +38,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useOpsRevokeTeamInvite, useOpsTeamInvitations } from '@/hooks/ops/useOpsTeamInvitations';
+import { cn } from '@/lib/utils';
 
 import {
   TEAM_INVITE_STATUS_OPTIONS,
@@ -78,12 +85,12 @@ export function TeamInvitesTable({ restaurantId, canManage }: TeamInvitesTablePr
   };
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className={SETTINGS_COMPACT_CARD_CLASS}>
+      <CardHeader className={SETTINGS_COMPACT_CARD_HEADER_CLASS}>
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div className="flex flex-col gap-1.5">
-            <CardTitle>Team invitations</CardTitle>
-            <CardDescription>
+          <div className="flex min-w-0 flex-col gap-1">
+            <CardTitle className="text-base leading-6">Team invitations</CardTitle>
+            <CardDescription className="text-xs leading-5">
               Track outstanding invites and revoke access when an invitation is no longer needed.
             </CardDescription>
           </div>
@@ -107,9 +114,9 @@ export function TeamInvitesTable({ restaurantId, canManage }: TeamInvitesTablePr
         </div>
       </CardHeader>
 
-      <CardContent className="p-0">
+      <CardContent className={cn(SETTINGS_COMPACT_CARD_CONTENT_CLASS, 'pt-0')}>
         {isError ? (
-          <div className="px-6 pb-6">
+          <div className="pb-4">
             <Alert variant="destructive">
               <AlertTitle>Invitations could not be loaded</AlertTitle>
               <AlertDescription>{error.message}</AlertDescription>
@@ -186,7 +193,7 @@ export function TeamInvitesTable({ restaurantId, canManage }: TeamInvitesTablePr
       </CardContent>
 
       {isFetching ? (
-        <CardFooter className="border-t bg-muted/40 py-2">
+        <CardFooter className={cn(SETTINGS_COMPACT_CARD_FOOTER_CLASS, 'py-2')}>
           <p className="text-xs text-muted-foreground" role="status">
             Refreshing…
           </p>

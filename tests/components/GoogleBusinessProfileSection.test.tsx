@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -7,6 +8,7 @@ import {
   tabTone,
   worstDriftStatus,
 } from '@/components/features/restaurant-settings/google-business-profile/components/alignmentModel';
+import { LinkedSummaryCard } from '@/components/features/restaurant-settings/google-business-profile/components/LinkedSummaryCard';
 import {
   formatCoordinate,
   formatDisplayUrl,
@@ -245,6 +247,55 @@ describe('GoogleBusinessProfileSection', () => {
 
     expect(screen.getByText(/unable to load google business profile/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+  });
+});
+
+describe('LinkedSummaryCard', () => {
+  it('uses the compact action bar and disclosure for linked profile actions', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <LinkedSummaryCard
+        data={buildConnection({
+          status: 'linked',
+          connectedGoogleEmail: 'ops@example.com',
+          availableLocations: [
+            {
+              accountName: 'accounts/1',
+              accountId: 'a-1',
+              accountDisplayName: 'Ops Account',
+              locationName: 'locations/1',
+              locationId: 'l-1',
+              title: 'Nabatable Main',
+              addressText: '1 Test St, London',
+              placeId: 'place-1',
+            },
+            {
+              accountName: 'accounts/1',
+              accountId: 'a-1',
+              accountDisplayName: 'Ops Account',
+              locationName: 'locations/2',
+              locationId: 'l-2',
+              title: 'Second Location',
+              addressText: '2 Test St, London',
+              placeId: 'place-2',
+            },
+          ],
+        })}
+        manageOnGoogleHref="https://maps.google.com/?cid=demo"
+        onGenerateDraft={vi.fn()}
+        onChangeLocation={vi.fn()}
+        isGeneratingDraft={false}
+      />,
+    );
+
+    expect(
+      screen.getByRole('button', { name: /generate review draft/i }).parentElement,
+    ).toHaveClass('rounded-md', 'bg-muted/30');
+    expect(screen.queryByRole('link', { name: /view on google maps/i })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /more google actions/i }));
+    expect(screen.getByRole('link', { name: /view on google maps/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /change location/i })).toBeInTheDocument();
   });
 });
 

@@ -147,6 +147,10 @@ describe('RestaurantProfileSection', () => {
     await user.type(screen.getByRole('textbox', { name: /contact phone/i }), '+447700900000');
 
     expect(await screen.findByText('2 unsaved profile sections')).toBeInTheDocument();
+    expect(screen.getByText('2 unsaved profile sections').closest('[role="alert"]')).toHaveClass(
+      'sticky',
+      'bottom-0',
+    );
     await user.click(screen.getByRole('button', { name: 'Save all' }));
 
     await waitFor(() => expect(updateProfileMock).toHaveBeenCalledTimes(2));
@@ -200,6 +204,7 @@ describe('RestaurantProfileSection', () => {
     render(<RestaurantProfileSection restaurantId="rest-1" />);
 
     await screen.findByText('Common edits');
+    await user.click(screen.getByRole('button', { name: 'Common edits' }));
     const contactShortcut = screen.getByText('Phone + email').closest('a');
     expect(contactShortcut).toBeInTheDocument();
     await user.click(contactShortcut!);
@@ -239,6 +244,9 @@ describe('RestaurantProfileSection', () => {
     };
 
     await screen.findByText('Profile sections');
+    expect(
+      screen.getByText(/Opening hours are managed in Availability/i).parentElement,
+    ).toHaveClass('rounded-md', 'bg-muted/30');
     expectSectionLink('Name and public description', '#profile-identity');
     expectSectionLink('Logo and guest recognition', '#profile-identity');
     expectSectionLink('Phone and email', '#profile-contact');

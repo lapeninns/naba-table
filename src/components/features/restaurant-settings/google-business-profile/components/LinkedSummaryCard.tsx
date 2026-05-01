@@ -2,6 +2,10 @@
 
 import { ExternalLink, PencilLine, RefreshCcw } from 'lucide-react';
 
+import {
+  SETTINGS_COMPACT_ACTION_BAR_CLASS,
+  SettingsSecondaryActions,
+} from '@/components/features/restaurant-settings/shared';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,7 +25,7 @@ type LinkedSummaryCardProps = {
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="space-y-0.5">
+    <div className="flex flex-col gap-0.5">
       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="text-sm text-foreground">{value}</p>
     </div>
@@ -37,6 +41,7 @@ export function LinkedSummaryCard({
 }: LinkedSummaryCardProps) {
   const hasSyncError = data.status === 'sync_error';
   const multipleLocations = data.availableLocations.length > 1;
+  const hasSecondaryActions = Boolean(manageOnGoogleHref) || multipleLocations;
 
   return (
     <Card>
@@ -56,7 +61,7 @@ export function LinkedSummaryCard({
           )}
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-5">
+      <CardContent className="flex flex-col gap-5">
         {hasSyncError && data.lastError ? (
           <Alert variant="destructive">
             <AlertTitle>Sync needs attention</AlertTitle>
@@ -65,41 +70,40 @@ export function LinkedSummaryCard({
         ) : null}
 
         <div className="grid gap-4 rounded-lg border bg-muted/40 p-4 sm:grid-cols-2 lg:grid-cols-4">
-          <DetailRow
-            label="Location ID"
-            value={data.externalLocationId ?? 'Unknown'}
-          />
+          <DetailRow label="Location ID" value={data.externalLocationId ?? 'Unknown'} />
           <DetailRow label="Provider timezone" value={data.providerTimezone ?? 'Inherited'} />
-          <DetailRow
-            label="Last fetched"
-            value={formatGbpDateTime(data.lastPullAt) ?? 'Never'}
-          />
-          <DetailRow
-            label="Last pushed"
-            value={formatGbpDateTime(data.lastPushAt) ?? 'Never'}
-          />
+          <DetailRow label="Last fetched" value={formatGbpDateTime(data.lastPullAt) ?? 'Never'} />
+          <DetailRow label="Last pushed" value={formatGbpDateTime(data.lastPushAt) ?? 'Never'} />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" onClick={onGenerateDraft} disabled={isGeneratingDraft} size="lg">
-            <RefreshCcw className={cn('mr-2 size-4', isGeneratingDraft && 'animate-spin')} />
+        <div className={SETTINGS_COMPACT_ACTION_BAR_CLASS}>
+          <Button type="button" onClick={onGenerateDraft} disabled={isGeneratingDraft} size="sm">
+            <RefreshCcw
+              data-icon="inline-start"
+              className={cn(isGeneratingDraft && 'animate-spin')}
+              aria-hidden
+            />
             {isGeneratingDraft ? 'Generating...' : 'Generate review draft'}
           </Button>
 
-          {manageOnGoogleHref ? (
-            <Button type="button" variant="outline" asChild>
-              <a href={manageOnGoogleHref} target="_blank" rel="noreferrer">
-                <ExternalLink className="mr-2 size-4" />
-                View on Google Maps
-              </a>
-            </Button>
-          ) : null}
+          {hasSecondaryActions ? (
+            <SettingsSecondaryActions label="More Google actions">
+              {manageOnGoogleHref ? (
+                <Button type="button" variant="outline" size="sm" asChild>
+                  <a href={manageOnGoogleHref} target="_blank" rel="noreferrer">
+                    <ExternalLink data-icon="inline-start" aria-hidden />
+                    View on Google Maps
+                  </a>
+                </Button>
+              ) : null}
 
-          {multipleLocations ? (
-            <Button type="button" variant="ghost" onClick={onChangeLocation}>
-              <PencilLine className="mr-2 size-4" />
-              Change location
-            </Button>
+              {multipleLocations ? (
+                <Button type="button" variant="ghost" size="sm" onClick={onChangeLocation}>
+                  <PencilLine data-icon="inline-start" aria-hidden />
+                  Change location
+                </Button>
+              ) : null}
+            </SettingsSecondaryActions>
           ) : null}
         </div>
       </CardContent>

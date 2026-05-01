@@ -14,6 +14,7 @@ import { normalizeOpsPathname } from '@/lib/url/opsHref';
 import { cn } from '@/lib/utils';
 
 import { RESTAURANT_SETTINGS_NAV_ITEMS } from './routes';
+import { SETTINGS_COMPACT_STATUS_ROW_CLASS } from './shared';
 
 type Prefetcher = () => Promise<unknown> | undefined;
 type SettingsHref = (typeof RESTAURANT_SETTINGS_NAV_ITEMS)[number]['href'];
@@ -50,7 +51,7 @@ function RestaurantSettingsSubnavItem({
       onMouseEnter={onMouseEnter}
       onFocus={onFocus}
       className={cn(
-        'group flex min-w-[240px] shrink-0 gap-2.5 rounded-md px-2.5 py-2 text-left text-sm font-medium transition-[transform,box-shadow,background-color,color,ring-color] duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none',
+        'group flex min-w-[176px] shrink-0 gap-2 rounded-md px-2 py-1.5 text-left text-sm font-medium transition-[transform,box-shadow,background-color,color,ring-color] duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none',
         active
           ? 'bg-background text-foreground shadow-sm ring-1 ring-border motion-safe:hover:-translate-y-[1px] motion-safe:hover:shadow-md'
           : 'text-muted-foreground hover:bg-background/70 hover:text-foreground hover:ring-1 hover:ring-border motion-safe:hover:-translate-y-[1px] motion-safe:hover:shadow-sm',
@@ -58,14 +59,14 @@ function RestaurantSettingsSubnavItem({
     >
       <span
         className={cn(
-          'mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border transition-[transform,background-color,color,border-color] duration-200 ease-out motion-reduce:transition-none',
+          'mt-0.5 inline-flex size-6 shrink-0 items-center justify-center rounded-md border transition-[transform,background-color,color,border-color] duration-200 ease-out motion-reduce:transition-none [&_svg]:size-3.5',
           active
             ? 'border-border bg-primary/10 text-primary motion-safe:group-hover:scale-105'
             : 'border-border/70 bg-background text-muted-foreground group-hover:text-foreground motion-safe:group-hover:scale-105',
         )}
         aria-hidden="true"
       >
-        <Icon className="h-3.5 w-3.5 transition-transform duration-200 ease-out motion-reduce:transition-none motion-safe:group-hover:scale-110" />
+        <Icon className="transition-transform duration-200 ease-out motion-reduce:transition-none motion-safe:group-hover:scale-110" />
       </span>
       <span className="min-w-0">
         <span className="block min-w-0 text-wrap leading-5 text-foreground transition-colors duration-200 motion-reduce:transition-none">
@@ -174,8 +175,8 @@ export function RestaurantSettingsSubnav() {
 
   return (
     <nav aria-label="Restaurant settings" className="min-w-0">
-      <div className="min-w-0 overflow-x-auto rounded-lg border border-border/60 bg-muted/40 p-1">
-        <div className="flex min-w-max gap-2">
+      <div className="min-w-0 overflow-x-auto rounded-md border border-border/60 bg-muted/40 p-1">
+        <div className="flex min-w-max gap-1">
           {RESTAURANT_SETTINGS_NAV_ITEMS.map((item) => {
             const active =
               normalizedPathname != null
@@ -195,6 +196,9 @@ export function RestaurantSettingsSubnav() {
           })}
         </div>
       </div>
+      <p className={cn(SETTINGS_COMPACT_STATUS_ROW_CLASS, 'sr-only')}>
+        Six restaurant settings sections are available in this compact navigation.
+      </p>
     </nav>
   );
 }

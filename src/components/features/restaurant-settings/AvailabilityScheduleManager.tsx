@@ -25,6 +25,7 @@ import { useOpsServicePeriods, useOpsUpdateServicePeriods } from '@/hooks/ops/us
 import { useOpsTurnBands, useOpsUpdateTurnBands } from '@/hooks/ops/useOpsTurnBands';
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
 import { queryKeys } from '@/lib/query/keys';
+import { cn } from '@/lib/utils';
 
 import { AvailabilityOccasionsEditor } from './AvailabilityOccasionsEditor';
 import { AvailabilityOverridesEditor } from './AvailabilityOverridesEditor';
@@ -48,6 +49,14 @@ import {
   buildServicePeriodState,
   type DayServiceConfig,
 } from './servicePeriodsMapper';
+import {
+  SETTINGS_COMPACT_CARD_CLASS,
+  SETTINGS_COMPACT_CARD_CONTENT_CLASS,
+  SETTINGS_COMPACT_CARD_HEADER_CLASS,
+  SETTINGS_COMPACT_HELPER_TEXT_CLASS,
+  SETTINGS_COMPACT_STATUS_ROW_CLASS,
+  SETTINGS_COMPACT_STICKY_ACTION_ROW_CLASS,
+} from './shared';
 import { validateTurnBandRows, type TurnBandRowError } from './TurnBandsEditor';
 import {
   DAYS_OF_WEEK,
@@ -597,8 +606,8 @@ export function AvailabilityScheduleManager({ restaurantId }: AvailabilitySchedu
 
   if (!restaurantId) {
     return (
-      <Card className="border-border/70">
-        <CardHeader>
+      <Card className={SETTINGS_COMPACT_CARD_CLASS}>
+        <CardHeader className={SETTINGS_COMPACT_CARD_HEADER_CLASS}>
           <CardTitle>Weekly schedule</CardTitle>
           <CardDescription>Select a restaurant to manage availability.</CardDescription>
         </CardHeader>
@@ -617,12 +626,12 @@ export function AvailabilityScheduleManager({ restaurantId }: AvailabilitySchedu
     const message =
       loadError instanceof Error ? loadError.message : 'Unable to load availability settings.';
     return (
-      <Card className="border-border/70">
-        <CardHeader>
+      <Card className={SETTINGS_COMPACT_CARD_CLASS}>
+        <CardHeader className={SETTINGS_COMPACT_CARD_HEADER_CLASS}>
           <CardTitle>Weekly schedule</CardTitle>
           <CardDescription>Unable to load the unified availability editor.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className={SETTINGS_COMPACT_CARD_CONTENT_CLASS}>
           <Alert variant="destructive">
             <AlertCircle className="size-4" />
             <AlertTitle>Availability editor unavailable</AlertTitle>
@@ -641,15 +650,15 @@ export function AvailabilityScheduleManager({ restaurantId }: AvailabilitySchedu
     !hasInitialized
   ) {
     return (
-      <Card className="border-border/70">
-        <CardHeader>
+      <Card className={SETTINGS_COMPACT_CARD_CLASS}>
+        <CardHeader className={SETTINGS_COMPACT_CARD_HEADER_CLASS}>
           <Badge variant="outline" className="w-fit">
             Weekly schedule
           </Badge>
           <CardTitle className="text-xl">Operating hours and service windows together</CardTitle>
           <CardDescription>Loading the integrated availability editor.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className={cn(SETTINGS_COMPACT_CARD_CONTENT_CLASS, 'flex flex-col gap-3')}>
           {Array.from({ length: 3 }).map((_, index) => (
             <Skeleton key={index} className="h-36 w-full rounded-xl" />
           ))}
@@ -666,13 +675,18 @@ export function AvailabilityScheduleManager({ restaurantId }: AvailabilitySchedu
   const turnBandDefaults = turnBandsQuery.data?.defaults ?? {};
 
   return (
-    <Card className="overflow-hidden border-border/70" id="availability-schedule">
-      <CardHeader className="gap-4 border-b border-border/60 bg-muted/20 sm:flex-row sm:items-end sm:justify-between sm:space-y-0">
-        <div className="space-y-2">
+    <Card className={cn(SETTINGS_COMPACT_CARD_CLASS, 'overflow-hidden')} id="availability-schedule">
+      <CardHeader
+        className={cn(
+          SETTINGS_COMPACT_CARD_HEADER_CLASS,
+          'gap-3 border-b border-border/60 bg-muted/20 sm:flex-row sm:items-end sm:justify-between',
+        )}
+      >
+        <div className="flex flex-col gap-2">
           <Badge variant="outline" className="w-fit">
             Weekly schedule
           </Badge>
-          <div className="space-y-1">
+          <div className="flex flex-col gap-1">
             <CardTitle className="text-xl">Operating hours and service windows together</CardTitle>
             <CardDescription className="max-w-3xl">
               Edit the outer open-close window, the nested lunch and dinner windows, and special
@@ -689,7 +703,7 @@ export function AvailabilityScheduleManager({ restaurantId }: AvailabilitySchedu
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4 pt-6">
+      <CardContent className={cn(SETTINGS_COMPACT_CARD_CONTENT_CLASS, 'flex flex-col gap-4 pt-4')}>
         <div id="availability-hours" className="scroll-mt-28" />
         <div id="service-periods" className="scroll-mt-28" />
         {saveState ? (
@@ -697,10 +711,10 @@ export function AvailabilityScheduleManager({ restaurantId }: AvailabilitySchedu
             <AlertCircle className="size-4" />
             <AlertTitle>{saveState.title}</AlertTitle>
             <AlertDescription>
-              <div className="space-y-2">
+              <div className="flex flex-col gap-2">
                 <p>{saveState.message}</p>
                 {saveState.details?.length ? (
-                  <ul className="list-disc space-y-1 pl-5">
+                  <ul className="flex list-disc flex-col gap-1 pl-5">
                     {saveState.details.map((detail) => (
                       <li key={detail}>{detail}</li>
                     ))}
@@ -716,7 +730,7 @@ export function AvailabilityScheduleManager({ restaurantId }: AvailabilitySchedu
             <AlertCircle className="size-4" />
             <AlertTitle>Lunch and dinner occasions are required</AlertTitle>
             <AlertDescription>
-              <div className="space-y-3">
+              <div className="flex flex-col gap-3">
                 <p>
                   Operating hours can still be edited here, but service-window saves need active
                   `Lunch` and `Dinner` booking occasions.
@@ -757,14 +771,19 @@ export function AvailabilityScheduleManager({ restaurantId }: AvailabilitySchedu
           </AlertDescription>
         </Alert>
 
-        <Tabs defaultValue="schedule" className="space-y-4">
+        <Tabs defaultValue="schedule" className="flex flex-col gap-4">
           <TabsList className="h-auto w-full justify-start gap-2 overflow-x-auto p-1 sm:w-fit">
             <TabsTrigger value="schedule">Weekly schedule</TabsTrigger>
             <TabsTrigger value="overrides">Date overrides</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="schedule" className="mt-0 space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed border-border/70 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+          <TabsContent value="schedule" className="mt-0 flex flex-col gap-4">
+            <div
+              className={cn(
+                SETTINGS_COMPACT_STATUS_ROW_CLASS,
+                'justify-between rounded-md border border-dashed border-border/70 bg-muted/20 px-3 py-2',
+              )}
+            >
               <span>
                 Turn times per party size are set on each booking occasion — including{' '}
                 <span className="font-medium text-foreground">Lunch</span> and{' '}
@@ -817,8 +836,10 @@ export function AvailabilityScheduleManager({ restaurantId }: AvailabilitySchedu
         />
       </CardContent>
 
-      <CardFooter className="flex flex-wrap items-center justify-between gap-3 border-t bg-muted/40 px-6 py-4">
-        <div className="text-sm text-muted-foreground">
+      <CardFooter
+        className={cn(SETTINGS_COMPACT_STICKY_ACTION_ROW_CLASS, 'border-primary/20 shadow-lg')}
+      >
+        <div className={SETTINGS_COMPACT_HELPER_TEXT_CLASS}>
           Save once to persist the full availability workflow: weekly hours, service windows, date
           overrides, and booking occasions (with their turn times).
         </div>
@@ -829,11 +850,11 @@ export function AvailabilityScheduleManager({ restaurantId }: AvailabilitySchedu
             onClick={handleReset}
             disabled={isSaving || !hasLocalChanges}
           >
-            <RotateCcw className="size-4" />
+            <RotateCcw data-icon="inline-start" aria-hidden />
             Reset
           </Button>
           <Button type="button" onClick={handleSave} disabled={!canSave}>
-            <Save className="size-4" />
+            <Save data-icon="inline-start" aria-hidden />
             Save configuration
           </Button>
         </div>

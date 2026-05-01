@@ -5,7 +5,10 @@ import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 import { ConfirmDialog } from '@/components/features/restaurant-settings/ConfirmDialog';
-import { SettingsCard } from '@/components/features/restaurant-settings/shared';
+import {
+  SETTINGS_COMPACT_FILTER_BAR_CLASS,
+  SettingsCard,
+} from '@/components/features/restaurant-settings/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,6 +34,7 @@ import {
   useOpsUpdateDrinkMenuItem,
 } from '@/hooks/ops/useOpsDrinksMenu';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
+import { cn } from '@/lib/utils';
 
 import { DrinkImportDialog } from './DrinkImportDialog';
 import { DrinkItemSheet } from './DrinkItemSheet';
@@ -108,18 +112,18 @@ export function DrinkMenuManagementPanel({ restaurantId }: { restaurantId: strin
       description="Manage beer, wine, cocktails, spirits, and alcohol-free options for this venue."
       headerAction={
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" variant="outline" onClick={() => setImportOpen(true)}>
-            <Upload className="mr-2 h-4 w-4" />
+          <Button type="button" variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+            <Upload data-icon="inline-start" aria-hidden />
             Import drinks CSV
           </Button>
-          <Button type="button" onClick={() => openEditorForItem(null)}>
-            <Plus className="mr-2 h-4 w-4" />
+          <Button type="button" size="sm" onClick={() => openEditorForItem(null)}>
+            <Plus data-icon="inline-start" aria-hidden />
             New drink item
           </Button>
         </div>
       }
     >
-      <div className="grid gap-4 lg:grid-cols-[2fr,1fr,1fr,1fr]">
+      <div className={cn(SETTINGS_COMPACT_FILTER_BAR_CLASS, 'lg:grid-cols-[2fr_1fr_1fr_1fr]')}>
         <MenuFilterField label="Search">
           <Input
             value={searchInput}
@@ -168,7 +172,7 @@ export function DrinkMenuManagementPanel({ restaurantId }: { restaurantId: strin
         </div>
       ) : listQuery.isLoading ? (
         <div className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <Loader2 className="size-4 animate-spin" />
           Loading drink items…
         </div>
       ) : items.length === 0 ? (
