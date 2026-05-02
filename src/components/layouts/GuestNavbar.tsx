@@ -65,6 +65,9 @@ type GuestNavbarProps = {
   isSticky?: boolean;
 };
 
+const DARK_GLASS_CONTROL_CLASSES =
+  'border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/15';
+
 type AccountSnapshot = {
   displayName: string;
   email: string | null;
@@ -122,7 +125,7 @@ function PrimaryNav({
       className={cn(
         'hidden items-center gap-1 rounded-[var(--pg-radius-pill)] border p-1 shadow-[var(--pg-shadow-edge)] backdrop-blur-xl md:flex',
         tone === 'dark'
-          ? 'border-white/15 bg-white/10 text-white'
+          ? 'border-primary-foreground/15 bg-primary-foreground/10 text-primary-foreground'
           : 'border-border/70 bg-background/75 text-foreground',
       )}
     >
@@ -135,11 +138,11 @@ function PrimaryNav({
           className={cn(
             'h-9 rounded-[var(--pg-radius-pill)] px-3.5 text-sm font-semibold',
             tone === 'dark'
-              ? 'text-white/75 hover:bg-white/12 hover:text-white'
+              ? 'text-primary-foreground/75 hover:bg-primary-foreground/12 hover:text-primary-foreground'
               : 'text-muted-foreground hover:bg-muted hover:text-foreground',
             isActive(link.href) &&
               (tone === 'dark'
-                ? 'bg-white text-foreground shadow-[var(--pg-shadow-xs)] hover:bg-white hover:text-foreground'
+                ? 'bg-background text-foreground shadow-[var(--pg-shadow-xs)] hover:bg-background hover:text-foreground'
                 : 'bg-muted text-foreground shadow-[var(--pg-shadow-xs)] hover:bg-muted'),
           )}
         >
@@ -184,7 +187,7 @@ function DesktopActions({
           asChild
           className={cn(
             'rounded-[var(--pg-radius-pill)]',
-            tone === 'dark' && 'border-white/20 bg-white/10 text-white hover:bg-white/15',
+            tone === 'dark' && DARK_GLASS_CONTROL_CLASSES,
           )}
           size="sm"
           variant="outline"
@@ -208,7 +211,8 @@ function DesktopActions({
               size="icon-lg"
               className={cn(
                 'rounded-full p-0',
-                tone === 'dark' && 'border-white/20 bg-white/10 hover:bg-white/15',
+                tone === 'dark' &&
+                  'border-primary-foreground/20 bg-primary-foreground/10 hover:bg-primary-foreground/15',
               )}
               aria-label={`${account.displayName} menu`}
             >
@@ -333,7 +337,7 @@ function MobileMenu({
           size="icon-lg"
           className={cn(
             'rounded-[var(--pg-radius-md)] border-border/80 bg-background/90 shadow-[var(--pg-shadow-xs)] md:hidden',
-            tone === 'dark' && 'border-white/20 bg-white/10 text-white hover:bg-white/15',
+            tone === 'dark' && DARK_GLASS_CONTROL_CLASSES,
           )}
           aria-label="Open navigation menu"
           aria-expanded={open}
@@ -555,7 +559,7 @@ export function GuestNavbar({ tone = 'light', isSticky = true }: GuestNavbarProp
 
   const headerToneClasses =
     tone === 'dark'
-      ? 'border-b border-white/10 bg-foreground/80 text-background'
+      ? 'border-b border-primary-foreground/10 bg-foreground/80 text-background'
       : 'border-b border-border/70 bg-background/88 text-foreground';
 
   const shellClasses = cn(

@@ -122,7 +122,7 @@ export function WizardStep({
       className={STEP_CONTAINER_CLASSES}
     >
       <Card ref={stepRef} tabIndex={-1} className={cn(CARD_CLASSES, className)}>
-        <CardHeader className="border-b border-border/70 bg-[linear-gradient(180deg,rgba(250,250,250,0.92),rgba(255,255,255,0.98))] px-4 py-4 sm:px-6">
+        <CardHeader className="pg-wizard-card-header border-b border-border/70 px-4 py-4 sm:px-6">
           <TitleSection titleId={titleId} title={title} description={description} icon={icon} />
           {totalSteps > 1 ? (
             <p className="sr-only">

@@ -21,7 +21,7 @@ function WizardStepSkeletonHeader({
   descriptionWidth?: string;
 }) {
   return (
-    <CardHeader className="border-b border-border/70 bg-[linear-gradient(180deg,rgba(250,250,250,0.92),rgba(255,255,255,0.98))] px-4 py-4 sm:px-6">
+    <CardHeader className="pg-wizard-card-header border-b border-border/70 px-4 py-4 sm:px-6">
       <div className="space-y-2">
         <Skeleton className={`h-7 w-full ${titleWidth}`} />
         <Skeleton className={`h-4 w-full ${descriptionWidth}`} />
@@ -151,7 +151,7 @@ export function ReviewStepSkeleton() {
 export function ConfirmationStepSkeleton() {
   return (
     <WizardStepSkeletonShell>
-      <CardHeader className="space-y-4 border-b border-border/70 bg-[linear-gradient(180deg,rgba(250,250,250,0.92),rgba(255,255,255,0.98))] px-4 py-4 sm:px-6">
+      <CardHeader className="pg-wizard-card-header space-y-4 border-b border-border/70 px-4 py-4 sm:px-6">
         <div className="flex items-center gap-3">
           <Skeleton className="h-6 w-6 rounded-full" />
           <Skeleton className="h-8 w-full max-w-52" />

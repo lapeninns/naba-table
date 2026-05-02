@@ -37,7 +37,7 @@ type LocationPickerCardProps = {
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="space-y-0.5">
+    <div className="flex flex-col gap-0.5">
       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="text-sm text-foreground">{value}</p>
     </div>
@@ -74,7 +74,7 @@ export function LocationPickerCard({
           )}
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-5">
+      <CardContent className="flex flex-col gap-5">
         {needsReauth ? (
           <Alert variant="destructive">
             <AlertTitle>Reconnect required</AlertTitle>
@@ -99,8 +99,8 @@ export function LocationPickerCard({
             </AlertDescription>
           </Alert>
         ) : (
-          <div className="space-y-4">
-            <div className="space-y-2">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="gbp-location-select" className="text-sm font-medium text-foreground">
                 Available locations
               </Label>
@@ -122,7 +122,7 @@ export function LocationPickerCard({
             </div>
 
             {selectedLocation ? (
-              <div className="space-y-4 rounded-lg border bg-muted/40 p-4">
+              <div className="flex flex-col gap-4 rounded-lg border bg-muted/40 p-4">
                 <div className="grid gap-4 sm:grid-cols-3">
                   <DetailRow
                     label="Business"
@@ -139,7 +139,7 @@ export function LocationPickerCard({
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <Button type="button" onClick={onLinkLocation} disabled={isLinking}>
-                    <Link2 className="mr-2 size-4" />
+                    <Link2 data-icon="inline-start" />
                     {isLinking
                       ? 'Linking...'
                       : hasLinkedLocation
@@ -149,7 +149,7 @@ export function LocationPickerCard({
                   {selectedLocationGoogleHref ? (
                     <Button type="button" variant="outline" asChild>
                       <a href={selectedLocationGoogleHref} target="_blank" rel="noreferrer">
-                        <ExternalLink className="mr-2 size-4" />
+                        <ExternalLink data-icon="inline-start" />
                         Preview on Google
                       </a>
                     </Button>

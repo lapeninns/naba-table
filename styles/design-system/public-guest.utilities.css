@@ -1,12 +1,12 @@
 /* =============================================================================
-   Public Guest Design System Utilities
+   Radix Luma Design System Utilities
 
    Prefix: pg-
-   Scope: [data-theme='guest'] and .guest-theme only.
+   Scope: shared app, guest, and public routes.
    ============================================================================= */
 
 @layer utilities {
-  [data-theme='guest'] .pg-page,
+  :where([data-theme='guest'], [data-theme='app']) .pg-page,
   .guest-theme.pg-page,
   .guest-theme .pg-page {
     background:
@@ -26,55 +26,55 @@
     min-height: 100dvh;
   }
 
-  [data-theme='guest'] .pg-container,
+  :where([data-theme='guest'], [data-theme='app']) .pg-container,
   .guest-theme .pg-container {
     width: min(100% - (var(--pg-gutter) * 2), var(--pg-container-md));
     margin-inline: auto;
   }
 
-  [data-theme='guest'] .pg-container-md,
+  :where([data-theme='guest'], [data-theme='app']) .pg-container-md,
   .guest-theme .pg-container-md {
     width: min(100% - (var(--pg-gutter) * 2), var(--pg-container-md));
     margin-inline: auto;
   }
 
-  [data-theme='guest'] .pg-container-sm,
+  :where([data-theme='guest'], [data-theme='app']) .pg-container-sm,
   .guest-theme .pg-container-sm {
     width: min(100% - (var(--pg-gutter) * 2), var(--pg-container-sm));
     margin-inline: auto;
   }
 
-  [data-theme='guest'] .pg-section,
+  :where([data-theme='guest'], [data-theme='app']) .pg-section,
   .guest-theme .pg-section {
     padding-block: var(--pg-section-y);
   }
 
-  [data-theme='guest'] .pg-section-tight,
+  :where([data-theme='guest'], [data-theme='app']) .pg-section-tight,
   .guest-theme .pg-section-tight {
     padding-block: var(--pg-section-y-tight);
   }
 
-  [data-theme='guest'] .pg-stack,
+  :where([data-theme='guest'], [data-theme='app']) .pg-stack,
   .guest-theme .pg-stack {
     display: flex;
     flex-direction: column;
     gap: var(--pg-grid-gap);
   }
 
-  [data-theme='guest'] .pg-grid,
+  :where([data-theme='guest'], [data-theme='app']) .pg-grid,
   .guest-theme .pg-grid {
     display: grid;
     gap: var(--pg-grid-gap);
   }
 
-  [data-theme='guest'] .pg-grid-auto,
+  :where([data-theme='guest'], [data-theme='app']) .pg-grid-auto,
   .guest-theme .pg-grid-auto {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
     gap: var(--pg-grid-gap);
   }
 
-  [data-theme='guest'] .pg-kicker,
+  :where([data-theme='guest'], [data-theme='app']) .pg-kicker,
   .guest-theme .pg-kicker {
     color: var(--pg-text-muted);
     font-family: var(--pg-font-body);
@@ -85,7 +85,7 @@
     text-transform: uppercase;
   }
 
-  [data-theme='guest'] .pg-hero-title,
+  :where([data-theme='guest'], [data-theme='app']) .pg-hero-title,
   .guest-theme .pg-hero-title {
     color: var(--pg-text);
     font-family: var(--pg-font-display);
@@ -96,7 +96,7 @@
     text-wrap: balance;
   }
 
-  [data-theme='guest'] .pg-section-title,
+  :where([data-theme='guest'], [data-theme='app']) .pg-section-title,
   .guest-theme .pg-section-title {
     color: var(--pg-text);
     font-family: var(--pg-font-display);
@@ -107,7 +107,7 @@
     text-wrap: balance;
   }
 
-  [data-theme='guest'] .pg-lead,
+  :where([data-theme='guest'], [data-theme='app']) .pg-lead,
   .guest-theme .pg-lead {
     color: var(--pg-text-muted);
     font-size: var(--pg-text-lead);
@@ -115,21 +115,21 @@
     text-wrap: pretty;
   }
 
-  [data-theme='guest'] .pg-body,
+  :where([data-theme='guest'], [data-theme='app']) .pg-body,
   .guest-theme .pg-body {
     color: var(--pg-text-muted);
     font-size: var(--pg-text-body);
     line-height: var(--pg-leading-body);
   }
 
-  [data-theme='guest'] .pg-caption,
+  :where([data-theme='guest'], [data-theme='app']) .pg-caption,
   .guest-theme .pg-caption {
     color: var(--pg-text-subtle);
     font-size: var(--pg-text-caption);
     line-height: 1.45;
   }
 
-  [data-theme='guest'] .pg-card-title,
+  :where([data-theme='guest'], [data-theme='app']) .pg-card-title,
   .guest-theme .pg-card-title {
     color: var(--pg-text);
     font-family: var(--pg-font-display);
@@ -140,30 +140,30 @@
     text-wrap: balance;
   }
 
-  [data-theme='guest'] .pg-surface,
+  :where([data-theme='guest'], [data-theme='app']) .pg-surface,
   .guest-theme .pg-surface {
     background-color: var(--pg-bg);
     color: var(--pg-text);
   }
 
-  [data-theme='guest'] .pg-surface-muted,
+  :where([data-theme='guest'], [data-theme='app']) .pg-surface-muted,
   .guest-theme .pg-surface-muted {
     background-color: var(--pg-bg-muted);
     color: var(--pg-text);
   }
 
-  [data-theme='guest'] .pg-on-muted,
+  :where([data-theme='guest'], [data-theme='app']) .pg-on-muted,
   .guest-theme .pg-on-muted {
     color: color-mix(in srgb, var(--pg-text) 72%, var(--pg-text-muted));
   }
 
-  [data-theme='guest'] .pg-surface-elevated,
+  :where([data-theme='guest'], [data-theme='app']) .pg-surface-elevated,
   .guest-theme .pg-surface-elevated {
     background-color: var(--pg-surface);
     color: var(--pg-text);
   }
 
-  [data-theme='guest'] .pg-hero-band,
+  :where([data-theme='guest'], [data-theme='app']) .pg-hero-band,
   .guest-theme .pg-hero-band {
     background:
       linear-gradient(rgb(9 9 11 / 0.035) 1px, transparent 1px),
@@ -179,12 +179,107 @@
     color: var(--pg-text);
   }
 
-  [data-theme='guest'] .pg-noise-overlay,
+  :where([data-theme='guest'], [data-theme='app']) .pg-noise-overlay,
   .guest-theme .pg-noise-overlay {
     background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
   }
 
-  [data-theme='guest'] .pg-card,
+  .pg-page .pg-landing-grid-overlay,
+  :where([data-theme='guest'], [data-theme='app']) .pg-landing-grid-overlay,
+  .guest-theme .pg-landing-grid-overlay {
+    background-image:
+      linear-gradient(color-mix(in srgb, var(--pg-ink) 2.8%, transparent) 1px, transparent 1px),
+      linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--pg-ink) 2.8%, transparent) 1px,
+        transparent 1px
+      );
+    background-size: 44px 44px;
+  }
+
+  :where([data-theme='guest'], [data-theme='app']) .pg-guest-ambient,
+  .guest-theme .pg-guest-ambient {
+    background:
+      radial-gradient(
+        circle at 16% 0%,
+        color-mix(in srgb, var(--pg-action) 8%, transparent),
+        transparent 28rem
+      ),
+      radial-gradient(
+        circle at 88% 10%,
+        color-mix(in srgb, var(--pg-ink) 4%, transparent),
+        transparent 24rem
+      );
+  }
+
+  .pg-auth-ambient {
+    background: radial-gradient(
+      circle at top right,
+      color-mix(in srgb, var(--primary) 8%, transparent),
+      transparent 50%
+    );
+  }
+
+  :where([data-theme='guest'], [data-theme='app']) .pg-wizard-card-header,
+  .guest-theme .pg-wizard-card-header {
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--pg-bg-muted) 92%, var(--pg-surface)),
+      color-mix(in srgb, var(--pg-surface) 98%, transparent)
+    );
+  }
+
+  :where([data-theme='guest'], [data-theme='app']) .pg-slot-shine-selected,
+  .guest-theme .pg-slot-shine-selected {
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--pg-action-contrast) 10%, transparent),
+      transparent
+    );
+  }
+
+  :where([data-theme='guest'], [data-theme='app']) .pg-slot-shine-hover,
+  .guest-theme .pg-slot-shine-hover {
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--pg-action) 5%, transparent),
+      transparent
+    );
+  }
+
+  :where([data-theme='guest'], [data-theme='app']) .pg-hero-edge-line,
+  .guest-theme .pg-hero-edge-line {
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--pg-action) 35%, transparent),
+      transparent
+    );
+  }
+
+  :where([data-theme='guest'], [data-theme='app']) .pg-panel-edge::before,
+  .guest-theme .pg-panel-edge::before {
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--pg-action) 30%, transparent),
+      transparent
+    );
+  }
+
+  .pg-assignment-actions-bar {
+    background: linear-gradient(90deg, hsl(var(--muted) / 0.4), hsl(var(--muted) / 0.2));
+  }
+
+  .pg-assignment-primary-action {
+    background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--primary) / 0.8));
+  }
+
+  .pg-assignment-primary-action:hover {
+    background: linear-gradient(90deg, hsl(var(--primary) / 0.9), hsl(var(--primary) / 0.7));
+  }
+
+  :where([data-theme='guest'], [data-theme='app']) .pg-card,
   .guest-theme .pg-card {
     background: var(--pg-surface);
     border: 1px solid var(--pg-border);
@@ -197,15 +292,15 @@
       transform var(--pg-duration-fast) var(--pg-ease-out);
   }
 
-  [data-theme='guest'] .pg-card:is(a, button, [role='button']):hover,
+  :where([data-theme='guest'], [data-theme='app']) .pg-card:is(a, button, [role='button']):hover,
   .guest-theme .pg-card:is(a, button, [role='button']):hover,
-  [data-theme='guest'] .pg-card[data-interactive='true']:hover,
+  :where([data-theme='guest'], [data-theme='app']) .pg-card[data-interactive='true']:hover,
   .guest-theme .pg-card[data-interactive='true']:hover {
     box-shadow: var(--pg-shadow-md);
     transform: translateY(-1px);
   }
 
-  [data-theme='guest'] .pg-card-interactive,
+  :where([data-theme='guest'], [data-theme='app']) .pg-card-interactive,
   .guest-theme .pg-card-interactive {
     transition:
       border-color var(--pg-duration) var(--pg-ease-out),
@@ -214,13 +309,13 @@
       transform var(--pg-duration-fast) var(--pg-ease-out);
   }
 
-  [data-theme='guest'] .pg-card-interactive:hover,
+  :where([data-theme='guest'], [data-theme='app']) .pg-card-interactive:hover,
   .guest-theme .pg-card-interactive:hover {
     box-shadow: var(--pg-shadow-md);
     transform: translateY(-1px);
   }
 
-  [data-theme='guest'] .pg-panel,
+  :where([data-theme='guest'], [data-theme='app']) .pg-panel,
   .guest-theme .pg-panel {
     background: color-mix(in srgb, var(--pg-surface-raised) 88%, var(--pg-bg-muted));
     border: 1px solid var(--pg-border);
@@ -229,7 +324,7 @@
     color: var(--pg-text);
   }
 
-  [data-theme='guest'] .pg-glass-frame,
+  :where([data-theme='guest'], [data-theme='app']) .pg-glass-frame,
   .guest-theme .pg-glass-frame {
     background: color-mix(in srgb, var(--pg-surface-raised) 78%, transparent);
     border: 1px solid color-mix(in srgb, var(--pg-border) 78%, transparent);
@@ -237,7 +332,7 @@
     box-shadow: var(--pg-shadow-edge);
   }
 
-  [data-theme='guest'] .pg-image-scrim,
+  :where([data-theme='guest'], [data-theme='app']) .pg-image-scrim,
   .guest-theme .pg-image-scrim {
     background: linear-gradient(
       180deg,
@@ -246,7 +341,31 @@
     );
   }
 
-  [data-theme='guest'] .pg-chip,
+  :where([data-theme='guest'], [data-theme='app']) .pg-image-scrim-strong,
+  .guest-theme .pg-image-scrim-strong {
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      color-mix(in srgb, var(--pg-ink) 62%, transparent) 100%
+    );
+  }
+
+  :where([data-theme='guest'], [data-theme='app']) .pg-image-caption-scrim,
+  .guest-theme .pg-image-caption-scrim {
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      color-mix(in srgb, var(--pg-ink) 70%, transparent) 100%
+    );
+    color: var(--pg-action-contrast);
+  }
+
+  :where([data-theme='guest'], [data-theme='app']) .pg-image-caption-muted,
+  .guest-theme .pg-image-caption-muted {
+    color: color-mix(in srgb, var(--pg-action-contrast) 75%, transparent);
+  }
+
+  :where([data-theme='guest'], [data-theme='app']) .pg-chip,
   .guest-theme .pg-chip {
     align-items: center;
     background: var(--pg-bg-muted);
@@ -261,55 +380,55 @@
     padding: 0.35rem 0.75rem;
   }
 
-  [data-theme='guest'] .pg-danger-badge,
+  :where([data-theme='guest'], [data-theme='app']) .pg-danger-badge,
   .guest-theme .pg-danger-badge {
     background: color-mix(in srgb, var(--destructive) 10%, var(--pg-surface));
     border-color: color-mix(in srgb, var(--destructive) 20%, transparent);
     color: var(--destructive);
   }
 
-  [data-theme='guest'] .pg-danger-text,
+  :where([data-theme='guest'], [data-theme='app']) .pg-danger-text,
   .guest-theme .pg-danger-text {
     color: var(--destructive);
   }
 
-  [data-theme='guest'] .pg-danger-icon,
+  :where([data-theme='guest'], [data-theme='app']) .pg-danger-icon,
   .guest-theme .pg-danger-icon {
     background: color-mix(in srgb, var(--destructive) 12%, var(--pg-surface));
     color: var(--destructive);
   }
 
-  [data-theme='guest'] .pg-nav-inverse,
+  :where([data-theme='guest'], [data-theme='app']) .pg-nav-inverse,
   .guest-theme .pg-nav-inverse {
     background: rgb(255 255 255 / 0.1);
     border-color: rgb(255 255 255 / 0.15);
     color: #fff;
   }
 
-  [data-theme='guest'] .pg-nav-inverse-muted,
+  :where([data-theme='guest'], [data-theme='app']) .pg-nav-inverse-muted,
   .guest-theme .pg-nav-inverse-muted {
     color: rgb(255 255 255 / 0.7);
   }
 
-  [data-theme='guest'] .pg-nav-inverse-muted:hover,
+  :where([data-theme='guest'], [data-theme='app']) .pg-nav-inverse-muted:hover,
   .guest-theme .pg-nav-inverse-muted:hover {
     background: rgb(255 255 255 / 0.1);
     color: #fff;
   }
 
-  [data-theme='guest'] .pg-nav-inverse-border,
+  :where([data-theme='guest'], [data-theme='app']) .pg-nav-inverse-border,
   .guest-theme .pg-nav-inverse-border {
     border-color: rgb(255 255 255 / 0.1);
   }
 
-  [data-theme='guest'] .pg-action-surface,
+  :where([data-theme='guest'], [data-theme='app']) .pg-action-surface,
   .guest-theme .pg-action-surface {
     background: var(--pg-action);
     box-shadow: var(--pg-shadow-button);
     color: var(--pg-action-contrast);
   }
 
-  [data-theme='guest'] .pg-action,
+  :where([data-theme='guest'], [data-theme='app']) .pg-action,
   .guest-theme .pg-action {
     transition:
       transform var(--pg-duration-fast) var(--pg-ease-out),
@@ -319,96 +438,166 @@
       color var(--pg-duration) var(--pg-ease-out);
   }
 
-  [data-theme='guest'] .pg-action:hover,
+  :where([data-theme='guest'], [data-theme='app']) .pg-action:hover,
   .guest-theme .pg-action:hover {
     box-shadow: var(--pg-shadow-button);
     transform: translateY(-1px);
   }
 
-  [data-theme='guest'] .pg-action:active,
+  :where([data-theme='guest'], [data-theme='app']) .pg-action:active,
   .guest-theme .pg-action:active {
     box-shadow: var(--pg-shadow-xs);
     transform: translateY(0) scale(0.98);
   }
 
-  [data-theme='guest'] .pg-touch,
+  :where([data-theme='guest'], [data-theme='app']) .pg-touch,
   .guest-theme .pg-touch {
     min-height: var(--pg-touch-target);
     touch-action: manipulation;
   }
 
-  [data-theme='guest'] .pg-link-focus,
+  :where([data-theme='guest'], [data-theme='app']) .pg-link-focus,
   .guest-theme .pg-link-focus {
     outline: none;
   }
 
-  [data-theme='guest'] .pg-link-focus:focus-visible,
+  :where([data-theme='guest'], [data-theme='app']) .pg-link-focus:focus-visible,
   .guest-theme .pg-link-focus:focus-visible {
     box-shadow:
       0 0 0 2px var(--pg-bg),
       0 0 0 5px color-mix(in srgb, var(--pg-action) 30%, transparent);
   }
 
-  [data-theme='guest'] .pg-focus-ring,
+  :where([data-theme='guest'], [data-theme='app']) .pg-focus-ring,
   .guest-theme .pg-focus-ring {
     outline: none;
   }
 
-  [data-theme='guest'] .pg-focus-ring:focus-visible,
+  :where([data-theme='guest'], [data-theme='app']) .pg-focus-ring:focus-visible,
   .guest-theme .pg-focus-ring:focus-visible {
     box-shadow:
       0 0 0 2px var(--pg-bg),
       0 0 0 5px color-mix(in srgb, var(--pg-action) 30%, transparent);
   }
 
-  [data-theme='guest'] .pg-appear,
+  :where([data-theme='guest'], [data-theme='app']) .pg-appear,
   .guest-theme .pg-appear {
     animation: pgFadeInUp var(--pg-duration) var(--pg-ease-spring) both;
   }
 
-  [data-theme='guest'] .pg-stagger > *,
+  :where([data-theme='guest'], [data-theme='app']) .pg-stagger > *,
   .guest-theme .pg-stagger > * {
     animation: pgFadeInUp var(--pg-duration) var(--pg-ease-spring) both;
   }
 
-  [data-theme='guest'] .pg-stagger > *:nth-child(1),
+  :where([data-theme='guest'], [data-theme='app']) .pg-stagger > *:nth-child(1),
   .guest-theme .pg-stagger > *:nth-child(1) {
     animation-delay: 0ms;
   }
 
-  [data-theme='guest'] .pg-stagger > *:nth-child(2),
+  :where([data-theme='guest'], [data-theme='app']) .pg-stagger > *:nth-child(2),
   .guest-theme .pg-stagger > *:nth-child(2) {
     animation-delay: 75ms;
   }
 
-  [data-theme='guest'] .pg-stagger > *:nth-child(3),
+  :where([data-theme='guest'], [data-theme='app']) .pg-stagger > *:nth-child(3),
   .guest-theme .pg-stagger > *:nth-child(3) {
     animation-delay: 150ms;
   }
 
-  [data-theme='guest'] .pg-stagger > *:nth-child(4),
+  :where([data-theme='guest'], [data-theme='app']) .pg-stagger > *:nth-child(4),
   .guest-theme .pg-stagger > *:nth-child(4) {
     animation-delay: 225ms;
   }
 
-  [data-theme='guest'] .pg-stagger > *:nth-child(5),
+  :where([data-theme='guest'], [data-theme='app']) .pg-stagger > *:nth-child(5),
   .guest-theme .pg-stagger > *:nth-child(5) {
     animation-delay: 300ms;
   }
 
-  [data-theme='guest'] .pg-stagger > *:nth-child(6),
+  :where([data-theme='guest'], [data-theme='app']) .pg-stagger > *:nth-child(6),
   .guest-theme .pg-stagger > *:nth-child(6) {
     animation-delay: 375ms;
   }
 
-  [data-theme='guest'] .pg-skeleton,
+  :where([data-theme='guest'], [data-theme='app']) .pg-skeleton,
   .guest-theme .pg-skeleton {
     background: linear-gradient(90deg, var(--pg-bg-muted), var(--pg-bg), var(--pg-bg-muted));
     background-size: 200% 100%;
     animation: pgSkeletonPulse 1.5s ease-in-out infinite;
   }
 
-  [data-theme='guest'] .pg-reveal,
+  :where([data-theme='guest'], [data-theme='app']) .pg-dark-hero,
+  .guest-theme .pg-dark-hero {
+    background:
+      radial-gradient(
+        circle at 20% 20%,
+        color-mix(in srgb, var(--pg-action-contrast) 8%, transparent),
+        transparent 35%
+      ),
+      radial-gradient(
+        circle at 80% 10%,
+        color-mix(in srgb, var(--pg-action-contrast) 6%, transparent),
+        transparent 30%
+      ),
+      linear-gradient(135deg, var(--pg-ink-soft) 0%, var(--pg-ink) 52%, var(--pg-ink-soft) 100%);
+    color: var(--pg-action-contrast);
+  }
+
+  :where([data-theme='guest'], [data-theme='app']) .pg-dark-hero-orb-primary,
+  .guest-theme .pg-dark-hero-orb-primary {
+    background: color-mix(in srgb, var(--pg-action) 30%, transparent);
+  }
+
+  :where([data-theme='guest'], [data-theme='app']) .pg-dark-hero-orb-accent,
+  .guest-theme .pg-dark-hero-orb-accent {
+    background: color-mix(in srgb, var(--pg-action-contrast) 18%, transparent);
+  }
+
+  :where([data-theme='guest'], [data-theme='app']) .pg-dark-hero-panel,
+  .guest-theme .pg-dark-hero-panel {
+    background: color-mix(in srgb, var(--pg-action-contrast) 5%, transparent);
+    border: 1px solid color-mix(in srgb, var(--pg-action-contrast) 10%, transparent);
+    box-shadow: var(--pg-shadow-popover);
+    color: var(--pg-action-contrast);
+  }
+
+  :where([data-theme='guest'], [data-theme='app']) .pg-dark-hero-kicker,
+  .guest-theme .pg-dark-hero-kicker {
+    background: color-mix(in srgb, var(--pg-action-contrast) 10%, transparent);
+    color: color-mix(in srgb, var(--pg-action-contrast) 78%, var(--pg-action));
+  }
+
+  :where([data-theme='guest'], [data-theme='app']) .pg-dark-hero-muted,
+  .guest-theme .pg-dark-hero-muted {
+    color: color-mix(in srgb, var(--pg-action-contrast) 78%, transparent);
+  }
+
+  :where([data-theme='guest'], [data-theme='app']) .pg-feature-card-dark,
+  .guest-theme .pg-feature-card-dark {
+    background: color-mix(in srgb, var(--pg-action-contrast) 5%, transparent);
+    border: 1px solid color-mix(in srgb, var(--pg-action-contrast) 10%, transparent);
+    color: var(--pg-action-contrast);
+  }
+
+  :where([data-theme='guest'], [data-theme='app']) .pg-feature-card-shine,
+  .guest-theme .pg-feature-card-shine {
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--pg-action-contrast) 10%, transparent),
+      transparent 48%,
+      color-mix(in srgb, var(--pg-action) 10%, transparent)
+    );
+  }
+
+  :where([data-theme='guest'], [data-theme='app']) .pg-dark-section-panel,
+  .guest-theme .pg-dark-section-panel {
+    background: color-mix(in srgb, var(--pg-action-contrast) 5%, transparent);
+    border: 1px solid color-mix(in srgb, var(--pg-action-contrast) 10%, transparent);
+    box-shadow: var(--pg-shadow-popover);
+  }
+
+  :where([data-theme='guest'], [data-theme='app']) .pg-reveal,
   .guest-theme .pg-reveal {
     opacity: 0;
     transform: translateY(20px);
@@ -417,7 +606,7 @@
       transform var(--pg-duration-reveal) var(--pg-ease-spring);
   }
 
-  [data-theme='guest'] .pg-reveal.active,
+  :where([data-theme='guest'], [data-theme='app']) .pg-reveal.active,
   .guest-theme .pg-reveal.active {
     opacity: 1;
     transform: translateY(0);
@@ -431,39 +620,39 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    [data-theme='guest'] .pg-action,
+    :where([data-theme='guest'], [data-theme='app']) .pg-action,
     .guest-theme .pg-action,
-    [data-theme='guest'] .pg-card-interactive,
+    :where([data-theme='guest'], [data-theme='app']) .pg-card-interactive,
     .guest-theme .pg-card-interactive {
       transition: none;
     }
 
-    [data-theme='guest'] .pg-action:hover,
+    :where([data-theme='guest'], [data-theme='app']) .pg-action:hover,
     .guest-theme .pg-action:hover,
-    [data-theme='guest'] .pg-action:active,
+    :where([data-theme='guest'], [data-theme='app']) .pg-action:active,
     .guest-theme .pg-action:active,
-    [data-theme='guest'] .pg-card-interactive:hover,
+    :where([data-theme='guest'], [data-theme='app']) .pg-card-interactive:hover,
     .guest-theme .pg-card-interactive:hover {
       transform: none;
     }
 
-    [data-theme='guest'] .pg-appear,
+    :where([data-theme='guest'], [data-theme='app']) .pg-appear,
     .guest-theme .pg-appear,
-    [data-theme='guest'] .pg-stagger > *,
+    :where([data-theme='guest'], [data-theme='app']) .pg-stagger > *,
     .guest-theme .pg-stagger > *,
-    [data-theme='guest'] .pg-skeleton,
+    :where([data-theme='guest'], [data-theme='app']) .pg-skeleton,
     .guest-theme .pg-skeleton {
       animation: none;
     }
 
-    [data-theme='guest'] .pg-reveal,
+    :where([data-theme='guest'], [data-theme='app']) .pg-reveal,
     .guest-theme .pg-reveal {
       opacity: 1;
       transform: none;
       transition: none;
     }
 
-    [data-theme='guest'] .pg-card,
+    :where([data-theme='guest'], [data-theme='app']) .pg-card,
     .guest-theme .pg-card {
       transition: none;
     }

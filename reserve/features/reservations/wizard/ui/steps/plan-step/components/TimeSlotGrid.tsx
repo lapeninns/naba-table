@@ -150,8 +150,8 @@ export function TimeSlotGrid({
                           className={cn(
                             'absolute inset-0 rounded-lg opacity-0 transition-opacity duration-200',
                             isActive
-                              ? 'bg-gradient-to-br from-primary-foreground/10 to-transparent opacity-100'
-                              : 'group-hover:opacity-100 bg-gradient-to-br from-primary/5 to-transparent',
+                              ? 'pg-slot-shine-selected opacity-100'
+                              : 'pg-slot-shine-hover group-hover:opacity-100',
                           )}
                           aria-hidden="true"
                         />

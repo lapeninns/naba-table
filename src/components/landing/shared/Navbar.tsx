@@ -7,7 +7,14 @@ import { useState, useEffect } from 'react';
 import { BrandLogo } from '@/components/shared/BrandLogo';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 
 const NAV_LINKS = [
@@ -136,6 +143,9 @@ export function Navbar({ isAuthenticated }: NavbarProps) {
               >
                 <SheetHeader>
                   <SheetTitle className="text-left">Menu</SheetTitle>
+                  <SheetDescription className="sr-only">
+                    Navigate Nabatable public pages and account actions.
+                  </SheetDescription>
                 </SheetHeader>
                 <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-2">
                   <NavLinkList variant="mobile" onNavigate={() => setMobileOpen(false)} />

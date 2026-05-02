@@ -21,10 +21,7 @@ import {
 import { hashCanonicalJson } from '../../hashing';
 import { findFieldConfig, buildRegistry } from '../../registry';
 
-import type {
-  DualSyncOperationContext,
-  DualSyncOperationResult,
-} from '../types';
+import type { DualSyncOperationContext, DualSyncOperationResult } from '../types';
 
 const PROFILE_TO_DETAILS_FIELD: Record<string, keyof UpdateRestaurantDetailsInput> = {
   'profile.name': 'name',
@@ -37,6 +34,56 @@ const PROFILE_TO_DETAILS_FIELD: Record<string, keyof UpdateRestaurantDetailsInpu
 
 function isProfileFieldKey(fieldKey: string): boolean {
   return Object.prototype.hasOwnProperty.call(PROFILE_TO_DETAILS_FIELD, fieldKey);
+}
+
+async function clearNabatableProjectionForImportedProfileField({
+  client,
+  restaurantId,
+  fieldKey,
+}: Pick<DualSyncOperationContext, 'client' | 'restaurantId'> & {
+  readonly fieldKey: string;
+}): Promise<void> {
+  if (fieldKey === 'profile.contactPhone') {
+    const { error } = await client
+      .from('restaurant_phone_numbers')
+      .delete()
+      .eq('restaurant_id', restaurantId)
+      .eq('source', 'nabatable')
+      .eq('managed_by', 'nabatable')
+      .eq('phone_kind', 'primary');
+    if (error) throw error;
+    return;
+  }
+
+  if (fieldKey === 'profile.address') {
+    const { error } = await client
+      .from('restaurant_addresses')
+      .delete()
+      .eq('restaurant_id', restaurantId)
+      .eq('source', 'nabatable')
+      .eq('managed_by', 'nabatable')
+      .eq('address_type', 'storefront');
+    if (error) throw error;
+    return;
+  }
+
+  const linkType =
+    fieldKey === 'profile.googleMapUrl'
+      ? 'google_map'
+      : fieldKey === 'profile.googleReviewUrl'
+        ? 'google_review'
+        : null;
+  if (!linkType) return;
+
+  const { error } = await client
+    .from('restaurant_links')
+    .delete()
+    .eq('restaurant_id', restaurantId)
+    .eq('source', 'nabatable')
+    .eq('managed_by', 'nabatable')
+    .eq('link_type', linkType)
+    .eq('link_status', 'current');
+  if (error) throw error;
 }
 
 /**
@@ -125,6 +172,23 @@ export async function applyProfileImportToCore(
   (partial as Record<string, unknown>)[detailsKey] = normalizedGbpValue;
 
   await updateRestaurantDetails(restaurantId, partial, client);
+  try {
+    await clearNabatableProjectionForImportedProfileField({
+      client,
+      restaurantId,
+      fieldKey: decision.fieldKey,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      status: 'failed',
+      failure: {
+        code: 'PORT_FAILURE',
+        message: `Imported ${decision.fieldKey}, but failed to clear the Nabatable projection row: ${message}`,
+        retryable: true,
+      },
+    };
+  }
 
   const afterCoreHash = hashCanonicalJson(config.canonicalizeCoreValue(normalizedGbpValue));
   const afterGbpHash = hashCanonicalJson(config.canonicalizeGbpValue(rawGbpValue));

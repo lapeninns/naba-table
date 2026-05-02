@@ -167,7 +167,7 @@ export function AssignmentToolbar({
       </Card>
 
       {/* Actions Bar */}
-      <div className="flex items-center justify-between gap-3 p-4 rounded-xl border-2 bg-gradient-to-r from-muted/40 to-muted/20 shadow-sm">
+      <div className="pg-assignment-actions-bar flex items-center justify-between gap-3 rounded-xl border-2 p-4 shadow-sm">
         <div className="flex items-center gap-3">
           {onOnlyAvailableChange && (
             <div className="flex items-center gap-2.5">
@@ -221,7 +221,7 @@ export function AssignmentToolbar({
                     className={cn(
                       'h-11 min-w-[150px] font-semibold shadow-md transition-[transform,box-shadow,background-color,color]',
                       canAssign
-                        ? 'bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 hover:shadow-lg active:scale-95'
+                        ? 'pg-assignment-primary-action hover:shadow-lg active:scale-95'
                         : 'opacity-50',
                     )}
                     aria-label={

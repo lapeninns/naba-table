@@ -15,8 +15,8 @@ type ConnectCardProps = {
 
 const BENEFITS = [
   'Link exactly one Google Business Profile location to this restaurant.',
-  'Keep Nabatable profile, hours, and service periods aligned with Google.',
-  'Review drift and open Google directly without leaving the dashboard.',
+  'Keep the Google account and Business Profile location easy to confirm.',
+  'Open Google directly when operators need to manage the public listing.',
 ];
 
 export function ConnectCard({
@@ -37,8 +37,8 @@ export function ConnectCard({
           restaurant.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-5">
-        <ul className="space-y-2 text-sm text-muted-foreground">
+      <CardContent className="flex flex-col gap-5">
+        <ul className="flex flex-col gap-2 text-sm text-muted-foreground">
           {BENEFITS.map((benefit) => (
             <li key={benefit} className="flex items-start gap-2">
               <ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />

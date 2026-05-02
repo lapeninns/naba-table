@@ -1,11 +1,13 @@
 /* =============================================================================
-   Public Guest Design System Tokens - Radix Luma
+   Radix Luma Design System Tokens
    Source: GUEST_FACING_DESIGN_SYSTEM.md
-   Scope: homepage, marketing pages, booking pages, auth, and guest portal.
+   Scope: shared app, guest, and public routes.
    ============================================================================= */
 
 @layer base {
+  :root,
   [data-theme='guest'],
+  [data-theme='app'],
   .guest-theme {
     color-scheme: light;
 
@@ -29,6 +31,7 @@
     --border: 240 6% 90%;
     --input: 240 6% 90%;
     --ring: 240 5% 64%;
+    --overlay: 240 10% 4%;
 
     --chart-1: 207 100% 78%;
     --chart-2: 214 100% 58%;
@@ -231,11 +234,18 @@
     --guest-active-scale: 0.98;
   }
 
+  .dark,
+  :root.dark,
   [data-theme='guest'].dark,
   [data-theme='guest'] .dark,
   .dark[data-theme='guest'],
+  [data-theme='app'].dark,
+  [data-theme='app'] .dark,
+  .dark[data-theme='app'],
   .dark .guest-theme,
   .guest-theme.dark {
+    color-scheme: dark;
+
     --background: 240 10% 4%;
     --foreground: 0 0% 98%;
     --card: 240 6% 10%;
@@ -254,6 +264,7 @@
     --border: 240 4% 16%;
     --input: 240 5% 26%;
     --ring: 240 4% 46%;
+    --overlay: 240 10% 4%;
 
     --sidebar: #18181b;
     --sidebar-foreground: #fafafa;

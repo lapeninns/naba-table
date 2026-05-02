@@ -256,7 +256,7 @@ export function RestaurantsGridSection({
                     className="object-cover transition-transform duration-300 group-hover:scale-[1.025]"
                   />
                   <div
-                    className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/45 to-transparent"
+                    className="pg-image-scrim-strong absolute inset-x-0 bottom-0 h-24"
                     aria-hidden
                   />
                   <Badge variant="guest-chip" className="absolute left-4 top-4 bg-background/95">
@@ -379,8 +379,8 @@ export function RestaurantDetailPage({ restaurant }: { restaurant: RestaurantDet
 
             <GuestPanel className="relative aspect-[4/3] min-h-56 w-full min-w-0 max-w-full overflow-hidden p-0 sm:min-h-72">
               <VenueImage restaurant={restaurant} priority />
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-5 text-white">
-                <p className="font-[var(--pg-font-mono)] text-xs uppercase tracking-[0.18em] text-white/75">
+              <div className="pg-image-caption-scrim absolute inset-x-0 bottom-0 p-5">
+                <p className="pg-image-caption-muted font-[var(--pg-font-mono)] text-xs uppercase tracking-[0.18em]">
                   Ready to book
                 </p>
                 <p className="mt-1 text-lg font-semibold">{formatCapacity(restaurant.capacity)}</p>

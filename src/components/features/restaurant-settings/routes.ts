@@ -20,7 +20,8 @@ export const RESTAURANT_SETTINGS_ROUTES: RestaurantSettingsRoute[] = [
     view: 'google-business-profile',
     href: opsHref('/settings/restaurant/google-business-profile'),
     title: 'Google Business Profile',
-    description: 'Connect Google, link a location, and review profile changes.',
+    description:
+      'Connect a Google account and link the Business Profile location for this restaurant.',
   },
   {
     view: 'availability',

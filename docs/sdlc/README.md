@@ -10,8 +10,7 @@ This operating layer coordinates agents, constrains blast radius, and forces rep
 - `src/proxy.ts` enforces the host split, cross-host redirects, `/app/*` transport behavior, and shared API behavior.
 - Supabase is remote-only. Staging-first is mandatory unless the task explicitly states otherwise.
 - UI work is **shadcn/ui first**.
-  - ops uses the default shadcn theme
-  - guest/public uses Radix Luma
+  - ops and guest/public use one Radix Luma shadcn theme
 - `components/ui/**` is shared primitive territory by default. `src/components/ui/**` and other exported primitives also require a consumer scan before editing.
 - Root-host `/dev/**`, internal app-host `src/app/app/dev/**` reached as root-host `/app/dev/**` or app-host `/dev/**` depending on host mode, and `__dev/**` are harness entry points only. They expand state coverage but never replace shipped-route proof.
 

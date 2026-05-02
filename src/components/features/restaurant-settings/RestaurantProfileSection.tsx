@@ -55,9 +55,7 @@ function isProfileAnchorId(value: string): value is ProfileAnchorId {
 }
 
 const REVIEW_GBP_HREF = opsHref('/settings/restaurant/google-business-profile');
-const AVAILABILITY_BOOKING_RULES_HREF = opsHref(
-  '/settings/restaurant/availability#booking-rules',
-);
+const AVAILABILITY_BOOKING_RULES_HREF = opsHref('/settings/restaurant/availability#booking-rules');
 const TEAM_HREF = opsHref('/settings/restaurant/team');
 
 type RestaurantProfileSectionProps = {
@@ -90,7 +88,7 @@ function ProfileShell({ children }: ProfileShellProps) {
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-end gap-2">
         <Button type="button" variant="outline" size="sm" asChild>
-          <Link href={REVIEW_GBP_HREF}>Review Google changes</Link>
+          <Link href={`${REVIEW_GBP_HREF}#gbp-connection`}>Manage Google connection</Link>
         </Button>
       </div>
       {children}

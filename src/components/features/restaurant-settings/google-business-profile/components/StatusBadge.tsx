@@ -82,20 +82,3 @@ export function connectionStatusBadge(status: GoogleBusinessProfileConnection['s
       return { tone: 'muted', label: 'Not connected' };
   }
 }
-
-export function alignmentToneForMatch(status: 'matched' | 'partial' | 'drifted' | 'unavailable'): {
-  tone: StatusTone;
-  label: string;
-} {
-  switch (status) {
-    case 'matched':
-      return { tone: 'verified', label: 'In sync' };
-    case 'partial':
-      return { tone: 'pending', label: 'Partial' };
-    case 'drifted':
-      return { tone: 'drift', label: 'Drifted' };
-    case 'unavailable':
-    default:
-      return { tone: 'muted', label: 'No data' };
-  }
-}

@@ -141,7 +141,7 @@ export function GuestHero({
     >
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/35 to-transparent"
+        className="pg-hero-edge-line pointer-events-none absolute inset-x-0 top-0 h-px"
       />
       <div
         aria-hidden="true"
@@ -228,7 +228,7 @@ export function GuestPanel({
     <Card
       className={cn(
         'pg-panel relative overflow-hidden border-border/80 bg-[color:color-mix(in_srgb,var(--pg-surface-raised)_90%,white)] text-foreground shadow-[var(--pg-shadow-edge)]',
-        'before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-primary/30 before:to-transparent',
+        'pg-panel-edge before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-px',
         interactive &&
           'pg-card-interactive focus-within:border-primary/25 focus-within:bg-background/92 hover:border-primary/25 hover:bg-background/92 hover:shadow-[var(--pg-shadow-md)]',
         className,

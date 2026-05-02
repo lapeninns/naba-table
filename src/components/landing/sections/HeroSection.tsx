@@ -38,7 +38,7 @@ export function HeroSection({ reduceMotion }: HeroSectionProps) {
           'right-0 top-16 size-[min(100vw,28rem)] sm:top-20 sm:size-[min(100vw,36rem)] md:size-[min(100vw,48rem)] lg:top-24 lg:size-[40rem] xl:size-[50rem] 2xl:right-8 2xl:size-[800px]',
         )}
       />
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgb(9_9_11/0.028)_1px,transparent_1px),linear-gradient(90deg,rgb(9_9_11/0.028)_1px,transparent_1px)] bg-[size:44px_44px]" />
+      <div className="pg-landing-grid-overlay pointer-events-none absolute inset-0" />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-48 bg-[linear-gradient(180deg,transparent,hsl(var(--muted)/0.72))]" />
 
       <div className="pg-container relative z-10 grid min-w-0 items-start gap-7 pb-[clamp(3rem,8vw,6rem)] sm:gap-9 md:gap-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-10 xl:gap-14">

@@ -17,7 +17,7 @@ const buttonVariants = cva(
         'guest-ghost':
           'rounded-[var(--pg-radius-pill)] border border-transparent bg-transparent text-[color:var(--pg-action)] shadow-none hover:bg-[color:color-mix(in_srgb,var(--pg-action)_10%,transparent)]',
         destructive:
-          'bg-destructive text-white shadow-xs hover:bg-destructive/90 dark:bg-destructive/60',
+          'bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90 dark:bg-destructive/60',
         outline:
           'border bg-background shadow-xs hover:bg-muted hover:text-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50',
         secondary: 'bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80',
@@ -29,7 +29,8 @@ const buttonVariants = cva(
         sm: 'h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5',
         lg: 'h-10 rounded-md px-6 has-[>svg]:px-4',
         'guest-sm': 'h-9 rounded-[var(--pg-radius-pill)] px-3.5 text-sm has-[>svg]:px-3',
-        'guest-lg': 'h-11 rounded-[var(--pg-radius-pill)] px-5 text-sm font-semibold has-[>svg]:px-4',
+        'guest-lg':
+          'h-11 rounded-[var(--pg-radius-pill)] px-5 text-sm font-semibold has-[>svg]:px-4',
         icon: 'size-9',
         'icon-sm': 'size-8',
         'icon-lg': 'size-10',

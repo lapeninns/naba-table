@@ -46,6 +46,8 @@
     "secret:scan": "gitleaks detect --no-banner --redact && trufflehog filesystem --no-update --only-verified --fail .",
     "guard:no-shadcn": "node scripts/check-no-shadcn.mjs",
     "guard:no-shadcn:strict": "node scripts/check-no-shadcn.mjs --strict",
+    "guard:luma": "node scripts/check-luma-compliance.mjs",
+    "guard:luma:strict": "node scripts/check-luma-compliance.mjs --fail-on=exception",
     "load:booking-matrix": "tsx scripts/booking-matrix-load.ts",
     "load:booking-pack": "tsx scripts/booking-pack-fill.ts",
     "observability:baseline": "tsx scripts/observability/export-capacity-baselines.ts",

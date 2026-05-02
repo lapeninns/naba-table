@@ -32,9 +32,7 @@ function EnhancedAuthLayoutContent({
       )}
     >
       {/* Ambient background effects */}
-      {isGuest ? null : (
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(20,71,230,0.08),transparent_50%)]" />
-      )}
+      {isGuest ? null : <div className="pg-auth-ambient pointer-events-none absolute inset-0" />}
 
       <ImplicitAuthHandler defaultRedirect={defaultRedirect ?? '/guest/dashboard'} />
 

@@ -2,7 +2,7 @@
 agents_version: 7.0
 scope: root
 extends: null
-last_updated: 2026-04-24
+last_updated: 2026-05-02
 owner: github:@maintainers
 ---
 
@@ -18,7 +18,7 @@ Nabatable global agent contract. Keep this file thin. Use `docs/sdlc/*` for deli
 - UI changes require browser verification on a real shipped route. `/dev/**` and `__dev/**` harnesses are supplements only.
 - Shadcn/ui-first is mandatory. Reuse existing primitives before creating new ones.
 - Shadcn primitive layer is single-rooted at `components/ui/*`. No native HTML primitives or parallel UI systems are allowed in app code; `pnpm node scripts/check-no-shadcn.mjs --primitives-only` is the gate.
-- Ops uses the default shadcn theme. Guest/public uses Radix Luma.
+- Ops and guest/public use one Radix Luma shadcn theme.
 - Medium- and high-risk work requires `tasks/<slug>-YYYYMMDD-HHMM>/`.
 
 ## Repo truths

@@ -37,13 +37,13 @@ export function CopyButton({
       variant={variant}
       size={size}
       onClick={handleCopy}
-      className={cn('transition-all', status === 'copied' && 'text-green-600', className)}
+      className={cn('transition-all', status === 'copied' && 'text-primary', className)}
       aria-label={`Copy ${label || 'text'}`}
     >
       {status === 'copied' ? (
-        <Check className="h-4 w-4" aria-hidden />
+        <Check data-icon="inline-start" aria-hidden />
       ) : (
-        <Copy className="h-4 w-4" aria-hidden />
+        <Copy data-icon="inline-start" aria-hidden />
       )}
       <span className="sr-only">{status === 'copied' ? 'Copied!' : `Copy ${label || 'text'}`}</span>
     </Button>
