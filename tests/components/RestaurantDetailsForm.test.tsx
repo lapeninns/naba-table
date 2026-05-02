@@ -294,7 +294,7 @@ describe('RestaurantDetailsForm subforms', () => {
       </>,
     );
 
-    expect(screen.getAllByText(/matches gbp/i)).toHaveLength(5);
+    expect(screen.getAllByLabelText(/matches gbp/i)).toHaveLength(5);
   });
 
   it('shows required or optional status and why-it-matters helper copy on the full form', async () => {

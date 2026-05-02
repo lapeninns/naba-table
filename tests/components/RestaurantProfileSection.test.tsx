@@ -114,8 +114,6 @@ import {
   buildProfileValues,
   deriveReadiness,
   displayProfileValue,
-  formatLastUpdated,
-  getInitials,
 } from '@/components/features/restaurant-settings/restaurantProfileModel';
 import { RestaurantProfileSection } from '@/components/features/restaurant-settings/RestaurantProfileSection';
 
@@ -138,7 +136,7 @@ describe('RestaurantProfileSection', () => {
 
     render(<RestaurantProfileSection restaurantId="rest-1" />);
 
-    await screen.findByText('Profile readiness');
+    await screen.findByText('Brand and identity');
     await user.type(
       screen.getByRole('textbox', { name: /business description/i }),
       'Family friendly pub',
@@ -198,65 +196,48 @@ describe('RestaurantProfileSection', () => {
     );
   });
 
-  it('tracks common-edit shortcut clicks without profile field values', async () => {
-    const user = userEvent.setup();
-
+  it('renders the profile card stack with one card per concern', async () => {
     render(<RestaurantProfileSection restaurantId="rest-1" />);
 
-    await screen.findByText('Common edits');
-    await user.click(screen.getByRole('button', { name: 'Common edits' }));
-    const contactShortcut = screen.getByText('Phone + email').closest('a');
-    expect(contactShortcut).toBeInTheDocument();
-    await user.click(contactShortcut!);
-
-    expect(analyticsTrackMock).toHaveBeenCalledWith(
-      'restaurant_profile_common_edit_clicked',
-      expect.objectContaining({
-        restaurant_id: 'rest-1',
-        action: 'contact',
-        href: '#profile-contact',
-        completeness_score: expect.any(Number),
-        missing_count: expect.any(Number),
-      }),
-    );
-    expect(analyticsEmitMock).toHaveBeenCalledWith(
-      'restaurant_profile_common_edit_clicked',
-      expect.objectContaining({
-        restaurant_id: 'rest-1',
-        action: 'contact',
-      }),
-    );
-    expect(analyticsTrackMock).not.toHaveBeenCalledWith(
-      'restaurant_profile_common_edit_clicked',
-      expect.objectContaining({
-        contactPhone: expect.any(String),
-      }),
-    );
+    await screen.findByText('Brand and identity');
+    expect(screen.getByText('Contact and location')).toBeInTheDocument();
+    expect(screen.getByText('Manager notifications')).toBeInTheDocument();
+    expect(screen.getByText('Discovery details')).toBeInTheDocument();
+    expect(screen.getByText('Advanced')).toBeInTheDocument();
+    // No accordion: there should be no `region` accordion items wrapping the cards.
+    expect(document.querySelector('[data-state="open"][data-orientation]')).toBeNull();
   });
 
-  it('shows the requested profile section model', async () => {
+  it('exposes the promised hash anchors for each profile card', async () => {
+    const { container } = render(<RestaurantProfileSection restaurantId="rest-1" />);
+
+    await screen.findByText('Brand and identity');
+    expect(container.querySelector('#profile-identity')).not.toBeNull();
+    expect(container.querySelector('#profile-contact')).not.toBeNull();
+    expect(container.querySelector('#profile-notifications')).not.toBeNull();
+    expect(container.querySelector('#profile-discovery')).not.toBeNull();
+    expect(container.querySelector('#profile-advanced')).not.toBeNull();
+  });
+
+  it('shows the single Review Google CTA and cross-links to availability and team', async () => {
     render(<RestaurantProfileSection restaurantId="rest-1" />);
 
-    const expectSectionLink = (detail: string, href: string) => {
-      const sectionLink = screen.getByText(detail).closest('a');
-      expect(sectionLink).toBeInTheDocument();
-      expect(sectionLink).toHaveAttribute('href', href);
-    };
+    await screen.findByText('Brand and identity');
+    const reviewLinks = screen.getAllByRole('link', { name: /review google changes/i });
+    expect(reviewLinks).toHaveLength(1);
+    expect(reviewLinks[0]).toHaveAttribute(
+      'href',
+      '/app/settings/restaurant/google-business-profile',
+    );
 
-    await screen.findByText('Profile sections');
-    expect(
-      screen.getByText(/Opening hours are managed in Availability/i).parentElement,
-    ).toHaveClass('rounded-md', 'bg-muted/30');
-    expectSectionLink('Name and public description', '#profile-identity');
-    expectSectionLink('Logo and guest recognition', '#profile-identity');
-    expectSectionLink('Phone and email', '#profile-contact');
-    expectSectionLink('Address and directions', '#profile-contact');
-    expectSectionLink('Alerts and booking links', '#profile-operations');
-    expectSectionLink('Discovery and Google-facing details', '#profile-visibility');
-    expect(screen.getByText('Basic Info and Branding')).toBeInTheDocument();
-    expect(screen.getByText('Contact and Location')).toBeInTheDocument();
-    expect(screen.getAllByText('Operational Details').length).toBeGreaterThanOrEqual(2);
-    expect(screen.getAllByText('Visibility').length).toBeGreaterThanOrEqual(2);
+    const availabilityLink = screen.getByRole('link', { name: /availability & occasions/i });
+    expect(availabilityLink).toHaveAttribute(
+      'href',
+      '/app/settings/restaurant/availability#booking-rules',
+    );
+
+    const teamLink = screen.getByRole('link', { name: /^team$/i });
+    expect(teamLink).toHaveAttribute('href', '/app/settings/restaurant/team');
   });
 });
 
@@ -284,9 +265,5 @@ describe('restaurant profile model', () => {
   it('formats preview helper values without leaking blank strings', () => {
     expect(displayProfileValue('  Old Crown  ', 'Fallback')).toBe('Old Crown');
     expect(displayProfileValue('   ', 'Fallback')).toBe('Fallback');
-    expect(getInitials('Old Crown Girton')).toBe('OC');
-    expect(getInitials('')).toBe('RR');
-    expect(formatLastUpdated('not-a-date')).toBeNull();
-    expect(formatLastUpdated('2026-04-30T18:30:00.000Z')).toEqual(expect.any(String));
   });
 });

@@ -37,7 +37,6 @@ export const ANALYTICS_EVENTS = [
   'restaurant_profile_section_saved',
   'restaurant_profile_section_save_failed',
   'restaurant_profile_dropoff_before_save',
-  'restaurant_profile_common_edit_clicked',
   'restaurant_profile_save_all_clicked',
   'restaurant_profile_logo_validation_error',
   'restaurant_profile_logo_saved',

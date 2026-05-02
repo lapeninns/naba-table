@@ -1,8 +1,7 @@
 'use client';
 
-import Image from 'next/image';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { useState } from 'react';
+import Link from 'next/link';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   AdvancedIdentitySubform,
@@ -13,11 +12,7 @@ import {
   type RestaurantDetailsFormValues,
 } from '@/components/ops/restaurants/RestaurantDetailsForm';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRegisterOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
 import { useOpsGoogleBusinessProfileConnection } from '@/hooks/ops/useOpsGoogleBusinessProfile';
@@ -27,6 +22,7 @@ import {
 } from '@/hooks/ops/useOpsRestaurantDetails';
 import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';
+import { opsHref } from '@/lib/url/opsHref';
 import { cn } from '@/lib/utils';
 
 import { deriveProfileVerification } from './google-business-profile/googleBusinessProfileVerification';
@@ -35,29 +31,34 @@ import { RestaurantLogoUploader } from './RestaurantLogoUploader';
 import {
   PROFILE_DIRTY_SECTIONS,
   PROFILE_SECTION_FORMS,
-  PROFILE_SECTION_MAP,
-  QUICK_EDIT_ACTIONS,
   buildProfileValues,
   deriveReadiness,
-  displayProfileValue,
-  formatLastUpdated,
-  getInitials,
-  hasProfileValue,
   type ProfileDirtyKey,
   type ProfileDirtySection,
 } from './restaurantProfileModel';
-import {
-  SETTINGS_COMPACT_ACTION_BAR_CLASS,
-  SETTINGS_COMPACT_CARD_CLASS,
-  SETTINGS_COMPACT_CARD_CONTENT_CLASS,
-  SETTINGS_COMPACT_CARD_HEADER_CLASS,
-  SETTINGS_COMPACT_HELPER_TEXT_CLASS,
-  SETTINGS_COMPACT_STATUS_ROW_CLASS,
-  SETTINGS_COMPACT_STICKY_ACTION_ROW_CLASS,
-  SettingsCard,
-  SettingsSecondaryActions,
-} from './shared';
-import { ProfileSectionShell } from './shared/ProfileSectionShell';
+import { SETTINGS_COMPACT_STICKY_ACTION_ROW_CLASS, SettingsCard } from './shared';
+
+const PROFILE_ANCHOR_IDS = [
+  'profile-identity',
+  'profile-contact',
+  'profile-notifications',
+  'profile-discovery',
+  'profile-advanced',
+] as const;
+
+type ProfileAnchorId = (typeof PROFILE_ANCHOR_IDS)[number];
+
+const PROFILE_ANCHOR_ID_SET = new Set<string>(PROFILE_ANCHOR_IDS);
+
+function isProfileAnchorId(value: string): value is ProfileAnchorId {
+  return PROFILE_ANCHOR_ID_SET.has(value);
+}
+
+const REVIEW_GBP_HREF = opsHref('/settings/restaurant/google-business-profile');
+const AVAILABILITY_BOOKING_RULES_HREF = opsHref(
+  '/settings/restaurant/availability#booking-rules',
+);
+const TEAM_HREF = opsHref('/settings/restaurant/team');
 
 type RestaurantProfileSectionProps = {
   restaurantId: string | null;
@@ -68,7 +69,6 @@ function emitProfileEditorAnalytics(
     | 'restaurant_profile_editor_viewed'
     | 'restaurant_profile_edit_started'
     | 'restaurant_profile_dropoff_before_save'
-    | 'restaurant_profile_common_edit_clicked'
     | 'restaurant_profile_save_all_clicked',
   props: Record<string, unknown>,
 ) {
@@ -76,235 +76,38 @@ function emitProfileEditorAnalytics(
   void emit(eventName, props);
 }
 
-function ProfileConfidencePanel({
-  restaurantId,
-  values,
-  logoUrl,
-  formDirty,
-  dirtySections,
-  updatedAt,
-}: {
-  restaurantId: string | null;
-  values: RestaurantDetailsFormValues;
-  logoUrl: string | null;
-  formDirty: boolean;
-  dirtySections: Array<{ key: string; label: string; href: string }>;
-  updatedAt: string | null | undefined;
-}) {
-  const readiness = deriveReadiness(values, logoUrl);
-  const lastSavedLabel = formatLastUpdated(updatedAt);
-  const previewName = displayProfileValue(values.name, 'Restaurant name');
-  const previewDescription = displayProfileValue(
-    values.businessDescription,
-    'Add a short description so guests know what kind of visit to expect.',
-  );
-  const previewContact = hasProfileValue(values.contactPhone)
-    ? displayProfileValue(values.contactPhone, '')
-    : displayProfileValue(values.contactEmail, 'Add a public phone or email');
-  const previewAddress = displayProfileValue(values.address, 'Add the restaurant address');
+type ProfileShellProps = {
+  children: React.ReactNode;
+};
 
+/**
+ * Shared frame around every Profile state (loaded, loading, error, no-restaurant).
+ * Owns the single header strip with the GBP CTA and the cross-link footer so the
+ * page does not visually lose its chrome on restaurant switches or load states.
+ */
+function ProfileShell({ children }: ProfileShellProps) {
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-      <Card className={SETTINGS_COMPACT_CARD_CLASS}>
-        <CardHeader className={cn(SETTINGS_COMPACT_CARD_HEADER_CLASS, 'gap-3')}>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="flex flex-col gap-1">
-              <CardTitle className="text-lg">Profile readiness</CardTitle>
-              <CardDescription>
-                High-impact details that help guests trust the booking page.
-              </CardDescription>
-            </div>
-            <Badge variant={readiness.score >= 80 ? 'outline' : 'secondary'}>
-              {readiness.score}% complete
-            </Badge>
-          </div>
-          <Progress value={readiness.score} aria-label="Profile completeness score" />
-        </CardHeader>
-        <CardContent className={cn(SETTINGS_COMPACT_CARD_CONTENT_CLASS, 'flex flex-col gap-4')}>
-          <div className={SETTINGS_COMPACT_STATUS_ROW_CLASS}>
-            <span>{readiness.completed.length} complete</span>
-            <span aria-hidden="true">/</span>
-            <span>{readiness.missing.length} suggested</span>
-            {lastSavedLabel ? (
-              <>
-                <span aria-hidden="true">/</span>
-                <span>Last updated {lastSavedLabel}</span>
-              </>
-            ) : null}
-          </div>
-
-          {readiness.missing.length > 0 ? (
-            <div className="flex flex-col gap-2">
-              {readiness.missing.slice(0, 4).map((item) => (
-                <Button
-                  key={item.key}
-                  asChild
-                  variant="ghost"
-                  className="h-auto justify-start rounded-md bg-muted/45 px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
-                >
-                  <a href={item.sectionHref}>
-                    <span className="block font-medium text-foreground">{item.label}</span>
-                    <span className="block text-muted-foreground">{item.impact}</span>
-                  </a>
-                </Button>
-              ))}
-            </div>
-          ) : (
-            <p className="rounded-md bg-muted/45 px-3 py-2 text-sm text-muted-foreground">
-              Required and high-impact profile details are filled in.
-            </p>
-          )}
-
-          <Separator />
-
-          <div className="flex flex-col gap-3">
-            <p className="text-sm font-medium text-foreground">Profile sections</p>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {PROFILE_SECTION_MAP.map((item) => (
-                <Button
-                  key={item.label}
-                  asChild
-                  variant="ghost"
-                  className="h-auto justify-start rounded-md bg-muted/45 px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
-                >
-                  <a href={item.href}>
-                    <span className="block font-medium text-foreground">{item.label}</span>
-                    <span className="block text-xs text-muted-foreground">{item.detail}</span>
-                  </a>
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          <Separator />
-
-          <SettingsSecondaryActions label="Common edits" contentClassName="sm:min-w-full">
-            <div className="grid gap-2 sm:grid-cols-2">
-              {QUICK_EDIT_ACTIONS.map((action) => {
-                const Icon = action.icon;
-
-                return (
-                  <Button
-                    key={action.label}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    asChild
-                    className="h-auto justify-start gap-2 px-3 py-2 text-left"
-                  >
-                    <a
-                      href={action.href}
-                      onClick={() =>
-                        emitProfileEditorAnalytics('restaurant_profile_common_edit_clicked', {
-                          restaurant_id: restaurantId,
-                          action: action.key,
-                          href: action.href,
-                          completeness_score: readiness.score,
-                          missing_count: readiness.missing.length,
-                        })
-                      }
-                    >
-                      <Icon data-icon="inline-start" className="shrink-0" aria-hidden="true" />
-                      <span className="min-w-0">
-                        <span className="block truncate">{action.label}</span>
-                        <span className="block truncate text-xs font-normal text-muted-foreground">
-                          {action.detail}
-                        </span>
-                      </span>
-                    </a>
-                  </Button>
-                );
-              })}
-            </div>
-          </SettingsSecondaryActions>
-
-          <Separator />
-
-          <div className={SETTINGS_COMPACT_ACTION_BAR_CLASS}>
-            <p className={SETTINGS_COMPACT_HELPER_TEXT_CLASS}>
-              Opening hours are managed in Availability so schedule rules stay together.
-            </p>
-            <Button type="button" variant="outline" size="sm" asChild>
-              <a href="/app/settings/restaurant/availability">Edit hours</a>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className={SETTINGS_COMPACT_CARD_CLASS}>
-        <CardHeader className={cn(SETTINGS_COMPACT_CARD_HEADER_CLASS, 'gap-3')}>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="flex flex-col gap-1">
-              <CardTitle className="text-lg">Guest preview</CardTitle>
-              <CardDescription>
-                A quick look at the public details guests use to decide and arrive.
-              </CardDescription>
-            </div>
-            <Badge variant={formDirty ? 'secondary' : 'outline'}>
-              {formDirty ? 'Draft preview' : 'Saved preview'}
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent className={cn(SETTINGS_COMPACT_CARD_CONTENT_CLASS, 'flex flex-col gap-4')}>
-          <div className="rounded-lg bg-muted/35 p-4">
-            <div className="flex items-start gap-4">
-              <div className="relative size-16 shrink-0 overflow-hidden rounded-md bg-background shadow-sm ring-1 ring-border">
-                {logoUrl ? (
-                  <Image
-                    src={logoUrl}
-                    alt={`${previewName} logo`}
-                    fill
-                    sizes="64px"
-                    className="object-cover"
-                    unoptimized
-                  />
-                ) : (
-                  <div className="flex size-full items-center justify-center text-lg font-semibold text-muted-foreground">
-                    <span aria-hidden="true">{getInitials(previewName)}</span>
-                  </div>
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-lg font-semibold leading-tight text-foreground">{previewName}</p>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">{previewDescription}</p>
-              </div>
-            </div>
-
-            <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-              <div>
-                <p className="font-medium text-foreground">Contact</p>
-                <p className="mt-1 text-muted-foreground">{previewContact}</p>
-              </div>
-              <div>
-                <p className="font-medium text-foreground">Arrival</p>
-                <p className="mt-1 text-muted-foreground">{previewAddress}</p>
-              </div>
-            </div>
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Badge variant={hasProfileValue(values.googleMapUrl) ? 'outline' : 'secondary'}>
-                {hasProfileValue(values.googleMapUrl) ? 'Directions ready' : 'Add directions'}
-              </Badge>
-              <Badge variant={hasProfileValue(values.googleReviewUrl) ? 'outline' : 'secondary'}>
-                {hasProfileValue(values.googleReviewUrl) ? 'Review link ready' : 'Add review link'}
-              </Badge>
-            </div>
-          </div>
-
-          {formDirty ? (
-            <Alert>
-              <AlertTitle>Preview includes unsaved edits</AlertTitle>
-              <AlertDescription>
-                Save the edited section before using this as the public source of truth.
-              </AlertDescription>
-            </Alert>
-          ) : dirtySections.length > 0 ? null : (
-            <p className={SETTINGS_COMPACT_HELPER_TEXT_CLASS}>
-              This preview is based on the latest saved profile data.
-            </p>
-          )}
-        </CardContent>
-      </Card>
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Button type="button" variant="outline" size="sm" asChild>
+          <Link href={REVIEW_GBP_HREF}>Review Google changes</Link>
+        </Button>
+      </div>
+      {children}
+      <Alert>
+        <AlertTitle>Related settings</AlertTitle>
+        <AlertDescription>
+          Booking rules now live with the schedule on{' '}
+          <Link href={AVAILABILITY_BOOKING_RULES_HREF} className="underline">
+            Availability &amp; Occasions
+          </Link>
+          . Manage staff invites in{' '}
+          <Link href={TEAM_HREF} className="underline">
+            Team
+          </Link>
+          .
+        </AlertDescription>
+      </Alert>
     </div>
   );
 }
@@ -348,6 +151,22 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
     formDirty,
     'You have unsaved restaurant profile changes. Leave without saving them?',
   );
+
+  useEffect(() => {
+    const applyHash = () => {
+      const raw = window.location.hash.slice(1);
+      if (!raw || !isProfileAnchorId(raw)) {
+        return;
+      }
+      requestAnimationFrame(() => {
+        document.getElementById(raw)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      });
+    };
+
+    applyHash();
+    window.addEventListener('hashchange', applyHash);
+    return () => window.removeEventListener('hashchange', applyHash);
+  }, []);
 
   const initialValues = useMemo<RestaurantDetailsFormValues>(() => {
     return buildProfileValues(data);
@@ -517,87 +336,59 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
 
   if (!restaurantId) {
     return (
-      <SettingsCard
-        title="Restaurant profile"
-        description="Select a restaurant to manage what guests and staff see."
-      >
-        <p className="text-sm text-muted-foreground">
-          Choose a restaurant using the sidebar switcher to update its public details and team
-          alerts.
-        </p>
-      </SettingsCard>
+      <ProfileShell>
+        <SettingsCard
+          title="Select a restaurant"
+          description="Pick a restaurant from the sidebar switcher to manage what guests and staff see."
+        >
+          <p className="text-sm text-muted-foreground">
+            Choose a restaurant using the sidebar switcher to update its public details and team
+            alerts.
+          </p>
+        </SettingsCard>
+      </ProfileShell>
     );
   }
 
   if (isLoading && !data) {
     return (
-      <SettingsCard
-        title="Restaurant profile"
-        description="Loading the restaurant details staff use day to day."
-      >
-        <div className="flex flex-col gap-4">
-          <Skeleton className="h-6 w-40" />
-          <Skeleton className="h-24 w-full" />
-        </div>
-      </SettingsCard>
+      <ProfileShell>
+        <SettingsCard
+          title="Loading restaurant profile"
+          description="Loading the restaurant details staff use day to day."
+        >
+          <div className="flex flex-col gap-4">
+            <Skeleton className="h-6 w-40" />
+            <Skeleton className="h-24 w-full" />
+          </div>
+        </SettingsCard>
+      </ProfileShell>
     );
   }
 
   if (error) {
     return (
-      <SettingsCard title="Restaurant profile" description="Update public details and team alerts.">
-        <Alert variant="destructive">
-          <AlertTitle>Unable to load restaurant details</AlertTitle>
-          <AlertDescription className="flex items-center justify-between gap-4">
-            <span>{error.message}</span>
-            <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>
-              Retry
-            </Button>
-          </AlertDescription>
-        </Alert>
-      </SettingsCard>
+      <ProfileShell>
+        <SettingsCard
+          title="Restaurant profile"
+          description="Update public details and team alerts."
+        >
+          <Alert variant="destructive">
+            <AlertTitle>Unable to load restaurant details</AlertTitle>
+            <AlertDescription className="flex items-center justify-between gap-4">
+              <span>{error.message}</span>
+              <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>
+                Retry
+              </Button>
+            </AlertDescription>
+          </Alert>
+        </SettingsCard>
+      </ProfileShell>
     );
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <Card className={SETTINGS_COMPACT_CARD_CLASS}>
-        <CardHeader
-          className={cn(
-            SETTINGS_COMPACT_CARD_HEADER_CLASS,
-            'gap-4 sm:flex-row sm:items-end sm:justify-between',
-          )}
-        >
-          <div className="flex flex-col gap-2">
-            <Badge
-              variant={profileVerification.warnings.length > 0 ? 'secondary' : 'outline'}
-              className="w-fit"
-            >
-              {profileVerification.summary}
-            </Badge>
-            <div className="flex flex-col gap-1">
-              <CardTitle className="text-2xl">Restaurant profile</CardTitle>
-              <CardDescription className="max-w-3xl">
-                Keep guest-facing details, team alerts, and public discovery information in one
-                place.
-              </CardDescription>
-            </div>
-          </div>
-          <Button type="button" variant="outline" size="sm" asChild>
-            <a href="/app/settings/restaurant/google-business-profile">Review Google changes</a>
-          </Button>
-        </CardHeader>
-      </Card>
-
-      <ProfileConfidencePanel
-        restaurantId={restaurantId}
-        values={previewValues}
-        logoUrl={previewLogoUrl}
-        formDirty={formDirty || logoPreviewUrl !== undefined}
-        dirtySections={dirtySections}
-        updatedAt={data?.updatedAt}
-      />
-
+    <ProfileShell>
       {dirtySections.length > 0 ? (
         <Alert
           className={cn(SETTINGS_COMPACT_STICKY_ACTION_ROW_CLASS, 'border-primary/30 shadow-lg')}
@@ -627,7 +418,7 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
                   </Button>
                 ) : (
                   <Button key={section.key} type="button" variant="outline" size="sm" asChild>
-                    <a href={section.href}>{section.actionLabel}</a>
+                    <Link href={section.href}>{section.actionLabel}</Link>
                   </Button>
                 ),
               )}
@@ -636,81 +427,89 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
         </Alert>
       ) : null}
 
-      <ProfileSectionShell
-        id="profile-identity"
-        eyebrow="1"
-        title="Basic Info and Branding"
-        description="Name, logo, and short public description guests should recognise first."
-      >
-        <RestaurantLogoUploader
-          restaurantId={restaurantId}
-          restaurantName={derivedRestaurantName}
-          logoUrl={data?.logoUrl ?? null}
-          updateMutation={updateMutation}
-          isLoading={isLoading && !data}
-          onPreviewChange={setLogoPreviewUrl}
-        />
-        <BrandIdentitySubform
-          restaurantId={restaurantId}
-          initialValues={initialValues}
-          formId={PROFILE_SECTION_FORMS.brand}
-          onDirtyChange={dirtyHandlers.brand}
-          onDraftChange={draftHandlers.brand}
-          gbpFieldVerifications={profileVerification.fields}
-        />
-      </ProfileSectionShell>
+      <div id="profile-identity" className="scroll-mt-24">
+        <SettingsCard
+          title="Brand and identity"
+          description="Logo, name, and short public description guests should recognise first."
+        >
+          <RestaurantLogoUploader
+            restaurantId={restaurantId}
+            restaurantName={derivedRestaurantName}
+            logoUrl={data?.logoUrl ?? null}
+            updateMutation={updateMutation}
+            isLoading={isLoading && !data}
+            onPreviewChange={setLogoPreviewUrl}
+          />
+          <BrandIdentitySubform
+            restaurantId={restaurantId}
+            initialValues={initialValues}
+            formId={PROFILE_SECTION_FORMS.brand}
+            onDirtyChange={dirtyHandlers.brand}
+            onDraftChange={draftHandlers.brand}
+            gbpFieldVerifications={profileVerification.fields}
+          />
+        </SettingsCard>
+      </div>
 
-      <ProfileSectionShell
-        id="profile-contact"
-        eyebrow="2"
-        title="Contact and Location"
-        description="Public phone, email, address, directions, and review links."
-      >
-        <ContactLocationSubform
-          restaurantId={restaurantId}
-          initialValues={initialValues}
-          formId={PROFILE_SECTION_FORMS.contact}
-          onDirtyChange={dirtyHandlers.contact}
-          onDraftChange={draftHandlers.contact}
-          gbpFieldVerifications={profileVerification.fields}
-        />
-      </ProfileSectionShell>
+      <div id="profile-contact" className="scroll-mt-24">
+        <SettingsCard
+          title="Contact and location"
+          description="Public phone, email, address, directions, and review links."
+        >
+          <ContactLocationSubform
+            restaurantId={restaurantId}
+            initialValues={initialValues}
+            formId={PROFILE_SECTION_FORMS.contact}
+            onDirtyChange={dirtyHandlers.contact}
+            onDraftChange={draftHandlers.contact}
+            gbpFieldVerifications={profileVerification.fields}
+          />
+        </SettingsCard>
+      </div>
 
-      <ProfileSectionShell
-        id="profile-operations"
-        eyebrow="3"
-        title="Operational Details"
-        description="Daily booking summary delivery and low-frequency booking link settings."
-      >
-        <ManagerNotificationsSubform
-          restaurantId={restaurantId}
-          initialValues={initialValues}
-          formId={PROFILE_SECTION_FORMS.notifications}
-          onDirtyChange={dirtyHandlers.notifications}
-          onDraftChange={draftHandlers.notifications}
-        />
-        <AdvancedIdentitySubform
-          restaurantId={restaurantId}
-          initialValues={initialValues}
-          formId={PROFILE_SECTION_FORMS.advanced}
-          onDirtyChange={dirtyHandlers.advanced}
-          onDraftChange={draftHandlers.advanced}
-        />
-      </ProfileSectionShell>
+      <div id="profile-notifications" className="scroll-mt-24">
+        <SettingsCard
+          title="Manager notifications"
+          description="Daily booking summary delivery for the restaurant manager."
+        >
+          <ManagerNotificationsSubform
+            restaurantId={restaurantId}
+            initialValues={initialValues}
+            formId={PROFILE_SECTION_FORMS.notifications}
+            onDirtyChange={dirtyHandlers.notifications}
+            onDraftChange={draftHandlers.notifications}
+          />
+        </SettingsCard>
+      </div>
 
-      <ProfileSectionShell
-        id="profile-visibility"
-        eyebrow="4"
-        title="Visibility"
-        description="Profile basics, dining categories, amenities, service areas, and public links."
-        contentClassName="gap-0"
-      >
-        <RestaurantBusinessContextSection
-          restaurantId={restaurantId}
-          embedded
-          onDirtyChange={dirtyHandlers.discovery}
-        />
-      </ProfileSectionShell>
-    </div>
+      <div id="profile-discovery" className="scroll-mt-24">
+        <SettingsCard
+          title="Discovery details"
+          description="Profile basics, dining categories, amenities, service areas, and public links guests use to find this venue."
+          contentClassName="gap-0"
+        >
+          <RestaurantBusinessContextSection
+            restaurantId={restaurantId}
+            embedded
+            onDirtyChange={dirtyHandlers.discovery}
+          />
+        </SettingsCard>
+      </div>
+
+      <div id="profile-advanced" className="scroll-mt-24">
+        <SettingsCard
+          title="Advanced"
+          description="Booking-link slug used in the guest-facing reservation URL."
+        >
+          <AdvancedIdentitySubform
+            restaurantId={restaurantId}
+            initialValues={initialValues}
+            formId={PROFILE_SECTION_FORMS.advanced}
+            onDirtyChange={dirtyHandlers.advanced}
+            onDraftChange={draftHandlers.advanced}
+          />
+        </SettingsCard>
+      </div>
+    </ProfileShell>
   );
 }

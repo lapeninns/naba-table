@@ -1,5 +1,3 @@
-import { Clock3, ImageIcon, MapPin, Phone, type LucideIcon } from 'lucide-react';
-
 import {
   COMMON_TIMEZONES,
   type RestaurantDetailsFormValues,
@@ -8,6 +6,13 @@ import { DEFAULT_RESERVATION_INTERVAL_MINUTES } from '@reserve/shared/config/res
 
 import type { RestaurantProfile } from '@/services/ops/restaurants';
 
+/**
+ * Default values used to seed the shared `RestaurantDetailsFormValues` shape when
+ * no restaurant profile is loaded yet. Reservation timing and `bookingPolicy`
+ * fields are required by the shared form-value type but are not edited from the
+ * Profile route — the BookingRulesSubform on Availability is the canonical home
+ * for those fields. The defaults here only satisfy the shared shape.
+ */
 export const EMPTY_PROFILE_VALUES: RestaurantDetailsFormValues = {
   name: '',
   slug: '',
@@ -20,6 +25,8 @@ export const EMPTY_PROFILE_VALUES: RestaurantDetailsFormValues = {
   managerNotificationPhone: null,
   googleMapUrl: null,
   googleReviewUrl: null,
+  // The four fields below live on the Availability route's BookingRulesSubform.
+  // They are not rendered on Profile but are part of the shared form-value type.
   bookingPolicy: null,
   reservationIntervalMinutes: DEFAULT_RESERVATION_INTERVAL_MINUTES,
   reservationDefaultDurationMinutes: 90,
@@ -37,28 +44,6 @@ export type ProfileDirtySection = {
   actionLabel: string;
 };
 
-export type ProfileReadinessItem = {
-  key: string;
-  label: string;
-  impact: string;
-  sectionHref: string;
-  isComplete: (values: RestaurantDetailsFormValues, logoUrl: string | null) => boolean;
-};
-
-export type QuickEditAction = {
-  key: 'name_logo' | 'contact' | 'address' | 'hours';
-  label: string;
-  detail: string;
-  href: string;
-  icon: LucideIcon;
-};
-
-export type ProfileSectionMapItem = {
-  label: string;
-  detail: string;
-  href: string;
-};
-
 export const PROFILE_SECTION_FORMS = {
   brand: 'restaurant-profile-brand-form',
   contact: 'restaurant-profile-contact-form',
@@ -66,13 +51,17 @@ export const PROFILE_SECTION_FORMS = {
   advanced: 'restaurant-profile-advanced-form',
 } as const satisfies Partial<Record<ProfileDirtyKey, string>>;
 
+/**
+ * Each card on Profile owns its own anchor and (when applicable) a form id, so
+ * the sticky save bar can submit per-section without colliding labels/anchors.
+ */
 export const PROFILE_DIRTY_SECTIONS: readonly ProfileDirtySection[] = [
   {
     key: 'brand',
-    label: 'Basic info and branding',
+    label: 'Brand and identity',
     href: '#profile-identity',
     formId: PROFILE_SECTION_FORMS.brand,
-    actionLabel: 'Save basic info',
+    actionLabel: 'Save brand',
   },
   {
     key: 'contact',
@@ -83,147 +72,40 @@ export const PROFILE_DIRTY_SECTIONS: readonly ProfileDirtySection[] = [
   },
   {
     key: 'notifications',
-    label: 'Operational details',
-    href: '#profile-operations',
+    label: 'Manager notifications',
+    href: '#profile-notifications',
     formId: PROFILE_SECTION_FORMS.notifications,
-    actionLabel: 'Save operations',
+    actionLabel: 'Save manager alerts',
   },
   {
     key: 'discovery',
-    label: 'Visibility',
-    href: '#profile-visibility',
-    actionLabel: 'Review visibility',
+    label: 'Discovery details',
+    href: '#profile-discovery',
+    actionLabel: 'Review discovery',
   },
   {
     key: 'advanced',
-    label: 'Operational details',
-    href: '#profile-operations',
+    label: 'Advanced',
+    href: '#profile-advanced',
     formId: PROFILE_SECTION_FORMS.advanced,
-    actionLabel: 'Save link',
+    actionLabel: 'Save advanced',
   },
 ] as const;
 
-export const READINESS_ITEMS: readonly ProfileReadinessItem[] = [
-  {
-    key: 'name',
-    label: 'Restaurant name',
-    impact: 'Shown on the guest booking page and in confirmation messages.',
-    sectionHref: '#profile-identity',
-    isComplete: (values) => hasProfileValue(values.name),
-  },
-  {
-    key: 'logo',
-    label: 'Logo',
-    impact: 'Builds recognition in booking emails and owner-facing previews.',
-    sectionHref: '#profile-identity',
-    isComplete: (_values, logoUrl) => hasProfileValue(logoUrl),
-  },
-  {
-    key: 'description',
-    label: 'Business description',
-    impact: 'Helps guests understand the restaurant before booking.',
-    sectionHref: '#profile-identity',
-    isComplete: (values) => hasProfileValue(values.businessDescription),
-  },
-  {
-    key: 'contactPhone',
-    label: 'Public phone',
-    impact: 'Gives guests a trusted fallback if a booking needs attention.',
-    sectionHref: '#profile-contact',
-    isComplete: (values) => hasProfileValue(values.contactPhone),
-  },
-  {
-    key: 'contactEmail',
-    label: 'Public email',
-    impact: 'Keeps booking questions and guest follow-up routed correctly.',
-    sectionHref: '#profile-contact',
-    isComplete: (values) => hasProfileValue(values.contactEmail),
-  },
-  {
-    key: 'address',
-    label: 'Address',
-    impact: 'Supports directions, guest confidence, and Google comparison.',
-    sectionHref: '#profile-contact',
-    isComplete: (values) => hasProfileValue(values.address),
-  },
-  {
-    key: 'timezone',
-    label: 'Timezone',
-    impact: 'Keeps opening hours, bookings, and reminders on the right clock.',
-    sectionHref: '#profile-contact',
-    isComplete: (values) => hasProfileValue(values.timezone),
-  },
-  {
-    key: 'mapUrl',
-    label: 'Google Maps link',
-    impact: 'Lets guests open directions directly from public touchpoints.',
-    sectionHref: '#profile-contact',
-    isComplete: (values) => hasProfileValue(values.googleMapUrl),
-  },
-] as const;
+type ReadinessItem = {
+  key: string;
+  isComplete: (values: RestaurantDetailsFormValues, logoUrl: string | null) => boolean;
+};
 
-export const QUICK_EDIT_ACTIONS: readonly QuickEditAction[] = [
-  {
-    key: 'name_logo',
-    label: 'Name & logo',
-    detail: 'Branding',
-    href: '#profile-identity',
-    icon: ImageIcon,
-  },
-  {
-    key: 'contact',
-    label: 'Contact',
-    detail: 'Phone + email',
-    href: '#profile-contact',
-    icon: Phone,
-  },
-  {
-    key: 'address',
-    label: 'Address',
-    detail: 'Location',
-    href: '#profile-contact',
-    icon: MapPin,
-  },
-  {
-    key: 'hours',
-    label: 'Hours',
-    detail: 'Availability',
-    href: '/app/settings/restaurant/availability',
-    icon: Clock3,
-  },
-] as const;
-
-export const PROFILE_SECTION_MAP: readonly ProfileSectionMapItem[] = [
-  {
-    label: 'Basic Info',
-    detail: 'Name and public description',
-    href: '#profile-identity',
-  },
-  {
-    label: 'Branding',
-    detail: 'Logo and guest recognition',
-    href: '#profile-identity',
-  },
-  {
-    label: 'Contact',
-    detail: 'Phone and email',
-    href: '#profile-contact',
-  },
-  {
-    label: 'Location',
-    detail: 'Address and directions',
-    href: '#profile-contact',
-  },
-  {
-    label: 'Operational Details',
-    detail: 'Alerts and booking links',
-    href: '#profile-operations',
-  },
-  {
-    label: 'Visibility',
-    detail: 'Discovery and Google-facing details',
-    href: '#profile-visibility',
-  },
+const READINESS_ITEMS: readonly ReadinessItem[] = [
+  { key: 'name', isComplete: (values) => hasProfileValue(values.name) },
+  { key: 'logo', isComplete: (_values, logoUrl) => hasProfileValue(logoUrl) },
+  { key: 'description', isComplete: (values) => hasProfileValue(values.businessDescription) },
+  { key: 'contactPhone', isComplete: (values) => hasProfileValue(values.contactPhone) },
+  { key: 'contactEmail', isComplete: (values) => hasProfileValue(values.contactEmail) },
+  { key: 'address', isComplete: (values) => hasProfileValue(values.address) },
+  { key: 'timezone', isComplete: (values) => hasProfileValue(values.timezone) },
+  { key: 'mapUrl', isComplete: (values) => hasProfileValue(values.googleMapUrl) },
 ] as const;
 
 export function buildProfileValues(
@@ -261,38 +143,18 @@ export function displayProfileValue(value: string | null | undefined, fallback: 
   return hasProfileValue(value) ? value.trim() : fallback;
 }
 
-export function formatLastUpdated(updatedAt: string | null | undefined): string | null {
-  if (!updatedAt) {
-    return null;
-  }
-
-  const parsed = new Date(updatedAt);
-  if (Number.isNaN(parsed.getTime())) {
-    return null;
-  }
-
-  return new Intl.DateTimeFormat('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(parsed);
-}
-
-export function getInitials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part.charAt(0).toUpperCase())
-    .join('')
-    .padEnd(2, 'R');
-}
-
+/**
+ * Computes a slim readiness summary used solely to feed analytics events
+ * (`completeness_score`, `missing_count`, `missing_fields`). The page does not
+ * render a readiness checklist; richer per-item metadata was removed.
+ */
 export function deriveReadiness(values: RestaurantDetailsFormValues, logoUrl: string | null) {
-  const completed = READINESS_ITEMS.filter((item) => item.isComplete(values, logoUrl));
-  const missing = READINESS_ITEMS.filter((item) => !item.isComplete(values, logoUrl));
+  const completed = READINESS_ITEMS.filter((item) => item.isComplete(values, logoUrl)).map(
+    (item) => ({ key: item.key }),
+  );
+  const missing = READINESS_ITEMS.filter((item) => !item.isComplete(values, logoUrl)).map(
+    (item) => ({ key: item.key }),
+  );
   const score = Math.round((completed.length / READINESS_ITEMS.length) * 100);
 
   return {

@@ -69,18 +69,22 @@ export function GoogleBusinessProfileComparisonBadge({
   });
   const Icon = presentation.icon;
   const hasTooltip = Boolean(tooltipTitle || tooltipLines.length > 0 || tooltipFooter);
+  const isVerified = status === 'verified';
 
   return (
     <span className={cn('inline-flex items-center gap-1.5', className)}>
       <Badge
         variant="outline"
+        aria-label={isVerified ? verifiedLabel : undefined}
         className={cn(
-          'h-5 gap-1 rounded-full px-2 text-[10px] font-semibold uppercase tracking-wide',
-          presentation.className,
+          isVerified
+            ? 'h-5 w-5 shrink-0 justify-center rounded-full border-primary/30 bg-primary/10 p-0 text-primary'
+            : 'h-5 gap-1 rounded-full px-2 text-[10px] font-semibold uppercase tracking-wide',
+          !isVerified && presentation.className,
         )}
       >
-        <Icon className="size-3" aria-hidden />
-        <span>{presentation.label}</span>
+        <Icon className="size-3 shrink-0" aria-hidden />
+        {isVerified ? null : <span>{presentation.label}</span>}
       </Badge>
       {hasTooltip ? (
         <Tooltip>
