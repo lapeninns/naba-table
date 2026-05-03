@@ -13,6 +13,7 @@ import {
   type GoogleBusinessProfileBusinessInfo,
 } from './business-info';
 import {
+  buildGoogleBusinessProfileFoodMenusName,
   buildGoogleBusinessProfileAuthUrl,
   patchGoogleBusinessProfileLocation,
   exchangeGoogleBusinessProfileCode,
@@ -128,6 +129,13 @@ export type GoogleBusinessProfileBusinessDetailsStatus = {
   };
   fieldDiffs: GoogleBusinessProfileFieldDiff[];
   availableLocations: GoogleBusinessProfileAvailableLocation[];
+};
+
+export type GoogleBusinessProfileFoodMenusContext = {
+  externalProfileId: string;
+  accessToken: string;
+  foodMenusName: string;
+  canHaveFoodMenus: boolean | null;
 };
 
 function getClient(client?: DbClient): DbClient {
@@ -464,6 +472,35 @@ function assertGooglePushEnabled(externalProfile: ExternalProfileRow): void {
   );
 }
 
+function resolveCanHaveFoodMenus(location: GoogleBusinessProfileLocationProfile): boolean | null {
+  if (typeof location.metadata?.canHaveFoodMenus === 'boolean') {
+    return location.metadata.canHaveFoodMenus;
+  }
+
+  if (typeof location.locationState?.canHaveFoodMenu === 'boolean') {
+    return location.locationState.canHaveFoodMenu;
+  }
+
+  if (typeof location.locationState?.canHaveFoodMenus === 'boolean') {
+    return location.locationState.canHaveFoodMenus;
+  }
+
+  return null;
+}
+
+function assertGoogleFoodMenusEligible(
+  location: GoogleBusinessProfileLocationProfile,
+): boolean | null {
+  const canHaveFoodMenus = resolveCanHaveFoodMenus(location);
+  if (canHaveFoodMenus === false) {
+    throw new GoogleBusinessProfileError(
+      'The linked Google Business Profile location is not eligible for FoodMenus.',
+      { code: 'GBP_FOOD_MENUS_NOT_ELIGIBLE', status: 409 },
+    );
+  }
+  return canHaveFoodMenus;
+}
+
 function buildConnectionState(
   externalProfile: ExternalProfileRow | null,
   credential: CredentialRow | null,
@@ -710,6 +747,37 @@ async function getLinkedExternalProfileWithLocation(
     accessToken,
     locationResourceName,
     location,
+  };
+}
+
+export async function getGoogleBusinessProfileFoodMenusContext(params: {
+  restaurantId: string;
+  client?: DbClient;
+  requirePushEnabled?: boolean;
+}): Promise<GoogleBusinessProfileFoodMenusContext> {
+  const resolvedClient = getClient(params.client);
+  const { externalProfile, accessToken, locationResourceName, location } =
+    await getLinkedExternalProfileWithLocation(params.restaurantId, resolvedClient);
+  if (params.requirePushEnabled) {
+    assertGooglePushEnabled(externalProfile);
+  }
+  const canHaveFoodMenus = assertGoogleFoodMenusEligible(location);
+
+  const accountNameOrId =
+    normalizeText(externalProfile.external_account_name) ??
+    normalizeText(externalProfile.external_account_id);
+  if (!accountNameOrId) {
+    throw new GoogleBusinessProfileError(
+      'Link a Google Business Profile account before syncing food menus.',
+      { code: 'GBP_ACCOUNT_NOT_LINKED', status: 409 },
+    );
+  }
+
+  return {
+    externalProfileId: externalProfile.id,
+    accessToken,
+    foodMenusName: buildGoogleBusinessProfileFoodMenusName(accountNameOrId, locationResourceName),
+    canHaveFoodMenus,
   };
 }
 

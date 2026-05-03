@@ -5,7 +5,8 @@ export const queryKeys = {
     all: ['bookings'] as const,
     list: (params: Record<string, unknown> = {}) => ['bookings', 'list', params] as const,
     detail: (id: string) => ['bookings', 'detail', id] as const,
-    history: (id: string, params: Record<string, unknown> = {}) => ['bookings', 'history', id, params] as const,
+    history: (id: string, params: Record<string, unknown> = {}) =>
+      ['bookings', 'history', id, params] as const,
   },
   opsBookings: {
     all: ['ops', 'bookings'] as const,
@@ -18,7 +19,10 @@ export const queryKeys = {
       ['ops', 'dashboard', restaurantId, 'summary', date ?? 'today'] as const,
     heatmap: (restaurantId: string, start: string, end: string) =>
       ['ops', 'dashboard', restaurantId, 'heatmap', start, end] as const,
-    rejections: (restaurantId: string, params: { from?: string | null; to?: string | null; bucket?: string } = {}) =>
+    rejections: (
+      restaurantId: string,
+      params: { from?: string | null; to?: string | null; bucket?: string } = {},
+    ) =>
       [
         'ops',
         'dashboard',
@@ -30,7 +34,8 @@ export const queryKeys = {
       ] as const,
   },
   opsSettings: {
-    strategicConfig: (restaurantId: string) => ['ops', 'settings', 'strategic-config', restaurantId] as const,
+    strategicConfig: (restaurantId: string) =>
+      ['ops', 'settings', 'strategic-config', restaurantId] as const,
   },
   opsCustomers: {
     list: (params: Record<string, unknown> = {}) => ['ops', 'customers', 'list', params] as const,
@@ -44,9 +49,12 @@ export const queryKeys = {
     googleBusinessProfile: (restaurantId: string) =>
       ['ops', 'restaurants', restaurantId, 'google-business-profile'] as const,
     hours: (restaurantId: string) => ['ops', 'restaurants', restaurantId, 'hours'] as const,
-    servicePeriods: (restaurantId: string) => ['ops', 'restaurants', restaurantId, 'service-periods'] as const,
-    turnBands: (restaurantId: string) => ['ops', 'restaurants', restaurantId, 'turn-bands'] as const,
-    emailTemplates: (restaurantId: string) => ['ops', 'restaurants', restaurantId, 'email-templates'] as const,
+    servicePeriods: (restaurantId: string) =>
+      ['ops', 'restaurants', restaurantId, 'service-periods'] as const,
+    turnBands: (restaurantId: string) =>
+      ['ops', 'restaurants', restaurantId, 'turn-bands'] as const,
+    emailTemplates: (restaurantId: string) =>
+      ['ops', 'restaurants', restaurantId, 'email-templates'] as const,
   },
   opsTables: {
     list: (restaurantId: string, params: Record<string, unknown> = {}) =>
@@ -70,6 +78,10 @@ export const queryKeys = {
       ['ops', 'menu', restaurantId, 'detail', itemId] as const,
     facets: (restaurantId: string) => ['ops', 'menu', restaurantId, 'facets'] as const,
   },
+  opsFoodMenus: {
+    importReviews: (restaurantId: string) =>
+      ['ops', 'food-menus', restaurantId, 'import-reviews'] as const,
+  },
   opsDrinksMenu: {
     list: (restaurantId: string, filters: Record<string, unknown> = {}) =>
       ['ops', 'drinks-menu', restaurantId, 'list', filters] as const,
@@ -82,7 +94,8 @@ export const queryKeys = {
   },
   ownerRestaurants: {
     hours: (restaurantId: string) => ['owner', 'restaurants', restaurantId, 'hours'] as const,
-    servicePeriods: (restaurantId: string) => ['owner', 'restaurants', restaurantId, 'service-periods'] as const,
+    servicePeriods: (restaurantId: string) =>
+      ['owner', 'restaurants', restaurantId, 'service-periods'] as const,
     details: (restaurantId: string) => ['owner', 'restaurants', restaurantId, 'details'] as const,
   },
   profile: {
@@ -128,6 +141,7 @@ export type QueryKey =
   | ReturnType<(typeof queryKeys)['opsMenu']['list']>
   | ReturnType<(typeof queryKeys)['opsMenu']['detail']>
   | ReturnType<(typeof queryKeys)['opsMenu']['facets']>
+  | ReturnType<(typeof queryKeys)['opsFoodMenus']['importReviews']>
   | ReturnType<(typeof queryKeys)['opsDrinksMenu']['list']>
   | ReturnType<(typeof queryKeys)['opsDrinksMenu']['detail']>
   | ReturnType<(typeof queryKeys)['opsDrinksMenu']['facets']>

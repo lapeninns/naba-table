@@ -20,17 +20,9 @@ import type {
   DualSyncSectionKey,
 } from '../types';
 
-export type DualSyncConflictPolicy =
-  | 'manual'
-  | 'core_wins'
-  | 'gbp_wins'
-  | 'unsupported';
+export type DualSyncConflictPolicy = 'manual' | 'core_wins' | 'gbp_wins' | 'unsupported';
 
-export type DualSyncDeletePolicy =
-  | 'manual'
-  | 'clear_remote'
-  | 'clear_core'
-  | 'ignore';
+export type DualSyncDeletePolicy = 'manual' | 'clear_remote' | 'clear_core' | 'ignore';
 
 export type DualSyncFieldKind =
   | 'profile'
@@ -40,6 +32,7 @@ export type DualSyncFieldKind =
   | 'businessContext.serviceArea'
   | 'businessContext.attribute'
   | 'businessContext.serviceItem'
+  | 'foodMenu.item'
   | 'core_only';
 
 export interface DualSyncFieldConfig<TCore = unknown, TGbp = unknown> {

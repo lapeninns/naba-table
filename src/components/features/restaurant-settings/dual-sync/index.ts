@@ -11,6 +11,7 @@ export {
   type DualSyncPublishJobsPanelProps,
 } from './DualSyncPublishJobsPanel';
 export { DualSyncStateBadge, type DualSyncStateBadgeProps } from './DualSyncStateBadge';
+export { FoodMenusImportReviewPanel } from './FoodMenusImportReviewPanel';
 export { freshnessAge, classifyAge, formatAge } from './freshness';
 export type { DualSyncFreshness, DualSyncFreshnessTone } from './freshness';
 export {

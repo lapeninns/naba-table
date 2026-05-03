@@ -36,6 +36,15 @@ describe('buildMenuItemPayload', () => {
     form.servingNotes = 'Serve chilled';
     form.displayOrder = '7';
     form.imageUrl = 'https://example.com/burrata.jpg';
+    form.caloriesKcal = '320';
+    form.proteinG = '14.5';
+    form.fatG = '22';
+    form.saturatedFatG = '9.5';
+    form.carbsG = '8';
+    form.sugarG = '3.25';
+    form.fiberG = '1.5';
+    form.sodiumMg = '410';
+    form.servesNum = '2';
 
     const group = createEmptyModifierGroupFormState();
     group.externalModifierGroupId = 'group-1';
@@ -96,6 +105,15 @@ describe('buildMenuItemPayload', () => {
       soldOut: false,
       displayOrder: 7,
       imageUrl: 'https://example.com/burrata.jpg',
+      caloriesKcal: 320,
+      proteinG: 14.5,
+      fatG: 22,
+      saturatedFatG: 9.5,
+      carbsG: 8,
+      sugarG: 3.25,
+      fiberG: 1.5,
+      sodiumMg: 410,
+      servesNum: 2,
       modifierGroups: [
         {
           externalModifierGroupId: 'group-1',

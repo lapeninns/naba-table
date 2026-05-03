@@ -70,6 +70,8 @@ function readSectionValue(
       return snapshot.businessContext.attributes;
     case 'businessContext.serviceItems':
       return snapshot.businessContext.serviceItems;
+    case 'foodMenus':
+      return snapshot.foodMenus ?? { items: [] };
     case 'core_only':
       return null;
     default:
@@ -103,7 +105,8 @@ function valueForField(
     config.kind === 'businessContext.category' ||
     config.kind === 'businessContext.serviceArea' ||
     config.kind === 'businessContext.attribute' ||
-    config.kind === 'businessContext.serviceItem'
+    config.kind === 'businessContext.serviceItem' ||
+    config.kind === 'foodMenu.item'
   ) {
     return sectionValue;
   }

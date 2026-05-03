@@ -11,6 +11,8 @@
 
 import { readGoogleBusinessProfileBusinessInfo } from '@/server/google-business-profile/business-info';
 
+import { readStoredGoogleFoodMenusSection } from './food-menus';
+
 import type {
   DualSyncBusinessContextSectionValues,
   DualSyncCanonicalSnapshot,
@@ -35,12 +37,16 @@ export async function readGoogleSnapshot({
   client,
   restaurantId,
 }: ReadGoogleSnapshotInput): Promise<DualSyncCanonicalSnapshot> {
-  const info = await readGoogleBusinessProfileBusinessInfo(restaurantId, client);
+  const [info, foodMenus] = await Promise.all([
+    readGoogleBusinessProfileBusinessInfo(restaurantId, client),
+    readStoredGoogleFoodMenusSection({ client, restaurantId }),
+  ]);
   return {
     profile: extractProfile(info),
     operatingHours: extractOperatingHours(info),
     servicePeriods: extractServicePeriods(info),
     businessContext: extractBusinessContext(info),
+    foodMenus,
   };
 }
 
@@ -100,16 +106,12 @@ function pickLink(
   const links = info.links ?? [];
   const normalizedTypes = new Set(linkTypes.map(normalizeProviderToken));
   const match =
-    links.find(
-      (l) => normalizedTypes.has(normalizeProviderToken(l.linkType)) && l.isPrimary,
-    ) ??
+    links.find((l) => normalizedTypes.has(normalizeProviderToken(l.linkType)) && l.isPrimary) ??
     links.find((l) => normalizedTypes.has(normalizeProviderToken(l.linkType)));
   return match?.url ?? null;
 }
 
-function extractProfile(
-  info: GoogleBusinessProfileBusinessInfo,
-): DualSyncProfileSectionValue {
+function extractProfile(info: GoogleBusinessProfileBusinessInfo): DualSyncProfileSectionValue {
   return {
     name: info.details?.businessName ?? null,
     businessDescription: info.details?.description ?? null,
@@ -141,9 +143,7 @@ function extractServicePeriods(
   const periods: DualSyncServicePeriod[] = info.coreNormalization.servicePeriods.periods
     .map((entry) => ({
       stableKey: [
-        entry.dayOfWeek === null || entry.dayOfWeek === undefined
-          ? 'any'
-          : String(entry.dayOfWeek),
+        entry.dayOfWeek === null || entry.dayOfWeek === undefined ? 'any' : String(entry.dayOfWeek),
         entry.startTime,
         entry.endTime,
         entry.bookingOption,

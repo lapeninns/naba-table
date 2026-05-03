@@ -78,15 +78,15 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
       const sectionValueGbp = readSectionValue(gbpSnapshot, config.sectionKey);
       const coreValue =
         config.kind === 'profile'
-          ? (sectionValueCore as Record<string, unknown> | null)?.[
+          ? ((sectionValueCore as Record<string, unknown> | null)?.[
               config.fieldKey.split('.')[1] ?? ''
-            ] ?? null
+            ] ?? null)
           : sectionValueCore;
       const gbpValue =
         config.kind === 'profile'
-          ? (sectionValueGbp as Record<string, unknown> | null)?.[
+          ? ((sectionValueGbp as Record<string, unknown> | null)?.[
               config.fieldKey.split('.')[1] ?? ''
-            ] ?? null
+            ] ?? null)
           : config.kind === 'core_only'
             ? null
             : sectionValueGbp;
@@ -172,10 +172,7 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
   }
 }
 
-function readSectionValue(
-  snapshot: DualSyncCanonicalSnapshot,
-  sectionKey: string,
-): unknown {
+function readSectionValue(snapshot: DualSyncCanonicalSnapshot, sectionKey: string): unknown {
   switch (sectionKey) {
     case 'profile':
       return snapshot.profile;
@@ -191,6 +188,8 @@ function readSectionValue(
       return snapshot.businessContext.attributes;
     case 'businessContext.serviceItems':
       return snapshot.businessContext.serviceItems;
+    case 'foodMenus':
+      return snapshot.foodMenus ?? { items: [] };
     case 'core_only':
       return null;
     default:

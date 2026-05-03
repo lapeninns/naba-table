@@ -1,5 +1,4 @@
 import React from 'react';
-import '../styles/tokens.css';
 import '../styles/design-system/public-guest.tokens.css';
 import '../styles/design-system/public-guest.utilities.css';
 import './app/responsive.css';

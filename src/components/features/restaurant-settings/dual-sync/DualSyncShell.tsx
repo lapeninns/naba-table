@@ -38,6 +38,7 @@ import { DualSyncFreshnessChip } from './DualSyncFreshnessChip';
 import { DualSyncHeatmap } from './DualSyncHeatmap';
 import { DualSyncOperationsPanel } from './DualSyncOperationsPanel';
 import { DualSyncPublishJobsPanel } from './DualSyncPublishJobsPanel';
+import { FoodMenusImportReviewPanel } from './FoodMenusImportReviewPanel';
 import { summarizeFieldsToHeatmap } from './heatmap';
 
 import type { DualSyncDecisionAction, DualSyncSectionKey } from '@/server/dual-sync';
@@ -51,6 +52,7 @@ const SECTION_LABEL: Record<DualSyncSectionKey, string> = {
   'businessContext.serviceAreas': 'Service areas',
   'businessContext.attributes': 'Attributes',
   'businessContext.serviceItems': 'Service items',
+  foodMenus: 'Food menus',
 };
 
 const SECTION_ORDER: ReadonlyArray<DualSyncSectionKey> = [
@@ -61,6 +63,7 @@ const SECTION_ORDER: ReadonlyArray<DualSyncSectionKey> = [
   'businessContext.serviceAreas',
   'businessContext.attributes',
   'businessContext.serviceItems',
+  'foodMenus',
 ];
 
 export interface DualSyncShellProps {
@@ -139,6 +142,7 @@ export function DualSyncShell({ restaurantId, sections, className }: DualSyncShe
     () => summarizeFieldsToHeatmap(stateQuery.data?.fields ?? []),
     [stateQuery.data?.fields],
   );
+  const showFoodMenusReview = !sections || sections.length === 0 || sections.includes('foodMenus');
 
   const visibleFields = useMemo<ReadonlyArray<DualSyncFieldSummary>>(() => {
     const all = stateQuery.data?.fields ?? [];
@@ -387,6 +391,11 @@ export function DualSyncShell({ restaurantId, sections, className }: DualSyncShe
         </div>
       </CardHeader>
       <CardContent>
+        {showFoodMenusReview ? (
+          <div className="pb-4">
+            <FoodMenusImportReviewPanel restaurantId={restaurantId} />
+          </div>
+        ) : null}
         <Accordion
           type="multiple"
           defaultValue={SECTION_ORDER.filter((key) => fieldsBySection.has(key))}

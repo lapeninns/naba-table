@@ -74,6 +74,15 @@ export type DrinkItemFormState = {
   active: boolean;
   displayOrder: string;
   imageUrl: string;
+  caloriesKcal: string;
+  proteinG: string;
+  fatG: string;
+  saturatedFatG: string;
+  carbsG: string;
+  sugarG: string;
+  fiberG: string;
+  sodiumMg: string;
+  servesNum: string;
   modifierGroups: DrinkModifierGroupFormState[];
 };
 
@@ -91,6 +100,16 @@ function fieldToList(value: string): string[] {
 function nullable(value: string): string | null {
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function nullableNumber(value: string): number | null {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? Number.parseFloat(trimmed) : null;
+}
+
+function nullableInteger(value: string): number | null {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? Number.parseInt(trimmed, 10) : null;
 }
 
 export function createEmptyDrinkItemFormState(): DrinkItemFormState {
@@ -147,6 +166,15 @@ export function createEmptyDrinkItemFormState(): DrinkItemFormState {
     active: true,
     displayOrder: '0',
     imageUrl: '',
+    caloriesKcal: '',
+    proteinG: '',
+    fatG: '',
+    saturatedFatG: '',
+    carbsG: '',
+    sugarG: '',
+    fiberG: '',
+    sodiumMg: '',
+    servesNum: '',
     modifierGroups: [],
   };
 }
@@ -209,6 +237,15 @@ export function createDrinkItemFormState(item: DrinkItemDetail | null): DrinkIte
     active: item.active,
     displayOrder: String(item.displayOrder),
     imageUrl: item.imageUrl ?? '',
+    caloriesKcal: item.caloriesKcal === null ? '' : String(item.caloriesKcal),
+    proteinG: item.proteinG === null ? '' : String(item.proteinG),
+    fatG: item.fatG === null ? '' : String(item.fatG),
+    saturatedFatG: item.saturatedFatG === null ? '' : String(item.saturatedFatG),
+    carbsG: item.carbsG === null ? '' : String(item.carbsG),
+    sugarG: item.sugarG === null ? '' : String(item.sugarG),
+    fiberG: item.fiberG === null ? '' : String(item.fiberG),
+    sodiumMg: item.sodiumMg === null ? '' : String(item.sodiumMg),
+    servesNum: item.servesNum === null ? '' : String(item.servesNum),
     modifierGroups: item.modifierGroups.map((group) => ({
       externalModifierGroupId: group.externalModifierGroupId,
       groupName: group.groupName,
@@ -307,6 +344,15 @@ export function buildDrinkItemPayload(form: DrinkItemFormState): DrinkItemUpsert
     active: form.active,
     displayOrder: Number.parseInt(form.displayOrder, 10),
     imageUrl: nullable(form.imageUrl),
+    caloriesKcal: nullableInteger(form.caloriesKcal),
+    proteinG: nullableNumber(form.proteinG),
+    fatG: nullableNumber(form.fatG),
+    saturatedFatG: nullableNumber(form.saturatedFatG),
+    carbsG: nullableNumber(form.carbsG),
+    sugarG: nullableNumber(form.sugarG),
+    fiberG: nullableNumber(form.fiberG),
+    sodiumMg: nullableNumber(form.sodiumMg),
+    servesNum: nullableInteger(form.servesNum),
     modifierGroups: form.modifierGroups.map((group) => ({
       externalModifierGroupId: group.externalModifierGroupId,
       groupName: group.groupName,

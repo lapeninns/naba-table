@@ -18,6 +18,7 @@ import {
   buildServiceItemFields,
 } from './business-context';
 import { CORE_ONLY_FIELDS } from './core-only';
+import { buildFoodMenuItemFields } from './food-menus';
 import { OPERATING_HOURS_FIELDS } from './operating-hours';
 import { PROFILE_FIELDS } from './profile';
 import { buildServicePeriodFields } from './service-periods';
@@ -43,6 +44,7 @@ export {
   buildServiceAreaFields,
   buildAttributeFields,
   buildServiceItemFields,
+  buildFoodMenuItemFields,
 };
 
 export interface DualSyncCanonicalSnapshotShape {
@@ -54,6 +56,9 @@ export interface DualSyncCanonicalSnapshotShape {
     readonly serviceAreas: unknown;
     readonly attributes: unknown;
     readonly serviceItems: unknown;
+  };
+  readonly foodMenus?: {
+    readonly items: unknown;
   };
 }
 
@@ -93,6 +98,10 @@ export function buildRegistry({
     coreSnapshot: coreSnapshot.businessContext.serviceItems,
     gbpSnapshot: gbpSnapshot.businessContext.serviceItems,
   });
+  const dynamicFoodMenuItems = buildFoodMenuItemFields({
+    coreSnapshot: coreSnapshot.foodMenus ?? { items: [] },
+    gbpSnapshot: gbpSnapshot.foodMenus ?? { items: [] },
+  });
 
   return [
     ...PROFILE_FIELDS,
@@ -102,6 +111,7 @@ export function buildRegistry({
     ...dynamicServiceAreas,
     ...dynamicAttributes,
     ...dynamicServiceItems,
+    ...dynamicFoodMenuItems,
     ...(includeCoreOnly ? CORE_ONLY_FIELDS : []),
   ];
 }

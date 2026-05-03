@@ -2,6 +2,8 @@ import { env } from '@/lib/env';
 
 import { GoogleBusinessProfileError } from './errors';
 
+import type { GoogleFoodMenusResource } from './food-menus';
+
 const GOOGLE_OAUTH_AUTHORIZE_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_OAUTH_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GOOGLE_OAUTH_REVOKE_URL = 'https://oauth2.googleapis.com/revoke';
@@ -9,6 +11,7 @@ const GOOGLE_USERINFO_URL = 'https://openidconnect.googleapis.com/v1/userinfo';
 const GOOGLE_ACCOUNT_MANAGEMENT_BASE_URL = 'https://mybusinessaccountmanagement.googleapis.com/v1';
 const GOOGLE_BUSINESS_INFORMATION_BASE_URL =
   'https://mybusinessbusinessinformation.googleapis.com/v1';
+const GOOGLE_MY_BUSINESS_V4_BASE_URL = 'https://mybusiness.googleapis.com/v4';
 
 const GOOGLE_BUSINESS_PROFILE_SCOPES = ['https://www.googleapis.com/auth/business.manage'] as const;
 
@@ -33,6 +36,7 @@ type GoogleLocationResponse = {
     };
     metadata?: {
       placeId?: string;
+      canHaveFoodMenus?: boolean;
     };
   }>;
   nextPageToken?: string;
@@ -81,6 +85,7 @@ export type GoogleBusinessProfileAvailableLocation = {
   title: string | null;
   addressText: string | null;
   placeId: string | null;
+  canHaveFoodMenus: boolean | null;
 };
 
 type GoogleTimeOfDay = {
@@ -190,6 +195,11 @@ export type GoogleBusinessProfileLocationProfile = {
     newReviewUri?: string;
     timezone?: string;
     timeZone?: string;
+    canHaveFoodMenus?: boolean;
+  };
+  locationState?: {
+    canHaveFoodMenu?: boolean;
+    canHaveFoodMenus?: boolean;
   };
   profile?: {
     description?: string;
@@ -331,6 +341,26 @@ function normalizeLocationResourceName(locationNameOrId: string): string {
     return trimmed;
   }
   return `locations/${trimmed}`;
+}
+
+function normalizeAccountResourceName(accountNameOrId: string): string {
+  const trimmed = accountNameOrId.trim();
+  if (trimmed.startsWith('accounts/')) {
+    return trimmed;
+  }
+  return `accounts/${trimmed}`;
+}
+
+export function buildGoogleBusinessProfileFoodMenusName(
+  accountNameOrId: string,
+  locationNameOrId: string,
+): string {
+  const accountName = normalizeAccountResourceName(accountNameOrId);
+  const accountScopedLocation = locationNameOrId.trim().match(/^accounts\/[^/]+\/locations\/[^/]+$/)
+    ? locationNameOrId.trim()
+    : `${accountName}/${normalizeLocationResourceName(locationNameOrId)}`;
+
+  return `${accountScopedLocation}/foodMenus`;
 }
 
 export function buildGoogleBusinessProfileAuthUrl(state: string): string {
@@ -549,6 +579,10 @@ export async function listGoogleBusinessProfileLocations(
         title: location.title?.trim() || null,
         addressText: formatAddressText(location.storefrontAddress),
         placeId: location.metadata?.placeId?.trim() || null,
+        canHaveFoodMenus:
+          typeof location.metadata?.canHaveFoodMenus === 'boolean'
+            ? location.metadata.canHaveFoodMenus
+            : null,
       });
     }
     nextPageToken = response.nextPageToken;
@@ -645,5 +679,34 @@ export async function patchGoogleBusinessProfileLocation(
   return googleFetchJson<GoogleBusinessProfileLocationProfile>(url.toString(), accessToken, {
     method: 'PATCH',
     body: JSON.stringify(payload),
+  });
+}
+
+export async function getGoogleBusinessProfileFoodMenus(
+  accessToken: string,
+  foodMenusName: string,
+  options: { readMask?: Array<'name' | 'menus'> } = {},
+): Promise<GoogleFoodMenusResource> {
+  const url = new URL(`${GOOGLE_MY_BUSINESS_V4_BASE_URL}/${foodMenusName.trim()}`);
+  if (options.readMask && options.readMask.length > 0) {
+    url.searchParams.set('readMask', options.readMask.join(','));
+  }
+
+  return googleFetchJson<GoogleFoodMenusResource>(url.toString(), accessToken);
+}
+
+export async function updateGoogleBusinessProfileFoodMenus(
+  accessToken: string,
+  foodMenus: GoogleFoodMenusResource,
+  options: { updateMask?: Array<'menus'> } = {},
+): Promise<GoogleFoodMenusResource> {
+  const url = new URL(`${GOOGLE_MY_BUSINESS_V4_BASE_URL}/${foodMenus.name.trim()}`);
+  if (options.updateMask && options.updateMask.length > 0) {
+    url.searchParams.set('updateMask', options.updateMask.join(','));
+  }
+
+  return googleFetchJson<GoogleFoodMenusResource>(url.toString(), accessToken, {
+    method: 'PATCH',
+    body: JSON.stringify(foodMenus),
   });
 }

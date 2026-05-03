@@ -66,6 +66,26 @@ describe('listFieldStates', () => {
     expect(out[0]?.state).toBe('unsupported');
   });
 
+  it('accepts FoodMenus rows produced by menu sync recomputation', async () => {
+    const chain = makeChain([
+      makeRow({
+        section_key: 'foodMenus',
+        field_key: 'foodMenus.items.starters.foodMenu_item_starters/default_chilli-paneer',
+        state: 'drifted',
+      }),
+    ]);
+    const client = { from: vi.fn(() => chain) } as unknown as SupabaseClient<Database>;
+
+    const out = await listFieldStates({ client, restaurantId: 'rest-1' });
+
+    expect(out).toHaveLength(1);
+    expect(out[0]?.sectionKey).toBe('foodMenus');
+    expect(out[0]?.fieldKey).toBe(
+      'foodMenus.items.starters.foodMenu_item_starters/default_chilli-paneer',
+    );
+    expect(out[0]?.state).toBe('drifted');
+  });
+
   it('still rejects unknown section keys', async () => {
     const chain = makeChain([makeRow({ section_key: 'totally-bogus' })]);
     const client = { from: vi.fn(() => chain) } as unknown as SupabaseClient<Database>;

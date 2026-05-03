@@ -43,6 +43,15 @@ describe('buildDrinkItemPayload', () => {
     form.recommendationTags = 'house favourite, aperitif';
     form.displayOrder = '10';
     form.imageUrl = 'https://example.com/negroni.jpg';
+    form.caloriesKcal = '180';
+    form.proteinG = '0';
+    form.fatG = '0';
+    form.saturatedFatG = '0';
+    form.carbsG = '12.5';
+    form.sugarG = '10.25';
+    form.fiberG = '0';
+    form.sodiumMg = '4';
+    form.servesNum = '1';
 
     const group = createEmptyDrinkModifierGroupFormState();
     group.externalModifierGroupId = 'negroni-style';
@@ -110,6 +119,15 @@ describe('buildDrinkItemPayload', () => {
       active: true,
       displayOrder: 10,
       imageUrl: 'https://example.com/negroni.jpg',
+      caloriesKcal: 180,
+      proteinG: 0,
+      fatG: 0,
+      saturatedFatG: 0,
+      carbsG: 12.5,
+      sugarG: 10.25,
+      fiberG: 0,
+      sodiumMg: 4,
+      servesNum: 1,
       modifierGroups: [
         {
           externalModifierGroupId: 'negroni-style',

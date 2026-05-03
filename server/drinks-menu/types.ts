@@ -15,17 +15,19 @@ export type DrinkListStatusFilter = (typeof DRINK_LIST_STATUS_FILTERS)[number];
 
 const requiredText = z.string().trim().min(1);
 
-const optionalNullableText = z
-  .union([z.string(), z.null(), z.undefined()])
-  .transform((value) => {
-    if (typeof value !== 'string') {
-      return null;
-    }
-    const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : null;
-  });
+const optionalNullableText = z.union([z.string(), z.null(), z.undefined()]).transform((value) => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+});
 
 const stringArray = z.array(z.string().trim().min(1)).default([]);
+
+const optionalNullableNumber = z
+  .union([z.number().finite().min(0), z.null(), z.undefined()])
+  .transform((value) => value ?? null);
 
 export const DrinkModifierOptionInputSchema = z.object({
   externalModifierOptionId: requiredText,
@@ -71,7 +73,13 @@ export const DrinkItemUpsertInputSchema = z.object({
   shortDescription: optionalNullableText,
   fullDescription: optionalNullableText,
   basePrice: z.number().finite().nonnegative(),
-  currency: z.string().trim().min(1).max(8).transform((value) => value.toUpperCase()).default('GBP'),
+  currency: z
+    .string()
+    .trim()
+    .min(1)
+    .max(8)
+    .transform((value) => value.toUpperCase())
+    .default('GBP'),
   serviceTime: optionalNullableText,
   availabilityStatus: z.enum(DRINK_AVAILABILITY_STATUSES).default('available'),
   drinkType: optionalNullableText,
@@ -115,7 +123,22 @@ export const DrinkItemUpsertInputSchema = z.object({
   soldOut: z.boolean().default(false),
   active: z.boolean().default(true),
   displayOrder: z.number().int().default(0),
-  imageUrl: z.string().trim().url().nullable().optional().transform((value) => value ?? null),
+  imageUrl: z
+    .string()
+    .trim()
+    .url()
+    .nullable()
+    .optional()
+    .transform((value) => value ?? null),
+  caloriesKcal: z.number().int().min(0).nullable().default(null),
+  proteinG: optionalNullableNumber,
+  fatG: optionalNullableNumber,
+  saturatedFatG: optionalNullableNumber,
+  carbsG: optionalNullableNumber,
+  sugarG: optionalNullableNumber,
+  fiberG: optionalNullableNumber,
+  sodiumMg: optionalNullableNumber,
+  servesNum: z.number().int().min(0).nullable().default(null),
   modifierGroups: z.array(DrinkModifierGroupInputSchema).default([]),
 });
 

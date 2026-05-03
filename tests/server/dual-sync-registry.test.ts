@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildAttributeFields,
   buildCategoryFields,
+  buildFoodMenuItemFields,
   buildRegistry,
   buildServiceAreaFields,
   buildServiceItemFields,
@@ -99,14 +100,25 @@ describe('dual-sync registry', () => {
   it('builds dynamic business-context fields keyed off the union of slugs / keys', () => {
     expect(
       buildCategoryFields({
-        coreSnapshot: [{ displayName: 'Restaurant', categoryCode: 'restaurant', isPrimary: true, moreHoursTypes: [] }],
-        gbpSnapshot: [{ displayName: 'Bar', categoryCode: 'bar', isPrimary: false, moreHoursTypes: [] }],
+        coreSnapshot: [
+          {
+            displayName: 'Restaurant',
+            categoryCode: 'restaurant',
+            isPrimary: true,
+            moreHoursTypes: [],
+          },
+        ],
+        gbpSnapshot: [
+          { displayName: 'Bar', categoryCode: 'bar', isPrimary: false, moreHoursTypes: [] },
+        ],
       }).map((f) => f.fieldKey),
     ).toEqual(['businessContext.categories.bar', 'businessContext.categories.restaurant']);
 
     expect(
       buildServiceAreaFields({
-        coreSnapshot: [{ displayName: 'London', areaType: 'place', regionCode: 'GB', placeData: null }],
+        coreSnapshot: [
+          { displayName: 'London', areaType: 'place', regionCode: 'GB', placeData: null },
+        ],
         gbpSnapshot: [],
       }).map((f) => f.fieldKey),
     ).toEqual(['businessContext.serviceAreas.london']);
@@ -147,11 +159,83 @@ describe('dual-sync registry', () => {
     ).toEqual(['businessContext.serviceItems.item:bar/cocktails']);
   });
 
+  it('builds dynamic FoodMenus fields keyed off stable projected item identities', () => {
+    const fields = buildFoodMenuItemFields({
+      coreSnapshot: {
+        items: [
+          {
+            stableKey: 'foodMenu.item.starters/vegetarian.starter-paneer',
+            itemName: 'Chilli Paneer',
+            sectionLabel: 'Starters - Vegetarian',
+            description: 'Crisp paneer',
+            basePrice: 8.95,
+            currency: 'GBP',
+            dietaryTags: ['Vegetarian'],
+            allergensContains: ['Milk'],
+            googlePath: 'menus[0].sections[0].items[0]',
+          },
+        ],
+      },
+      gbpSnapshot: {
+        items: [
+          {
+            stableKey: 'foodMenu.item.mains/default.tikka-masala',
+            itemName: 'Tikka Masala',
+            sectionLabel: 'Mains',
+            description: 'Google description',
+            basePrice: 12.5,
+            currency: 'GBP',
+            dietaryTags: [],
+            allergensContains: ['Milk'],
+            googlePath: 'menus[0].sections[1].items[0]',
+          },
+        ],
+      },
+    });
+
+    expect(fields.map((field) => field.fieldKey)).toEqual([
+      'foodMenus.items.mains.foodMenu_item_mains/default_tikka-masala',
+      'foodMenus.items.starters-vegetarian.foodMenu_item_starters/vegetarian_starter-paneer',
+    ]);
+    expect(fields[0]).toMatchObject({
+      sectionKey: 'foodMenus',
+      kind: 'foodMenu.item',
+      importable: true,
+      exportable: true,
+      googleUpdateMask: 'menus',
+      conflictPolicy: 'manual',
+      deletePolicy: 'manual',
+    });
+  });
+
   it('composes the static + dynamic registry deterministically', () => {
-    const registry = buildRegistry({ coreSnapshot: emptySnapshot, gbpSnapshot: emptySnapshot });
+    const registry = buildRegistry({
+      coreSnapshot: {
+        ...emptySnapshot,
+        foodMenus: {
+          items: [
+            {
+              stableKey: 'foodMenu.item.starters/default.chilli-paneer',
+              itemName: 'Chilli Paneer',
+              sectionLabel: 'Starters',
+              description: null,
+              basePrice: 8.95,
+              currency: 'GBP',
+              dietaryTags: [],
+              allergensContains: [],
+              googlePath: null,
+            },
+          ],
+        },
+      },
+      gbpSnapshot: emptySnapshot,
+    });
     const fieldKeys = new Set(registry.map((f) => f.fieldKey));
     expect(fieldKeys.has('profile.name')).toBe(true);
     expect(fieldKeys.has('operatingHours.weekly.0')).toBe(true);
+    expect(
+      fieldKeys.has('foodMenus.items.starters.foodMenu_item_starters/default_chilli-paneer'),
+    ).toBe(true);
     expect(fieldKeys.has('core.bookingPolicy')).toBe(true);
   });
 
@@ -166,11 +250,11 @@ describe('dual-sync registry', () => {
     expect(
       resolveFieldCapability({ config, coreValue: '+44 1', gbpValue: '+44 1' }).canImport,
     ).toBe(true);
-    expect(
-      resolveFieldCapability({ config, coreValue: null, gbpValue: '+44 1' }).canExport,
-    ).toBe(false);
-    expect(
-      resolveFieldCapability({ config, coreValue: '+44 1', gbpValue: null }).canImport,
-    ).toBe(false);
+    expect(resolveFieldCapability({ config, coreValue: null, gbpValue: '+44 1' }).canExport).toBe(
+      false,
+    );
+    expect(resolveFieldCapability({ config, coreValue: '+44 1', gbpValue: null }).canImport).toBe(
+      false,
+    );
   });
 });

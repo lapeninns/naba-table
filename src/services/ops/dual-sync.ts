@@ -12,6 +12,7 @@ import type {
   DualSyncFieldCapability,
   DualSyncFieldState,
   DualSyncOutboundSource,
+  FoodMenusRefreshResult,
   DualSyncPublishOperation,
   DualSyncPublishOperationStatus,
   DualSyncSectionKey,
@@ -27,8 +28,7 @@ import type {
 } from '@/server/dual-sync/publish/types';
 import type { DualSyncCanonicalSnapshot } from '@/server/dual-sync/snapshots/types';
 
-const baseUrl = (restaurantId: string): string =>
-  `/api/ops/restaurants/${restaurantId}/dual-sync`;
+const baseUrl = (restaurantId: string): string => `/api/ops/restaurants/${restaurantId}/dual-sync`;
 
 export interface DualSyncFieldSummary {
   readonly fieldKey: string;
@@ -86,14 +86,13 @@ export interface GetDualSyncStateResponse {
   readonly lastSnapshot: DualSyncLastSnapshotSummary | null;
 }
 
-export async function getDualSyncState(
-  restaurantId: string,
-): Promise<GetDualSyncStateResponse> {
+export async function getDualSyncState(restaurantId: string): Promise<GetDualSyncStateResponse> {
   return fetchJson<GetDualSyncStateResponse>(`${baseUrl(restaurantId)}/state`);
 }
 
 export interface RefreshDualSyncResponse {
   readonly snapshotRun: DualSyncSnapshotRun;
+  readonly foodMenusRefresh: FoodMenusRefreshResult;
   readonly transitions: ReadonlyArray<{
     readonly fieldKey: string;
     readonly fromState: DualSyncFieldState | null;
@@ -148,9 +147,7 @@ export interface RunAutoExportResponse {
   readonly restaurantId: string;
   readonly candidatesConsidered: number;
   readonly decisionsExecuted: number;
-  readonly publishResult:
-    | { readonly summary: DualSyncPublishJobSummary }
-    | null;
+  readonly publishResult: { readonly summary: DualSyncPublishJobSummary } | null;
   readonly skipped: ReadonlyArray<{
     readonly candidateId: string;
     readonly fieldKey: string;

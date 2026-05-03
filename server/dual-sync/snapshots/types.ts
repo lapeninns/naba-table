@@ -96,9 +96,26 @@ export interface DualSyncBusinessContextSectionValues {
   readonly serviceItems: ReadonlyArray<DualSyncServiceItemValue>;
 }
 
+export interface DualSyncFoodMenuItemValue {
+  readonly stableKey: string;
+  readonly itemName: string;
+  readonly sectionLabel: string;
+  readonly description: string | null;
+  readonly basePrice: number | null;
+  readonly currency: string | null;
+  readonly dietaryTags: ReadonlyArray<string>;
+  readonly allergensContains: ReadonlyArray<string>;
+  readonly googlePath: string | null;
+}
+
+export interface DualSyncFoodMenusSectionValue {
+  readonly items: ReadonlyArray<DualSyncFoodMenuItemValue>;
+}
+
 export interface DualSyncCanonicalSnapshot {
   readonly profile: DualSyncProfileSectionValue;
   readonly operatingHours: DualSyncOperatingHoursSectionValue;
   readonly servicePeriods: DualSyncServicePeriodsSectionValue;
   readonly businessContext: DualSyncBusinessContextSectionValues;
+  readonly foodMenus?: DualSyncFoodMenusSectionValue;
 }

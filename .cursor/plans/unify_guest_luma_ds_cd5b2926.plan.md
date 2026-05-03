@@ -6,7 +6,7 @@ todos:
     content: Pick consolidation approach (promote Luma to :root vs unify selectors); list files to touch
     status: pending
   - id: merge-tokens
-    content: Single Luma source for light/dark; remove ops-only overrides that diverge from Luma (including styles/themes/app.css density deltas unless they match spec)
+    content: Single Luma source for light/dark; keep ops density aligned with globals.css + Luma tokens unless a real override file is reintroduced
     status: pending
   - id: typography-spacing
     content: Align Tailwind/base typography and spacing scale to Luma on ops (Inter/Merriweather, pg/Luma radii and rhythm as spec’d)
@@ -37,7 +37,7 @@ flowchart LR
   subgraph themes [CSS layers]
     root[":root / .dark in globals.css"]
     guest["[data-theme=guest] in public-guest.tokens.css"]
-    appDensity["[data-theme=app] in styles/themes/app.css"]
+    appDensity["[data-theme=app] currently resolves through globals.css + public-guest.tokens.css"]
   end
   bootstrap --> html
   client --> html
@@ -49,12 +49,12 @@ flowchart LR
 ```
 
 - **`resolveDocumentThemeForPathname`** ([`lib/theme/documentTheme.ts`](lib/theme/documentTheme.ts)): `/app/**` → `app`; else → `guest`.
-- **Ops** inherits **`:root` / `.dark`** in [`src/app/globals.css`](src/app/globals.css) (non-Luma slate/oklch defaults) plus **[`styles/themes/app.css`](styles/themes/app.css)** (card padding and app text scale—**not** in the Luma spec for guest).
+- **Ops** inherits **`:root` / `.dark`** in [`src/app/globals.css`](src/app/globals.css) plus Luma tokens in [`styles/design-system/public-guest.tokens.css`](styles/design-system/public-guest.tokens.css). There is no tracked `styles/themes/app.css` file in the current repo.
 - **Guest** gets full Luma from **`[data-theme='guest']` / `.guest-theme`**.
 
 ## Target direction
 
-1. **Single source of Luma truth** — Prefer **promoting Luma semantics to `:root` / `.dark`** (or equivalent) so every route gets Luma without relying on `data-theme='guest'` for colors. [`styles/themes/app.css`](styles/themes/app.css) should be **removed or reduced** to only what still matches the Luma spec (if anything); **do not** keep a second “dashboard” density.
+1. **Single source of Luma truth** — Prefer **promoting Luma semantics to `:root` / `.dark`** (or equivalent) so every route gets Luma without relying on `data-theme='guest'` for colors. Do not add a second app-only theme file or dashboard-density fork.
 2. **`data-theme` handling** — After tokens are unified, either:
    - **collapse** to one theme for styling purposes (e.g. both paths apply identical variables), or
    - keep `app` vs `guest` **only** for non-visual concerns if any remain (e.g. guest light-lock behavior in [`components/LayoutClient.tsx`](components/LayoutClient.tsx))—**visual output still 100% Luma** in both cases.
@@ -73,7 +73,7 @@ flowchart LR
 ## Concrete workstreams
 
 1. **Token consolidation** — Luma light + dark at global base; remove conflicting `:root` chart/sidebar/destructive values.
-2. **Remove ops-only density** — Delete or rewrite [`styles/themes/app.css`](styles/themes/app.css) so nothing overrides Luma spacing/type unless the spec explicitly defines multiple tiers (it doesn’t for “ops vs guest”—target is one system).
+2. **Remove ops-only density** — Keep ops spacing/type aligned to Luma tokens in `globals.css` and `public-guest.tokens.css`; if an app-only theme file is reintroduced, delete or rewrite it unless the spec explicitly defines multiple tiers.
 3. **Typography & utilities** — Ops shell uses Luma font stacks and spacing; audit [`src/app/app`](src/app/app) for `font-sajilo`, arbitrary Tailwind palette classes, and custom radii.
 4. **Docs** — [`AGENTS.md`](AGENTS.md): replace “Ops uses default shadcn theme…” with **Radix Luma everywhere**.
 5. **Verification** — Browser: shipped ops route + guest route; `pnpm run lint`, `pnpm run typecheck`.

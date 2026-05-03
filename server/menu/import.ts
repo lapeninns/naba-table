@@ -54,6 +54,15 @@ const ITEM_HEADERS = [
   'sold_out',
   'display_order',
   'image_url',
+  'calories_kcal',
+  'protein_g',
+  'fat_g',
+  'saturated_fat_g',
+  'carbs_g',
+  'sugar_g',
+  'fiber_g',
+  'sodium_mg',
+  'serves_num',
 ] as const;
 
 const MODIFIER_GROUP_HEADERS = [
@@ -197,7 +206,13 @@ function parseDecimalCell(
   }
   const parsed = Number.parseFloat(trimmed);
   if (!Number.isFinite(parsed)) {
-    addError(options.errors, options.file, options.row, options.column, 'Expected a decimal number');
+    addError(
+      options.errors,
+      options.file,
+      options.row,
+      options.column,
+      'Expected a decimal number',
+    );
     return options.defaultValue ?? null;
   }
   return parsed;
@@ -229,10 +244,22 @@ function parseIntegerCell(
     return options.defaultValue ?? null;
   }
   if (options.min !== undefined && parsed < options.min) {
-    addError(options.errors, options.file, options.row, options.column, `Value must be at least ${options.min}`);
+    addError(
+      options.errors,
+      options.file,
+      options.row,
+      options.column,
+      `Value must be at least ${options.min}`,
+    );
   }
   if (options.max !== undefined && parsed > options.max) {
-    addError(options.errors, options.file, options.row, options.column, `Value must be at most ${options.max}`);
+    addError(
+      options.errors,
+      options.file,
+      options.row,
+      options.column,
+      `Value must be at most ${options.max}`,
+    );
   }
   return parsed;
 }
@@ -268,7 +295,9 @@ export async function prepareMenuImport(
   const errors: MenuImportError[] = [];
   const parsedItemsFile = parseCsvFile(files.itemsText);
   const parsedGroupsFile = files.modifierGroupsText ? parseCsvFile(files.modifierGroupsText) : null;
-  const parsedOptionsFile = files.modifierOptionsText ? parseCsvFile(files.modifierOptionsText) : null;
+  const parsedOptionsFile = files.modifierOptionsText
+    ? parseCsvFile(files.modifierOptionsText)
+    : null;
   const replaceModifiers = Boolean(parsedGroupsFile && parsedOptionsFile);
 
   ensureHeaders(parsedItemsFile.headers, ITEM_HEADERS, 'items', errors);
@@ -287,7 +316,13 @@ export async function prepareMenuImport(
   if (parsedOptionsFile) {
     ensureHeaders(parsedOptionsFile.headers, MODIFIER_OPTION_HEADERS, 'modifier_options', errors);
     if (!parsedGroupsFile) {
-      addError(errors, 'modifier_options', 1, 'modifier_group_id', 'modifier_groups CSV is required when modifier_options CSV is provided');
+      addError(
+        errors,
+        'modifier_options',
+        1,
+        'modifier_group_id',
+        'modifier_groups CSV is required when modifier_options CSV is provided',
+      );
     }
   }
 
@@ -319,9 +354,9 @@ export async function prepareMenuImport(
         }) ?? 0,
       currency: (readOptionalText(row.values, 'currency') ?? 'GBP').toUpperCase(),
       serviceTime: readOptionalText(row.values, 'service_time'),
-      availabilityStatus: ((readOptionalText(row.values, 'availability_status') ?? 'available').toLowerCase() as
-        | 'available'
-        | 'unavailable'),
+      availabilityStatus: (
+        readOptionalText(row.values, 'availability_status') ?? 'available'
+      ).toLowerCase() as 'available' | 'unavailable',
       keyIngredients: parseListCell(row.values.key_ingredients ?? ''),
       mainProteinOrBase: readOptionalText(row.values, 'main_protein_or_base'),
       cookingStyle: readOptionalText(row.values, 'cooking_style'),
@@ -436,11 +471,82 @@ export async function prepareMenuImport(
           errors,
         }) ?? 0,
       imageUrl: readOptionalText(row.values, 'image_url'),
+      caloriesKcal: parseIntegerCell(row.values.calories_kcal ?? '', {
+        defaultValue: null,
+        min: 0,
+        file: 'items',
+        row: row.rowNumber,
+        column: 'calories_kcal',
+        errors,
+      }),
+      proteinG: parseDecimalCell(row.values.protein_g ?? '', {
+        defaultValue: null,
+        file: 'items',
+        row: row.rowNumber,
+        column: 'protein_g',
+        errors,
+      }),
+      fatG: parseDecimalCell(row.values.fat_g ?? '', {
+        defaultValue: null,
+        file: 'items',
+        row: row.rowNumber,
+        column: 'fat_g',
+        errors,
+      }),
+      saturatedFatG: parseDecimalCell(row.values.saturated_fat_g ?? '', {
+        defaultValue: null,
+        file: 'items',
+        row: row.rowNumber,
+        column: 'saturated_fat_g',
+        errors,
+      }),
+      carbsG: parseDecimalCell(row.values.carbs_g ?? '', {
+        defaultValue: null,
+        file: 'items',
+        row: row.rowNumber,
+        column: 'carbs_g',
+        errors,
+      }),
+      sugarG: parseDecimalCell(row.values.sugar_g ?? '', {
+        defaultValue: null,
+        file: 'items',
+        row: row.rowNumber,
+        column: 'sugar_g',
+        errors,
+      }),
+      fiberG: parseDecimalCell(row.values.fiber_g ?? '', {
+        defaultValue: null,
+        file: 'items',
+        row: row.rowNumber,
+        column: 'fiber_g',
+        errors,
+      }),
+      sodiumMg: parseDecimalCell(row.values.sodium_mg ?? '', {
+        defaultValue: null,
+        file: 'items',
+        row: row.rowNumber,
+        column: 'sodium_mg',
+        errors,
+      }),
+      servesNum: parseIntegerCell(row.values.serves_num ?? '', {
+        defaultValue: null,
+        min: 0,
+        file: 'items',
+        row: row.rowNumber,
+        column: 'serves_num',
+        errors,
+      }),
       modifierGroups: [],
     };
 
     if (seenItemIds.has(input.externalItemId)) {
-      addError(errors, 'items', row.rowNumber, 'item_id', `Duplicate item_id "${input.externalItemId}"`);
+      addError(
+        errors,
+        'items',
+        row.rowNumber,
+        'item_id',
+        `Duplicate item_id "${input.externalItemId}"`,
+      );
     } else {
       seenItemIds.add(input.externalItemId);
     }
@@ -448,7 +554,13 @@ export async function prepareMenuImport(
     const parsed = MenuItemUpsertInputSchema.safeParse(input);
     if (!parsed.success) {
       parsed.error.issues.forEach((issue) => {
-        addError(errors, 'items', row.rowNumber, issue.path[0] ? String(issue.path[0]) : null, issue.message);
+        addError(
+          errors,
+          'items',
+          row.rowNumber,
+          issue.path[0] ? String(issue.path[0]) : null,
+          issue.message,
+        );
       });
     } else if (rowErrorsBefore === errors.length) {
       items.push(parsed.data);
@@ -465,8 +577,20 @@ export async function prepareMenuImport(
         row.rowNumber,
         errors,
       );
-      const externalItemId = readRequiredText(row.values, 'item_id', 'modifier_groups', row.rowNumber, errors);
-      const groupName = readRequiredText(row.values, 'group_name', 'modifier_groups', row.rowNumber, errors);
+      const externalItemId = readRequiredText(
+        row.values,
+        'item_id',
+        'modifier_groups',
+        row.rowNumber,
+        errors,
+      );
+      const groupName = readRequiredText(
+        row.values,
+        'group_name',
+        'modifier_groups',
+        row.rowNumber,
+        errors,
+      );
       const required = parseBooleanCell(row.values.required ?? '', {
         defaultValue: false,
         file: 'modifier_groups',
@@ -494,16 +618,34 @@ export async function prepareMenuImport(
         }) ?? 1;
 
       if (seenGroupIds.has(externalModifierGroupId)) {
-        addError(errors, 'modifier_groups', row.rowNumber, 'modifier_group_id', `Duplicate modifier_group_id "${externalModifierGroupId}"`);
+        addError(
+          errors,
+          'modifier_groups',
+          row.rowNumber,
+          'modifier_group_id',
+          `Duplicate modifier_group_id "${externalModifierGroupId}"`,
+        );
       } else {
         seenGroupIds.add(externalModifierGroupId);
       }
 
       if (minSelect > maxSelect) {
-        addError(errors, 'modifier_groups', row.rowNumber, 'min_select', 'min_select cannot be greater than max_select');
+        addError(
+          errors,
+          'modifier_groups',
+          row.rowNumber,
+          'min_select',
+          'min_select cannot be greater than max_select',
+        );
       }
       if (required && minSelect < 1) {
-        addError(errors, 'modifier_groups', row.rowNumber, 'min_select', 'Required groups must have min_select >= 1');
+        addError(
+          errors,
+          'modifier_groups',
+          row.rowNumber,
+          'min_select',
+          'Required groups must have min_select >= 1',
+        );
       }
 
       if (rowErrorsBefore === errors.length) {
@@ -537,7 +679,13 @@ export async function prepareMenuImport(
         row.rowNumber,
         errors,
       );
-      const optionName = readRequiredText(row.values, 'option_name', 'modifier_options', row.rowNumber, errors);
+      const optionName = readRequiredText(
+        row.values,
+        'option_name',
+        'modifier_options',
+        row.rowNumber,
+        errors,
+      );
       const priceDelta =
         parseDecimalCell(row.values.price_delta ?? '', {
           defaultValue: 0,
@@ -553,18 +701,30 @@ export async function prepareMenuImport(
         column: 'default_selected',
         errors,
       });
-      const availabilityStatus = ((readOptionalText(row.values, 'availability_status') ?? 'available').toLowerCase() as
-        | 'available'
-        | 'unavailable');
+      const availabilityStatus = (
+        readOptionalText(row.values, 'availability_status') ?? 'available'
+      ).toLowerCase() as 'available' | 'unavailable';
 
       if (seenOptionIds.has(externalModifierOptionId)) {
-        addError(errors, 'modifier_options', row.rowNumber, 'modifier_option_id', `Duplicate modifier_option_id "${externalModifierOptionId}"`);
+        addError(
+          errors,
+          'modifier_options',
+          row.rowNumber,
+          'modifier_option_id',
+          `Duplicate modifier_option_id "${externalModifierOptionId}"`,
+        );
       } else {
         seenOptionIds.add(externalModifierOptionId);
       }
 
       if (!['available', 'unavailable'].includes(availabilityStatus)) {
-        addError(errors, 'modifier_options', row.rowNumber, 'availability_status', 'availability_status must be available or unavailable');
+        addError(
+          errors,
+          'modifier_options',
+          row.rowNumber,
+          'availability_status',
+          'availability_status must be available or unavailable',
+        );
       }
 
       if (rowErrorsBefore === errors.length) {
@@ -625,12 +785,22 @@ export async function prepareMenuImport(
     itemRows: parsedItemsFile.rows.length,
     modifierGroupRows: parsedGroupsFile?.rows.length ?? 0,
     modifierOptionRows: parsedOptionsFile?.rows.length ?? 0,
-    itemsToCreate: items.filter((item) => !existingIds.itemExternalIds.has(item.externalItemId)).length,
-    itemsToUpdate: items.filter((item) => existingIds.itemExternalIds.has(item.externalItemId)).length,
-    modifierGroupsToCreate: modifierGroups.filter((group) => !existingIds.modifierGroupExternalIds.has(group.externalModifierGroupId)).length,
-    modifierGroupsToUpdate: modifierGroups.filter((group) => existingIds.modifierGroupExternalIds.has(group.externalModifierGroupId)).length,
-    modifierOptionsToCreate: modifierOptions.filter((option) => !existingIds.modifierOptionExternalIds.has(option.externalModifierOptionId)).length,
-    modifierOptionsToUpdate: modifierOptions.filter((option) => existingIds.modifierOptionExternalIds.has(option.externalModifierOptionId)).length,
+    itemsToCreate: items.filter((item) => !existingIds.itemExternalIds.has(item.externalItemId))
+      .length,
+    itemsToUpdate: items.filter((item) => existingIds.itemExternalIds.has(item.externalItemId))
+      .length,
+    modifierGroupsToCreate: modifierGroups.filter(
+      (group) => !existingIds.modifierGroupExternalIds.has(group.externalModifierGroupId),
+    ).length,
+    modifierGroupsToUpdate: modifierGroups.filter((group) =>
+      existingIds.modifierGroupExternalIds.has(group.externalModifierGroupId),
+    ).length,
+    modifierOptionsToCreate: modifierOptions.filter(
+      (option) => !existingIds.modifierOptionExternalIds.has(option.externalModifierOptionId),
+    ).length,
+    modifierOptionsToUpdate: modifierOptions.filter((option) =>
+      existingIds.modifierOptionExternalIds.has(option.externalModifierOptionId),
+    ).length,
     impactedItemCount: replaceModifiers
       ? new Set(
           modifierGroups.length > 0

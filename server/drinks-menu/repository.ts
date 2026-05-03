@@ -112,6 +112,15 @@ function mapDrinkItemDetail(
     active: item.active,
     displayOrder: item.display_order,
     imageUrl: item.image_url ?? null,
+    caloriesKcal: item.calories_kcal ?? null,
+    proteinG: item.protein_g === null ? null : toNumber(item.protein_g),
+    fatG: item.fat_g === null ? null : toNumber(item.fat_g),
+    saturatedFatG: item.saturated_fat_g === null ? null : toNumber(item.saturated_fat_g),
+    carbsG: item.carbs_g === null ? null : toNumber(item.carbs_g),
+    sugarG: item.sugar_g === null ? null : toNumber(item.sugar_g),
+    fiberG: item.fiber_g === null ? null : toNumber(item.fiber_g),
+    sodiumMg: item.sodium_mg === null ? null : toNumber(item.sodium_mg),
+    servesNum: item.serves_num ?? null,
     createdAt: item.created_at,
     updatedAt: item.updated_at,
     modifierGroups: groups.map((group) => ({
@@ -142,6 +151,20 @@ function mapDrinkItemDetail(
           updatedAt: option.updated_at,
         })),
     })),
+  };
+}
+
+function getDrinkItemExtendedFieldUpdate(item: DrinkItemUpsertInput) {
+  return {
+    calories_kcal: item.caloriesKcal,
+    protein_g: item.proteinG,
+    fat_g: item.fatG,
+    saturated_fat_g: item.saturatedFatG,
+    carbs_g: item.carbsG,
+    sugar_g: item.sugarG,
+    fiber_g: item.fiberG,
+    sodium_mg: item.sodiumMg,
+    serves_num: item.servesNum,
   };
 }
 
@@ -210,7 +233,10 @@ export async function listDrinkItems(
       break;
   }
 
-  const [{ data: itemsData, error: itemsError }, facets] = await Promise.all([query, getDrinkFacets(restaurantId, client)]);
+  const [{ data: itemsData, error: itemsError }, facets] = await Promise.all([
+    query,
+    getDrinkFacets(restaurantId, client),
+  ]);
 
   if (itemsError) {
     throw itemsError;
@@ -237,7 +263,9 @@ export async function listDrinkItems(
   }
 
   return {
-    items: (itemsData ?? []).map((row) => mapDrinkItemSummary(row, modifierGroupCounts.get(row.id) ?? 0)),
+    items: (itemsData ?? []).map((row) =>
+      mapDrinkItemSummary(row, modifierGroupCounts.get(row.id) ?? 0),
+    ),
     facets,
   };
 }
@@ -291,6 +319,68 @@ export async function getDrinkItemDetail(
   return mapDrinkItemDetail(item, groups ?? [], options.data ?? []);
 }
 
+export async function listDrinkItemDetails(
+  restaurantId: string,
+  client: DbClient = getServiceSupabaseClient(),
+): Promise<DrinkItemDetail[]> {
+  const { data: items, error: itemsError } = await client
+    .from('restaurant_drink_menu_items')
+    .select('*')
+    .eq('restaurant_id', restaurantId)
+    .order('display_order', { ascending: true })
+    .order('drink_name', { ascending: true });
+
+  if (itemsError) {
+    throw itemsError;
+  }
+
+  const itemRows = items ?? [];
+  if (itemRows.length === 0) {
+    return [];
+  }
+
+  const itemIds = itemRows.map((item) => item.id);
+  const { data: groups, error: groupsError } = await client
+    .from('restaurant_drink_menu_modifier_groups')
+    .select('*')
+    .eq('restaurant_id', restaurantId)
+    .in('drink_item_id', itemIds)
+    .order('display_order', { ascending: true });
+
+  if (groupsError) {
+    throw groupsError;
+  }
+
+  const groupRows = groups ?? [];
+  const groupIds = groupRows.map((group) => group.id);
+  let optionRows: ModifierOptionRow[] = [];
+  if (groupIds.length > 0) {
+    const { data: options, error: optionsError } = await client
+      .from('restaurant_drink_menu_modifier_options')
+      .select('*')
+      .eq('restaurant_id', restaurantId)
+      .in('modifier_group_id', groupIds)
+      .order('display_order', { ascending: true });
+
+    if (optionsError) {
+      throw optionsError;
+    }
+    optionRows = options ?? [];
+  }
+
+  return itemRows.map((item) =>
+    mapDrinkItemDetail(
+      item,
+      groupRows.filter((group) => group.drink_item_id === item.id),
+      optionRows.filter((option) =>
+        groupRows.some(
+          (group) => group.drink_item_id === item.id && group.id === option.modifier_group_id,
+        ),
+      ),
+    ),
+  );
+}
+
 export async function upsertDrinkItem(
   restaurantId: string,
   item: DrinkItemUpsertInput,
@@ -308,6 +398,16 @@ export async function upsertDrinkItem(
   const resolved = data as { id?: string } | null;
   if (!resolved?.id) {
     throw new Error('Drink item RPC did not return an item id');
+  }
+
+  const { error: extendedFieldsError } = await client
+    .from('restaurant_drink_menu_items')
+    .update(getDrinkItemExtendedFieldUpdate(item) as never)
+    .eq('restaurant_id', restaurantId)
+    .eq('id', resolved.id);
+
+  if (extendedFieldsError) {
+    throw extendedFieldsError;
   }
 
   const detail = await getDrinkItemDetail(restaurantId, resolved.id, client);
@@ -355,6 +455,20 @@ export async function applyDrinkImport(
   if (error) {
     throw error;
   }
+
+  await Promise.all(
+    payload.items.map(async (item) => {
+      const { error: extendedFieldsError } = await client
+        .from('restaurant_drink_menu_items')
+        .update(getDrinkItemExtendedFieldUpdate(item) as never)
+        .eq('restaurant_id', restaurantId)
+        .eq('external_drink_id', item.externalDrinkId);
+
+      if (extendedFieldsError) {
+        throw extendedFieldsError;
+      }
+    }),
+  );
 }
 
 export async function getExistingDrinkExternalIds(
@@ -400,8 +514,12 @@ export async function getExistingDrinkExternalIds(
 
   return {
     itemExternalIds: new Set((items.data ?? []).map((row) => row.external_drink_id)),
-    modifierGroupExternalIds: new Set((groups.data ?? []).map((row) => row.external_modifier_group_id)),
-    modifierOptionExternalIds: new Set((options.data ?? []).map((row) => row.external_modifier_option_id)),
+    modifierGroupExternalIds: new Set(
+      (groups.data ?? []).map((row) => row.external_modifier_group_id),
+    ),
+    modifierOptionExternalIds: new Set(
+      (options.data ?? []).map((row) => row.external_modifier_option_id),
+    ),
   };
 }
 
@@ -422,6 +540,22 @@ export async function drinkItemExistsForRestaurant(
   }
 
   return Boolean(data?.id);
+}
+
+export async function deleteDrinkItem(
+  restaurantId: string,
+  itemId: string,
+  client: DbClient = getServiceSupabaseClient(),
+): Promise<void> {
+  const { error } = await client
+    .from('restaurant_drink_menu_items')
+    .delete()
+    .eq('restaurant_id', restaurantId)
+    .eq('id', itemId);
+
+  if (error) {
+    throw error;
+  }
 }
 
 export async function drinkItemExternalIdExistsForRestaurant(

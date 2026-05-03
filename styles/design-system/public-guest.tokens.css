@@ -12,6 +12,23 @@
     color-scheme: light;
 
     /* Radix Luma semantic shadcn tokens. */
+    --font-sajilo:
+      var(--font-radix-luma-body, Inter), ui-sans-serif, system-ui, -apple-system,
+      BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --shadow-color-base: 240 10% 4%;
+
+    --color-neutral-0: #ffffff;
+    --color-neutral-50: #fafafa;
+    --color-neutral-100: #f4f4f5;
+    --color-neutral-200: #e4e4e7;
+    --color-neutral-300: #d4d4d8;
+    --color-neutral-400: #a1a1aa;
+    --color-neutral-500: #71717b;
+    --color-neutral-600: #52525b;
+    --color-neutral-700: #3f3f46;
+    --color-neutral-800: #27272a;
+    --color-neutral-900: #18181b;
+
     --background: 0 0% 100%;
     --foreground: 240 10% 4%;
     --card: 0 0% 100%;
@@ -28,6 +45,12 @@
     --accent-foreground: 240 6% 10%;
     --destructive: 357 100% 45%;
     --destructive-foreground: 0 0% 100%;
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 240 10% 4%;
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
     --border: 240 6% 90%;
     --input: 240 6% 90%;
     --ring: 240 5% 64%;
@@ -64,6 +87,16 @@
     --pg-cobalt-glow: rgb(20 71 230 / 0.15);
     --pg-danger: #e7000b;
     --pg-danger-soft: #fef2f2;
+
+    --color-success-50: #f0fdf4;
+    --color-success-500: #22c55e;
+    --color-success-700: #15803d;
+    --color-warning-50: #fffbeb;
+    --color-warning-500: #f59e0b;
+    --color-warning-700: #b45309;
+    --color-error-50: #fef2f2;
+    --color-error-500: #ef4444;
+    --color-error-700: #b91c1c;
 
     /* Semantic aliases for public/guest composition. */
     --pg-bg: var(--pg-paper);
@@ -111,9 +144,6 @@
     --text-heading: hsl(var(--foreground));
 
     /* Type scale. */
-    --font-sajilo:
-      var(--font-radix-luma-body, Inter), ui-sans-serif, system-ui, -apple-system,
-      BlinkMacSystemFont, 'Segoe UI', sans-serif;
     --pg-font-display: var(--font-radix-luma-display, Merriweather), Georgia, serif;
     --pg-font-body:
       var(--font-radix-luma-body, Inter), ui-sans-serif, system-ui, -apple-system,
@@ -145,11 +175,13 @@
     --pg-touch-target: 2.75rem;
 
     /* Shape and elevation. */
+    --radius-base: 0.7rem;
     --radius: 0.7rem;
     --radius-sm: 0.525rem;
     --radius-md: 0.7rem;
     --radius-lg: 0.875rem;
     --radius-xl: 1.225rem;
+    --radius-pill: 9999px;
     --pg-radius-xs: 0.525rem;
     --pg-radius-sm: 0.7rem;
     --pg-radius-md: 0.875rem;
@@ -187,6 +219,15 @@
     --pg-ease-snap: cubic-bezier(0.34, 1.56, 0.64, 1);
     --ease-out: var(--pg-ease-spring);
     --ease-in-out: var(--pg-ease-out);
+
+    --screen-margin: 1.5rem;
+    --card-padding: 1.5rem;
+    --button-height: 2.25rem;
+    --touch-target: 2.75rem;
+    --safe-area-inset-top: env(safe-area-inset-top);
+    --safe-area-inset-right: env(safe-area-inset-right);
+    --safe-area-inset-bottom: env(safe-area-inset-bottom);
+    --safe-area-inset-left: env(safe-area-inset-left);
 
     /* Legacy guest aliases retained for compatibility during cleanup. */
     --guest-space-xs: 0.5rem;
@@ -246,6 +287,7 @@
   .guest-theme.dark {
     color-scheme: dark;
 
+    --shadow-color-base: 0 0% 0%;
     --background: 240 10% 4%;
     --foreground: 0 0% 98%;
     --card: 240 6% 10%;
@@ -261,6 +303,13 @@
     --accent: 240 4% 16%;
     --accent-foreground: 0 0% 98%;
     --destructive: 359 100% 70%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 240 10% 4%;
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
     --border: 240 4% 16%;
     --input: 240 5% 26%;
     --ring: 240 4% 46%;
@@ -302,11 +351,25 @@
     --color-accent-100: #3f3f46;
     --color-accent-500: #2b7fff;
     --color-accent-700: #8ec5ff;
+    --color-primary: hsl(var(--primary));
+    --color-primary-pressed: var(--pg-action-hover);
+    --color-accent: hsl(var(--accent));
+    --color-text-primary: hsl(var(--foreground));
+    --color-text-secondary: hsl(var(--muted-foreground));
+    --color-on-primary: hsl(var(--primary-foreground));
+    --color-surface: hsl(var(--card));
+    --color-background: hsl(var(--background));
+    --color-border: hsl(var(--border));
     --color-surface-warm: #09090b;
     --color-surface-elevated: #18181b;
     --color-surface-muted: #27272a;
     --text-body-warm: hsl(var(--muted-foreground));
     --text-heading: hsl(var(--foreground));
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.24);
+    --shadow: 0 1px 3px rgb(0 0 0 / 0.28), 0 1px 2px rgb(0 0 0 / 0.2);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.3);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.35), 0 4px 6px -4px rgb(0 0 0 / 0.35);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.35), 0 8px 10px -6px rgb(0 0 0 / 0.35);
     --shadow-card: 0 1px 2px rgb(0 0 0 / 0.24);
     --shadow-card-hover: 0 4px 6px -1px rgb(0 0 0 / 0.28), 0 2px 4px -2px rgb(0 0 0 / 0.3);
     --shadow-featured: 0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.3);

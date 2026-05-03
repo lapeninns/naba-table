@@ -24,16 +24,14 @@ export const DUAL_SYNC_SECTION_KEYS = [
   'businessContext.serviceAreas',
   'businessContext.attributes',
   'businessContext.serviceItems',
+  'foodMenus',
 ] as const;
 
 export type DualSyncSectionKey = (typeof DUAL_SYNC_SECTION_KEYS)[number];
 export type DualSyncFieldStateSectionKey = DualSyncSectionKey | 'core_only';
 
 export function isDualSyncSectionKey(value: unknown): value is DualSyncSectionKey {
-  return (
-    typeof value === 'string' &&
-    (DUAL_SYNC_SECTION_KEYS as readonly string[]).includes(value)
-  );
+  return typeof value === 'string' && (DUAL_SYNC_SECTION_KEYS as readonly string[]).includes(value);
 }
 
 // ---------------------------------------------------------------------------
@@ -41,21 +39,14 @@ export function isDualSyncSectionKey(value: unknown): value is DualSyncSectionKe
 // ---------------------------------------------------------------------------
 
 export type DualSyncDirectionIntent = 'import_to_nabatable' | 'export_to_google';
-export type DualSyncDecisionAction =
-  | 'import_from_google'
-  | 'export_to_google'
-  | 'ignore';
+export type DualSyncDecisionAction = 'import_from_google' | 'export_to_google' | 'ignore';
 
 export function isDualSyncDirectionIntent(value: unknown): value is DualSyncDirectionIntent {
   return value === 'import_to_nabatable' || value === 'export_to_google';
 }
 
 export function isDualSyncDecisionAction(value: unknown): value is DualSyncDecisionAction {
-  return (
-    value === 'import_from_google' ||
-    value === 'export_to_google' ||
-    value === 'ignore'
-  );
+  return value === 'import_from_google' || value === 'export_to_google' || value === 'ignore';
 }
 
 // ---------------------------------------------------------------------------
@@ -73,7 +64,8 @@ export type DualSyncGoogleUpdateMask =
   | 'categories'
   | 'serviceArea'
   | 'attributes'
-  | 'serviceItems';
+  | 'serviceItems'
+  | 'menus';
 
 // ---------------------------------------------------------------------------
 // Field state machine
@@ -96,10 +88,7 @@ export const DUAL_SYNC_FIELD_STATES = [
 export type DualSyncFieldState = (typeof DUAL_SYNC_FIELD_STATES)[number];
 
 export function isDualSyncFieldState(value: unknown): value is DualSyncFieldState {
-  return (
-    typeof value === 'string' &&
-    (DUAL_SYNC_FIELD_STATES as readonly string[]).includes(value)
-  );
+  return typeof value === 'string' && (DUAL_SYNC_FIELD_STATES as readonly string[]).includes(value);
 }
 
 // ---------------------------------------------------------------------------

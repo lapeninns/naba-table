@@ -25,6 +25,10 @@ import {
   applyBusinessContextServiceItemImportToCore,
 } from './ports/business-context-import';
 import {
+  applyFoodMenusExportBatchToGoogle,
+  applyFoodMenusExportToGoogle,
+} from './ports/food-menus-export';
+import {
   applyOperatingHoursExportBatchToGoogle,
   applyOperatingHoursExportToGoogle,
 } from './ports/operating-hours-export';
@@ -55,18 +59,14 @@ export interface DualSyncOrchestratorPorts {
    * `failure` switches the operation to `failed` and surfaces in the
    * job summary.
    */
-  readonly applyImportToCore: (
-    ctx: DualSyncOperationContext,
-  ) => Promise<DualSyncOperationResult>;
+  readonly applyImportToCore: (ctx: DualSyncOperationContext) => Promise<DualSyncOperationResult>;
 
   /**
    * Apply one export (`Core -> Google`) operation. Implementations should
    * call the appropriate GBP API patch with the registry-defined update
    * mask and return any external response payload for the audit log.
    */
-  readonly applyExportToGoogle: (
-    ctx: DualSyncOperationContext,
-  ) => Promise<DualSyncOperationResult>;
+  readonly applyExportToGoogle: (ctx: DualSyncOperationContext) => Promise<DualSyncOperationResult>;
 
   /**
    * Optional section-level batch entrypoint. The orchestrator groups
@@ -115,6 +115,7 @@ const BUSINESS_CONTEXT_CATEGORY_PREFIX = 'businessContext.categories.';
 const BUSINESS_CONTEXT_SERVICE_AREA_PREFIX = 'businessContext.serviceAreas.';
 const BUSINESS_CONTEXT_ATTRIBUTE_PREFIX = 'businessContext.attributes.';
 const BUSINESS_CONTEXT_SERVICE_ITEM_PREFIX = 'businessContext.serviceItems.';
+const FOOD_MENUS_PREFIX = 'foodMenus.items.';
 
 function unimplementedPortResult(
   ctx: DualSyncOperationContext,
@@ -186,6 +187,9 @@ export function defaultDualSyncPorts(): DualSyncOrchestratorPorts {
       if (fieldKey.startsWith(BUSINESS_CONTEXT_SERVICE_ITEM_PREFIX)) {
         return applyBusinessContextServiceItemExportToGoogle(ctx);
       }
+      if (fieldKey.startsWith(FOOD_MENUS_PREFIX)) {
+        return applyFoodMenusExportToGoogle(ctx);
+      }
       return unimplementedPortResult(ctx, 'export');
     },
     applyExportBatchToGoogle: async (ctx) => {
@@ -204,6 +208,8 @@ export function defaultDualSyncPorts(): DualSyncOrchestratorPorts {
           return applyBusinessContextAttributeExportBatchToGoogle(ctx);
         case 'businessContext.serviceItems':
           return applyBusinessContextServiceItemExportBatchToGoogle(ctx);
+        case 'foodMenus':
+          return applyFoodMenusExportBatchToGoogle(ctx);
         default:
           return { supported: false };
       }
@@ -224,6 +230,8 @@ export {
   applyBusinessContextServiceItemExportBatchToGoogle,
   applyBusinessContextServiceItemExportToGoogle,
   applyBusinessContextServiceItemImportToCore,
+  applyFoodMenusExportBatchToGoogle,
+  applyFoodMenusExportToGoogle,
   applyOperatingHoursExportBatchToGoogle,
   applyOperatingHoursExportToGoogle,
   applyOperatingHoursImportToCore,

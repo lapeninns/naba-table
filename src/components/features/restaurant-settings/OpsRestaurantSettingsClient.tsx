@@ -92,6 +92,7 @@ const DUAL_SYNC_SECTIONS_BY_VIEW: Partial<
     'businessContext.serviceAreas',
     'businessContext.attributes',
     'businessContext.serviceItems',
+    'foodMenus',
   ],
 };
 

@@ -83,9 +83,7 @@ describe('recomputeAllStates', () => {
       includeCoreOnly: true,
     });
 
-    const coreOnlyTransitions = result.transitions.filter((t) =>
-      t.fieldKey.startsWith('core.'),
-    );
+    const coreOnlyTransitions = result.transitions.filter((t) => t.fieldKey.startsWith('core.'));
     expect(coreOnlyTransitions.length).toBeGreaterThan(0);
     expect(coreOnlyTransitions.every((t) => t.toState === 'unsupported')).toBe(true);
   });
@@ -113,6 +111,64 @@ describe('recomputeAllStates', () => {
     expect(description).toBeDefined();
     // No in-sync baseline + open candidate absent → 'drifted'.
     expect(['drifted']).toContain(description?.toState);
+  });
+
+  it('evaluates FoodMenus item fields through the dynamic registry', async () => {
+    const core = makeSnapshot({
+      foodMenus: {
+        items: [
+          {
+            stableKey: 'foodMenu.item.starters/default.chilli-paneer',
+            itemName: 'Chilli Paneer',
+            sectionLabel: 'Starters',
+            description: 'Crisp paneer',
+            basePrice: 8.95,
+            currency: 'GBP',
+            dietaryTags: ['Vegetarian'],
+            allergensContains: ['Milk'],
+            googlePath: 'menus[0].sections[0].items[0]',
+          },
+        ],
+      },
+    });
+    const gbp = makeSnapshot({
+      foodMenus: {
+        items: [
+          {
+            stableKey: 'foodMenu.item.starters/default.chilli-paneer',
+            itemName: 'Chilli Paneer',
+            sectionLabel: 'Starters',
+            description: 'Changed on Google',
+            basePrice: 9.5,
+            currency: 'GBP',
+            dietaryTags: ['Vegetarian'],
+            allergensContains: ['Milk'],
+            googlePath: 'menus[0].sections[0].items[0]',
+          },
+        ],
+      },
+    });
+
+    const result = await recomputeAllStates({
+      client,
+      restaurantId: RESTAURANT_ID,
+      coreSnapshot: core,
+      gbpSnapshot: gbp,
+      includeCoreOnly: false,
+    });
+
+    const foodMenuItem = result.transitions.find((transition) =>
+      transition.fieldKey.startsWith('foodMenus.items.starters.'),
+    );
+    expect(foodMenuItem).toBeDefined();
+    expect(foodMenuItem?.toState).toBe('drifted');
+    expect(upsertFieldStateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sectionKey: 'foodMenus',
+        fieldKey: expect.stringMatching(/^foodMenus\.items\.starters\./),
+        state: 'drifted',
+      }),
+    );
   });
 
   it('overlays pending_export when an open outbound candidate exists for an exportable field', async () => {

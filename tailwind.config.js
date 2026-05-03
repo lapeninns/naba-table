@@ -113,17 +113,6 @@ module.exports = {
           800: 'var(--color-neutral-800)',
           900: 'var(--color-neutral-900)',
         },
-
-        // Legacy SR Tokens (deprecation path)
-        'sr-primary': 'var(--color-primary)',
-        'sr-primary-pressed': 'var(--color-primary-pressed)',
-        'sr-accent': 'var(--color-accent)',
-        'sr-text-primary': 'var(--color-text-primary)',
-        'sr-text-secondary': 'var(--color-text-secondary)',
-        'sr-on-primary': 'var(--color-on-primary)',
-        'sr-surface': 'var(--color-surface)',
-        'sr-background': 'var(--color-background)',
-        'sr-border': 'var(--color-border)',
       },
 
       // =======================================================================
@@ -234,13 +223,6 @@ module.exports = {
         'guest-xl': 'var(--guest-radius-xl)',
         'guest-2xl': 'var(--guest-radius-2xl)',
         'guest-full': 'var(--guest-radius-full)',
-
-        // Legacy SR tokens (deprecation path)
-        'sr-sm': 'var(--radius-sm)',
-        'sr-base': 'var(--radius-base)',
-        'sr-md': 'var(--radius-base)',
-        'sr-lg': 'var(--radius-lg)',
-        'sr-pill': 'var(--radius-pill)',
       },
 
       // =======================================================================

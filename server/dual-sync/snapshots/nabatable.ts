@@ -15,6 +15,8 @@ import { getRestaurantDetails } from '@/server/restaurants/details';
 import { getOperatingHours } from '@/server/restaurants/operatingHours';
 import { getServicePeriods } from '@/server/restaurants/servicePeriods';
 
+import { readStoredNabatableFoodMenusSection } from './food-menus';
+
 import type {
   DualSyncBusinessContextSectionValues,
   DualSyncCanonicalSnapshot,
@@ -36,11 +38,12 @@ export async function readNabatableSnapshot({
   client,
   restaurantId,
 }: ReadNabatableSnapshotInput): Promise<DualSyncCanonicalSnapshot> {
-  const [details, hours, periods, context] = await Promise.all([
+  const [details, hours, periods, context, foodMenus] = await Promise.all([
     getRestaurantDetails(restaurantId, client),
     getOperatingHours(restaurantId, client),
     getServicePeriods(restaurantId, client),
     getRestaurantBusinessContext(restaurantId, client),
+    readStoredNabatableFoodMenusSection({ client, restaurantId }),
   ]);
 
   return {
@@ -48,6 +51,7 @@ export async function readNabatableSnapshot({
     operatingHours: extractOperatingHours(hours),
     servicePeriods: extractServicePeriods(periods),
     businessContext: extractBusinessContext(context.core),
+    foodMenus,
   };
 }
 

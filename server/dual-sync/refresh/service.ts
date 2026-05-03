@@ -19,17 +19,20 @@
  * downstream tooling can answer "when was this field last in sync?".
  */
 
-import { syncGoogleBusinessProfileBusinessInformation } from '@/server/google-business-profile/service';
+import {
+  prepareFoodMenusProjection,
+  refreshFoodMenusImportReviewFromGoogle,
+} from '@/server/google-business-profile/food-menus-sync';
+import {
+  getGoogleBusinessProfileFoodMenusContext,
+  syncGoogleBusinessProfileBusinessInformation,
+} from '@/server/google-business-profile/service';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import { hashCanonicalJson } from '../hashing';
 import { readGoogleSnapshot } from '../snapshots/google';
 import { readNabatableSnapshot } from '../snapshots/nabatable';
-import {
-  commitSnapshotRun,
-  failSnapshotRun,
-  openSnapshotRun,
-} from '../snapshots/runs';
+import { commitSnapshotRun, failSnapshotRun, openSnapshotRun } from '../snapshots/runs';
 import { recomputeAllStates, type RecomputeAllStatesOutput } from '../state/recompute';
 
 import type { DualSyncCanonicalSnapshot } from '../snapshots/types';
@@ -51,8 +54,23 @@ export interface RefreshFromGoogleOutput {
   readonly snapshotRun: DualSyncSnapshotRun;
   readonly coreSnapshot: DualSyncCanonicalSnapshot;
   readonly gbpSnapshot: DualSyncCanonicalSnapshot;
+  readonly foodMenusRefresh: FoodMenusRefreshResult;
   readonly recompute: RecomputeAllStatesOutput;
 }
+
+export type FoodMenusRefreshResult =
+  | {
+      readonly status: 'refreshed';
+      readonly projectionSnapshotId: string | null;
+      readonly googleSnapshotId: string | null;
+      readonly googleFoodMenusHash: string;
+      readonly importReviewCount: number;
+    }
+  | {
+      readonly status: 'skipped';
+      readonly reason: 'skip_pull' | 'context_unavailable' | 'storage_unavailable' | 'not_eligible';
+      readonly message: string;
+    };
 
 function mapRunKindToLegacy(
   runKind: DualSyncSnapshotRunKind,
@@ -73,6 +91,128 @@ function mapRunKindToLegacy(
   }
 }
 
+function mapRunKindToFoodMenusSource(
+  runKind: DualSyncSnapshotRunKind,
+): 'manual' | 'scheduled' | 'preflight' {
+  switch (runKind) {
+    case 'scheduled':
+      return 'scheduled';
+    case 'preflight':
+      return 'preflight';
+    default:
+      return 'manual';
+  }
+}
+
+function isMissingFoodMenusStorageError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+  const record = error as { code?: unknown; message?: unknown };
+  const code = typeof record.code === 'string' ? record.code : '';
+  return code === 'PGRST205' || code === '42P01';
+}
+
+function isSkippableFoodMenusContextError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+  const code = (error as { code?: unknown }).code;
+  return (
+    code === 'GBP_ACCOUNT_NOT_LINKED' ||
+    code === 'GBP_LOCATION_NOT_LINKED' ||
+    code === 'GBP_NOT_CONNECTED' ||
+    code === 'GBP_FOOD_MENUS_NOT_ELIGIBLE'
+  );
+}
+
+function foodMenusContextSkipReason(
+  error: unknown,
+): Extract<FoodMenusRefreshResult, { status: 'skipped' }>['reason'] {
+  const code = error && typeof error === 'object' ? (error as { code?: unknown }).code : null;
+  return code === 'GBP_FOOD_MENUS_NOT_ELIGIBLE' ? 'not_eligible' : 'context_unavailable';
+}
+
+function errorMessage(error: unknown): string {
+  if (error && typeof error === 'object') {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string' && message.trim().length > 0) {
+      return message;
+    }
+  }
+  return error instanceof Error ? error.message : String(error);
+}
+
+function snapshotRunErrorCode(error: unknown): string {
+  if (error && typeof error === 'object') {
+    const code = (error as { code?: unknown }).code;
+    if (typeof code === 'string' && code.trim().length > 0) {
+      return code;
+    }
+  }
+  return error instanceof Error ? error.name : 'UNKNOWN';
+}
+
+async function refreshFoodMenusSnapshotsForDualSync({
+  client,
+  restaurantId,
+  runKind,
+}: {
+  readonly client: DbClient;
+  readonly restaurantId: string;
+  readonly runKind: DualSyncSnapshotRunKind;
+}): Promise<FoodMenusRefreshResult> {
+  try {
+    const context = await getGoogleBusinessProfileFoodMenusContext({
+      client,
+      restaurantId,
+    });
+    const source = mapRunKindToFoodMenusSource(runKind);
+    const projection = await prepareFoodMenusProjection({
+      client,
+      restaurantId,
+      foodMenusName: context.foodMenusName,
+      externalProfileId: context.externalProfileId,
+      source,
+      persist: true,
+    });
+    const refreshed = await refreshFoodMenusImportReviewFromGoogle({
+      client,
+      restaurantId,
+      accessToken: context.accessToken,
+      foodMenusName: context.foodMenusName,
+      externalProfileId: context.externalProfileId,
+      source,
+      projectionSnapshotId: projection.snapshot?.id ?? null,
+      persist: true,
+    });
+
+    return {
+      status: 'refreshed',
+      projectionSnapshotId: projection.snapshot?.id ?? null,
+      googleSnapshotId: refreshed.importReview.googleSnapshot?.id ?? null,
+      googleFoodMenusHash: refreshed.googleFoodMenusHash,
+      importReviewCount: refreshed.importReview.rows.length,
+    };
+  } catch (error) {
+    if (isMissingFoodMenusStorageError(error)) {
+      return {
+        status: 'skipped',
+        reason: 'storage_unavailable',
+        message: errorMessage(error),
+      };
+    }
+    if (isSkippableFoodMenusContextError(error)) {
+      return {
+        status: 'skipped',
+        reason: foodMenusContextSkipReason(error),
+        message: errorMessage(error),
+      };
+    }
+    throw error;
+  }
+}
+
 /**
  * Pull GBP, persist the canonical snapshot, recompute field states.
  *
@@ -86,11 +226,21 @@ export async function refreshFromGoogle({
   skipPull = false,
 }: RefreshFromGoogleInput): Promise<RefreshFromGoogleOutput> {
   const snapshotRun = await openSnapshotRun({ client, restaurantId, runKind });
+  let foodMenusRefresh: FoodMenusRefreshResult = {
+    status: 'skipped',
+    reason: 'skip_pull',
+    message: 'Live Google pull was skipped for this refresh run.',
+  };
 
   try {
     if (!skipPull) {
       await syncGoogleBusinessProfileBusinessInformation(restaurantId, client, {
         runKind: mapRunKindToLegacy(runKind),
+      });
+      foodMenusRefresh = await refreshFoodMenusSnapshotsForDualSync({
+        client,
+        restaurantId,
+        runKind,
       });
     }
 
@@ -104,6 +254,7 @@ export async function refreshFromGoogle({
       operatingHours: gbpSnapshot.operatingHours,
       servicePeriods: gbpSnapshot.servicePeriods,
       businessContext: gbpSnapshot.businessContext,
+      foodMenus: gbpSnapshot.foodMenus ?? { items: [] },
     };
     const snapshotHash = hashCanonicalJson(canonical) ?? '';
 
@@ -126,11 +277,12 @@ export async function refreshFromGoogle({
       snapshotRun: committed,
       coreSnapshot,
       gbpSnapshot,
+      foodMenusRefresh,
       recompute,
     };
   } catch (error) {
-    const code = error instanceof Error ? error.name : 'UNKNOWN';
-    const message = error instanceof Error ? error.message : String(error);
+    const code = snapshotRunErrorCode(error);
+    const message = errorMessage(error);
     await failSnapshotRun({
       client,
       runId: snapshotRun.id,

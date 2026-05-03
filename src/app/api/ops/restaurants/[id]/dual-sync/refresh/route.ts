@@ -46,6 +46,7 @@ export async function POST(_req: NextRequest, { params }: RouteContext) {
     return NextResponse.json(
       {
         snapshotRun: result.snapshotRun,
+        foodMenusRefresh: result.foodMenusRefresh,
         transitions: result.recompute.transitions,
         evaluatedFieldKeys: result.recompute.evaluatedFieldKeys,
       },

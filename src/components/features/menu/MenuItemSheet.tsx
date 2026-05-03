@@ -361,6 +361,68 @@ export function MenuItemSheet({
               </FormSection>
 
               <FormSection
+                title="Nutrition and Serves"
+                description="Optional per-item nutrition facts and serving count."
+              >
+                <div className="grid gap-4 md:grid-cols-3">
+                  <Field label="Calories (kcal)">
+                    <Input
+                      value={form.caloriesKcal}
+                      onChange={(event) => updateField('caloriesKcal', event.target.value)}
+                    />
+                  </Field>
+                  <Field label="Protein (g)">
+                    <Input
+                      value={form.proteinG}
+                      onChange={(event) => updateField('proteinG', event.target.value)}
+                    />
+                  </Field>
+                  <Field label="Fat (g)">
+                    <Input
+                      value={form.fatG}
+                      onChange={(event) => updateField('fatG', event.target.value)}
+                    />
+                  </Field>
+                  <Field label="Saturated fat (g)">
+                    <Input
+                      value={form.saturatedFatG}
+                      onChange={(event) => updateField('saturatedFatG', event.target.value)}
+                    />
+                  </Field>
+                  <Field label="Carbs (g)">
+                    <Input
+                      value={form.carbsG}
+                      onChange={(event) => updateField('carbsG', event.target.value)}
+                    />
+                  </Field>
+                  <Field label="Sugar (g)">
+                    <Input
+                      value={form.sugarG}
+                      onChange={(event) => updateField('sugarG', event.target.value)}
+                    />
+                  </Field>
+                  <Field label="Fiber (g)">
+                    <Input
+                      value={form.fiberG}
+                      onChange={(event) => updateField('fiberG', event.target.value)}
+                    />
+                  </Field>
+                  <Field label="Sodium (mg)">
+                    <Input
+                      value={form.sodiumMg}
+                      onChange={(event) => updateField('sodiumMg', event.target.value)}
+                    />
+                  </Field>
+                  <Field label="Serves">
+                    <Input
+                      value={form.servesNum}
+                      onChange={(event) => updateField('servesNum', event.target.value)}
+                    />
+                  </Field>
+                </div>
+              </FormSection>
+
+              <FormSection
                 title="Customization and Status"
                 description="Substitutions, toggles, and lifecycle flags."
               >
