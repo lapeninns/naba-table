@@ -212,7 +212,7 @@ export function OpsSmsDeliveryClient({
                   setPage(1);
                 }}
               >
-                <SelectTrigger className="h-8 w-[240px]" aria-label="Restaurant switcher">
+                <SelectTrigger className="h-8 w-full sm:w-[240px]" aria-label="Restaurant switcher">
                   <SelectValue placeholder="Select restaurant" />
                 </SelectTrigger>
                 <SelectContent>
@@ -338,7 +338,7 @@ export function OpsSmsDeliveryClient({
                 setPage(1);
               }}
             >
-              <SelectTrigger className="h-9 w-[170px]" aria-label="Select date range">
+              <SelectTrigger className="h-9 w-full sm:w-[170px]" aria-label="Select date range">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -356,7 +356,7 @@ export function OpsSmsDeliveryClient({
                 setPage(1);
               }}
             >
-              <SelectTrigger className="h-9 w-[140px]" aria-label="Rows per page">
+              <SelectTrigger className="h-9 w-full sm:w-[140px]" aria-label="Rows per page">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

@@ -189,7 +189,7 @@ export function BookingActionButton({
       <Button
         variant={variant}
         size="sm"
-        className={cn('h-11 min-w-[140px] touch-manipulation font-semibold', className)}
+        className={cn('h-11 w-full sm:w-auto sm:min-w-[140px] touch-manipulation font-semibold', className)}
         disabled={disabled}
         onClick={() => {
           if (disabled) return;

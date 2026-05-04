@@ -47,7 +47,7 @@ export function WizardLayout({
         className={cn(
           'w-full',
           'pg-page',
-          'px-4 py-5 sm:py-7 md:px-6 lg:px-8',
+          'px-[var(--pg-gutter)] py-[var(--pg-section-y-tight)]',
           'font-sans text-foreground',
           className,
         )}
@@ -57,7 +57,7 @@ export function WizardLayout({
             scrollPaddingBottom: `calc(${footerOffset}px + env(safe-area-inset-bottom, 0px))`,
           }}
           className={cn(
-            'mx-auto flex w-full max-w-6xl flex-col gap-4 rounded-[calc(var(--pg-radius-xl)+0.5rem)] border border-border/70 bg-background/78 p-3 shadow-[var(--pg-shadow-sm)] backdrop-blur-sm sm:gap-5 sm:p-4',
+            'mx-auto flex w-full max-w-6xl flex-col gap-4 rounded-[calc(var(--pg-radius-xl)+0.5rem)] border border-border/70 bg-background/78 p-[var(--pg-gutter)] shadow-[var(--pg-shadow-sm)] backdrop-blur-sm sm:gap-5',
             contentClassName,
           )}
         >

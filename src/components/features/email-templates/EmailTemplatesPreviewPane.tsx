@@ -94,7 +94,7 @@ export function EmailTemplatesPreviewPane({
         </div>
       </header>
 
-      <div className="min-h-[36rem] overflow-y-auto bg-muted/30 p-6">
+      <div className="min-h-[36rem] overflow-y-auto bg-muted/30 p-[var(--pg-gutter)]">
         <div className="flex flex-col gap-6">
           {errorMessage ? (
             <Alert variant="destructive" className="w-full">

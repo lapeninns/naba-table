@@ -68,7 +68,10 @@ export function TableAssignmentFilters({
 
         <div className="flex flex-wrap items-center gap-2">
           <Select value={zoneFilter} onValueChange={onZoneFilterChange}>
-            <SelectTrigger aria-label="Zone filter" className="h-9 w-[140px] text-sm bg-background">
+            <SelectTrigger
+              aria-label="Zone filter"
+              className="h-9 w-full sm:w-[140px] text-sm bg-background"
+            >
               <SelectValue placeholder="Zone" />
             </SelectTrigger>
             <SelectContent>
@@ -81,7 +84,10 @@ export function TableAssignmentFilters({
           </Select>
 
           <Select value={sortBy} onValueChange={(value) => onSortByChange(value as SortOption)}>
-            <SelectTrigger aria-label="Sort tables" className="h-9 w-[140px] text-sm bg-background">
+            <SelectTrigger
+              aria-label="Sort tables"
+              className="h-9 w-full sm:w-[140px] text-sm bg-background"
+            >
               <SelectValue placeholder="Sort" />
             </SelectTrigger>
             <SelectContent>

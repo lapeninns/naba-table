@@ -200,7 +200,7 @@ const OUTER_CONTAINER_CLASSES = cn(
   'pb-[env(safe-area-inset-bottom,0px)]',
   // Mobile: No horizontal padding (edge-to-edge)
   // Desktop: Horizontal padding + bottom margin for floating effect
-  'px-0 sm:px-4 lg:px-6',
+  'px-0 sm:px-[var(--pg-gutter)]',
   'sm:pb-4',
   // Guest drawer state hides this fixed bar with compositor-only properties.
   'transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none',

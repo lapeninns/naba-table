@@ -73,7 +73,7 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
                 value={state.effectiveRestaurantId ?? ''}
                 onValueChange={state.handleRestaurantChange}
               >
-                <SelectTrigger className="h-8 w-[240px]" aria-label="Restaurant switcher">
+                <SelectTrigger className="h-8 w-full sm:w-[240px]" aria-label="Restaurant switcher">
                   <SelectValue placeholder="Select restaurant" />
                 </SelectTrigger>
                 <SelectContent>
@@ -294,7 +294,7 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
                         state.queryState.applyPageSize(nextPageSize);
                       }}
                     >
-                      <SelectTrigger className="h-9 w-[88px]" aria-label="Rows per page">
+                      <SelectTrigger className="h-9 w-full sm:w-[88px]" aria-label="Rows per page">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>

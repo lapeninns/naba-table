@@ -983,7 +983,7 @@ export default function TableInventoryClient() {
                 Filter by Zone
               </Label>
               <Select value={filterZone} onValueChange={setFilterZone}>
-                <SelectTrigger id="table-zone-filter" className="w-[220px]">
+                <SelectTrigger id="table-zone-filter" className="w-full md:w-[220px]">
                   <SelectValue placeholder="All zones" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1006,7 +1006,7 @@ export default function TableInventoryClient() {
                 value={tableStatusFilter}
                 onValueChange={(value) => setTableStatusFilter(value as TableStatusFilter)}
               >
-                <SelectTrigger id="table-status-filter" className="w-[200px]">
+                <SelectTrigger id="table-status-filter" className="w-full md:w-[200px]">
                   <SelectValue placeholder="All tables" />
                 </SelectTrigger>
                 <SelectContent>

@@ -72,7 +72,7 @@ export function OpsSidebarLayout({
           >
             <a href="#ops-content">Skip to content</a>
           </Button>
-          <div className="flex h-14 items-center gap-3 border-b border-border/60 px-4 sm:px-6">
+          <div className="flex h-12 items-center gap-3 border-b border-border/60 px-[var(--pg-gutter)]">
             <SidebarTrigger className="-ml-1" aria-label="Toggle navigation menu" />
             {headerSlot ? (
               <div className="flex-1 truncate text-sm font-medium text-muted-foreground">

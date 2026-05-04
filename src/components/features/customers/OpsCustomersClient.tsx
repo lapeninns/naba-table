@@ -207,7 +207,7 @@ export function OpsCustomersClient({
                   value={lastVisit}
                   onValueChange={(value) => setLastVisit(value as LastVisitFilter)}
                 >
-                  <SelectTrigger className="h-9 w-[150px]">
+                  <SelectTrigger className="h-9 w-full sm:w-[150px]">
                     <SelectValue placeholder="Last visit" />
                   </SelectTrigger>
                   <SelectContent>
@@ -224,7 +224,7 @@ export function OpsCustomersClient({
                   value={marketingOptIn}
                   onValueChange={(value) => setMarketingOptIn(value as MarketingFilter)}
                 >
-                  <SelectTrigger className="h-9 w-[140px]">
+                  <SelectTrigger className="h-9 w-full sm:w-[140px]">
                     <SelectValue placeholder="Marketing" />
                   </SelectTrigger>
                   <SelectContent>
@@ -241,7 +241,7 @@ export function OpsCustomersClient({
                   value={String(minBookings)}
                   onValueChange={handleMinBookingsChange}
                 >
-                  <SelectTrigger className="h-9 w-[145px]">
+                  <SelectTrigger className="h-9 w-full sm:w-[145px]">
                     <SelectValue placeholder="Min bookings" />
                   </SelectTrigger>
                   <SelectContent>
@@ -258,7 +258,7 @@ export function OpsCustomersClient({
                   value={sortOption}
                   onValueChange={(value) => handleSortChange(value as SortOption)}
                 >
-                  <SelectTrigger className="h-9 w-[165px]">
+                  <SelectTrigger className="h-9 w-full sm:w-[165px]">
                     <SelectValue placeholder="Sort" />
                   </SelectTrigger>
                   <SelectContent>

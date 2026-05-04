@@ -40,8 +40,7 @@ function EnhancedAuthLayoutContent({
       <header className="relative z-20 border-b border-border bg-background/80 backdrop-blur-md">
         <nav
           className={cn(
-            'flex items-center justify-between py-4',
-            isGuest ? 'pg-container' : 'mx-auto max-w-7xl px-4 sm:px-6 lg:px-8',
+            'flex items-center justify-between py-4 pg-container',
           )}
         >
           <BrandLogo href={`/auth${searchSuffix}`} animated />
@@ -91,8 +90,7 @@ function EnhancedAuthLayoutContent({
       <footer className="relative z-20 border-t border-border bg-background/80 backdrop-blur-md">
         <div
           className={cn(
-            'py-8',
-            isGuest ? 'pg-container' : 'mx-auto max-w-7xl px-4 sm:px-6 lg:px-8',
+            'py-8 pg-container',
           )}
         >
           <div className="grid gap-8 sm:grid-cols-[1.4fr_1fr_1fr]">

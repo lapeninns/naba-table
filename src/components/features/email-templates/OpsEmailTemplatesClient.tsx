@@ -58,10 +58,10 @@ export function OpsEmailTemplatesClient() {
     state.previewMutation.error instanceof Error ? state.previewMutation.error.message : null;
 
   return (
-    <section className="relative flex h-[calc(100vh-3.5rem)] min-h-[720px] w-full min-w-0 overflow-hidden bg-muted/40 text-foreground">
+    <section className="relative flex h-[calc(100vh-3rem)] min-h-[720px] w-full min-w-0 overflow-hidden bg-muted/40 text-foreground">
       {showSkeleton ? (
         <div className="grid h-full w-full min-w-0 gap-0 lg:grid-cols-[20rem,minmax(0,1fr)]">
-          <div className="hidden border-r border-border bg-background p-4 lg:block">
+          <div className="hidden border-r border-border bg-background p-[var(--pg-gutter)] lg:block">
             <Skeleton className="h-7 w-44 rounded-xl" />
             <Skeleton className="mt-2 h-4 w-56 rounded-xl" />
             <Skeleton className="mt-4 h-11 w-full rounded-xl" />
@@ -71,7 +71,7 @@ export function OpsEmailTemplatesClient() {
               <Skeleton className="h-24 w-full rounded-2xl" />
             </div>
           </div>
-          <div className="overflow-y-auto p-4 md:p-6 lg:p-8">
+          <div className="overflow-y-auto p-[var(--pg-gutter)]">
             <div className="mx-auto flex max-w-5xl flex-col gap-8">
               <Skeleton className="h-16 w-full rounded-2xl" />
               <Skeleton className="h-28 w-full rounded-[1.5rem]" />
@@ -105,7 +105,7 @@ export function OpsEmailTemplatesClient() {
               'min-w-0 flex-1 flex-col overflow-y-auto lg:flex',
             )}
           >
-            <div className="mx-auto w-full max-w-7xl flex-1 px-4 py-4 md:px-8 md:py-8 lg:px-6 xl:px-10">
+            <div className="mx-auto w-full max-w-7xl flex-1 px-[var(--pg-gutter)] py-[var(--pg-section-y-tight)]">
               <div className="mx-auto flex max-w-5xl flex-col gap-8">
                 <EmailTemplatesEditorPane
                   restaurantName={state.restaurantName}

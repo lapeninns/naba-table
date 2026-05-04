@@ -219,7 +219,7 @@ export function AssignmentToolbar({
                     onClick={onAssign}
                     disabled={!canAssign || isPending}
                     className={cn(
-                      'h-11 min-w-[150px] font-semibold shadow-md transition-[transform,box-shadow,background-color,color]',
+                      'h-11 w-full sm:w-auto sm:min-w-[150px] font-semibold shadow-md transition-[transform,box-shadow,background-color,color]',
                       canAssign
                         ? 'pg-assignment-primary-action hover:shadow-lg active:scale-95'
                         : 'opacity-50',

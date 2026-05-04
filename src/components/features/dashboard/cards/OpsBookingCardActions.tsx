@@ -119,7 +119,7 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
               size="sm"
               disabled={primaryButton.disabled}
               className={cn(
-                'h-9 min-w-[120px] px-6 font-semibold shadow-sm transition-[box-shadow,background-color] duration-150 ease-out hover:shadow-sm motion-reduce:transition-none',
+                'h-9 w-full sm:w-auto sm:min-w-[120px] px-6 font-semibold shadow-sm transition-[box-shadow,background-color] duration-150 ease-out hover:shadow-sm motion-reduce:transition-none',
                 primaryButton.id === 'check-out'
                   ? 'bg-muted/40 text-muted-foreground hover:bg-muted'
                   : 'bg-primary/10 text-primary hover:bg-primary/10',

@@ -570,7 +570,7 @@ export function GuestNavbar({ tone = 'light', isSticky = true }: GuestNavbarProp
 
   return (
     <div className={shellClasses}>
-      <div className="pg-container w-full py-3">
+      <div className="pg-container py-3">
         <div className="flex min-h-14 items-center justify-between gap-3">
           <div className="flex min-w-0 items-center">
             <BrandMark tone={tone} />
