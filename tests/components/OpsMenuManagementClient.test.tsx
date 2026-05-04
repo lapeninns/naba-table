@@ -332,6 +332,35 @@ describe('OpsMenuManagementClient', () => {
     );
   });
 
+  it('marks stale food rows inert while filter changes refetch', async () => {
+    const user = userEvent.setup();
+    const menuService = createMenuService({
+      listItems: vi
+        .fn()
+        .mockResolvedValueOnce(buildMenuListResponse())
+        .mockImplementationOnce(() => new Promise(() => {})),
+    });
+    renderClient({ menuService });
+
+    expect(await screen.findByText('Burrata')).toBeInTheDocument();
+
+    await user.type(screen.getByPlaceholderText('Search name, category, subcategory'), 'pizza');
+
+    await waitFor(() =>
+      expect(menuService.listItems).toHaveBeenLastCalledWith(
+        'rest-1',
+        expect.objectContaining({
+          search: 'pizza',
+        }),
+      ),
+    );
+
+    const staleBoundary = screen.getByText('Burrata').closest('[data-slot="stale-boundary"]');
+    expect(staleBoundary).toHaveAttribute('aria-busy', 'true');
+    expect(staleBoundary).toHaveAttribute('inert');
+    expect(staleBoundary).toHaveAttribute('aria-hidden', 'true');
+  });
+
   it('shows a food list error state', async () => {
     renderClient({
       menuService: createMenuService({

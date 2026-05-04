@@ -6,6 +6,7 @@ import { useOpsActiveMembership } from '@/contexts/ops-session';
 import { useOpsBookingHeatmap } from '@/hooks/ops/useOpsBookingHeatmap';
 import { useOpsDashboardData } from '@/hooks/ops/useOpsDashboardData';
 import { useOpsRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
+import { getSwrUiState } from '@/lib/query/swrUiState';
 import { getTodayInTimezone } from '@/lib/utils/datetime';
 import { computeCalendarRange, resolveDashboardDateState } from '@/utils/ops/dashboard';
 
@@ -66,9 +67,10 @@ export function useOpsDashboardDataState(params: {
     [allowTableAssignments, summary],
   );
 
-  const isInitialLoading =
-    (summaryQuery.isLoading && !summary) || (isSummaryMismatch && !summaryQuery.isError);
-  const isRefetching = summaryQuery.isFetching && !!summary && !isSummaryMismatch;
+  const swr = getSwrUiState(summaryQuery);
+  const isInitialLoading = swr.isInitialLoad;
+  const isRefetching = swr.isRefetching;
+  const isStaleContent = swr.isPlaceholderStale || isSummaryMismatch;
   const hasError = summaryQuery.isError && (!summary || isSummaryMismatch);
   const summaryHasError = summaryQuery.isError;
 
@@ -82,6 +84,7 @@ export function useOpsDashboardDataState(params: {
     summaryQuery,
     requestedDate,
     isSummaryMismatch,
+    isStaleContent,
     allowTableAssignments,
     heatmapQuery,
     guestStats: summaryMetrics.guestStats,

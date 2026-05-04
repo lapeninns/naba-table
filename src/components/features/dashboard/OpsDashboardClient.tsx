@@ -5,6 +5,7 @@ import { memo, useMemo } from 'react';
 
 import { BookingOfflineBanner } from '@/components/features/booking-state-machine';
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
+import { OpsPageShell } from '@/components/features/ops-shell/patterns/OpsPageShell';
 import { Button } from '@/components/ui/button';
 import { BookingStateMachineProvider } from '@/contexts/booking-state-machine';
 import { useMinimumDelay } from '@/hooks/use-minimum-delay';
@@ -82,7 +83,7 @@ function OpsDashboardClientContent({ initialDate, initialNowIso }: OpsDashboardC
       bookings: [],
     };
   }, [state.requestedDate, state.restaurantId, state.restaurantTimezone]);
-  const summary = state.summary && !state.isSummaryMismatch ? state.summary : fallbackSummary;
+  const summary = state.summary ?? fallbackSummary;
   const selectedDate = state.requestedDate ?? summary.date;
   const showSummarySkeleton = useMinimumDelay(!state.summary || state.isInitialLoading, {
     delayMs: 120,
@@ -167,6 +168,7 @@ function OpsDashboardClientContent({ initialDate, initialNowIso }: OpsDashboardC
       initialNowIso,
       allowTableAssignments: state.allowTableAssignments,
       restaurantSlug: state.restaurantSlug,
+      isStale: state.isStaleContent,
     }),
     [
       initialNowIso,
@@ -186,6 +188,7 @@ function OpsDashboardClientContent({ initialDate, initialNowIso }: OpsDashboardC
       state.handleUndoNoShow,
       state.handleUnassignTable,
       state.isRefetching,
+      state.isStaleContent,
       state.pendingBookingAction,
       state.restaurantName,
       state.restaurantSlug,
@@ -241,8 +244,7 @@ function OpsDashboardClientContent({ initialDate, initialNowIso }: OpsDashboardC
   }
 
   return (
-    <div className="w-full min-w-0 bg-background font-sans text-foreground">
-      <div className="mx-auto w-full min-w-0 max-w-6xl space-y-5 px-4 py-5 sm:space-y-6 sm:px-6 sm:py-8 lg:px-8">
+    <OpsPageShell variant="standard" className="space-y-5 sm:space-y-6">
         <DashboardHeaderSection {...headerProps} />
 
         <section aria-label="Connection status">
@@ -258,8 +260,7 @@ function OpsDashboardClientContent({ initialDate, initialNowIso }: OpsDashboardC
         )}
 
         <DashboardDialogsSection {...dialogProps} />
-      </div>
-    </div>
+      </OpsPageShell>
   );
 }
 

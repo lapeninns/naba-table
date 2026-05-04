@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { StaleBoundary } from '@/components/ui/stale-boundary';
 import {
   Table,
   TableBody,
@@ -34,6 +35,7 @@ import {
   useOpsUpdateMenuItem,
 } from '@/hooks/ops/useOpsMenu';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
+import { getSwrUiState } from '@/lib/query/swrUiState';
 import { cn } from '@/lib/utils';
 
 import { MENU_STATUS_FILTER_OPTIONS, MenuFilterField } from './MenuFilterControls';
@@ -76,6 +78,7 @@ export function FoodMenuManagementPanel({ restaurantId }: { restaurantId: string
   const detailQuery = useOpsMenuItem(restaurantId, selectedItemId);
   const createMutation = useOpsCreateMenuItem(restaurantId);
   const updateMutation = useOpsUpdateMenuItem(restaurantId, selectedItemId);
+  const listSwr = getSwrUiState(listQuery);
 
   const items = listQuery.data?.items ?? [];
   const facets = listQuery.data?.facets ?? EMPTY_FACETS;
@@ -170,78 +173,82 @@ export function FoodMenuManagementPanel({ restaurantId }: { restaurantId: string
         <div className="mt-6 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
           Unable to load food items.
         </div>
-      ) : listQuery.isLoading ? (
+      ) : listSwr.isInitialLoad ? (
         <div className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="size-4 animate-spin" />
           Loading food items…
         </div>
       ) : items.length === 0 ? (
-        <div className="mt-6 rounded-lg border border-border/60 bg-muted/20 p-6 text-sm text-muted-foreground">
-          No food items match the current filters.
-        </div>
+        <StaleBoundary isStale={listSwr.isPlaceholderStale} className="mt-6">
+          <div className="rounded-lg border border-border/60 bg-muted/20 p-6 text-sm text-muted-foreground">
+            No food items match the current filters.
+          </div>
+        </StaleBoundary>
       ) : (
-        <div className="mt-6 overflow-x-auto rounded-lg border border-border/60">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Item</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Price</TableHead>
-                <TableHead>Service time</TableHead>
-                <TableHead>Availability</TableHead>
-                <TableHead>Modifiers</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell>
-                    <div className="font-medium text-foreground">{item.itemName}</div>
-                    <div className="text-xs text-muted-foreground">{item.externalItemId}</div>
-                  </TableCell>
-                  <TableCell>
-                    <div>{item.category}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {item.subcategory ?? 'No subcategory'}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {item.currency} {item.basePrice.toFixed(2)}
-                  </TableCell>
-                  <TableCell>{item.serviceTime ?? 'Not set'}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={item.availabilityStatus === 'available' ? 'default' : 'secondary'}
-                    >
-                      {item.availabilityStatus}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{item.modifierGroupCount}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-2">
-                      <Badge variant={item.active ? 'default' : 'secondary'}>
-                        {item.active ? 'Active' : 'Inactive'}
-                      </Badge>
-                      {item.soldOut ? <Badge variant="outline">Sold out</Badge> : null}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openEditorForItem(item.id)}
-                    >
-                      Edit
-                    </Button>
-                  </TableCell>
+        <StaleBoundary isStale={listSwr.isPlaceholderStale} className="mt-6">
+          <div className="overflow-x-auto rounded-lg border border-border/60">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Item</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Price</TableHead>
+                  <TableHead>Service time</TableHead>
+                  <TableHead>Availability</TableHead>
+                  <TableHead>Modifiers</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+              </TableHeader>
+              <TableBody>
+                {items.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell>
+                      <div className="font-medium text-foreground">{item.itemName}</div>
+                      <div className="text-xs text-muted-foreground">{item.externalItemId}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div>{item.category}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {item.subcategory ?? 'No subcategory'}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {item.currency} {item.basePrice.toFixed(2)}
+                    </TableCell>
+                    <TableCell>{item.serviceTime ?? 'Not set'}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={item.availabilityStatus === 'available' ? 'default' : 'secondary'}
+                      >
+                        {item.availabilityStatus}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{item.modifierGroupCount}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-2">
+                        <Badge variant={item.active ? 'default' : 'secondary'}>
+                          {item.active ? 'Active' : 'Inactive'}
+                        </Badge>
+                        {item.soldOut ? <Badge variant="outline">Sold out</Badge> : null}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openEditorForItem(item.id)}
+                      >
+                        Edit
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </StaleBoundary>
       )}
 
       <MenuItemSheet

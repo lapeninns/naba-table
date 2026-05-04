@@ -97,7 +97,7 @@ export const OpsBookingCardHeader = memo(function OpsBookingCardHeader({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-11 w-11 rounded-full p-0 transition-colors duration-150 hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
+                  className="h-9 w-9 rounded-full p-0 transition-colors duration-150 hover:bg-muted/60 focus-visible:ring-[3px] focus-visible:ring-ring/30 motion-reduce:transition-none"
                   aria-expanded={isOpen}
                   aria-controls={`ops-booking-details-${bookingId}`}
                   disabled={disableCollapseToggle}

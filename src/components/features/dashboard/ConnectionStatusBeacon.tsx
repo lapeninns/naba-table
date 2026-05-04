@@ -118,7 +118,7 @@ export function ConnectionStatusBeacon({
 
   return (
     <div
-      className="inline-flex flex-col gap-1 rounded-xl border border-border/70 bg-card/70 px-2.5 py-1.5 text-[11px] font-medium shadow-sm backdrop-blur sm:gap-1.5 sm:rounded-2xl sm:px-3 sm:py-2 sm:text-xs"
+      className="inline-flex flex-col gap-1 rounded-xl border border-border/70 bg-card/70 px-2.5 py-1.5 text-[11px] font-medium shadow-sm backdrop-blur-xl sm:gap-1.5 sm:rounded-2xl sm:px-3 sm:py-2 sm:text-xs"
       title={`Connection status: ${label}`}
       aria-label={`Connection status: ${label}. Sync: ${syncLabel}.`}
       role="status"

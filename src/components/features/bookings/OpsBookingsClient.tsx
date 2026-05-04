@@ -19,6 +19,7 @@ import { OPS_STATUS_TABS } from '@/components/features/bookings/opsBookingsConst
 import { OpsStatusFilter as OpsStatusFilterPopover } from '@/components/features/bookings/OpsStatusFilter';
 import { useOpsBookingsState } from '@/components/features/bookings/useOpsBookingsState';
 import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
+import { OpsPageShell } from '@/components/features/ops-shell/patterns/OpsPageShell';
 import { OpsPageToolbar } from '@/components/features/ops-shell/patterns/OpsPageToolbar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -72,8 +73,7 @@ export function OpsBookingsClient(props: OpsBookingsClientProps) {
   return (
     <BookingStateMachineProvider initialBookings={initialSnapshots}>
       <BookingStateRegistrar bookings={dataState.derivedData.bookings} />
-      <div className="min-h-screen bg-background font-sans text-foreground">
-        <main className="mx-auto w-full max-w-6xl space-y-4 px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
+      <OpsPageShell variant="standard" className="space-y-4">
           <Button
             asChild
             variant="link"
@@ -276,8 +276,7 @@ export function OpsBookingsClient(props: OpsBookingsClientProps) {
             onConfirm={dialogs.onConfirmCancel}
             isPending={dialogs.isCancelling}
           />
-        </main>
-      </div>
+      </OpsPageShell>
     </BookingStateMachineProvider>
   );
 }

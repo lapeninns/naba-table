@@ -37,18 +37,19 @@ Docs-only work may say `Not applicable`.
 
 ## File map
 
-| Path                                 | Contract                                                                             |
-| ------------------------------------ | ------------------------------------------------------------------------------------ |
-| `docs/sdlc/README.md`                | Entry point, repo truths, execution order, and identity gate                         |
-| `docs/sdlc/native-execution-loop.md` | Assumption, simplicity, surgical-diff, success-criteria, and evidence loop           |
-| `docs/sdlc/risk-tier-workflow.md`    | Risk classification, shared-ownership escalation, and delivery posture               |
-| `docs/sdlc/task-harness.md`          | Task-folder rules, route/API identity contract, success criteria, and harness matrix |
-| `docs/sdlc/verification.md`          | QA contract, validator-coverage reality, and evidence requirements                   |
-| `docs/sdlc/subagents.md`             | Agent coordination sequence and handoff packet contract                              |
-| `.agents/planner.md`                 | Planning role contract                                                               |
-| `.agents/implementer.md`             | Implementation role contract                                                         |
-| `.agents/reviewer.md`                | Review role contract                                                                 |
-| `.agents/ui-qa.md`                   | Browser QA role contract                                                             |
+| Path                                 | Contract                                                                                 |
+| ------------------------------------ | ---------------------------------------------------------------------------------------- |
+| `docs/sdlc/README.md`                | Entry point, repo truths, execution order, and identity gate                             |
+| `docs/sdlc/native-execution-loop.md` | Assumption, simplicity, surgical-diff, success-criteria, and evidence loop               |
+| `docs/sdlc/risk-tier-workflow.md`    | Risk classification, shared-ownership escalation, and delivery posture                   |
+| `docs/sdlc/task-harness.md`          | Task-folder rules, route/API identity contract, success criteria, and harness matrix     |
+| `docs/sdlc/verification.md`          | QA contract, validator-coverage reality, and evidence requirements                       |
+| `docs/sdlc/react-query-swr-ux.md`    | SWR UX standard: `placeholderData` per-hook rules, `StaleBoundary`, three loading states |
+| `docs/sdlc/subagents.md`             | Agent coordination sequence and handoff packet contract                                  |
+| `.agents/planner.md`                 | Planning role contract                                                                   |
+| `.agents/implementer.md`             | Implementation role contract                                                             |
+| `.agents/reviewer.md`                | Review role contract                                                                     |
+| `.agents/ui-qa.md`                   | Browser QA role contract                                                                 |
 
 ## Core operating rules
 

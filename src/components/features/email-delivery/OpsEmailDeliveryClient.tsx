@@ -18,6 +18,7 @@ import { OPS_EMAIL_DELIVERY_PAGE_SIZE_OPTIONS } from '@/components/features/emai
 import { useOpsEmailDeliveryState } from '@/components/features/email-delivery/useOpsEmailDeliveryState';
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
+import { OpsPageShell } from '@/components/features/ops-shell/patterns/OpsPageShell';
 import { OpsPageToolbar } from '@/components/features/ops-shell/patterns/OpsPageToolbar';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -61,7 +62,7 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
   }
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
+    <OpsPageShell variant="standard" className="space-y-4">
       <OpsPageHeader
         title="Email Delivery"
         subtitle="Deliverability dashboard for booking emails (Resend)."
@@ -367,6 +368,6 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
           />
         </TabsContent>
       </Tabs>
-    </main>
+    </OpsPageShell>
   );
 }

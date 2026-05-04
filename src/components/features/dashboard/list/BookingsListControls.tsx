@@ -39,7 +39,7 @@ export function BookingsListControls({
         <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
           <Select value={sortKey} onValueChange={(val) => onSortKeyChange(val as BookingSortKey)}>
             <SelectTrigger
-              className="h-9 w-full rounded-lg bg-card sm:w-[150px]"
+              className="h-9 w-full rounded bg-card sm:w-[150px]"
               aria-label="Sort by"
             >
               <SelectValue />
@@ -52,7 +52,7 @@ export function BookingsListControls({
           </Select>
           <Select value={sortDir} onValueChange={(val) => onSortDirChange(val as BookingSortDir)}>
             <SelectTrigger
-              className="h-9 w-full rounded-lg bg-card sm:w-[130px]"
+              className="h-9 w-full rounded bg-card sm:w-[130px]"
               aria-label="Sort direction"
             >
               <SelectValue />

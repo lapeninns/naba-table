@@ -1,6 +1,13 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient, type UseMutationResult, type UseQueryResult } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseMutationResult,
+  type UseQueryResult,
+} from '@tanstack/react-query';
 
 import { useMenuService } from '@/contexts/ops-services';
 import { queryKeys } from '@/lib/query/keys';
@@ -13,9 +20,7 @@ import type {
   MenuListFilters,
   MenuListResponse,
 } from '@/server/menu/types';
-import type {
-  MenuImportPayload,
-} from '@/services/ops/menu';
+import type { MenuImportPayload } from '@/services/ops/menu';
 
 export function useOpsMenuList(
   restaurantId?: string | null,
@@ -24,7 +29,9 @@ export function useOpsMenuList(
   const menuService = useMenuService();
 
   return useQuery<MenuListResponse, HttpError | Error>({
-    queryKey: restaurantId ? queryKeys.opsMenu.list(restaurantId, filters) : queryKeys.opsMenu.list('none', filters),
+    queryKey: restaurantId
+      ? queryKeys.opsMenu.list(restaurantId, filters)
+      : queryKeys.opsMenu.list('none', filters),
     queryFn: () => {
       if (!restaurantId) {
         throw new Error('Restaurant id is required');
@@ -33,6 +40,7 @@ export function useOpsMenuList(
     },
     enabled: Boolean(restaurantId),
     staleTime: 60_000,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -43,7 +51,10 @@ export function useOpsMenuItem(
   const menuService = useMenuService();
 
   return useQuery<MenuItemDetail, HttpError | Error>({
-    queryKey: restaurantId && itemId ? queryKeys.opsMenu.detail(restaurantId, itemId) : queryKeys.opsMenu.detail('none', 'none'),
+    queryKey:
+      restaurantId && itemId
+        ? queryKeys.opsMenu.detail(restaurantId, itemId)
+        : queryKeys.opsMenu.detail('none', 'none'),
     queryFn: () => {
       if (!restaurantId || !itemId) {
         throw new Error('Restaurant id and item id are required');

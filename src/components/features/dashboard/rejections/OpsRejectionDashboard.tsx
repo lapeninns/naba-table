@@ -12,6 +12,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
+import { OpsPageShell } from '@/components/features/ops-shell/patterns/OpsPageShell';
 import { OpsPageToolbar } from '@/components/features/ops-shell/patterns/OpsPageToolbar';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -446,7 +447,7 @@ export function OpsRejectionDashboard() {
   const hasData = Boolean(analytics && analytics.summary.total > 0);
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6 px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
+    <OpsPageShell variant="standard" className="space-y-6">
       <OpsPageHeader
         title="Rejections"
         subtitle="Review rejection analytics and strategic settings for your restaurant."
@@ -820,7 +821,7 @@ export function OpsRejectionDashboard() {
         isSubmitting={updateSettings.isPending}
         readOnly
       />
-    </div>
+    </OpsPageShell>
   );
 }
 

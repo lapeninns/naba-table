@@ -20,6 +20,7 @@ Nabatable global agent contract. Keep this file thin. Use `docs/sdlc/*` for deli
 - Shadcn primitive layer is single-rooted at `components/ui/*`. No native HTML primitives or parallel UI systems are allowed in app code; `pnpm node scripts/check-no-shadcn.mjs --primitives-only` is the gate.
 - Ops and guest/public use one Radix Luma shadcn theme.
 - Medium- and high-risk work requires `tasks/<slug>-YYYYMMDD-HHMM>/`.
+- React Query SWR UX follows [`docs/sdlc/react-query-swr-ux.md`](docs/sdlc/react-query-swr-ux.md): per-hook `placeholderData`, `StaleBoundary` on content only, no global default.
 
 ## Repo truths
 

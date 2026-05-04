@@ -28,6 +28,41 @@ const SettingsSectionSkeleton = ({ title }: { title: string }) => (
   </div>
 );
 
+const AvailabilitySkeleton = () => (
+  <div className="space-y-6">
+    <div className="rounded-lg border border-border/70 bg-card p-6">
+      <div className="space-y-2">
+        <Skeleton className="h-5 w-32" />
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-4 w-full max-w-xl" />
+      </div>
+      <div className="mt-6 flex gap-2">
+        <Skeleton className="h-9 w-28" />
+        <Skeleton className="h-9 w-28" />
+        <Skeleton className="h-9 w-28" />
+      </div>
+    </div>
+    <div className="rounded-lg border border-border/60 p-6">
+      <Skeleton className="h-6 w-40" />
+      <div className="mt-4 space-y-3">
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-12 w-full" />
+      </div>
+    </div>
+    <div className="rounded-lg border border-border/60 p-6">
+      <Skeleton className="h-6 w-40" />
+      <div className="mt-4 space-y-4">
+        <div className="flex gap-4">
+          <Skeleton className="h-10 w-32" />
+          <Skeleton className="h-10 w-32" />
+        </div>
+        <Skeleton className="h-64 w-full" />
+      </div>
+    </div>
+  </div>
+);
+
 const RestaurantProfileSection = dynamic(
   () => import('./RestaurantProfileSection').then((m) => m.RestaurantProfileSection),
   {
@@ -51,7 +86,7 @@ const AvailabilityOccasionsCommandCenter = dynamic(
       (m) => m.AvailabilityOccasionsCommandCenter,
     ),
   {
-    loading: () => <SettingsSectionSkeleton title="Loading availability and occasions" />,
+    loading: () => <AvailabilitySkeleton />,
   },
 );
 

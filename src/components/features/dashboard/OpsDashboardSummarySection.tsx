@@ -15,6 +15,7 @@ export type OpsDashboardSummarySectionProps = {
   initialNowIso: string;
   allowTableAssignments: boolean;
   restaurantSlug?: string | null;
+  isStale?: boolean;
 };
 
 export function OpsDashboardSummarySection({
@@ -25,6 +26,7 @@ export function OpsDashboardSummarySection({
   initialNowIso,
   allowTableAssignments,
   restaurantSlug,
+  isStale,
 }: OpsDashboardSummarySectionProps) {
   return (
     <div className="space-y-6">
@@ -44,6 +46,7 @@ export function OpsDashboardSummarySection({
         initialNowIso={initialNowIso}
         allowTableAssignments={allowTableAssignments}
         restaurantSlug={restaurantSlug}
+        isStale={isStale}
       />
     </div>
   );

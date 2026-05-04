@@ -159,7 +159,7 @@ export function OpsDashboardHeader({
               <ChevronsLeft className="h-4 w-4 text-muted-foreground" />
             </div>
 
-            <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-card/80 p-1 shadow-sm backdrop-blur-sm transition-shadow hover:shadow-md sm:rounded-xl sm:p-1.5">
+            <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-card/80 p-1 shadow-sm backdrop-blur-xl transition-shadow hover:shadow-md sm:rounded-xl sm:p-1.5">
               <Button
                 type="button"
                 variant="ghost"

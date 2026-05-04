@@ -16,7 +16,7 @@ export function DashboardErrorState({ onRetry }: DashboardErrorStateProps) {
             variant="outline"
             size="sm"
             onClick={onRetry}
-            className="h-11 w-fit touch-manipulation"
+            className="h-9 w-fit touch-manipulation"
           >
             Retry
           </Button>

@@ -2,23 +2,10 @@
 
 import { useMemo, useState } from 'react';
 
-import {
-  SETTINGS_COMPACT_CARD_CLASS,
-  SETTINGS_COMPACT_CARD_CONTENT_CLASS,
-  SETTINGS_COMPACT_CARD_FOOTER_CLASS,
-  SETTINGS_COMPACT_CARD_HEADER_CLASS,
-} from '@/components/features/restaurant-settings/shared';
+import { SettingsCard } from '@/components/features/restaurant-settings/shared/SettingsCard';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import {
   Select,
   SelectContent,
@@ -38,7 +25,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useOpsRevokeTeamInvite, useOpsTeamInvitations } from '@/hooks/ops/useOpsTeamInvitations';
-import { cn } from '@/lib/utils';
 
 import {
   TEAM_INVITE_STATUS_OPTIONS,
@@ -85,36 +71,36 @@ export function TeamInvitesTable({ restaurantId, canManage }: TeamInvitesTablePr
   };
 
   return (
-    <Card className={SETTINGS_COMPACT_CARD_CLASS}>
-      <CardHeader className={SETTINGS_COMPACT_CARD_HEADER_CLASS}>
-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div className="flex min-w-0 flex-col gap-1">
-            <CardTitle className="text-base leading-6">Team invitations</CardTitle>
-            <CardDescription className="text-xs leading-5">
-              Track outstanding invites and revoke access when an invitation is no longer needed.
-            </CardDescription>
-          </div>
-          <Select value={status} onValueChange={(value) => setStatus(value as TeamInviteStatus)}>
-            <SelectTrigger
-              className="w-full md:w-[160px]"
-              aria-label="Filter invitations by status"
-            >
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                {TEAM_INVITE_STATUS_OPTIONS.map((option) => (
-                  <SelectItem key={option} value={option}>
-                    {getTeamInviteStatusLabel(option)}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </div>
-      </CardHeader>
-
-      <CardContent className={cn(SETTINGS_COMPACT_CARD_CONTENT_CLASS, 'pt-0')}>
+    <SettingsCard
+      title="Team invitations"
+      description="Track outstanding invites and revoke access when an invitation is no longer needed."
+      headerAction={
+        <Select value={status} onValueChange={(value) => setStatus(value as TeamInviteStatus)}>
+          <SelectTrigger
+            className="w-full md:w-[160px]"
+            aria-label="Filter invitations by status"
+          >
+            <SelectValue placeholder="Filter by status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {TEAM_INVITE_STATUS_OPTIONS.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {getTeamInviteStatusLabel(option)}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+      }
+      footer={
+        isFetching ? (
+          <p className="text-xs text-muted-foreground" role="status">
+            Refreshing…
+          </p>
+        ) : undefined
+      }
+    >
         {isError ? (
           <div className="pb-4">
             <Alert variant="destructive">
@@ -190,15 +176,6 @@ export function TeamInvitesTable({ restaurantId, canManage }: TeamInvitesTablePr
             )}
           </TableBody>
         </Table>
-      </CardContent>
-
-      {isFetching ? (
-        <CardFooter className={cn(SETTINGS_COMPACT_CARD_FOOTER_CLASS, 'py-2')}>
-          <p className="text-xs text-muted-foreground" role="status">
-            Refreshing…
-          </p>
-        </CardFooter>
-      ) : null}
-    </Card>
+    </SettingsCard>
   );
 }

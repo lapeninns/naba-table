@@ -7,6 +7,7 @@ import { useEffect } from 'react';
 
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
+import { OpsPageShell } from '@/components/features/ops-shell/patterns/OpsPageShell';
 import { OpsPageToolbar } from '@/components/features/ops-shell/patterns/OpsPageToolbar';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -151,8 +152,7 @@ export function OpsCustomersClient({
   }
 
   return (
-    <div className="min-h-screen bg-background font-sans text-foreground">
-      <main className="mx-auto w-full max-w-6xl space-y-4 px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
+    <OpsPageShell variant="standard" className="space-y-4">
         <OpsPageHeader
           title="Guests"
           meta={
@@ -364,7 +364,6 @@ export function OpsCustomersClient({
             focusCustomerId={focusCustomer}
           />
         </section>
-      </main>
-    </div>
+    </OpsPageShell>
   );
 }

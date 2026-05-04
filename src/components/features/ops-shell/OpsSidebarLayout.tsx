@@ -3,7 +3,15 @@
 import { Info, LogOut, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useCallback, useMemo, useState, type MouseEvent, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+  type ReactNode,
+} from 'react';
 
 import { Alert, AlertDescription, AlertIcon, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -34,6 +42,7 @@ import { cn } from '@/lib/utils';
 import { OPS_NAV_SECTIONS, OPS_SUPPORT_ITEM, isNavItemActive } from './navigation';
 // import { OpsOfflineIndicator } from './OpsOfflineIndicator';
 import { OpsRestaurantSwitch } from './OpsRestaurantSwitch';
+import { useOpsRoutePrefetch } from './useOpsRoutePrefetch';
 
 import type { OpsNavigationSection } from './navigation';
 
@@ -144,6 +153,32 @@ function OpsSidebarNav({
 }) {
   const isOnline = useOnlineStatus();
   const { confirmNavigation } = useOpsUnsavedChanges();
+  const prefetchRoute = useOpsRoutePrefetch();
+
+  // Debounce hover/focus prefetch so quick pointer passes do not trigger
+  // network work. Click navigation goes through `<Link>` directly and is
+  // unaffected by this timer.
+  const prefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (prefetchTimerRef.current) {
+        clearTimeout(prefetchTimerRef.current);
+        prefetchTimerRef.current = null;
+      }
+    };
+  }, []);
+  const schedulePrefetch = useCallback(
+    (href: string) => {
+      if (prefetchTimerRef.current) {
+        clearTimeout(prefetchTimerRef.current);
+      }
+      prefetchTimerRef.current = setTimeout(() => {
+        prefetchTimerRef.current = null;
+        prefetchRoute(href);
+      }, 200);
+    },
+    [prefetchRoute],
+  );
 
   const handleOfflineNavigation = useCallback(
     (event: MouseEvent<HTMLAnchorElement>) => {
@@ -191,6 +226,8 @@ function OpsSidebarNav({
                         href={item.href}
                         aria-current={active ? 'page' : undefined}
                         aria-disabled={!isOnline}
+                        onMouseEnter={() => schedulePrefetch(item.href)}
+                        onFocus={() => schedulePrefetch(item.href)}
                         onClick={(event) => {
                           handleOfflineNavigation(event);
                           if (!event.defaultPrevented) {

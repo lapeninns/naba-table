@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import { useMemo, type ReactNode } from 'react';
 
 import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
+import { OpsPageShell } from '@/components/features/ops-shell/patterns/OpsPageShell';
 import { Badge } from '@/components/ui/badge';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 import { normalizeOpsPathname } from '@/lib/url/opsHref';
@@ -59,7 +60,7 @@ export function RestaurantSettingsPageShell({
     null;
 
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-3 py-4 sm:px-5 sm:py-5 lg:px-6">
+    <OpsPageShell variant="wide" className="flex flex-col gap-4">
       <OpsPageHeader
         eyebrow={eyebrow}
         title={resolvedTitle}
@@ -82,6 +83,6 @@ export function RestaurantSettingsPageShell({
       <RestaurantSettingsSubnav />
 
       <div className={SETTINGS_COMPACT_PAGE_CONTENT_CLASS}>{children}</div>
-    </main>
+    </OpsPageShell>
   );
 }

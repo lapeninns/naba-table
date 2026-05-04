@@ -7,6 +7,8 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
+import { OpsPageShell } from '@/components/features/ops-shell/patterns/OpsPageShell';
+import { OpsPageToolbar } from '@/components/features/ops-shell/patterns/OpsPageToolbar';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -196,7 +198,7 @@ export function OpsSmsDeliveryClient({
   }
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
+    <OpsPageShell variant="standard" className="space-y-4">
       <OpsPageHeader
         title="SMS Delivery"
         subtitle="Track queued/sent/delivered/failed booking SMS in one place."
@@ -325,79 +327,86 @@ export function OpsSmsDeliveryClient({
         )}
       </section>
 
-      <section className="mt-4 rounded-xl border border-border bg-muted/40 p-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <Select
-            value={range}
-            onValueChange={(value) => {
-              setRange(value as OpsSmsDeliveryRange);
-              setPage(1);
-            }}
-          >
-            <SelectTrigger className="h-9 w-[170px]" aria-label="Select date range">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {RANGE_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select
-            value={String(pageSize)}
-            onValueChange={(value) => {
-              setPageSize(Number(value));
-              setPage(1);
-            }}
-          >
-            <SelectTrigger className="h-9 w-[140px]" aria-label="Rows per page">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PAGE_SIZE_OPTIONS.map((option) => (
-                <SelectItem key={option} value={String(option)}>
-                  {option} rows
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            type="button"
-            variant={selectedStatuses.length === 0 ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => {
-              setSelectedStatuses([]);
-              setPage(1);
-            }}
-          >
-            All
-          </Button>
-          {(['queued', 'sent', 'delivered', 'undelivered', 'failed'] as const).map((status) => {
-            const active = selectedStatuses.includes(status);
-            return (
-              <Button
-                key={status}
-                type="button"
-                variant={active ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => {
-                  setSelectedStatuses((current) => {
-                    const exists = current.includes(status);
-                    return exists
-                      ? current.filter((item) => item !== status)
-                      : [...current, status];
-                  });
-                  setPage(1);
-                }}
-              >
-                {SMS_DELIVERY_STATUS_LABELS[status]}
-              </Button>
-            );
-          })}
-        </div>
-      </section>
+      <OpsPageToolbar
+        sticky={false}
+        filters={
+          <>
+            <Select
+              value={range}
+              onValueChange={(value) => {
+                setRange(value as OpsSmsDeliveryRange);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="h-9 w-[170px]" aria-label="Select date range">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {RANGE_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={String(pageSize)}
+              onValueChange={(value) => {
+                setPageSize(Number(value));
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="h-9 w-[140px]" aria-label="Rows per page">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PAGE_SIZE_OPTIONS.map((option) => (
+                  <SelectItem key={option} value={String(option)}>
+                    {option} rows
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </>
+        }
+        actions={
+          <>
+            <Button
+              type="button"
+              variant={selectedStatuses.length === 0 ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => {
+                setSelectedStatuses([]);
+                setPage(1);
+              }}
+            >
+              All
+            </Button>
+            {(['queued', 'sent', 'delivered', 'undelivered', 'failed'] as const).map((status) => {
+              const active = selectedStatuses.includes(status);
+              return (
+                <Button
+                  key={status}
+                  type="button"
+                  variant={active ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => {
+                    setSelectedStatuses((current) => {
+                      const exists = current.includes(status);
+                      return exists
+                        ? current.filter((item) => item !== status)
+                        : [...current, status];
+                    });
+                    setPage(1);
+                  }}
+                >
+                  {SMS_DELIVERY_STATUS_LABELS[status]}
+                </Button>
+              );
+            })}
+          </>
+        }
+      />
 
       <section className="mt-4">
         {unavailable ? (
@@ -515,6 +524,6 @@ export function OpsSmsDeliveryClient({
           </Card>
         ) : null}
       </section>
-    </main>
+    </OpsPageShell>
   );
 }

@@ -155,7 +155,7 @@ export function AvailabilityOccasionsCommandCenter({
   return (
     <div className="space-y-6">
       <Card className="border-border/70">
-        <CardHeader className="gap-4 sm:flex-row sm:items-end sm:justify-between sm:space-y-0">
+        <CardHeader className="gap-4 pb-4 sm:flex-row sm:items-end sm:justify-between sm:space-y-0">
           <div className="space-y-2">
             <Badge variant="outline" className="w-fit">
               Canonical workspace
@@ -168,25 +168,28 @@ export function AvailabilityOccasionsCommandCenter({
               </CardDescription>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" asChild>
-              <a href="#booking-rules">Booking rules</a>
-            </Button>
-            <Button variant="outline" size="sm" asChild>
-              <a href="#availability-schedule">Schedule</a>
-            </Button>
-            <Button variant="outline" size="sm" asChild>
-              <a href="#booking-occasions">Occasions</a>
-            </Button>
-          </div>
         </CardHeader>
-        <CardContent className="pt-0">
+        <CardContent className="border-t border-border/40 bg-muted/5 py-3">
           <p className="text-sm text-muted-foreground">
             Booking rules live here with the schedule because they affect available reservation
             times across the restaurant.
           </p>
         </CardContent>
       </Card>
+
+      <div className="sticky top-16 z-30 -mx-1 border-b border-border/60 bg-background/95 p-1 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="flex flex-wrap gap-2 p-1">
+          <Button variant="ghost" size="sm" asChild className="text-xs font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground">
+            <a href="#booking-rules">Booking rules</a>
+          </Button>
+          <Button variant="ghost" size="sm" asChild className="text-xs font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground">
+            <a href="#availability-schedule">Schedule</a>
+          </Button>
+          <Button variant="ghost" size="sm" asChild className="text-xs font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground">
+            <a href="#booking-occasions">Occasions</a>
+          </Button>
+        </div>
+      </div>
 
       <BookingRulesCard restaurantId={restaurantId} />
 

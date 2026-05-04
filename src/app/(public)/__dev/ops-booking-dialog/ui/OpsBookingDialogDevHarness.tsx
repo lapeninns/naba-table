@@ -1,7 +1,7 @@
 'use client';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { BookingDialog } from '@/components/features/dashboard/booking-details/BookingDialog';
 import { Button } from '@/components/ui/button';
@@ -258,15 +258,19 @@ export function OpsBookingDialogDevHarness() {
 
   const [open, setOpen] = useState(true);
 
+  // Stable noop handlers — avoids new function identities each render which
+  // would cause BookingDialog's internal useMemo deps to recompute.
+  const noopAsync = useCallback(async () => {}, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <OpsServicesProvider factories={servicesFactories}>
         <BookingOfflineQueueProvider>
-          <div className="min-h-screen bg-gradient-to-b from-stone-50 via-white to-stone-50 p-6">
+          <div className="min-h-screen bg-background p-6">
             <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
               <div className="space-y-1">
-                <div className="text-sm font-semibold text-slate-900">Dev harness</div>
-                <div className="text-xs text-slate-600">
+                <div className="text-sm font-semibold text-foreground">Dev harness</div>
+                <div className="text-xs text-muted-foreground">
                   Ops BookingDialog and TableAssignmentPanel (mock services)
                 </div>
               </div>
@@ -281,11 +285,11 @@ export function OpsBookingDialogDevHarness() {
               allowTableAssignments={true}
               open={open}
               onOpenChange={setOpen}
-              onCheckIn={async () => {}}
-              onCheckOut={async () => {}}
-              onMarkNoShow={async () => {}}
-              onUndoNoShow={async () => {}}
-              onCancel={async () => {}}
+              onCheckIn={noopAsync}
+              onCheckOut={noopAsync}
+              onMarkNoShow={noopAsync}
+              onUndoNoShow={noopAsync}
+              onCancel={noopAsync}
               pendingLifecycleAction={null}
               cancelPending={false}
               isToday={true}

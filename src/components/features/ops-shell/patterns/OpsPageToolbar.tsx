@@ -26,7 +26,7 @@ export function OpsPageToolbar({
   return (
     <div
       className={cn(
-        'backdrop-blur-md transition-[background-color,border-color,box-shadow] duration-200 motion-reduce:transition-none',
+        'backdrop-blur-xl transition-[background-color,border-color,box-shadow] duration-200 motion-reduce:transition-none',
         sticky
           ? 'sticky top-0 z-10 -mx-4 bg-background/80 px-4 py-2.5 sm:-mx-6 sm:px-6 md:mx-0 md:rounded-xl md:border md:border-border/60 md:bg-card/80 md:px-3 md:shadow-sm'
           : 'rounded-xl border border-border/60 bg-card/80 px-3 py-2.5 shadow-sm',

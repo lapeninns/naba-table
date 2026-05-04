@@ -1,10 +1,13 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Card } from '@/components/ui/card';
 import { Collapsible } from '@/components/ui/collapsible';
+import { useBookingService } from '@/contexts/ops-services';
 import { getOpsBookingStatusUi } from '@/lib/ops/booking-status';
+import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils';
 import { useMinimumDelay } from '@src/hooks/use-minimum-delay';
 import { useMediaQuery } from '@src/hooks/useMediaQuery';
@@ -37,6 +40,8 @@ export const OpsBookingCard = memo(function OpsBookingCard({
   const { booking, meta, disableActions: viewDisabled, header, details, actions } = viewModel;
   const [isOpen, setIsOpen] = useState(false);
   const isMobile = useMediaQuery('(max-width: 639px)');
+  const queryClient = useQueryClient();
+  const bookingService = useBookingService();
 
   useEffect(() => {
     if (!booking.id) return;
@@ -72,6 +77,15 @@ export const OpsBookingCard = memo(function OpsBookingCard({
   const handleCancel = useCallback(() => {
     onCancel?.(booking.id);
   }, [booking.id, onCancel]);
+
+  const handlePrefetch = useCallback(() => {
+    if (!booking.id) return;
+    void queryClient.prefetchQuery({
+      queryKey: queryKeys.opsBookings.detail(booking.id),
+      queryFn: () => bookingService.getBooking(booking.id),
+      staleTime: 60_000,
+    });
+  }, [booking.id, bookingService, queryClient]);
 
   const cardBody = (
     <>
@@ -110,6 +124,7 @@ export const OpsBookingCard = memo(function OpsBookingCard({
       aria-labelledby={`guest-name-${booking.id}`}
       aria-busy={showLoading}
       aria-disabled={isInteractionLocked || undefined}
+      onMouseEnter={handlePrefetch}
     >
       <Collapsible open={isOpen} onOpenChange={handleOpenChange} className="w-full">
         {cardBody}
