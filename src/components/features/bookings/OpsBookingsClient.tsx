@@ -114,9 +114,11 @@ export function OpsBookingsClient(props: OpsBookingsClientProps) {
           <OpsPageToolbar
             sticky
             filters={
-              <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto scrollbar-hide">
-                <div className="flex shrink-0 items-center gap-2">
-                  <span className="text-xs font-semibold text-muted-foreground">View</span>
+              <div className="flex min-w-0 w-full flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
+                <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-2.5 py-1.5">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    View
+                  </span>
                   <StatusFilterGroup
                     value={queryState.view as StatusFilter}
                     options={OPS_STATUS_TABS}
@@ -124,20 +126,22 @@ export function OpsBookingsClient(props: OpsBookingsClientProps) {
                     ariaLabel="View bookings"
                   />
                 </div>
-                <OpsBookingsDatePicker
-                  value={queryState.selectedDate}
-                  timezone={restaurantTimezone || 'UTC'}
-                  onSelectDate={queryState.handleSelectServiceDate}
-                  onClear={queryState.handleClearServiceDate}
-                  onToday={queryState.handleTodayServiceDate}
-                />
-                <OpsStatusFilterPopover
-                  options={dataState.statusFilterOptions}
-                  selected={queryState.visibleSelectedStatuses}
-                  onToggle={queryState.handleToggleStatus}
-                  onClear={queryState.handleClearStatuses}
-                  isLoading={dataState.statusSummaryQuery.isLoading}
-                />
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <OpsBookingsDatePicker
+                    value={queryState.selectedDate}
+                    timezone={restaurantTimezone || 'UTC'}
+                    onSelectDate={queryState.handleSelectServiceDate}
+                    onClear={queryState.handleClearServiceDate}
+                    onToday={queryState.handleTodayServiceDate}
+                  />
+                  <OpsStatusFilterPopover
+                    options={dataState.statusFilterOptions}
+                    selected={queryState.visibleSelectedStatuses}
+                    onToggle={queryState.handleToggleStatus}
+                    onClear={queryState.handleClearStatuses}
+                    isLoading={dataState.statusSummaryQuery.isLoading}
+                  />
+                </div>
               </div>
             }
             actions={

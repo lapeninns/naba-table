@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertCircle, MessageSquare, MessageSquareWarning } from 'lucide-react';
+import { MessageSquare, MessageSquareWarning } from 'lucide-react';
 import { useMemo } from 'react';
 
 import {
@@ -9,10 +9,8 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useOpsBookingSmsDeliveryLog } from '@/hooks/ops/useOpsBookingSmsDeliveryLog';
 import { cn } from '@/lib/utils';
@@ -28,15 +26,64 @@ import type { SmsDeliveryGroup } from '@/src/lib/sms-delivery/grouping';
 import type { SmsDeliveryStatus } from '@/types/smsDelivery';
 import type { CSSProperties, ReactElement } from 'react';
 
+export type SmsDeliveryPanelProps = {
+  bookingId: string;
+  timezone: string;
+  limit?: number;
+};
+
 function StatusBadge({ status }: { status: SmsDeliveryStatus }) {
   const tone = getSmsDeliveryStatusBadgeTone(status);
   return (
     <Badge
       variant={tone.variant}
-      className={cn('text-[10px] font-bold uppercase tracking-wide', tone.className)}
+      className={cn(
+        'h-5 rounded px-1.5 text-[9px] font-bold uppercase tracking-wider',
+        tone.className,
+      )}
     >
       {SMS_DELIVERY_STATUS_LABELS[status] ?? status}
     </Badge>
+  );
+}
+
+function DeliveryStateCard({
+  title,
+  description,
+  tone = 'neutral',
+}: {
+  title: string;
+  description: string;
+  tone?: 'neutral' | 'danger';
+}) {
+  return (
+    <Card className="border-border/50 bg-background shadow-sm ring-1 ring-border/5">
+      <CardContent className="space-y-3 p-3">
+        <div className="flex items-center justify-between">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
+            SMS Observability
+          </div>
+          <MessageSquareWarning
+            className={cn(
+              'h-3 w-3',
+              tone === 'danger' ? 'text-destructive' : 'text-muted-foreground/50',
+            )}
+            aria-hidden
+          />
+        </div>
+        <div
+          className={cn(
+            'rounded border p-2.5',
+            tone === 'danger'
+              ? 'border-destructive/20 bg-destructive/5 text-destructive'
+              : 'border-border/40 bg-muted/20 text-muted-foreground',
+          )}
+        >
+          <div className="text-[10px] font-bold uppercase tracking-widest">{title}</div>
+          <div className="mt-1 text-xs leading-relaxed">{description}</div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -45,36 +92,28 @@ function GroupHeader({ group, timezone }: { group: SmsDeliveryGroup; timezone: s
   const label = formatSmsTypeLabel(group.smsType);
 
   return (
-    <div className="flex items-start gap-3">
-      <div className="mt-0.5">
+    <div className="flex w-full items-center justify-between gap-3 overflow-hidden">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
         <StatusBadge status={group.currentStatus} />
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-semibold text-foreground" title={label}>
+        <div
+          className="truncate text-[11px] font-bold tracking-tight text-foreground"
+          title={label}
+        >
           {label}
         </div>
-        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-          <span className="truncate" title={group.recipientPhone}>
-            {group.recipientPhone}
-          </span>
-          {when ? <span className="whitespace-nowrap">{when}</span> : null}
-        </div>
+      </div>
+      <div className="shrink-0 text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest">
+        {when}
       </div>
     </div>
   );
 }
 
-type SmsDeliveryPanelProps = {
-  bookingId: string;
-  timezone: string;
-  limit?: number;
-};
-
 export function SmsDeliveryPanel({ bookingId, timezone, limit = 50 }: SmsDeliveryPanelProps) {
   const query = useOpsBookingSmsDeliveryLog(bookingId, { limit });
   const heavyPanelStyle = {
     contentVisibility: 'auto',
-    containIntrinsicSize: '1px 280px',
+    containIntrinsicSize: '1px 120px',
   } as CSSProperties;
   const wrapCard = (content: ReactElement) => <div style={heavyPanelStyle}>{content}</div>;
 
@@ -85,17 +124,12 @@ export function SmsDeliveryPanel({ bookingId, timezone, limit = 50 }: SmsDeliver
 
   if (query.isLoading) {
     return wrapCard(
-      <Card className="border-border bg-background">
+      <Card className="border-border/50 bg-background shadow-sm ring-1 ring-border/5">
         <CardContent className="space-y-3 p-3">
-          <div className="flex items-center justify-between">
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              SMS Delivery
-            </div>
-            <MessageSquare className="h-4 w-4 text-muted-foreground" aria-hidden />
-          </div>
+          <Skeleton className="h-4 w-24" />
           <div className="space-y-2">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-8 w-full" />
           </div>
         </CardContent>
       </Card>,
@@ -104,124 +138,94 @@ export function SmsDeliveryPanel({ bookingId, timezone, limit = 50 }: SmsDeliver
 
   if (query.unavailable) {
     return wrapCard(
-      <Card className="border-border bg-background">
-        <CardContent className="space-y-2 p-3">
-          <div className="flex items-center justify-between">
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              SMS Delivery
-            </div>
-            <MessageSquareWarning className="h-4 w-4 text-primary" aria-hidden />
-          </div>
-          <Alert className="border-border bg-muted/40">
-            <AlertTitle>Delivery tracking unavailable</AlertTitle>
-            <AlertDescription>
-              This environment is not currently recording or exposing SMS delivery events. SMS
-              sending can still work normally.
-            </AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>,
+      <DeliveryStateCard
+        title="Tracking unavailable"
+        description="This environment is not currently recording or exposing delivery events. SMS sending can still work normally."
+      />,
     );
   }
 
   if (query.apiError) {
     return wrapCard(
-      <Card className="border-border bg-background">
-        <CardContent className="space-y-2 p-3">
-          <div className="flex items-center justify-between">
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              SMS Delivery
-            </div>
-            <AlertCircle className="h-4 w-4 text-destructive" aria-hidden />
-          </div>
-          <Alert variant="destructive">
-            <AlertTitle>Unable to load delivery events</AlertTitle>
-            <AlertDescription>{query.apiError.error}</AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>,
+      <DeliveryStateCard
+        title="Unable to load events"
+        description={query.apiError.error}
+        tone="danger"
+      />,
     );
   }
 
   if (query.error) {
     return wrapCard(
-      <Card className="border-border bg-background">
-        <CardContent className="space-y-2 p-3">
-          <div className="flex items-center justify-between">
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              SMS Delivery
-            </div>
-            <AlertCircle className="h-4 w-4 text-destructive" aria-hidden />
-          </div>
-          <Alert variant="destructive">
-            <AlertTitle>Unexpected error</AlertTitle>
-            <AlertDescription>{query.error.message}</AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>,
+      <DeliveryStateCard
+        title="Unexpected delivery error"
+        description={query.error.message}
+        tone="danger"
+      />,
     );
   }
 
   if (groups.length === 0) {
     return wrapCard(
-      <Card className="border-border bg-background">
-        <CardContent className="space-y-2 p-3">
-          <div className="flex items-center justify-between">
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              SMS Delivery
-            </div>
-            <MessageSquare className="h-4 w-4 text-muted-foreground" aria-hidden />
-          </div>
-          <div className="text-sm text-muted-foreground">
-            No delivery events recorded for this booking yet.
-          </div>
-        </CardContent>
-      </Card>,
+      <DeliveryStateCard
+        title="No SMS events"
+        description="No delivery events have been recorded for this booking yet."
+      />,
     );
   }
 
   return wrapCard(
-    <Card className="border-border bg-background">
+    <Card className="border-border/50 bg-background shadow-sm ring-1 ring-border/5">
       <CardContent className="space-y-3 p-3">
         <div className="flex items-center justify-between">
-          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            SMS Delivery
+          <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
+            SMS Observability
           </div>
-          <MessageSquare className="h-4 w-4 text-muted-foreground" aria-hidden />
+          <MessageSquare className="h-3 w-3 text-muted-foreground/50" aria-hidden />
         </div>
-        <Separator />
-        <Accordion type="multiple" className="space-y-2">
+
+        <Accordion type="multiple" className="w-full space-y-1.5">
           {groups.map((group) => {
             const key = `${group.messageSid}__${group.recipientPhone}`;
             return (
-              <AccordionItem key={key} value={key} className="rounded-lg border-none bg-muted/40">
-                <AccordionTrigger className="px-3 py-2 hover:no-underline">
+              <AccordionItem
+                key={key}
+                value={key}
+                className="rounded border border-border/40 bg-muted/5"
+              >
+                <AccordionTrigger className="px-2.5 py-2 hover:no-underline">
                   <GroupHeader group={group} timezone={timezone} />
                 </AccordionTrigger>
-                <AccordionContent className="px-3 pb-3">
-                  <div className="space-y-2">
-                    {group.events.map((event) => {
-                      const when =
-                        formatSmsDeliveryOccurredAt(event.occurredAt, timezone) ?? event.occurredAt;
-                      return (
-                        <div key={event.id} className="flex items-start justify-between gap-3">
-                          <div className="flex items-center gap-2">
-                            <StatusBadge status={event.status} />
-                            <span className="text-xs text-muted-foreground">
-                              {when ?? 'Unknown time'}
-                            </span>
+                <AccordionContent className="px-2.5 pb-2.5">
+                  <div className="space-y-2 border-t border-border/40 pt-2">
+                    <div className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/50">
+                      Recipient: {group.recipientPhone}
+                    </div>
+                    <div className="space-y-1.5">
+                      {group.events.map((event) => {
+                        const when =
+                          formatSmsDeliveryOccurredAt(event.occurredAt, timezone) ??
+                          event.occurredAt;
+                        return (
+                          <div key={event.id} className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                              <StatusBadge status={event.status} />
+                              <span className="text-[10px] font-medium text-muted-foreground/60">
+                                {when}
+                              </span>
+                            </div>
+                            {event.error && (
+                              <span
+                                className="truncate text-[10px] font-bold text-destructive/80 uppercase tracking-tighter"
+                                title={event.error}
+                              >
+                                {event.error}
+                              </span>
+                            )}
                           </div>
-                          {event.error ? (
-                            <span
-                              className="max-w-[50%] truncate text-xs text-destructive"
-                              title={event.error}
-                            >
-                              {event.error}
-                            </span>
-                          ) : null}
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
                 </AccordionContent>
               </AccordionItem>

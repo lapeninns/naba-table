@@ -20,6 +20,7 @@ export interface ArrivalCountdownProps {
   date: string | null;
   timezone: string;
   now?: DateTime;
+  compact?: boolean;
 }
 
 export function ArrivalCountdown({
@@ -28,6 +29,7 @@ export function ArrivalCountdown({
   date,
   timezone,
   now,
+  compact = false,
 }: ArrivalCountdownProps) {
   const minutesRemaining = getMinutesUntilTime(startTime, date, timezone, now);
   if (!shouldShowCountdown(status, minutesRemaining)) return null;
@@ -40,33 +42,40 @@ export function ArrivalCountdown({
     <Badge
       variant="secondary"
       className={cn(
-        'flex items-center gap-2 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider',
+        'flex items-center gap-2 uppercase tracking-wider',
+        compact ? 'px-2 py-1 text-[10px] font-bold' : 'px-3 py-1 text-[11px] font-semibold',
         isLate
           ? 'bg-destructive/10 text-destructive'
           : isImminent
-            ? 'bg-primary/10 text-primary animate-pulse motion-reduce:animate-none'
+            ? cn(
+                'bg-primary/10 text-primary',
+                !compact && 'animate-pulse motion-reduce:animate-none',
+              )
             : 'bg-muted/40 text-muted-foreground',
       )}
       role="status"
       aria-live="polite"
     >
-      <span className="relative flex h-2 w-2">
+      <span className={cn('relative flex', compact ? 'h-1.5 w-1.5' : 'h-2 w-2')}>
         <span
           className={cn(
             'absolute inline-flex h-full w-full rounded-full opacity-60',
-            isLate ? 'bg-destructive/10' : isImminent ? 'bg-primary/10' : 'bg-primary/10',
+            isLate ? 'bg-destructive' : isImminent ? 'bg-primary' : 'bg-muted-foreground',
           )}
         />
         <span
           className={cn(
-            'relative inline-flex h-2 w-2 rounded-full',
-            isLate ? 'bg-destructive/10' : isImminent ? 'bg-primary/10' : 'bg-primary/10',
+            'relative inline-flex rounded-full',
+            compact ? 'h-1.5 w-1.5' : 'h-2 w-2',
+            isLate ? 'bg-destructive' : isImminent ? 'bg-primary' : 'bg-muted-foreground',
           )}
         />
       </span>
       {isLate
-        ? `Late by ${formatCountdown(minutesRemaining)}`
-        : `Arriving in ${formatCountdown(minutesRemaining)}`}
+        ? `Late ${formatCountdown(minutesRemaining)}`
+        : compact
+          ? formatCountdown(minutesRemaining)
+          : `Arriving in ${formatCountdown(minutesRemaining)}`}
     </Badge>
   );
 }

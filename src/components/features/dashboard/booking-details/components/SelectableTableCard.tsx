@@ -129,111 +129,106 @@ export const SelectableTableCard = memo(function SelectableTableCard({
       aria-describedby={describedById}
       tabIndex={tabIndex}
       className={cn(
-        'group relative flex h-auto flex-col items-start justify-between whitespace-normal p-3 text-left touch-manipulation',
-        'min-h-[110px] rounded-xl border transition-[transform,box-shadow,border-color,background-color,color] duration-200',
+        // w-full + flex-1: fill grid cell (inline-flex default was shrink-wrapped vs column width).
+        // justify-start: override Button’s justify-center so extra row height doesn’t float content.
+        'group relative flex h-full min-h-0 w-full flex-1 flex-col items-start justify-start gap-2 whitespace-normal p-2.5 text-left touch-manipulation',
+        'rounded-xl border transition-all duration-200',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-        'motion-reduce:transition-none motion-reduce:transform-none',
         isAssigned
-          ? 'cursor-default border-primary/30 bg-primary/10'
+          ? 'cursor-default border-primary/40 bg-primary/5 shadow-sm'
           : isSelected
-            ? 'border-primary bg-primary/10 shadow-sm'
+            ? 'border-primary bg-primary/10 shadow-md scale-[1.02] ring-1 ring-primary/20'
             : isUnavailable
-              ? 'cursor-not-allowed border-border bg-muted opacity-60'
-              : 'cursor-pointer border-border bg-background hover:border-primary/30 hover:shadow-sm',
+              ? 'cursor-not-allowed border-border bg-muted/20 opacity-60'
+              : 'cursor-pointer border-border/60 bg-background hover:border-primary/40 hover:bg-muted/5',
       )}
     >
       {(isSelected || isAssigned) && (
         <div
           className={cn(
-            'absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full shadow-sm',
-            isAssigned ? 'bg-primary' : 'bg-primary',
+            'absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full border shadow-md transition-transform',
+            isAssigned ? 'bg-primary scale-110' : 'bg-primary scale-100',
           )}
         >
           <Check className="h-3 w-3 text-primary-foreground" aria-hidden />
         </div>
       )}
 
-      <div className="flex w-full items-start justify-between">
-        <div>
+      <div className="flex w-full items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="mb-1 text-[9px] font-bold uppercase tracking-widest text-muted-foreground/60">
+            {table.section || 'General'}
+          </div>
           <span
-            className={cn('text-base font-semibold text-foreground', isAssigned && 'text-primary')}
+            className={cn(
+              'block break-words text-sm font-bold tracking-tight text-foreground leading-tight',
+              isAssigned && 'text-primary',
+            )}
           >
-            Table {table.tableNumber}
+            {table.tableNumber}
           </span>
           {table.name ? (
-            <div
-              className="max-w-[10rem] truncate text-xs text-muted-foreground"
-              title={table.name}
-            >
+            <div className="mt-0.5 break-words text-[10px] font-medium text-muted-foreground/70">
               {table.name}
             </div>
           ) : null}
         </div>
-        {isConflicted ? (
-          <Badge variant="outline" className="border-border bg-muted/40 text-foreground">
-            <AlertTriangle className="h-3 w-3 mr-1" aria-hidden />
-            Conflict
-          </Badge>
-        ) : null}
+        {isConflicted && (
+          <div className="shrink-0 flex items-center gap-1 rounded bg-destructive/10 px-1.5 py-0.5 text-[9px] font-bold uppercase text-destructive">
+            <AlertTriangle className="h-2.5 w-2.5" />
+            Busy
+          </div>
+        )}
       </div>
 
-      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-        <Users className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-        <span>{table.capacity} seats</span>
-        {table.section ? <span className="text-muted-foreground">· {table.section}</span> : null}
-      </div>
-
-      <div className="mt-2 flex flex-wrap gap-1">
-        <Badge
-          variant="secondary"
-          className={cn(
-            'text-[10px]',
-            fit === 'exact'
-              ? 'bg-primary/10 text-primary'
-              : fit === 'within'
-                ? 'bg-primary/10 text-primary'
-                : fit === 'oversized'
-                  ? 'bg-muted text-muted-foreground'
-                  : 'bg-destructive/10 text-destructive',
-          )}
-        >
-          {getCapacityFitLabel(fit)}
-        </Badge>
-        {table.seatingType ? (
-          <Badge variant="outline" className="text-[10px]">
-            {table.seatingType}
-          </Badge>
-        ) : null}
-        {table.mobility ? (
-          <Badge variant="outline" className="text-[10px]">
-            {table.mobility}
-          </Badge>
-        ) : null}
-      </div>
-
-      {showTimeline ? (
-        <div className="mt-3 w-full">
-          <div
+      <div className="w-full">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex items-center gap-1 rounded-sm bg-muted/60 px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">
+            <Users className="h-2.5 w-2.5" />
+            {table.capacity}
+          </div>
+          <Badge
+            variant="secondary"
             className={cn(
-              'relative h-2 w-full rounded-full border',
-              conflictTone ? 'border-destructive/20 bg-destructive/10' : 'border-border bg-muted',
+              'h-4 px-1 text-[9px] font-bold uppercase tracking-wider',
+              fit === 'exact' || fit === 'within'
+                ? 'bg-primary/10 text-primary border-primary/20'
+                : 'bg-muted/40 text-muted-foreground border-border/50',
             )}
-            aria-hidden
           >
-            {bookingStart !== null && (
-              <div
-                className="absolute top-0 h-full rounded-full bg-primary"
-                style={{ left: `${blockLeft}%`, width: `${blockWidth}%` }}
-                aria-hidden
-              />
-            )}
-          </div>
-          <div className="mt-1 flex items-center justify-between text-[10px] text-muted-foreground">
-            <span>{conflictTone ? 'Busy' : 'Unknown'}</span>
-            {bookingStart !== null ? <span>Current booking</span> : null}
-          </div>
+            {getCapacityFitLabel(fit)}
+          </Badge>
         </div>
-      ) : null}
+
+        {showTimeline && (
+          <div className="mt-3 space-y-1.5">
+            <div
+              className={cn(
+                'relative h-1.5 w-full overflow-hidden rounded-full border',
+                conflictTone
+                  ? 'border-destructive/20 bg-destructive/5'
+                  : 'border-border/40 bg-muted/20',
+              )}
+              aria-hidden
+            >
+              {bookingStart !== null && (
+                <div
+                  className={cn(
+                    'absolute top-0 h-full rounded-full transition-all',
+                    conflictTone ? 'bg-destructive' : 'bg-primary',
+                  )}
+                  style={{ left: `${blockLeft}%`, width: `${blockWidth}%` }}
+                  aria-hidden
+                />
+              )}
+            </div>
+            <div className="flex items-center justify-between text-[8px] font-bold uppercase tracking-widest text-muted-foreground/50">
+              <span>{conflictTone ? 'Conflict' : 'Occupied'}</span>
+              <span>{Math.round(blockWidth)}%</span>
+            </div>
+          </div>
+        )}
+      </div>
 
       {describedById ? (
         <span id={describedById} className="sr-only">

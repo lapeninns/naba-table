@@ -2,7 +2,6 @@
 
 import { useMemo } from 'react';
 
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -29,64 +28,65 @@ export function GuestSeatingCard({
     () => assignedTableRows.map((t) => t.tableNumber),
     [assignedTableRows],
   );
-  const visibleTables = tableLabels.slice(0, 3);
+  const visibleTables = tableLabels.slice(0, 4);
   const overflowCount = Math.max(0, tableLabels.length - visibleTables.length);
 
   if (assignedTableRows.length === 0) {
     return (
-      <Alert className="border-primary/30 bg-warning/10 text-warning-foreground">
-        <AlertTitle className="text-primary">No table assigned</AlertTitle>
-        <AlertDescription className="text-primary">
-          Assign a table to complete the seating plan.
-        </AlertDescription>
-      </Alert>
+      <div className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 p-3 shadow-sm ring-1 ring-primary/5">
+        <div className="flex flex-col gap-0.5">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-primary/70">
+            Seating Status
+          </span>
+          <span className="text-xs font-bold text-primary">No Table Assigned</span>
+        </div>
+      </div>
     );
   }
 
   return (
-    <Card className="border-border bg-background shadow-sm">
-      <CardContent className="space-y-3 p-4">
+    <Card className="border-border/50 bg-background shadow-sm ring-1 ring-border/5">
+      <CardContent className="space-y-3 p-3">
         <div className="flex items-center justify-between gap-3">
-          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Assigned tables
+          <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
+            Assignments
           </div>
           <div className="flex flex-wrap items-center gap-1">
             {visibleTables.map((tableNumber) => (
-              <Badge key={tableNumber} variant="secondary" className="text-xs font-semibold">
+              <Badge
+                key={tableNumber}
+                variant="secondary"
+                className="h-5 px-1.5 text-[10px] font-bold border-border/50"
+              >
                 {tableNumber}
               </Badge>
             ))}
             {overflowCount > 0 ? (
-              <Badge variant="outline" className="text-xs">
+              <Badge
+                variant="outline"
+                className="h-5 px-1.5 text-[10px] font-bold border-border/50"
+              >
                 +{overflowCount}
               </Badge>
             ) : null}
           </div>
         </div>
 
-        <Progress value={capacityPercent} className="h-2 bg-muted" />
-
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-muted-foreground">Capacity</span>
-          <span
-            className={cn(
-              'font-semibold',
-              capacityPercent >= 100
-                ? 'text-primary'
-                : capacityPercent >= 80
-                  ? 'text-primary'
-                  : 'text-muted-foreground',
-            )}
-          >
-            {totalCapacity} / {partySize} seats
-          </span>
+        <div className="space-y-1.5">
+          <Progress value={capacityPercent} className="h-1.5 bg-muted" />
+          <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest">
+            <span className="text-muted-foreground/60">Utilization</span>
+            <span className={cn(capacityPercent >= 100 ? 'text-primary' : 'text-muted-foreground')}>
+              {totalCapacity} / {partySize} seats
+            </span>
+          </div>
         </div>
 
         {seatingPreference ? (
           <div className="pt-1">
-            <Badge variant="outline" className="border-primary/20 bg-primary/10 text-primary">
-              {seatingPreference}
-            </Badge>
+            <div className="rounded border border-primary/20 bg-primary/5 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-primary">
+              Pref: {seatingPreference}
+            </div>
           </div>
         ) : null}
       </CardContent>

@@ -76,11 +76,11 @@ export function AllTablesSection({
   }
 
   return (
-    <section className="space-y-3">
-      <div className="flex items-center justify-between">
+    <section className="space-y-3 rounded-xl border border-border/70 bg-background p-3.5 sm:p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-2.5">
         <div className="flex items-center gap-2">
           <MapPin className="h-4 w-4 text-muted-foreground" aria-hidden />
-          <span className="text-sm font-semibold text-foreground">All tables</span>
+          <span className="text-sm font-semibold text-foreground">Full Inventory</span>
         </div>
         <span className="text-xs text-muted-foreground">{totalCount} tables</span>
       </div>
@@ -92,13 +92,13 @@ export function AllTablesSection({
           </CardContent>
         </Card>
       ) : (
-        <ScrollArea className="h-[320px] pr-2">
+        <ScrollArea className="h-[480px] pr-2 sm:h-[520px]">
           <div className="space-y-4">
             {Array.from(groupedTables.entries()).map(([section, sectionTables]) => {
               const conflictedInZone = sectionTables.filter((t) => conflictedTableIds.has(t.id));
               return (
                 <div key={section} className="space-y-2">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-semibold uppercase tracking-wide text-foreground">
                         {section}
@@ -119,7 +119,7 @@ export function AllTablesSection({
                   </div>
 
                   <TableCardGrid
-                    className="grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3"
+                    className="grid-cols-1 sm:grid-cols-2"
                     tables={sectionTables}
                     partySize={partySize}
                     selectedTableIds={selectedTableIds}

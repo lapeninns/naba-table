@@ -23,6 +23,9 @@ export function OpsPageToolbar({
   children,
   className,
 }: OpsPageToolbarProps) {
+  const hasLeading = Boolean(filters) || Boolean(sort);
+  const hasTrailing = Boolean(actions) || Boolean(search);
+
   return (
     <div
       className={cn(
@@ -33,16 +36,19 @@ export function OpsPageToolbar({
         className,
       )}
     >
-      <div className="flex flex-col gap-2.5 md:flex-row md:items-center md:justify-between">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-          {filters}
-          {sort}
+      {(hasLeading || hasTrailing) && (
+        <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-3">
+          {hasLeading ? (
+            <div className="flex min-w-0 flex-wrap items-center gap-2">{filters}{sort}</div>
+          ) : null}
+          {hasTrailing ? (
+            <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-start lg:justify-end">
+              {actions ? <div className="flex min-w-0 flex-wrap items-center gap-2">{actions}</div> : null}
+              {search ? <div className="w-full min-w-0 sm:w-auto sm:min-w-[14rem]">{search}</div> : null}
+            </div>
+          ) : null}
         </div>
-        <div className="flex flex-col gap-2 md:flex-row md:items-center">
-          {actions}
-          {search}
-        </div>
-      </div>
+      )}
       {children ? <div className="mt-2">{children}</div> : null}
     </div>
   );

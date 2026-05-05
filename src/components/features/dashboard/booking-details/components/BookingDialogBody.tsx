@@ -120,8 +120,8 @@ export function BookingDialogBody({
 
   if (isMobile) {
     return (
-      <ScrollArea className="h-full bg-muted/40">
-        <div className="flex flex-col gap-6 p-4 pb-20">
+      <ScrollArea className="h-full bg-muted/30">
+        <div className="flex flex-col gap-5 p-4 pb-20 sm:p-5">
           <GuestProfilePanel
             booking={booking}
             bookingDate={bookingDate}
@@ -131,19 +131,21 @@ export function BookingDialogBody({
             assignedTableRows={assignedTableRows}
             totalCapacity={totalCapacity}
             capacityPercent={capacityPercent}
-            enableDesktopTabs={false}
           />
 
-          <div ref={tablePanelRef} className="pt-4 border-t border-dashed border-border">
+          <div
+            ref={tablePanelRef}
+            className="rounded-2xl border border-border/40 bg-background/60 p-4 shadow-sm backdrop-blur-md sm:p-5"
+          >
             <Collapsible
               open={isTableAssignmentOpen}
               onOpenChange={onTableAssignmentOpenChange}
-              className="space-y-3"
+              className="space-y-3.5"
             >
               <CollapsibleTrigger asChild>
                 <Button
                   variant="ghost"
-                  className="flex w-full items-center justify-between p-0 hover:bg-transparent mb-4 h-auto hover:no-underline"
+                  className="mb-3 flex h-auto w-full items-center justify-between rounded-md p-0 hover:bg-transparent hover:no-underline"
                 >
                   <div className="text-left">
                     <div className="flex items-center gap-2">
@@ -206,9 +208,10 @@ export function BookingDialogBody({
   }
 
   return (
-    <div className="grid h-full overflow-hidden grid-cols-1 lg:grid-cols-2">
-      <ScrollArea className="h-full overflow-x-hidden border-b border-border bg-muted/40 lg:border-b-0 lg:border-r">
-        <div className="p-5 lg:p-6 space-y-5 overflow-x-hidden">
+    <div className="grid h-full grid-cols-1 overflow-hidden md:grid-cols-[minmax(300px,0.92fr)_minmax(0,1.08fr)] xl:grid-cols-[minmax(340px,0.9fr)_minmax(0,1.1fr)]">
+      {/* ── Left: Guest Profile ────────────────────────────────────────── */}
+      <ScrollArea className="h-full border-b border-border/30 bg-gradient-to-b from-muted/30 to-muted/10 md:border-b-0 md:border-r md:border-border/30">
+        <div className="p-5 sm:p-6 xl:p-8">
           <GuestProfilePanel
             booking={booking}
             bookingDate={bookingDate}
@@ -218,17 +221,21 @@ export function BookingDialogBody({
             assignedTableRows={assignedTableRows}
             totalCapacity={totalCapacity}
             capacityPercent={capacityPercent}
-            enableDesktopTabs={true}
           />
         </div>
       </ScrollArea>
-      <ScrollArea className="h-full overflow-x-hidden bg-background">
-        <div ref={tablePanelRef} className="p-4 lg:p-6 overflow-x-hidden h-full">
-          <div className="mb-4 lg:hidden">
-            <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">
+
+      {/* ── Right: Table Assignment ───────────────────────────────────── */}
+      <ScrollArea className="h-full bg-background/60 backdrop-blur-sm">
+        <div ref={tablePanelRef} className="p-5 sm:p-6 xl:p-8">
+          {/* Section label */}
+          <div className="mb-5 flex items-center gap-2">
+            <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
               Table Assignment
             </h3>
+            <span className="flex-1 h-px bg-border/30" />
           </div>
+
           {allowTableAssignments ? (
             <TableAssignmentPanel
               bookingId={booking.id}

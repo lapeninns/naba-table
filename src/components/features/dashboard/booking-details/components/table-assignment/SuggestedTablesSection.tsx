@@ -46,24 +46,24 @@ export function SuggestedTablesSection({
   if (tables.length === 0) return null;
 
   return (
-    <section className="space-y-3">
-      <div className="flex items-center justify-between">
+    <section className="space-y-2 rounded-xl border border-primary/20 bg-primary/5 p-2.5 sm:p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-primary/20 pb-2">
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10">
+          <div className="flex h-7 w-7 items-center justify-center rounded-md border border-primary/20 bg-primary/10">
             <Sparkles className="h-4 w-4 text-primary" aria-hidden />
           </div>
-          <span className="text-sm font-semibold text-foreground">Suggested tables</span>
+          <span className="text-sm font-semibold text-foreground">Best Matches</span>
         </div>
         <Badge
           variant="secondary"
           className="border border-primary/20 bg-primary/10 text-[10px] text-primary"
         >
-          Suggested
+          Recommended
         </Badge>
       </div>
 
       <TableCardGrid
-        className="grid-cols-2 gap-3 sm:grid-cols-3"
+        className="grid-cols-1 gap-2 sm:grid-cols-2"
         tables={tables.slice(0, 6)}
         partySize={partySize}
         selectedTableIds={selectedTableIds}

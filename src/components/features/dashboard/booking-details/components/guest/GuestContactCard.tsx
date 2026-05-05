@@ -3,7 +3,6 @@
 import { Mail, MessageCircle, Phone } from 'lucide-react';
 import { useMemo } from 'react';
 
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Card, CardContent } from '@/components/ui/card';
 
 import { formatPhoneForTel } from '../../utils';
@@ -24,19 +23,13 @@ export function GuestContactCard({ booking }: GuestContactCardProps) {
   const hasAnyContact = Boolean(booking.customerPhone || booking.customerEmail);
 
   return (
-    <Card className="border-border bg-background">
-      <CardContent className="space-y-2 p-4">
-        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Contact
-        </div>
-
+    <Card className="border-border/50 bg-background shadow-sm ring-1 ring-border/5">
+      <CardContent className="space-y-3 p-3">
         {!hasAnyContact ? (
-          <Alert className="bg-muted/30">
-            <AlertTitle>No contact details</AlertTitle>
-            <AlertDescription>
-              This booking does not include a phone number or email address.
-            </AlertDescription>
-          </Alert>
+          <div className="flex items-center gap-2 rounded-md bg-muted/50 p-2 text-xs font-medium text-muted-foreground">
+            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
+            No contact details provided
+          </div>
         ) : null}
 
         {booking.customerPhone ? (

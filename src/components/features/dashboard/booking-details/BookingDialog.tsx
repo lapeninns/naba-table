@@ -412,9 +412,15 @@ export function BookingDialog({
   }, [booking?.id, queryClient]);
 
   const content = (
-    <div className="flex h-full flex-col overflow-hidden">
-      {/* Header - fixed height */}
-      <div className={cn('shrink-0 border-b px-4 py-3', headerTone)}>
+    <div className="flex h-full flex-col overflow-hidden bg-background/80 backdrop-blur-xl relative group">
+      {/* Ambient glassmorphic gradients */}
+      <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden hidden md:block">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[120px] transition-transform duration-1000 group-hover:scale-110" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-primary/5 rounded-full blur-[140px] transition-transform duration-1000 group-hover:scale-105" />
+      </div>
+
+      {/* Header - Glassy & Dynamic */}
+      <div className={cn('shrink-0 border-b border-border/40 px-4 py-4 sm:px-6 sm:py-5 z-10 bg-background/40 backdrop-blur-md', headerTone)}>
         <DialogHeader
           booking={booking}
           status={status}
@@ -427,7 +433,7 @@ export function BookingDialog({
         />
       </div>
       {/* Body - takes remaining space and scrolls */}
-      <div className="flex-1 min-h-0 overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-hidden z-10">
         <BookingDialogBody
           isLoading={isLoading}
           errorMessage={errorMessage}
@@ -453,53 +459,44 @@ export function BookingDialog({
           bookingEndTime={booking?.endTime ?? null}
         />
       </div>
-      {/* Footer - fixed height */}
-      <div className="shrink-0 border-t bg-background px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
-        <div className="flex items-center justify-between gap-3">
-          <div className="hidden sm:block text-xs text-muted-foreground">
-            {booking ? `${formattedDate} · ${formattedStartTime}` : 'Booking details'}
-          </div>
-
-          <div className="flex items-center gap-2">
-            {primaryAction
-              ? (() => {
-                  const PrimaryIcon = primaryAction.icon;
-                  return (
-                    <Button
-                      size="sm"
-                      onClick={primaryAction.onClick}
-                      disabled={isActionPending}
-                      className={primaryAction.tone}
-                    >
-                      <PrimaryIcon className="h-4 w-4 mr-1.5" />
-                      {primaryAction.label}
-                    </Button>
-                  );
-                })()
-              : null}
-
+      {/* Bottom Action Rail - Elevated & Floating-style */}
+      <div className="shrink-0 border-t border-border/40 bg-background/60 backdrop-blur-xl px-4 py-4 sm:px-6 z-20 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)]">
+        <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
+          {/* Secondary Actions / Info */}
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             {!isMobile && booking?.customerPhone ? (
-              <Button variant="outline" size="sm" asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:bg-background hover:text-foreground"
+                asChild
+              >
                 <a href={`tel:${formatPhoneForTel(booking.customerPhone)}`}>
-                  <Phone className="mr-1 h-3.5 w-3.5" />
-                  Call guest
+                  <Phone className="h-3.5 w-3.5" />
+                  Call Guest
                 </a>
               </Button>
-            ) : null}
+            ) : (
+              <div className="hidden text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 sm:block">
+                {booking ? `${formattedDate} · ${formattedStartTime}` : 'Operation Mode'}
+              </div>
+            )}
+          </div>
 
+          {/* Primary Action Stack */}
+          <div className="flex items-center gap-2">
             {booking ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
-                    className="gap-2"
-                    aria-label="More actions"
+                    className="h-9 w-9 p-0 text-muted-foreground hover:bg-background hover:text-foreground"
+                    aria-label="More operations"
                     disabled={isActionPending}
                   >
-                    <MoreHorizontal className="h-4 w-4" aria-hidden />
-                    <span className="hidden sm:inline">More</span>
+                    <MoreHorizontal className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
@@ -568,6 +565,26 @@ export function BookingDialog({
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : null}
+
+            {primaryAction
+              ? (() => {
+                  const PrimaryIcon = primaryAction.icon;
+                  return (
+                    <Button
+                      size="sm"
+                      onClick={primaryAction.onClick}
+                      disabled={isActionPending}
+                      className={cn(
+                        'h-9 px-4 text-xs font-bold uppercase tracking-widest shadow-sm transition-all active:scale-[0.98]',
+                        primaryAction.tone,
+                      )}
+                    >
+                      <PrimaryIcon className="h-3.5 w-3.5 mr-2" />
+                      {primaryAction.label}
+                    </Button>
+                  );
+                })()
+              : null}
           </div>
         </div>
 
@@ -585,8 +602,8 @@ export function BookingDialog({
           <SheetContent
             side="bottom"
             className={cn(
-              'h-[92dvh] max-h-[calc(100dvh-var(--safe-area-inset-top))] p-0 gap-0 overflow-hidden [&>button]:hidden',
-              'rounded-t-2xl',
+              'h-[94dvh] max-h-[calc(100dvh-var(--safe-area-inset-top))] p-0 gap-0 overflow-hidden border-x-0 border-b-0 [&>button]:hidden',
+              'rounded-t-[2.5rem] shadow-[0_-20px_60px_-15px_rgba(0,0,0,0.3)] bg-background/80 backdrop-blur-3xl',
             )}
           >
             <SheetTitle className="sr-only">{titleText}</SheetTitle>
@@ -596,7 +613,7 @@ export function BookingDialog({
         </Sheet>
       ) : (
         <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-          <DialogContent className="flex flex-col h-[70vh] max-w-5xl p-0 overflow-hidden [&>button]:hidden">
+          <DialogContent className="flex h-[min(90vh,900px)] w-[min(98vw,1280px)] max-w-none flex-col overflow-hidden rounded-[2rem] border border-border/20 p-0 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.4)] sm:w-[min(96vw,1280px)] md:h-[min(88vh,900px)] md:w-[min(94vw,1280px)] [&>button]:hidden bg-background">
             <DialogTitle className="sr-only">{titleText}</DialogTitle>
             <DialogDescription className="sr-only">{descriptionText}</DialogDescription>
             {content}

@@ -104,13 +104,13 @@ export function TableCardGrid({
   };
 
   return (
-    <ul ref={gridRef} className={cn('grid gap-2', className)}>
+    <ul ref={gridRef} className={cn('grid gap-3', className)}>
       {tables.map((table, index) => {
         const isConflicted = conflictedTableIds.has(table.id) || table.status === 'conflicted';
         const describedById = `${baseId}-${table.id}`;
 
         return (
-          <li key={table.id} className="min-w-0">
+          <li key={table.id} className="flex min-h-0 min-w-0 flex-col">
             <SelectableTableCard
               tableId={table.id}
               table={table}
