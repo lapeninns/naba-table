@@ -40,7 +40,26 @@ BEGIN
     p_role
   )
   ON CONFLICT (user_id, restaurant_id)
-  DO UPDATE SET role = excluded.role;
+  DO UPDATE SET role =
+    CASE
+      WHEN
+        CASE restaurant_memberships.role
+          WHEN 'owner' THEN 4
+          WHEN 'manager' THEN 3
+          WHEN 'host' THEN 2
+          WHEN 'server' THEN 1
+          ELSE 0
+        END >=
+        CASE excluded.role
+          WHEN 'owner' THEN 4
+          WHEN 'manager' THEN 3
+          WHEN 'host' THEN 2
+          WHEN 'server' THEN 1
+          ELSE 0
+        END
+      THEN restaurant_memberships.role
+      ELSE excluded.role
+    END;
 
   RETURN accepted_invite;
 END;

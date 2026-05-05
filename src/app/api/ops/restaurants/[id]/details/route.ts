@@ -181,21 +181,31 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
   try {
     const json = await req.json();
     const parsed = detailsSchema.parse(json);
+    const hasField = (field: keyof typeof parsed) =>
+      Object.prototype.hasOwnProperty.call(parsed, field);
     payload = {
-      name: parsed.name,
-      slug: parsed.slug,
-      timezone: parsed.timezone,
-      capacity: parsed.capacity ?? null,
-      contactPhone: parsed.phone ?? null,
-      managerDailySummaryEnabled: parsed.managerDailySummaryEnabled,
-      managerNotificationPhone: parsed.managerNotificationPhone ?? null,
-      contactEmail: parsed.email ?? null,
-      address: parsed.address ?? null,
-      businessDescription: parsed.businessDescription ?? null,
-      googleMapUrl: parsed.googleMapUrl ?? null,
-      googleReviewUrl: parsed.googleReviewUrl ?? null,
-      bookingPolicy: parsed.bookingPolicy ?? null,
-      logoUrl: parsed.logoUrl ?? null,
+      ...(hasField('name') ? { name: parsed.name } : {}),
+      ...(hasField('slug') ? { slug: parsed.slug } : {}),
+      ...(hasField('timezone') ? { timezone: parsed.timezone } : {}),
+      ...(hasField('capacity') ? { capacity: parsed.capacity ?? null } : {}),
+      ...(hasField('phone') ? { contactPhone: parsed.phone ?? null } : {}),
+      ...(hasField('managerDailySummaryEnabled')
+        ? { managerDailySummaryEnabled: parsed.managerDailySummaryEnabled }
+        : {}),
+      ...(hasField('managerNotificationPhone')
+        ? { managerNotificationPhone: parsed.managerNotificationPhone ?? null }
+        : {}),
+      ...(hasField('email') ? { contactEmail: parsed.email ?? null } : {}),
+      ...(hasField('address') ? { address: parsed.address ?? null } : {}),
+      ...(hasField('businessDescription')
+        ? { businessDescription: parsed.businessDescription ?? null }
+        : {}),
+      ...(hasField('googleMapUrl') ? { googleMapUrl: parsed.googleMapUrl ?? null } : {}),
+      ...(hasField('googleReviewUrl')
+        ? { googleReviewUrl: parsed.googleReviewUrl ?? null }
+        : {}),
+      ...(hasField('bookingPolicy') ? { bookingPolicy: parsed.bookingPolicy ?? null } : {}),
+      ...(hasField('logoUrl') ? { logoUrl: parsed.logoUrl ?? null } : {}),
     };
   } catch (error) {
     if (error instanceof z.ZodError) {

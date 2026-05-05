@@ -43,7 +43,7 @@ export type RestaurantDetails = {
 export type UpdateRestaurantDetailsInput = {
   name?: string;
   slug?: string;
-  timezone: string;
+  timezone?: string;
   capacity?: number | null;
   contactEmail?: string | null;
   contactPhone?: string | null;

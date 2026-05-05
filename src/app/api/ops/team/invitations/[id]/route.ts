@@ -5,8 +5,9 @@ import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { withCsrfProtectedMutation } from '@/server/security/csrf';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
 import { requireAdminMembership } from '@/server/team/access';
+import { revokeRestaurantInvite, type RestaurantInvite } from '@/server/team/invitations';
 
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server';
 
 type RouteParams = {
   params: Promise<{ id: string | string[] }>;
@@ -16,7 +17,25 @@ const paramsSchema = z.object({
   id: z.string().uuid(),
 });
 
-async function resolveInviteId(paramsPromise: Promise<{ id: string | string[] }>): Promise<string | null> {
+function serializeInvite(invite: RestaurantInvite) {
+  return {
+    id: invite.id,
+    restaurantId: invite.restaurant_id,
+    email: invite.email,
+    role: invite.role,
+    status: invite.status,
+    expiresAt: invite.expires_at,
+    invitedBy: invite.invited_by,
+    acceptedAt: invite.accepted_at,
+    revokedAt: invite.revoked_at,
+    createdAt: invite.created_at,
+    updatedAt: invite.updated_at,
+  };
+}
+
+async function resolveInviteId(
+  paramsPromise: Promise<{ id: string | string[] }>,
+): Promise<string | null> {
   const params = await paramsPromise;
   const { id } = params;
   if (typeof id === 'string') return id;
@@ -37,7 +56,10 @@ async function deleteTeamInvitation(_request: NextRequest, context: RouteParams)
 
   if (authError) {
     const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
+    return NextResponse.json(
+      { error: mapped.message, code: mapped.code },
+      { status: mapped.status },
+    );
   }
 
   if (!user) {
@@ -83,18 +105,13 @@ async function deleteTeamInvitation(_request: NextRequest, context: RouteParams)
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Delete the invitation
-    const { error: deleteError } = await supabase
-      .from('restaurant_invites')
-      .delete()
-      .eq('id', inviteId);
+    const revokedInvite = await revokeRestaurantInvite({
+      inviteId,
+      restaurantId: invite.restaurant_id,
+      authClient: supabase,
+    });
 
-    if (deleteError) {
-      console.error('[ops][team][invitations][DELETE]', deleteError);
-      return NextResponse.json({ error: 'Unable to delete invitation' }, { status: 500 });
-    }
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ invite: serializeInvite(revokedInvite) });
   } catch (error) {
     console.error('[ops][team][invitations][DELETE]', error);
     return NextResponse.json({ error: 'Unexpected error' }, { status: 500 });
