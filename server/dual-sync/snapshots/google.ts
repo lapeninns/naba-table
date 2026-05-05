@@ -9,6 +9,7 @@
  * `SATURDAY = 6`).
  */
 
+import { safeGoogleMapsUrl, safeGoogleReviewUrl } from '@/lib/security/safe-url';
 import { readGoogleBusinessProfileBusinessInfo } from '@/server/google-business-profile/business-info';
 
 import { readStoredGoogleFoodMenusSection } from './food-menus';
@@ -118,8 +119,8 @@ function extractProfile(info: GoogleBusinessProfileBusinessInfo): DualSyncProfil
     contactPhone: pickPrimaryPhone(info),
     address: pickPrimaryAddress(info),
     storefrontAddress: pickPrimaryStorefrontAddress(info),
-    googleMapUrl: pickLink(info, ['google_map', 'GOOGLE_MAPS', 'PLACE_PAGE']),
-    googleReviewUrl: pickLink(info, ['google_review', 'NEW_REVIEW', 'REVIEW']),
+    googleMapUrl: safeGoogleMapsUrl(pickLink(info, ['google_map', 'GOOGLE_MAPS', 'PLACE_PAGE'])),
+    googleReviewUrl: safeGoogleReviewUrl(pickLink(info, ['google_review', 'NEW_REVIEW', 'REVIEW'])),
   };
 }
 

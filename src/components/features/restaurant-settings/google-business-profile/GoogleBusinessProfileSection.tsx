@@ -12,6 +12,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   useOpsDisconnectGoogleBusinessProfile,
+  useOpsGoogleBusinessProfileAvailableLocations,
   useOpsGoogleBusinessProfileConnection,
   useOpsLinkGoogleBusinessProfileLocation,
 } from '@/hooks/ops/useOpsGoogleBusinessProfile';
@@ -164,6 +165,13 @@ function LoadingSkeleton() {
 export function GoogleBusinessProfileSection({ restaurantId }: GoogleBusinessProfileSectionProps) {
   const searchParams = useSearchParams();
   const connectionQuery = useOpsGoogleBusinessProfileConnection(restaurantId);
+  const connectionData = connectionQuery.data;
+  const shouldLoadLocations =
+    connectionData?.status === 'authorized' || connectionData?.status === 'reauth_required';
+  const locationsQuery = useOpsGoogleBusinessProfileAvailableLocations(
+    restaurantId,
+    shouldLoadLocations,
+  );
   const linkMutation = useOpsLinkGoogleBusinessProfileLocation(restaurantId);
   const disconnectMutation = useOpsDisconnectGoogleBusinessProfile(restaurantId);
 
@@ -206,7 +214,16 @@ export function GoogleBusinessProfileSection({ restaurantId }: GoogleBusinessPro
     return () => window.removeEventListener('hashchange', applyHash);
   }, []);
 
-  const data = connectionQuery.data;
+  const data = useMemo(
+    () =>
+      connectionData
+        ? {
+            ...connectionData,
+            availableLocations: locationsQuery.data ?? connectionData.availableLocations,
+          }
+        : undefined,
+    [connectionData, locationsQuery.data],
+  );
 
   useEffect(() => {
     if (!data) {
@@ -300,7 +317,12 @@ export function GoogleBusinessProfileSection({ restaurantId }: GoogleBusinessPro
     );
   }
 
-  const refreshHandler = () => void connectionQuery.refetch();
+  const refreshHandler = () => {
+    void connectionQuery.refetch();
+    if (shouldLoadLocations) {
+      void locationsQuery.refetch();
+    }
+  };
 
   if (connectionQuery.isLoading && !data) {
     return (

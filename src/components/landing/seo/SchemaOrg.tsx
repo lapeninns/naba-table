@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 
 import { salesContact } from '@/config/sales-contact';
+import { safeJsonForHtmlScript } from '@/lib/security/script-json';
 
 export function SchemaOrg() {
   const schema = useMemo(
@@ -74,7 +75,7 @@ export function SchemaOrg() {
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+      dangerouslySetInnerHTML={{ __html: safeJsonForHtmlScript(schema) }}
     />
   );
 }

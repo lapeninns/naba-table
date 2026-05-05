@@ -5,7 +5,7 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import type { ZodIssue } from 'zod';
 
-import { envSchemas, resolveEnvSchemaTarget } from '../config/env.schema';
+import { envSchemas, findBlockedPublicEnvKeys, resolveEnvSchemaTarget } from '../config/env.schema';
 
 const modulePath = fileURLToPath(import.meta.url);
 const projectRoot = path.resolve(path.dirname(modulePath), '..');
@@ -43,6 +43,13 @@ const allowProdResources = env.ALLOW_PROD_RESOURCES_IN_NONPROD === true;
 
 // Skip prod-resource guard when the deployment target itself is production (e.g., Vercel prod build)
 const treatAsProdTarget = appEnv === 'production' || vercelEnv === 'production';
+
+const blockedPublicEnvKeys = findBlockedPublicEnvKeys(process.env);
+if (blockedPublicEnvKeys.length > 0) {
+  blockers.push(
+    `Blocked public env secret names: ${blockedPublicEnvKeys.join(', ')}. NEXT_PUBLIC_* values are bundled for browsers; use server-only env names for secrets or add a reviewed exact allowlist entry for true public configuration.`,
+  );
+}
 
 // -----------------------------------------------------------------------------
 // Production safety invariants (avoid silent background job failures)

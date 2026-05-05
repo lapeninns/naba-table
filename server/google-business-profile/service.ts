@@ -60,7 +60,16 @@ type SyncRunInsert =
 const PROVIDER = 'google_business_profile';
 const DEFAULT_RETURN_PATH = '/app/settings/restaurant/google-business-profile';
 const OAUTH_STATE_TTL_MS = 15 * 60 * 1000;
+const LOCATION_DISCOVERY_CACHE_TTL_MS = 10 * 60 * 1000;
 const gbpLogger = logger.child({ module: 'gbp' });
+
+type LocationDiscoveryCacheEntry = {
+  expiresAt: number;
+  credential: CredentialRow;
+  availableLocations: GoogleBusinessProfileAvailableLocation[];
+};
+
+const locationDiscoveryCache = new Map<string, LocationDiscoveryCacheEntry>();
 
 export type GoogleBusinessProfileConnectionState = {
   isConfigured: boolean;
@@ -443,10 +452,19 @@ async function recordSyncRun(
 async function discoverLocationsForProfile(
   externalProfile: ExternalProfileRow,
   client: DbClient,
+  options: { forceRefresh?: boolean } = {},
 ): Promise<{
   credential: CredentialRow | null;
   availableLocations: GoogleBusinessProfileAvailableLocation[];
 }> {
+  const cached = locationDiscoveryCache.get(externalProfile.id);
+  if (!options.forceRefresh && cached && cached.expiresAt > Date.now()) {
+    return {
+      credential: cached.credential,
+      availableLocations: cached.availableLocations,
+    };
+  }
+
   const { accessToken, credential } = await getUsableAccessToken(externalProfile, client);
   const accounts = await listGoogleBusinessProfileAccounts(accessToken);
   const batches = await Promise.all(
@@ -455,10 +473,17 @@ async function discoverLocationsForProfile(
     ),
   );
 
-  return {
+  const discovery = {
     credential,
     availableLocations: batches.flat(),
   };
+
+  locationDiscoveryCache.set(externalProfile.id, {
+    ...discovery,
+    expiresAt: Date.now() + LOCATION_DISCOVERY_CACHE_TTL_MS,
+  });
+
+  return discovery;
 }
 
 function assertGooglePushEnabled(externalProfile: ExternalProfileRow): void {
@@ -934,6 +959,7 @@ export async function completeGoogleBusinessProfileAuthorization(params: {
 export async function getGoogleBusinessProfileConnectionState(
   restaurantId: string,
   client?: DbClient,
+  options: { includeAvailableLocations?: boolean; forceRefreshLocations?: boolean } = {},
 ): Promise<GoogleBusinessProfileConnectionState> {
   const resolvedClient = getClient(client);
   const businessInfo = await readGoogleBusinessProfileBusinessInfo(restaurantId, resolvedClient);
@@ -945,12 +971,14 @@ export async function getGoogleBusinessProfileConnectionState(
 
   const credential = await getCredentialRow(externalProfile.id, resolvedClient);
 
-  if (!isConfigured() || !credential) {
+  if (!isConfigured() || !credential || !options.includeAvailableLocations) {
     return buildConnectionState(externalProfile, credential, [], businessInfo);
   }
 
   try {
-    const discovery = await discoverLocationsForProfile(externalProfile, resolvedClient);
+    const discovery = await discoverLocationsForProfile(externalProfile, resolvedClient, {
+      forceRefresh: options.forceRefreshLocations,
+    });
     const refreshedExternalProfile = await findExternalProfile(restaurantId, resolvedClient);
     return buildConnectionState(
       refreshedExternalProfile ?? externalProfile,
@@ -970,6 +998,18 @@ export async function getGoogleBusinessProfileConnectionState(
       businessInfo,
     );
   }
+}
+
+export async function getGoogleBusinessProfileAvailableLocations(
+  restaurantId: string,
+  client?: DbClient,
+  options: { forceRefresh?: boolean } = {},
+): Promise<GoogleBusinessProfileAvailableLocation[]> {
+  const state = await getGoogleBusinessProfileConnectionState(restaurantId, client, {
+    includeAvailableLocations: true,
+    forceRefreshLocations: options.forceRefresh,
+  });
+  return state.availableLocations;
 }
 
 export async function syncGoogleBusinessProfileBusinessInformation(

@@ -1,4 +1,5 @@
 import { DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES } from '@/lib/restaurants/defaults';
+import { safeGoogleMapsUrl, safeGoogleReviewUrl } from '@/lib/security/safe-url';
 import {
   ensureLogoColumnOnRows,
   isLogoUrlColumnMissing,
@@ -140,8 +141,8 @@ export async function listRestaurantsForOps(
       address: row.address,
       managerDailySummaryEnabled: row.manager_daily_summary_enabled ?? false,
       managerNotificationPhone: row.manager_notification_phone,
-      googleMapUrl: row.google_map_url,
-      googleReviewUrl: row.google_review_url,
+      googleMapUrl: safeGoogleMapsUrl(row.google_map_url),
+      googleReviewUrl: safeGoogleReviewUrl(row.google_review_url),
       bookingPolicy: row.booking_policy,
       logoUrl: row.logo_url,
       emailSendReminder24h: row.email_send_reminder_24h ?? true,

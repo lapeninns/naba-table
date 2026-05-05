@@ -2,6 +2,7 @@ import {
   RESERVATION_INTERVAL_MAX,
   RESERVATION_INTERVAL_MIN,
 } from '@/lib/restaurants/reservation-interval';
+import { safeGoogleMapsUrl, safeGoogleReviewUrl } from '@/lib/security/safe-url';
 
 import type { UpdateRestaurantInput } from '@/app/api/ops/restaurants/schema';
 import type { ProfileFieldVerification } from '@/components/features/restaurant-settings/google-business-profile/googleBusinessProfileVerification';
@@ -411,21 +412,13 @@ export function validateRestaurantDetails(state: FormState): FormErrors {
   }
 
   const reviewUrl = state.googleReviewUrl.trim();
-  if (reviewUrl) {
-    try {
-      new URL(reviewUrl);
-    } catch {
-      errors.googleReviewUrl = 'Enter a valid URL (e.g., https://g.page/.../review)';
-    }
+  if (reviewUrl && !safeGoogleReviewUrl(reviewUrl)) {
+    errors.googleReviewUrl = 'Enter an HTTPS Google review URL (e.g., https://g.page/.../review)';
   }
 
   const mapUrl = state.googleMapUrl.trim();
-  if (mapUrl) {
-    try {
-      new URL(mapUrl);
-    } catch {
-      errors.googleMapUrl = 'Enter a valid URL (e.g., https://maps.google.com/...)';
-    }
+  if (mapUrl && !safeGoogleMapsUrl(mapUrl)) {
+    errors.googleMapUrl = 'Enter an HTTPS Google Maps URL (e.g., https://maps.google.com/...)';
   }
 
   if (state.businessDescription.length > 4096) {

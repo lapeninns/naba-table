@@ -47,7 +47,10 @@ import { getRestaurantSchedule } from '@/server/restaurants/schedule';
 import { computeGuestLookupHash } from '@/server/security/guest-lookup';
 import { consumeRateLimit } from '@/server/security/rate-limit';
 import { anonymizeIp, extractClientIp } from '@/server/security/request';
-import { validateSessionRecoveryAccessToken } from '@/server/security/session-recovery-access-token';
+import {
+  createSessionRecoveryAccessToken,
+  validateSessionRecoveryAccessToken,
+} from '@/server/security/session-recovery-access-token';
 import {
   getDefaultRestaurantId,
   getRouteHandlerSupabaseClient,
@@ -378,6 +381,38 @@ type BookingDTO = {
   customerEmail?: string | null;
   reservationIntervalMinutes?: number | null;
 };
+
+function toGuestBookingDTO(booking: BookingRecord, options: { restaurantName?: string | null } = {}) {
+  return {
+    id: booking.id,
+    restaurant_id: booking.restaurant_id,
+    booking_date: booking.booking_date,
+    start_time: booking.start_time,
+    end_time: booking.end_time,
+    start_at: booking.start_at,
+    end_at: booking.end_at,
+    reference: booking.reference,
+    party_size: booking.party_size,
+    booking_type: booking.booking_type,
+    seating_preference: booking.seating_preference,
+    status: booking.status,
+    customer_name: booking.customer_name,
+    customer_email: booking.customer_email,
+    customer_phone: booking.customer_phone,
+    notes: booking.notes,
+    marketing_opt_in: booking.marketing_opt_in,
+    client_request_id: booking.client_request_id,
+    idempotency_key: booking.idempotency_key,
+    pending_ref: booking.pending_ref,
+    created_at: booking.created_at,
+    updated_at: booking.updated_at,
+    restaurants: {
+      name: options.restaurantName ?? null,
+      slug: null,
+      timezone: null,
+    },
+  };
+}
 
 type PageInfo = {
   page: number;
@@ -1374,8 +1409,6 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const bookings = await fetchBookingsForContact(supabase, restaurantId, data.email, data.phone);
-
     // Attempt inline auto-assign AFTER sending the initial created email so
     // guests first receive a "request received". If assignment succeeds, we
     // flip status to confirmed and send the confirmation email.
@@ -1459,12 +1492,9 @@ export async function POST(req: NextRequest) {
     }
 
     const responsePayload = {
-      booking: finalBooking,
-      confirmationToken,
+      booking: toGuestBookingDTO(finalBooking),
       loyaltyPointsAwarded: loyaltyAward,
-      bookings,
       clientRequestId: finalBooking.client_request_id,
-      idempotencyKey,
       duplicate: reusedExisting,
       capacity: null,
     };
@@ -1488,6 +1518,28 @@ export async function POST(req: NextRequest) {
         });
       } catch {
         // Non-fatal; continue without cookie
+      }
+    }
+    const recoverySecret = env.security.sessionRecoveryAccessTokenSecret;
+    if (recoverySecret) {
+      try {
+        const recoveryTtlSeconds = env.security.sessionRecoveryAccessTokenTtlSeconds ?? 900;
+        const recoveryAccessToken = createSessionRecoveryAccessToken({
+          restaurantId,
+          email: finalBooking.customer_email,
+          phone: finalBooking.customer_phone,
+          secret: recoverySecret,
+          ttlSeconds: recoveryTtlSeconds,
+        });
+        res.cookies.set('sr_access', recoveryAccessToken, {
+          httpOnly: true,
+          sameSite: 'lax',
+          secure: true,
+          path: '/',
+          maxAge: recoveryTtlSeconds,
+        });
+      } catch (recoveryTokenError) {
+        console.error('[bookings][POST][session-recovery-token]', stringifyError(recoveryTokenError));
       }
     }
     return res;

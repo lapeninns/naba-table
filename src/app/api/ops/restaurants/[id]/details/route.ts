@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { safeGoogleMapsUrl, safeGoogleReviewUrl } from '@/lib/security/safe-url';
 import {
   PasswordConfirmationError,
   verifyUserPasswordConfirmation,
@@ -23,6 +24,28 @@ type RouteParams = {
   }>;
 };
 
+function googleUrlField(
+  sanitizer: (value: string | null | undefined) => string | null,
+  message: string,
+) {
+  return z
+    .preprocess(
+      (value) => {
+        if (typeof value !== 'string') {
+          return value;
+        }
+        const trimmed = value.trim();
+        return trimmed ? (sanitizer(trimmed) ?? trimmed) : null;
+      },
+      z
+        .string()
+        .max(2048)
+        .refine((value) => sanitizer(value) === value, message)
+        .nullable(),
+    )
+    .optional();
+}
+
 const detailsSchema = z.object({
   name: z.string().min(1).max(120).optional(),
   slug: z
@@ -44,8 +67,14 @@ const detailsSchema = z.object({
   email: z.string().email().nullable().optional(),
   address: z.string().max(240).nullable().optional(),
   businessDescription: z.string().max(4096).nullable().optional(),
-  googleMapUrl: z.string().url().max(2048).nullable().optional(),
-  googleReviewUrl: z.string().url().max(2048).nullable().optional(),
+  googleMapUrl: googleUrlField(
+    safeGoogleMapsUrl,
+    'Google Map link must be an HTTPS Google Maps URL',
+  ),
+  googleReviewUrl: googleUrlField(
+    safeGoogleReviewUrl,
+    'Google review link must be an HTTPS Google review URL',
+  ),
   bookingPolicy: z.string().max(800).nullable().optional(),
   logoUrl: z.string().url().nullable().optional(),
 });

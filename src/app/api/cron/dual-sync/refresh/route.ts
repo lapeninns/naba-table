@@ -14,12 +14,14 @@ import { NextResponse } from 'next/server';
 
 import { isDualSyncEnabled } from '@/server/dual-sync/flag';
 import { runScheduledRefreshForAllTenants } from '@/server/dual-sync/scheduling';
+import { requireCronAuthAndRun } from '@/server/security/cron-auth';
 import { getServiceSupabaseClient } from '@/server/supabase';
-
-const CRON_SECRET = process.env.CRON_SECRET;
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+
+const JOB_NAME = 'dual-sync.refresh';
+const MAX_RESTAURANTS_PER_RUN = 50;
 
 function parseOptionalInt(value: string | null | undefined): number | undefined {
   if (!value) return undefined;
@@ -33,42 +35,35 @@ function isTruthyFlag(value: string | null): boolean {
 }
 
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization');
-  const hasValidBearer = CRON_SECRET && authHeader === `Bearer ${CRON_SECRET}`;
+  return requireCronAuthAndRun(request, JOB_NAME, async (auth) => {
+    if (!isDualSyncEnabled()) {
+      return NextResponse.json(
+        { error: 'Dual-sync is not enabled for this deployment.' },
+        { status: 404 },
+      );
+    }
 
-  if (CRON_SECRET && !hasValidBearer) {
-    console.warn('[cron][dual-sync.refresh] Unauthorized request', {
-      hasAuthHeader: Boolean(authHeader),
-      hasCronSecret: Boolean(CRON_SECRET),
-    });
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+    const url = new URL(request.url);
+    const dryRun = isTruthyFlag(url.searchParams.get('dryRun'));
+    const requestedMaxRestaurants = parseOptionalInt(url.searchParams.get('limit'));
+    const maxRestaurants = requestedMaxRestaurants
+      ? Math.min(requestedMaxRestaurants, MAX_RESTAURANTS_PER_RUN)
+      : undefined;
 
-  if (!CRON_SECRET) {
-    console.warn('[cron][dual-sync.refresh] CRON_SECRET not set - endpoint is unprotected');
-  }
-
-  if (!isDualSyncEnabled()) {
-    return NextResponse.json(
-      { error: 'Dual-sync is not enabled for this deployment.' },
-      { status: 404 },
-    );
-  }
-
-  const url = new URL(request.url);
-  const dryRun = isTruthyFlag(url.searchParams.get('dryRun'));
-  const maxRestaurants = parseOptionalInt(url.searchParams.get('limit'));
-
-  try {
-    const summary = await runScheduledRefreshForAllTenants({
-      client: getServiceSupabaseClient(),
-      maxRestaurants,
-      dryRun,
-    });
-    return NextResponse.json({ success: true, ...summary });
-  } catch (error) {
-    console.error('[cron][dual-sync.refresh] failed to run', error);
-    const message = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
+    try {
+      const summary = await runScheduledRefreshForAllTenants({
+        client: getServiceSupabaseClient(),
+        maxRestaurants,
+        dryRun,
+      });
+      return NextResponse.json({ success: true, runId: auth.runId, ...summary });
+    } catch (error) {
+      console.error('[cron][dual-sync.refresh] failed to run', {
+        jobName: auth.jobName,
+        runId: auth.runId,
+        error,
+      });
+      return NextResponse.json({ error: 'Dual-sync refresh cron failed.' }, { status: 500 });
+    }
+  });
 }

@@ -5,6 +5,7 @@ import { ZodError } from "zod";
 
 import { profileUpdateSchema, type ProfileUpdatePayload } from "@/lib/profile/schema";
 import { normalizeProfileRow, ensureProfileRow, PROFILE_COLUMNS } from "@/lib/profile/server";
+import { withCsrfProtectedMutation } from "@/server/security/csrf";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 
 import type { Database } from "@/types/supabase";
@@ -86,6 +87,10 @@ export async function GET(): Promise<NextResponse> {
 }
 
 export async function PUT(req: NextRequest): Promise<NextResponse> {
+  return withCsrfProtectedMutation(req, () => putProfile(req));
+}
+
+async function putProfile(req: NextRequest): Promise<NextResponse> {
   let parsedBody: ProfileUpdatePayload | null = null;
   let idempotencyKey: string | null = null;
 

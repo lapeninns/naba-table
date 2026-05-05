@@ -56,6 +56,14 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 type DbClient = SupabaseClient<Database>;
 
+type PreparedPublishDecision = {
+  readonly decision: DualSyncPublishDecision;
+  readonly beforeCoreHash: string | null;
+  readonly beforeGbpHash: string | null;
+  readonly direction: 'import_from_google' | 'export_to_google';
+  readonly operation: DualSyncPublishOperation;
+};
+
 function readSectionValue(
   snapshot: DualSyncCanonicalSnapshot,
   sectionKey: DualSyncSectionKey | 'core_only',
@@ -156,20 +164,46 @@ export async function runPublish(
     includeCoreOnly: false,
   });
 
-  // Snapshot-level pinning check (cheap pre-flight, done once).
+  // Snapshot-level pinning check (cheap pre-flight, done once). A stale
+  // snapshot pin rejects the whole job before any provider side effect.
   if (input.pinnedCoreSnapshotHash !== undefined && input.pinnedCoreSnapshotHash !== null) {
     const currentCoreHash = hashCanonicalJson(coreSnapshot);
     if (currentCoreHash !== input.pinnedCoreSnapshotHash) {
-      // Continue per-field — individual decisions may still pass — but
-      // the orchestrator does not abort the whole job. Per-field drift
-      // is enforced below.
+      const failure: DualSyncOperationFailure = {
+        code: 'CORE_DRIFT',
+        message: 'Core snapshot moved since the operator viewed the diff.',
+        retryable: false,
+      };
+      await recomputeAllStates({ client, restaurantId, coreSnapshot, gbpSnapshot });
+      return {
+        summary: buildSummary({
+          publishJobId,
+          restaurantId,
+          decisions: input.decisions,
+          operations: [],
+          failures: input.decisions.map((decision) => ({ fieldKey: decision.fieldKey, failure })),
+        }),
+      };
     }
   }
   if (input.pinnedGbpSnapshotHash !== undefined && input.pinnedGbpSnapshotHash !== null) {
     const currentGbpHash = hashCanonicalJson(gbpSnapshot);
     if (currentGbpHash !== input.pinnedGbpSnapshotHash) {
-      // Same: continue per-field.
-      void currentGbpHash;
+      const failure: DualSyncOperationFailure = {
+        code: 'GBP_DRIFT',
+        message: 'Google snapshot moved since the operator viewed the diff.',
+        retryable: false,
+      };
+      await recomputeAllStates({ client, restaurantId, coreSnapshot, gbpSnapshot });
+      return {
+        summary: buildSummary({
+          publishJobId,
+          restaurantId,
+          decisions: input.decisions,
+          operations: [],
+          failures: input.decisions.map((decision) => ({ fieldKey: decision.fieldKey, failure })),
+        }),
+      };
     }
   }
 
@@ -177,22 +211,10 @@ export async function runPublish(
     readonly fieldKey: string;
     readonly failure: DualSyncOperationFailure;
   }> = [];
+  const prepared: PreparedPublishDecision[] = [];
 
-  // Pre-compute drift per export decision so the batch port only sees
-  // decisions that have already passed the drift check. Decisions that
-  // fail drift are routed through the existing per-field failure path.
-  const prebuiltResults = await runBatchExportPorts({
-    ports,
-    decisions: input.decisions,
-    coreSnapshot,
-    gbpSnapshot,
-    registry,
-    client,
-    publishJobId,
-    restaurantId,
-    actorUserId: input.actorUserId,
-  });
-
+  // Validate every decision before any provider write can happen. Then
+  // open operation rows for each write attempt before invoking ports.
   for (const decision of input.decisions) {
     const config = findFieldConfig(registry, decision.fieldKey);
     if (!config) {
@@ -268,6 +290,31 @@ export async function runPublish(
       googleUpdateMask: config.googleUpdateMask ?? null,
     });
 
+    prepared.push({
+      decision,
+      beforeCoreHash,
+      beforeGbpHash,
+      direction,
+      operation,
+    });
+  }
+
+  const prebuiltResults = await runBatchExportPorts({
+    ports,
+    decisions: prepared
+      .filter((item) => item.direction === 'export_to_google')
+      .map((item) => item.decision),
+    coreSnapshot,
+    gbpSnapshot,
+    registry,
+    client,
+    publishJobId,
+    restaurantId,
+    actorUserId: input.actorUserId,
+  });
+
+  for (const item of prepared) {
+    const { decision, beforeCoreHash, beforeGbpHash, operation } = item;
     const startedAt = new Date().toISOString();
     await updateOperationStatus({
       client,
@@ -418,9 +465,9 @@ interface RunBatchExportPortsInput {
  * with the per-field operation results so the main per-decision loop
  * can reuse them and skip the per-field port call.
  *
- * Drift checks are intentionally NOT performed here — the main loop
- * already enforces them per decision, and a decision that drifts will
- * be routed to the failure path before its prebuilt result is consulted.
+ * Drift checks and operation-row creation happen before this helper is
+ * called, so the batch port only receives validated decisions with
+ * pending audit rows already opened.
  */
 async function runBatchExportPorts(
   input: RunBatchExportPortsInput,

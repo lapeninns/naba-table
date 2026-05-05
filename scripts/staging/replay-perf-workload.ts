@@ -1,10 +1,11 @@
-import { config as loadEnv } from "dotenv";
-import fs from "node:fs";
-import path from "node:path";
-import process from "node:process";
-import { fileURLToPath } from "node:url";
+import { config as loadEnv } from 'dotenv';
+import fs from 'node:fs';
+import path from 'node:path';
+import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
-import { Client } from "pg";
+import { Client } from 'pg';
+import { getPgSslConfig } from '../db/pg-ssl';
 
 type TimingRow = {
   label: string;
@@ -16,8 +17,8 @@ type TimingRow = {
 };
 
 const modulePath = fileURLToPath(import.meta.url);
-const projectRoot = path.resolve(path.dirname(modulePath), "../..");
-const envLocalPath = path.join(projectRoot, ".env.local");
+const projectRoot = path.resolve(path.dirname(modulePath), '../..');
+const envLocalPath = path.join(projectRoot, '.env.local');
 
 if (fs.existsSync(envLocalPath)) {
   loadEnv({ path: envLocalPath, override: false });
@@ -27,22 +28,24 @@ function requireFile(p: string): string {
   if (!fs.existsSync(p)) {
     throw new Error(`Missing required file: ${p}`);
   }
-  return fs.readFileSync(p, "utf8").trim();
+  return fs.readFileSync(p, 'utf8').trim();
 }
 
 function buildPgConnectionString(): string {
-  const poolerPath = path.join(projectRoot, "supabase/.temp/pooler-url");
+  const poolerPath = path.join(projectRoot, 'supabase/.temp/pooler-url');
   const pooler = fs.existsSync(poolerPath) ? requireFile(poolerPath) : null;
 
   const password = process.env.SUPABASE_DB_PASSWORD?.trim();
   if (!password) {
-    throw new Error("SUPABASE_DB_PASSWORD is required in .env.local for direct Postgres workload replay.");
+    throw new Error(
+      'SUPABASE_DB_PASSWORD is required in .env.local for direct Postgres workload replay.',
+    );
   }
 
   const base = pooler || process.env.SUPABASE_DB_URL || process.env.DATABASE_URL;
   if (!base) {
     throw new Error(
-      "Missing supabase/.temp/pooler-url and SUPABASE_DB_URL/DATABASE_URL. Link the project or set SUPABASE_DB_URL.",
+      'Missing supabase/.temp/pooler-url and SUPABASE_DB_URL/DATABASE_URL. Link the project or set SUPABASE_DB_URL.',
     );
   }
 
@@ -66,17 +69,17 @@ function writeCsv(filePath: string, rows: Record<string, unknown>[]): void {
   ).sort();
 
   const escape = (v: unknown) => {
-    if (v === null || v === undefined) return "";
+    if (v === null || v === undefined) return '';
     const s = String(v);
     if (/[",\n\r]/.test(s)) return `"${s.replaceAll('"', '""')}"`;
     return s;
   };
 
-  const lines = [headers.join(",")];
+  const lines = [headers.join(',')];
   for (const r of rows) {
-    lines.push(headers.map((h) => escape(r[h])).join(","));
+    lines.push(headers.map((h) => escape(r[h])).join(','));
   }
-  fs.writeFileSync(filePath, `${lines.join("\n")}\n`);
+  fs.writeFileSync(filePath, `${lines.join('\n')}\n`);
 }
 
 function percentile(sorted: number[], p: number): number {
@@ -110,10 +113,12 @@ async function timeQuery(
 }
 
 async function main(): Promise<void> {
-  const expectedProjectRef = process.env.EXPECTED_PROJECT_REF?.trim() || "ndxmivcrehsacuerwxtm";
-  const projectRefPath = path.join(projectRoot, "supabase/.temp/project-ref");
+  const expectedProjectRef = process.env.EXPECTED_PROJECT_REF?.trim() || 'ndxmivcrehsacuerwxtm';
+  const projectRefPath = path.join(projectRoot, 'supabase/.temp/project-ref');
   if (!fs.existsSync(projectRefPath)) {
-    throw new Error("Missing supabase/.temp/project-ref. Run `supabase link --project-ref <ref>` first.");
+    throw new Error(
+      'Missing supabase/.temp/project-ref. Run `supabase link --project-ref <ref>` first.',
+    );
   }
   const actualProjectRef = requireFile(projectRefPath);
   if (actualProjectRef !== expectedProjectRef) {
@@ -122,32 +127,35 @@ async function main(): Promise<void> {
     );
   }
 
-  const taskDir = path.join(projectRoot, "tasks/staging-perf-dataset-20260207-1647");
-  const artifactsDir = path.join(taskDir, "artifacts");
+  const taskDir = path.join(projectRoot, 'tasks/staging-perf-dataset-20260207-1647');
+  const artifactsDir = path.join(taskDir, 'artifacts');
 
-  const timingsPath = path.join(artifactsDir, "workload-timings.json");
-  const pssTotalPath = path.join(artifactsDir, "pg_stat_statements_top_total.csv");
-  const pssMeanPath = path.join(artifactsDir, "pg_stat_statements_top_mean.csv");
-  const pssCallsPath = path.join(artifactsDir, "pg_stat_statements_top_calls.csv");
-  const pssOltpTotalPath = path.join(artifactsDir, "pg_stat_statements_oltp_top_total.csv");
-  const pssOltpMeanPath = path.join(artifactsDir, "pg_stat_statements_oltp_top_mean.csv");
-  const pssOltpCallsPath = path.join(artifactsDir, "pg_stat_statements_oltp_top_calls.csv");
+  const timingsPath = path.join(artifactsDir, 'workload-timings.json');
+  const pssTotalPath = path.join(artifactsDir, 'pg_stat_statements_top_total.csv');
+  const pssMeanPath = path.join(artifactsDir, 'pg_stat_statements_top_mean.csv');
+  const pssCallsPath = path.join(artifactsDir, 'pg_stat_statements_top_calls.csv');
+  const pssOltpTotalPath = path.join(artifactsDir, 'pg_stat_statements_oltp_top_total.csv');
+  const pssOltpMeanPath = path.join(artifactsDir, 'pg_stat_statements_oltp_top_mean.csv');
+  const pssOltpCallsPath = path.join(artifactsDir, 'pg_stat_statements_oltp_top_calls.csv');
   const pssOltpSelectTotalPath = path.join(
     artifactsDir,
-    "pg_stat_statements_oltp_select_top_total.csv",
+    'pg_stat_statements_oltp_select_top_total.csv',
   );
-  const pssOltpSelectMeanPath = path.join(artifactsDir, "pg_stat_statements_oltp_select_top_mean.csv");
+  const pssOltpSelectMeanPath = path.join(
+    artifactsDir,
+    'pg_stat_statements_oltp_select_top_mean.csv',
+  );
   const pssOltpSelectCallsPath = path.join(
     artifactsDir,
-    "pg_stat_statements_oltp_select_top_calls.csv",
+    'pg_stat_statements_oltp_select_top_calls.csv',
   );
-  const tableSizesPath = path.join(artifactsDir, "table_sizes_public.csv");
-  const seqScanPath = path.join(artifactsDir, "table_scan_stats_public.csv");
-  const indexUsagePath = path.join(artifactsDir, "index_usage_public.csv");
+  const tableSizesPath = path.join(artifactsDir, 'table_sizes_public.csv');
+  const seqScanPath = path.join(artifactsDir, 'table_scan_stats_public.csv');
+  const indexUsagePath = path.join(artifactsDir, 'index_usage_public.csv');
 
   const client = new Client({
     connectionString: buildPgConnectionString(),
-    ssl: { rejectUnauthorized: false },
+    ssl: getPgSslConfig(),
   });
 
   await client.connect();
@@ -166,7 +174,7 @@ async function main(): Promise<void> {
     );
     const restaurants = restaurantsRes.rows;
     if (restaurants.length === 0) {
-      throw new Error("No seed-perf restaurants found. Run seed-perf-dataset first.");
+      throw new Error('No seed-perf restaurants found. Run seed-perf-dataset first.');
     }
 
     const dateWindowRes = await client.query<{ min: string; max: string }>(
@@ -181,7 +189,7 @@ async function main(): Promise<void> {
     const dateMin = dateWindowRes.rows[0]?.min;
     const dateMax = dateWindowRes.rows[0]?.max;
     if (!dateMin || !dateMax) {
-      throw new Error("No seed bookings found. Run seed-perf-dataset first.");
+      throw new Error('No seed bookings found. Run seed-perf-dataset first.');
     }
 
     // Representative queries based on ops endpoints (simplified SQL equivalent).
@@ -230,7 +238,7 @@ async function main(): Promise<void> {
     for (const r of restaurants) {
       for (const off of offsets) {
         valuesRange.push([r.id, startAt, endAt, limit, off]);
-        valuesSearch.push([r.id, startAt, endAt, limit, off, "%SEED%"]);
+        valuesSearch.push([r.id, startAt, endAt, limit, off, '%SEED%']);
       }
       // Use the max date as “today” within seed window to keep joins non-empty.
       valuesToday.push([r.id, dateMax]);
@@ -239,13 +247,15 @@ async function main(): Promise<void> {
     const timingRows: TimingRow[] = [];
     // chunk the replay so a single lock spike does not explode runtime
     for (const part of chunk(valuesRange, 50)) {
-      timingRows.push(await timeQuery(client, "ops_bookings_list_range", qBookingsRange, part));
+      timingRows.push(await timeQuery(client, 'ops_bookings_list_range', qBookingsRange, part));
     }
     for (const part of chunk(valuesSearch, 50)) {
-      timingRows.push(await timeQuery(client, "ops_bookings_list_search", qBookingsRangeSearch, part));
+      timingRows.push(
+        await timeQuery(client, 'ops_bookings_list_search', qBookingsRangeSearch, part),
+      );
     }
     for (const part of chunk(valuesToday, 25)) {
-      timingRows.push(await timeQuery(client, "ops_today_summary", qTodaySummary, part));
+      timingRows.push(await timeQuery(client, 'ops_today_summary', qTodaySummary, part));
     }
 
     fs.writeFileSync(
@@ -543,6 +553,6 @@ async function main(): Promise<void> {
 }
 
 void main().catch((error) => {
-  console.error("[replay-perf] Failed:", error instanceof Error ? error.message : String(error));
+  console.error('[replay-perf] Failed:', error instanceof Error ? error.message : String(error));
   process.exit(1);
 });

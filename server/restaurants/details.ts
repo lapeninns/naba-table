@@ -1,3 +1,4 @@
+import { safeGoogleMapsUrl, safeGoogleReviewUrl } from '@/lib/security/safe-url';
 import {
   ensureLogoColumnOnRow,
   isLogoUrlColumnMissing,
@@ -116,8 +117,8 @@ function validateDetailsInput(input: NormalizedDetailsInput): NormalizedDetailsI
     businessDescription: sanitizeString(input.businessDescription),
     managerDailySummaryEnabled: input.managerDailySummaryEnabled ?? false,
     managerNotificationPhone: sanitizeString(input.managerNotificationPhone),
-    googleMapUrl: sanitizeString(input.googleMapUrl),
-    googleReviewUrl: sanitizeString(input.googleReviewUrl),
+    googleMapUrl: safeGoogleMapsUrl(input.googleMapUrl),
+    googleReviewUrl: safeGoogleReviewUrl(input.googleReviewUrl),
     bookingPolicy: sanitizeString(input.bookingPolicy),
     logoUrl: sanitizeString(input.logoUrl),
   };
@@ -212,8 +213,8 @@ export async function getRestaurantDetails(
     businessDescription,
     managerDailySummaryEnabled: restaurant.manager_daily_summary_enabled ?? false,
     managerNotificationPhone: restaurant.manager_notification_phone,
-    googleMapUrl: restaurant.google_map_url,
-    googleReviewUrl: restaurant.google_review_url,
+    googleMapUrl: safeGoogleMapsUrl(restaurant.google_map_url),
+    googleReviewUrl: safeGoogleReviewUrl(restaurant.google_review_url),
     bookingPolicy: restaurant.booking_policy,
     logoUrl: restaurant.logo_url,
     updatedAt: restaurant.updated_at ?? null,
@@ -274,11 +275,7 @@ export async function updateRestaurantDetails(
   };
   const updated = await updateRestaurant(restaurantId, payload, client);
   const businessDescription = hasInput('businessDescription')
-    ? await upsertRestaurantBusinessDescription(
-        restaurantId,
-        validated.businessDescription,
-        client,
-      )
+    ? await upsertRestaurantBusinessDescription(restaurantId, validated.businessDescription, client)
     : current.businessDescription;
 
   return {

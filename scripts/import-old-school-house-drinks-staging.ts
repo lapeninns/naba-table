@@ -2,13 +2,14 @@ import { config as loadEnv } from 'dotenv';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
-import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 
 import { createClient } from '@supabase/supabase-js';
 import { Client } from 'pg';
 
 import { DrinkItemUpsertInputSchema, type DrinkItemUpsertInput } from '../server/drinks-menu/types';
+import { getPgSslConfig } from './db/pg-ssl';
+import { loadWindowAssignedObjectLiteral } from './menu/source-literal';
 
 type SourceBadge = {
   text?: string;
@@ -227,7 +228,7 @@ function buildPgConnectionString(): string {
 async function withPgClient<T>(run: (client: Client) => Promise<T>): Promise<T> {
   const client = new Client({
     connectionString: buildPgConnectionString(),
-    ssl: { rejectUnauthorized: false },
+    ssl: getPgSslConfig(),
   });
 
   await client.connect();
@@ -283,7 +284,9 @@ function cleanDrinkName(name: string): string {
   return name.replace(/\s+/g, ' ').trim();
 }
 
-function parseMeasureOptions(entry: FlattenedEntry): Array<{ label: string; price: number; volumeMl: number | null }> {
+function parseMeasureOptions(
+  entry: FlattenedEntry,
+): Array<{ label: string; price: number; volumeMl: number | null }> {
   const base = extractNumericPrice(entry.item.price);
   const second = extractNumericPrice(entry.item.price2);
   const third = extractNumericPrice(entry.item.price3);
@@ -323,7 +326,10 @@ function parseMeasureOptions(entry: FlattenedEntry): Array<{ label: string; pric
   return [];
 }
 
-function inferVolumeMl(entry: FlattenedEntry, measureOptions: Array<{ volumeMl: number | null }>): number | null {
+function inferVolumeMl(
+  entry: FlattenedEntry,
+  measureOptions: Array<{ volumeMl: number | null }>,
+): number | null {
   if (measureOptions.length > 0) {
     return measureOptions[0]?.volumeMl ?? null;
   }
@@ -334,7 +340,10 @@ function inferVolumeMl(entry: FlattenedEntry, measureOptions: Array<{ volumeMl: 
   return null;
 }
 
-function inferServingSize(entry: FlattenedEntry, measureOptions: Array<{ label: string }>): string | null {
+function inferServingSize(
+  entry: FlattenedEntry,
+  measureOptions: Array<{ label: string }>,
+): string | null {
   if (measureOptions.length > 0) {
     return measureOptions[0]?.label ?? null;
   }
@@ -348,7 +357,13 @@ function inferDrinkTypeForSoft(name: string): string {
   const key = name.toLowerCase();
   if (key.includes('juice')) return 'juice';
   if (key.includes('water')) return 'water';
-  if (key.includes('cola') || key.includes('coke') || key.includes('fanta') || key.includes('lemonade')) return 'soda';
+  if (
+    key.includes('cola') ||
+    key.includes('coke') ||
+    key.includes('fanta') ||
+    key.includes('lemonade')
+  )
+    return 'soda';
   return 'soft_drink';
 }
 
@@ -359,7 +374,15 @@ function inferBeerStyle(name: string, entry: FlattenedEntry): string | null {
   if (key.includes('cask') || key.includes('landlord')) return 'cask ale';
   if (key.includes('newcastle brown')) return 'brown ale';
   if (key.includes('desperados')) return 'tequila lager';
-  if (key.includes('cider') || key.includes("inch's") || key.includes('kopparberg') || key.includes('rekorderlig') || key.includes('magners') || key.includes('bulmers') || key.includes('old mout')) {
+  if (
+    key.includes('cider') ||
+    key.includes("inch's") ||
+    key.includes('kopparberg') ||
+    key.includes('rekorderlig') ||
+    key.includes('magners') ||
+    key.includes('bulmers') ||
+    key.includes('old mout')
+  ) {
     return 'cider';
   }
   return 'lager';
@@ -404,7 +427,10 @@ function inferGrapeVarietal(name: string): string | null {
   return null;
 }
 
-function inferRegionCountry(name: string, entry: FlattenedEntry): { region: string | null; country: string | null } {
+function inferRegionCountry(
+  name: string,
+  entry: FlattenedEntry,
+): { region: string | null; country: string | null } {
   const key = `${name} ${entry.pageTitle} ${entry.sectionTitle}`.toLowerCase();
   const hints: Array<[RegExp, string, string]> = [
     [/marlborough/i, 'Marlborough', 'New Zealand'],
@@ -427,7 +453,11 @@ function inferRegionCountry(name: string, entry: FlattenedEntry): { region: stri
     [/birra moretti|peroni/i, 'Italy', 'Italy'],
     [/stella artois/i, 'Belgium', 'Belgium'],
     [/cruzcampo|estrella/i, 'Spain', 'Spain'],
-    [/landlord|newcastle brown|beefeater|whitley neill|jj whitley|smirnoff|gordon|tanqueray|bombay sapphire|hendrick|the botanist|brewdog/i, 'United Kingdom', 'United Kingdom'],
+    [
+      /landlord|newcastle brown|beefeater|whitley neill|jj whitley|smirnoff|gordon|tanqueray|bombay sapphire|hendrick|the botanist|brewdog/i,
+      'United Kingdom',
+      'United Kingdom',
+    ],
     [/amstel|heineken/i, 'Netherlands', 'Netherlands'],
     [/sol/i, 'Mexico', 'Mexico'],
     [/singha/i, 'Thailand', 'Thailand'],
@@ -469,7 +499,10 @@ function inferAbv(name: string, classification: Classification): number | null {
     [/newcastle brown/i, 4.7],
     [/punk ipa/i, 5.4],
     [/kopparberg|rekorderlig|old mout|magners|bulmers/i, 4],
-    [/au vodka|smirnoff rasp\. crush|absolut raspberri|absolut vanilla|smirnoff mango|glen's vodka/i, 37.5],
+    [
+      /au vodka|smirnoff rasp\. crush|absolut raspberri|absolut vanilla|smirnoff mango|glen's vodka/i,
+      37.5,
+    ],
     [/ciroc/i, 40],
     [/absolut/i, 40],
     [/jj whitley/i, 38],
@@ -523,16 +556,28 @@ function inferAbv(name: string, classification: Classification): number | null {
 function inferCocktailBaseSpirit(name: string): string | null {
   const key = name.toLowerCase();
   if (key.includes('margarita')) return 'Tequila';
-  if (key.includes('mojito') || key.includes('daiquiri') || key.includes('pina colada')) return 'Rum';
+  if (key.includes('mojito') || key.includes('daiquiri') || key.includes('pina colada'))
+    return 'Rum';
   if (key.includes('bramble')) return 'Gin';
-  if (key.includes('espresso martini') || key.includes('pornstar martini') || key.includes('cosmopolitan') || key.includes('sex on the beach')) {
+  if (
+    key.includes('espresso martini') ||
+    key.includes('pornstar martini') ||
+    key.includes('cosmopolitan') ||
+    key.includes('sex on the beach')
+  ) {
     return 'Vodka';
   }
   if (key.includes('long island')) return 'Mixed';
   return null;
 }
 
-function inferFlavorProfile(name: string, entry: FlattenedEntry, drinkType: string, beerStyle: string | null, wineType: string | null): string | null {
+function inferFlavorProfile(
+  name: string,
+  entry: FlattenedEntry,
+  drinkType: string,
+  beerStyle: string | null,
+  wineType: string | null,
+): string | null {
   const key = `${name} ${entry.sectionTitle}`.toLowerCase();
 
   if (key.includes('guinness')) return 'dark roast, creamy, cocoa';
@@ -541,11 +586,15 @@ function inferFlavorProfile(name: string, entry: FlattenedEntry, drinkType: stri
   if (beerStyle === 'lager') return 'crisp, clean, refreshing';
   if (beerStyle === 'stout') return 'roasted malt, chocolate, smooth';
   if (wineType === 'sparkling') return 'bright citrus, orchard fruit, lively bubbles';
-  if (wineType === 'white' && entry.sectionTitle.toLowerCase().includes('fresh')) return 'zesty citrus, green apple, mineral';
-  if (wineType === 'white' && entry.sectionTitle.toLowerCase().includes('aromatic')) return 'stone fruit, blossom, expressive aromatics';
+  if (wineType === 'white' && entry.sectionTitle.toLowerCase().includes('fresh'))
+    return 'zesty citrus, green apple, mineral';
+  if (wineType === 'white' && entry.sectionTitle.toLowerCase().includes('aromatic'))
+    return 'stone fruit, blossom, expressive aromatics';
   if (wineType === 'rose') return 'red berry, crisp, floral';
-  if (wineType === 'red' && entry.sectionTitle.toLowerCase().includes('fruity')) return 'soft red fruit, bright, easy-drinking';
-  if (wineType === 'red' && entry.sectionTitle.toLowerCase().includes('juicy')) return 'ripe dark fruit, spice, rounded tannin';
+  if (wineType === 'red' && entry.sectionTitle.toLowerCase().includes('fruity'))
+    return 'soft red fruit, bright, easy-drinking';
+  if (wineType === 'red' && entry.sectionTitle.toLowerCase().includes('juicy'))
+    return 'ripe dark fruit, spice, rounded tannin';
   if (drinkType === 'cocktail') {
     if (key.includes('espresso martini')) return 'coffee, cocoa, silky';
     if (key.includes('pornstar')) return 'passion fruit, vanilla, tropical';
@@ -593,9 +642,18 @@ function inferPairings(classification: Classification): string[] {
   }
 }
 
-function inferScores(entry: FlattenedEntry, classification: Classification): { signatureScore: number | null; popularityScore: number | null } {
-  let signature = classification.category === 'Wine' ? 56 : classification.category === 'Cocktails' ? 62 : 50;
-  let popularity = classification.category === 'Beer & Cider' ? 68 : classification.category === 'Cocktails' ? 74 : 60;
+function inferScores(
+  entry: FlattenedEntry,
+  classification: Classification,
+): { signatureScore: number | null; popularityScore: number | null } {
+  let signature =
+    classification.category === 'Wine' ? 56 : classification.category === 'Cocktails' ? 62 : 50;
+  let popularity =
+    classification.category === 'Beer & Cider'
+      ? 68
+      : classification.category === 'Cocktails'
+        ? 74
+        : 60;
 
   if (entry.item.starred) {
     signature += 18;
@@ -604,7 +662,8 @@ function inferScores(entry: FlattenedEntry, classification: Classification): { s
 
   const badge = entry.item.badge?.text?.toLowerCase() ?? '';
   if (badge.includes('signature') || badge.includes('house')) signature += 10;
-  if (badge.includes('popular') || badge.includes('most ordered') || badge.includes('staff')) popularity += 10;
+  if (badge.includes('popular') || badge.includes('most ordered') || badge.includes('staff'))
+    popularity += 10;
   if (badge.includes('classic')) popularity += 6;
 
   const key = entry.item.name.toLowerCase();
@@ -666,7 +725,11 @@ function inferClassification(entry: FlattenedEntry): Classification {
   let canBeMadeNonAlcoholic = false;
   let canBeMadeDecaf = false;
 
-  if (sectionKey.includes('draught') || sectionKey.includes('bottled beer') || sectionKey.includes('bottled cider')) {
+  if (
+    sectionKey.includes('draught') ||
+    sectionKey.includes('bottled beer') ||
+    sectionKey.includes('bottled cider')
+  ) {
     category = 'Beer & Cider';
     const itemBeerStyle = inferBeerStyle(name, entry);
     const isCider = itemBeerStyle === 'cider';
@@ -687,7 +750,10 @@ function inferClassification(entry: FlattenedEntry): Classification {
     acidityLevel = drinkType === 'cider' ? 'medium' : 'low';
     bodyLevel = beerStyle === 'stout' ? 'full' : 'light';
     containsGluten = drinkType === 'beer' && !/gf/i.test(fullKey) && !/0\.0/i.test(fullKey);
-    dietaryTags = compact([/gf/i.test(fullKey) ? 'gluten-free' : null, !alcoholic ? 'non-alcoholic' : null]);
+    dietaryTags = compact([
+      /gf/i.test(fullKey) ? 'gluten-free' : null,
+      !alcoholic ? 'non-alcoholic' : null,
+    ]);
   } else if (sectionKey.includes('no & low')) {
     category = 'No & Low';
     subcategory = /old mout/i.test(fullKey) ? 'Low & No Cider' : 'Low & No Beer';
@@ -702,7 +768,13 @@ function inferClassification(entry: FlattenedEntry): Classification {
     bodyLevel = 'light';
     dietaryTags = alcoholic ? [] : ['non-alcoholic'];
     containsGluten = drinkType === 'beer' && !/peroni \(af\)|0\.0/i.test(fullKey);
-  } else if (sectionKey.includes('vodka') || sectionKey.includes('gin') || sectionKey.includes('rum') || sectionKey.includes('whisky') || sectionKey.includes('brandy')) {
+  } else if (
+    sectionKey.includes('vodka') ||
+    sectionKey.includes('gin') ||
+    sectionKey.includes('rum') ||
+    sectionKey.includes('whisky') ||
+    sectionKey.includes('brandy')
+  ) {
     category = 'Spirits';
     subcategory = titleCase(entry.sectionTitle);
     drinkType = 'spirit';
@@ -756,11 +828,12 @@ function inferClassification(entry: FlattenedEntry): Classification {
               : 'Fortified Wine';
     drinkType = wineType === 'fortified' ? 'fortified_wine' : 'wine';
     alcoholic = true;
-    servedStyle = entry.measure?.toLowerCase().includes('bottle') && !entry.measure?.toLowerCase().includes('175ml') ? 'Bottle' : 'By the glass';
-    temperature =
-      wineType === 'red' || wineType === 'fortified'
-        ? 'Cellar cool'
-        : 'Chilled';
+    servedStyle =
+      entry.measure?.toLowerCase().includes('bottle') &&
+      !entry.measure?.toLowerCase().includes('175ml')
+        ? 'Bottle'
+        : 'By the glass';
+    temperature = wineType === 'red' || wineType === 'fortified' ? 'Cellar cool' : 'Chilled';
     sweetnessLevel = wineType === 'rose' ? 'medium' : wineType === 'fortified' ? 'sweet' : 'low';
     bitternessLevel = 'low';
     acidityLevel = wineType === 'white' || wineType === 'sparkling' ? 'high' : 'medium';
@@ -788,20 +861,23 @@ function inferClassification(entry: FlattenedEntry): Classification {
     baseSpirit = inferCocktailBaseSpirit(name);
     sweetnessLevel = /margarita|bramble|espresso/i.test(fullKey) ? 'medium-low' : 'medium';
     bitternessLevel = /espresso|long island/i.test(fullKey) ? 'medium' : 'low';
-    acidityLevel = /margarita|cosmopolitan|mojito|daiquiri|bramble/i.test(fullKey) ? 'high' : 'medium';
+    acidityLevel = /margarita|cosmopolitan|mojito|daiquiri|bramble/i.test(fullKey)
+      ? 'high'
+      : 'medium';
     bodyLevel = /pina colada|espresso/i.test(fullKey) ? 'medium-full' : 'medium';
-    garnish =
-      /margarita/i.test(fullKey)
-        ? 'Lime wedge'
-        : /mojito/i.test(fullKey)
-          ? 'Mint sprig'
-          : /espresso/i.test(fullKey)
-            ? 'Coffee beans'
-            : /pornstar/i.test(fullKey)
-              ? 'Passion fruit half'
-              : null;
+    garnish = /margarita/i.test(fullKey)
+      ? 'Lime wedge'
+      : /mojito/i.test(fullKey)
+        ? 'Mint sprig'
+        : /espresso/i.test(fullKey)
+          ? 'Coffee beans'
+          : /pornstar/i.test(fullKey)
+            ? 'Passion fruit half'
+            : null;
     containsCaffeine = /espresso/i.test(fullKey);
-    canBeMadeNonAlcoholic = /daiquiri|pornstar|mojito|pina colada|cosmopolitan|bramble/i.test(fullKey);
+    canBeMadeNonAlcoholic = /daiquiri|pornstar|mojito|pina colada|cosmopolitan|bramble/i.test(
+      fullKey,
+    );
   } else if (sectionKey.includes('rtd')) {
     category = 'Ready to Drink';
     subcategory = 'RTD Bottles';
@@ -846,7 +922,8 @@ function inferClassification(entry: FlattenedEntry): Classification {
   }
 
   const { region, country } = inferRegionCountry(name, entry);
-  const grapeVarietal = drinkType === 'wine' || drinkType === 'fortified_wine' ? inferGrapeVarietal(name) : null;
+  const grapeVarietal =
+    drinkType === 'wine' || drinkType === 'fortified_wine' ? inferGrapeVarietal(name) : null;
   const flavorProfile = inferFlavorProfile(name, entry, drinkType, beerStyle, wineType);
   const keyIngredients = dedupe(
     compact([
@@ -1025,13 +1102,20 @@ function inferClassification(entry: FlattenedEntry): Classification {
   };
 }
 
-function buildDescriptions(name: string, entry: FlattenedEntry, classification: Classification, servingSize: string | null): {
+function buildDescriptions(
+  name: string,
+  entry: FlattenedEntry,
+  classification: Classification,
+  servingSize: string | null,
+): {
   shortDescription: string | null;
   fullDescription: string | null;
   customizationRules: string | null;
 } {
   const shortDescription = compact([
-    classification.flavorProfile ? `${name} with ${classification.flavorProfile}.` : `${name} from the Old School House drinks list.`,
+    classification.flavorProfile
+      ? `${name} with ${classification.flavorProfile}.`
+      : `${name} from the Old School House drinks list.`,
   ])[0]!;
 
   const measureNote = servingSize ? `Served as ${servingSize}.` : null;
@@ -1054,7 +1138,9 @@ function buildDescriptions(name: string, entry: FlattenedEntry, classification: 
   const customizationRules = dedupe(
     compact([
       itemDetail,
-      sourceMeasure && sourceMeasure.includes('/') ? `Available in ${sourceMeasure.replace(/·/g, '')}.` : null,
+      sourceMeasure && sourceMeasure.includes('/')
+        ? `Available in ${sourceMeasure.replace(/·/g, '')}.`
+        : null,
       entry.measure?.toLowerCase().includes('mixers +1.50') ? 'Add a mixer for +1.50.' : null,
     ]),
   ).join(' ');
@@ -1144,13 +1230,22 @@ function flattenSource(payload: SourcePayload): FlattenedEntry[] {
 function normalizeEntry(
   entry: FlattenedEntry,
   externalDrinkId: string,
-): { item: DrinkItemUpsertInput; modifierGroups: ModifierGroupPayload[]; modifierOptions: ModifierOptionPayload[] } {
+): {
+  item: DrinkItemUpsertInput;
+  modifierGroups: ModifierGroupPayload[];
+  modifierOptions: ModifierOptionPayload[];
+} {
   const name = cleanDrinkName(entry.item.name);
   const measureOptions = parseMeasureOptions(entry);
   const classification = inferClassification(entry);
   const volumeMl = inferVolumeMl(entry, measureOptions);
   const servingSize = inferServingSize(entry, measureOptions);
-  const { shortDescription, fullDescription, customizationRules } = buildDescriptions(name, entry, classification, servingSize);
+  const { shortDescription, fullDescription, customizationRules } = buildDescriptions(
+    name,
+    entry,
+    classification,
+    servingSize,
+  );
   const abv = inferAbv(name, classification);
   const { groups, options } = buildModifierPayloads(externalDrinkId, measureOptions);
 
@@ -1214,23 +1309,19 @@ function normalizeEntry(
 }
 
 function loadSourcePayload(): SourcePayload {
-  const sourceText = fs.readFileSync(SOURCE_JS_PATH, 'utf8');
-  const context = { window: {} as { DRINKS_MENU_DATA?: SourcePayload } };
-  vm.createContext(context);
-  vm.runInContext(sourceText, context, { filename: path.basename(SOURCE_JS_PATH) });
-  const payload = context.window.DRINKS_MENU_DATA;
-
-  if (!payload) {
-    throw new Error('Failed to load DRINKS_MENU_DATA from source JS file.');
-  }
-
-  return payload;
+  return loadWindowAssignedObjectLiteral<SourcePayload>(SOURCE_JS_PATH, 'DRINKS_MENU_DATA');
 }
 
 async function loadSourceRestaurant(): Promise<RestaurantRow> {
-  const { data, error } = await supabase.from('restaurants').select('*').eq('slug', SOURCE_RESTAURANT_SLUG).maybeSingle();
+  const { data, error } = await supabase
+    .from('restaurants')
+    .select('*')
+    .eq('slug', SOURCE_RESTAURANT_SLUG)
+    .maybeSingle();
   if (error) {
-    throw new Error(`Failed to load source restaurant "${SOURCE_RESTAURANT_SLUG}": ${error.message}`);
+    throw new Error(
+      `Failed to load source restaurant "${SOURCE_RESTAURANT_SLUG}": ${error.message}`,
+    );
   }
   if (!data) {
     throw new Error(`Source restaurant "${SOURCE_RESTAURANT_SLUG}" was not found.`);
@@ -1238,9 +1329,14 @@ async function loadSourceRestaurant(): Promise<RestaurantRow> {
   return data as RestaurantRow;
 }
 
-async function ensureTargetRestaurant(sourceRestaurant: RestaurantRow): Promise<{ restaurantId: string; existed: boolean }> {
+async function ensureTargetRestaurant(
+  sourceRestaurant: RestaurantRow,
+): Promise<{ restaurantId: string; existed: boolean }> {
   return withPgClient(async (client) => {
-    const existing = await client.query<{ id: string }>('select id from public.restaurants where slug = $1 limit 1', [TARGET_SLUG]);
+    const existing = await client.query<{ id: string }>(
+      'select id from public.restaurants where slug = $1 limit 1',
+      [TARGET_SLUG],
+    );
 
     if (existing.rows[0]?.id) {
       return { restaurantId: existing.rows[0].id, existed: true };
@@ -1312,7 +1408,10 @@ async function ensureTargetRestaurant(sourceRestaurant: RestaurantRow): Promise<
   });
 }
 
-async function ensureMemberships(sourceRestaurantId: string, targetRestaurantId: string): Promise<{ copied: number; total: number }> {
+async function ensureMemberships(
+  sourceRestaurantId: string,
+  targetRestaurantId: string,
+): Promise<{ copied: number; total: number }> {
   return withPgClient(async (client) => {
     const sourceMemberships = await client.query<MembershipRow>(
       `select user_id, role, restaurant_id
@@ -1329,8 +1428,12 @@ async function ensureMemberships(sourceRestaurantId: string, targetRestaurantId:
       [targetRestaurantId],
     );
 
-    const existing = new Set(targetMemberships.rows.map((membership) => `${membership.user_id}:${membership.role}`));
-    const missing = sourceMemberships.rows.filter((membership) => !existing.has(`${membership.user_id}:${membership.role}`));
+    const existing = new Set(
+      targetMemberships.rows.map((membership) => `${membership.user_id}:${membership.role}`),
+    );
+    const missing = sourceMemberships.rows.filter(
+      (membership) => !existing.has(`${membership.user_id}:${membership.role}`),
+    );
 
     if (APPLY) {
       for (const membership of missing) {
@@ -1356,7 +1459,9 @@ async function assertDrinkSchemaAvailable(): Promise<void> {
   });
 
   if (error && /function .* does not exist|schema cache/i.test(error.message)) {
-    throw new Error('Staging drink-menu RPC is not available yet. Apply the drinks migration before seeding.');
+    throw new Error(
+      'Staging drink-menu RPC is not available yet. Apply the drinks migration before seeding.',
+    );
   }
 }
 
@@ -1443,7 +1548,9 @@ async function readBackSummary(restaurantId: string) {
       firstTwelveDrinks: drinkItems.rows.slice(0, 12),
       modifierSamples: groups.rows.slice(0, 6).map((group) => ({
         ...group,
-        options: options.rows.filter((option) => option.external_modifier_group_id === group.external_modifier_group_id),
+        options: options.rows.filter(
+          (option) => option.external_modifier_group_id === group.external_modifier_group_id,
+        ),
       })),
     };
   });
@@ -1458,7 +1565,9 @@ async function main() {
 
   const entries = flattenSource(payload);
   const seenExternalIds = new Map<string, number>();
-  const normalized = entries.map((entry) => normalizeEntry(entry, buildExternalDrinkId(entry, seenExternalIds)));
+  const normalized = entries.map((entry) =>
+    normalizeEntry(entry, buildExternalDrinkId(entry, seenExternalIds)),
+  );
   const items = normalized.map((record) => record.item);
   const modifierGroups = normalized.flatMap((record) => record.modifierGroups);
   const modifierOptions = normalized.flatMap((record) => record.modifierOptions);
@@ -1488,7 +1597,12 @@ async function main() {
           plannedModifierGroupCount: modifierGroups.length,
           plannedModifierOptionCount: modifierOptions.length,
         }
-      : await importDrinkItems(targetRestaurant.restaurantId, items, modifierGroups, modifierOptions);
+      : await importDrinkItems(
+          targetRestaurant.restaurantId,
+          items,
+          modifierGroups,
+          modifierOptions,
+        );
 
   const verification =
     targetRestaurant.restaurantId === 'dry-run-target-restaurant'

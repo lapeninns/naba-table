@@ -9,6 +9,7 @@ const linkLocationMock = vi.hoisted(() => vi.fn());
 const syncBusinessInfoMock = vi.hoisted(() => vi.fn());
 const disconnectConnectionMock = vi.hoisted(() => vi.fn());
 const verifyUserPasswordConfirmationMock = vi.hoisted(() => vi.fn());
+const requireProviderRefreshBudgetMock = vi.hoisted(() => vi.fn());
 const PasswordConfirmationErrorMock = vi.hoisted(
   () =>
     class PasswordConfirmationError extends Error {
@@ -41,6 +42,10 @@ vi.mock('@/server/auth/password-confirmation', () => ({
   verifyUserPasswordConfirmation: verifyUserPasswordConfirmationMock,
 }));
 
+vi.mock('@/server/security/provider-rate-limit', () => ({
+  requireProviderRefreshBudget: requireProviderRefreshBudgetMock,
+}));
+
 import { GET as connectGET } from '@/src/app/api/ops/restaurants/[id]/google-business-profile/connect/route';
 import {
   DELETE as connectionDELETE,
@@ -59,6 +64,7 @@ describe('restaurant google business profile routes', () => {
     syncBusinessInfoMock.mockReset();
     disconnectConnectionMock.mockReset();
     verifyUserPasswordConfirmationMock.mockReset();
+    requireProviderRefreshBudgetMock.mockReset().mockResolvedValue(null);
   });
 
   it('redirects to Google OAuth from the connect route', async () => {
@@ -312,6 +318,11 @@ describe('restaurant google business profile routes', () => {
     const body = await response.json();
     expect(body.businessInfo.details.description).toBe('A family friendly pub.');
     expect(syncBusinessInfoMock).toHaveBeenCalledWith('rest-1');
+    expect(requireProviderRefreshBudgetMock).toHaveBeenCalledWith({
+      provider: 'google_business_profile',
+      restaurantId: 'rest-1',
+      action: 'business-info-sync',
+    });
     expect(verifyUserPasswordConfirmationMock).toHaveBeenCalledWith({
       email: 'owner@example.com',
       password: 'secret-password',

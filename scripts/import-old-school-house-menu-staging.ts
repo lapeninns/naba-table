@@ -8,6 +8,7 @@ import { createClient } from '@supabase/supabase-js';
 import { Client } from 'pg';
 
 import { MenuItemUpsertInputSchema, type MenuItemUpsertInput } from '../server/menu/types';
+import { getPgSslConfig } from './db/pg-ssl';
 
 type DishRow = {
   Item: string;
@@ -133,7 +134,7 @@ function buildPgConnectionString(): string {
 async function withPgClient<T>(run: (client: Client) => Promise<T>): Promise<T> {
   const client = new Client({
     connectionString: buildPgConnectionString(),
-    ssl: { rejectUnauthorized: false },
+    ssl: getPgSslConfig(),
   });
 
   await client.connect();
@@ -173,11 +174,7 @@ function compact<T>(values: Array<T | null | undefined | false>): T[] {
 
 function dedupe(values: string[]): string[] {
   return Array.from(
-    new Set(
-      values
-        .map((value) => value.trim())
-        .filter((value) => value.length > 0),
-    ),
+    new Set(values.map((value) => value.trim()).filter((value) => value.length > 0)),
   );
 }
 
@@ -236,7 +233,11 @@ function normalizeMainBase(value: string | undefined): string | null {
   return trimmed;
 }
 
-function inferCategory(style: string, portionSize: string, itemName: string): { category: string; subcategory: string | null } {
+function inferCategory(
+  style: string,
+  portionSize: string,
+  itemName: string,
+): { category: string; subcategory: string | null } {
   const styleKey = style.toLowerCase();
   const portionKey = portionSize.toLowerCase();
   const nameKey = itemName.toLowerCase();
@@ -244,7 +245,12 @@ function inferCategory(style: string, portionSize: string, itemName: string): { 
   if (portionKey.includes('starter') || styleKey.includes('starter')) {
     return { category: 'Starters', subcategory: titleCase(style) || 'Small Plates' };
   }
-  if (portionKey.includes('side') || styleKey.includes('side') || styleKey.includes('flatbread') || styleKey.includes('rice')) {
+  if (
+    portionKey.includes('side') ||
+    styleKey.includes('side') ||
+    styleKey.includes('flatbread') ||
+    styleKey.includes('rice')
+  ) {
     return { category: 'Sides', subcategory: titleCase(style) || 'Sides' };
   }
   if (portionKey.includes('dessert') || styleKey.includes('dessert')) {
@@ -276,7 +282,12 @@ function inferCategory(style: string, portionSize: string, itemName: string): { 
   if (styleKey.includes('tandoor') || styleKey.includes('grill')) {
     return { category: 'Grill & Tandoor', subcategory: titleCase(style) };
   }
-  if (styleKey.includes('biryani') || styleKey.includes('noodle') || nameKey.includes('biryani') || nameKey.includes('chowmein')) {
+  if (
+    styleKey.includes('biryani') ||
+    styleKey.includes('noodle') ||
+    nameKey.includes('biryani') ||
+    nameKey.includes('chowmein')
+  ) {
     return { category: 'Mains', subcategory: titleCase(style) || 'Mains' };
   }
 
@@ -289,7 +300,13 @@ function inferServiceTime(style: string, portionSize: string): string | null {
 
   if (styleKey.includes('breakfast')) return 'Breakfast';
   if (styleKey.includes('roast')) return 'Sunday';
-  if (portionKey.includes('light main / lunch portion') || styleKey.includes('filled baguette') || styleKey.includes('filled wrap') || styleKey.includes('loaded jacket potato') || styleKey.includes('cold salad plate')) {
+  if (
+    portionKey.includes('light main / lunch portion') ||
+    styleKey.includes('filled baguette') ||
+    styleKey.includes('filled wrap') ||
+    styleKey.includes('loaded jacket potato') ||
+    styleKey.includes('cold salad plate')
+  ) {
     return 'Lunch';
   }
   if (portionKey.includes('kids') || styleKey.includes('kids')) return 'Kids';
@@ -307,7 +324,10 @@ function inferDietaryTags(dietaryInfo: string | undefined): string[] {
   );
 }
 
-function parseAllergens(allergens: string | undefined): { contains: string[]; mayContain: string[] } {
+function parseAllergens(allergens: string | undefined): {
+  contains: string[];
+  mayContain: string[];
+} {
   const key = allergens?.toLowerCase() ?? '';
   const contains = new Set<string>();
   const mayContain = new Set<string>();
@@ -338,7 +358,14 @@ function parseAllergens(allergens: string | undefined): { contains: string[]; ma
   };
 }
 
-function inferRecommendationTags(category: string, serviceTime: string | null, itemName: string, signatureScore: number | null, popularityScore: number | null, shareable: boolean): string[] {
+function inferRecommendationTags(
+  category: string,
+  serviceTime: string | null,
+  itemName: string,
+  signatureScore: number | null,
+  popularityScore: number | null,
+  shareable: boolean,
+): string[] {
   const key = itemName.toLowerCase();
   return dedupe(
     compact([
@@ -347,7 +374,12 @@ function inferRecommendationTags(category: string, serviceTime: string | null, i
       category === 'Grill & Tandoor' ? 'grill' : null,
       category === 'Pub Classics' ? 'pub-classic' : null,
       serviceTime === 'Lunch' ? 'lunch-favourite' : null,
-      key.includes('prawn') || key.includes('fish') || key.includes('salmon') || key.includes('scampi') ? 'seafood' : null,
+      key.includes('prawn') ||
+      key.includes('fish') ||
+      key.includes('salmon') ||
+      key.includes('scampi')
+        ? 'seafood'
+        : null,
       signatureScore !== null && signatureScore >= 80 ? 'signature' : null,
       popularityScore !== null && popularityScore >= 80 ? 'popular' : null,
       shareable ? 'sharer' : null,
@@ -407,11 +439,7 @@ function inferPopularityScore(itemName: string, category: string): number | null
 
 function inferShortDescription(row: DishRow): string {
   const raw = row['Short Description']?.trim() ?? '';
-  if (
-    raw &&
-    !/^invented profile based/i.test(raw) &&
-    !/^choose\s/i.test(raw)
-  ) {
+  if (raw && !/^invented profile based/i.test(raw) && !/^choose\s/i.test(raw)) {
     return raw;
   }
 
@@ -440,8 +468,11 @@ function inferFullDescription(row: DishRow, shortDescription: string): string {
 function inferServingNotes(row: DishRow): string | null {
   const notes = compact([
     normalizeNullableText(row.Appearance),
-    normalizeNullableText(row['Sauce/Dry']) ? `Format: ${normalizeNullableText(row['Sauce/Dry'])}.` : null,
-    normalizeNullableText(row['Bone/Boneless']) && !/not specified/i.test(row['Bone/Boneless'] ?? '')
+    normalizeNullableText(row['Sauce/Dry'])
+      ? `Format: ${normalizeNullableText(row['Sauce/Dry'])}.`
+      : null,
+    normalizeNullableText(row['Bone/Boneless']) &&
+    !/not specified/i.test(row['Bone/Boneless'] ?? '')
       ? `Cut: ${normalizeNullableText(row['Bone/Boneless'])}.`
       : null,
   ]);
@@ -471,7 +502,11 @@ function buildExternalIds(items: DishRow[]): string[] {
   });
 }
 
-function normalizeItem(row: DishRow, externalItemId: string, displayOrder: number): MenuItemUpsertInput {
+function normalizeItem(
+  row: DishRow,
+  externalItemId: string,
+  displayOrder: number,
+): MenuItemUpsertInput {
   const itemName = row.Item.trim();
   const style = normalizeNullableText(row['Cooking Style']) ?? 'Menu item';
   const portionSize = normalizeNullableText(row['Portion Size']) ?? 'Main';
@@ -515,7 +550,9 @@ function normalizeItem(row: DishRow, externalItemId: string, displayOrder: numbe
     flavorProfile: normalizeNullableText(row['Flavor Profile']),
     texture: normalizeNullableText(row.Texture),
     spiceLevel: normalizeNullableText(row['Spice Level']),
-    spiceAdjustable: category === 'Curries' || inferBooleanFromText(row['Customisation Notes'], /choose|variant|price varies/),
+    spiceAdjustable:
+      category === 'Curries' ||
+      inferBooleanFromText(row['Customisation Notes'], /choose|variant|price varies/),
     portionSize,
     shareable,
     recommendationTags,
@@ -526,7 +563,10 @@ function normalizeItem(row: DishRow, externalItemId: string, displayOrder: numbe
     allergensContains: allergens.contains,
     allergensMayContain: allergens.mayContain,
     removableIngredients: [],
-    substitutionsAllowed: inferBooleanFromText(row['Customisation Notes'], /choose|variant|substitute|price varies/),
+    substitutionsAllowed: inferBooleanFromText(
+      row['Customisation Notes'],
+      /choose|variant|substitute|price varies/,
+    ),
     canBeMadeVegetarian: dietaryTags.includes('vegetarian'),
     canBeMadeVegan: dietaryTags.includes('vegan'),
     canBeMadeGlutenFree: dietaryTags.includes('gluten-free'),
@@ -548,9 +588,15 @@ async function loadSourcePayload(): Promise<SourcePayload> {
 }
 
 async function loadSourceRestaurant(): Promise<RestaurantRow> {
-  const { data, error } = await supabase.from('restaurants').select('*').eq('slug', SOURCE_RESTAURANT_SLUG).maybeSingle();
+  const { data, error } = await supabase
+    .from('restaurants')
+    .select('*')
+    .eq('slug', SOURCE_RESTAURANT_SLUG)
+    .maybeSingle();
   if (error) {
-    throw new Error(`Failed to load source restaurant "${SOURCE_RESTAURANT_SLUG}": ${error.message}`);
+    throw new Error(
+      `Failed to load source restaurant "${SOURCE_RESTAURANT_SLUG}": ${error.message}`,
+    );
   }
   if (!data) {
     throw new Error(`Source restaurant "${SOURCE_RESTAURANT_SLUG}" was not found.`);
@@ -558,7 +604,9 @@ async function loadSourceRestaurant(): Promise<RestaurantRow> {
   return data as RestaurantRow;
 }
 
-async function ensureTargetRestaurant(sourceRestaurant: RestaurantRow): Promise<{ restaurantId: string; existed: boolean }> {
+async function ensureTargetRestaurant(
+  sourceRestaurant: RestaurantRow,
+): Promise<{ restaurantId: string; existed: boolean }> {
   return withPgClient(async (client) => {
     const existing = await client.query<{ id: string }>(
       'select id from public.restaurants where slug = $1 limit 1',
@@ -635,7 +683,10 @@ async function ensureTargetRestaurant(sourceRestaurant: RestaurantRow): Promise<
   });
 }
 
-async function ensureMemberships(sourceRestaurantId: string, targetRestaurantId: string): Promise<{ copied: number; total: number }> {
+async function ensureMemberships(
+  sourceRestaurantId: string,
+  targetRestaurantId: string,
+): Promise<{ copied: number; total: number }> {
   return withPgClient(async (client) => {
     const sourceMemberships = await client.query<MembershipRow>(
       `select user_id, role, restaurant_id
@@ -652,8 +703,12 @@ async function ensureMemberships(sourceRestaurantId: string, targetRestaurantId:
       [targetRestaurantId],
     );
 
-    const existing = new Set(targetMemberships.rows.map((membership) => `${membership.user_id}:${membership.role}`));
-    const missing = sourceMemberships.rows.filter((membership) => !existing.has(`${membership.user_id}:${membership.role}`));
+    const existing = new Set(
+      targetMemberships.rows.map((membership) => `${membership.user_id}:${membership.role}`),
+    );
+    const missing = sourceMemberships.rows.filter(
+      (membership) => !existing.has(`${membership.user_id}:${membership.role}`),
+    );
 
     if (APPLY) {
       for (const membership of missing) {

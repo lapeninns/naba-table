@@ -4,6 +4,7 @@ import path from 'node:path';
 import process from 'node:process';
 
 import type { GoogleFoodMenuCuisine } from '@/server/google-business-profile/food-menus';
+import { assertExactSupabaseApiProjectRef } from './db/safety';
 
 loadEnv({ path: '.env.local', override: false });
 
@@ -292,9 +293,11 @@ function parseArgs(argv: string[]): Args {
 function assertTargetEnv(target: TargetName) {
   const expectedProjectRef = TARGETS[target].expectedProjectRef;
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL ?? '';
-  if (!supabaseUrl.includes(expectedProjectRef)) {
+  try {
+    assertExactSupabaseApiProjectRef(supabaseUrl, expectedProjectRef);
+  } catch {
     throw new Error(
-      `Refusing ${target} FoodMenus proof because Supabase URL does not contain expected project ref ${expectedProjectRef}.`,
+      `Refusing ${target} FoodMenus proof because Supabase URL does not match expected project ref ${expectedProjectRef}.`,
     );
   }
 }

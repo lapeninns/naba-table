@@ -1,35 +1,36 @@
-import { config as loadEnv } from "dotenv";
-import fs from "node:fs";
-import path from "node:path";
-import process from "node:process";
-import { fileURLToPath } from "node:url";
+import { config as loadEnv } from 'dotenv';
+import fs from 'node:fs';
+import path from 'node:path';
+import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-import type { Database } from "@/types/supabase";
+import { assertExactSupabaseApiProjectRef } from './db/safety';
+import type { Database } from '@/types/supabase';
 
 const modulePath = fileURLToPath(import.meta.url);
-const projectRoot = path.resolve(path.dirname(modulePath), "..");
-const envLocalPath = path.join(projectRoot, ".env.local");
+const projectRoot = path.resolve(path.dirname(modulePath), '..');
+const envLocalPath = path.join(projectRoot, '.env.local');
 
 if (fs.existsSync(envLocalPath)) {
   loadEnv({ path: envLocalPath, override: false });
 }
 
 const EXPECTED_PROJECT_REF = process.env.EXPECTED_PROJECT_REF?.trim() || null;
-const RESTAURANT_SLUG = (process.env.RESTAURANT_SLUG ?? "the-railway-pub").trim();
+const RESTAURANT_SLUG = (process.env.RESTAURANT_SLUG ?? 'the-railway-pub').trim();
 
 function requireEnv(): { supabaseUrl: string; serviceRoleKey: string } {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !serviceRoleKey) {
-    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY.");
+    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY.');
   }
   if (!RESTAURANT_SLUG) {
-    throw new Error("RESTAURANT_SLUG is required.");
+    throw new Error('RESTAURANT_SLUG is required.');
   }
-  if (EXPECTED_PROJECT_REF && !supabaseUrl.includes(EXPECTED_PROJECT_REF)) {
-    throw new Error(`Supabase URL does not match expected project ref (${EXPECTED_PROJECT_REF}). Aborting.`);
+  if (EXPECTED_PROJECT_REF) {
+    assertExactSupabaseApiProjectRef(supabaseUrl, EXPECTED_PROJECT_REF);
   }
   return { supabaseUrl, serviceRoleKey };
 }
@@ -55,7 +56,7 @@ type AdjacencyBuild = {
 };
 
 function normalizeLower(value: unknown): string {
-  return typeof value === "string" ? value.trim().toLowerCase() : "";
+  return typeof value === 'string' ? value.trim().toLowerCase() : '';
 }
 
 function isEligible(table: TableRow): boolean {
@@ -64,11 +65,11 @@ function isEligible(table: TableRow): boolean {
   if (table.active === false) return false;
   if (!Number.isFinite(table.capacity ?? NaN) || (table.capacity ?? 0) <= 0) return false;
 
-  const status = normalizeLower(table.status || "available");
-  if (status === "out_of_service" || status === "maintenance") return false;
+  const status = normalizeLower(table.status || 'available');
+  if (status === 'out_of_service' || status === 'maintenance') return false;
 
-  const mobility = normalizeLower(table.mobility || "movable");
-  if (mobility === "fixed") return false;
+  const mobility = normalizeLower(table.mobility || 'movable');
+  if (mobility === 'fixed') return false;
   return true;
 }
 
@@ -114,9 +115,9 @@ async function fetchRestaurantId(
   slug: string,
 ): Promise<string> {
   const { data, error } = await supabase
-    .from("restaurants")
-    .select("id")
-    .eq("slug", slug)
+    .from('restaurants')
+    .select('id')
+    .eq('slug', slug)
     .maybeSingle();
 
   if (error) {
@@ -133,9 +134,9 @@ async function loadTables(
   restaurantId: string,
 ): Promise<TableRow[]> {
   const { data, error } = await supabase
-    .from("table_inventory")
-    .select("id, zone_id, active, capacity, mobility, status, zones(active)")
-    .eq("restaurant_id", restaurantId);
+    .from('table_inventory')
+    .select('id, zone_id, active, capacity, mobility, status, zones(active)')
+    .eq('restaurant_id', restaurantId);
   if (error) {
     throw new Error(`Failed to load table_inventory: ${error.message}`);
   }
@@ -164,9 +165,9 @@ async function loadExistingAdjacency(
   }
   const idSet = new Set(tableIds);
   const { data, error } = await supabase
-    .from("table_adjacencies")
-    .select("table_a, table_b")
-    .or(`table_a.in.(${tableIds.join(",")}),table_b.in.(${tableIds.join(",")})`);
+    .from('table_adjacencies')
+    .select('table_a, table_b')
+    .or(`table_a.in.(${tableIds.join(',')}),table_b.in.(${tableIds.join(',')})`);
   if (error) {
     throw new Error(`Failed to load table_adjacencies: ${error.message}`);
   }
@@ -204,7 +205,7 @@ async function main(): Promise<void> {
   const missing = payload.filter((row) => !existing.has(`${row.table_a}|${row.table_b}`));
   const expectedSet = new Set(payload.map((row) => `${row.table_a}|${row.table_b}`));
   const extra = Array.from(existing).filter((key) => {
-    const [a, b] = key.split("|");
+    const [a, b] = key.split('|');
     if (!a || !b) return false;
     // Only consider edges entirely within this restaurant scope.
     const inScope = tableIdSet.has(a) && tableIdSet.has(b);
@@ -212,7 +213,7 @@ async function main(): Promise<void> {
     return !expectedSet.has(key);
   });
 
-  console.log("Adjacency build summary:");
+  console.log('Adjacency build summary:');
   console.log({
     restaurantSlug: RESTAURANT_SLUG,
     restaurantId,
@@ -225,7 +226,7 @@ async function main(): Promise<void> {
   });
 
   if (missing.length > 0 || extra.length > 0) {
-    console.error("Adjacency mismatch detected. Sample:", {
+    console.error('Adjacency mismatch detected. Sample:', {
       missing: missing.slice(0, 10).map((r) => `${r.table_a}|${r.table_b}`),
       extra: extra.slice(0, 10),
     });
@@ -234,6 +235,6 @@ async function main(): Promise<void> {
 }
 
 void main().catch((error) => {
-  console.error("[build-zone-adjacency] Failed:", error instanceof Error ? error.message : error);
+  console.error('[build-zone-adjacency] Failed:', error instanceof Error ? error.message : error);
   process.exit(1);
 });

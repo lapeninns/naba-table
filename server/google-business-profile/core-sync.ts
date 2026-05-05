@@ -1,3 +1,5 @@
+import { safeGoogleMapsUrl, safeGoogleReviewUrl } from '@/lib/security/safe-url';
+
 import type { GoogleBusinessProfileBusinessInfo } from './business-info';
 import type { GoogleBusinessProfileLocationProfile } from './client';
 import type { RestaurantDetails, UpdateRestaurantDetailsInput } from '@/server/restaurants/details';
@@ -387,10 +389,12 @@ export function buildProfileVerificationSummary(params: {
 }): ProfileVerificationSummary {
   const primaryAddress = getPrimaryAddress(params.businessInfo);
   const primaryPhone = getPrimaryPhone(params.businessInfo);
-  const googleMapLink =
-    params.businessInfo.links.find((link) => link.linkType === 'google_map') ?? null;
-  const googleReviewLink =
-    params.businessInfo.links.find((link) => link.linkType === 'google_review') ?? null;
+  const googleMapUrl = safeGoogleMapsUrl(
+    params.businessInfo.links.find((link) => link.linkType === 'google_map')?.url,
+  );
+  const googleReviewUrl = safeGoogleReviewUrl(
+    params.businessInfo.links.find((link) => link.linkType === 'google_review')?.url,
+  );
 
   const fields: CoreFieldVerification[] = [
     {
@@ -442,32 +446,28 @@ export function buildProfileVerificationSummary(params: {
     {
       field: 'googleReviewUrl',
       label: 'Google review URL',
-      status: compareFieldValue(
-        'googleReviewUrl',
-        params.profile.googleReviewUrl,
-        googleReviewLink?.url,
-      )
+      status: compareFieldValue('googleReviewUrl', params.profile.googleReviewUrl, googleReviewUrl)
         ? 'verified'
-        : googleReviewLink?.url || params.profile.googleReviewUrl
+        : googleReviewUrl || params.profile.googleReviewUrl
           ? 'drifted'
           : 'unavailable',
       currentValue: params.profile.googleReviewUrl,
-      providerValue: googleReviewLink?.url ?? null,
-      canPull: Boolean(googleReviewLink?.url),
+      providerValue: googleReviewUrl,
+      canPull: Boolean(googleReviewUrl),
       canPush: false,
       googleManaged: true,
     },
     {
       field: 'googleMapUrl',
       label: 'Google Maps URL',
-      status: compareFieldValue('googleMapUrl', params.profile.googleMapUrl, googleMapLink?.url)
+      status: compareFieldValue('googleMapUrl', params.profile.googleMapUrl, googleMapUrl)
         ? 'verified'
-        : googleMapLink?.url || params.profile.googleMapUrl
+        : googleMapUrl || params.profile.googleMapUrl
           ? 'drifted'
           : 'unavailable',
       currentValue: params.profile.googleMapUrl,
-      providerValue: googleMapLink?.url ?? null,
-      canPull: Boolean(googleMapLink?.url),
+      providerValue: googleMapUrl,
+      canPull: Boolean(googleMapUrl),
       canPush: false,
       googleManaged: true,
     },
@@ -588,10 +588,12 @@ export function buildPullProfilePatch(params: {
   );
   const primaryAddress = getPrimaryAddress(params.businessInfo);
   const primaryPhone = getPrimaryPhone(params.businessInfo);
-  const googleMapLink =
-    params.businessInfo.links.find((link) => link.linkType === 'google_map') ?? null;
-  const googleReviewLink =
-    params.businessInfo.links.find((link) => link.linkType === 'google_review') ?? null;
+  const googleMapUrl = safeGoogleMapsUrl(
+    params.businessInfo.links.find((link) => link.linkType === 'google_map')?.url,
+  );
+  const googleReviewUrl = safeGoogleReviewUrl(
+    params.businessInfo.links.find((link) => link.linkType === 'google_review')?.url,
+  );
 
   return {
     ...(requestedFields.has('name') && params.externalLocationTitle
@@ -603,10 +605,8 @@ export function buildPullProfilePatch(params: {
     ...(requestedFields.has('address')
       ? { address: primaryAddress?.formattedAddress ?? null }
       : {}),
-    ...(requestedFields.has('googleMapUrl') ? { googleMapUrl: googleMapLink?.url ?? null } : {}),
-    ...(requestedFields.has('googleReviewUrl')
-      ? { googleReviewUrl: googleReviewLink?.url ?? null }
-      : {}),
+    ...(requestedFields.has('googleMapUrl') ? { googleMapUrl } : {}),
+    ...(requestedFields.has('googleReviewUrl') ? { googleReviewUrl } : {}),
   };
 }
 

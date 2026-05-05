@@ -6,9 +6,11 @@ const resolveRestaurantIdMock = vi.hoisted(() => vi.fn());
 const createAuthorizationUrlMock = vi.hoisted(() => vi.fn());
 const getBusinessDetailsStatusMock = vi.hoisted(() => vi.fn());
 const getConnectionStateMock = vi.hoisted(() => vi.fn());
+const getAvailableLocationsMock = vi.hoisted(() => vi.fn());
 const linkLocationMock = vi.hoisted(() => vi.fn());
 const syncBusinessInfoMock = vi.hoisted(() => vi.fn());
 const disconnectConnectionMock = vi.hoisted(() => vi.fn());
+const requireProviderRefreshBudgetMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/app/api/ops/restaurants/[id]/_shared', () => ({
   ensureRestaurantAdminAccess: ensureRestaurantAdminAccessMock,
@@ -18,10 +20,15 @@ vi.mock('@/app/api/ops/restaurants/[id]/_shared', () => ({
 vi.mock('@/server/google-business-profile/service', () => ({
   createGoogleBusinessProfileAuthorizationUrl: createAuthorizationUrlMock,
   disconnectGoogleBusinessProfileConnection: disconnectConnectionMock,
+  getGoogleBusinessProfileAvailableLocations: getAvailableLocationsMock,
   getGoogleBusinessProfileBusinessDetailsStatus: getBusinessDetailsStatusMock,
   getGoogleBusinessProfileConnectionState: getConnectionStateMock,
   linkGoogleBusinessProfileLocation: linkLocationMock,
   syncGoogleBusinessProfileBusinessInformation: syncBusinessInfoMock,
+}));
+
+vi.mock('@/server/security/provider-rate-limit', () => ({
+  requireProviderRefreshBudget: requireProviderRefreshBudgetMock,
 }));
 
 import { POST as callbackConnectPOST } from '@/src/app/api/ops/restaurants/[id]/google-business/connect/route';
@@ -42,9 +49,11 @@ describe('restaurant google business V1 routes', () => {
     createAuthorizationUrlMock.mockReset();
     getBusinessDetailsStatusMock.mockReset();
     getConnectionStateMock.mockReset();
+    getAvailableLocationsMock.mockReset();
     linkLocationMock.mockReset();
     syncBusinessInfoMock.mockReset();
     disconnectConnectionMock.mockReset();
+    requireProviderRefreshBudgetMock.mockReset().mockResolvedValue(null);
     ensureRestaurantAdminAccessMock.mockResolvedValue({
       userId: 'user-1',
       userEmail: 'owner@example.com',
@@ -108,9 +117,9 @@ describe('restaurant google business V1 routes', () => {
   });
 
   it('lists available GBP locations', async () => {
-    getConnectionStateMock.mockResolvedValue({
-      availableLocations: [{ locationName: 'locations/456', title: 'Old Crown' }],
-    });
+    getAvailableLocationsMock.mockResolvedValue([
+      { locationName: 'locations/456', title: 'Old Crown' },
+    ]);
 
     const response = await locationsGET(
       new NextRequest('https://example.com/api/ops/restaurants/rest-1/google-business/locations'),
@@ -120,6 +129,31 @@ describe('restaurant google business V1 routes', () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
       locations: [{ locationName: 'locations/456', title: 'Old Crown' }],
+    });
+    expect(getAvailableLocationsMock).toHaveBeenCalledWith('rest-1', undefined, {
+      forceRefresh: false,
+    });
+    expect(requireProviderRefreshBudgetMock).not.toHaveBeenCalled();
+  });
+
+  it('rate-limits explicit GBP location refreshes', async () => {
+    getAvailableLocationsMock.mockResolvedValue([]);
+
+    const response = await locationsGET(
+      new NextRequest(
+        'https://example.com/api/ops/restaurants/rest-1/google-business/locations?refresh=1',
+      ),
+      routeContext,
+    );
+
+    expect(response.status).toBe(200);
+    expect(requireProviderRefreshBudgetMock).toHaveBeenCalledWith({
+      provider: 'google_business_profile',
+      restaurantId: 'rest-1',
+      action: 'location-discovery',
+    });
+    expect(getAvailableLocationsMock).toHaveBeenCalledWith('rest-1', undefined, {
+      forceRefresh: true,
     });
   });
 
@@ -172,6 +206,11 @@ describe('restaurant google business V1 routes', () => {
     );
 
     expect(response.status).toBe(200);
+    expect(requireProviderRefreshBudgetMock).toHaveBeenCalledWith({
+      provider: 'google_business_profile',
+      restaurantId: 'rest-1',
+      action: 'business-info-sync',
+    });
     expect(syncBusinessInfoMock).toHaveBeenCalledWith('rest-1');
   });
 

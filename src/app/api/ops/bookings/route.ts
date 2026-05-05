@@ -128,6 +128,49 @@ function buildRequestDetails(params: {
   } as const;
 }
 
+async function recoverOpsBookingRecord(
+  client: ReturnType<typeof getServiceSupabaseClient>,
+  args: {
+    restaurantId: string;
+    idempotencyKey: string | null;
+    customerId: string;
+    bookingDate: string;
+    startTime: string;
+    endTime: string;
+  },
+): Promise<BookingRecord | null> {
+  if (args.idempotencyKey) {
+    const { data, error } = await client
+      .from('bookings')
+      .select('*')
+      .eq('restaurant_id', args.restaurantId)
+      .eq('idempotency_key', args.idempotencyKey)
+      .maybeSingle();
+
+    if (!error && data) {
+      return data as BookingRecord;
+    }
+  }
+
+  const { data, error } = await client
+    .from('bookings')
+    .select('*')
+    .eq('restaurant_id', args.restaurantId)
+    .eq('customer_id', args.customerId)
+    .eq('booking_date', args.bookingDate)
+    .eq('start_time', args.startTime)
+    .eq('end_time', args.endTime)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!error && data) {
+    return data as BookingRecord;
+  }
+
+  return null;
+}
+
 function digitizeHash(seed: string): string {
   const digest = createHash('sha256').update(seed).digest('hex');
   return digest.replace(/[a-f]/g, (char) => String((char.charCodeAt(0) - 87) % 10));
@@ -939,34 +982,29 @@ export async function POST(req: NextRequest) {
     marketingOptIn: payload.marketingOptIn ?? false,
   });
 
-  if (normalizedIdempotencyKey) {
-    const { data: existing, error: existingError } = await service
-      .from('bookings')
-      .select('*')
-      .eq('restaurant_id', payload.restaurantId)
-      .eq('idempotency_key', normalizedIdempotencyKey)
-      .maybeSingle();
+  const recoveredExisting = await recoverOpsBookingRecord(service, {
+    restaurantId: payload.restaurantId,
+    idempotencyKey: normalizedIdempotencyKey,
+    customerId: customer.id,
+    bookingDate: payload.date,
+    startTime,
+    endTime,
+  });
 
-    if (existingError && existingError.code !== 'PGRST116') {
-      console.error('[ops/bookings] idempotency lookup failed', existingError.message);
-      return NextResponse.json({ error: 'Unable to verify idempotency' }, { status: 500 });
-    }
-
-    if (existing) {
-      const bookings = await fetchBookingsForContact(
-        service,
-        payload.restaurantId,
-        fallbackEmail,
-        fallbackPhone,
-      );
-      return NextResponse.json({
-        booking: existing,
-        bookings,
-        idempotencyKey: normalizedIdempotencyKey,
-        clientRequestId: (existing as BookingRecord).client_request_id,
-        duplicate: true,
-      });
-    }
+  if (recoveredExisting) {
+    const bookings = await fetchBookingsForContact(
+      service,
+      payload.restaurantId,
+      fallbackEmail,
+      fallbackPhone,
+    );
+    return NextResponse.json({
+      booking: recoveredExisting,
+      bookings,
+      idempotencyKey: normalizedIdempotencyKey,
+      clientRequestId: recoveredExisting.client_request_id,
+      duplicate: true,
+    });
   }
 
   let booking: BookingRecord | null = null;
@@ -1171,6 +1209,34 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
     name: payload.name,
     marketingOptIn: payload.marketingOptIn ?? false,
   });
+
+  const recoveredExisting = await recoverOpsBookingRecord(service, {
+    restaurantId: payload.restaurantId,
+    idempotencyKey: normalizedIdempotencyKey,
+    customerId: customer.id,
+    bookingDate: payload.date,
+    startTime: payload.time,
+    endTime: deriveEndTimeFromDuration(payload.time, durationMinutes),
+  });
+
+  if (recoveredExisting) {
+    const bookings = await fetchBookingsForContact(
+      service,
+      payload.restaurantId,
+      fallbackEmail,
+      fallbackPhone,
+    );
+    return NextResponse.json(
+      {
+        booking: recoveredExisting,
+        bookings,
+        idempotencyKey: normalizedIdempotencyKey,
+        clientRequestId: recoveredExisting.client_request_id,
+        duplicate: true,
+      },
+      withValidationHeaders({ status: 200 }),
+    );
+  }
 
   const memberships = await fetchUserMemberships(user.id, service);
   const membership =

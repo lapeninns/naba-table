@@ -126,11 +126,10 @@ describe('TeamInviteForm', () => {
     teamHooksState.createInvite.mutateAsync.mockReset();
   });
 
-  it('submits a valid invitation and shows the generated invite link', async () => {
+  it('submits a valid invitation and confirms the email was sent without exposing a link', async () => {
     const user = userEvent.setup();
     teamHooksState.createInvite.mutateAsync.mockResolvedValueOnce({
       invite: makeInvite({ email: 'new-manager@example.com', role: 'manager' }),
-      inviteUrl: 'https://app.example/invite/token',
     });
 
     render(<TeamInviteForm restaurantId="rest-1" />);
@@ -145,8 +144,12 @@ describe('TeamInviteForm', () => {
         role: 'host',
       }),
     );
-    expect(await screen.findByText('Invitation link ready')).toBeInTheDocument();
-    expect(screen.getByText('https://app.example/invite/token')).toBeInTheDocument();
+    expect(await screen.findByText('Invitation sent')).toBeInTheDocument();
+    expect(
+      screen.getByText(/The invitation email was sent to new-manager@example.com/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/https:\/\/app\.example\/invite\/token/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /copy/i })).not.toBeInTheDocument();
   });
 
   it('renders mutation errors inline', () => {

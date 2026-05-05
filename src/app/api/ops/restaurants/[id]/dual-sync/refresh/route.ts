@@ -17,6 +17,7 @@ import {
 } from '@/app/api/ops/restaurants/[id]/_shared';
 import { isDualSyncEnabled } from '@/server/dual-sync/flag';
 import { refreshFromGoogle } from '@/server/dual-sync/refresh';
+import { requireProviderRefreshBudget } from '@/server/security/provider-rate-limit';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { NextRequest } from 'next/server';
@@ -36,6 +37,15 @@ export async function POST(_req: NextRequest, { params }: RouteContext) {
   }
   const access = await ensureRestaurantAdminAccess(restaurantId, 'dual-sync-refresh');
   if (access instanceof NextResponse) return access;
+
+  const rateLimit = await requireProviderRefreshBudget({
+    provider: 'google_business_profile',
+    restaurantId,
+    action: 'dual-sync-refresh',
+  });
+  if (rateLimit) {
+    return rateLimit;
+  }
 
   try {
     const result = await refreshFromGoogle({

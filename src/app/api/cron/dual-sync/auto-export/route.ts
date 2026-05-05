@@ -7,9 +7,7 @@
  * least one open `dual_sync_outbound_candidates` row and drives the
  * publish orchestrator with `defaultDualSyncPorts` for each.
  *
- * Auth: optional `Authorization: Bearer ${CRON_SECRET}` header. When
- * `CRON_SECRET` is unset, the endpoint logs a warning and runs unguarded
- * — same model as the other cron endpoints in this repo.
+ * Auth: required `Authorization: Bearer ${CRON_SECRET}` header.
  *
  * Query parameters:
  *   - `dryRun=1` — skip the publish step and return the discovery only.
@@ -22,12 +20,15 @@ import { NextResponse } from 'next/server';
 
 import { isDualSyncEnabled } from '@/server/dual-sync/flag';
 import { runAutoExportForAllTenants } from '@/server/dual-sync/scheduling/auto-export';
+import { requireCronAuthAndRun } from '@/server/security/cron-auth';
 import { getServiceSupabaseClient } from '@/server/supabase';
-
-const CRON_SECRET = process.env.CRON_SECRET;
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+
+const JOB_NAME = 'dual-sync.auto-export';
+const MAX_RESTAURANTS_PER_RUN = 50;
+const MAX_CANDIDATES_PER_RESTAURANT = 25;
 
 function parseOptionalInt(value: string | null | undefined): number | undefined {
   if (!value) return undefined;
@@ -41,48 +42,42 @@ function isTruthyFlag(value: string | null): boolean {
 }
 
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization');
-  const hasValidBearer = CRON_SECRET && authHeader === `Bearer ${CRON_SECRET}`;
+  return requireCronAuthAndRun(request, JOB_NAME, async (auth) => {
+    if (!isDualSyncEnabled()) {
+      return NextResponse.json(
+        { error: 'Dual-sync is not enabled for this deployment.' },
+        { status: 404 },
+      );
+    }
 
-  if (CRON_SECRET && !hasValidBearer) {
-    console.warn('[cron][dual-sync.auto-export] Unauthorized request', {
-      hasAuthHeader: Boolean(authHeader),
-      hasCronSecret: Boolean(CRON_SECRET),
-    });
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  if (!CRON_SECRET) {
-    console.warn(
-      '[cron][dual-sync.auto-export] CRON_SECRET not set - endpoint is unprotected',
+    const url = new URL(request.url);
+    const dryRun = isTruthyFlag(url.searchParams.get('dryRun'));
+    const requestedMaxRestaurants = parseOptionalInt(url.searchParams.get('limit'));
+    const requestedMaxCandidatesPerRestaurant = parseOptionalInt(
+      url.searchParams.get('maxCandidatesPerRestaurant'),
     );
-  }
+    const maxRestaurants = requestedMaxRestaurants
+      ? Math.min(requestedMaxRestaurants, MAX_RESTAURANTS_PER_RUN)
+      : undefined;
+    const maxCandidatesPerRestaurant = requestedMaxCandidatesPerRestaurant
+      ? Math.min(requestedMaxCandidatesPerRestaurant, MAX_CANDIDATES_PER_RESTAURANT)
+      : undefined;
 
-  if (!isDualSyncEnabled()) {
-    return NextResponse.json(
-      { error: 'Dual-sync is not enabled for this deployment.' },
-      { status: 404 },
-    );
-  }
-
-  const url = new URL(request.url);
-  const dryRun = isTruthyFlag(url.searchParams.get('dryRun'));
-  const maxRestaurants = parseOptionalInt(url.searchParams.get('limit'));
-  const maxCandidatesPerRestaurant = parseOptionalInt(
-    url.searchParams.get('maxCandidatesPerRestaurant'),
-  );
-
-  try {
-    const summary = await runAutoExportForAllTenants({
-      client: getServiceSupabaseClient(),
-      maxRestaurants,
-      maxCandidatesPerRestaurant,
-      dryRun,
-    });
-    return NextResponse.json({ success: true, ...summary });
-  } catch (error) {
-    console.error('[cron][dual-sync.auto-export] failed to run', error);
-    const message = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
+    try {
+      const summary = await runAutoExportForAllTenants({
+        client: getServiceSupabaseClient(),
+        maxRestaurants,
+        maxCandidatesPerRestaurant,
+        dryRun,
+      });
+      return NextResponse.json({ success: true, runId: auth.runId, ...summary });
+    } catch (error) {
+      console.error('[cron][dual-sync.auto-export] failed to run', {
+        jobName: auth.jobName,
+        runId: auth.runId,
+        error,
+      });
+      return NextResponse.json({ error: 'Dual-sync auto-export cron failed.' }, { status: 500 });
+    }
+  });
 }

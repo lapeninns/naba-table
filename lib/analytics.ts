@@ -1,3 +1,5 @@
+import { sanitizeAnalyticsProps, type AnalyticsProps } from '@/lib/analytics/schema';
+
 const DEBUG_ENABLED = process.env.NODE_ENV !== 'production';
 const POSTHOG_ENABLED = Boolean(
   process.env.NEXT_PUBLIC_POSTHOG_KEY && process.env.NEXT_PUBLIC_POSTHOG_HOST,
@@ -58,7 +60,6 @@ export const ANALYTICS_EVENTS = [
 
 export type AnalyticsEvent = (typeof ANALYTICS_EVENTS)[number];
 
-type AnalyticsProps = Record<string, unknown>;
 type PosthogQueuedEvent = { event: string; payload: AnalyticsProps };
 
 type PlausibleEventOptions = {
@@ -80,13 +81,6 @@ type PosthogWindow = Window & {
   __posthogQueue?: PosthogQueuedEvent[];
 };
 
-function sanitizeProps(props?: AnalyticsProps): AnalyticsProps | undefined {
-  if (!props) return undefined;
-  return Object.fromEntries(
-    Object.entries(props).filter(([, value]) => value !== undefined && value !== null),
-  );
-}
-
 function capturePosthog(event: AnalyticsEvent, payload: AnalyticsProps): void {
   if (typeof window === 'undefined' || !POSTHOG_ENABLED) return;
 
@@ -102,7 +96,7 @@ function capturePosthog(event: AnalyticsEvent, payload: AnalyticsProps): void {
   win.__posthogQueue.push({ event, payload });
 }
 
-export function track(event: AnalyticsEvent, props?: AnalyticsProps) {
+export function track(event: AnalyticsEvent, props?: Record<string, unknown>) {
   if (typeof window === 'undefined') return;
   if (!ANALYTICS_EVENTS.includes(event)) {
     if (DEBUG_ENABLED) {
@@ -111,7 +105,7 @@ export function track(event: AnalyticsEvent, props?: AnalyticsProps) {
     return;
   }
 
-  const payload = sanitizeProps(props);
+  const payload = sanitizeAnalyticsProps(props);
   const plausible = (window as PlausibleWindow).plausible;
 
   try {

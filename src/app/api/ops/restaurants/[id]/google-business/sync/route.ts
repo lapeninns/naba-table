@@ -4,6 +4,7 @@ import {
   getGoogleBusinessProfileBusinessDetailsStatus,
   syncGoogleBusinessProfileBusinessInformation,
 } from '@/server/google-business-profile/service';
+import { requireProviderRefreshBudget } from '@/server/security/provider-rate-limit';
 
 import {
   googleBusinessErrorResponse,
@@ -17,6 +18,15 @@ export async function POST(_req: NextRequest, { params }: RouteContext) {
   const resolved = await requireGoogleBusinessAdminAccess(params);
   if (resolved instanceof NextResponse) {
     return resolved;
+  }
+
+  const rateLimit = await requireProviderRefreshBudget({
+    provider: 'google_business_profile',
+    restaurantId: resolved.restaurantId,
+    action: 'business-info-sync',
+  });
+  if (rateLimit) {
+    return rateLimit;
   }
 
   try {

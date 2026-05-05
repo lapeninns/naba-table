@@ -53,15 +53,10 @@ export const buildSafeReturnPath = (params: {
   bookingReference?: string | null;
   restaurantSlug?: string | null;
 }): string => {
-  const { returnPath, bookingId, bookingReference, restaurantSlug } = params;
+  const { returnPath, bookingId, restaurantSlug } = params;
   if (returnPath) return returnPath;
 
   if (bookingId) {
-    if (bookingReference) {
-      const url = new URL(`/guest/bookings/${bookingId}/receipt`, 'https://placeholder.local');
-      url.searchParams.set('token', bookingReference);
-      return `${url.pathname}${url.search}`;
-    }
     return `/guest/bookings/${bookingId}`;
   }
 

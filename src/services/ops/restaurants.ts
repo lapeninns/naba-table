@@ -1001,6 +1001,9 @@ export interface RestaurantService {
   getGoogleBusinessProfileConnection(
     restaurantId: string,
   ): Promise<GoogleBusinessProfileConnection>;
+  getGoogleBusinessProfileAvailableLocations(
+    restaurantId: string,
+  ): Promise<GoogleBusinessProfileAvailableLocation[]>;
   getGoogleBusinessProfileWorkflow(restaurantId: string): Promise<GoogleBusinessProfileWorkflow>;
   createGoogleBusinessProfileDraft(restaurantId: string): Promise<GoogleBusinessProfileWorkflow>;
   updateGoogleBusinessProfileDraft(
@@ -1129,6 +1132,10 @@ export class NotImplementedRestaurantService implements RestaurantService {
 
   getGoogleBusinessProfileConnection(): Promise<GoogleBusinessProfileConnection> {
     this.error('getGoogleBusinessProfileConnection not implemented');
+  }
+
+  getGoogleBusinessProfileAvailableLocations(): Promise<GoogleBusinessProfileAvailableLocation[]> {
+    this.error('getGoogleBusinessProfileAvailableLocations not implemented');
   }
 
   getGoogleBusinessProfileWorkflow(): Promise<GoogleBusinessProfileWorkflow> {
@@ -1424,6 +1431,13 @@ export function createBrowserRestaurantService(): RestaurantService {
       return fetchJson<GoogleBusinessProfileConnection>(
         `${OPS_RESTAURANTS_BASE}/${restaurantId}/google-business-profile`,
       );
+    },
+
+    async getGoogleBusinessProfileAvailableLocations(restaurantId: string) {
+      const response = await fetchJson<{ locations: GoogleBusinessProfileAvailableLocation[] }>(
+        `${OPS_RESTAURANTS_BASE}/${restaurantId}/google-business/locations`,
+      );
+      return response.locations;
     },
 
     async getGoogleBusinessProfileWorkflow(restaurantId: string) {

@@ -29,7 +29,7 @@ export type RevokeInviteInput = {
 
 export interface TeamService {
   listInvites(restaurantId: string, status?: TeamInviteStatus): Promise<TeamInvite[]>;
-  createInvite(input: CreateInviteInput): Promise<{ invite: TeamInvite; inviteUrl: string }>;
+  createInvite(input: CreateInviteInput): Promise<{ invite: TeamInvite }>;
   revokeInvite(input: RevokeInviteInput): Promise<TeamInvite>;
 }
 
@@ -42,7 +42,7 @@ export class NotImplementedTeamService implements TeamService {
     this.error('listInvites not implemented');
   }
 
-  createInvite(): Promise<{ invite: TeamInvite; inviteUrl: string }> {
+  createInvite(): Promise<{ invite: TeamInvite }> {
     this.error('createInvite not implemented');
   }
 
@@ -90,15 +90,17 @@ export function createBrowserTeamService(): TeamService {
       const parsed = invitationCreateResponseSchema.parse(data);
       return {
         invite: parsed.invite,
-        inviteUrl: parsed.inviteUrl,
       };
     },
 
     async revokeInvite({ restaurantId, inviteId }: RevokeInviteInput) {
       const params = new URLSearchParams({ restaurantId });
-      const data = await fetchJson<unknown>(`${TEAM_INVITES_BASE}/${inviteId}?${params.toString()}`, {
-        method: 'DELETE',
-      });
+      const data = await fetchJson<unknown>(
+        `${TEAM_INVITES_BASE}/${inviteId}?${params.toString()}`,
+        {
+          method: 'DELETE',
+        },
+      );
       const parsed = restaurantInviteSchema.parse((data as { invite: unknown }).invite);
       return parsed;
     },

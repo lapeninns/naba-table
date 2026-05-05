@@ -89,7 +89,9 @@ export async function beginBookingModificationFlow(params: BeginFlowParams): Pro
     status: "pending",
   };
 
-  const updated = await updateBookingRecord(client, bookingId, pendingPayload);
+  const updated = await updateBookingRecord(client, bookingId, pendingPayload, {
+    restaurantId: existingBooking.restaurant_id,
+  });
 
   await clearBookingTableAssignments(client, bookingId);
 

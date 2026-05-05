@@ -124,24 +124,10 @@ async function postImport(
     formData.set('modifierOptions', payload.modifierOptionsFile);
   }
 
-  const response = await fetch(url, {
+  return fetchJson<DrinkImportResult>(url, {
     method: 'POST',
     body: formData,
-    credentials: 'include',
   });
-
-  const text = await response.text();
-  const parsed = text.length > 0 ? (JSON.parse(text) as DrinkImportResult | { error?: string }) : null;
-
-  if (!response.ok) {
-    const message =
-      parsed && typeof parsed === 'object' && 'error' in parsed && typeof parsed.error === 'string'
-        ? parsed.error
-        : `Import request failed with status ${response.status}`;
-    throw new Error(message);
-  }
-
-  return parsed as DrinkImportResult;
 }
 
 export function createDrinkMenuService(factory?: DrinkMenuServiceFactory): DrinkMenuService {

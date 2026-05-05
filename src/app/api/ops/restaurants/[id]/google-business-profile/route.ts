@@ -15,6 +15,7 @@ import {
   linkGoogleBusinessProfileLocation,
   syncGoogleBusinessProfileBusinessInformation,
 } from '@/server/google-business-profile/service';
+import { requireProviderRefreshBudget } from '@/server/security/provider-rate-limit';
 
 import type { NextRequest } from 'next/server';
 
@@ -120,6 +121,15 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       email: access.userEmail,
       password: payload.password,
     });
+
+    const rateLimit = await requireProviderRefreshBudget({
+      provider: 'google_business_profile',
+      restaurantId,
+      action: 'business-info-sync',
+    });
+    if (rateLimit) {
+      return rateLimit;
+    }
 
     const state = await syncGoogleBusinessProfileBusinessInformation(restaurantId);
     return NextResponse.json(state);

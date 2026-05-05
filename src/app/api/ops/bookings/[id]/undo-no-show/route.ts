@@ -14,7 +14,6 @@ import {
 
 import type { NextRequest } from 'next/server';
 
-
 const bodySchema = z
   .object({
     reason: z.string().trim().min(1).optional(),
@@ -39,6 +38,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   const payload = parsedBody.data;
 
   const contextResult = await loadLifecycleRouteContext({
+    req,
     bookingId: id,
     logLabel: 'booking-undo-no-show',
   });

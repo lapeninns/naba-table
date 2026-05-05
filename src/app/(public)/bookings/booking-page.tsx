@@ -16,7 +16,7 @@ import type { Metadata } from "next";
 export const dynamic = "force-dynamic";
 
 export type RouteParams = Promise<{ bookingId: string }>;
-export type SearchParams = Promise<{ token?: string }>;
+export type SearchParams = Promise<{ token?: string; access_token?: string; accessToken?: string }>;
 
 const shortenId = (value: string): string => (value.length > 8 ? value.slice(0, 8) : value);
 
@@ -29,15 +29,12 @@ const cookieHeaderFromStore = (cookieStore: Awaited<ReturnType<typeof cookies>>)
 
 const resolveOrigin = (): string => getTrustedSiteOrigin();
 
-async function prefetchReservation(queryClient: QueryClient, reservationId: string, token?: string | null) {
+async function prefetchReservation(queryClient: QueryClient, reservationId: string) {
   const cookieStore = await cookies();
   const cookieHeader = cookieHeaderFromStore(cookieStore);
   const origin = resolveOrigin();
 
   const url = new URL(`${origin}/api/bookings/${reservationId}`);
-  if (token) {
-    url.searchParams.set("token", token);
-  }
 
   try {
     const response = await fetch(url.toString(), {
@@ -85,10 +82,20 @@ export async function BookingDetailPage({
   const { bookingId } = await params;
   const normalized = bookingId?.trim();
   const resolvedSearchParams = (await searchParams) ?? {};
-  const token = resolvedSearchParams.token ?? null;
+  const legacyToken = resolvedSearchParams.token ?? null;
+  const accessToken = resolvedSearchParams.access_token ?? resolvedSearchParams.accessToken ?? null;
 
   if (!normalized) {
     redirect(`${pathPrefix}`);
+  }
+
+  if (accessToken) {
+    const next = encodeURIComponent(`${pathPrefix}/${normalized}`);
+    redirect(`/bookings/recover?access_token=${encodeURIComponent(accessToken)}&next=${next}`);
+  }
+
+  if (legacyToken) {
+    redirect("/bookings/recover/error?code=LEGACY_TOKEN_DEPRECATED");
   }
 
   // Check for session recovery token from cookie
@@ -109,14 +116,14 @@ export async function BookingDetailPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Allow access if user is authenticated, has legacy token, or has valid session recovery token
-  if (!user && !token && !hasValidSessionRecovery) {
+  // Allow access only if user is authenticated or has valid session recovery.
+  if (!user && !hasValidSessionRecovery) {
     redirect(withRedirectedFrom("/auth/signin", `${pathPrefix}/${normalized}`));
   }
 
   const queryClient = new QueryClient();
-  if (user || token || hasValidSessionRecovery) {
-    await prefetchReservation(queryClient, normalized, token);
+  if (user || hasValidSessionRecovery) {
+    await prefetchReservation(queryClient, normalized);
   }
   const dehydratedState = dehydrate(queryClient);
   const initialNow = Date.now();

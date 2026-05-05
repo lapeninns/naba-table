@@ -1,11 +1,12 @@
-import { randomUUID } from "crypto";
-import { config as loadEnv } from "dotenv";
-import fs from "node:fs";
-import path from "node:path";
-import process from "node:process";
-import { fileURLToPath } from "node:url";
+import { randomUUID } from 'crypto';
+import { config as loadEnv } from 'dotenv';
+import fs from 'node:fs';
+import path from 'node:path';
+import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
-import { Client } from "pg";
+import { Client } from 'pg';
+import { getPgSslConfig } from '../db/pg-ssl';
 
 type Args = {
   apply: boolean;
@@ -21,8 +22,8 @@ type Args = {
 };
 
 const modulePath = fileURLToPath(import.meta.url);
-const projectRoot = path.resolve(path.dirname(modulePath), "../..");
-const envLocalPath = path.join(projectRoot, ".env.local");
+const projectRoot = path.resolve(path.dirname(modulePath), '../..');
+const envLocalPath = path.join(projectRoot, '.env.local');
 
 if (fs.existsSync(envLocalPath)) {
   loadEnv({ path: envLocalPath, override: false });
@@ -35,21 +36,15 @@ function parseNumber(value: string | undefined, fallback: number): number {
 }
 
 function parseArgs(argv: string[]): Args {
-  const apply = argv.includes("--apply") || process.env.APPLY === "true";
+  const apply = argv.includes('--apply') || process.env.APPLY === 'true';
 
-  const expectedProjectRef =
-    process.env.EXPECTED_PROJECT_REF?.trim() || "ndxmivcrehsacuerwxtm";
-  const sourceSlug =
-    process.env.SOURCE_SLUG?.trim() || "the-old-crown-girton";
+  const expectedProjectRef = process.env.EXPECTED_PROJECT_REF?.trim() || 'ndxmivcrehsacuerwxtm';
+  const sourceSlug = process.env.SOURCE_SLUG?.trim() || 'the-old-crown-girton';
   const seedTag =
-    process.env.SEED_TAG?.trim() ||
-    new Date().toISOString().slice(0, 10).replaceAll("-", "");
+    process.env.SEED_TAG?.trim() || new Date().toISOString().slice(0, 10).replaceAll('-', '');
 
   const restaurantCount = parseNumber(process.env.RESTAURANT_COUNT, 50);
-  const customersPerRestaurant = parseNumber(
-    process.env.CUSTOMERS_PER_RESTAURANT,
-    250,
-  );
+  const customersPerRestaurant = parseNumber(process.env.CUSTOMERS_PER_RESTAURANT, 250);
   const daysPast = parseNumber(process.env.DAYS_PAST, 14);
   const daysFuture = parseNumber(process.env.DAYS_FUTURE, 7);
   const bookingsPerDay = parseNumber(process.env.BOOKINGS_PER_DAY, 15);
@@ -73,22 +68,22 @@ function requireFile(p: string): string {
   if (!fs.existsSync(p)) {
     throw new Error(`Missing required file: ${p}`);
   }
-  return fs.readFileSync(p, "utf8").trim();
+  return fs.readFileSync(p, 'utf8').trim();
 }
 
 function buildPgConnectionString(): string {
-  const poolerPath = path.join(projectRoot, "supabase/.temp/pooler-url");
+  const poolerPath = path.join(projectRoot, 'supabase/.temp/pooler-url');
   const pooler = fs.existsSync(poolerPath) ? requireFile(poolerPath) : null;
 
   const password = process.env.SUPABASE_DB_PASSWORD?.trim();
   if (!password) {
-    throw new Error("SUPABASE_DB_PASSWORD is required in .env.local for direct Postgres seeding.");
+    throw new Error('SUPABASE_DB_PASSWORD is required in .env.local for direct Postgres seeding.');
   }
 
   const base = pooler || process.env.SUPABASE_DB_URL || process.env.DATABASE_URL;
   if (!base) {
     throw new Error(
-      "Missing supabase/.temp/pooler-url and SUPABASE_DB_URL/DATABASE_URL. Link the project or set SUPABASE_DB_URL.",
+      'Missing supabase/.temp/pooler-url and SUPABASE_DB_URL/DATABASE_URL. Link the project or set SUPABASE_DB_URL.',
     );
   }
 
@@ -99,10 +94,10 @@ function buildPgConnectionString(): string {
 
 function assertStaging(apply: boolean, expectedProjectRef: string): void {
   if (!apply) return;
-  const projectRefPath = path.join(projectRoot, "supabase/.temp/project-ref");
+  const projectRefPath = path.join(projectRoot, 'supabase/.temp/project-ref');
   if (!fs.existsSync(projectRefPath)) {
     throw new Error(
-      "Missing supabase/.temp/project-ref. Run `supabase link --project-ref <ref>` before applying seed data.",
+      'Missing supabase/.temp/project-ref. Run `supabase link --project-ref <ref>` before applying seed data.',
     );
   }
   const actual = requireFile(projectRefPath);
@@ -114,11 +109,11 @@ function assertStaging(apply: boolean, expectedProjectRef: string): void {
 }
 
 function formatSeedSlug(i: number): string {
-  return `seed-perf-r${String(i).padStart(3, "0")}`;
+  return `seed-perf-r${String(i).padStart(3, '0')}`;
 }
 
 function chunk<T>(items: T[], size: number): T[][] {
-  if (size <= 0) throw new Error("chunk size must be > 0");
+  if (size <= 0) throw new Error('chunk size must be > 0');
   const out: T[][] = [];
   for (let i = 0; i < items.length; i += size) {
     out.push(items.slice(i, i + size));
@@ -145,7 +140,7 @@ function pick<T>(items: T[]): T {
 }
 
 function pad2(n: number): string {
-  return String(n).padStart(2, "0");
+  return String(n).padStart(2, '0');
 }
 
 function timeToIsoZ(dateStr: string, hh: number, mm: number): string {
@@ -174,13 +169,13 @@ async function insertMany(
       .map((row, rowIdx) => {
         const base = rowIdx * columns.length;
         row.forEach((v) => values.push(v));
-        const cols = columns.map((_, colIdx) => `$${base + colIdx + 1}`).join(", ");
+        const cols = columns.map((_, colIdx) => `$${base + colIdx + 1}`).join(', ');
         return `(${cols})`;
       })
-      .join(", ");
+      .join(', ');
 
-    const sql = `insert into ${table} (${columns.join(", ")}) values ${placeholders} ${
-      onConflictSql ?? ""
+    const sql = `insert into ${table} (${columns.join(', ')}) values ${placeholders} ${
+      onConflictSql ?? ''
     }`;
 
     const res = await client.query(sql, values);
@@ -233,7 +228,7 @@ async function resolveOwnerUserId(client: Client): Promise<string> {
     `select id from auth.users order by created_at asc limit 1`,
   );
   const id = res.rows[0]?.id;
-  if (!id) throw new Error("No auth users found; set OWNER_USER_ID to seed memberships.");
+  if (!id) throw new Error('No auth users found; set OWNER_USER_ID to seed memberships.');
   return id;
 }
 
@@ -245,7 +240,7 @@ async function ensureSeedRestaurants(
 ): Promise<{ id: string; slug: string }[]> {
   const targets = Array.from({ length: args.restaurantCount }, (_, i) => ({
     slug: formatSeedSlug(i + 1),
-    name: `Seed Perf Restaurant ${String(i + 1).padStart(3, "0")}`,
+    name: `Seed Perf Restaurant ${String(i + 1).padStart(3, '0')}`,
   }));
 
   const out: { id: string; slug: string }[] = [];
@@ -418,8 +413,8 @@ async function copyRestaurantConfig(
     return [id, targetRestaurantId, z.name, z.sort_order, z.active];
   });
   rows.zones = await insertMany(client, {
-    table: "public.zones",
-    columns: ["id", "restaurant_id", "name", "sort_order", "active"],
+    table: 'public.zones',
+    columns: ['id', 'restaurant_id', 'name', 'sort_order', 'active'],
     rows: zoneInserts,
   });
 
@@ -437,8 +432,16 @@ async function copyRestaurantConfig(
     ];
   });
   rows.restaurant_service_periods = await insertMany(client, {
-    table: "public.restaurant_service_periods",
-    columns: ["id", "restaurant_id", "name", "day_of_week", "start_time", "end_time", "booking_option"],
+    table: 'public.restaurant_service_periods',
+    columns: [
+      'id',
+      'restaurant_id',
+      'name',
+      'day_of_week',
+      'start_time',
+      'end_time',
+      'booking_option',
+    ],
     rows: periodInserts,
   });
 
@@ -450,8 +453,8 @@ async function copyRestaurantConfig(
     b.duration_minutes,
   ]);
   rows.restaurant_turn_bands = await insertMany(client, {
-    table: "public.restaurant_turn_bands",
-    columns: ["id", "restaurant_id", "booking_option", "max_party_size", "duration_minutes"],
+    table: 'public.restaurant_turn_bands',
+    columns: ['id', 'restaurant_id', 'booking_option', 'max_party_size', 'duration_minutes'],
     rows: bandInserts,
   });
 
@@ -468,28 +471,28 @@ async function copyRestaurantConfig(
     h.reservation_slot_times,
   ]);
   rows.restaurant_operating_hours = await insertMany(client, {
-    table: "public.restaurant_operating_hours",
+    table: 'public.restaurant_operating_hours',
     columns: [
-      "id",
-      "restaurant_id",
-      "day_of_week",
-      "effective_date",
-      "opens_at",
-      "closes_at",
-      "is_closed",
-      "notes",
-      "reservation_interval_minutes",
-      "reservation_slot_times",
+      'id',
+      'restaurant_id',
+      'day_of_week',
+      'effective_date',
+      'opens_at',
+      'closes_at',
+      'is_closed',
+      'notes',
+      'reservation_interval_minutes',
+      'reservation_slot_times',
     ],
     rows: hoursInserts,
   });
 
   const capInserts = allowedCaps.rows.map((c) => [targetRestaurantId, c.capacity]);
   rows.allowed_capacities = await insertMany(client, {
-    table: "public.allowed_capacities",
-    columns: ["restaurant_id", "capacity"],
+    table: 'public.allowed_capacities',
+    columns: ['restaurant_id', 'capacity'],
     rows: capInserts,
-    onConflictSql: "on conflict do nothing",
+    onConflictSql: 'on conflict do nothing',
   });
 
   const tableInserts = tables.rows.map((t) => {
@@ -518,23 +521,23 @@ async function copyRestaurantConfig(
     ];
   });
   rows.table_inventory = await insertMany(client, {
-    table: "public.table_inventory",
+    table: 'public.table_inventory',
     columns: [
-      "id",
-      "restaurant_id",
-      "table_number",
-      "capacity",
-      "section",
-      "status",
-      "position",
-      "notes",
-      "zone_id",
-      "category",
-      "seating_type",
-      "mobility",
-      "active",
-      "min_party_size",
-      "max_party_size",
+      'id',
+      'restaurant_id',
+      'table_number',
+      'capacity',
+      'section',
+      'status',
+      'position',
+      'notes',
+      'zone_id',
+      'category',
+      'seating_type',
+      'mobility',
+      'active',
+      'min_party_size',
+      'max_party_size',
     ],
     rows: tableInserts,
   });
@@ -549,10 +552,10 @@ async function copyRestaurantConfig(
     .filter((row): row is [string, string] => Boolean(row));
   if (adjInserts.length > 0) {
     rows.table_adjacencies = await insertMany(client, {
-      table: "public.table_adjacencies",
-      columns: ["table_a", "table_b"],
+      table: 'public.table_adjacencies',
+      columns: ['table_a', 'table_b'],
       rows: adjInserts,
-      onConflictSql: "on conflict do nothing",
+      onConflictSql: 'on conflict do nothing',
       chunkSize: 500,
     });
   }
@@ -560,7 +563,7 @@ async function copyRestaurantConfig(
   const rulesInserts = rules.rows.map((r) => [
     randomUUID(),
     targetRestaurantId,
-    r.service_period_id ? periodMap.get(r.service_period_id) ?? null : null,
+    r.service_period_id ? (periodMap.get(r.service_period_id) ?? null) : null,
     r.day_of_week,
     r.effective_date,
     r.max_covers,
@@ -570,18 +573,18 @@ async function copyRestaurantConfig(
     r.override_type,
   ]);
   rows.restaurant_capacity_rules = await insertMany(client, {
-    table: "public.restaurant_capacity_rules",
+    table: 'public.restaurant_capacity_rules',
     columns: [
-      "id",
-      "restaurant_id",
-      "service_period_id",
-      "day_of_week",
-      "effective_date",
-      "max_covers",
-      "max_parties",
-      "notes",
-      "label",
-      "override_type",
+      'id',
+      'restaurant_id',
+      'service_period_id',
+      'day_of_week',
+      'effective_date',
+      'max_covers',
+      'max_parties',
+      'notes',
+      'label',
+      'override_type',
     ],
     rows: rulesInserts,
   });
@@ -603,18 +606,28 @@ async function seedCustomers(
     [restaurantId, `%${args.seedTag}%${slug}%`],
   );
   if ((existing.rows[0]?.n ?? 0) > 0) {
-    const sample = await client.query<{ id: string; email: string; phone: string; full_name: string }>(
+    const sample = await client.query<{
+      id: string;
+      email: string;
+      phone: string;
+      full_name: string;
+    }>(
       `select id, email, phone, full_name from public.customers where restaurant_id=$1 and email like $2 order by created_at asc limit $3`,
       [restaurantId, `%${args.seedTag}%${slug}%`, args.customersPerRestaurant],
     );
     return {
       inserted: 0,
-      customers: sample.rows.map((r) => ({ id: r.id, email: r.email, phone: r.phone, name: r.full_name })),
+      customers: sample.rows.map((r) => ({
+        id: r.id,
+        email: r.email,
+        phone: r.phone,
+        name: r.full_name,
+      })),
     };
   }
 
   const customers: CustomerSeed[] = Array.from({ length: args.customersPerRestaurant }, (_, i) => {
-    const idx = String(i + 1).padStart(4, "0");
+    const idx = String(i + 1).padStart(4, '0');
     const name = `Seed Guest ${slug.toUpperCase()} ${idx}`;
     const email = `seed-${args.seedTag}-${slug}-${idx}@example.com`;
     const phone = `+447700${slug.slice(-3)}${idx}`.slice(0, 14);
@@ -622,10 +635,10 @@ async function seedCustomers(
   });
 
   const inserted = await insertMany(client, {
-    table: "public.customers",
-    columns: ["id", "restaurant_id", "full_name", "email", "phone"],
+    table: 'public.customers',
+    columns: ['id', 'restaurant_id', 'full_name', 'email', 'phone'],
     rows: customers.map((c) => [c.id, restaurantId, c.name, c.email, c.phone]),
-    onConflictSql: "on conflict do nothing",
+    onConflictSql: 'on conflict do nothing',
     chunkSize: 200,
   });
 
@@ -650,7 +663,12 @@ async function seedBookingsAndAssignments(
     return { bookingsInserted: 0, assignmentsInserted: 0 };
   }
 
-  const tableIdsRes = await client.query<{ id: string; capacity: number; min_party_size: number; max_party_size: number | null }>(
+  const tableIdsRes = await client.query<{
+    id: string;
+    capacity: number;
+    min_party_size: number;
+    max_party_size: number | null;
+  }>(
     `select id, capacity, min_party_size, max_party_size from public.table_inventory where restaurant_id=$1 and active=true`,
     [restaurantId],
   );
@@ -669,13 +687,13 @@ async function seedBookingsAndAssignments(
     // Mirrors the statuses used by ops endpoints. Keep mostly "confirmed" for
     // realistic ops volume, but include a spread for filter queries.
     const roll = Math.random();
-    if (roll < 0.05) return "pending";
-    if (roll < 0.10) return "pending_allocation";
-    if (roll < 0.65) return "confirmed";
-    if (roll < 0.75) return "checked_in";
-    if (roll < 0.85) return "completed";
-    if (roll < 0.95) return "cancelled";
-    return "no_show";
+    if (roll < 0.05) return 'pending';
+    if (roll < 0.1) return 'pending_allocation';
+    if (roll < 0.65) return 'confirmed';
+    if (roll < 0.75) return 'checked_in';
+    if (roll < 0.85) return 'completed';
+    if (roll < 0.95) return 'cancelled';
+    return 'no_show';
   };
 
   for (let d = 0; d < totalDays; d += 1) {
@@ -696,14 +714,13 @@ async function seedBookingsAndAssignments(
       const startAt = timeToIsoZ(dateStr, hh, mm);
       const endAt = timeToIsoZ(dateStr, endHh, endMm);
 
-      const ref = `SEEDPERF-${args.seedTag}-${slug}-${dateStr.replaceAll("-", "")}-${String(i + 1).padStart(
-        3,
-        "0",
-      )}`;
+      const ref = `SEEDPERF-${args.seedTag}-${slug}-${dateStr.replaceAll('-', '')}-${String(
+        i + 1,
+      ).padStart(3, '0')}`;
       const notes = `Seed perf dataset (${args.seedTag}) for ${slug}`;
       const status = pickStatus();
-      const checkedInAt = status === "checked_in" || status === "completed" ? startAt : null;
-      const checkedOutAt = status === "completed" ? endAt : null;
+      const checkedInAt = status === 'checked_in' || status === 'completed' ? startAt : null;
+      const checkedOutAt = status === 'completed' ? endAt : null;
 
       const bookingId = randomUUID();
       bookings.push({ id: bookingId, party, startAt, endAt });
@@ -718,15 +735,15 @@ async function seedBookingsAndAssignments(
         startAt,
         endAt,
         party,
-        "any",
+        'any',
         status,
         customer.name,
         customer.email,
         customer.phone,
         notes,
         ref,
-        "api",
-        isLunch ? "lunch" : "dinner",
+        'api',
+        isLunch ? 'lunch' : 'dinner',
         checkedInAt,
         checkedOutAt,
       ]);
@@ -734,31 +751,31 @@ async function seedBookingsAndAssignments(
   }
 
   const bookingsInserted = await insertMany(client, {
-    table: "public.bookings",
+    table: 'public.bookings',
     columns: [
-      "id",
-      "restaurant_id",
-      "customer_id",
-      "booking_date",
-      "start_time",
-      "end_time",
-      "start_at",
-      "end_at",
-      "party_size",
-      "seating_preference",
-      "status",
-      "customer_name",
-      "customer_email",
-      "customer_phone",
-      "notes",
-      "reference",
-      "source",
-      "booking_type",
-      "checked_in_at",
-      "checked_out_at",
+      'id',
+      'restaurant_id',
+      'customer_id',
+      'booking_date',
+      'start_time',
+      'end_time',
+      'start_at',
+      'end_at',
+      'party_size',
+      'seating_preference',
+      'status',
+      'customer_name',
+      'customer_email',
+      'customer_phone',
+      'notes',
+      'reference',
+      'source',
+      'booking_type',
+      'checked_in_at',
+      'checked_out_at',
     ],
     rows: bookingRows,
-    onConflictSql: "on conflict (reference) do nothing",
+    onConflictSql: 'on conflict (reference) do nothing',
     chunkSize: 200,
   });
 
@@ -779,10 +796,10 @@ async function seedBookingsAndAssignments(
   }
 
   const assignmentsInserted = await insertMany(client, {
-    table: "public.booking_table_assignments",
-    columns: ["id", "booking_id", "table_id", "assigned_by", "notes", "start_at", "end_at"],
+    table: 'public.booking_table_assignments',
+    columns: ['id', 'booking_id', 'table_id', 'assigned_by', 'notes', 'start_at', 'end_at'],
     rows: assignmentRows,
-    onConflictSql: "on conflict do nothing",
+    onConflictSql: 'on conflict do nothing',
     chunkSize: 300,
   });
 
@@ -796,13 +813,13 @@ async function main(): Promise<void> {
   const connectionString = buildPgConnectionString();
   const client = new Client({
     connectionString,
-    ssl: { rejectUnauthorized: false },
+    ssl: getPgSslConfig(),
     statement_timeout: 15 * 60 * 1000,
   });
 
-  const taskDir = path.join(projectRoot, "tasks/staging-perf-dataset-20260207-1647");
-  const artifactsDir = path.join(taskDir, "artifacts");
-  const summaryPath = path.join(artifactsDir, "seed-summary.json");
+  const taskDir = path.join(projectRoot, 'tasks/staging-perf-dataset-20260207-1647');
+  const artifactsDir = path.join(taskDir, 'artifacts');
+  const summaryPath = path.join(artifactsDir, 'seed-summary.json');
 
   const plan = {
     apply: args.apply,
@@ -819,15 +836,14 @@ async function main(): Promise<void> {
       restaurants: args.restaurantCount,
       customers: args.restaurantCount * args.customersPerRestaurant,
       days: args.daysPast + args.daysFuture + 1,
-      bookings:
-        args.restaurantCount * (args.daysPast + args.daysFuture + 1) * args.bookingsPerDay,
+      bookings: args.restaurantCount * (args.daysPast + args.daysFuture + 1) * args.bookingsPerDay,
     },
   };
 
   if (!args.apply) {
     console.log(JSON.stringify(plan, null, 2));
-    console.log("");
-    console.log("Dry-run only. Re-run with `--apply` to write seed data.");
+    console.log('');
+    console.log('Dry-run only. Re-run with `--apply` to write seed data.');
     return;
   }
 
@@ -851,7 +867,7 @@ async function main(): Promise<void> {
     for (const r of restaurants) {
       console.log(`[seed-perf] Restaurant ${r.slug}`);
 
-      await client.query("begin");
+      await client.query('begin');
       try {
         const config = await copyRestaurantConfig(client, source.id, r.id);
         if (config.copied) {
@@ -860,9 +876,9 @@ async function main(): Promise<void> {
             configRows[k] = (configRows[k] ?? 0) + v;
           }
         }
-        await client.query("commit");
+        await client.query('commit');
       } catch (e) {
-        await client.query("rollback");
+        await client.query('rollback');
         throw e;
       }
 
@@ -902,6 +918,6 @@ async function main(): Promise<void> {
 }
 
 void main().catch((error) => {
-  console.error("[seed-perf] Failed:", error instanceof Error ? error.message : String(error));
+  console.error('[seed-perf] Failed:', error instanceof Error ? error.message : String(error));
   process.exit(1);
 });

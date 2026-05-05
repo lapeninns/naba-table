@@ -42,6 +42,18 @@ function buildCustomerOrFilter(email: string, phone: string): string {
   return filters.join(',');
 }
 
+function contactsMatchExisting(
+  existing: Pick<CustomerRow, "email_normalized" | "phone_normalized">,
+  params: { email: string; phone: string },
+): boolean {
+  if (params.email && params.phone) {
+    return existing.email_normalized === params.email && existing.phone_normalized === params.phone;
+  }
+  if (params.email) return existing.email_normalized === params.email;
+  if (params.phone) return existing.phone_normalized === params.phone;
+  return false;
+}
+
 function sanitizePhoneValue(phone: string | null | undefined): string {
   if (!phone) return '';
   const trimmed = phone.trim();
@@ -120,13 +132,18 @@ export async function upsertCustomer(
     phone: normalizedPhone
   });
 
-  // 1. Find existing customer by normalized contact info
-  // Use quotes for values in .or() to handle special characters correctly in PostgREST
-  const { data: existing, error: findError } = await client
+  let lookup = client
     .from("customers")
     .select(CUSTOMER_COLUMNS)
-    .eq("restaurant_id", params.restaurantId)
-    .or(buildCustomerOrFilter(normalizedEmail, normalizedPhone))
+    .eq("restaurant_id", params.restaurantId);
+
+  if (normalizedEmail && normalizedPhone) {
+    lookup = lookup.eq("email_normalized", normalizedEmail).eq("phone_normalized", normalizedPhone);
+  } else {
+    lookup = lookup.or(buildCustomerOrFilter(normalizedEmail, normalizedPhone));
+  }
+
+  const { data: existing, error: findError } = await lookup
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -138,7 +155,7 @@ export async function upsertCustomer(
 
   let customerData: CustomerRow | null = existing as CustomerRow | null;
 
-  if (existing) {
+  if (existing && contactsMatchExisting(existing as CustomerRow, { email: normalizedEmail, phone: normalizedPhone })) {
     console.log(`[upsertCustomer] Found existing customer: ${existing.id}`);
     // 2. Update existing customer
     const updates: TablesUpdate<"customers"> = {};
@@ -151,7 +168,7 @@ export async function upsertCustomer(
       updates.marketing_opt_in = true;
     }
 
-    if (existing.phone_normalized !== normalizedPhone) {
+    if (!existing.phone_normalized && normalizedPhone) {
       updates.phone = phoneForStorage;
     }
 
@@ -195,14 +212,30 @@ export async function upsertCustomer(
       // Final fallback for race conditions
       if (insertError.code === "23505") {
         console.log(`[upsertCustomer] Race condition detected, retrying find.`);
-        const { data: secondFind } = await client
+        let secondLookup = client
           .from("customers")
           .select(CUSTOMER_COLUMNS)
-          .eq("restaurant_id", params.restaurantId)
-          .or(buildCustomerOrFilter(normalizedEmail, normalizedPhone))
-          .maybeSingle();
+          .eq("restaurant_id", params.restaurantId);
 
-        if (secondFind) return secondFind as CustomerRow;
+        if (normalizedEmail && normalizedPhone) {
+          secondLookup = secondLookup
+            .eq("email_normalized", normalizedEmail)
+            .eq("phone_normalized", normalizedPhone);
+        } else {
+          secondLookup = secondLookup.or(buildCustomerOrFilter(normalizedEmail, normalizedPhone));
+        }
+
+        const { data: secondFind } = await secondLookup.maybeSingle();
+
+        if (
+          secondFind &&
+          contactsMatchExisting(secondFind as CustomerRow, {
+            email: normalizedEmail,
+            phone: normalizedPhone,
+          })
+        ) {
+          return secondFind as CustomerRow;
+        }
       }
       throw insertError;
     }

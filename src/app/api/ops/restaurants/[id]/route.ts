@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { RESTAURANT_ROLE_OWNER } from '@/lib/owner/auth/roles';
 import { DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES } from '@/lib/restaurants/defaults';
+import { safeGoogleMapsUrl, safeGoogleReviewUrl } from '@/lib/security/safe-url';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { deleteRestaurant, updateRestaurant } from '@/server/restaurants';
 import {
@@ -14,6 +15,7 @@ import {
   logLogoColumnFallback,
 } from '@/server/restaurants/logo-url-compat';
 import { restaurantSelectColumns } from '@/server/restaurants/select-fields';
+import { withCsrfProtectedMutation } from '@/server/security/csrf';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 import { requireAdminMembership, requireMembershipForRestaurant } from '@/server/team/access';
 
@@ -130,8 +132,8 @@ export async function GET(req: NextRequest, context: RouteContext) {
       businessDescription,
       managerDailySummaryEnabled: restaurantRow.manager_daily_summary_enabled ?? false,
       managerNotificationPhone: restaurantRow.manager_notification_phone,
-      googleMapUrl: restaurantRow.google_map_url,
-      googleReviewUrl: restaurantRow.google_review_url,
+      googleMapUrl: safeGoogleMapsUrl(restaurantRow.google_map_url),
+      googleReviewUrl: safeGoogleReviewUrl(restaurantRow.google_review_url),
       bookingPolicy: restaurantRow.booking_policy,
       logoUrl: restaurantRow.logo_url,
       emailSendReminder24h: restaurantRow.email_send_reminder_24h ?? true,
@@ -160,6 +162,10 @@ export async function GET(req: NextRequest, context: RouteContext) {
 }
 
 export async function PATCH(req: NextRequest, context: RouteContext) {
+  return withCsrfProtectedMutation(req, () => patchRestaurant(req, context));
+}
+
+async function patchRestaurant(req: NextRequest, context: RouteContext) {
   const supabase = await getRouteHandlerSupabaseClient();
   const {
     data: { user },
@@ -294,6 +300,10 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
 }
 
 export async function DELETE(req: NextRequest, context: RouteContext) {
+  return withCsrfProtectedMutation(req, () => deleteRestaurantRoute(req, context));
+}
+
+async function deleteRestaurantRoute(req: NextRequest, context: RouteContext) {
   const supabase = await getRouteHandlerSupabaseClient();
   const {
     data: { user },

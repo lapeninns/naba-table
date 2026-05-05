@@ -1,14 +1,19 @@
-import { DateTime } from "luxon";
-import { NextResponse } from "next/server";
+import { DateTime } from 'luxon';
+import { NextResponse } from 'next/server';
 
-import { getVenuePolicy } from "@/server/capacity/policy";
-import { buildBusyMaps, extractConflictsForTables } from "@/server/capacity/table-assignment/availability";
-import { computeBookingWindowWithFallback } from "@/server/capacity/table-assignment/booking-window";
-import { cleanupOrphanedAssignments } from "@/server/capacity/table-assignment/direct-assignment";
-import { toIsoUtc } from "@/server/capacity/table-assignment/utils";
-import { getServiceSupabaseClient, getTenantServiceSupabaseClient } from "@/server/supabase";
+import { withBookingAuthorization } from '@/server/auth/guards';
+import { getVenuePolicy } from '@/server/capacity/policy';
+import {
+  buildBusyMaps,
+  extractConflictsForTables,
+} from '@/server/capacity/table-assignment/availability';
+import { computeBookingWindowWithFallback } from '@/server/capacity/table-assignment/booking-window';
+import { cleanupOrphanedAssignments } from '@/server/capacity/table-assignment/direct-assignment';
+import { toIsoUtc } from '@/server/capacity/table-assignment/utils';
+import { requireApiRateLimit } from '@/server/security/api-rate-limit';
+import { getServiceSupabaseClient, getTenantServiceSupabaseClient } from '@/server/supabase';
 
-import type { NextRequest } from "next/server";
+import type { NextRequest } from 'next/server';
 
 /**
  * GET /api/ops/bookings/{id}/assignment-context
@@ -17,32 +22,48 @@ import type { NextRequest } from "next/server";
  * It provides the necessary data to render the floor plan and its state for a given booking.
  * This replaces the legacy `manual-context` endpoint.
  */
-export async function GET(
-  _req: NextRequest,
-  props: { params: Promise<{ id: string }> },
-) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const bookingId = params.id;
+  const authorization = await withBookingAuthorization(req, bookingId, {
+    action: 'assignment-context:read',
+  });
+  if (!authorization.ok) {
+    return authorization.response;
+  }
 
-  // For service-level routes, we use a service client that has broader permissions
-  // to read data needed for generating context, like all tables and potentially conflicting bookings.
-  // The initial RLS-restricted client is not sufficient here.
-  // We will derive the restaurant_id from the booking itself to scope the service client.
+  const rateLimit = await requireApiRateLimit({
+    request: req,
+    scope: 'ops-bookings:assignment-context',
+    tenantId: authorization.restaurantId,
+    userId: authorization.user.id,
+    limit: 45,
+    windowMs: 60_000,
+  });
+  if (rateLimit) {
+    return rateLimit;
+  }
 
   const serviceSupabase = getServiceSupabaseClient();
 
-  // 1. Load the target booking to get its restaurant_id and time window
+  // 1. Load the target booking after route-level tenant authorization.
   const bookingQuery = await serviceSupabase
-    .from("bookings")
-    .select("id, restaurant_id, start_at, booking_date, start_time, party_size, status, restaurants(timezone)")
-    .eq("id", bookingId)
+    .from('bookings')
+    .select(
+      'id, restaurant_id, start_at, booking_date, start_time, party_size, status, restaurants(timezone)',
+    )
+    .eq('id', bookingId)
+    .eq('restaurant_id', authorization.restaurantId)
     .single();
 
   if (bookingQuery.error || !bookingQuery.data) {
-    return NextResponse.json({ error: "Booking not found", code: "BOOKING_NOT_FOUND" }, { status: 404 });
+    return NextResponse.json(
+      { error: 'Booking not found', code: 'BOOKING_NOT_FOUND' },
+      { status: 404 },
+    );
   }
   const booking = bookingQuery.data;
-  const restaurantId = booking.restaurant_id;
+  const restaurantId = authorization.restaurantId;
   const restaurantTimezone = Array.isArray(booking.restaurants)
     ? (booking.restaurants[0]?.timezone ?? null)
     : (booking.restaurants?.timezone ?? null);
@@ -65,26 +86,36 @@ export async function GET(
   // ensuring consistent table visibility between context and assignment operations
   const [tablesResult, contextBookingsResult, bookingAssignmentsResult] = await Promise.all([
     restaurantClient
-      .from("table_inventory")
-      .select("*, zone:zones(active)")
-      .eq("restaurant_id", restaurantId)
-      .order("table_number", { ascending: true }),
+      .from('table_inventory')
+      .select('*, zone:zones(active)')
+      .eq('restaurant_id', restaurantId)
+      .order('table_number', { ascending: true }),
     restaurantClient
-      .from("bookings")
-      .select("id, start_at, end_at, status, party_size, start_time, end_time, booking_date, booking_table_assignments(table_id)")
-      .eq("booking_date", booking.booking_date),
-    restaurantClient.from("booking_table_assignments").select("table_id").eq("booking_id", bookingId),
+      .from('bookings')
+      .select(
+        'id, start_at, end_at, status, party_size, start_time, end_time, booking_date, booking_table_assignments(table_id)',
+      )
+      .eq('restaurant_id', restaurantId)
+      .eq('booking_date', booking.booking_date),
+    restaurantClient
+      .from('booking_table_assignments')
+      .select('table_id')
+      .eq('booking_id', bookingId),
   ]);
 
   if (tablesResult.error || contextBookingsResult.error || bookingAssignmentsResult.error) {
     // Basic error handling, can be made more granular
-    return NextResponse.json({ error: "Failed to load assignment context", code: "CONTEXT_LOAD_FAILED" }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to load assignment context', code: 'CONTEXT_LOAD_FAILED' },
+      { status: 500 },
+    );
   }
 
   const tables = tablesResult.data.map((table) => {
-    const zoneActive = (table as unknown as { zone?: { active?: boolean | null } }).zone?.active ?? null;
+    const zoneActive =
+      (table as unknown as { zone?: { active?: boolean | null } }).zone?.active ?? null;
     const status = (table as { status?: string | null }).status ?? null;
-    const normalizedStatus = typeof status === "string" ? status.toLowerCase() : null;
+    const normalizedStatus = typeof status === 'string' ? status.toLowerCase() : null;
 
     // Explicitly map snake_case database fields to camelCase
     const raw = table as Record<string, unknown>;
@@ -114,13 +145,13 @@ export async function GET(
 
   // Filter out orphaned assignments where the table no longer exists
   // This prevents TABLES_NOT_FOUND errors when the user tries to assign tables
-  const rawBookingAssignments = bookingAssignmentsResult.data.map(a => a.table_id);
+  const rawBookingAssignments = bookingAssignmentsResult.data.map((a) => a.table_id);
   const bookingAssignments = rawBookingAssignments.filter((tableId) => validTableIds.has(tableId));
 
   // Clean up orphaned assignments from the database if any were detected
   if (rawBookingAssignments.length !== bookingAssignments.length) {
     const orphanedIds = rawBookingAssignments.filter((id) => !validTableIds.has(id));
-    console.warn("[assignment-context] detected orphaned table assignments", {
+    console.warn('[assignment-context] detected orphaned table assignments', {
       bookingId,
       orphanedCount: orphanedIds.length,
       orphanedTableIds: orphanedIds,
@@ -133,7 +164,7 @@ export async function GET(
       orphanedTableIds: orphanedIds,
       client: restaurantClient,
     }).catch((err) => {
-      console.error("[assignment-context] failed to cleanup orphaned assignments", {
+      console.error('[assignment-context] failed to cleanup orphaned assignments', {
         bookingId,
         orphanedIds,
         error: err,
@@ -146,7 +177,7 @@ export async function GET(
   // We only need to build the busy map from other confirmed/checked_in bookings.
   const busy = buildBusyMaps({
     targetBookingId: bookingId,
-    bookings: contextBookings.map(b => ({
+    bookings: contextBookings.map((b) => ({
       ...b,
       // Ensure the structure matches what buildBusyMaps expects
       // ContextBookingRow expects booking_table_assignments, which we fetched.

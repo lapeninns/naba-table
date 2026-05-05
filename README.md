@@ -49,6 +49,12 @@ ALLOW_PROD_DB_WIPE=false
 
 > Keep real keys in `.env.local` (git-ignored) and your hosting provider’s secret manager—never commit secrets. For deploy previews, set the same staging values as environment variables with `APP_ENV=staging` + `NODE_ENV=production` so that Supabase always points at staging.
 
+### Public vs server-only env
+
+`NEXT_PUBLIC_*` variables are bundled into browser code and must be treated as public configuration only. The env validator blocks public variable names containing `SERVICE_ROLE`, `SECRET`, `TOKEN`, `PASSWORD`, `PRIVATE_KEY`, or `DATABASE_URL` unless the exact name is reviewed and allowlisted in `config/env.schema.ts`.
+
+Server-only credentials must use non-public names such as `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`, `CRON_SECRET`, or provider-specific secret names. Never create aliases like `NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY`; builds and deploy validation must fail when those names are present.
+
 ### Vercel preview with production-shaped data (read-only)
 
 Use this only when you want a hosted staging/preview deployment to read realistic production data without deliberately turning that deployment into a writable second production app.
@@ -87,6 +93,15 @@ Destructive scripts are guarded by `scripts/db/safe-run.ts`.
   - Blocks `DB_TARGET_ENV=production` unless `ALLOW_PROD_DB_WIPE=true`.
   - Blocks when non‑prod target uses production DB URL unless override set.
   - TTY prompt to type the target env before continuing.
+
+Production-oriented scripts must fail closed:
+
+- DB clients use TLS certificate verification. Set `SUPABASE_DB_CA_CERT`, `SUPABASE_DB_CA_CERT_PATH`, or `NODE_EXTRA_CA_CERTS` only when a custom CA bundle is needed.
+- Project-ref checks must parse the Supabase DB host/user or API host exactly; substring matches are not acceptable.
+- Mutating runs default to dry-run and require explicit confirmation. Destructive production runs also require a break-glass confirmation.
+- Restaurant-scoped scripts must require a target restaurant identifier before applying.
+
+Menu import threat model: menu source files are untrusted content. Import scripts may parse object literals or JSON, but they must not execute source JavaScript in a process that has service-role or DB credentials loaded.
 
 ## Scripts
 

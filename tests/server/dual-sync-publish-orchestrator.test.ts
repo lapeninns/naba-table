@@ -298,6 +298,44 @@ describe('dual-sync runPublish', () => {
     expect(result.summary.failures[0]?.failure.code).toBe('CORE_DRIFT');
   });
 
+  it('rejects stale snapshot pins before creating operations or calling batch exports', async () => {
+    listOperationsForJobMock.mockResolvedValue([]);
+
+    const ports: DualSyncOrchestratorPorts = {
+      applyImportToCore: vi.fn(),
+      applyExportToGoogle: vi.fn(),
+      applyExportBatchToGoogle: vi.fn(),
+    };
+
+    const result = await runPublish(
+      client,
+      {
+        restaurantId: RESTAURANT_ID,
+        decisions: [
+          makeDecision({
+            fieldKey: 'operatingHours.weekly.1',
+            sectionKey: 'operatingHours',
+            action: 'export_to_google',
+          }),
+          makeDecision({
+            fieldKey: 'operatingHours.weekly.2',
+            sectionKey: 'operatingHours',
+            action: 'export_to_google',
+          }),
+        ],
+        actorUserId: null,
+        pinnedGbpSnapshotHash: 'stale-snapshot',
+      },
+      { ports },
+    );
+
+    expect(createOperationMock).not.toHaveBeenCalled();
+    expect(ports.applyExportBatchToGoogle).not.toHaveBeenCalled();
+    expect(ports.applyExportToGoogle).not.toHaveBeenCalled();
+    expect(result.summary.failures).toHaveLength(2);
+    expect(result.summary.failures.every((f) => f.failure.code === 'GBP_DRIFT')).toBe(true);
+  });
+
   it('captures port failures in the summary and marks the field failed', async () => {
     listOperationsForJobMock.mockResolvedValue([noopOperation({ status: 'failed' })]);
 
@@ -406,6 +444,9 @@ describe('dual-sync runPublish', () => {
     expect(ports.applyExportBatchToGoogle).toHaveBeenCalledTimes(1);
     expect(ports.applyExportToGoogle).not.toHaveBeenCalled();
     expect(createOperationMock).toHaveBeenCalledTimes(2);
+    expect(createOperationMock.mock.invocationCallOrder[1]).toBeLessThan(
+      vi.mocked(ports.applyExportBatchToGoogle).mock.invocationCallOrder[0]!,
+    );
     expect(markInSyncMock).toHaveBeenCalledTimes(2);
     expect(result.summary.succeededCount).toBe(2);
   });

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
+import { withCsrfProtectedMutation } from '@/server/security/csrf';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
 import { requireAdminMembership } from '@/server/team/access';
 
@@ -24,6 +25,10 @@ async function resolveInviteId(paramsPromise: Promise<{ id: string | string[] }>
 }
 
 export async function DELETE(_request: NextRequest, context: RouteParams) {
+  return withCsrfProtectedMutation(_request, () => deleteTeamInvitation(_request, context));
+}
+
+async function deleteTeamInvitation(_request: NextRequest, context: RouteParams) {
   const supabase = await getRouteHandlerSupabaseClient();
   const {
     data: { user },

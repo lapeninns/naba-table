@@ -178,6 +178,8 @@ export function EmailTemplatesPreviewPane({
 
                     <Iframe
                       title={`${previewDevice} email preview`}
+                      sandbox=""
+                      referrerPolicy="no-referrer"
                       srcDoc={preview.html}
                       className={cn(
                         'w-full flex-1 bg-background',

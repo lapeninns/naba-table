@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 
 import { Client } from 'pg';
 
+import { getPgSslConfig } from './db/pg-ssl';
+
 const modulePath = fileURLToPath(import.meta.url);
 const projectRoot = path.resolve(path.dirname(modulePath), '..');
 const envLocalPath = path.join(projectRoot, '.env.local');
@@ -99,7 +101,7 @@ function buildExpectedEdgesByZone(eligibleByZone: Map<string, string[]>): Set<st
 }
 
 async function main(): Promise<void> {
-  const client = new Client({ connectionString, ssl: { rejectUnauthorized: false } });
+  const client = new Client({ connectionString, ssl: getPgSslConfig() });
   await client.connect();
 
   try {

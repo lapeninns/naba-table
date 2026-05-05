@@ -1,11 +1,10 @@
+import { getServiceSupabaseClient } from '@/server/supabase';
 
-import { getServiceSupabaseClient } from "@/server/supabase";
+import type { BookingStatus } from './stateMachine';
+import type { Database } from '@/types/supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
-import type { BookingStatus } from "./stateMachine";
-import type { Database, Tables } from "@/types/supabase";
-import type { SupabaseClient } from "@supabase/supabase-js";
-
-type DbClient = SupabaseClient<Database, "public", any>;
+type DbClient = SupabaseClient<Database, 'public'>;
 
 export type BookingStatusSummaryRow = {
   status: BookingStatus;
@@ -20,36 +19,49 @@ export type BookingStatusSummaryFilters = {
   client?: DbClient;
 };
 
-export async function getBookingStatusSummary(filters: BookingStatusSummaryFilters): Promise<BookingStatusSummaryRow[]> {
+const DEFAULT_BOOKING_STATUSES: readonly BookingStatus[] = [
+  'pending',
+  'pending_allocation',
+  'confirmed',
+  'checked_in',
+  'completed',
+  'cancelled',
+  'no_show',
+  'PRIORITY_WAITLIST',
+];
+
+export async function getBookingStatusSummary(
+  filters: BookingStatusSummaryFilters,
+): Promise<BookingStatusSummaryRow[]> {
   const client = filters.client ?? getServiceSupabaseClient();
-  let query = client
-    .from("bookings")
-    .select("status")
-    .eq("restaurant_id", filters.restaurantId);
+  const statuses =
+    filters.statuses && filters.statuses.length > 0 ? filters.statuses : DEFAULT_BOOKING_STATUSES;
 
-  if (filters.startDate) {
-    query = query.gte("booking_date", filters.startDate);
-  }
+  const rows = await Promise.all(
+    statuses.map(async (status) => {
+      let query = client
+        .from('bookings')
+        .select('id', { count: 'exact', head: true })
+        .eq('restaurant_id', filters.restaurantId)
+        .eq('status', status);
 
-  if (filters.endDate) {
-    query = query.lte("booking_date", filters.endDate);
-  }
+      if (filters.startDate) {
+        query = query.gte('booking_date', filters.startDate);
+      }
 
-  if (filters.statuses && filters.statuses.length > 0) {
-    query = query.in("status", filters.statuses);
-  }
+      if (filters.endDate) {
+        query = query.lte('booking_date', filters.endDate);
+      }
 
-  const { data, error } = await query;
+      const { count, error } = await query;
 
-  if (error) {
-    throw error;
-  }
+      if (error) {
+        throw error;
+      }
 
-  const counts = new Map<BookingStatus, number>();
-  for (const row of (data ?? []) as Pick<Tables<"bookings">, "status">[]) {
-    const status = row.status as BookingStatus;
-    counts.set(status, (counts.get(status) ?? 0) + 1);
-  }
+      return { status, total: count ?? 0 };
+    }),
+  );
 
-  return Array.from(counts.entries()).map(([status, total]) => ({ status, total }));
+  return rows;
 }

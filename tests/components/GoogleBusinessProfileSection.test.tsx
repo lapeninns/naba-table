@@ -31,6 +31,14 @@ const connectionResult = {
   refetch: vi.fn(),
 };
 
+const locationsResult = {
+  data: undefined as GoogleBusinessProfileConnection['availableLocations'] | undefined,
+  isLoading: false,
+  isFetching: false,
+  error: null as Error | null,
+  refetch: vi.fn(),
+};
+
 const linkMutation = {
   mutate: vi.fn(),
   isPending: false,
@@ -45,6 +53,7 @@ const disconnectMutation = {
 
 vi.mock('@/hooks/ops/useOpsGoogleBusinessProfile', () => ({
   useOpsGoogleBusinessProfileConnection: () => connectionResult,
+  useOpsGoogleBusinessProfileAvailableLocations: () => locationsResult,
   useOpsLinkGoogleBusinessProfileLocation: () => linkMutation,
   useOpsDisconnectGoogleBusinessProfile: () => disconnectMutation,
 }));
@@ -131,6 +140,11 @@ beforeEach(() => {
   connectionResult.isLoading = false;
   connectionResult.isFetching = false;
   connectionResult.refetch.mockReset();
+  locationsResult.data = undefined;
+  locationsResult.error = null;
+  locationsResult.isLoading = false;
+  locationsResult.isFetching = false;
+  locationsResult.refetch.mockReset();
   linkMutation.mutate.mockReset();
   linkMutation.isPending = false;
   disconnectMutation.mutate.mockReset();
@@ -188,19 +202,20 @@ describe('GoogleBusinessProfileSection', () => {
     connectionResult.data = buildConnection({
       status: 'authorized',
       connectedGoogleEmail: 'ops@example.com',
-      availableLocations: [
-        {
-          accountName: 'accounts/1',
-          accountId: 'a-1',
-          accountDisplayName: 'Ops Account',
-          locationName: 'locations/1',
-          locationId: 'l-1',
-          title: 'Nabatable Main',
-          addressText: '1 Test St, London',
-          placeId: 'place-1',
-        },
-      ],
+      availableLocations: [],
     });
+    locationsResult.data = [
+      {
+        accountName: 'accounts/1',
+        accountId: 'a-1',
+        accountDisplayName: 'Ops Account',
+        locationName: 'locations/1',
+        locationId: 'l-1',
+        title: 'Nabatable Main',
+        addressText: '1 Test St, London',
+        placeId: 'place-1',
+      },
+    ];
 
     render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 

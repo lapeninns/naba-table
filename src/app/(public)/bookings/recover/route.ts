@@ -40,9 +40,16 @@ export async function GET(req: NextRequest) {
     req.nextUrl.searchParams.get('access_token') ??
     req.nextUrl.searchParams.get('accessToken') ??
     null;
+  const legacyToken = req.nextUrl.searchParams.get('token');
 
   const nextPath = sanitizeNextPath(req.nextUrl.searchParams.get('next'));
   const redirectTarget = new URL(nextPath, req.nextUrl.origin);
+
+  if (!accessToken && legacyToken) {
+    const errorUrl = new URL('/bookings/recover/error', req.nextUrl.origin);
+    errorUrl.searchParams.set('code', 'LEGACY_TOKEN_DEPRECATED');
+    return NextResponse.redirect(errorUrl, { status: 302 });
+  }
 
   if (!accessToken) {
     const errorUrl = new URL('/bookings/recover/error', req.nextUrl.origin);

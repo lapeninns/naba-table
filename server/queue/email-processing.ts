@@ -143,6 +143,15 @@ export async function processEmailJob(job: EmailJobEnvelope): Promise<ProcessEma
       return { jobId: job.id, success: true, skipped: true };
     }
 
+    if (booking.restaurant_id !== payload.restaurantId) {
+      console.warn('[queue][email-processing] skipped tenant-mismatched email job', {
+        jobId: job.id,
+        bookingId: payload.bookingId,
+        type: payload.type,
+      });
+      return { jobId: job.id, success: true, skipped: true };
+    }
+
     if (!isValidEmail(booking.customer_email)) {
       return { jobId: job.id, success: true, skipped: true };
     }
@@ -154,10 +163,14 @@ export async function processEmailJob(job: EmailJobEnvelope): Promise<ProcessEma
     await dispatchEmail(payload.type, booking);
     return { jobId: job.id, success: true };
   } catch (error) {
+    console.warn('[queue][email-processing] job failed', {
+      jobId: job.id,
+      message: error instanceof Error ? error.message : String(error),
+    });
     return {
       jobId: job.id,
       success: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: 'EMAIL_JOB_FAILED',
     };
   }
 }

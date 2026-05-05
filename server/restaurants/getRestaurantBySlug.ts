@@ -1,6 +1,11 @@
 import { cache } from 'react';
 
-import { ensureLogoColumnOnRow, isLogoUrlColumnMissing, logLogoColumnFallback } from '@/server/restaurants/logo-url-compat';
+import { safeGoogleMapsUrl } from '@/lib/security/safe-url';
+import {
+  ensureLogoColumnOnRow,
+  isLogoUrlColumnMissing,
+  logLogoColumnFallback,
+} from '@/server/restaurants/logo-url-compat';
 import { restaurantSelectColumns } from '@/server/restaurants/select-fields';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
@@ -49,9 +54,12 @@ export const getRestaurantBySlug = cache(async function getRestaurantBySlug(
     }
 
     if (error) {
-      throw new GetRestaurantBySlugError(`[restaurants] failed to load restaurant for slug ${normalized}`, {
-        cause: error,
-      });
+      throw new GetRestaurantBySlugError(
+        `[restaurants] failed to load restaurant for slug ${normalized}`,
+        {
+          cause: error,
+        },
+      );
     }
 
     const restaurant = ensureLogoColumnOnRow(data);
@@ -69,12 +77,13 @@ export const getRestaurantBySlug = cache(async function getRestaurantBySlug(
       bookingPolicy: restaurant.booking_policy ?? null,
       contactEmail: restaurant.contact_email ?? null,
       contactPhone: restaurant.contact_phone ?? null,
-      googleMapUrl: restaurant.google_map_url ?? null,
+      googleMapUrl: safeGoogleMapsUrl(restaurant.google_map_url),
       logoUrl: restaurant.logo_url ?? null,
       isActive: restaurant.is_active ?? true,
       reservationIntervalMinutes: restaurant.reservation_interval_minutes ?? null,
       reservationDefaultDurationMinutes: restaurant.reservation_default_duration_minutes ?? null,
-      reservationLastSeatingBufferMinutes: restaurant.reservation_last_seating_buffer_minutes ?? null,
+      reservationLastSeatingBufferMinutes:
+        restaurant.reservation_last_seating_buffer_minutes ?? null,
       reservationLifecycleGraceMinutes: restaurant.reservation_lifecycle_grace_minutes ?? null,
       createdAt: restaurant.created_at ?? undefined,
       updatedAt: restaurant.updated_at ?? undefined,

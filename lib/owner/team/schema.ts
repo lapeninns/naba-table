@@ -1,6 +1,6 @@
-import { z } from "zod";
+import { z } from 'zod';
 
-import { RESTAURANT_ROLE_OPTIONS, RESTAURANT_ROLES } from "@/lib/owner/auth/roles";
+import { RESTAURANT_ROLE_OPTIONS } from '@/lib/owner/auth/roles';
 
 export const restaurantSummarySchema = z.object({
   id: z.string().uuid(),
@@ -18,7 +18,7 @@ export const restaurantMembershipResponseSchema = z.object({
   memberships: z.array(restaurantMembershipSchema),
 });
 
-export const inviteStatusSchema = z.enum(["pending", "accepted", "revoked", "expired"]);
+export const inviteStatusSchema = z.enum(['pending', 'accepted', 'revoked', 'expired']);
 
 export const restaurantInviteSchema = z.object({
   id: z.string().uuid(),
@@ -40,8 +40,6 @@ export const invitationListResponseSchema = z.object({
 
 export const invitationCreateResponseSchema = z.object({
   invite: restaurantInviteSchema,
-  token: z.string().min(1),
-  inviteUrl: z.string().url(),
 });
 
 export const invitationCreatePayloadSchema = z.object({

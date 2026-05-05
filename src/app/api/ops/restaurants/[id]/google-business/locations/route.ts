@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 
-import { getGoogleBusinessProfileConnectionState } from '@/server/google-business-profile/service';
+import { safeBool } from '@/lib/api/query-params';
+import { getGoogleBusinessProfileAvailableLocations } from '@/server/google-business-profile/service';
+import { requireProviderRefreshBudget } from '@/server/security/provider-rate-limit';
 
 import {
   googleBusinessErrorResponse,
@@ -10,15 +12,33 @@ import {
 
 import type { NextRequest } from 'next/server';
 
-export async function GET(_req: NextRequest, { params }: RouteContext) {
+export async function GET(req: NextRequest, { params }: RouteContext) {
   const resolved = await requireGoogleBusinessAdminAccess(params);
   if (resolved instanceof NextResponse) {
     return resolved;
   }
 
+  const forceRefresh = safeBool(req.nextUrl.searchParams, 'refresh', false);
+  if (forceRefresh) {
+    const rateLimit = await requireProviderRefreshBudget({
+      provider: 'google_business_profile',
+      restaurantId: resolved.restaurantId,
+      action: 'location-discovery',
+    });
+    if (rateLimit) {
+      return rateLimit;
+    }
+  }
+
   try {
-    const state = await getGoogleBusinessProfileConnectionState(resolved.restaurantId);
-    return NextResponse.json({ locations: state.availableLocations });
+    const locations = await getGoogleBusinessProfileAvailableLocations(
+      resolved.restaurantId,
+      undefined,
+      {
+        forceRefresh,
+      },
+    );
+    return NextResponse.json({ locations });
   } catch (error) {
     return googleBusinessErrorResponse(error, 'Unable to list Google Business Profile locations.');
   }

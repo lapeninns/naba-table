@@ -48,6 +48,8 @@ export const queryKeys = {
       ['ops', 'restaurants', restaurantId, 'business-context'] as const,
     googleBusinessProfile: (restaurantId: string) =>
       ['ops', 'restaurants', restaurantId, 'google-business-profile'] as const,
+    googleBusinessProfileLocations: (restaurantId: string) =>
+      ['ops', 'restaurants', restaurantId, 'google-business-profile', 'locations'] as const,
     hours: (restaurantId: string) => ['ops', 'restaurants', restaurantId, 'hours'] as const,
     servicePeriods: (restaurantId: string) =>
       ['ops', 'restaurants', restaurantId, 'service-periods'] as const,
@@ -128,6 +130,7 @@ export type QueryKey =
   | ReturnType<(typeof queryKeys)['opsRestaurants']['detail']>
   | ReturnType<(typeof queryKeys)['opsRestaurants']['businessContext']>
   | ReturnType<(typeof queryKeys)['opsRestaurants']['googleBusinessProfile']>
+  | ReturnType<(typeof queryKeys)['opsRestaurants']['googleBusinessProfileLocations']>
   | ReturnType<(typeof queryKeys)['opsRestaurants']['hours']>
   | ReturnType<(typeof queryKeys)['opsRestaurants']['servicePeriods']>
   | ReturnType<(typeof queryKeys)['opsRestaurants']['turnBands']>

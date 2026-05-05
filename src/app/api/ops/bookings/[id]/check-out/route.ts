@@ -1,28 +1,24 @@
-import { NextResponse } from "next/server";
-import { z } from "zod";
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
 
-import { clearBookingTableAssignments } from "@/server/bookings";
-import { enqueueCheckOutSideEffects } from "@/server/jobs/booking-side-effects";
-import { prepareCheckOutTransition } from "@/server/ops/booking-lifecycle/actions";
-import { BookingLifecycleError } from "@/server/ops/booking-lifecycle/stateMachine";
-import { invalidateOpsDashboardCaches } from "@/server/ops/bookings";
+import { clearBookingTableAssignments } from '@/server/bookings';
+import { enqueueCheckOutSideEffects } from '@/server/jobs/booking-side-effects';
+import { prepareCheckOutTransition } from '@/server/ops/booking-lifecycle/actions';
+import { BookingLifecycleError } from '@/server/ops/booking-lifecycle/stateMachine';
+import { invalidateOpsDashboardCaches } from '@/server/ops/bookings';
 
 import {
   loadLifecycleRouteContext,
   parseOptionalRouteBody,
   persistLifecycleTransition,
   resolveBookingId,
-} from "../_shared/lifecycleRoute";
+} from '../_shared/lifecycleRoute';
 
-import type { NextRequest } from "next/server";
-
+import type { NextRequest } from 'next/server';
 
 const bodySchema = z
   .object({
-    performedAt: z
-      .string()
-      .datetime({ offset: true })
-      .optional(),
+    performedAt: z.string().datetime({ offset: true }).optional(),
   })
   .optional()
   .transform((value) => value ?? {});
@@ -34,7 +30,7 @@ type RouteParams = {
 export async function POST(req: NextRequest, { params }: RouteParams) {
   const id = await resolveBookingId(params);
   if (!id) {
-    return NextResponse.json({ error: "Missing booking id" }, { status: 400 });
+    return NextResponse.json({ error: 'Missing booking id' }, { status: 400 });
   }
 
   const parsedBody = await parseOptionalRouteBody(req, bodySchema);
@@ -44,8 +40,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   const payload = parsedBody.data;
 
   const contextResult = await loadLifecycleRouteContext({
+    req,
     bookingId: id,
-    logLabel: "booking-check-out",
+    logLabel: 'booking-check-out',
   });
   if (contextResult.response) {
     return contextResult.response;
@@ -70,19 +67,19 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     });
   } catch (validationError) {
     if (validationError instanceof BookingLifecycleError) {
-      const status = validationError.code === "TIMESTAMP_INVALID" ? 400 : 409;
+      const status = validationError.code === 'TIMESTAMP_INVALID' ? 400 : 409;
       return NextResponse.json({ error: validationError.message }, { status });
     }
-    console.error("[ops][booking-check-out] unexpected validation error", validationError);
-    return NextResponse.json({ error: "Unable to process booking" }, { status: 500 });
+    console.error('[ops][booking-check-out] unexpected validation error', validationError);
+    return NextResponse.json({ error: 'Unable to process booking' }, { status: 500 });
   }
 
   const persistResult = await persistLifecycleTransition({
     booking,
     transition,
     serviceSupabase,
-    logLabel: "booking-check-out",
-    failureMessage: "Unable to check out booking",
+    logLabel: 'booking-check-out',
+    failureMessage: 'Unable to check out booking',
   });
   if (persistResult.response) {
     return persistResult.response;
@@ -92,7 +89,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   try {
     await clearBookingTableAssignments(serviceSupabase, booking.id);
   } catch (clearError) {
-    console.warn("[ops][booking-check-out] failed to clear table assignments", {
+    console.warn('[ops][booking-check-out] failed to clear table assignments', {
       bookingId: booking.id,
       error: clearError instanceof Error ? clearError.message : clearError,
     });
@@ -107,16 +104,16 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   // because check-out is an internal operational action, not a booking modification
   try {
     const { data: fullBooking } = await serviceSupabase
-      .from("bookings")
-      .select("*")
-      .eq("id", booking.id)
+      .from('bookings')
+      .select('*')
+      .eq('id', booking.id)
       .maybeSingle();
 
     if (fullBooking && booking.restaurant_id) {
       await enqueueCheckOutSideEffects(fullBooking, booking.restaurant_id);
     }
   } catch (sideEffectsError) {
-    console.warn("[ops][booking-check-out] failed to schedule review email", {
+    console.warn('[ops][booking-check-out] failed to schedule review email', {
       bookingId: booking.id,
       error: sideEffectsError instanceof Error ? sideEffectsError.message : sideEffectsError,
     });

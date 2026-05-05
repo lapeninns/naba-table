@@ -34,6 +34,7 @@ import { FormRoot } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { getReservationThankYouContent } from '@/guest/routes/auth-aware-content';
+import { safeGoogleMapsUrl, safePublicHref } from '@/lib/security/safe-url';
 
 import type { ReactNode } from 'react';
 
@@ -64,12 +65,16 @@ function getInitials(name: string) {
 }
 
 function getMapsHref(restaurant: RestaurantDetail) {
-  if (restaurant.googleMapUrl) {
-    return restaurant.googleMapUrl;
+  const safeStoredMapUrl = safeGoogleMapsUrl(restaurant.googleMapUrl);
+  if (safeStoredMapUrl) {
+    return safeStoredMapUrl;
   }
 
   const query = restaurant.address ?? restaurant.name;
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+  return safePublicHref(
+    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`,
+    'https://www.google.com/maps',
+  );
 }
 
 function formatCapacity(capacity?: number | null) {

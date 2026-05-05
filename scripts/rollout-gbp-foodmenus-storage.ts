@@ -2,6 +2,8 @@ import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import process from 'node:process';
 
+import { assertExactSupabaseProjectRef } from './db/safety';
+
 const MIGRATION_FILE = 'supabase/migrations/20260502190006_add_gbp_foodmenus_sync_storage.sql';
 const TASK_ARTIFACT_DIR = 'tasks/gbp-foodmenus-sync-design-20260502-1850/artifacts';
 
@@ -133,18 +135,17 @@ function runStep(label: string, command: string, args: string[], env = process.e
   }
 }
 
-function connectionStringLooksSafe(projectRef: string): boolean {
+function assertConnectionStringMatches(projectRef: string): void {
   const connectionString = process.env.SUPABASE_DB_URL ?? process.env.DATABASE_URL;
-  return Boolean(connectionString?.toLowerCase().includes(projectRef.toLowerCase()));
+  if (!connectionString) {
+    throw new Error('SUPABASE_DB_URL or DATABASE_URL is required for apply.');
+  }
+  assertExactSupabaseProjectRef(connectionString, projectRef);
 }
 
 function assertApplyAllowed(target: TargetName) {
   const config = TARGETS[target];
-  if (!connectionStringLooksSafe(config.projectRef)) {
-    throw new Error(
-      `Refusing apply because SUPABASE_DB_URL/DATABASE_URL does not contain expected project ref ${config.projectRef}.`,
-    );
-  }
+  assertConnectionStringMatches(config.projectRef);
 
   if (config.applyConfirmationEnv && process.env[config.applyConfirmationEnv] !== 'true') {
     throw new Error(`Refusing production apply without ${config.applyConfirmationEnv}=true.`);

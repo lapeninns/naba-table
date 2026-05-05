@@ -13,6 +13,7 @@ import { queryKeys } from '@/lib/query/keys';
 
 import type { HttpError } from '@/lib/http/errors';
 import type {
+  GoogleBusinessProfileAvailableLocation,
   GoogleBusinessProfileConnection,
   LinkGoogleBusinessProfileLocationInput,
 } from '@/services/ops/restaurants';
@@ -34,6 +35,27 @@ export function useOpsGoogleBusinessProfileConnection(
     },
     enabled: Boolean(restaurantId),
     staleTime: 30_000,
+  });
+}
+
+export function useOpsGoogleBusinessProfileAvailableLocations(
+  restaurantId?: string | null,
+  enabled = true,
+): UseQueryResult<GoogleBusinessProfileAvailableLocation[], HttpError> {
+  const restaurantService = useRestaurantService();
+
+  return useQuery<GoogleBusinessProfileAvailableLocation[], HttpError>({
+    queryKey: restaurantId
+      ? queryKeys.opsRestaurants.googleBusinessProfileLocations(restaurantId)
+      : queryKeys.opsRestaurants.googleBusinessProfileLocations('none'),
+    queryFn: () => {
+      if (!restaurantId) {
+        throw new Error('Restaurant id is required');
+      }
+      return restaurantService.getGoogleBusinessProfileAvailableLocations(restaurantId);
+    },
+    enabled: Boolean(restaurantId) && enabled,
+    staleTime: 10 * 60_000,
   });
 }
 

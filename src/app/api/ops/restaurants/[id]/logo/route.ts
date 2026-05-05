@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { NextResponse } from 'next/server';
 
+import { withCsrfProtectedMutation } from '@/server/security/csrf';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 import { requireAdminMembership } from '@/server/team/access';
 
@@ -66,6 +67,10 @@ function resolveExtension(file: File): string {
 }
 
 export async function POST(req: NextRequest, context: RouteContext) {
+  return withCsrfProtectedMutation(req, () => postRestaurantLogo(req, context));
+}
+
+async function postRestaurantLogo(req: NextRequest, context: RouteContext) {
   try {
     const supabase = await getRouteHandlerSupabaseClient();
     const {

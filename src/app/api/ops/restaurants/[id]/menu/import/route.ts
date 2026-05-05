@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { prepareMenuImport } from '@/server/menu/import';
 import { applyMenuImport } from '@/server/menu/repository';
+import { withCsrfProtectedMutation } from '@/server/security/csrf';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import { ensureRestaurantAdminAccess, resolveRestaurantId } from '../../_shared';
@@ -13,6 +14,10 @@ type RouteContext = {
 };
 
 export async function POST(request: NextRequest, { params }: RouteContext) {
+  return withCsrfProtectedMutation(request, () => postMenuImport(request, { params }));
+}
+
+async function postMenuImport(request: NextRequest, { params }: RouteContext) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
     return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });

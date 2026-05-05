@@ -20,6 +20,21 @@ type OpsReservationError = {
   status?: number;
 };
 
+function isTerminalCreateError(error: OpsReservationError | null | undefined): boolean {
+  if (!error) return false;
+  if (
+    error.code === 'VALIDATION_ERROR' ||
+    error.code === 'UNAUTHENTICATED' ||
+    error.code === 'FORBIDDEN' ||
+    error.code === 'UNSUPPORTED_OPERATION'
+  ) {
+    return true;
+  }
+  return (
+    typeof error.status === 'number' && [400, 401, 403, 404, 409, 410, 422].includes(error.status)
+  );
+}
+
 export function buildOpsBookingPayload(draft: ReservationDraft) {
   return {
     restaurantId: draft.restaurantId,
@@ -78,21 +93,22 @@ export function useCreateOpsReservation() {
       const booking = response?.booking ? reservationAdapter(response.booking) : null;
       const bookings = response?.bookings ? reservationListAdapter(response.bookings) : [];
 
-      idempotencyKeyRef.current = null;
-
       return {
         booking,
         bookings,
       } satisfies ReservationSubmissionResult;
     },
     onSuccess: (result) => {
+      idempotencyKeyRef.current = null;
       queryClient.invalidateQueries({ queryKey: reservationKeys.all() });
       if (result.booking) {
         queryClient.setQueryData(reservationKeys.detail(result.booking.id), result.booking);
       }
     },
     onError: (error) => {
-      idempotencyKeyRef.current = null;
+      if (isTerminalCreateError(error)) {
+        idempotencyKeyRef.current = null;
+      }
       const payload = {
         code: error?.code ?? 'UNKNOWN',
         status: error?.status,

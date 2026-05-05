@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { firstString } from '@/lib/api/query-params';
 import { env } from '@/lib/env';
 import { getBookingHistory } from '@/server/bookingHistory';
 import { normalizeEmail } from '@/server/customers';
 import { recordObservabilityEvent } from '@/server/observability';
+import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 import {
   sessionRecoveryTokenMatchesBookingContact,
   validateSessionRecoveryAccessToken,
@@ -24,7 +26,9 @@ type RouteParams = {
   }>;
 };
 
-async function resolveBookingId(paramsPromise?: Promise<{ id: string | string[] }>): Promise<string | null> {
+async function resolveBookingId(
+  paramsPromise?: Promise<{ id: string | string[] }>,
+): Promise<string | null> {
   if (!paramsPromise) {
     return null;
   }
@@ -60,11 +64,16 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Missing booking id' }, { status: 400 });
   }
 
-  const searchParams = Object.fromEntries(req.nextUrl.searchParams.entries());
-  const parsedQuery = querySchema.safeParse(searchParams);
+  const parsedQuery = querySchema.safeParse({
+    limit: firstString(req.nextUrl.searchParams, 'limit'),
+    offset: firstString(req.nextUrl.searchParams, 'offset'),
+  });
 
   if (!parsedQuery.success) {
-    return NextResponse.json({ error: 'Invalid query parameters', details: parsedQuery.error.flatten() }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Invalid query parameters', details: parsedQuery.error.flatten() },
+      { status: 400 },
+    );
   }
 
   const serviceSupabase = getServiceSupabaseClient();
@@ -85,6 +94,18 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       const code = result.reason === 'expired' ? 'ACCESS_TOKEN_EXPIRED' : 'INVALID_ACCESS_TOKEN';
       const status = result.reason === 'expired' ? 410 : 401;
       return NextResponse.json({ error: 'Invalid session recovery token', code }, { status });
+    }
+
+    const rateLimit = await requireApiRateLimit({
+      request: req,
+      scope: 'bookings:history-recovery',
+      tenantId: result.payload.restaurantId,
+      limit: 20,
+      windowMs: 60_000,
+      message: 'Too many booking history requests. Please try again later.',
+    });
+    if (rateLimit) {
+      return rateLimit;
     }
 
     // Fetch the booking to verify ownership
@@ -123,14 +144,16 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         context: {
           booking_id: bookingId,
           token_email: tokenEmail,
-          booking_email: bookingRow.customer_email ? normalizeEmail(bookingRow.customer_email) : null,
+          booking_email: bookingRow.customer_email
+            ? normalizeEmail(bookingRow.customer_email)
+            : null,
           reason: 'token_mismatch',
         },
       });
 
       return NextResponse.json(
         { error: 'You can only view history for your own reservation', code: 'FORBIDDEN' },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -166,6 +189,18 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
   const normalizedEmail = normalizeEmail(user.email);
 
+  const authenticatedRateLimit = await requireApiRateLimit({
+    request: req,
+    scope: 'bookings:history-authenticated',
+    userId: user.id,
+    limit: 60,
+    windowMs: 60_000,
+    message: 'Too many booking history requests. Please try again later.',
+  });
+  if (authenticatedRateLimit) {
+    return authenticatedRateLimit;
+  }
+
   const { data: bookingRow, error: bookingError } = await serviceSupabase
     .from('bookings')
     .select('id, customer_email, restaurant_id')
@@ -196,7 +231,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json(
       { error: 'You can only view history for your own reservation', code: 'FORBIDDEN' },
-      { status: 403 }
+      { status: 403 },
     );
   }
 

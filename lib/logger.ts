@@ -1,3 +1,5 @@
+import { redactUrlQuery } from '@/lib/security/url-redaction';
+
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 const LEVEL_PRIORITY: Record<LogLevel, number> = {
@@ -7,13 +9,26 @@ const LEVEL_PRIORITY: Record<LogLevel, number> = {
   error: 40,
 };
 
-const DEFAULT_REDACT_KEYS = ['password', 'secret', 'token', 'key', 'authorization', 'cookie', 'email', 'phone'];
+const DEFAULT_REDACT_KEYS = [
+  'access_token',
+  'authorization',
+  'booking_recovery_token',
+  'code',
+  'cookie',
+  'email',
+  'invite_token',
+  'password',
+  'phone',
+  'secret',
+  'token',
+  'token_hash',
+];
 
 const LOG_METHOD: Record<LogLevel, (message?: unknown, ...optionalParams: unknown[]) => void> = {
-  debug: console.debug ?? console.log,
-  info: console.log,
-  warn: console.warn,
-  error: console.error,
+  debug: (message, ...optionalParams) => (console.debug ?? console.log)(message, ...optionalParams),
+  info: (message, ...optionalParams) => console.log(message, ...optionalParams),
+  warn: (message, ...optionalParams) => console.warn(message, ...optionalParams),
+  error: (message, ...optionalParams) => console.error(message, ...optionalParams),
 };
 
 export interface LoggerOptions {
@@ -32,7 +47,12 @@ export interface StructuredLogger {
 
 const toLogLevel = (raw?: string | null): LogLevel => {
   const normalized = (raw ?? '').toLowerCase();
-  if (normalized === 'debug' || normalized === 'info' || normalized === 'warn' || normalized === 'error') {
+  if (
+    normalized === 'debug' ||
+    normalized === 'info' ||
+    normalized === 'warn' ||
+    normalized === 'error'
+  ) {
     return normalized;
   }
   return 'info';
@@ -52,13 +72,16 @@ function shouldRedact(key: string, redactKeys: string[]): boolean {
   return redactKeys.some((needle) => lower.includes(needle));
 }
 
-function serializeError(error: unknown): Record<string, unknown> {
+function serializeError(error: unknown, redactKeys: string[]): Record<string, unknown> {
   if (error instanceof Error) {
-    return {
-      name: error.name,
-      message: error.message,
-      stack: error.stack,
-    };
+    return sanitizeMetadata(
+      {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+      },
+      redactKeys,
+    )!;
   }
 
   return { error };
@@ -67,14 +90,21 @@ function serializeError(error: unknown): Record<string, unknown> {
 function sanitizeMetadata(
   meta: Record<string, unknown> | undefined,
   redactKeys: string[],
+  sensitiveParent = false,
   seen = new WeakSet<object>(),
 ): Record<string, unknown> | undefined {
   if (!meta) return undefined;
 
   const sanitized: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(meta)) {
+    const sensitiveKey = sensitiveParent || shouldRedact(key, redactKeys);
+    if (sensitiveKey) {
+      sanitized[key] = redact(value);
+      continue;
+    }
+
     if (value instanceof Error) {
-      sanitized[key] = serializeError(value);
+      sanitized[key] = serializeError(value, redactKeys);
       continue;
     }
 
@@ -87,18 +117,13 @@ function sanitizeMetadata(
       if (Array.isArray(value)) {
         sanitized[key] = value.map((entry) => {
           if (entry && typeof entry === 'object') {
-            return sanitizeMetadata(entry as Record<string, unknown>, redactKeys, seen);
+            return sanitizeMetadata(entry as Record<string, unknown>, redactKeys, false, seen);
           }
-          return entry;
+          return typeof entry === 'string' ? redactUrlQuery(entry) : entry;
         });
         continue;
       }
-      sanitized[key] = sanitizeMetadata(value as Record<string, unknown>, redactKeys, seen);
-      continue;
-    }
-
-    if (shouldRedact(key, redactKeys)) {
-      sanitized[key] = redact(value);
+      sanitized[key] = sanitizeMetadata(value as Record<string, unknown>, redactKeys, false, seen);
       continue;
     }
 
@@ -107,7 +132,7 @@ function sanitizeMetadata(
       continue;
     }
 
-    sanitized[key] = value as unknown;
+    sanitized[key] = typeof value === 'string' ? redactUrlQuery(value) : value;
   }
   return sanitized;
 }
@@ -136,7 +161,10 @@ function createEmitter(level: LogLevel, options: LoggerOptions) {
   };
 }
 
-export function createLogger(context: Record<string, unknown> = {}, options: LoggerOptions = {}): StructuredLogger {
+export function createLogger(
+  context: Record<string, unknown> = {},
+  options: LoggerOptions = {},
+): StructuredLogger {
   const baseContext = sanitizeMetadata(context, options.redactKeys ?? DEFAULT_REDACT_KEYS) ?? {};
   const emitterCache: Partial<Record<LogLevel, (payload: Record<string, unknown>) => void>> = {};
 
