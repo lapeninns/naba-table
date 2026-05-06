@@ -13,7 +13,7 @@ import type { OpsBookingListItem } from '@/types/ops';
 
 export function useOpsBooking(
   bookingId: string | null,
-  options?: { enabled?: boolean },
+  options?: { enabled?: boolean; realtime?: boolean },
 ): UseQueryResult<OpsBookingListItem, HttpError> {
   const bookingService = useBookingService();
   const queryClient = useQueryClient();
@@ -26,6 +26,7 @@ export function useOpsBooking(
     [bookingId],
   );
   const isEnabled = Boolean(bookingId) && (options?.enabled ?? true);
+  const realtimeEnabled = options?.realtime ?? true;
 
   const query = useQuery<OpsBookingListItem, HttpError>({
     queryKey,
@@ -37,9 +38,11 @@ export function useOpsBooking(
     staleTime: 60_000,
   });
 
-  // Realtime subscription for individual booking
+  // Realtime subscription for individual booking. Callers using
+  // `useOpsBookingDialogBundle` (which subscribes on a single consolidated
+  // channel) should pass `realtime: false` to avoid duplicate subscriptions.
   useEffect(() => {
-    if (!isEnabled || !bookingId || !isRealtimeFloorplanEnabled()) {
+    if (!isEnabled || !realtimeEnabled || !bookingId || !isRealtimeFloorplanEnabled()) {
       return;
     }
 
@@ -93,7 +96,7 @@ export function useOpsBooking(
       channel.unsubscribe();
       client.removeChannel(channel);
     };
-  }, [bookingId, isEnabled, queryClient, queryKey]);
+  }, [bookingId, isEnabled, realtimeEnabled, queryClient, queryKey]);
 
   return query;
 }

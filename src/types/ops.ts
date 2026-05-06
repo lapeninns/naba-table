@@ -147,6 +147,7 @@ export type OpsBookingsFilters = {
   status?: OpsBookingStatus | 'all';
   sort?: 'asc' | 'desc';
   sortBy?: 'start_at' | 'created_at';
+  countStrategy?: 'exact' | 'window';
   from?: Date | string | null;
   to?: Date | string | null;
   query?: string | null;
@@ -271,7 +272,12 @@ export type OpsCustomersPage = {
 
 export type OpsRejectionBucket = 'day' | 'hour';
 
-export type OpsStrategicPenaltyKey = 'slack' | 'scarcity' | 'future_conflict' | 'structural' | 'unknown';
+export type OpsStrategicPenaltyKey =
+  | 'slack'
+  | 'scarcity'
+  | 'future_conflict'
+  | 'structural'
+  | 'unknown';
 
 export type TableTimelineServiceKey = 'lunch' | 'dinner' | 'other';
 

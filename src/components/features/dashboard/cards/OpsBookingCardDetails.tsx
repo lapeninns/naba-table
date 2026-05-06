@@ -22,15 +22,15 @@ const InfoTile = ({
 }) => (
   <div
     className={cn(
-      'flex flex-col gap-1 rounded-lg border border-border/60 bg-muted/20 p-2.5',
+      'flex flex-col gap-1 rounded-lg border border-border/60 bg-muted/20 p-2.5 sm:p-3',
       className,
     )}
   >
-    <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+    <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
       {Icon ? <Icon className="h-3 w-3" aria-hidden /> : null}
       {label}
     </div>
-    <div className="text-[13px] leading-snug">{children}</div>
+    <div className="text-[13px] leading-snug text-foreground">{children}</div>
   </div>
 );
 
@@ -44,14 +44,14 @@ export const OpsBookingCardDetails = memo(function OpsBookingCardDetails({
   const { bookingId, reference, table, contact, notes } = details;
 
   const content = (
-    <div className="grid grid-cols-1 gap-2 pb-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid grid-cols-1 gap-2 pb-4 sm:grid-cols-2 sm:gap-3 lg:grid-cols-4">
       <InfoTile label="Table" icon={Armchair}>
         {table.state === 'assigned' ? (
           <span className="font-semibold text-foreground">{table.label}</span>
         ) : table.state === 'done-empty' ? (
           <span className="italic text-muted-foreground">N/A</span>
         ) : (
-          <span className="flex items-center gap-1 font-semibold text-primary">
+          <span className="flex items-center gap-1 font-semibold text-warning">
             <AlertTriangle className="h-3.5 w-3.5" aria-hidden /> {table.label}
           </span>
         )}
@@ -80,7 +80,9 @@ export const OpsBookingCardDetails = memo(function OpsBookingCardDetails({
 
       <InfoTile label={reference.label} icon={Users}>
         <div className="flex flex-col">
-          <span className="font-mono text-xs text-muted-foreground">{reference.valueLabel}</span>
+          <span className="break-all font-mono text-xs text-muted-foreground">
+            {reference.valueLabel}
+          </span>
         </div>
       </InfoTile>
 
@@ -98,7 +100,7 @@ export const OpsBookingCardDetails = memo(function OpsBookingCardDetails({
     <CollapsibleContent
       forceMount
       id={`ops-booking-details-${bookingId}`}
-      className="px-4 data-[state=closed]:hidden sm:block sm:data-[state=closed]:block"
+      className="px-3 data-[state=closed]:hidden sm:block sm:px-4 sm:data-[state=closed]:block"
     >
       {content}
     </CollapsibleContent>

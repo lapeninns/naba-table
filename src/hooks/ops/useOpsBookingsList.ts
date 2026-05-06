@@ -1,6 +1,11 @@
 'use client';
 
-import { useInfiniteQuery, useQueryClient, type InfiniteData, type UseInfiniteQueryResult } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useQueryClient,
+  type InfiniteData,
+  type UseInfiniteQueryResult,
+} from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 
 import { useBookingService } from '@/contexts/ops-services';
@@ -30,9 +35,11 @@ function normalizeFilters(filters: OpsBookingsFilters) {
   if (filters.tableId) normalized.tableId = filters.tableId;
   if (filters.pageSize) normalized.pageSize = filters.pageSize;
   if (filters.status && filters.status !== 'all') normalized.status = filters.status;
-  if (filters.statuses && filters.statuses.length > 0) normalized.statuses = filters.statuses.join(',');
+  if (filters.statuses && filters.statuses.length > 0)
+    normalized.statuses = filters.statuses.join(',');
   if (filters.sort) normalized.sort = filters.sort;
   if (filters.sortBy) normalized.sortBy = filters.sortBy;
+  if (filters.countStrategy) normalized.countStrategy = filters.countStrategy;
 
   const fromIso = toIsoString(filters.from ?? undefined);
   if (fromIso) normalized.from = fromIso;
@@ -61,7 +68,9 @@ export function useOpsBookingsList(
     return normalizeFilters(filters);
   }, [filters]);
 
-  const queryKey = normalizedFilters ? queryKeys.opsBookings.list(normalizedFilters) : queryKeys.opsBookings.list();
+  const queryKey = normalizedFilters
+    ? queryKeys.opsBookings.list(normalizedFilters)
+    : queryKeys.opsBookings.list();
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -125,6 +134,7 @@ export function useOpsBookingsList(
       const page = typeof pageParam === 'number' ? pageParam : 1;
       return bookingService.listBookings({
         ...filters,
+        countStrategy: filters.countStrategy ?? 'window',
         page,
         pageSize: filters.pageSize ?? 50,
       });

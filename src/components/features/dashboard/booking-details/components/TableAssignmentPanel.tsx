@@ -43,6 +43,14 @@ export interface TableAssignmentPanelProps {
   initialFocusRef?: React.RefObject<HTMLButtonElement | null>;
   bookingStartTime?: string | null;
   bookingEndTime?: string | null;
+  enabled?: boolean;
+  /**
+   * Forwarded to the underlying `useTableAssignment` hook. When `false`, the
+   * per-hook realtime subscription is suppressed because a parent (such as
+   * `useOpsBookingDialogBundle`) is already maintaining a consolidated
+   * channel for the same data.
+   */
+  realtime?: boolean;
 }
 
 type FitFilter = 'all' | 'perfect' | 'exact' | 'within' | 'oversized' | 'too_small';
@@ -58,6 +66,8 @@ export function TableAssignmentPanel({
   initialFocusRef,
   bookingStartTime,
   bookingEndTime,
+  enabled = true,
+  realtime = true,
 }: TableAssignmentPanelProps) {
   const {
     context,
@@ -84,6 +94,8 @@ export function TableAssignmentPanel({
     date,
     currentAssignments,
     onAssignmentComplete,
+    enabled,
+    realtime,
   });
 
   const parsedTimes = useMemo(() => {

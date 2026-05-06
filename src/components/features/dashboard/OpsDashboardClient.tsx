@@ -134,47 +134,53 @@ function OpsDashboardClientContent({ initialDate, initialNowIso }: OpsDashboardC
       summary,
     ],
   );
-  const summarySectionProps = useMemo<OpsDashboardSummarySectionProps>(
+  const dashboardListControls = useMemo<DashboardListControls>(
     () => ({
-      summary,
-      restaurantName: state.restaurantName,
-      controls: {
-        filter: state.filter,
-        tabCounts: state.tabCounts,
-        searchQuery: state.searchQuery,
-        deferredSearchQuery: state.deferredSearchQuery,
-        sortKey: state.sortKey,
-        sortDir: state.sortDir,
-        isRefetching: state.isRefetching,
-        onFilterChange: state.handleSelectFilter,
-        onSearchChange: state.handleSearchChange,
-        onPrint: state.handlePrint,
-        onSortKeyChange: state.setSortKey,
-        onSortDirChange: state.setSortDir,
-      } satisfies DashboardListControls,
-      bookingActions: {
-        onDetails: state.handleDetails,
-        onEdit: state.handleEdit,
-        onCancel: state.handleCancelRequest,
-        onAssignTable: state.handleAssignTable,
-        onUnassignTable: state.handleUnassignTable,
-        tableActionState: state.tableActionState,
-        onMarkNoShow: state.handleMarkNoShow,
-        onUndoNoShow: state.handleUndoNoShow,
-        onCheckIn: state.handleCheckIn,
-        onCheckOut: state.handleCheckOut,
-        pendingLifecycleAction: state.pendingBookingAction,
-      } satisfies DashboardBookingActionHandlers,
-      initialNowIso,
-      allowTableAssignments: state.allowTableAssignments,
-      restaurantSlug: state.restaurantSlug,
-      isStale: state.isStaleContent,
+      filter: state.filter,
+      tabCounts: state.tabCounts,
+      searchQuery: state.searchQuery,
+      deferredSearchQuery: state.deferredSearchQuery,
+      sortKey: state.sortKey,
+      sortDir: state.sortDir,
+      isRefetching: state.isRefetching,
+      dataUpdatedAt: state.dataUpdatedAt,
+      onFilterChange: state.handleSelectFilter,
+      onSearchChange: state.handleSearchChange,
+      onPrint: state.handlePrint,
+      onSortKeyChange: state.setSortKey,
+      onSortDirChange: state.setSortDir,
     }),
     [
-      initialNowIso,
-      state.allowTableAssignments,
+      state.dataUpdatedAt,
       state.deferredSearchQuery,
       state.filter,
+      state.handlePrint,
+      state.handleSearchChange,
+      state.handleSelectFilter,
+      state.isRefetching,
+      state.searchQuery,
+      state.setSortDir,
+      state.setSortKey,
+      state.sortDir,
+      state.sortKey,
+      state.tabCounts,
+    ],
+  );
+  const dashboardBookingActions = useMemo<DashboardBookingActionHandlers>(
+    () => ({
+      onDetails: state.handleDetails,
+      onEdit: state.handleEdit,
+      onCancel: state.handleCancelRequest,
+      onAssignTable: state.handleAssignTable,
+      onUnassignTable: state.handleUnassignTable,
+      tableActionState: state.tableActionState,
+      onMarkNoShow: state.handleMarkNoShow,
+      onUndoNoShow: state.handleUndoNoShow,
+      onCheckIn: state.handleCheckIn,
+      onCheckOut: state.handleCheckOut,
+      pendingLifecycleAction: state.pendingBookingAction,
+    }),
+    [
       state.handleAssignTable,
       state.handleCancelRequest,
       state.handleCheckIn,
@@ -182,23 +188,31 @@ function OpsDashboardClientContent({ initialDate, initialNowIso }: OpsDashboardC
       state.handleDetails,
       state.handleEdit,
       state.handleMarkNoShow,
-      state.handlePrint,
-      state.handleSearchChange,
-      state.handleSelectFilter,
       state.handleUndoNoShow,
       state.handleUnassignTable,
-      state.isRefetching,
-      state.isStaleContent,
       state.pendingBookingAction,
+      state.tableActionState,
+    ],
+  );
+  const summarySectionProps = useMemo<OpsDashboardSummarySectionProps>(
+    () => ({
+      summary,
+      restaurantName: state.restaurantName,
+      controls: dashboardListControls,
+      bookingActions: dashboardBookingActions,
+      initialNowIso,
+      allowTableAssignments: state.allowTableAssignments,
+      restaurantSlug: state.restaurantSlug,
+      isStale: state.isStaleContent,
+    }),
+    [
+      dashboardBookingActions,
+      dashboardListControls,
+      initialNowIso,
+      state.allowTableAssignments,
+      state.isStaleContent,
       state.restaurantName,
       state.restaurantSlug,
-      state.searchQuery,
-      state.setSortDir,
-      state.setSortKey,
-      state.sortDir,
-      state.sortKey,
-      state.tabCounts,
-      state.tableActionState,
       summary,
     ],
   );
@@ -245,22 +259,22 @@ function OpsDashboardClientContent({ initialDate, initialNowIso }: OpsDashboardC
 
   return (
     <OpsPageShell variant="standard" className="space-y-5 sm:space-y-6">
-        <DashboardHeaderSection {...headerProps} />
+      <DashboardHeaderSection {...headerProps} />
 
-        <section aria-label="Connection status">
-          <BookingOfflineBanner />
-        </section>
+      <section aria-label="Connection status">
+        <BookingOfflineBanner />
+      </section>
 
-        {showSummarySkeleton ? (
-          <DashboardSummarySkeleton restaurantName={state.restaurantName} />
-        ) : (
-          <div className="motion-safe:animate-fade-in">
-            <DashboardSummarySectionContent {...summarySectionProps} />
-          </div>
-        )}
+      {showSummarySkeleton ? (
+        <DashboardSummarySkeleton restaurantName={state.restaurantName} />
+      ) : (
+        <div className="motion-safe:animate-fade-in">
+          <DashboardSummarySectionContent {...summarySectionProps} />
+        </div>
+      )}
 
-        <DashboardDialogsSection {...dialogProps} />
-      </OpsPageShell>
+      <DashboardDialogsSection {...dialogProps} />
+    </OpsPageShell>
   );
 }
 

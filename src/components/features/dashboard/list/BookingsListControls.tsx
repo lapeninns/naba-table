@@ -19,7 +19,19 @@ export type BookingsListControlsProps = {
   onSortKeyChange: (value: BookingSortKey) => void;
   onSortDirChange: (value: BookingSortDir) => void;
   isRefetching?: boolean;
+  dataUpdatedAt?: number | null;
 };
+
+function formatLastSynced(dataUpdatedAt: number | null | undefined) {
+  if (!dataUpdatedAt) return null;
+  const ageSeconds = Math.max(0, Math.floor((Date.now() - dataUpdatedAt) / 1000));
+  if (ageSeconds < 10) return 'Last synced just now';
+  if (ageSeconds < 60) return `Last synced ${ageSeconds}s ago`;
+  const ageMinutes = Math.floor(ageSeconds / 60);
+  if (ageMinutes < 60) return `Last synced ${ageMinutes}m ago`;
+  const ageHours = Math.floor(ageMinutes / 60);
+  return `Last synced ${ageHours}h ago`;
+}
 
 export function BookingsListControls({
   sortKey,
@@ -27,21 +39,20 @@ export function BookingsListControls({
   onSortKeyChange,
   onSortDirChange,
   isRefetching,
+  dataUpdatedAt,
 }: BookingsListControlsProps) {
   const showRefetching = useMinimumDelay(Boolean(isRefetching), {
     delayMs: 120,
     minDurationMs: 250,
   });
+  const lastSyncedLabel = formatLastSynced(dataUpdatedAt);
   return (
     <>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
         <span className="text-sm font-medium text-muted-foreground">Sort</span>
         <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
           <Select value={sortKey} onValueChange={(val) => onSortKeyChange(val as BookingSortKey)}>
-            <SelectTrigger
-              className="h-9 w-full rounded bg-card sm:w-[150px]"
-              aria-label="Sort by"
-            >
+            <SelectTrigger className="h-9 w-full rounded bg-card sm:w-[150px]" aria-label="Sort by">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -71,8 +82,12 @@ export function BookingsListControls({
           aria-live="polite"
         >
           <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-          Updating bookings…
+          Syncing latest changes...
         </output>
+      ) : lastSyncedLabel ? (
+        <p className="text-xs font-medium text-muted-foreground" aria-live="polite">
+          {lastSyncedLabel}
+        </p>
       ) : null}
     </>
   );

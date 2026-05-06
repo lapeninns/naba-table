@@ -29,6 +29,7 @@ export type EmailDeliveryPanelProps = {
   bookingId: string;
   timezone: string;
   limit?: number;
+  enabled?: boolean;
 };
 
 function StatusBadge({ status }: { status: EmailDeliveryStatus }) {
@@ -108,8 +109,13 @@ function GroupHeader({ group, timezone }: { group: EmailDeliveryGroup; timezone:
   );
 }
 
-export function EmailDeliveryPanel({ bookingId, timezone, limit = 50 }: EmailDeliveryPanelProps) {
-  const query = useOpsBookingEmailDeliveryLog(bookingId, { limit });
+export function EmailDeliveryPanel({
+  bookingId,
+  timezone,
+  limit = 20,
+  enabled = true,
+}: EmailDeliveryPanelProps) {
+  const query = useOpsBookingEmailDeliveryLog(bookingId, { limit, enabled });
   const heavyPanelStyle = {
     contentVisibility: 'auto',
     containIntrinsicSize: '1px 120px',

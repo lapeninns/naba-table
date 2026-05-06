@@ -103,8 +103,11 @@ export function BookingDialog({
   onMarkNoShow,
   onUndoNoShow,
   onCancel,
+  onDataRefresh,
   pendingLifecycleAction,
   cancelPending,
+  tableAssignmentQueryEnabled = true,
+  tableAssignmentRealtime = true,
   open,
   onOpenChange,
   isToday = true,
@@ -409,18 +412,25 @@ export function BookingDialog({
   const handleAssignmentComplete = useCallback(() => {
     if (!booking?.id) return;
     queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.detail(booking.id) });
-  }, [booking?.id, queryClient]);
+    void onDataRefresh?.();
+  }, [booking?.id, onDataRefresh, queryClient]);
 
   const content = (
     <div className="flex h-full flex-col overflow-hidden bg-background/80 backdrop-blur-xl relative group">
-      {/* Ambient glassmorphic gradients */}
-      <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden hidden md:block">
+      {/* Ambient glassmorphic gradients (desktop only; suppressed when the
+          user prefers reduced motion to skip the heavy paint cost). */}
+      <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden hidden md:block motion-reduce:hidden">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[120px] transition-transform duration-1000 group-hover:scale-110" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-primary/5 rounded-full blur-[140px] transition-transform duration-1000 group-hover:scale-105" />
       </div>
 
       {/* Header - Glassy & Dynamic */}
-      <div className={cn('shrink-0 border-b border-border/40 px-4 py-4 sm:px-6 sm:py-5 z-10 bg-background/40 backdrop-blur-md', headerTone)}>
+      <div
+        className={cn(
+          'shrink-0 border-b border-border/40 px-4 py-4 sm:px-6 sm:py-5 z-10 bg-background/40 backdrop-blur-md',
+          headerTone,
+        )}
+      >
         <DialogHeader
           booking={booking}
           status={status}
@@ -457,6 +467,8 @@ export function BookingDialog({
           onAssignmentComplete={handleAssignmentComplete}
           bookingStartTime={booking?.startTime ?? null}
           bookingEndTime={booking?.endTime ?? null}
+          tableAssignmentQueryEnabled={tableAssignmentQueryEnabled}
+          tableAssignmentRealtime={tableAssignmentRealtime}
         />
       </div>
       {/* Bottom Action Rail - Elevated & Floating-style */}

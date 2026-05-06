@@ -21,6 +21,9 @@ import { validateTableSelection } from '../utils';
 import type { UseTableAssignmentOptions, UseTableAssignmentReturn } from '../types';
 import type { AssignmentContext } from '@/services/ops/bookings';
 
+const ASSIGNMENT_REALTIME_REFETCH_DEBOUNCE_MS = 250;
+const ASSIGNMENT_REALTIME_REFETCH_DEDUPE_MS = 750;
+
 export function useTableAssignment({
   bookingId,
   restaurantId,
@@ -28,6 +31,8 @@ export function useTableAssignment({
   date,
   currentAssignments = [],
   onAssignmentComplete,
+  enabled = true,
+  realtime = true,
 }: UseTableAssignmentOptions): UseTableAssignmentReturn {
   const queryClient = useQueryClient();
   const bookingService = useBookingService();
@@ -43,14 +48,16 @@ export function useTableAssignment({
   } = useQuery<AssignmentContext, Error>({
     queryKey: queryKeys.opsBookings.assignmentContext(bookingId),
     queryFn: () => bookingService.getAssignmentContext(bookingId),
-    enabled: Boolean(bookingId),
+    enabled: Boolean(bookingId) && enabled,
     staleTime: 30_000,
   });
 
-  // Realtime subscription for assignment context updates
+  // Realtime subscription for assignment context updates. Skipped when a
+  // parent hook (e.g. `useOpsBookingDialogBundle`) is already maintaining a
+  // consolidated channel that covers the same tables.
   useEffect(() => {
-    const realtimeEnabled = isRealtimeFloorplanEnabled();
-    if (!bookingId || !restaurantId || !realtimeEnabled) {
+    const realtimeFlag = isRealtimeFloorplanEnabled();
+    if (!bookingId || !restaurantId || !realtimeFlag || !enabled || !realtime) {
       return;
     }
 
@@ -62,8 +69,18 @@ export function useTableAssignment({
       },
     });
 
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+    let lastRefreshAt = 0;
     const handleChange = () => {
-      void refetch();
+      const now = Date.now();
+      if (now - lastRefreshAt < ASSIGNMENT_REALTIME_REFETCH_DEDUPE_MS || refreshTimer) {
+        return;
+      }
+      refreshTimer = setTimeout(() => {
+        refreshTimer = null;
+        lastRefreshAt = Date.now();
+        void refetch();
+      }, ASSIGNMENT_REALTIME_REFETCH_DEBOUNCE_MS);
     };
 
     // Listen to allocations changes for this restaurant
@@ -105,13 +122,17 @@ export function useTableAssignment({
     channel.subscribe();
 
     return () => {
+      if (refreshTimer) {
+        clearTimeout(refreshTimer);
+      }
       client.removeChannel(channel);
     };
-  }, [bookingId, restaurantId, refetch]);
+  }, [bookingId, restaurantId, refetch, enabled, realtime]);
 
   const tables = useMemo(() => context?.tables ?? [], [context?.tables]);
 
   const tableIdSet = useMemo(() => new Set(tables.map((table) => table.id)), [tables]);
+  const selectedTableIdSet = useMemo(() => new Set(selectedTables), [selectedTables]);
 
   useEffect(() => {
     if (previousBookingIdRef.current && previousBookingIdRef.current !== bookingId) {
@@ -139,8 +160,8 @@ export function useTableAssignment({
   );
 
   const selectedTableObjects = useMemo(
-    () => tables.filter((table) => selectedTables.includes(table.id)),
-    [selectedTables, tables],
+    () => tables.filter((table) => selectedTableIdSet.has(table.id)),
+    [selectedTableIdSet, tables],
   );
 
   const selectedCapacity = useMemo(

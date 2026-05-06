@@ -1,0 +1,155 @@
+'use client';
+
+import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
+import { useEffect, useMemo } from 'react';
+
+import { useBookingService } from '@/contexts/ops-services';
+import { isRealtimeFloorplanEnabled } from '@/lib/feature-flags/realtime';
+import { queryKeys } from '@/lib/query/keys';
+import { getRealtimeSupabaseClient } from '@/lib/supabase/realtime-client';
+
+import type { HttpError } from '@/lib/http/errors';
+import type { OpsBookingDialogBundle } from '@/services/ops/bookings';
+
+const BUNDLE_STALE_MS = 30_000;
+const REALTIME_REFETCH_DEBOUNCE_MS = 250;
+const REALTIME_REFETCH_DEDUPE_MS = 750;
+
+/**
+ * Single round-trip data hook for the ops booking dialog. Fetches the
+ * `/api/ops/bookings/:id/dialog` endpoint, then primes the React Query caches
+ * for both `opsBookings.detail` and `opsBookings.assignmentContext` so the
+ * legacy hooks (`useOpsBooking`, `useTableAssignment`) read from cache without
+ * issuing their own network requests.
+ *
+ * Also consolidates realtime invalidation onto a single Supabase channel that
+ * watches every table the dialog cares about (Phase 4.1 of the dialog perf
+ * plan). When this hook is mounted with `enabled: true`, callers should pass
+ * `realtime: false` to the legacy hooks to avoid duplicate subscriptions.
+ */
+export function useOpsBookingDialogBundle(
+  bookingId: string | null,
+  options?: { enabled?: boolean },
+): UseQueryResult<OpsBookingDialogBundle, HttpError> {
+  const bookingService = useBookingService();
+  const queryClient = useQueryClient();
+  const isEnabled = Boolean(bookingId) && (options?.enabled ?? true);
+
+  const queryKey = useMemo(
+    () =>
+      bookingId
+        ? (['ops', 'bookings', 'dialog', bookingId] as const)
+        : (['ops', 'bookings', 'dialog', 'disabled'] as const),
+    [bookingId],
+  );
+
+  const query = useQuery<OpsBookingDialogBundle, HttpError>({
+    queryKey,
+    queryFn: async () => {
+      if (!bookingId) throw new Error('Booking ID is required');
+      const bundle = await bookingService.getDialogBundle(bookingId);
+      // Prime the per-purpose caches so the legacy hooks read from memory.
+      queryClient.setQueryData(queryKeys.opsBookings.detail(bookingId), bundle.booking);
+      queryClient.setQueryData(
+        queryKeys.opsBookings.assignmentContext(bookingId),
+        bundle.assignmentContext,
+      );
+      return bundle;
+    },
+    enabled: isEnabled,
+    staleTime: BUNDLE_STALE_MS,
+  });
+
+  // Single consolidated realtime channel covering everything the dialog needs.
+  // Replaces the two channels previously opened by `useOpsBooking` and
+  // `useTableAssignment` (which are now disabled when the bundle is active).
+  const restaurantId = query.data?.assignmentContext.booking.restaurant_id ?? null;
+  useEffect(() => {
+    if (!isEnabled || !bookingId || !restaurantId || !isRealtimeFloorplanEnabled()) {
+      return;
+    }
+
+    const client = getRealtimeSupabaseClient();
+    const channel = client.channel(`ops-booking-dialog:${restaurantId}:${bookingId}`, {
+      config: { broadcast: { self: false } },
+    });
+
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+    let lastRefreshAt = 0;
+
+    const invalidateBundle = () => {
+      const now = Date.now();
+      if (now - lastRefreshAt < REALTIME_REFETCH_DEDUPE_MS || refreshTimer) {
+        return;
+      }
+
+      refreshTimer = setTimeout(() => {
+        refreshTimer = null;
+        lastRefreshAt = Date.now();
+        void queryClient.invalidateQueries({
+          queryKey,
+          exact: true,
+          refetchType: 'active',
+        });
+      }, REALTIME_REFETCH_DEBOUNCE_MS);
+    };
+
+    channel
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'bookings', filter: `id=eq.${bookingId}` },
+        invalidateBundle,
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'booking_table_assignments',
+          filter: `booking_id=eq.${bookingId}`,
+        },
+        invalidateBundle,
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'booking_history',
+          filter: `booking_id=eq.${bookingId}`,
+        },
+        invalidateBundle,
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'allocations',
+          filter: `restaurant_id=eq.${restaurantId}`,
+        },
+        invalidateBundle,
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'table_holds',
+          filter: `restaurant_id=eq.${restaurantId}`,
+        },
+        invalidateBundle,
+      );
+
+    channel.subscribe();
+
+    return () => {
+      if (refreshTimer) {
+        clearTimeout(refreshTimer);
+      }
+      client.removeChannel(channel);
+    };
+  }, [bookingId, isEnabled, queryClient, queryKey, restaurantId]);
+
+  return query;
+}

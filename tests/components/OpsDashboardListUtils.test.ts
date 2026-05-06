@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { sortBookings, sortBookingsGrouped, toIsoTime } from '@/components/features/dashboard/list/utils';
+import {
+  filterBookingsBySearch,
+  getBookingSearchToken,
+  sortBookings,
+  sortBookingsGrouped,
+  toIsoTime,
+} from '@/components/features/dashboard/list/utils';
+
 import type { OpsTodayBooking } from '@/types/ops';
 
 describe('toIsoTime', () => {
@@ -80,5 +87,29 @@ describe('dashboard booking sorting', () => {
 
     const result = sortBookingsGrouped([seated, upcoming], 'time', 'asc');
     expect(result.map((booking) => booking.id)).toEqual(['upcoming', 'seated']);
+  });
+});
+
+describe('dashboard booking search tokens', () => {
+  it('uses explicit search text before fallback fields', () => {
+    const booking = createBooking({
+      customerName: 'Hidden Guest',
+      reference: 'ABC123',
+      searchText: 'precomputed-token',
+    });
+
+    expect(getBookingSearchToken(booking)).toBe('precomputed-token');
+  });
+
+  it('falls back to cached normalized guest and reference text', () => {
+    const booking = createBooking({
+      customerName: 'Alex Example',
+      reference: 'ZX-42',
+      searchText: null,
+    });
+
+    expect(getBookingSearchToken(booking)).toBe('alex example zx-42');
+    expect(filterBookingsBySearch([booking], 'zx-42')).toEqual([booking]);
+    expect(filterBookingsBySearch([booking], 'missing')).toEqual([]);
   });
 });

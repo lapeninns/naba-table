@@ -30,6 +30,7 @@ type BookingsListProps = {
     onSortKeyChange: (value: BookingSortKey) => void;
     onSortDirChange: (value: BookingSortDir) => void;
     isRefetching?: boolean;
+    dataUpdatedAt?: number | null;
   };
   bookingActions: DashboardBookingActionHandlers;
   summary: OpsTodayBookingsSummary;
@@ -102,6 +103,7 @@ function BookingsListContent({
         onSortKeyChange={controls.onSortKeyChange}
         onSortDirChange={controls.onSortDirChange}
         isRefetching={controls.isRefetching}
+        dataUpdatedAt={controls.dataUpdatedAt}
       />
 
       <BookingsListVirtualized

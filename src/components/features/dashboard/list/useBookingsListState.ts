@@ -4,7 +4,8 @@ import { DateTime } from 'luxon';
 import { useEffect, useMemo, useState } from 'react';
 
 import { matchesBookingFilter } from '../bookingFilters';
-import { sortBookings, sortBookingsGrouped } from './utils';
+import { getDashboardPerfStart, recordDashboardPerfMetric } from './performance';
+import { filterBookingsBySearch, sortBookings, sortBookingsGrouped } from './utils';
 
 import type { BookingFilter } from '../BookingsFilterBar';
 import type { BookingSortDir, BookingSortKey } from './utils';
@@ -86,47 +87,80 @@ export function useBookingsListState({
   }, [bookings, pendingLifecycleAction]);
   const hasSearch = useMemo(() => normalizedSearch.length > 0, [normalizedSearch]);
 
-  const filtered = useMemo(() => {
-    let result = bookingsForSort;
+  const searched = useMemo(() => {
+    const startedAt = getDashboardPerfStart();
+    const result = hasSearch
+      ? filterBookingsBySearch(bookingsForSort, normalizedSearch)
+      : bookingsForSort;
+    recordDashboardPerfMetric('ops-dashboard.list.search', startedAt, {
+      count: bookingsForSort.length,
+      hasSearch,
+    });
+    return result;
+  }, [bookingsForSort, normalizedSearch, hasSearch]);
 
-    if (normalizedSearch && hasSearch) {
-      const q = normalizedSearch;
-      result = result.filter((booking) =>
-        (
-          booking.searchText ??
-          `${booking.customerName ?? ''} ${booking.reference ?? ''}`.toLowerCase()
-        ).includes(q),
-      );
+  const nowForFilter = filter === 'all' ? null : now;
+  const summaryForFilter = filter === 'all' ? null : summary;
+
+  const filtered = useMemo(() => {
+    const startedAt = getDashboardPerfStart();
+    const result = searched;
+
+    if (filter === 'all') {
+      recordDashboardPerfMetric('ops-dashboard.list.filter', startedAt, {
+        count: searched.length,
+        filter,
+      });
+      return result;
+    }
+    const activeSummary = summaryForFilter;
+    const activeNow = nowForFilter;
+    if (!activeSummary || !activeNow) {
+      recordDashboardPerfMetric('ops-dashboard.list.filter', startedAt, {
+        count: searched.length,
+        filter,
+      });
+      return result;
     }
 
-    if (filter === 'all') return result;
-
-    return result.filter((booking) =>
+    const next = result.filter((booking) =>
       matchesBookingFilter({
         booking,
         filter,
-        summary,
-        now,
+        summary: activeSummary,
+        now: activeNow,
         allowTableAssignments,
         hasAssignmentHandlers,
       }),
     );
+    recordDashboardPerfMetric('ops-dashboard.list.filter', startedAt, {
+      count: searched.length,
+      filter,
+      resultCount: next.length,
+    });
+    return next;
   }, [
     allowTableAssignments,
-    bookingsForSort,
     filter,
     hasAssignmentHandlers,
-    now,
-    normalizedSearch,
-    hasSearch,
-    summary,
+    nowForFilter,
+    searched,
+    summaryForFilter,
   ]);
 
   const sorted = useMemo(() => {
-    if (filter === 'all') {
-      return sortBookingsGrouped(filtered, sortKey, sortDir);
-    }
-    return sortBookings(filtered, sortKey, sortDir);
+    const startedAt = getDashboardPerfStart();
+    const result =
+      filter === 'all'
+        ? sortBookingsGrouped(filtered, sortKey, sortDir)
+        : sortBookings(filtered, sortKey, sortDir);
+    recordDashboardPerfMetric('ops-dashboard.list.sort', startedAt, {
+      count: filtered.length,
+      filter,
+      sortKey,
+      sortDir,
+    });
+    return result;
   }, [filter, filtered, sortDir, sortKey]);
 
   return {

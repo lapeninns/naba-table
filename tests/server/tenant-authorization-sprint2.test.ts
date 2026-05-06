@@ -143,6 +143,10 @@ function buildAssignmentServiceClient() {
         calls.push({ table, method: 'order', args });
         return Promise.resolve(tableResult);
       }),
+      or: vi.fn((...args: unknown[]) => {
+        calls.push({ table, method: 'or', args });
+        return Promise.resolve(contextBookingsResult);
+      }),
       single: vi.fn(async () => ({
         data: {
           id: BOOKING_ID,
@@ -159,13 +163,8 @@ function buildAssignmentServiceClient() {
     };
 
     if (table === 'bookings') {
-      let eqCount = 0;
       chain.eq = vi.fn((...args: unknown[]) => {
         calls.push({ table, method: 'eq', args });
-        eqCount += 1;
-        if (eqCount >= 2 && args[0] === 'booking_date') {
-          return Promise.resolve(contextBookingsResult) as never;
-        }
         return chain;
       });
     }
@@ -302,6 +301,9 @@ describe('Sprint 2 tenant authorization route containment', () => {
       method: 'eq',
       args: ['restaurant_id', RESTAURANT_A],
     });
+    expect(service.calls.some((call) => call.table === 'bookings' && call.method === 'or')).toBe(
+      true,
+    );
     expect(cleanupOrphanedAssignmentsMock).not.toHaveBeenCalled();
   });
 });

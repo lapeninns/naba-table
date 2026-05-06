@@ -8,6 +8,8 @@
 'use client';
 
 import { ChevronDown } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { useEffect, useState } from 'react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -18,11 +20,26 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
 import { GuestProfilePanel } from './GuestProfilePanel';
-import { TableAssignmentPanel } from './TableAssignmentPanel';
 
 import type { OpsBookingStatus, OpsTodayBooking, OpsTodayBookingsSummary } from '../types';
 import type { FlattenedTable } from '../utils';
 import type { RefObject } from 'react';
+
+// Dynamic import keeps the table-assignment scoring + virtualization out of the
+// initial dialog chunk so first-open paint is faster.
+const TableAssignmentPanel = dynamic(
+  () => import('./TableAssignmentPanel').then((m) => m.TableAssignmentPanel),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="space-y-3" aria-busy="true">
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-32 w-full" />
+        <Skeleton className="h-24 w-full" />
+      </div>
+    ),
+  },
+);
 
 export type BookingDialogBodyProps = {
   isLoading: boolean;
@@ -53,6 +70,8 @@ export type BookingDialogBodyProps = {
 
   bookingStartTime?: string | null;
   bookingEndTime?: string | null;
+  tableAssignmentQueryEnabled?: boolean;
+  tableAssignmentRealtime?: boolean;
 };
 
 export function BookingDialogBody({
@@ -78,7 +97,22 @@ export function BookingDialogBody({
   onAssignmentComplete,
   bookingStartTime,
   bookingEndTime,
+  tableAssignmentQueryEnabled = true,
+  tableAssignmentRealtime = true,
 }: BookingDialogBodyProps) {
+  const [desktopTablePanelReady, setDesktopTablePanelReady] = useState(false);
+  const bookingId = booking?.id ?? null;
+  const restaurantId = summary?.restaurantId ?? null;
+
+  useEffect(() => {
+    if (isMobile || !bookingId || !restaurantId) {
+      setDesktopTablePanelReady(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setDesktopTablePanelReady(true), 180);
+    return () => window.clearTimeout(timer);
+  }, [isMobile, bookingId, restaurantId]);
+
   if (isLoading) {
     return (
       <div className="space-y-4 p-4">
@@ -188,6 +222,8 @@ export function BookingDialogBody({
                         onAssignmentComplete={onAssignmentComplete}
                         bookingStartTime={bookingStartTime}
                         bookingEndTime={bookingEndTime}
+                        enabled={isTableAssignmentOpen && tableAssignmentQueryEnabled}
+                        realtime={tableAssignmentRealtime}
                       />
                     ) : (
                       <Alert>
@@ -247,6 +283,8 @@ export function BookingDialogBody({
               onAssignmentComplete={onAssignmentComplete}
               bookingStartTime={bookingStartTime}
               bookingEndTime={bookingEndTime}
+              enabled={desktopTablePanelReady && tableAssignmentQueryEnabled}
+              realtime={tableAssignmentRealtime}
             />
           ) : (
             <Alert>

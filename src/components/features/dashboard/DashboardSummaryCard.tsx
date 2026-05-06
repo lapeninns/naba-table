@@ -92,6 +92,7 @@ export function DashboardSummaryCard({
               onSortKeyChange: controls.onSortKeyChange,
               onSortDirChange: controls.onSortDirChange,
               isRefetching: controls.isRefetching,
+              dataUpdatedAt: controls.dataUpdatedAt,
             }}
             bookingActions={bookingActions}
             summary={summary}

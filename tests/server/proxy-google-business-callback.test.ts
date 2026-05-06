@@ -46,6 +46,26 @@ describe('proxy GBP callback public API routing', () => {
     expect(requireOpsAuthMock).toHaveBeenCalledTimes(1);
   });
 
+  it('strips client-supplied ops user headers and forwards the validated user id', async () => {
+    const validatedUserId = '11111111-1111-4111-8111-111111111111';
+    requireOpsAuthMock.mockResolvedValue({ userId: validatedUserId, supabase: {} });
+
+    const response = await handleRouting(
+      new NextRequest('http://app.localhost/api/ops/bookings/booking-1/dialog', {
+        headers: {
+          'x-ops-user-id': '22222222-2222-4222-8222-222222222222',
+        },
+      }),
+    );
+
+    const forwardedHeader = response.headers.get('x-middleware-request-x-ops-user-id');
+
+    expect(response.headers.get('x-middleware-next')).toBe('1');
+    expect(requireOpsAuthMock).toHaveBeenCalledTimes(1);
+    expect(forwardedHeader).toBe(validatedUserId);
+    expect(forwardedHeader).not.toBe('22222222-2222-4222-8222-222222222222');
+  });
+
   it('redirects legacy root-host ops paths to the app dashboard', async () => {
     const response = await handleRouting(new NextRequest('http://localhost/ops?from=legacy'));
 

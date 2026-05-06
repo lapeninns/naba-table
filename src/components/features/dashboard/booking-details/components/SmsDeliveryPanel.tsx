@@ -30,6 +30,7 @@ export type SmsDeliveryPanelProps = {
   bookingId: string;
   timezone: string;
   limit?: number;
+  enabled?: boolean;
 };
 
 function StatusBadge({ status }: { status: SmsDeliveryStatus }) {
@@ -109,8 +110,13 @@ function GroupHeader({ group, timezone }: { group: SmsDeliveryGroup; timezone: s
   );
 }
 
-export function SmsDeliveryPanel({ bookingId, timezone, limit = 50 }: SmsDeliveryPanelProps) {
-  const query = useOpsBookingSmsDeliveryLog(bookingId, { limit });
+export function SmsDeliveryPanel({
+  bookingId,
+  timezone,
+  limit = 20,
+  enabled = true,
+}: SmsDeliveryPanelProps) {
+  const query = useOpsBookingSmsDeliveryLog(bookingId, { limit, enabled });
   const heavyPanelStyle = {
     contentVisibility: 'auto',
     containIntrinsicSize: '1px 120px',

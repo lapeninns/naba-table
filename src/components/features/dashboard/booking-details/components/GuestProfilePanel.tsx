@@ -4,19 +4,25 @@ import {
   Calendar,
   Clock,
   CreditCard,
+  ChevronDown,
   Mail,
   MessageCircle,
   MessageSquare,
   Phone,
   Users,
 } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-import { formatBookingTime, formatPhoneForTel, getGuestInitials, parseBookingDateTime } from '../utils';
+import {
+  formatBookingTime,
+  formatPhoneForTel,
+  getGuestInitials,
+  parseBookingDateTime,
+} from '../utils';
 import { ArrivalCountdown } from './ArrivalCountdown';
 import { EmailDeliveryPanel } from './EmailDeliveryPanel';
 import { GuestDietaryBadge } from './guest/GuestDietaryBadge';
@@ -42,11 +48,7 @@ export interface GuestProfilePanelProps {
 function formatDepositGBP(value: unknown): string | null {
   if (value === null || value === undefined) return null;
   const parsed =
-    typeof value === 'number'
-      ? value
-      : typeof value === 'string'
-        ? Number(value)
-        : Number.NaN;
+    typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : Number.NaN;
   if (!Number.isNaN(parsed) && Number.isFinite(parsed)) {
     return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(parsed);
   }
@@ -99,6 +101,7 @@ export function GuestProfilePanel({
   totalCapacity,
   capacityPercent,
 }: GuestProfilePanelProps) {
+  const [deliveryOpen, setDeliveryOpen] = useState(false);
   const formattedStartTime = useMemo(
     () => formatBookingTime(booking.startTime, bookingDate, timezone),
     [booking.startTime, bookingDate, timezone],
@@ -145,7 +148,6 @@ export function GuestProfilePanel({
 
   return (
     <div className="flex flex-col gap-6 w-full">
-
       {/* ── 1. Hero Identity Strip ───────────────────────────────────────── */}
       <section className="relative flex items-start gap-4">
         {/* Ambient glow behind avatar */}
@@ -246,24 +248,35 @@ export function GuestProfilePanel({
 
       {/* ── 2. Glassy Stat Grid ─────────────────────────────────────────── */}
       <section className="grid grid-cols-2 gap-2.5 sm:grid-cols-2">
-        <StatChip icon={Clock} label="Time" value={
-          <span>
-            {formattedStartTime}
-            {durationMinutes && (
-              <span className="ml-1.5 text-xs font-normal text-muted-foreground">
-                {Math.floor(durationMinutes / 60) > 0
-                  ? `${Math.floor(durationMinutes / 60)}h ${durationMinutes % 60}m`
-                  : `${durationMinutes}m`}
-              </span>
-            )}
-          </span>
-        } accent />
+        <StatChip
+          icon={Clock}
+          label="Time"
+          value={
+            <span>
+              {formattedStartTime}
+              {durationMinutes && (
+                <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                  {Math.floor(durationMinutes / 60) > 0
+                    ? `${Math.floor(durationMinutes / 60)}h ${durationMinutes % 60}m`
+                    : `${durationMinutes}m`}
+                </span>
+              )}
+            </span>
+          }
+          accent
+        />
         <StatChip icon={Users} label="Party" value={`${booking.partySize} guests`} accent />
-        <StatChip icon={Calendar} label="Occasion" value={<span className="capitalize">{occasionLabel}</span>} />
+        <StatChip
+          icon={Calendar}
+          label="Occasion"
+          value={<span className="capitalize">{occasionLabel}</span>}
+        />
         <StatChip
           icon={CreditCard}
           label="Deposit"
-          value={depositLabel ?? <span className="text-muted-foreground font-normal text-xs">None</span>}
+          value={
+            depositLabel ?? <span className="text-muted-foreground font-normal text-xs">None</span>
+          }
         />
         <StatChip
           icon={MessageSquare}
@@ -278,9 +291,7 @@ export function GuestProfilePanel({
           <div
             className={cn(
               'flex items-center rounded-2xl border p-4',
-              isLate
-                ? 'border-destructive/20 bg-destructive/5'
-                : 'border-primary/15 bg-primary/5',
+              isLate ? 'border-destructive/20 bg-destructive/5' : 'border-primary/15 bg-primary/5',
             )}
           >
             <ArrivalCountdown
@@ -344,12 +355,31 @@ export function GuestProfilePanel({
 
       {/* ── 7. Timeline & Delivery Logs ─────────────────────────────────── */}
       <section className="space-y-3 border-t border-border/30 pt-6">
-        <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 px-1">
-          Timeline &amp; Delivery
-        </h3>
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => setDeliveryOpen((prev) => !prev)}
+          className="h-auto w-full justify-between rounded-lg px-1 py-1 text-left hover:bg-muted/30"
+          aria-expanded={deliveryOpen}
+        >
+          <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+            Timeline &amp; Delivery
+          </h3>
+          <ChevronDown
+            className={cn(
+              'h-4 w-4 text-muted-foreground/70 transition-transform',
+              deliveryOpen && 'rotate-180',
+            )}
+            aria-hidden
+          />
+        </Button>
         <GuestTimelineCard status={status} booking={booking} timezone={timezone} />
-        <EmailDeliveryPanel bookingId={booking.id} timezone={timezone} />
-        <SmsDeliveryPanel bookingId={booking.id} timezone={timezone} />
+        {deliveryOpen ? (
+          <>
+            <EmailDeliveryPanel bookingId={booking.id} timezone={timezone} enabled={deliveryOpen} />
+            <SmsDeliveryPanel bookingId={booking.id} timezone={timezone} enabled={deliveryOpen} />
+          </>
+        ) : null}
       </section>
     </div>
   );

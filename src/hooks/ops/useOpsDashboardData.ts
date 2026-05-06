@@ -1,6 +1,11 @@
 'use client';
 
-import { keepPreviousData, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  useQuery,
+  useQueryClient,
+  type UseQueryResult,
+} from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useBookingService } from '@/contexts/ops-services';
@@ -20,6 +25,8 @@ import {
 
 import type { OpsDashboardData } from '@/types/ops';
 
+const DASHBOARD_FOCUS_REFETCH_MIN_AGE_MS = 60_000;
+
 export type UseOpsDashboardDataOptions = {
   restaurantId?: string | null;
   targetDate?: string | null;
@@ -32,7 +39,29 @@ export type UseOpsDashboardDataResult = UseQueryResult<OpsDashboardData> & {
   isPolling: boolean;
 };
 
-export function useOpsDashboardData(options: UseOpsDashboardDataOptions): UseOpsDashboardDataResult {
+function normalizeDashboardData(data: OpsDashboardData): OpsDashboardData {
+  const bookings = data.bookings ?? [];
+  const meta = data.meta ?? {
+    date: data.date,
+    timezone: data.timezone,
+    restaurantId: data.restaurantId,
+  };
+
+  if (bookings === data.bookings && meta === data.meta) {
+    return data;
+  }
+
+  return {
+    ...data,
+    meta,
+    bookings,
+    totals: data.totals,
+  };
+}
+
+export function useOpsDashboardData(
+  options: UseOpsDashboardDataOptions,
+): UseOpsDashboardDataResult {
   const bookingService = useBookingService();
   const { status } = useSupabaseSession();
   const queryClient = useQueryClient();
@@ -82,18 +111,14 @@ export function useOpsDashboardData(options: UseOpsDashboardDataOptions): UseOps
     refetchInterval: shouldPoll ? SUMMARY_POLL_INTERVAL_MS : false,
     refetchIntervalInBackground: false,
     refetchOnReconnect: isEnabled,
-    refetchOnWindowFocus: isEnabled,
+    refetchOnWindowFocus: (queryInstance) => {
+      if (!isEnabled || !isVisible) return false;
+      const updatedAt = queryInstance.state.dataUpdatedAt;
+      if (!updatedAt) return true;
+      return Date.now() - updatedAt >= DASHBOARD_FOCUS_REFETCH_MIN_AGE_MS;
+    },
     placeholderData: keepPreviousData,
-    select: (data) => ({
-      ...data,
-      meta: data.meta ?? {
-        date: data.date,
-        timezone: data.timezone,
-        restaurantId: data.restaurantId,
-      },
-      bookings: data.bookings ?? [],
-      totals: data.totals,
-    }),
+    select: normalizeDashboardData,
   });
   const { data, dataUpdatedAt, isFetching, refetch } = query;
 

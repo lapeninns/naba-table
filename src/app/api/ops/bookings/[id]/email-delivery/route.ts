@@ -94,7 +94,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     return NextResponse.json(
       { ok: true, bookingId, events } satisfies Extract<BookingEmailDeliveryResponse, { ok: true }>,
-      { status: 200 },
+      {
+        status: 200,
+        headers: { 'Cache-Control': 'private, max-age=0, must-revalidate' },
+      },
     );
   } catch (error) {
     if (error instanceof GuardError) {

@@ -61,13 +61,15 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
   }, [actions.bookingId, onMarkNoShow]);
 
   return (
-    <div className="px-4 pb-4">
-      <div className="flex flex-wrap items-center justify-between gap-y-3 border-t border-border/60 pt-3">
+    <div className="px-3 pb-3 sm:px-4 sm:pb-4">
+      <div className="flex flex-col gap-2 border-t border-border/60 pt-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+
+        {/* ── Utility row: Details + overflow menu ──────────────────── */}
         <div className="flex items-center gap-1">
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
-            className="h-9 px-4 text-xs font-medium focus-visible:ring-[3px] focus-visible:ring-ring/30 sm:h-8"
+            className="h-9 px-3 text-xs font-medium text-muted-foreground focus-visible:ring-[3px] focus-visible:ring-ring/30 hover:text-foreground sm:h-8"
             onClick={onDetails}
             disabled={actions.details.disabled}
           >
@@ -78,8 +80,8 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
-                size="sm"
-                className="h-9 w-9 p-0 focus-visible:ring-[3px] focus-visible:ring-ring/30 sm:h-8 sm:w-8"
+                size="icon"
+                className="h-9 w-9 text-muted-foreground focus-visible:ring-[3px] focus-visible:ring-ring/30 hover:text-foreground sm:h-8 sm:w-8"
                 aria-label="More actions"
                 disabled={disableMenuTrigger}
               >
@@ -113,17 +115,19 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
           </DropdownMenu>
         </div>
 
-        <div>
+        {/* ── Primary CTA ───────────────────────────────────────────── */}
+        <div className="sm:ml-auto">
           {primaryButton ? (
             <Button
               size="sm"
               disabled={primaryButton.disabled}
               className={cn(
-                'h-9 w-full sm:w-auto sm:min-w-[120px] px-6 font-semibold shadow-sm transition-[box-shadow,background-color] duration-150 ease-out hover:shadow-sm motion-reduce:transition-none',
+                'h-9 w-full px-6 font-semibold shadow-sm transition-[box-shadow,background-color] duration-150 ease-out motion-reduce:transition-none sm:w-auto sm:min-w-[140px]',
                 primaryButton.id === 'check-out'
-                  ? 'bg-muted/40 text-muted-foreground hover:bg-muted'
-                  : 'bg-primary/10 text-primary hover:bg-primary/10',
+                  ? 'border border-success/30 bg-transparent text-success hover:bg-success/10'
+                  : 'bg-primary text-primary-foreground hover:bg-primary/90',
               )}
+              variant={primaryButton.id === 'check-out' ? 'outline' : 'default'}
               onClick={() =>
                 primaryButton.id === 'check-out'
                   ? onCheckOut?.(actions.bookingId)
@@ -161,7 +165,7 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
           <AlertDialogHeader>
             <AlertDialogTitle>{actions.noShowConfirmation.title}</AlertDialogTitle>
             <AlertDialogDescription>
-              You’re about to mark{' '}
+              You&apos;re about to mark{' '}
               <span className="font-semibold text-foreground">
                 {actions.noShowConfirmation.description.customerLabel}
               </span>{' '}
