@@ -15,6 +15,9 @@ import type { GoogleFoodMenusResource } from '@/server/google-business-profile/f
 import type { MenuItemDetail } from '@/server/menu/types';
 import type { CanonicalRestaurantMenu } from '@/server/menu-hierarchy/types';
 
+type CanonicalMenuItem = CanonicalRestaurantMenu['sections'][number]['items'][number];
+type CanonicalMenuOption = CanonicalMenuItem['options'][number];
+
 function makeMenuItem(overrides: Partial<MenuItemDetail> = {}): MenuItemDetail {
   return {
     id: 'item-1',
@@ -72,6 +75,106 @@ function makeMenuItem(overrides: Partial<MenuItemDetail> = {}): MenuItemDetail {
     updatedAt: '2026-05-01T10:00:00.000Z',
     modifierGroups: [],
     ...overrides,
+  };
+}
+
+function makeCanonicalOption(overrides: Partial<CanonicalMenuOption> = {}): CanonicalMenuOption {
+  return {
+    id: 'option-chicken',
+    restaurantId: 'rest-1',
+    menuItemId: 'item-korma',
+    externalOptionId: 'chicken',
+    labels: [{ displayName: 'Chicken', languageCode: 'en-GB' }],
+    attributes: {
+      price: { currencyCode: 'GBP', amount: 12.5 },
+      allergen: [],
+      dietaryRestriction: [],
+      ingredients: [],
+      preparationMethods: [],
+      mediaKeys: [],
+      nutritionFacts: {},
+    },
+    media: { googleMediaKeys: [], localMedia: {} },
+    displayOrder: 0,
+    active: true,
+    legacySource: {},
+    ...overrides,
+  };
+}
+
+function makeCanonicalItem(overrides: Partial<CanonicalMenuItem> = {}): CanonicalMenuItem {
+  return {
+    id: 'item-korma',
+    restaurantId: 'rest-1',
+    menuId: 'food-menu',
+    sectionId: 'section-curries',
+    itemKind: 'food',
+    externalItemId: 'korma',
+    legacySource: {},
+    labels: [
+      {
+        displayName: 'Korma',
+        description: 'Mild creamy curry.',
+        languageCode: 'en-GB',
+      },
+    ],
+    attributes: {
+      price: { currencyCode: 'GBP', amount: 10.5 },
+      spiciness: 'MILD',
+      allergen: ['DAIRY'],
+      dietaryRestriction: [],
+      ingredients: [{ labels: [{ displayName: 'Coconut', languageCode: 'en-GB' }] }],
+      preparationMethods: [],
+      mediaKeys: [],
+      nutritionFacts: {},
+    },
+    media: {
+      googleMediaKeys: ['locations/123/media/korma'],
+      localImageUrl: 'https://cdn.example.test/korma.jpg',
+      localMedia: {},
+    },
+    extensions: {
+      drinkProfile: {},
+      recommendationMetadata: {},
+      availabilityPolicy: {},
+      customizationControls: {},
+      sourceMetadata: {},
+    },
+    options: [makeCanonicalOption()],
+    displayOrder: 0,
+    active: true,
+    ...overrides,
+  };
+}
+
+function makeCanonicalMenu(
+  itemOverrides: Partial<CanonicalMenuItem> = {},
+): CanonicalRestaurantMenu {
+  return {
+    id: 'food-menu',
+    restaurantId: 'rest-1',
+    labels: [{ displayName: 'Dinner', languageCode: 'en-GB' }],
+    sourceUrl: null,
+    cuisines: ['INDIAN'],
+    defaultLanguageCode: 'en-GB',
+    menuKind: 'food',
+    displayOrder: 0,
+    active: true,
+    legacySource: {},
+    sections: [
+      {
+        id: 'section-curries',
+        restaurantId: 'rest-1',
+        menuId: 'food-menu',
+        labels: [{ displayName: 'Authentic Curries', languageCode: 'en-GB' }],
+        displayOrder: 0,
+        active: true,
+        legacyCategory: 'Authentic Curries',
+        legacySubcategory: null,
+        legacySource: {},
+        items: [makeCanonicalItem(itemOverrides)],
+      },
+    ],
   };
 }
 
@@ -221,6 +324,139 @@ describe('buildGoogleFoodMenusProjection', () => {
     expect(projection.identities[0]?.googleOptionPaths[0]?.googlePath).toBe(
       'menus[0].sections[0].items[0].options[0]',
     );
+  });
+
+  it('expands flagged canonical option groups into separate Google rows without nested options', () => {
+    const projection = buildCanonicalGoogleFoodMenusProjection({
+      foodMenusName: 'accounts/123/locations/456/foodMenus',
+      menus: [
+        makeCanonicalMenu({
+          legacySource: {
+            googleFoodMenusProjection: { optionDisplay: 'expanded_items' },
+          },
+          options: [
+            makeCanonicalOption({
+              id: 'option-chicken',
+              externalOptionId: 'chicken',
+              labels: [{ displayName: 'Chicken', languageCode: 'en-GB' }],
+              attributes: {
+                price: { currencyCode: 'GBP', amount: 12.5 },
+                allergen: [],
+                dietaryRestriction: ['HALAL'],
+                ingredients: [],
+                preparationMethods: [],
+                mediaKeys: [],
+                nutritionFacts: {},
+              },
+              displayOrder: 0,
+            }),
+            makeCanonicalOption({
+              id: 'option-lamb',
+              externalOptionId: 'lamb',
+              labels: [{ displayName: 'Lamb Korma', languageCode: 'en-GB' }],
+              attributes: {
+                price: { currencyCode: 'GBP', amount: 13.5 },
+                allergen: [],
+                dietaryRestriction: [],
+                ingredients: [],
+                preparationMethods: [],
+                mediaKeys: [],
+                nutritionFacts: {},
+              },
+              displayOrder: 1,
+            }),
+          ],
+        }),
+      ],
+    });
+
+    const items = projection.foodMenus.menus[0]?.sections[0]?.items;
+    expect(items).toHaveLength(2);
+    expect(items?.map((item) => item.labels[0]?.displayName)).toEqual([
+      'Chicken Korma',
+      'Lamb Korma',
+    ]);
+    expect(items?.map((item) => item.options)).toEqual([undefined, undefined]);
+    expect(items?.[0]).toMatchObject({
+      labels: [
+        {
+          displayName: 'Chicken Korma',
+          description: 'Mild creamy curry.',
+          languageCode: 'en-GB',
+        },
+      ],
+      attributes: {
+        price: { currencyCode: 'GBP', units: '12', nanos: 500000000 },
+        spiciness: 'MILD',
+        allergen: ['DAIRY'],
+        dietaryRestriction: ['HALAL'],
+        mediaKeys: ['locations/123/media/korma'],
+      },
+    });
+    expect(projection.identities).toEqual([
+      expect.objectContaining({
+        stableKey: 'foodMenu.menu.food-menu.section.section-curries.item.korma.optionItem.chicken',
+        localItemId: 'item-korma',
+        externalItemId: 'korma::option::chicken',
+        itemName: 'Chicken Korma',
+        googlePath: 'menus[0].sections[0].items[0]',
+        googleOptionPaths: [],
+        projectionKind: 'option_item',
+      }),
+      expect.objectContaining({
+        stableKey: 'foodMenu.menu.food-menu.section.section-curries.item.korma.optionItem.lamb',
+        localItemId: 'item-korma',
+        externalItemId: 'korma::option::lamb',
+        itemName: 'Lamb Korma',
+        googlePath: 'menus[0].sections[0].items[1]',
+        googleOptionPaths: [],
+        projectionKind: 'option_item',
+      }),
+    ]);
+  });
+
+  it('emits flagged single parent canonical rows with from-price names and no options', () => {
+    const projection = buildCanonicalGoogleFoodMenusProjection({
+      foodMenusName: 'accounts/123/locations/456/foodMenus',
+      menus: [
+        makeCanonicalMenu({
+          externalItemId: 'sister-pub-special',
+          labels: [{ displayName: 'Sunday Roast', languageCode: 'en-GB' }],
+          legacySource: {
+            googleFoodMenusProjection: { optionDisplay: 'single_from_parent' },
+          },
+          attributes: {
+            price: { currencyCode: 'GBP', amount: 12.95 },
+            allergen: [],
+            dietaryRestriction: [],
+            ingredients: [],
+            preparationMethods: [],
+            mediaKeys: [],
+            nutritionFacts: {},
+          },
+          options: [
+            makeCanonicalOption({
+              externalOptionId: 'premium',
+              labels: [{ displayName: 'Premium', languageCode: 'en-GB' }],
+            }),
+          ],
+        }),
+      ],
+    });
+
+    expect(projection.foodMenus.menus[0]?.sections[0]?.items).toHaveLength(1);
+    expect(projection.foodMenus.menus[0]?.sections[0]?.items[0]).toMatchObject({
+      labels: [{ displayName: 'Sunday Roast - from £12.95', languageCode: 'en-GB' }],
+      attributes: {
+        price: { currencyCode: 'GBP', units: '12', nanos: 950000000 },
+      },
+    });
+    expect(projection.identities[0]).toMatchObject({
+      stableKey: 'foodMenu.menu.food-menu.section.section-curries.item.sister-pub-special',
+      externalItemId: 'sister-pub-special',
+      googlePath: 'menus[0].sections[0].items[0]',
+      googleOptionPaths: [],
+    });
   });
 
   it('filters unsupported canonical cuisine values before building the Google payload', () => {
@@ -506,6 +742,56 @@ describe('buildGoogleFoodMenusProjection', () => {
         warnings: [],
       },
     ]);
+    expect(review.localItemsMissingFromGoogle).toEqual([]);
+  });
+
+  it('does not suggest renaming a parent item from generated expanded option rows', () => {
+    const localItem = makeMenuItem({
+      id: 'item-korma',
+      externalItemId: 'korma',
+      itemName: 'Korma',
+      category: 'Authentic Curries',
+      subcategory: null,
+      basePrice: 10.5,
+    });
+    const projection = buildCanonicalGoogleFoodMenusProjection({
+      foodMenusName: 'accounts/123/locations/456/foodMenus',
+      menus: [
+        makeCanonicalMenu({
+          legacySource: {
+            googleFoodMenusProjection: { optionDisplay: 'expanded_items' },
+          },
+          options: [
+            makeCanonicalOption({
+              id: 'option-chicken',
+              externalOptionId: 'chicken',
+              labels: [{ displayName: 'Chicken', languageCode: 'en-GB' }],
+            }),
+          ],
+        }),
+      ],
+    });
+
+    const review = buildGoogleFoodMenusImportReview({
+      googleFoodMenus: projection.foodMenus,
+      localItems: [localItem],
+      previousIdentities: projection.identities,
+    });
+
+    expect(
+      review.items.find((item) => item.googlePath === 'menus[0].sections[0].items[0]'),
+    ).toMatchObject({
+      googleSectionLabel: 'Authentic Curries',
+      googleItemName: 'Chicken Korma',
+      targetKind: 'food',
+      match: {
+        status: 'matched',
+        confidence: 'previous_identity',
+        localItemId: 'item-korma',
+        externalItemId: 'korma',
+      },
+      suggestedPatch: null,
+    });
     expect(review.localItemsMissingFromGoogle).toEqual([]);
   });
 

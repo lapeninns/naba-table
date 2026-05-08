@@ -172,6 +172,7 @@ export type GoogleFoodMenusProjectedIdentity = {
     externalModifierOptionId: string;
     googlePath: string;
   }>;
+  projectionKind?: 'option_item';
 };
 
 export type GoogleFoodMenusProjectionSkippedItem = {
@@ -375,6 +376,8 @@ type ProjectedSection = {
 type ImportLocalItem = MenuItemDetail & {
   targetKind: GoogleFoodMenusImportTargetKind;
 };
+
+type GoogleFoodMenusOptionDisplayMode = 'expanded_items' | 'single_from_parent';
 
 function cleanText(value: string | null | undefined): string | null {
   if (typeof value !== 'string') {
@@ -1362,6 +1365,22 @@ function primaryCanonicalLabelText(
   return cleanText(entity.labels[0]?.displayName) ?? fallback;
 }
 
+function canonicalProjectionOptionDisplayMode(
+  item: CanonicalRestaurantMenuItem,
+): GoogleFoodMenusOptionDisplayMode | null {
+  const projection =
+    item.legacySource.googleFoodMenusProjection &&
+    typeof item.legacySource.googleFoodMenusProjection === 'object' &&
+    !Array.isArray(item.legacySource.googleFoodMenusProjection)
+      ? item.legacySource.googleFoodMenusProjection
+      : null;
+  const optionDisplay =
+    projection && 'optionDisplay' in projection ? projection.optionDisplay : null;
+  return optionDisplay === 'expanded_items' || optionDisplay === 'single_from_parent'
+    ? optionDisplay
+    : null;
+}
+
 function canonicalNutritionFacts(
   nutritionFacts: CanonicalRestaurantMenuItem['attributes']['nutritionFacts'] | null | undefined,
 ): GoogleNutritionFacts {
@@ -1442,6 +1461,46 @@ function buildCanonicalAttributes(
   };
 }
 
+function mergeExpandedOptionAttributes(
+  parentAttributes: GoogleFoodMenuItemAttributes,
+  optionAttributes: GoogleFoodMenuItemAttributes,
+): GoogleFoodMenuItemAttributes {
+  return {
+    ...parentAttributes,
+    ...optionAttributes,
+    ...(optionAttributes.allergen?.length
+      ? { allergen: optionAttributes.allergen }
+      : parentAttributes.allergen?.length
+        ? { allergen: parentAttributes.allergen }
+        : {}),
+    ...(optionAttributes.dietaryRestriction?.length
+      ? { dietaryRestriction: optionAttributes.dietaryRestriction }
+      : parentAttributes.dietaryRestriction?.length
+        ? { dietaryRestriction: parentAttributes.dietaryRestriction }
+        : {}),
+    ...(optionAttributes.ingredients?.length
+      ? { ingredients: optionAttributes.ingredients }
+      : parentAttributes.ingredients?.length
+        ? { ingredients: parentAttributes.ingredients }
+        : {}),
+    ...(optionAttributes.preparationMethods?.length
+      ? { preparationMethods: optionAttributes.preparationMethods }
+      : parentAttributes.preparationMethods?.length
+        ? { preparationMethods: parentAttributes.preparationMethods }
+        : {}),
+    ...(optionAttributes.mediaKeys?.length
+      ? { mediaKeys: optionAttributes.mediaKeys }
+      : parentAttributes.mediaKeys?.length
+        ? { mediaKeys: parentAttributes.mediaKeys }
+        : {}),
+    ...(optionAttributes.nutritionFacts && Object.keys(optionAttributes.nutritionFacts).length > 0
+      ? { nutritionFacts: optionAttributes.nutritionFacts }
+      : parentAttributes.nutritionFacts && Object.keys(parentAttributes.nutritionFacts).length > 0
+        ? { nutritionFacts: parentAttributes.nutritionFacts }
+        : {}),
+  };
+}
+
 function canonicalSkippedReason(
   item: CanonicalRestaurantMenuItem,
 ): GoogleFoodMenusProjectionSkippedItem['reason'] | null {
@@ -1462,6 +1521,37 @@ function canonicalOptionIdentityPaths(
   }));
 }
 
+function formatFromPrice(attributes: GoogleFoodMenuItemAttributes): string | null {
+  const price = attributes.price;
+  const amount = googleMoneyToNumber(price);
+  const currencyCode = cleanText(price?.currencyCode)?.toUpperCase() ?? 'GBP';
+  if (amount === null) {
+    return null;
+  }
+  const formatted = amount.toLocaleString('en-GB', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  return currencyCode === 'GBP' ? `£${formatted}` : `${currencyCode} ${formatted}`;
+}
+
+function withFromPriceSuffix(
+  displayName: string,
+  attributes: GoogleFoodMenuItemAttributes,
+): string {
+  if (/\bfrom\s+(£|[A-Z]{3}\s+)?\d/i.test(displayName)) {
+    return displayName;
+  }
+  const fromPrice = formatFromPrice(attributes);
+  return fromPrice ? `${displayName} - from ${fromPrice}` : displayName;
+}
+
+function expandedOptionItemName(parentName: string, optionName: string): string {
+  return normalizeComparableText(optionName).includes(normalizeComparableText(parentName))
+    ? optionName
+    : `${optionName} ${parentName}`;
+}
+
 function buildCanonicalItem(item: CanonicalRestaurantMenuItem): GoogleFoodMenuItem {
   const options = sortedByDisplayOrder(
     item.options.filter((option) => option.active),
@@ -1474,6 +1564,44 @@ function buildCanonicalItem(item: CanonicalRestaurantMenuItem): GoogleFoodMenuIt
     labels: [primaryCanonicalLabel(item, item.externalItemId)],
     attributes: buildCanonicalAttributes(item),
     ...(options.length ? { options } : {}),
+  };
+}
+
+function buildCanonicalParentOnlyItem(item: CanonicalRestaurantMenuItem): GoogleFoodMenuItem {
+  const attributes = buildCanonicalAttributes(item);
+  const label = primaryCanonicalLabel(item, item.externalItemId);
+  return {
+    labels: [
+      {
+        ...label,
+        displayName: withFromPriceSuffix(label.displayName, attributes),
+      },
+    ],
+    attributes,
+  };
+}
+
+function buildCanonicalExpandedOptionItem(
+  parentItem: CanonicalRestaurantMenuItem,
+  option: CanonicalRestaurantMenuOption,
+): GoogleFoodMenuItem {
+  const parentLabel = primaryCanonicalLabel(parentItem, parentItem.externalItemId);
+  const optionLabel = primaryCanonicalLabel(option, option.externalOptionId ?? 'Option');
+  const attributes = mergeExpandedOptionAttributes(
+    buildCanonicalAttributes(parentItem),
+    buildCanonicalAttributes(option),
+  );
+  return {
+    labels: [
+      {
+        ...optionLabel,
+        displayName: expandedOptionItemName(parentLabel.displayName, optionLabel.displayName),
+        ...((optionLabel.description ?? parentLabel.description)
+          ? { description: optionLabel.description ?? parentLabel.description }
+          : {}),
+      },
+    ],
+    attributes,
   };
 }
 
@@ -1507,22 +1635,62 @@ export function buildCanonicalGoogleFoodMenusProjection(
         });
         return false;
       });
+      const googleItems: GoogleFoodMenuItem[] = [];
+      for (const item of exportableItems) {
+        const mode = canonicalProjectionOptionDisplayMode(item);
+        const activeOptions = sortedByDisplayOrder(
+          item.options.filter((option) => option.active),
+          (option) =>
+            primaryCanonicalLabelText(option, option.externalOptionId ?? option.id ?? 'Option'),
+        );
+
+        if (mode === 'expanded_items') {
+          for (const option of activeOptions) {
+            const itemPath = `menus[${menuIndex}].sections[${sectionIndex}].items[${googleItems.length}]`;
+            const parentStableKey = `foodMenu.menu.${slugify(menu.id ?? primaryCanonicalLabelText(menu, 'menu'), 'menu')}.section.${slugify(section.id ?? sectionLabel, 'section')}.item.${slugify(item.externalItemId, item.id ?? 'item')}`;
+            const externalOptionId =
+              option.externalOptionId ?? option.id ?? `option-${googleItems.length + 1}`;
+            const googleItem = buildCanonicalExpandedOptionItem(item, option);
+            identities.push({
+              stableKey: `${parentStableKey}.optionItem.${slugify(externalOptionId, option.id ?? 'option')}`,
+              localItemId: item.id ?? item.externalItemId,
+              externalItemId: `${item.externalItemId}::option::${externalOptionId}`,
+              itemName: primaryCanonicalLabelText(
+                { labels: googleItem.labels },
+                `${externalOptionId} ${item.externalItemId}`,
+              ),
+              sectionKey: slugify(section.id ?? sectionLabel, 'section'),
+              sectionLabel,
+              googlePath: itemPath,
+              googleOptionPaths: [],
+              projectionKind: 'option_item',
+            });
+            googleItems.push(googleItem);
+          }
+          continue;
+        }
+
+        const itemPath = `menus[${menuIndex}].sections[${sectionIndex}].items[${googleItems.length}]`;
+        identities.push({
+          stableKey: `foodMenu.menu.${slugify(menu.id ?? primaryCanonicalLabelText(menu, 'menu'), 'menu')}.section.${slugify(section.id ?? sectionLabel, 'section')}.item.${slugify(item.externalItemId, item.id ?? 'item')}`,
+          localItemId: item.id ?? item.externalItemId,
+          externalItemId: item.externalItemId,
+          itemName: primaryCanonicalLabelText(item, item.externalItemId),
+          sectionKey: slugify(section.id ?? sectionLabel, 'section'),
+          sectionLabel,
+          googlePath: itemPath,
+          googleOptionPaths:
+            mode === 'single_from_parent' ? [] : canonicalOptionIdentityPaths(item, itemPath),
+        });
+        googleItems.push(
+          mode === 'single_from_parent'
+            ? buildCanonicalParentOnlyItem(item)
+            : buildCanonicalItem(item),
+        );
+      }
       return {
         labels: [primaryCanonicalLabel(section, section.id ?? 'Section')],
-        items: exportableItems.map((item, itemIndex) => {
-          const itemPath = `menus[${menuIndex}].sections[${sectionIndex}].items[${itemIndex}]`;
-          identities.push({
-            stableKey: `foodMenu.menu.${slugify(menu.id ?? primaryCanonicalLabelText(menu, 'menu'), 'menu')}.section.${slugify(section.id ?? sectionLabel, 'section')}.item.${slugify(item.externalItemId, item.id ?? 'item')}`,
-            localItemId: item.id ?? item.externalItemId,
-            externalItemId: item.externalItemId,
-            itemName: primaryCanonicalLabelText(item, item.externalItemId),
-            sectionKey: slugify(section.id ?? sectionLabel, 'section'),
-            sectionLabel,
-            googlePath: itemPath,
-            googleOptionPaths: canonicalOptionIdentityPaths(item, itemPath),
-          });
-          return buildCanonicalItem(item);
-        }),
+        items: googleItems,
       };
     });
 
@@ -1545,16 +1713,21 @@ export function buildCanonicalGoogleFoodMenusProjection(
   };
 }
 
+function isOptionItemIdentity(identity: GoogleFoodMenusProjectedIdentity): boolean {
+  return identity.projectionKind === 'option_item' || identity.stableKey.includes('.optionItem.');
+}
+
 function findLocalItemByPreviousIdentity(
   googlePath: string,
   localItemsById: Map<string, ImportLocalItem>,
   previousIdentities: ReadonlyArray<GoogleFoodMenusProjectedIdentity>,
-): ImportLocalItem | null {
+): { item: ImportLocalItem; isProjectedOptionItem: boolean } | null {
   const identity = previousIdentities.find((entry) => entry.googlePath === googlePath);
   if (!identity) {
     return null;
   }
-  return localItemsById.get(identity.localItemId) ?? null;
+  const item = localItemsById.get(identity.localItemId);
+  return item ? { item, isProjectedOptionItem: isOptionItemIdentity(identity) } : null;
 }
 
 function findLocalItemByDisplayMatch(
@@ -1917,11 +2090,13 @@ export function buildGoogleFoodMenusImportReview(
         const googleItemName = cleanText(getPrimaryLabel(googleItem.labels)?.displayName);
         const googlePrice = googleMoneyToNumber(googleItem.attributes.price);
         const warnings: string[] = [];
-        let localItem = findLocalItemByPreviousIdentity(
+        const previousIdentityMatch = findLocalItemByPreviousIdentity(
           googlePath,
           localItemsById,
           input.previousIdentities ?? [],
         );
+        let localItem = previousIdentityMatch?.item ?? null;
+        const isProjectedOptionItem = previousIdentityMatch?.isProjectedOptionItem ?? false;
         let confidence: GoogleFoodMenusImportMatchConfidence = localItem
           ? 'previous_identity'
           : 'none';
@@ -1985,7 +2160,9 @@ export function buildGoogleFoodMenusImportReview(
             localItemId: localItem.id,
             externalItemId: localItem.externalItemId,
           },
-          suggestedPatch: buildSuggestedPatch(localItem, googleItem, googlePath),
+          suggestedPatch: isProjectedOptionItem
+            ? null
+            : buildSuggestedPatch(localItem, googleItem, googlePath),
           warnings,
         });
       }

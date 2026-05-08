@@ -218,6 +218,7 @@ export interface FoodMenusProjectedIdentityRecord {
   readonly sectionLabel: string;
   readonly googlePath: string;
   readonly googleOptionPaths: GoogleFoodMenusProjectedIdentity['googleOptionPaths'];
+  readonly projectionKind?: GoogleFoodMenusProjectedIdentity['projectionKind'];
   readonly createdAt: string;
 }
 
@@ -310,6 +311,9 @@ function rowToSnapshot(row: FoodMenusSnapshotRow): FoodMenusSnapshot {
 }
 
 function rowToIdentity(row: FoodMenusProjectedIdentityRow): FoodMenusProjectedIdentityRecord {
+  const projectionKind = row.stable_key.includes('.optionItem.')
+    ? ({ projectionKind: 'option_item' } as const)
+    : {};
   return {
     id: row.id,
     restaurantId: row.restaurant_id,
@@ -325,6 +329,7 @@ function rowToIdentity(row: FoodMenusProjectedIdentityRow): FoodMenusProjectedId
       ? (row.google_option_paths as GoogleFoodMenusProjectedIdentity['googleOptionPaths'])
       : [],
     createdAt: row.created_at,
+    ...projectionKind,
   };
 }
 
