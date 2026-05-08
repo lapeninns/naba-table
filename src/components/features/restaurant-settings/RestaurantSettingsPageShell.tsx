@@ -29,6 +29,14 @@ const DEFAULT_TITLE = 'Restaurant';
 const DEFAULT_DESCRIPTION =
   'Configure the restaurant profile, availability, reservation durations, menu, tables, and team access.';
 
+function isRestaurantSettingsRouteActive(pathname: string, href: string) {
+  const normalizedHref = normalizeOpsPathname(href);
+  if (normalizedHref === '/settings/restaurant') {
+    return pathname === normalizedHref;
+  }
+  return pathname === normalizedHref || pathname.startsWith(`${normalizedHref}/`);
+}
+
 export function RestaurantSettingsPageShell({
   title,
   description,
@@ -44,7 +52,7 @@ export function RestaurantSettingsPageShell({
     const normalized = normalizeOpsPathname(pathname);
     return (
       RESTAURANT_SETTINGS_NAV_ITEMS.find((item) =>
-        normalized.startsWith(normalizeOpsPathname(item.href)),
+        isRestaurantSettingsRouteActive(normalized, item.href),
       ) ?? null
     );
   }, [pathname]);

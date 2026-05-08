@@ -82,6 +82,9 @@ export function FoodMenuManagementPanel({ restaurantId }: { restaurantId: string
 
   const items = listQuery.data?.items ?? [];
   const facets = listQuery.data?.facets ?? EMPTY_FACETS;
+  const hasActiveFilters = Boolean(
+    debouncedSearch || categoryFilter || subcategoryFilter || statusFilter !== 'all',
+  );
 
   const handleSubmit = async (payload: MenuItemUpsertInput) => {
     try {
@@ -180,8 +183,30 @@ export function FoodMenuManagementPanel({ restaurantId }: { restaurantId: string
         </div>
       ) : items.length === 0 ? (
         <StaleBoundary isStale={listSwr.isPlaceholderStale} className="mt-6">
-          <div className="rounded-lg border border-border/60 bg-muted/20 p-6 text-sm text-muted-foreground">
-            No food items match the current filters.
+          <div className="flex flex-col gap-3 rounded-lg border border-border/60 bg-muted/20 p-6">
+            <div className="flex flex-col gap-1">
+              <p className="text-base font-semibold text-foreground">
+                {hasActiveFilters
+                  ? 'No food items match the current filters'
+                  : 'Add your first menu item'}
+              </p>
+              <p className="max-w-2xl text-sm text-muted-foreground">
+                {hasActiveFilters
+                  ? 'Clear or adjust the filters to find more food items.'
+                  : 'Start with the item name, price, and whether it is available. You can add modifiers, allergens, nutrition, and import metadata later.'}
+              </p>
+            </div>
+            {!hasActiveFilters ? (
+              <Button
+                type="button"
+                size="sm"
+                className="w-fit"
+                onClick={() => openEditorForItem(null)}
+              >
+                <Plus data-icon="inline-start" aria-hidden />
+                New food item
+              </Button>
+            ) : null}
           </div>
         </StaleBoundary>
       ) : (

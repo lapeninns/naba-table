@@ -80,6 +80,9 @@ export const queryKeys = {
       ['ops', 'menu', restaurantId, 'detail', itemId] as const,
     facets: (restaurantId: string) => ['ops', 'menu', restaurantId, 'facets'] as const,
   },
+  opsMenuHierarchy: {
+    list: (restaurantId: string) => ['ops', 'menu-hierarchy', restaurantId, 'list'] as const,
+  },
   opsFoodMenus: {
     importReviews: (restaurantId: string) =>
       ['ops', 'food-menus', restaurantId, 'import-reviews'] as const,
@@ -144,6 +147,7 @@ export type QueryKey =
   | ReturnType<(typeof queryKeys)['opsMenu']['list']>
   | ReturnType<(typeof queryKeys)['opsMenu']['detail']>
   | ReturnType<(typeof queryKeys)['opsMenu']['facets']>
+  | ReturnType<(typeof queryKeys)['opsMenuHierarchy']['list']>
   | ReturnType<(typeof queryKeys)['opsFoodMenus']['importReviews']>
   | ReturnType<(typeof queryKeys)['opsDrinksMenu']['list']>
   | ReturnType<(typeof queryKeys)['opsDrinksMenu']['detail']>

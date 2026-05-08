@@ -144,7 +144,7 @@ describe('TableInventoryClient', () => {
     renderClient({ memberships: [] });
 
     expect(screen.getByText('No restaurant access')).toBeInTheDocument();
-    expect(screen.queryByText('Table Inventory')).not.toBeInTheDocument();
+    expect(screen.queryByText('Table inventory')).not.toBeInTheDocument();
   });
 
   it('shows load errors with a retry action', async () => {
@@ -160,19 +160,25 @@ describe('TableInventoryClient', () => {
   });
 
   it('shows empty zone and table states when inventory has not been configured', async () => {
+    const user = userEvent.setup();
     const tableService = createTableService({
       list: vi.fn().mockResolvedValue(buildEmptyTablesResult()),
     });
 
     renderClient({ tableService });
 
+    await user.click(await screen.findByRole('button', { name: /Zones/ }));
     expect(
       await screen.findByText(
         'No zones configured yet. Create your first zone to start organizing tables.',
       ),
     ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Inventory/ }));
     expect(
-      screen.getByText('No tables configured yet. Add your first table to get started.'),
+      screen.getByText(
+        'Add your first tables. Start with table number and capacity; advanced details can come later.',
+      ),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add table' })).toBeDisabled();
   });
@@ -184,7 +190,12 @@ describe('TableInventoryClient', () => {
 
     renderClient({ tableService, zoneService });
 
-    expect(await screen.findByText('Table Inventory')).toBeInTheDocument();
+    expect(screen.getByText('Tables command center')).toBeInTheDocument();
+    expect(await screen.findByText('Bookable tables')).toBeInTheDocument();
+    expect((await screen.findAllByText('2 tables')).length).toBeGreaterThan(0);
+    expect(screen.getByText('8 covers')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Zones/ }));
     expect(await screen.findByRole('button', { name: 'Patio' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Add zone' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Zone options' }));

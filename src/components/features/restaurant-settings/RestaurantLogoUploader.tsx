@@ -153,7 +153,11 @@ export function RestaurantLogoUploader({
   };
 
   return (
-    <div className="rounded-lg border border-border/70 bg-muted/20 p-4">
+    <div
+      id="restaurant-logo-uploader"
+      tabIndex={-1}
+      className="rounded-lg border border-border/70 bg-muted/20 p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+    >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
           <div className="relative h-20 w-20 overflow-hidden rounded-md border border-border bg-background">
@@ -181,7 +185,7 @@ export function RestaurantLogoUploader({
           <div>
             <Label className="text-sm font-medium text-foreground">Email branding</Label>
             <p className="text-sm text-muted-foreground">
-              Guests will see this logo inside booking emails and other notifications.
+              This logo saves immediately after upload and appears in guest booking emails.
             </p>
             <p className="text-xs text-muted-foreground">
               Recommended: 320×320px PNG, JPG, WEBP or SVG under 2 MB.

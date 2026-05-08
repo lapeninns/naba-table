@@ -72,41 +72,121 @@ export const PROFILE_DIRTY_SECTIONS: readonly ProfileDirtySection[] = [
   },
   {
     key: 'notifications',
-    label: 'Manager notifications',
+    label: 'Manager alerts',
     href: '#profile-notifications',
     formId: PROFILE_SECTION_FORMS.notifications,
     actionLabel: 'Save manager alerts',
   },
   {
     key: 'discovery',
-    label: 'Discovery details',
+    label: 'Optional discovery details',
     href: '#profile-discovery',
     actionLabel: 'Review discovery',
   },
   {
     key: 'advanced',
-    label: 'Advanced',
-    href: '#profile-advanced',
+    label: 'Booking page URL',
+    href: '#profile-booking-url',
     formId: PROFILE_SECTION_FORMS.advanced,
-    actionLabel: 'Save advanced',
+    actionLabel: 'Save booking URL',
   },
 ] as const;
 
+export type ReadinessItemKey =
+  | 'name'
+  | 'logo'
+  | 'description'
+  | 'bookingUrl'
+  | 'contactPhone'
+  | 'contactEmail'
+  | 'address'
+  | 'timezone'
+  | 'mapUrl';
+
 type ReadinessItem = {
-  key: string;
+  key: ReadinessItemKey;
+  label: string;
+  href: string;
+  required: boolean;
   isComplete: (values: RestaurantDetailsFormValues, logoUrl: string | null) => boolean;
 };
 
+/**
+ * The required-vs-optional split lets the UI promote the few items that block
+ * "make booking link live" (RP-UX-03) without hiding the longer enrichment list.
+ */
 const READINESS_ITEMS: readonly ReadinessItem[] = [
-  { key: 'name', isComplete: (values) => hasProfileValue(values.name) },
-  { key: 'logo', isComplete: (_values, logoUrl) => hasProfileValue(logoUrl) },
-  { key: 'description', isComplete: (values) => hasProfileValue(values.businessDescription) },
-  { key: 'contactPhone', isComplete: (values) => hasProfileValue(values.contactPhone) },
-  { key: 'contactEmail', isComplete: (values) => hasProfileValue(values.contactEmail) },
-  { key: 'address', isComplete: (values) => hasProfileValue(values.address) },
-  { key: 'timezone', isComplete: (values) => hasProfileValue(values.timezone) },
-  { key: 'mapUrl', isComplete: (values) => hasProfileValue(values.googleMapUrl) },
+  {
+    key: 'name',
+    label: 'Restaurant name',
+    href: '#profile-identity',
+    required: true,
+    isComplete: (values) => hasProfileValue(values.name),
+  },
+  {
+    key: 'bookingUrl',
+    label: 'Public booking page URL',
+    href: '#profile-booking-url',
+    required: true,
+    isComplete: (values) => hasProfileValue(values.slug),
+  },
+  {
+    key: 'contactPhone',
+    label: 'Contact phone',
+    href: '#profile-contact',
+    required: true,
+    isComplete: (values) => hasProfileValue(values.contactPhone),
+  },
+  {
+    key: 'timezone',
+    label: 'Timezone',
+    href: '#profile-contact',
+    required: true,
+    isComplete: (values) => hasProfileValue(values.timezone),
+  },
+  {
+    key: 'logo',
+    label: 'Logo',
+    href: '#profile-identity',
+    required: false,
+    isComplete: (_values, logoUrl) => hasProfileValue(logoUrl),
+  },
+  {
+    key: 'description',
+    label: 'Business description',
+    href: '#profile-identity',
+    required: false,
+    isComplete: (values) => hasProfileValue(values.businessDescription),
+  },
+  {
+    key: 'contactEmail',
+    label: 'Contact email',
+    href: '#profile-contact',
+    required: false,
+    isComplete: (values) => hasProfileValue(values.contactEmail),
+  },
+  {
+    key: 'address',
+    label: 'Address',
+    href: '#profile-contact',
+    required: false,
+    isComplete: (values) => hasProfileValue(values.address),
+  },
+  {
+    key: 'mapUrl',
+    label: 'Google Maps link',
+    href: '#profile-contact',
+    required: false,
+    isComplete: (values) => hasProfileValue(values.googleMapUrl),
+  },
 ] as const;
+
+export type ReadinessSummaryItem = {
+  key: ReadinessItemKey;
+  label: string;
+  href: string;
+  required: boolean;
+};
 
 export function buildProfileValues(
   profile: RestaurantProfile | null | undefined,
@@ -144,22 +224,30 @@ export function displayProfileValue(value: string | null | undefined, fallback: 
 }
 
 /**
- * Computes a slim readiness summary used solely to feed analytics events
- * (`completeness_score`, `missing_count`, `missing_fields`). The page does not
- * render a readiness checklist; richer per-item metadata was removed.
+ * Computes the readiness summary that powers both analytics and the rendered
+ * readiness checklist at the top of the Profile page (RP-UX-04). Required items
+ * gate "make booking link live" (RP-UX-03); the remainder enrich discovery.
  */
 export function deriveReadiness(values: RestaurantDetailsFormValues, logoUrl: string | null) {
+  const toSummary = (item: ReadinessItem): ReadinessSummaryItem => ({
+    key: item.key,
+    label: item.label,
+    href: item.href,
+    required: item.required,
+  });
   const completed = READINESS_ITEMS.filter((item) => item.isComplete(values, logoUrl)).map(
-    (item) => ({ key: item.key }),
+    toSummary,
   );
   const missing = READINESS_ITEMS.filter((item) => !item.isComplete(values, logoUrl)).map(
-    (item) => ({ key: item.key }),
+    toSummary,
   );
+  const missingRequired = missing.filter((item) => item.required);
   const score = Math.round((completed.length / READINESS_ITEMS.length) * 100);
 
   return {
     completed,
     missing,
+    missingRequired,
     score,
   };
 }

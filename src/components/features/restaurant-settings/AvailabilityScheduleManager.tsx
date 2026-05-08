@@ -71,6 +71,7 @@ import type { ServicePeriodRow, TurnBandInput, TurnBandsPayload } from '@/servic
 
 type AvailabilityScheduleManagerProps = {
   restaurantId: string | null;
+  activeWorkspace?: 'schedule' | 'booking-types';
 };
 
 type SaveState = {
@@ -80,7 +81,10 @@ type SaveState = {
   details?: string[];
 } | null;
 
-export function AvailabilityScheduleManager({ restaurantId }: AvailabilityScheduleManagerProps) {
+export function AvailabilityScheduleManager({
+  restaurantId,
+  activeWorkspace = 'schedule',
+}: AvailabilityScheduleManagerProps) {
   const operatingHoursQuery = useOpsOperatingHours(restaurantId);
   const servicePeriodsQuery = useOpsServicePeriods(restaurantId);
   const occasionsQuery = useOpsOccasions();
@@ -222,14 +226,14 @@ export function AvailabilityScheduleManager({ restaurantId }: AvailabilitySchedu
       await queryClient.invalidateQueries({ queryKey: queryKeys.opsOccasions.list() });
       setSaveState({
         variant: 'success',
-        title: 'Required occasions created',
+        title: 'Required booking types created',
         message: 'Lunch and dinner are now available for service-window scheduling.',
         details: missingOccasions.map((occasion) => `${occasion.label}: created`),
       });
     } catch (error) {
       setSaveState({
         variant: 'destructive',
-        title: 'Unable to create required occasions',
+        title: 'Unable to create required booking types',
         message: error instanceof Error ? error.message : 'Please try again.',
       });
     } finally {
@@ -425,8 +429,8 @@ export function AvailabilityScheduleManager({ restaurantId }: AvailabilitySchedu
     if (servicesDirty && !hasRequiredOccasions) {
       setSaveState({
         variant: 'destructive',
-        title: 'Missing booking occasions',
-        message: 'Create active Lunch and Dinner occasions before saving service windows.',
+        title: 'Missing booking types',
+        message: 'Create active Lunch and Dinner booking types before saving service windows.',
       });
       return;
     }
@@ -524,7 +528,7 @@ export function AvailabilityScheduleManager({ restaurantId }: AvailabilitySchedu
 
         await queryClient.invalidateQueries({ queryKey: queryKeys.opsOccasions.list() });
         setOccasionsDirty(false);
-        savedSections.push('Booking occasions: saved');
+        savedSections.push('Booking types: saved');
       }
 
       if (turnBandsDirty) {
@@ -557,9 +561,9 @@ export function AvailabilityScheduleManager({ restaurantId }: AvailabilitySchedu
 
       setSaveState({
         variant: 'success',
-        title: 'Availability updated',
+        title: 'Saved just now.',
         message:
-          'The weekly schedule, service windows, overrides, and booking occasions (with their turn times) are now saved.',
+          'The weekly schedule, service windows, overrides, and booking types (with their turn times) are now saved.',
         details: savedSections,
       });
     } catch (error) {
@@ -673,6 +677,8 @@ export function AvailabilityScheduleManager({ restaurantId }: AvailabilitySchedu
     (!servicesDirty || hasRequiredOccasions);
 
   const turnBandDefaults = turnBandsQuery.data?.defaults ?? {};
+  const isScheduleWorkspace = activeWorkspace === 'schedule';
+  const isBookingTypesWorkspace = activeWorkspace === 'booking-types';
 
   return (
     <Card className={cn(SETTINGS_COMPACT_CARD_CLASS, 'overflow-hidden')} id="availability-schedule">
@@ -684,20 +690,25 @@ export function AvailabilityScheduleManager({ restaurantId }: AvailabilitySchedu
       >
         <div className="flex flex-col gap-2">
           <Badge variant="outline" className="w-fit">
-            Weekly schedule
+            {isScheduleWorkspace ? 'Weekly schedule' : 'Booking types'}
           </Badge>
           <div className="flex flex-col gap-1">
-            <CardTitle className="text-xl">Operating hours and service windows together</CardTitle>
+            <CardTitle className="text-xl">
+              {isScheduleWorkspace
+                ? 'Operating hours and service windows together'
+                : 'Booking types and turn times'}
+            </CardTitle>
             <CardDescription className="max-w-3xl">
-              Edit the outer open-close window, the nested lunch and dinner windows, and special
-              date overrides from one working surface.
+              {isScheduleWorkspace
+                ? 'Edit the outer open-close window, the nested lunch and dinner windows, and special date overrides from one working surface.'
+                : 'Manage lunch, dinner, custom booking types, and party-size turn times without showing the full schedule editor.'}
             </CardDescription>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {hoursDirty || servicesDirty || occasionsDirty || turnBandsDirty ? (
             <Badge variant="metric" className="h-8 px-3">
-              Unsaved changes
+              Unsaved changes in this section
             </Badge>
           ) : null}
         </div>
@@ -728,12 +739,12 @@ export function AvailabilityScheduleManager({ restaurantId }: AvailabilitySchedu
         {!hasRequiredOccasions ? (
           <Alert variant="warning">
             <AlertCircle className="size-4" />
-            <AlertTitle>Lunch and dinner occasions are required</AlertTitle>
+            <AlertTitle>Lunch and dinner booking types are required</AlertTitle>
             <AlertDescription>
               <div className="flex flex-col gap-3">
                 <p>
                   Operating hours can still be edited here, but service-window saves need active
-                  `Lunch` and `Dinner` booking occasions.
+                  `Lunch` and `Dinner` booking types.
                 </p>
                 <Button
                   type="button"
@@ -742,7 +753,7 @@ export function AvailabilityScheduleManager({ restaurantId }: AvailabilitySchedu
                   onClick={() => void createRequiredOccasions()}
                   disabled={isSaving}
                 >
-                  Create missing lunch and dinner occasions
+                  Create missing lunch and dinner booking types
                 </Button>
               </div>
             </AlertDescription>
@@ -761,84 +772,98 @@ export function AvailabilityScheduleManager({ restaurantId }: AvailabilitySchedu
           </Alert>
         ) : null}
 
-        <Alert>
-          <Clock3 className="size-4" />
-          <AlertTitle>How this command center works</AlertTitle>
-          <AlertDescription>
-            This page owns the day-to-day availability workflow. Weekly hours, service windows,
-            overrides, and booking occasions (with per-party-size turn times) now live in one
-            editable surface with one save action.
-          </AlertDescription>
-        </Alert>
+        {isScheduleWorkspace ? (
+          <Alert>
+            <Clock3 className="size-4" />
+            <AlertTitle>How this command center works</AlertTitle>
+            <AlertDescription>
+              This page owns the day-to-day availability workflow. Weekly hours, service windows,
+              overrides, and booking types (with per-party-size turn times) now live in one editable
+              surface with one save action.
+            </AlertDescription>
+          </Alert>
+        ) : null}
 
-        <Tabs defaultValue="schedule" className="flex flex-col gap-4">
-          <TabsList className="h-auto w-full justify-start gap-2 overflow-x-auto p-1 sm:w-fit">
-            <TabsTrigger value="schedule">Weekly schedule</TabsTrigger>
-            <TabsTrigger value="overrides">Date overrides</TabsTrigger>
-          </TabsList>
+        {isScheduleWorkspace ? (
+          <Tabs defaultValue="schedule" className="flex flex-col gap-4">
+            <TabsList className="h-auto w-full justify-start gap-2 overflow-x-auto p-1 sm:w-fit">
+              <TabsTrigger value="schedule">Weekly schedule</TabsTrigger>
+              <TabsTrigger value="overrides">Date overrides</TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="schedule" className="mt-0 flex flex-col gap-4">
-            <div
-              className={cn(
-                SETTINGS_COMPACT_STATUS_ROW_CLASS,
-                'justify-between rounded-md border border-dashed border-border/70 bg-muted/20 px-3 py-2',
-              )}
-            >
-              <span>
-                Turn times per party size are set on each booking occasion — including{' '}
-                <span className="font-medium text-foreground">Lunch</span> and{' '}
-                <span className="font-medium text-foreground">Dinner</span>.
-              </span>
-              <Button asChild variant="link" className="h-auto p-0 font-medium">
-                <a href="#booking-occasions">Jump to Occasions ↓</a>
-              </Button>
-            </div>
-            {weeklyRows.map((row, index) => (
-              <AvailabilityScheduleDayCard
-                key={row.dayOfWeek}
-                day={dayConfigs[index]}
-                dayError={serviceErrors[row.dayOfWeek]}
-                hasRequiredOccasions={hasRequiredOccasions}
-                onMealTimeChange={handleMealTimeChange}
-                onMealToggle={handleMealToggle}
-                onWeeklyChange={handleWeeklyChange}
-                row={row}
-                rowErrors={weeklyErrors[row.dayOfWeek]}
+            <TabsContent value="schedule" className="mt-0 flex flex-col gap-4">
+              <div
+                className={cn(
+                  SETTINGS_COMPACT_STATUS_ROW_CLASS,
+                  'justify-between rounded-md border border-dashed border-border/70 bg-muted/20 px-3 py-2',
+                )}
+              >
+                <span>
+                  Turn times per party size are set on each booking occasion — including{' '}
+                  <span className="font-medium text-foreground">Lunch</span> and{' '}
+                  <span className="font-medium text-foreground">Dinner</span>.
+                </span>
+              </div>
+              {weeklyRows.map((row, index) => (
+                <AvailabilityScheduleDayCard
+                  key={row.dayOfWeek}
+                  day={dayConfigs[index]}
+                  dayError={serviceErrors[row.dayOfWeek]}
+                  hasRequiredOccasions={hasRequiredOccasions}
+                  onMealTimeChange={handleMealTimeChange}
+                  onMealToggle={handleMealToggle}
+                  onWeeklyChange={handleWeeklyChange}
+                  row={row}
+                  rowErrors={weeklyErrors[row.dayOfWeek]}
+                />
+              ))}
+            </TabsContent>
+
+            <TabsContent value="overrides" className="mt-0">
+              <AvailabilityOverridesEditor
+                onAdd={addOverride}
+                onChange={handleOverrideChange}
+                onRemove={removeOverride}
+                rowErrors={overrideErrors}
+                rows={overrideRows}
               />
-            ))}
-          </TabsContent>
+            </TabsContent>
+          </Tabs>
+        ) : null}
 
-          <TabsContent value="overrides" className="mt-0">
-            <AvailabilityOverridesEditor
-              onAdd={addOverride}
-              onChange={handleOverrideChange}
-              onRemove={removeOverride}
-              rowErrors={overrideErrors}
-              rows={overrideRows}
-            />
-          </TabsContent>
-        </Tabs>
+        {isBookingTypesWorkspace ? (
+          <Alert>
+            <UtensilsCrossed className="size-4" />
+            <AlertTitle>Booking types control guest choices</AlertTitle>
+            <AlertDescription>
+              Keep lunch and dinner active, then tune duration and turn-time rules so the booking
+              grid matches how service actually runs.
+            </AlertDescription>
+          </Alert>
+        ) : null}
 
-        <AvailabilityOccasionsEditor
-          occasions={occasionDrafts}
-          onChange={(next) => {
-            setOccasionDrafts(next);
-            setOccasionsDirty(true);
-            clearSaveState();
-          }}
-          turnBands={turnBandsDraft}
-          turnBandDefaults={turnBandDefaults}
-          turnBandErrors={turnBandErrors}
-          onTurnBandsChange={handleTurnBandsChange}
-        />
+        {isBookingTypesWorkspace ? (
+          <AvailabilityOccasionsEditor
+            occasions={occasionDrafts}
+            onChange={(next) => {
+              setOccasionDrafts(next);
+              setOccasionsDirty(true);
+              clearSaveState();
+            }}
+            turnBands={turnBandsDraft}
+            turnBandDefaults={turnBandDefaults}
+            turnBandErrors={turnBandErrors}
+            onTurnBandsChange={handleTurnBandsChange}
+          />
+        ) : null}
       </CardContent>
 
       <CardFooter
         className={cn(SETTINGS_COMPACT_STICKY_ACTION_ROW_CLASS, 'border-primary/20 shadow-lg')}
       >
         <div className={SETTINGS_COMPACT_HELPER_TEXT_CLASS}>
-          Save once to persist the full availability workflow: weekly hours, service windows, date
-          overrides, and booking occasions (with their turn times).
+          Saves the full availability workflow. Save once to persist weekly hours, service windows,
+          date overrides, and booking types (with their turn times).
         </div>
         <div className="ml-auto flex items-center gap-2">
           <Button

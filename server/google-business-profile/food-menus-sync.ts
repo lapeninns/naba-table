@@ -10,10 +10,12 @@ import {
   listMenuItemDetails,
   upsertMenuItem,
 } from '@/server/menu/repository';
+import { listRestaurantMenuHierarchy } from '@/server/menu-hierarchy/repository';
 
 import { getGoogleBusinessProfileFoodMenus, updateGoogleBusinessProfileFoodMenus } from './client';
 import {
   buildGoogleFoodMenusImportReview,
+  buildCanonicalGoogleFoodMenusProjection,
   buildGoogleFoodMenusProjection,
   canonicalizeGoogleFoodMenusResource,
   hashGoogleFoodMenusResource,
@@ -164,24 +166,43 @@ export async function prepareFoodMenusProjection({
   createdByUserId = null,
   persist = true,
 }: PrepareFoodMenusProjectionInput): Promise<PreparedFoodMenusProjection> {
-  const [items, settings] = await Promise.all([
-    listMenuItemDetails(restaurantId, client),
+  const [hierarchy, settings] = await Promise.all([
+    listRestaurantMenuHierarchy(restaurantId, client),
     readFoodMenuSettings({ client, restaurantId }),
   ]);
-  const projection = buildGoogleFoodMenusProjection({
-    foodMenusName,
-    items,
-    menuLabel: menuLabel ?? settings?.menuLabel,
-    sourceUrl: sourceUrl ?? settings?.sourceUrl,
-    languageCode: languageCode ?? settings?.languageCode,
-    includeUnavailable,
-    cuisines: cuisines ?? (settings?.cuisines as GoogleFoodMenuCuisine[] | undefined),
-  });
+  const canonicalPublishableMenus = hierarchy.menus.filter(
+    (menu) => menu.active && (menu.menuKind === 'food' || menu.menuKind === 'mixed'),
+  );
+  const usesCanonicalHierarchy = canonicalPublishableMenus.length > 0;
+  const items = usesCanonicalHierarchy ? [] : await listMenuItemDetails(restaurantId, client);
+  const projection = usesCanonicalHierarchy
+    ? buildCanonicalGoogleFoodMenusProjection({
+        foodMenusName,
+        menus: hierarchy.menus,
+        includeUnavailable,
+      })
+    : buildGoogleFoodMenusProjection({
+        foodMenusName,
+        items,
+        menuLabel: menuLabel ?? settings?.menuLabel,
+        sourceUrl: sourceUrl ?? settings?.sourceUrl,
+        languageCode: languageCode ?? settings?.languageCode,
+        includeUnavailable,
+        cuisines: cuisines ?? (settings?.cuisines as GoogleFoodMenuCuisine[] | undefined),
+      });
   const projectionHash = hashGoogleFoodMenusResource(projection.foodMenus);
+  const localItemCount = usesCanonicalHierarchy
+    ? canonicalPublishableMenus.reduce(
+        (count, menu) =>
+          count +
+          menu.sections.reduce((sectionCount, section) => sectionCount + section.items.length, 0),
+        0,
+      )
+    : items.length;
 
   if (!persist) {
     return {
-      localItemCount: items.length,
+      localItemCount,
       projection,
       projectionHash,
       snapshot: null,
@@ -200,7 +221,7 @@ export async function prepareFoodMenusProjection({
   });
 
   return {
-    localItemCount: items.length,
+    localItemCount,
     projection,
     projectionHash,
     snapshot: recorded.snapshot,

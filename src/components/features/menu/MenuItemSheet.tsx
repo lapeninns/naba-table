@@ -494,7 +494,7 @@ export function MenuItemSheet({
               >
                 <AccordionItem value="advanced-metadata" className="border-none">
                   <AccordionTrigger className="text-left text-sm font-medium">
-                    Advanced metadata
+                    Import metadata
                   </AccordionTrigger>
                   <AccordionContent className="pt-2">
                     <div className="grid gap-4 md:grid-cols-2">

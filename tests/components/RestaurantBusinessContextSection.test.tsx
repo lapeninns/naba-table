@@ -102,6 +102,7 @@ describe('RestaurantBusinessContextSection', () => {
 
     render(<RestaurantBusinessContextSection restaurantId="rest-1" />);
 
+    await user.click(screen.getByRole('button', { name: /dining categories/i }));
     expect(screen.getByDisplayValue('Restaurant')).toBeInTheDocument();
     expect(screen.getByText(/pre-filled from google until you save/i)).toBeInTheDocument();
 
@@ -163,6 +164,7 @@ describe('RestaurantBusinessContextSection', () => {
 
     render(<RestaurantBusinessContextSection restaurantId="rest-1" />);
 
+    await user.click(screen.getByRole('button', { name: /dining categories/i }));
     await user.click(screen.getByRole('button', { name: /add category/i }));
     await user.type(screen.getByLabelText(/category name/i), 'Wine Bar');
     await user.type(screen.getByLabelText(/category code/i), 'wine_bar');
@@ -226,17 +228,53 @@ describe('RestaurantBusinessContextSection', () => {
     expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
     const headings = screen
       .getAllByRole('heading', { level: 3 })
-      .map((heading) => heading.textContent);
+      .map(
+        (heading) =>
+          heading.textContent?.match(
+            /^(Profile basics|Dining categories|Online links|Amenities|Services|Where you serve)/,
+          )?.[0],
+      );
 
-    expect(headings).toEqual(['Profile basics', 'Dining categories', 'Amenities', 'Online links']);
+    expect(headings).toEqual([
+      'Profile basics',
+      'Dining categories',
+      'Online links',
+      'Amenities',
+      'Services',
+      'Where you serve',
+    ]);
+    expect(screen.getByRole('button', { name: /^profile basics$/i })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
     expect(screen.getByRole('button', { name: /save profile basics/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^dining categories$/i }));
+    expect(screen.getByRole('button', { name: /^profile basics$/i })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    expect(screen.getByRole('button', { name: /^dining categories$/i })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    fireEvent.click(screen.getByRole('button', { name: /^dining categories$/i }));
+    expect(screen.getByRole('button', { name: /^dining categories$/i })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    expect(screen.queryByRole('button', { name: /add category/i })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^dining categories$/i }));
     expect(screen.getByRole('button', { name: /add category/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^amenities$/i }));
     expect(screen.getByRole('button', { name: /save attributes/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^online links$/i }));
     expect(screen.getByRole('button', { name: /add link/i })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /more settings/i }));
-    expect(screen.getByRole('button', { name: /save service areas/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^services$/i }));
     expect(screen.getByRole('button', { name: /save service items/i })).toBeInTheDocument();
-    expect(screen.getByText(/need advanced discovery metadata/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^where you serve$/i }));
+    expect(screen.getByRole('button', { name: /save service areas/i })).toBeInTheDocument();
+    expect(screen.getByText(/import details/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /gbp workspace/i })).toBeInTheDocument();
   });
 
   it('saves provider-safe service-area and attribute fields from the CRUD editor', async () => {
@@ -303,10 +341,11 @@ describe('RestaurantBusinessContextSection', () => {
 
     render(<RestaurantBusinessContextSection restaurantId="rest-1" />);
 
-    await user.click(screen.getByRole('tab', { name: /where you serve/i }));
+    await user.click(screen.getByRole('button', { name: /where you serve/i }));
     await user.click(screen.getByRole('button', { name: /advanced service-area details/i }));
     await user.clear(screen.getByLabelText(/google place id/i));
     await user.type(screen.getByLabelText(/google place id/i), 'ChIJ-new');
+    await user.click(screen.getByRole('button', { name: /show provider payload fields/i }));
     await user.clear(screen.getByLabelText(/place resource/i));
     await user.type(screen.getByLabelText(/place resource/i), 'places/ChIJ-new');
     await user.click(screen.getByRole('button', { name: /save service areas/i }));
@@ -327,10 +366,11 @@ describe('RestaurantBusinessContextSection', () => {
       }),
     );
 
-    await user.click(screen.getByRole('tab', { name: /amenities/i }));
+    await user.click(screen.getByRole('button', { name: /amenities/i }));
     await user.click(screen.getByRole('button', { name: /advanced attribute rows/i }));
     await user.clear(screen.getByLabelText(/^Selected values/i));
     await user.type(screen.getByLabelText(/^Selected values/i), 'RESERVATION_REQUIRED');
+    await user.click(screen.getByRole('button', { name: /show provider payload fields/i }));
     fireEvent.change(screen.getByLabelText(/raw selected values/i), {
       target: { value: '{"setValues":["RESERVATION_REQUIRED"]}' },
     });
@@ -384,10 +424,12 @@ describe('RestaurantBusinessContextSection', () => {
 
     render(<RestaurantBusinessContextSection restaurantId="rest-1" embedded />);
 
-    await user.click(screen.getByRole('button', { name: /more settings/i }));
+    await user.click(screen.getByRole('button', { name: /where you serve/i }));
     await user.type(screen.getByLabelText(/new service area/i), 'Cambridge, UK');
     await user.click(screen.getByRole('button', { name: /add area/i }));
     expect(screen.getByText('Cambridge, UK')).toBeInTheDocument();
+    expect(screen.getByText('This saves service areas only.')).toBeInTheDocument();
+    expect(screen.getByText('Dirty')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /save service areas/i }));
     await waitFor(() =>
@@ -406,6 +448,7 @@ describe('RestaurantBusinessContextSection', () => {
       }),
     );
 
+    await user.click(screen.getByRole('button', { name: /amenities/i }));
     await user.click(screen.getByLabelText(/free wi-fi/i));
     await user.click(screen.getByRole('button', { name: /save attributes/i }));
 

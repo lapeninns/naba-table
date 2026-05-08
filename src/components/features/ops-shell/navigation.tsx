@@ -127,7 +127,7 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
           pathname.startsWith(path('/settings/restaurant/google-business-profile')),
       },
       {
-        title: 'Availability & Occasions',
+        title: 'Availability & Booking types',
         description: 'Hours, overrides, meal windows, and occasions',
         href: path('/settings/restaurant/availability'),
         icon: Clock3,

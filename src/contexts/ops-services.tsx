@@ -17,11 +17,12 @@ import {
   type DrinkMenuService,
   type DrinkMenuServiceFactory,
 } from '@/services/ops/drinks-menu';
+import { createMenuService, type MenuService, type MenuServiceFactory } from '@/services/ops/menu';
 import {
-  createMenuService,
-  type MenuService,
-  type MenuServiceFactory,
-} from '@/services/ops/menu';
+  createMenuHierarchyService,
+  type MenuHierarchyService,
+  type MenuHierarchyServiceFactory,
+} from '@/services/ops/menu-hierarchy';
 import {
   createOccasionService,
   type OccasionService,
@@ -48,6 +49,7 @@ export type OpsServices = {
   tableInventoryService: TableInventoryService;
   occasionService: OccasionService;
   menuService: MenuService;
+  menuHierarchyService: MenuHierarchyService;
   drinkMenuService: DrinkMenuService;
   zoneService: ZoneService;
 };
@@ -60,6 +62,7 @@ type OpsServiceFactories = {
   tableInventoryService?: TableInventoryServiceFactory;
   occasionService?: OccasionServiceFactory;
   menuService?: MenuServiceFactory;
+  menuHierarchyService?: MenuHierarchyServiceFactory;
   drinkMenuService?: DrinkMenuServiceFactory;
   zoneService?: () => ZoneService;
 };
@@ -80,7 +83,10 @@ export function OpsServicesProvider({ factories, children }: OpsServicesProvider
       customerService: createCustomerService(factories?.customerService),
       tableInventoryService: createTableInventoryService(factories?.tableInventoryService),
       occasionService: createOccasionService(factories?.occasionService),
+      // Compatibility-only during the canonical hierarchy transition. New menu writes should use menuHierarchyService.
       menuService: createMenuService(factories?.menuService),
+      menuHierarchyService: createMenuHierarchyService(factories?.menuHierarchyService),
+      // Compatibility-only during the canonical hierarchy transition. New drinks writes should use menuHierarchyService.
       drinkMenuService: createDrinkMenuService(factories?.drinkMenuService),
       zoneService: factories?.zoneService ? factories.zoneService() : new ZoneService(),
     }),
@@ -124,6 +130,10 @@ export function useOccasionService(): OccasionService {
 
 export function useMenuService(): MenuService {
   return useOpsServices().menuService;
+}
+
+export function useMenuHierarchyService(): MenuHierarchyService {
+  return useOpsServices().menuHierarchyService;
 }
 
 export function useDrinkMenuService(): DrinkMenuService {

@@ -1,11 +1,20 @@
 import { hashCanonicalJson } from '@/server/dual-sync/hashing';
 
+import type { GoogleFoodMenuCuisine } from '@/lib/google-food-menu-cuisines';
 import type { DrinkItemDetail } from '@/server/drinks-menu/types';
 import type {
   MenuItemDetail,
   MenuModifierGroupInput,
   MenuModifierOption,
 } from '@/server/menu/types';
+import type {
+  CanonicalRestaurantMenu,
+  CanonicalRestaurantMenuItem,
+  CanonicalRestaurantMenuOption,
+  CanonicalRestaurantMenuSection,
+} from '@/server/menu-hierarchy/types';
+
+export type { GoogleFoodMenuCuisine } from '@/lib/google-food-menu-cuisines';
 
 const DEFAULT_LANGUAGE_CODE = 'en-GB';
 const DEFAULT_MENU_NAME = 'Food menu';
@@ -133,18 +142,6 @@ export type GoogleFoodMenuPreparationMethod =
   | 'STIR_FRIED'
   | 'OTHER_METHOD';
 
-export type GoogleFoodMenuCuisine =
-  | 'BREAK_FAST'
-  | 'BRUNCH'
-  | 'CHICKEN'
-  | 'FAST_FOOD'
-  | 'HAMBURGER'
-  | 'INDIAN'
-  | 'PIZZA'
-  | 'SEAFOOD'
-  | 'VEGETARIAN'
-  | 'OTHER_CUISINE';
-
 export type BuildGoogleFoodMenusProjectionInput = {
   foodMenusName: string;
   items: MenuItemDetail[];
@@ -153,6 +150,12 @@ export type BuildGoogleFoodMenusProjectionInput = {
   languageCode?: string | null;
   includeUnavailable?: boolean;
   cuisines?: GoogleFoodMenuCuisine[];
+};
+
+export type BuildCanonicalGoogleFoodMenusProjectionInput = {
+  foodMenusName: string;
+  menus: CanonicalRestaurantMenu[];
+  includeUnavailable?: boolean;
 };
 
 export type GoogleFoodMenusProjectedIdentity = {
@@ -652,6 +655,18 @@ function omitDefaultExtendedAttributesForHash(value: CanonicalGoogleFoodMenusRes
       })),
     })),
   };
+}
+
+function foodMenusArray(foodMenus: GoogleFoodMenusResource): GoogleFoodMenu[] {
+  return Array.isArray(foodMenus.menus) ? foodMenus.menus : [];
+}
+
+function menuSectionsArray(menu: GoogleFoodMenu): GoogleFoodMenuSection[] {
+  return Array.isArray(menu.sections) ? menu.sections : [];
+}
+
+function sectionItemsArray(section: GoogleFoodMenuSection): GoogleFoodMenuItem[] {
+  return Array.isArray(section.items) ? section.items : [];
 }
 
 function arraysEqual(left: string[], right: string[]): boolean {
@@ -1296,6 +1311,227 @@ export function buildGoogleFoodMenusProjection(
   };
 }
 
+function sortedByDisplayOrder<T extends { displayOrder: number; id?: string }>(
+  values: readonly T[],
+  labelFor: (value: T) => string,
+): T[] {
+  return [...values].sort(
+    (left, right) =>
+      left.displayOrder - right.displayOrder ||
+      labelFor(left).localeCompare(labelFor(right)) ||
+      (left.id ?? '').localeCompare(right.id ?? ''),
+  );
+}
+
+function primaryCanonicalLabel(
+  entity:
+    | Pick<CanonicalRestaurantMenu, 'labels'>
+    | Pick<CanonicalRestaurantMenuSection, 'labels'>
+    | Pick<CanonicalRestaurantMenuItem, 'labels'>
+    | Pick<CanonicalRestaurantMenuOption, 'labels'>,
+  fallback: string,
+): GoogleMenuLabel {
+  const label = entity.labels[0];
+  return buildLabel(
+    label?.displayName ?? fallback,
+    label?.description ?? null,
+    label?.languageCode ?? DEFAULT_LANGUAGE_CODE,
+  );
+}
+
+function primaryCanonicalLabelText(
+  entity:
+    | Pick<CanonicalRestaurantMenu, 'labels'>
+    | Pick<CanonicalRestaurantMenuSection, 'labels'>
+    | Pick<CanonicalRestaurantMenuItem, 'labels'>
+    | Pick<CanonicalRestaurantMenuOption, 'labels'>,
+  fallback: string,
+): string {
+  return cleanText(entity.labels[0]?.displayName) ?? fallback;
+}
+
+function canonicalNutritionFacts(
+  nutritionFacts: CanonicalRestaurantMenuItem['attributes']['nutritionFacts'] | null | undefined,
+): GoogleNutritionFacts {
+  return Object.fromEntries(
+    Object.entries(nutritionFacts ?? {})
+      .map(([key, value]) => [
+        key,
+        value
+          ? {
+              ...(cleanText(value.unit) ? { unit: cleanText(value.unit)! } : {}),
+              ...(typeof value.quantity === 'number' ? { quantity: value.quantity } : {}),
+              ...(typeof value.lowerAmount === 'number' ? { lowerAmount: value.lowerAmount } : {}),
+              ...(typeof value.upperAmount === 'number' ? { upperAmount: value.upperAmount } : {}),
+            }
+          : null,
+      ])
+      .filter(([, value]) => Boolean(value)),
+  ) as GoogleNutritionFacts;
+}
+
+function canonicalMediaKeys(item: {
+  readonly attributes: { mediaKeys?: readonly string[] };
+  readonly media: { googleMediaKeys?: readonly string[] };
+}): string[] {
+  return uniqueSorted(
+    [...(item.media.googleMediaKeys ?? []), ...(item.attributes.mediaKeys ?? [])]
+      .map((value) => cleanText(value))
+      .filter((value): value is string =>
+        Boolean(value && !/^(https?:|data:|blob:|\/)/i.test(value)),
+      ),
+  );
+}
+
+function buildCanonicalAttributes(
+  item: CanonicalRestaurantMenuItem | CanonicalRestaurantMenuOption,
+): GoogleFoodMenuItemAttributes {
+  const attributes = item.attributes;
+  const priceAmount = attributes.price?.amount;
+  const mediaKeys = canonicalMediaKeys(item);
+  const nutritionFacts = canonicalNutritionFacts(attributes.nutritionFacts);
+  return {
+    ...(typeof priceAmount === 'number'
+      ? { price: buildMoney(priceAmount, attributes.price?.currencyCode ?? 'GBP') }
+      : {}),
+    ...(attributes.spiciness ? { spiciness: attributes.spiciness } : {}),
+    ...(attributes.allergen?.length ? { allergen: uniqueSorted(attributes.allergen) } : {}),
+    ...(attributes.dietaryRestriction?.length
+      ? { dietaryRestriction: uniqueSorted(attributes.dietaryRestriction) }
+      : {}),
+    ...(attributes.ingredients?.length
+      ? {
+          ingredients: attributes.ingredients.map((ingredient) => ({
+            labels: ingredient.labels.map((label) =>
+              buildLabel(label.displayName, label.description, label.languageCode),
+            ),
+          })),
+        }
+      : {}),
+    ...(attributes.preparationMethods?.length
+      ? { preparationMethods: uniqueSorted(attributes.preparationMethods) }
+      : {}),
+    ...(attributes.portionSize
+      ? {
+          portionSize: {
+            quantity: attributes.portionSize.quantity,
+            unit: attributes.portionSize.unit.map((label) =>
+              buildLabel(label.displayName, label.description, label.languageCode),
+            ),
+          },
+        }
+      : {}),
+    ...(mediaKeys.length ? { mediaKeys } : {}),
+    ...(Object.keys(nutritionFacts).length ? { nutritionFacts } : {}),
+    ...(typeof attributes.servesNumPeople === 'number'
+      ? { servesNumPeople: attributes.servesNumPeople }
+      : {}),
+    ...(typeof attributes.servesNum === 'number' ? { servesNum: attributes.servesNum } : {}),
+  };
+}
+
+function canonicalSkippedReason(
+  item: CanonicalRestaurantMenuItem,
+): GoogleFoodMenusProjectionSkippedItem['reason'] | null {
+  return item.active ? null : 'inactive';
+}
+
+function canonicalOptionIdentityPaths(
+  item: CanonicalRestaurantMenuItem,
+  itemPath: string,
+): GoogleFoodMenusProjectedIdentity['googleOptionPaths'] {
+  return sortedByDisplayOrder(
+    item.options.filter((option) => option.active),
+    (option) => primaryCanonicalLabelText(option, option.externalOptionId ?? option.id ?? 'Option'),
+  ).map((option, optionIndex) => ({
+    externalModifierGroupId: 'canonical-options',
+    externalModifierOptionId: option.externalOptionId ?? option.id ?? `option-${optionIndex + 1}`,
+    googlePath: `${itemPath}.options[${optionIndex}]`,
+  }));
+}
+
+function buildCanonicalItem(item: CanonicalRestaurantMenuItem): GoogleFoodMenuItem {
+  const options = sortedByDisplayOrder(
+    item.options.filter((option) => option.active),
+    (option) => primaryCanonicalLabelText(option, option.externalOptionId ?? option.id ?? 'Option'),
+  ).map((option) => ({
+    labels: [primaryCanonicalLabel(option, option.externalOptionId ?? 'Option')],
+    attributes: buildCanonicalAttributes(option),
+  }));
+  return {
+    labels: [primaryCanonicalLabel(item, item.externalItemId)],
+    attributes: buildCanonicalAttributes(item),
+    ...(options.length ? { options } : {}),
+  };
+}
+
+export function buildCanonicalGoogleFoodMenusProjection(
+  input: BuildCanonicalGoogleFoodMenusProjectionInput,
+): GoogleFoodMenusProjection {
+  const identities: GoogleFoodMenusProjectedIdentity[] = [];
+  const skippedItems: GoogleFoodMenusProjectionSkippedItem[] = [];
+  const publishableMenus = sortedByDisplayOrder(
+    input.menus.filter(
+      (menu) => menu.active && (menu.menuKind === 'food' || menu.menuKind === 'mixed'),
+    ),
+    (menu) => primaryCanonicalLabelText(menu, menu.id ?? 'Menu'),
+  );
+
+  const menus = publishableMenus.map((menu, menuIndex) => {
+    const sections = sortedByDisplayOrder(
+      menu.sections.filter((section) => section.active || input.includeUnavailable),
+      (section) => primaryCanonicalLabelText(section, section.id ?? 'Section'),
+    ).map((section, sectionIndex) => {
+      const sectionLabel = primaryCanonicalLabelText(section, section.id ?? 'Section');
+      const exportableItems = sortedByDisplayOrder(section.items, (item) =>
+        primaryCanonicalLabelText(item, item.externalItemId),
+      ).filter((item) => {
+        const reason = canonicalSkippedReason(item);
+        if (!reason || input.includeUnavailable) return true;
+        skippedItems.push({
+          localItemId: item.id ?? item.externalItemId,
+          externalItemId: item.externalItemId,
+          reason,
+        });
+        return false;
+      });
+      return {
+        labels: [primaryCanonicalLabel(section, section.id ?? 'Section')],
+        items: exportableItems.map((item, itemIndex) => {
+          const itemPath = `menus[${menuIndex}].sections[${sectionIndex}].items[${itemIndex}]`;
+          identities.push({
+            stableKey: `foodMenu.menu.${slugify(menu.id ?? primaryCanonicalLabelText(menu, 'menu'), 'menu')}.section.${slugify(section.id ?? sectionLabel, 'section')}.item.${slugify(item.externalItemId, item.id ?? 'item')}`,
+            localItemId: item.id ?? item.externalItemId,
+            externalItemId: item.externalItemId,
+            itemName: primaryCanonicalLabelText(item, item.externalItemId),
+            sectionKey: slugify(section.id ?? sectionLabel, 'section'),
+            sectionLabel,
+            googlePath: itemPath,
+            googleOptionPaths: canonicalOptionIdentityPaths(item, itemPath),
+          });
+          return buildCanonicalItem(item);
+        }),
+      };
+    });
+
+    return {
+      labels: [primaryCanonicalLabel(menu, DEFAULT_MENU_NAME)],
+      ...(cleanText(menu.sourceUrl) ? { sourceUrl: cleanText(menu.sourceUrl)! } : {}),
+      sections,
+      ...(menu.cuisines.length ? { cuisines: uniqueSorted(menu.cuisines) } : {}),
+    };
+  });
+
+  return {
+    foodMenus: {
+      name: input.foodMenusName,
+      menus,
+    },
+    identities,
+    skippedItems,
+  };
+}
+
 function findLocalItemByPreviousIdentity(
   googlePath: string,
   localItemsById: Map<string, ImportLocalItem>,
@@ -1642,28 +1878,28 @@ export function buildGoogleFoodMenusImportReview(
   } satisfies Record<GoogleFoodMenusImportTargetKind, ImportLocalItem[]>;
   const matchedLocalItemIds = new Set<string>();
   const items: GoogleFoodMenusImportReviewItem[] = [];
-  const firstMenu = input.googleFoodMenus.menus[0] ?? null;
-  const metadataPatch = buildMenuMetadataSuggestedPatch(firstMenu, input.settings ?? null);
+  const googleMenus = foodMenusArray(input.googleFoodMenus);
 
-  if (metadataPatch) {
-    items.push({
-      googlePath: 'menus[0].metadata',
-      googleSectionLabel: null,
-      googleItemName: cleanText(getPrimaryLabel(firstMenu?.labels)?.displayName) ?? 'Menu settings',
-      targetKind: 'food',
-      match: { status: 'menu_metadata', confidence: 'none' },
-      suggestedPatch: metadataPatch,
-      warnings: [],
-    });
-  }
-
-  for (const [menuIndex, menu] of input.googleFoodMenus.menus.entries()) {
+  for (const [menuIndex, menu] of googleMenus.entries()) {
     const targetKind = classifyMenuTarget(menu);
+    const metadataPatch = buildMenuMetadataSuggestedPatch(menu, input.settings ?? null);
+    if (metadataPatch) {
+      items.push({
+        googlePath: `menus[${menuIndex}].metadata`,
+        googleSectionLabel: null,
+        googleItemName:
+          cleanText(getPrimaryLabel(menu.labels)?.displayName) ?? `Menu ${menuIndex + 1} settings`,
+        targetKind,
+        match: { status: 'menu_metadata', confidence: 'none' },
+        suggestedPatch: metadataPatch,
+        warnings: [],
+      });
+    }
     const localItems = localItemsByTarget[targetKind];
     const localItemsById = new Map(localItems.map((item) => [item.id, item]));
-    for (const [sectionIndex, section] of menu.sections.entries()) {
+    for (const [sectionIndex, section] of menuSectionsArray(menu).entries()) {
       const googleSectionLabel = cleanText(getPrimaryLabel(section.labels)?.displayName);
-      for (const [itemIndex, googleItem] of section.items.entries()) {
+      for (const [itemIndex, googleItem] of sectionItemsArray(section).entries()) {
         const googlePath = `menus[${menuIndex}].sections[${sectionIndex}].items[${itemIndex}]`;
         const googleItemName = cleanText(getPrimaryLabel(googleItem.labels)?.displayName);
         const googlePrice = googleMoneyToNumber(googleItem.attributes.price);
@@ -1781,13 +2017,13 @@ export function canonicalizeGoogleFoodMenusResource(
 ): CanonicalGoogleFoodMenusResource {
   return {
     name: foodMenus.name.trim(),
-    menus: foodMenus.menus.map((menu) => ({
+    menus: foodMenusArray(foodMenus).map((menu) => ({
       labels: canonicalizeLabels(menu.labels),
       sourceUrl: cleanText(menu.sourceUrl),
       cuisines: uniqueSorted(menu.cuisines ?? []),
-      sections: menu.sections.map((section) => ({
+      sections: menuSectionsArray(menu).map((section) => ({
         labels: canonicalizeLabels(section.labels),
-        items: section.items.map((item) => ({
+        items: sectionItemsArray(section).map((item) => ({
           labels: canonicalizeLabels(item.labels),
           attributes: canonicalizeAttributes(item.attributes),
           options: (item.options ?? []).map((option) => ({

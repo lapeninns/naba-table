@@ -121,6 +121,14 @@ import type { RestaurantProfile } from '@/services/ops/restaurants';
 
 describe('RestaurantProfileSection', () => {
   beforeEach(() => {
+    window.history.replaceState(null, '', '/');
+    profile.name = 'Old Crown Girton';
+    profile.slug = 'old-crown-girton';
+    profile.timezone = 'Europe/London';
+    profile.contactPhone = '+441223277217';
+    profile.address = '1 High Street';
+    profile.businessDescription = null;
+    profile.logoUrl = null;
     updateProfileMock.mockReset();
     updateProfileMock.mockImplementation(async (payload: Partial<RestaurantProfile>) => ({
       ...profile,
@@ -136,11 +144,12 @@ describe('RestaurantProfileSection', () => {
 
     render(<RestaurantProfileSection restaurantId="rest-1" />);
 
-    await screen.findByText('Brand and identity');
+    await screen.findAllByText('Brand and identity');
     await user.type(
       screen.getByRole('textbox', { name: /business description/i }),
       'Family friendly pub',
     );
+    await user.click(screen.getByRole('button', { name: /^Contact/i }));
     await user.clear(screen.getByRole('textbox', { name: /contact phone/i }));
     await user.type(screen.getByRole('textbox', { name: /contact phone/i }), '+447700900000');
 
@@ -149,6 +158,9 @@ describe('RestaurantProfileSection', () => {
       'sticky',
       'bottom-0',
     );
+    expect(
+      screen.getByText(/save profile changes without leaving this command center/i),
+    ).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Save all' }));
 
     await waitFor(() => expect(updateProfileMock).toHaveBeenCalledTimes(2));
@@ -189,48 +201,75 @@ describe('RestaurantProfileSection', () => {
       expect(screen.queryByText('2 unsaved profile sections')).not.toBeInTheDocument(),
     );
     expect(screen.getAllByRole('status').map((node) => node.textContent)).toEqual(
-      expect.arrayContaining([
-        expect.stringMatching(/Brand and identity saved\. Last updated/i),
-        expect.stringMatching(/Contact and location saved\. Last updated/i),
-      ]),
+      expect.arrayContaining([expect.stringMatching(/Saved just now/i)]),
     );
   });
 
-  it('renders the profile card stack with one card per concern', async () => {
+  it('renders the consolidated profile overview with rail navigation', async () => {
+    const user = userEvent.setup();
+
     render(<RestaurantProfileSection restaurantId="rest-1" />);
 
-    await screen.findByText('Brand and identity');
-    expect(screen.getByText('Contact and location')).toBeInTheDocument();
-    expect(screen.getByText('Manager notifications')).toBeInTheDocument();
-    expect(screen.getByText('Discovery details')).toBeInTheDocument();
-    expect(screen.getByText('Advanced')).toBeInTheDocument();
-    // No accordion: there should be no `region` accordion items wrapping the cards.
-    expect(document.querySelector('[data-state="open"][data-orientation]')).toBeNull();
+    await screen.findAllByText('Brand and identity');
+    expect(screen.getByText('Profile command center')).toBeInTheDocument();
+    expect(screen.getByText('Profile sections')).toBeInTheDocument();
+    expect(screen.getByText('Booking URL')).toBeInTheDocument();
+    expect(screen.getByText('Next action')).toBeInTheDocument();
+    expect(screen.getByText('Readiness')).toBeInTheDocument();
+    expect(screen.getByText('Not linked')).toBeInTheDocument();
+
+    const contactRail = screen.getByRole('button', { name: /^Contact/i });
+    const bookingRail = screen.getByRole('button', { name: /^Booking link/i });
+    const managerAlertsRail = screen.getByRole('button', { name: /^Manager alerts/i });
+    expect(contactRail).toBeInTheDocument();
+    expect(bookingRail).toBeInTheDocument();
+    expect(managerAlertsRail).toBeInTheDocument();
+
+    await user.click(bookingRail);
+    expect(screen.getByRole('textbox', { name: /booking page url/i })).toBeInTheDocument();
+    expect(bookingRail).toHaveAttribute('aria-current', 'page');
+
+    expect(screen.queryByLabelText(/opening date/i)).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /^Discovery details/i }));
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /discovery details/i })).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  it('focuses the exact required field from the command-center primary action', async () => {
+    const user = userEvent.setup();
+    profile.slug = '';
+
+    render(<RestaurantProfileSection restaurantId="rest-1" />);
+
+    await screen.findAllByText('Brand and identity');
+    const fixAction = await screen.findByRole('button', {
+      name: /fix public booking page url/i,
+    });
+    await user.click(fixAction);
+
+    const slugInput = await screen.findByRole('textbox', { name: /booking page url/i });
+    await waitFor(() => expect(slugInput).toHaveFocus());
   });
 
   it('exposes the promised hash anchors for each profile card', async () => {
     const { container } = render(<RestaurantProfileSection restaurantId="rest-1" />);
 
-    await screen.findByText('Brand and identity');
+    await screen.findAllByText('Brand and identity');
     expect(container.querySelector('#profile-identity')).not.toBeNull();
     expect(container.querySelector('#profile-contact')).not.toBeNull();
+    expect(container.querySelector('#profile-booking-url')).not.toBeNull();
     expect(container.querySelector('#profile-notifications')).not.toBeNull();
     expect(container.querySelector('#profile-discovery')).not.toBeNull();
-    expect(container.querySelector('#profile-advanced')).not.toBeNull();
   });
 
-  it('shows the single Review Google CTA and cross-links to availability and team', async () => {
+  it('renders the optional Google comparison action and the related-settings footer', async () => {
     render(<RestaurantProfileSection restaurantId="rest-1" />);
 
-    await screen.findByText('Brand and identity');
-    const reviewLinks = screen.getAllByRole('link', { name: /review google changes/i });
-    expect(reviewLinks).toHaveLength(1);
-    expect(reviewLinks[0]).toHaveAttribute(
-      'href',
-      '/app/settings/restaurant/google-business-profile',
-    );
+    await screen.findAllByText('Brand and identity');
 
-    const availabilityLink = screen.getByRole('link', { name: /availability & occasions/i });
+    const availabilityLink = screen.getByRole('link', { name: /availability & booking types/i });
     expect(availabilityLink).toHaveAttribute(
       'href',
       '/app/settings/restaurant/availability#booking-rules',

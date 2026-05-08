@@ -63,6 +63,13 @@ const AvailabilitySkeleton = () => (
   </div>
 );
 
+const RestaurantSetupOverview = dynamic(
+  () => import('./RestaurantSetupOverview').then((m) => m.RestaurantSetupOverview),
+  {
+    loading: () => <SettingsSectionSkeleton title="Loading setup overview" />,
+  },
+);
+
 const RestaurantProfileSection = dynamic(
   () => import('./RestaurantProfileSection').then((m) => m.RestaurantProfileSection),
   {
@@ -179,6 +186,7 @@ export function OpsRestaurantSettingsClient({
     RestaurantSettingsView,
     (context: { restaurantId: string | null }) => ReactNode
   > = {
+    overview: ({ restaurantId }) => <RestaurantSetupOverview restaurantId={restaurantId} />,
     profile: ({ restaurantId }) => <RestaurantProfileSection restaurantId={restaurantId} />,
     'google-business-profile': ({ restaurantId }) => (
       <GoogleBusinessProfileSection restaurantId={restaurantId} />
@@ -198,7 +206,11 @@ export function OpsRestaurantSettingsClient({
     <div className={SETTINGS_COMPACT_ROUTE_STACK_CLASS}>
       {renderByView[view]({ restaurantId: selectedRestaurantId })}
       {dualSyncEnabled && dualSyncSections && selectedRestaurantId ? (
-        <DualSyncShell restaurantId={selectedRestaurantId} sections={dualSyncSections} />
+        <DualSyncShell
+          restaurantId={selectedRestaurantId}
+          sections={dualSyncSections}
+          singleOpenSections={view === 'google-business-profile'}
+        />
       ) : null}
     </div>
   );

@@ -9,6 +9,7 @@ const navigationState = vi.hoisted(() => ({
 
 const dynamicState = vi.hoisted(() => ({
   names: [
+    'overview',
     'profile',
     'google-business-profile',
     'availability',
@@ -76,6 +77,7 @@ const membership: OpsMembership = {
 };
 
 const expectedViews: RestaurantSettingsView[] = [
+  'overview',
   'profile',
   'google-business-profile',
   'availability',
@@ -105,6 +107,7 @@ function makePrefetchServiceCalls() {
     getTurnBands: vi.fn().mockResolvedValue([]),
     listInvites: vi.fn().mockResolvedValue([]),
     listItems: vi.fn().mockResolvedValue({ items: [] }),
+    listMenus: vi.fn().mockResolvedValue({ menus: [] }),
     listOccasions: vi.fn().mockResolvedValue([]),
     listTables: vi.fn().mockResolvedValue({ tables: [] }),
   };
@@ -124,6 +127,7 @@ function renderSubnav(pathname: string, serviceCalls = makePrefetchServiceCalls(
         factories={
           {
             menuService: () => ({ listItems: serviceCalls.listItems }),
+            menuHierarchyService: () => ({ listMenus: serviceCalls.listMenus }),
             occasionService: () => ({ listOccasions: serviceCalls.listOccasions }),
             restaurantService: () => ({
               getGoogleBusinessProfileConnection: serviceCalls.getGoogleBusinessProfileConnection,
@@ -159,6 +163,7 @@ function renderPageShell(pathname: string, serviceCalls = makePrefetchServiceCal
         factories={
           {
             menuService: () => ({ listItems: serviceCalls.listItems }),
+            menuHierarchyService: () => ({ listMenus: serviceCalls.listMenus }),
             occasionService: () => ({ listOccasions: serviceCalls.listOccasions }),
             restaurantService: () => ({
               getGoogleBusinessProfileConnection: serviceCalls.getGoogleBusinessProfileConnection,
@@ -191,6 +196,7 @@ describe('restaurant settings route contract', () => {
   it('keeps route metadata and nav items in sync for every shipped settings view', () => {
     expect(RESTAURANT_SETTINGS_ROUTES.map((route) => route.view)).toEqual(expectedViews);
     expect(RESTAURANT_SETTINGS_NAV_ITEMS.map((item) => item.href)).toEqual([
+      '/app/settings/restaurant',
       '/app/settings/restaurant/profile',
       '/app/settings/restaurant/google-business-profile',
       '/app/settings/restaurant/availability',
@@ -237,15 +243,16 @@ describe('OpsRestaurantSettingsClient', () => {
 
 describe('RestaurantSettingsSubnav', () => {
   it('uses the compact page and navigation baseline across settings routes', () => {
-    renderPageShell('/app/settings/restaurant/profile');
+    renderPageShell('/app/settings/restaurant');
 
-    expect(screen.getByRole('main')).toHaveClass('gap-4', 'px-3', 'py-4');
-    expect(screen.getByRole('heading', { level: 1, name: 'Restaurant profile' })).toHaveClass(
+    expect(screen.getByRole('main')).toHaveClass('gap-4', 'pg-container');
+    expect(screen.getByRole('heading', { level: 1, name: 'Restaurant setup' })).toHaveClass(
       'text-2xl',
     );
-    expect(screen.getByRole('link', { name: 'Restaurant profile' })).toHaveClass(
-      'min-w-[176px]',
-      'py-1.5',
+    expect(screen.getByRole('link', { name: 'Restaurant setup' })).toHaveClass(
+      'min-w-[160px]',
+      'px-3',
+      'py-2',
     );
     expect(screen.getByText('Change restaurant from the sidebar.')).toBeInTheDocument();
   });
@@ -257,6 +264,9 @@ describe('RestaurantSettingsSubnav', () => {
       expect(screen.getByRole('link', { name: item.title })).toHaveAttribute('href', item.href);
     }
     expect(screen.getByRole('link', { name: 'Tables' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: 'Restaurant setup' })).not.toHaveAttribute(
+      'aria-current',
+    );
   });
 
   it('prefetches each settings route with the active restaurant service contract', async () => {
@@ -264,9 +274,10 @@ describe('RestaurantSettingsSubnav', () => {
     const serviceCalls = makePrefetchServiceCalls();
     renderSubnav('/app/settings/restaurant/profile', serviceCalls);
 
+    await user.hover(screen.getByRole('link', { name: 'Restaurant setup' }));
     await user.hover(screen.getByRole('link', { name: 'Restaurant profile' }));
     await user.hover(screen.getByRole('link', { name: 'Google Business Profile' }));
-    await user.hover(screen.getByRole('link', { name: 'Availability & Occasions' }));
+    await user.hover(screen.getByRole('link', { name: 'Availability & Booking types' }));
     await user.hover(screen.getByRole('link', { name: 'Menu' }));
     await user.hover(screen.getByRole('link', { name: 'Tables' }));
     await user.hover(screen.getByRole('link', { name: 'Team' }));
@@ -278,7 +289,7 @@ describe('RestaurantSettingsSubnav', () => {
       expect(serviceCalls.getServicePeriods).toHaveBeenCalledWith('rest-1');
       expect(serviceCalls.listOccasions).toHaveBeenCalledWith();
       expect(serviceCalls.getTurnBands).toHaveBeenCalledWith('rest-1');
-      expect(serviceCalls.listItems).toHaveBeenCalledWith('rest-1', {});
+      expect(serviceCalls.listMenus).toHaveBeenCalledWith('rest-1');
       expect(serviceCalls.listTables).toHaveBeenCalledWith('rest-1');
       expect(serviceCalls.listInvites).toHaveBeenCalledWith('rest-1', 'pending');
     });

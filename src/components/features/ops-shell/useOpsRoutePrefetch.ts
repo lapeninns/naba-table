@@ -108,8 +108,8 @@ export function useOpsRoutePrefetch() {
 
         case '/settings/restaurant/menu':
           void queryClient.prefetchQuery({
-            queryKey: queryKeys.opsMenu.list(activeRestaurantId, {}),
-            queryFn: () => services.menuService.listItems(activeRestaurantId, {}),
+            queryKey: queryKeys.opsMenuHierarchy.list(activeRestaurantId),
+            queryFn: () => services.menuHierarchyService.listMenus(activeRestaurantId),
             staleTime: 60_000,
           });
           break;

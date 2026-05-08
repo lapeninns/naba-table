@@ -1,9 +1,17 @@
 'use client';
 
-import { Check, ChevronsUpDown } from 'lucide-react';
+import {
+  Check,
+  ChevronsUpDown,
+  Clock3,
+  Copy,
+  ExternalLink,
+  Info,
+  ShieldAlert,
+  ShieldCheck,
+} from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { GoogleBusinessProfileComparisonBadge } from '@/components/features/restaurant-settings/GoogleBusinessProfileComparisonBadge';
 import { HelpTooltip } from '@/components/features/restaurant-settings/HelpTooltip';
 import {
   Accordion,
@@ -11,6 +19,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { FormRoot } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -19,7 +28,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { TooltipProvider } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useOpsUpdateRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
 import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';
@@ -32,7 +41,6 @@ import { cn } from '@/lib/utils';
 import {
   ALL_TIMEZONES,
   buildProfileCompletionAnalytics,
-  buildSubformSuccessMessage,
   buildTimezoneLabel,
   FIELD_TOOLTIPS,
   filterErrors,
@@ -82,6 +90,22 @@ type ProfileAnalyticsSection =
   | 'advanced_identity'
   | 'booking_rules';
 
+function gbpStatusPresentation(status: Exclude<GbpFieldStatus, 'unavailable'>) {
+  if (status === 'verified') {
+    return {
+      label: 'Matches GBP',
+      icon: Check,
+      className: 'border-primary/30 bg-primary/10 text-primary',
+    };
+  }
+
+  return {
+    label: 'Drifted from GBP',
+    icon: ShieldAlert,
+    className: 'border-primary/30 bg-primary/10 text-primary',
+  };
+}
+
 function GbpStatusBadge(props: {
   verification?: ProfileFieldVerification;
   status: GbpFieldStatus;
@@ -90,14 +114,61 @@ function GbpStatusBadge(props: {
     return null;
   }
 
+  const presentation = gbpStatusPresentation(props.status);
+  const Icon = presentation.icon;
+  const hasTooltip = Boolean(
+    props.verification.tooltipTitle ||
+    props.verification.tooltipLines.length > 0 ||
+    props.verification.tooltipFooter,
+  );
+
   return (
-    <GoogleBusinessProfileComparisonBadge
-      status={props.status}
-      tooltipTitle={props.verification.tooltipTitle}
-      tooltipLines={props.verification.tooltipLines}
-      tooltipFooter={props.verification.tooltipFooter}
-      ariaLabel="Show Google Business Profile field details"
-    />
+    <span className="inline-flex items-center gap-1.5">
+      <Badge
+        variant="outline"
+        className={cn(
+          'h-5 gap-1 rounded-full px-2 text-[10px] font-semibold uppercase tracking-wide',
+          presentation.className,
+        )}
+      >
+        <Icon className="size-3 shrink-0" aria-hidden />
+        <span>{presentation.label}</span>
+      </Badge>
+      {hasTooltip ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              aria-label="Show Google Business Profile field details"
+            >
+              <Info className="size-3.5" aria-hidden />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="top" align="start" className="max-w-sm space-y-2 px-3 py-2">
+            {props.verification.tooltipTitle ? (
+              <p className="text-xs font-semibold">{props.verification.tooltipTitle}</p>
+            ) : null}
+            {props.verification.tooltipLines.length > 0 ? (
+              <div className="space-y-1">
+                {props.verification.tooltipLines.map((line) => (
+                  <p key={line} className="text-xs leading-snug">
+                    {line}
+                  </p>
+                ))}
+              </div>
+            ) : null}
+            {props.verification.tooltipFooter ? (
+              <p className="border-t border-background/20 pt-2 text-xs leading-snug text-background/80">
+                {props.verification.tooltipFooter}
+              </p>
+            ) : null}
+          </TooltipContent>
+        </Tooltip>
+      ) : null}
+    </span>
   );
 }
 
@@ -109,6 +180,35 @@ function FieldRequirement({ label }: { label: 'Required' | 'Optional' | 'Require
     >
       {label}
     </span>
+  );
+}
+
+function getHttpUrl(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  try {
+    const url = new URL(trimmed);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+function ExternalUrlButton({ href, label }: { href: string | null; label: string }) {
+  if (!href) {
+    return null;
+  }
+
+  return (
+    <Button type="button" variant="ghost" size="sm" asChild>
+      <a href={href} target="_blank" rel="noreferrer">
+        <ExternalLink data-icon="inline-start" aria-hidden />
+        {label}
+      </a>
+    </Button>
   );
 }
 
@@ -210,7 +310,7 @@ function useRestaurantDetailsSubform({
     event: React.FormEvent,
     payloadBuilder: (nextState: FormState) => Partial<RestaurantProfile>,
     errorLogLabel: string,
-    successMessage: string,
+    _successMessage: string,
   ) => {
     event.preventDefault();
     const nextErrors = filterErrors(validateRestaurantDetails(state), fields);
@@ -240,7 +340,7 @@ function useRestaurantDetailsSubform({
       setErrors({});
       setStatus({
         tone: 'success',
-        message: buildSubformSuccessMessage(successMessage, updatedProfile.updatedAt),
+        message: 'Saved just now.',
       });
       emitProfileAnalytics('restaurant_profile_section_saved', {
         restaurant_id: restaurantId,
@@ -285,19 +385,17 @@ function SubformActions({
 }) {
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      {status ? (
-        <p
-          role={status.tone === 'error' ? 'alert' : 'status'}
-          className={cn(
-            'text-sm',
-            status.tone === 'error' ? 'text-destructive' : 'text-muted-foreground',
-          )}
-        >
-          {status.message}
-        </p>
-      ) : (
-        <span aria-hidden="true" />
-      )}
+      <div className="flex flex-col gap-1 text-sm">
+        <p className="text-muted-foreground">Saves this section only.</p>
+        {status ? (
+          <p
+            role={status.tone === 'error' ? 'alert' : 'status'}
+            className={status.tone === 'error' ? 'text-destructive' : 'text-muted-foreground'}
+          >
+            {status.message}
+          </p>
+        ) : null}
+      </div>
       <Button type="submit" disabled={isSubmitting}>
         {isSubmitting ? 'Saving…' : submitLabel}
       </Button>
@@ -476,6 +574,8 @@ export function ContactLocationSubform({
     });
   }, [timezoneSearch]);
   const gbpStatuses = getGbpStatuses(state, gbpFieldVerifications);
+  const mapUrl = getHttpUrl(state.googleMapUrl);
+  const reviewUrl = getHttpUrl(state.googleReviewUrl);
 
   return (
     <TooltipProvider delayDuration={100}>
@@ -501,6 +601,27 @@ export function ContactLocationSubform({
           )
         }
       >
+        <div className="grid gap-3 lg:grid-cols-3">
+          <div className="rounded-md bg-muted/30 px-3 py-2">
+            <p className="text-sm font-medium text-foreground">Public contact</p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Email and phone are the fallback details guests see when they need help.
+            </p>
+          </div>
+          <div className="rounded-md bg-muted/30 px-3 py-2">
+            <p className="text-sm font-medium text-foreground">Location confidence</p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Address, timezone, and map link should agree before the profile is treated as ready.
+            </p>
+          </div>
+          <div className="rounded-md bg-muted/30 px-3 py-2">
+            <p className="text-sm font-medium text-foreground">After-visit path</p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Review links support follow-up emails without changing booking rules.
+            </p>
+          </div>
+        </div>
+
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center gap-1">
@@ -680,7 +801,7 @@ export function ContactLocationSubform({
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <div className="flex flex-wrap items-center gap-2">
-              <Label htmlFor="restaurant-google-map">Google Maps URL</Label>
+              <Label htmlFor="restaurant-google-map">Map link</Label>
               <FieldRequirement label="Optional" />
               <GbpStatusBadge
                 status={gbpStatuses.googleMapUrl}
@@ -688,7 +809,7 @@ export function ContactLocationSubform({
               />
               <HelpTooltip
                 description={FIELD_TOOLTIPS.googleMapUrl}
-                ariaLabel="Why add a Google Maps link?"
+                ariaLabel="Why add a map link?"
               />
             </div>
             <Input
@@ -709,6 +830,7 @@ export function ContactLocationSubform({
             <p id="restaurant-google-map-help" className="text-xs text-muted-foreground">
               {FIELD_TOOLTIPS.googleMapUrl}
             </p>
+            <ExternalUrlButton href={mapUrl} label="Open map link" />
             {errors.googleMapUrl ? (
               <p id="restaurant-google-map-error" className="text-xs text-destructive" role="alert">
                 {errors.googleMapUrl}
@@ -718,7 +840,7 @@ export function ContactLocationSubform({
 
           <div className="flex flex-col gap-1.5">
             <div className="flex flex-wrap items-center gap-2">
-              <Label htmlFor="restaurant-google-review">Google Review URL</Label>
+              <Label htmlFor="restaurant-google-review">Guest review link</Label>
               <FieldRequirement label="Optional" />
               <GbpStatusBadge
                 status={gbpStatuses.googleReviewUrl}
@@ -726,7 +848,7 @@ export function ContactLocationSubform({
               />
               <HelpTooltip
                 description={FIELD_TOOLTIPS.googleReviewUrl}
-                ariaLabel="Why add a Google review link?"
+                ariaLabel="Why add a guest review link?"
               />
             </div>
             <Input
@@ -749,6 +871,7 @@ export function ContactLocationSubform({
             <p id="restaurant-google-review-help" className="text-xs text-muted-foreground">
               {FIELD_TOOLTIPS.googleReviewUrl}
             </p>
+            <ExternalUrlButton href={reviewUrl} label="Open review link" />
             {errors.googleReviewUrl ? (
               <p
                 id="restaurant-google-review-error"
@@ -787,6 +910,7 @@ export function ManagerNotificationsSubform({
       onDraftChange,
       restaurantId,
     });
+  const summaryState = state.managerDailySummaryEnabled ? 'On' : 'Off';
 
   return (
     <TooltipProvider delayDuration={100}>
@@ -804,10 +928,32 @@ export function ManagerNotificationsSubform({
               };
             },
             'ManagerNotificationsSubform',
-            'Manager notifications saved.',
+            'Manager alerts saved.',
           )
         }
       >
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(220px,0.55fr)]">
+          <div className="rounded-md bg-muted/30 px-3 py-2">
+            <p className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <ShieldCheck className="size-4 text-primary" aria-hidden />
+              Staff-only setting
+            </p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Guests never see this number. It only controls manager booking-summary delivery.
+            </p>
+          </div>
+          <div className="rounded-md bg-muted/30 px-3 py-2">
+            <p className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <Clock3 className="size-4 text-primary" aria-hidden />
+              10:00 local summary
+            </p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Current state: <span className="text-foreground">{summaryState}</span>. A valid E.164
+              phone number is required when it is on.
+            </p>
+          </div>
+        </div>
+
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center gap-1">
@@ -815,12 +961,12 @@ export function ManagerNotificationsSubform({
                 htmlFor="restaurant-manager-notification-phone"
                 className="inline-flex items-center gap-1"
               >
-                Manager Notification Number
+                Manager alert number
               </Label>
               <FieldRequirement label="Required if on" />
               <HelpTooltip
                 description={FIELD_TOOLTIPS.managerNotificationPhone}
-                ariaLabel="What is the manager notification number?"
+                ariaLabel="What is the manager alert number?"
               />
             </div>
             <Input
@@ -866,7 +1012,7 @@ export function ManagerNotificationsSubform({
                     htmlFor="restaurant-manager-daily-summary-enabled"
                     className="inline-flex items-center gap-1"
                   >
-                    Daily Manager SMS Summary
+                    Daily manager SMS summary
                   </Label>
                   <FieldRequirement label="Optional" />
                   <HelpTooltip
@@ -917,6 +1063,22 @@ export function AdvancedIdentitySubform({
       onDraftChange,
       restaurantId,
     });
+  const [copyStatus, setCopyStatus] = useState<string | null>(null);
+  const bookingSlug = state.slug.trim();
+  const bookingPath = bookingSlug ? `/restaurants/${bookingSlug}/book` : null;
+  const handleCopyBookingPath = async () => {
+    if (!bookingPath || typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+      setCopyStatus('Copy is unavailable in this browser.');
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(bookingPath);
+      setCopyStatus('Booking path copied.');
+    } catch {
+      setCopyStatus('Unable to copy booking path.');
+    }
+  };
 
   return (
     <TooltipProvider delayDuration={100}>
@@ -935,7 +1097,7 @@ export function AdvancedIdentitySubform({
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-1">
             <Label htmlFor="restaurant-slug" className="inline-flex items-center gap-1">
-              Booking link slug <span className="text-destructive">*</span>
+              Booking page URL <span className="text-destructive">*</span>
             </Label>
             <FieldRequirement label="Required" />
             <HelpTooltip
@@ -959,6 +1121,36 @@ export function AdvancedIdentitySubform({
               {errors.slug}
             </p>
           ) : null}
+        </div>
+
+        <div className="rounded-md border border-border/70 bg-muted/20 p-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">Public booking path</p>
+              <p className="mt-1 break-all font-mono text-xs tabular-nums text-muted-foreground">
+                {bookingPath ?? 'Add a slug to generate the public booking path.'}
+              </p>
+              <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                Change this only when the public guest link should change across menus, QR codes,
+                and saved browser bookmarks.
+              </p>
+              {copyStatus ? (
+                <p role="status" className="mt-2 text-xs text-muted-foreground">
+                  {copyStatus}
+                </p>
+              ) : null}
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleCopyBookingPath}
+              disabled={!bookingPath}
+            >
+              <Copy data-icon="inline-start" aria-hidden />
+              Copy path
+            </Button>
+          </div>
         </div>
 
         <SubformActions
@@ -1015,12 +1207,12 @@ export function BookingRulesSubform({
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center gap-1">
               <Label htmlFor="restaurant-interval" className="inline-flex items-center gap-1">
-                Reservation Interval (minutes) <span className="text-destructive">*</span>
+                Booking slot spacing (minutes) <span className="text-destructive">*</span>
               </Label>
               <FieldRequirement label="Required" />
               <HelpTooltip
                 description={FIELD_TOOLTIPS.reservationInterval}
-                ariaLabel="Reservation interval details"
+                ariaLabel="Booking slot spacing details"
               />
             </div>
             <Input
@@ -1056,12 +1248,12 @@ export function BookingRulesSubform({
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center gap-1">
               <Label htmlFor="restaurant-duration" className="inline-flex items-center gap-1">
-                Default Reservation Duration (minutes) <span className="text-destructive">*</span>
+                Default table time (minutes) <span className="text-destructive">*</span>
               </Label>
               <FieldRequirement label="Required" />
               <HelpTooltip
                 description={FIELD_TOOLTIPS.reservationDuration}
-                ariaLabel="Reservation duration details"
+                ariaLabel="Default table time details"
               />
             </div>
             <Input
@@ -1151,12 +1343,12 @@ export function BookingRulesSubform({
                 htmlFor="restaurant-lifecycle-grace"
                 className="inline-flex items-center gap-1"
               >
-                Lifecycle Grace Period (minutes) <span className="text-destructive">*</span>
+                Grace period (minutes) <span className="text-destructive">*</span>
               </Label>
               <FieldRequirement label="Required" />
               <HelpTooltip
                 description={FIELD_TOOLTIPS.lifecycleGrace}
-                ariaLabel="Lifecycle grace period details"
+                ariaLabel="Grace period details"
               />
             </div>
             <Input
@@ -1583,12 +1775,12 @@ export function RestaurantDetailsForm({
           <div className="space-y-1.5">
             <div className="flex items-center gap-1">
               <Label htmlFor="restaurant-interval" className="inline-flex items-center gap-1">
-                Reservation Interval (minutes) <span className="text-destructive">*</span>
+                Booking slot spacing (minutes) <span className="text-destructive">*</span>
               </Label>
               <FieldRequirement label="Required" />
               <HelpTooltip
                 description={FIELD_TOOLTIPS.reservationInterval}
-                ariaLabel="Reservation interval details"
+                ariaLabel="Booking slot spacing details"
               />
             </div>
             <Input
@@ -1624,12 +1816,12 @@ export function RestaurantDetailsForm({
           <div className="space-y-1.5">
             <div className="flex items-center gap-1">
               <Label htmlFor="restaurant-duration" className="inline-flex items-center gap-1">
-                Default Reservation Duration (minutes) <span className="text-destructive">*</span>
+                Default table time (minutes) <span className="text-destructive">*</span>
               </Label>
               <FieldRequirement label="Required" />
               <HelpTooltip
                 description={FIELD_TOOLTIPS.reservationDuration}
-                ariaLabel="Reservation duration details"
+                ariaLabel="Default table time details"
               />
             </div>
             <Input
@@ -1717,12 +1909,12 @@ export function RestaurantDetailsForm({
                 htmlFor="restaurant-lifecycle-grace"
                 className="inline-flex items-center gap-1"
               >
-                Lifecycle Grace Period (minutes) <span className="text-destructive">*</span>
+                Grace period (minutes) <span className="text-destructive">*</span>
               </Label>
               <FieldRequirement label="Required" />
               <HelpTooltip
                 description={FIELD_TOOLTIPS.lifecycleGrace}
-                ariaLabel="Lifecycle grace period details"
+                ariaLabel="Grace period details"
               />
             </div>
             <Input
@@ -1763,7 +1955,7 @@ export function RestaurantDetailsForm({
 
           <div className="space-y-1.5 sm:col-span-2">
             <div className="flex flex-wrap items-center gap-2">
-              <Label htmlFor="restaurant-google-review">Google Review URL</Label>
+              <Label htmlFor="restaurant-google-review">Guest review link</Label>
               <FieldRequirement label="Optional" />
               <GbpStatusBadge
                 status={gbpStatuses.googleReviewUrl}
@@ -1771,7 +1963,7 @@ export function RestaurantDetailsForm({
               />
               <HelpTooltip
                 description={FIELD_TOOLTIPS.googleReviewUrl}
-                ariaLabel="Why add a Google review link?"
+                ariaLabel="Why add a guest review link?"
               />
             </div>
             <Input
@@ -1807,7 +1999,7 @@ export function RestaurantDetailsForm({
 
           <div className="space-y-1.5 sm:col-span-2">
             <div className="flex flex-wrap items-center gap-2">
-              <Label htmlFor="restaurant-google-map">Google Maps URL</Label>
+              <Label htmlFor="restaurant-google-map">Map link</Label>
               <FieldRequirement label="Optional" />
               <GbpStatusBadge
                 status={gbpStatuses.googleMapUrl}
@@ -1815,7 +2007,7 @@ export function RestaurantDetailsForm({
               />
               <HelpTooltip
                 description={FIELD_TOOLTIPS.googleMapUrl}
-                ariaLabel="Why add a Google Maps link?"
+                ariaLabel="Why add a map link?"
               />
             </div>
             <Input
@@ -1881,12 +2073,12 @@ export function RestaurantDetailsForm({
                 htmlFor="restaurant-manager-notification-phone"
                 className="inline-flex items-center gap-1"
               >
-                Manager Notification Number
+                Manager alert number
               </Label>
               <FieldRequirement label="Required if on" />
               <HelpTooltip
                 description={FIELD_TOOLTIPS.managerNotificationPhone}
-                ariaLabel="What is the manager notification number?"
+                ariaLabel="What is the manager alert number?"
               />
             </div>
             <Input
@@ -1932,7 +2124,7 @@ export function RestaurantDetailsForm({
                     htmlFor="restaurant-manager-daily-summary-enabled"
                     className="inline-flex items-center gap-1"
                   >
-                    Daily Manager SMS Summary
+                    Daily manager SMS summary
                   </Label>
                   <FieldRequirement label="Optional" />
                   <HelpTooltip
@@ -1960,18 +2152,18 @@ export function RestaurantDetailsForm({
             <Accordion type="single" collapsible className="rounded-lg border border-border/70">
               <AccordionItem value="advanced-settings" className="border-none">
                 <AccordionTrigger className="px-4 text-left text-sm font-medium">
-                  Booking link
+                  Booking page URL
                 </AccordionTrigger>
                 <AccordionContent className="space-y-4 px-4 pb-4">
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-1">
                       <Label htmlFor="restaurant-slug" className="inline-flex items-center gap-1">
-                        Booking link slug <span className="text-destructive">*</span>
+                        Booking page URL <span className="text-destructive">*</span>
                       </Label>
                       <FieldRequirement label="Required" />
                       <HelpTooltip
                         description={FIELD_TOOLTIPS.slug}
-                        ariaLabel="What is a booking link slug?"
+                        ariaLabel="What is the booking page URL?"
                       />
                     </div>
                     <Input

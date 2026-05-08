@@ -22,6 +22,7 @@ const markFoodMenusPublishAttemptRunningMock = vi.hoisted(() => vi.fn());
 const finishFoodMenusPublishAttemptMock = vi.hoisted(() => vi.fn());
 const readFoodMenuSettingsMock = vi.hoisted(() => vi.fn());
 const upsertFoodMenuSettingsMock = vi.hoisted(() => vi.fn());
+const listRestaurantMenuHierarchyMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/menu/repository', () => ({
   deleteMenuItem: deleteMenuItemMock,
@@ -35,6 +36,10 @@ vi.mock('@/server/drinks-menu/repository', () => ({
   getDrinkItemDetail: getDrinkItemDetailMock,
   listDrinkItemDetails: listDrinkItemDetailsMock,
   upsertDrinkItem: upsertDrinkItemMock,
+}));
+
+vi.mock('@/server/menu-hierarchy/repository', () => ({
+  listRestaurantMenuHierarchy: listRestaurantMenuHierarchyMock,
 }));
 
 vi.mock('@/server/google-business-profile/client', () => ({
@@ -251,8 +256,10 @@ describe('GBP FoodMenus sync service', () => {
     finishFoodMenusPublishAttemptMock.mockReset();
     readFoodMenuSettingsMock.mockReset();
     upsertFoodMenuSettingsMock.mockReset();
+    listRestaurantMenuHierarchyMock.mockReset();
     listDrinkItemDetailsMock.mockResolvedValue([]);
     readFoodMenuSettingsMock.mockResolvedValue(null);
+    listRestaurantMenuHierarchyMock.mockResolvedValue({ menus: [] });
   });
 
   it('builds and persists a deterministic Nabatable projection snapshot from menu details', async () => {
@@ -327,6 +334,83 @@ describe('GBP FoodMenus sync service', () => {
     expect(result.snapshot).toBeNull();
     expect(result.identities).toEqual([]);
     expect(result.projection.identities[0]?.localItemId).toBe('item-1');
+  });
+
+  it('prefers active canonical food menus over the legacy item-first projection', async () => {
+    listRestaurantMenuHierarchyMock.mockResolvedValue({
+      menus: [
+        {
+          id: 'menu-1',
+          restaurantId: 'rest-1',
+          labels: [{ displayName: 'Canonical dinner', languageCode: 'en-GB' }],
+          sourceUrl: null,
+          cuisines: ['INDIAN'],
+          defaultLanguageCode: 'en-GB',
+          menuKind: 'food',
+          displayOrder: 0,
+          active: true,
+          legacySource: {},
+          sections: [
+            {
+              id: 'section-1',
+              restaurantId: 'rest-1',
+              menuId: 'menu-1',
+              labels: [{ displayName: 'Starters', languageCode: 'en-GB' }],
+              displayOrder: 0,
+              active: true,
+              legacyCategory: 'Starters',
+              legacySubcategory: null,
+              legacySource: {},
+              items: [
+                {
+                  id: 'canonical-item-1',
+                  restaurantId: 'rest-1',
+                  menuId: 'menu-1',
+                  sectionId: 'section-1',
+                  itemKind: 'food',
+                  externalItemId: 'canonical-paneer',
+                  legacySource: {},
+                  labels: [{ displayName: 'Canonical Paneer', languageCode: 'en-GB' }],
+                  attributes: {
+                    price: { currencyCode: 'GBP', amount: 11 },
+                    spiciness: null,
+                    allergen: [],
+                    dietaryRestriction: [],
+                    ingredients: [],
+                    preparationMethods: [],
+                    mediaKeys: [],
+                    nutritionFacts: {},
+                  },
+                  media: { googleMediaKeys: [], localMedia: {} },
+                  extensions: {
+                    drinkProfile: {},
+                    recommendationMetadata: {},
+                    availabilityPolicy: {},
+                    customizationControls: {},
+                    sourceMetadata: {},
+                  },
+                  options: [],
+                  displayOrder: 0,
+                  active: true,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = await prepareFoodMenusProjection({
+      client,
+      restaurantId: 'rest-1',
+      foodMenusName: 'accounts/123/locations/456/foodMenus',
+      persist: false,
+    });
+
+    expect(listMenuItemDetailsMock).not.toHaveBeenCalled();
+    expect(result.localItemCount).toBe(1);
+    expect(result.projection.foodMenus.menus[0]?.labels[0]?.displayName).toBe('Canonical dinner');
+    expect(result.projection.identities[0]?.googlePath).toBe('menus[0].sections[0].items[0]');
   });
 
   it('creates a non-mutating import review using explicit previous identities', async () => {
@@ -505,6 +589,55 @@ describe('GBP FoodMenus sync service', () => {
       }),
     );
     expect(result.googleFoodMenus).toBe(googleFoodMenus);
+    expect(result.googleFoodMenusHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(result.importReview.rows).toHaveLength(1);
+  });
+
+  it('refreshes deleted Google FoodMenus resources when Google omits the menus array', async () => {
+    const emptyGoogleFoodMenus = {
+      name: 'accounts/123/locations/456/foodMenus',
+    } as GoogleFoodMenusResource;
+    getGoogleBusinessProfileFoodMenusMock.mockResolvedValue(emptyGoogleFoodMenus);
+    listMenuItemDetailsMock.mockResolvedValue([makeMenuItem()]);
+    readLatestFoodMenusSnapshotMock.mockResolvedValue(
+      makeSnapshot({ id: 'projection-snapshot-1' }),
+    );
+    listProjectedFoodMenusIdentitiesMock.mockResolvedValue([]);
+    recordFoodMenusSnapshotMock.mockResolvedValue(makeSnapshot({ id: 'google-snapshot-empty' }));
+    replacePendingFoodMenusImportReviewsMock.mockResolvedValue([
+      makeReview({ id: 'review-missing', matchStatus: 'missing_from_google' }),
+    ]);
+
+    const result = await refreshFoodMenusImportReviewFromGoogle({
+      client,
+      restaurantId: 'rest-1',
+      accessToken: 'access-token',
+      foodMenusName: 'accounts/123/locations/456/foodMenus',
+      externalProfileId: 'profile-1',
+      createdByUserId: 'user-1',
+    });
+
+    expect(recordFoodMenusSnapshotMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        rawFoodMenus: emptyGoogleFoodMenus,
+        canonicalFoodMenus: {
+          name: 'accounts/123/locations/456/foodMenus',
+          menus: [],
+        },
+        snapshotHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+      }),
+    );
+    expect(replacePendingFoodMenusImportReviewsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        review: expect.objectContaining({
+          items: expect.arrayContaining([
+            expect.objectContaining({
+              match: expect.objectContaining({ status: 'missing_from_google' }),
+            }),
+          ]),
+        }),
+      }),
+    );
     expect(result.googleFoodMenusHash).toMatch(/^[a-f0-9]{64}$/);
     expect(result.importReview.rows).toHaveLength(1);
   });

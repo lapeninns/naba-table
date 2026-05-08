@@ -21,7 +21,7 @@ export const SETTINGS_COMPACT_FILTER_BAR_CLASS =
   'grid gap-3 rounded-md border border-border/60 bg-muted/30 p-3';
 
 export const SETTINGS_COMPACT_STICKY_ACTION_ROW_CLASS =
-  'sticky bottom-0 z-10 flex flex-col gap-2 border-t border-border/60 bg-background/95 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/85 sm:flex-row sm:items-center sm:justify-between';
+  'sticky bottom-0 z-10 flex flex-col gap-2 border-t border-border/60 bg-background/95 px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur supports-[backdrop-filter]:bg-background/85 sm:flex-row sm:items-center sm:justify-between';
 
 export const SETTINGS_COMPACT_STATUS_ROW_CLASS =
   'flex flex-wrap items-center gap-2 text-xs text-muted-foreground';

@@ -9,6 +9,9 @@ import GoogleBusinessProfileSettingsPage, {
 import RestaurantMenuSettingsPage, {
   metadata as menuMetadata,
 } from '@/app/app/(app)/settings/restaurant/menu/page';
+import RestaurantSetupSettingsPage, {
+  metadata as overviewMetadata,
+} from '@/app/app/(app)/settings/restaurant/page';
 import RestaurantProfileSettingsPage, {
   metadata as profileMetadata,
 } from '@/app/app/(app)/settings/restaurant/profile/page';
@@ -30,6 +33,11 @@ type RoutePageContract = {
 };
 
 const routePageContracts: RoutePageContract[] = [
+  {
+    metadata: overviewMetadata,
+    page: RestaurantSetupSettingsPage,
+    view: 'overview',
+  },
   {
     metadata: profileMetadata,
     page: RestaurantProfileSettingsPage,

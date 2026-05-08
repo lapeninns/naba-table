@@ -75,6 +75,7 @@ export interface DualSyncShellProps {
    */
   readonly sections?: ReadonlyArray<DualSyncSectionKey>;
   readonly className?: string;
+  readonly singleOpenSections?: boolean;
 }
 
 interface DecisionEntry {
@@ -113,7 +114,15 @@ function getSectionBulkSummary(
   );
 }
 
-export function DualSyncShell({ restaurantId, sections, className }: DualSyncShellProps) {
+export function DualSyncShell({
+  restaurantId,
+  sections,
+  className,
+  singleOpenSections = false,
+}: DualSyncShellProps) {
+  const FOOD_MENUS_REVIEW_VALUE = '__foodMenusReview';
+  const PUBLISHES_VALUE = '__publishes';
+  const OPERATIONS_VALUE = '__operations';
   const [showOperations, setShowOperations] = useState(false);
   const [showPublishJobs, setShowPublishJobs] = useState(false);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
@@ -143,6 +152,7 @@ export function DualSyncShell({ restaurantId, sections, className }: DualSyncShe
     [stateQuery.data?.fields],
   );
   const showFoodMenusReview = !sections || sections.length === 0 || sections.includes('foodMenus');
+  const [openSection, setOpenSection] = useState<string | undefined>(undefined);
 
   const visibleFields = useMemo<ReadonlyArray<DualSyncFieldSummary>>(() => {
     const all = stateQuery.data?.fields ?? [];
@@ -170,6 +180,18 @@ export function DualSyncShell({ restaurantId, sections, className }: DualSyncShe
     }
     return grouped;
   }, [visibleFields]);
+  const orderedSectionKeys = useMemo(
+    () => SECTION_ORDER.filter((key) => fieldsBySection.has(key)),
+    [fieldsBySection],
+  );
+  const orderedAccordionValues = useMemo(() => {
+    const values = orderedSectionKeys.map((key) => key as string);
+    if (showFoodMenusReview) {
+      values.unshift(FOOD_MENUS_REVIEW_VALUE);
+    }
+    values.push(PUBLISHES_VALUE, OPERATIONS_VALUE);
+    return values;
+  }, [orderedSectionKeys, showFoodMenusReview]);
 
   // Reset decisions when the underlying state set changes.
   useEffect(() => {
@@ -178,6 +200,18 @@ export function DualSyncShell({ restaurantId, sections, className }: DualSyncShe
 
   const decisionCount = Object.keys(decisions).length;
   const canSubmit = decisionCount > 0 && !publishMutation.isPending;
+
+  useEffect(() => {
+    if (!singleOpenSections) {
+      return;
+    }
+    setOpenSection((current) => {
+      if (current && orderedAccordionValues.includes(current)) {
+        return current;
+      }
+      return orderedAccordionValues[0];
+    });
+  }, [orderedAccordionValues, singleOpenSections]);
 
   const onSelectAction = (fieldKey: string, next: DualSyncDecisionAction | null) => {
     setDecisions((prev) => {
@@ -331,10 +365,22 @@ export function DualSyncShell({ restaurantId, sections, className }: DualSyncShe
     );
   }
 
+  const accordionProps = singleOpenSections
+    ? ({
+        type: 'single',
+        collapsible: true,
+        value: openSection,
+        onValueChange: (value: string) => setOpenSection(value || undefined),
+      } as const)
+    : ({
+        type: 'multiple',
+        defaultValue: orderedAccordionValues,
+      } as const);
+
   return (
     <Card className={cn('space-y-4', className)}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <div className="flex flex-wrap items-center gap-2">
+      <CardHeader className="flex flex-col gap-3 pb-2 sm:gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <CardTitle className="text-base">Google Business Profile sync</CardTitle>
           {totalOpen > 0 ? (
             <Badge variant="secondary" className="font-mono text-xs">
@@ -348,7 +394,7 @@ export function DualSyncShell({ restaurantId, sections, className }: DualSyncShe
           />
           {overallHeatmap.total > 0 ? <DualSyncHeatmap counts={overallHeatmap} /> : null}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:justify-end">
           <Button
             variant="outline"
             size="sm"
@@ -391,17 +437,18 @@ export function DualSyncShell({ restaurantId, sections, className }: DualSyncShe
         </div>
       </CardHeader>
       <CardContent>
-        {showFoodMenusReview ? (
-          <div className="pb-4">
-            <FoodMenusImportReviewPanel restaurantId={restaurantId} />
-          </div>
-        ) : null}
-        <Accordion
-          type="multiple"
-          defaultValue={SECTION_ORDER.filter((key) => fieldsBySection.has(key))}
-          className="space-y-3"
-        >
-          {SECTION_ORDER.filter((key) => fieldsBySection.has(key)).map((sectionKey) => {
+        <Accordion {...accordionProps} className="space-y-3">
+          {showFoodMenusReview ? (
+            <AccordionItem value={FOOD_MENUS_REVIEW_VALUE} className="border-b">
+              <AccordionTrigger className="text-sm font-semibold">
+                Review Google menu suggestions
+              </AccordionTrigger>
+              <AccordionContent className="pt-2">
+                <FoodMenusImportReviewPanel restaurantId={restaurantId} />
+              </AccordionContent>
+            </AccordionItem>
+          ) : null}
+          {orderedSectionKeys.map((sectionKey) => {
             const fields = fieldsBySection.get(sectionKey) ?? [];
             const sectionHeatmap = summarizeFieldsToHeatmap(fields);
             const bulkSummary = getSectionBulkSummary(fields, decisions);
@@ -480,8 +527,8 @@ export function DualSyncShell({ restaurantId, sections, className }: DualSyncShe
             );
           })}
           <AccordionItem
-            key="__publishes"
-            value="__publishes"
+            key={PUBLISHES_VALUE}
+            value={PUBLISHES_VALUE}
             className="border-b"
             onClick={() => {
               if (!showPublishJobs) setShowPublishJobs(true);
@@ -509,8 +556,8 @@ export function DualSyncShell({ restaurantId, sections, className }: DualSyncShe
             </AccordionContent>
           </AccordionItem>
           <AccordionItem
-            key="__operations"
-            value="__operations"
+            key={OPERATIONS_VALUE}
+            value={OPERATIONS_VALUE}
             className="border-b"
             onClick={() => {
               if (!showOperations) setShowOperations(true);

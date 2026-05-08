@@ -211,21 +211,23 @@ export function OccasionsSection() {
     if (occasion.isBuiltin) {
       return;
     }
-    const confirm = window.confirm(`Delete occasion "${occasion.label}"? This cannot be undone.`);
+    const confirm = window.confirm(
+      `Delete booking type "${occasion.label}"? This cannot be undone.`,
+    );
     if (!confirm) return;
     deleteMutation.mutate(occasion.key);
   };
 
   return (
     <SettingsCard
-      title="Booking occasions"
-      description="Control which booking occasions are available to staff and guests."
-      headerAction={<Button onClick={openForCreate}>New occasion</Button>}
+      title="Booking types"
+      description="Control which booking types are available to staff and guests."
+      headerAction={<Button onClick={openForCreate}>New booking type</Button>}
     >
       {occasionQuery.isLoading ? (
         <LoadingRows />
       ) : occasions.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No occasions configured yet.</p>
+        <p className="text-sm text-muted-foreground">No booking types configured yet.</p>
       ) : (
         <div className="rounded-lg border">
           <Table>
@@ -288,8 +290,10 @@ export function OccasionsSection() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingKey ? 'Edit occasion' : 'New occasion'}</DialogTitle>
-            <DialogDescription>Define how the occasion appears in booking flows.</DialogDescription>
+            <DialogTitle>{editingKey ? 'Edit booking type' : 'New booking type'}</DialogTitle>
+            <DialogDescription>
+              Define how the booking type appears in booking flows.
+            </DialogDescription>
           </DialogHeader>
           <FormRoot className="space-y-4" onSubmit={handleSubmit}>
             {!editingKey && (

@@ -84,9 +84,9 @@ export const FIELD_TOOLTIPS = {
   businessDescription:
     'Public copy guests may see when they find or book this restaurant. Keep it clear and current.',
   reservationInterval:
-    'Spacing between available reservation slots. Shorter intervals create more options but increase booking traffic.',
+    'Spacing between available booking slots. Shorter intervals create more options but increase booking traffic.',
   reservationDuration:
-    'Default dining time that pre-fills new reservations. Staff can override per booking if needed.',
+    'Default table time that pre-fills new reservations. Staff can override per booking if needed.',
   lastSeatingBuffer:
     'Minutes before closing when you stop seating guests so everyone can finish before the kitchen closes.',
   lifecycleGrace:
@@ -97,9 +97,8 @@ export const FIELD_TOOLTIPS = {
     'Direct delivery number for the daily manager SMS summary. Use E.164 format such as +447700900000.',
   managerDailySummaryEnabled:
     'Turns the 10:00 local-time manager booking summary SMS on or off for this restaurant.',
-  googleReviewUrl:
-    'Link for customers to leave a Google review. This is sent in post-visit emails.',
-  googleMapUrl: 'Link shared with guests for directions in Google Maps.',
+  googleReviewUrl: 'Guest review link sent in post-visit emails.',
+  googleMapUrl: 'Map link shared with guests for directions.',
 } as const;
 
 export const COMMON_TIMEZONES = [
@@ -333,9 +332,9 @@ export function validateRestaurantDetails(state: FormState): FormErrors {
 
   const slug = state.slug.trim();
   if (!slug) {
-    errors.slug = 'Booking link slug is required';
+    errors.slug = 'Booking page URL is required';
   } else if (!SLUG_PATTERN.test(slug)) {
-    errors.slug = 'Booking link slug must contain only lowercase letters, numbers, and hyphens';
+    errors.slug = 'Booking page URL must contain only lowercase letters, numbers, and hyphens';
   }
 
   if (!state.timezone.trim()) {

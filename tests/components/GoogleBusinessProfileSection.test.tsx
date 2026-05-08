@@ -121,16 +121,20 @@ function buildConnection(
 }
 
 function expectSharedChrome() {
-  expect(screen.getByTestId('gbp-action-bar')).toBeInTheDocument();
+  expect(screen.getByTestId('gbp-overview-card')).toBeInTheDocument();
+  expect(screen.queryByTestId('gbp-action-bar')).not.toBeInTheDocument();
+  expect(screen.getByText(/google workflow/i)).toBeInTheDocument();
+  expect(screen.queryByText(/google snapshot/i)).not.toBeInTheDocument();
   expect(screen.getByText(/related settings/i)).toBeInTheDocument();
   expect(screen.getByRole('link', { name: /restaurant profile/i })).toHaveAttribute(
     'href',
     '/app/settings/restaurant/profile#profile-discovery',
   );
-  expect(screen.getByRole('link', { name: /availability & occasions/i })).toHaveAttribute(
+  expect(screen.getByRole('link', { name: /availability & booking types/i })).toHaveAttribute(
     'href',
     '/app/settings/restaurant/availability',
   );
+  expect(screen.getByText(/google is optional/i)).toBeInTheDocument();
 }
 
 beforeEach(() => {
@@ -165,7 +169,6 @@ describe('GoogleBusinessProfileSection', () => {
 
     render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 
-    expect(screen.getByTestId('gbp-action-bar')).toBeInTheDocument();
     expectSharedChrome();
   });
 
@@ -192,7 +195,7 @@ describe('GoogleBusinessProfileSection', () => {
     render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 
     expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /connect google/i })).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: /connect google/i }).length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: /refresh google/i })).not.toBeInTheDocument();
     expect(document.getElementById('gbp-connection')).toBeInTheDocument();
     expectSharedChrome();
@@ -226,7 +229,7 @@ describe('GoogleBusinessProfileSection', () => {
     expectSharedChrome();
   });
 
-  it('renders a linked summary with one compact action bar', () => {
+  it('renders linked mode with one overview action surface', () => {
     connectionResult.data = buildConnection({
       status: 'linked',
       connectedGoogleEmail: 'ops@example.com',
@@ -241,15 +244,16 @@ describe('GoogleBusinessProfileSection', () => {
 
     render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 
-    expect(screen.getByText(/linked location/i)).toBeInTheDocument();
-    expect(screen.getByText('Nabatable Main')).toBeInTheDocument();
+    expect(screen.getAllByText('Nabatable Main').length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/linked and ready/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/review changes below/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /refresh google/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /manage on google/i })).toHaveAttribute(
       'href',
       'https://www.google.com/maps/search/?api=1&query_place_id=place-1',
     );
     expect(screen.getByRole('button', { name: /disconnect/i })).toBeInTheDocument();
-    expect(screen.getAllByTestId('gbp-action-bar')).toHaveLength(1);
+    expect(screen.getAllByTestId('gbp-overview-card')).toHaveLength(1);
     expectSharedChrome();
   });
 

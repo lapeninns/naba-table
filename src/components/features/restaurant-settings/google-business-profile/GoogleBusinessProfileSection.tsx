@@ -1,14 +1,15 @@
 'use client';
 
-import { ExternalLink, RefreshCcw, Unplug } from 'lucide-react';
+import { MapPin, SearchCheck, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   useOpsDisconnectGoogleBusinessProfile,
@@ -23,21 +24,22 @@ import {
   type GoogleBusinessProfileConnection,
 } from '@/services/ops/restaurants';
 
-import { SETTINGS_COMPACT_ACTION_BAR_CLASS } from '../shared';
+import { type RestaurantSettingsCommandRailItem } from '../shared';
 import { ConnectCard } from './components/ConnectCard';
+import { GbpOverviewCard } from './components/GbpOverviewCard';
 import { LocationPickerCard } from './components/LocationPickerCard';
-import { StatusBadge, connectionStatusBadge } from './components/StatusBadge';
 import {
   buildGoogleMapsPlaceHref,
   buildLocationValue,
 } from './googleBusinessProfileConnectionModel';
-import { formatLastSync } from './lib/formatters';
 
 import type { ReactNode } from 'react';
 
-const GBP_ANCHOR_IDS = ['gbp-connection', 'gbp-location'] as const;
+const GBP_ANCHOR_IDS = ['gbp-connection', 'gbp-location', 'gbp-sync-review'] as const;
 
 type GbpAnchorId = (typeof GBP_ANCHOR_IDS)[number];
+type GbpWorkflowStage = 'connect' | 'location' | 'linked' | 'issue';
+type GbpStepStatus = 'complete' | 'active' | 'blocked' | 'pending';
 
 const GBP_ANCHOR_ID_SET = new Set<string>(GBP_ANCHOR_IDS);
 
@@ -52,113 +54,212 @@ type GoogleBusinessProfileSectionProps = {
   restaurantId: string | null;
 };
 
-type GbpActionBarProps = {
-  status: GoogleBusinessProfileConnection['status'];
-  lastPullAt: string | null;
-  onRefresh: (() => void) | null;
-  isRefreshing: boolean;
-  manageOnGoogleHref: string | null;
-  canDisconnect: boolean;
-  onDisconnect: (() => void) | null;
-  isDisconnecting: boolean;
-};
-
-function GbpActionBar({
-  status,
-  lastPullAt,
-  onRefresh,
-  isRefreshing,
-  manageOnGoogleHref,
-  canDisconnect,
-  onDisconnect,
-  isDisconnecting,
-}: GbpActionBarProps) {
-  const badge = connectionStatusBadge(status);
-  const canRefresh = onRefresh !== null;
-
-  return (
-    <div data-testid="gbp-action-bar" className={SETTINGS_COMPACT_ACTION_BAR_CLASS}>
-      <div className="flex flex-wrap items-center gap-3">
-        <StatusBadge tone={badge.tone} label={badge.label} />
-        <span className="text-xs text-muted-foreground">
-          Last checked: <span className="text-foreground">{formatLastSync(lastPullAt)}</span>
-        </span>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        {canRefresh ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onRefresh ?? undefined}
-            disabled={isRefreshing}
-          >
-            <RefreshCcw
-              data-icon="inline-start"
-              className={isRefreshing ? 'animate-spin' : undefined}
-            />
-            Refresh Google
-          </Button>
-        ) : null}
-        {manageOnGoogleHref ? (
-          <Button type="button" variant="outline" size="sm" asChild>
-            <a href={manageOnGoogleHref} target="_blank" rel="noreferrer">
-              <ExternalLink data-icon="inline-start" />
-              Manage on Google
-            </a>
-          </Button>
-        ) : null}
-        {canDisconnect && onDisconnect ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onDisconnect}
-            disabled={isDisconnecting}
-            className="text-destructive hover:text-destructive"
-          >
-            <Unplug data-icon="inline-start" />
-            {isDisconnecting ? 'Disconnecting...' : 'Disconnect'}
-          </Button>
-        ) : null}
-      </div>
-    </div>
-  );
+function getStage(data: GoogleBusinessProfileConnection | null | undefined): GbpWorkflowStage {
+  if (!data || data.status === 'unlinked' || data.status === 'pending_auth') {
+    return 'connect';
+  }
+  if (data.status === 'authorized') {
+    return 'location';
+  }
+  if (data.status === 'reauth_required' || data.status === 'sync_error') {
+    return 'issue';
+  }
+  return 'linked';
 }
 
-type GbpShellProps = {
-  actionBar: ReactNode;
-  children: ReactNode;
-};
+function getStageLabel(stage: GbpWorkflowStage): string {
+  switch (stage) {
+    case 'linked':
+      return 'Linked and ready';
+    case 'location':
+      return 'Choose location';
+    case 'issue':
+      return 'Action needed';
+    case 'connect':
+    default:
+      return 'Connect Google';
+  }
+}
 
-function GbpShell({ actionBar, children }: GbpShellProps) {
+function getLocationTitle(data: GoogleBusinessProfileConnection | null): string {
+  if (!data) {
+    return 'Google Business Profile';
+  }
+  return data.externalLocationTitle ?? data.externalLocationName ?? 'Google Business Profile';
+}
+
+function getConnectedAccountLabel(data: GoogleBusinessProfileConnection | null): string {
+  if (!data) {
+    return 'No Google account connected';
+  }
+  return data.connectedGoogleEmail ?? data.connectedGoogleName ?? 'Google account not connected';
+}
+
+function getStepStatus(
+  step: 'connect' | 'location' | 'review',
+  data: GoogleBusinessProfileConnection | null,
+  stage: GbpWorkflowStage,
+): GbpStepStatus {
+  if (!data || data.status === 'unlinked' || data.status === 'pending_auth') {
+    return step === 'connect' ? 'active' : 'blocked';
+  }
+  if (data.status === 'authorized' || data.status === 'reauth_required') {
+    if (step === 'connect') return 'complete';
+    if (step === 'location') return 'active';
+    return 'blocked';
+  }
+  if (data.status === 'sync_error') {
+    return step === 'review' ? 'active' : 'complete';
+  }
+  if (stage === 'linked') {
+    return step === 'review' ? 'pending' : 'complete';
+  }
+  return 'pending';
+}
+
+function stepBadgeLabel(status: GbpStepStatus): string | undefined {
+  if (status === 'complete') return 'Done';
+  if (status === 'active') return 'Now';
+  if (status === 'blocked') return 'Locked';
+  return undefined;
+}
+
+function GbpFooter() {
   return (
-    <div className="flex flex-col gap-6">
-      {actionBar}
-      {children}
-      <Alert>
-        <AlertTitle>Related settings</AlertTitle>
-        <AlertDescription>
-          Public profile fields (name, address, phone, links) live on{' '}
-          <Link href={PROFILE_DISCOVERY_HREF} className="underline">
-            Restaurant profile
-          </Link>
-          . Hours and meal windows live on{' '}
-          <Link href={AVAILABILITY_HREF} className="underline">
-            Availability &amp; Occasions
-          </Link>
-          .
-        </AlertDescription>
-      </Alert>
+    <div className="flex flex-col gap-2">
+      <div>
+        <span className="font-medium text-foreground">Related settings.</span> Public profile fields
+        (name, address, phone, links) live on{' '}
+        <Link href={PROFILE_DISCOVERY_HREF} className="underline">
+          Restaurant profile
+        </Link>
+        . Hours and meal windows live on{' '}
+        <Link href={AVAILABILITY_HREF} className="underline">
+          Availability &amp; Booking types
+        </Link>
+        .
+      </div>
     </div>
   );
 }
 
 function LoadingSkeleton() {
   return (
-    <div className="flex flex-col gap-2">
-      <Skeleton className="h-56 w-full rounded-lg" />
-    </div>
+    <Card variant="compact" className="border-border/70 shadow-none">
+      <CardContent className="flex flex-col gap-3 p-5" aria-busy="true" role="status">
+        <Skeleton className="h-5 w-40" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-3/4" />
+      </CardContent>
+    </Card>
+  );
+}
+
+type GbpFrameProps = {
+  data: GoogleBusinessProfileConnection | null;
+  stage: GbpWorkflowStage;
+  overview: ReactNode;
+  onSelectAnchor: (anchorId: GbpAnchorId) => void;
+  children: ReactNode;
+};
+
+function GbpFrame({ data, stage, overview, onSelectAnchor, children }: GbpFrameProps) {
+  const connectionStatus = getStepStatus('connect', data, stage);
+  const locationStatus = getStepStatus('location', data, stage);
+  const reviewStatus = getStepStatus('review', data, stage);
+  const locationEnabled =
+    data?.status === 'authorized' ||
+    data?.status === 'reauth_required' ||
+    Boolean(data?.externalLocationId);
+  const locationAnchor: GbpAnchorId =
+    data?.status === 'authorized' || data?.status === 'reauth_required'
+      ? 'gbp-location'
+      : 'gbp-connection';
+  const workflowSettled = stage === 'linked';
+
+  const railItems: RestaurantSettingsCommandRailItem[] = [
+    {
+      label: 'Connection',
+      description: workflowSettled ? 'Reconnect if needed.' : 'Authorize access.',
+      Icon: ShieldCheck,
+      onSelect: () => onSelectAnchor('gbp-connection'),
+      badge: workflowSettled ? undefined : stepBadgeLabel(connectionStatus),
+    },
+    {
+      label: 'Business location',
+      description: locationEnabled
+        ? workflowSettled
+          ? 'Mapped location.'
+          : 'Map one Google listing.'
+        : 'Available after the connection is authorized.',
+      Icon: MapPin,
+      onSelect: locationEnabled ? () => onSelectAnchor(locationAnchor) : () => {},
+      badge: workflowSettled ? undefined : stepBadgeLabel(locationStatus),
+    },
+    {
+      label: 'Review changes',
+      description: 'Compare imports and exports.',
+      Icon: SearchCheck,
+      onSelect: () => onSelectAnchor('gbp-sync-review'),
+      badge: workflowSettled ? 'Next' : stepBadgeLabel(reviewStatus),
+    },
+  ];
+
+  return (
+    <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
+      <div className="flex min-w-0 flex-col gap-4">
+        <div id="gbp-connection" className="scroll-mt-24">
+          {overview}
+        </div>
+        {children}
+        <div id="gbp-sync-review" className="scroll-mt-24 sr-only" />
+      </div>
+      <aside className="xl:sticky xl:top-20 xl:self-start">
+        <Card className="border-border/70 shadow-sm">
+          <CardHeader className="gap-1 px-4 py-3">
+            <CardTitle className="text-base">Google workflow</CardTitle>
+            <CardDescription className="text-xs leading-5">
+              {workflowSettled
+                ? 'Setup complete. Jump to review or reconnect.'
+                : 'Jump to the current setup step.'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-1 px-2 pb-3">
+            {railItems.map((item) => (
+              <Button
+                key={item.label}
+                type="button"
+                variant="ghost"
+                onClick={item.onSelect}
+                className="h-auto min-w-0 items-start justify-start gap-3 whitespace-normal px-2 py-2 text-left"
+              >
+                {item.Icon ? (
+                  <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border/70 bg-background text-muted-foreground">
+                    <item.Icon className="size-4" aria-hidden />
+                  </span>
+                ) : null}
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium leading-5">{item.label}</span>
+                  {item.description ? (
+                    <span className="mt-0.5 block text-xs leading-5 text-muted-foreground break-words">
+                      {item.description}
+                    </span>
+                  ) : null}
+                </span>
+                {item.badge ? (
+                  <Badge variant="outline" className="shrink-0">
+                    {item.badge}
+                  </Badge>
+                ) : null}
+              </Button>
+            ))}
+          </CardContent>
+          <CardContent className="border-t border-border/60 px-4 py-3 text-xs leading-5 text-muted-foreground">
+            <GbpFooter />
+          </CardContent>
+        </Card>
+      </aside>
+    </section>
   );
 }
 
@@ -259,7 +360,14 @@ export function GoogleBusinessProfileSection({ restaurantId }: GoogleBusinessPro
     );
   }, [data, selectedLocationValue]);
 
-  const handleDisconnect = () => {
+  const refreshHandler = useCallback(() => {
+    void connectionQuery.refetch();
+    if (shouldLoadLocations) {
+      void locationsQuery.refetch();
+    }
+  }, [connectionQuery, locationsQuery, shouldLoadLocations]);
+
+  const handleDisconnect = useCallback(() => {
     disconnectMutation.mutate(undefined, {
       onSuccess: () => {
         setSelectedLocationValue('');
@@ -267,9 +375,9 @@ export function GoogleBusinessProfileSection({ restaurantId }: GoogleBusinessPro
       },
       onError: (error) => toast.error(error.message),
     });
-  };
+  }, [disconnectMutation]);
 
-  const handleLinkLocation = () => {
+  const handleLinkLocation = useCallback(() => {
     if (!selectedLocation) {
       toast.error('Choose a location before linking.');
       return;
@@ -289,79 +397,83 @@ export function GoogleBusinessProfileSection({ restaurantId }: GoogleBusinessPro
         onError: (error) => toast.error(error.message),
       },
     );
+  }, [linkMutation, selectedLocation]);
+
+  const selectAnchor = useCallback((anchorId: GbpAnchorId) => {
+    window.history.replaceState(null, '', `#${anchorId}`);
+    requestAnimationFrame(() => {
+      document.getElementById(anchorId)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    });
+  }, []);
+
+  const stage = getStage(data);
+  const connectHref = restaurantId
+    ? `${OPS_RESTAURANTS_BASE}/${restaurantId}/google-business-profile/connect`
+    : '#';
+  const manageOnGoogleHref = buildGoogleMapsPlaceHref(data?.externalPlaceId ?? null);
+  const hasLinkedLocation = Boolean(data?.externalLocationId);
+  const isLinked = data?.status === 'linked' || data?.status === 'sync_error';
+  const showPicker = data?.status === 'authorized' || data?.status === 'reauth_required';
+  const showConnect = !isLinked && !showPicker && data?.status !== 'authorized';
+  const canRefresh = Boolean(data && data.status !== 'unlinked');
+  const canDisconnect = Boolean(data && data.status !== 'unlinked');
+  const accountLabel = getConnectedAccountLabel(data ?? null);
+  const status = data?.status ?? 'unlinked';
+
+  const overview = (
+    <GbpOverviewCard
+      status={status}
+      stageLabel={getStageLabel(stage)}
+      locationTitle={getLocationTitle(data ?? null)}
+      accountLabel={accountLabel}
+      lastPullAt={data?.lastPullAt ?? null}
+      hasLinkedLocation={hasLinkedLocation}
+      showConnect={showConnect && Boolean(restaurantId)}
+      connectHref={connectHref}
+      showPicker={showPicker}
+      onChooseLocation={() => selectAnchor('gbp-location')}
+      canRefresh={canRefresh}
+      onRefresh={canRefresh ? refreshHandler : null}
+      isRefreshing={connectionQuery.isFetching}
+      manageOnGoogleHref={manageOnGoogleHref}
+      canDisconnect={canDisconnect}
+      onDisconnect={canDisconnect ? handleDisconnect : null}
+      isDisconnecting={disconnectMutation.isPending}
+    />
+  );
+
+  const frameProps = {
+    data: data ?? null,
+    stage,
+    overview,
+    onSelectAnchor: selectAnchor,
   };
 
   if (!restaurantId) {
     return (
-      <GbpShell
-        actionBar={
-          <GbpActionBar
-            status="unlinked"
-            lastPullAt={null}
-            onRefresh={null}
-            isRefreshing={false}
-            manageOnGoogleHref={null}
-            canDisconnect={false}
-            onDisconnect={null}
-            isDisconnecting={false}
-          />
-        }
-      >
-        <Card>
+      <GbpFrame {...frameProps}>
+        <Card variant="compact" className="border-border/70 shadow-none">
           <CardContent className="py-8 text-center text-sm text-muted-foreground">
             Select a restaurant using the sidebar switcher to manage its Google Business Profile
             connection.
           </CardContent>
         </Card>
-      </GbpShell>
+      </GbpFrame>
     );
   }
 
-  const refreshHandler = () => {
-    void connectionQuery.refetch();
-    if (shouldLoadLocations) {
-      void locationsQuery.refetch();
-    }
-  };
-
   if (connectionQuery.isLoading && !data) {
     return (
-      <GbpShell
-        actionBar={
-          <GbpActionBar
-            status="unlinked"
-            lastPullAt={null}
-            onRefresh={refreshHandler}
-            isRefreshing={connectionQuery.isFetching}
-            manageOnGoogleHref={null}
-            canDisconnect={false}
-            onDisconnect={null}
-            isDisconnecting={false}
-          />
-        }
-      >
+      <GbpFrame {...frameProps}>
         <LoadingSkeleton />
-      </GbpShell>
+      </GbpFrame>
     );
   }
 
   if (connectionQuery.error) {
     return (
-      <GbpShell
-        actionBar={
-          <GbpActionBar
-            status="unlinked"
-            lastPullAt={null}
-            onRefresh={refreshHandler}
-            isRefreshing={connectionQuery.isFetching}
-            manageOnGoogleHref={null}
-            canDisconnect={false}
-            onDisconnect={null}
-            isDisconnecting={false}
-          />
-        }
-      >
-        <Card>
+      <GbpFrame {...frameProps}>
+        <Card variant="compact" className="border-border/70 shadow-none">
           <CardContent className="py-6">
             <Alert variant="destructive">
               <AlertTitle>Unable to load Google Business Profile</AlertTitle>
@@ -379,61 +491,27 @@ export function GoogleBusinessProfileSection({ restaurantId }: GoogleBusinessPro
             </Alert>
           </CardContent>
         </Card>
-      </GbpShell>
+      </GbpFrame>
     );
   }
 
   if (!data) {
     return (
-      <GbpShell
-        actionBar={
-          <GbpActionBar
-            status="unlinked"
-            lastPullAt={null}
-            onRefresh={refreshHandler}
-            isRefreshing={connectionQuery.isFetching}
-            manageOnGoogleHref={null}
-            canDisconnect={false}
-            onDisconnect={null}
-            isDisconnecting={false}
-          />
-        }
-      >
-        <Card>
+      <GbpFrame {...frameProps}>
+        <Card variant="compact" className="border-border/70 shadow-none">
           <CardContent className="py-6 text-sm text-muted-foreground">
             Google Business Profile connection details are not available for this restaurant yet.
             Refresh to retry.
           </CardContent>
         </Card>
-      </GbpShell>
+      </GbpFrame>
     );
   }
 
-  const connectHref = `${OPS_RESTAURANTS_BASE}/${restaurantId}/google-business-profile/connect`;
-  const manageOnGoogleHref = buildGoogleMapsPlaceHref(data.externalPlaceId);
-  const hasLinkedLocation = Boolean(data.externalLocationId);
-  const isLinked = data.status === 'linked' || data.status === 'sync_error';
-  const showPicker = data.status === 'authorized' || data.status === 'reauth_required';
-  const showConnect = !isLinked && !showPicker && data.status !== 'authorized';
-  const canRefresh = data.status !== 'unlinked';
-
   return (
-    <GbpShell
-      actionBar={
-        <GbpActionBar
-          status={data.status}
-          lastPullAt={data.lastPullAt}
-          onRefresh={canRefresh ? refreshHandler : null}
-          isRefreshing={connectionQuery.isFetching}
-          manageOnGoogleHref={manageOnGoogleHref}
-          canDisconnect={data.status !== 'unlinked'}
-          onDisconnect={handleDisconnect}
-          isDisconnecting={disconnectMutation.isPending}
-        />
-      }
-    >
+    <GbpFrame {...frameProps}>
       {showConnect ? (
-        <div id="gbp-connection" className="scroll-mt-24">
+        <div className="scroll-mt-24">
           <ConnectCard
             connectHref={connectHref}
             isConfigured={data.isConfigured}
@@ -459,33 +537,24 @@ export function GoogleBusinessProfileSection({ restaurantId }: GoogleBusinessPro
       ) : null}
 
       {isLinked ? (
-        <div id="gbp-connection" className="scroll-mt-24">
-          <Card>
-            <CardContent className="flex flex-col gap-3 py-5">
-              <div className="flex flex-col gap-1">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Linked location
-                </p>
-                <p className="text-sm font-medium text-foreground">
-                  {data.externalLocationTitle ?? data.externalLocationName ?? 'Linked'}
-                </p>
-                {data.connectedGoogleEmail ? (
-                  <p className="text-xs text-muted-foreground">
-                    Authorized as{' '}
-                    <span className="text-foreground">{data.connectedGoogleEmail}</span>
-                  </p>
-                ) : null}
-              </div>
-              {data.status === 'sync_error' && data.lastError ? (
-                <Alert variant="destructive">
-                  <AlertTitle>Last sync failed</AlertTitle>
-                  <AlertDescription>{data.lastError}</AlertDescription>
-                </Alert>
-              ) : null}
-            </CardContent>
-          </Card>
-        </div>
+        <Card variant="compact" className="border-border/70 shadow-none">
+          <CardContent className="px-4 py-4 sm:px-5">
+            {data.status === 'sync_error' && data.lastError ? (
+              <Alert variant="destructive">
+                <AlertTitle>Last sync failed</AlertTitle>
+                <AlertDescription>{data.lastError}</AlertDescription>
+              </Alert>
+            ) : (
+              <Alert>
+                <AlertTitle>Review changes below</AlertTitle>
+                <AlertDescription>
+                  Use the sync workspace below before changing Nabatable or Google.
+                </AlertDescription>
+              </Alert>
+            )}
+          </CardContent>
+        </Card>
       ) : null}
-    </GbpShell>
+    </GbpFrame>
   );
 }

@@ -1,22 +1,16 @@
 import { z } from 'zod';
 
+import { GOOGLE_FOOD_MENU_CUISINES } from '@/lib/google-food-menu-cuisines';
+
 import type {
   GoogleFoodMenuCuisine,
   GoogleFoodMenusResource,
 } from '@/server/google-business-profile/food-menus';
 
-export const GoogleFoodMenuCuisineSchema = z.enum([
-  'BREAK_FAST',
-  'BRUNCH',
-  'CHICKEN',
-  'FAST_FOOD',
-  'HAMBURGER',
-  'INDIAN',
-  'PIZZA',
-  'SEAFOOD',
-  'VEGETARIAN',
-  'OTHER_CUISINE',
-] satisfies [GoogleFoodMenuCuisine, ...GoogleFoodMenuCuisine[]]);
+export const GoogleFoodMenuCuisineSchema = z.enum([...GOOGLE_FOOD_MENU_CUISINES] satisfies [
+  GoogleFoodMenuCuisine,
+  ...GoogleFoodMenuCuisine[],
+]);
 
 export const FoodMenusProjectionRequestSchema = z.object({
   foodMenusName: z.string().trim().min(1),

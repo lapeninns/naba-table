@@ -271,7 +271,9 @@ describe('AvailabilityScheduleManager', () => {
       'rounded-md',
       'bg-muted/20',
     );
-    expect(screen.queryByText('Lunch and dinner occasions are required')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Lunch and dinner booking types are required'),
+    ).not.toBeInTheDocument();
   });
 
   it('creates missing lunch and dinner occasions and reports success', async () => {
@@ -280,10 +282,12 @@ describe('AvailabilityScheduleManager', () => {
 
     renderManager();
 
-    expect(await screen.findByText('Lunch and dinner occasions are required')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Lunch and dinner booking types are required'),
+    ).toBeInTheDocument();
 
     await user.click(
-      screen.getByRole('button', { name: 'Create missing lunch and dinner occasions' }),
+      screen.getByRole('button', { name: 'Create missing lunch and dinner booking types' }),
     );
 
     await waitFor(() => {
@@ -295,7 +299,7 @@ describe('AvailabilityScheduleManager', () => {
     expect(availabilityState.occasionService.createOccasion).toHaveBeenCalledWith(
       expect.objectContaining({ key: 'dinner', label: 'Dinner' }),
     );
-    expect(await screen.findByText('Required occasions created')).toBeInTheDocument();
+    expect(await screen.findByText('Required booking types created')).toBeInTheDocument();
   });
 });
 

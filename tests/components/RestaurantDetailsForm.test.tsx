@@ -110,8 +110,8 @@ describe('RestaurantDetailsForm subforms', () => {
       expect(onDraftChange).toHaveBeenLastCalledWith({}, false);
       expect(onDirtyChange).toHaveBeenLastCalledWith(false);
     });
-    expect(screen.getByRole('status')).toHaveTextContent('Brand and identity saved.');
-    expect(screen.getByRole('status')).toHaveTextContent(/last updated/i);
+    expect(screen.getByText('Saves this section only.')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Saved just now.');
     expect(analyticsTrackMock).toHaveBeenCalledWith(
       'restaurant_profile_section_saved',
       expect.objectContaining({
@@ -162,16 +162,13 @@ describe('RestaurantDetailsForm subforms', () => {
     expect(mutateAsyncMock.mock.calls[0][0]).not.toHaveProperty('reservationIntervalMinutes');
   });
 
-  it('saves manager notification fields and validates E.164 numbers', async () => {
+  it('saves manager alert fields and validates E.164 numbers', async () => {
     const user = userEvent.setup();
 
     render(<ManagerNotificationsSubform restaurantId="rest-1" initialValues={initialValues} />);
 
-    await user.clear(screen.getByRole('textbox', { name: /manager notification number/i }));
-    await user.type(
-      screen.getByRole('textbox', { name: /manager notification number/i }),
-      '07700900000',
-    );
+    await user.clear(screen.getByRole('textbox', { name: /manager alert number/i }));
+    await user.type(screen.getByRole('textbox', { name: /manager alert number/i }), '07700900000');
     await user.click(screen.getByRole('button', { name: /save notifications/i }));
 
     expect(mutateAsyncMock).not.toHaveBeenCalled();
@@ -186,9 +183,9 @@ describe('RestaurantDetailsForm subforms', () => {
       }),
     );
 
-    await user.clear(screen.getByRole('textbox', { name: /manager notification number/i }));
+    await user.clear(screen.getByRole('textbox', { name: /manager alert number/i }));
     await user.type(
-      screen.getByRole('textbox', { name: /manager notification number/i }),
+      screen.getByRole('textbox', { name: /manager alert number/i }),
       '+447700900000',
     );
     await user.click(screen.getByRole('switch', { name: /daily manager sms summary/i }));
@@ -207,8 +204,8 @@ describe('RestaurantDetailsForm subforms', () => {
 
     render(<BookingRulesSubform restaurantId="rest-1" initialValues={initialValues} />);
 
-    await user.clear(screen.getByRole('spinbutton', { name: /reservation interval/i }));
-    await user.type(screen.getByRole('spinbutton', { name: /reservation interval/i }), '30');
+    await user.clear(screen.getByRole('spinbutton', { name: /booking slot spacing/i }));
+    await user.type(screen.getByRole('spinbutton', { name: /booking slot spacing/i }), '30');
     await user.type(
       screen.getByRole('textbox', { name: /booking policy/i }),
       '  Cancel up to 24 hours before arrival.  ',
@@ -294,7 +291,7 @@ describe('RestaurantDetailsForm subforms', () => {
       </>,
     );
 
-    expect(screen.getAllByLabelText(/matches gbp/i)).toHaveLength(5);
+    expect(screen.getAllByText(/matches gbp/i)).toHaveLength(5);
   });
 
   it('shows required or optional status and why-it-matters helper copy on the full form', async () => {
@@ -316,7 +313,8 @@ describe('RestaurantDetailsForm subforms', () => {
     expect(
       screen.getByText(/optional message shown to guests during booking/i),
     ).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /booking link/i }));
+    await user.click(screen.getByRole('button', { name: /booking page url/i }));
+    expect(screen.getByRole('textbox', { name: /booking page url/i })).toBeInTheDocument();
     expect(screen.getByText(/controls the public booking url/i)).toBeInTheDocument();
   });
 
@@ -395,7 +393,7 @@ describe('RestaurantDetailsForm subforms', () => {
       businessDescription: '  Pub classics and Nepalese dishes.  ',
     });
     expect(validateRestaurantDetails({ ...state, slug: 'Bad Slug' })).toMatchObject({
-      slug: 'Booking link slug must contain only lowercase letters, numbers, and hyphens',
+      slug: 'Booking page URL must contain only lowercase letters, numbers, and hyphens',
     });
     expect(
       sanitizePayload({

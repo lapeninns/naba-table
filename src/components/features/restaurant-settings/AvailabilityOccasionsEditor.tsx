@@ -301,19 +301,19 @@ export function AvailabilityOccasionsEditor({
     <section id="booking-occasions" className="scroll-mt-28 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-medium text-foreground">Booking occasions</p>
+          <p className="text-sm font-medium text-foreground">Booking types</p>
           <p className="text-sm text-muted-foreground">
-            Control the guest-facing occasion tags without leaving the availability workflow.
+            Control the guest-facing booking types without leaving the availability workflow.
           </p>
         </div>
         <Button type="button" onClick={openForCreate}>
-          New occasion
+          New booking type
         </Button>
       </div>
 
       {sortedOccasions.length === 0 ? (
         <OpsEmptyState
-          title="No occasions configured yet"
+          title="No booking types configured yet"
           description="Add the booking moments guests can choose from during reservation."
           className="min-h-[180px] bg-muted/20 px-6 py-10"
         />
@@ -402,11 +402,11 @@ export function AvailabilityOccasionsEditor({
       >
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
           <DialogHeader>
-            <DialogTitle>{editingKey ? 'Edit occasion' : 'New occasion'}</DialogTitle>
+            <DialogTitle>{editingKey ? 'Edit booking type' : 'New booking type'}</DialogTitle>
             <DialogDescription>
               {editingKey && isServiceWindowOccasion(editingKey)
-                ? 'This occasion also defines a service window. Adjust its label, turn times, and related settings here — the window itself (day-by-day on/off and start/end) lives in the Weekly schedule tab above.'
-                : 'Define how the occasion appears in booking flows and when guests can select it.'}
+                ? 'This booking type also defines a service window. Adjust its label, turn times, and related settings here — the window itself (day-by-day on/off and start/end) lives in the Weekly schedule tab above.'
+                : 'Define how the booking type appears in booking flows and when guests can select it.'}
             </DialogDescription>
           </DialogHeader>
           <FormRoot className="space-y-5" onSubmit={handleSubmit}>

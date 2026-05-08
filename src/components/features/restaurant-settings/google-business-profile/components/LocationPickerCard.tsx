@@ -66,8 +66,7 @@ export function LocationPickerCard({
           {data.connectedGoogleEmail ? (
             <>
               Authorized as{' '}
-              <span className="font-medium text-foreground">{data.connectedGoogleEmail}</span>. Pick
-              the location that represents this restaurant.
+              <span className="font-medium text-foreground">{data.connectedGoogleEmail}</span>.
             </>
           ) : (
             'Authorize a Google account to discover available locations.'

@@ -287,9 +287,15 @@ describe('OpsMenuManagementClient', () => {
     expect(screen.queryByText('Food menu')).not.toBeInTheDocument();
   });
 
-  it('switches catalog mode through the route query string', async () => {
+  it('switches catalog mode through the route query string without V2 route controls', async () => {
     const user = userEvent.setup();
     renderClient();
+
+    expect(screen.getByText('Menu command center')).toBeInTheDocument();
+    expect(screen.getByText('Active catalogue')).toBeInTheDocument();
+    expect(await screen.findByText('Burrata')).toBeInTheDocument();
+    expect(screen.queryByText(/V2 Spreadsheet/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('No canonical menus')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('tab', { name: 'Drinks menu' }));
 
@@ -381,7 +387,10 @@ describe('OpsMenuManagementClient', () => {
       }),
     });
 
-    expect(await screen.findByText('No food items match the current filters.')).toBeInTheDocument();
+    expect(await screen.findByText('Add your first menu item')).toBeInTheDocument();
+    expect(
+      screen.getByText(/start with the item name, price, and whether it is available/i),
+    ).toBeInTheDocument();
   });
 
   it('shows an error state instead of a blank create form when food item loading fails', async () => {
@@ -411,6 +420,8 @@ describe('OpsMenuManagementClient', () => {
     });
 
     expect(await screen.findByText('House Negroni')).toBeInTheDocument();
+    expect(screen.queryByText(/V2 Spreadsheet/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('No canonical menus')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Edit' }));
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { hashCanonicalJson } from '@/server/dual-sync/hashing';
 import {
+  buildCanonicalGoogleFoodMenusProjection,
   buildGoogleFoodMenusImportReview,
   buildGoogleFoodMenusProjection,
   canonicalizeGoogleFoodMenusResource,
@@ -10,7 +11,9 @@ import {
   nutritionFactsFromGoogle,
 } from '@/server/google-business-profile/food-menus';
 
+import type { GoogleFoodMenusResource } from '@/server/google-business-profile/food-menus';
 import type { MenuItemDetail } from '@/server/menu/types';
+import type { CanonicalRestaurantMenu } from '@/server/menu-hierarchy/types';
 
 function makeMenuItem(overrides: Partial<MenuItemDetail> = {}): MenuItemDetail {
   return {
@@ -73,6 +76,153 @@ function makeMenuItem(overrides: Partial<MenuItemDetail> = {}): MenuItemDetail {
 }
 
 describe('buildGoogleFoodMenusProjection', () => {
+  it('projects active canonical food and mixed menus into deterministic Google menus', () => {
+    const canonicalMenus: CanonicalRestaurantMenu[] = [
+      {
+        id: 'drinks-menu',
+        restaurantId: 'rest-1',
+        labels: [{ displayName: 'Drinks', languageCode: 'en-GB' }],
+        sourceUrl: null,
+        cuisines: [],
+        defaultLanguageCode: 'en-GB',
+        menuKind: 'drinks',
+        displayOrder: 0,
+        active: true,
+        legacySource: {},
+        sections: [],
+      },
+      {
+        id: 'food-menu',
+        restaurantId: 'rest-1',
+        labels: [{ displayName: 'Dinner', languageCode: 'en-GB' }],
+        sourceUrl: 'https://example.com/dinner',
+        cuisines: ['INDIAN', 'VIETNAMESE'],
+        defaultLanguageCode: 'en-GB',
+        menuKind: 'food',
+        displayOrder: 1,
+        active: true,
+        legacySource: {},
+        sections: [
+          {
+            id: 'section-1',
+            restaurantId: 'rest-1',
+            menuId: 'food-menu',
+            labels: [{ displayName: 'Starters', languageCode: 'en-GB' }],
+            displayOrder: 0,
+            active: true,
+            legacyCategory: 'Starters',
+            legacySubcategory: null,
+            legacySource: {},
+            items: [
+              {
+                id: 'item-1',
+                restaurantId: 'rest-1',
+                menuId: 'food-menu',
+                sectionId: 'section-1',
+                itemKind: 'food',
+                externalItemId: 'starter-paneer',
+                legacySource: {},
+                labels: [{ displayName: 'Chilli Paneer', languageCode: 'en-GB' }],
+                attributes: {
+                  price: { currencyCode: 'GBP', amount: 8.95 },
+                  spiciness: null,
+                  allergen: [],
+                  dietaryRestriction: [],
+                  ingredients: [],
+                  preparationMethods: [],
+                  mediaKeys: [],
+                  nutritionFacts: {
+                    calories: { unit: 'CALORIE', lowerAmount: 450 },
+                    cholesterol: { unit: 'MILLIGRAM', lowerAmount: 35 },
+                    protein: { unit: 'GRAM', lowerAmount: 17 },
+                  },
+                },
+                media: {
+                  googleMediaKeys: ['locations/123/media/paneer'],
+                  localImageUrl: 'https://cdn.example.test/paneer.jpg',
+                  localMedia: {},
+                },
+                extensions: {
+                  drinkProfile: {},
+                  recommendationMetadata: {},
+                  availabilityPolicy: {},
+                  customizationControls: {},
+                  sourceMetadata: {},
+                },
+                options: [
+                  {
+                    id: 'option-large',
+                    restaurantId: 'rest-1',
+                    menuItemId: 'item-1',
+                    externalOptionId: 'large',
+                    labels: [{ displayName: 'Large', languageCode: 'en-GB' }],
+                    attributes: {
+                      price: { currencyCode: 'GBP', amount: 10.95 },
+                      spiciness: null,
+                      allergen: [],
+                      dietaryRestriction: [],
+                      ingredients: [],
+                      preparationMethods: [],
+                      mediaKeys: [],
+                      nutritionFacts: {},
+                    },
+                    media: { googleMediaKeys: [], localMedia: {} },
+                    displayOrder: 0,
+                    active: true,
+                    legacySource: {},
+                  },
+                ],
+                displayOrder: 0,
+                active: true,
+              },
+            ],
+          },
+        ],
+      },
+    ];
+
+    const projection = buildCanonicalGoogleFoodMenusProjection({
+      foodMenusName: 'accounts/123/locations/456/foodMenus',
+      menus: canonicalMenus,
+    });
+
+    expect(projection.foodMenus.menus).toHaveLength(1);
+    expect(projection.foodMenus.menus[0]).toMatchObject({
+      labels: [{ displayName: 'Dinner', languageCode: 'en-GB' }],
+      sourceUrl: 'https://example.com/dinner',
+      cuisines: ['INDIAN', 'VIETNAMESE'],
+      sections: [
+        {
+          labels: [{ displayName: 'Starters', languageCode: 'en-GB' }],
+          items: [
+            {
+              labels: [{ displayName: 'Chilli Paneer', languageCode: 'en-GB' }],
+              attributes: {
+                price: { currencyCode: 'GBP', units: '8', nanos: 950000000 },
+                mediaKeys: ['locations/123/media/paneer'],
+                nutritionFacts: {
+                  calories: { unit: 'CALORIE', lowerAmount: 450 },
+                  cholesterol: { unit: 'MILLIGRAM', lowerAmount: 35 },
+                  protein: { unit: 'GRAM', lowerAmount: 17 },
+                },
+              },
+              options: [
+                {
+                  labels: [{ displayName: 'Large', languageCode: 'en-GB' }],
+                  attributes: { price: { currencyCode: 'GBP', units: '10', nanos: 950000000 } },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    expect(projection.identities[0]?.googlePath).toBe('menus[0].sections[0].items[0]');
+    expect(projection.identities[0]?.googleOptionPaths[0]?.googlePath).toBe(
+      'menus[0].sections[0].items[0].options[0]',
+    );
+  });
+
   it('projects rich Nabatable menu items into a Google FoodMenus payload and identity map', () => {
     const projection = buildGoogleFoodMenusProjection({
       foodMenusName: 'accounts/123/locations/456/foodMenus',
@@ -358,6 +508,40 @@ describe('buildGoogleFoodMenusProjection', () => {
     expect(review.items[0]?.suggestedPatch).toBeNull();
   });
 
+  it('creates menu metadata suggestions for each Google menu path', () => {
+    const review = buildGoogleFoodMenusImportReview({
+      googleFoodMenus: {
+        name: 'accounts/123/locations/456/foodMenus',
+        menus: [
+          {
+            labels: [{ displayName: 'Breakfast menu', languageCode: 'en-GB' }],
+            cuisines: ['BREAK_FAST'],
+            sections: [],
+          },
+          {
+            labels: [{ displayName: 'Dinner menu', languageCode: 'en-GB' }],
+            cuisines: ['INDIAN'],
+            sections: [],
+          },
+        ],
+      },
+      localItems: [],
+      previousIdentities: [],
+      settings: {
+        menuLabel: 'Old menu',
+        sourceUrl: null,
+        cuisines: [],
+        languageCode: 'en-GB',
+      },
+    });
+
+    expect(
+      review.items
+        .filter((item) => item.match.status === 'menu_metadata')
+        .map((item) => item.googlePath),
+    ).toEqual(['menus[0].metadata', 'menus[1].metadata']);
+  });
+
   it('keeps matched Google rows without prices as suggestions instead of crashing', () => {
     const localItem = makeMenuItem();
     const projection = buildGoogleFoodMenusProjection({
@@ -535,6 +719,31 @@ describe('buildGoogleFoodMenusProjection', () => {
       portionSize: 'starter plate',
     });
     expect(hashGoogleFoodMenusResource(withPresentationNoise)).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('treats an omitted Google menus array as an empty FoodMenus resource', () => {
+    const emptyGoogleResource = {
+      name: 'accounts/123/locations/456/foodMenus',
+    } as GoogleFoodMenusResource;
+
+    expect(canonicalizeGoogleFoodMenusResource(emptyGoogleResource)).toEqual({
+      name: 'accounts/123/locations/456/foodMenus',
+      menus: [],
+    });
+    expect(hashGoogleFoodMenusResource(emptyGoogleResource)).toMatch(/^[a-f0-9]{64}$/);
+
+    const review = buildGoogleFoodMenusImportReview({
+      googleFoodMenus: emptyGoogleResource,
+      localItems: [makeMenuItem()],
+    });
+
+    expect(review.items).toContainEqual(
+      expect.objectContaining({
+        googleItemName: 'Chilli Paneer',
+        match: expect.objectContaining({ status: 'missing_from_google' }),
+      }),
+    );
+    expect(review.localItemsMissingFromGoogle).toHaveLength(1);
   });
 
   it('adds extended attributes to canonical output without changing legacy payload hashes', () => {

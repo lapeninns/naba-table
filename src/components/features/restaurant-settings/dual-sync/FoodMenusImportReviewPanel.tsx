@@ -679,7 +679,11 @@ export function FoodMenusImportReviewPanel({ restaurantId }: FoodMenusImportRevi
                 {entries.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
                     {entries.map((entry) => (
-                      <Badge key={`${row.id}-${entry.label}`} variant="outline">
+                      <Badge
+                        key={`${row.id}-${entry.label}`}
+                        variant="outline"
+                        className="h-auto max-w-full whitespace-normal break-all text-left leading-5"
+                      >
                         {entry.label}: {entry.value}
                         {entry.label === 'Image' && /^https?:\/\//i.test(entry.value) ? (
                           <Button

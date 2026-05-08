@@ -1,7 +1,15 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { CalendarClock, LayoutGrid, MapPinned, Store, Users, type LucideIcon } from 'lucide-react';
+import {
+  CalendarClock,
+  LayoutGrid,
+  ListChecks,
+  MapPinned,
+  Store,
+  Users,
+  type LucideIcon,
+} from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useCallback, useMemo, type ComponentPropsWithoutRef } from 'react';
@@ -22,6 +30,7 @@ type PrefetchMap = Partial<Record<SettingsHref, Prefetcher>>;
 type NavIconMap = Record<SettingsHref, LucideIcon>;
 
 const NAV_ICONS: NavIconMap = {
+  '/app/settings/restaurant': ListChecks,
   '/app/settings/restaurant/profile': Store,
   '/app/settings/restaurant/google-business-profile': MapPinned,
   '/app/settings/restaurant/availability': CalendarClock,
@@ -29,6 +38,14 @@ const NAV_ICONS: NavIconMap = {
   '/app/settings/restaurant/tables': LayoutGrid,
   '/app/settings/restaurant/team': Users,
 };
+
+function isRestaurantSettingsRouteActive(pathname: string, href: string) {
+  const normalizedHref = normalizeOpsPathname(href);
+  if (normalizedHref === '/settings/restaurant') {
+    return pathname === normalizedHref;
+  }
+  return pathname === normalizedHref || pathname.startsWith(`${normalizedHref}/`);
+}
 
 type RestaurantSettingsSubnavItemProps = {
   title: string;
@@ -51,7 +68,7 @@ function RestaurantSettingsSubnavItem({
       onMouseEnter={onMouseEnter}
       onFocus={onFocus}
       className={cn(
-        'group flex min-w-[176px] shrink-0 gap-2 rounded-md px-2 py-1.5 text-left text-sm font-medium transition-[transform,box-shadow,background-color,color,ring-color] duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none',
+        'group flex min-w-[160px] shrink-0 items-start gap-2 rounded-md px-3 py-2 text-left text-sm font-medium transition-[transform,box-shadow,background-color,color,ring-color] duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none lg:min-w-0 lg:flex-1',
         active
           ? 'bg-background text-foreground shadow-sm ring-1 ring-border motion-safe:hover:-translate-y-[1px] motion-safe:hover:shadow-md'
           : 'text-muted-foreground hover:bg-background/70 hover:text-foreground hover:ring-1 hover:ring-border motion-safe:hover:-translate-y-[1px] motion-safe:hover:shadow-sm',
@@ -84,8 +101,13 @@ export function RestaurantSettingsSubnav() {
     [pathname],
   );
   const queryClient = useQueryClient();
-  const { restaurantService, occasionService, teamService, tableInventoryService, menuService } =
-    useOpsServices();
+  const {
+    restaurantService,
+    occasionService,
+    teamService,
+    tableInventoryService,
+    menuHierarchyService,
+  } = useOpsServices();
   const { activeRestaurantId } = useOpsSession();
 
   const prefetchMap = useMemo<PrefetchMap>(() => {
@@ -93,6 +115,27 @@ export function RestaurantSettingsSubnav() {
     if (!id) return {};
 
     return {
+      '/app/settings/restaurant': () =>
+        Promise.all([
+          prefetchIfStale({
+            queryClient,
+            queryKey: queryKeys.opsRestaurants.detail(id),
+            queryFn: () => restaurantService.getProfile(id),
+            enabled: true,
+          }),
+          prefetchIfStale({
+            queryClient,
+            queryKey: queryKeys.opsRestaurants.hours(id),
+            queryFn: () => restaurantService.getOperatingHours(id),
+            enabled: true,
+          }),
+          prefetchIfStale({
+            queryClient,
+            queryKey: queryKeys.opsTables.list(id),
+            queryFn: () => tableInventoryService.list(id),
+            enabled: true,
+          }),
+        ]),
       '/app/settings/restaurant/profile': () =>
         prefetchIfStale({
           queryClient,
@@ -137,8 +180,8 @@ export function RestaurantSettingsSubnav() {
       '/app/settings/restaurant/menu': () =>
         prefetchIfStale({
           queryClient,
-          queryKey: queryKeys.opsMenu.list(id, {}),
-          queryFn: () => menuService.listItems(id, {}),
+          queryKey: queryKeys.opsMenuHierarchy.list(id),
+          queryFn: () => menuHierarchyService.listMenus(id),
           enabled: true,
         }),
       '/app/settings/restaurant/tables': () =>
@@ -158,7 +201,7 @@ export function RestaurantSettingsSubnav() {
     };
   }, [
     activeRestaurantId,
-    menuService,
+    menuHierarchyService,
     occasionService,
     queryClient,
     restaurantService,
@@ -175,12 +218,12 @@ export function RestaurantSettingsSubnav() {
 
   return (
     <nav aria-label="Restaurant settings" className="min-w-0">
-      <div className="min-w-0 overflow-x-auto rounded-md border border-border/60 bg-muted/40 p-1">
-        <div className="flex min-w-max gap-1">
+      <div className="min-w-0 overflow-x-auto rounded-md border border-border/60 bg-muted/40 p-2 lg:overflow-visible">
+        <div className="flex min-w-max gap-1.5 lg:min-w-0 lg:flex-wrap xl:flex-nowrap">
           {RESTAURANT_SETTINGS_NAV_ITEMS.map((item) => {
             const active =
               normalizedPathname != null
-                ? normalizedPathname.startsWith(normalizeOpsPathname(item.href))
+                ? isRestaurantSettingsRouteActive(normalizedPathname, item.href)
                 : false;
             return (
               <RestaurantSettingsSubnavItem
@@ -197,7 +240,7 @@ export function RestaurantSettingsSubnav() {
         </div>
       </div>
       <p className={cn(SETTINGS_COMPACT_STATUS_ROW_CLASS, 'sr-only')}>
-        Six restaurant settings sections are available in this compact navigation.
+        Seven restaurant settings sections are available in this compact navigation.
       </p>
     </nav>
   );

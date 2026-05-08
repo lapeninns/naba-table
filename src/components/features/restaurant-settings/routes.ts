@@ -11,30 +11,35 @@ export type RestaurantSettingsRoute = {
 
 export const RESTAURANT_SETTINGS_ROUTES: RestaurantSettingsRoute[] = [
   {
+    view: 'overview',
+    href: opsHref('/settings/restaurant'),
+    title: 'Restaurant setup',
+    description: 'Complete the essentials that make this restaurant ready for bookings.',
+  },
+  {
     view: 'profile',
     href: opsHref('/settings/restaurant/profile'),
     title: 'Restaurant profile',
-    description: 'Brand, contact details, team alerts, and public discovery.',
+    description: 'Public details, booking page URL, manager alerts, and optional discovery.',
   },
   {
     view: 'google-business-profile',
     href: opsHref('/settings/restaurant/google-business-profile'),
     title: 'Google Business Profile',
-    description:
-      'Connect a Google account and link the Business Profile location for this restaurant.',
+    description: 'Optional import and comparison support for public restaurant details.',
   },
   {
     view: 'availability',
     href: opsHref('/settings/restaurant/availability'),
-    title: 'Availability & Occasions',
+    title: 'Availability & Booking types',
     description:
-      'Booking rules, weekly hours, overrides, meal windows, occasions, and dining-duration bands.',
+      'Booking rules, weekly hours, overrides, meal windows, booking types, and dining-duration bands.',
   },
   {
     view: 'menu',
     href: opsHref('/settings/restaurant/menu'),
     title: 'Menu',
-    description: 'Manage menu items, modifiers, and imports.',
+    description: 'Manage menus, sections, items, options, and Google-compatible publishing fields.',
   },
   {
     view: 'tables',
@@ -62,6 +67,7 @@ const getRoute = (view: RestaurantSettingsView): RestaurantSettingsNavItem => {
 };
 
 export const RESTAURANT_SETTINGS_NAV_ITEMS: RestaurantSettingsNavItem[] = [
+  getRoute('overview'),
   getRoute('profile'),
   getRoute('google-business-profile'),
   getRoute('availability'),

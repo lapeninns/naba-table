@@ -1,18 +1,18 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { CalendarClock, ClipboardList, Clock3 } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { AvailabilityScheduleManager } from '@/components/features/restaurant-settings/AvailabilityScheduleManager';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRegisterOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
 import { useOpsRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
+import { cn } from '@/lib/utils';
 import { DEFAULT_RESERVATION_INTERVAL_MINUTES } from '@reserve/shared/config/reservations';
 
-import { SettingsCard } from './shared/SettingsCard';
+import { RestaurantSettingsCommandCenter, SettingsCard } from './shared';
 import {
   BookingRulesSubform,
   COMMON_TIMEZONES,
@@ -22,6 +22,8 @@ import {
 type AvailabilityOccasionsCommandCenterProps = {
   restaurantId: string | null;
 };
+
+type AvailabilityWorkspace = 'rules' | 'schedule' | 'booking-types';
 
 const EMPTY_VALUES: RestaurantDetailsFormValues = {
   name: '',
@@ -152,48 +154,93 @@ function BookingRulesCard({ restaurantId }: { restaurantId: string | null }) {
 export function AvailabilityOccasionsCommandCenter({
   restaurantId,
 }: AvailabilityOccasionsCommandCenterProps) {
-  return (
-    <div className="space-y-6">
-      <Card className="border-border/70">
-        <CardHeader className="gap-4 pb-4 sm:flex-row sm:items-end sm:justify-between sm:space-y-0">
-          <div className="space-y-2">
-            <Badge variant="outline" className="w-fit">
-              Canonical workspace
-            </Badge>
-            <div className="space-y-1">
-              <CardTitle className="text-2xl">Availability & Occasions</CardTitle>
-              <CardDescription className="max-w-3xl">
-                Configure the restaurant&apos;s operating week, special-date overrides, meal
-                windows, and bookable occasions without bouncing between separate settings pages.
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="border-t border-border/40 bg-muted/5 py-3">
-          <p className="text-sm text-muted-foreground">
-            Booking rules live here with the schedule because they affect available reservation
-            times across the restaurant.
-          </p>
-        </CardContent>
-      </Card>
+  const [activeWorkspace, setActiveWorkspace] = useState<AvailabilityWorkspace>('rules');
+  const selectWorkspace = useCallback((workspace: AvailabilityWorkspace) => {
+    setActiveWorkspace(workspace);
+    const hash =
+      workspace === 'rules'
+        ? 'booking-rules'
+        : workspace === 'schedule'
+          ? 'availability-schedule'
+          : 'booking-occasions';
+    window.history.replaceState(null, '', `#${hash}`);
+  }, []);
 
-      <div className="sticky top-16 z-30 -mx-1 border-b border-border/60 bg-background/95 p-1 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="flex flex-wrap gap-2 p-1">
-          <Button variant="ghost" size="sm" asChild className="text-xs font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground">
-            <a href="#booking-rules">Booking rules</a>
-          </Button>
-          <Button variant="ghost" size="sm" asChild className="text-xs font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground">
-            <a href="#availability-schedule">Schedule</a>
-          </Button>
-          <Button variant="ghost" size="sm" asChild className="text-xs font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground">
-            <a href="#booking-occasions">Occasions</a>
-          </Button>
+  return (
+    <RestaurantSettingsCommandCenter
+      eyebrow="Availability command center"
+      title="Availability & Booking types"
+      description="Configure the operating week, special-date overrides, service windows, booking rules, and booking types from one route without splitting schedule decisions across separate pages."
+      metrics={[
+        {
+          label: 'Workflow',
+          value: 'Single save surface',
+          description: 'schedule and booking types',
+          variant: 'secondary',
+          Icon: CalendarClock,
+        },
+        {
+          label: 'Rules location',
+          value: 'Here',
+          description: 'not the profile page',
+          variant: 'outline',
+          Icon: ClipboardList,
+        },
+        {
+          label: 'Booking impact',
+          value: 'Live capacity',
+          description: 'times guests can choose',
+          variant: 'metric',
+          Icon: Clock3,
+        },
+      ]}
+      railTitle="Availability sections"
+      railDescription="Work top-down: rules first, then the weekly schedule and booking types."
+      railItems={[
+        {
+          label: 'Booking rules',
+          description: 'Reservation rhythm, default duration, seating buffer, and booking policy.',
+          href: '#booking-rules',
+          Icon: ClipboardList,
+          isActive: activeWorkspace === 'rules',
+          onSelect: () => selectWorkspace('rules'),
+        },
+        {
+          label: 'Schedule',
+          description: 'Weekly hours, service windows, and date overrides.',
+          href: '#availability-schedule',
+          Icon: CalendarClock,
+          isActive: activeWorkspace === 'schedule',
+          onSelect: () => selectWorkspace('schedule'),
+        },
+        {
+          label: 'Booking types',
+          description: 'Lunch, dinner, and turn-time rules by party size.',
+          href: '#booking-occasions',
+          Icon: Clock3,
+          isActive: activeWorkspace === 'booking-types',
+          onSelect: () => selectWorkspace('booking-types'),
+        },
+      ]}
+      footer="Booking rules live with availability because they directly affect reservation times across the restaurant."
+    >
+      <div className="space-y-6">
+        <div
+          hidden={activeWorkspace !== 'rules'}
+          className={cn(activeWorkspace !== 'rules' && 'hidden')}
+        >
+          <BookingRulesCard restaurantId={restaurantId} />
+        </div>
+        <div
+          hidden={activeWorkspace === 'rules'}
+          className={cn(activeWorkspace === 'rules' && 'hidden')}
+        >
+          <AvailabilityScheduleManager
+            restaurantId={restaurantId}
+            activeWorkspace={activeWorkspace === 'booking-types' ? 'booking-types' : 'schedule'}
+          />
         </div>
       </div>
-
-      <BookingRulesCard restaurantId={restaurantId} />
-
-      <AvailabilityScheduleManager restaurantId={restaurantId} />
-    </div>
+    </RestaurantSettingsCommandCenter>
   );
 }

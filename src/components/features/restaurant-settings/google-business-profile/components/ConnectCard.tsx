@@ -14,9 +14,9 @@ type ConnectCardProps = {
 };
 
 const BENEFITS = [
-  'Link exactly one Google Business Profile location to this restaurant.',
-  'Keep the Google account and Business Profile location easy to confirm.',
-  'Open Google directly when operators need to manage the public listing.',
+  'Authorize one Google account.',
+  'Pick the listing that belongs to this restaurant.',
+  'Review differences before syncing changes.',
 ];
 
 export function ConnectCard({
@@ -33,8 +33,7 @@ export function ConnectCard({
           Connect Google Business Profile
         </CardTitle>
         <CardDescription>
-          Authorize a Google account, then pick the Business Profile location that represents this
-          restaurant.
+          Start with Google authorization, then choose the restaurant listing.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">

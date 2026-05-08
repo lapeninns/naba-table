@@ -131,6 +131,51 @@ describe('GBP FoodMenus routes', () => {
     expect(prepareFoodMenusProjectionMock).not.toHaveBeenCalled();
   });
 
+  it('accepts the expanded Google cuisine enum and rejects invalid cuisines', async () => {
+    prepareFoodMenusProjectionMock.mockResolvedValue({
+      localItemCount: 0,
+      projectionHash: 'a'.repeat(64),
+      projection: { foodMenus: googleFoodMenus, identities: [], skippedItems: [] },
+      snapshot: null,
+      identities: [],
+    });
+
+    const validResponse = await projectionPOST(
+      new NextRequest(
+        'https://example.com/api/ops/restaurants/rest-1/google-business-profile/food-menus/projection',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            foodMenusName: 'accounts/123/locations/456/foodMenus',
+            cuisines: ['CUISINE_UNSPECIFIED', 'VIETNAMESE'],
+          }),
+        },
+      ),
+      { params: Promise.resolve({ id: 'rest-1' }) },
+    );
+    expect(validResponse.status).toBe(200);
+    expect(prepareFoodMenusProjectionMock).toHaveBeenCalledWith(
+      expect.objectContaining({ cuisines: ['CUISINE_UNSPECIFIED', 'VIETNAMESE'] }),
+    );
+
+    prepareFoodMenusProjectionMock.mockClear();
+    const invalidResponse = await projectionPOST(
+      new NextRequest(
+        'https://example.com/api/ops/restaurants/rest-1/google-business-profile/food-menus/projection',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            foodMenusName: 'accounts/123/locations/456/foodMenus',
+            cuisines: ['NOT_A_CUISINE'],
+          }),
+        },
+      ),
+      { params: Promise.resolve({ id: 'rest-1' }) },
+    );
+    expect(invalidResponse.status).toBe(400);
+    expect(prepareFoodMenusProjectionMock).not.toHaveBeenCalled();
+  });
+
   it('prepares a Nabatable projection through the service layer', async () => {
     prepareFoodMenusProjectionMock.mockResolvedValue({
       localItemCount: 2,
