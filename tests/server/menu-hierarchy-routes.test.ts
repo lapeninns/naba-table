@@ -181,6 +181,9 @@ describe('ops hierarchy menus routes', () => {
     expect(patchResponse.status).toBe(200);
     expect(updateRestaurantMenuOptionMock).toHaveBeenCalledWith(
       'rest-1',
+      'menu-1',
+      'section-1',
+      'item-1',
       'option-1',
       expect.objectContaining({ active: false }),
     );
@@ -202,6 +205,12 @@ describe('ops hierarchy menus routes', () => {
     );
 
     expect(deleteResponse.status).toBe(200);
-    expect(deleteRestaurantMenuOptionMock).toHaveBeenCalledWith('rest-1', 'option-1');
+    expect(deleteRestaurantMenuOptionMock).toHaveBeenCalledWith(
+      'rest-1',
+      'menu-1',
+      'section-1',
+      'item-1',
+      'option-1',
+    );
   });
 });

@@ -73,26 +73,12 @@ export const queryKeys = {
   opsOccasions: {
     list: () => ['ops', 'occasions', 'list'] as const,
   },
-  opsMenu: {
-    list: (restaurantId: string, filters: Record<string, unknown> = {}) =>
-      ['ops', 'menu', restaurantId, 'list', filters] as const,
-    detail: (restaurantId: string, itemId: string) =>
-      ['ops', 'menu', restaurantId, 'detail', itemId] as const,
-    facets: (restaurantId: string) => ['ops', 'menu', restaurantId, 'facets'] as const,
-  },
   opsMenuHierarchy: {
     list: (restaurantId: string) => ['ops', 'menu-hierarchy', restaurantId, 'list'] as const,
   },
   opsFoodMenus: {
     importReviews: (restaurantId: string) =>
       ['ops', 'food-menus', restaurantId, 'import-reviews'] as const,
-  },
-  opsDrinksMenu: {
-    list: (restaurantId: string, filters: Record<string, unknown> = {}) =>
-      ['ops', 'drinks-menu', restaurantId, 'list', filters] as const,
-    detail: (restaurantId: string, itemId: string) =>
-      ['ops', 'drinks-menu', restaurantId, 'detail', itemId] as const,
-    facets: (restaurantId: string) => ['ops', 'drinks-menu', restaurantId, 'facets'] as const,
   },
   manualAssign: {
     context: (bookingId: string) => ['ops', 'manual-assign', 'context', bookingId] as const,
@@ -144,14 +130,8 @@ export type QueryKey =
   | ReturnType<(typeof queryKeys)['opsTables']['zones']>
   | ReturnType<(typeof queryKeys)['opsOperationsHub']['detail']>
   | ReturnType<(typeof queryKeys)['opsOccasions']['list']>
-  | ReturnType<(typeof queryKeys)['opsMenu']['list']>
-  | ReturnType<(typeof queryKeys)['opsMenu']['detail']>
-  | ReturnType<(typeof queryKeys)['opsMenu']['facets']>
   | ReturnType<(typeof queryKeys)['opsMenuHierarchy']['list']>
   | ReturnType<(typeof queryKeys)['opsFoodMenus']['importReviews']>
-  | ReturnType<(typeof queryKeys)['opsDrinksMenu']['list']>
-  | ReturnType<(typeof queryKeys)['opsDrinksMenu']['detail']>
-  | ReturnType<(typeof queryKeys)['opsDrinksMenu']['facets']>
   | ReturnType<(typeof queryKeys)['ownerRestaurants']['hours']>
   | ReturnType<(typeof queryKeys)['ownerRestaurants']['servicePeriods']>
   | ReturnType<(typeof queryKeys)['ownerRestaurants']['details']>

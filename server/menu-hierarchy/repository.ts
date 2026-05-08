@@ -174,8 +174,10 @@ function parseLabels(value: Json | null, fallbackDisplayName?: string): Canonica
         if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return null;
         const record = entry as Record<string, unknown>;
         if (typeof record.displayName !== 'string') return null;
+        const displayName = record.displayName.trim();
+        if (!displayName) return null;
         return buildCanonicalMenuLabel({
-          displayName: record.displayName,
+          displayName,
           description: typeof record.description === 'string' ? record.description : null,
           languageCode:
             typeof record.languageCode === 'string'
@@ -187,6 +189,41 @@ function parseLabels(value: Json | null, fallbackDisplayName?: string): Canonica
     if (labels.length > 0) return labels;
   }
   return fallbackDisplayName ? [buildCanonicalMenuLabel({ displayName: fallbackDisplayName })] : [];
+}
+
+function normalizedText(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+function firstCommonText(values: Array<string | null | undefined>): string | null {
+  const counts = new Map<string, number>();
+  const order: string[] = [];
+  values.forEach((value) => {
+    const normalized = normalizedText(value);
+    if (!normalized) return;
+    if (!counts.has(normalized)) order.push(normalized);
+    counts.set(normalized, (counts.get(normalized) ?? 0) + 1);
+  });
+  return order.sort((left, right) => (counts.get(right) ?? 0) - (counts.get(left) ?? 0))[0] ?? null;
+}
+
+function sectionGroupFromRows(row: SectionRow, sectionItems: readonly ItemRow[]) {
+  const legacyCategory =
+    normalizedText(row.legacy_category) ??
+    firstCommonText(sectionItems.map((item) => item.category));
+  const legacySubcategory =
+    normalizedText(row.legacy_subcategory) ??
+    firstCommonText(sectionItems.map((item) => item.subcategory));
+  return {
+    legacyCategory,
+    legacySubcategory,
+    displayName: legacyCategory
+      ? legacySubcategory
+        ? `${legacyCategory} - ${legacySubcategory}`
+        : legacyCategory
+      : 'Section',
+  };
 }
 
 function primaryLabel(labels: readonly CanonicalMenuLabel[], fallback: string): string {
@@ -276,10 +313,11 @@ function mapSection(
   options: readonly OptionRow[],
   extensions: readonly ExtensionRow[],
 ): CanonicalRestaurantMenuSection {
-  const labels = parseLabels(
-    row.labels,
-    row.legacy_subcategory ?? row.legacy_category ?? 'Section',
-  );
+  const sectionItems = items
+    .filter((item) => item.section_id === row.id)
+    .sort((left, right) => left.display_order - right.display_order);
+  const group = sectionGroupFromRows(row, sectionItems);
+  const labels = parseLabels(row.labels, group.displayName);
   return {
     id: row.id,
     restaurantId: row.restaurant_id,
@@ -287,19 +325,16 @@ function mapSection(
     labels,
     displayOrder: row.display_order,
     active: row.active,
-    legacyCategory: row.legacy_category,
-    legacySubcategory: row.legacy_subcategory,
+    legacyCategory: normalizedText(row.legacy_category) ?? group.legacyCategory,
+    legacySubcategory: normalizedText(row.legacy_subcategory) ?? group.legacySubcategory,
     legacySource: parseRecord(row.legacy_source),
-    items: items
-      .filter((item) => item.section_id === row.id)
-      .sort((left, right) => left.display_order - right.display_order)
-      .map((item) =>
-        mapItem(
-          item,
-          options,
-          extensions.find((extension) => extension.menu_item_id === item.id),
-        ),
+    items: sectionItems.map((item) =>
+      mapItem(
+        item,
+        options,
+        extensions.find((extension) => extension.menu_item_id === item.id),
       ),
+    ),
   };
 }
 
@@ -330,6 +365,7 @@ function mapMenu(
 
 async function readSection(
   restaurantId: string,
+  menuId: string,
   sectionId: string,
   client: DbClient,
 ): Promise<SectionRow> {
@@ -337,10 +373,85 @@ async function readSection(
     .from('restaurant_menu_sections')
     .select('*')
     .eq('restaurant_id', restaurantId)
+    .eq('menu_id', menuId)
     .eq('id', sectionId)
     .single();
   if (error) throw error;
   return data as SectionRow;
+}
+
+async function readItem(
+  restaurantId: string,
+  menuId: string,
+  sectionId: string,
+  itemId: string,
+  client: DbClient,
+): Promise<ItemRow> {
+  const { data, error } = await client
+    .from('restaurant_menu_items')
+    .select(
+      'id, restaurant_id, menu_id, section_id, item_kind, external_item_id, item_name, category, subcategory, base_price, currency, display_order, active, labels, google_attributes, google_media_keys, local_media, image_url, legacy_source, created_at, updated_at',
+    )
+    .eq('restaurant_id', restaurantId)
+    .eq('menu_id', menuId)
+    .eq('section_id', sectionId)
+    .eq('id', itemId)
+    .single();
+  if (error) throw error;
+  return data as ItemRow;
+}
+
+async function listMenuItemIds({
+  restaurantId,
+  menuId,
+  sectionId,
+  client,
+}: {
+  restaurantId: string;
+  menuId?: string;
+  sectionId?: string;
+  client: DbClient;
+}): Promise<string[]> {
+  let query = client.from('restaurant_menu_items').select('id').eq('restaurant_id', restaurantId);
+  if (menuId) query = query.eq('menu_id', menuId);
+  if (sectionId) query = query.eq('section_id', sectionId);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []).map((row) => row.id);
+}
+
+async function deleteMenuItemsByIds({
+  restaurantId,
+  itemIds,
+  client,
+}: {
+  restaurantId: string;
+  itemIds: readonly string[];
+  client: DbClient;
+}): Promise<void> {
+  if (itemIds.length === 0) return;
+
+  const { error: optionsError } = await client
+    .from('restaurant_menu_item_options')
+    .delete()
+    .eq('restaurant_id', restaurantId)
+    .in('menu_item_id', [...itemIds]);
+  if (optionsError) throw optionsError;
+
+  const { error: extensionsError } = await client
+    .from('restaurant_menu_item_extensions')
+    .delete()
+    .eq('restaurant_id', restaurantId)
+    .in('menu_item_id', [...itemIds]);
+  if (extensionsError) throw extensionsError;
+
+  const { error: itemsError } = await client
+    .from('restaurant_menu_items')
+    .delete()
+    .eq('restaurant_id', restaurantId)
+    .in('id', [...itemIds]);
+  if (itemsError) throw itemsError;
 }
 
 async function upsertItemExtensions({
@@ -490,6 +601,16 @@ export async function deleteRestaurantMenu(
   baseClient: BaseDbClient = getServiceSupabaseClient(),
 ): Promise<void> {
   const client = hierarchyClient(baseClient);
+  const itemIds = await listMenuItemIds({ restaurantId, menuId, client });
+  await deleteMenuItemsByIds({ restaurantId, itemIds, client });
+
+  const { error: sectionsError } = await client
+    .from('restaurant_menu_sections')
+    .delete()
+    .eq('restaurant_id', restaurantId)
+    .eq('menu_id', menuId);
+  if (sectionsError) throw sectionsError;
+
   const { error } = await client
     .from('restaurant_menus')
     .delete()
@@ -525,6 +646,7 @@ export async function createRestaurantMenuSection(
 
 export async function updateRestaurantMenuSection(
   restaurantId: string,
+  menuId: string,
   sectionId: string,
   input: RestaurantMenuSectionPatch,
   baseClient: BaseDbClient = getServiceSupabaseClient(),
@@ -542,6 +664,7 @@ export async function updateRestaurantMenuSection(
     .from('restaurant_menu_sections')
     .update(patch)
     .eq('restaurant_id', restaurantId)
+    .eq('menu_id', menuId)
     .eq('id', sectionId)
     .select('*')
     .single();
@@ -551,14 +674,19 @@ export async function updateRestaurantMenuSection(
 
 export async function deleteRestaurantMenuSection(
   restaurantId: string,
+  menuId: string,
   sectionId: string,
   baseClient: BaseDbClient = getServiceSupabaseClient(),
 ): Promise<void> {
   const client = hierarchyClient(baseClient);
+  const itemIds = await listMenuItemIds({ restaurantId, menuId, sectionId, client });
+  await deleteMenuItemsByIds({ restaurantId, itemIds, client });
+
   const { error } = await client
     .from('restaurant_menu_sections')
     .delete()
     .eq('restaurant_id', restaurantId)
+    .eq('menu_id', menuId)
     .eq('id', sectionId);
   if (error) throw error;
 }
@@ -571,7 +699,7 @@ export async function createRestaurantMenuItem(
   baseClient: BaseDbClient = getServiceSupabaseClient(),
 ): Promise<CanonicalRestaurantMenuItem> {
   const client = hierarchyClient(baseClient);
-  const section = await readSection(restaurantId, sectionId, client);
+  const section = await readSection(restaurantId, menuId, sectionId, client);
   const labels = input.labels;
   const itemName = primaryLabel(labels, input.externalItemId);
   const category = section.legacy_category ?? primaryLabel(parseLabels(section.labels), 'Menu');
@@ -616,6 +744,8 @@ export async function createRestaurantMenuItem(
 
 export async function updateRestaurantMenuItem(
   restaurantId: string,
+  menuId: string,
+  sectionId: string,
   itemId: string,
   input: RestaurantMenuItemPatch,
   baseClient: BaseDbClient = getServiceSupabaseClient(),
@@ -647,6 +777,8 @@ export async function updateRestaurantMenuItem(
     .from('restaurant_menu_items')
     .update(patch)
     .eq('restaurant_id', restaurantId)
+    .eq('menu_id', menuId)
+    .eq('section_id', sectionId)
     .eq('id', itemId)
     .select(
       'id, restaurant_id, menu_id, section_id, item_kind, external_item_id, item_name, category, subcategory, base_price, currency, display_order, active, labels, google_attributes, google_media_keys, local_media, image_url, legacy_source, created_at, updated_at',
@@ -666,25 +798,26 @@ export async function updateRestaurantMenuItem(
 
 export async function deleteRestaurantMenuItem(
   restaurantId: string,
+  menuId: string,
+  sectionId: string,
   itemId: string,
   baseClient: BaseDbClient = getServiceSupabaseClient(),
 ): Promise<void> {
   const client = hierarchyClient(baseClient);
-  const { error } = await client
-    .from('restaurant_menu_items')
-    .delete()
-    .eq('restaurant_id', restaurantId)
-    .eq('id', itemId);
-  if (error) throw error;
+  await readItem(restaurantId, menuId, sectionId, itemId, client);
+  await deleteMenuItemsByIds({ restaurantId, itemIds: [itemId], client });
 }
 
 export async function createRestaurantMenuOption(
   restaurantId: string,
+  menuId: string,
+  sectionId: string,
   itemId: string,
   input: RestaurantMenuOptionInput,
   baseClient: BaseDbClient = getServiceSupabaseClient(),
 ): Promise<CanonicalRestaurantMenuOption> {
   const client = hierarchyClient(baseClient);
+  await readItem(restaurantId, menuId, sectionId, itemId, client);
   const { data, error } = await client
     .from('restaurant_menu_item_options')
     .insert({
@@ -706,11 +839,15 @@ export async function createRestaurantMenuOption(
 
 export async function updateRestaurantMenuOption(
   restaurantId: string,
+  menuId: string,
+  sectionId: string,
+  itemId: string,
   optionId: string,
   input: RestaurantMenuOptionPatch,
   baseClient: BaseDbClient = getServiceSupabaseClient(),
 ): Promise<CanonicalRestaurantMenuOption> {
   const client = hierarchyClient(baseClient);
+  await readItem(restaurantId, menuId, sectionId, itemId, client);
   const patch: Update<OptionRow> = {};
   if ('externalOptionId' in input) patch.external_option_id = input.externalOptionId;
   if (input.labels) patch.labels = toJson(input.labels);
@@ -724,6 +861,7 @@ export async function updateRestaurantMenuOption(
     .from('restaurant_menu_item_options')
     .update(patch)
     .eq('restaurant_id', restaurantId)
+    .eq('menu_item_id', itemId)
     .eq('id', optionId)
     .select('*')
     .single();
@@ -733,14 +871,19 @@ export async function updateRestaurantMenuOption(
 
 export async function deleteRestaurantMenuOption(
   restaurantId: string,
+  menuId: string,
+  sectionId: string,
+  itemId: string,
   optionId: string,
   baseClient: BaseDbClient = getServiceSupabaseClient(),
 ): Promise<void> {
   const client = hierarchyClient(baseClient);
+  await readItem(restaurantId, menuId, sectionId, itemId, client);
   const { error } = await client
     .from('restaurant_menu_item_options')
     .delete()
     .eq('restaurant_id', restaurantId)
+    .eq('menu_item_id', itemId)
     .eq('id', optionId);
   if (error) throw error;
 }

@@ -223,6 +223,29 @@ describe('buildGoogleFoodMenusProjection', () => {
     );
   });
 
+  it('filters unsupported canonical cuisine values before building the Google payload', () => {
+    const projection = buildCanonicalGoogleFoodMenusProjection({
+      foodMenusName: 'accounts/123/locations/456/foodMenus',
+      menus: [
+        {
+          id: 'food-menu',
+          restaurantId: 'rest-1',
+          labels: [{ displayName: 'Dinner', languageCode: 'en-GB' }],
+          sourceUrl: null,
+          cuisines: ['INDIAN', 'BRITISH', 'NEPALESE'] as CanonicalRestaurantMenu['cuisines'],
+          defaultLanguageCode: 'en-GB',
+          menuKind: 'food',
+          displayOrder: 1,
+          active: true,
+          legacySource: {},
+          sections: [],
+        },
+      ],
+    });
+
+    expect(projection.foodMenus.menus[0]?.cuisines).toEqual(['INDIAN']);
+  });
+
   it('projects rich Nabatable menu items into a Google FoodMenus payload and identity map', () => {
     const projection = buildGoogleFoodMenusProjection({
       foodMenusName: 'accounts/123/locations/456/foodMenus',

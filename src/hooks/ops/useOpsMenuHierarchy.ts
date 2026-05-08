@@ -227,6 +227,30 @@ export function useOpsUpdateRestaurantMenuItem({
   });
 }
 
+export function useOpsPatchRestaurantMenuItem(
+  restaurantId?: string | null,
+): UseMutationResult<
+  CanonicalRestaurantMenuItem,
+  MutationError,
+  { menuId: string; sectionId: string; itemId: string; payload: RestaurantMenuItemPatch }
+> {
+  const menuHierarchyService = useMenuHierarchyService();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ menuId, sectionId, itemId, payload }) => {
+      if (!restaurantId) {
+        throw new Error('Restaurant id is required');
+      }
+      return menuHierarchyService.updateItem(restaurantId, menuId, sectionId, itemId, payload);
+    },
+    onSuccess: async () => {
+      if (!restaurantId) return;
+      await queryClient.invalidateQueries({ queryKey: hierarchyListKey(restaurantId) });
+    },
+  });
+}
+
 export function useOpsCreateRestaurantMenuOption({
   restaurantId,
   menuId,
@@ -356,11 +380,7 @@ export function useOpsDeleteRestaurantMenuSection(
 
 export function useOpsDeleteRestaurantMenuItem(
   restaurantId?: string | null,
-): UseMutationResult<
-  void,
-  MutationError,
-  { menuId: string; sectionId: string; itemId: string }
-> {
+): UseMutationResult<void, MutationError, { menuId: string; sectionId: string; itemId: string }> {
   const menuHierarchyService = useMenuHierarchyService();
   const queryClient = useQueryClient();
 

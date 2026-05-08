@@ -106,7 +106,6 @@ function makePrefetchServiceCalls() {
     getServicePeriods: vi.fn().mockResolvedValue([]),
     getTurnBands: vi.fn().mockResolvedValue([]),
     listInvites: vi.fn().mockResolvedValue([]),
-    listItems: vi.fn().mockResolvedValue({ items: [] }),
     listMenus: vi.fn().mockResolvedValue({ menus: [] }),
     listOccasions: vi.fn().mockResolvedValue([]),
     listTables: vi.fn().mockResolvedValue({ tables: [] }),
@@ -126,7 +125,6 @@ function renderSubnav(pathname: string, serviceCalls = makePrefetchServiceCalls(
       <OpsServicesProvider
         factories={
           {
-            menuService: () => ({ listItems: serviceCalls.listItems }),
             menuHierarchyService: () => ({ listMenus: serviceCalls.listMenus }),
             occasionService: () => ({ listOccasions: serviceCalls.listOccasions }),
             restaurantService: () => ({
@@ -162,7 +160,6 @@ function renderPageShell(pathname: string, serviceCalls = makePrefetchServiceCal
       <OpsServicesProvider
         factories={
           {
-            menuService: () => ({ listItems: serviceCalls.listItems }),
             menuHierarchyService: () => ({ listMenus: serviceCalls.listMenus }),
             occasionService: () => ({ listOccasions: serviceCalls.listOccasions }),
             restaurantService: () => ({

@@ -66,11 +66,23 @@ describe('proxy GBP callback public API routing', () => {
     expect(forwardedHeader).not.toBe('22222222-2222-4222-8222-222222222222');
   });
 
-  it('redirects legacy root-host ops paths to the app dashboard', async () => {
+  it('passes retired legacy root-host ops paths through without app redirect', async () => {
     const response = await handleRouting(new NextRequest('http://localhost/ops?from=legacy'));
 
+    expect(response.headers.get('x-middleware-next')).toBe('1');
+    expect(response.headers.get('location')).toBeNull();
+    expect(requireOpsAuthMock).not.toHaveBeenCalled();
+  });
+
+  it('redirects canonical root-host app transport to the app host', async () => {
+    const response = await handleRouting(
+      new NextRequest('http://localhost/app/settings/restaurant/profile?tab=details'),
+    );
+
     expect(response.status).toBe(308);
-    expect(response.headers.get('location')).toBe('http://app.localhost/dashboard?from=legacy');
+    expect(response.headers.get('location')).toBe(
+      'http://app.localhost/settings/restaurant/profile?tab=details',
+    );
     expect(requireOpsAuthMock).not.toHaveBeenCalled();
   });
 });

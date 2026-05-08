@@ -108,11 +108,7 @@ function buildRedirect(
 }
 
 function stripLeadingAppPrefix(pathname: string) {
-  let next = pathname;
-  while (next === '/app' || next.startsWith('/app/')) {
-    next = next.replace(/^\/app(\/|$)/, '/');
-    if (next === '/') break;
-  }
+  const next = pathname.replace(/^\/app(\/|$)/, '/');
   return next === '' ? '/' : next;
 }
 
@@ -300,15 +296,6 @@ export async function handleRouting(req: NextRequest): Promise<NextResponse> {
 
   // 2. Handle /app/* routes on root domain (single-host mode or redirect to app subdomain)
   if (url.pathname.startsWith('/app')) {
-    // Fix double /app/app prefix
-    if (url.pathname.startsWith('/app/app')) {
-      const normalized = url.pathname.replace(/^\/app\/app/, '/app');
-      return NextResponse.redirect(
-        new URL(`${normalized}${searchParams ? `?${searchParams}` : ''}`, req.url),
-        308,
-      );
-    }
-
     // In multi-host mode, redirect to app subdomain
     if (!isSingleHost) {
       // Strip /app prefix before redirecting to avoid double redirect
@@ -329,12 +316,7 @@ export async function handleRouting(req: NextRequest): Promise<NextResponse> {
     return NextResponse.next();
   }
 
-  // 3. Legacy /ops route redirect
-  if (!isSingleHost && url.pathname.startsWith('/ops')) {
-    return buildRedirect(req, appHost, '/dashboard', searchParams);
-  }
-
-  // 4. All other routes pass through (guest pages, public APIs, etc.)
+  // 3. All other routes pass through (guest pages, public APIs, etc.)
   return NextResponse.next();
 }
 

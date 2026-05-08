@@ -30,7 +30,15 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
   const access = await requireMenusAdmin(params);
   if (access.response) return access.response;
 
-  const optionId = await resolveRouteParam(params, 'optionId');
+  const [menuId, sectionId, itemId, optionId] = await Promise.all([
+    resolveRouteParam(params, 'menuId'),
+    resolveRouteParam(params, 'sectionId'),
+    resolveRouteParam(params, 'itemId'),
+    resolveRouteParam(params, 'optionId'),
+  ]);
+  if (!menuId) return NextResponse.json({ error: 'Missing menu id' }, { status: 400 });
+  if (!sectionId) return NextResponse.json({ error: 'Missing section id' }, { status: 400 });
+  if (!itemId) return NextResponse.json({ error: 'Missing item id' }, { status: 400 });
   if (!optionId) return NextResponse.json({ error: 'Missing option id' }, { status: 400 });
 
   const body = await readJsonBody(request);
@@ -40,7 +48,14 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
   if (!parsed.success) return invalidPayload(parsed.error.flatten());
 
   try {
-    const option = await updateRestaurantMenuOption(access.restaurantId, optionId, parsed.data);
+    const option = await updateRestaurantMenuOption(
+      access.restaurantId,
+      menuId,
+      sectionId,
+      itemId,
+      optionId,
+      parsed.data,
+    );
     return NextResponse.json({ option });
   } catch (error) {
     return routeError('PATCH option', error, 'Unable to update menu item option');
@@ -51,11 +66,19 @@ export async function DELETE(_request: NextRequest, { params }: RouteContext) {
   const access = await requireMenusAdmin(params);
   if (access.response) return access.response;
 
-  const optionId = await resolveRouteParam(params, 'optionId');
+  const [menuId, sectionId, itemId, optionId] = await Promise.all([
+    resolveRouteParam(params, 'menuId'),
+    resolveRouteParam(params, 'sectionId'),
+    resolveRouteParam(params, 'itemId'),
+    resolveRouteParam(params, 'optionId'),
+  ]);
+  if (!menuId) return NextResponse.json({ error: 'Missing menu id' }, { status: 400 });
+  if (!sectionId) return NextResponse.json({ error: 'Missing section id' }, { status: 400 });
+  if (!itemId) return NextResponse.json({ error: 'Missing item id' }, { status: 400 });
   if (!optionId) return NextResponse.json({ error: 'Missing option id' }, { status: 400 });
 
   try {
-    await deleteRestaurantMenuOption(access.restaurantId, optionId);
+    await deleteRestaurantMenuOption(access.restaurantId, menuId, sectionId, itemId, optionId);
     return NextResponse.json({ ok: true });
   } catch (error) {
     return routeError('DELETE option', error, 'Unable to delete menu item option');

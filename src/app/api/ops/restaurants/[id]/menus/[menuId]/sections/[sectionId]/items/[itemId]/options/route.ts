@@ -26,7 +26,13 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
   const access = await requireMenusAdmin(params);
   if (access.response) return access.response;
 
-  const itemId = await resolveRouteParam(params, 'itemId');
+  const [menuId, sectionId, itemId] = await Promise.all([
+    resolveRouteParam(params, 'menuId'),
+    resolveRouteParam(params, 'sectionId'),
+    resolveRouteParam(params, 'itemId'),
+  ]);
+  if (!menuId) return NextResponse.json({ error: 'Missing menu id' }, { status: 400 });
+  if (!sectionId) return NextResponse.json({ error: 'Missing section id' }, { status: 400 });
   if (!itemId) return NextResponse.json({ error: 'Missing item id' }, { status: 400 });
 
   const body = await readJsonBody(request);
@@ -36,7 +42,13 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
   if (!parsed.success) return invalidPayload(parsed.error.flatten());
 
   try {
-    const option = await createRestaurantMenuOption(access.restaurantId, itemId, parsed.data);
+    const option = await createRestaurantMenuOption(
+      access.restaurantId,
+      menuId,
+      sectionId,
+      itemId,
+      parsed.data,
+    );
     return NextResponse.json({ option }, { status: 201 });
   } catch (error) {
     return routeError('POST option', error, 'Unable to create menu item option');

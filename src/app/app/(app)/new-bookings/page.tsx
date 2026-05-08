@@ -3,7 +3,7 @@ import { Suspense } from 'react';
 import { BookingErrorBoundary } from '@/components/features/booking-state-machine';
 import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
 
-import { WalkInWizardClient } from './_components/WalkInWizardClient';
+import { OpsGuestBookingWizard } from './_components/OpsGuestBookingWizard';
 
 import type { Metadata } from 'next';
 
@@ -25,7 +25,7 @@ export default async function WalkInPage() {
             <div className="p-8 text-center text-muted-foreground">Loading booking wizard...</div>
           }
         >
-          <WalkInWizardClient />
+          <OpsGuestBookingWizard />
         </Suspense>
       </BookingErrorBoundary>
     </div>

@@ -1,3 +1,4 @@
+import { GOOGLE_FOOD_MENU_CUISINES } from '@/lib/google-food-menu-cuisines';
 import { hashCanonicalJson } from '@/server/dual-sync/hashing';
 
 import type { GoogleFoodMenuCuisine } from '@/lib/google-food-menu-cuisines';
@@ -1063,9 +1064,21 @@ function mapPreparationMethod(
   return 'OTHER_METHOD';
 }
 
-function uniqueSorted<T extends string>(values: Array<T | null | undefined>): T[] {
+const GOOGLE_FOOD_MENU_CUISINE_SET = new Set<string>(GOOGLE_FOOD_MENU_CUISINES);
+
+function uniqueSorted<T extends string>(values: ReadonlyArray<T | null | undefined>): T[] {
   return Array.from(new Set(values.filter((value): value is T => Boolean(value)))).sort(
     (left, right) => left.localeCompare(right),
+  );
+}
+
+function uniqueSupportedCuisines(
+  values: ReadonlyArray<string | null | undefined>,
+): GoogleFoodMenuCuisine[] {
+  return uniqueSorted(
+    values.filter((value): value is GoogleFoodMenuCuisine =>
+      Boolean(value && GOOGLE_FOOD_MENU_CUISINE_SET.has(value)),
+    ),
   );
 }
 
@@ -1291,6 +1304,7 @@ export function buildGoogleFoodMenusProjection(
       return buildItem(item, languageCode);
     }),
   }));
+  const cuisines = uniqueSupportedCuisines(input.cuisines ?? []);
 
   return {
     foodMenus: {
@@ -1300,9 +1314,7 @@ export function buildGoogleFoodMenusProjection(
           labels: [buildLabel(cleanText(input.menuLabel) ?? DEFAULT_MENU_NAME, null, languageCode)],
           ...(sourceUrl ? { sourceUrl } : {}),
           sections: googleSections,
-          ...(input.cuisines && input.cuisines.length > 0
-            ? { cuisines: uniqueSorted(input.cuisines) }
-            : {}),
+          ...(cuisines.length ? { cuisines } : {}),
         },
       ],
     },
@@ -1514,11 +1526,12 @@ export function buildCanonicalGoogleFoodMenusProjection(
       };
     });
 
+    const cuisines = uniqueSupportedCuisines(menu.cuisines);
     return {
       labels: [primaryCanonicalLabel(menu, DEFAULT_MENU_NAME)],
       ...(cleanText(menu.sourceUrl) ? { sourceUrl: cleanText(menu.sourceUrl)! } : {}),
       sections,
-      ...(menu.cuisines.length ? { cuisines: uniqueSorted(menu.cuisines) } : {}),
+      ...(cuisines.length ? { cuisines } : {}),
     };
   });
 

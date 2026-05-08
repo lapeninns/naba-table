@@ -16,6 +16,7 @@ import {
   ensureRestaurantAdminAccess,
   resolveRestaurantId,
 } from '@/app/api/ops/restaurants/[id]/_shared';
+import { DUAL_SYNC_SECTION_KEYS } from '@/server/dual-sync';
 import { isDualSyncEnabled } from '@/server/dual-sync/flag';
 import { runPublish } from '@/server/dual-sync/publish/orchestrator';
 import { defaultDualSyncPorts } from '@/server/dual-sync/publish/ports';
@@ -25,15 +26,7 @@ import type { NextRequest } from 'next/server';
 
 const decisionSchema = z.object({
   fieldKey: z.string().min(1),
-  sectionKey: z.enum([
-    'profile',
-    'operatingHours',
-    'servicePeriods',
-    'businessContext.categories',
-    'businessContext.serviceAreas',
-    'businessContext.attributes',
-    'businessContext.serviceItems',
-  ]),
+  sectionKey: z.enum(DUAL_SYNC_SECTION_KEYS),
   action: z.enum(['import_from_google', 'export_to_google', 'ignore']),
   pinnedCoreHash: z.string().nullable().default(null),
   pinnedGbpHash: z.string().nullable().default(null),

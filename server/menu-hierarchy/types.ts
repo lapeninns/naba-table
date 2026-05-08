@@ -58,8 +58,85 @@ const optionalNullableText = z.union([z.string(), z.null(), z.undefined()]).tran
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
 });
+const patchNullableText = z
+  .union([z.string(), z.null()])
+  .transform((value) => {
+    if (typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  })
+  .optional();
 
 const jsonObject = z.record(z.string(), z.unknown());
+
+const optionalBoolean = z.boolean().nullable().optional();
+const optionalFiniteNumber = z.number().finite().nullable().optional();
+const optionalStringArray = z.array(requiredText).optional();
+
+const DrinkProfileExtensionSchema = z
+  .object({
+    abvPercent: optionalFiniteNumber,
+    volumeMl: optionalFiniteNumber,
+    servingSize: optionalNullableText.optional(),
+    style: optionalNullableText.optional(),
+    region: optionalNullableText.optional(),
+    grape: optionalNullableText.optional(),
+    caffeineMg: optionalFiniteNumber,
+    containsDairy: optionalBoolean,
+    containsNuts: optionalBoolean,
+    containsGluten: optionalBoolean,
+    containsCaffeine: optionalBoolean,
+    nonAlcoholic: optionalBoolean,
+    decafAvailable: optionalBoolean,
+    opsNote: optionalNullableText.optional(),
+  })
+  .catchall(z.unknown());
+
+const RecommendationMetadataExtensionSchema = z
+  .object({
+    featured: optionalBoolean,
+    signature: optionalBoolean,
+    popularityScore: z.number().finite().min(0).max(100).nullable().optional(),
+    pairingNotes: optionalNullableText.optional(),
+    recommendationTags: optionalStringArray,
+    opsNote: optionalNullableText.optional(),
+  })
+  .catchall(z.unknown());
+
+const AvailabilityPolicyExtensionSchema = z
+  .object({
+    availabilityStatus: z.enum(['available', 'unavailable', 'seasonal']).nullable().optional(),
+    soldOut: optionalBoolean,
+    orderable: optionalBoolean,
+    servicePeriods: optionalStringArray,
+    availableFrom: optionalNullableText.optional(),
+    availableUntil: optionalNullableText.optional(),
+    opsNote: optionalNullableText.optional(),
+  })
+  .catchall(z.unknown());
+
+const CustomizationControlsExtensionSchema = z
+  .object({
+    allowCustomizations: optionalBoolean,
+    operationalModifierGroupIds: optionalStringArray,
+    requiredOptionGroupIds: optionalStringArray,
+    maxSelections: z.number().int().nonnegative().nullable().optional(),
+    opsNote: optionalNullableText.optional(),
+  })
+  .catchall(z.unknown());
+
+const SourceMetadataExtensionSchema = z
+  .object({
+    sourceSystem: optionalNullableText.optional(),
+    sourceItemId: optionalNullableText.optional(),
+    sourceMenuId: optionalNullableText.optional(),
+    importedAt: optionalNullableText.optional(),
+    importedBy: optionalNullableText.optional(),
+    importReviewId: optionalNullableText.optional(),
+    editedFrom: optionalNullableText.optional(),
+    opsNote: optionalNullableText.optional(),
+  })
+  .catchall(z.unknown());
 
 const DEFAULT_MENU_ITEM_ATTRIBUTES = {
   allergen: [],
@@ -150,11 +227,11 @@ export const CanonicalMenuItemAttributesSchema = z.object({
 });
 
 export const NabatableMenuItemExtensionsSchema = z.object({
-  drinkProfile: jsonObject.default({}),
-  recommendationMetadata: jsonObject.default({}),
-  availabilityPolicy: jsonObject.default({}),
-  customizationControls: jsonObject.default({}),
-  sourceMetadata: jsonObject.default({}),
+  drinkProfile: DrinkProfileExtensionSchema.default({}),
+  recommendationMetadata: RecommendationMetadataExtensionSchema.default({}),
+  availabilityPolicy: AvailabilityPolicyExtensionSchema.default({}),
+  customizationControls: CustomizationControlsExtensionSchema.default({}),
+  sourceMetadata: SourceMetadataExtensionSchema.default({}),
 });
 
 export const CanonicalRestaurantMenuOptionSchema = z.object({
@@ -225,7 +302,16 @@ export const RestaurantMenuInputSchema = z.object({
   legacySource: jsonObject.default({}),
 });
 
-export const RestaurantMenuPatchSchema = RestaurantMenuInputSchema.partial();
+export const RestaurantMenuPatchSchema = z.object({
+  labels: z.array(CanonicalMenuLabelSchema).optional(),
+  sourceUrl: patchNullableText,
+  cuisines: z.array(z.enum(GOOGLE_FOOD_MENU_CUISINES)).optional(),
+  defaultLanguageCode: requiredText.optional(),
+  menuKind: z.enum(MENU_KINDS).optional(),
+  displayOrder: z.number().int().optional(),
+  active: z.boolean().optional(),
+  legacySource: jsonObject.optional(),
+});
 
 export const RestaurantMenuSectionInputSchema = z.object({
   labels: z.array(CanonicalMenuLabelSchema).default([]),
@@ -236,7 +322,14 @@ export const RestaurantMenuSectionInputSchema = z.object({
   legacySource: jsonObject.default({}),
 });
 
-export const RestaurantMenuSectionPatchSchema = RestaurantMenuSectionInputSchema.partial();
+export const RestaurantMenuSectionPatchSchema = z.object({
+  labels: z.array(CanonicalMenuLabelSchema).optional(),
+  displayOrder: z.number().int().optional(),
+  active: z.boolean().optional(),
+  legacyCategory: patchNullableText,
+  legacySubcategory: patchNullableText,
+  legacySource: jsonObject.optional(),
+});
 
 export const RestaurantMenuItemInputSchema = z.object({
   itemKind: z.enum(MENU_ITEM_KINDS),
@@ -250,7 +343,17 @@ export const RestaurantMenuItemInputSchema = z.object({
   legacySource: jsonObject.default({}),
 });
 
-export const RestaurantMenuItemPatchSchema = RestaurantMenuItemInputSchema.partial();
+export const RestaurantMenuItemPatchSchema = z.object({
+  itemKind: z.enum(MENU_ITEM_KINDS).optional(),
+  externalItemId: requiredText.optional(),
+  labels: z.array(CanonicalMenuLabelSchema).optional(),
+  attributes: CanonicalMenuItemAttributesSchema.optional(),
+  media: CanonicalMenuMediaSchema.optional(),
+  extensions: NabatableMenuItemExtensionsSchema.optional(),
+  displayOrder: z.number().int().optional(),
+  active: z.boolean().optional(),
+  legacySource: jsonObject.optional(),
+});
 
 export const RestaurantMenuOptionInputSchema = z.object({
   externalOptionId: optionalNullableText.optional(),
@@ -262,7 +365,15 @@ export const RestaurantMenuOptionInputSchema = z.object({
   legacySource: jsonObject.default({}),
 });
 
-export const RestaurantMenuOptionPatchSchema = RestaurantMenuOptionInputSchema.partial();
+export const RestaurantMenuOptionPatchSchema = z.object({
+  externalOptionId: patchNullableText,
+  labels: z.array(CanonicalMenuLabelSchema).optional(),
+  attributes: CanonicalMenuItemAttributesSchema.optional(),
+  media: CanonicalMenuMediaSchema.optional(),
+  displayOrder: z.number().int().optional(),
+  active: z.boolean().optional(),
+  legacySource: jsonObject.optional(),
+});
 
 export function buildCanonicalMenuLabel(input: {
   readonly displayName: string;

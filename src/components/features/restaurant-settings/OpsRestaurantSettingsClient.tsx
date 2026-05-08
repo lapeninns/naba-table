@@ -118,10 +118,13 @@ const OpsTeamManagementClient = dynamic(
   },
 );
 
-const DualSyncShell = dynamic(() => import('./dual-sync').then((m) => m.DualSyncShell), {
-  loading: () => <SettingsSectionSkeleton title="Loading sync state" />,
-  ssr: false,
-});
+const DualSyncShell = dynamic(
+  () => import('./dual-sync/DualSyncShell').then((m) => m.DualSyncShell),
+  {
+    loading: () => <SettingsSectionSkeleton title="Loading sync state" />,
+    ssr: false,
+  },
+);
 
 const DUAL_SYNC_SECTIONS_BY_VIEW: Partial<
   Record<RestaurantSettingsView, ReadonlyArray<DualSyncSectionKey>>
