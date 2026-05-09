@@ -1,13 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const listMenuItemDetailsMock = vi.hoisted(() => vi.fn());
-const getMenuItemDetailMock = vi.hoisted(() => vi.fn());
-const upsertMenuItemMock = vi.hoisted(() => vi.fn());
-const deleteMenuItemMock = vi.hoisted(() => vi.fn());
-const listDrinkItemDetailsMock = vi.hoisted(() => vi.fn());
-const getDrinkItemDetailMock = vi.hoisted(() => vi.fn());
-const upsertDrinkItemMock = vi.hoisted(() => vi.fn());
-const deleteDrinkItemMock = vi.hoisted(() => vi.fn());
+const listCanonicalFoodMenusImportItemsMock = vi.hoisted(() => vi.fn());
+const applyCanonicalFoodMenusSuggestedPatchMock = vi.hoisted(() => vi.fn());
+const createCanonicalFoodMenusItemFromPatchMock = vi.hoisted(() => vi.fn());
+const decideCanonicalMissingLocalFoodMenusItemMock = vi.hoisted(() => vi.fn());
 const getGoogleBusinessProfileFoodMenusMock = vi.hoisted(() => vi.fn());
 const updateGoogleBusinessProfileFoodMenusMock = vi.hoisted(() => vi.fn());
 const recordFoodMenusProjectionMock = vi.hoisted(() => vi.fn());
@@ -24,18 +20,11 @@ const readFoodMenuSettingsMock = vi.hoisted(() => vi.fn());
 const upsertFoodMenuSettingsMock = vi.hoisted(() => vi.fn());
 const listRestaurantMenuHierarchyMock = vi.hoisted(() => vi.fn());
 
-vi.mock('@/server/menu/repository', () => ({
-  deleteMenuItem: deleteMenuItemMock,
-  getMenuItemDetail: getMenuItemDetailMock,
-  listMenuItemDetails: listMenuItemDetailsMock,
-  upsertMenuItem: upsertMenuItemMock,
-}));
-
-vi.mock('@/server/drinks-menu/repository', () => ({
-  deleteDrinkItem: deleteDrinkItemMock,
-  getDrinkItemDetail: getDrinkItemDetailMock,
-  listDrinkItemDetails: listDrinkItemDetailsMock,
-  upsertDrinkItem: upsertDrinkItemMock,
+vi.mock('@/server/google-business-profile/food-menus-canonical-adapter', () => ({
+  applyCanonicalFoodMenusSuggestedPatch: applyCanonicalFoodMenusSuggestedPatchMock,
+  createCanonicalFoodMenusItemFromPatch: createCanonicalFoodMenusItemFromPatchMock,
+  decideCanonicalMissingLocalFoodMenusItem: decideCanonicalMissingLocalFoodMenusItemMock,
+  listCanonicalFoodMenusImportItems: listCanonicalFoodMenusImportItemsMock,
 }));
 
 vi.mock('@/server/menu-hierarchy/repository', () => ({
@@ -74,14 +63,20 @@ import {
   refreshFoodMenusImportReviewFromGoogle,
 } from '@/server/google-business-profile/food-menus-sync';
 
-import type { GoogleFoodMenusResource } from '@/server/google-business-profile/food-menus';
-import type { MenuItemDetail } from '@/server/menu/types';
+import type {
+  FoodMenusLocalItem,
+  GoogleFoodMenusResource,
+} from '@/server/google-business-profile/food-menus';
+import type {
+  CanonicalRestaurantMenu,
+  CanonicalRestaurantMenuItem,
+} from '@/server/menu-hierarchy/types';
 import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 const client = { from: vi.fn() } as unknown as SupabaseClient<Database>;
 
-function makeMenuItem(overrides: Partial<MenuItemDetail> = {}): MenuItemDetail {
+function makeMenuItem(overrides: Partial<FoodMenusLocalItem> = {}): FoodMenusLocalItem {
   return {
     id: 'item-1',
     restaurantId: 'rest-1',
@@ -138,6 +133,81 @@ function makeMenuItem(overrides: Partial<MenuItemDetail> = {}): MenuItemDetail {
     updatedAt: '2026-05-01T10:00:00.000Z',
     modifierGroups: [],
     ...overrides,
+  };
+}
+
+function makeCanonicalItem(
+  item: FoodMenusLocalItem,
+  overrides: Partial<CanonicalRestaurantMenuItem> = {},
+): CanonicalRestaurantMenuItem {
+  return {
+    id: item.id,
+    restaurantId: item.restaurantId,
+    menuId: 'menu-1',
+    sectionId: 'section-1',
+    itemKind: item.targetKind ?? 'food',
+    externalItemId: item.externalItemId,
+    legacySource: {},
+    labels: [
+      {
+        displayName: item.itemName,
+        description: item.shortDescription,
+        languageCode: 'en-GB',
+      },
+    ],
+    attributes: {
+      price: { currencyCode: item.currency, amount: item.basePrice },
+      spiciness: null,
+      allergen: [],
+      dietaryRestriction: item.dietaryTags.includes('Vegetarian') ? ['VEGETARIAN'] : [],
+      ingredients: [],
+      preparationMethods: [],
+      mediaKeys: [],
+      nutritionFacts: {},
+    },
+    media: { googleMediaKeys: [], localMedia: {}, localImageUrl: item.imageUrl ?? undefined },
+    extensions: {
+      drinkProfile: {},
+      recommendationMetadata: {},
+      availabilityPolicy: { soldOut: item.soldOut },
+      customizationControls: {},
+      sourceMetadata: {},
+    },
+    options: [],
+    displayOrder: item.displayOrder,
+    active: item.active,
+    ...overrides,
+  };
+}
+
+function makeCanonicalMenu(
+  items: FoodMenusLocalItem[] = [makeMenuItem()],
+): CanonicalRestaurantMenu {
+  return {
+    id: 'menu-1',
+    restaurantId: 'rest-1',
+    labels: [{ displayName: 'Dinner menu', languageCode: 'en-GB' }],
+    sourceUrl: null,
+    cuisines: [],
+    defaultLanguageCode: 'en-GB',
+    menuKind: 'food',
+    displayOrder: 0,
+    active: true,
+    legacySource: {},
+    sections: [
+      {
+        id: 'section-1',
+        restaurantId: 'rest-1',
+        menuId: 'menu-1',
+        labels: [{ displayName: 'Starters - Vegetarian', languageCode: 'en-GB' }],
+        displayOrder: 0,
+        active: true,
+        legacyCategory: 'Starters',
+        legacySubcategory: 'Vegetarian',
+        legacySource: {},
+        items: items.map((item) => makeCanonicalItem(item)),
+      },
+    ],
   };
 }
 
@@ -234,14 +304,10 @@ const googleFoodMenus: GoogleFoodMenusResource = {
 
 describe('GBP FoodMenus sync service', () => {
   beforeEach(() => {
-    listMenuItemDetailsMock.mockReset();
-    getMenuItemDetailMock.mockReset();
-    upsertMenuItemMock.mockReset();
-    deleteMenuItemMock.mockReset();
-    listDrinkItemDetailsMock.mockReset();
-    getDrinkItemDetailMock.mockReset();
-    upsertDrinkItemMock.mockReset();
-    deleteDrinkItemMock.mockReset();
+    listCanonicalFoodMenusImportItemsMock.mockReset();
+    applyCanonicalFoodMenusSuggestedPatchMock.mockReset();
+    createCanonicalFoodMenusItemFromPatchMock.mockReset();
+    decideCanonicalMissingLocalFoodMenusItemMock.mockReset();
     recordFoodMenusProjectionMock.mockReset();
     readLatestFoodMenusSnapshotMock.mockReset();
     listProjectedFoodMenusIdentitiesMock.mockReset();
@@ -257,21 +323,25 @@ describe('GBP FoodMenus sync service', () => {
     readFoodMenuSettingsMock.mockReset();
     upsertFoodMenuSettingsMock.mockReset();
     listRestaurantMenuHierarchyMock.mockReset();
-    listDrinkItemDetailsMock.mockResolvedValue([]);
+    listCanonicalFoodMenusImportItemsMock.mockResolvedValue([makeMenuItem()]);
     readFoodMenuSettingsMock.mockResolvedValue(null);
-    listRestaurantMenuHierarchyMock.mockResolvedValue({ menus: [] });
+    listRestaurantMenuHierarchyMock.mockResolvedValue({ menus: [makeCanonicalMenu()] });
   });
 
-  it('builds and persists a deterministic Nabatable projection snapshot from menu details', async () => {
-    listMenuItemDetailsMock.mockResolvedValue([
-      makeMenuItem(),
-      makeMenuItem({
-        id: 'item-2',
-        externalItemId: 'sold-out',
-        itemName: 'Sold out dish',
-        soldOut: true,
-      }),
-    ]);
+  it('builds and persists a deterministic Nabatable projection snapshot from canonical menus', async () => {
+    listRestaurantMenuHierarchyMock.mockResolvedValue({
+      menus: [
+        makeCanonicalMenu([
+          makeMenuItem(),
+          makeMenuItem({
+            id: 'item-2',
+            externalItemId: 'sold-out',
+            itemName: 'Sold out dish',
+            soldOut: true,
+          }),
+        ]),
+      ],
+    });
     recordFoodMenusProjectionMock.mockResolvedValue({
       snapshot: makeSnapshot({ snapshotHash: 'projection-hash' }),
       identities: [
@@ -301,7 +371,7 @@ describe('GBP FoodMenus sync service', () => {
       createdByUserId: 'user-1',
     });
 
-    expect(listMenuItemDetailsMock).toHaveBeenCalledWith('rest-1', client);
+    expect(listRestaurantMenuHierarchyMock).toHaveBeenCalledWith('rest-1', client);
     expect(result.localItemCount).toBe(2);
     expect(result.projection.skippedItems).toEqual([
       { localItemId: 'item-2', externalItemId: 'sold-out', reason: 'sold_out' },
@@ -321,8 +391,6 @@ describe('GBP FoodMenus sync service', () => {
   });
 
   it('can build a projection without writing audit rows', async () => {
-    listMenuItemDetailsMock.mockResolvedValue([makeMenuItem()]);
-
     const result = await prepareFoodMenusProjection({
       client,
       restaurantId: 'rest-1',
@@ -336,7 +404,7 @@ describe('GBP FoodMenus sync service', () => {
     expect(result.projection.identities[0]?.localItemId).toBe('item-1');
   });
 
-  it('prefers active canonical food menus over the legacy item-first projection', async () => {
+  it('projects active canonical food menus', async () => {
     listRestaurantMenuHierarchyMock.mockResolvedValue({
       menus: [
         {
@@ -407,14 +475,13 @@ describe('GBP FoodMenus sync service', () => {
       persist: false,
     });
 
-    expect(listMenuItemDetailsMock).not.toHaveBeenCalled();
     expect(result.localItemCount).toBe(1);
     expect(result.projection.foodMenus.menus[0]?.labels[0]?.displayName).toBe('Canonical dinner');
     expect(result.projection.identities[0]?.googlePath).toBe('menus[0].sections[0].items[0]');
   });
 
   it('creates a non-mutating import review using explicit previous identities', async () => {
-    listMenuItemDetailsMock.mockResolvedValue([makeMenuItem()]);
+    listCanonicalFoodMenusImportItemsMock.mockResolvedValue([makeMenuItem()]);
 
     const result = await prepareFoodMenusImportReview({
       client,
@@ -451,7 +518,7 @@ describe('GBP FoodMenus sync service', () => {
   });
 
   it('uses the latest projection identities, records the Google pull, and replaces pending suggestions', async () => {
-    listMenuItemDetailsMock.mockResolvedValue([makeMenuItem()]);
+    listCanonicalFoodMenusImportItemsMock.mockResolvedValue([makeMenuItem()]);
     readLatestFoodMenusSnapshotMock.mockResolvedValue(
       makeSnapshot({ id: 'projection-snapshot-1' }),
     );
@@ -539,7 +606,7 @@ describe('GBP FoodMenus sync service', () => {
 
   it('refreshes Google FoodMenus server-side before creating a non-mutating import review', async () => {
     getGoogleBusinessProfileFoodMenusMock.mockResolvedValue(googleFoodMenus);
-    listMenuItemDetailsMock.mockResolvedValue([makeMenuItem()]);
+    listCanonicalFoodMenusImportItemsMock.mockResolvedValue([makeMenuItem()]);
     readLatestFoodMenusSnapshotMock.mockResolvedValue(
       makeSnapshot({ id: 'projection-snapshot-1' }),
     );
@@ -598,7 +665,7 @@ describe('GBP FoodMenus sync service', () => {
       name: 'accounts/123/locations/456/foodMenus',
     } as GoogleFoodMenusResource;
     getGoogleBusinessProfileFoodMenusMock.mockResolvedValue(emptyGoogleFoodMenus);
-    listMenuItemDetailsMock.mockResolvedValue([makeMenuItem()]);
+    listCanonicalFoodMenusImportItemsMock.mockResolvedValue([makeMenuItem()]);
     readLatestFoodMenusSnapshotMock.mockResolvedValue(
       makeSnapshot({ id: 'projection-snapshot-1' }),
     );
@@ -684,12 +751,12 @@ describe('GBP FoodMenus sync service', () => {
       decidedByUserId: 'user-1',
     });
     readFoodMenusImportReviewForRestaurantMock.mockResolvedValue(makeReview());
-    getMenuItemDetailMock.mockResolvedValue(current);
-    upsertMenuItemMock.mockResolvedValue({
+    const updatedItem = makeCanonicalItem({
       ...current,
       shortDescription: 'Google-side description',
       basePrice: 9.5,
     });
+    applyCanonicalFoodMenusSuggestedPatchMock.mockResolvedValue(updatedItem);
     markFoodMenusImportReviewDecisionMock.mockResolvedValue(applied);
 
     const result = await decideFoodMenusImportReview({
@@ -700,16 +767,14 @@ describe('GBP FoodMenus sync service', () => {
       decidedByUserId: 'user-1',
     });
 
-    expect(getMenuItemDetailMock).toHaveBeenCalledWith('rest-1', 'item-1', client);
-    expect(upsertMenuItemMock).toHaveBeenCalledWith(
-      'rest-1',
-      expect.objectContaining({
-        externalItemId: 'starter-paneer',
-        itemName: 'Chilli Paneer',
+    expect(applyCanonicalFoodMenusSuggestedPatchMock).toHaveBeenCalledWith({
+      client,
+      restaurantId: 'rest-1',
+      localItemId: 'item-1',
+      reviewId: 'review-1',
+      suggestedPatch: expect.objectContaining({
         shortDescription: 'Google-side description',
-        fullDescription: 'Keep the richer local description.',
         basePrice: 9.5,
-        currency: 'GBP',
         keyIngredients: ['Paneer', 'Chilli'],
         spiceLevel: 'Hot',
         preparationMethod: 'Grilled',
@@ -718,30 +783,8 @@ describe('GBP FoodMenus sync service', () => {
         proteinG: 17,
         sodiumMg: 850,
         servesNum: 2,
-        allergensMayContain: ['Nuts'],
-        modifierGroups: [
-          {
-            externalModifierGroupId: 'heat',
-            groupName: 'Heat',
-            required: false,
-            minSelect: 0,
-            maxSelect: 1,
-            displayOrder: 1,
-            options: [
-              {
-                externalModifierOptionId: 'mild',
-                optionName: 'Mild',
-                priceDelta: 0,
-                defaultSelected: true,
-                availabilityStatus: 'available',
-                displayOrder: 1,
-              },
-            ],
-          },
-        ],
       }),
-      client,
-    );
+    });
     expect(markFoodMenusImportReviewDecisionMock).toHaveBeenCalledWith({
       client,
       restaurantId: 'rest-1',
@@ -751,6 +794,7 @@ describe('GBP FoodMenus sync service', () => {
       decidedByUserId: 'user-1',
     });
     expect(result.review.decisionStatus).toBe('applied');
+    expect(result.item).toBe(updatedItem);
   });
 
   it('records an explicit ignore decision without mutating the menu item', async () => {
@@ -771,8 +815,8 @@ describe('GBP FoodMenus sync service', () => {
       decidedByUserId: 'user-1',
     });
 
-    expect(getMenuItemDetailMock).not.toHaveBeenCalled();
-    expect(upsertMenuItemMock).not.toHaveBeenCalled();
+    expect(applyCanonicalFoodMenusSuggestedPatchMock).not.toHaveBeenCalled();
+    expect(createCanonicalFoodMenusItemFromPatchMock).not.toHaveBeenCalled();
     expect(markFoodMenusImportReviewDecisionMock).toHaveBeenCalledWith({
       client,
       restaurantId: 'rest-1',
@@ -834,7 +878,7 @@ describe('GBP FoodMenus sync service', () => {
       cuisines: ['INDIAN'],
       languageCode: 'en-GB',
     });
-    expect(upsertMenuItemMock).not.toHaveBeenCalled();
+    expect(applyCanonicalFoodMenusSuggestedPatchMock).not.toHaveBeenCalled();
     expect(result.item).toBeNull();
   });
 
@@ -848,8 +892,9 @@ describe('GBP FoodMenus sync service', () => {
       googleItemName: 'Chilli Paneer',
     });
     readFoodMenusImportReviewForRestaurantMock.mockResolvedValue(missingReview);
-    getMenuItemDetailMock.mockResolvedValue(current);
-    upsertMenuItemMock.mockResolvedValue({ ...current, active: false });
+    decideCanonicalMissingLocalFoodMenusItemMock.mockResolvedValue(
+      makeCanonicalItem({ ...current, active: false }),
+    );
     markFoodMenusImportReviewDecisionMock.mockResolvedValue(
       makeReview({
         ...missingReview,
@@ -866,17 +911,19 @@ describe('GBP FoodMenus sync service', () => {
       decidedByUserId: 'user-1',
     });
 
-    expect(upsertMenuItemMock).toHaveBeenCalledWith(
-      'rest-1',
-      expect.objectContaining({ externalItemId: 'starter-paneer', active: false }),
+    expect(decideCanonicalMissingLocalFoodMenusItemMock).toHaveBeenCalledWith({
       client,
-    );
+      restaurantId: 'rest-1',
+      localItemId: 'item-1',
+      action: 'mark_inactive',
+      reviewId: 'review-1',
+    });
     expect(markFoodMenusImportReviewDecisionMock).toHaveBeenCalledWith(
       expect.objectContaining({ decisionAction: 'mark_inactive' }),
     );
   });
 
-  it('routes drink create suggestions to the drinks repository', async () => {
+  it('routes drink create suggestions to the canonical hierarchy adapter', async () => {
     const drinkReview = makeReview({
       localItemId: null,
       externalItemId: null,
@@ -896,7 +943,17 @@ describe('GBP FoodMenus sync service', () => {
       },
     });
     readFoodMenusImportReviewForRestaurantMock.mockResolvedValue(drinkReview);
-    upsertDrinkItemMock.mockResolvedValue({ id: 'drink-1' });
+    const createdDrink = makeCanonicalItem(
+      makeMenuItem({
+        id: 'drink-1',
+        externalItemId: 'gbp-drink',
+        itemName: 'Google Spritz',
+        category: 'Cocktails',
+        basePrice: 9,
+        targetKind: 'drink',
+      }),
+    );
+    createCanonicalFoodMenusItemFromPatchMock.mockResolvedValue(createdDrink);
     markFoodMenusImportReviewDecisionMock.mockResolvedValue(
       makeReview({
         ...drinkReview,
@@ -913,17 +970,19 @@ describe('GBP FoodMenus sync service', () => {
       decidedByUserId: 'user-1',
     });
 
-    expect(upsertDrinkItemMock).toHaveBeenCalledWith(
-      'rest-1',
-      expect.objectContaining({
-        externalDrinkId: 'gbp-drink',
-        drinkName: 'Google Spritz',
-        category: 'Cocktails',
-        servingSize: '250 ml',
-      }),
+    expect(createCanonicalFoodMenusItemFromPatchMock).toHaveBeenCalledWith({
       client,
-    );
-    expect(upsertMenuItemMock).not.toHaveBeenCalled();
+      restaurantId: 'rest-1',
+      targetKind: 'drink',
+      reviewId: 'review-1',
+      suggestedPatch: expect.objectContaining({
+        externalItemId: 'gbp-drink',
+        itemName: 'Google Spritz',
+        category: 'Cocktails',
+        portionSize: '250 ml',
+      }),
+    });
+    expect(applyCanonicalFoodMenusSuggestedPatchMock).not.toHaveBeenCalled();
   });
 
   it('creates a new menu item from an unmatched Google FoodMenus suggestion', async () => {
@@ -967,7 +1026,8 @@ describe('GBP FoodMenus sync service', () => {
       },
     });
     readFoodMenusImportReviewForRestaurantMock.mockResolvedValue(unmatchedReview);
-    upsertMenuItemMock.mockResolvedValue(created);
+    const createdCanonicalItem = makeCanonicalItem(created);
+    createCanonicalFoodMenusItemFromPatchMock.mockResolvedValue(createdCanonicalItem);
     markFoodMenusImportReviewDecisionMock.mockResolvedValue(
       makeReview({
         ...unmatchedReview,
@@ -985,10 +1045,13 @@ describe('GBP FoodMenus sync service', () => {
       decidedByUserId: 'user-1',
     });
 
-    expect(getMenuItemDetailMock).not.toHaveBeenCalled();
-    expect(upsertMenuItemMock).toHaveBeenCalledWith(
-      'rest-1',
-      expect.objectContaining({
+    expect(applyCanonicalFoodMenusSuggestedPatchMock).not.toHaveBeenCalled();
+    expect(createCanonicalFoodMenusItemFromPatchMock).toHaveBeenCalledWith({
+      client,
+      restaurantId: 'rest-1',
+      targetKind: 'food',
+      reviewId: 'review-new',
+      suggestedPatch: expect.objectContaining({
         externalItemId: 'gbp-menus-0-sections-1-items-0',
         itemName: 'Google Curry',
         category: 'Mains',
@@ -1004,11 +1067,8 @@ describe('GBP FoodMenus sync service', () => {
         servesNum: 1,
         dietaryTags: ['Vegetarian'],
         allergensContains: ['Milk'],
-        active: true,
-        modifierGroups: [],
       }),
-      client,
-    );
+    });
     expect(markFoodMenusImportReviewDecisionMock).toHaveBeenCalledWith({
       client,
       restaurantId: 'rest-1',
@@ -1021,7 +1081,7 @@ describe('GBP FoodMenus sync service', () => {
   });
 
   it('publishes a preflighted FoodMenus projection and records audit snapshots', async () => {
-    listMenuItemDetailsMock.mockResolvedValue([makeMenuItem()]);
+    listCanonicalFoodMenusImportItemsMock.mockResolvedValue([makeMenuItem()]);
     recordFoodMenusProjectionMock.mockResolvedValue({
       snapshot: makeSnapshot({ id: 'projection-snapshot-1', snapshotKind: 'nabatable_projection' }),
       identities: [],
@@ -1123,7 +1183,7 @@ describe('GBP FoodMenus sync service', () => {
   });
 
   it('fails preflight without calling Google update when the expected baseline changed', async () => {
-    listMenuItemDetailsMock.mockResolvedValue([makeMenuItem()]);
+    listCanonicalFoodMenusImportItemsMock.mockResolvedValue([makeMenuItem()]);
     recordFoodMenusProjectionMock.mockResolvedValue({
       snapshot: makeSnapshot({ id: 'projection-snapshot-1', snapshotKind: 'nabatable_projection' }),
       identities: [],
@@ -1169,7 +1229,7 @@ describe('GBP FoodMenus sync service', () => {
   });
 
   it('fails preflight without calling Google update when the expected projection changed', async () => {
-    listMenuItemDetailsMock.mockResolvedValue([makeMenuItem()]);
+    listCanonicalFoodMenusImportItemsMock.mockResolvedValue([makeMenuItem()]);
     recordFoodMenusProjectionMock.mockResolvedValue({
       snapshot: makeSnapshot({ id: 'projection-snapshot-1', snapshotKind: 'nabatable_projection' }),
       identities: [],

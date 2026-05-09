@@ -1,29 +1,24 @@
-import {
-  deleteDrinkItem,
-  getDrinkItemDetail,
-  listDrinkItemDetails,
-  upsertDrinkItem,
-} from '@/server/drinks-menu/repository';
-import {
-  deleteMenuItem,
-  getMenuItemDetail,
-  listMenuItemDetails,
-  upsertMenuItem,
-} from '@/server/menu/repository';
 import { listRestaurantMenuHierarchy } from '@/server/menu-hierarchy/repository';
 
 import { getGoogleBusinessProfileFoodMenus, updateGoogleBusinessProfileFoodMenus } from './client';
 import {
   buildGoogleFoodMenusImportReview,
   buildCanonicalGoogleFoodMenusProjection,
-  buildGoogleFoodMenusProjection,
   canonicalizeGoogleFoodMenusResource,
   hashGoogleFoodMenusResource,
+  type FoodMenusLocalItem,
   type GoogleFoodMenusImportReview,
+  type GoogleFoodMenusImportItemSuggestedPatch,
   type GoogleFoodMenusProjectedIdentity,
   type GoogleFoodMenusProjection,
   type GoogleFoodMenusResource,
 } from './food-menus';
+import {
+  applyCanonicalFoodMenusSuggestedPatch,
+  createCanonicalFoodMenusItemFromPatch,
+  decideCanonicalMissingLocalFoodMenusItem,
+  listCanonicalFoodMenusImportItems,
+} from './food-menus-canonical-adapter';
 import {
   listProjectedFoodMenusIdentities,
   markFoodMenusImportReviewDecision,
@@ -46,8 +41,7 @@ import {
 } from './food-menus-storage';
 
 import type { GoogleFoodMenuCuisine } from './food-menus';
-import type { DrinkItemDetail, DrinkItemUpsertInput } from '@/server/drinks-menu/types';
-import type { MenuItemDetail, MenuItemUpsertInput } from '@/server/menu/types';
+import type { CanonicalRestaurantMenuItem } from '@/server/menu-hierarchy/types';
 import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -131,7 +125,7 @@ export interface DecideFoodMenusImportReviewInput {
 
 export interface DecidedFoodMenusImportReview {
   readonly review: FoodMenusImportReviewRecord;
-  readonly item: MenuItemDetail | DrinkItemDetail | null;
+  readonly item: CanonicalRestaurantMenuItem | null;
 }
 
 export interface PublishFoodMenusProjectionInput extends Omit<
@@ -156,49 +150,28 @@ export async function prepareFoodMenusProjection({
   client,
   restaurantId,
   foodMenusName,
-  menuLabel,
-  sourceUrl,
-  languageCode,
   includeUnavailable,
-  cuisines,
   externalProfileId = null,
   source = 'manual',
   createdByUserId = null,
   persist = true,
 }: PrepareFoodMenusProjectionInput): Promise<PreparedFoodMenusProjection> {
-  const [hierarchy, settings] = await Promise.all([
-    listRestaurantMenuHierarchy(restaurantId, client),
-    readFoodMenuSettings({ client, restaurantId }),
-  ]);
+  const hierarchy = await listRestaurantMenuHierarchy(restaurantId, client);
   const canonicalPublishableMenus = hierarchy.menus.filter(
     (menu) => menu.active && (menu.menuKind === 'food' || menu.menuKind === 'mixed'),
   );
-  const usesCanonicalHierarchy = canonicalPublishableMenus.length > 0;
-  const items = usesCanonicalHierarchy ? [] : await listMenuItemDetails(restaurantId, client);
-  const projection = usesCanonicalHierarchy
-    ? buildCanonicalGoogleFoodMenusProjection({
-        foodMenusName,
-        menus: hierarchy.menus,
-        includeUnavailable,
-      })
-    : buildGoogleFoodMenusProjection({
-        foodMenusName,
-        items,
-        menuLabel: menuLabel ?? settings?.menuLabel,
-        sourceUrl: sourceUrl ?? settings?.sourceUrl,
-        languageCode: languageCode ?? settings?.languageCode,
-        includeUnavailable,
-        cuisines: cuisines ?? (settings?.cuisines as GoogleFoodMenuCuisine[] | undefined),
-      });
+  const projection = buildCanonicalGoogleFoodMenusProjection({
+    foodMenusName,
+    menus: hierarchy.menus,
+    includeUnavailable,
+  });
   const projectionHash = hashGoogleFoodMenusResource(projection.foodMenus);
-  const localItemCount = usesCanonicalHierarchy
-    ? canonicalPublishableMenus.reduce(
-        (count, menu) =>
-          count +
-          menu.sections.reduce((sectionCount, section) => sectionCount + section.items.length, 0),
-        0,
-      )
-    : items.length;
+  const localItemCount = canonicalPublishableMenus.reduce(
+    (count, menu) =>
+      count +
+      menu.sections.reduce((sectionCount, section) => sectionCount + section.items.length, 0),
+    0,
+  );
 
   if (!persist) {
     return {
@@ -241,9 +214,8 @@ export async function prepareFoodMenusImportReview({
   createdByUserId = null,
   persist = true,
 }: PrepareFoodMenusImportReviewInput): Promise<PreparedFoodMenusImportReview> {
-  const [items, drinkItems, settings, resolvedPrevious] = await Promise.all([
-    listMenuItemDetails(restaurantId, client),
-    listDrinkItemDetails(restaurantId, client),
+  const [items, settings, resolvedPrevious] = await Promise.all([
+    listCanonicalFoodMenusImportItems(restaurantId, client),
     readFoodMenuSettings({ client, restaurantId }),
     resolvePreviousFoodMenusIdentities({
       client,
@@ -255,7 +227,6 @@ export async function prepareFoodMenusImportReview({
   const review = buildGoogleFoodMenusImportReview({
     googleFoodMenus,
     localItems: items,
-    localDrinkItems: drinkItems,
     previousIdentities: resolvedPrevious.identities,
     settings: settings
       ? {
@@ -269,7 +240,7 @@ export async function prepareFoodMenusImportReview({
 
   if (!persist) {
     return {
-      localItemCount: items.length + drinkItems.length,
+      localItemCount: items.length,
       review,
       googleSnapshot: null,
       projectionSnapshotId: resolvedPrevious.projectionSnapshotId,
@@ -450,18 +421,13 @@ export async function decideFoodMenusImportReview({
       throw error;
     }
 
-    const item =
-      review.targetKind === 'drink'
-        ? await upsertDrinkItem(
-            restaurantId,
-            buildDrinkItemInputFromCreatePatch(suggestedPatch),
-            client,
-          )
-        : await upsertMenuItem(
-            restaurantId,
-            buildMenuItemInputFromCreatePatch(suggestedPatch),
-            client,
-          );
+    const item = await createCanonicalFoodMenusItemFromPatch({
+      client,
+      restaurantId,
+      targetKind: review.targetKind,
+      suggestedPatch,
+      reviewId,
+    });
     const decided = await markFoodMenusImportReviewDecision({
       client,
       restaurantId,
@@ -481,20 +447,13 @@ export async function decideFoodMenusImportReview({
     throw error;
   }
 
-  const item =
-    review.targetKind === 'drink'
-      ? await applyDrinkSuggestedPatch({
-          client,
-          restaurantId,
-          localItemId: review.localItemId,
-          suggestedPatch,
-        })
-      : await applyFoodSuggestedPatch({
-          client,
-          restaurantId,
-          localItemId: review.localItemId,
-          suggestedPatch,
-        });
+  const item = await applyCanonicalFoodMenusSuggestedPatch({
+    client,
+    restaurantId,
+    localItemId: review.localItemId,
+    suggestedPatch,
+    reviewId,
+  });
   const decided = await markFoodMenusImportReviewDecision({
     client,
     restaurantId,
@@ -720,35 +679,7 @@ async function resolvePreviousFoodMenusIdentities({
   };
 }
 
-type ParsedSuggestedPatch = Partial<
-  Pick<
-    MenuItemUpsertInput,
-    | 'externalItemId'
-    | 'itemName'
-    | 'category'
-    | 'subcategory'
-    | 'shortDescription'
-    | 'basePrice'
-    | 'currency'
-    | 'spiceLevel'
-    | 'preparationMethod'
-    | 'portionSize'
-    | 'keyIngredients'
-    | 'imageUrl'
-    | 'caloriesKcal'
-    | 'proteinG'
-    | 'fatG'
-    | 'saturatedFatG'
-    | 'carbsG'
-    | 'sugarG'
-    | 'fiberG'
-    | 'sodiumMg'
-    | 'servesNum'
-    | 'dietaryTags'
-    | 'allergensContains'
-    | 'modifierGroups'
-  >
->;
+type ParsedSuggestedPatch = GoogleFoodMenusImportItemSuggestedPatch;
 
 function parseSuggestedPatch(value: unknown): ParsedSuggestedPatch | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -827,7 +758,7 @@ function parseSuggestedPatch(value: unknown): ParsedSuggestedPatch | null {
   }
   if (Array.isArray(record.modifierGroups)) {
     patch.modifierGroups = record.modifierGroups.flatMap(
-      (group): MenuItemUpsertInput['modifierGroups'] => {
+      (group): NonNullable<FoodMenusLocalItem['modifierGroups']> => {
         if (!group || typeof group !== 'object' || Array.isArray(group)) {
           return [];
         }
@@ -906,7 +837,7 @@ function parseSuggestedPatch(value: unknown): ParsedSuggestedPatch | null {
 function isCreateSuggestedPatch(
   patch: ReturnType<typeof parseSuggestedPatch>,
 ): patch is NonNullable<ReturnType<typeof parseSuggestedPatch>> &
-  Pick<MenuItemUpsertInput, 'externalItemId' | 'itemName' | 'category' | 'basePrice'> {
+  Pick<FoodMenusLocalItem, 'externalItemId' | 'itemName' | 'category' | 'basePrice'> {
   return Boolean(
     patch &&
     patch.externalItemId &&
@@ -959,347 +890,6 @@ function hasPatchKey<T extends object, K extends PropertyKey>(
   return Object.prototype.hasOwnProperty.call(patch, key);
 }
 
-function buildMenuItemInputFromCreatePatch(
-  patch: NonNullable<ReturnType<typeof parseSuggestedPatch>> &
-    Pick<MenuItemUpsertInput, 'externalItemId' | 'itemName' | 'category' | 'basePrice'>,
-): MenuItemUpsertInput {
-  return {
-    externalItemId: patch.externalItemId,
-    itemName: patch.itemName,
-    category: patch.category,
-    subcategory: patch.subcategory ?? null,
-    shortDescription: patch.shortDescription ?? null,
-    fullDescription: null,
-    basePrice: patch.basePrice,
-    currency: patch.currency ?? 'GBP',
-    serviceTime: null,
-    availabilityStatus: 'available',
-    keyIngredients: patch.keyIngredients ? [...patch.keyIngredients] : [],
-    mainProteinOrBase: null,
-    cookingStyle: null,
-    preparationMethod: patch.preparationMethod ?? null,
-    flavorProfile: null,
-    texture: null,
-    spiceLevel: patch.spiceLevel ?? null,
-    spiceAdjustable: false,
-    portionSize: patch.portionSize ?? null,
-    shareable: false,
-    recommendationTags: [],
-    pairings: [],
-    signatureScore: null,
-    popularityScore: null,
-    dietaryTags: patch.dietaryTags ? [...patch.dietaryTags] : [],
-    allergensContains: patch.allergensContains ? [...patch.allergensContains] : [],
-    allergensMayContain: [],
-    removableIngredients: [],
-    substitutionsAllowed: false,
-    canBeMadeVegetarian: patch.dietaryTags?.includes('Vegetarian') ?? false,
-    canBeMadeVegan: patch.dietaryTags?.includes('Vegan') ?? false,
-    canBeMadeGlutenFree: patch.dietaryTags?.includes('Gluten free') ?? false,
-    customizationRules: null,
-    servingNotes: null,
-    active: true,
-    seasonal: false,
-    limitedTime: false,
-    soldOut: false,
-    displayOrder: 0,
-    imageUrl: patch.imageUrl ?? null,
-    caloriesKcal: patch.caloriesKcal ?? null,
-    proteinG: patch.proteinG ?? null,
-    fatG: patch.fatG ?? null,
-    saturatedFatG: patch.saturatedFatG ?? null,
-    carbsG: patch.carbsG ?? null,
-    sugarG: patch.sugarG ?? null,
-    fiberG: patch.fiberG ?? null,
-    sodiumMg: patch.sodiumMg ?? null,
-    servesNum: patch.servesNum ?? null,
-    modifierGroups: patch.modifierGroups ? [...patch.modifierGroups] : [],
-  };
-}
-
-function mergeMenuItemDetailWithSuggestedPatch(
-  item: MenuItemDetail,
-  patch: NonNullable<ReturnType<typeof parseSuggestedPatch>>,
-): MenuItemUpsertInput {
-  return {
-    externalItemId: item.externalItemId,
-    itemName: patch.itemName ?? item.itemName,
-    category: item.category,
-    subcategory: item.subcategory,
-    shortDescription:
-      patch.shortDescription !== undefined ? patch.shortDescription : item.shortDescription,
-    fullDescription: item.fullDescription,
-    basePrice: patch.basePrice ?? item.basePrice,
-    currency: patch.currency ?? item.currency,
-    serviceTime: item.serviceTime,
-    availabilityStatus: item.availabilityStatus,
-    keyIngredients: patch.keyIngredients ? [...patch.keyIngredients] : [...item.keyIngredients],
-    mainProteinOrBase: item.mainProteinOrBase,
-    cookingStyle: item.cookingStyle,
-    preparationMethod:
-      patch.preparationMethod !== undefined ? patch.preparationMethod : item.preparationMethod,
-    flavorProfile: item.flavorProfile,
-    texture: item.texture,
-    spiceLevel: patch.spiceLevel !== undefined ? patch.spiceLevel : item.spiceLevel,
-    spiceAdjustable: item.spiceAdjustable,
-    portionSize: patch.portionSize !== undefined ? patch.portionSize : item.portionSize,
-    shareable: item.shareable,
-    recommendationTags: [...item.recommendationTags],
-    pairings: [...item.pairings],
-    signatureScore: item.signatureScore,
-    popularityScore: item.popularityScore,
-    dietaryTags: patch.dietaryTags ? [...patch.dietaryTags] : [...item.dietaryTags],
-    allergensContains: patch.allergensContains
-      ? [...patch.allergensContains]
-      : [...item.allergensContains],
-    allergensMayContain: [...item.allergensMayContain],
-    removableIngredients: [...item.removableIngredients],
-    substitutionsAllowed: item.substitutionsAllowed,
-    canBeMadeVegetarian: item.canBeMadeVegetarian,
-    canBeMadeVegan: item.canBeMadeVegan,
-    canBeMadeGlutenFree: item.canBeMadeGlutenFree,
-    customizationRules: item.customizationRules,
-    servingNotes: item.servingNotes,
-    active: item.active,
-    seasonal: item.seasonal,
-    limitedTime: item.limitedTime,
-    soldOut: item.soldOut,
-    displayOrder: item.displayOrder,
-    imageUrl: patch.imageUrl !== undefined ? patch.imageUrl : item.imageUrl,
-    caloriesKcal: patch.caloriesKcal !== undefined ? patch.caloriesKcal : item.caloriesKcal,
-    proteinG: patch.proteinG !== undefined ? patch.proteinG : item.proteinG,
-    fatG: patch.fatG !== undefined ? patch.fatG : item.fatG,
-    saturatedFatG: patch.saturatedFatG !== undefined ? patch.saturatedFatG : item.saturatedFatG,
-    carbsG: patch.carbsG !== undefined ? patch.carbsG : item.carbsG,
-    sugarG: patch.sugarG !== undefined ? patch.sugarG : item.sugarG,
-    fiberG: patch.fiberG !== undefined ? patch.fiberG : item.fiberG,
-    sodiumMg: patch.sodiumMg !== undefined ? patch.sodiumMg : item.sodiumMg,
-    servesNum: patch.servesNum !== undefined ? patch.servesNum : item.servesNum,
-    modifierGroups: (patch.modifierGroups ?? item.modifierGroups).map((group) => ({
-      externalModifierGroupId: group.externalModifierGroupId,
-      groupName: group.groupName,
-      required: group.required,
-      minSelect: group.minSelect,
-      maxSelect: group.maxSelect,
-      displayOrder: group.displayOrder,
-      options: group.options.map((option) => ({
-        externalModifierOptionId: option.externalModifierOptionId,
-        optionName: option.optionName,
-        priceDelta: option.priceDelta,
-        defaultSelected: option.defaultSelected,
-        availabilityStatus: option.availabilityStatus,
-        displayOrder: option.displayOrder,
-      })),
-    })),
-  };
-}
-
-async function applyFoodSuggestedPatch({
-  client,
-  restaurantId,
-  localItemId,
-  suggestedPatch,
-}: {
-  readonly client: DbClient;
-  readonly restaurantId: string;
-  readonly localItemId: string;
-  readonly suggestedPatch: NonNullable<ReturnType<typeof parseSuggestedPatch>>;
-}): Promise<MenuItemDetail> {
-  const current = await getMenuItemDetail(restaurantId, localItemId, client);
-  if (!current) {
-    const error = new Error('Matched menu item was not found.');
-    error.name = 'GBP_FOOD_MENUS_MENU_ITEM_NOT_FOUND';
-    throw error;
-  }
-  return upsertMenuItem(
-    restaurantId,
-    mergeMenuItemDetailWithSuggestedPatch(current, suggestedPatch),
-    client,
-  );
-}
-
-function buildDrinkItemInputFromCreatePatch(
-  patch: NonNullable<ReturnType<typeof parseSuggestedPatch>> &
-    Pick<MenuItemUpsertInput, 'externalItemId' | 'itemName' | 'category' | 'basePrice'>,
-): DrinkItemUpsertInput {
-  return {
-    externalDrinkId: patch.externalItemId,
-    drinkName: patch.itemName,
-    category: patch.category,
-    subcategory: patch.subcategory ?? null,
-    shortDescription: patch.shortDescription ?? null,
-    fullDescription: null,
-    basePrice: patch.basePrice,
-    currency: patch.currency ?? 'GBP',
-    serviceTime: null,
-    availabilityStatus: 'available',
-    drinkType: null,
-    alcoholic: false,
-    abv: null,
-    volumeMl: null,
-    servingSize: patch.portionSize ?? null,
-    servedStyle: patch.preparationMethod ?? null,
-    temperature: null,
-    baseSpirit: null,
-    beerStyle: null,
-    wineType: null,
-    grapeVarietal: null,
-    region: null,
-    country: null,
-    roastLevel: null,
-    caffeineLevel: null,
-    sweetnessLevel: null,
-    bitternessLevel: null,
-    acidityLevel: null,
-    bodyLevel: null,
-    flavorProfile: null,
-    keyIngredients: patch.keyIngredients ? [...patch.keyIngredients] : [],
-    garnish: null,
-    containsDairy: patch.allergensContains?.includes('Milk') ?? false,
-    containsNuts: patch.allergensContains?.includes('Nuts') ?? false,
-    containsGluten: patch.allergensContains?.includes('Wheat') ?? false,
-    containsCaffeine: false,
-    dietaryTags: patch.dietaryTags ? [...patch.dietaryTags] : [],
-    allergensContains: patch.allergensContains ? [...patch.allergensContains] : [],
-    allergensMayContain: [],
-    canBeMadeNonAlcoholic: false,
-    canBeMadeDecaf: false,
-    customizationRules: null,
-    pairings: [],
-    signatureScore: null,
-    popularityScore: null,
-    recommendationTags: [],
-    seasonal: false,
-    limitedTime: false,
-    soldOut: false,
-    active: true,
-    displayOrder: 0,
-    imageUrl: patch.imageUrl ?? null,
-    caloriesKcal: patch.caloriesKcal ?? null,
-    proteinG: patch.proteinG ?? null,
-    fatG: patch.fatG ?? null,
-    saturatedFatG: patch.saturatedFatG ?? null,
-    carbsG: patch.carbsG ?? null,
-    sugarG: patch.sugarG ?? null,
-    fiberG: patch.fiberG ?? null,
-    sodiumMg: patch.sodiumMg ?? null,
-    servesNum: patch.servesNum ?? null,
-    modifierGroups: patch.modifierGroups ? [...patch.modifierGroups] : [],
-  };
-}
-
-function mergeDrinkItemDetailWithSuggestedPatch(
-  item: DrinkItemDetail,
-  patch: NonNullable<ReturnType<typeof parseSuggestedPatch>>,
-): DrinkItemUpsertInput {
-  return {
-    externalDrinkId: item.externalDrinkId,
-    drinkName: patch.itemName ?? item.drinkName,
-    category: item.category,
-    subcategory: item.subcategory,
-    shortDescription:
-      patch.shortDescription !== undefined ? patch.shortDescription : item.shortDescription,
-    fullDescription: item.fullDescription,
-    basePrice: patch.basePrice ?? item.basePrice,
-    currency: patch.currency ?? item.currency,
-    serviceTime: item.serviceTime,
-    availabilityStatus: item.availabilityStatus,
-    drinkType: item.drinkType,
-    alcoholic: item.alcoholic,
-    abv: item.abv,
-    volumeMl: item.volumeMl,
-    servingSize: patch.portionSize !== undefined ? patch.portionSize : item.servingSize,
-    servedStyle: patch.preparationMethod !== undefined ? patch.preparationMethod : item.servedStyle,
-    temperature: item.temperature,
-    baseSpirit: item.baseSpirit,
-    beerStyle: item.beerStyle,
-    wineType: item.wineType,
-    grapeVarietal: item.grapeVarietal,
-    region: item.region,
-    country: item.country,
-    roastLevel: item.roastLevel,
-    caffeineLevel: item.caffeineLevel,
-    sweetnessLevel: item.sweetnessLevel,
-    bitternessLevel: item.bitternessLevel,
-    acidityLevel: item.acidityLevel,
-    bodyLevel: item.bodyLevel,
-    flavorProfile: item.flavorProfile,
-    keyIngredients: patch.keyIngredients ? [...patch.keyIngredients] : [...item.keyIngredients],
-    garnish: item.garnish,
-    containsDairy: item.containsDairy,
-    containsNuts: item.containsNuts,
-    containsGluten: item.containsGluten,
-    containsCaffeine: item.containsCaffeine,
-    dietaryTags: patch.dietaryTags ? [...patch.dietaryTags] : [...item.dietaryTags],
-    allergensContains: patch.allergensContains
-      ? [...patch.allergensContains]
-      : [...item.allergensContains],
-    allergensMayContain: [...item.allergensMayContain],
-    canBeMadeNonAlcoholic: item.canBeMadeNonAlcoholic,
-    canBeMadeDecaf: item.canBeMadeDecaf,
-    customizationRules: item.customizationRules,
-    pairings: [...item.pairings],
-    signatureScore: item.signatureScore,
-    popularityScore: item.popularityScore,
-    recommendationTags: [...item.recommendationTags],
-    seasonal: item.seasonal,
-    limitedTime: item.limitedTime,
-    soldOut: item.soldOut,
-    active: item.active,
-    displayOrder: item.displayOrder,
-    imageUrl: patch.imageUrl !== undefined ? patch.imageUrl : item.imageUrl,
-    caloriesKcal: patch.caloriesKcal !== undefined ? patch.caloriesKcal : item.caloriesKcal,
-    proteinG: patch.proteinG !== undefined ? patch.proteinG : item.proteinG,
-    fatG: patch.fatG !== undefined ? patch.fatG : item.fatG,
-    saturatedFatG: patch.saturatedFatG !== undefined ? patch.saturatedFatG : item.saturatedFatG,
-    carbsG: patch.carbsG !== undefined ? patch.carbsG : item.carbsG,
-    sugarG: patch.sugarG !== undefined ? patch.sugarG : item.sugarG,
-    fiberG: patch.fiberG !== undefined ? patch.fiberG : item.fiberG,
-    sodiumMg: patch.sodiumMg !== undefined ? patch.sodiumMg : item.sodiumMg,
-    servesNum: patch.servesNum !== undefined ? patch.servesNum : item.servesNum,
-    modifierGroups: (patch.modifierGroups ?? item.modifierGroups).map((group) => ({
-      externalModifierGroupId: group.externalModifierGroupId,
-      groupName: group.groupName,
-      required: group.required,
-      minSelect: group.minSelect,
-      maxSelect: group.maxSelect,
-      displayOrder: group.displayOrder,
-      options: group.options.map((option) => ({
-        externalModifierOptionId: option.externalModifierOptionId,
-        optionName: option.optionName,
-        priceDelta: option.priceDelta,
-        defaultSelected: option.defaultSelected,
-        availabilityStatus: option.availabilityStatus,
-        displayOrder: option.displayOrder,
-      })),
-    })),
-  };
-}
-
-async function applyDrinkSuggestedPatch({
-  client,
-  restaurantId,
-  localItemId,
-  suggestedPatch,
-}: {
-  readonly client: DbClient;
-  readonly restaurantId: string;
-  readonly localItemId: string;
-  readonly suggestedPatch: NonNullable<ReturnType<typeof parseSuggestedPatch>>;
-}): Promise<DrinkItemDetail> {
-  const current = await getDrinkItemDetail(restaurantId, localItemId, client);
-  if (!current) {
-    const error = new Error('Matched drink item was not found.');
-    error.name = 'GBP_FOOD_MENUS_MENU_ITEM_NOT_FOUND';
-    throw error;
-  }
-  return upsertDrinkItem(
-    restaurantId,
-    mergeDrinkItemDetailWithSuggestedPatch(current, suggestedPatch),
-    client,
-  );
-}
-
 async function decideMissingLocalItemReview({
   client,
   restaurantId,
@@ -1313,46 +903,15 @@ async function decideMissingLocalItemReview({
     FoodMenusImportReviewDecisionAction,
     'mark_inactive' | 'mark_sold_out' | 'delete_local'
   >;
-}): Promise<MenuItemDetail | DrinkItemDetail | null> {
+}): Promise<CanonicalRestaurantMenuItem | null> {
   if (!review.localItemId) {
     return null;
   }
-  if (action === 'delete_local') {
-    if (review.targetKind === 'drink') {
-      await deleteDrinkItem(restaurantId, review.localItemId, client);
-    } else {
-      await deleteMenuItem(restaurantId, review.localItemId, client);
-    }
-    return null;
-  }
-  if (review.targetKind === 'drink') {
-    const current = await getDrinkItemDetail(restaurantId, review.localItemId, client);
-    if (!current) {
-      const error = new Error('Matched drink item was not found.');
-      error.name = 'GBP_FOOD_MENUS_MENU_ITEM_NOT_FOUND';
-      throw error;
-    }
-    return upsertDrinkItem(
-      restaurantId,
-      {
-        ...mergeDrinkItemDetailWithSuggestedPatch(current, {}),
-        ...(action === 'mark_sold_out' ? { soldOut: true } : { active: false }),
-      },
-      client,
-    );
-  }
-  const current = await getMenuItemDetail(restaurantId, review.localItemId, client);
-  if (!current) {
-    const error = new Error('Matched menu item was not found.');
-    error.name = 'GBP_FOOD_MENUS_MENU_ITEM_NOT_FOUND';
-    throw error;
-  }
-  return upsertMenuItem(
-    restaurantId,
-    {
-      ...mergeMenuItemDetailWithSuggestedPatch(current, {}),
-      ...(action === 'mark_sold_out' ? { soldOut: true } : { active: false }),
-    },
+  return decideCanonicalMissingLocalFoodMenusItem({
     client,
-  );
+    restaurantId,
+    localItemId: review.localItemId,
+    action,
+    reviewId: review.id,
+  });
 }

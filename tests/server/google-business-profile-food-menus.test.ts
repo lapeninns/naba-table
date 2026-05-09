@@ -11,14 +11,16 @@ import {
   nutritionFactsFromGoogle,
 } from '@/server/google-business-profile/food-menus';
 
-import type { GoogleFoodMenusResource } from '@/server/google-business-profile/food-menus';
-import type { MenuItemDetail } from '@/server/menu/types';
+import type {
+  FoodMenusLocalItem,
+  GoogleFoodMenusResource,
+} from '@/server/google-business-profile/food-menus';
 import type { CanonicalRestaurantMenu } from '@/server/menu-hierarchy/types';
 
 type CanonicalMenuItem = CanonicalRestaurantMenu['sections'][number]['items'][number];
 type CanonicalMenuOption = CanonicalMenuItem['options'][number];
 
-function makeMenuItem(overrides: Partial<MenuItemDetail> = {}): MenuItemDetail {
+function makeMenuItem(overrides: Partial<FoodMenusLocalItem> = {}): FoodMenusLocalItem {
   return {
     id: 'item-1',
     restaurantId: 'rest-1',

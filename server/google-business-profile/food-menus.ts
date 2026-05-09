@@ -2,12 +2,6 @@ import { GOOGLE_FOOD_MENU_CUISINES } from '@/lib/google-food-menu-cuisines';
 import { hashCanonicalJson } from '@/server/dual-sync/hashing';
 
 import type { GoogleFoodMenuCuisine } from '@/lib/google-food-menu-cuisines';
-import type { DrinkItemDetail } from '@/server/drinks-menu/types';
-import type {
-  MenuItemDetail,
-  MenuModifierGroupInput,
-  MenuModifierOption,
-} from '@/server/menu/types';
 import type {
   CanonicalRestaurantMenu,
   CanonicalRestaurantMenuItem,
@@ -145,7 +139,7 @@ export type GoogleFoodMenuPreparationMethod =
 
 export type BuildGoogleFoodMenusProjectionInput = {
   foodMenusName: string;
-  items: MenuItemDetail[];
+  items: FoodMenusLocalItem[];
   menuLabel?: string | null;
   sourceUrl?: string | null;
   languageCode?: string | null;
@@ -195,6 +189,93 @@ export type GoogleFoodMenusImportMatchConfidence =
 
 export type GoogleFoodMenusImportTargetKind = 'food' | 'drink';
 
+export type FoodMenusLocalModifierOption = {
+  id?: string;
+  restaurantId?: string;
+  menuItemId?: string;
+  externalModifierOptionId: string;
+  optionName: string;
+  priceDelta: number;
+  defaultSelected: boolean;
+  availabilityStatus: 'available' | 'unavailable';
+  displayOrder: number;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type FoodMenusLocalModifierGroup = {
+  id?: string;
+  restaurantId?: string;
+  menuItemId?: string;
+  externalModifierGroupId: string;
+  groupName: string;
+  required: boolean;
+  minSelect: number;
+  maxSelect: number;
+  displayOrder: number;
+  createdAt?: string;
+  updatedAt?: string;
+  options: FoodMenusLocalModifierOption[];
+};
+
+export type FoodMenusLocalItem = {
+  id: string;
+  restaurantId: string;
+  externalItemId: string;
+  itemName: string;
+  category: string;
+  subcategory: string | null;
+  shortDescription: string | null;
+  fullDescription: string | null;
+  basePrice: number;
+  currency: string;
+  serviceTime: string | null;
+  availabilityStatus: 'available' | 'unavailable' | 'seasonal';
+  keyIngredients: string[];
+  mainProteinOrBase: string | null;
+  cookingStyle: string | null;
+  preparationMethod: string | null;
+  flavorProfile: string | null;
+  texture: string | null;
+  spiceLevel: string | null;
+  spiceAdjustable: boolean;
+  portionSize: string | null;
+  shareable: boolean;
+  recommendationTags: string[];
+  pairings: string[];
+  signatureScore: number | null;
+  popularityScore: number | null;
+  dietaryTags: string[];
+  allergensContains: string[];
+  allergensMayContain: string[];
+  removableIngredients: string[];
+  substitutionsAllowed: boolean;
+  canBeMadeVegetarian: boolean;
+  canBeMadeVegan: boolean;
+  canBeMadeGlutenFree: boolean;
+  customizationRules: string | null;
+  servingNotes: string | null;
+  active: boolean;
+  seasonal: boolean;
+  limitedTime: boolean;
+  soldOut: boolean;
+  displayOrder: number;
+  imageUrl: string | null;
+  caloriesKcal: number | null;
+  proteinG: number | null;
+  fatG: number | null;
+  saturatedFatG: number | null;
+  carbsG: number | null;
+  sugarG: number | null;
+  fiberG: number | null;
+  sodiumMg: number | null;
+  servesNum: number | null;
+  createdAt: string;
+  updatedAt: string;
+  modifierGroups: FoodMenusLocalModifierGroup[];
+  targetKind?: GoogleFoodMenusImportTargetKind;
+};
+
 export type GoogleFoodMenusImportMenuMetadataPatch = Partial<{
   menuLabel: string | null;
   sourceUrl: string | null;
@@ -204,7 +285,7 @@ export type GoogleFoodMenusImportMenuMetadataPatch = Partial<{
 
 export type GoogleFoodMenusImportItemSuggestedPatch = Partial<
   Pick<
-    MenuItemDetail,
+    FoodMenusLocalItem,
     | 'externalItemId'
     | 'itemName'
     | 'category'
@@ -230,7 +311,7 @@ export type GoogleFoodMenusImportItemSuggestedPatch = Partial<
     | 'allergensContains'
   >
 > & {
-  modifierGroups?: MenuModifierGroupInput[];
+  modifierGroups?: FoodMenusLocalModifierGroup[];
 };
 
 export type GoogleFoodMenusImportSuggestedPatch =
@@ -280,8 +361,7 @@ export type GoogleFoodMenusImportReview = {
 
 export type BuildGoogleFoodMenusImportReviewInput = {
   googleFoodMenus: GoogleFoodMenusResource;
-  localItems: MenuItemDetail[];
-  localDrinkItems?: DrinkItemDetail[];
+  localItems: FoodMenusLocalItem[];
   previousIdentities?: ReadonlyArray<GoogleFoodMenusProjectedIdentity>;
   settings?: GoogleFoodMenuSettings | null;
 };
@@ -370,10 +450,10 @@ type ProjectedSection = {
   sectionKey: string;
   label: string;
   sortOrder: number;
-  items: MenuItemDetail[];
+  items: FoodMenusLocalItem[];
 };
 
-type ImportLocalItem = MenuItemDetail & {
+type ImportLocalItem = FoodMenusLocalItem & {
   targetKind: GoogleFoodMenusImportTargetKind;
 };
 
@@ -417,84 +497,8 @@ export function classifyMenuTarget(menu: GoogleFoodMenu): GoogleFoodMenusImportT
   return /\b(drinks?|beverages?|bar|cocktails?|wine|beer|cellar)\b/.test(label) ? 'drink' : 'food';
 }
 
-function drinkItemToImportLocalItem(item: DrinkItemDetail): ImportLocalItem {
-  return {
-    id: item.id,
-    restaurantId: item.restaurantId,
-    externalItemId: item.externalDrinkId,
-    itemName: item.drinkName,
-    category: item.category,
-    subcategory: item.subcategory,
-    shortDescription: item.shortDescription,
-    fullDescription: item.fullDescription,
-    basePrice: item.basePrice,
-    currency: item.currency,
-    serviceTime: item.serviceTime,
-    availabilityStatus: item.availabilityStatus,
-    keyIngredients: item.keyIngredients,
-    mainProteinOrBase: null,
-    cookingStyle: item.servedStyle,
-    preparationMethod: null,
-    flavorProfile: item.flavorProfile,
-    texture: null,
-    spiceLevel: null,
-    spiceAdjustable: false,
-    portionSize: item.servingSize,
-    shareable: false,
-    recommendationTags: item.recommendationTags,
-    pairings: item.pairings,
-    signatureScore: item.signatureScore,
-    popularityScore: item.popularityScore,
-    dietaryTags: item.dietaryTags,
-    allergensContains: item.allergensContains,
-    allergensMayContain: item.allergensMayContain,
-    removableIngredients: [],
-    substitutionsAllowed: false,
-    canBeMadeVegetarian: false,
-    canBeMadeVegan: false,
-    canBeMadeGlutenFree: false,
-    customizationRules: item.customizationRules,
-    servingNotes: null,
-    active: item.active,
-    seasonal: item.seasonal,
-    limitedTime: item.limitedTime,
-    soldOut: item.soldOut,
-    displayOrder: item.displayOrder,
-    imageUrl: item.imageUrl,
-    caloriesKcal: item.caloriesKcal,
-    proteinG: item.proteinG,
-    fatG: item.fatG,
-    saturatedFatG: item.saturatedFatG,
-    carbsG: item.carbsG,
-    sugarG: item.sugarG,
-    fiberG: item.fiberG,
-    sodiumMg: item.sodiumMg,
-    servesNum: item.servesNum,
-    createdAt: item.createdAt,
-    updatedAt: item.updatedAt,
-    modifierGroups: item.modifierGroups.map((group) => ({
-      id: group.id,
-      restaurantId: group.restaurantId,
-      menuItemId: group.drinkItemId,
-      externalModifierGroupId: group.externalModifierGroupId,
-      groupName: group.groupName,
-      required: group.required,
-      minSelect: group.minSelect,
-      maxSelect: group.maxSelect,
-      displayOrder: group.displayOrder,
-      createdAt: group.createdAt,
-      updatedAt: group.updatedAt,
-      options: group.options.map((option) => ({
-        ...option,
-        availabilityStatus: option.availabilityStatus,
-      })),
-    })),
-    targetKind: 'drink',
-  };
-}
-
-function menuItemToImportLocalItem(item: MenuItemDetail): ImportLocalItem {
-  return { ...item, targetKind: 'food' };
+function toImportLocalItem(item: FoodMenusLocalItem): ImportLocalItem {
+  return { ...item, targetKind: item.targetKind ?? 'food' };
 }
 
 function buildLabel(
@@ -836,7 +840,7 @@ function nutritionQuantity(
 export function nutritionFactsFromGoogle(
   nutritionFacts: GoogleNutritionFacts | null | undefined,
 ): Pick<
-  MenuItemDetail,
+  FoodMenusLocalItem,
   | 'caloriesKcal'
   | 'proteinG'
   | 'fatG'
@@ -861,7 +865,7 @@ export function nutritionFactsFromGoogle(
 function normalizeModifierGroups(
   groups: ReadonlyArray<
     Pick<
-      MenuModifierGroupInput,
+      FoodMenusLocalModifierGroup,
       | 'externalModifierGroupId'
       | 'groupName'
       | 'required'
@@ -871,7 +875,7 @@ function normalizeModifierGroups(
       | 'options'
     >
   >,
-): MenuModifierGroupInput[] {
+): FoodMenusLocalModifierGroup[] {
   return groups
     .map((group) => ({
       externalModifierGroupId: group.externalModifierGroupId,
@@ -895,8 +899,8 @@ function normalizeModifierGroups(
 }
 
 function modifierGroupsEqual(
-  left: ReadonlyArray<MenuModifierGroupInput>,
-  right: ReadonlyArray<MenuModifierGroupInput>,
+  left: ReadonlyArray<FoodMenusLocalModifierGroup>,
+  right: ReadonlyArray<FoodMenusLocalModifierGroup>,
 ): boolean {
   return (
     JSON.stringify(normalizeModifierGroups(left)) === JSON.stringify(normalizeModifierGroups(right))
@@ -904,8 +908,8 @@ function modifierGroupsEqual(
 }
 
 function findExistingOptionsGroup(
-  item: MenuItemDetail,
-): MenuItemDetail['modifierGroups'][number] | null {
+  item: FoodMenusLocalItem,
+): FoodMenusLocalItem['modifierGroups'][number] | null {
   return (
     item.modifierGroups.find((group) => normalizeComparableText(group.groupName) === 'options') ??
     null
@@ -913,10 +917,10 @@ function findExistingOptionsGroup(
 }
 
 function synthesizeOptionsModifierGroup(
-  item: MenuItemDetail,
+  item: FoodMenusLocalItem,
   googleItem: GoogleFoodMenuItem,
   googlePath: string,
-): MenuModifierGroupInput | null {
+): FoodMenusLocalModifierGroup | null {
   const options = googleItem.options ?? [];
   if (options.length === 0) {
     return null;
@@ -959,10 +963,10 @@ function synthesizeOptionsModifierGroup(
 }
 
 function buildItemModifierGroupsPatch(
-  item: MenuItemDetail,
+  item: FoodMenusLocalItem,
   googleItem: GoogleFoodMenuItem,
   googlePath: string,
-): MenuModifierGroupInput[] | null {
+): FoodMenusLocalModifierGroup[] | null {
   const currentGroups = normalizeModifierGroups(item.modifierGroups);
   const existingOptionsGroup = findExistingOptionsGroup(item);
   const googleOptionsGroup = synthesizeOptionsModifierGroup(item, googleItem, googlePath);
@@ -979,7 +983,7 @@ function buildItemModifierGroupsPatch(
 }
 
 function getSkippedReason(
-  item: MenuItemDetail,
+  item: FoodMenusLocalItem,
 ): GoogleFoodMenusProjectionSkippedItem['reason'] | null {
   if (!item.active) {
     return 'inactive';
@@ -1087,7 +1091,7 @@ function uniqueSupportedCuisines(
 
 function buildAttributes(
   item: Pick<
-    MenuItemDetail,
+    FoodMenusLocalItem,
     | 'basePrice'
     | 'currency'
     | 'spiceLevel'
@@ -1171,8 +1175,8 @@ function buildAttributes(
 }
 
 function buildOption(
-  item: MenuItemDetail,
-  option: MenuModifierOption,
+  item: FoodMenusLocalItem,
+  option: FoodMenusLocalModifierOption,
   languageCode: string,
 ): GoogleFoodMenuItemOption | null {
   if (option.availabilityStatus !== 'available') {
@@ -1184,7 +1188,7 @@ function buildOption(
   };
 }
 
-function buildItem(item: MenuItemDetail, languageCode: string): GoogleFoodMenuItem {
+function buildItem(item: FoodMenusLocalItem, languageCode: string): GoogleFoodMenuItem {
   const options = item.modifierGroups.flatMap((group) =>
     group.options
       .map((option) => buildOption(item, option, languageCode))
@@ -1200,17 +1204,17 @@ function buildItem(item: MenuItemDetail, languageCode: string): GoogleFoodMenuIt
   };
 }
 
-function getSectionLabel(item: MenuItemDetail): string {
+function getSectionLabel(item: FoodMenusLocalItem): string {
   const category = cleanText(item.category) ?? 'Menu';
   const subcategory = cleanText(item.subcategory);
   return subcategory ? `${category} - ${subcategory}` : category;
 }
 
-function getSectionKey(item: MenuItemDetail): string {
+function getSectionKey(item: FoodMenusLocalItem): string {
   return `${slugify(item.category, 'menu')}/${slugify(item.subcategory, 'default')}`;
 }
 
-function groupSections(items: MenuItemDetail[]): ProjectedSection[] {
+function groupSections(items: FoodMenusLocalItem[]): ProjectedSection[] {
   const sections = new Map<string, ProjectedSection>();
   for (const item of items) {
     const sectionKey = getSectionKey(item);
@@ -1238,16 +1242,16 @@ function groupSections(items: MenuItemDetail[]): ProjectedSection[] {
     );
 }
 
-function sortMenuItems(left: MenuItemDetail, right: MenuItemDetail): number {
+function sortMenuItems(left: FoodMenusLocalItem, right: FoodMenusLocalItem): number {
   return left.displayOrder - right.displayOrder || left.itemName.localeCompare(right.itemName);
 }
 
-function buildStableKey(item: MenuItemDetail): string {
+function buildStableKey(item: FoodMenusLocalItem): string {
   return `foodMenu.item.${getSectionKey(item)}.${slugify(item.externalItemId, item.id)}`;
 }
 
 function buildOptionIdentityPaths(
-  item: MenuItemDetail,
+  item: FoodMenusLocalItem,
   itemPath: string,
 ): GoogleFoodMenusProjectedIdentity['googleOptionPaths'] {
   const paths: GoogleFoodMenusProjectedIdentity['googleOptionPaths'] = [];
@@ -1504,6 +1508,9 @@ function mergeExpandedOptionAttributes(
 function canonicalSkippedReason(
   item: CanonicalRestaurantMenuItem,
 ): GoogleFoodMenusProjectionSkippedItem['reason'] | null {
+  if (item.extensions.availabilityPolicy.soldOut === true) {
+    return 'sold_out';
+  }
   return item.active ? null : 'inactive';
 }
 
@@ -1895,7 +1902,7 @@ function makeMinimalMenuItemForGoogleOptions(
   itemName: string,
   category: string,
   basePrice: number,
-): MenuItemDetail {
+): FoodMenusLocalItem {
   return {
     id: 'gbp-new-item',
     restaurantId: 'gbp-import-review',
@@ -2056,11 +2063,10 @@ function buildMenuMetadataSuggestedPatch(
 export function buildGoogleFoodMenusImportReview(
   input: BuildGoogleFoodMenusImportReviewInput,
 ): GoogleFoodMenusImportReview {
-  const localFoodItems = input.localItems.map(menuItemToImportLocalItem);
-  const localDrinkItems = (input.localDrinkItems ?? []).map(drinkItemToImportLocalItem);
+  const localItemsForImport = input.localItems.map(toImportLocalItem);
   const localItemsByTarget = {
-    food: localFoodItems,
-    drink: localDrinkItems,
+    food: localItemsForImport.filter((item) => item.targetKind === 'food'),
+    drink: localItemsForImport.filter((item) => item.targetKind === 'drink'),
   } satisfies Record<GoogleFoodMenusImportTargetKind, ImportLocalItem[]>;
   const matchedLocalItemIds = new Set<string>();
   const items: GoogleFoodMenusImportReviewItem[] = [];
@@ -2169,7 +2175,7 @@ export function buildGoogleFoodMenusImportReview(
     }
   }
 
-  const localItemsMissingFromGoogle = [...localFoodItems, ...localDrinkItems]
+  const localItemsMissingFromGoogle = localItemsForImport
     .filter((item) => !matchedLocalItemIds.has(`${item.targetKind}:${item.id}`))
     .map((item) => ({
       localItemId: item.id,
