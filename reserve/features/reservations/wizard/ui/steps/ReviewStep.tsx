@@ -66,7 +66,7 @@ function SectionHeader({ title, icon, onEdit, editLabel }: SectionHeaderProps) {
     <div className="mb-5 flex items-center justify-between gap-3 border-b border-border/60 pb-3">
       <div className="flex items-center gap-2">
         {icon && (
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <span className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-primary">
             {icon}
           </span>
         )}
@@ -117,10 +117,10 @@ function TicketPerforation() {
   return (
     <div className="relative my-2 w-full" aria-hidden="true">
       <Separator />
-      <div className="absolute -left-6 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-background border border-border" />
-      <div className="absolute -left-6 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-background scale-90" />{' '}
-      <div className="absolute -right-6 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-background border border-border" />
-      <div className="absolute -right-6 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-background scale-90" />
+      <div className="absolute -left-6 top-1/2 -translate-y-1/2 size-5 rounded-full bg-background border border-border" />
+      <div className="absolute -left-6 top-1/2 -translate-y-1/2 size-5 rounded-full bg-background scale-90" />{' '}
+      <div className="absolute -right-6 top-1/2 -translate-y-1/2 size-5 rounded-full bg-background border border-border" />
+      <div className="absolute -right-6 top-1/2 -translate-y-1/2 size-5 rounded-full bg-background scale-90" />
       <div className="absolute inset-0 border-t-2 border-dashed border-muted-foreground/20" />
     </div>
   );
@@ -156,7 +156,7 @@ export function ReviewStep(props: ReviewStepProps) {
         title="Review the booking"
         description="Check the visit, contact details, and notes before the restaurant receives it."
         contentClassName="space-y-6"
-        icon={<ReceiptIcon className="h-6 w-6" />}
+        icon={<ReceiptIcon className="size-6" />}
       >
         <div className="space-y-6">
           <p className="sr-only" aria-live="polite">
@@ -166,7 +166,7 @@ export function ReviewStep(props: ReviewStepProps) {
           {error && (
             <Alert variant="destructive" role="alert" className="items-start animate-fade-in">
               <AlertIcon>
-                <AlertTriangle className="h-4 w-4" aria-hidden />
+                <AlertTriangle className="size-4" aria-hidden />
               </AlertIcon>
               <AlertDescription aria-live="polite">
                 <div className="space-y-3">
@@ -217,31 +217,31 @@ export function ReviewStep(props: ReviewStepProps) {
             <WizardPanelContent className="p-6">
               <SectionHeader
                 title="Your Visit"
-                icon={<SparklesIcon className="h-4 w-4" />}
+                icon={<SparklesIcon className="size-4" />}
                 onEdit={handleEditPlan}
                 editLabel="Edit reservation details"
               />
 
               <dl className="grid gap-6 sm:grid-cols-2">
                 <DetailItem
-                  icon={<CalendarIcon className="h-4 w-4" />}
+                  icon={<CalendarIcon className="size-4" />}
                   label="Date & Time"
                   value={summary.summaryValue}
                   className="sm:col-span-2"
                   valueClassName="text-lg text-primary"
                 />
                 <DetailItem
-                  icon={<MapPinIcon className="h-4 w-4" />}
+                  icon={<MapPinIcon className="size-4" />}
                   label="Venue"
                   value={details.restaurantName}
                 />
                 <DetailItem
-                  icon={<UsersIcon className="h-4 w-4" />}
+                  icon={<UsersIcon className="size-4" />}
                   label="Party size"
                   value={`${details.party} ${details.party === 1 ? 'guest' : 'guests'}`}
                 />
                 <DetailItem
-                  icon={<ClockIcon className="h-4 w-4" />}
+                  icon={<ClockIcon className="size-4" />}
                   label="Booking type"
                   value={formatBookingLabel(details.bookingType)}
                 />
@@ -253,30 +253,30 @@ export function ReviewStep(props: ReviewStepProps) {
             <WizardPanelContent className="p-6">
               <SectionHeader
                 title={isOpsMode ? 'Guest Details' : 'Your Details'}
-                icon={<UserIcon className="h-4 w-4" />}
+                icon={<UserIcon className="size-4" />}
                 onEdit={handleEditDetails}
                 editLabel="Edit guest details"
               />
 
               <dl className="grid gap-6 sm:grid-cols-2">
                 <DetailItem
-                  icon={<UserIcon className="h-4 w-4" />}
+                  icon={<UserIcon className="size-4" />}
                   label="Full name"
                   value={details.name}
                 />
                 <DetailItem
-                  icon={<MailIcon className="h-4 w-4" />}
+                  icon={<MailIcon className="size-4" />}
                   label="Email"
                   value={emailDisplay}
                 />
                 <DetailItem
-                  icon={<PhoneIcon className="h-4 w-4" />}
+                  icon={<PhoneIcon className="size-4" />}
                   label="Phone"
                   value={phoneDisplay}
                 />
                 {!isOpsMode ? (
                   <DetailItem
-                    icon={<BellIcon className="h-4 w-4" />}
+                    icon={<BellIcon className="size-4" />}
                     label="Marketing"
                     value={details.marketingOptIn ? 'Subscribed' : 'Not subscribed'}
                   />
@@ -286,7 +286,7 @@ export function ReviewStep(props: ReviewStepProps) {
               {details.notes && (
                 <div className="mt-6 border-t border-border/40 pt-4">
                   <dt className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    <MessageSquareIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    <MessageSquareIcon className="size-4 shrink-0" aria-hidden="true" />
                     <span>Special Requests</span>
                   </dt>
                   <dd className="rounded-[var(--pg-radius-md)] border border-border/50 bg-muted/40 p-3 text-sm text-foreground/90">

@@ -57,7 +57,7 @@ export function TableAssignmentFilters({
       <CardContent className="space-y-4 p-3.5">
         <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-2">
           <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
-            <Filter className="h-3 w-3" />
+            <Filter className="size-3" />
             Inventory Filters
           </div>
           <Button

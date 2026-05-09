@@ -124,7 +124,7 @@ export function ExportCustomersButton({
       className="h-11 sm:h-9"
       aria-label={isExporting ? 'Exporting guests...' : 'Export guests to CSV'}
     >
-      <Download className="mr-2 h-4 w-4" />
+      <Download className="mr-2 size-4" />
       {isExporting ? 'Exporting...' : 'Export CSV'}
     </Button>
   );

@@ -156,7 +156,7 @@ export function OpsDashboardHeader({
               className="pointer-events-none absolute left-0 flex items-center opacity-20 animate-pulse sm:opacity-30 xl:hidden"
               aria-hidden="true"
             >
-              <ChevronsLeft className="h-4 w-4 text-muted-foreground" />
+              <ChevronsLeft className="size-4 text-muted-foreground" />
             </div>
 
             <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-card/80 p-1 shadow-sm backdrop-blur-xl transition-shadow hover:shadow-md sm:rounded-xl sm:p-1.5">
@@ -197,7 +197,7 @@ export function OpsDashboardHeader({
               className="pointer-events-none absolute right-0 flex items-center opacity-20 animate-pulse sm:opacity-30 xl:hidden"
               aria-hidden="true"
             >
-              <ChevronsRight className="h-4 w-4 text-muted-foreground" />
+              <ChevronsRight className="size-4 text-muted-foreground" />
             </div>
           </div>
         </div>

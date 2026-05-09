@@ -368,7 +368,7 @@ export function ReservationDetailClient({
           {/* Summary card skeleton */}
           <div className="pg-card pg-appear space-y-6 p-6 sm:p-8">
             <div className="flex items-center gap-3">
-              <Skeleton className="h-11 w-11 rounded-full" />
+              <Skeleton className="size-11 rounded-full" />
               <Skeleton className="h-6 w-24 rounded-full" />
             </div>
             <div className="space-y-2">
@@ -443,13 +443,13 @@ export function ReservationDetailClient({
         actions={
           <SummaryActions>
             <SecondaryButton onClick={handleDownload}>
-              <Download className="mr-2 h-4 w-4" /> PDF
+              <Download className="mr-2 size-4" /> PDF
             </SecondaryButton>
             <SecondaryButton onClick={handleShare}>
-              <Share2 className="mr-2 h-4 w-4" /> Share
+              <Share2 className="mr-2 size-4" /> Share
             </SecondaryButton>
             <SecondaryButton onClick={handleAddToCalendar}>
-              <CalendarPlus className="mr-2 h-4 w-4" /> Add to calendar
+              <CalendarPlus className="mr-2 size-4" /> Add to calendar
             </SecondaryButton>
           </SummaryActions>
         }
@@ -503,13 +503,13 @@ export function ReservationDetailClient({
 
           <ActionButtonRow>
             <SecondaryButton onClick={handleDownload}>
-              <Download className="mr-2 h-4 w-4" /> PDF
+              <Download className="mr-2 size-4" /> PDF
             </SecondaryButton>
             <SecondaryButton onClick={handleShare}>
-              <Share2 className="mr-2 h-4 w-4" /> Share
+              <Share2 className="mr-2 size-4" /> Share
             </SecondaryButton>
             <SecondaryButton onClick={handleAddToCalendar}>
-              <CalendarPlus className="mr-2 h-4 w-4" /> Add to calendar
+              <CalendarPlus className="mr-2 size-4" /> Add to calendar
             </SecondaryButton>
           </ActionButtonRow>
         </div>

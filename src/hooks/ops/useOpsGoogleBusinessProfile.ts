@@ -11,6 +11,8 @@ import {
 import { useRestaurantService } from '@/contexts/ops-services';
 import { queryKeys } from '@/lib/query/keys';
 
+import { invalidateOpsIntegrationQueries } from './opsIntegrationQueries';
+
 import type { HttpError } from '@/lib/http/errors';
 import type {
   GoogleBusinessProfileAvailableLocation,
@@ -83,6 +85,7 @@ export function useOpsLinkGoogleBusinessProfileLocation(
     onSuccess: (state) => {
       if (!restaurantId) return;
       queryClient.setQueryData(queryKeys.opsRestaurants.googleBusinessProfile(restaurantId), state);
+      invalidateOpsIntegrationQueries(queryClient, restaurantId);
     },
   });
 }
@@ -103,6 +106,7 @@ export function useOpsDisconnectGoogleBusinessProfile(
     onSuccess: (state) => {
       if (!restaurantId) return;
       queryClient.setQueryData(queryKeys.opsRestaurants.googleBusinessProfile(restaurantId), state);
+      invalidateOpsIntegrationQueries(queryClient, restaurantId);
     },
   });
 }

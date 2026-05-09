@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -6,10 +7,23 @@ import {
   buildLocationValue,
 } from '@/components/features/restaurant-settings/google-business-profile/googleBusinessProfileConnectionModel';
 import { GoogleBusinessProfileSection } from '@/components/features/restaurant-settings/google-business-profile/GoogleBusinessProfileSection';
+import { queryKeys } from '@/lib/query/keys';
 
 import type { GoogleBusinessProfileConnection } from '@/services/ops/restaurants';
 
 let mockSearchParams = new URLSearchParams();
+
+const queryClientMock = vi.hoisted(() => ({
+  invalidateQueries: vi.fn(),
+}));
+
+vi.mock('@tanstack/react-query', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@tanstack/react-query')>();
+  return {
+    ...actual,
+    useQueryClient: () => queryClientMock,
+  };
+});
 
 vi.mock('next/navigation', () => ({
   useSearchParams: () => mockSearchParams,
@@ -153,6 +167,7 @@ beforeEach(() => {
   linkMutation.isPending = false;
   disconnectMutation.mutate.mockReset();
   disconnectMutation.isPending = false;
+  queryClientMock.invalidateQueries.mockReset();
   window.history.replaceState({}, '', '/app/settings/restaurant/google-business-profile');
 });
 
@@ -162,6 +177,30 @@ describe('GoogleBusinessProfileSection', () => {
 
     expect(screen.getByText(/select a restaurant using the sidebar switcher/i)).toBeInTheDocument();
     expectSharedChrome();
+  });
+
+  it('invalidates GBP and dual-sync workspace queries when refreshing Google', async () => {
+    const user = userEvent.setup();
+    connectionResult.data = buildConnection({
+      status: 'linked',
+      externalAccountId: 'a-1',
+      externalAccountName: 'accounts/1',
+      externalLocationId: 'l-1',
+      externalLocationName: 'locations/1',
+      externalLocationTitle: 'Nabatable Main',
+    });
+
+    render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
+
+    await user.click(screen.getByRole('button', { name: /refresh google/i }));
+
+    expect(connectionResult.refetch).toHaveBeenCalledTimes(1);
+    expect(queryClientMock.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: queryKeys.opsRestaurants.googleBusinessProfile('rest-1'),
+    });
+    expect(queryClientMock.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['dual-sync-state', 'rest-1'],
+    });
   });
 
   it('renders loading shared chrome', () => {
@@ -255,6 +294,121 @@ describe('GoogleBusinessProfileSection', () => {
     expect(screen.getByRole('button', { name: /disconnect/i })).toBeInTheDocument();
     expect(screen.getAllByTestId('gbp-overview-card')).toHaveLength(1);
     expectSharedChrome();
+  });
+
+  it('renders truthful linked copy when the sync workspace is unavailable', () => {
+    connectionResult.data = buildConnection({
+      status: 'linked',
+      connectedGoogleEmail: 'ops@example.com',
+      externalAccountId: 'a-1',
+      externalAccountName: 'accounts/1',
+      externalLocationId: 'l-1',
+      externalLocationName: 'locations/1',
+      externalLocationTitle: 'Nabatable Main',
+    });
+
+    render(<GoogleBusinessProfileSection restaurantId="rest-1" hasSyncWorkspace={false} />);
+
+    expect(screen.getByText(/google business profile linked/i)).toBeInTheDocument();
+    expect(screen.getByText(/comparison tools are currently unavailable/i)).toBeInTheDocument();
+    expect(screen.queryByText(/use the sync workspace below/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /review changes/i })).not.toBeInTheDocument();
+  });
+
+  it('opens disconnect confirmation and cancels without mutating', async () => {
+    const user = userEvent.setup();
+    connectionResult.data = buildConnection({
+      status: 'linked',
+      externalAccountId: 'a-1',
+      externalAccountName: 'accounts/1',
+      externalLocationId: 'l-1',
+      externalLocationName: 'locations/1',
+      externalLocationTitle: 'Nabatable Main',
+    });
+
+    render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
+
+    await user.click(screen.getByRole('button', { name: /disconnect/i }));
+
+    expect(screen.getByText(/disconnect google business profile\?/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /cancel/i }));
+
+    expect(disconnectMutation.mutate).not.toHaveBeenCalled();
+    expect(screen.queryByText(/disconnect google business profile\?/i)).not.toBeInTheDocument();
+  });
+
+  it('confirms disconnect through the existing mutation', async () => {
+    const user = userEvent.setup();
+    connectionResult.data = buildConnection({
+      status: 'linked',
+      externalAccountId: 'a-1',
+      externalAccountName: 'accounts/1',
+      externalLocationId: 'l-1',
+      externalLocationName: 'locations/1',
+      externalLocationTitle: 'Nabatable Main',
+    });
+
+    render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
+
+    await user.click(screen.getByRole('button', { name: /disconnect/i }));
+    await user.click(screen.getAllByRole('button', { name: /^disconnect$/i }).at(-1)!);
+
+    expect(disconnectMutation.mutate).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables disconnect dialog controls while the mutation is pending', async () => {
+    const user = userEvent.setup();
+    connectionResult.data = buildConnection({
+      status: 'linked',
+      externalAccountId: 'a-1',
+      externalAccountName: 'accounts/1',
+      externalLocationId: 'l-1',
+      externalLocationName: 'locations/1',
+      externalLocationTitle: 'Nabatable Main',
+    });
+
+    const { rerender } = render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
+
+    await user.click(screen.getByRole('button', { name: /disconnect/i }));
+    disconnectMutation.isPending = true;
+    rerender(<GoogleBusinessProfileSection restaurantId="rest-1" />);
+
+    expect(screen.getByRole('button', { name: /cancel/i })).toBeDisabled();
+    expect(screen.getAllByRole('button', { name: /disconnecting/i }).at(-1)).toBeDisabled();
+  });
+
+  it('surfaces location refresh errors with retry while keeping fallback locations', async () => {
+    const user = userEvent.setup();
+    connectionResult.data = buildConnection({
+      status: 'authorized',
+      connectedGoogleEmail: 'ops@example.com',
+      availableLocations: [
+        {
+          accountName: 'accounts/1',
+          accountId: 'a-1',
+          accountDisplayName: 'Ops Account',
+          locationName: 'locations/1',
+          locationId: 'l-1',
+          title: 'Fallback Main',
+          addressText: '1 Test St, London',
+          placeId: 'place-1',
+        },
+      ],
+    });
+    locationsResult.error = new Error('Google location discovery failed');
+
+    render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
+
+    expect(screen.getByText(/location refresh failed/i)).toBeInTheDocument();
+    expect(screen.getByText(/google location discovery failed/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole('combobox', { name: /available locations \(possibly stale\)/i }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /retry locations/i }));
+
+    expect(locationsResult.refetch).toHaveBeenCalledTimes(1);
   });
 
   it('scrolls whitelisted hash anchors into view', async () => {

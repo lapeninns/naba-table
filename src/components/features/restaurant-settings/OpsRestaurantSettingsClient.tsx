@@ -184,6 +184,9 @@ export function OpsRestaurantSettingsClient({
     null;
 
   const selectedRestaurantId = selectedMembership?.restaurantId ?? null;
+  const dualSyncSections = DUAL_SYNC_SECTIONS_BY_VIEW[view];
+  const dualSyncEnabled = isDualSyncUiEnabled();
+  const hasSyncWorkspace = Boolean(dualSyncEnabled && dualSyncSections && selectedRestaurantId);
 
   const renderByView: Record<
     RestaurantSettingsView,
@@ -192,7 +195,10 @@ export function OpsRestaurantSettingsClient({
     overview: ({ restaurantId }) => <RestaurantSetupOverview restaurantId={restaurantId} />,
     profile: ({ restaurantId }) => <RestaurantProfileSection restaurantId={restaurantId} />,
     'google-business-profile': ({ restaurantId }) => (
-      <GoogleBusinessProfileSection restaurantId={restaurantId} />
+      <GoogleBusinessProfileSection
+        restaurantId={restaurantId}
+        hasSyncWorkspace={hasSyncWorkspace}
+      />
     ),
     availability: ({ restaurantId }) => (
       <AvailabilityOccasionsCommandCenter restaurantId={restaurantId} />
@@ -202,18 +208,17 @@ export function OpsRestaurantSettingsClient({
     team: () => <OpsTeamManagementClient />,
   };
 
-  const dualSyncSections = DUAL_SYNC_SECTIONS_BY_VIEW[view];
-  const dualSyncEnabled = isDualSyncUiEnabled();
-
   return (
     <div className={SETTINGS_COMPACT_ROUTE_STACK_CLASS}>
       {renderByView[view]({ restaurantId: selectedRestaurantId })}
       {dualSyncEnabled && dualSyncSections && selectedRestaurantId ? (
-        <DualSyncShell
-          restaurantId={selectedRestaurantId}
-          sections={dualSyncSections}
-          singleOpenSections={view === 'google-business-profile'}
-        />
+        <div id="gbp-sync-review" className="scroll-mt-24">
+          <DualSyncShell
+            restaurantId={selectedRestaurantId}
+            sections={dualSyncSections}
+            singleOpenSections={view === 'google-business-profile'}
+          />
+        </div>
       ) : null}
     </div>
   );

@@ -137,7 +137,7 @@ export function OpsEmailDeliveryFilterBar({
 
         <div className="flex flex-1 gap-2">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" aria-hidden />
+            <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" aria-hidden />
             <Input
               type="search"
               name="emailDeliverySearch"
@@ -224,7 +224,7 @@ export function OpsEmailDeliveryFilterBar({
         <Popover>
           <PopoverTrigger asChild>
             <Button variant="outline" size="sm" className="gap-2" aria-label="Filter by status">
-              <Filter className="h-4 w-4" aria-hidden />
+              <Filter className="size-4" aria-hidden />
               Status
               {statuses.length > 0 && (
                 <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
@@ -272,7 +272,7 @@ export function OpsEmailDeliveryFilterBar({
           onClick={onClear}
           aria-label="Clear all filters"
         >
-          <X className="h-3.5 w-3.5" aria-hidden />
+          <X className="size-3.5" aria-hidden />
           Clear
         </Button>
       </div>

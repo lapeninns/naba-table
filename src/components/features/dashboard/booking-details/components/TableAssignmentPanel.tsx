@@ -292,7 +292,7 @@ export function TableAssignmentPanel({
         <AlertDescription className="flex items-center justify-between gap-3">
           <span>{error instanceof Error ? error.message : 'Failed to load tables.'}</span>
           <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-2">
-            <RefreshCw className="h-4 w-4" />
+            <RefreshCw className="size-4" />
             Retry
           </Button>
         </AlertDescription>
@@ -304,7 +304,7 @@ export function TableAssignmentPanel({
     return (
       <Card className="border-dashed">
         <CardContent className="flex flex-col items-center justify-center gap-2 p-6 text-center">
-          <Grid3X3 className="h-8 w-8 text-muted-foreground" />
+          <Grid3X3 className="size-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">No tables available right now.</p>
           <p className="text-xs text-muted-foreground">
             Try adjusting the booking time or split the party.
@@ -432,7 +432,7 @@ export function TableAssignmentPanel({
           {validation.warnings.length > 0 && (
             <div className="rounded-md border border-primary/30 bg-primary/10 p-3 text-sm text-primary">
               <div className="flex items-center gap-2 font-semibold">
-                <AlertTriangle className="h-4 w-4 text-primary" aria-hidden />
+                <AlertTriangle className="size-4 text-primary" aria-hidden />
                 Warnings
               </div>
               <ul className="mt-2 list-disc space-y-1 pl-4 text-xs">

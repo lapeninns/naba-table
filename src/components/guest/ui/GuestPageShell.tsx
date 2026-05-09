@@ -145,11 +145,11 @@ export function GuestHero({
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -left-20 top-8 h-56 w-56 rounded-full bg-primary/[0.09] blur-3xl"
+        className="pointer-events-none absolute -left-20 top-8 size-56 rounded-full bg-primary/[0.09] blur-3xl"
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute bottom-0 right-[-5rem] h-64 w-64 rounded-full bg-[color:color-mix(in_srgb,var(--pg-text)_7%,transparent)] blur-3xl"
+        className="pointer-events-none absolute bottom-0 right-[-5rem] size-64 rounded-full bg-[color:color-mix(in_srgb,var(--pg-text)_7%,transparent)] blur-3xl"
       />
 
       <div
@@ -285,7 +285,7 @@ export function GuestInsetCard({
         className,
       )}
     >
-      {Icon ? <Icon className="mb-3 h-4 w-4 text-primary" aria-hidden /> : null}
+      {Icon ? <Icon className="mb-3 size-4 text-primary" aria-hidden /> : null}
       {label ? <p className="pg-kicker text-[0.68rem]">{label}</p> : null}
       <div className={cn(label ? 'mt-1' : '')}>
         <div className="text-sm font-semibold text-foreground">{value}</div>
@@ -317,8 +317,8 @@ export function GuestActionCard({
       )}
     >
       <div className="flex items-start justify-between gap-4">
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[var(--pg-radius-md)] border border-border/80 bg-background text-primary shadow-[var(--pg-shadow-xs)]">
-          <Icon className="h-5 w-5" aria-hidden />
+        <span className="flex size-12 shrink-0 items-center justify-center rounded-[var(--pg-radius-md)] border border-border/80 bg-background text-primary shadow-[var(--pg-shadow-xs)]">
+          <Icon className="size-5" aria-hidden />
         </span>
         {eyebrow ? (
           <Badge variant="guest-chip" className="pg-chip">
@@ -370,8 +370,8 @@ export function GuestRouteCard({
       )}
     >
       <div className="flex items-start justify-between gap-4">
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[var(--pg-radius-md)] border border-border/80 bg-background text-primary shadow-[var(--pg-shadow-xs)]">
-          <Icon className="h-5 w-5" aria-hidden />
+        <span className="flex size-12 shrink-0 items-center justify-center rounded-[var(--pg-radius-md)] border border-border/80 bg-background text-primary shadow-[var(--pg-shadow-xs)]">
+          <Icon className="size-5" aria-hidden />
         </span>
         {eyebrow ? (
           <Badge variant="guest-chip-outline" className="pg-chip">
@@ -421,7 +421,7 @@ export function GuestJourneyMap({
               <span className="font-[var(--pg-font-mono)] text-xs uppercase tracking-[0.18em] text-muted-foreground">
                 {step.label}
               </span>
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground">
+              <span className="flex size-7 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground">
                 {index + 1}
               </span>
             </div>
@@ -465,8 +465,8 @@ export function GuestMetricCard({
           </p>
         </div>
         {Icon ? (
-          <span className="flex h-10 w-10 items-center justify-center rounded-full border border-border/80 bg-background text-primary shadow-[var(--pg-shadow-xs)]">
-            <Icon className="h-4 w-4" aria-hidden />
+          <span className="flex size-10 items-center justify-center rounded-full border border-border/80 bg-background text-primary shadow-[var(--pg-shadow-xs)]">
+            <Icon className="size-4" aria-hidden />
           </span>
         ) : null}
       </div>
@@ -493,8 +493,8 @@ export function GuestDetailList({
           return (
             <div key={item.label} className="grid gap-4 px-5 py-4 sm:grid-cols-[auto_1fr] sm:px-6">
               {Icon ? (
-                <span className="flex h-10 w-10 items-center justify-center rounded-full border border-border/80 bg-background text-primary shadow-[var(--pg-shadow-xs)]">
-                  <Icon className="h-4 w-4" aria-hidden />
+                <span className="flex size-10 items-center justify-center rounded-full border border-border/80 bg-background text-primary shadow-[var(--pg-shadow-xs)]">
+                  <Icon className="size-4" aria-hidden />
                 </span>
               ) : null}
               <div className="min-w-0">

@@ -177,7 +177,7 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
       {unavailableCopy && (
         <Alert variant="warning" className="border border-dashed animate-fade-in">
           <AlertIcon>
-            <AlertCircle className="h-4 w-4" aria-hidden />
+            <AlertCircle className="size-4" aria-hidden />
           </AlertIcon>
           <AlertDescription aria-live="polite">{unavailableCopy}</AlertDescription>
         </Alert>
@@ -186,7 +186,7 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
       {state.advisoryMessage && (
         <Alert variant="info" className="animate-fade-in">
           <AlertIcon>
-            <AlertCircle className="h-4 w-4" aria-hidden />
+            <AlertCircle className="size-4" aria-hidden />
           </AlertIcon>
           <AlertDescription aria-live="polite">{state.advisoryMessage}</AlertDescription>
         </Alert>

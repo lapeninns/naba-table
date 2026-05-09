@@ -62,7 +62,7 @@ export function DualSyncFreshnessChip({
       )}
       data-tone={tone}
     >
-      <Clock className="h-3 w-3" />
+      <Clock className="size-3" />
       {text}
     </Badge>
   );

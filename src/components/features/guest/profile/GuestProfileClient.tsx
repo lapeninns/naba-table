@@ -205,7 +205,7 @@ export function GuestProfileClient({
                   className="pg-action pg-focus-ring pg-touch w-full sm:w-auto"
                   disabled={isSubmitting || isPristine}
                 >
-                  <Save className="h-4 w-4" aria-hidden />
+                  <Save className="size-4" aria-hidden />
                   {isSubmitting ? 'Saving...' : 'Save changes'}
                 </Button>
               </div>

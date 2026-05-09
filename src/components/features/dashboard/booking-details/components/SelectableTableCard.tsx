@@ -150,7 +150,7 @@ export const SelectableTableCard = memo(function SelectableTableCard({
             isAssigned ? 'bg-primary scale-110' : 'bg-primary scale-100',
           )}
         >
-          <Check className="h-3 w-3 text-primary-foreground" aria-hidden />
+          <Check className="size-3 text-primary-foreground" aria-hidden />
         </div>
       )}
 
@@ -175,7 +175,7 @@ export const SelectableTableCard = memo(function SelectableTableCard({
         </div>
         {isConflicted && (
           <div className="shrink-0 flex items-center gap-1 rounded bg-destructive/10 px-1.5 py-0.5 text-[9px] font-bold uppercase text-destructive">
-            <AlertTriangle className="h-2.5 w-2.5" />
+            <AlertTriangle className="size-2.5" />
             Busy
           </div>
         )}
@@ -184,7 +184,7 @@ export const SelectableTableCard = memo(function SelectableTableCard({
       <div className="w-full">
         <div className="flex flex-wrap items-center gap-1.5">
           <div className="flex items-center gap-1 rounded-sm bg-muted/60 px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">
-            <Users className="h-2.5 w-2.5" />
+            <Users className="size-2.5" />
             {table.capacity}
           </div>
           <Badge

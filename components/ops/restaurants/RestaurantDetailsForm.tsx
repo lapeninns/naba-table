@@ -10,7 +10,7 @@ import {
   ShieldAlert,
   ShieldCheck,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { HelpTooltip } from '@/components/features/restaurant-settings/HelpTooltip';
 import {
@@ -141,7 +141,7 @@ function GbpStatusBadge(props: {
               type="button"
               variant="ghost"
               size="icon"
-              className="inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              className="inline-flex size-5 items-center justify-center rounded-full text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
               aria-label="Show Google Business Profile field details"
             >
               <Info className="size-3.5" aria-hidden />
@@ -561,6 +561,7 @@ export function ContactLocationSubform({
     });
   const [timezonePickerOpen, setTimezonePickerOpen] = useState(false);
   const [timezoneSearch, setTimezoneSearch] = useState('');
+  const timezoneOptionsId = useId();
   const filteredTimezones = useMemo(() => {
     const query = timezoneSearch.trim().toLowerCase();
     if (!query) {
@@ -641,6 +642,7 @@ export function ContactLocationSubform({
                   type="button"
                   variant="outline"
                   role="combobox"
+                  aria-controls={timezoneOptionsId}
                   aria-expanded={timezonePickerOpen}
                   aria-invalid={Boolean(errors.timezone)}
                   aria-describedby={
@@ -666,7 +668,7 @@ export function ContactLocationSubform({
                     placeholder="Search city, region, or UTC offset"
                   />
                   <ScrollArea className="h-64 pr-3">
-                    <div className="flex flex-col gap-1">
+                    <div id={timezoneOptionsId} className="flex flex-col gap-1">
                       {filteredTimezones.map((timezone) => (
                         <Button
                           key={timezone}
@@ -1434,6 +1436,7 @@ export function RestaurantDetailsForm({
   const [errors, setErrors] = useState<FormErrors>({});
   const [timezonePickerOpen, setTimezonePickerOpen] = useState(false);
   const [timezoneSearch, setTimezoneSearch] = useState('');
+  const timezoneOptionsId = useId();
 
   const initialFormState = useMemo(() => mapInitialValues(initialValues), [initialValues]);
   const serializedInitialValues = useMemo(
@@ -1608,6 +1611,7 @@ export function RestaurantDetailsForm({
                   type="button"
                   variant="outline"
                   role="combobox"
+                  aria-controls={timezoneOptionsId}
                   aria-expanded={timezonePickerOpen}
                   aria-invalid={Boolean(errors.timezone)}
                   aria-describedby={
@@ -1633,7 +1637,7 @@ export function RestaurantDetailsForm({
                     placeholder="Search city, region, or UTC offset"
                   />
                   <ScrollArea className="h-64 pr-3">
-                    <div className="space-y-1">
+                    <div id={timezoneOptionsId} className="space-y-1">
                       {filteredTimezones.map((timezone) => (
                         <Button
                           key={timezone}

@@ -244,7 +244,7 @@ export function OpsSmsDeliveryClient({
             disabled={feedQuery.isFetching}
           >
             <RefreshCw
-              className={cn('mr-2 h-4 w-4', feedQuery.isFetching && 'animate-spin')}
+              className={cn('mr-2 size-4', feedQuery.isFetching && 'animate-spin')}
               aria-hidden
             />
             Refresh
@@ -418,13 +418,13 @@ export function OpsSmsDeliveryClient({
           </Alert>
         ) : apiError ? (
           <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" aria-hidden />
+            <AlertCircle className="size-4" aria-hidden />
             <AlertTitle>Unable to load SMS delivery attempts</AlertTitle>
             <AlertDescription>{apiError}</AlertDescription>
           </Alert>
         ) : feedQuery.error ? (
           <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" aria-hidden />
+            <AlertCircle className="size-4" aria-hidden />
             <AlertTitle>Unexpected error</AlertTitle>
             <AlertDescription>{feedQuery.error.message}</AlertDescription>
           </Alert>
@@ -432,7 +432,7 @@ export function OpsSmsDeliveryClient({
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-base">
-                <MessageSquare className="h-4 w-4" aria-hidden />
+                <MessageSquare className="size-4" aria-hidden />
                 SMS Delivery Log
               </CardTitle>
             </CardHeader>

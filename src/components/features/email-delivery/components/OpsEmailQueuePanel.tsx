@@ -239,7 +239,7 @@ export function OpsEmailQueuePanel({
               aria-busy="true"
               className="flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/10 px-3 py-2 text-sm text-foreground"
             >
-              <Skeleton className="h-2.5 w-2.5 rounded-full" />
+              <Skeleton className="size-2.5 rounded-full" />
               <span className="font-medium">Refreshing queued jobs…</span>
             </div>
           ) : null}

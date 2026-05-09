@@ -29,14 +29,14 @@ export function TableAssignmentAlerts({
     <div className="grid gap-2">
       {successMessage && (
         <div className="flex items-center gap-2 rounded-md border border-primary/20 bg-primary/5 p-2.5 text-[10px] font-bold uppercase tracking-wider text-primary shadow-sm">
-          <CheckCircle2 className="h-3 w-3" />
+          <CheckCircle2 className="size-3" />
           {successMessage}
         </div>
       )}
 
       {(applyError || smartAssignError) && (
         <div className="flex items-center gap-2 rounded-md border border-destructive/20 bg-destructive/5 p-2.5 text-[10px] font-bold uppercase tracking-wider text-destructive shadow-sm">
-          <AlertCircle className="h-3 w-3" />
+          <AlertCircle className="size-3" />
           <span className="truncate">{applyError || smartAssignError}</span>
         </div>
       )}
@@ -46,7 +46,7 @@ export function TableAssignmentAlerts({
           key={i}
           className="flex items-center gap-2 rounded-md border border-destructive/20 bg-destructive/5 p-2.5 text-[10px] font-bold uppercase tracking-wider text-destructive shadow-sm"
         >
-          <AlertCircle className="h-3 w-3" />
+          <AlertCircle className="size-3" />
           <span className="truncate">{errorText}</span>
         </div>
       ))}
@@ -56,7 +56,7 @@ export function TableAssignmentAlerts({
           key={i}
           className="flex items-center gap-2 rounded-md border border-primary/20 bg-primary/5 p-2.5 text-[10px] font-bold uppercase tracking-wider text-primary shadow-sm"
         >
-          <AlertTriangle className="h-3 w-3" />
+          <AlertTriangle className="size-3" />
           <span className="truncate">{warning}</span>
         </div>
       ))}

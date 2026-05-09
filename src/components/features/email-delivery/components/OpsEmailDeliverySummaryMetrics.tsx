@@ -282,7 +282,7 @@ export function OpsEmailDeliverySummaryMetrics({
           aria-label="Toggle more metrics"
         >
           More metrics
-          <ChevronDown className="h-3.5 w-3.5 transition-transform group-data-[state=open]:rotate-180" />
+          <ChevronDown className="size-3.5 transition-transform group-data-[state=open]:rotate-180" />
         </CollapsibleTrigger>
         <CollapsibleContent className="mt-3 space-y-3">
           <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">

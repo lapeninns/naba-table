@@ -143,7 +143,7 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel className="flex items-center gap-2">
-                          <UserRound className="h-3.5 w-3.5 text-primary" aria-hidden />
+                          <UserRound className="size-3.5 text-primary" aria-hidden />
                           Full name
                         </FormLabel>
                         <FormControl>
@@ -171,7 +171,7 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel className="flex items-center gap-2">
-                          <Mail className="h-3.5 w-3.5 text-primary" aria-hidden />
+                          <Mail className="size-3.5 text-primary" aria-hidden />
                           Email address{isOpsMode ? ' (optional)' : ''}
                         </FormLabel>
                         <FormControl>
@@ -209,7 +209,7 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel className="flex items-center gap-2">
-                          <Phone className="h-3.5 w-3.5 text-primary" aria-hidden />
+                          <Phone className="size-3.5 text-primary" aria-hidden />
                           UK phone number{isOpsMode ? ' (optional)' : ''}
                         </FormLabel>
                         <FormControl>
@@ -289,7 +289,7 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
                                           field.onChange(value);
                                           handlers.toggleRemember(value);
                                         }}
-                                        className="h-4 w-4 rounded-[4px] border border-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
+                                        className="size-4 rounded-[4px] border border-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
                                       />
                                     </FormControl>
                                     <div className="space-y-1">
@@ -326,7 +326,7 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
                                           field.onChange(value);
                                           handlers.toggleMarketing(value);
                                         }}
-                                        className="h-4 w-4 rounded-[4px] border border-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
+                                        className="size-4 rounded-[4px] border border-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
                                       />
                                     </FormControl>
                                     <div className="space-y-1">
@@ -363,7 +363,7 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
                                           field.onChange(value);
                                           handlers.toggleAgree(value);
                                         }}
-                                        className="h-4 w-4 rounded-[4px] border border-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
+                                        className="size-4 rounded-[4px] border border-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
                                       />
                                     </FormControl>
                                     <div className="space-y-1 text-sm text-muted-foreground">
@@ -393,7 +393,7 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
                                       className="flex items-start gap-3"
                                     >
                                       <AlertIcon>
-                                        <AlertCircle className="h-4 w-4" aria-hidden />
+                                        <AlertCircle className="size-4" aria-hidden />
                                       </AlertIcon>
                                       <AlertDescription>{errors.agree.message}</AlertDescription>
                                     </Alert>

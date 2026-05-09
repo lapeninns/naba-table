@@ -81,7 +81,7 @@ export function BookingsListControls({
           className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-card/70 px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200"
           aria-live="polite"
         >
-          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+          <Loader2 className="size-3.5 animate-spin" aria-hidden />
           Syncing latest changes...
         </output>
       ) : lastSyncedLabel ? (

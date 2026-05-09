@@ -696,7 +696,7 @@ function EditBookingDialogBase({
                 >
                   {isSaving ? (
                     <span className="inline-flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Saving…
+                      <Loader2 className="size-4 animate-spin" aria-hidden /> Saving…
                     </span>
                   ) : missingScheduleMetadata ? (
                     'Unavailable'

@@ -178,9 +178,11 @@ function BookingWizardContent({
     }
 
     if (isOffline && !wasOfflineRef.current) {
-      setTimeout(() => {
+      const focusTimer = setTimeout(() => {
         offlineBannerRef.current?.focus();
       }, 0);
+      wasOfflineRef.current = isOffline;
+      return () => clearTimeout(focusTimer);
     }
     wasOfflineRef.current = isOffline;
   }, [hasHydrated, isOffline]);

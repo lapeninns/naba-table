@@ -16,6 +16,10 @@ import {
   ensureRestaurantAdminAccess,
   resolveRestaurantId,
 } from '@/app/api/ops/restaurants/[id]/_shared';
+import {
+  dualSyncErrorResponse,
+  dualSyncUnavailableResponse,
+} from '@/app/api/ops/restaurants/[id]/dual-sync/_shared';
 import { DUAL_SYNC_SECTION_KEYS } from '@/server/dual-sync';
 import { isDualSyncEnabled } from '@/server/dual-sync/flag';
 import { runPublish } from '@/server/dual-sync/publish/orchestrator';
@@ -43,13 +47,10 @@ type RouteContext = { params: Promise<{ id: string | string[] }> };
 export async function POST(req: NextRequest, { params }: RouteContext) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
-    return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
+    return dualSyncErrorResponse('Missing restaurant id', 400);
   }
   if (!isDualSyncEnabled({ restaurantId })) {
-    return NextResponse.json(
-      { error: 'Dual-sync is not enabled for this deployment.' },
-      { status: 404 },
-    );
+    return dualSyncUnavailableResponse();
   }
   const access = await ensureRestaurantAdminAccess(restaurantId, 'dual-sync-publish');
   if (access instanceof NextResponse) return access;
@@ -59,14 +60,13 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     const text = await req.text();
     body = text.length > 0 ? JSON.parse(text) : null;
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    return dualSyncErrorResponse('Invalid JSON body', 400, 'DUAL_SYNC_INVALID_JSON');
   }
   const parsed = publishRequestSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Invalid request', details: parsed.error.flatten() },
-      { status: 422 },
-    );
+    return dualSyncErrorResponse('Invalid request', 422, 'DUAL_SYNC_INVALID_REQUEST', {
+      details: parsed.error.flatten(),
+    });
   }
 
   try {
@@ -86,7 +86,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     return NextResponse.json(result.summary, { status: 200 });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Publish failed';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return dualSyncErrorResponse(message, 500, 'DUAL_SYNC_PUBLISH_ERROR');
   }
 }
 

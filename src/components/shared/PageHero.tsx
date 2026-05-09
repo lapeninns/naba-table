@@ -31,11 +31,11 @@ export function PageHero({
       {gradient ? (
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <div
-            className="pg-dark-hero-orb-primary absolute left-[-5%] top-[-20%] h-64 w-64 rounded-full blur-3xl"
+            className="pg-dark-hero-orb-primary absolute left-[-5%] top-[-20%] size-64 rounded-full blur-3xl"
             aria-hidden
           />
           <div
-            className="pg-dark-hero-orb-accent absolute right-[5%] top-[10%] h-80 w-80 rounded-full blur-3xl"
+            className="pg-dark-hero-orb-accent absolute right-[5%] top-[10%] size-80 rounded-full blur-3xl"
             aria-hidden
           />
         </div>

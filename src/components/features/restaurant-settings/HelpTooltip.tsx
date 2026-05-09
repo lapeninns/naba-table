@@ -34,7 +34,7 @@ export function HelpTooltip({
           )}
           aria-label={ariaLabel}
         >
-          <Info className="h-4 w-4" aria-hidden />
+          <Info className="size-4" aria-hidden />
         </Button>
       </TooltipTrigger>
       <TooltipContent side={side} align={align} className="max-w-xs text-xs leading-snug">

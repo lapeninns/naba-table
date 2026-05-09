@@ -163,7 +163,7 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
                 aria-label="Refresh current tab"
               >
                 <RefreshCw
-                  className={cn('mr-2 h-4 w-4', state.manualRefreshBusy && 'animate-spin')}
+                  className={cn('mr-2 size-4', state.manualRefreshBusy && 'animate-spin')}
                   aria-hidden
                 />
                 Refresh
@@ -181,7 +181,7 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
           <OpsPageToolbar className="space-y-4">
             {state.canInjectDeliveryLogError ? (
               <Alert className="border-dashed border-border bg-muted/40">
-                <AlertCircle className="h-4 w-4" aria-hidden />
+                <AlertCircle className="size-4" aria-hidden />
                 <AlertTitle>Dev/test validation control</AlertTitle>
                 <AlertDescription className="space-y-3">
                   <p>
@@ -220,7 +220,7 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
           <section className="mt-4 space-y-4">
             {state.dataState.feedQuery.unavailable ? (
               <Alert className="border-border bg-muted/40">
-                <MailWarning className="h-4 w-4" aria-hidden />
+                <MailWarning className="size-4" aria-hidden />
                 <AlertTitle>Delivery tracking unavailable</AlertTitle>
                 <AlertDescription>
                   This environment is not currently recording or exposing delivery events. Email
@@ -229,7 +229,7 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
               </Alert>
             ) : state.effectiveDeliveryLogErrorMessage ? (
               <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" aria-hidden />
+                <AlertCircle className="size-4" aria-hidden />
                 <AlertTitle>Unable to load email delivery attempts</AlertTitle>
                 <AlertDescription className="space-y-3">
                   <p>{state.effectiveDeliveryLogErrorMessage}</p>
@@ -241,7 +241,7 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
                       void state.dataState.feedQuery.refetch();
                     }}
                   >
-                    <RotateCcw className="mr-1 h-4 w-4" aria-hidden />
+                    <RotateCcw className="mr-1 size-4" aria-hidden />
                     Retry
                   </Button>
                 </AlertDescription>
@@ -314,7 +314,7 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
                       onClick={state.handlePrev}
                       disabled={!state.hasPrevPage}
                     >
-                      <ChevronLeft className="h-4 w-4" aria-hidden />
+                      <ChevronLeft className="size-4" aria-hidden />
                       Prev
                     </Button>
                     <span className="min-w-16 text-center text-xs text-muted-foreground">
@@ -327,7 +327,7 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
                       disabled={!state.hasNextPage}
                     >
                       Next
-                      <ChevronRight className="h-4 w-4" aria-hidden />
+                      <ChevronRight className="size-4" aria-hidden />
                     </Button>
                   </div>
                 </div>

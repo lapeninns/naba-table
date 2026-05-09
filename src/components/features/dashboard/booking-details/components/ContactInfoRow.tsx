@@ -51,8 +51,8 @@ export function ContactInfoRow({
 
   return (
     <div className="flex items-start gap-3 py-2">
-      <div className="h-8 w-8 rounded-lg bg-muted/40 flex items-center justify-center shrink-0">
-        <Icon className="h-4 w-4 text-muted-foreground" />
+      <div className="size-8 rounded-lg bg-muted/40 flex items-center justify-center shrink-0">
+        <Icon className="size-4 text-muted-foreground" />
       </div>
       <div className="flex flex-col min-w-0">
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -76,12 +76,12 @@ export function ContactInfoRow({
               >
                 {item.href ? (
                   <a href={item.href} aria-label={item.label}>
-                    {ActionIcon ? <ActionIcon className="h-3.5 w-3.5 mr-1" /> : null}
+                    {ActionIcon ? <ActionIcon className="size-3.5 mr-1" /> : null}
                     {item.label}
                   </a>
                 ) : (
                   <>
-                    {ActionIcon ? <ActionIcon className="h-3.5 w-3.5 mr-1" /> : null}
+                    {ActionIcon ? <ActionIcon className="size-3.5 mr-1" /> : null}
                     {item.label}
                   </>
                 )}

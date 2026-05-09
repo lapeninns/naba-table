@@ -22,7 +22,7 @@ export function FeatureCard({ icon, title, description, className }: FeatureCard
         aria-hidden
       />
       <div className="relative flex flex-col gap-3">
-        <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary/15 text-primary shadow-sm shadow-primary/20 transition-transform duration-300 group-hover:scale-110">
+        <div className="inline-flex size-12 items-center justify-center rounded-xl bg-primary/15 text-primary shadow-sm shadow-primary/20 transition-transform duration-300 group-hover:scale-110">
           {icon}
         </div>
         <h3 className="text-lg font-semibold text-primary-foreground sm:text-xl">{title}</h3>

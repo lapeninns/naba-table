@@ -33,10 +33,14 @@ type RouteContext = {
   params: Promise<{ id: string | string[] }>;
 };
 
+function errorResponse(message: string, status: number, extra?: Record<string, unknown>) {
+  return NextResponse.json({ message, error: message, ...extra }, { status });
+}
+
 export async function GET(_req: NextRequest, { params }: RouteContext) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
-    return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
+    return errorResponse('Missing restaurant id', 400);
   }
 
   const access = await ensureRestaurantAdminAccess(restaurantId, 'google-business-profile');
@@ -49,17 +53,15 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
     return NextResponse.json(state);
   } catch (error) {
     const message =
-      error instanceof Error
-        ? error.message
-        : 'Unable to load Google Business Profile connection.';
-    return NextResponse.json({ error: message }, { status: 500 });
+      error instanceof Error ? error.message : 'Unable to load Google Business Profile connection.';
+    return errorResponse(message, 500);
   }
 }
 
 export async function PUT(req: NextRequest, { params }: RouteContext) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
-    return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
+    return errorResponse('Missing restaurant id', 400);
   }
 
   const access = await ensureRestaurantAdminAccess(restaurantId, 'google-business-profile');
@@ -74,11 +76,11 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Invalid payload', details: error.flatten() },
+        { message: 'Invalid payload', error: 'Invalid payload', details: error.flatten() },
         { status: 400 },
       );
     }
-    return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
+    return errorResponse('Invalid payload', 400);
   }
 
   try {
@@ -88,14 +90,14 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
     const message =
       error instanceof Error ? error.message : 'Unable to link Google Business Profile location.';
     const status = message.includes('no longer available') ? 404 : 500;
-    return NextResponse.json({ error: message }, { status });
+    return errorResponse(message, status);
   }
 }
 
 export async function POST(req: NextRequest, { params }: RouteContext) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
-    return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
+    return errorResponse('Missing restaurant id', 400);
   }
 
   const access = await ensureRestaurantAdminAccess(restaurantId, 'google-business-profile');
@@ -109,11 +111,11 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Invalid payload', details: error.flatten() },
+        { message: 'Invalid payload', error: 'Invalid payload', details: error.flatten() },
         { status: 400 },
       );
     }
-    return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
+    return errorResponse('Invalid payload', 400);
   }
 
   try {
@@ -136,7 +138,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   } catch (error) {
     if (error instanceof PasswordConfirmationError) {
       return NextResponse.json(
-        { message: error.message, code: error.code },
+        { message: error.message, error: error.message, code: error.code },
         { status: error.status },
       );
     }
@@ -154,14 +156,14 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
           ? 409
           : 500;
 
-    return NextResponse.json({ error: message }, { status });
+    return errorResponse(message, status);
   }
 }
 
 export async function DELETE(_req: NextRequest, { params }: RouteContext) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
-    return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
+    return errorResponse('Missing restaurant id', 400);
   }
 
   const access = await ensureRestaurantAdminAccess(restaurantId, 'google-business-profile');
@@ -174,9 +176,7 @@ export async function DELETE(_req: NextRequest, { params }: RouteContext) {
     return NextResponse.json(state);
   } catch (error) {
     const message =
-      error instanceof Error
-        ? error.message
-        : 'Unable to disconnect Google Business Profile.';
-    return NextResponse.json({ error: message }, { status: 500 });
+      error instanceof Error ? error.message : 'Unable to disconnect Google Business Profile.';
+    return errorResponse(message, 500);
   }
 }

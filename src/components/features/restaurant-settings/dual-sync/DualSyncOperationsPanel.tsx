@@ -132,7 +132,7 @@ export function DualSyncOperationsPanel({
           className,
         )}
       >
-        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+        <AlertCircle className="mt-0.5 size-4 shrink-0" />
         <div className="space-y-1">
           <div className="font-semibold">Couldn&apos;t load the operation history.</div>
           <div className="text-xs opacity-80">
@@ -205,12 +205,12 @@ export function DualSyncOperationsPanel({
                 <span className="inline-flex items-center gap-1 font-mono text-[10px]">
                   {op.direction === 'import_from_google' ? (
                     <>
-                      <ArrowDownToLine className="h-3 w-3" />
+                      <ArrowDownToLine className="size-3" />
                       Import
                     </>
                   ) : (
                     <>
-                      <ArrowUpFromLine className="h-3 w-3" />
+                      <ArrowUpFromLine className="size-3" />
                       Export
                     </>
                   )}

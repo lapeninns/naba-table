@@ -129,7 +129,7 @@ export function ConnectionStatusBeacon({
         Connection status: {label}. Sync: {syncLabel}.
       </span>
       <div className="flex items-center gap-2">
-        <span className="relative flex h-3 w-3 items-center justify-center">
+        <span className="relative flex size-3 items-center justify-center">
           <span
             className={`absolute inline-flex h-4 w-4 rounded-full ${beacon.pulseClass} motion-reduce:animate-none`}
             aria-hidden="true"

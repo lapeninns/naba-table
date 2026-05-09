@@ -145,7 +145,7 @@ export function OpsStatusFilter({
         </Popover>
         {selected.length > 0 ? (
           <Button type="button" variant="ghost" size="sm" className="h-11 sm:h-9" onClick={onClear}>
-            <X className="mr-1 h-4 w-4" aria-hidden />
+            <X className="mr-1 size-4" aria-hidden />
             Clear filters
           </Button>
         ) : null}

@@ -556,7 +556,7 @@ function ServicePeriodsStep({ onComplete }: { onComplete: () => void }) {
             <p className="text-sm text-muted-foreground">Add lunch, dinner, or custom services.</p>
           </div>
           <Button type="button" variant="outline" onClick={addPeriod}>
-            <Plus className="h-4 w-4" />
+            <Plus className="size-4" />
             Add period
           </Button>
         </div>
@@ -574,7 +574,7 @@ function ServicePeriodsStep({ onComplete }: { onComplete: () => void }) {
                     onClick={() => remove(index)}
                     aria-label="Remove"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="size-4" />
                   </Button>
                 </div>
                 <div className="grid gap-3 md:grid-cols-2">
@@ -845,7 +845,7 @@ function TablesStep({ onComplete }: { onComplete: () => void }) {
                     onClick={() => remove(index)}
                     aria-label="Remove table"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="size-4" />
                   </Button>
                 </div>
               </CardContent>
@@ -857,7 +857,7 @@ function TablesStep({ onComplete }: { onComplete: () => void }) {
             variant="outline"
             onClick={() => append({ tableNumber: `T${fields.length + 1}`, capacity: 2 })}
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="size-4" />
             Add table
           </Button>
 

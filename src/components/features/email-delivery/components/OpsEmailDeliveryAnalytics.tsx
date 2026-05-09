@@ -139,7 +139,7 @@ export function OpsEmailDeliveryAnalytics({
         <CardHeader className="flex flex-col gap-4 border-b border-border pb-5 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4 text-muted-foreground" aria-hidden />
+              <BarChart3 className="size-4 text-muted-foreground" aria-hidden />
               <CardTitle className="text-base font-semibold text-foreground">
                 Delivery analytics
               </CardTitle>

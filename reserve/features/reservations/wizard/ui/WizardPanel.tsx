@@ -67,8 +67,8 @@ export function WizardPanelHeader({
     >
       <div className="flex min-w-0 items-start gap-3">
         {Icon ? (
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <Icon className="h-4 w-4" aria-hidden />
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <Icon className="size-4" aria-hidden />
           </span>
         ) : null}
         <div className="min-w-0 space-y-1">

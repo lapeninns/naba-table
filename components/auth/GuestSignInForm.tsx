@@ -301,7 +301,7 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
                 <FormControl>
                   <div className="relative">
                     <Mail
-                      className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground"
+                      className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-muted-foreground"
                       aria-hidden="true"
                     />
                     <Input
@@ -351,12 +351,12 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
           >
             {isSubmitting ? (
               <span className="flex items-center justify-center gap-2">
-                <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+                <Loader2 className="size-5 animate-spin" aria-hidden="true" />
                 Sending...
               </span>
             ) : (
               <span className="flex items-center justify-center gap-2">
-                <Send className="h-5 w-5" aria-hidden="true" />
+                <Send className="size-5" aria-hidden="true" />
                 {submitLabel}
               </span>
             )}

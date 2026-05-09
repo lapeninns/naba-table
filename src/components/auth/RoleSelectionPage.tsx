@@ -1,19 +1,10 @@
 'use client';
 
-import {
-  ArrowRight,
-  Building2,
-  Search,
-  Users,
-} from 'lucide-react';
+import { ArrowRight, Building2, Search, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
-import {
-  GuestContent,
-  GuestPageFrame,
-  GuestPanel,
-} from '@/components/guest/ui';
+import { GuestContent, GuestPageFrame, GuestPanel } from '@/components/guest/ui';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
@@ -100,8 +91,8 @@ export function RoleSelectionPage({ searchParams }: RoleSelectionPageProps) {
       <GuestContent narrow className="space-y-4 py-6 sm:py-8">
         <GuestPanel className="pg-appear grid gap-5 p-5 sm:p-6">
           <div className="flex items-start gap-4">
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[var(--pg-radius-md)] border border-border/80 bg-background text-primary shadow-[var(--pg-shadow-xs)]">
-              <Users className="h-5 w-5" aria-hidden />
+            <span className="flex size-12 shrink-0 items-center justify-center rounded-[var(--pg-radius-md)] border border-border/80 bg-background text-primary shadow-[var(--pg-shadow-xs)]">
+              <Users className="size-5" aria-hidden />
             </span>
             <div className="min-w-0 space-y-2">
               <div className="flex flex-wrap items-center gap-2">
@@ -134,8 +125,8 @@ export function RoleSelectionPage({ searchParams }: RoleSelectionPageProps) {
         <div className="grid gap-4 sm:grid-cols-2">
           <GuestPanel className="grid gap-4 p-5">
             <div className="flex items-start gap-4">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--pg-radius-md)] border border-border/80 bg-background text-primary shadow-[var(--pg-shadow-xs)]">
-                <Building2 className="h-5 w-5" aria-hidden />
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-[var(--pg-radius-md)] border border-border/80 bg-background text-primary shadow-[var(--pg-shadow-xs)]">
+                <Building2 className="size-5" aria-hidden />
               </span>
               <div className="min-w-0 space-y-1.5">
                 <div className="flex flex-wrap items-center gap-2">
@@ -164,8 +155,8 @@ export function RoleSelectionPage({ searchParams }: RoleSelectionPageProps) {
 
           <GuestPanel className="grid gap-4 p-5">
             <div className="flex items-start gap-4">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--pg-radius-md)] border border-border/80 bg-background text-primary shadow-[var(--pg-shadow-xs)]">
-                <Search className="h-4 w-4 text-primary" aria-hidden />
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-[var(--pg-radius-md)] border border-border/80 bg-background text-primary shadow-[var(--pg-shadow-xs)]">
+                <Search className="size-4 text-primary" aria-hidden />
               </span>
               <div className="min-w-0 space-y-1.5">
                 <h2 className="text-base font-semibold text-foreground">Just browsing</h2>

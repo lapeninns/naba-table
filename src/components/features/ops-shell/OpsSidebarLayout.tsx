@@ -88,7 +88,7 @@ export function OpsSidebarLayout({
               aria-live="polite"
             >
               <AlertIcon>
-                <Info className="h-4 w-4" aria-hidden />
+                <Info className="size-4" aria-hidden />
               </AlertIcon>
               <AlertTitle>Environment notice</AlertTitle>
               <AlertDescription>{envBanner}</AlertDescription>
@@ -122,9 +122,7 @@ function OpsSidebarPanel() {
   }, [featureFlags]);
 
   return (
-    <Sidebar
-      collapsible="icon"
-    >
+    <Sidebar collapsible="icon">
       <SidebarHeader>
         <OpsRestaurantSwitch />
       </SidebarHeader>
@@ -206,9 +204,7 @@ function OpsSidebarNav({
     <>
       {sections.map((section) => (
         <SidebarGroup key={section.label}>
-          <SidebarGroupLabel>
-            {section.label}
-          </SidebarGroupLabel>
+          <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {section.items.map((item) => {
@@ -327,10 +323,7 @@ function OpsSupportLink() {
       <SidebarGroupContent>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              tooltip="Contact Nab a Table support"
-            >
+            <SidebarMenuButton asChild tooltip="Contact Nab a Table support">
               <a href={OPS_SUPPORT_ITEM.href}>
                 <SupportIcon aria-hidden />
                 <span className="truncate">{OPS_SUPPORT_ITEM.title}</span>

@@ -44,9 +44,9 @@ export function ConfirmationStep(props: ConfirmationStepProps) {
         description={controller.description}
         icon={
           status === 'confirmed' || status === 'updated' ? (
-            <CheckCircle2 className="h-6 w-6 text-primary" />
+            <CheckCircle2 className="size-6 text-primary" />
           ) : (
-            <Info className="h-6 w-6 text-primary" />
+            <Info className="size-6 text-primary" />
           )
         }
         contentClassName="space-y-6"
@@ -81,7 +81,7 @@ export function ConfirmationStep(props: ConfirmationStepProps) {
                 className="animate-fade-in"
               >
                 <AlertIcon>
-                  {FeedbackIcon ? <FeedbackIcon className="h-4 w-4" aria-hidden /> : null}
+                  {FeedbackIcon ? <FeedbackIcon className="size-4" aria-hidden /> : null}
                 </AlertIcon>
                 <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <AlertDescription>{controller.feedback.message}</AlertDescription>

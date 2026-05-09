@@ -218,7 +218,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
               aria-live="assertive"
               className="m-5 flex items-start gap-4 rounded-[var(--pg-radius-md)] border border-destructive/20 bg-destructive/5 px-4 py-3 text-destructive"
             >
-              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+              <AlertCircle className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
               <div className="flex-1 space-y-1">
                 <p className="font-semibold">Unable to sign in</p>
                 <p className="text-sm opacity-90">{errorMessage}</p>

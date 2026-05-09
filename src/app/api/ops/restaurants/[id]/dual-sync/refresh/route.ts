@@ -15,6 +15,10 @@ import {
   ensureRestaurantAdminAccess,
   resolveRestaurantId,
 } from '@/app/api/ops/restaurants/[id]/_shared';
+import {
+  dualSyncErrorResponse,
+  dualSyncUnavailableResponse,
+} from '@/app/api/ops/restaurants/[id]/dual-sync/_shared';
 import { isDualSyncEnabled } from '@/server/dual-sync/flag';
 import { refreshFromGoogle } from '@/server/dual-sync/refresh';
 import { requireProviderRefreshBudget } from '@/server/security/provider-rate-limit';
@@ -27,13 +31,10 @@ type RouteContext = { params: Promise<{ id: string | string[] }> };
 export async function POST(_req: NextRequest, { params }: RouteContext) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
-    return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
+    return dualSyncErrorResponse('Missing restaurant id', 400);
   }
   if (!isDualSyncEnabled({ restaurantId })) {
-    return NextResponse.json(
-      { error: 'Dual-sync is not enabled for this deployment.' },
-      { status: 404 },
-    );
+    return dualSyncUnavailableResponse();
   }
   const access = await ensureRestaurantAdminAccess(restaurantId, 'dual-sync-refresh');
   if (access instanceof NextResponse) return access;
@@ -64,7 +65,7 @@ export async function POST(_req: NextRequest, { params }: RouteContext) {
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Refresh failed';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return dualSyncErrorResponse(message, 500, 'DUAL_SYNC_REFRESH_ERROR');
   }
 }
 

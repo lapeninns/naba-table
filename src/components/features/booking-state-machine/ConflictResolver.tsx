@@ -53,7 +53,7 @@ export function ConflictResolver({ conflict, onClose }: ConflictResolverProps) {
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-primary" aria-hidden />
+            <AlertTriangle className="size-5 text-primary" aria-hidden />
             Booking conflict detected
           </DialogTitle>
           <DialogDescription>{description}</DialogDescription>
@@ -89,7 +89,7 @@ export function ConflictResolver({ conflict, onClose }: ConflictResolverProps) {
             Dismiss
           </Button>
           <Button type="button" onClick={handleReload}>
-            <RefreshCw className="mr-1.5 h-4 w-4" aria-hidden />
+            <RefreshCw className="mr-1.5 size-4" aria-hidden />
             Reload booking
           </Button>
         </DialogFooter>

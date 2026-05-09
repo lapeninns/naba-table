@@ -38,11 +38,7 @@ function EnhancedAuthLayoutContent({
 
       {/* Header/Navbar */}
       <header className="relative z-20 border-b border-border bg-background/80 backdrop-blur-md">
-        <nav
-          className={cn(
-            'flex items-center justify-between py-4 pg-container',
-          )}
-        >
+        <nav className={cn('flex items-center justify-between py-4 pg-container')}>
           <BrandLogo href={`/auth${searchSuffix}`} animated />
 
           <div className="flex items-center gap-4 text-sm">
@@ -88,11 +84,7 @@ function EnhancedAuthLayoutContent({
 
       {/* Footer */}
       <footer className="relative z-20 border-t border-border bg-background/80 backdrop-blur-md">
-        <div
-          className={cn(
-            'py-8 pg-container',
-          )}
-        >
+        <div className={cn('py-8 pg-container')}>
           <div className="grid gap-8 sm:grid-cols-[1.4fr_1fr_1fr]">
             <div className="space-y-3">
               <BrandLogo href={`/auth${searchSuffix}`} size="sm" />
@@ -162,9 +154,9 @@ function EnhancedAuthLayoutContent({
               <p>© {new Date().getFullYear()} Nab a Table. All rights reserved.</p>
               <div className="flex items-center gap-4">
                 <span className="flex items-center gap-2">
-                  <span className="relative flex h-2 w-2">
+                  <span className="relative flex size-2">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/50 opacity-75"></span>
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-primary"></span>
+                    <span className="relative inline-flex size-2 rounded-full bg-primary"></span>
                   </span>
                   All systems operational
                 </span>

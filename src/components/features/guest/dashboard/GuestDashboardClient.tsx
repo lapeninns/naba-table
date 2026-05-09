@@ -127,7 +127,7 @@ export function GuestDashboardClient() {
             >
               <Link href="/guest/bookings">
                 View booking history
-                <ChevronRight className="h-4 w-4" aria-hidden />
+                <ChevronRight className="size-4" aria-hidden />
               </Link>
             </Button>
           </div>
@@ -334,7 +334,7 @@ function FeaturedBooking({
 function MiniDetailSkeleton() {
   return (
     <div className="rounded-[var(--pg-radius-md)] border border-border/70 bg-background/80 p-4 shadow-[var(--pg-shadow-xs)]">
-      <Skeleton className="mb-3 h-4 w-4 rounded-full" />
+      <Skeleton className="mb-3 size-4 rounded-full" />
       <Skeleton className="h-3 w-14" />
       <Skeleton className="mt-2 h-5 w-full max-w-40" />
     </div>
@@ -347,7 +347,7 @@ function UpcomingSkeletonGrid() {
       {[0, 1, 2].map((item) => (
         <GuestPanel key={item} className="p-4">
           <div className="flex items-center gap-4">
-            <Skeleton className="h-14 w-14 rounded-2xl" />
+            <Skeleton className="size-14 rounded-2xl" />
             <div className="flex-1 space-y-2">
               <Skeleton className="h-5 w-3/4" />
               <Skeleton className="h-4 w-1/2" />
@@ -373,7 +373,7 @@ function UpcomingBookingCard({ booking }: { booking: BookingDTO }) {
       className="pg-focus-ring block rounded-[var(--pg-radius-md)]"
     >
       <GuestPanel interactive className="pg-touch group flex items-center gap-3 p-4">
-        <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-[var(--pg-radius-md)] border border-border/80 bg-background text-primary shadow-[var(--pg-shadow-xs)]">
+        <div className="flex size-14 shrink-0 flex-col items-center justify-center rounded-[var(--pg-radius-md)] border border-border/80 bg-background text-primary shadow-[var(--pg-shadow-xs)]">
           <span className="text-xs font-bold uppercase">
             {bookingDateTime?.setLocale('en').toFormat('MMM') ?? 'TBC'}
           </span>
@@ -386,14 +386,14 @@ function UpcomingBookingCard({ booking }: { booking: BookingDTO }) {
             {booking.restaurantName}
           </p>
           <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-            <Clock className="h-3.5 w-3.5" aria-hidden />
+            <Clock className="size-3.5" aria-hidden />
             <span>{timeLabel}</span>
             <span aria-hidden>·</span>
             <span>{booking.partySize} guests</span>
           </p>
         </div>
         <ChevronRight
-          className="h-5 w-5 text-muted-foreground transition group-hover:text-foreground"
+          className="size-5 text-muted-foreground transition group-hover:text-foreground"
           aria-hidden
         />
       </GuestPanel>
@@ -433,14 +433,14 @@ function AccountLink({
   return (
     <Link href={href} className="pg-focus-ring block rounded-[var(--pg-radius-md)]">
       <div className="pg-touch flex items-center gap-3 rounded-[var(--pg-radius-md)] border border-border/70 bg-background/80 p-3 transition hover:border-primary/25 hover:bg-background">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <Icon className="h-4 w-4" aria-hidden />
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <Icon className="size-4" aria-hidden />
         </span>
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-semibold text-foreground">{title}</span>
           <span className="pg-caption block">{description}</span>
         </span>
-        <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden />
+        <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
       </div>
     </Link>
   );

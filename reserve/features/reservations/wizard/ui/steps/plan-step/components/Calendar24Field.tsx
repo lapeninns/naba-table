@@ -138,7 +138,7 @@ export function Calendar24Date({
         id={dateLabelId}
         className="flex items-center gap-1.5 px-1 text-sm font-semibold sm:text-base"
       >
-        <CalendarIcon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+        <CalendarIcon className="size-4 text-muted-foreground" aria-hidden="true" />
         <span>Date</span>
       </div>
       <Popover open={open} onOpenChange={setOpen}>
@@ -162,7 +162,7 @@ export function Calendar24Date({
             <span id={dateValueId} className="truncate">
               {label}
             </span>
-            <ChevronDownIcon className="h-4 w-4 shrink-0 opacity-50" aria-hidden />
+            <ChevronDownIcon className="size-4 shrink-0 opacity-50" aria-hidden />
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto overflow-hidden p-0" align="start">
@@ -273,7 +273,7 @@ export function Calendar24Time({
         id={timeLabelId}
         className="flex items-center gap-1.5 px-1 text-sm font-semibold sm:text-base"
       >
-        <ClockIcon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+        <ClockIcon className="size-4 text-muted-foreground" aria-hidden="true" />
         <span>Time</span>
       </Label>
       <div className="flex flex-col gap-2">

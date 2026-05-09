@@ -63,7 +63,6 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
   return (
     <div className="px-3 pb-3 sm:px-4 sm:pb-4">
       <div className="flex flex-col gap-2 border-t border-border/60 pt-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-
         {/* ── Utility row: Details + overflow menu ──────────────────── */}
         <div className="flex items-center gap-1">
           <Button
@@ -85,7 +84,7 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
                 aria-label="More actions"
                 disabled={disableMenuTrigger}
               >
-                <MoreHorizontal className="h-4 w-4" aria-hidden />
+                <MoreHorizontal className="size-4" aria-hidden />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
@@ -136,15 +135,15 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
             >
               {primaryButton.pending ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> Updating…
+                  <Loader2 className="mr-2 size-4 animate-spin" aria-hidden /> Updating…
                 </>
               ) : primaryButton.id === 'check-out' ? (
                 <>
-                  <LogOut className="mr-2 h-4 w-4" aria-hidden /> Finish
+                  <LogOut className="mr-2 size-4" aria-hidden /> Finish
                 </>
               ) : (
                 <>
-                  <LogIn className="mr-2 h-4 w-4" aria-hidden /> Seat Guest
+                  <LogIn className="mr-2 size-4" aria-hidden /> Seat Guest
                 </>
               )}
             </Button>
@@ -153,7 +152,7 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
               className="flex items-center gap-1.5 px-3 text-xs font-bold text-muted-foreground"
               role="status"
             >
-              <Check className="h-4 w-4 text-primary" aria-hidden />
+              <Check className="size-4 text-primary" aria-hidden />
               {actions.primary.label}
             </div>
           )}

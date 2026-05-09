@@ -109,7 +109,7 @@ export function GuestTimelineCard({ status, booking, timezone }: GuestTimelineCa
                       dotTone,
                     )}
                   >
-                    <Icon className="h-3 w-3" aria-hidden />
+                    <Icon className="size-3" aria-hidden />
                   </div>
                   {!isLast ? <div className={cn('h-3 w-px', lineTone)} aria-hidden /> : null}
                 </div>

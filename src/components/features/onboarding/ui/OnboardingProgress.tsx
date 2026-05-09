@@ -33,7 +33,7 @@ export function OnboardingProgress({ steps, current }: OnboardingProgressProps) 
             )}
           >
             <span className="mt-0.5 text-primary" aria-hidden>
-              {isComplete ? <CheckCircle2 className="h-5 w-5" /> : <Circle className="h-5 w-5" />}
+              {isComplete ? <CheckCircle2 className="size-5" /> : <Circle className="size-5" />}
             </span>
             <div className="flex flex-col gap-1">
               <p className="text-sm font-semibold leading-tight text-foreground">{step.title}</p>

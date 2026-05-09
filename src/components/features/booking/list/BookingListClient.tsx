@@ -164,7 +164,7 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
         description="A clean archive for live reservations, past visits, receipt downloads, and repeat bookings."
         actions={
           <GuestPrimaryButton href="/restaurants">
-            <CalendarPlus className="h-5 w-5" aria-hidden />
+            <CalendarPlus className="size-5" aria-hidden />
             New booking
           </GuestPrimaryButton>
         }
@@ -229,7 +229,7 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
           <TabsContent value="past" className="mt-0">
             {past.length === 0 ? (
               <GuestPanel className="p-8 text-center">
-                <ReceiptText className="mx-auto mb-4 h-10 w-10 text-muted-foreground" aria-hidden />
+                <ReceiptText className="mx-auto mb-4 size-10 text-muted-foreground" aria-hidden />
                 <h3 className="pg-card-title">No receipts yet</h3>
                 <p className="pg-caption mt-2">Completed reservations will appear here.</p>
               </GuestPanel>
@@ -297,7 +297,7 @@ function BookingCard({ booking, isPast = false }: { booking: BookingDTO; isPast?
               <StatusBadge status={booking.status} isPast={isPast} />
             </div>
             <p className="flex items-center gap-2 text-sm text-muted-foreground">
-              <MapPin className="h-4 w-4 shrink-0" aria-hidden />
+              <MapPin className="size-4 shrink-0" aria-hidden />
               <span className="truncate">{booking.restaurantSlug ?? 'Restaurant details'}</span>
             </p>
           </div>
@@ -305,7 +305,7 @@ function BookingCard({ booking, isPast = false }: { booking: BookingDTO; isPast?
         </div>
 
         <div className="grid gap-3 px-5 pb-5 sm:grid-cols-[5rem_1fr] sm:px-6 sm:pb-6">
-          <div className="flex h-20 w-20 flex-col items-center justify-center rounded-[var(--pg-radius-md)] bg-primary/10 text-primary">
+          <div className="flex size-20 flex-col items-center justify-center rounded-[var(--pg-radius-md)] bg-primary/10 text-primary">
             <span className="text-xs font-bold uppercase">{monthLabel}</span>
             <span className="text-3xl font-bold leading-none">{dayLabel}</span>
           </div>
@@ -353,9 +353,9 @@ function BookingCardMenu({
         <Button
           variant="ghost"
           size="icon"
-          className="pg-focus-ring -mr-2 h-10 w-10 rounded-full text-muted-foreground hover:text-foreground"
+          className="pg-focus-ring -mr-2 size-10 rounded-full text-muted-foreground hover:text-foreground"
         >
-          <MoreHorizontal className="h-5 w-5" aria-hidden />
+          <MoreHorizontal className="size-5" aria-hidden />
           <span className="sr-only">Open booking menu</span>
         </Button>
       </DropdownMenuTrigger>

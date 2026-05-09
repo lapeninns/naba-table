@@ -8,7 +8,10 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
-import type { OpsBookingCardDetailsViewModel, OpsBookingCardHeaderViewModel } from './opsBookingCardUtils';
+import type {
+  OpsBookingCardDetailsViewModel,
+  OpsBookingCardHeaderViewModel,
+} from './opsBookingCardUtils';
 import type { OpsBookingStatus } from '@/types/ops';
 
 export type OpsBookingCardHeaderProps = {
@@ -78,18 +81,18 @@ export const OpsBookingCardHeader = memo(function OpsBookingCardHeader({
       {/* ── Row 2: Party / Date / Time meta ─────────────────────────── */}
       <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 pl-[calc(2rem+0.625rem)] sm:pl-[calc(2.25rem+0.625rem)]">
         <span className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground sm:text-xs">
-          <Users className="h-3 w-3 shrink-0" aria-hidden />
+          <Users className="size-3 shrink-0" aria-hidden />
           {partySizeLabel}
         </span>
-        <span className="text-[11px] text-muted-foreground/40" aria-hidden>·</span>
+        <span className="text-[11px] text-muted-foreground/40" aria-hidden>
+          ·
+        </span>
         <span className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground sm:text-xs">
-          <Calendar className="h-3 w-3 shrink-0" aria-hidden />
+          <Calendar className="size-3 shrink-0" aria-hidden />
           {dateLabel}
         </span>
-        <span
-          className="inline-flex items-center gap-1 rounded bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground sm:text-[11px]"
-        >
-          <Clock className="h-3 w-3 shrink-0" aria-hidden />
+        <span className="inline-flex items-center gap-1 rounded bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground sm:text-[11px]">
+          <Clock className="size-3 shrink-0" aria-hidden />
           {timeRangeLabel}
         </span>
       </div>
@@ -107,7 +110,7 @@ export const OpsBookingCardHeader = memo(function OpsBookingCardHeader({
                   : 'bg-muted/50 text-foreground/70',
               )}
             >
-              <Armchair className="h-3 w-3 shrink-0" aria-hidden />
+              <Armchair className="size-3 shrink-0" aria-hidden />
               {table.label}
             </span>
           )}
@@ -121,14 +124,14 @@ export const OpsBookingCardHeader = memo(function OpsBookingCardHeader({
                 urgency.variant === 'warning' && 'border-primary/30 bg-primary/10 text-primary',
               )}
             >
-              <Clock className="mr-1 h-3 w-3" aria-hidden /> {urgency.label}
+              <Clock className="mr-1 size-3" aria-hidden /> {urgency.label}
             </Badge>
           )}
 
           {/* Notes passive signal — visible when collapsed */}
           {!isOpen && hasNotes && (
             <Badge variant="secondary" className="py-0.5 text-[10px] sm:text-[11px]">
-              <FileText className="mr-1 h-3 w-3" aria-hidden />
+              <FileText className="mr-1 size-3" aria-hidden />
               Notes
               <span className="sr-only"> available. Expand details to read.</span>
             </Badge>

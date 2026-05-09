@@ -343,7 +343,7 @@ export function DualSyncShell({
   if (stateQuery.isError) {
     return (
       <Alert variant="destructive" className={className}>
-        <AlertCircle className="h-4 w-4" />
+        <AlertCircle className="size-4" />
         <AlertTitle>Couldn&apos;t load dual-sync state.</AlertTitle>
         <AlertDescription>
           {stateQuery.error instanceof Error ? stateQuery.error.message : 'Unknown error.'}
@@ -401,9 +401,7 @@ export function DualSyncShell({
             onClick={onClickRefresh}
             disabled={refreshMutation.isPending}
           >
-            <RefreshCw
-              className={cn('mr-1 h-4 w-4', refreshMutation.isPending && 'animate-spin')}
-            />
+            <RefreshCw className={cn('mr-1 size-4', refreshMutation.isPending && 'animate-spin')} />
             Pull from Google
           </Button>
           <Button
@@ -418,7 +416,7 @@ export function DualSyncShell({
                 : `Auto-publish ${autoExportable} queued exports`
             }
           >
-            <Zap className={cn('mr-1 h-4 w-4', autoExportMutation.isPending && 'animate-pulse')} />
+            <Zap className={cn('mr-1 size-4', autoExportMutation.isPending && 'animate-pulse')} />
             {autoExportMutation.isPending
               ? 'Running…'
               : `Auto-publish ${autoExportable > 0 ? `(${autoExportable})` : ''}`.trim()}
@@ -429,7 +427,7 @@ export function DualSyncShell({
             disabled={!canSubmit}
             aria-disabled={!canSubmit}
           >
-            <Send className="mr-1 h-4 w-4" />
+            <Send className="mr-1 size-4" />
             {publishMutation.isPending
               ? 'Publishing…'
               : `Publish ${decisionCount > 0 ? `(${decisionCount})` : ''}`.trim()}

@@ -43,7 +43,7 @@ export function OccasionPicker({
   return (
     <FormItem className="space-y-3">
       <FormLabel className="flex items-center gap-1.5 text-sm font-semibold sm:text-base">
-        <SparklesIcon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+        <SparklesIcon className="size-4 text-muted-foreground" aria-hidden="true" />
         <span>Occasion</span>
       </FormLabel>
       <ToggleGroup

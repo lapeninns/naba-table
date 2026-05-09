@@ -5,7 +5,7 @@ export default function BookingDetailLoading() {
     <div className="min-h-[100dvh] py-10">
       <div className="pg-container space-y-8">
         <div className="flex items-center gap-3">
-          <Skeleton className="h-10 w-10 rounded-full" />
+          <Skeleton className="size-10 rounded-full" />
           <div className="space-y-2">
             <Skeleton className="h-6 w-48" />
             <Skeleton className="h-4 w-32" />

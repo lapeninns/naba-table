@@ -81,6 +81,24 @@ describe('useOpsDualSync', () => {
 
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['dual-sync-state', restaurantId] });
     expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ['dual-sync-operations', restaurantId],
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ['dual-sync-publish-jobs', restaurantId],
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ['dual-sync-publish-job-detail', restaurantId],
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: queryKeys.opsRestaurants.googleBusinessProfile(restaurantId),
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: queryKeys.opsRestaurants.googleBusinessProfileLocations(restaurantId),
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: queryKeys.opsFoodMenus.importReviews(restaurantId),
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: queryKeys.opsRestaurants.detail(restaurantId),
     });
   });
@@ -97,6 +115,12 @@ describe('useOpsDualSync', () => {
     });
 
     expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: queryKeys.opsRestaurants.googleBusinessProfile(restaurantId),
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ['dual-sync-operations', restaurantId],
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: queryKeys.opsRestaurants.detail(restaurantId),
     });
   });
@@ -112,6 +136,12 @@ describe('useOpsDualSync', () => {
       await result.current.autoExportMutation.mutateAsync();
     });
 
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: queryKeys.opsRestaurants.googleBusinessProfile(restaurantId),
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ['dual-sync-publish-jobs', restaurantId],
+    });
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: queryKeys.opsRestaurants.detail(restaurantId),
     });

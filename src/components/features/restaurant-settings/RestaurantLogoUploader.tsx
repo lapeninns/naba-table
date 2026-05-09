@@ -160,7 +160,7 @@ export function RestaurantLogoUploader({
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
-          <div className="relative h-20 w-20 overflow-hidden rounded-md border border-border bg-background">
+          <div className="relative size-20 overflow-hidden rounded-md border border-border bg-background">
             {displayUrl ? (
               <Image
                 src={displayUrl}
@@ -178,7 +178,7 @@ export function RestaurantLogoUploader({
             )}
             {(busy || isLoading) && (
               <div className="absolute inset-0 flex items-center justify-center bg-background/70">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                <Loader2 className="size-6 animate-spin text-primary" />
               </div>
             )}
           </div>
@@ -201,9 +201,9 @@ export function RestaurantLogoUploader({
               onClick={() => fileInputRef.current?.click()}
             >
               {busy ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="mr-2 size-4 animate-spin" />
               ) : (
-                <Upload className="mr-2 h-4 w-4" />
+                <Upload className="mr-2 size-4" />
               )}
               {logoUrl ? 'Replace logo' : 'Upload logo'}
             </Button>
@@ -213,7 +213,7 @@ export function RestaurantLogoUploader({
               disabled={controlsDisabled || !logoUrl}
               onClick={handleRemoveLogo}
             >
-              <Trash2 className="mr-2 h-4 w-4" /> Remove
+              <Trash2 className="mr-2 size-4" /> Remove
             </Button>
           </div>
           <Input

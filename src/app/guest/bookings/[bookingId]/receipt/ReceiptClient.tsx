@@ -179,7 +179,7 @@ export function ReceiptClient({ reservationId, hasSession }: ReceiptClientProps)
               className="pg-action pg-focus-ring pg-touch"
               onClick={handleDownload}
             >
-              <Download className="h-4 w-4" aria-hidden />
+              <Download className="size-4" aria-hidden />
               Download PDF
             </Button>
             <Button
@@ -189,7 +189,7 @@ export function ReceiptClient({ reservationId, hasSession }: ReceiptClientProps)
               className="pg-action pg-focus-ring pg-touch"
               onClick={handleShare}
             >
-              <Share2 className="h-4 w-4" aria-hidden />
+              <Share2 className="size-4" aria-hidden />
               Share
             </Button>
           </>
@@ -214,7 +214,7 @@ export function ReceiptClient({ reservationId, hasSession }: ReceiptClientProps)
             className="pg-action pg-focus-ring pg-touch"
             onClick={handleAddToCalendar}
           >
-            <CalendarPlus className="h-4 w-4" aria-hidden />
+            <CalendarPlus className="size-4" aria-hidden />
             Add calendar
           </Button>
         </GuestReferenceStrip>
@@ -268,7 +268,7 @@ export function ReceiptClient({ reservationId, hasSession }: ReceiptClientProps)
             className="pg-action pg-focus-ring pg-touch"
             onClick={handleAddToCalendar}
           >
-            <CalendarPlus className="h-4 w-4" aria-hidden />
+            <CalendarPlus className="size-4" aria-hidden />
             Calendar
           </Button>
           <Button
@@ -278,7 +278,7 @@ export function ReceiptClient({ reservationId, hasSession }: ReceiptClientProps)
             className="pg-action pg-focus-ring pg-touch"
             onClick={handleDownload}
           >
-            <Download className="h-4 w-4" aria-hidden />
+            <Download className="size-4" aria-hidden />
             PDF
           </Button>
           <Button
@@ -288,7 +288,7 @@ export function ReceiptClient({ reservationId, hasSession }: ReceiptClientProps)
             className="pg-action pg-focus-ring pg-touch"
             onClick={handleShare}
           >
-            <Share2 className="h-4 w-4" aria-hidden />
+            <Share2 className="size-4" aria-hidden />
             Share
           </Button>
         </div>

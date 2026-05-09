@@ -44,7 +44,7 @@ export function GuestDietaryBadge({ allergies, dietaryRestrictions }: GuestDieta
             variant="outline"
             className="gap-1 border-destructive/20 bg-destructive/10 text-destructive"
           >
-            <Utensils className="h-3.5 w-3.5" aria-hidden />
+            <Utensils className="size-3.5" aria-hidden />
             {label}
           </Badge>
         </Button>

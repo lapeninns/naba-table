@@ -27,7 +27,7 @@ export function GuestContactCard({ booking }: GuestContactCardProps) {
       <CardContent className="space-y-3 p-3">
         {!hasAnyContact ? (
           <div className="flex items-center gap-2 rounded-md bg-muted/50 p-2 text-xs font-medium text-muted-foreground">
-            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
+            <span className="size-1.5 rounded-full bg-muted-foreground/40" />
             No contact details provided
           </div>
         ) : null}

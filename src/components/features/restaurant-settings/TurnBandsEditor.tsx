@@ -140,7 +140,7 @@ export function TurnBandsEditor({
           onClick={handleAddRow}
           disabled={disabled}
         >
-          <Plus className="mr-2 h-4 w-4" aria-hidden />
+          <Plus className="mr-2 size-4" aria-hidden />
           Add band
         </Button>
         {!hasOverrides && effectiveDefaults.length > 0 ? (
@@ -238,7 +238,7 @@ export function TurnBandsEditor({
                     onClick={() => handleRemoveRow(index)}
                     aria-label="Remove band"
                   >
-                    <Trash2 className="h-4 w-4" aria-hidden />
+                    <Trash2 className="size-4" aria-hidden />
                   </Button>
                 </div>
               </div>

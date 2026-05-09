@@ -153,6 +153,23 @@ describe('restaurant google business profile routes', () => {
     expect(linkLocationMock).not.toHaveBeenCalled();
   });
 
+  it('returns frontend-readable messages for connection load failures', async () => {
+    resolveRestaurantIdMock.mockResolvedValue('rest-1');
+    ensureRestaurantAdminAccessMock.mockResolvedValue({ userId: 'user-1' });
+    getConnectionStateMock.mockRejectedValue(new Error('GBP provider unavailable'));
+
+    const response = await connectionGET(
+      new NextRequest('https://example.com/api/ops/restaurants/rest-1/google-business-profile'),
+      { params: Promise.resolve({ id: 'rest-1' }) },
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toMatchObject({
+      message: 'GBP provider unavailable',
+      error: 'GBP provider unavailable',
+    });
+  });
+
   it('returns the updated connection state after disconnecting', async () => {
     resolveRestaurantIdMock.mockResolvedValue('rest-1');
     ensureRestaurantAdminAccessMock.mockResolvedValue({ userId: 'user-1' });

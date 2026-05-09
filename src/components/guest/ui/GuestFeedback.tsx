@@ -56,7 +56,7 @@ export const GuestStatus = forwardRef<HTMLDivElement, GuestStatusProps>(function
       )}
       {...rest}
     >
-      <Icon aria-hidden className="h-5 w-5" />
+      <Icon aria-hidden className="size-5" />
       <div className="flex min-w-0 flex-1 items-start gap-3">
         <div className="min-w-0 flex-1">
           <AlertTitle>{title}</AlertTitle>
@@ -97,8 +97,8 @@ export function GuestEmpty({
       )}
     >
       <CardContent className="flex flex-col items-center px-8 py-12">
-        <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-[var(--pg-radius-md)] border border-border/80 bg-background text-muted-foreground shadow-[var(--pg-shadow-xs)]">
-          <Icon className="h-8 w-8" aria-hidden />
+        <div className="mb-6 flex size-16 items-center justify-center rounded-[var(--pg-radius-md)] border border-border/80 bg-background text-muted-foreground shadow-[var(--pg-shadow-xs)]">
+          <Icon className="size-8" aria-hidden />
         </div>
         <CardTitle className="pg-card-title">{title}</CardTitle>
         <p className="pg-body mt-2 max-w-sm">{description}</p>
@@ -145,8 +145,8 @@ export function GuestError({
   return (
     <Card className="pg-panel overflow-hidden border-border/80 shadow-[var(--pg-shadow-edge)]">
       <CardHeader className="items-center gap-4 border-b border-border/70 bg-muted/35 px-6 py-5 text-center">
-        <div className="pg-danger-icon flex h-12 w-12 items-center justify-center rounded-full">
-          <AlertCircle className="h-6 w-6" aria-hidden />
+        <div className="pg-danger-icon flex size-12 items-center justify-center rounded-full">
+          <AlertCircle className="size-6" aria-hidden />
         </div>
         <CardTitle className="pg-card-title">{title}</CardTitle>
       </CardHeader>

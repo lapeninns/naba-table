@@ -69,8 +69,8 @@ export function AssignmentToolbar({
             {/* Party Size */}
             {partySize && (
               <div className="flex items-center gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-xl border-2 border-primary/30 bg-primary/10 shadow-sm">
-                  <Users className="h-7 w-7 text-primary dark:text-primary" />
+                <div className="flex size-14 items-center justify-center rounded-xl border-2 border-primary/30 bg-primary/10 shadow-sm">
+                  <Users className="size-7 text-primary dark:text-primary" />
                 </div>
                 <div className="space-y-1">
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
@@ -83,8 +83,8 @@ export function AssignmentToolbar({
 
             {/* Selected Tables */}
             <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-xl border-2 border-primary/30 bg-primary/10 shadow-sm">
-                <LayoutGrid className="h-7 w-7 text-primary dark:text-primary" />
+              <div className="flex size-14 items-center justify-center rounded-xl border-2 border-primary/30 bg-primary/10 shadow-sm">
+                <LayoutGrid className="size-7 text-primary dark:text-primary" />
               </div>
               <div className="space-y-1">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
@@ -103,7 +103,7 @@ export function AssignmentToolbar({
             <div className="flex items-center gap-4">
               <div
                 className={cn(
-                  'flex h-14 w-14 items-center justify-center rounded-xl border-2 shadow-sm transition-colors',
+                  'flex size-14 items-center justify-center rounded-xl border-2 shadow-sm transition-colors',
                   capacityStatus === 'sufficient'
                     ? 'border-primary/30 bg-primary/10'
                     : capacityStatus === 'insufficient'
@@ -112,11 +112,11 @@ export function AssignmentToolbar({
                 )}
               >
                 {capacityStatus === 'sufficient' ? (
-                  <CheckCircle2 className="h-7 w-7 text-primary dark:text-primary" />
+                  <CheckCircle2 className="size-7 text-primary dark:text-primary" />
                 ) : capacityStatus === 'insufficient' ? (
-                  <AlertCircle className="h-7 w-7 text-destructive dark:text-destructive" />
+                  <AlertCircle className="size-7 text-destructive dark:text-destructive" />
                 ) : (
-                  <Users className="h-7 w-7 text-muted-foreground" />
+                  <Users className="size-7 text-muted-foreground" />
                 )}
               </div>
               <div className="space-y-1">
@@ -184,9 +184,9 @@ export function AssignmentToolbar({
                 className="text-sm font-medium cursor-pointer flex items-center gap-2 text-foreground select-none"
               >
                 {onlyAvailable ? (
-                  <Eye className="h-4 w-4 text-primary" />
+                  <Eye className="size-4 text-primary" />
                 ) : (
-                  <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  <EyeOff className="size-4 text-muted-foreground" />
                 )}
                 <span>Available only</span>
               </Label>
@@ -205,7 +205,7 @@ export function AssignmentToolbar({
               title="Clear selection"
               aria-label="Clear table selection"
             >
-              <Trash2 className="h-4 w-4 mr-2" aria-hidden />
+              <Trash2 className="size-4 mr-2" aria-hidden />
               Clear
             </Button>
           )}
@@ -232,12 +232,12 @@ export function AssignmentToolbar({
                   >
                     {isAssigning ? (
                       <>
-                        <Loader2 className="mr-2 h-5 w-5 animate-spin" aria-hidden />
+                        <Loader2 className="mr-2 size-5 animate-spin" aria-hidden />
                         Assigning…
                       </>
                     ) : (
                       <>
-                        <CheckCircle2 className="mr-2 h-5 w-5" aria-hidden />
+                        <CheckCircle2 className="mr-2 size-5" aria-hidden />
                         Assign Tables
                       </>
                     )}

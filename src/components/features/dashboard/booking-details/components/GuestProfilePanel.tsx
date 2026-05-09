@@ -80,7 +80,7 @@ function StatChip({
       )}
     >
       <div className="flex items-center gap-1.5 text-muted-foreground mb-0.5">
-        <Icon className={cn('h-3.5 w-3.5', accent ? 'text-primary' : 'text-muted-foreground')} />
+        <Icon className={cn('size-3.5', accent ? 'text-primary' : 'text-muted-foreground')} />
         <span className="text-[10px] font-bold uppercase tracking-widest">{label}</span>
       </div>
       <div className="text-sm font-bold text-foreground leading-snug">{value}</div>
@@ -211,7 +211,7 @@ export function GuestProfilePanel({
                 className="h-auto gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold"
               >
                 <a href={`tel:${formatPhoneForTel(booking.customerPhone)}`}>
-                  <Phone className="h-3.5 w-3.5 text-primary" />
+                  <Phone className="size-3.5 text-primary" />
                   {booking.customerPhone}
                 </a>
               </Button>
@@ -224,7 +224,7 @@ export function GuestProfilePanel({
                 className="h-auto gap-1.5 rounded-xl border-primary/30 bg-primary/5 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10 hover:text-primary"
               >
                 <a href={whatsappHref} target="_blank" rel="noopener noreferrer">
-                  <MessageCircle className="h-3.5 w-3.5" />
+                  <MessageCircle className="size-3.5" />
                   WhatsApp
                 </a>
               </Button>
@@ -237,7 +237,7 @@ export function GuestProfilePanel({
                 className="h-auto gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold"
               >
                 <a href={`mailto:${booking.customerEmail}`}>
-                  <Mail className="h-3.5 w-3.5 text-primary" />
+                  <Mail className="size-3.5 text-primary" />
                   Email
                 </a>
               </Button>

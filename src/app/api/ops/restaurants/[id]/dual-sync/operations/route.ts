@@ -20,6 +20,10 @@ import {
   ensureRestaurantAdminAccess,
   resolveRestaurantId,
 } from '@/app/api/ops/restaurants/[id]/_shared';
+import {
+  dualSyncErrorResponse,
+  dualSyncUnavailableResponse,
+} from '@/app/api/ops/restaurants/[id]/dual-sync/_shared';
 import { isDualSyncEnabled } from '@/server/dual-sync/flag';
 import { listRecentOperationsForRestaurant } from '@/server/dual-sync/publish/operations';
 import { getServiceSupabaseClient } from '@/server/supabase';
@@ -43,7 +47,10 @@ function parseStatuses(
 ): ReadonlyArray<DualSyncPublishOperationStatus> | undefined {
   if (!raw) return undefined;
   const out: DualSyncPublishOperationStatus[] = [];
-  for (const piece of raw.split(',').map((p) => p.trim()).filter(Boolean)) {
+  for (const piece of raw
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean)) {
     if ((VALID_STATUSES as ReadonlyArray<string>).includes(piece)) {
       out.push(piece as DualSyncPublishOperationStatus);
     }
@@ -51,9 +58,7 @@ function parseStatuses(
   return out.length > 0 ? out : undefined;
 }
 
-function parseDirection(
-  raw: string | null,
-): 'import_from_google' | 'export_to_google' | undefined {
+function parseDirection(raw: string | null): 'import_from_google' | 'export_to_google' | undefined {
   if (raw === 'import_from_google' || raw === 'export_to_google') return raw;
   return undefined;
 }
@@ -74,13 +79,10 @@ function parseSince(raw: string | null): string | null {
 export async function GET(req: NextRequest, { params }: RouteContext) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
-    return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
+    return dualSyncErrorResponse('Missing restaurant id', 400);
   }
   if (!isDualSyncEnabled({ restaurantId })) {
-    return NextResponse.json(
-      { error: 'Dual-sync is not enabled for this deployment.' },
-      { status: 404 },
-    );
+    return dualSyncUnavailableResponse();
   }
   const access = await ensureRestaurantAdminAccess(restaurantId, 'dual-sync-operations');
   if (access instanceof NextResponse) return access;
@@ -101,13 +103,10 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
       direction,
     });
 
-    return NextResponse.json(
-      { restaurantId, operations },
-      { status: 200 },
-    );
+    return NextResponse.json({ restaurantId, operations }, { status: 200 });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to load operations';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return dualSyncErrorResponse(message, 500, 'DUAL_SYNC_OPERATIONS_ERROR');
   }
 }
 

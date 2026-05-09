@@ -20,6 +20,10 @@ import {
   ensureRestaurantAdminAccess,
   resolveRestaurantId,
 } from '@/app/api/ops/restaurants/[id]/_shared';
+import {
+  dualSyncErrorResponse,
+  dualSyncUnavailableResponse,
+} from '@/app/api/ops/restaurants/[id]/dual-sync/_shared';
 import { isDualSyncEnabled } from '@/server/dual-sync/flag';
 import { runAutoExportForRestaurant } from '@/server/dual-sync/scheduling/auto-export';
 import { getServiceSupabaseClient } from '@/server/supabase';
@@ -37,13 +41,10 @@ const requestSchema = z
 export async function POST(req: NextRequest, { params }: RouteContext) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
-    return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
+    return dualSyncErrorResponse('Missing restaurant id', 400);
   }
   if (!isDualSyncEnabled({ restaurantId })) {
-    return NextResponse.json(
-      { error: 'Dual-sync is not enabled for this deployment.' },
-      { status: 404 },
-    );
+    return dualSyncUnavailableResponse();
   }
   const access = await ensureRestaurantAdminAccess(restaurantId, 'dual-sync-auto-export');
   if (access instanceof NextResponse) return access;
@@ -54,12 +55,11 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     body = requestSchema.parse(json);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid request body', issues: error.issues },
-        { status: 400 },
-      );
+      return dualSyncErrorResponse('Invalid request body', 400, 'DUAL_SYNC_INVALID_REQUEST', {
+        details: error.issues,
+      });
     }
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+    return dualSyncErrorResponse('Invalid request body', 400, 'DUAL_SYNC_INVALID_REQUEST');
   }
 
   try {
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     return NextResponse.json(summary, { status: 200 });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Auto-export failed';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return dualSyncErrorResponse(message, 500, 'DUAL_SYNC_AUTO_EXPORT_ERROR');
   }
 }
 

@@ -10,7 +10,6 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { queryKeys } from '@/lib/query/keys';
 import {
   getDualSyncPublishJobDetail,
   getDualSyncState,
@@ -20,6 +19,8 @@ import {
   refreshDualSync,
   runDualSyncAutoExport,
 } from '@/services/ops/dual-sync';
+
+import { dualSyncQueryKeys, invalidateOpsIntegrationQueries } from './opsIntegrationQueries';
 
 import type {
   DualSyncPublishRequest,
@@ -35,7 +36,6 @@ import type {
   RunAutoExportResponse,
 } from '@/services/ops/dual-sync';
 
-const stateKey = (restaurantId: string) => ['dual-sync-state', restaurantId] as const;
 const operationsKey = (restaurantId: string, request: ListDualSyncOperationsRequest) =>
   [
     'dual-sync-operations',
@@ -55,14 +55,6 @@ const publishJobsKey = (restaurantId: string, request: ListDualSyncPublishJobsRe
   ] as const;
 const publishJobDetailKey = (restaurantId: string, jobId: string) =>
   ['dual-sync-publish-job-detail', restaurantId, jobId] as const;
-
-function invalidateRestaurantProfileAfterDualSync(
-  queryClient: ReturnType<typeof useQueryClient>,
-  restaurantId: string,
-) {
-  queryClient.invalidateQueries({ queryKey: stateKey(restaurantId) });
-  queryClient.invalidateQueries({ queryKey: queryKeys.opsRestaurants.detail(restaurantId) });
-}
 
 export interface UseOpsDualSyncArgs {
   readonly restaurantId: string | null;
@@ -100,7 +92,9 @@ export function useOpsDualSync({
 
   const stateQuery = useQuery<GetDualSyncStateResponse>({
     enabled,
-    queryKey: enabled ? stateKey(restaurantId as string) : ['dual-sync-state', 'noop'],
+    queryKey: enabled
+      ? dualSyncQueryKeys.state(restaurantId as string)
+      : ['dual-sync-state', 'noop'],
     queryFn: () => getDualSyncState(restaurantId as string),
   });
 
@@ -113,7 +107,7 @@ export function useOpsDualSync({
     },
     onSuccess: () => {
       if (restaurantId) {
-        invalidateRestaurantProfileAfterDualSync(queryClient, restaurantId);
+        invalidateOpsIntegrationQueries(queryClient, restaurantId);
       }
     },
   });
@@ -127,7 +121,7 @@ export function useOpsDualSync({
     },
     onSuccess: () => {
       if (restaurantId) {
-        invalidateRestaurantProfileAfterDualSync(queryClient, restaurantId);
+        invalidateOpsIntegrationQueries(queryClient, restaurantId);
       }
     },
   });
@@ -144,7 +138,7 @@ export function useOpsDualSync({
       },
       onSuccess: () => {
         if (restaurantId) {
-          invalidateRestaurantProfileAfterDualSync(queryClient, restaurantId);
+          invalidateOpsIntegrationQueries(queryClient, restaurantId);
         }
       },
     },

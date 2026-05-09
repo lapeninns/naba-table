@@ -42,7 +42,7 @@ export function PartySizeField({ value, onChange, error }: PartySizeFieldProps) 
         id={labelId}
         className="flex items-center gap-1.5 px-1 text-sm font-semibold sm:text-base"
       >
-        <UsersIcon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+        <UsersIcon className="size-4 text-muted-foreground" aria-hidden="true" />
         <span>Party size</span>
       </div>
       <div
@@ -63,7 +63,7 @@ export function PartySizeField({ value, onChange, error }: PartySizeFieldProps) 
           aria-label="Decrease guests"
           className="h-full w-full shrink-0 rounded-none border-r border-border/70 text-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-35 active:scale-95"
         >
-          <MinusIcon className="h-5 w-5" aria-hidden="true" />
+          <MinusIcon className="size-5" aria-hidden="true" />
         </Button>
         <div
           className="flex h-8 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap px-1.5"
@@ -91,7 +91,7 @@ export function PartySizeField({ value, onChange, error }: PartySizeFieldProps) 
           aria-label="Increase guests"
           className="h-full w-full shrink-0 rounded-none border-l border-border/70 text-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-35 active:scale-95"
         >
-          <PlusIcon className="h-5 w-5" aria-hidden="true" />
+          <PlusIcon className="size-5" aria-hidden="true" />
         </Button>
       </div>
       <FormDescription id={descriptionId} className="px-1 text-xs sm:text-[0.8rem]">

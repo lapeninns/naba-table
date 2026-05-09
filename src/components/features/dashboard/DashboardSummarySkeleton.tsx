@@ -8,7 +8,12 @@ type DashboardSummarySkeletonProps = {
 
 export function DashboardSummarySkeleton({ restaurantName }: DashboardSummarySkeletonProps) {
   const resolvedName = restaurantName?.trim() || 'your restaurant';
-  const bookingKeys = ['booking-skeleton-1', 'booking-skeleton-2', 'booking-skeleton-3', 'booking-skeleton-4'];
+  const bookingKeys = [
+    'booking-skeleton-1',
+    'booking-skeleton-2',
+    'booking-skeleton-3',
+    'booking-skeleton-4',
+  ];
   return (
     <Card className="border-border/60" aria-busy="true">
       <CardHeader className="p-4 md:p-6">
@@ -38,7 +43,7 @@ export function DashboardSummarySkeleton({ restaurantName }: DashboardSummarySke
             </div>
             <div className="flex flex-col gap-2 md:flex-row md:items-center">
               <div className="flex gap-2">
-                <Skeleton className="h-9 w-9 rounded-full" />
+                <Skeleton className="size-9 rounded-full" />
                 <Skeleton className="h-9 w-20 rounded-full" />
               </div>
               <Skeleton className="h-9 w-full md:w-64 rounded" />

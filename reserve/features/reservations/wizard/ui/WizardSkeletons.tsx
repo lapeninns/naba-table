@@ -41,7 +41,7 @@ function FieldPanelSkeleton({
     <div className={`pg-panel border-border/80 bg-background/86 p-4 sm:p-5 ${className ?? ''}`}>
       <div className="space-y-4">
         <div className="flex items-center gap-2">
-          <Skeleton className="h-4 w-4 rounded-full" />
+          <Skeleton className="size-4 rounded-full" />
           <Skeleton className="h-5 w-28" />
         </div>
         <Skeleton className={`${bodyHeight} w-full rounded-[var(--pg-radius-md)]`} />
@@ -97,7 +97,7 @@ export function PlanStepSkeleton() {
           <div className="pg-panel order-4 border-border/80 bg-background/86 md:col-span-6 lg:col-span-12">
             <div className="flex items-center justify-between px-4 py-4 sm:px-5">
               <Skeleton className="h-5 w-full max-w-72" />
-              <Skeleton className="h-4 w-4 rounded-full" />
+              <Skeleton className="size-4 rounded-full" />
             </div>
           </div>
         </div>
@@ -153,7 +153,7 @@ export function ConfirmationStepSkeleton() {
     <WizardStepSkeletonShell>
       <CardHeader className="pg-wizard-card-header space-y-4 border-b border-border/70 px-4 py-4 sm:px-6">
         <div className="flex items-center gap-3">
-          <Skeleton className="h-6 w-6 rounded-full" />
+          <Skeleton className="size-6 rounded-full" />
           <Skeleton className="h-8 w-full max-w-52" />
         </div>
         <Skeleton className="h-4 w-full max-w-72" />

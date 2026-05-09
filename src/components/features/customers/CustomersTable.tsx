@@ -177,7 +177,7 @@ export function CustomersTable({
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Skeleton className="h-9 w-9 rounded-md" />
+                  <Skeleton className="size-9 rounded-md" />
                   <Skeleton className="h-9 w-20" />
                 </div>
               </div>
@@ -206,7 +206,7 @@ export function CustomersTable({
                   >
                     <div className="flex items-center justify-center gap-2 py-3 text-xs font-medium text-muted-foreground">
                       {isFetchingNextPage ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                        <Loader2 className="size-3.5 animate-spin" aria-hidden />
                       ) : null}
                       <span>
                         {isFetchingNextPage ? 'Loading more guests...' : 'Scroll to load more'}

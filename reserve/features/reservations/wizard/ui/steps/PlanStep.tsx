@@ -104,7 +104,7 @@ export function PlanStep({
         {alertMessage && (
           <Alert variant="destructive" role="alert" className="items-start animate-fade-in">
             <AlertIcon>
-              <AlertTriangle className="h-4 w-4" aria-hidden />
+              <AlertTriangle className="size-4" aria-hidden />
             </AlertIcon>
             <AlertDescription aria-live="polite">{alertMessage}</AlertDescription>
           </Alert>

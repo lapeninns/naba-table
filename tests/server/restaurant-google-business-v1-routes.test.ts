@@ -136,6 +136,22 @@ describe('restaurant google business V1 routes', () => {
     expect(requireProviderRefreshBudgetMock).not.toHaveBeenCalled();
   });
 
+  it('returns frontend-readable messages for location discovery failures', async () => {
+    getAvailableLocationsMock.mockRejectedValue(new Error('Google locations unavailable'));
+
+    const response = await locationsGET(
+      new NextRequest('https://example.com/api/ops/restaurants/rest-1/google-business/locations'),
+      routeContext,
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toMatchObject({
+      message: 'Google locations unavailable',
+      error: 'Google locations unavailable',
+      code: 'GBP_ERROR',
+    });
+  });
+
   it('rate-limits explicit GBP location refreshes', async () => {
     getAvailableLocationsMock.mockResolvedValue([]);
 

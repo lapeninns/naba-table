@@ -22,8 +22,8 @@ function MetaCard({
   const Icon = icon;
   return (
     <div className="flex items-center gap-2 rounded-lg border border-border/50 bg-background p-2.5 shadow-sm ring-1 ring-border/5">
-      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-muted/60 text-muted-foreground">
-        <Icon className="h-3.5 w-3.5" aria-hidden />
+      <div className="flex size-7 shrink-0 items-center justify-center rounded bg-muted/60 text-muted-foreground">
+        <Icon className="size-3.5" aria-hidden />
       </div>
       <div className="min-w-0">
         <div className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/70">

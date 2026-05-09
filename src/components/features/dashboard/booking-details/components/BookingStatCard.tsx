@@ -48,7 +48,7 @@ export function BookingStatCard({
             : 'bg-muted/80 text-muted-foreground ring-border',
         )}
       >
-        <Icon className="h-5 w-5" />
+        <Icon className="size-5" />
       </div>
       <div className="flex flex-col min-w-0">
         <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.2em]">

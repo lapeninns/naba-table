@@ -14,14 +14,14 @@ export function OpsBookingCardSkeleton() {
         <div className="block h-8 w-px bg-border/60 sm:hidden" />
 
         <div className="mt-1 flex items-center gap-2 sm:mt-2">
-          <Skeleton className="h-3.5 w-3.5 rounded-full" />
+          <Skeleton className="size-3.5 rounded-full" />
           <Skeleton className="h-3 w-12" />
         </div>
       </div>
 
       <div className="flex flex-1 flex-col gap-3">
         <div className="flex items-center gap-3">
-          <Skeleton className="h-10 w-10 rounded-full" />
+          <Skeleton className="size-10 rounded-full" />
           <div className="space-y-1.5">
             <Skeleton className="h-4 w-32 sm:w-48" />
             <Skeleton className="h-3 w-24 sm:w-32" />
@@ -44,7 +44,7 @@ export function OpsBookingCardSkeleton() {
         <Skeleton className="h-11 w-full rounded-md sm:h-10 sm:w-24" />
 
         <div className="flex gap-2">
-          <Skeleton className="h-8 w-8 rounded-md" />
+          <Skeleton className="size-8 rounded-md" />
           <Skeleton className="h-8 w-16 rounded-md" />
         </div>
       </div>

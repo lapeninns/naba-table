@@ -51,9 +51,9 @@ export function ClickToCopy({ text, label, className, compact = false }: ClickTo
           >
             <span className="truncate text-sm text-muted-foreground">{text}</span>
             {copied ? (
-              <Check className="ml-2 h-3.5 w-3.5 text-primary" aria-hidden />
+              <Check className="ml-2 size-3.5 text-primary" aria-hidden />
             ) : (
-              <Copy className="ml-2 h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+              <Copy className="ml-2 size-3.5 text-muted-foreground" aria-hidden />
             )}
           </Button>
         </TooltipTrigger>

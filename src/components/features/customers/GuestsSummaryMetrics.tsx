@@ -65,7 +65,7 @@ export function GuestsSummaryMetrics({
         <h2 className="text-sm font-semibold text-foreground">Guest metrics</h2>
         {isUpdating ? (
           <span className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+            <Loader2 className="size-3.5 animate-spin" aria-hidden />
             Updating…
           </span>
         ) : null}
@@ -105,7 +105,7 @@ export function GuestsSummaryMetrics({
         >
           More metrics
           <ChevronDown
-            className="h-3.5 w-3.5 transition-transform group-data-[state=open]:rotate-180"
+            className="size-3.5 transition-transform group-data-[state=open]:rotate-180"
             aria-hidden
           />
         </CollapsibleTrigger>

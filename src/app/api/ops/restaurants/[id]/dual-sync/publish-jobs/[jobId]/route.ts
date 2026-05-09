@@ -18,6 +18,10 @@ import {
   ensureRestaurantAdminAccess,
   resolveRestaurantId,
 } from '@/app/api/ops/restaurants/[id]/_shared';
+import {
+  dualSyncErrorResponse,
+  dualSyncUnavailableResponse,
+} from '@/app/api/ops/restaurants/[id]/dual-sync/_shared';
 import { isDualSyncEnabled } from '@/server/dual-sync/flag';
 import { getPublishJobDetailForRestaurant } from '@/server/dual-sync/publish/operations';
 import { getServiceSupabaseClient } from '@/server/supabase';
@@ -36,26 +40,18 @@ function resolveJobId(value: string | string[] | undefined): string | null {
 
 export async function GET(_req: NextRequest, { params }: RouteContext) {
   const resolved = await params;
-  const restaurantId = await resolveRestaurantId(
-    Promise.resolve({ id: resolved.id }),
-  );
+  const restaurantId = await resolveRestaurantId(Promise.resolve({ id: resolved.id }));
   const jobId = resolveJobId(resolved.jobId);
   if (!restaurantId) {
-    return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
+    return dualSyncErrorResponse('Missing restaurant id', 400);
   }
   if (!jobId) {
-    return NextResponse.json({ error: 'Missing job id' }, { status: 400 });
+    return dualSyncErrorResponse('Missing job id', 400);
   }
   if (!isDualSyncEnabled({ restaurantId })) {
-    return NextResponse.json(
-      { error: 'Dual-sync is not enabled for this deployment.' },
-      { status: 404 },
-    );
+    return dualSyncUnavailableResponse();
   }
-  const access = await ensureRestaurantAdminAccess(
-    restaurantId,
-    'dual-sync-publish-job-detail',
-  );
+  const access = await ensureRestaurantAdminAccess(restaurantId, 'dual-sync-publish-job-detail');
   if (access instanceof NextResponse) return access;
 
   try {
@@ -65,16 +61,16 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
       publishJobId: jobId,
     });
     if (!detail) {
-      return NextResponse.json(
-        { error: 'Publish job not found for this restaurant.' },
-        { status: 404 },
+      return dualSyncErrorResponse(
+        'Publish job not found for this restaurant.',
+        404,
+        'DUAL_SYNC_PUBLISH_JOB_NOT_FOUND',
       );
     }
     return NextResponse.json({ restaurantId, ...detail }, { status: 200 });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Failed to load publish job detail';
-    return NextResponse.json({ error: message }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Failed to load publish job detail';
+    return dualSyncErrorResponse(message, 500, 'DUAL_SYNC_PUBLISH_JOB_ERROR');
   }
 }
 

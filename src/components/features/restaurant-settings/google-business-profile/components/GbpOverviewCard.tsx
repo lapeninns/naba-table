@@ -28,7 +28,7 @@ type GbpOverviewCardProps = {
   isRefreshing: boolean;
   manageOnGoogleHref: string | null;
   canDisconnect: boolean;
-  onDisconnect: (() => void) | null;
+  onRequestDisconnect: (() => void) | null;
   isDisconnecting: boolean;
 };
 
@@ -57,7 +57,7 @@ export function GbpOverviewCard({
   isRefreshing,
   manageOnGoogleHref,
   canDisconnect,
-  onDisconnect,
+  onRequestDisconnect,
   isDisconnecting,
 }: GbpOverviewCardProps) {
   const badge = connectionStatusBadge(status);
@@ -66,14 +66,10 @@ export function GbpOverviewCard({
     showPicker ||
     (canRefresh && onRefresh) ||
     manageOnGoogleHref ||
-    (canDisconnect && onDisconnect);
+    (canDisconnect && onRequestDisconnect);
 
   return (
-    <Card
-      data-testid="gbp-overview-card"
-      variant="compact"
-      className="border-border/70 shadow-sm"
-    >
+    <Card data-testid="gbp-overview-card" variant="compact" className="border-border/70 shadow-sm">
       <CardHeader className="gap-3 px-4 py-4 sm:px-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0 space-y-2">
@@ -128,12 +124,12 @@ export function GbpOverviewCard({
                   </a>
                 </Button>
               ) : null}
-              {canDisconnect && onDisconnect ? (
+              {canDisconnect && onRequestDisconnect ? (
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={onDisconnect}
+                  onClick={onRequestDisconnect}
                   disabled={isDisconnecting}
                 >
                   <Unplug data-icon="inline-start" />

@@ -118,8 +118,8 @@ function PrimaryBookingPanel({
   return (
     <GuestPanel className="flex h-full flex-col gap-5 p-5 sm:p-6">
       <div className="flex items-start justify-between gap-4">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <Icon className="h-5 w-5" aria-hidden />
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <Icon className="size-5" aria-hidden />
         </span>
         <span className="pg-chip">{kicker}</span>
       </div>

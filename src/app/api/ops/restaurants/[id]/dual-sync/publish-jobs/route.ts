@@ -20,6 +20,10 @@ import {
   ensureRestaurantAdminAccess,
   resolveRestaurantId,
 } from '@/app/api/ops/restaurants/[id]/_shared';
+import {
+  dualSyncErrorResponse,
+  dualSyncUnavailableResponse,
+} from '@/app/api/ops/restaurants/[id]/dual-sync/_shared';
 import { isDualSyncEnabled } from '@/server/dual-sync/flag';
 import { listRecentPublishJobsForRestaurant } from '@/server/dual-sync/publish/operations';
 import { getServiceSupabaseClient } from '@/server/supabase';
@@ -44,18 +48,12 @@ function parseSince(raw: string | null): string | null {
 export async function GET(req: NextRequest, { params }: RouteContext) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
-    return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
+    return dualSyncErrorResponse('Missing restaurant id', 400);
   }
   if (!isDualSyncEnabled({ restaurantId })) {
-    return NextResponse.json(
-      { error: 'Dual-sync is not enabled for this deployment.' },
-      { status: 404 },
-    );
+    return dualSyncUnavailableResponse();
   }
-  const access = await ensureRestaurantAdminAccess(
-    restaurantId,
-    'dual-sync-publish-jobs',
-  );
+  const access = await ensureRestaurantAdminAccess(restaurantId, 'dual-sync-publish-jobs');
   if (access instanceof NextResponse) return access;
 
   try {
@@ -74,9 +72,8 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
 
     return NextResponse.json({ restaurantId, jobs }, { status: 200 });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Failed to load publish jobs';
-    return NextResponse.json({ error: message }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Failed to load publish jobs';
+    return dualSyncErrorResponse(message, 500, 'DUAL_SYNC_PUBLISH_JOBS_ERROR');
   }
 }
 

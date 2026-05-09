@@ -92,11 +92,11 @@ export default async function BookingRecoverErrorPage({
         meta={
           <>
             <span className="pg-chip pg-danger-badge">
-              <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
+              <AlertTriangle className="size-3.5" aria-hidden />
               Link not opened
             </span>
             <span className="pg-chip">
-              <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
+              <ShieldCheck className="size-3.5" aria-hidden />
               Booking protected
             </span>
           </>
@@ -104,8 +104,8 @@ export default async function BookingRecoverErrorPage({
         aside={
           <GuestPanel className="p-5 sm:p-6">
             <div className="flex items-start gap-4">
-              <span className="pg-danger-icon flex h-12 w-12 shrink-0 items-center justify-center rounded-full">
-                <KeyRound className="h-5 w-5" aria-hidden />
+              <span className="pg-danger-icon flex size-12 shrink-0 items-center justify-center rounded-full">
+                <KeyRound className="size-5" aria-hidden />
               </span>
               <div>
                 <p className="pg-kicker">What to do next</p>
@@ -138,7 +138,8 @@ export default async function BookingRecoverErrorPage({
                   icon: ShieldCheck,
                   label: 'Guest account',
                   value: 'Sign in with the email used for the booking.',
-                  detail: 'If the booking is linked to your account, it appears in booking history.',
+                  detail:
+                    'If the booking is linked to your account, it appears in booking history.',
                 },
               ]}
             />

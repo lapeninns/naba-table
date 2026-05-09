@@ -71,7 +71,7 @@ export function BookingMessageShell({
               palette.badge,
             )}
           >
-            <Icon className="h-7 w-7" aria-hidden />
+            <Icon className="size-7" aria-hidden />
           </div>
           <div className="space-y-3">
             <h1 className="pg-hero-title">{title}</h1>
@@ -123,7 +123,7 @@ export function BookingSummaryCard({
                 tone.badge,
               )}
             >
-              <Icon className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+              <Icon className="mr-1.5 size-3.5" aria-hidden />
               {status.label}
             </Badge>
           </div>
@@ -165,8 +165,8 @@ export function DetailStatCard({
 }) {
   return (
     <GuestPanel className="flex h-full flex-col gap-3 p-5">
-      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-        <Icon className="h-5 w-5" aria-hidden />
+      <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+        <Icon className="size-5" aria-hidden />
       </div>
       <div>
         <p className="pg-kicker text-[0.68rem]">{label}</p>
@@ -190,8 +190,8 @@ export function InfoPanel({
       <div className="divide-y divide-border/60">
         {rows.map((row, index) => (
           <div key={`${row.label}-${index}`} className="flex items-start gap-4 px-5 py-4 sm:px-6">
-            <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-primary">
-              <row.icon className="h-4 w-4" aria-hidden />
+            <span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-primary">
+              <row.icon className="size-4" aria-hidden />
             </span>
             <div className="min-w-0">
               <p className="pg-kicker text-[0.68rem]">{row.label}</p>

@@ -97,7 +97,7 @@ function StatusBadge({ status }: { status: ReturnType<typeof jobStatus> }) {
           variant="status-confirmed"
           className="inline-flex items-center gap-1 font-mono text-[10px]"
         >
-          <CheckCircle2 className="h-3 w-3" /> Success
+          <CheckCircle2 className="size-3" /> Success
         </Badge>
       );
     case 'partial':
@@ -106,7 +106,7 @@ function StatusBadge({ status }: { status: ReturnType<typeof jobStatus> }) {
           variant="status-pending"
           className="inline-flex items-center gap-1 font-mono text-[10px]"
         >
-          <AlertCircle className="h-3 w-3" /> Partial
+          <AlertCircle className="size-3" /> Partial
         </Badge>
       );
     case 'failed':
@@ -115,7 +115,7 @@ function StatusBadge({ status }: { status: ReturnType<typeof jobStatus> }) {
           variant="status-cancelled"
           className="inline-flex items-center gap-1 font-mono text-[10px]"
         >
-          <XCircle className="h-3 w-3" /> Failed
+          <XCircle className="size-3" /> Failed
         </Badge>
       );
     case 'in-flight':
@@ -125,7 +125,7 @@ function StatusBadge({ status }: { status: ReturnType<typeof jobStatus> }) {
           variant="status-pending"
           className="inline-flex items-center gap-1 font-mono text-[10px]"
         >
-          <Clock className="h-3 w-3" /> In flight
+          <Clock className="size-3" /> In flight
         </Badge>
       );
   }
@@ -172,7 +172,7 @@ export function DualSyncPublishJobsPanel({
           className,
         )}
       >
-        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+        <AlertCircle className="mt-0.5 size-4 shrink-0" />
         <div className="space-y-1">
           <div className="font-semibold">Couldn&apos;t load publish jobs.</div>
           <div className="text-xs opacity-80">
@@ -280,7 +280,7 @@ function PublishJobRow({
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 w-6 p-0"
+              className="size-6 p-0"
               onClick={(e) => {
                 e.stopPropagation();
                 handleToggle();
@@ -288,9 +288,9 @@ function PublishJobRow({
               aria-label={isSelected ? 'Hide job detail' : 'Show job detail'}
             >
               {isSelected ? (
-                <ChevronDown className="h-3.5 w-3.5" />
+                <ChevronDown className="size-3.5" />
               ) : (
-                <ChevronRight className="h-3.5 w-3.5" />
+                <ChevronRight className="size-3.5" />
               )}
             </Button>
           </TableCell>
@@ -314,13 +314,13 @@ function PublishJobRow({
           <div className="mt-0.5 flex gap-2 text-[10px] text-muted-foreground">
             {job.importCount > 0 ? (
               <span className="inline-flex items-center gap-0.5">
-                <ArrowDownToLine className="h-3 w-3" />
+                <ArrowDownToLine className="size-3" />
                 {job.importCount}
               </span>
             ) : null}
             {job.exportCount > 0 ? (
               <span className="inline-flex items-center gap-0.5">
-                <ArrowUpFromLine className="h-3 w-3" />
+                <ArrowUpFromLine className="size-3" />
                 {job.exportCount}
               </span>
             ) : null}
@@ -396,7 +396,7 @@ function PublishJobDetailContent({ jobId, publishJobDetailQuery }: PublishJobDet
   if (publishJobDetailQuery.isError) {
     return (
       <div className="flex items-start gap-2 p-3 text-xs text-destructive">
-        <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
         <div className="space-y-1">
           <div>Couldn&apos;t load job detail.</div>
           <div className="opacity-80">
@@ -450,11 +450,11 @@ function PublishJobDetailContent({ jobId, publishJobDetailQuery }: PublishJobDet
                 <TableCell className="font-mono text-[10px]">
                   {op.direction === 'export_to_google' ? (
                     <span className="inline-flex items-center gap-0.5">
-                      <ArrowUpFromLine className="h-3 w-3" /> export
+                      <ArrowUpFromLine className="size-3" /> export
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-0.5">
-                      <ArrowDownToLine className="h-3 w-3" /> import
+                      <ArrowDownToLine className="size-3" /> import
                     </span>
                   )}
                 </TableCell>

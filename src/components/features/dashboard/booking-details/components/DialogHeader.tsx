@@ -71,10 +71,10 @@ export function DialogHeader({
           variant="ghost"
           size="icon"
           onClick={onClose}
-          className="h-8 w-8 shrink-0 rounded-xl text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground"
+          className="size-8 shrink-0 rounded-xl text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground"
           aria-label="Close booking details"
         >
-          <X className="h-4 w-4" />
+          <X className="size-4" />
         </Button>
       </div>
 
@@ -83,12 +83,12 @@ export function DialogHeader({
         <BookingStatusBadge status={status} size="sm" showTooltip={false} />
 
         <div className={cn(chipClass, 'shrink-0')}>
-          <Clock className="h-3 w-3 shrink-0 text-primary" />
+          <Clock className="size-3 shrink-0 text-primary" />
           <span className="tabular-nums">{formattedStartTime}</span>
         </div>
 
         <div className={cn(chipClass, 'shrink-0')}>
-          <Users className="h-3 w-3 shrink-0 text-primary" />
+          <Users className="size-3 shrink-0 text-primary" />
           <span className="tabular-nums">{booking?.partySize ?? '--'}</span>
         </div>
 
@@ -102,14 +102,14 @@ export function DialogHeader({
             )}
             aria-label={refCopied ? 'Reference copied' : 'Copy reference'}
           >
-            <Hash className="h-3 w-3 shrink-0" />
+            <Hash className="size-3 shrink-0" />
             <span className="min-w-0 max-w-[min(100%,12rem)] truncate font-mono normal-case text-[10px] font-semibold tracking-normal sm:max-w-[14rem] md:max-w-[18rem]">
               {booking.reference}
             </span>
             {refCopied ? (
-              <Check className="h-2.5 w-2.5 shrink-0 text-primary" />
+              <Check className="size-2.5 shrink-0 text-primary" />
             ) : (
-              <Copy className="h-2.5 w-2.5 shrink-0 opacity-0 transition-opacity group-hover:opacity-60" />
+              <Copy className="size-2.5 shrink-0 opacity-0 transition-opacity group-hover:opacity-60" />
             )}
           </Button>
         ) : null}
@@ -126,7 +126,12 @@ export function DialogHeader({
           </div>
         ) : null}
 
-        <div className={cn(chipClass, 'text-[10px] font-semibold normal-case tracking-normal text-muted-foreground/80 sm:text-[11px]')}>
+        <div
+          className={cn(
+            chipClass,
+            'text-[10px] font-semibold normal-case tracking-normal text-muted-foreground/80 sm:text-[11px]',
+          )}
+        >
           <span className="truncate">{formattedDate}</span>
         </div>
       </div>

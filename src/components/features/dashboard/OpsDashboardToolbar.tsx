@@ -49,7 +49,7 @@ export function OpsDashboardToolbar({
           <Button
             variant="outline"
             size="icon"
-            className="h-9 w-9 shrink-0 bg-card touch-manipulation"
+            className="size-9 shrink-0 bg-card touch-manipulation"
             aria-label="Filter bookings"
             aria-controls="ops-bookings-filter-bar"
             onClick={() => {
@@ -58,7 +58,7 @@ export function OpsDashboardToolbar({
                 ?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
             }}
           >
-            <Filter className="h-4 w-4 text-muted-foreground" aria-hidden />
+            <Filter className="size-4 text-muted-foreground" aria-hidden />
           </Button>
           <Button
             variant="outline"
@@ -67,7 +67,7 @@ export function OpsDashboardToolbar({
             onClick={onPrint}
             aria-label="Print bookings"
           >
-            <Printer className="h-4 w-4" aria-hidden />
+            <Printer className="size-4" aria-hidden />
             <span className="hidden sm:inline">Print</span>
           </Button>
         </>
@@ -75,7 +75,7 @@ export function OpsDashboardToolbar({
       search={
         <div className="relative flex-1 md:w-64 md:flex-none">
           <Search
-            className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
             aria-hidden
           />
           <Input

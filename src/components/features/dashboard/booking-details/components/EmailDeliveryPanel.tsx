@@ -65,7 +65,7 @@ function DeliveryStateCard({
           </div>
           <MailWarning
             className={cn(
-              'h-3 w-3',
+              'size-3',
               tone === 'danger' ? 'text-destructive' : 'text-muted-foreground/50',
             )}
             aria-hidden
@@ -186,7 +186,7 @@ export function EmailDeliveryPanel({
           <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
             Email Observability
           </div>
-          <MailCheck className="h-3 w-3 text-muted-foreground/50" aria-hidden />
+          <MailCheck className="size-3 text-muted-foreground/50" aria-hidden />
         </div>
 
         <Accordion type="multiple" className="w-full space-y-1.5">

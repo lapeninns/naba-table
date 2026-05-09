@@ -79,7 +79,7 @@ function CopyMessageIdButton({ text }: { text: string }) {
 
   return (
     <Button variant="outline" size="sm" onClick={handleCopy} aria-label="Copy message id">
-      <Copy className="h-4 w-4" aria-hidden />
+      <Copy className="size-4" aria-hidden />
       <Check className="sr-only" aria-hidden />
       <span className="sr-only">Copy message id</span>
     </Button>
@@ -88,12 +88,12 @@ function CopyMessageIdButton({ text }: { text: string }) {
 
 function SortIndicator({ column, sortState }: { column: SortColumn; sortState: SortState }) {
   if (sortState.column !== column) {
-    return <ArrowUpDown className="ml-1 inline h-3 w-3 text-muted-foreground/50" aria-hidden />;
+    return <ArrowUpDown className="ml-1 inline size-3 text-muted-foreground/50" aria-hidden />;
   }
   return sortState.direction === 'asc' ? (
-    <ArrowUp className="ml-1 inline h-3 w-3" aria-hidden />
+    <ArrowUp className="ml-1 inline size-3" aria-hidden />
   ) : (
-    <ArrowDown className="ml-1 inline h-3 w-3" aria-hidden />
+    <ArrowDown className="ml-1 inline size-3" aria-hidden />
   );
 }
 
@@ -186,7 +186,7 @@ function TableLoadingSkeleton() {
         <div key={i} className="flex items-center gap-3 px-2 py-2">
           <Skeleton className="h-5 w-16" />
           <Skeleton className="h-4 w-32" />
-          <Skeleton className="h-4 w-40" />
+          <Skeleton className="size-40" />
           <Skeleton className="h-4 w-20" />
           <Skeleton className="h-4 w-16" />
           <Skeleton className="h-4 w-24" />
@@ -357,13 +357,13 @@ export function OpsEmailDeliveryTable({
                             onRetryAttempt?.(key);
                           }}
                         >
-                          <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+                          <RotateCcw className="size-3.5" aria-hidden />
                           Retry
                         </Button>
                       ) : null}
                       <ChevronDown
                         className={cn(
-                          'h-3 w-3 text-muted-foreground transition-transform',
+                          'size-3 text-muted-foreground transition-transform',
                           isExpanded && 'rotate-180',
                         )}
                         aria-hidden

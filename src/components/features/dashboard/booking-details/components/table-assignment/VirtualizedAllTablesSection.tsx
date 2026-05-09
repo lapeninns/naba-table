@@ -217,7 +217,7 @@ export function VirtualizedAllTablesSection({
       <section className="space-y-3 rounded-xl border border-border/70 bg-background p-3.5 sm:p-4">
         <div className="flex items-center justify-between border-b border-border/60 pb-2.5">
           <div className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-muted-foreground" aria-hidden />
+            <MapPin className="size-4 text-muted-foreground" aria-hidden />
             <span className="text-sm font-semibold text-foreground">Full Inventory</span>
           </div>
           <span className="text-xs text-muted-foreground">0 tables</span>
@@ -235,7 +235,7 @@ export function VirtualizedAllTablesSection({
     <section className="space-y-3 rounded-xl border border-border/70 bg-background p-3.5 sm:p-4">
       <div className="flex items-center justify-between border-b border-border/60 pb-2.5">
         <div className="flex items-center gap-2">
-          <MapPin className="h-4 w-4 text-muted-foreground" aria-hidden />
+          <MapPin className="size-4 text-muted-foreground" aria-hidden />
           <span className="text-sm font-semibold text-foreground">Full Inventory</span>
         </div>
         <span className="text-xs text-muted-foreground">{totalCount} tables</span>
@@ -269,7 +269,7 @@ export function VirtualizedAllTablesSection({
                         variant="outline"
                         className="gap-1 border-primary/30 bg-primary/10 text-primary"
                       >
-                        <Clock className="h-3 w-3" aria-hidden />
+                        <Clock className="size-3" aria-hidden />
                         {item.conflictCount} conflict{item.conflictCount > 1 ? 's' : ''}
                       </Badge>
                     ) : null}

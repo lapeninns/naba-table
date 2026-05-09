@@ -54,8 +54,8 @@ export function TableAssignmentSummaryCard({
         <div className="space-y-3 rounded-lg border border-border/40 bg-muted/20 p-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded bg-primary/10 text-primary">
-                <Users className="h-4 w-4" />
+              <div className="flex size-7 items-center justify-center rounded bg-primary/10 text-primary">
+                <Users className="size-4" />
               </div>
               <span className="text-xs font-bold uppercase tracking-widest text-foreground">
                 {partySize} Covers
@@ -94,7 +94,7 @@ export function TableAssignmentSummaryCard({
               disabled={isPending}
               className="h-8 flex-1 gap-1.5 border-primary/20 bg-background text-[10px] font-bold uppercase tracking-wider text-foreground hover:bg-primary/5"
             >
-              <Sparkles className="h-3 w-3 text-primary" />
+              <Sparkles className="size-3 text-primary" />
               Smart
             </Button>
 
@@ -105,9 +105,9 @@ export function TableAssignmentSummaryCard({
               className="h-8 flex-1 bg-primary text-[10px] font-bold uppercase tracking-wider text-primary-foreground hover:bg-primary/90"
             >
               {isPending ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
+                <Loader2 className="size-3 animate-spin" />
               ) : (
-                <CheckCircle2 className="h-3 w-3" />
+                <CheckCircle2 className="size-3" />
               )}
               Assign
             </Button>
@@ -134,7 +134,7 @@ export function TableAssignmentSummaryCard({
                   disabled={isPending}
                   className="h-6 px-1.5 text-[9px] font-bold uppercase tracking-widest text-destructive hover:bg-destructive/5 hover:text-destructive"
                 >
-                  <Trash2 className="h-3 w-3 mr-1" />
+                  <Trash2 className="size-3 mr-1" />
                   Reset ({assignedCount})
                 </Button>
               )}

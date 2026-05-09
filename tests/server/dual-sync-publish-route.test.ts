@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const ensureRestaurantAdminAccessMock = vi.hoisted(() => vi.fn());
@@ -106,5 +106,43 @@ describe('dual-sync publish route', () => {
       },
       { ports },
     );
+  });
+
+  it('returns a clear unavailable response when dual-sync is disabled', async () => {
+    isDualSyncEnabledMock.mockReturnValue(false);
+
+    const response = await POST(
+      new NextRequest('https://example.com/api/ops/restaurants/rest-1/dual-sync/publish', {
+        method: 'POST',
+        body: JSON.stringify({ decisions: [] }),
+      }),
+      { params: Promise.resolve({ id: 'rest-1' }) },
+    );
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({
+      message: 'Dual-sync is not enabled for this deployment.',
+      error: 'Dual-sync is not enabled for this deployment.',
+      code: 'DUAL_SYNC_UNAVAILABLE',
+    });
+    expect(ensureRestaurantAdminAccessMock).not.toHaveBeenCalled();
+    expect(runPublishMock).not.toHaveBeenCalled();
+  });
+
+  it('preserves restaurant access checks before parsing or publishing', async () => {
+    ensureRestaurantAdminAccessMock.mockResolvedValue(
+      NextResponse.json({ message: 'Forbidden', error: 'Forbidden' }, { status: 403 }),
+    );
+
+    const response = await POST(
+      new NextRequest('https://example.com/api/ops/restaurants/rest-1/dual-sync/publish', {
+        method: 'POST',
+        body: JSON.stringify({ decisions: [] }),
+      }),
+      { params: Promise.resolve({ id: 'rest-1' }) },
+    );
+
+    expect(response.status).toBe(403);
+    expect(runPublishMock).not.toHaveBeenCalled();
   });
 });

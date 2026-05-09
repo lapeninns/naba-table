@@ -27,7 +27,7 @@ const InfoTile = ({
     )}
   >
     <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-      {Icon ? <Icon className="h-3 w-3" aria-hidden /> : null}
+      {Icon ? <Icon className="size-3" aria-hidden /> : null}
       {label}
     </div>
     <div className="text-[13px] leading-snug text-foreground">{children}</div>
@@ -52,7 +52,7 @@ export const OpsBookingCardDetails = memo(function OpsBookingCardDetails({
           <span className="italic text-muted-foreground">N/A</span>
         ) : (
           <span className="flex items-center gap-1 font-semibold text-warning">
-            <AlertTriangle className="h-3.5 w-3.5" aria-hidden /> {table.label}
+            <AlertTriangle className="size-3.5" aria-hidden /> {table.label}
           </span>
         )}
       </InfoTile>
@@ -61,7 +61,7 @@ export const OpsBookingCardDetails = memo(function OpsBookingCardDetails({
         <div className="flex flex-col gap-1 overflow-hidden leading-tight">
           {contact.phone ? (
             <span className="flex items-center gap-1 break-words text-xs font-semibold text-foreground/80">
-              <Phone className="h-2.5 w-2.5 shrink-0" aria-hidden /> {contact.phone}
+              <Phone className="size-2.5 shrink-0" aria-hidden /> {contact.phone}
             </span>
           ) : null}
           {contact.email ? (

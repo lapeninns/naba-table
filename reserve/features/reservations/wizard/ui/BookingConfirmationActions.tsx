@@ -68,7 +68,7 @@ export function BookingConfirmationActions({
         className="pg-action flex-1 gap-2 rounded-full bg-background sm:flex-none"
         onClick={handleGetDirections}
       >
-        <MapPinIcon className="h-4 w-4" />
+        <MapPinIcon className="size-4" />
         Directions
       </Button>
 
@@ -78,7 +78,7 @@ export function BookingConfirmationActions({
             variant="outline"
             className="pg-action flex-1 gap-2 rounded-full bg-background sm:flex-none"
           >
-            <CalendarIcon className="h-4 w-4" />
+            <CalendarIcon className="size-4" />
             Add to Calendar
           </Button>
         </DropdownMenuTrigger>
@@ -118,13 +118,13 @@ export function BookingConfirmationActions({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon" className="shrink-0 rounded-full">
-            <MoreHorizontalIcon className="h-4 w-4" />
+            <MoreHorizontalIcon className="size-4" />
             <span className="sr-only">More actions</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={handlePrint} className="gap-2">
-            <PrinterIcon className="h-4 w-4" />
+            <PrinterIcon className="size-4" />
             Print Confirmation
           </DropdownMenuItem>
         </DropdownMenuContent>

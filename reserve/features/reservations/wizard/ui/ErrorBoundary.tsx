@@ -72,7 +72,7 @@ function ErrorFallback({ error, onReset }: { error: Error | null; onReset: () =>
       <div className="w-full max-w-md space-y-4">
         <Alert variant="destructive">
           <AlertIcon>
-            <AlertTriangle className="h-5 w-5" aria-hidden />
+            <AlertTriangle className="size-5" aria-hidden />
           </AlertIcon>
           <AlertTitle className="text-lg font-semibold">Something went wrong</AlertTitle>
           <AlertDescription className="space-y-3 text-sm">
@@ -89,7 +89,7 @@ function ErrorFallback({ error, onReset }: { error: Error | null; onReset: () =>
             ) : null}
             <div className="flex gap-2 pt-2">
               <Button onClick={onReset} size="sm">
-                <RefreshCw className="mr-2 h-4 w-4" aria-hidden />
+                <RefreshCw className="mr-2 size-4" aria-hidden />
                 Try again
               </Button>
               <Button onClick={() => window.history.back()} variant="outline" size="sm">
@@ -122,7 +122,7 @@ export function StepErrorBoundary({ children, stepName, onReset }: StepErrorBoun
         <div className="space-y-4 p-6">
           <Alert variant="destructive">
             <AlertIcon>
-              <AlertTriangle className="h-4 w-4" aria-hidden />
+              <AlertTriangle className="size-4" aria-hidden />
             </AlertIcon>
             <AlertTitle className="mb-1 text-base font-semibold">
               Trouble loading {stepName}

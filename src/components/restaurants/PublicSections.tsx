@@ -125,7 +125,7 @@ function RouteCrumbs({ current }: { current: ReactNode }) {
       >
         Restaurants
       </Link>
-      <ArrowRight className="h-4 w-4 text-muted-foreground/60" aria-hidden />
+      <ArrowRight className="size-4 text-muted-foreground/60" aria-hidden />
       <span className="min-h-11 rounded-full py-3 font-medium text-foreground">{current}</span>
     </nav>
   );
@@ -174,7 +174,7 @@ export function RestaurantsHeroSection({
             <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
               <div className="relative">
                 <Search
-                  className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                  className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
                   aria-hidden
                 />
                 <Input
@@ -277,13 +277,13 @@ export function RestaurantsGridSection({
                     >
                       <span className="pg-card-title text-xl">{restaurant.name}</span>
                       <ArrowRight
-                        className="mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover/title:translate-x-0.5"
+                        className="mt-1 size-4 shrink-0 text-muted-foreground transition-transform group-hover/title:translate-x-0.5"
                         aria-hidden
                       />
                     </Link>
                     {restaurant.address ? (
                       <p className="flex items-start gap-2 text-sm text-muted-foreground">
-                        <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+                        <MapPin className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
                         <span className="line-clamp-2">{restaurant.address}</span>
                       </p>
                     ) : null}
@@ -292,12 +292,12 @@ export function RestaurantsGridSection({
                   <div className="mt-auto grid gap-3 rounded-[var(--pg-radius-md)] border border-border/70 bg-muted/35 p-3">
                     <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                       <span className="inline-flex items-center gap-1.5">
-                        <Users className="h-4 w-4" aria-hidden />
+                        <Users className="size-4" aria-hidden />
                         {formatCapacity(restaurant.capacity)}
                       </span>
                       {restaurant.timezone ? (
                         <span className="inline-flex items-center gap-1.5">
-                          <Clock3 className="h-4 w-4" aria-hidden />
+                          <Clock3 className="size-4" aria-hidden />
                           {restaurant.timezone}
                         </span>
                       ) : null}
@@ -328,8 +328,8 @@ export function RestaurantsGridSection({
         ) : (
           <GuestPanel className="border-dashed p-8 text-center sm:p-10">
             <div className="mx-auto flex max-w-md flex-col items-center gap-4">
-              <span className="flex h-12 w-12 items-center justify-center rounded-full border border-border bg-background text-primary">
-                <Search className="h-5 w-5" aria-hidden />
+              <span className="flex size-12 items-center justify-center rounded-full border border-border bg-background text-primary">
+                <Search className="size-5" aria-hidden />
               </span>
               <div className="space-y-2">
                 <h2 className="pg-card-title">No restaurants match that search</h2>
@@ -529,13 +529,13 @@ export function ReservationThankYouCard({
                 href={`/restaurants/${restaurant.slug}`}
                 className="inline-flex min-h-11 items-center gap-2 rounded-full text-sm font-medium text-muted-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <ArrowLeft className="h-4 w-4" aria-hidden />
+                <ArrowLeft className="size-4" aria-hidden />
                 Back to {restaurant.name}
               </Link>
             </div>
             <div className="px-5 py-8 text-center sm:px-8 sm:py-10">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-primary/20 bg-primary/[0.08] text-primary">
-                <CheckCircle2 className="h-7 w-7" aria-hidden />
+              <div className="mx-auto flex size-14 items-center justify-center rounded-full border border-primary/20 bg-primary/[0.08] text-primary">
+                <CheckCircle2 className="size-7" aria-hidden />
               </div>
               <div className="mx-auto mt-6 max-w-xl space-y-3">
                 <p className="pg-kicker">Request received</p>

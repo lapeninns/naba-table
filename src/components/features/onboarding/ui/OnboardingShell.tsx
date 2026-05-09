@@ -50,8 +50,8 @@ export function OnboardingShell({
             <Card className="pg-panel border-border/80 bg-background/90 shadow-[var(--pg-shadow-edge)]">
               <CardContent className="grid gap-3 p-5">
                 <div className="flex items-start gap-3">
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--pg-radius-md)] border border-border/80 bg-muted text-primary">
-                    <Building2 className="h-5 w-5" aria-hidden />
+                  <span className="flex size-11 shrink-0 items-center justify-center rounded-[var(--pg-radius-md)] border border-border/80 bg-muted text-primary">
+                    <Building2 className="size-5" aria-hidden />
                   </span>
                   <div>
                     <p className="text-sm font-semibold text-foreground">
@@ -69,7 +69,7 @@ export function OnboardingShell({
                         key={item}
                         className="flex items-center gap-2 text-sm text-muted-foreground"
                       >
-                        <CheckCircle2 className="h-4 w-4 text-primary" aria-hidden />
+                        <CheckCircle2 className="size-4 text-primary" aria-hidden />
                         {item}
                       </div>
                     ),

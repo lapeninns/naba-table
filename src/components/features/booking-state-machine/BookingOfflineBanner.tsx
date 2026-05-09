@@ -38,7 +38,7 @@ export function BookingOfflineBanner() {
     >
       <div className="flex items-start gap-3">
         <AlertIcon>
-          <WifiOff className="h-4 w-4" aria-hidden />
+          <WifiOff className="size-4" aria-hidden />
         </AlertIcon>
         <div className="space-y-1">
           <AlertTitle className="text-sm font-semibold text-primary">{title}</AlertTitle>
@@ -62,7 +62,7 @@ export function BookingOfflineBanner() {
           }}
           className="mt-2 w-full sm:mt-0 sm:w-auto"
         >
-          <RefreshCcw className="mr-1.5 h-4 w-4" aria-hidden />
+          <RefreshCcw className="mr-1.5 size-4" aria-hidden />
           Sync now
         </Button>
       ) : null}

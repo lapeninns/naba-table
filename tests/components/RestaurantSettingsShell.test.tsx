@@ -25,6 +25,10 @@ const prefetchState = vi.hoisted(() => ({
   prefetchIfStale: vi.fn(({ queryFn }: { queryFn: () => unknown }) => queryFn()),
 }));
 
+const featureFlagState = vi.hoisted(() => ({
+  dualSyncEnabled: false,
+}));
+
 vi.mock('next/navigation', () => ({
   usePathname: () => navigationState.pathname,
 }));
@@ -33,16 +37,23 @@ vi.mock('next/dynamic', () => ({
   default: () => {
     const name = dynamicState.names[dynamicState.index++] ?? 'unknown';
 
-    return function MockDynamicSettingsSection(props: { restaurantId?: string | null }) {
+    return function MockDynamicSettingsSection(props: {
+      restaurantId?: string | null;
+      hasSyncWorkspace?: boolean;
+    }) {
       return (
-        <div data-testid={`settings-view-${name}`} data-restaurant-id={props.restaurantId ?? ''} />
+        <div
+          data-testid={`settings-view-${name}`}
+          data-has-sync-workspace={String(props.hasSyncWorkspace)}
+          data-restaurant-id={props.restaurantId ?? ''}
+        />
       );
     };
   },
 }));
 
 vi.mock('@/lib/feature-flags/dual-sync', () => ({
-  isDualSyncUiEnabled: () => false,
+  isDualSyncUiEnabled: () => featureFlagState.dualSyncEnabled,
 }));
 
 vi.mock('@/lib/prefetchers', () => ({
@@ -186,6 +197,7 @@ function renderPageShell(pathname: string, serviceCalls = makePrefetchServiceCal
 
 beforeEach(() => {
   navigationState.pathname = '/app/settings/restaurant/profile';
+  featureFlagState.dualSyncEnabled = false;
   prefetchState.prefetchIfStale.mockClear();
 });
 
@@ -234,6 +246,21 @@ describe('OpsRestaurantSettingsClient', () => {
     expect(screen.getByTestId('settings-view-profile').parentElement).toHaveClass(
       'restaurant-settings-dense',
       'gap-4',
+    );
+  });
+
+  it('passes sync workspace availability and anchors the real dual-sync boundary', () => {
+    featureFlagState.dualSyncEnabled = true;
+
+    renderWithOpsSession(<OpsRestaurantSettingsClient view="google-business-profile" />);
+
+    expect(screen.getByTestId('settings-view-google-business-profile')).toHaveAttribute(
+      'data-has-sync-workspace',
+      'true',
+    );
+    expect(screen.getByTestId('settings-view-dual-sync').parentElement).toHaveAttribute(
+      'id',
+      'gbp-sync-review',
     );
   });
 });

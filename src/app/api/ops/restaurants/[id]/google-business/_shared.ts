@@ -13,7 +13,10 @@ export type RouteContext = {
 export async function requireGoogleBusinessAdminAccess(params: RouteContext['params']) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
-    return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
+    return NextResponse.json(
+      { message: 'Missing restaurant id', error: 'Missing restaurant id' },
+      { status: 400 },
+    );
   }
 
   const access = await ensureRestaurantAdminAccess(restaurantId, 'google-business');
@@ -29,5 +32,5 @@ export function googleBusinessErrorResponse(error: unknown, fallback: string) {
   const status = isGoogleBusinessProfileError(error) ? error.status : 500;
   const code = isGoogleBusinessProfileError(error) ? error.code : 'GBP_ERROR';
 
-  return NextResponse.json({ error: message, code }, { status });
+  return NextResponse.json({ message, error: message, code }, { status });
 }

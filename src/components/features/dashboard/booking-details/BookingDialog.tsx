@@ -420,8 +420,8 @@ export function BookingDialog({
       {/* Ambient glassmorphic gradients (desktop only; suppressed when the
           user prefers reduced motion to skip the heavy paint cost). */}
       <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden hidden md:block motion-reduce:hidden">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[120px] transition-transform duration-1000 group-hover:scale-110" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-primary/5 rounded-full blur-[140px] transition-transform duration-1000 group-hover:scale-105" />
+        <div className="absolute top-[-10%] left-[-10%] size-[40%] bg-primary/10 rounded-full blur-[120px] transition-transform duration-1000 group-hover:scale-110" />
+        <div className="absolute bottom-[-10%] right-[-10%] size-[50%] bg-primary/5 rounded-full blur-[140px] transition-transform duration-1000 group-hover:scale-105" />
       </div>
 
       {/* Header - Glassy & Dynamic */}
@@ -484,7 +484,7 @@ export function BookingDialog({
                 asChild
               >
                 <a href={`tel:${formatPhoneForTel(booking.customerPhone)}`}>
-                  <Phone className="h-3.5 w-3.5" />
+                  <Phone className="size-3.5" />
                   Call Guest
                 </a>
               </Button>
@@ -504,11 +504,11 @@ export function BookingDialog({
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="h-9 w-9 p-0 text-muted-foreground hover:bg-background hover:text-foreground"
+                    className="size-9 p-0 text-muted-foreground hover:bg-background hover:text-foreground"
                     aria-label="More operations"
                     disabled={isActionPending}
                   >
-                    <MoreHorizontal className="h-4 w-4" />
+                    <MoreHorizontal className="size-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
@@ -521,9 +521,9 @@ export function BookingDialog({
                     className="gap-2"
                   >
                     {copySummaryStatus === 'copied' ? (
-                      <Check className="h-4 w-4 text-primary" aria-hidden />
+                      <Check className="size-4 text-primary" aria-hidden />
                     ) : (
-                      <Copy className="h-4 w-4" aria-hidden />
+                      <Copy className="size-4" aria-hidden />
                     )}
                     {copySummaryStatus === 'copied' ? 'Copied summary' : 'Copy summary'}
                   </DropdownMenuItem>
@@ -542,7 +542,7 @@ export function BookingDialog({
                       }}
                       className="gap-2"
                     >
-                      <Copy className="h-4 w-4" aria-hidden />
+                      <Copy className="size-4" aria-hidden />
                       Copy reference
                     </DropdownMenuItem>
                   ) : null}
@@ -557,7 +557,7 @@ export function BookingDialog({
                       }}
                       className="gap-2 text-destructive focus:text-destructive"
                     >
-                      <UserX className="h-4 w-4" aria-hidden />
+                      <UserX className="size-4" aria-hidden />
                       Mark no-show
                     </DropdownMenuItem>
                   ) : null}
@@ -570,7 +570,7 @@ export function BookingDialog({
                       }}
                       className="gap-2 text-destructive focus:text-destructive"
                     >
-                      <Ban className="h-4 w-4" aria-hidden />
+                      <Ban className="size-4" aria-hidden />
                       Cancel booking
                     </DropdownMenuItem>
                   ) : null}
@@ -591,7 +591,7 @@ export function BookingDialog({
                         primaryAction.tone,
                       )}
                     >
-                      <PrimaryIcon className="h-3.5 w-3.5 mr-2" />
+                      <PrimaryIcon className="size-3.5 mr-2" />
                       {primaryAction.label}
                     </Button>
                   );

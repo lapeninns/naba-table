@@ -49,8 +49,8 @@ export function SuggestedTablesSection({
     <section className="space-y-2 rounded-xl border border-primary/20 bg-primary/5 p-2.5 sm:p-3">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-primary/20 pb-2">
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md border border-primary/20 bg-primary/10">
-            <Sparkles className="h-4 w-4 text-primary" aria-hidden />
+          <div className="flex size-7 items-center justify-center rounded-md border border-primary/20 bg-primary/10">
+            <Sparkles className="size-4 text-primary" aria-hidden />
           </div>
           <span className="text-sm font-semibold text-foreground">Best Matches</span>
         </div>

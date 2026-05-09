@@ -33,6 +33,10 @@ type LocationPickerCardProps = {
   onLinkLocation: () => void;
   isLinking: boolean;
   hasLinkedLocation: boolean;
+  locationsErrorMessage: string | null;
+  onRetryLocations: (() => void) | null;
+  isRetryingLocations: boolean;
+  locationsArePossiblyStale: boolean;
 };
 
 function DetailRow({ label, value }: { label: string; value: string }) {
@@ -53,6 +57,10 @@ export function LocationPickerCard({
   onLinkLocation,
   isLinking,
   hasLinkedLocation,
+  locationsErrorMessage,
+  onRetryLocations,
+  isRetryingLocations,
+  locationsArePossiblyStale,
 }: LocationPickerCardProps) {
   const needsReauth = data.status === 'reauth_required';
   const hasLocations = data.availableLocations.length > 0;
@@ -89,6 +97,26 @@ export function LocationPickerCard({
           </Alert>
         ) : null}
 
+        {locationsErrorMessage ? (
+          <Alert variant="destructive">
+            <AlertTitle>Location refresh failed</AlertTitle>
+            <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <span>{locationsErrorMessage}</span>
+              {onRetryLocations ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={onRetryLocations}
+                  disabled={isRetryingLocations}
+                >
+                  {isRetryingLocations ? 'Retrying...' : 'Retry locations'}
+                </Button>
+              ) : null}
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
         {!hasLocations ? (
           <Alert>
             <AlertTitle>No accessible locations</AlertTitle>
@@ -101,7 +129,9 @@ export function LocationPickerCard({
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
               <Label htmlFor="gbp-location-select" className="text-sm font-medium text-foreground">
-                Available locations
+                {locationsArePossiblyStale
+                  ? 'Available locations (possibly stale)'
+                  : 'Available locations'}
               </Label>
               <Select value={selectedLocationValue} onValueChange={onSelectedLocationValueChange}>
                 <SelectTrigger id="gbp-location-select" className="w-full">

@@ -33,7 +33,7 @@ export function NotesField({ value, onChange, onBlur, error }: NotesFieldProps) 
         htmlFor={notesId}
         className="flex items-center gap-1.5 text-sm font-semibold sm:text-base"
       >
-        <MessageSquareIcon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+        <MessageSquareIcon className="size-4 text-muted-foreground" aria-hidden="true" />
         <span>Notes</span>
       </FormLabel>
       <FormControl>

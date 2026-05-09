@@ -80,8 +80,8 @@ export default function ContactPage() {
             >
               <a href={href}>
                 <div className="flex items-start gap-4">
-                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-border/80 bg-background text-primary shadow-[var(--pg-shadow-xs)]">
-                    <Icon className="h-5 w-5" aria-hidden="true" />
+                  <span className="flex size-12 shrink-0 items-center justify-center rounded-full border border-border/80 bg-background text-primary shadow-[var(--pg-shadow-xs)]">
+                    <Icon className="size-5" aria-hidden="true" />
                   </span>
                   <div className="min-w-0 space-y-2">
                     <p className="text-sm font-semibold text-foreground">{title}</p>
