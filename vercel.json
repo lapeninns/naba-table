@@ -11,6 +11,14 @@
     {
       "path": "/api/cron/dual-sync/auto-export",
       "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/dual-sync/queue",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/dual-sync/health",
+      "schedule": "0 * * * *"
     }
   ]
 }

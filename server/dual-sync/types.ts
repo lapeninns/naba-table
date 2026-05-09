@@ -102,6 +102,34 @@ export type DualSyncSnapshotRunKind =
   | 'location_link'
   | 'preflight';
 
+export type DualSyncLockJobKind =
+  | 'google_refresh_manual'
+  | 'google_refresh_scheduled'
+  | 'google_refresh_location_link'
+  | 'core_write_recompute'
+  | 'publish_batch'
+  | 'auto_export'
+  | 'mirror_refresh_after_publish';
+
+export type DualSyncLockStatus = 'held' | 'released' | 'expired';
+
+export type DualSyncJobKind =
+  | 'google_refresh_manual'
+  | 'google_refresh_scheduled'
+  | 'core_write_recompute'
+  | 'publish_batch'
+  | 'auto_export'
+  | 'mirror_refresh_after_publish';
+
+export type DualSyncJobStatus =
+  | 'queued'
+  | 'running'
+  | 'succeeded'
+  | 'failed'
+  | 'retrying'
+  | 'dead_letter'
+  | 'cancelled';
+
 export type DualSyncSnapshotRunStatus = 'pending' | 'succeeded' | 'failed';
 
 export interface DualSyncSnapshotRun {
@@ -116,6 +144,49 @@ export interface DualSyncSnapshotRun {
   readonly startedAt: string;
   readonly finishedAt: string | null;
   readonly createdAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Durable job queue
+// ---------------------------------------------------------------------------
+
+export interface DualSyncJob {
+  readonly id: string;
+  readonly restaurantId: string;
+  readonly provider: DualSyncProvider;
+  readonly jobKind: DualSyncJobKind;
+  readonly status: DualSyncJobStatus;
+  readonly idempotencyKey: string | null;
+  readonly priority: number;
+  readonly payload: unknown;
+  readonly attemptCount: number;
+  readonly maxAttempts: number;
+  readonly availableAt: string;
+  readonly lockedAt: string | null;
+  readonly lockedBy: string | null;
+  readonly lastErrorCode: string | null;
+  readonly lastErrorMessage: string | null;
+  readonly deadLetterReason: string | null;
+  readonly startedAt: string | null;
+  readonly finishedAt: string | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Restaurant controls
+// ---------------------------------------------------------------------------
+
+export interface DualSyncRestaurantControl {
+  readonly restaurantId: string;
+  readonly provider: DualSyncProvider;
+  readonly syncPaused: boolean;
+  readonly pauseReason: string | null;
+  readonly pausedByUserId: string | null;
+  readonly pausedAt: string | null;
+  readonly resumedAt: string | null;
+  readonly createdAt: string | null;
+  readonly updatedAt: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -154,10 +225,80 @@ export type DualSyncPublishOperationStatus =
   | 'skipped'
   | 'retrying';
 
+export type DualSyncPublishBatchStatus =
+  | 'pending'
+  | 'running'
+  | 'succeeded'
+  | 'failed'
+  | 'skipped'
+  | 'stale'
+  | 'cancelled';
+
+export type DualSyncPublishOperationGroupStatus =
+  | 'pending'
+  | 'running'
+  | 'succeeded'
+  | 'failed'
+  | 'skipped'
+  | 'retrying';
+
+export interface DualSyncPublishBatch {
+  readonly id: string;
+  readonly restaurantId: string;
+  readonly provider: DualSyncProvider;
+  readonly clientRequestId: string | null;
+  readonly actorUserId: string | null;
+  readonly status: DualSyncPublishBatchStatus;
+  readonly decisionHash: string;
+  readonly pinnedCoreSnapshotHash: string | null;
+  readonly pinnedGbpSnapshotHash: string | null;
+  readonly coreSnapshotHash: string | null;
+  readonly gbpSnapshotHash: string | null;
+  readonly acceptedCount: number;
+  readonly rejectedCount: number;
+  readonly ignoredCount: number;
+  readonly planSummary: unknown;
+  readonly errorCode: string | null;
+  readonly errorMessage: string | null;
+  readonly startedAt: string | null;
+  readonly finishedAt: string | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface DualSyncPublishOperationGroup {
+  readonly id: string;
+  readonly restaurantId: string;
+  readonly publishBatchId: string;
+  readonly groupKey: string;
+  readonly sectionKey: DualSyncSectionKey;
+  readonly direction: 'import_from_google' | 'export_to_google';
+  readonly writeGroup: string;
+  readonly status: DualSyncPublishOperationGroupStatus;
+  readonly riskLevel: string;
+  readonly requiresPreflight: boolean;
+  readonly requiresManualConfirmation: boolean;
+  readonly destructiveWritePossible: boolean;
+  readonly googleUpdateMasks: ReadonlyArray<DualSyncGoogleUpdateMask>;
+  readonly decisionCount: number;
+  readonly preflightStatus: string | null;
+  readonly preflightResult: unknown;
+  readonly requestSummary: unknown;
+  readonly responseSummary: unknown;
+  readonly errorCode: string | null;
+  readonly errorMessage: string | null;
+  readonly startedAt: string | null;
+  readonly finishedAt: string | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
 export interface DualSyncPublishOperation {
   readonly id: string;
   readonly restaurantId: string;
   readonly publishJobId: string;
+  readonly publishBatchId: string | null;
+  readonly operationGroupId: string | null;
   readonly sectionKey: DualSyncSectionKey;
   readonly fieldKey: string;
   readonly direction: 'import_from_google' | 'export_to_google';

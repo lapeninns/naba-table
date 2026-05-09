@@ -10,6 +10,18 @@ const openSnapshotRunMock = vi.hoisted(() => vi.fn());
 const commitSnapshotRunMock = vi.hoisted(() => vi.fn());
 const failSnapshotRunMock = vi.hoisted(() => vi.fn());
 const recomputeAllStatesMock = vi.hoisted(() => vi.fn());
+const runWithDualSyncLockMock = vi.hoisted(() =>
+  vi.fn(async (_input, work) =>
+    work({
+      id: 'lock-1',
+      restaurantId: 'rest-1',
+      jobKind: 'google_refresh_manual',
+      holderId: 'holder-1',
+      acquiredAt: '2026-05-09T00:00:00.000Z',
+      expiresAt: '2026-05-09T00:05:00.000Z',
+    }),
+  ),
+);
 
 vi.mock('@/server/google-business-profile/service', () => ({
   getGoogleBusinessProfileFoodMenusContext: getGoogleBusinessProfileFoodMenusContextMock,
@@ -37,6 +49,10 @@ vi.mock('@/server/dual-sync/snapshots/runs', () => ({
 
 vi.mock('@/server/dual-sync/state/recompute', () => ({
   recomputeAllStates: recomputeAllStatesMock,
+}));
+
+vi.mock('@/server/dual-sync/locks', () => ({
+  runWithDualSyncLock: runWithDualSyncLockMock,
 }));
 
 import { refreshFromGoogle } from '@/server/dual-sync/refresh/service';
@@ -85,6 +101,7 @@ beforeEach(() => {
   commitSnapshotRunMock.mockReset();
   failSnapshotRunMock.mockReset();
   recomputeAllStatesMock.mockReset();
+  runWithDualSyncLockMock.mockClear();
 
   openSnapshotRunMock.mockResolvedValue({
     id: 'run-1',
@@ -219,6 +236,14 @@ describe('refreshFromGoogle FoodMenus integration', () => {
       googleFoodMenusHash: 'g'.repeat(64),
       importReviewCount: 2,
     });
+    expect(runWithDualSyncLockMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        client,
+        restaurantId: RESTAURANT_ID,
+        jobKind: 'google_refresh_scheduled',
+      }),
+      expect.any(Function),
+    );
   });
 
   it('does not pull FoodMenus when skipPull is enabled', async () => {

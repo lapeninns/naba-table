@@ -1,0 +1,1669 @@
+
+---
+
+# Executive summary
+
+## Main goal
+
+Make the dual-sync system safe enough for production by ensuring that every import/export decision is:
+
+```text
+reviewed against fresh state
+validated against field policy
+executed section-aware
+protected by locks
+queued and throttled
+audited with before/after hashes
+recomputed after publish
+observable and recoverable
+```
+
+## Why this plan focuses on hardening
+
+The existing architecture already has the right core pieces: page rendering, OAuth connection, location linking, Google pull refresh, snapshot runs, dynamic registry, `dual_sync_field_states`, `dual_sync_outbound_candidates`, and `dual_sync_publish_operations`. 
+
+The production risk is not that the system lacks architecture. The production risk is that bidirectional sync can accidentally become unsafe if field-level UI decisions are executed naively against Google APIs that behave at resource or section level.
+
+Google’s Business Information `locations.patch` requires an `updateMask`, and supports `validateOnly` to validate requests without applying them. ([Google for Developers][1]) Attributes have their own `attributeMask`, and Google notes that available attributes vary by category/country and can change over time. ([Google for Developers][2]) Google also documents an edit limit of **10 edits per minute per Google Business Profile**, which cannot be increased. ([Google for Developers][3]) There is no sandbox environment for testing Business Profile API calls, so the production plan must include fake adapters, replay tests, and preflight validation where possible. ([Google for Developers][4])
+
+---
+
+# Sprint roadmap overview
+
+| Sprint   | Theme                                       | Primary outcome                                                                          |
+| -------- | ------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Sprint 0 | Production invariant freeze                 | Lock down rules, risks, acceptance criteria, and rollout gates                           |
+| Sprint 1 | State model and field policy hardening      | Every field has ownership, capability, risk, semantic comparator, and write-group policy |
+| Sprint 2 | Transactional sync execution                | Publish/refresh paths are locked, versioned, idempotent, and safe from race conditions   |
+| Sprint 3 | Section-level publish planner               | Field decisions become section/resource-level execution plans                            |
+| Sprint 4 | Google adapter hardening                    | All Google writes use safe masks, validation, throttling, and structured error handling  |
+| Sprint 5 | Queue, retry, and outbound candidate system | Core writes and publish jobs are queued, deduped, retried, and observable                |
+| Sprint 6 | UI/UX production workflows                  | Operators get safe review, conflict resolution, reauth, failure, and audit workflows     |
+| Sprint 7 | Test harness and replay framework           | Fake Google, snapshot replay, contract tests, failure injection, and regression coverage |
+| Sprint 8 | Observability, rollout, and GA readiness    | Dashboards, alerts, runbooks, feature flags, rollback, pilot, and final signoff          |
+
+---
+
+# Global production invariants
+
+These should become non-negotiable acceptance criteria across all sprints.
+
+## Invariant 1: no publish without fresh validation
+
+Before any import or export:
+
+```text
+read fresh Core snapshot
+read fresh Google mirror/live state
+compare pinned hashes
+validate field capability
+validate field policy
+validate section execution plan
+reject stale decisions
+```
+
+## Invariant 2: field-level UI, section-level execution
+
+The UI can allow field-level decisions, but execution must group them into Google-safe resource operations.
+
+Example:
+
+```text
+User selected:
+- export Monday hours
+- export Tuesday hours
+- export Friday hours
+
+Backend executes:
+- one regularHours publish plan
+- one Google updateMask
+- one section-level validation
+- child audit rows for selected fields
+```
+
+## Invariant 3: every field has policy
+
+No syncable field should exist without:
+
+```text
+field_key
+section_key
+importable
+exportable
+authority policy
+semantic comparator
+risk level
+write group
+Google update strategy
+rollback/retry behavior
+```
+
+## Invariant 4: every external write is auditable
+
+Every Google/Core write should store:
+
+```text
+actor
+timestamp
+decision payload
+pinned hashes
+before hashes
+after hashes
+write group
+Google updateMask / attributeMask
+request summary
+response summary
+error code
+retry metadata
+final recompute result
+```
+
+The existing `dual_sync_publish_operations` table is the correct foundation for this. 
+
+## Invariant 5: every production failure has a clear operator state
+
+No generic “sync failed” for production. The system should classify failures as:
+
+```text
+reauth_required
+location_access_lost
+quota_limited
+google_validation_failed
+stale_decision
+unsupported_field
+permission_denied
+external_api_error
+core_write_failed
+partial_publish_failed
+```
+
+---
+
+# Sprint 0 — Production invariant freeze
+
+**Duration:** 3–5 working days
+**Goal:** Freeze the production rules before touching code aggressively.
+
+This sprint prevents a common mistake: polishing UI or adding more fields before the safety model is explicit.
+
+## Deliverables
+
+| Deliverable                   | Description                                                                         |
+| ----------------------------- | ----------------------------------------------------------------------------------- |
+| Production invariant document | The final safety rules listed above, approved by engineering/product                |
+| Field risk matrix             | All 8 GBP sync sections ranked by write risk                                        |
+| Rollout gate checklist        | What must be true before pilot, beta, and GA                                        |
+| Test strategy                 | Fake Google, replay, contract, failure-injection strategy                           |
+| Ownership map                 | Which fields are Core-owned, Google-owned, bidirectional, review-only, or read-only |
+
+## Field risk classification
+
+| Section                       |  Risk level | Why                                                          |
+| ----------------------------- | ----------: | ------------------------------------------------------------ |
+| Profile name/address/category |   Very high | Public identity and SEO impact                               |
+| Regular hours                 |        High | Operational impact; wrong hours hurt customers               |
+| Special hours                 |        High | Holiday/service exceptions are easy to overwrite             |
+| Attributes                    |        High | Dynamic, category/country-dependent                          |
+| Food menus                    |        High | Nested, business-sensitive, likely normalization differences |
+| Service items                 | Medium-high | Structured, possibly Google-specific                         |
+| Service areas                 |      Medium | Location/business model impact                               |
+| Basic phone/website           |      Medium | Important but easier to validate                             |
+
+## Sprint 0 acceptance criteria
+
+```text
+All fields assigned to a risk tier
+All fields assigned to an ownership policy
+All write groups identified
+All release gates documented
+All production invariants approved
+All unknown Google behavior listed as contract-test target
+```
+
+---
+
+# Sprint 1 — State model and field policy hardening
+
+**Goal:** Make the registry production-grade.
+
+The codemap shows the registry is dynamically built from profile fields, operating hours, service periods, business context, categories, service areas, attributes, service items, and food menu items.  This sprint strengthens that registry so it drives safe production behavior, not only UI display.
+
+## Backend stories
+
+### DS-101 — Add field policy schema
+
+Extend registry config from simple import/export capability into production policy.
+
+Recommended shape:
+
+```ts
+type SyncAuthority =
+  | 'core_authoritative'
+  | 'google_authoritative'
+  | 'bidirectional_manual'
+  | 'review_required'
+  | 'import_only'
+  | 'export_only'
+  | 'read_only'
+  | 'unsupported';
+
+type SyncRiskLevel = 'low' | 'medium' | 'high' | 'critical';
+
+type GoogleWriteGroup =
+  | 'location.profile'
+  | 'location.regularHours'
+  | 'location.specialHours'
+  | 'location.categories'
+  | 'location.serviceArea'
+  | 'location.attributes'
+  | 'location.services'
+  | 'location.foodMenus';
+
+type FieldPolicy = {
+  fieldKey: string;
+  sectionKey: string;
+  authority: SyncAuthority;
+  riskLevel: SyncRiskLevel;
+  importable: boolean;
+  exportable: boolean;
+  requiresManualReview: boolean;
+  googleWriteGroup?: GoogleWriteGroup;
+  semanticComparator: string;
+  canonicalizer: string;
+  destructiveWritePossible: boolean;
+};
+```
+
+### DS-102 — Add semantic canonicalizers
+
+Move from raw canonical JSON hash comparison to semantic canonical comparison.
+
+Examples:
+
+| Field type | Normalization                                                      |
+| ---------- | ------------------------------------------------------------------ |
+| Phone      | Normalize country code, punctuation, whitespace                    |
+| URL        | Normalize protocol, trailing slash, tracking params if appropriate |
+| Hours      | Normalize day ordering, time format, closed/open semantics         |
+| Lists      | Sort stable keys before hashing                                    |
+| Attributes | Normalize attribute IDs, values, missing/false/null behavior       |
+| Menus      | Stable ordering for sections/items/modifiers                       |
+| Categories | Compare stable Google category IDs, not labels only                |
+
+### DS-103 — Add comparator test suite
+
+For every field type:
+
+```text
+raw different but semantically equal -> in_sync
+raw different and semantically different -> dirty/conflict
+missing value behavior is explicit
+array order does not create false conflict
+Google-normalized value does not create false drift
+```
+
+### DS-104 — Strengthen state machine rules
+
+The existing state machine includes states such as `in_sync`, `core_dirty`, `gbp_dirty`, `drifted`, `conflict`, `pending_import`, `pending_export`, `import_failed`, `export_failed`, `ignored`, and `unsupported`. 
+
+Add stricter transition rules:
+
+```text
+in_sync -> core_dirty
+in_sync -> gbp_dirty
+core_dirty + gbp_dirty -> conflict
+pending_export -> export_failed
+pending_export -> in_sync
+pending_import -> import_failed
+pending_import -> in_sync
+unsupported cannot become pending_export
+review_required cannot auto-publish
+```
+
+## Frontend stories
+
+### DS-105 — Add policy badges
+
+Show operator-friendly labels:
+
+```text
+Core-owned
+Google-owned
+Manual review
+High-risk field
+Read-only
+Unsupported by Google
+```
+
+### DS-106 — Explain why a field cannot sync
+
+Instead of hiding actions, show reasons:
+
+```text
+Google has no value to import
+Core has no value to export
+Field requires review
+Field is read-only
+Google does not support this field for this category
+```
+
+## QA stories
+
+### DS-107 — Golden field-state fixtures
+
+Create fixture snapshots for:
+
+```text
+all fields in sync
+Core-only changes
+Google-only changes
+both changed conflict
+Google normalized values
+missing values
+unsupported dynamic attributes
+food menu ordering differences
+```
+
+## Acceptance criteria
+
+```text
+Every registry field has a policy object
+Every field has a semantic comparator
+Every field has a risk level
+Every field has a write group or explicit no-write reason
+Hashing uses semantic canonical form
+False drift cases are covered by tests
+Unsupported/review-required fields cannot be exported accidentally
+```
+
+---
+
+# Sprint 2 — Transactional sync execution and locking
+
+**Goal:** Make refresh and publish safe under concurrency.
+
+The architecture already has manual refresh, snapshot runs, state recomputation, publish orchestration, pinned hashes, operation rows, candidate resolution, and final recompute.  This sprint makes them behave as one production transaction boundary.
+
+## Backend stories
+
+### DS-201 — Add per-restaurant/provider lock
+
+Implement a lock around:
+
+```text
+refreshFromGoogle
+runPublish
+scheduled refresh
+core_write-triggered recompute
+location linking initial sync
+```
+
+Lock key:
+
+```text
+restaurant_id + provider
+```
+
+Lock behavior:
+
+```text
+acquire lock
+reject or queue concurrent publish
+allow read-only state fetch
+release lock on success/failure
+expire abandoned locks
+record lock holder and job id
+```
+
+Possible storage:
+
+```text
+dual_sync_locks
+or PostgreSQL advisory locks
+or queue-level uniqueness
+```
+
+### DS-202 — Add publish job idempotency
+
+Every publish request gets:
+
+```text
+client_request_id
+publish_batch_id
+actor_user_id
+restaurant_id
+provider
+decision_hash
+```
+
+Duplicate submit should not double-write.
+
+### DS-203 — Add pinned snapshot validation as hard gate
+
+Before execution:
+
+```text
+compare pinnedCoreSnapshotHash
+compare pinnedGbpSnapshotHash
+compare per-field pinned hashes
+reject stale decisions
+return stale fields to UI
+```
+
+### DS-204 — Convert publish loop to transaction phases
+
+Recommended phases:
+
+```text
+PHASE 1: validate
+PHASE 2: plan
+PHASE 3: preflight
+PHASE 4: execute
+PHASE 5: refresh affected mirrors
+PHASE 6: recompute
+PHASE 7: finalize audit
+```
+
+Important: do not hold a database transaction open while calling Google. Use a logical transaction/job with operation state records.
+
+### DS-205 — Add operation group model
+
+The codemap records one operation per field.  Keep that, but add a parent group for section-level execution.
+
+Suggested table:
+
+```sql
+dual_sync_publish_batches
+dual_sync_publish_operation_groups
+dual_sync_publish_operations
+```
+
+Group example:
+
+```text
+Batch #123
+  Group #A: export regularHours
+    Operation: operatingHours.monday
+    Operation: operatingHours.tuesday
+    Operation: operatingHours.friday
+```
+
+## QA stories
+
+### DS-206 — Concurrency test suite
+
+Simulate:
+
+```text
+two admins publish same field
+admin publishes while refresh is running
+core write arrives during publish
+scheduled refresh overlaps manual refresh
+Google changes after user review but before publish
+retry of same publish request
+browser double-click publish
+```
+
+## Acceptance criteria
+
+```text
+Only one write-affecting sync job runs per restaurant/provider
+Duplicate publish request does not create duplicate Google writes
+Stale decisions are rejected before mutation
+Refresh/publish overlap cannot corrupt field state
+Partial failure is recorded at group and field level
+Final recompute always runs unless the job never reaches execution
+```
+
+---
+
+# Sprint 3 — Section-level publish planner
+
+**Goal:** Stop treating each field as an isolated external write.
+
+The codemap says the orchestrator can coalesce same-section exports into section-specific batch ports.  In production, this should be mandatory, not just an optimization.
+
+## Backend stories
+
+### DS-301 — Build publish planner
+
+Input:
+
+```ts
+type FieldDecision = {
+  fieldKey: string;
+  action: 'import' | 'export' | 'ignore';
+  pinnedCoreHash: string | null;
+  pinnedGbpHash: string | null;
+};
+```
+
+Output:
+
+```ts
+type PublishPlan = {
+  groups: PublishGroup[];
+  rejected: RejectedDecision[];
+  warnings: PlanWarning[];
+};
+```
+
+Group shape:
+
+```ts
+type PublishGroup = {
+  groupId: string;
+  direction: 'import' | 'export';
+  writeGroup: GoogleWriteGroup | CoreWriteGroup;
+  sectionKey: string;
+  fields: FieldDecision[];
+  riskLevel: SyncRiskLevel;
+  requiresPreflight: boolean;
+  requiresManualConfirmation: boolean;
+};
+```
+
+### DS-302 — Implement section writers
+
+Build one writer per section:
+
+```text
+ProfileWriter
+RegularHoursWriter
+SpecialHoursWriter
+CategoriesWriter
+ServiceAreaWriter
+AttributesWriter
+ServiceItemsWriter
+FoodMenusWriter
+```
+
+Each writer owns:
+
+```text
+payload construction
+mask construction
+semantic validation
+destructive-write detection
+preflight validation
+response normalization
+error mapping
+```
+
+### DS-303 — Add destructive write detector
+
+Before any export, detect whether the payload might remove existing Google values.
+
+Examples:
+
+```text
+empty attribute value with attributeMask
+missing menu item in full menu payload
+regularHours section replacing all weekly hours
+category update changing primary category
+service area replacement
+```
+
+### DS-304 — Add plan preview API
+
+Before publish, allow UI to preview:
+
+```text
+fields selected
+section groups
+Google write masks
+high-risk warnings
+fields that will be skipped
+fields that require refresh
+fields that require reauth
+```
+
+Endpoint:
+
+```text
+POST /dual-sync/publish/preview
+```
+
+## Frontend stories
+
+### DS-305 — Publish confirmation grouped by section
+
+Instead of only:
+
+```text
+10 fields selected
+```
+
+Show:
+
+```text
+3 Google writes will be made:
+- Profile: phone, website
+- Regular hours: Monday, Tuesday, Friday
+- Attributes: outdoor seating
+```
+
+### DS-306 — High-risk confirmation
+
+For high-risk sections, require explicit acknowledgement:
+
+```text
+This may update public Google Business Profile data.
+```
+
+For critical fields:
+
+```text
+Name, address, primary category, menus, and holiday hours require manual confirmation.
+```
+
+## QA stories
+
+### DS-307 — Publish planner fixtures
+
+Fixtures for:
+
+```text
+single profile field
+multiple regular hour fields
+mixed import/export batch
+attributes with unsupported attribute
+food menu partial update
+conflicting fields
+review-required fields
+```
+
+## Acceptance criteria
+
+```text
+No Google export executes directly from a raw field decision
+Every export belongs to exactly one section-level group
+Every group has explicit payload and mask strategy
+Dangerous empty/missing values are detected before publish
+Preview output matches actual execution plan
+Per-field audit records remain intact
+```
+
+---
+
+# Sprint 4 — Google adapter hardening
+
+**Goal:** Make all Google interactions safe, validated, throttled, and diagnosable.
+
+Google’s `locations.patch` requires an `updateMask`, and `validateOnly` can validate without updating. ([Google for Developers][1]) Attribute updates use `attributeMask`, and attributes are dynamic by category/country. ([Google for Developers][2]) This sprint converts those external API details into code-level contracts.
+
+## Backend stories
+
+### DS-401 — Centralize Google client wrapper
+
+All Google API calls go through:
+
+```ts
+GoogleBusinessProfileClient
+```
+
+Responsibilities:
+
+```text
+token refresh
+scope validation
+reauth detection
+request logging
+response logging
+quota handling
+retry classification
+error normalization
+timeout handling
+```
+
+### DS-402 — Add updateMask builders
+
+For each Google write group:
+
+```text
+buildProfileUpdateMask()
+buildRegularHoursUpdateMask()
+buildSpecialHoursUpdateMask()
+buildCategoriesUpdateMask()
+buildServiceAreaUpdateMask()
+buildAttributeMask()
+buildServiceItemsMask()
+buildFoodMenuMask()
+```
+
+Test each builder with golden payloads.
+
+### DS-403 — Add validateOnly preflight
+
+For supported Google calls:
+
+```text
+send validateOnly request
+capture validation errors
+block execution if validation fails
+record preflight result in operation group
+```
+
+The plan should not assume every endpoint supports preflight. Unsupported endpoints should have explicit `preflightUnsupported: true`.
+
+### DS-404 — Add quota and throttle layer
+
+Google documents 10 edits per minute per Business Profile. ([Google for Developers][3]) Implement:
+
+```text
+per-location token bucket
+global project rate limiter
+queue delay for edits
+retry with exponential backoff
+429 handling
+quota error classification
+```
+
+### DS-405 — Add Google error mapper
+
+Normalize errors:
+
+```text
+invalid_grant -> reauth_required
+permission_denied -> location_access_lost or insufficient_scope
+quota_exceeded -> quota_limited
+validation_error -> google_validation_failed
+not_found -> location_unavailable
+timeout -> external_api_timeout
+unknown -> external_api_error
+```
+
+### DS-406 — Add credential lifecycle hardening
+
+The codemap already stores encrypted credentials and handles `reauth_required`.  Harden:
+
+```text
+refresh token failure handling
+revoked token handling
+lost location access
+changed Google account permissions
+expired credential metadata
+OAuth scope mismatch
+```
+
+Google’s Business Profile API requires OAuth 2.0 authorization for requests. ([Google for Developers][5])
+
+## QA stories
+
+### DS-407 — Google adapter contract tests
+
+Mock Google responses for:
+
+```text
+successful patch
+validateOnly success
+validateOnly failure
+quota exceeded
+token revoked
+permission denied
+location not found
+attribute unsupported
+partial payload rejection
+timeout
+```
+
+## Acceptance criteria
+
+```text
+No Google write occurs without explicit mask strategy
+validateOnly is used where supported
+Quota limiter prevents burst writes over per-profile edit limit
+Google errors map to stable internal error codes
+Credential failures produce correct connection state
+All Google request/response summaries are auditable
+```
+
+---
+
+# Sprint 5 — Queue, retry, and outbound candidate system
+
+**Goal:** Turn outbound candidates into a production-grade sync queue.
+
+The codemap already includes `dual_sync_outbound_candidates`, with one open candidate per restaurant/provider/field, and publish operations resolve candidates after export.  This sprint hardens that into a reliable queue/outbox pattern.
+
+## Backend stories
+
+### DS-501 — Add sync job queue
+
+Job types:
+
+```text
+google_refresh_manual
+google_refresh_scheduled
+google_refresh_location_link
+core_write_recompute
+publish_import
+publish_export
+publish_batch
+reauth_check
+mirror_refresh_after_publish
+```
+
+Each job:
+
+```text
+restaurant_id
+provider
+job_kind
+priority
+idempotency_key
+status
+attempt_count
+next_run_at
+locked_by
+error_code
+error_payload
+```
+
+### DS-502 — Debounce Core writes
+
+When Core changes rapidly:
+
+```text
+update hours
+update phone
+update website
+update menu
+```
+
+Do not immediately create multiple Google writes. Instead:
+
+```text
+collect outbound candidates
+debounce per restaurant/provider
+recompute once
+create one publish recommendation batch
+```
+
+### DS-503 — Strengthen outbound candidate lifecycle
+
+Current lifecycle:
+
+```text
+open -> resolved/superseded/cancelled
+```
+
+Add richer states:
+
+```text
+open
+blocked_conflict
+pending_publish
+resolved
+superseded
+cancelled
+failed
+expired
+```
+
+### DS-504 — Candidate supersession rules
+
+If Core changes the same field again:
+
+```text
+old open candidate -> superseded
+new candidate -> open
+baseline_google_hash preserved
+new proposed_value stored
+```
+
+### DS-505 — Retry and dead-letter handling
+
+Retry only safe failures:
+
+```text
+network timeout
+quota limited
+temporary 5xx
+```
+
+Do not retry automatically:
+
+```text
+validation failure
+unsupported field
+permission denied
+reauth required
+stale decision
+```
+
+Dead-letter after threshold:
+
+```text
+max_attempts = 3 or 5
+requires operator/admin review
+```
+
+## Frontend stories
+
+### DS-506 — Pending change center
+
+Show:
+
+```text
+Core changes waiting to export
+blocked conflicts
+failed exports
+stale candidates
+candidate superseded by newer Core value
+```
+
+## QA stories
+
+### DS-507 — Queue behavior tests
+
+Simulate:
+
+```text
+20 Core changes in one minute
+duplicate candidate creation
+candidate superseded before publish
+quota-limited export
+retry success after quota delay
+dead-letter after repeated failure
+```
+
+## Acceptance criteria
+
+```text
+Core writes do not trigger uncontrolled Google API calls
+Only one open candidate exists per field
+Candidates can be superseded safely
+Retries are idempotent
+Dead-letter failures are visible
+Queue status is observable in UI/admin tooling
+```
+
+---
+
+# Sprint 6 — UI/UX production workflows
+
+**Goal:** Make the operator experience safe, understandable, and resistant to mistakes.
+
+The architecture renders `GoogleBusinessProfileSection` for OAuth/location state and `DualSyncShell` for the field-by-field sync workspace across all configured GBP sections.  This sprint turns that into a production workflow.
+
+## Frontend stories
+
+### DS-601 — Connection state UX
+
+Display precise states:
+
+```text
+Not connected
+Authorized, location not linked
+Linked
+Reauth required
+Location access lost
+Sync paused
+Google API limited
+Last refresh failed
+```
+
+### DS-602 — Field review UX
+
+For each field:
+
+```text
+Core value
+Google value
+state
+last in sync timestamp
+policy
+risk level
+available actions
+why action is blocked
+```
+
+### DS-603 — Conflict resolution UX
+
+For conflicts:
+
+```text
+Import Google value
+Export Core value
+Ignore for now
+Mark as resolved manually
+View before/after details
+```
+
+### DS-604 — Publish preview UX
+
+Before publish:
+
+```text
+number of fields
+number of Google writes
+section groups
+high-risk warnings
+blocked fields
+stale fields
+estimated effects
+```
+
+### DS-605 — Publish result UX
+
+After publish:
+
+```text
+succeeded
+failed
+skipped
+needs refresh
+reauth required
+quota delayed
+partial publish completed
+```
+
+### DS-606 — Recent publishes panel
+
+Use `dual_sync_publish_operations` to show:
+
+```text
+who published
+when
+direction
+section
+field
+status
+error
+before/after summary
+Google mask used
+```
+
+### DS-607 — Snapshot explainability
+
+For a field, allow:
+
+```text
+why is this dirty?
+when was it last checked?
+what was the last in-sync value?
+what changed on Core?
+what changed on Google?
+```
+
+## Backend stories
+
+### DS-608 — Add state summary enrichment
+
+State API should include:
+
+```text
+policy labels
+risk level
+blocked reasons
+candidate status
+last operation summary
+last snapshot timestamp
+publish preview eligibility
+```
+
+## QA stories
+
+### DS-609 — UX scenario testing
+
+Run through:
+
+```text
+new connection
+authorized but unlinked
+linked but no Google data
+normal in-sync
+Core dirty
+Google dirty
+conflict
+reauth required
+quota limited
+partial publish failure
+stale decision
+```
+
+## Acceptance criteria
+
+```text
+Operator never sees ambiguous sync failure
+High-risk fields are clearly marked
+Blocked actions explain why
+Publish preview matches backend plan
+Recent publish audit is human-readable
+Conflict resolution is understandable without engineering help
+```
+
+---
+
+# Sprint 7 — Test harness and replay framework
+
+**Goal:** Make the system testable despite no Google sandbox.
+
+Google documents that there is no sandbox environment for Business Profile API calls and recommends `validateOnly` where available. ([Google for Developers][4]) That means the internal test system has to be unusually strong.
+
+## Backend test infrastructure
+
+### DS-701 — Fake Google Business Profile adapter
+
+Build a fake adapter that supports:
+
+```text
+locations.get
+locations.patch
+locations.updateAttributes
+categories
+attributes
+services
+menus
+token refresh failures
+quota failures
+permission failures
+validation failures
+normalization behavior
+```
+
+### DS-702 — Snapshot replay runner
+
+Given stored snapshots:
+
+```text
+Core snapshot A
+Google snapshot A
+Core snapshot B
+Google snapshot B
+expected field states
+expected candidates
+expected publish plan
+```
+
+Replay and assert deterministic output.
+
+### DS-703 — Golden canonicalization tests
+
+For each field type:
+
+```text
+raw input
+canonical output
+semantic hash
+display value
+comparison result
+```
+
+### DS-704 — Publish simulation suite
+
+Simulate:
+
+```text
+import profile field
+export profile field
+export regular hours group
+export attributes group
+export menu group
+mixed import/export
+partial Google failure
+stale decision
+quota delay
+reauth required
+```
+
+### DS-705 — Failure injection tests
+
+Inject failures at every phase:
+
+```text
+after operation row created
+before Google call
+after Google call but before mirror refresh
+after mirror refresh but before recompute
+during recompute
+during candidate resolution
+during audit update
+```
+
+### DS-706 — Contract tests for masks
+
+For every writer:
+
+```text
+input decisions -> expected payload
+input decisions -> expected updateMask/attributeMask
+empty values -> expected reject or allowed behavior
+unsupported values -> expected reject
+```
+
+## Frontend test infrastructure
+
+### DS-707 — Component scenario fixtures
+
+Storybook or equivalent for:
+
+```text
+all states
+all connection statuses
+all failure states
+all high-risk warnings
+publish preview
+publish result
+recent operations
+```
+
+### DS-708 — End-to-end smoke tests
+
+Critical paths:
+
+```text
+connect
+link location
+pull from Google
+view dirty field
+preview publish
+publish export
+publish import
+handle conflict
+handle reauth
+```
+
+## Acceptance criteria
+
+```text
+Fake Google covers all supported write groups
+Snapshot replay is deterministic
+Every field comparator has golden tests
+Every Google mask builder has contract tests
+Every publish phase has failure-injection coverage
+No production deployment depends on live Google for basic regression testing
+```
+
+---
+
+# Sprint 8 — Observability, rollout, and GA readiness
+
+**Goal:** Make the system operable by humans after launch.
+
+## Backend stories
+
+### DS-801 — Add metrics
+
+Track:
+
+```text
+sync_refresh_count
+sync_refresh_duration_ms
+sync_refresh_failure_count
+publish_batch_count
+publish_group_count
+publish_operation_count
+publish_success_rate
+publish_partial_failure_rate
+stale_decision_rejection_count
+conflict_count
+candidate_open_count
+candidate_age_seconds
+google_api_call_count
+google_api_error_count
+google_quota_limited_count
+google_validate_only_failure_count
+reauth_required_count
+lock_wait_seconds
+queue_lag_seconds
+```
+
+### DS-802 — Add dashboards
+
+Dashboards:
+
+```text
+System health
+Google API health
+Restaurant-level sync health
+Publish success/failure
+Queue backlog
+Credential/reauth issues
+Conflict trends
+High-risk field publishes
+```
+
+### DS-803 — Add alerting
+
+Alerts:
+
+```text
+publish failure rate > threshold
+Google API quota errors spike
+reauth_required spike
+queue lag > threshold
+lock contention high
+snapshot recompute failures
+candidate backlog too old
+partial publish failures on high-risk fields
+```
+
+### DS-804 — Add admin tooling
+
+Internal admin page:
+
+```text
+restaurant sync status
+connection status
+latest snapshot runs
+open candidates
+recent publish batches
+failed operations
+retry eligible operations
+dead-letter jobs
+force refresh
+pause sync
+resume sync
+```
+
+### DS-805 — Runbook creation
+
+Runbooks:
+
+```text
+Google token revoked
+Google location access lost
+quota limit reached
+bad publish detected
+partial publish failure
+field stuck pending_export
+snapshot recompute failing
+queue backlog growing
+attribute unsupported after Google metadata change
+menu publish failed
+```
+
+### DS-806 — Feature flags
+
+Flags:
+
+```text
+gbp_sync_enabled
+gbp_import_enabled
+gbp_export_enabled
+gbp_auto_candidates_enabled
+gbp_high_risk_exports_enabled
+gbp_menu_sync_enabled
+gbp_attributes_sync_enabled
+gbp_scheduled_refresh_enabled
+```
+
+### DS-807 — Rollout plan
+
+Recommended staged rollout:
+
+```text
+Stage 1: internal restaurants only
+Stage 2: 3–5 friendly pilot restaurants
+Stage 3: 10–20 restaurants, manual publish only
+Stage 4: all restaurants, manual publish only
+Stage 5: outbound candidate recommendations enabled
+Stage 6: scheduled refresh enabled
+Stage 7: high-risk sections enabled after monitoring
+```
+
+Even though this is final production architecture, rollout should still be staged.
+
+## QA stories
+
+### DS-808 — Production readiness test pass
+
+Checklist:
+
+```text
+load test state API
+load test refresh API
+load test publish preview
+load test queue processing
+simulate Google quota limit
+simulate token revocation
+simulate location access loss
+simulate partial publish
+verify alert fires
+verify runbook works
+verify rollback flag works
+```
+
+## Acceptance criteria
+
+```text
+Dashboards exist before rollout
+Alerts route to responsible owners
+Admin tooling supports investigation
+Feature flags can disable risky flows instantly
+Pilot restaurants are monitored individually
+Runbooks are tested, not just written
+GA signoff includes product, engineering, QA, and ops
+```
+
+---
+
+# Cross-sprint technical backlog
+
+These items should be tracked across multiple sprints rather than assigned to only one.
+
+## A. Database improvements
+
+Recommended additions:
+
+```sql
+dual_sync_publish_batches
+dual_sync_publish_operation_groups
+dual_sync_locks
+dual_sync_jobs
+dual_sync_field_policy_versions
+dual_sync_google_request_logs
+dual_sync_replay_fixtures
+```
+
+Recommended indexes:
+
+```sql
+restaurant_id, provider, status
+restaurant_id, provider, field_key
+restaurant_id, provider, section_key
+restaurant_id, provider, created_at DESC
+restaurant_id, provider, job_kind, status
+restaurant_id, provider, next_run_at
+```
+
+Data retention:
+
+```text
+snapshot runs: retain full JSON for 90–180 days, archive after
+publish operations: retain long-term
+Google request logs: redact sensitive payloads, retain summaries
+credentials: encrypted only, never logged
+```
+
+## B. Security and privacy
+
+Checklist:
+
+```text
+OAuth tokens encrypted at rest
+refresh tokens never logged
+Google API responses redacted in logs
+admin access enforced on every route
+actor_user_id recorded for every publish
+service role usage isolated
+audit trail cannot be modified by normal users
+PII fields handled carefully
+connection deletion revokes or invalidates local credential state
+```
+
+## C. Performance
+
+Performance targets:
+
+```text
+GET state API: p95 under 1.5s for typical restaurant
+Refresh job: p95 under 30s, excluding Google delays
+Publish preview: p95 under 2s
+Publish job: asynchronous if more than small number of groups
+Recompute: deterministic and bounded by registry size
+```
+
+Optimization candidates:
+
+```text
+cache registry per snapshot pair
+store semantic canonical hashes
+avoid rebuilding dynamic registry unnecessarily
+paginate large menus
+lazy-load recent publish history
+separate summary state from detailed field view
+```
+
+## D. API contracts
+
+Endpoints to stabilize:
+
+```text
+GET    /google-business-profile
+POST   /google-business-profile/link
+POST   /dual-sync/refresh
+GET    /dual-sync/state
+POST   /dual-sync/publish/preview
+POST   /dual-sync/publish
+GET    /dual-sync/publish-operations
+GET    /dual-sync/candidates
+POST   /dual-sync/candidates/:id/cancel
+POST   /dual-sync/jobs/:id/retry
+POST   /dual-sync/pause
+POST   /dual-sync/resume
+```
+
+---
+
+# Detailed acceptance gates
+
+## Gate 1 — Read-only safety
+
+Required before broad internal use:
+
+```text
+OAuth connect works
+location linking works
+manual pull works
+snapshots stored
+state computation deterministic
+no publish allowed yet
+field policy visible
+reauth state visible
+```
+
+## Gate 2 — Import safety
+
+Required before allowing Google → Core imports:
+
+```text
+import policy implemented
+Core write ports tested
+pinned hash validation enforced
+operation audit created
+final recompute runs
+rollback procedure documented
+```
+
+## Gate 3 — Export safety
+
+Required before allowing Core → Google exports:
+
+```text
+section planner implemented
+Google mask builders tested
+validateOnly used where supported
+quota limiter active
+Google error mapper active
+high-risk confirmation active
+feature flag can disable export globally
+```
+
+## Gate 4 — Full production
+
+Required before GA:
+
+```text
+fake Google test suite passing
+snapshot replay suite passing
+failure injection suite passing
+dashboards live
+alerts live
+runbooks tested
+pilot completed
+no unresolved P0/P1 issues
+product + engineering + ops signoff
+```
+
+---
+
+# Suggested team allocation
+
+| Role                       | Main focus                                                        |
+| -------------------------- | ----------------------------------------------------------------- |
+| Tech lead / senior backend | Transaction model, planner, Google adapters, queue                |
+| Backend engineer           | Registry policy, canonicalization, DB migrations, operation audit |
+| Frontend engineer          | Review UX, preview UX, failure states, recent publishes           |
+| QA automation              | Fake Google, replay tests, E2E scenarios, failure injection       |
+| DevOps/platform            | Queue workers, metrics, alerts, feature flags                     |
+| Product/ops                | Field ownership policy, risk classification, rollout approvals    |
+
+---
+
+# Sprint-by-sprint staffing focus
+
+| Sprint   | Backend   | Frontend  | QA        | DevOps    |
+| -------- | --------- | --------- | --------- | --------- |
+| Sprint 0 | High      | Medium    | Medium    | Low       |
+| Sprint 1 | High      | Medium    | High      | Low       |
+| Sprint 2 | Very high | Low       | High      | Medium    |
+| Sprint 3 | Very high | Medium    | High      | Low       |
+| Sprint 4 | Very high | Low       | High      | Medium    |
+| Sprint 5 | High      | Medium    | Medium    | High      |
+| Sprint 6 | Medium    | Very high | High      | Low       |
+| Sprint 7 | High      | Medium    | Very high | Medium    |
+| Sprint 8 | Medium    | Medium    | High      | Very high |
+
+---
+
+# Recommended priority order
+
+If the team cannot complete everything at once, prioritize in this exact order:
+
+```text
+1. Field policy registry
+2. Semantic canonicalization
+3. Per-restaurant/provider lock
+4. Pinned hash validation
+5. Section-level publish planner
+6. Google updateMask/attributeMask builders
+7. validateOnly preflight where supported
+8. Quota limiter
+9. Queue/idempotency
+10. Fake Google + replay tests
+11. Operator failure UX
+12. Dashboards/runbooks/feature flags
+```
+
+Do not prioritize visual polish before items 1–10.
+
+---
+
+# Biggest risks and mitigations
+
+| Risk                                                                   |    Severity | Mitigation                                                       |
+| ---------------------------------------------------------------------- | ----------: | ---------------------------------------------------------------- |
+| Field-level decision accidentally overwrites section-level Google data |    Critical | Section-level planner, mask builders, destructive write detector |
+| Google normalizes values and creates false drift                       |        High | Semantic canonicalizers and golden comparator tests              |
+| Two admins publish conflicting changes                                 |        High | Restaurant/provider lock and idempotency                         |
+| Core write races with Google refresh                                   |        High | Queue and lock discipline                                        |
+| Quota exceeded during bulk publish                                     |        High | Per-location throttle and grouped writes                         |
+| OAuth token revoked                                                    |        High | Reauth state, error mapper, operator UX                          |
+| No sandbox for safe testing                                            |        High | Fake adapter, validateOnly, replay tests                         |
+| Attributes change by category/country                                  | Medium-high | Attribute metadata refresh and unsupported-field handling        |
+| Menu payload causes destructive replacement                            |        High | Menu-specific planner, preflight, high-risk confirmation         |
+| Audit trail too technical for operators                                |      Medium | Recent publishes panel with human-readable summaries             |
+
+---
+
+# Final recommendation
+
+Use this as a **production hardening roadmap**, not a rewrite roadmap.
+
+The architecture should remain:
+
+```text
+OAuth + location link
+Google mirror tables
+canonical snapshots
+dynamic registry
+field states
+outbound candidates
+publish operations
+final recompute
+```
+
+The sprint plan should strengthen it into:
+
+```text
+policy-driven registry
+semantic state engine
+locked sync transaction model
+section-level publish planner
+safe Google adapters
+queued/idempotent execution
+operator-grade UX
+fake-Google/replay testing
+observable rollout
+```
+
+The most important engineering milestone is **Sprint 3 + Sprint 4 together**: once field decisions are converted into safe section-level publish plans and every Google write has explicit mask/preflight/quota/error behavior, the architecture becomes much closer to production-safe.
+
+[1]: https://developers.google.com/my-business/reference/businessinformation/rest/v1/locations/patch?utm_source=chatgpt.com "Method: locations.patch | Google Business Profile APIs"
+[2]: https://developers.google.com/my-business/content/attributes?utm_source=chatgpt.com "Add attributes - Business Profile APIs"
+[3]: https://developers.google.com/my-business/content/limits?utm_source=chatgpt.com "Quota limits - Business Profile APIs"
+[4]: https://developers.google.com/my-business/content/basic-setup?utm_source=chatgpt.com "Basic setup | Google Business Profile APIs"
+[5]: https://developers.google.com/my-business/content/implement-oauth?utm_source=chatgpt.com "Implement OAuth with Business Profile APIs"

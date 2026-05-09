@@ -8,6 +8,8 @@
  * isClosed} triple for hashing.
  */
 
+import { withFieldPolicy } from './policy';
+
 import type { DualSyncFieldConfig } from './types';
 
 const DAY_LABELS = [
@@ -34,7 +36,10 @@ function pickDay(value: unknown, dayOfWeek: number): WeeklyHourValue | null {
   return weekly.find((entry) => entry?.dayOfWeek === dayOfWeek) ?? null;
 }
 
-function reduceDay(value: unknown, dayOfWeek: number): {
+function reduceDay(
+  value: unknown,
+  dayOfWeek: number,
+): {
   opensAt: string | null;
   closesAt: string | null;
   isClosed: boolean;
@@ -49,23 +54,24 @@ function reduceDay(value: unknown, dayOfWeek: number): {
 }
 
 export const OPERATING_HOURS_FIELDS: ReadonlyArray<DualSyncFieldConfig> = DAY_LABELS.map(
-  (label, dayOfWeek) => ({
-    fieldKey: `operatingHours.weekly.${dayOfWeek}`,
-    sectionKey: 'operatingHours',
-    kind: 'operatingHours.weekly',
-    label: `${label} hours`,
-    helpText: 'Weekly opening hours for this day.',
-    corePath: `operatingHours.weekly[${dayOfWeek}]`,
-    gbpPath: `operatingHours.weekly[${dayOfWeek}]`,
-    importable: true,
-    exportable: true,
-    normalizeCoreValue: (value: unknown) => reduceDay(value, dayOfWeek),
-    normalizeGbpValue: (value: unknown) => reduceDay(value, dayOfWeek),
-    canonicalizeCoreValue: (value: unknown) => reduceDay(value, dayOfWeek),
-    canonicalizeGbpValue: (value: unknown) => reduceDay(value, dayOfWeek),
-    conflictPolicy: 'manual',
-    deletePolicy: 'manual',
-    googleUpdateMask: 'regularHours',
-    sortOrder: dayOfWeek,
-  }),
+  (label, dayOfWeek) =>
+    withFieldPolicy({
+      fieldKey: `operatingHours.weekly.${dayOfWeek}`,
+      sectionKey: 'operatingHours',
+      kind: 'operatingHours.weekly',
+      label: `${label} hours`,
+      helpText: 'Weekly opening hours for this day.',
+      corePath: `operatingHours.weekly[${dayOfWeek}]`,
+      gbpPath: `operatingHours.weekly[${dayOfWeek}]`,
+      importable: true,
+      exportable: true,
+      normalizeCoreValue: (value: unknown) => reduceDay(value, dayOfWeek),
+      normalizeGbpValue: (value: unknown) => reduceDay(value, dayOfWeek),
+      canonicalizeCoreValue: (value: unknown) => reduceDay(value, dayOfWeek),
+      canonicalizeGbpValue: (value: unknown) => reduceDay(value, dayOfWeek),
+      conflictPolicy: 'manual',
+      deletePolicy: 'manual',
+      googleUpdateMask: 'regularHours',
+      sortOrder: dayOfWeek,
+    }),
 );

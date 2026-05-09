@@ -89,7 +89,7 @@ describe('dual-sync computeFieldState', () => {
     ).toBe('drifted');
   });
 
-  it('overlays pending_export when an open outbound candidate exists', () => {
+  it('overlays pending_export when an open outbound candidate exists for core-side movement', () => {
     expect(
       computeFieldState({
         conflictPolicy: 'manual',
@@ -99,6 +99,9 @@ describe('dual-sync computeFieldState', () => {
         hasOpenOutboundCandidate: true,
       }),
     ).toBe('pending_export');
+  });
+
+  it('does not let stale outbound candidates mask Google-side movement or first drift', () => {
     expect(
       computeFieldState({
         conflictPolicy: 'manual',
@@ -107,26 +110,69 @@ describe('dual-sync computeFieldState', () => {
         lastInSyncHash: null,
         hasOpenOutboundCandidate: true,
       }),
-    ).toBe('pending_export');
+    ).toBe('drifted');
+    expect(
+      computeFieldState({
+        conflictPolicy: 'manual',
+        coreHash: 'old',
+        gbpHash: 'new',
+        lastInSyncHash: 'old',
+        hasOpenOutboundCandidate: true,
+      }),
+    ).toBe('gbp_dirty');
   });
 
-  it('preserves pending_* and *_failed previousState while sides still diverge', () => {
-    for (const previousState of [
-      'pending_import',
-      'pending_export',
-      'import_failed',
-      'export_failed',
-    ] as const) {
+  it('preserves import pending/failed previousState while Google hash is unchanged', () => {
+    for (const previousState of ['pending_import', 'import_failed'] as const) {
       expect(
         computeFieldState({
           conflictPolicy: 'manual',
-          coreHash: 'new',
-          gbpHash: 'old',
+          coreHash: 'core-new',
+          gbpHash: 'google-chosen',
           lastInSyncHash: 'old',
           previousState,
+          previousGbpHash: 'google-chosen',
         }),
       ).toBe(previousState);
     }
+  });
+
+  it('preserves export pending/failed previousState while Core hash is unchanged', () => {
+    for (const previousState of ['pending_export', 'export_failed'] as const) {
+      expect(
+        computeFieldState({
+          conflictPolicy: 'manual',
+          coreHash: 'core-chosen',
+          gbpHash: 'google-old',
+          lastInSyncHash: 'old',
+          previousState,
+          previousCoreHash: 'core-chosen',
+        }),
+      ).toBe(previousState);
+    }
+  });
+
+  it('clears stale import/export overlays when the chosen side moved again', () => {
+    expect(
+      computeFieldState({
+        conflictPolicy: 'manual',
+        coreHash: 'old',
+        gbpHash: 'google-newer',
+        lastInSyncHash: 'old',
+        previousState: 'pending_import',
+        previousGbpHash: 'google-chosen',
+      }),
+    ).toBe('gbp_dirty');
+    expect(
+      computeFieldState({
+        conflictPolicy: 'manual',
+        coreHash: 'core-newer',
+        gbpHash: 'old',
+        lastInSyncHash: 'old',
+        previousState: 'pending_export',
+        previousCoreHash: 'core-chosen',
+      }),
+    ).toBe('core_dirty');
   });
 
   it('clears overlays once both sides converge', () => {

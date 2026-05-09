@@ -34,13 +34,13 @@ import {
   applyServicePeriodsExportBatchToGoogle,
   applyServicePeriodsExportToGoogle,
 } from '@/server/dual-sync/publish/ports/service-periods-export';
+
 import type {
   DualSyncBatchExportContext,
   DualSyncOperationContext,
   DualSyncPublishDecision,
 } from '@/server/dual-sync/publish/types';
 import type { DualSyncCanonicalSnapshot } from '@/server/dual-sync/snapshots/types';
-
 import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -603,9 +603,7 @@ function makeDecision(over: Partial<DualSyncPublishDecision>): DualSyncPublishDe
   };
 }
 
-function makeBatchCtx(
-  over: Partial<DualSyncBatchExportContext>,
-): DualSyncBatchExportContext {
+function makeBatchCtx(over: Partial<DualSyncBatchExportContext>): DualSyncBatchExportContext {
   return {
     client,
     restaurantId: RESTAURANT_ID,
@@ -694,12 +692,8 @@ describe('applyOperatingHoursExportBatchToGoogle', () => {
     );
     expect(result.supported).toBe(true);
     if (result.supported) {
-      expect(Object.values(result.perField).every((r) => r.status === 'failed')).toBe(
-        true,
-      );
-      expect(result.perField['operatingHours.weekly.1']?.failure?.code).toBe(
-        'PORT_FAILURE',
-      );
+      expect(Object.values(result.perField).every((r) => r.status === 'failed')).toBe(true);
+      expect(result.perField['operatingHours.weekly.1']?.failure?.code).toBe('PORT_FAILURE');
     }
   });
 });
@@ -741,9 +735,7 @@ describe('applyProfileExportBatchToGoogle', () => {
     expect(syncProfileMock).not.toHaveBeenCalled();
     expect(patchLocationFieldsMock).toHaveBeenCalledTimes(1);
     const call = patchLocationFieldsMock.mock.calls[0]?.[0];
-    expect(call?.updateMask).toEqual(
-      expect.arrayContaining(['storefrontAddress', 'profile']),
-    );
+    expect(call?.updateMask).toEqual(expect.arrayContaining(['storefrontAddress', 'profile']));
     expect(call?.locationPatch?.profile).toEqual({
       description: 'Best pizza in town.',
     });
@@ -769,9 +761,7 @@ describe('applyProfileExportBatchToGoogle', () => {
     expect(patchLocationFieldsMock).toHaveBeenCalledTimes(1);
     expect(result.supported).toBe(true);
     if (result.supported) {
-      expect(Object.values(result.perField).every((r) => r.status === 'succeeded')).toBe(
-        true,
-      );
+      expect(Object.values(result.perField).every((r) => r.status === 'succeeded')).toBe(true);
     }
   });
 
@@ -789,9 +779,7 @@ describe('applyProfileExportBatchToGoogle', () => {
     if (result.supported) {
       expect(result.perField['profile.name']?.status).toBe('succeeded');
       expect(result.perField['profile.googleMapUrl']?.status).toBe('failed');
-      expect(result.perField['profile.googleMapUrl']?.failure?.code).toBe(
-        'UNSUPPORTED_FIELD',
-      );
+      expect(result.perField['profile.googleMapUrl']?.failure?.code).toBe('UNSUPPORTED_FIELD');
     }
   });
 
@@ -856,12 +844,8 @@ describe('applyServicePeriodsExportBatchToGoogle', () => {
     );
     expect(result.supported).toBe(true);
     if (result.supported) {
-      expect(result.perField[`servicePeriods.${periods[0].stableKey}`]?.status).toBe(
-        'succeeded',
-      );
-      expect(result.perField[`servicePeriods.${periods[1].stableKey}`]?.status).toBe(
-        'succeeded',
-      );
+      expect(result.perField[`servicePeriods.${periods[0].stableKey}`]?.status).toBe('succeeded');
+      expect(result.perField[`servicePeriods.${periods[1].stableKey}`]?.status).toBe('succeeded');
     }
   });
 
@@ -903,15 +887,11 @@ describe('applyServicePeriodsExportBatchToGoogle', () => {
     );
     expect(result.supported).toBe(true);
     if (result.supported) {
-      expect(result.perField[`servicePeriods.${periods[0].stableKey}`]?.status).toBe(
-        'succeeded',
+      expect(result.perField[`servicePeriods.${periods[0].stableKey}`]?.status).toBe('succeeded');
+      expect(result.perField[`servicePeriods.${periods[1].stableKey}`]?.status).toBe('failed');
+      expect(result.perField[`servicePeriods.${periods[1].stableKey}`]?.failure?.code).toBe(
+        'UNSUPPORTED_FIELD',
       );
-      expect(result.perField[`servicePeriods.${periods[1].stableKey}`]?.status).toBe(
-        'failed',
-      );
-      expect(
-        result.perField[`servicePeriods.${periods[1].stableKey}`]?.failure?.code,
-      ).toBe('UNSUPPORTED_FIELD');
     }
   });
 
@@ -1008,9 +988,7 @@ describe('applyBusinessContextCategoryExportBatchToGoogle', () => {
     );
     expect(result.supported).toBe(true);
     if (result.supported) {
-      expect(result.perField['businessContext.categories.fine-dining']?.status).toBe(
-        'succeeded',
-      );
+      expect(result.perField['businessContext.categories.fine-dining']?.status).toBe('succeeded');
       expect(result.perField['businessContext.categories.bar']?.status).toBe('succeeded');
     }
   });
@@ -1050,15 +1028,11 @@ describe('applyBusinessContextCategoryExportBatchToGoogle', () => {
     expect(patchLocationFieldsMock).toHaveBeenCalledTimes(1);
     expect(result.supported).toBe(true);
     if (result.supported) {
-      expect(result.perField['businessContext.categories.fine-dining']?.status).toBe(
-        'succeeded',
+      expect(result.perField['businessContext.categories.fine-dining']?.status).toBe('succeeded');
+      expect(result.perField['businessContext.categories.does-not-exist']?.status).toBe('failed');
+      expect(result.perField['businessContext.categories.does-not-exist']?.failure?.code).toBe(
+        'PORT_FAILURE',
       );
-      expect(result.perField['businessContext.categories.does-not-exist']?.status).toBe(
-        'failed',
-      );
-      expect(
-        result.perField['businessContext.categories.does-not-exist']?.failure?.code,
-      ).toBe('PORT_FAILURE');
     }
   });
 
@@ -1079,9 +1053,7 @@ describe('applyBusinessContextCategoryExportBatchToGoogle', () => {
     expect(patchLocationFieldsMock).not.toHaveBeenCalled();
     expect(result.supported).toBe(true);
     if (result.supported) {
-      expect(result.perField['businessContext.categories.does-not-exist']?.status).toBe(
-        'failed',
-      );
+      expect(result.perField['businessContext.categories.does-not-exist']?.status).toBe('failed');
     }
   });
 });

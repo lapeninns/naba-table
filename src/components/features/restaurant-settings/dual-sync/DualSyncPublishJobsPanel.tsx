@@ -414,13 +414,99 @@ function PublishJobDetailContent({ jobId, publishJobDetailQuery }: PublishJobDet
     return <div className="p-3 text-xs text-muted-foreground">Loading detail…</div>;
   }
   const operations = detail.operations;
-  if (operations.length === 0) {
+  if (operations.length === 0 && detail.operationGroups.length === 0 && !detail.batch) {
     return (
       <div className="p-3 text-xs text-muted-foreground">No operations recorded for this job.</div>
     );
   }
   return (
     <div className="space-y-2 p-3">
+      {detail.batch ? (
+        <div className="rounded-md border bg-background p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <div className="text-[11px] font-semibold text-muted-foreground">Publish batch</div>
+              <div className="mt-1 font-mono text-[10px]" title={detail.batch.id}>
+                {detail.batch.id}
+              </div>
+            </div>
+            <Badge variant="outline" className="font-mono text-[10px]">
+              {detail.batch.status}
+            </Badge>
+          </div>
+          <div className="mt-2 grid gap-2 text-[10px] text-muted-foreground md:grid-cols-4">
+            <div>
+              <span className="font-semibold text-foreground">{detail.batch.acceptedCount}</span>{' '}
+              accepted
+            </div>
+            <div>
+              <span className="font-semibold text-foreground">{detail.batch.rejectedCount}</span>{' '}
+              rejected
+            </div>
+            <div>
+              <span className="font-semibold text-foreground">{detail.batch.ignoredCount}</span>{' '}
+              ignored
+            </div>
+            <div className="font-mono">
+              {detail.batch.clientRequestId ? detail.batch.clientRequestId : 'no client request'}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {detail.operationGroups.length > 0 ? (
+        <div className="rounded-md border bg-background">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[100px]">Group</TableHead>
+                <TableHead>Write group</TableHead>
+                <TableHead className="w-[100px]">Preflight</TableHead>
+                <TableHead className="w-[90px] text-right">Fields</TableHead>
+                <TableHead className="w-[130px]">Masks</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {detail.operationGroups.map((group) => (
+                <TableRow key={group.id} className="text-xs">
+                  <TableCell>
+                    <Badge
+                      variant={OP_STATUS_VARIANTS[group.status] ?? 'outline'}
+                      className="font-mono text-[10px]"
+                    >
+                      {group.status}
+                    </Badge>
+                    {group.errorCode ? (
+                      <div className="mt-1 font-mono text-[10px] text-destructive">
+                        {group.errorCode}
+                      </div>
+                    ) : null}
+                  </TableCell>
+                  <TableCell>
+                    <div className="font-mono text-[10px]">{group.writeGroup}</div>
+                    <div className="mt-0.5 text-[10px] text-muted-foreground">
+                      {SECTION_LABEL[group.sectionKey] ?? group.sectionKey}
+                    </div>
+                  </TableCell>
+                  <TableCell className="font-mono text-[10px]">
+                    {group.preflightStatus ??
+                      (group.requiresPreflight ? 'required' : 'not_required')}
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-[10px]">
+                    {group.decisionCount}
+                  </TableCell>
+                  <TableCell className="font-mono text-[10px]">
+                    {group.googleUpdateMasks.length > 0
+                      ? group.googleUpdateMasks.join(', ')
+                      : 'mask-only'}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      ) : null}
+
       <div className="text-[11px] font-semibold text-muted-foreground">
         Operations ({operations.length})
       </div>

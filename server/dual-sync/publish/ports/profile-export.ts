@@ -21,7 +21,6 @@ import { buildGoogleStorefrontAddressPatch } from './google-patch-builders';
 import { hashCanonicalJson } from '../../hashing';
 import { buildRegistry, findFieldConfig } from '../../registry';
 
-
 import type {
   DualSyncBatchExportContext,
   DualSyncBatchExportResult,
@@ -64,11 +63,7 @@ export async function applyProfileExportToGoogle(
   const field = parseField(decision.fieldKey);
   if (!field) return failedPort(`Profile export port does not handle ${decision.fieldKey}.`);
 
-  if (
-    field === 'googleMapUrl' ||
-    field === 'googleReviewUrl' ||
-    field === 'storefrontAddress'
-  ) {
+  if (field === 'googleMapUrl' || field === 'googleReviewUrl' || field === 'storefrontAddress') {
     return {
       status: 'failed',
       failure: {
@@ -172,11 +167,7 @@ export async function applyProfileExportBatchToGoogle(
 
   for (const [fieldKey, field] of fieldByKey.entries()) {
     if (field === null) continue;
-    if (
-      field === 'googleMapUrl' ||
-      field === 'googleReviewUrl' ||
-      field === 'storefrontAddress'
-    ) {
+    if (field === 'googleMapUrl' || field === 'googleReviewUrl' || field === 'storefrontAddress') {
       unsupportedKeys.add(fieldKey);
       continue;
     }

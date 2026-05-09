@@ -15,7 +15,7 @@
 
 'use client';
 
-import { AlertCircle, RefreshCw, Send, Zap } from 'lucide-react';
+import { AlertCircle, PauseCircle, PlayCircle, RefreshCw, Send, Zap } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -36,13 +36,22 @@ import { cn } from '@/lib/utils';
 import { DualSyncFieldRow } from './DualSyncFieldRow';
 import { DualSyncFreshnessChip } from './DualSyncFreshnessChip';
 import { DualSyncHeatmap } from './DualSyncHeatmap';
+import { DualSyncOperationalHealthPanel } from './DualSyncOperationalHealthPanel';
 import { DualSyncOperationsPanel } from './DualSyncOperationsPanel';
 import { DualSyncPublishJobsPanel } from './DualSyncPublishJobsPanel';
+import { DualSyncPublishPreviewDialog } from './DualSyncPublishPreviewDialog';
+import { DualSyncPublishResultDialog } from './DualSyncPublishResultDialog';
+import { DualSyncQueueJobsPanel } from './DualSyncQueueJobsPanel';
 import { FoodMenusImportReviewPanel } from './FoodMenusImportReviewPanel';
 import { summarizeFieldsToHeatmap } from './heatmap';
 
 import type { DualSyncDecisionAction, DualSyncSectionKey } from '@/server/dual-sync';
-import type { DualSyncFieldSummary } from '@/services/ops/dual-sync';
+import type {
+  DualSyncFieldSummary,
+  DualSyncPublishPreviewResponse,
+  DualSyncPublishRequest,
+  DualSyncPublishResponse,
+} from '@/services/ops/dual-sync';
 
 const SECTION_LABEL: Record<DualSyncSectionKey, string> = {
   profile: 'Profile',
@@ -89,6 +98,11 @@ interface SectionBulkSummary {
   readonly selected: number;
 }
 
+interface PendingPublishPreview {
+  readonly request: DualSyncPublishRequest;
+  readonly plan: DualSyncPublishPreviewResponse;
+}
+
 const isDualSyncSectionKey = (value: string): value is DualSyncSectionKey =>
   SECTION_ORDER.includes(value as DualSyncSectionKey);
 
@@ -121,28 +135,48 @@ export function DualSyncShell({
   singleOpenSections = false,
 }: DualSyncShellProps) {
   const FOOD_MENUS_REVIEW_VALUE = '__foodMenusReview';
+  const METRICS_VALUE = '__metrics';
+  const QUEUE_JOBS_VALUE = '__queueJobs';
   const PUBLISHES_VALUE = '__publishes';
   const OPERATIONS_VALUE = '__operations';
+  const [showOperationalHealth, setShowOperationalHealth] = useState(false);
   const [showOperations, setShowOperations] = useState(false);
+  const [showQueueJobs, setShowQueueJobs] = useState(false);
   const [showPublishJobs, setShowPublishJobs] = useState(false);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const {
     stateQuery,
     refreshMutation,
     publishMutation,
+    previewPublishMutation,
     autoExportMutation,
+    retryJobMutation,
+    controlMutation,
     operationsQuery,
+    jobsQuery,
+    metricsQuery,
     publishJobsQuery,
     publishJobDetailQuery,
   } = useOpsDualSync({
     restaurantId,
     operationsRequest: showOperations ? { limit: 50 } : undefined,
+    jobsRequest: showQueueJobs
+      ? { limit: 25, statuses: ['queued', 'running', 'retrying', 'dead_letter', 'failed'] }
+      : undefined,
+    metricsRequest: showOperationalHealth ? { windowHours: 24, limit: 200 } : undefined,
     publishJobsRequest: showPublishJobs ? { jobLimit: 25 } : undefined,
     publishJobDetailId: showPublishJobs ? selectedJobId : null,
   });
   const [decisions, setDecisions] = useState<Record<string, DecisionEntry>>({});
+  const [publishPreview, setPublishPreview] = useState<PendingPublishPreview | null>(null);
+  const [publishPreviewOpen, setPublishPreviewOpen] = useState(false);
+  const [publishResult, setPublishResult] = useState<DualSyncPublishResponse | null>(null);
+  const [publishResultOpen, setPublishResultOpen] = useState(false);
 
   const outboundQueue = stateQuery.data?.outboundQueue ?? null;
+  const control = stateQuery.data?.control ?? null;
+  const syncPaused = control?.syncPaused ?? false;
+  const pauseReason = control?.pauseReason ?? 'Dual-sync is paused for this restaurant.';
   const autoExportable = outboundQueue?.autoExportable ?? 0;
   const totalOpen = outboundQueue?.totalOpen ?? 0;
   const lastSnapshot = stateQuery.data?.lastSnapshot ?? null;
@@ -189,6 +223,8 @@ export function DualSyncShell({
     if (showFoodMenusReview) {
       values.unshift(FOOD_MENUS_REVIEW_VALUE);
     }
+    values.push(METRICS_VALUE);
+    values.push(QUEUE_JOBS_VALUE);
     values.push(PUBLISHES_VALUE, OPERATIONS_VALUE);
     return values;
   }, [orderedSectionKeys, showFoodMenusReview]);
@@ -199,7 +235,11 @@ export function DualSyncShell({
   }, [stateQuery.data?.coreSnapshotHash, stateQuery.data?.gbpSnapshotHash]);
 
   const decisionCount = Object.keys(decisions).length;
-  const canSubmit = decisionCount > 0 && !publishMutation.isPending;
+  const canSubmit =
+    decisionCount > 0 &&
+    !syncPaused &&
+    !publishMutation.isPending &&
+    !previewPublishMutation.isPending;
 
   useEffect(() => {
     if (!singleOpenSections) {
@@ -251,6 +291,10 @@ export function DualSyncShell({
   };
 
   const onClickRefresh = async () => {
+    if (syncPaused) {
+      toast.error(pauseReason);
+      return;
+    }
     try {
       await refreshMutation.mutateAsync();
       toast.success('Pulled the latest Google profile.');
@@ -260,6 +304,10 @@ export function DualSyncShell({
   };
 
   const onClickAutoExport = async () => {
+    if (syncPaused) {
+      toast.error(pauseReason);
+      return;
+    }
     try {
       const result = await autoExportMutation.mutateAsync();
       const summary = result.publishResult?.summary;
@@ -281,12 +329,10 @@ export function DualSyncShell({
     }
   };
 
-  const onClickPublish = async () => {
-    if (!canSubmit) return;
+  const buildPublishRequest = (): DualSyncPublishRequest | null => {
     const stateData = stateQuery.data;
     if (!stateData) {
-      toast.error('Dual-sync state has not loaded yet.');
-      return;
+      return null;
     }
     const fieldByKey = new Map(stateData.fields.map((field) => [field.fieldKey, field]));
     const payload = Object.entries(decisions)
@@ -303,14 +349,79 @@ export function DualSyncShell({
       })
       .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
     if (payload.length === 0) {
+      return null;
+    }
+    return {
+      decisions: payload,
+      clientRequestId:
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `dual-sync-${Date.now()}`,
+      pinnedCoreSnapshotHash: stateData.coreSnapshotHash ?? null,
+      pinnedGbpSnapshotHash: stateData.gbpSnapshotHash ?? null,
+    };
+  };
+
+  const onClickPublish = async () => {
+    if (syncPaused) {
+      toast.error(pauseReason);
+      return;
+    }
+    if (!canSubmit) return;
+    if (!stateQuery.data) {
+      toast.error('Dual-sync state has not loaded yet.');
+      return;
+    }
+    const request = buildPublishRequest();
+    if (!request) {
       toast.error('No valid decisions to publish.');
       return;
     }
     try {
+      const plan = await previewPublishMutation.mutateAsync(request);
+      setPublishPreview({ request, plan });
+      setPublishPreviewOpen(true);
+      if (plan.acceptedCount === 0) {
+        toast.warning('No selected fields are eligible to publish.');
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Publish preview failed.');
+    }
+  };
+
+  const onClickToggleControl = async () => {
+    try {
+      const nextPaused = !syncPaused;
+      await controlMutation.mutateAsync({
+        syncPaused: nextPaused,
+        reason: nextPaused ? 'Paused from dual-sync settings.' : null,
+      });
+      if (nextPaused) {
+        setDecisions({});
+        setPublishPreview(null);
+        setPublishPreviewOpen(false);
+        toast.success('Dual-sync is paused for this restaurant.');
+      } else {
+        toast.success('Dual-sync is active for this restaurant.');
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Dual-sync control update failed.');
+    }
+  };
+
+  const onConfirmPublishPreview = async () => {
+    if (!publishPreview) return;
+    const acceptedDecisions = publishPreview.plan.groups.flatMap((group) => group.fields);
+    if (acceptedDecisions.length === 0) {
+      toast.error('No accepted decisions to publish.');
+      return;
+    }
+    try {
       const result = await publishMutation.mutateAsync({
-        decisions: payload,
-        pinnedCoreSnapshotHash: stateData.coreSnapshotHash ?? null,
-        pinnedGbpSnapshotHash: stateData.gbpSnapshotHash ?? null,
+        ...publishPreview.request,
+        decisions: acceptedDecisions,
+        pinnedCoreSnapshotHash: publishPreview.plan.coreSnapshotHash,
+        pinnedGbpSnapshotHash: publishPreview.plan.gbpSnapshotHash,
       });
       const failed = result.failedCount;
       const succeeded = result.succeededCount;
@@ -320,6 +431,10 @@ export function DualSyncShell({
         toast.success(`${succeeded} fields synced.`);
       }
       setDecisions({});
+      setPublishPreview(null);
+      setPublishPreviewOpen(false);
+      setPublishResult(result);
+      setPublishResultOpen(true);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Publish failed.');
     }
@@ -378,207 +493,323 @@ export function DualSyncShell({
       } as const);
 
   return (
-    <Card className={cn('space-y-4', className)}>
-      <CardHeader className="flex flex-col gap-3 pb-2 sm:gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <CardTitle className="text-base">Google Business Profile sync</CardTitle>
-          {totalOpen > 0 ? (
-            <Badge variant="secondary" className="font-mono text-xs">
-              {totalOpen} pending
-            </Badge>
+    <>
+      <DualSyncPublishPreviewDialog
+        open={publishPreviewOpen}
+        plan={publishPreview?.plan ?? null}
+        isPublishing={publishMutation.isPending}
+        onOpenChange={setPublishPreviewOpen}
+        onConfirm={onConfirmPublishPreview}
+      />
+      <DualSyncPublishResultDialog
+        open={publishResultOpen}
+        result={publishResult}
+        onOpenChange={setPublishResultOpen}
+      />
+      <Card className={cn('space-y-4', className)}>
+        <CardHeader className="flex flex-col gap-3 pb-2 sm:gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <CardTitle className="text-base">Google Business Profile sync</CardTitle>
+            {totalOpen > 0 ? (
+              <Badge variant="secondary" className="font-mono text-xs">
+                {totalOpen} pending
+              </Badge>
+            ) : null}
+            <DualSyncFreshnessChip
+              timestamp={lastSnapshotAt}
+              prefix="Verified"
+              neverLabel="Never verified"
+            />
+            {overallHeatmap.total > 0 ? <DualSyncHeatmap counts={overallHeatmap} /> : null}
+            {syncPaused ? (
+              <Badge variant="destructive" className="text-xs">
+                Paused
+              </Badge>
+            ) : null}
+          </div>
+          <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:justify-end">
+            <Button
+              variant={syncPaused ? 'default' : 'outline'}
+              size="sm"
+              onClick={onClickToggleControl}
+              disabled={controlMutation.isPending}
+            >
+              {syncPaused ? (
+                <PlayCircle data-icon="inline-start" />
+              ) : (
+                <PauseCircle data-icon="inline-start" />
+              )}
+              {controlMutation.isPending
+                ? 'Updating...'
+                : syncPaused
+                  ? 'Resume sync'
+                  : 'Pause sync'}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onClickRefresh}
+              disabled={syncPaused || refreshMutation.isPending}
+            >
+              <RefreshCw
+                className={cn('mr-1 size-4', refreshMutation.isPending && 'animate-spin')}
+              />
+              Pull from Google
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onClickAutoExport}
+              disabled={syncPaused || autoExportable === 0 || autoExportMutation.isPending}
+              aria-disabled={syncPaused || autoExportable === 0 || autoExportMutation.isPending}
+              title={
+                syncPaused
+                  ? pauseReason
+                  : autoExportable === 0
+                    ? 'No queued exports ready to auto-publish.'
+                    : `Auto-publish ${autoExportable} queued exports`
+              }
+            >
+              <Zap className={cn('mr-1 size-4', autoExportMutation.isPending && 'animate-pulse')} />
+              {autoExportMutation.isPending
+                ? 'Running…'
+                : `Auto-publish ${autoExportable > 0 ? `(${autoExportable})` : ''}`.trim()}
+            </Button>
+            <Button
+              size="sm"
+              onClick={onClickPublish}
+              disabled={!canSubmit}
+              aria-disabled={!canSubmit}
+            >
+              <Send className="mr-1 size-4" />
+              {publishMutation.isPending
+                ? 'Publishing…'
+                : `Publish ${decisionCount > 0 ? `(${decisionCount})` : ''}`.trim()}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          {syncPaused ? (
+            <Alert>
+              <PauseCircle className="size-4" />
+              <AlertTitle>Dual-sync is paused.</AlertTitle>
+              <AlertDescription>
+                {pauseReason} Write-affecting actions are disabled until sync is resumed.
+              </AlertDescription>
+            </Alert>
           ) : null}
-          <DualSyncFreshnessChip
-            timestamp={lastSnapshotAt}
-            prefix="Verified"
-            neverLabel="Never verified"
-          />
-          {overallHeatmap.total > 0 ? <DualSyncHeatmap counts={overallHeatmap} /> : null}
-        </div>
-        <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:justify-end">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onClickRefresh}
-            disabled={refreshMutation.isPending}
-          >
-            <RefreshCw className={cn('mr-1 size-4', refreshMutation.isPending && 'animate-spin')} />
-            Pull from Google
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onClickAutoExport}
-            disabled={autoExportable === 0 || autoExportMutation.isPending}
-            aria-disabled={autoExportable === 0 || autoExportMutation.isPending}
-            title={
-              autoExportable === 0
-                ? 'No queued exports ready to auto-publish.'
-                : `Auto-publish ${autoExportable} queued exports`
-            }
-          >
-            <Zap className={cn('mr-1 size-4', autoExportMutation.isPending && 'animate-pulse')} />
-            {autoExportMutation.isPending
-              ? 'Running…'
-              : `Auto-publish ${autoExportable > 0 ? `(${autoExportable})` : ''}`.trim()}
-          </Button>
-          <Button
-            size="sm"
-            onClick={onClickPublish}
-            disabled={!canSubmit}
-            aria-disabled={!canSubmit}
-          >
-            <Send className="mr-1 size-4" />
-            {publishMutation.isPending
-              ? 'Publishing…'
-              : `Publish ${decisionCount > 0 ? `(${decisionCount})` : ''}`.trim()}
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <Accordion {...accordionProps} className="space-y-3">
-          {showFoodMenusReview ? (
-            <AccordionItem value={FOOD_MENUS_REVIEW_VALUE} className="border-b">
-              <AccordionTrigger className="text-sm font-semibold">
-                Review Google menu suggestions
-              </AccordionTrigger>
-              <AccordionContent className="pt-2">
-                <FoodMenusImportReviewPanel restaurantId={restaurantId} />
-              </AccordionContent>
-            </AccordionItem>
-          ) : null}
-          {orderedSectionKeys.map((sectionKey) => {
-            const fields = fieldsBySection.get(sectionKey) ?? [];
-            const sectionHeatmap = summarizeFieldsToHeatmap(fields);
-            const bulkSummary = getSectionBulkSummary(fields, decisions);
-            return (
-              <AccordionItem key={sectionKey} value={sectionKey} className="border-b">
+          <Accordion {...accordionProps} className="space-y-3">
+            {showFoodMenusReview ? (
+              <AccordionItem value={FOOD_MENUS_REVIEW_VALUE} className="border-b">
                 <AccordionTrigger className="text-sm font-semibold">
-                  <div className="flex w-full flex-wrap items-center justify-between gap-2 pr-2">
-                    <span>
-                      {SECTION_LABEL[sectionKey]} ({fields.length})
-                    </span>
-                    <DualSyncHeatmap counts={sectionHeatmap} showLabels={false} />
-                  </div>
+                  Review Google menu suggestions
                 </AccordionTrigger>
-                <AccordionContent className="space-y-2 pt-2">
-                  <div className="bg-muted/30 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 px-3 py-2">
-                    <div className="space-y-0.5">
-                      <p className="text-xs font-semibold uppercase tracking-wide">Bulk select</p>
-                      <p className="text-muted-foreground text-xs">
-                        Apply one action to all eligible fields in this section before publishing.
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onBulkSelectSection(fields, 'import_from_google')}
-                        disabled={publishMutation.isPending || bulkSummary.importable === 0}
-                        aria-disabled={publishMutation.isPending || bulkSummary.importable === 0}
-                      >
-                        Import all ({bulkSummary.importable})
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onBulkSelectSection(fields, 'export_to_google')}
-                        disabled={publishMutation.isPending || bulkSummary.exportable === 0}
-                        aria-disabled={publishMutation.isPending || bulkSummary.exportable === 0}
-                      >
-                        Export all ({bulkSummary.exportable})
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onBulkSelectSection(fields, 'ignore')}
-                        disabled={publishMutation.isPending || bulkSummary.ignorable === 0}
-                        aria-disabled={publishMutation.isPending || bulkSummary.ignorable === 0}
-                      >
-                        Ignore all ({bulkSummary.ignorable})
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onClearSection(fields)}
-                        disabled={publishMutation.isPending || bulkSummary.selected === 0}
-                        aria-disabled={publishMutation.isPending || bulkSummary.selected === 0}
-                      >
-                        Clear ({bulkSummary.selected})
-                      </Button>
-                    </div>
-                  </div>
-                  {fields.map((field) => (
-                    <DualSyncFieldRow
-                      key={field.fieldKey}
-                      field={field}
-                      selectedAction={decisions[field.fieldKey]?.action ?? null}
-                      onChangeAction={(next) => onSelectAction(field.fieldKey, next)}
-                      disabled={publishMutation.isPending}
-                    />
-                  ))}
+                <AccordionContent className="pt-2">
+                  <FoodMenusImportReviewPanel restaurantId={restaurantId} />
                 </AccordionContent>
               </AccordionItem>
-            );
-          })}
-          <AccordionItem
-            key={PUBLISHES_VALUE}
-            value={PUBLISHES_VALUE}
-            className="border-b"
-            onClick={() => {
-              if (!showPublishJobs) setShowPublishJobs(true);
-            }}
-          >
-            <AccordionTrigger
-              className="text-sm font-semibold"
-              onClick={() => setShowPublishJobs(true)}
+            ) : null}
+            {orderedSectionKeys.map((sectionKey) => {
+              const fields = fieldsBySection.get(sectionKey) ?? [];
+              const sectionHeatmap = summarizeFieldsToHeatmap(fields);
+              const bulkSummary = getSectionBulkSummary(fields, decisions);
+              return (
+                <AccordionItem key={sectionKey} value={sectionKey} className="border-b">
+                  <AccordionTrigger className="text-sm font-semibold">
+                    <div className="flex w-full flex-wrap items-center justify-between gap-2 pr-2">
+                      <span>
+                        {SECTION_LABEL[sectionKey]} ({fields.length})
+                      </span>
+                      <DualSyncHeatmap counts={sectionHeatmap} showLabels={false} />
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="space-y-2 pt-2">
+                    <div className="bg-muted/30 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 px-3 py-2">
+                      <div className="space-y-0.5">
+                        <p className="text-xs font-semibold uppercase tracking-wide">Bulk select</p>
+                        <p className="text-muted-foreground text-xs">
+                          Apply one action to all eligible fields in this section before publishing.
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onBulkSelectSection(fields, 'import_from_google')}
+                          disabled={
+                            syncPaused || publishMutation.isPending || bulkSummary.importable === 0
+                          }
+                          aria-disabled={
+                            syncPaused || publishMutation.isPending || bulkSummary.importable === 0
+                          }
+                        >
+                          Import all ({bulkSummary.importable})
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onBulkSelectSection(fields, 'export_to_google')}
+                          disabled={
+                            syncPaused || publishMutation.isPending || bulkSummary.exportable === 0
+                          }
+                          aria-disabled={
+                            syncPaused || publishMutation.isPending || bulkSummary.exportable === 0
+                          }
+                        >
+                          Export all ({bulkSummary.exportable})
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onBulkSelectSection(fields, 'ignore')}
+                          disabled={
+                            syncPaused || publishMutation.isPending || bulkSummary.ignorable === 0
+                          }
+                          aria-disabled={
+                            syncPaused || publishMutation.isPending || bulkSummary.ignorable === 0
+                          }
+                        >
+                          Ignore all ({bulkSummary.ignorable})
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onClearSection(fields)}
+                          disabled={
+                            syncPaused || publishMutation.isPending || bulkSummary.selected === 0
+                          }
+                          aria-disabled={
+                            syncPaused || publishMutation.isPending || bulkSummary.selected === 0
+                          }
+                        >
+                          Clear ({bulkSummary.selected})
+                        </Button>
+                      </div>
+                    </div>
+                    {fields.map((field) => (
+                      <DualSyncFieldRow
+                        key={field.fieldKey}
+                        field={field}
+                        selectedAction={decisions[field.fieldKey]?.action ?? null}
+                        onChangeAction={(next) => onSelectAction(field.fieldKey, next)}
+                        disabled={syncPaused || publishMutation.isPending}
+                      />
+                    ))}
+                  </AccordionContent>
+                </AccordionItem>
+              );
+            })}
+            <AccordionItem
+              key={METRICS_VALUE}
+              value={METRICS_VALUE}
+              className="border-b"
+              onClick={() => {
+                if (!showOperationalHealth) setShowOperationalHealth(true);
+              }}
             >
-              Recent publishes
-            </AccordionTrigger>
-            <AccordionContent className="pt-2">
-              {showPublishJobs ? (
-                <DualSyncPublishJobsPanel
-                  publishJobsQuery={publishJobsQuery}
-                  selectedJobId={selectedJobId}
-                  onSelectJob={setSelectedJobId}
-                  publishJobDetailQuery={publishJobDetailQuery}
-                />
-              ) : (
-                <div className="text-muted-foreground text-xs">
-                  Expand to load recent publish jobs grouped by run.
-                </div>
-              )}
-            </AccordionContent>
-          </AccordionItem>
-          <AccordionItem
-            key={OPERATIONS_VALUE}
-            value={OPERATIONS_VALUE}
-            className="border-b"
-            onClick={() => {
-              if (!showOperations) setShowOperations(true);
-            }}
-          >
-            <AccordionTrigger
-              className="text-sm font-semibold"
-              onClick={() => setShowOperations(true)}
+              <AccordionTrigger
+                className="text-sm font-semibold"
+                onClick={() => setShowOperationalHealth(true)}
+              >
+                Operational health
+              </AccordionTrigger>
+              <AccordionContent className="pt-2">
+                {showOperationalHealth ? (
+                  <DualSyncOperationalHealthPanel metricsQuery={metricsQuery} />
+                ) : (
+                  <div className="text-muted-foreground text-xs">
+                    Expand to load queue, quota, and publish failure health.
+                  </div>
+                )}
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem
+              key={QUEUE_JOBS_VALUE}
+              value={QUEUE_JOBS_VALUE}
+              className="border-b"
+              onClick={() => {
+                if (!showQueueJobs) setShowQueueJobs(true);
+              }}
             >
-              Recent operations
-            </AccordionTrigger>
-            <AccordionContent className="pt-2">
-              {showOperations ? (
-                <DualSyncOperationsPanel operationsQuery={operationsQuery} />
-              ) : (
-                <div className="text-muted-foreground text-xs">
-                  Expand to load recent publish operations.
-                </div>
-              )}
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
-      </CardContent>
-    </Card>
+              <AccordionTrigger
+                className="text-sm font-semibold"
+                onClick={() => setShowQueueJobs(true)}
+              >
+                Queue recovery
+              </AccordionTrigger>
+              <AccordionContent className="pt-2">
+                {showQueueJobs ? (
+                  <DualSyncQueueJobsPanel
+                    jobsQuery={jobsQuery}
+                    retryJobMutation={retryJobMutation}
+                  />
+                ) : (
+                  <div className="text-muted-foreground text-xs">
+                    Expand to load durable queue jobs and retry terminal failures.
+                  </div>
+                )}
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem
+              key={PUBLISHES_VALUE}
+              value={PUBLISHES_VALUE}
+              className="border-b"
+              onClick={() => {
+                if (!showPublishJobs) setShowPublishJobs(true);
+              }}
+            >
+              <AccordionTrigger
+                className="text-sm font-semibold"
+                onClick={() => setShowPublishJobs(true)}
+              >
+                Recent publishes
+              </AccordionTrigger>
+              <AccordionContent className="pt-2">
+                {showPublishJobs ? (
+                  <DualSyncPublishJobsPanel
+                    publishJobsQuery={publishJobsQuery}
+                    selectedJobId={selectedJobId}
+                    onSelectJob={setSelectedJobId}
+                    publishJobDetailQuery={publishJobDetailQuery}
+                  />
+                ) : (
+                  <div className="text-muted-foreground text-xs">
+                    Expand to load recent publish jobs grouped by run.
+                  </div>
+                )}
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem
+              key={OPERATIONS_VALUE}
+              value={OPERATIONS_VALUE}
+              className="border-b"
+              onClick={() => {
+                if (!showOperations) setShowOperations(true);
+              }}
+            >
+              <AccordionTrigger
+                className="text-sm font-semibold"
+                onClick={() => setShowOperations(true)}
+              >
+                Recent operations
+              </AccordionTrigger>
+              <AccordionContent className="pt-2">
+                {showOperations ? (
+                  <DualSyncOperationsPanel operationsQuery={operationsQuery} />
+                ) : (
+                  <div className="text-muted-foreground text-xs">
+                    Expand to load recent publish operations.
+                  </div>
+                )}
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </CardContent>
+      </Card>
+    </>
   );
 }

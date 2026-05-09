@@ -10,14 +10,19 @@ import { fetchJson } from '@/lib/http/fetchJson';
 import type {
   DualSyncDecisionAction,
   DualSyncFieldCapability,
+  DualSyncFieldPolicy,
   DualSyncFieldState,
+  DualSyncJob,
+  DualSyncJobStatus,
   DualSyncOutboundSource,
+  DualSyncRestaurantControl,
   FoodMenusRefreshResult,
   DualSyncPublishOperation,
   DualSyncPublishOperationStatus,
   DualSyncSectionKey,
   DualSyncSnapshotRun,
 } from '@/server/dual-sync';
+import type { DualSyncOperationalMetrics } from '@/server/dual-sync/observability';
 import type {
   DualSyncPublishJobDetail,
   DualSyncPublishJobRollup,
@@ -25,6 +30,7 @@ import type {
 import type {
   DualSyncOperationFailure,
   DualSyncPublishJobSummary,
+  DualSyncPublishPlan,
 } from '@/server/dual-sync/publish/types';
 import type { DualSyncCanonicalSnapshot } from '@/server/dual-sync/snapshots/types';
 
@@ -38,6 +44,7 @@ export interface DualSyncFieldSummary {
   readonly helpText: string | null;
   readonly conflictPolicy: 'manual' | 'core_wins' | 'gbp_wins' | 'unsupported';
   readonly deletePolicy: 'manual' | 'clear_remote' | 'clear_core' | 'ignore';
+  readonly policy: DualSyncFieldPolicy;
   readonly importable: boolean;
   readonly exportable: boolean;
   readonly sortOrder: number;
@@ -84,10 +91,40 @@ export interface GetDualSyncStateResponse {
   readonly fields: ReadonlyArray<DualSyncFieldSummary>;
   readonly outboundQueue: DualSyncOutboundQueueSummary;
   readonly lastSnapshot: DualSyncLastSnapshotSummary | null;
+  readonly control: DualSyncRestaurantControl;
 }
 
 export async function getDualSyncState(restaurantId: string): Promise<GetDualSyncStateResponse> {
   return fetchJson<GetDualSyncStateResponse>(`${baseUrl(restaurantId)}/state`);
+}
+
+export interface GetDualSyncControlResponse {
+  readonly restaurantId: string;
+  readonly control: DualSyncRestaurantControl;
+}
+
+export interface SetDualSyncControlRequest {
+  readonly syncPaused: boolean;
+  readonly reason?: string | null;
+}
+
+export type SetDualSyncControlResponse = GetDualSyncControlResponse;
+
+export async function getDualSyncControl(
+  restaurantId: string,
+): Promise<GetDualSyncControlResponse> {
+  return fetchJson<GetDualSyncControlResponse>(`${baseUrl(restaurantId)}/control`);
+}
+
+export async function setDualSyncControl(
+  restaurantId: string,
+  request: SetDualSyncControlRequest,
+): Promise<SetDualSyncControlResponse> {
+  return fetchJson<SetDualSyncControlResponse>(`${baseUrl(restaurantId)}/control`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(request),
+  });
 }
 
 export interface RefreshDualSyncResponse {
@@ -117,6 +154,8 @@ export interface DualSyncPublishRequest {
     readonly pinnedCoreHash: string | null;
     readonly pinnedGbpHash: string | null;
   }>;
+  readonly clientRequestId?: string | null;
+  readonly publishBatchId?: string | null;
   readonly pinnedCoreSnapshotHash?: string | null;
   readonly pinnedGbpSnapshotHash?: string | null;
 }
@@ -133,6 +172,19 @@ export async function publishDualSyncDecisions(
   request: DualSyncPublishRequest,
 ): Promise<DualSyncPublishResponse> {
   return fetchJson<DualSyncPublishResponse>(`${baseUrl(restaurantId)}/publish`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(request),
+  });
+}
+
+export type DualSyncPublishPreviewResponse = DualSyncPublishPlan;
+
+export async function previewDualSyncPublishPlan(
+  restaurantId: string,
+  request: DualSyncPublishRequest,
+): Promise<DualSyncPublishPreviewResponse> {
+  return fetchJson<DualSyncPublishPreviewResponse>(`${baseUrl(restaurantId)}/publish/preview`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(request),
@@ -196,6 +248,78 @@ export async function listDualSyncOperations(
 ): Promise<ListDualSyncOperationsResponse> {
   return fetchJson<ListDualSyncOperationsResponse>(
     `${baseUrl(restaurantId)}/operations${buildOperationsQuery(request)}`,
+  );
+}
+
+export interface ListDualSyncJobsRequest {
+  readonly limit?: number;
+  readonly statuses?: ReadonlyArray<DualSyncJobStatus>;
+}
+
+export interface ListDualSyncJobsResponse {
+  readonly restaurantId: string;
+  readonly jobs: ReadonlyArray<DualSyncJob>;
+}
+
+function buildJobsQuery(request: ListDualSyncJobsRequest): string {
+  const search = new URLSearchParams();
+  if (request.limit !== undefined) search.set('limit', String(request.limit));
+  if (request.statuses && request.statuses.length > 0) {
+    search.set('status', request.statuses.join(','));
+  }
+  const qs = search.toString();
+  return qs.length > 0 ? `?${qs}` : '';
+}
+
+export async function listDualSyncJobs(
+  restaurantId: string,
+  request: ListDualSyncJobsRequest = {},
+): Promise<ListDualSyncJobsResponse> {
+  return fetchJson<ListDualSyncJobsResponse>(
+    `${baseUrl(restaurantId)}/jobs${buildJobsQuery(request)}`,
+  );
+}
+
+export interface GetDualSyncMetricsRequest {
+  readonly windowHours?: number;
+  readonly limit?: number;
+}
+
+export type GetDualSyncMetricsResponse = DualSyncOperationalMetrics;
+
+function buildMetricsQuery(request: GetDualSyncMetricsRequest): string {
+  const search = new URLSearchParams();
+  if (request.windowHours !== undefined) search.set('windowHours', String(request.windowHours));
+  if (request.limit !== undefined) search.set('limit', String(request.limit));
+  const qs = search.toString();
+  return qs.length > 0 ? `?${qs}` : '';
+}
+
+export async function getDualSyncMetrics(
+  restaurantId: string,
+  request: GetDualSyncMetricsRequest = {},
+): Promise<GetDualSyncMetricsResponse> {
+  return fetchJson<GetDualSyncMetricsResponse>(
+    `${baseUrl(restaurantId)}/metrics${buildMetricsQuery(request)}`,
+  );
+}
+
+export interface RetryDualSyncJobResponse {
+  readonly restaurantId: string;
+  readonly job: DualSyncJob;
+}
+
+export async function retryDualSyncJob(
+  restaurantId: string,
+  jobId: string,
+): Promise<RetryDualSyncJobResponse> {
+  return fetchJson<RetryDualSyncJobResponse>(
+    `${baseUrl(restaurantId)}/jobs/${encodeURIComponent(jobId)}/retry`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({}),
+    },
   );
 }
 

@@ -22,9 +22,16 @@ import {
 } from '@/app/api/ops/restaurants/[id]/_shared';
 import {
   dualSyncErrorResponse,
+  dualSyncPausedResponse,
   dualSyncUnavailableResponse,
 } from '@/app/api/ops/restaurants/[id]/dual-sync/_shared';
-import { isDualSyncEnabled } from '@/server/dual-sync/flag';
+import {
+  assertDualSyncRestaurantNotPaused,
+  isDualSyncRestaurantPausedError,
+} from '@/server/dual-sync/controls';
+import { isDualSyncAutoCandidatesEnabled, isDualSyncEnabled } from '@/server/dual-sync/flag';
+import { isDualSyncLockError } from '@/server/dual-sync/locks';
+import { enqueueDualSyncJob } from '@/server/dual-sync/queue';
 import { runAutoExportForRestaurant } from '@/server/dual-sync/scheduling/auto-export';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
@@ -46,6 +53,13 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   if (!isDualSyncEnabled({ restaurantId })) {
     return dualSyncUnavailableResponse();
   }
+  if (!isDualSyncAutoCandidatesEnabled({ restaurantId })) {
+    return dualSyncErrorResponse(
+      'Dual-sync auto-candidate export is disabled for this deployment.',
+      409,
+      'DUAL_SYNC_AUTO_CANDIDATES_DISABLED',
+    );
+  }
   const access = await ensureRestaurantAdminAccess(restaurantId, 'dual-sync-auto-export');
   if (access instanceof NextResponse) return access;
 
@@ -63,14 +77,42 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   }
 
   try {
+    const client = getServiceSupabaseClient();
+    await assertDualSyncRestaurantNotPaused({ client, restaurantId });
+    if (req.nextUrl.searchParams.get('queue') === '1') {
+      const job = await enqueueDualSyncJob({
+        client,
+        restaurantId,
+        jobKind: 'auto_export',
+        idempotencyKey: req.headers.get('idempotency-key'),
+        payload: {
+          maxCandidates: body?.maxCandidates,
+          actorUserId: access.userId,
+        },
+        priority: 60,
+      });
+      return NextResponse.json({ queued: true, job }, { status: 202 });
+    }
+
     const summary = await runAutoExportForRestaurant({
-      client: getServiceSupabaseClient(),
+      client,
       restaurantId,
       maxCandidates: body?.maxCandidates,
       actorUserId: access.userId,
     });
     return NextResponse.json(summary, { status: 200 });
   } catch (error) {
+    if (isDualSyncRestaurantPausedError(error)) {
+      return dualSyncPausedResponse(error.message);
+    }
+    if (isDualSyncLockError(error)) {
+      return dualSyncErrorResponse(
+        error.message,
+        409,
+        'DUAL_SYNC_LOCK_HELD',
+        error.activeLock ? { activeLock: error.activeLock } : undefined,
+      );
+    }
     const message = error instanceof Error ? error.message : 'Auto-export failed';
     return dualSyncErrorResponse(message, 500, 'DUAL_SYNC_AUTO_EXPORT_ERROR');
   }

@@ -32,7 +32,6 @@ import { hashCanonicalJson } from '../../hashing';
 import { buildRegistry, findFieldConfig } from '../../registry';
 import { slugifyDisplay } from '../../registry/normalizers';
 
-
 import type {
   DualSyncAttributeValue,
   DualSyncCategoryValue,
@@ -101,10 +100,7 @@ export async function applyBusinessContextCategoryExportToGoogle(
     ) ?? null;
 
   if (!coreEntry) {
-    return failedPort(
-      `Core snapshot is missing category ${slug}; cannot export.`,
-      false,
-    );
+    return failedPort(`Core snapshot is missing category ${slug}; cannot export.`, false);
   }
 
   const googleList = ctx.gbpSnapshot.businessContext?.categories ?? [];
@@ -191,10 +187,7 @@ export async function applyBusinessContextAttributeExportToGoogle(
     ctx.coreSnapshot.businessContext?.attributes.find((a) => a.attributeKey === attributeKey) ??
     null;
   if (!coreEntry) {
-    return failedPort(
-      `Core snapshot is missing attribute ${attributeKey}; cannot export.`,
-      false,
-    );
+    return failedPort(`Core snapshot is missing attribute ${attributeKey}; cannot export.`, false);
   }
 
   await patchRestaurantGoogleBusinessProfileLocationFields({
@@ -278,9 +271,10 @@ interface ListMergeAdapter<TCore> {
     snapshot: DualSyncBatchExportContext['gbpSnapshot'],
   ) => ReadonlyArray<TCore>;
   readonly missingMessage: (id: string) => string;
-  readonly applyPatch: (
-    args: { ctx: DualSyncBatchExportContext; merged: ReadonlyArray<TCore> },
-  ) => Promise<void>;
+  readonly applyPatch: (args: {
+    ctx: DualSyncBatchExportContext;
+    merged: ReadonlyArray<TCore>;
+  }) => Promise<void>;
 }
 
 async function applyListMergeBatch<TCore>(
@@ -475,9 +469,8 @@ export async function applyBusinessContextAttributeExportBatchToGoogle(
     const attributeKey = parseSlug(decision.fieldKey, PREFIX.attribute);
     if (!attributeKey) return { supported: false };
     const coreEntry =
-      ctx.coreSnapshot.businessContext?.attributes.find(
-        (a) => a.attributeKey === attributeKey,
-      ) ?? null;
+      ctx.coreSnapshot.businessContext?.attributes.find((a) => a.attributeKey === attributeKey) ??
+      null;
     if (!coreEntry) {
       perField[decision.fieldKey] = {
         status: 'failed',

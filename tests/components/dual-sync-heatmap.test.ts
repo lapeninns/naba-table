@@ -7,9 +7,7 @@ import {
 
 import type { DualSyncFieldSummary } from '@/services/ops/dual-sync';
 
-function makeField(
-  over: Partial<DualSyncFieldSummary> = {},
-): DualSyncFieldSummary {
+function makeField(over: Partial<DualSyncFieldSummary> = {}): DualSyncFieldSummary {
   return {
     fieldKey: 'profile.name',
     sectionKey: 'profile',
@@ -18,6 +16,19 @@ function makeField(
     helpText: null,
     conflictPolicy: 'manual',
     deletePolicy: 'manual',
+    policy: {
+      fieldKey: 'profile.name',
+      sectionKey: 'profile',
+      authority: 'bidirectional_manual',
+      riskLevel: 'critical',
+      importable: true,
+      exportable: true,
+      requiresManualReview: true,
+      googleWriteGroup: 'location.profile',
+      semanticComparator: 'text',
+      canonicalizer: 'canonicalizeText',
+      destructiveWritePossible: false,
+    },
     importable: true,
     exportable: true,
     sortOrder: 0,
@@ -25,7 +36,7 @@ function makeField(
     gbpValue: 'Acme',
     coreCanonicalHash: null,
     gbpCanonicalHash: null,
-    capability: { canImport: true, canExport: true, blockedReasons: [] },
+    capability: { canImport: true, canExport: true, canIgnore: true, blockedReasons: [] },
     state: 'in_sync',
     lastInSyncAt: null,
     lastInSyncHash: null,

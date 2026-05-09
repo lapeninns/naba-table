@@ -7,30 +7,100 @@
  * skipped | retrying.
  */
 
-import { getDualSyncDbClient, type DualSyncPublishOperationRow } from '../db';
+import {
+  getDualSyncDbClient,
+  type DualSyncPublishBatchRow,
+  type DualSyncPublishOperationGroupRow,
+  type DualSyncPublishOperationRow,
+} from '../db';
 import {
   type DualSyncGoogleUpdateMask,
+  type DualSyncPublishBatch,
+  type DualSyncPublishBatchStatus,
+  type DualSyncPublishOperationGroup,
+  type DualSyncPublishOperationGroupStatus,
   type DualSyncPublishOperation,
   type DualSyncPublishOperationStatus,
   type DualSyncSectionKey,
   isDualSyncSectionKey,
 } from '../types';
 
+import type { DualSyncPublishGroup } from './types';
 import type { Database, Json } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 type DbClient = SupabaseClient<Database>;
 
-function rowToOperation(row: DualSyncPublishOperationRow): DualSyncPublishOperation {
+function rowToBatch(row: DualSyncPublishBatchRow): DualSyncPublishBatch {
+  return {
+    id: row.id,
+    restaurantId: row.restaurant_id,
+    provider: row.provider,
+    clientRequestId: row.client_request_id,
+    actorUserId: row.actor_user_id,
+    status: row.status,
+    decisionHash: row.decision_hash,
+    pinnedCoreSnapshotHash: row.pinned_core_snapshot_hash,
+    pinnedGbpSnapshotHash: row.pinned_gbp_snapshot_hash,
+    coreSnapshotHash: row.core_snapshot_hash,
+    gbpSnapshotHash: row.gbp_snapshot_hash,
+    acceptedCount: row.accepted_count,
+    rejectedCount: row.rejected_count,
+    ignoredCount: row.ignored_count,
+    planSummary: row.plan_summary ?? {},
+    errorCode: row.error_code,
+    errorMessage: row.error_message,
+    startedAt: row.started_at,
+    finishedAt: row.finished_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function rowToOperationGroup(row: DualSyncPublishOperationGroupRow): DualSyncPublishOperationGroup {
   if (!isDualSyncSectionKey(row.section_key)) {
     throw new Error(
-      `dual_sync_publish_operations: unexpected section_key ${row.section_key}`,
+      `dual_sync_publish_operation_groups: unexpected section_key ${row.section_key}`,
     );
   }
   return {
     id: row.id,
     restaurantId: row.restaurant_id,
+    publishBatchId: row.publish_batch_id,
+    groupKey: row.group_key,
+    sectionKey: row.section_key,
+    direction: row.direction,
+    writeGroup: row.write_group,
+    status: row.status,
+    riskLevel: row.risk_level,
+    requiresPreflight: row.requires_preflight,
+    requiresManualConfirmation: row.requires_manual_confirmation,
+    destructiveWritePossible: row.destructive_write_possible,
+    googleUpdateMasks: row.google_update_masks as DualSyncGoogleUpdateMask[],
+    decisionCount: row.decision_count,
+    preflightStatus: row.preflight_status,
+    preflightResult: row.preflight_result ?? null,
+    requestSummary: row.request_summary ?? null,
+    responseSummary: row.response_summary ?? null,
+    errorCode: row.error_code,
+    errorMessage: row.error_message,
+    startedAt: row.started_at,
+    finishedAt: row.finished_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function rowToOperation(row: DualSyncPublishOperationRow): DualSyncPublishOperation {
+  if (!isDualSyncSectionKey(row.section_key)) {
+    throw new Error(`dual_sync_publish_operations: unexpected section_key ${row.section_key}`);
+  }
+  return {
+    id: row.id,
+    restaurantId: row.restaurant_id,
     publishJobId: row.publish_job_id,
+    publishBatchId: row.publish_batch_id ?? null,
+    operationGroupId: row.operation_group_id ?? null,
     sectionKey: row.section_key,
     fieldKey: row.field_key,
     direction: row.direction,
@@ -51,10 +121,206 @@ function rowToOperation(row: DualSyncPublishOperationRow): DualSyncPublishOperat
   };
 }
 
+export interface CreatePublishBatchInput {
+  readonly client: DbClient;
+  readonly restaurantId: string;
+  readonly clientRequestId?: string | null;
+  readonly actorUserId: string | null;
+  readonly decisionHash: string;
+  readonly pinnedCoreSnapshotHash?: string | null;
+  readonly pinnedGbpSnapshotHash?: string | null;
+  readonly coreSnapshotHash?: string | null;
+  readonly gbpSnapshotHash?: string | null;
+  readonly acceptedCount?: number;
+  readonly rejectedCount?: number;
+  readonly ignoredCount?: number;
+  readonly planSummary?: unknown;
+}
+
+export async function createPublishBatch(
+  input: CreatePublishBatchInput,
+): Promise<DualSyncPublishBatch> {
+  const dual = getDualSyncDbClient(input.client);
+  const { data, error } = await dual
+    .from('dual_sync_publish_batches')
+    .insert({
+      restaurant_id: input.restaurantId,
+      client_request_id: input.clientRequestId ?? null,
+      actor_user_id: input.actorUserId,
+      status: 'pending' satisfies DualSyncPublishBatchStatus,
+      decision_hash: input.decisionHash,
+      pinned_core_snapshot_hash: input.pinnedCoreSnapshotHash ?? null,
+      pinned_gbp_snapshot_hash: input.pinnedGbpSnapshotHash ?? null,
+      core_snapshot_hash: input.coreSnapshotHash ?? null,
+      gbp_snapshot_hash: input.gbpSnapshotHash ?? null,
+      accepted_count: input.acceptedCount ?? 0,
+      rejected_count: input.rejectedCount ?? 0,
+      ignored_count: input.ignoredCount ?? 0,
+      plan_summary: (input.planSummary ?? {}) as Json,
+    } as never)
+    .select('*')
+    .single<DualSyncPublishBatchRow>();
+  if (error) {
+    throw error;
+  }
+  if (!data) {
+    throw new Error('dual_sync_publish_batches insert returned no row');
+  }
+  return rowToBatch(data);
+}
+
+export interface FindPublishBatchByClientRequestInput {
+  readonly client: DbClient;
+  readonly restaurantId: string;
+  readonly clientRequestId: string;
+}
+
+export async function findPublishBatchByClientRequest({
+  client,
+  restaurantId,
+  clientRequestId,
+}: FindPublishBatchByClientRequestInput): Promise<DualSyncPublishBatch | null> {
+  const dual = getDualSyncDbClient(client);
+  const { data, error } = await dual
+    .from('dual_sync_publish_batches')
+    .select('*')
+    .eq('restaurant_id', restaurantId)
+    .eq('client_request_id', clientRequestId)
+    .maybeSingle<DualSyncPublishBatchRow>();
+  if (error) {
+    throw error;
+  }
+  return data ? rowToBatch(data) : null;
+}
+
+export interface UpdatePublishBatchStatusInput {
+  readonly client: DbClient;
+  readonly publishBatchId: string;
+  readonly status: DualSyncPublishBatchStatus;
+  readonly errorCode?: string | null;
+  readonly errorMessage?: string | null;
+  readonly startedAt?: string | null;
+  readonly finishedAt?: string | null;
+}
+
+export async function updatePublishBatchStatus(
+  input: UpdatePublishBatchStatusInput,
+): Promise<DualSyncPublishBatch> {
+  const dual = getDualSyncDbClient(input.client);
+  const patch: Partial<DualSyncPublishBatchRow> = {
+    status: input.status,
+  };
+  if (input.errorCode !== undefined) patch.error_code = input.errorCode;
+  if (input.errorMessage !== undefined) patch.error_message = input.errorMessage;
+  if (input.startedAt !== undefined) patch.started_at = input.startedAt;
+  if (input.finishedAt !== undefined) patch.finished_at = input.finishedAt;
+
+  const { data, error } = await dual
+    .from('dual_sync_publish_batches')
+    .update(patch as never)
+    .eq('id', input.publishBatchId)
+    .select('*')
+    .single<DualSyncPublishBatchRow>();
+  if (error) {
+    throw error;
+  }
+  if (!data) {
+    throw new Error(`dual_sync_publish_batches update failed for ${input.publishBatchId}`);
+  }
+  return rowToBatch(data);
+}
+
+export interface CreateOperationGroupsForPlanInput {
+  readonly client: DbClient;
+  readonly restaurantId: string;
+  readonly publishBatchId: string;
+  readonly groups: ReadonlyArray<DualSyncPublishGroup>;
+}
+
+export async function createOperationGroupsForPlan(
+  input: CreateOperationGroupsForPlanInput,
+): Promise<ReadonlyArray<DualSyncPublishOperationGroup>> {
+  if (input.groups.length === 0) return [];
+  const dual = getDualSyncDbClient(input.client);
+  const { data, error } = await dual
+    .from('dual_sync_publish_operation_groups')
+    .insert(
+      input.groups.map((group) => ({
+        restaurant_id: input.restaurantId,
+        publish_batch_id: input.publishBatchId,
+        group_key: group.groupId,
+        section_key: group.sectionKey,
+        direction: group.direction,
+        write_group: group.writeGroup,
+        status: 'pending' satisfies DualSyncPublishOperationGroupStatus,
+        risk_level: group.riskLevel,
+        requires_preflight: group.requiresPreflight,
+        requires_manual_confirmation: group.requiresManualConfirmation,
+        destructive_write_possible: group.destructiveWritePossible,
+        google_update_masks: [...group.googleUpdateMasks],
+        decision_count: group.fields.length,
+      })) as never,
+    )
+    .select('*');
+  if (error) {
+    throw error;
+  }
+  return (data ?? []).map(rowToOperationGroup);
+}
+
+export interface UpdateOperationGroupStatusInput {
+  readonly client: DbClient;
+  readonly operationGroupId: string;
+  readonly status: DualSyncPublishOperationGroupStatus;
+  readonly preflightStatus?: string | null;
+  readonly preflightResult?: unknown;
+  readonly requestSummary?: unknown;
+  readonly responseSummary?: unknown;
+  readonly errorCode?: string | null;
+  readonly errorMessage?: string | null;
+  readonly startedAt?: string | null;
+  readonly finishedAt?: string | null;
+}
+
+export async function updateOperationGroupStatus(
+  input: UpdateOperationGroupStatusInput,
+): Promise<DualSyncPublishOperationGroup> {
+  const dual = getDualSyncDbClient(input.client);
+  const patch: Partial<DualSyncPublishOperationGroupRow> = {
+    status: input.status,
+  };
+  if (input.preflightStatus !== undefined) patch.preflight_status = input.preflightStatus;
+  if (input.preflightResult !== undefined) patch.preflight_result = input.preflightResult as Json;
+  if (input.requestSummary !== undefined) patch.request_summary = input.requestSummary as Json;
+  if (input.responseSummary !== undefined) patch.response_summary = input.responseSummary as Json;
+  if (input.errorCode !== undefined) patch.error_code = input.errorCode;
+  if (input.errorMessage !== undefined) patch.error_message = input.errorMessage;
+  if (input.startedAt !== undefined) patch.started_at = input.startedAt;
+  if (input.finishedAt !== undefined) patch.finished_at = input.finishedAt;
+
+  const { data, error } = await dual
+    .from('dual_sync_publish_operation_groups')
+    .update(patch as never)
+    .eq('id', input.operationGroupId)
+    .select('*')
+    .single<DualSyncPublishOperationGroupRow>();
+  if (error) {
+    throw error;
+  }
+  if (!data) {
+    throw new Error(
+      `dual_sync_publish_operation_groups update failed for ${input.operationGroupId}`,
+    );
+  }
+  return rowToOperationGroup(data);
+}
+
 export interface CreateOperationInput {
   readonly client: DbClient;
   readonly restaurantId: string;
   readonly publishJobId: string;
+  readonly publishBatchId?: string | null;
+  readonly operationGroupId?: string | null;
   readonly sectionKey: DualSyncSectionKey;
   readonly fieldKey: string;
   readonly direction: 'import_from_google' | 'export_to_google';
@@ -72,6 +338,8 @@ export async function createOperation(
     .insert({
       restaurant_id: input.restaurantId,
       publish_job_id: input.publishJobId,
+      publish_batch_id: input.publishBatchId ?? null,
+      operation_group_id: input.operationGroupId ?? null,
       section_key: input.sectionKey,
       field_key: input.fieldKey,
       direction: input.direction,
@@ -348,7 +616,56 @@ export interface GetPublishJobDetailInput {
 
 export interface DualSyncPublishJobDetail {
   readonly rollup: DualSyncPublishJobRollup;
+  readonly batch: DualSyncPublishBatch | null;
+  readonly operationGroups: ReadonlyArray<DualSyncPublishOperationGroup>;
   readonly operations: ReadonlyArray<DualSyncPublishOperation>;
+}
+
+export interface ListPublishBatchesByIdsInput {
+  readonly client: DbClient;
+  readonly restaurantId: string;
+  readonly publishBatchIds: ReadonlyArray<string>;
+}
+
+export async function listPublishBatchesByIds(
+  input: ListPublishBatchesByIdsInput,
+): Promise<ReadonlyArray<DualSyncPublishBatch>> {
+  const ids = Array.from(new Set(input.publishBatchIds.filter((id) => id.length > 0)));
+  if (ids.length === 0) return [];
+  const dual = getDualSyncDbClient(input.client);
+  const { data, error } = await dual
+    .from('dual_sync_publish_batches')
+    .select('*')
+    .eq('restaurant_id', input.restaurantId)
+    .in('id', ids);
+  if (error) {
+    throw error;
+  }
+  return (data ?? []).map(rowToBatch);
+}
+
+export interface ListOperationGroupsByBatchIdsInput {
+  readonly client: DbClient;
+  readonly restaurantId: string;
+  readonly publishBatchIds: ReadonlyArray<string>;
+}
+
+export async function listOperationGroupsByBatchIds(
+  input: ListOperationGroupsByBatchIdsInput,
+): Promise<ReadonlyArray<DualSyncPublishOperationGroup>> {
+  const ids = Array.from(new Set(input.publishBatchIds.filter((id) => id.length > 0)));
+  if (ids.length === 0) return [];
+  const dual = getDualSyncDbClient(input.client);
+  const { data, error } = await dual
+    .from('dual_sync_publish_operation_groups')
+    .select('*')
+    .eq('restaurant_id', input.restaurantId)
+    .in('publish_batch_id', ids)
+    .order('created_at', { ascending: true });
+  if (error) {
+    throw error;
+  }
+  return (data ?? []).map(rowToOperationGroup);
 }
 
 /**
@@ -372,5 +689,26 @@ export async function getPublishJobDetailForRestaurant(
   if (wrongTenant) return null;
   const [rollup] = summarizeOperationsByJob(operations);
   if (!rollup) return null;
-  return { rollup, operations };
+  const publishBatchIds = operations
+    .map((operation) => operation.publishBatchId)
+    .filter((id): id is string => id !== null);
+  const operationGroupIds = new Set(
+    operations
+      .map((operation) => operation.operationGroupId)
+      .filter((id): id is string => id !== null),
+  );
+  const [batches, allGroups] = await Promise.all([
+    listPublishBatchesByIds({
+      client: input.client,
+      restaurantId: input.restaurantId,
+      publishBatchIds,
+    }),
+    listOperationGroupsByBatchIds({
+      client: input.client,
+      restaurantId: input.restaurantId,
+      publishBatchIds,
+    }),
+  ]);
+  const operationGroups = allGroups.filter((group) => operationGroupIds.has(group.id));
+  return { rollup, batch: batches[0] ?? null, operationGroups, operations };
 }

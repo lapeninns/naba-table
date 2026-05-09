@@ -12,6 +12,8 @@
  * side is missing the period entirely.
  */
 
+import { withFieldPolicy } from './policy';
+
 import type { DualSyncFieldConfig } from './types';
 
 interface ServicePeriodValue {
@@ -76,14 +78,15 @@ export function buildServicePeriodFields({
     const dayLabel =
       sample.dayOfWeek === null
         ? 'All days'
-        : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][sample.dayOfWeek] ?? 'Day';
+        : (['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][sample.dayOfWeek] ?? 'Day');
     const label = `${sample.name} (${dayLabel} ${sample.startTime}-${sample.endTime})`;
-    return {
+    return withFieldPolicy({
       fieldKey: `servicePeriods.${stableKey}`,
       sectionKey: 'servicePeriods',
       kind: 'servicePeriod',
       label,
-      helpText: 'Service period exported as a Google more-hours block when the location supports it.',
+      helpText:
+        'Service period exported as a Google more-hours block when the location supports it.',
       corePath: `servicePeriods.periods.${stableKey}`,
       gbpPath: `servicePeriods.periods.${stableKey}`,
       importable: true,
@@ -99,6 +102,6 @@ export function buildServicePeriodFields({
       exportBlockedReason:
         'Service-period export requires Google to expose a writable kitchen moreHoursType.',
       sortOrder: index,
-    } satisfies DualSyncFieldConfig;
+    });
   });
 }

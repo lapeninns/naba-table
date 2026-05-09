@@ -7,10 +7,8 @@
  * Outputs: { publishJobId, operations[], summary, failures[] }
  *
  * Lifecycle for one decision:
- *   1. read current Core + Google canonical snapshots (a fresh pull is
- *      *not* performed inside the orchestrator; callers should run
- *      `refreshFromGoogle` before invoking publish so the pinned hashes
- *      align with what the operator viewed).
+ *   1. optionally pull a fresh Google mirror inside the publish lock, then
+ *      read current Core + Google canonical snapshots.
  *   2. drift-check the decision against pinned hashes; reject with
  *      `CORE_DRIFT` / `GBP_DRIFT` if anything moved.
  *   3. create a `dual_sync_publish_operations` row (status=pending).
@@ -28,26 +26,47 @@
 
 import { randomUUID } from 'node:crypto';
 
+import { assertDualSyncRestaurantNotPaused } from '../controls';
+import { getDualSyncDecisionDisabledReason, getDualSyncRuntimeFlags } from '../flag';
 import { hashCanonicalJson } from '../hashing';
-import { createOperation, listOperationsForJob, updateOperationStatus } from './operations';
+import { mapGoogleProviderErrorToPublishFailure } from './google-errors';
+import { reserveGoogleEditBudget, type DualSyncGoogleEditThrottle } from './google-safety';
+import {
+  createOperation,
+  createOperationGroupsForPlan,
+  createPublishBatch,
+  findPublishBatchByClientRequest,
+  listOperationsForJob,
+  updateOperationGroupStatus,
+  updateOperationStatus,
+  updatePublishBatchStatus,
+} from './operations';
+import { buildPublishPlan } from './planner';
 import { NOOP_PORTS, type DualSyncOrchestratorPorts } from './ports';
-// (no extra imports needed)
+import { defaultDualSyncExportPreflight, type DualSyncExportPreflightPort } from './preflight';
+import { runWithDualSyncLock, type DualSyncLockManager } from '../locks';
 import { listOpenOutboundCandidates, resolveOutboundCandidate } from '../outbound/candidates';
-import { buildRegistry, findFieldConfig } from '../registry';
+import { refreshFromGoogleWithoutLock } from '../refresh/service';
+import { buildRegistry, findFieldConfig, resolveFieldCapability } from '../registry';
 import { readGoogleSnapshot } from '../snapshots/google';
 import { readNabatableSnapshot } from '../snapshots/nabatable';
 import { recomputeAllStates } from '../state/recompute';
 import { markFailed, markIgnored, markInSync } from '../state/write';
 
-
 import type { DualSyncCanonicalSnapshot } from '../snapshots/types';
-import type { DualSyncSectionKey, DualSyncPublishOperation } from '../types';
+import type {
+  DualSyncPublishBatchStatus,
+  DualSyncPublishOperation,
+  DualSyncPublishOperationGroupStatus,
+  DualSyncSectionKey,
+} from '../types';
 import type {
   DualSyncBatchExportResult,
   DualSyncOperationContext,
   DualSyncOperationFailure,
   DualSyncOperationResult,
   DualSyncPublishDecision,
+  DualSyncPublishGroup,
   DualSyncPublishJobSummary,
   DualSyncRunPublishInput,
 } from './types';
@@ -62,6 +81,7 @@ type PreparedPublishDecision = {
   readonly beforeGbpHash: string | null;
   readonly direction: 'import_from_google' | 'export_to_google';
   readonly operation: DualSyncPublishOperation;
+  readonly operationGroupId: string | null;
 };
 
 function readSectionValue(
@@ -83,6 +103,8 @@ function readSectionValue(
       return snapshot.businessContext.attributes;
     case 'businessContext.serviceItems':
       return snapshot.businessContext.serviceItems;
+    case 'foodMenus':
+      return snapshot.foodMenus ?? { items: [] };
     case 'core_only':
       return null;
     default:
@@ -115,8 +137,197 @@ function isExport(action: DualSyncPublishDecision['action']): boolean {
   return action === 'export_to_google';
 }
 
+function policyFailure(
+  message: string,
+  code: DualSyncOperationFailure['code'] = 'UNSUPPORTED_FIELD',
+): DualSyncOperationFailure {
+  return {
+    code,
+    message,
+    retryable: false,
+  };
+}
+
+function buildDecisionHash(input: DualSyncRunPublishInput): string {
+  return (
+    hashCanonicalJson({
+      restaurantId: input.restaurantId,
+      decisions: input.decisions.map((decision) => ({
+        fieldKey: decision.fieldKey,
+        sectionKey: decision.sectionKey,
+        action: decision.action,
+        pinnedCoreHash: decision.pinnedCoreHash,
+        pinnedGbpHash: decision.pinnedGbpHash,
+      })),
+      pinnedCoreSnapshotHash: input.pinnedCoreSnapshotHash ?? null,
+      pinnedGbpSnapshotHash: input.pinnedGbpSnapshotHash ?? null,
+    }) ?? randomUUID()
+  );
+}
+
+function groupKeyForDecision(input: {
+  readonly decision: DualSyncPublishDecision;
+  readonly config: NonNullable<ReturnType<typeof findFieldConfig>>;
+}): string | null {
+  if (input.decision.action === 'ignore') return null;
+  const writeGroup =
+    input.decision.action === 'export_to_google'
+      ? input.config.policy.googleWriteGroup
+      : `core.${input.config.sectionKey}`;
+  return writeGroup ? `${input.decision.action}:${input.decision.sectionKey}:${writeGroup}` : null;
+}
+
+function operationGroupStatusForOperations(
+  operations: ReadonlyArray<DualSyncPublishOperation>,
+): DualSyncPublishOperationGroupStatus {
+  if (operations.length === 0) return 'skipped';
+  if (operations.some((op) => op.status === 'failed')) return 'failed';
+  if (operations.some((op) => op.status === 'retrying')) return 'retrying';
+  if (operations.some((op) => op.status === 'pending' || op.status === 'running')) {
+    return 'running';
+  }
+  if (operations.every((op) => op.status === 'skipped')) return 'skipped';
+  if (operations.every((op) => op.status === 'succeeded')) return 'succeeded';
+  return 'failed';
+}
+
+function batchStatusForSummary(input: {
+  readonly operations: ReadonlyArray<DualSyncPublishOperation>;
+  readonly failures: ReadonlyArray<{ readonly failure: DualSyncOperationFailure }>;
+}): DualSyncPublishBatchStatus {
+  if (input.failures.length > 0) return 'failed';
+  if (input.operations.length === 0) return 'skipped';
+  if (input.operations.some((op) => op.status === 'failed')) return 'failed';
+  if (input.operations.some((op) => op.status === 'pending' || op.status === 'running')) {
+    return 'running';
+  }
+  if (input.operations.every((op) => op.status === 'skipped')) return 'skipped';
+  return 'succeeded';
+}
+
+function operationGroupExecutionSummary(operations: ReadonlyArray<DualSyncPublishOperation>) {
+  return {
+    operationIds: operations.map((operation) => operation.id),
+    fieldKeys: operations.map((operation) => operation.fieldKey),
+    counts: {
+      total: operations.length,
+      succeeded: operations.filter((operation) => operation.status === 'succeeded').length,
+      failed: operations.filter((operation) => operation.status === 'failed').length,
+      skipped: operations.filter((operation) => operation.status === 'skipped').length,
+      other: operations.filter(
+        (operation) =>
+          operation.status !== 'succeeded' &&
+          operation.status !== 'failed' &&
+          operation.status !== 'skipped',
+      ).length,
+    },
+    errorCodes: Array.from(
+      new Set(
+        operations
+          .map((operation) => operation.errorCode)
+          .filter((code): code is string => code !== null),
+      ),
+    ),
+  };
+}
+
+async function runRequiredExportPreflights(input: {
+  readonly client: DbClient;
+  readonly restaurantId: string;
+  readonly publishBatchId: string;
+  readonly actorUserId: string | null;
+  readonly planGroups: ReadonlyArray<DualSyncPublishGroup>;
+  readonly operationGroupIdByKey: ReadonlyMap<string, string>;
+  readonly coreSnapshot: DualSyncCanonicalSnapshot;
+  readonly gbpSnapshot: DualSyncCanonicalSnapshot;
+  readonly exportPreflight: DualSyncExportPreflightPort;
+}): Promise<Map<string, DualSyncOperationFailure>> {
+  const failedByFieldKey = new Map<string, DualSyncOperationFailure>();
+
+  for (const group of input.planGroups) {
+    if (group.direction !== 'export_to_google' || !group.requiresPreflight) continue;
+    const operationGroupId = input.operationGroupIdByKey.get(group.groupId);
+    if (!operationGroupId) continue;
+    const startedAt = new Date().toISOString();
+    await updateOperationGroupStatus({
+      client: input.client,
+      operationGroupId,
+      status: 'running',
+      preflightStatus: 'running',
+      startedAt,
+      requestSummary: {
+        groupId: group.groupId,
+        sectionKey: group.sectionKey,
+        writeGroup: group.writeGroup,
+        googleUpdateMasks: group.googleUpdateMasks,
+        fieldKeys: group.fields.map((field) => field.fieldKey),
+      },
+    });
+
+    let result;
+    try {
+      result = await input.exportPreflight({
+        client: input.client,
+        restaurantId: input.restaurantId,
+        publishBatchId: input.publishBatchId,
+        group,
+        coreSnapshot: input.coreSnapshot,
+        gbpSnapshot: input.gbpSnapshot,
+        actorUserId: input.actorUserId,
+      });
+    } catch (error) {
+      result = {
+        status: 'failed' as const,
+        failure: mapGoogleProviderErrorToPublishFailure(error, 'Google export preflight failed.'),
+        result: {
+          thrown: true,
+          message: error instanceof Error ? error.message : String(error),
+        },
+      };
+    }
+
+    if (result.status === 'failed') {
+      await updateOperationGroupStatus({
+        client: input.client,
+        operationGroupId,
+        status: 'failed',
+        preflightStatus: 'failed',
+        preflightResult: result.result ?? null,
+        errorCode: result.failure.code,
+        errorMessage: result.failure.message,
+        finishedAt: new Date().toISOString(),
+      });
+      for (const decision of group.fields) {
+        failedByFieldKey.set(decision.fieldKey, result.failure);
+      }
+      continue;
+    }
+
+    await updateOperationGroupStatus({
+      client: input.client,
+      operationGroupId,
+      status: 'pending',
+      preflightStatus: result.status,
+      preflightResult: result.result ?? null,
+      responseSummary: result.result ?? null,
+    });
+  }
+
+  return failedByFieldKey;
+}
+
 export interface RunPublishOptions {
   readonly ports?: DualSyncOrchestratorPorts;
+  readonly lockManager?: DualSyncLockManager;
+  readonly lockTtlMs?: number;
+  readonly googleEditThrottle?: DualSyncGoogleEditThrottle;
+  readonly exportPreflight?: DualSyncExportPreflightPort;
+  /**
+   * When true, the orchestrator performs a live Google pull inside the
+   * publish lock before evaluating snapshot/field pins. Tests and replay
+   * callers can leave this disabled when they inject snapshot readers.
+   */
+  readonly refreshGoogleBeforePublish?: boolean;
   /**
    * Override snapshot reads for tests. Defaults to
    * `readNabatableSnapshot` / `readGoogleSnapshot`.
@@ -146,12 +357,47 @@ export async function runPublish(
   input: DualSyncRunPublishInput,
   options: RunPublishOptions = {},
 ): Promise<RunPublishResult> {
+  return runWithDualSyncLock(
+    {
+      client,
+      restaurantId: input.restaurantId,
+      jobKind: 'publish_batch',
+      holderId: input.clientRequestId ?? input.publishBatchId ?? undefined,
+      ttlMs: options.lockTtlMs,
+      manager: options.lockManager,
+      metadata: {
+        publishBatchId: input.publishBatchId ?? null,
+        clientRequestId: input.clientRequestId ?? null,
+        decisionCount: input.decisions.length,
+      },
+    },
+    () => runPublishUnlocked(client, input, options),
+  );
+}
+
+async function runPublishUnlocked(
+  client: DbClient,
+  input: DualSyncRunPublishInput,
+  options: RunPublishOptions,
+): Promise<RunPublishResult> {
   const ports = options.ports ?? NOOP_PORTS;
+  const exportPreflight = options.exportPreflight ?? defaultDualSyncExportPreflight;
   const readCore = options.readCoreSnapshot ?? readNabatableSnapshot;
   const readGbp = options.readGbpSnapshot ?? readGoogleSnapshot;
 
-  const publishJobId = randomUUID();
   const restaurantId = input.restaurantId;
+  const decisionHash = buildDecisionHash(input);
+
+  await assertDualSyncRestaurantNotPaused({ client, restaurantId });
+
+  if (options.refreshGoogleBeforePublish) {
+    await refreshFromGoogleWithoutLock({
+      client,
+      restaurantId,
+      runKind: 'preflight',
+      skipPull: false,
+    });
+  }
 
   const [coreSnapshot, gbpSnapshot] = await Promise.all([
     readCore({ client, restaurantId }),
@@ -163,6 +409,79 @@ export async function runPublish(
     gbpSnapshot,
     includeCoreOnly: false,
   });
+  const runtimeFlags = getDualSyncRuntimeFlags({ restaurantId });
+
+  if (input.clientRequestId) {
+    const existingBatch = await findPublishBatchByClientRequest({
+      client,
+      restaurantId,
+      clientRequestId: input.clientRequestId,
+    });
+    if (existingBatch) {
+      if (existingBatch.decisionHash !== decisionHash) {
+        const failure = policyFailure(
+          'Client request id was already used for a different publish decision set.',
+          'INVALID_DECISION',
+        );
+        return {
+          summary: buildSummary({
+            publishJobId: existingBatch.id,
+            restaurantId,
+            decisions: input.decisions,
+            operations: [],
+            failures: input.decisions.map((decision) => ({
+              fieldKey: decision.fieldKey,
+              failure,
+            })),
+          }),
+        };
+      }
+      const operations = await listOperationsForJob({ client, publishJobId: existingBatch.id });
+      return {
+        summary: buildSummary({
+          publishJobId: existingBatch.id,
+          restaurantId,
+          decisions: input.decisions,
+          operations,
+          failures: [],
+        }),
+      };
+    }
+  }
+
+  const plan = await buildPublishPlan(client, input, {
+    readCoreSnapshot: async () => coreSnapshot,
+    readGbpSnapshot: async () => gbpSnapshot,
+  });
+  const publishBatch = await createPublishBatch({
+    client,
+    restaurantId,
+    clientRequestId: input.clientRequestId ?? null,
+    actorUserId: input.actorUserId,
+    decisionHash,
+    pinnedCoreSnapshotHash: input.pinnedCoreSnapshotHash ?? null,
+    pinnedGbpSnapshotHash: input.pinnedGbpSnapshotHash ?? null,
+    coreSnapshotHash: plan.coreSnapshotHash,
+    gbpSnapshotHash: plan.gbpSnapshotHash,
+    acceptedCount: plan.acceptedCount,
+    rejectedCount: plan.rejectedCount,
+    ignoredCount: plan.ignoredCount,
+    planSummary: {
+      groups: plan.groups,
+      rejected: plan.rejected,
+      warnings: plan.warnings,
+    },
+  });
+  const publishJobId = publishBatch.id;
+  const operationGroups = await createOperationGroupsForPlan({
+    client,
+    restaurantId,
+    publishBatchId: publishBatch.id,
+    groups: plan.groups,
+  });
+  const operationGroupIdByKey = new Map(
+    operationGroups.map((group) => [group.groupKey, group.id] as const),
+  );
 
   // Snapshot-level pinning check (cheap pre-flight, done once). A stale
   // snapshot pin rejects the whole job before any provider side effect.
@@ -174,6 +493,14 @@ export async function runPublish(
         message: 'Core snapshot moved since the operator viewed the diff.',
         retryable: false,
       };
+      await updatePublishBatchStatus({
+        client,
+        publishBatchId: publishBatch.id,
+        status: 'stale',
+        errorCode: failure.code,
+        errorMessage: failure.message,
+        finishedAt: new Date().toISOString(),
+      });
       await recomputeAllStates({ client, restaurantId, coreSnapshot, gbpSnapshot });
       return {
         summary: buildSummary({
@@ -194,6 +521,14 @@ export async function runPublish(
         message: 'Google snapshot moved since the operator viewed the diff.',
         retryable: false,
       };
+      await updatePublishBatchStatus({
+        client,
+        publishBatchId: publishBatch.id,
+        status: 'stale',
+        errorCode: failure.code,
+        errorMessage: failure.message,
+        finishedAt: new Date().toISOString(),
+      });
       await recomputeAllStates({ client, restaurantId, coreSnapshot, gbpSnapshot });
       return {
         summary: buildSummary({
@@ -207,11 +542,29 @@ export async function runPublish(
     }
   }
 
+  const preflightFailures = await runRequiredExportPreflights({
+    client,
+    restaurantId,
+    publishBatchId: publishBatch.id,
+    actorUserId: input.actorUserId,
+    planGroups: plan.groups,
+    operationGroupIdByKey,
+    coreSnapshot,
+    gbpSnapshot,
+    exportPreflight,
+  });
+
   const failures: Array<{
     readonly fieldKey: string;
     readonly failure: DualSyncOperationFailure;
   }> = [];
   const prepared: PreparedPublishDecision[] = [];
+  await updatePublishBatchStatus({
+    client,
+    publishBatchId: publishBatch.id,
+    status: 'running',
+    startedAt: new Date().toISOString(),
+  });
 
   // Validate every decision before any provider write can happen. Then
   // open operation rows for each write attempt before invoking ports.
@@ -225,6 +578,15 @@ export async function runPublish(
           message: `Unknown field key ${decision.fieldKey}.`,
           retryable: false,
         },
+      });
+      continue;
+    }
+
+    const preflightFailure = preflightFailures.get(decision.fieldKey);
+    if (preflightFailure) {
+      failures.push({
+        fieldKey: decision.fieldKey,
+        failure: preflightFailure,
       });
       continue;
     }
@@ -265,6 +627,75 @@ export async function runPublish(
       continue;
     }
 
+    if (decision.sectionKey !== config.sectionKey) {
+      failures.push({
+        fieldKey: decision.fieldKey,
+        failure: policyFailure(
+          `Field ${decision.fieldKey} belongs to ${config.sectionKey}, not ${decision.sectionKey}.`,
+          'INVALID_DECISION',
+        ),
+      });
+      continue;
+    }
+
+    const capability = resolveFieldCapability({ config, coreValue, gbpValue });
+    const flagDisabledReason = getDualSyncDecisionDisabledReason(
+      {
+        action: decision.action,
+        sectionKey: config.sectionKey,
+        riskLevel: config.policy.riskLevel,
+        requiresManualReview: config.policy.requiresManualReview,
+      },
+      runtimeFlags,
+    );
+    if (flagDisabledReason) {
+      failures.push({
+        fieldKey: decision.fieldKey,
+        failure: policyFailure(flagDisabledReason),
+      });
+      continue;
+    }
+
+    if (decision.action === 'import_from_google' && !capability.canImport) {
+      failures.push({
+        fieldKey: decision.fieldKey,
+        failure: policyFailure(
+          capability.blockedReasons[0] ?? 'Field policy does not allow importing this field.',
+        ),
+      });
+      continue;
+    }
+    if (decision.action === 'export_to_google') {
+      if (!capability.canExport) {
+        failures.push({
+          fieldKey: decision.fieldKey,
+          failure: policyFailure(
+            config.policy.noWriteReason ??
+              config.exportBlockedReason ??
+              capability.blockedReasons[0] ??
+              'Field policy does not allow exporting this field.',
+          ),
+        });
+        continue;
+      }
+      if (config.policy.requiresManualReview && input.actorUserId === null) {
+        failures.push({
+          fieldKey: decision.fieldKey,
+          failure: policyFailure('Field requires manual review before it can be exported.'),
+        });
+        continue;
+      }
+      if (!config.policy.googleWriteGroup) {
+        failures.push({
+          fieldKey: decision.fieldKey,
+          failure: policyFailure(
+            config.policy.noWriteReason ?? 'Field policy has no Google write group.',
+          ),
+        });
+        continue;
+      }
+    }
+
     if (decision.action === 'ignore') {
       // Mark ignored without creating an operation row. Operations are
       // reserved for actual write attempts.
@@ -278,10 +709,14 @@ export async function runPublish(
     }
 
     const direction = isImport(decision.action) ? 'import_from_google' : 'export_to_google';
+    const operationGroupId =
+      operationGroupIdByKey.get(groupKeyForDecision({ decision, config }) ?? '') ?? null;
     const operation = await createOperation({
       client,
       restaurantId,
       publishJobId,
+      publishBatchId: publishBatch.id,
+      operationGroupId,
       sectionKey: decision.sectionKey,
       fieldKey: decision.fieldKey,
       direction,
@@ -296,6 +731,7 @@ export async function runPublish(
       beforeGbpHash,
       direction,
       operation,
+      operationGroupId,
     });
   }
 
@@ -311,11 +747,22 @@ export async function runPublish(
     publishJobId,
     restaurantId,
     actorUserId: input.actorUserId,
+    googleEditThrottle: options.googleEditThrottle,
   });
 
+  const runningOperationGroups = new Set<string>();
   for (const item of prepared) {
     const { decision, beforeCoreHash, beforeGbpHash, operation } = item;
     const startedAt = new Date().toISOString();
+    if (item.operationGroupId && !runningOperationGroups.has(item.operationGroupId)) {
+      runningOperationGroups.add(item.operationGroupId);
+      await updateOperationGroupStatus({
+        client,
+        operationGroupId: item.operationGroupId,
+        status: 'running',
+        startedAt,
+      });
+    }
     await updateOperationStatus({
       client,
       operationId: operation.id,
@@ -342,21 +789,24 @@ export async function runPublish(
           gbpSnapshot,
           actorUserId: input.actorUserId,
         };
-        result = isImport(decision.action)
-          ? await ports.applyImportToCore(ctx)
-          : isExport(decision.action)
-            ? await ports.applyExportToGoogle(ctx)
-            : {
-                status: 'skipped',
-              };
+        if (isImport(decision.action)) {
+          result = await ports.applyImportToCore(ctx);
+        } else if (isExport(decision.action)) {
+          const throttleFailure = await reserveGoogleEditBudget({
+            throttle: options.googleEditThrottle,
+            restaurantId,
+            writeGroup: item.operationGroupId ?? decision.sectionKey,
+          });
+          result = throttleFailure
+            ? { status: 'failed', failure: throttleFailure }
+            : await ports.applyExportToGoogle(ctx);
+        } else {
+          result = { status: 'skipped' };
+        }
       } catch (error) {
         result = {
           status: 'failed',
-          failure: {
-            code: 'PORT_FAILURE',
-            message: error instanceof Error ? error.message : String(error),
-            retryable: true,
-          },
+          failure: mapGoogleProviderErrorToPublishFailure(error, 'Dual-sync publish port failed.'),
         };
       }
     }
@@ -376,9 +826,7 @@ export async function runPublish(
 
     if (result.status === 'succeeded') {
       const newCanonicalHash =
-        decision.action === 'import_from_google'
-          ? beforeGbpHash
-          : beforeCoreHash;
+        decision.action === 'import_from_google' ? beforeGbpHash : beforeCoreHash;
       await markInSync({
         client,
         restaurantId,
@@ -402,6 +850,21 @@ export async function runPublish(
 
   // Resolve any open outbound candidate for fields that succeeded.
   const operations = await listOperationsForJob({ client, publishJobId });
+  for (const group of operationGroups) {
+    const groupOperations = operations.filter((op) => op.operationGroupId === group.id);
+    const groupStatus = operationGroupStatusForOperations(groupOperations);
+    const firstFailure = groupOperations.find((op) => op.status === 'failed');
+    await updateOperationGroupStatus({
+      client,
+      operationGroupId: group.id,
+      status: groupStatus,
+      responseSummary: operationGroupExecutionSummary(groupOperations),
+      errorCode: firstFailure?.errorCode ?? null,
+      errorMessage: firstFailure?.errorMessage ?? null,
+      finishedAt:
+        groupStatus === 'running' || groupStatus === 'retrying' ? null : new Date().toISOString(),
+    });
+  }
   const succeeded = operations.filter((op) => op.status === 'succeeded');
   if (succeeded.length > 0) {
     const openCandidates = await listOpenOutboundCandidates({ client, restaurantId });
@@ -431,6 +894,13 @@ export async function runPublish(
     gbpSnapshot: finalGbpSnapshot,
   });
 
+  await updatePublishBatchStatus({
+    client,
+    publishBatchId: publishBatch.id,
+    status: batchStatusForSummary({ operations, failures }),
+    finishedAt: new Date().toISOString(),
+  });
+
   return {
     summary: buildSummary({
       publishJobId,
@@ -456,6 +926,7 @@ interface RunBatchExportPortsInput {
   readonly publishJobId: string;
   readonly restaurantId: string;
   readonly actorUserId: string | null;
+  readonly googleEditThrottle?: DualSyncGoogleEditThrottle;
 }
 
 /**
@@ -496,6 +967,20 @@ async function runBatchExportPorts(
     if (group.decisions.length < 2) continue; // single-decision groups don't benefit from batching.
     let batchResult: DualSyncBatchExportResult;
     try {
+      const throttleFailure = await reserveGoogleEditBudget({
+        throttle: input.googleEditThrottle,
+        restaurantId: input.restaurantId,
+        writeGroup: group.sectionKey,
+      });
+      if (throttleFailure) {
+        for (const decision of group.decisions) {
+          out.set(decision.fieldKey, {
+            status: 'failed',
+            failure: throttleFailure,
+          });
+        }
+        continue;
+      }
       batchResult = await batchPort({
         client: input.client,
         restaurantId: input.restaurantId,
@@ -514,11 +999,7 @@ async function runBatchExportPorts(
       for (const decision of group.decisions) {
         out.set(decision.fieldKey, {
           status: 'failed',
-          failure: {
-            code: 'PORT_FAILURE',
-            message: `Batch export failed: ${message}`,
-            retryable: true,
-          },
+          failure: mapGoogleProviderErrorToPublishFailure(error, `Batch export failed: ${message}`),
         });
       }
       continue;

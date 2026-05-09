@@ -21,20 +21,17 @@
  *     for the next run.
  */
 
-import {
-  buildDefaultNotificationPort,
-  type DualSyncNotificationPort,
-} from '../notifications';
+import { assertDualSyncRestaurantNotPaused } from '../controls';
+import { buildDefaultNotificationPort, type DualSyncNotificationPort } from '../notifications';
 import {
   listOpenOutboundCandidates,
   listRestaurantsWithOpenOutboundCandidates,
 } from '../outbound/candidates';
+import { createDurableDualSyncGoogleEditThrottle } from '../publish/google-safety';
 import { runPublish, type RunPublishOptions, type RunPublishResult } from '../publish/orchestrator';
 import { defaultDualSyncPorts } from '../publish/ports';
 
-import type {
-  DualSyncPublishDecision,
-} from '../publish/types';
+import type { DualSyncPublishDecision } from '../publish/types';
 import type { DualSyncOutboundCandidate } from '../types';
 import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -73,9 +70,7 @@ export interface RunAutoExportSummary {
   }>;
 }
 
-function candidateToDecision(
-  candidate: DualSyncOutboundCandidate,
-): DualSyncPublishDecision {
+function candidateToDecision(candidate: DualSyncOutboundCandidate): DualSyncPublishDecision {
   return {
     fieldKey: candidate.fieldKey,
     sectionKey: candidate.sectionKey,
@@ -90,10 +85,11 @@ export async function runAutoExportForRestaurant(
 ): Promise<RunAutoExportSummary> {
   const { client, restaurantId, maxCandidates, publishOptions } = input;
 
+  await assertDualSyncRestaurantNotPaused({ client, restaurantId });
+
   const open = await listOpenOutboundCandidates({ client, restaurantId });
-  const considered = typeof maxCandidates === 'number'
-    ? open.slice(0, Math.max(0, maxCandidates))
-    : open;
+  const considered =
+    typeof maxCandidates === 'number' ? open.slice(0, Math.max(0, maxCandidates)) : open;
 
   const skipped: Array<{
     readonly candidateId: string;
@@ -136,6 +132,9 @@ export async function runAutoExportForRestaurant(
     },
     {
       ports: publishOptions?.ports ?? defaultDualSyncPorts(),
+      googleEditThrottle:
+        publishOptions?.googleEditThrottle ?? createDurableDualSyncGoogleEditThrottle(client),
+      refreshGoogleBeforePublish: publishOptions?.refreshGoogleBeforePublish ?? true,
       ...publishOptions,
     },
   );

@@ -27,7 +27,12 @@ import {
   dualSyncErrorResponse,
   dualSyncUnavailableResponse,
 } from '@/app/api/ops/restaurants/[id]/dual-sync/_shared';
-import { isDualSyncEnabled } from '@/server/dual-sync/flag';
+import { getDualSyncRestaurantControl } from '@/server/dual-sync/controls';
+import {
+  getDualSyncDecisionDisabledReason,
+  getDualSyncRuntimeFlags,
+  isDualSyncEnabled,
+} from '@/server/dual-sync/flag';
 import { hashCanonicalJson } from '@/server/dual-sync/hashing';
 import { listOpenOutboundCandidates } from '@/server/dual-sync/outbound/candidates';
 import { buildRegistry, resolveFieldCapability } from '@/server/dual-sync/registry';
@@ -65,14 +70,17 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
       gbpSnapshot,
       includeCoreOnly: true,
     });
+    const runtimeFlags = getDualSyncRuntimeFlags({ restaurantId });
 
     const [fieldStates, openCandidates, latestSnapshotRun] = await Promise.all([
       listFieldStates({ client, restaurantId }),
       listOpenOutboundCandidates({ client, restaurantId }),
       readLatestSucceededRun({ client, restaurantId }),
     ]);
+    const control = await getDualSyncRestaurantControl({ client, restaurantId });
     const stateByKey = new Map(fieldStates.map((row) => [row.fieldKey, row]));
     const candidateByKey = new Map(openCandidates.map((row) => [row.fieldKey, row]));
+    const configByKey = new Map(registry.map((config) => [config.fieldKey, config]));
 
     const registrySummary = registry.map((config) => {
       const sectionValueCore = readSectionValue(coreSnapshot, config.sectionKey);
@@ -92,7 +100,37 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
             ? null
             : sectionValueGbp;
 
-      const capability = resolveFieldCapability({ config, coreValue, gbpValue });
+      const baseCapability = resolveFieldCapability({ config, coreValue, gbpValue });
+      const importDisabledReason = getDualSyncDecisionDisabledReason(
+        {
+          action: 'import_from_google',
+          sectionKey: config.sectionKey,
+          riskLevel: config.policy.riskLevel,
+          requiresManualReview: config.policy.requiresManualReview,
+        },
+        runtimeFlags,
+      );
+      const exportDisabledReason = getDualSyncDecisionDisabledReason(
+        {
+          action: 'export_to_google',
+          sectionKey: config.sectionKey,
+          riskLevel: config.policy.riskLevel,
+          requiresManualReview: config.policy.requiresManualReview,
+        },
+        runtimeFlags,
+      );
+      const capability = {
+        ...baseCapability,
+        canImport: baseCapability.canImport && importDisabledReason === null,
+        canExport: baseCapability.canExport && exportDisabledReason === null,
+        blockedReasons: [
+          ...baseCapability.blockedReasons,
+          ...(importDisabledReason ? [importDisabledReason] : []),
+          ...(exportDisabledReason && exportDisabledReason !== importDisabledReason
+            ? [exportDisabledReason]
+            : []),
+        ],
+      };
       const stateRow = stateByKey.get(config.fieldKey) ?? null;
       const candidate = candidateByKey.get(config.fieldKey) ?? null;
       const coreCanonical = config.canonicalizeCoreValue(coreValue);
@@ -108,6 +146,7 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
         helpText: config.helpText ?? null,
         conflictPolicy: config.conflictPolicy,
         deletePolicy: config.deletePolicy,
+        policy: config.policy,
         importable: config.importable,
         exportable: config.exportable,
         sortOrder: config.sortOrder,
@@ -136,7 +175,17 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
 
     const outboundQueue = {
       totalOpen: openCandidates.length,
-      autoExportable: openCandidates.filter((c) => Boolean(c.baselineGbpHash)).length,
+      autoExportable: openCandidates.filter((candidate) => {
+        const config = configByKey.get(candidate.fieldKey);
+        return Boolean(
+          candidate.baselineGbpHash &&
+          runtimeFlags.autoCandidatesEnabled &&
+          runtimeFlags.exportEnabled &&
+          config?.policy.exportable &&
+          !config.policy.requiresManualReview &&
+          config.policy.googleWriteGroup,
+        );
+      }).length,
       missingBaseline: openCandidates.filter((c) => !c.baselineGbpHash).length,
       lastQueuedAt: openCandidates.reduce<string | null>((acc, c) => {
         if (!c.updatedAt) return acc;
@@ -164,6 +213,7 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
         fields: registrySummary,
         outboundQueue,
         lastSnapshot,
+        control,
       },
       { status: 200 },
     );

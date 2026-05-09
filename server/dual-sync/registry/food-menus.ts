@@ -8,6 +8,7 @@
  */
 
 import { canonicalizeStringArray, canonicalizeText, slugifyDisplay } from './normalizers';
+import { withFieldPolicy } from './policy';
 
 import type { DualSyncFieldConfig } from './types';
 
@@ -110,7 +111,7 @@ export function buildFoodMenuItemFields({
     const sample = sampleByKey.get(stableKey)!;
     const safeKey = fieldSafeKey(stableKey);
     const sectionPrefix = slugifyDisplay(sample.sectionLabel || 'menu');
-    return {
+    return withFieldPolicy({
       fieldKey: `foodMenus.items.${sectionPrefix}.${safeKey}`,
       sectionKey: 'foodMenus',
       kind: 'foodMenu.item',
@@ -131,6 +132,6 @@ export function buildFoodMenuItemFields({
       exportBlockedReason:
         'FoodMenus export publishes the deterministic full menu after Google baseline preflight.',
       sortOrder: index,
-    } satisfies DualSyncFieldConfig;
+    });
   });
 }

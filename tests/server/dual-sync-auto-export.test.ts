@@ -29,13 +29,15 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 const RESTAURANT_ID = 'rest-1';
 const client = { from: vi.fn() } as unknown as SupabaseClient<Database>;
 
-function makeCandidate(over: Partial<{
-  id: string;
-  fieldKey: string;
-  sectionKey: string;
-  proposedValueHash: string | null;
-  baselineGbpHash: string | null;
-}> = {}) {
+function makeCandidate(
+  over: Partial<{
+    id: string;
+    fieldKey: string;
+    sectionKey: string;
+    proposedValueHash: string | null;
+    baselineGbpHash: string | null;
+  }> = {},
+) {
   return {
     id: over.id ?? 'cand-1',
     restaurantId: RESTAURANT_ID,
@@ -44,9 +46,8 @@ function makeCandidate(over: Partial<{
     fieldKey: over.fieldKey ?? 'profile.name',
     proposedValue: { name: 'Acme' },
     proposedValueHash:
-      'proposedValueHash' in over ? over.proposedValueHash ?? null : 'core-hash-1',
-    baselineGbpHash:
-      'baselineGbpHash' in over ? over.baselineGbpHash ?? null : 'gbp-hash-1',
+      'proposedValueHash' in over ? (over.proposedValueHash ?? null) : 'core-hash-1',
+    baselineGbpHash: 'baselineGbpHash' in over ? (over.baselineGbpHash ?? null) : 'gbp-hash-1',
     status: 'open' as const,
     source: 'core_write' as const,
     createdByUserId: null,
@@ -198,10 +199,7 @@ describe('runAutoExportForAllTenants', () => {
   });
 
   it('processes each discovered tenant via runAutoExportForRestaurant', async () => {
-    listRestaurantsWithOpenOutboundCandidatesMock.mockResolvedValue([
-      'rest-1',
-      'rest-2',
-    ]);
+    listRestaurantsWithOpenOutboundCandidatesMock.mockResolvedValue(['rest-1', 'rest-2']);
     listOpenOutboundCandidatesMock.mockImplementation(({ restaurantId }) => {
       const cand = makeCandidate({ id: `cand-${restaurantId}` });
       return Promise.resolve([{ ...cand, restaurantId }]);
@@ -249,9 +247,7 @@ describe('runAutoExportForAllTenants', () => {
       })
       .mockImplementationOnce(() => Promise.resolve([makeCandidate({ id: 'cand-2' })]));
     const result = await runAutoExportForAllTenants({ client });
-    expect(result.errors).toEqual([
-      { restaurantId: 'rest-1', message: 'rest-1 blew up' },
-    ]);
+    expect(result.errors).toEqual([{ restaurantId: 'rest-1', message: 'rest-1 blew up' }]);
     expect(result.summaries.map((s) => s.restaurantId)).toEqual(['rest-2']);
     expect(result.restaurantsProcessed).toBe(1);
   });
@@ -261,9 +257,7 @@ describe('runAutoExportForAllTenants', () => {
     listOpenOutboundCandidatesMock.mockImplementationOnce(() => {
       throw new Error('boom');
     });
-    await expect(
-      runAutoExportForAllTenants({ client, onError: 'throw' }),
-    ).rejects.toThrow('boom');
+    await expect(runAutoExportForAllTenants({ client, onError: 'throw' })).rejects.toThrow('boom');
   });
 
   it('emits a tenant_run_failed notification when a tenant throws', async () => {
@@ -285,9 +279,7 @@ describe('runAutoExportForAllTenants', () => {
 
   it('emits a tenant_run_partial notification when a tenant publish has failed operations', async () => {
     listRestaurantsWithOpenOutboundCandidatesMock.mockResolvedValue(['rest-1']);
-    listOpenOutboundCandidatesMock.mockResolvedValue([
-      makeCandidate({ id: 'cand-x' }),
-    ]);
+    listOpenOutboundCandidatesMock.mockResolvedValue([makeCandidate({ id: 'cand-x' })]);
     runPublishMock.mockResolvedValueOnce({
       summary: {
         publishJobId: 'job-rest-1',
@@ -319,9 +311,7 @@ describe('runAutoExportForAllTenants', () => {
 
   it('emits no notification when a tenant publish fully succeeds', async () => {
     listRestaurantsWithOpenOutboundCandidatesMock.mockResolvedValue(['rest-1']);
-    listOpenOutboundCandidatesMock.mockResolvedValue([
-      makeCandidate({ id: 'cand-x' }),
-    ]);
+    listOpenOutboundCandidatesMock.mockResolvedValue([makeCandidate({ id: 'cand-x' })]);
     runPublishMock.mockResolvedValueOnce({
       summary: {
         publishJobId: 'job-rest-1',

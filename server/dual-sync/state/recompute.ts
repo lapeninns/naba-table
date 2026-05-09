@@ -169,6 +169,8 @@ export async function recomputeAllStates(
       lastInSyncHash,
       hasOpenOutboundCandidate: openByKey.has(config.fieldKey),
       previousState,
+      previousCoreHash: previous?.coreValueHash ?? null,
+      previousGbpHash: previous?.gbpValueHash ?? null,
       ignored: previousState === 'ignored',
     });
 

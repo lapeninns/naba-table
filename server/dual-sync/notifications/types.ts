@@ -15,7 +15,8 @@
 export type DualSyncNotificationKind =
   | 'tenant_run_failed'
   | 'tenant_run_partial'
-  | 'cron_run_failed';
+  | 'cron_run_failed'
+  | 'operational_health_alert';
 
 export type DualSyncNotificationSeverity = 'info' | 'warning' | 'error';
 

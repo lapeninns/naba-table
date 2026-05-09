@@ -16,6 +16,7 @@ vi.mock('@/server/dual-sync/outbound/candidates', () => ({
   listOpenOutboundCandidates: listOpenOutboundCandidatesMock,
 }));
 
+import { hashCanonicalJson } from '@/server/dual-sync/hashing';
 import { recomputeAllStates } from '@/server/dual-sync/state/recompute';
 
 import type { DualSyncCanonicalSnapshot } from '@/server/dual-sync/snapshots/types';
@@ -171,7 +172,7 @@ describe('recomputeAllStates', () => {
     );
   });
 
-  it('overlays pending_export when an open outbound candidate exists for an exportable field', async () => {
+  it('does not overlay pending_export for first drift without a prior in-sync baseline', async () => {
     const core = makeSnapshot();
     const gbp = makeSnapshot({
       profile: {
@@ -190,6 +191,75 @@ describe('recomputeAllStates', () => {
         proposedValue: 'Tasty',
         proposedValueHash: 'p',
         baselineGbpHash: null,
+        status: 'open',
+        source: 'core_write',
+        createdByUserId: null,
+        resolvedAt: null,
+        createdAt: '2026-04-29T00:00:00.000Z',
+        updatedAt: '2026-04-29T00:00:00.000Z',
+      },
+    ]);
+
+    const result = await recomputeAllStates({
+      client,
+      restaurantId: RESTAURANT_ID,
+      coreSnapshot: core,
+      gbpSnapshot: gbp,
+      includeCoreOnly: false,
+    });
+
+    const description = result.transitions.find(
+      (t) => t.fieldKey === 'profile.businessDescription',
+    );
+    expect(description?.toState).toBe('drifted');
+  });
+
+  it('overlays pending_export for a core-side move with an open outbound candidate', async () => {
+    const oldDescription = 'Old';
+    const core = makeSnapshot({
+      profile: {
+        ...makeSnapshot().profile,
+        businessDescription: 'Tasty',
+      },
+    });
+    const gbp = makeSnapshot({
+      profile: {
+        ...core.profile,
+        businessDescription: oldDescription,
+      },
+    });
+    const oldHash = hashCanonicalJson(oldDescription);
+
+    listFieldStatesMock.mockResolvedValue([
+      {
+        id: 'st-1',
+        restaurantId: RESTAURANT_ID,
+        provider: 'google_business_profile',
+        sectionKey: 'profile',
+        fieldKey: 'profile.businessDescription',
+        state: 'in_sync',
+        coreValueHash: oldHash,
+        gbpValueHash: oldHash,
+        lastInSyncHash: oldHash,
+        lastCoreChangeAt: null,
+        lastGbpChangeAt: null,
+        lastInSyncAt: null,
+        lastSnapshotRunId: null,
+        metadata: {},
+        createdAt: '2026-04-29T00:00:00.000Z',
+        updatedAt: '2026-04-29T00:00:00.000Z',
+      },
+    ]);
+    listOpenOutboundCandidatesMock.mockResolvedValue([
+      {
+        id: 'cand-1',
+        restaurantId: RESTAURANT_ID,
+        provider: 'google_business_profile',
+        sectionKey: 'profile',
+        fieldKey: 'profile.businessDescription',
+        proposedValue: 'Tasty',
+        proposedValueHash: 'p',
+        baselineGbpHash: oldHash,
         status: 'open',
         source: 'core_write',
         createdByUserId: null,

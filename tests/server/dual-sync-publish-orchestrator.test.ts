@@ -1,8 +1,13 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const createOperationMock = vi.hoisted(() => vi.fn());
 const updateOperationStatusMock = vi.hoisted(() => vi.fn());
 const listOperationsForJobMock = vi.hoisted(() => vi.fn());
+const createPublishBatchMock = vi.hoisted(() => vi.fn());
+const findPublishBatchByClientRequestMock = vi.hoisted(() => vi.fn());
+const updatePublishBatchStatusMock = vi.hoisted(() => vi.fn());
+const createOperationGroupsForPlanMock = vi.hoisted(() => vi.fn());
+const updateOperationGroupStatusMock = vi.hoisted(() => vi.fn());
 
 const recomputeAllStatesMock = vi.hoisted(() => vi.fn());
 const markInSyncMock = vi.hoisted(() => vi.fn());
@@ -14,11 +19,31 @@ const resolveOutboundCandidateMock = vi.hoisted(() => vi.fn());
 
 const readNabatableSnapshotMock = vi.hoisted(() => vi.fn());
 const readGoogleSnapshotMock = vi.hoisted(() => vi.fn());
+const refreshFromGoogleWithoutLockMock = vi.hoisted(() => vi.fn());
+const assertDualSyncRestaurantNotPausedMock = vi.hoisted(() => vi.fn());
+const getDualSyncRestaurantControlMock = vi.hoisted(() => vi.fn());
+const runWithDualSyncLockMock = vi.hoisted(() =>
+  vi.fn(async (_input, work) =>
+    work({
+      id: 'lock-1',
+      restaurantId: 'rest-1',
+      jobKind: 'publish_batch',
+      holderId: 'holder-1',
+      acquiredAt: '2026-05-09T00:00:00.000Z',
+      expiresAt: '2026-05-09T00:05:00.000Z',
+    }),
+  ),
+);
 
 vi.mock('@/server/dual-sync/publish/operations', () => ({
   createOperation: createOperationMock,
   updateOperationStatus: updateOperationStatusMock,
   listOperationsForJob: listOperationsForJobMock,
+  createPublishBatch: createPublishBatchMock,
+  findPublishBatchByClientRequest: findPublishBatchByClientRequestMock,
+  updatePublishBatchStatus: updatePublishBatchStatusMock,
+  createOperationGroupsForPlan: createOperationGroupsForPlanMock,
+  updateOperationGroupStatus: updateOperationGroupStatusMock,
 }));
 
 vi.mock('@/server/dual-sync/state/recompute', () => ({
@@ -44,6 +69,20 @@ vi.mock('@/server/dual-sync/snapshots/google', () => ({
   readGoogleSnapshot: readGoogleSnapshotMock,
 }));
 
+vi.mock('@/server/dual-sync/refresh/service', () => ({
+  refreshFromGoogleWithoutLock: refreshFromGoogleWithoutLockMock,
+}));
+
+vi.mock('@/server/dual-sync/locks', () => ({
+  runWithDualSyncLock: runWithDualSyncLockMock,
+}));
+
+vi.mock('@/server/dual-sync/controls', () => ({
+  assertDualSyncRestaurantNotPaused: assertDualSyncRestaurantNotPausedMock,
+  getDualSyncRestaurantControl: getDualSyncRestaurantControlMock,
+}));
+
+import { hashCanonicalJson } from '@/server/dual-sync/hashing';
 import { runPublish } from '@/server/dual-sync/publish/orchestrator';
 
 import type { DualSyncOrchestratorPorts } from '@/server/dual-sync/publish/ports';
@@ -54,6 +93,12 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 const RESTAURANT_ID = 'rest-1';
 const client = { from: vi.fn() } as unknown as SupabaseClient<Database>;
+
+afterEach(() => {
+  delete process.env.GBP_EXPORT_ENABLED;
+  delete process.env.GBP_IMPORT_ENABLED;
+  delete process.env.GBP_HIGH_RISK_EXPORTS_ENABLED;
+});
 
 function makeSnapshot(over: Partial<DualSyncCanonicalSnapshot> = {}): DualSyncCanonicalSnapshot {
   return {
@@ -78,9 +123,7 @@ function makeSnapshot(over: Partial<DualSyncCanonicalSnapshot> = {}): DualSyncCa
   };
 }
 
-function makeDecision(
-  over: Partial<DualSyncPublishDecision> = {},
-): DualSyncPublishDecision {
+function makeDecision(over: Partial<DualSyncPublishDecision> = {}): DualSyncPublishDecision {
   return {
     fieldKey: 'profile.businessDescription',
     sectionKey: 'profile',
@@ -122,6 +165,11 @@ describe('dual-sync runPublish', () => {
     createOperationMock.mockReset();
     updateOperationStatusMock.mockReset();
     listOperationsForJobMock.mockReset();
+    createPublishBatchMock.mockReset();
+    findPublishBatchByClientRequestMock.mockReset();
+    updatePublishBatchStatusMock.mockReset();
+    createOperationGroupsForPlanMock.mockReset();
+    updateOperationGroupStatusMock.mockReset();
     recomputeAllStatesMock.mockReset();
     markInSyncMock.mockReset();
     markFailedMock.mockReset();
@@ -130,13 +178,70 @@ describe('dual-sync runPublish', () => {
     resolveOutboundCandidateMock.mockReset();
     readNabatableSnapshotMock.mockReset();
     readGoogleSnapshotMock.mockReset();
+    refreshFromGoogleWithoutLockMock.mockReset();
+    assertDualSyncRestaurantNotPausedMock.mockReset();
+    getDualSyncRestaurantControlMock.mockReset();
+    runWithDualSyncLockMock.mockClear();
 
     readNabatableSnapshotMock.mockResolvedValue(makeSnapshot());
     readGoogleSnapshotMock.mockResolvedValue(makeSnapshot());
+    refreshFromGoogleWithoutLockMock.mockResolvedValue({
+      snapshotRun: { id: 'run-1' },
+      coreSnapshot: makeSnapshot(),
+      gbpSnapshot: makeSnapshot(),
+      foodMenusRefresh: {
+        status: 'skipped',
+        reason: 'skip_pull',
+        message: 'test',
+      },
+      recompute: { evaluatedFieldKeys: [], transitions: [] },
+    });
+    assertDualSyncRestaurantNotPausedMock.mockResolvedValue(undefined);
+    getDualSyncRestaurantControlMock.mockResolvedValue({
+      restaurantId: RESTAURANT_ID,
+      provider: 'google_business_profile',
+      syncPaused: false,
+      pauseReason: null,
+      pausedByUserId: null,
+      pausedAt: null,
+      resumedAt: null,
+      createdAt: null,
+      updatedAt: null,
+    });
 
     createOperationMock.mockImplementation(async () => noopOperation());
     updateOperationStatusMock.mockImplementation(async () => noopOperation());
     listOperationsForJobMock.mockResolvedValue([]);
+    findPublishBatchByClientRequestMock.mockResolvedValue(null);
+    createPublishBatchMock.mockResolvedValue({
+      id: 'job-1',
+      restaurantId: RESTAURANT_ID,
+      provider: 'google_business_profile',
+      clientRequestId: null,
+      actorUserId: 'user-1',
+      status: 'pending',
+      decisionHash: 'decision-hash',
+      pinnedCoreSnapshotHash: null,
+      pinnedGbpSnapshotHash: null,
+      coreSnapshotHash: null,
+      gbpSnapshotHash: null,
+      acceptedCount: 0,
+      rejectedCount: 0,
+      ignoredCount: 0,
+      planSummary: {},
+      errorCode: null,
+      errorMessage: null,
+      startedAt: null,
+      finishedAt: null,
+      createdAt: '2026-05-09T00:00:00.000Z',
+      updatedAt: '2026-05-09T00:00:00.000Z',
+    });
+    updatePublishBatchStatusMock.mockResolvedValue({
+      id: 'job-1',
+      status: 'running',
+    });
+    createOperationGroupsForPlanMock.mockResolvedValue([]);
+    updateOperationGroupStatusMock.mockResolvedValue(null);
     recomputeAllStatesMock.mockResolvedValue({
       evaluatedFieldKeys: [],
       transitions: [],
@@ -145,9 +250,7 @@ describe('dual-sync runPublish', () => {
   });
 
   it('calls applyImportToCore for an import decision and stamps in_sync on success', async () => {
-    listOperationsForJobMock.mockResolvedValue([
-      noopOperation({ status: 'succeeded' }),
-    ]);
+    listOperationsForJobMock.mockResolvedValue([noopOperation({ status: 'succeeded' })]);
 
     const ports: DualSyncOrchestratorPorts = {
       applyImportToCore: vi.fn().mockResolvedValue({ status: 'succeeded' }),
@@ -170,6 +273,400 @@ describe('dual-sync runPublish', () => {
     expect(result.summary.succeededCount).toBe(1);
     expect(result.summary.failedCount).toBe(0);
     expect(recomputeAllStatesMock).toHaveBeenCalledTimes(1);
+    expect(runWithDualSyncLockMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        client,
+        restaurantId: RESTAURANT_ID,
+        jobKind: 'publish_batch',
+      }),
+      expect.any(Function),
+    );
+  });
+
+  it('fails before provider refresh or port calls when restaurant sync is paused', async () => {
+    assertDualSyncRestaurantNotPausedMock.mockRejectedValueOnce(
+      Object.assign(new Error('Maintenance window.'), {
+        code: 'DUAL_SYNC_RESTAURANT_PAUSED',
+      }),
+    );
+    const ports: DualSyncOrchestratorPorts = {
+      applyImportToCore: vi.fn(),
+      applyExportToGoogle: vi.fn(),
+    };
+
+    await expect(
+      runPublish(
+        client,
+        {
+          restaurantId: RESTAURANT_ID,
+          decisions: [makeDecision()],
+          actorUserId: 'user-1',
+        },
+        { ports, refreshGoogleBeforePublish: true },
+      ),
+    ).rejects.toMatchObject({
+      code: 'DUAL_SYNC_RESTAURANT_PAUSED',
+      message: 'Maintenance window.',
+    });
+
+    expect(refreshFromGoogleWithoutLockMock).not.toHaveBeenCalled();
+    expect(readNabatableSnapshotMock).not.toHaveBeenCalled();
+    expect(readGoogleSnapshotMock).not.toHaveBeenCalled();
+    expect(ports.applyImportToCore).not.toHaveBeenCalled();
+    expect(ports.applyExportToGoogle).not.toHaveBeenCalled();
+  });
+
+  it('can refresh the Google mirror inside the publish lock before evaluating pins', async () => {
+    listOperationsForJobMock.mockResolvedValue([noopOperation({ status: 'succeeded' })]);
+    const ports: DualSyncOrchestratorPorts = {
+      applyImportToCore: vi.fn().mockResolvedValue({ status: 'succeeded' }),
+      applyExportToGoogle: vi.fn(),
+    };
+
+    await runPublish(
+      client,
+      {
+        restaurantId: RESTAURANT_ID,
+        decisions: [makeDecision()],
+        actorUserId: 'user-1',
+      },
+      {
+        ports,
+        refreshGoogleBeforePublish: true,
+      },
+    );
+
+    expect(refreshFromGoogleWithoutLockMock).toHaveBeenCalledWith({
+      client,
+      restaurantId: RESTAURANT_ID,
+      runKind: 'preflight',
+      skipPull: false,
+    });
+    expect(readNabatableSnapshotMock).toHaveBeenCalled();
+    expect(readGoogleSnapshotMock).toHaveBeenCalled();
+  });
+
+  it('replays an existing client_request_id batch without invoking write ports again', async () => {
+    const decisions = [makeDecision()];
+    const decisionHash = hashCanonicalJson({
+      restaurantId: RESTAURANT_ID,
+      decisions,
+      pinnedCoreSnapshotHash: null,
+      pinnedGbpSnapshotHash: null,
+    });
+    findPublishBatchByClientRequestMock.mockResolvedValueOnce({
+      id: 'existing-job-1',
+      decisionHash,
+    });
+    listOperationsForJobMock.mockResolvedValueOnce([
+      noopOperation({
+        id: 'op-existing',
+        publishJobId: 'existing-job-1',
+        status: 'succeeded',
+      }),
+    ]);
+
+    const ports: DualSyncOrchestratorPorts = {
+      applyImportToCore: vi.fn(),
+      applyExportToGoogle: vi.fn(),
+    };
+
+    const result = await runPublish(
+      client,
+      {
+        restaurantId: RESTAURANT_ID,
+        decisions,
+        actorUserId: 'user-1',
+        clientRequestId: 'request-1',
+      },
+      { ports },
+    );
+
+    expect(findPublishBatchByClientRequestMock).toHaveBeenCalledWith({
+      client,
+      restaurantId: RESTAURANT_ID,
+      clientRequestId: 'request-1',
+    });
+    expect(createPublishBatchMock).not.toHaveBeenCalled();
+    expect(createOperationMock).not.toHaveBeenCalled();
+    expect(ports.applyImportToCore).not.toHaveBeenCalled();
+    expect(result.summary.publishJobId).toBe('existing-job-1');
+    expect(result.summary.succeededCount).toBe(1);
+  });
+
+  it('creates section operation groups and attaches child operation rows', async () => {
+    createOperationGroupsForPlanMock.mockResolvedValueOnce([
+      {
+        id: 'group-profile',
+        groupKey: 'export_to_google:profile:location.profile',
+        sectionKey: 'profile',
+      },
+    ]);
+    createOperationMock.mockImplementation(async (input) =>
+      noopOperation({
+        id: 'op-1',
+        publishBatchId: input.publishBatchId,
+        operationGroupId: input.operationGroupId,
+        direction: 'export_to_google',
+        status: 'pending',
+      }),
+    );
+    listOperationsForJobMock.mockResolvedValueOnce([
+      noopOperation({
+        id: 'op-1',
+        status: 'succeeded',
+        direction: 'export_to_google',
+        publishBatchId: 'job-1',
+        operationGroupId: 'group-profile',
+      }),
+    ]);
+
+    const ports: DualSyncOrchestratorPorts = {
+      applyImportToCore: vi.fn(),
+      applyExportToGoogle: vi.fn().mockResolvedValue({ status: 'succeeded' }),
+    };
+
+    await runPublish(
+      client,
+      {
+        restaurantId: RESTAURANT_ID,
+        decisions: [makeDecision({ action: 'export_to_google' })],
+        actorUserId: 'user-1',
+      },
+      { ports },
+    );
+
+    expect(createPublishBatchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        restaurantId: RESTAURANT_ID,
+        actorUserId: 'user-1',
+        acceptedCount: 1,
+        rejectedCount: 0,
+      }),
+    );
+    expect(createOperationGroupsForPlanMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        publishBatchId: 'job-1',
+        groups: [
+          expect.objectContaining({
+            groupId: 'export_to_google:profile:location.profile',
+            writeGroup: 'location.profile',
+          }),
+        ],
+      }),
+    );
+    expect(createOperationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        publishBatchId: 'job-1',
+        operationGroupId: 'group-profile',
+      }),
+    );
+    expect(updateOperationGroupStatusMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operationGroupId: 'group-profile',
+        status: 'running',
+      }),
+    );
+    expect(updateOperationGroupStatusMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operationGroupId: 'group-profile',
+        status: 'succeeded',
+        responseSummary: expect.objectContaining({
+          operationIds: ['op-1'],
+          fieldKeys: ['profile.businessDescription'],
+          counts: expect.objectContaining({
+            total: 1,
+            succeeded: 1,
+            failed: 0,
+          }),
+        }),
+      }),
+    );
+    expect(updatePublishBatchStatusMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        publishBatchId: 'job-1',
+        status: 'succeeded',
+      }),
+    );
+  });
+
+  it('fails export operations as retryable when Google edit budget is exhausted', async () => {
+    listOperationsForJobMock.mockResolvedValueOnce([
+      noopOperation({
+        id: 'op-1',
+        status: 'failed',
+        direction: 'export_to_google',
+        errorCode: 'QUOTA_LIMITED',
+        errorMessage: 'Google edit budget is exhausted for this location.',
+      }),
+    ]);
+    const ports: DualSyncOrchestratorPorts = {
+      applyImportToCore: vi.fn(),
+      applyExportToGoogle: vi.fn(),
+    };
+
+    const result = await runPublish(
+      client,
+      {
+        restaurantId: RESTAURANT_ID,
+        decisions: [makeDecision({ action: 'export_to_google' })],
+        actorUserId: 'user-1',
+      },
+      {
+        ports,
+        googleEditThrottle: {
+          reserve: vi.fn(async () => ({
+            allowed: false,
+            retryAfterMs: 60_000,
+            remaining: 0,
+          })),
+        },
+      },
+    );
+
+    expect(ports.applyExportToGoogle).not.toHaveBeenCalled();
+    expect(updateOperationStatusMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'failed',
+        errorCode: 'QUOTA_LIMITED',
+      }),
+    );
+    expect(result.summary.failedCount).toBe(1);
+    expect(result.summary.failures).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          fieldKey: 'profile.businessDescription',
+          failure: expect.objectContaining({ code: 'QUOTA_LIMITED', retryable: true }),
+        }),
+      ]),
+    );
+  });
+
+  it('blocks required export groups when preflight fails before operation rows or port calls', async () => {
+    createOperationGroupsForPlanMock.mockResolvedValueOnce([
+      {
+        id: 'group-hours',
+        groupKey: 'export_to_google:operatingHours:location.regularHours',
+        sectionKey: 'operatingHours',
+      },
+    ]);
+    listOperationsForJobMock.mockResolvedValue([]);
+
+    const ports: DualSyncOrchestratorPorts = {
+      applyImportToCore: vi.fn(),
+      applyExportToGoogle: vi.fn(),
+      applyExportBatchToGoogle: vi.fn(),
+    };
+    const exportPreflight = vi.fn().mockResolvedValue({
+      status: 'failed',
+      failure: {
+        code: 'GOOGLE_VALIDATION_FAILED',
+        message: 'Google rejected the regular hours payload.',
+        retryable: false,
+      },
+      result: { validateOnly: false },
+    });
+
+    const result = await runPublish(
+      client,
+      {
+        restaurantId: RESTAURANT_ID,
+        decisions: [
+          makeDecision({
+            fieldKey: 'operatingHours.weekly.1',
+            sectionKey: 'operatingHours',
+            action: 'export_to_google',
+          }),
+        ],
+        actorUserId: 'user-1',
+      },
+      { ports, exportPreflight },
+    );
+
+    expect(exportPreflight).toHaveBeenCalledWith(
+      expect.objectContaining({
+        restaurantId: RESTAURANT_ID,
+        publishBatchId: 'job-1',
+        group: expect.objectContaining({
+          groupId: 'export_to_google:operatingHours:location.regularHours',
+          requiresPreflight: true,
+        }),
+      }),
+    );
+    expect(createOperationMock).not.toHaveBeenCalled();
+    expect(ports.applyExportBatchToGoogle).not.toHaveBeenCalled();
+    expect(ports.applyExportToGoogle).not.toHaveBeenCalled();
+    expect(updateOperationGroupStatusMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operationGroupId: 'group-hours',
+        status: 'running',
+        preflightStatus: 'running',
+      }),
+    );
+    expect(updateOperationGroupStatusMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operationGroupId: 'group-hours',
+        status: 'failed',
+        preflightStatus: 'failed',
+        errorCode: 'GOOGLE_VALIDATION_FAILED',
+      }),
+    );
+    expect(result.summary.failures).toEqual([
+      expect.objectContaining({
+        fieldKey: 'operatingHours.weekly.1',
+        failure: expect.objectContaining({
+          code: 'GOOGLE_VALIDATION_FAILED',
+          message: 'Google rejected the regular hours payload.',
+        }),
+      }),
+    ]);
+  });
+
+  it('normalizes thrown Google provider errors into actionable failure codes', async () => {
+    listOperationsForJobMock.mockResolvedValueOnce([
+      noopOperation({
+        id: 'op-1',
+        status: 'failed',
+        direction: 'export_to_google',
+        errorCode: 'LOCATION_ACCESS_LOST',
+        errorMessage: 'Permission denied',
+      }),
+    ]);
+    const ports: DualSyncOrchestratorPorts = {
+      applyImportToCore: vi.fn(),
+      applyExportToGoogle: vi.fn().mockRejectedValue({
+        status: 403,
+        message: 'Permission denied for access_token=secret-token',
+      }),
+    };
+
+    const result = await runPublish(
+      client,
+      {
+        restaurantId: RESTAURANT_ID,
+        decisions: [makeDecision({ action: 'export_to_google' })],
+        actorUserId: 'user-1',
+      },
+      { ports },
+    );
+
+    expect(updateOperationStatusMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'failed',
+        errorCode: 'LOCATION_ACCESS_LOST',
+        errorMessage: 'Permission denied for access_token=[redacted]',
+      }),
+    );
+    expect(result.summary.failures).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          failure: expect.objectContaining({
+            code: 'LOCATION_ACCESS_LOST',
+            retryable: false,
+          }),
+        }),
+      ]),
+    );
   });
 
   it('recomputes final state from post-import snapshots', async () => {
@@ -198,9 +695,7 @@ describe('dual-sync runPublish', () => {
     readGoogleSnapshotMock
       .mockResolvedValueOnce(googleSnapshot)
       .mockResolvedValueOnce(googleSnapshot);
-    listOperationsForJobMock.mockResolvedValue([
-      noopOperation({ status: 'succeeded' }),
-    ]);
+    listOperationsForJobMock.mockResolvedValue([noopOperation({ status: 'succeeded' })]);
 
     const ports: DualSyncOrchestratorPorts = {
       applyImportToCore: vi.fn().mockResolvedValue({ status: 'succeeded' }),
@@ -242,7 +737,7 @@ describe('dual-sync runPublish', () => {
       {
         restaurantId: RESTAURANT_ID,
         decisions: [makeDecision({ action: 'export_to_google' })],
-        actorUserId: null,
+        actorUserId: 'user-1',
       },
       { ports },
     );
@@ -264,7 +759,7 @@ describe('dual-sync runPublish', () => {
       {
         restaurantId: RESTAURANT_ID,
         decisions: [makeDecision({ action: 'ignore' })],
-        actorUserId: null,
+        actorUserId: 'user-1',
       },
       { ports },
     );
@@ -287,7 +782,7 @@ describe('dual-sync runPublish', () => {
       {
         restaurantId: RESTAURANT_ID,
         decisions: [makeDecision({ pinnedCoreHash: 'stale-hash' })],
-        actorUserId: null,
+        actorUserId: 'user-1',
       },
       { ports },
     );
@@ -323,7 +818,7 @@ describe('dual-sync runPublish', () => {
             action: 'export_to_google',
           }),
         ],
-        actorUserId: null,
+        actorUserId: 'user-1',
         pinnedGbpSnapshotHash: 'stale-snapshot',
       },
       { ports },
@@ -352,14 +847,12 @@ describe('dual-sync runPublish', () => {
       {
         restaurantId: RESTAURANT_ID,
         decisions: [makeDecision()],
-        actorUserId: null,
+        actorUserId: 'user-1',
       },
       { ports },
     );
 
-    expect(markFailedMock).toHaveBeenCalledWith(
-      expect.objectContaining({ direction: 'import' }),
-    );
+    expect(markFailedMock).toHaveBeenCalledWith(expect.objectContaining({ direction: 'import' }));
     expect(result.summary.failures).toEqual([
       expect.objectContaining({
         fieldKey: 'profile.businessDescription',
@@ -382,13 +875,115 @@ describe('dual-sync runPublish', () => {
       {
         restaurantId: RESTAURANT_ID,
         decisions: [makeDecision({ fieldKey: 'profile.doesNotExist' })],
-        actorUserId: null,
+        actorUserId: 'user-1',
       },
       { ports },
     );
 
     expect(createOperationMock).not.toHaveBeenCalled();
     expect(result.summary.failures[0]?.failure.code).toBe('INVALID_DECISION');
+  });
+
+  it('rejects exports for Google-owned read-only policy fields before operation creation', async () => {
+    listOperationsForJobMock.mockResolvedValue([]);
+
+    const ports: DualSyncOrchestratorPorts = {
+      applyImportToCore: vi.fn(),
+      applyExportToGoogle: vi.fn(),
+    };
+
+    const result = await runPublish(
+      client,
+      {
+        restaurantId: RESTAURANT_ID,
+        decisions: [
+          makeDecision({
+            fieldKey: 'profile.googleMapUrl',
+            sectionKey: 'profile',
+            action: 'export_to_google',
+          }),
+        ],
+        actorUserId: 'user-1',
+      },
+      { ports },
+    );
+
+    expect(createOperationMock).not.toHaveBeenCalled();
+    expect(ports.applyExportToGoogle).not.toHaveBeenCalled();
+    expect(result.summary.failures).toEqual([
+      expect.objectContaining({
+        fieldKey: 'profile.googleMapUrl',
+        failure: expect.objectContaining({
+          code: 'UNSUPPORTED_FIELD',
+          message: 'Google Maps URL is Google-owned metadata and is not directly writable.',
+        }),
+      }),
+    ]);
+  });
+
+  it('rejects automated exports for manual-review policy fields', async () => {
+    listOperationsForJobMock.mockResolvedValue([]);
+
+    const ports: DualSyncOrchestratorPorts = {
+      applyImportToCore: vi.fn(),
+      applyExportToGoogle: vi.fn(),
+    };
+
+    const result = await runPublish(
+      client,
+      {
+        restaurantId: RESTAURANT_ID,
+        decisions: [
+          makeDecision({
+            fieldKey: 'profile.name',
+            sectionKey: 'profile',
+            action: 'export_to_google',
+          }),
+        ],
+        actorUserId: null,
+      },
+      { ports },
+    );
+
+    expect(createOperationMock).not.toHaveBeenCalled();
+    expect(ports.applyExportToGoogle).not.toHaveBeenCalled();
+    expect(result.summary.failures[0]?.failure).toMatchObject({
+      code: 'UNSUPPORTED_FIELD',
+      message: 'Field requires manual review before it can be exported.',
+    });
+  });
+
+  it('rejects disabled export decisions before creating operation rows or calling ports', async () => {
+    process.env.GBP_EXPORT_ENABLED = 'false';
+    listOperationsForJobMock.mockResolvedValue([]);
+
+    const ports: DualSyncOrchestratorPorts = {
+      applyImportToCore: vi.fn(),
+      applyExportToGoogle: vi.fn(),
+    };
+
+    const result = await runPublish(
+      client,
+      {
+        restaurantId: RESTAURANT_ID,
+        decisions: [
+          makeDecision({
+            fieldKey: 'profile.businessDescription',
+            sectionKey: 'profile',
+            action: 'export_to_google',
+          }),
+        ],
+        actorUserId: 'user-1',
+      },
+      { ports },
+    );
+
+    expect(createOperationMock).not.toHaveBeenCalled();
+    expect(ports.applyExportToGoogle).not.toHaveBeenCalled();
+    expect(result.summary.failures[0]?.failure).toMatchObject({
+      code: 'UNSUPPORTED_FIELD',
+      message: 'Google exports are disabled for this deployment.',
+    });
   });
 
   it('routes a 2+ same-section export group through applyExportBatchToGoogle and skips per-field calls', async () => {
@@ -436,11 +1031,12 @@ describe('dual-sync runPublish', () => {
             action: 'export_to_google',
           }),
         ],
-        actorUserId: null,
+        actorUserId: 'user-1',
       },
       { ports },
     );
 
+    expect(result.summary.failures).toEqual([]);
     expect(ports.applyExportBatchToGoogle).toHaveBeenCalledTimes(1);
     expect(ports.applyExportToGoogle).not.toHaveBeenCalled();
     expect(createOperationMock).toHaveBeenCalledTimes(2);
@@ -478,7 +1074,7 @@ describe('dual-sync runPublish', () => {
             action: 'export_to_google',
           }),
         ],
-        actorUserId: null,
+        actorUserId: 'user-1',
       },
       { ports },
     );
@@ -526,7 +1122,7 @@ describe('dual-sync runPublish', () => {
             action: 'export_to_google',
           }),
         ],
-        actorUserId: null,
+        actorUserId: 'user-1',
       },
       { ports },
     );
@@ -535,7 +1131,7 @@ describe('dual-sync runPublish', () => {
     expect(ports.applyExportToGoogle).toHaveBeenCalledTimes(2);
   });
 
-  it('routes every decision in the group to PORT_FAILURE when the batch port throws', async () => {
+  it('routes every decision in the group to an external API failure when the batch port throws', async () => {
     listOperationsForJobMock.mockResolvedValue([
       noopOperation({
         fieldKey: 'operatingHours.weekly.1',
@@ -574,14 +1170,14 @@ describe('dual-sync runPublish', () => {
             action: 'export_to_google',
           }),
         ],
-        actorUserId: null,
+        actorUserId: 'user-1',
       },
       { ports },
     );
 
     expect(ports.applyExportToGoogle).not.toHaveBeenCalled();
     expect(result.summary.failures).toHaveLength(2);
-    expect(result.summary.failures.every((f) => f.failure.code === 'PORT_FAILURE')).toBe(
+    expect(result.summary.failures.every((f) => f.failure.code === 'EXTERNAL_API_ERROR')).toBe(
       true,
     );
   });

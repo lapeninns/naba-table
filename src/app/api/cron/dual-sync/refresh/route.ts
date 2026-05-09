@@ -12,7 +12,7 @@
 
 import { NextResponse } from 'next/server';
 
-import { isDualSyncEnabled } from '@/server/dual-sync/flag';
+import { isDualSyncEnabled, isDualSyncScheduledRefreshEnabled } from '@/server/dual-sync/flag';
 import { runScheduledRefreshForAllTenants } from '@/server/dual-sync/scheduling';
 import { requireCronAuthAndRun } from '@/server/security/cron-auth';
 import { getServiceSupabaseClient } from '@/server/supabase';
@@ -40,6 +40,12 @@ export async function GET(request: Request) {
       return NextResponse.json(
         { error: 'Dual-sync is not enabled for this deployment.' },
         { status: 404 },
+      );
+    }
+    if (!isDualSyncScheduledRefreshEnabled()) {
+      return NextResponse.json(
+        { error: 'Dual-sync scheduled refresh is disabled for this deployment.' },
+        { status: 409 },
       );
     }
 

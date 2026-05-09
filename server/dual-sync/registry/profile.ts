@@ -12,10 +12,11 @@ import {
   normalizeString,
   normalizeUrl,
 } from './normalizers';
+import { withFieldPolicy, type DualSyncFieldConfigInput } from './policy';
 
 import type { DualSyncFieldConfig } from './types';
 
-export const PROFILE_FIELDS: ReadonlyArray<DualSyncFieldConfig<string | null, string | null>> = [
+const RAW_PROFILE_FIELDS: ReadonlyArray<DualSyncFieldConfigInput<string | null, string | null>> = [
   {
     fieldKey: 'profile.name',
     sectionKey: 'profile',
@@ -137,3 +138,6 @@ export const PROFILE_FIELDS: ReadonlyArray<DualSyncFieldConfig<string | null, st
     sortOrder: 5,
   },
 ] as const;
+
+export const PROFILE_FIELDS: ReadonlyArray<DualSyncFieldConfig<string | null, string | null>> =
+  RAW_PROFILE_FIELDS.map((field) => withFieldPolicy(field));

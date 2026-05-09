@@ -257,4 +257,165 @@ describe('dual-sync registry', () => {
       false,
     );
   });
+
+  it('surfaces policy reasons for Google-owned output-only fields', () => {
+    const config = PROFILE_FIELDS.find((f) => f.fieldKey === 'profile.googleMapUrl')!;
+    const capability = resolveFieldCapability({
+      config,
+      coreValue: 'https://maps.app.goo.gl/abc',
+      gbpValue: 'https://maps.app.goo.gl/abc',
+    });
+
+    expect(capability.canExport).toBe(false);
+    expect(capability.blockedReasons).toContain(
+      'Google Maps URL is Google-owned metadata and is not directly writable.',
+    );
+  });
+
+  it('uses semantic canonicalizers to avoid false phone and URL drift', () => {
+    const phone = PROFILE_FIELDS.find((f) => f.fieldKey === 'profile.contactPhone')!;
+    expect(phone.canonicalizeCoreValue('+44 (0) 1223 123456')).toBe(
+      phone.canonicalizeGbpValue('+44 01223 123456'),
+    );
+
+    const mapsUrl = PROFILE_FIELDS.find((f) => f.fieldKey === 'profile.googleMapUrl')!;
+    expect(mapsUrl.canonicalizeCoreValue('HTTPS://MAPS.APP.GOO.GL/ABC')).toBe(
+      mapsUrl.canonicalizeGbpValue('https://maps.app.goo.gl/abc'),
+    );
+  });
+
+  it('attaches complete production policy metadata to every registry field', () => {
+    const registry = buildRegistry({
+      coreSnapshot: {
+        ...emptySnapshot,
+        businessContext: {
+          categories: [
+            {
+              displayName: 'Restaurant',
+              categoryCode: 'gcid:restaurant',
+              isPrimary: true,
+              moreHoursTypes: [],
+            },
+          ],
+          serviceAreas: [
+            {
+              displayName: 'Cambridge',
+              areaType: 'place',
+              regionCode: 'GB',
+              placeData: { placeId: 'cambridge' },
+            },
+          ],
+          attributes: [
+            {
+              attributeKey: 'has_wifi',
+              attributeName: 'Wi-Fi',
+              attributeId: 'attributes/has_wifi',
+              valueType: 'BOOL',
+              boolValue: true,
+              textValue: null,
+              uriValue: null,
+              uriValues: [],
+              enumValues: [],
+              unsetEnumValues: [],
+            },
+          ],
+          serviceItems: [
+            {
+              itemKey: 'item:bar/cocktails',
+              itemType: 'STANDARD',
+              displayName: 'Cocktails',
+              description: null,
+              payload: { structuredServiceItem: {} },
+            },
+          ],
+        },
+        foodMenus: {
+          items: [
+            {
+              stableKey: 'foodMenu.item.starters/default.chilli-paneer',
+              itemName: 'Chilli Paneer',
+              sectionLabel: 'Starters',
+              description: null,
+              basePrice: 8.95,
+              currency: 'GBP',
+              dietaryTags: [],
+              allergensContains: [],
+              googlePath: null,
+            },
+          ],
+        },
+      },
+      gbpSnapshot: emptySnapshot,
+    });
+
+    for (const field of registry) {
+      expect(field.policy).toMatchObject({
+        fieldKey: field.fieldKey,
+        sectionKey: field.sectionKey,
+        importable: field.importable,
+        exportable: field.exportable,
+      });
+      expect(field.policy.authority).toEqual(expect.any(String));
+      expect(field.policy.riskLevel).toEqual(expect.any(String));
+      expect(field.policy.semanticComparator).toEqual(expect.any(String));
+      expect(field.policy.canonicalizer).toEqual(expect.any(String));
+      expect(typeof field.policy.requiresManualReview).toBe('boolean');
+      expect(typeof field.policy.destructiveWritePossible).toBe('boolean');
+      if (field.exportable) {
+        expect(field.policy.googleWriteGroup).toEqual(expect.any(String));
+      } else {
+        expect(field.policy.noWriteReason).toEqual(expect.any(String));
+      }
+    }
+  });
+
+  it('marks high-impact write groups with risk and review policy', () => {
+    const profileName = PROFILE_FIELDS.find((field) => field.fieldKey === 'profile.name')!;
+    expect(profileName.policy).toMatchObject({
+      authority: 'bidirectional_manual',
+      riskLevel: 'critical',
+      requiresManualReview: true,
+      googleWriteGroup: 'location.profile',
+      destructiveWritePossible: true,
+    });
+
+    const foodMenuField = buildFoodMenuItemFields({
+      coreSnapshot: {
+        items: [
+          {
+            stableKey: 'foodMenu.item.starters/default.chilli-paneer',
+            itemName: 'Chilli Paneer',
+            sectionLabel: 'Starters',
+            description: null,
+            basePrice: 8.95,
+            currency: 'GBP',
+            dietaryTags: [],
+            allergensContains: [],
+            googlePath: null,
+          },
+        ],
+      },
+      gbpSnapshot: { items: [] },
+    })[0]!;
+    expect(foodMenuField.policy).toMatchObject({
+      riskLevel: 'high',
+      requiresManualReview: true,
+      googleWriteGroup: 'location.foodMenus',
+      semanticComparator: 'food_menu_item',
+      destructiveWritePossible: true,
+    });
+  });
+
+  it('keeps unsupported core-only fields non-writable with explicit reasons', () => {
+    const coreOnly = CORE_ONLY_FIELDS[0]!;
+    expect(coreOnly.policy).toMatchObject({
+      authority: 'unsupported',
+      riskLevel: 'low',
+      importable: false,
+      exportable: false,
+      requiresManualReview: false,
+      noWriteReason: 'This field is Nabatable-only and has no Google counterpart.',
+      destructiveWritePossible: false,
+    });
+  });
 });

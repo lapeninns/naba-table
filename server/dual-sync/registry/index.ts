@@ -31,7 +31,14 @@ export type {
   ResolveCapabilityInput,
   DualSyncConflictPolicy,
   DualSyncDeletePolicy,
+  DualSyncAuthority,
+  DualSyncCanonicalizerName,
+  DualSyncFieldPolicy,
+  DualSyncFieldPolicyConfig,
   DualSyncFieldKind,
+  DualSyncGoogleWriteGroup,
+  DualSyncRiskLevel,
+  DualSyncSemanticComparator,
   DualSyncDecisionLegality,
 } from './types';
 
@@ -46,6 +53,8 @@ export {
   buildServiceItemFields,
   buildFoodMenuItemFields,
 };
+
+export { buildFieldPolicy, withFieldPolicy, type DualSyncFieldConfigInput } from './policy';
 
 export interface DualSyncCanonicalSnapshotShape {
   readonly profile: unknown;
@@ -143,27 +152,54 @@ export function resolveFieldCapability({
   gbpValue,
 }: ResolveCapabilityInput): DualSyncFieldCapability {
   const reasons: string[] = [];
+  const addReason = (reason: string) => {
+    if (!reasons.includes(reason)) reasons.push(reason);
+  };
 
   let canImport = config.importable;
+  if (canImport && !config.policy.importable) {
+    canImport = false;
+    addReason(config.policy.noWriteReason ?? 'Field policy does not allow import.');
+  }
   if (canImport && (gbpValue === null || gbpValue === undefined)) {
     canImport = false;
-    reasons.push('Google has no value to import.');
+    addReason('Google has no value to import.');
   }
 
   let canExport = config.exportable;
+  if (canExport && !config.policy.exportable) {
+    canExport = false;
+    addReason(config.policy.noWriteReason ?? 'Field policy does not allow export.');
+  }
+  if (canExport && config.policy.authority === 'read_only') {
+    canExport = false;
+    addReason(config.policy.noWriteReason ?? 'Field is read-only.');
+  }
+  if (canExport && config.policy.authority === 'google_authoritative') {
+    canExport = false;
+    addReason(config.policy.noWriteReason ?? 'Field is owned by Google and is import-only.');
+  }
+  if (canExport && config.policy.authority === 'unsupported') {
+    canExport = false;
+    addReason(config.policy.noWriteReason ?? 'Google does not support this field.');
+  }
   if (config.exportRequiresCoreValue !== false && canExport) {
     if (coreValue === null || coreValue === undefined) {
       canExport = false;
       if (config.exportBlockedReason) {
-        reasons.push(config.exportBlockedReason);
+        addReason(config.exportBlockedReason);
       } else {
-        reasons.push('Core has no value to export.');
+        addReason('Core has no value to export.');
       }
     }
   }
 
+  if (!config.exportable && config.policy.noWriteReason) {
+    addReason(config.policy.noWriteReason);
+  }
+
   if (config.exportable && !canExport && config.exportBlockedReason && reasons.length === 0) {
-    reasons.push(config.exportBlockedReason);
+    addReason(config.exportBlockedReason);
   }
 
   return {

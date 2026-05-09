@@ -24,6 +24,77 @@ export type DualSyncConflictPolicy = 'manual' | 'core_wins' | 'gbp_wins' | 'unsu
 
 export type DualSyncDeletePolicy = 'manual' | 'clear_remote' | 'clear_core' | 'ignore';
 
+export type DualSyncAuthority =
+  | 'core_authoritative'
+  | 'google_authoritative'
+  | 'bidirectional_manual'
+  | 'review_required'
+  | 'import_only'
+  | 'export_only'
+  | 'read_only'
+  | 'unsupported';
+
+export type DualSyncRiskLevel = 'low' | 'medium' | 'high' | 'critical';
+
+export type DualSyncGoogleWriteGroup =
+  | 'location.profile'
+  | 'location.regularHours'
+  | 'location.specialHours'
+  | 'location.moreHours'
+  | 'location.categories'
+  | 'location.serviceArea'
+  | 'location.attributes'
+  | 'location.services'
+  | 'location.foodMenus';
+
+export type DualSyncSemanticComparator =
+  | 'text'
+  | 'phone'
+  | 'url'
+  | 'hours'
+  | 'list'
+  | 'category'
+  | 'service_area'
+  | 'attribute'
+  | 'service_item'
+  | 'service_period'
+  | 'food_menu_item'
+  | 'passthrough';
+
+export type DualSyncCanonicalizerName =
+  | 'canonicalizeText'
+  | 'canonicalizePhone'
+  | 'canonicalizeUrl'
+  | 'canonicalizeHours'
+  | 'canonicalizeStringArray'
+  | 'canonicalizeCategory'
+  | 'canonicalizeServiceArea'
+  | 'canonicalizeAttribute'
+  | 'canonicalizeServiceItem'
+  | 'canonicalizeServicePeriod'
+  | 'canonicalizeFoodMenuItem'
+  | 'passthrough';
+
+export interface DualSyncFieldPolicy {
+  readonly fieldKey: string;
+  readonly sectionKey: DualSyncSectionKey | 'core_only';
+  readonly authority: DualSyncAuthority;
+  readonly riskLevel: DualSyncRiskLevel;
+  readonly importable: boolean;
+  readonly exportable: boolean;
+  readonly requiresManualReview: boolean;
+  readonly googleWriteGroup?: DualSyncGoogleWriteGroup;
+  readonly noWriteReason?: string;
+  readonly semanticComparator: DualSyncSemanticComparator;
+  readonly canonicalizer: DualSyncCanonicalizerName;
+  readonly destructiveWritePossible: boolean;
+}
+
+export type DualSyncFieldPolicyConfig = Omit<
+  DualSyncFieldPolicy,
+  'fieldKey' | 'sectionKey' | 'importable' | 'exportable'
+>;
+
 export type DualSyncFieldKind =
   | 'profile'
   | 'operatingHours.weekly'
@@ -58,6 +129,8 @@ export interface DualSyncFieldConfig<TCore = unknown, TGbp = unknown> {
   readonly normalizeGbpValue: (value: unknown) => TGbp;
   readonly canonicalizeCoreValue: (value: unknown) => unknown;
   readonly canonicalizeGbpValue: (value: unknown) => unknown;
+
+  readonly policy: DualSyncFieldPolicy;
 
   readonly conflictPolicy: DualSyncConflictPolicy;
   readonly deletePolicy: DualSyncDeletePolicy;

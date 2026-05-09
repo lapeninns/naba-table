@@ -39,6 +39,42 @@ function formatPreview(value: unknown): string {
   }
 }
 
+function policyLabels(field: DualSyncFieldSummary): string[] {
+  const labels: string[] = [];
+  switch (field.policy.authority) {
+    case 'core_authoritative':
+      labels.push('Core-owned');
+      break;
+    case 'google_authoritative':
+      labels.push('Google-owned');
+      break;
+    case 'review_required':
+      labels.push('Manual review');
+      break;
+    case 'import_only':
+      labels.push('Import-only');
+      break;
+    case 'export_only':
+      labels.push('Export-only');
+      break;
+    case 'read_only':
+      labels.push('Read-only');
+      break;
+    case 'unsupported':
+      labels.push('Unsupported by Google');
+      break;
+    case 'bidirectional_manual':
+      break;
+  }
+  if (field.policy.requiresManualReview && !labels.includes('Manual review')) {
+    labels.push('Manual review');
+  }
+  if (field.policy.riskLevel === 'high' || field.policy.riskLevel === 'critical') {
+    labels.push('High-risk field');
+  }
+  return labels;
+}
+
 export function DualSyncFieldRow({
   field,
   selectedAction,
@@ -63,6 +99,13 @@ export function DualSyncFieldRow({
                   Pending export queued
                 </Badge>
               ) : null}
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {policyLabels(field).map((label) => (
+                <Badge key={label} variant="secondary" className="text-[11px] font-medium">
+                  {label}
+                </Badge>
+              ))}
             </div>
             {field.helpText ? (
               <p className="text-muted-foreground text-xs leading-snug">{field.helpText}</p>

@@ -14,13 +14,23 @@ export * from './outbound';
 export * from './core-writes';
 export * from './refresh';
 export * from './publish';
+export * from './queue';
+export * from './replay';
 export * from './scheduling';
+export * from './observability';
+export * from './locks';
 export * from './flag';
+export * from './controls';
 export {
   getDualSyncDbClient,
   type DualSyncDbClient,
   type DualSyncFieldStateRow,
   type DualSyncSnapshotRunRow,
+  type DualSyncJobRow,
+  type DualSyncRestaurantControlRow,
   type DualSyncOutboundCandidateRow,
+  type DualSyncPublishBatchRow,
+  type DualSyncPublishOperationGroupRow,
   type DualSyncPublishOperationRow,
+  type DualSyncLockRow,
 } from './db';

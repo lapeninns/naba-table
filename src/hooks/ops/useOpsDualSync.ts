@@ -11,22 +11,36 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
+  getDualSyncMetrics,
   getDualSyncPublishJobDetail,
   getDualSyncState,
+  listDualSyncJobs,
   listDualSyncOperations,
   listDualSyncPublishJobs,
+  previewDualSyncPublishPlan,
   publishDualSyncDecisions,
   refreshDualSync,
+  retryDualSyncJob,
   runDualSyncAutoExport,
+  setDualSyncControl,
 } from '@/services/ops/dual-sync';
 
-import { dualSyncQueryKeys, invalidateOpsIntegrationQueries } from './opsIntegrationQueries';
+import {
+  dualSyncQueryKeys,
+  invalidateDualSyncWorkspaceQueries,
+  invalidateOpsIntegrationQueries,
+} from './opsIntegrationQueries';
 
 import type {
   DualSyncPublishRequest,
+  DualSyncPublishPreviewResponse,
   DualSyncPublishResponse,
+  GetDualSyncMetricsRequest,
+  GetDualSyncMetricsResponse,
   GetDualSyncPublishJobDetailResponse,
   GetDualSyncStateResponse,
+  ListDualSyncJobsRequest,
+  ListDualSyncJobsResponse,
   ListDualSyncOperationsRequest,
   ListDualSyncOperationsResponse,
   ListDualSyncPublishJobsRequest,
@@ -34,6 +48,8 @@ import type {
   RefreshDualSyncResponse,
   RunAutoExportRequest,
   RunAutoExportResponse,
+  SetDualSyncControlRequest,
+  SetDualSyncControlResponse,
 } from '@/services/ops/dual-sync';
 
 const operationsKey = (restaurantId: string, request: ListDualSyncOperationsRequest) =>
@@ -45,6 +61,15 @@ const operationsKey = (restaurantId: string, request: ListDualSyncOperationsRequ
     request.statuses ? [...request.statuses].sort().join(',') : null,
     request.direction ?? null,
   ] as const;
+const jobsKey = (restaurantId: string, request: ListDualSyncJobsRequest) =>
+  [
+    'dual-sync-jobs',
+    restaurantId,
+    request.limit ?? null,
+    request.statuses ? [...request.statuses].sort().join(',') : null,
+  ] as const;
+const metricsKey = (restaurantId: string, request: GetDualSyncMetricsRequest) =>
+  ['dual-sync-metrics', restaurantId, request.windowHours ?? null, request.limit ?? null] as const;
 const publishJobsKey = (restaurantId: string, request: ListDualSyncPublishJobsRequest) =>
   [
     'dual-sync-publish-jobs',
@@ -66,6 +91,16 @@ export interface UseOpsDualSyncArgs {
    */
   readonly operationsRequest?: ListDualSyncOperationsRequest;
   /**
+   * When provided, the hook lazily fetches durable queue jobs for
+   * operator recovery panels. Pass `undefined` to skip.
+   */
+  readonly jobsRequest?: ListDualSyncJobsRequest;
+  /**
+   * When provided, the hook lazily fetches restaurant-scoped operational
+   * health metrics for the operator dashboard. Pass `undefined` to skip.
+   */
+  readonly metricsRequest?: GetDualSyncMetricsRequest;
+  /**
    * When provided, the hook lazily fetches recent publish-job rollups
    * for the "Recent publishes" panel. Pass `undefined` to skip.
    */
@@ -80,12 +115,16 @@ export interface UseOpsDualSyncArgs {
 export function useOpsDualSync({
   restaurantId,
   operationsRequest,
+  jobsRequest,
+  metricsRequest,
   publishJobsRequest,
   publishJobDetailId,
 }: UseOpsDualSyncArgs) {
   const queryClient = useQueryClient();
   const enabled = Boolean(restaurantId);
   const operationsEnabled = enabled && operationsRequest !== undefined;
+  const jobsEnabled = enabled && jobsRequest !== undefined;
+  const metricsEnabled = enabled && metricsRequest !== undefined;
   const publishJobsEnabled = enabled && publishJobsRequest !== undefined;
   const publishJobDetailEnabled =
     enabled && typeof publishJobDetailId === 'string' && publishJobDetailId.length > 0;
@@ -126,6 +165,19 @@ export function useOpsDualSync({
     },
   });
 
+  const previewPublishMutation = useMutation<
+    DualSyncPublishPreviewResponse,
+    Error,
+    DualSyncPublishRequest
+  >({
+    mutationFn: (request) => {
+      if (!restaurantId) {
+        return Promise.reject(new Error('restaurantId is required to preview dual-sync publish.'));
+      }
+      return previewDualSyncPublishPlan(restaurantId, request);
+    },
+  });
+
   const autoExportMutation = useMutation<RunAutoExportResponse, Error, RunAutoExportRequest | void>(
     {
       mutationFn: (request) => {
@@ -144,12 +196,59 @@ export function useOpsDualSync({
     },
   );
 
+  const retryJobMutation = useMutation<ListDualSyncJobsResponse['jobs'][number], Error, string>({
+    mutationFn: async (jobId) => {
+      if (!restaurantId) {
+        return Promise.reject(new Error('restaurantId is required to retry dual-sync jobs.'));
+      }
+      const response = await retryDualSyncJob(restaurantId, jobId);
+      return response.job;
+    },
+    onSuccess: () => {
+      if (restaurantId) {
+        invalidateOpsIntegrationQueries(queryClient, restaurantId);
+      }
+    },
+  });
+
+  const controlMutation = useMutation<SetDualSyncControlResponse, Error, SetDualSyncControlRequest>(
+    {
+      mutationFn: (request) => {
+        if (!restaurantId) {
+          return Promise.reject(new Error('restaurantId is required to update dual-sync control.'));
+        }
+        return setDualSyncControl(restaurantId, request);
+      },
+      onSuccess: () => {
+        if (restaurantId) {
+          invalidateDualSyncWorkspaceQueries(queryClient, restaurantId);
+        }
+      },
+    },
+  );
+
   const operationsQuery = useQuery<ListDualSyncOperationsResponse>({
     enabled: operationsEnabled,
     queryKey: operationsEnabled
       ? operationsKey(restaurantId as string, operationsRequest ?? {})
       : ['dual-sync-operations', 'noop'],
     queryFn: () => listDualSyncOperations(restaurantId as string, operationsRequest ?? {}),
+  });
+
+  const jobsQuery = useQuery<ListDualSyncJobsResponse>({
+    enabled: jobsEnabled,
+    queryKey: jobsEnabled
+      ? jobsKey(restaurantId as string, jobsRequest ?? {})
+      : ['dual-sync-jobs', 'noop'],
+    queryFn: () => listDualSyncJobs(restaurantId as string, jobsRequest ?? {}),
+  });
+
+  const metricsQuery = useQuery<GetDualSyncMetricsResponse>({
+    enabled: metricsEnabled,
+    queryKey: metricsEnabled
+      ? metricsKey(restaurantId as string, metricsRequest ?? {})
+      : ['dual-sync-metrics', 'noop'],
+    queryFn: () => getDualSyncMetrics(restaurantId as string, metricsRequest ?? {}),
   });
 
   const publishJobsQuery = useQuery<ListDualSyncPublishJobsResponse>({
@@ -173,8 +272,13 @@ export function useOpsDualSync({
     stateQuery,
     refreshMutation,
     publishMutation,
+    previewPublishMutation,
     autoExportMutation,
+    retryJobMutation,
+    controlMutation,
     operationsQuery,
+    jobsQuery,
+    metricsQuery,
     publishJobsQuery,
     publishJobDetailQuery,
   };

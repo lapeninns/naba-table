@@ -71,9 +71,7 @@ describe('summarizeOperationsByJob', () => {
     expect(jobA?.succeededCount).toBe(1);
     expect(jobA?.failedCount).toBe(1);
     expect(jobA?.skippedCount).toBe(1);
-    expect(jobA?.sections).toEqual(
-      expect.arrayContaining(['profile', 'operatingHours']),
-    );
+    expect(jobA?.sections).toEqual(expect.arrayContaining(['profile', 'operatingHours']));
     expect(jobA?.errorCodes).toEqual(['PORT_FAILURE']);
   });
 
@@ -121,9 +119,24 @@ describe('summarizeOperationsByJob', () => {
 
   it('counts directions and sections distinctly', () => {
     const operations: DualSyncPublishOperation[] = [
-      makeOp({ id: 'op-1', publishJobId: 'job-Z', direction: 'export_to_google', sectionKey: 'profile' }),
-      makeOp({ id: 'op-2', publishJobId: 'job-Z', direction: 'export_to_google', sectionKey: 'profile' }),
-      makeOp({ id: 'op-3', publishJobId: 'job-Z', direction: 'import_from_google', sectionKey: 'businessContext.categories' }),
+      makeOp({
+        id: 'op-1',
+        publishJobId: 'job-Z',
+        direction: 'export_to_google',
+        sectionKey: 'profile',
+      }),
+      makeOp({
+        id: 'op-2',
+        publishJobId: 'job-Z',
+        direction: 'export_to_google',
+        sectionKey: 'profile',
+      }),
+      makeOp({
+        id: 'op-3',
+        publishJobId: 'job-Z',
+        direction: 'import_from_google',
+        sectionKey: 'businessContext.categories',
+      }),
     ];
     const [rollup] = summarizeOperationsByJob(operations);
     expect(rollup?.exportCount).toBe(2);
@@ -160,9 +173,7 @@ describe('summarizeOperationsByJob', () => {
       makeOp({ id: 'op-4', publishJobId: 'job-E', status: 'succeeded', errorCode: null }),
     ];
     const [rollup] = summarizeOperationsByJob(operations);
-    expect(rollup?.errorCodes).toEqual(
-      expect.arrayContaining(['CORE_DRIFT', 'GBP_DRIFT']),
-    );
+    expect(rollup?.errorCodes).toEqual(expect.arrayContaining(['CORE_DRIFT', 'GBP_DRIFT']));
     expect(rollup?.errorCodes).toHaveLength(2);
     expect(rollup?.failedCount).toBe(3);
   });

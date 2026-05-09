@@ -18,12 +18,20 @@ import {
 } from '@/app/api/ops/restaurants/[id]/_shared';
 import {
   dualSyncErrorResponse,
+  dualSyncPausedResponse,
   dualSyncUnavailableResponse,
 } from '@/app/api/ops/restaurants/[id]/dual-sync/_shared';
 import { DUAL_SYNC_SECTION_KEYS } from '@/server/dual-sync';
+import {
+  assertDualSyncRestaurantNotPaused,
+  isDualSyncRestaurantPausedError,
+} from '@/server/dual-sync/controls';
 import { isDualSyncEnabled } from '@/server/dual-sync/flag';
+import { isDualSyncLockError } from '@/server/dual-sync/locks';
+import { createDurableDualSyncGoogleEditThrottle } from '@/server/dual-sync/publish/google-safety';
 import { runPublish } from '@/server/dual-sync/publish/orchestrator';
 import { defaultDualSyncPorts } from '@/server/dual-sync/publish/ports';
+import { enqueueDualSyncJob } from '@/server/dual-sync/queue';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { NextRequest } from 'next/server';
@@ -38,6 +46,8 @@ const decisionSchema = z.object({
 
 const publishRequestSchema = z.object({
   decisions: z.array(decisionSchema).min(1).max(200),
+  clientRequestId: z.string().trim().min(1).max(128).optional(),
+  publishBatchId: z.string().trim().min(1).max(128).optional(),
   pinnedCoreSnapshotHash: z.string().nullable().optional(),
   pinnedGbpSnapshotHash: z.string().nullable().optional(),
 });
@@ -70,21 +80,57 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   }
 
   try {
+    const client = getServiceSupabaseClient();
+    await assertDualSyncRestaurantNotPaused({ client, restaurantId });
+    if (req.nextUrl.searchParams.get('queue') === '1') {
+      const job = await enqueueDualSyncJob({
+        client,
+        restaurantId,
+        jobKind: 'publish_batch',
+        idempotencyKey: parsed.data.clientRequestId ?? null,
+        payload: {
+          decisions: parsed.data.decisions,
+          actorUserId: access.userId,
+          clientRequestId: parsed.data.clientRequestId ?? null,
+          publishBatchId: parsed.data.publishBatchId ?? null,
+          pinnedCoreSnapshotHash: parsed.data.pinnedCoreSnapshotHash ?? null,
+          pinnedGbpSnapshotHash: parsed.data.pinnedGbpSnapshotHash ?? null,
+        },
+        priority: 50,
+      });
+      return NextResponse.json({ queued: true, job }, { status: 202 });
+    }
+
     const result = await runPublish(
-      getServiceSupabaseClient(),
+      client,
       {
         restaurantId,
         decisions: parsed.data.decisions,
         actorUserId: access.userId,
+        clientRequestId: parsed.data.clientRequestId ?? null,
+        publishBatchId: parsed.data.publishBatchId ?? null,
         pinnedCoreSnapshotHash: parsed.data.pinnedCoreSnapshotHash ?? null,
         pinnedGbpSnapshotHash: parsed.data.pinnedGbpSnapshotHash ?? null,
       },
       {
         ports: defaultDualSyncPorts(),
+        googleEditThrottle: createDurableDualSyncGoogleEditThrottle(client),
+        refreshGoogleBeforePublish: true,
       },
     );
     return NextResponse.json(result.summary, { status: 200 });
   } catch (error) {
+    if (isDualSyncRestaurantPausedError(error)) {
+      return dualSyncPausedResponse(error.message);
+    }
+    if (isDualSyncLockError(error)) {
+      return dualSyncErrorResponse(
+        error.message,
+        409,
+        'DUAL_SYNC_LOCK_HELD',
+        error.activeLock ? { activeLock: error.activeLock } : undefined,
+      );
+    }
     const message = error instanceof Error ? error.message : 'Publish failed';
     return dualSyncErrorResponse(message, 500, 'DUAL_SYNC_PUBLISH_ERROR');
   }

@@ -126,9 +126,7 @@ export async function applyServicePeriodsExportBatchToGoogle(
     readonly fieldKey: string;
     readonly stableKey: string;
     readonly dayOfWeek: number | null;
-    readonly corePeriod:
-      | NonNullable<typeof coreSnapshot.servicePeriods>['periods'][number]
-      | null;
+    readonly corePeriod: NonNullable<typeof coreSnapshot.servicePeriods>['periods'][number] | null;
   }
 
   const resolved: Resolved[] = [];
@@ -178,9 +176,9 @@ export async function applyServicePeriodsExportBatchToGoogle(
     return { supported: true, perField };
   }
 
-  const dayOfWeeks = Array.from(
-    new Set(exportable.map((r) => r.dayOfWeek as number)),
-  ).sort((a, b) => a - b);
+  const dayOfWeeks = Array.from(new Set(exportable.map((r) => r.dayOfWeek as number))).sort(
+    (a, b) => a - b,
+  );
 
   try {
     await syncRestaurantServicePeriodsWithGoogleBusinessProfile({

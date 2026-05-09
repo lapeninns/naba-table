@@ -8,6 +8,7 @@
  */
 
 import { canonicalizeStringArray, slugifyDisplay } from './normalizers';
+import { withFieldPolicy } from './policy';
 
 import type { DualSyncFieldConfig } from './types';
 
@@ -27,9 +28,7 @@ function readCategories(value: unknown): ReadonlyArray<CategoryValue> {
 }
 
 function categoryValue(value: unknown, slug: string): CategoryValue | null {
-  return (
-    readCategories(value).find((entry) => slugifyDisplay(entry.displayName) === slug) ?? null
-  );
+  return readCategories(value).find((entry) => slugifyDisplay(entry.displayName) === slug) ?? null;
 }
 
 function canonicalizeCategory(value: unknown, slug: string): unknown {
@@ -62,7 +61,7 @@ export function buildCategoryFields({
   }
   return [...slugs].sort().map((slug, index) => {
     const sample = sampleByslug.get(slug)!;
-    return {
+    return withFieldPolicy({
       fieldKey: `businessContext.categories.${slug}`,
       sectionKey: 'businessContext.categories',
       kind: 'businessContext.category',
@@ -83,7 +82,7 @@ export function buildCategoryFields({
       exportBlockedReason:
         'Category export requires a Google category resource code on the canonical row.',
       sortOrder: index,
-    } satisfies DualSyncFieldConfig;
+    });
   });
 }
 
@@ -139,7 +138,7 @@ export function buildServiceAreaFields({
   }
   return [...slugs].sort().map((slug, index) => {
     const sample = sampleByslug.get(slug)!;
-    return {
+    return withFieldPolicy({
       fieldKey: `businessContext.serviceAreas.${slug}`,
       sectionKey: 'businessContext.serviceAreas',
       kind: 'businessContext.serviceArea',
@@ -156,9 +155,10 @@ export function buildServiceAreaFields({
       conflictPolicy: 'manual',
       deletePolicy: 'manual',
       googleUpdateMask: 'serviceArea',
-      exportBlockedReason: 'Service-area export requires a region or place payload on the canonical row.',
+      exportBlockedReason:
+        'Service-area export requires a region or place payload on the canonical row.',
       sortOrder: index,
-    } satisfies DualSyncFieldConfig;
+    });
   });
 }
 
@@ -220,7 +220,7 @@ export function buildAttributeFields({
   }
   return [...keys].sort().map((attributeKey, index) => {
     const sample = sampleByKey.get(attributeKey)!;
-    return {
+    return withFieldPolicy({
       fieldKey: `businessContext.attributes.${attributeKey}`,
       sectionKey: 'businessContext.attributes',
       kind: 'businessContext.attribute',
@@ -241,7 +241,7 @@ export function buildAttributeFields({
       exportBlockedReason:
         'Attribute export requires a resolved Google attribute resource name and writable value.',
       sortOrder: index,
-    } satisfies DualSyncFieldConfig;
+    });
   });
 }
 
@@ -295,12 +295,13 @@ export function buildServiceItemFields({
   }
   return [...keys].sort().map((itemKey, index) => {
     const sample = sampleByKey.get(itemKey)!;
-    return {
+    return withFieldPolicy({
       fieldKey: `businessContext.serviceItems.${itemKey}`,
       sectionKey: 'businessContext.serviceItems',
       kind: 'businessContext.serviceItem',
       label: sample.displayName?.trim() || itemKey,
-      helpText: 'Google business service item. Export requires the original Google service-item payload.',
+      helpText:
+        'Google business service item. Export requires the original Google service-item payload.',
       corePath: `businessContext.serviceItems.${itemKey}`,
       gbpPath: `businessContext.serviceItems.${itemKey}`,
       importable: true,
@@ -315,6 +316,6 @@ export function buildServiceItemFields({
       exportBlockedReason:
         'Service-item export requires the original Google service-item payload on the canonical row.',
       sortOrder: index,
-    } satisfies DualSyncFieldConfig;
+    });
   });
 }

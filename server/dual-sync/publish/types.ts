@@ -7,6 +7,7 @@
  * rows for audit + retry, then recomputes the field-state machine.
  */
 
+import type { DualSyncGoogleWriteGroup, DualSyncRiskLevel } from '../registry/types';
 import type { DualSyncCanonicalSnapshot } from '../snapshots/types';
 import type {
   DualSyncDecisionAction,
@@ -37,6 +38,10 @@ export interface DualSyncRunPublishInput {
   readonly restaurantId: string;
   readonly decisions: ReadonlyArray<DualSyncPublishDecision>;
   readonly actorUserId: string | null;
+  /** Stable caller id for duplicate-submit/idempotency work. */
+  readonly clientRequestId?: string | null;
+  /** Durable batch id once publish batches are persisted. */
+  readonly publishBatchId?: string | null;
   /** Hash of the canonical Core snapshot the operator viewed. */
   readonly pinnedCoreSnapshotHash?: string | null;
   /** Hash of the canonical Google snapshot the operator viewed. */
@@ -49,12 +54,60 @@ export type DualSyncOperationFailureCode =
   | 'PORT_FAILURE'
   | 'INVALID_DECISION'
   | 'UNSUPPORTED_FIELD'
+  | 'QUOTA_LIMITED'
+  | 'REAUTH_REQUIRED'
+  | 'LOCATION_ACCESS_LOST'
+  | 'GOOGLE_VALIDATION_FAILED'
+  | 'SYNC_PAUSED'
+  | 'EXTERNAL_API_TIMEOUT'
+  | 'EXTERNAL_API_ERROR'
   | 'UNKNOWN';
 
 export interface DualSyncOperationFailure {
   readonly code: DualSyncOperationFailureCode;
   readonly message: string;
   readonly retryable: boolean;
+}
+
+export type DualSyncPublishPlanDirection = 'import_from_google' | 'export_to_google';
+
+export interface DualSyncRejectedDecision {
+  readonly fieldKey: string;
+  readonly sectionKey: DualSyncSectionKey;
+  readonly action: DualSyncDecisionAction;
+  readonly failure: DualSyncOperationFailure;
+}
+
+export interface DualSyncPlanWarning {
+  readonly code: 'HIGH_RISK' | 'DESTRUCTIVE_WRITE' | 'PREFLIGHT_REQUIRED';
+  readonly message: string;
+  readonly groupId?: string;
+  readonly fieldKey?: string;
+}
+
+export interface DualSyncPublishGroup {
+  readonly groupId: string;
+  readonly direction: DualSyncPublishPlanDirection;
+  readonly sectionKey: DualSyncSectionKey;
+  readonly writeGroup: DualSyncGoogleWriteGroup | `core.${DualSyncSectionKey}`;
+  readonly fields: ReadonlyArray<DualSyncPublishDecision>;
+  readonly riskLevel: DualSyncRiskLevel;
+  readonly requiresPreflight: boolean;
+  readonly requiresManualConfirmation: boolean;
+  readonly destructiveWritePossible: boolean;
+  readonly googleUpdateMasks: ReadonlyArray<DualSyncGoogleUpdateMask>;
+}
+
+export interface DualSyncPublishPlan {
+  readonly restaurantId: string;
+  readonly coreSnapshotHash: string;
+  readonly gbpSnapshotHash: string;
+  readonly groups: ReadonlyArray<DualSyncPublishGroup>;
+  readonly rejected: ReadonlyArray<DualSyncRejectedDecision>;
+  readonly warnings: ReadonlyArray<DualSyncPlanWarning>;
+  readonly acceptedCount: number;
+  readonly rejectedCount: number;
+  readonly ignoredCount: number;
 }
 
 export interface DualSyncPublishJobSummary {

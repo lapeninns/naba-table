@@ -17,7 +17,13 @@ import type {
   DualSyncFieldState,
   DualSyncOutboundSource,
   DualSyncOutboundStatus,
+  DualSyncJobKind,
+  DualSyncJobStatus,
+  DualSyncPublishBatchStatus,
   DualSyncPublishOperationStatus,
+  DualSyncPublishOperationGroupStatus,
+  DualSyncLockJobKind,
+  DualSyncLockStatus,
   DualSyncSnapshotRunKind,
   DualSyncSnapshotRunStatus,
 } from './types';
@@ -59,6 +65,41 @@ export interface DualSyncSnapshotRunRow {
   created_at: string;
 }
 
+export interface DualSyncJobRow {
+  id: string;
+  restaurant_id: string;
+  provider: 'google_business_profile';
+  job_kind: DualSyncJobKind;
+  status: DualSyncJobStatus;
+  idempotency_key: string | null;
+  priority: number;
+  payload: Json;
+  attempt_count: number;
+  max_attempts: number;
+  available_at: string;
+  locked_at: string | null;
+  locked_by: string | null;
+  last_error_code: string | null;
+  last_error_message: string | null;
+  dead_letter_reason: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DualSyncRestaurantControlRow {
+  restaurant_id: string;
+  provider: 'google_business_profile';
+  sync_paused: boolean;
+  pause_reason: string | null;
+  paused_by_user_id: string | null;
+  paused_at: string | null;
+  resumed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface DualSyncOutboundCandidateRow {
   id: string;
   restaurant_id: string;
@@ -80,6 +121,8 @@ export interface DualSyncPublishOperationRow {
   id: string;
   restaurant_id: string;
   publish_job_id: string;
+  publish_batch_id: string | null;
+  operation_group_id: string | null;
   section_key: string;
   field_key: string;
   direction: 'import_from_google' | 'export_to_google';
@@ -99,6 +142,82 @@ export interface DualSyncPublishOperationRow {
   updated_at: string;
 }
 
+export interface DualSyncPublishBatchRow {
+  id: string;
+  restaurant_id: string;
+  provider: 'google_business_profile';
+  client_request_id: string | null;
+  actor_user_id: string | null;
+  status: DualSyncPublishBatchStatus;
+  decision_hash: string;
+  pinned_core_snapshot_hash: string | null;
+  pinned_gbp_snapshot_hash: string | null;
+  core_snapshot_hash: string | null;
+  gbp_snapshot_hash: string | null;
+  accepted_count: number;
+  rejected_count: number;
+  ignored_count: number;
+  plan_summary: Json;
+  error_code: string | null;
+  error_message: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DualSyncPublishOperationGroupRow {
+  id: string;
+  restaurant_id: string;
+  publish_batch_id: string;
+  group_key: string;
+  section_key: string;
+  direction: 'import_from_google' | 'export_to_google';
+  write_group: string;
+  status: DualSyncPublishOperationGroupStatus;
+  risk_level: string;
+  requires_preflight: boolean;
+  requires_manual_confirmation: boolean;
+  destructive_write_possible: boolean;
+  google_update_masks: string[];
+  decision_count: number;
+  preflight_status: string | null;
+  preflight_result: Json | null;
+  request_summary: Json | null;
+  response_summary: Json | null;
+  error_code: string | null;
+  error_message: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DualSyncLockRow {
+  id: string;
+  restaurant_id: string;
+  provider: 'google_business_profile';
+  job_kind: DualSyncLockJobKind;
+  holder_id: string;
+  status: DualSyncLockStatus;
+  acquired_at: string;
+  expires_at: string;
+  released_at: string | null;
+  metadata: Json;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DualSyncGoogleEditReservationRow {
+  id: string;
+  restaurant_id: string;
+  provider: 'google_business_profile';
+  write_group: string;
+  reserved_at: string;
+  window_ms: number;
+  created_at: string;
+}
+
 type DualSyncDatabase = {
   public: {
     Tables: {
@@ -116,13 +235,23 @@ type DualSyncDatabase = {
         Update: Partial<DualSyncSnapshotRunRow>;
         Relationships: [];
       };
+      dual_sync_jobs: {
+        Row: DualSyncJobRow;
+        Insert: Partial<DualSyncJobRow> & Pick<DualSyncJobRow, 'restaurant_id' | 'job_kind'>;
+        Update: Partial<DualSyncJobRow>;
+        Relationships: [];
+      };
+      dual_sync_restaurant_controls: {
+        Row: DualSyncRestaurantControlRow;
+        Insert: Partial<DualSyncRestaurantControlRow> &
+          Pick<DualSyncRestaurantControlRow, 'restaurant_id'>;
+        Update: Partial<DualSyncRestaurantControlRow>;
+        Relationships: [];
+      };
       dual_sync_outbound_candidates: {
         Row: DualSyncOutboundCandidateRow;
         Insert: Partial<DualSyncOutboundCandidateRow> &
-          Pick<
-            DualSyncOutboundCandidateRow,
-            'restaurant_id' | 'section_key' | 'field_key'
-          >;
+          Pick<DualSyncOutboundCandidateRow, 'restaurant_id' | 'section_key' | 'field_key'>;
         Update: Partial<DualSyncOutboundCandidateRow>;
         Relationships: [];
       };
@@ -136,9 +265,60 @@ type DualSyncDatabase = {
         Update: Partial<DualSyncPublishOperationRow>;
         Relationships: [];
       };
+      dual_sync_publish_batches: {
+        Row: DualSyncPublishBatchRow;
+        Insert: Partial<DualSyncPublishBatchRow> &
+          Pick<DualSyncPublishBatchRow, 'restaurant_id' | 'decision_hash'>;
+        Update: Partial<DualSyncPublishBatchRow>;
+        Relationships: [];
+      };
+      dual_sync_publish_operation_groups: {
+        Row: DualSyncPublishOperationGroupRow;
+        Insert: Partial<DualSyncPublishOperationGroupRow> &
+          Pick<
+            DualSyncPublishOperationGroupRow,
+            | 'restaurant_id'
+            | 'publish_batch_id'
+            | 'group_key'
+            | 'section_key'
+            | 'direction'
+            | 'write_group'
+          >;
+        Update: Partial<DualSyncPublishOperationGroupRow>;
+        Relationships: [];
+      };
+      dual_sync_locks: {
+        Row: DualSyncLockRow;
+        Insert: Partial<DualSyncLockRow> &
+          Pick<DualSyncLockRow, 'restaurant_id' | 'job_kind' | 'holder_id' | 'expires_at'>;
+        Update: Partial<DualSyncLockRow>;
+        Relationships: [];
+      };
+      dual_sync_google_edit_reservations: {
+        Row: DualSyncGoogleEditReservationRow;
+        Insert: Partial<DualSyncGoogleEditReservationRow> &
+          Pick<DualSyncGoogleEditReservationRow, 'restaurant_id' | 'write_group'>;
+        Update: Partial<DualSyncGoogleEditReservationRow>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      dual_sync_reserve_google_edit_budget: {
+        Args: {
+          p_restaurant_id: string;
+          p_write_group: string;
+          p_limit?: number;
+          p_window_ms?: number;
+          p_now?: string;
+        };
+        Returns: {
+          allowed: boolean;
+          retry_after_ms: number | null;
+          remaining: number;
+        }[];
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };

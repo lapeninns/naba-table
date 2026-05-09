@@ -29,7 +29,9 @@ import {
 } from '@/server/google-business-profile/service';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
+import { assertDualSyncRestaurantNotPaused } from '../controls';
 import { hashCanonicalJson } from '../hashing';
+import { runWithDualSyncLock, type DualSyncLockManager } from '../locks';
 import { readGoogleSnapshot } from '../snapshots/google';
 import { readNabatableSnapshot } from '../snapshots/nabatable';
 import { commitSnapshotRun, failSnapshotRun, openSnapshotRun } from '../snapshots/runs';
@@ -48,6 +50,8 @@ export interface RefreshFromGoogleInput {
   readonly runKind?: DualSyncSnapshotRunKind;
   /** Optional override: skip the live Google pull and only re-evaluate state. */
   readonly skipPull?: boolean;
+  readonly lockManager?: DualSyncLockManager;
+  readonly lockTtlMs?: number;
 }
 
 export interface RefreshFromGoogleOutput {
@@ -224,7 +228,43 @@ export async function refreshFromGoogle({
   client = getServiceSupabaseClient(),
   runKind = 'manual',
   skipPull = false,
+  lockManager,
+  lockTtlMs,
 }: RefreshFromGoogleInput): Promise<RefreshFromGoogleOutput> {
+  await assertDualSyncRestaurantNotPaused({ client, restaurantId });
+
+  return runWithDualSyncLock(
+    {
+      client,
+      restaurantId,
+      jobKind: lockJobKindForRefresh(runKind),
+      ttlMs: lockTtlMs,
+      manager: lockManager,
+      metadata: { runKind, skipPull },
+    },
+    () => refreshFromGoogleUnlocked({ restaurantId, client, runKind, skipPull }),
+  );
+}
+
+function lockJobKindForRefresh(runKind: DualSyncSnapshotRunKind) {
+  switch (runKind) {
+    case 'scheduled':
+      return 'google_refresh_scheduled';
+    case 'location_link':
+      return 'google_refresh_location_link';
+    case 'core_write':
+      return 'core_write_recompute';
+    default:
+      return 'google_refresh_manual';
+  }
+}
+
+async function refreshFromGoogleUnlocked({
+  restaurantId,
+  client,
+  runKind,
+  skipPull,
+}: Required<Pick<RefreshFromGoogleInput, 'restaurantId' | 'client' | 'runKind' | 'skipPull'>>) {
   const snapshotRun = await openSnapshotRun({ client, restaurantId, runKind });
   let foodMenusRefresh: FoodMenusRefreshResult = {
     status: 'skipped',
@@ -291,4 +331,11 @@ export async function refreshFromGoogle({
     });
     throw error;
   }
+}
+
+export async function refreshFromGoogleWithoutLock(
+  input: Required<Pick<RefreshFromGoogleInput, 'restaurantId' | 'client' | 'runKind' | 'skipPull'>>,
+): Promise<RefreshFromGoogleOutput> {
+  await assertDualSyncRestaurantNotPaused(input);
+  return refreshFromGoogleUnlocked(input);
 }

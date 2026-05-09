@@ -18,7 +18,7 @@
 
 import { NextResponse } from 'next/server';
 
-import { isDualSyncEnabled } from '@/server/dual-sync/flag';
+import { isDualSyncAutoCandidatesEnabled, isDualSyncEnabled } from '@/server/dual-sync/flag';
 import { runAutoExportForAllTenants } from '@/server/dual-sync/scheduling/auto-export';
 import { requireCronAuthAndRun } from '@/server/security/cron-auth';
 import { getServiceSupabaseClient } from '@/server/supabase';
@@ -47,6 +47,12 @@ export async function GET(request: Request) {
       return NextResponse.json(
         { error: 'Dual-sync is not enabled for this deployment.' },
         { status: 404 },
+      );
+    }
+    if (!isDualSyncAutoCandidatesEnabled()) {
+      return NextResponse.json(
+        { error: 'Dual-sync auto-candidate export is disabled for this deployment.' },
+        { status: 409 },
       );
     }
 

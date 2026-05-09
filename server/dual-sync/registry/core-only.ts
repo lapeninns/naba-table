@@ -8,6 +8,8 @@
  * of silently disappearing.
  */
 
+import { withFieldPolicy } from './policy';
+
 import type { DualSyncFieldConfig } from './types';
 
 const noopNormalize = (value: unknown): unknown => value ?? null;
@@ -17,25 +19,26 @@ const coreOnlyConfig = (
   label: string,
   helpText: string,
   sortOrder: number,
-): DualSyncFieldConfig => ({
-  fieldKey,
-  sectionKey: 'core_only',
-  kind: 'core_only',
-  label,
-  helpText,
-  corePath: fieldKey.replace(/^core\./, 'restaurant.'),
-  gbpPath: '',
-  importable: false,
-  exportable: false,
-  normalizeCoreValue: noopNormalize,
-  normalizeGbpValue: () => null,
-  canonicalizeCoreValue: noopNormalize,
-  canonicalizeGbpValue: () => null,
-  conflictPolicy: 'unsupported',
-  deletePolicy: 'ignore',
-  exportBlockedReason: 'This field is Nabatable-only and has no Google counterpart.',
-  sortOrder,
-});
+): DualSyncFieldConfig =>
+  withFieldPolicy({
+    fieldKey,
+    sectionKey: 'core_only',
+    kind: 'core_only',
+    label,
+    helpText,
+    corePath: fieldKey.replace(/^core\./, 'restaurant.'),
+    gbpPath: '',
+    importable: false,
+    exportable: false,
+    normalizeCoreValue: noopNormalize,
+    normalizeGbpValue: () => null,
+    canonicalizeCoreValue: noopNormalize,
+    canonicalizeGbpValue: () => null,
+    conflictPolicy: 'unsupported',
+    deletePolicy: 'ignore',
+    exportBlockedReason: 'This field is Nabatable-only and has no Google counterpart.',
+    sortOrder,
+  });
 
 export const CORE_ONLY_FIELDS: ReadonlyArray<DualSyncFieldConfig> = [
   coreOnlyConfig(
