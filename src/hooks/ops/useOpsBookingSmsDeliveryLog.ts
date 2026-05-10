@@ -4,6 +4,7 @@ import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
 import { useBookingService } from '@/contexts/ops-services';
+import { queryKeys } from '@/lib/query/keys';
 
 import type { HttpError } from '@/lib/http/errors';
 import type { BookingSmsDeliveryResponse, SmsDeliveryEventDTO } from '@/types/smsDelivery';
@@ -27,7 +28,7 @@ export function useOpsBookingSmsDeliveryLog(
   const isEnabled = Boolean(bookingId) && (options?.enabled ?? true);
 
   const query = useQuery<BookingSmsDeliveryResponse, HttpError>({
-    queryKey: ['ops', 'bookings', bookingId ?? 'disabled', 'sms-delivery', clamped] as const,
+    queryKey: queryKeys.opsSmsDelivery.bookingLog(bookingId ?? 'disabled', clamped),
     queryFn: () => {
       if (!bookingId) {
         throw new Error('Booking ID is required');

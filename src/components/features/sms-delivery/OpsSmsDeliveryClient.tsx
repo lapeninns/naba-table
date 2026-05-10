@@ -1,6 +1,5 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
 import { AlertCircle, MessageSquare, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
@@ -24,6 +23,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useOpsServices } from '@/contexts/ops-services';
 import { useOpsSession } from '@/contexts/ops-session';
 import { useOpsRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
+import { useOpsRestaurantSmsDeliveryFeed } from '@/hooks/ops/useOpsRestaurantSmsDeliveryFeed';
 import { opsHref } from '@/lib/url/opsHref';
 import { cn } from '@/lib/utils';
 import {
@@ -84,7 +84,7 @@ export function OpsSmsDeliveryClient({
   initialStatuses = [],
 }: OpsSmsDeliveryClientProps) {
   const { memberships, activeRestaurantId, setActiveRestaurantId } = useOpsSession();
-  const { bookingService, restaurantService } = useOpsServices();
+  const { restaurantService } = useOpsServices();
   const membershipIds = useMemo(
     () => new Set(memberships.map((membership) => membership.restaurantId)),
     [memberships],
@@ -149,35 +149,15 @@ export function OpsSmsDeliveryClient({
   const restaurantDetails = useOpsRestaurantDetails(restaurantId);
   const timezone = restaurantDetails.data?.timezone ?? 'UTC';
 
-  const feedQuery = useQuery({
-    queryKey: [
-      'ops',
-      'sms-delivery',
-      restaurantId ?? 'none',
-      range,
-      page,
-      pageSize,
-      selectedStatuses.join(','),
-    ],
-    queryFn: () =>
-      bookingService.getRestaurantSmsDeliveryFeed({
-        restaurantId: restaurantId ?? undefined,
-        range,
-        page,
-        pageSize,
-        status: selectedStatuses.length > 0 ? selectedStatuses : undefined,
-      }),
-    enabled: Boolean(restaurantId),
-    staleTime: 30_000,
+  const feedQuery = useOpsRestaurantSmsDeliveryFeed({
+    restaurantId,
+    range,
+    page,
+    pageSize,
+    statuses: selectedStatuses,
   });
 
-  const feed = feedQuery.data && feedQuery.data.ok ? feedQuery.data : null;
-  const unavailable =
-    feedQuery.data && !feedQuery.data.ok && feedQuery.data.code === 'DELIVERY_LOG_UNAVAILABLE';
-  const apiError =
-    feedQuery.data && !feedQuery.data.ok && feedQuery.data.code !== 'DELIVERY_LOG_UNAVAILABLE'
-      ? feedQuery.data.error
-      : null;
+  const { feed, unavailable, apiError } = feedQuery;
 
   if (memberships.length === 0) {
     return (

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { isVolatileOpsIntegrationQueryKey, shouldPersistQuery } from '@/lib/query/persist';
 import { queryKeys } from '@/lib/query/keys';
+import { isVolatileOpsIntegrationQueryKey, shouldPersistQuery } from '@/lib/query/persist';
 
 import type { Query } from '@tanstack/react-query';
 
@@ -19,6 +19,15 @@ describe('query persistence filter', () => {
       ['dual-sync-publish-jobs', 'rest-1', 25, null, null],
       ['dual-sync-publish-job-detail', 'rest-1', 'job-1'],
       ['ops', 'food-menus', 'rest-1', 'import-reviews'],
+      queryKeys.opsSmsDelivery.restaurantFeed({
+        restaurantId: 'rest-1',
+        range: '7d',
+        page: 1,
+        pageSize: 50,
+        statuses: ['queued', 'sent'],
+      }),
+      queryKeys.opsSmsDelivery.bookingLog('booking-1', 20),
+      ['ops', 'bookings', 'booking-1', 'sms-delivery', 20],
     ].map((queryKey) => [queryKey] as const),
   )('excludes volatile ops integration query %#', (queryKey) => {
     expect(isVolatileOpsIntegrationQueryKey(queryKey)).toBe(true);

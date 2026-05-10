@@ -47,6 +47,14 @@ export function isVolatileOpsIntegrationQueryKey(queryKey: QueryKey): boolean {
     return true;
   }
 
+  if (queryKey[1] === 'sms-delivery') {
+    return true;
+  }
+
+  if (queryKey[1] === 'bookings' && queryKey[3] === 'sms-delivery') {
+    return true;
+  }
+
   return false;
 }
 

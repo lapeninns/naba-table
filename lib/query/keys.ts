@@ -1,4 +1,5 @@
 import type { RestaurantFilters } from '@/lib/restaurants/types';
+import type { OpsSmsDeliveryRange, SmsDeliveryStatus } from '@/types/smsDelivery';
 
 export const queryKeys = {
   bookings: {
@@ -76,6 +77,27 @@ export const queryKeys = {
   opsMenuHierarchy: {
     list: (restaurantId: string) => ['ops', 'menu-hierarchy', restaurantId, 'list'] as const,
   },
+  opsSmsDelivery: {
+    restaurantFeed: (params: {
+      restaurantId: string;
+      range: OpsSmsDeliveryRange;
+      page: number;
+      pageSize: number;
+      statuses: readonly SmsDeliveryStatus[];
+    }) =>
+      [
+        'ops',
+        'sms-delivery',
+        'restaurant-feed',
+        params.restaurantId,
+        params.range,
+        params.page,
+        params.pageSize,
+        params.statuses.join(','),
+      ] as const,
+    bookingLog: (bookingId: string, limit: number) =>
+      ['ops', 'sms-delivery', 'booking-log', bookingId, limit] as const,
+  },
   manualAssign: {
     context: (bookingId: string) => ['ops', 'manual-assign', 'context', bookingId] as const,
   },
@@ -127,6 +149,8 @@ export type QueryKey =
   | ReturnType<(typeof queryKeys)['opsOperationsHub']['detail']>
   | ReturnType<(typeof queryKeys)['opsOccasions']['list']>
   | ReturnType<(typeof queryKeys)['opsMenuHierarchy']['list']>
+  | ReturnType<(typeof queryKeys)['opsSmsDelivery']['restaurantFeed']>
+  | ReturnType<(typeof queryKeys)['opsSmsDelivery']['bookingLog']>
   | ReturnType<(typeof queryKeys)['ownerRestaurants']['hours']>
   | ReturnType<(typeof queryKeys)['ownerRestaurants']['servicePeriods']>
   | ReturnType<(typeof queryKeys)['ownerRestaurants']['details']>
