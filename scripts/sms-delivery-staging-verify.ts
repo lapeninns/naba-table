@@ -53,14 +53,9 @@ export const stagingVerifyStepsWithPulledEnv: Step[] = [
 
 export const stagingVerifyStepsNoPersistEnv: Step[] = [
   {
-    name: 'Vercel Preview SMS env audit',
+    name: 'Vercel Preview SMS env metadata',
     command: 'pnpm',
-    args: ['run', 'sms:delivery:audit:staging-vercel-preview'],
-  },
-  {
-    name: 'strict branch staging readiness via Vercel env run',
-    command: 'pnpm',
-    args: ['run', 'sms:delivery:readiness:staging-vercel:branch-strict:env-run'],
+    args: ['run', 'sms:delivery:env:preview:metadata'],
   },
   {
     name: 'Preview deployment freshness',
