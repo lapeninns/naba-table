@@ -24,7 +24,8 @@ export function parseVercelPreviewEnvRunArgs(argv: string[]): Args {
   const command = separatorIndex === -1 ? [] : argv.slice(separatorIndex + 1);
   const args: Args = {
     environment: 'preview',
-    gitBranch: process.env.SMS_DELIVERY_VERCEL_GIT_BRANCH?.trim() || 'codex/Menu',
+    gitBranch:
+      process.env.SMS_DELIVERY_VERCEL_GIT_BRANCH?.trim() || 'codex/sms-delivery-rollout-clean',
     command,
   };
 

@@ -11,7 +11,7 @@ import {
 } from './sms-delivery-readiness';
 
 const projectRoot = process.cwd();
-const DEFAULT_BRANCH = 'codex/Menu';
+const DEFAULT_BRANCH = 'codex/sms-delivery-rollout-clean';
 const DEFAULT_EXPECTED_STAGING_PROJECT_REF = 'ndxmivcrehsacuerwxtm';
 const REQUIRED_TWILIO_ENV = [
   'TWILIO_ACCOUNT_SID',

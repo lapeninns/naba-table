@@ -3,7 +3,8 @@ import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 
 const WEBHOOK_PATH = '/api/webhook/twilio/sms-status';
-const DEFAULT_DEPLOYMENT = 'https://nabatable-git-codex-menu-lapen-inns-projects.vercel.app';
+const DEFAULT_DEPLOYMENT =
+  'https://nabatable-git-codex-sms-delivery-rol-2ac20d-lapen-inns-projects.vercel.app';
 const PREVIEW_DEPLOYMENT_ENV = 'SMS_DELIVERY_PREVIEW_DEPLOYMENT_URL';
 
 type Args = {

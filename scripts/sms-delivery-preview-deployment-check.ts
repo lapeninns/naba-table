@@ -2,10 +2,11 @@ import { spawnSync } from 'node:child_process';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 
-const DEFAULT_BRANCH = 'codex/Menu';
+const DEFAULT_BRANCH = 'codex/sms-delivery-rollout-clean';
 const DEFAULT_REMOTE = 'origin';
 const DEFAULT_PROJECT = 'nabatable';
-const DEFAULT_ALIAS = 'https://nabatable-git-codex-menu-lapen-inns-projects.vercel.app';
+const DEFAULT_ALIAS =
+  'https://nabatable-git-codex-sms-delivery-rol-2ac20d-lapen-inns-projects.vercel.app';
 
 type Args = {
   branch: string;
