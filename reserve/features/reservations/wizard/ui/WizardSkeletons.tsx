@@ -4,6 +4,9 @@ import React from 'react';
 
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@shared/lib/cn';
+
+import type { WizardLayoutSurface } from './WizardLayout';
 
 function WizardStepSkeletonShell({ children }: { children: React.ReactNode }) {
   return (
@@ -70,14 +73,27 @@ function WizardHeroSkeleton() {
 
 export function BookingWizardShellSkeleton({
   layoutElement = 'div',
+  layoutSurface = 'guest',
 }: {
   layoutElement?: 'main' | 'div';
+  layoutSurface?: WizardLayoutSurface;
 }) {
   const Container = layoutElement === 'main' ? 'main' : 'div';
+  const isOpsSurface = layoutSurface === 'ops';
 
   return (
-    <Container className="pg-page w-full px-4 py-5 font-sans text-foreground sm:py-7 md:px-6 lg:px-8">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 rounded-[calc(var(--pg-radius-xl)+0.5rem)] border border-border/70 bg-background/78 p-3 shadow-[var(--pg-shadow-sm)] backdrop-blur-sm sm:gap-5 sm:p-4">
+    <Container
+      className={cn(
+        'w-full font-sans text-foreground',
+        isOpsSurface ? 'py-0' : 'pg-page px-4 py-5 sm:py-7 md:px-6 lg:px-8',
+      )}
+    >
+      <div
+        className={cn(
+          'flex w-full flex-col gap-4 rounded-[calc(var(--pg-radius-xl)+0.5rem)] border border-border/70 bg-background/78 p-3 shadow-[var(--pg-shadow-sm)] backdrop-blur-sm sm:gap-5 sm:p-4',
+          !isOpsSurface && 'mx-auto max-w-6xl',
+        )}
+      >
         <WizardHeroSkeleton />
         <PlanStepSkeleton />
       </div>
@@ -91,9 +107,9 @@ export function PlanStepSkeleton() {
       <WizardStepSkeletonHeader titleWidth="max-w-52" descriptionWidth="max-w-96" />
       <CardContent className="space-y-4 px-4 pb-5 pt-4 sm:space-y-5 sm:px-6 sm:pb-6 sm:pt-5 lg:px-7 lg:pb-7">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-6 lg:grid-cols-12">
-          <FieldPanelSkeleton className="order-1 md:col-span-3 lg:col-span-3" />
+          <FieldPanelSkeleton className="order-1 md:col-span-6 lg:col-span-4" />
           <FieldPanelSkeleton className="order-2 md:col-span-3 lg:col-span-4" />
-          <FieldPanelSkeleton className="order-3 md:col-span-6 lg:col-span-5" />
+          <FieldPanelSkeleton className="order-3 md:col-span-3 lg:col-span-4" />
           <div className="pg-panel order-4 border-border/80 bg-background/86 md:col-span-6 lg:col-span-12">
             <div className="flex items-center justify-between px-4 py-4 sm:px-5">
               <Skeleton className="h-5 w-full max-w-72" />

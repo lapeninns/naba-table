@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 
-import { WizardLayout, type WizardHeroRef } from './WizardLayout';
+import { WizardLayout, type WizardHeroRef, type WizardLayoutSurface } from './WizardLayout';
 import { WizardNavigation } from './WizardNavigation';
 
 import type { WizardStepMeta, WizardSummary } from './WizardProgress';
@@ -30,6 +30,7 @@ export interface WizardContainerProps {
   banner?: React.ReactNode;
   children: React.ReactNode;
   layoutElement?: 'main' | 'div';
+  layoutSurface?: WizardLayoutSurface;
   navigationClassName?: string;
   className?: string;
   contentClassName?: string;
@@ -48,6 +49,7 @@ export function WizardContainer({
   banner,
   children,
   layoutElement = 'main',
+  layoutSurface = 'guest',
   navigationClassName,
   className,
   contentClassName,
@@ -75,6 +77,7 @@ export function WizardContainer({
         restaurantName={restaurantName}
         banner={banner}
         elementType={layoutElement}
+        surface={layoutSurface}
         className={className}
         contentClassName={contentClassName}
         footer={

@@ -29,17 +29,25 @@ const ReviewStep = React.lazy(() =>
   import('./steps/ReviewStep').then((m) => ({ default: m.ReviewStep })),
 );
 
+import type { WizardLayoutSurface } from './WizardLayout';
 import type { BookingDetails, BookingWizardMode } from '../model/reducer';
 import type { CalendarMask } from '@reserve/features/reservations/wizard/services/schedule';
 
-function LoadingFallback({ layoutElement = 'main' }: { layoutElement?: 'main' | 'div' }) {
-  return <BookingWizardShellSkeleton layoutElement={layoutElement} />;
+function LoadingFallback({
+  layoutElement = 'main',
+  layoutSurface = 'guest',
+}: {
+  layoutElement?: 'main' | 'div';
+  layoutSurface?: WizardLayoutSurface;
+}) {
+  return <BookingWizardShellSkeleton layoutElement={layoutElement} layoutSurface={layoutSurface} />;
 }
 
 type BookingWizardContentProps = {
   initialDetails?: Partial<BookingDetails>;
   mode?: BookingWizardMode;
   layoutElement?: 'main' | 'div';
+  layoutSurface?: WizardLayoutSurface;
   initialCalendarMask?: CalendarMask | null;
   returnPath?: string;
   redirectOnSuccess?: boolean;
@@ -52,6 +60,7 @@ function BookingWizardContent({
   initialDetails,
   mode = 'customer',
   layoutElement = 'main',
+  layoutSurface = 'guest',
   initialCalendarMask,
   returnPath,
   redirectOnSuccess,
@@ -287,6 +296,7 @@ function BookingWizardContent({
         restaurantName={state.details.restaurantName || undefined}
         banner={banner}
         layoutElement={layoutElement}
+        layoutSurface={layoutSurface}
         navigationClassName={navigationClassName}
         className={className}
         contentClassName={contentClassName}
@@ -301,6 +311,7 @@ type BookingWizardProps = {
   initialDetails?: Partial<BookingDetails>;
   mode?: BookingWizardMode;
   layoutElement?: 'main' | 'div';
+  layoutSurface?: WizardLayoutSurface;
   initialCalendarMask?: CalendarMask | null;
   returnPath?: string;
   redirectOnSuccess?: boolean;
@@ -313,6 +324,7 @@ export function BookingWizard({
   initialDetails,
   mode = 'customer',
   layoutElement = 'main',
+  layoutSurface = 'guest',
   initialCalendarMask,
   returnPath,
   redirectOnSuccess,
@@ -321,11 +333,14 @@ export function BookingWizard({
   contentClassName,
 }: BookingWizardProps = {}) {
   return (
-    <Suspense fallback={<LoadingFallback layoutElement={layoutElement} />}>
+    <Suspense
+      fallback={<LoadingFallback layoutElement={layoutElement} layoutSurface={layoutSurface} />}
+    >
       <BookingWizardContent
         initialDetails={initialDetails}
         mode={mode}
         layoutElement={layoutElement}
+        layoutSurface={layoutSurface}
         initialCalendarMask={initialCalendarMask}
         returnPath={returnPath}
         redirectOnSuccess={redirectOnSuccess}

@@ -182,11 +182,11 @@ export function OpsGuestBookingWizard() {
         initialDetails={initialDetails}
         mode="ops"
         layoutElement="div"
+        layoutSurface="ops"
         returnPath={returnPath}
         redirectOnSuccess
         dependencies={dependencies}
-        className="mx-0"
-        contentClassName="pb-24"
+        contentClassName="pb-20 sm:pb-24"
       />
     </div>
   );

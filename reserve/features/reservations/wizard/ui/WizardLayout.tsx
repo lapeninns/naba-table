@@ -8,6 +8,8 @@ export type WizardHeroRef =
   | React.RefObject<HTMLSpanElement | null>
   | React.MutableRefObject<HTMLSpanElement | null>;
 
+export type WizardLayoutSurface = 'guest' | 'ops';
+
 interface WizardLayoutProps {
   heroRef?: WizardHeroRef;
   stickyHeight?: number;
@@ -18,6 +20,7 @@ interface WizardLayoutProps {
   children: React.ReactNode;
   footer?: React.ReactNode;
   elementType?: 'main' | 'div';
+  surface?: WizardLayoutSurface;
   className?: string;
   contentClassName?: string;
 }
@@ -31,11 +34,13 @@ export function WizardLayout({
   children,
   footer,
   elementType = 'main',
+  surface = 'guest',
   className,
   contentClassName,
 }: WizardLayoutProps) {
   const Container = elementType === 'div' ? 'div' : 'main';
   const footerOffset = stickyVisible ? stickyHeight : 0;
+  const isOpsSurface = surface === 'ops';
 
   return (
     <>
@@ -46,8 +51,7 @@ export function WizardLayout({
         }}
         className={cn(
           'w-full',
-          'pg-page',
-          'px-[var(--pg-gutter)] py-[var(--pg-section-y-tight)]',
+          isOpsSurface ? 'py-0' : 'pg-page px-[var(--pg-gutter)] py-[var(--pg-section-y-tight)]',
           'font-sans text-foreground',
           className,
         )}
@@ -57,7 +61,8 @@ export function WizardLayout({
             scrollPaddingBottom: `calc(${footerOffset}px + env(safe-area-inset-bottom, 0px))`,
           }}
           className={cn(
-            'mx-auto flex w-full max-w-6xl flex-col gap-4 rounded-[calc(var(--pg-radius-xl)+0.5rem)] border border-border/70 bg-background/78 p-[var(--pg-gutter)] shadow-[var(--pg-shadow-sm)] backdrop-blur-sm sm:gap-5',
+            'flex w-full flex-col gap-4 rounded-[calc(var(--pg-radius-xl)+0.5rem)] border border-border/70 bg-background/78 shadow-[var(--pg-shadow-sm)] backdrop-blur-sm sm:gap-5',
+            isOpsSurface ? 'p-3 sm:p-4 lg:p-5' : 'mx-auto max-w-6xl p-[var(--pg-gutter)]',
             contentClassName,
           )}
         >

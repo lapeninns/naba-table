@@ -5,12 +5,14 @@ import React from 'react';
 import { WizardDependenciesProvider, type WizardDependencies } from '../di';
 import { BookingWizard } from './BookingWizard';
 
+import type { WizardLayoutSurface } from './WizardLayout';
 import type { BookingDetails, BookingWizardMode } from '../model/reducer';
 
 type ReservationWizardProps = {
   initialDetails?: Partial<BookingDetails>;
   mode?: BookingWizardMode;
   layoutElement?: 'main' | 'div';
+  layoutSurface?: WizardLayoutSurface;
   returnPath?: string;
   redirectOnSuccess?: boolean;
   /**
@@ -27,6 +29,7 @@ export function ReservationWizard({
   initialDetails,
   mode = 'customer',
   layoutElement = 'main',
+  layoutSurface = 'guest',
   returnPath,
   redirectOnSuccess,
   dependencies,
@@ -40,6 +43,7 @@ export function ReservationWizard({
         initialDetails={initialDetails}
         mode={mode}
         layoutElement={layoutElement}
+        layoutSurface={layoutSurface}
         returnPath={returnPath}
         redirectOnSuccess={redirectOnSuccess}
         navigationClassName={navigationClassName}

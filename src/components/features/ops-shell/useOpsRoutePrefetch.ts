@@ -50,29 +50,8 @@ export function useOpsRoutePrefetch() {
         }
 
         case '/bookings':
-          // Only warm the (stable-keyed) status summary for the default
-          // "no service-date selected" landing. The bookings list query key
-          // includes a `now`-derived `from` value that would not match the
-          // page's first render, so we deliberately do NOT prefetch it here.
-          void queryClient.prefetchQuery({
-            queryKey: [
-              'ops',
-              'bookings',
-              'status-summary',
-              activeRestaurantId,
-              null,
-              null,
-              '',
-            ] as const,
-            queryFn: () =>
-              services.bookingService.getStatusSummary({
-                restaurantId: activeRestaurantId,
-                from: undefined,
-                to: undefined,
-                statuses: undefined,
-              }),
-            staleTime: 30_000,
-          });
+          // The bookings status summary API requires a concrete date window.
+          // Let the page fetch it once the selected date/window is resolved.
           break;
 
         case '/settings/restaurant/profile':

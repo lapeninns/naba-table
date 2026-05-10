@@ -25,10 +25,10 @@ export function useOpsBookingStatusSummary({
   enabled = true,
 }: UseOpsBookingStatusSummaryOptions) {
   const bookingService = useBookingService();
+  const fromIso = toIsoDateParam(from);
+  const toIsoValue = toIsoDateParam(to);
 
   const queryKey = useMemo(() => {
-    const fromIso = toIsoDateParam(from);
-    const toIsoValue = toIsoDateParam(to);
     const normalizedStatuses = statuses && statuses.length > 0 ? [...new Set(statuses)].sort() : [];
 
     return [
@@ -40,25 +40,22 @@ export function useOpsBookingStatusSummary({
       toIsoValue,
       normalizedStatuses.join(','),
     ] as const;
-  }, [restaurantId, from, to, statuses]);
+  }, [restaurantId, fromIso, toIsoValue, statuses]);
 
   return useQuery({
     queryKey,
-    enabled: enabled && Boolean(restaurantId),
+    enabled: enabled && Boolean(restaurantId) && Boolean(fromIso) && Boolean(toIsoValue),
     queryFn: async () => {
-      if (!restaurantId) {
-        throw new Error('Restaurant is required');
+      if (!restaurantId || !fromIso || !toIsoValue) {
+        throw new Error('Restaurant and date range are required');
       }
-
-      const fromIso = toIsoDateParam(from);
-      const toIsoValue = toIsoDateParam(to);
       const normalizedStatuses = statuses && statuses.length > 0 ? statuses : undefined;
 
       try {
         return await bookingService.getStatusSummary({
           restaurantId,
-          from: fromIso ?? undefined,
-          to: toIsoValue ?? undefined,
+          from: fromIso,
+          to: toIsoValue,
           statuses: normalizedStatuses,
         });
       } catch (error) {

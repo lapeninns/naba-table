@@ -84,7 +84,7 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
       <Button type="submit" className="hidden" aria-hidden />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-6 lg:grid-cols-12">
-        <WizardPanel interactive className="order-1 md:col-span-3 lg:col-span-3">
+        <WizardPanel interactive className="order-1 md:col-span-6 lg:col-span-4">
           <WizardPanelContent>
             <FormField
               control={control}
@@ -119,7 +119,7 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
           </WizardPanelContent>
         </WizardPanel>
 
-        <WizardPanel interactive className="order-3 md:col-span-6 lg:col-span-5">
+        <WizardPanel interactive className="order-3 md:col-span-3 lg:col-span-4">
           <WizardPanelContent>
             <Calendar24Time
               time={{

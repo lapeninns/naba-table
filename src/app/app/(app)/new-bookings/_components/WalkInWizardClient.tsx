@@ -136,6 +136,7 @@ export function WalkInWizardClient() {
           <ReservationWizard
             mode="ops"
             initialDetails={initialDetails ?? undefined}
+            layoutSurface="ops"
             returnPath="/app/bookings"
             dependencies={{ navigator }}
             navigationClassName="sticky bottom-0"
