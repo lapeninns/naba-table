@@ -47,7 +47,9 @@ function jsonError(
   );
 }
 
-function parseStatuses(raw: string | null): { ok: true; statuses: SmsDeliveryStatus[] } | { ok: false } {
+function parseStatuses(
+  raw: string | null,
+): { ok: true; statuses: SmsDeliveryStatus[] } | { ok: false } {
   if (!raw) return { ok: true, statuses: [] };
   const parts = raw
     .split(',')
@@ -126,7 +128,11 @@ export async function GET(request: NextRequest) {
           ? { status: 401 as const, code: 'UNAUTHENTICATED' as const, error: error.message }
           : error.code === 'FORBIDDEN'
             ? { status: 403 as const, code: 'FORBIDDEN' as const, error: error.message }
-            : { status: error.status as 401 | 403 | 500, code: 'INTERNAL' as const, error: error.message };
+            : {
+                status: error.status as 401 | 403 | 500,
+                code: 'INTERNAL' as const,
+                error: error.message,
+              };
       return jsonError(mapped.status, { code: mapped.code, error: mapped.error });
     }
 

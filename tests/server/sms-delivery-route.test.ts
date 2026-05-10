@@ -109,7 +109,9 @@ describe('GET /api/ops/sms-delivery', () => {
 
   it('sanitizes provider diagnostics from restaurant feed events', async () => {
     const response = await GET(
-      new NextRequest(`https://app.nabatable.com/api/ops/sms-delivery?restaurantId=${restaurantId}`),
+      new NextRequest(
+        `https://app.nabatable.com/api/ops/sms-delivery?restaurantId=${restaurantId}`,
+      ),
     );
     const payload = await response.json();
 
@@ -140,7 +142,9 @@ describe('GET /api/ops/sms-delivery', () => {
     );
 
     const response = await GET(
-      new NextRequest(`https://app.nabatable.com/api/ops/sms-delivery?restaurantId=${restaurantId}`),
+      new NextRequest(
+        `https://app.nabatable.com/api/ops/sms-delivery?restaurantId=${restaurantId}`,
+      ),
     );
     const payload = await response.json();
 

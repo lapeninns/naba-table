@@ -13,7 +13,10 @@ vi.mock('@/server/observability', () => ({
 
 import { hasRecentSmsDelivery, recordSmsDeliveryLog } from '@/server/sms/delivery-log';
 
-function createRecentDeliveryQuery(result: { data: Array<{ id: string }> | null; error: { message: string } | null }) {
+function createRecentDeliveryQuery(result: {
+  data: Array<{ id: string }> | null;
+  error: { message: string } | null;
+}) {
   const builder = {
     select: vi.fn(() => builder),
     eq: vi.fn(() => builder),

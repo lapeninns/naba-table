@@ -1,16 +1,16 @@
 import { env } from '@/lib/env';
 import { redactSmsRecipientPhone } from '@/lib/sms/phone-redaction';
-import {
-  mapTwilioMessageStatusToDeliveryStatus,
-  sendTwilioSmsMessage,
-} from '@/lib/twilio/sms';
+import { mapTwilioMessageStatusToDeliveryStatus, sendTwilioSmsMessage } from '@/lib/twilio/sms';
 import { buildBookingManageUrl } from '@/server/bookings/manage-url';
 import { createBookingManageShortUrl } from '@/server/bookings/short-link';
 import { normalizePhone } from '@/server/customers';
 import { recordObservabilityEvent } from '@/server/observability';
 import { recordSmsDeliveryLog } from '@/server/sms/delivery-log';
 import { getServiceSupabaseClient } from '@/server/supabase';
-import { formatReservationDateShort, formatReservationTimeFromDate } from '@reserve/shared/formatting/booking';
+import {
+  formatReservationDateShort,
+  formatReservationTimeFromDate,
+} from '@reserve/shared/formatting/booking';
 
 import type { BookingRecord } from '@/server/bookings';
 
@@ -63,10 +63,7 @@ async function resolveSmsVenue(restaurantId: string): Promise<SmsVenue> {
   };
 }
 
-function buildBookingSummaryLine(params: {
-  booking: BookingRecord;
-  venue: SmsVenue;
-}): string {
+function buildBookingSummaryLine(params: { booking: BookingRecord; venue: SmsVenue }): string {
   const startAt = parseTimestamp(params.booking.start_at);
   const date = startAt
     ? formatReservationDateShort(startAt.toISOString().slice(0, 10), {
@@ -77,9 +74,7 @@ function buildBookingSummaryLine(params: {
     ? formatReservationTimeFromDate(startAt, { timezone: params.venue.timezone })
     : params.booking.start_time;
   const partyLabel =
-    params.booking.party_size === 1
-      ? '1 guest'
-      : `${params.booking.party_size} guests`;
+    params.booking.party_size === 1 ? '1 guest' : `${params.booking.party_size} guests`;
 
   return `${date} at ${time} | ${partyLabel}`;
 }

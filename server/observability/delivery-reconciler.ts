@@ -1,9 +1,6 @@
 import { env } from '@/lib/env';
 import { redactSmsRecipientPhone } from '@/lib/sms/phone-redaction';
-import {
-  fetchTwilioMessage,
-  mapTwilioMessageStatusToDeliveryStatus,
-} from '@/lib/twilio/sms';
+import { fetchTwilioMessage, mapTwilioMessageStatusToDeliveryStatus } from '@/lib/twilio/sms';
 import { recordObservabilityEvent } from '@/server/observability';
 import { recordSmsDeliveryLog } from '@/server/sms/delivery-log';
 import { getServiceSupabaseClient } from '@/server/supabase';
@@ -31,7 +28,12 @@ export type DeliveryReconcileReport = {
   errors: Array<{ stage: 'email' | 'sms'; message: string }>;
 };
 
-type EmailRow = { message_id: string; recipient_email: string; restaurant_id: string | null; occurred_at: string };
+type EmailRow = {
+  message_id: string;
+  recipient_email: string;
+  restaurant_id: string | null;
+  occurred_at: string;
+};
 type SmsRow = {
   message_sid: string;
   recipient_phone: string;
@@ -60,7 +62,7 @@ function toIsoStringOrNull(value: string | null | undefined): string | null {
 function hasTwilioSmsReadCredentials(): boolean {
   return Boolean(
     env.twilio.accountSid &&
-      ((env.twilio.apiKeySid && env.twilio.apiKeySecret) || env.twilio.authToken),
+    ((env.twilio.apiKeySid && env.twilio.apiKeySecret) || env.twilio.authToken),
   );
 }
 
@@ -90,7 +92,9 @@ async function refreshSmsCandidateFromTwilio(row: SmsRow): Promise<boolean> {
     messageSid: row.message_sid,
     status: mappedStatus,
     provider: 'twilio',
-    occurredAt: toIsoStringOrNull(message.dateUpdated ?? message.dateSent ?? message.dateCreated) ?? undefined,
+    occurredAt:
+      toIsoStringOrNull(message.dateUpdated ?? message.dateSent ?? message.dateCreated) ??
+      undefined,
     error: message.errorMessage ?? null,
     metadata: {
       source: 'delivery_reconciler_poll',
@@ -219,7 +223,9 @@ async function reconcileSms(): Promise<{ stuck: number; scanned: number; error?:
     return { stuck: 0, scanned: rows.length };
   }
 
-  const messageSids = Array.from(new Set(Array.from(candidates.values()).map((c) => c.message_sid)));
+  const messageSids = Array.from(
+    new Set(Array.from(candidates.values()).map((c) => c.message_sid)),
+  );
   const { data: terminalRows } = await supabase
     .from('sms_delivery_log')
     .select('message_sid, recipient_phone, status, occurred_at')
@@ -300,7 +306,10 @@ export async function reconcileDeliveryAnomalies(): Promise<DeliveryReconcileRep
       errors.push({ stage: 'email', message: emailResult.error });
     }
   } catch (error) {
-    errors.push({ stage: 'email', message: error instanceof Error ? error.message : String(error) });
+    errors.push({
+      stage: 'email',
+      message: error instanceof Error ? error.message : String(error),
+    });
   }
 
   try {

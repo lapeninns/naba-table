@@ -64,10 +64,7 @@ function buildTwilioSignatureValidationUrls(req: NextRequest): string[] {
 
 function hasExpectedTwilioContentType(value: string | null): boolean {
   if (!value) return false;
-  return value
-    .split(';', 1)[0]
-    ?.trim()
-    .toLowerCase() === EXPECTED_TWILIO_CONTENT_TYPE;
+  return value.split(';', 1)[0]?.trim().toLowerCase() === EXPECTED_TWILIO_CONTENT_TYPE;
 }
 
 function parseContentLength(value: string | null): number | null {
