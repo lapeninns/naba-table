@@ -1,21 +1,21 @@
 export type EmailDeliveryStatus =
-  | "sent"
-  | "delivered"
-  | "delivery_delayed"
-  | "bounced"
-  | "complained"
-  | "failed";
+  | 'sent'
+  | 'delivered'
+  | 'delivery_delayed'
+  | 'bounced'
+  | 'complained'
+  | 'failed';
 
 export const EMAIL_DELIVERY_STATUS_VALUES = [
-  "sent",
-  "delivered",
-  "delivery_delayed",
-  "bounced",
-  "complained",
-  "failed",
+  'sent',
+  'delivered',
+  'delivery_delayed',
+  'bounced',
+  'complained',
+  'failed',
 ] as const satisfies ReadonlyArray<EmailDeliveryStatus>;
 
-export type EmailDeliveryProvider = "resend" | "mock";
+export type EmailDeliveryProvider = 'resend' | 'mock';
 
 export type EmailDeliveryEventDTO = {
   id: string;
@@ -37,19 +37,23 @@ export type BookingEmailDeliveryResponse =
   | {
       ok: false;
       code:
-        | "UNAUTHENTICATED"
-        | "FORBIDDEN"
-        | "BOOKING_NOT_FOUND"
-        | "DELIVERY_LOG_UNAVAILABLE"
-        | "INTERNAL";
+        | 'UNAUTHENTICATED'
+        | 'FORBIDDEN'
+        | 'BOOKING_NOT_FOUND'
+        | 'DELIVERY_LOG_UNAVAILABLE'
+        | 'INTERNAL';
       error: string;
       // Keep `message` as a duplicate field so `fetchJson` can normalize errors consistently.
       message?: string;
     };
 
-export type OpsEmailDeliveryRange = "24h" | "7d" | "30d";
+export type OpsEmailDeliveryRange = '24h' | '7d' | '30d';
 
-export const OPS_EMAIL_DELIVERY_RANGE_VALUES = ["24h", "7d", "30d"] as const satisfies ReadonlyArray<OpsEmailDeliveryRange>;
+export const OPS_EMAIL_DELIVERY_RANGE_VALUES = [
+  '24h',
+  '7d',
+  '30d',
+] as const satisfies ReadonlyArray<OpsEmailDeliveryRange>;
 
 export type OpsEmailDeliveryBookingDTO = {
   id: string;
@@ -73,7 +77,28 @@ export type OpsEmailDeliveryAttemptDTO = {
   currentOccurredAt: string | null; // ISO
   events: EmailDeliveryEventDTO[];
   booking: OpsEmailDeliveryBookingDTO | null;
+  /**
+   * True when the attempt is in a non-terminal state (sent / delivery_delayed)
+   * and we have not received a terminal webhook within the stale threshold.
+   * Derived on the read path; not persisted.
+   */
+  isStale?: boolean;
+  /** Age of the most recent event in milliseconds, when `isStale` is true. */
+  stuckForMs?: number | null;
 };
+
+/**
+ * Hours an email can sit in a non-terminal state before we flag it as stuck.
+ * Matches the typical Resend webhook SLA (terminal events within minutes);
+ * anything past 12h is almost certainly a lost webhook or a provider issue.
+ */
+export const EMAIL_DELIVERY_STALE_THRESHOLD_HOURS = 12;
+
+/** Non-terminal statuses considered "in flight". */
+export const EMAIL_DELIVERY_IN_FLIGHT_STATUSES: ReadonlyArray<EmailDeliveryStatus> = [
+  'sent',
+  'delivery_delayed',
+];
 
 export type OpsEmailDeliveryTopTemplateEntry = {
   templateType: string;
@@ -101,6 +126,11 @@ export type OpsEmailDeliverySummary = {
   p95DeliverySeconds: number | null;
   topFailedTemplates: OpsEmailDeliveryTopTemplateEntry[];
   topFailedEmailTypes: OpsEmailDeliveryTopEmailTypeEntry[];
+  /**
+   * Count of in-flight attempts (sent / delivery_delayed) older than the
+   * {@link EMAIL_DELIVERY_STALE_THRESHOLD_HOURS} threshold. Derived server-side.
+   */
+  stuckInFlight?: number;
 };
 
 export type OpsEmailDeliveryFeedResponse =
@@ -115,11 +145,11 @@ export type OpsEmailDeliveryFeedResponse =
   | {
       ok: false;
       code:
-        | "UNAUTHENTICATED"
-        | "FORBIDDEN"
-        | "DELIVERY_LOG_UNAVAILABLE"
-        | "FORCED_ERROR"
-        | "INTERNAL";
+        | 'UNAUTHENTICATED'
+        | 'FORBIDDEN'
+        | 'DELIVERY_LOG_UNAVAILABLE'
+        | 'FORCED_ERROR'
+        | 'INTERNAL';
       error: string;
       message?: string;
     };
@@ -134,11 +164,11 @@ export type OpsEmailDeliverySummaryResponse =
   | {
       ok: false;
       code:
-        | "UNAUTHENTICATED"
-        | "FORBIDDEN"
-        | "DELIVERY_LOG_UNAVAILABLE"
-        | "FORCED_ERROR"
-        | "INTERNAL";
+        | 'UNAUTHENTICATED'
+        | 'FORBIDDEN'
+        | 'DELIVERY_LOG_UNAVAILABLE'
+        | 'FORCED_ERROR'
+        | 'INTERNAL';
       error: string;
       message?: string;
     };

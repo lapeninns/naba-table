@@ -47,7 +47,7 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
     items: [
       {
         title: 'Dashboard',
-        description: 'Today\'s service overview',
+        description: "Today's service overview",
         href: path('/dashboard'),
         icon: BarChart3,
         match: (pathname) => pathname === path('/dashboard') || pathname === OPS_BASE_PATH,
@@ -57,7 +57,8 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         description: 'Manage reservations',
         href: path('/bookings'),
         icon: CalendarDays,
-        match: (pathname) => pathname === path('/bookings') || pathname.startsWith(path('/bookings/')),
+        match: (pathname) =>
+          pathname === path('/bookings') || pathname.startsWith(path('/bookings/')),
       },
       {
         title: 'New Bookings',
@@ -164,7 +165,6 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
       },
     ],
   },
-
 ];
 
 export const OPS_SUPPORT_ITEM: OpsNavigationItem = {
